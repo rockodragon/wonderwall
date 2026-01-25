@@ -42,7 +42,7 @@ export default function Search() {
         Discover
       </h1>
       <p className="text-gray-500 dark:text-gray-400 mb-8">
-        See what Christian creatives are wondering about
+        What the community is thinking about
       </p>
 
       {/* Search input - hidden until enabled */}
