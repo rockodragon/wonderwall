@@ -365,6 +365,21 @@ export const fetchOgImage = action({
   },
 });
 
+// Internal mutation to fix artifact data (type and URL)
+export const fixArtifact = internalMutation({
+  args: {
+    artifactId: v.id("artifacts"),
+    type: v.optional(v.string()),
+    mediaUrl: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const updates: Record<string, string> = {};
+    if (args.type) updates.type = args.type;
+    if (args.mediaUrl) updates.mediaUrl = args.mediaUrl;
+    await ctx.db.patch(args.artifactId, updates);
+  },
+});
+
 // Internal mutation to update og:image URL
 export const updateOgImage = internalMutation({
   args: {
