@@ -65,10 +65,10 @@ export default function Profile() {
   }
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto">
       {/* Profile header */}
-      <div className="flex items-start gap-6 mb-8">
-        <div className="w-24 h-24 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center overflow-hidden">
+      <div className="flex flex-col sm:flex-row sm:items-start gap-4 sm:gap-6 mb-8">
+        <div className="w-20 h-20 sm:w-24 sm:h-24 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center overflow-hidden shrink-0">
           {profile.imageUrl ? (
             <img
               src={profile.imageUrl}
@@ -76,14 +76,14 @@ export default function Profile() {
               className="w-full h-full object-cover"
             />
           ) : (
-            <span className="text-3xl font-medium text-gray-500">
+            <span className="text-2xl sm:text-3xl font-medium text-gray-500">
               {profile.name.charAt(0)}
             </span>
           )}
         </div>
-        <div className="flex-1">
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+        <div className="flex-1 min-w-0">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
               {profile.name}
             </h1>
             <FavoriteButton targetType="profile" targetId={profile._id} />
@@ -114,12 +114,12 @@ export default function Profile() {
               {likeStatus?.count || 0}
             </button>
           </div>
-          <p className="text-gray-600 dark:text-gray-400 mt-1">
+          <p className="text-gray-600 dark:text-gray-400 mt-1 text-sm sm:text-base">
             {profile.jobFunctions.join(" • ")}
             {profile.location && ` • ${profile.location}`}
           </p>
           {profile.bio && (
-            <p className="text-gray-700 dark:text-gray-300 mt-3 max-w-xl">
+            <p className="text-gray-700 dark:text-gray-300 mt-3 text-sm sm:text-base">
               {profile.bio}
             </p>
           )}
