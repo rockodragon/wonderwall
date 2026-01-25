@@ -246,9 +246,10 @@ export default function Profile() {
                   : null;
 
               return (
-                <div
+                <Link
                   key={artifact._id}
-                  className="aspect-square bg-gray-100 dark:bg-gray-800 rounded-xl overflow-hidden"
+                  to={`/works/${artifact._id}`}
+                  className="aspect-square bg-gray-100 dark:bg-gray-800 rounded-xl overflow-hidden block hover:ring-2 hover:ring-blue-500 transition-all"
                 >
                   {artifact.type === "image" && artifact.mediaUrl ? (
                     <img
@@ -258,14 +259,24 @@ export default function Profile() {
                     />
                   ) : artifact.type === "video" && artifact.mediaUrl ? (
                     videoEmbedUrl ? (
-                      <iframe
-                        src={videoEmbedUrl}
-                        title={artifact.title || "Video"}
-                        className="w-full h-full"
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                        allowFullScreen
-                        loading="lazy"
-                      />
+                      <div className="relative w-full h-full">
+                        <img
+                          src={getYoutubeThumbnail(artifact.mediaUrl)}
+                          alt={artifact.title || "Video"}
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <div className="w-12 h-12 bg-red-600 rounded-full flex items-center justify-center">
+                            <svg
+                              className="w-6 h-6 text-white ml-0.5"
+                              fill="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path d="M8 5v14l11-7z" />
+                            </svg>
+                          </div>
+                        </div>
+                      </div>
                     ) : (
                       <div className="w-full h-full bg-gray-900 flex items-center justify-center">
                         <video
@@ -278,6 +289,29 @@ export default function Profile() {
                   ) : artifact.type === "text" && artifact.content ? (
                     <div className="p-4 text-sm text-gray-700 dark:text-gray-300 line-clamp-6">
                       {artifact.content}
+                    </div>
+                  ) : artifact.type === "link" && artifact.ogImageUrl ? (
+                    <div className="relative w-full h-full bg-gray-100 dark:bg-gray-800">
+                      <img
+                        src={artifact.ogImageUrl}
+                        alt={artifact.title || "Link preview"}
+                        className="w-full h-full object-contain"
+                      />
+                      <div className="absolute top-2 right-2 w-6 h-6 bg-white/90 dark:bg-black/70 rounded-full flex items-center justify-center">
+                        <svg
+                          className="w-3 h-3 text-gray-700 dark:text-gray-300"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+                          />
+                        </svg>
+                      </div>
                     </div>
                   ) : (
                     <div className="w-full h-full bg-gradient-to-br from-gray-700 to-gray-900 flex items-end">
@@ -294,7 +328,7 @@ export default function Profile() {
                       </div>
                     </div>
                   )}
-                </div>
+                </Link>
               );
             })}
           </div>
@@ -361,6 +395,35 @@ function getVideoEmbedUrl(mediaUrl: string): string | null {
     return null;
   }
 
+  return null;
+}
+
+function getYoutubeThumbnail(mediaUrl: string): string | null {
+  try {
+    const url = new URL(mediaUrl);
+    const host = url.hostname.replace("www.", "");
+    let videoId: string | null = null;
+
+    if (host === "youtu.be") {
+      videoId = url.pathname.slice(1);
+    } else if (host === "youtube.com" || host === "m.youtube.com") {
+      if (url.pathname === "/watch") {
+        videoId = url.searchParams.get("v");
+      } else if (
+        url.pathname.startsWith("/embed/") ||
+        url.pathname.startsWith("/shorts/") ||
+        url.pathname.startsWith("/live/")
+      ) {
+        videoId = url.pathname.split("/")[2];
+      }
+    }
+
+    if (videoId) {
+      return `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+    }
+  } catch {
+    return null;
+  }
   return null;
 }
 
