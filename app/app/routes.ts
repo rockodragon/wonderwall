@@ -1,0 +1,22 @@
+import {
+  type RouteConfig,
+  index,
+  layout,
+  route,
+} from "@react-router/dev/routes";
+
+export default [
+  // Public routes
+  index("routes/home.tsx"),
+  route("login", "routes/login.tsx"),
+  route("signup/:inviteCode?", "routes/signup.tsx"),
+
+  // App routes (with nav layout)
+  layout("routes/_app.tsx", [
+    route("search", "routes/search.tsx"),
+    route("events", "routes/events.tsx"),
+    route("events/:eventId", "routes/event.tsx"),
+    route("profile/:profileId", "routes/profile.tsx"),
+    route("settings", "routes/settings.tsx"),
+  ]),
+] satisfies RouteConfig;
