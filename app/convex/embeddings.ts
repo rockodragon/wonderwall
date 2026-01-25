@@ -6,6 +6,7 @@ import {
   query,
 } from "./_generated/server";
 import { internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
 
 // Generate embeddings using OpenAI
 async function generateEmbedding(text: string): Promise<number[]> {
@@ -241,7 +242,9 @@ export const getSearchResultDetails = query({
         let entityData = null;
 
         if (embedding.entityType === "profile") {
-          const profile = await ctx.db.get(embedding.entityId as any);
+          const profile = await ctx.db.get(
+            embedding.entityId as Id<"profiles">,
+          );
           if (profile) {
             // Get profile image
             let imageUrl = profile.imageUrl || null;
@@ -258,7 +261,9 @@ export const getSearchResultDetails = query({
             };
           }
         } else if (embedding.entityType === "wondering") {
-          const wondering = await ctx.db.get(embedding.entityId as any);
+          const wondering = await ctx.db.get(
+            embedding.entityId as Id<"wonderings">,
+          );
           if (wondering) {
             // Get profile for wondering
             const profile = await ctx.db.get(wondering.profileId);
@@ -270,7 +275,9 @@ export const getSearchResultDetails = query({
             };
           }
         } else if (embedding.entityType === "artifact") {
-          const artifact = await ctx.db.get(embedding.entityId as any);
+          const artifact = await ctx.db.get(
+            embedding.entityId as Id<"artifacts">,
+          );
           if (artifact) {
             // Get profile for artifact
             const profile = await ctx.db.get(artifact.profileId);
