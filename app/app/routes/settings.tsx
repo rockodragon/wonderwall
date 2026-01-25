@@ -1207,10 +1207,15 @@ function ArtifactsSection() {
     setUploadedPreview(null);
   }
 
+  const hasMedia = mediaUrl.trim().length > 0 || uploadedStorageId;
+  const hasTitle = title.trim().length > 0;
+
   const canSubmit =
     type === "text"
       ? content.trim().length > 0
-      : mediaUrl.trim().length > 0 || uploadedStorageId;
+      : type === "link"
+        ? hasMedia && hasTitle // Links require both URL and title
+        : hasMedia;
 
   return (
     <div>
@@ -1256,7 +1261,11 @@ function ArtifactsSection() {
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="Title (optional)"
+            placeholder={
+              type === "link"
+                ? "Title (required for links)"
+                : "Title (optional)"
+            }
             className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-900 dark:text-white mb-3"
           />
 
