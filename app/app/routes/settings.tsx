@@ -1,6 +1,6 @@
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useMutation, useQuery } from "convex/react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { api } from "../../convex/_generated/api";
 
@@ -23,6 +23,9 @@ export default function Settings() {
 
   const profile = useQuery(api.profiles.getMyProfile);
   const upsertProfile = useMutation(api.profiles.upsertProfile);
+  const generateUploadUrl = useMutation(api.files.generateUploadUrl);
+  const saveProfileImage = useMutation(api.files.saveProfileImage);
+  const deleteProfileImage = useMutation(api.files.deleteProfileImage);
 
   const [name, setName] = useState("");
   const [bio, setBio] = useState("");
@@ -30,7 +33,9 @@ export default function Settings() {
   const [imageUrl, setImageUrl] = useState("");
   const [jobFunctions, setJobFunctions] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [initialized, setInitialized] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Load profile data when available
   useEffect(() => {
@@ -50,6 +55,66 @@ export default function Settings() {
     );
   }
 
+  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith("image/")) {
+      alert("Please select an image file");
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert("Image must be less than 5MB");
+      return;
+    }
+
+    setUploading(true);
+    try {
+      // Get upload URL from Convex
+      const uploadUrl = await generateUploadUrl();
+
+      // Upload file directly to Convex storage
+      const result = await fetch(uploadUrl, {
+        method: "POST",
+        headers: { "Content-Type": file.type },
+        body: file,
+      });
+
+      if (!result.ok) {
+        throw new Error("Upload failed");
+      }
+
+      const { storageId } = await result.json();
+
+      // Save the storage ID to the profile
+      await saveProfileImage({ storageId });
+
+      // The profile query will automatically update with the new image URL
+    } catch (err) {
+      console.error("Upload error:", err);
+      alert("Failed to upload image. Please try again.");
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  }
+
+  async function handleDeleteImage() {
+    if (!confirm("Remove your profile photo?")) return;
+
+    try {
+      await deleteProfileImage();
+      setImageUrl("");
+    } catch (err) {
+      console.error("Delete error:", err);
+    }
+  }
+
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) return;
@@ -60,7 +125,6 @@ export default function Settings() {
         name: name.trim(),
         bio: bio.trim() || undefined,
         location: location.trim() || undefined,
-        imageUrl: imageUrl.trim() || undefined,
         jobFunctions,
       });
     } finally {
@@ -73,6 +137,9 @@ export default function Settings() {
     navigate("/login");
   }
 
+  // Use profile.imageUrl which is resolved from storage
+  const displayImageUrl = profile?.imageUrl || imageUrl;
+
   return (
     <div className="p-6 max-w-2xl mx-auto">
       <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
@@ -82,32 +149,60 @@ export default function Settings() {
       <form onSubmit={handleSave} className="space-y-6">
         {/* Profile Image */}
         <div className="flex items-start gap-4">
-          <div className="shrink-0">
-            {imageUrl ? (
+          <div className="shrink-0 relative group">
+            {displayImageUrl ? (
               <img
-                src={imageUrl}
+                src={displayImageUrl}
                 alt="Profile"
-                className="w-20 h-20 rounded-full object-cover border-2 border-gray-200 dark:border-gray-700"
+                className="w-24 h-24 rounded-full object-cover border-2 border-gray-200 dark:border-gray-700"
               />
             ) : (
-              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-2xl font-bold">
+              <div className="w-24 h-24 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-3xl font-bold">
                 {name.charAt(0).toUpperCase() || "?"}
+              </div>
+            )}
+            {uploading && (
+              <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center">
+                <div className="animate-spin rounded-full h-6 w-6 border-2 border-white border-t-transparent" />
               </div>
             )}
           </div>
           <div className="flex-1">
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Profile Image URL
+              Profile Photo
             </label>
             <input
-              type="url"
-              value={imageUrl}
-              onChange={(e) => setImageUrl(e.target.value)}
-              placeholder="https://example.com/your-photo.jpg"
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleImageUpload}
+              className="hidden"
             />
-            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              Paste a URL to your profile photo
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
+              >
+                {uploading
+                  ? "Uploading..."
+                  : displayImageUrl
+                    ? "Change Photo"
+                    : "Upload Photo"}
+              </button>
+              {displayImageUrl && (
+                <button
+                  type="button"
+                  onClick={handleDeleteImage}
+                  className="px-4 py-2 text-red-600 hover:text-red-500 text-sm font-medium"
+                >
+                  Remove
+                </button>
+              )}
+            </div>
+            <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+              JPG, PNG or GIF. Max 5MB.
             </p>
           </div>
         </div>

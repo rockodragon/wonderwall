@@ -1,6 +1,19 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import type { QueryCtx } from "./_generated/server";
 import { auth } from "./auth";
+import type { Doc } from "./_generated/dataModel";
+
+// Helper to resolve image URL from storage or external URL
+async function resolveImageUrl(
+  ctx: QueryCtx,
+  profile: Doc<"profiles">,
+): Promise<string | null> {
+  if (profile.imageStorageId) {
+    return await ctx.storage.getUrl(profile.imageStorageId);
+  }
+  return profile.imageUrl || null;
+}
 
 export const getMyProfile = query({
   args: {},
@@ -14,6 +27,9 @@ export const getMyProfile = query({
       .first();
 
     if (!profile) return null;
+
+    // Resolve image URL
+    const imageUrl = await resolveImageUrl(ctx, profile);
 
     // Get attributes
     const attributes = await ctx.db
@@ -29,6 +45,7 @@ export const getMyProfile = query({
 
     return {
       ...profile,
+      imageUrl,
       attributes: Object.fromEntries(attributes.map((a) => [a.key, a.value])),
       links: links.sort((a, b) => a.order - b.order),
     };
@@ -40,6 +57,9 @@ export const getProfile = query({
   handler: async (ctx, args) => {
     const profile = await ctx.db.get(args.profileId);
     if (!profile) return null;
+
+    // Resolve image URL
+    const imageUrl = await resolveImageUrl(ctx, profile);
 
     // Get attributes
     const attributes = await ctx.db
@@ -69,6 +89,7 @@ export const getProfile = query({
 
     return {
       ...profile,
+      imageUrl,
       attributes: Object.fromEntries(attributes.map((a) => [a.key, a.value])),
       links: links.sort((a, b) => a.order - b.order),
       artifacts: artifacts.sort((a, b) => a.order - b.order),
@@ -81,7 +102,6 @@ export const upsertProfile = mutation({
   args: {
     name: v.string(),
     bio: v.optional(v.string()),
-    imageUrl: v.optional(v.string()),
     jobFunctions: v.array(v.string()),
     location: v.optional(v.string()),
   },
@@ -100,7 +120,6 @@ export const upsertProfile = mutation({
       await ctx.db.patch(existing._id, {
         name: args.name,
         bio: args.bio,
-        imageUrl: args.imageUrl,
         jobFunctions: args.jobFunctions,
         location: args.location,
         updatedAt: now,
@@ -111,7 +130,6 @@ export const upsertProfile = mutation({
         userId,
         name: args.name,
         bio: args.bio,
-        imageUrl: args.imageUrl,
         jobFunctions: args.jobFunctions,
         location: args.location,
         createdAt: now,
@@ -192,8 +210,8 @@ export const search = query({
       );
     }
 
-    // Fetch active wondering for each profile
-    const profilesWithWondering = await Promise.all(
+    // Fetch active wondering and resolve image URL for each profile
+    const profilesWithData = await Promise.all(
       profiles.slice(0, 20).map(async (profile) => {
         const wondering = await ctx.db
           .query("wonderings")
@@ -201,8 +219,13 @@ export const search = query({
             q.eq("profileId", profile._id).eq("isActive", true),
           )
           .first();
+
+        // Resolve image URL
+        const imageUrl = await resolveImageUrl(ctx, profile);
+
         return {
           ...profile,
+          imageUrl,
           wondering: wondering
             ? { prompt: wondering.prompt, _id: wondering._id }
             : null,
@@ -210,6 +233,6 @@ export const search = query({
       }),
     );
 
-    return profilesWithWondering;
+    return profilesWithData;
   },
 });

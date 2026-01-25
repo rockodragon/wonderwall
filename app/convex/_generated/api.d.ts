@@ -11,6 +11,7 @@
 import type * as auth from "../auth.js";
 import type * as events from "../events.js";
 import type * as favorites from "../favorites.js";
+import type * as files from "../files.js";
 import type * as http from "../http.js";
 import type * as invites from "../invites.js";
 import type * as links from "../links.js";
@@ -28,6 +29,7 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   events: typeof events;
   favorites: typeof favorites;
+  files: typeof files;
   http: typeof http;
   invites: typeof invites;
   links: typeof links;

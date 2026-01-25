@@ -11,7 +11,8 @@ export default defineSchema({
     userId: v.id("users"),
     name: v.string(),
     bio: v.optional(v.string()),
-    imageUrl: v.optional(v.string()),
+    imageUrl: v.optional(v.string()), // external URL (legacy)
+    imageStorageId: v.optional(v.id("_storage")), // Convex file storage
     jobFunctions: v.array(v.string()), // curated list + "other:custom"
     location: v.optional(v.string()),
     plan: v.optional(v.string()), // "free" | "paid" - defaults to free
