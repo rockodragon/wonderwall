@@ -15,6 +15,7 @@ export default [
   layout("routes/_app.tsx", [
     route("search", "routes/search.tsx"),
     route("works", "routes/works.tsx"),
+    route("works/:artifactId", "routes/work.tsx"),
     route("events", "routes/events.tsx"),
     route("events/:eventId", "routes/event.tsx"),
     route("profile/:profileId", "routes/profile.tsx"),

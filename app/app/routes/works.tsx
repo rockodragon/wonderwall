@@ -80,7 +80,7 @@ export default function Works() {
           return (
             <Link
               key={artifact._id}
-              to={`/profile/${artifact.profileId}`}
+              to={`/works/${artifact._id}`}
               className={`group relative overflow-hidden rounded-2xl bg-gray-100 dark:bg-gray-800 ${sizeClass}`}
             >
               {/* Media content */}

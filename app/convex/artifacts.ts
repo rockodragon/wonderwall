@@ -36,6 +36,81 @@ export const getMyArtifacts = query({
   },
 });
 
+// Get single artifact with full details
+export const get = query({
+  args: { artifactId: v.id("artifacts") },
+  handler: async (ctx, args) => {
+    const artifact = await ctx.db.get(args.artifactId);
+    if (!artifact) return null;
+
+    // Resolve media URL
+    let resolvedMediaUrl = artifact.mediaUrl || null;
+    if (artifact.mediaStorageId) {
+      resolvedMediaUrl = await ctx.storage.getUrl(artifact.mediaStorageId);
+    }
+
+    // Get profile info
+    const profile = await ctx.db.get(artifact.profileId);
+    let profileImageUrl = profile?.imageUrl || null;
+    if (profile?.imageStorageId) {
+      profileImageUrl = await ctx.storage.getUrl(profile.imageStorageId);
+    }
+
+    // Get like count
+    const likes = await ctx.db
+      .query("artifactLikes")
+      .withIndex("by_artifactId", (q) => q.eq("artifactId", args.artifactId))
+      .collect();
+
+    // Check if current user liked
+    const userId = await auth.getUserId(ctx);
+    const userLiked = userId ? likes.some((l) => l.userId === userId) : false;
+
+    return {
+      ...artifact,
+      resolvedMediaUrl,
+      profile: profile
+        ? {
+            _id: profile._id,
+            name: profile.name,
+            imageUrl: profileImageUrl,
+            jobFunctions: profile.jobFunctions,
+          }
+        : null,
+      likeCount: likes.length,
+      userLiked,
+    };
+  },
+});
+
+// Toggle like on artifact
+export const toggleLike = mutation({
+  args: { artifactId: v.id("artifacts") },
+  handler: async (ctx, args) => {
+    const userId = await auth.getUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
+    const existing = await ctx.db
+      .query("artifactLikes")
+      .withIndex("by_artifactId_userId", (q) =>
+        q.eq("artifactId", args.artifactId).eq("userId", userId),
+      )
+      .first();
+
+    if (existing) {
+      await ctx.db.delete(existing._id);
+      return { liked: false };
+    } else {
+      await ctx.db.insert("artifactLikes", {
+        artifactId: args.artifactId,
+        userId,
+        createdAt: Date.now(),
+      });
+      return { liked: true };
+    }
+  },
+});
+
 export const create = mutation({
   args: {
     type: v.string(),

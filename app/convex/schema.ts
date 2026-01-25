@@ -155,6 +155,16 @@ export default defineSchema({
     .index("by_userId", ["userId"])
     .index("by_profileId_userId", ["profileId", "userId"]),
 
+  // Artifact likes
+  artifactLikes: defineTable({
+    artifactId: v.id("artifacts"),
+    userId: v.id("users"),
+    createdAt: v.number(),
+  })
+    .index("by_artifactId", ["artifactId"])
+    .index("by_userId", ["userId"])
+    .index("by_artifactId_userId", ["artifactId", "userId"]),
+
   // Favorites (can favorite profiles or events)
   favorites: defineTable({
     userId: v.id("users"),
