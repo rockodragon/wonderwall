@@ -2,6 +2,7 @@ import { useQuery } from "convex/react";
 import { useParams } from "react-router";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
+import { FavoriteButton } from "../components/FavoriteButton";
 
 export default function Profile() {
   const { profileId } = useParams();
@@ -51,10 +52,13 @@ export default function Profile() {
             </span>
           )}
         </div>
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-            {profile.name}
-          </h1>
+        <div className="flex-1">
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+              {profile.name}
+            </h1>
+            <FavoriteButton targetType="profile" targetId={profile._id} />
+          </div>
           <p className="text-gray-600 dark:text-gray-400 mt-1">
             {profile.jobFunctions.join(" • ")}
             {profile.location && ` • ${profile.location}`}

@@ -147,4 +147,16 @@ export default defineSchema({
     .index("by_profileId", ["profileId"])
     .index("by_userId", ["userId"])
     .index("by_profileId_userId", ["profileId", "userId"]),
+
+  // Favorites (can favorite profiles or events)
+  favorites: defineTable({
+    userId: v.id("users"),
+    targetType: v.string(), // "profile" | "event"
+    targetId: v.string(), // ID of the profile or event
+    createdAt: v.number(),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_userId_type", ["userId", "targetType"])
+    .index("by_target", ["targetType", "targetId"])
+    .index("by_userId_target", ["userId", "targetType", "targetId"]),
 });

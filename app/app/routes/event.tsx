@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Link, useParams } from "react-router";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
+import { FavoriteButton } from "../components/FavoriteButton";
 
 export default function EventDetail() {
   const { eventId } = useParams();
@@ -72,9 +73,12 @@ export default function EventDetail() {
     <div className="p-6 max-w-4xl mx-auto">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-          {event.title}
-        </h1>
+        <div className="flex items-center gap-3 mb-2">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+            {event.title}
+          </h1>
+          <FavoriteButton targetType="event" targetId={event._id} />
+        </div>
         <div className="flex flex-wrap items-center gap-4 text-gray-600 dark:text-gray-400">
           <span className="flex items-center gap-1">
             <svg
@@ -232,11 +236,11 @@ export default function EventDetail() {
       {event.isOrganizer && applications && (
         <div className="mt-8 pt-8 border-t border-gray-200 dark:border-gray-700">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-            Applications ({applications.length})
+            Who's down ({applications.length})
           </h2>
           {applications.length === 0 ? (
             <p className="text-gray-500 dark:text-gray-400">
-              No applications yet
+              No one yet - share this event to get people interested
             </p>
           ) : (
             <div className="space-y-3">

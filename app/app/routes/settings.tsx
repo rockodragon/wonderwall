@@ -3,7 +3,6 @@ import { useMutation, useQuery } from "convex/react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { api } from "../../convex/_generated/api";
-import type { Doc } from "../../convex/_generated/dataModel";
 
 const JOB_FUNCTIONS = [
   "Designer",
@@ -28,6 +27,7 @@ export default function Settings() {
   const [name, setName] = useState("");
   const [bio, setBio] = useState("");
   const [location, setLocation] = useState("");
+  const [imageUrl, setImageUrl] = useState("");
   const [jobFunctions, setJobFunctions] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [initialized, setInitialized] = useState(false);
@@ -38,6 +38,7 @@ export default function Settings() {
       setName(profile.name || "");
       setBio(profile.bio || "");
       setLocation(profile.location || "");
+      setImageUrl(profile.imageUrl || "");
       setJobFunctions(profile.jobFunctions || []);
       setInitialized(true);
     }
@@ -59,6 +60,7 @@ export default function Settings() {
         name: name.trim(),
         bio: bio.trim() || undefined,
         location: location.trim() || undefined,
+        imageUrl: imageUrl.trim() || undefined,
         jobFunctions,
       });
     } finally {
@@ -78,6 +80,38 @@ export default function Settings() {
       </h1>
 
       <form onSubmit={handleSave} className="space-y-6">
+        {/* Profile Image */}
+        <div className="flex items-start gap-4">
+          <div className="shrink-0">
+            {imageUrl ? (
+              <img
+                src={imageUrl}
+                alt="Profile"
+                className="w-20 h-20 rounded-full object-cover border-2 border-gray-200 dark:border-gray-700"
+              />
+            ) : (
+              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-2xl font-bold">
+                {name.charAt(0).toUpperCase() || "?"}
+              </div>
+            )}
+          </div>
+          <div className="flex-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Profile Image URL
+            </label>
+            <input
+              type="url"
+              value={imageUrl}
+              onChange={(e) => setImageUrl(e.target.value)}
+              placeholder="https://example.com/your-photo.jpg"
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
+            />
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              Paste a URL to your profile photo
+            </p>
+          </div>
+        </div>
+
         {/* Name */}
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -154,9 +188,6 @@ export default function Settings() {
 
       {/* Wondering section */}
       <WonderingSection />
-
-      {/* Invites section */}
-      <InvitesSection />
 
       {/* Sign out */}
       <div className="mt-12 pt-6 border-t border-gray-200 dark:border-gray-800">
@@ -277,81 +308,6 @@ function WonderingSection() {
             )}
           </div>
         </div>
-      )}
-    </div>
-  );
-}
-
-function InvitesSection() {
-  const invites = useQuery(api.invites.getMyInvites);
-  const createInvite = useMutation(api.invites.create);
-  const [creating, setCreating] = useState(false);
-  const [copied, setCopied] = useState<string | null>(null);
-
-  async function handleCreateInvite() {
-    setCreating(true);
-    try {
-      const code = await createInvite({});
-      copyToClipboard(code);
-    } finally {
-      setCreating(false);
-    }
-  }
-
-  function copyToClipboard(code: string) {
-    const url = `${window.location.origin}/signup/${code}`;
-    navigator.clipboard.writeText(url);
-    setCopied(code);
-    setTimeout(() => setCopied(null), 2000);
-  }
-
-  return (
-    <div className="mt-12 pt-6 border-t border-gray-200 dark:border-gray-800">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-          Invite Friends
-        </h2>
-        <button
-          onClick={handleCreateInvite}
-          disabled={creating}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
-        >
-          {creating ? "Creating..." : "Create Invite"}
-        </button>
-      </div>
-
-      {invites && invites.length > 0 ? (
-        <div className="space-y-2">
-          {invites.map((invite: Doc<"invites">) => (
-            <div
-              key={invite._id}
-              className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
-            >
-              <div>
-                <code className="text-sm font-mono text-gray-700 dark:text-gray-300">
-                  {invite.code}
-                </code>
-                {invite.usedBy && (
-                  <span className="ml-2 text-xs text-green-600 dark:text-green-400">
-                    Used
-                  </span>
-                )}
-              </div>
-              {!invite.usedBy && (
-                <button
-                  onClick={() => copyToClipboard(invite.code)}
-                  className="text-sm text-blue-600 hover:text-blue-500"
-                >
-                  {copied === invite.code ? "Copied!" : "Copy Link"}
-                </button>
-              )}
-            </div>
-          ))}
-        </div>
-      ) : (
-        <p className="text-gray-500 dark:text-gray-400 text-sm">
-          Create an invite to share with friends
-        </p>
       )}
     </div>
   );

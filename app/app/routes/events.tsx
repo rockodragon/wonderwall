@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Link } from "react-router";
 import { api } from "../../convex/_generated/api";
 import { CreateEventModal } from "../components/CreateEventModal";
+import { FavoriteButton } from "../components/FavoriteButton";
 
 export default function Events() {
   const events = useQuery(api.events.list, { upcoming: true });
@@ -50,10 +51,10 @@ export default function Events() {
             <Link
               key={event._id}
               to={`/events/${event._id}`}
-              className="block p-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-blue-500 dark:hover:border-blue-500 transition-colors"
+              className="group block p-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-blue-500 dark:hover:border-blue-500 transition-colors"
             >
               <div className="flex justify-between items-start">
-                <div>
+                <div className="flex-1">
                   <h3 className="font-semibold text-gray-900 dark:text-white">
                     {event.title}
                   </h3>
@@ -80,7 +81,7 @@ export default function Events() {
                     </div>
                   )}
                 </div>
-                <div className="text-right">
+                <div className="flex flex-col items-end gap-2">
                   {event.requiresApproval ? (
                     <span className="text-xs text-amber-600 dark:text-amber-400">
                       Approval required
@@ -90,6 +91,13 @@ export default function Events() {
                       Open
                     </span>
                   )}
+                  <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                    <FavoriteButton
+                      targetType="event"
+                      targetId={event._id}
+                      size="sm"
+                    />
+                  </div>
                 </div>
               </div>
             </Link>

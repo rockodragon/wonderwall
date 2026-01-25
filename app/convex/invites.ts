@@ -11,11 +11,27 @@ function generateCode(): string {
   return code;
 }
 
+const MAX_UNUSED_INVITES = 3;
+
 export const create = mutation({
   args: {},
   handler: async (ctx) => {
     const userId = await auth.getUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
+
+    // Check how many unused invites the user has
+    const existingInvites = await ctx.db
+      .query("invites")
+      .withIndex("by_inviterId", (q) => q.eq("inviterId", userId))
+      .collect();
+
+    const unusedCount = existingInvites.filter((i) => !i.usedBy).length;
+
+    if (unusedCount >= MAX_UNUSED_INVITES) {
+      throw new Error(
+        `You can only have ${MAX_UNUSED_INVITES} unused invites at a time`,
+      );
+    }
 
     const code = generateCode();
 
