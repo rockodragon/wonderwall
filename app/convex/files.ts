@@ -83,6 +83,38 @@ export const deleteProfileImage = mutation({
   },
 });
 
+// Save profile image from external URL
+export const saveProfileImageUrl = mutation({
+  args: {
+    imageUrl: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const userId = await auth.getUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
+    const profile = await ctx.db
+      .query("profiles")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .first();
+
+    if (!profile) throw new Error("Profile not found");
+
+    // Delete old storage image if exists
+    if (profile.imageStorageId) {
+      await ctx.storage.delete(profile.imageStorageId);
+    }
+
+    // Update profile with external URL and clear storage ID
+    await ctx.db.patch(profile._id, {
+      imageUrl: args.imageUrl,
+      imageStorageId: undefined,
+      updatedAt: Date.now(),
+    });
+
+    return { success: true };
+  },
+});
+
 // Save wondering background image
 export const saveWonderingImage = mutation({
   args: {

@@ -131,12 +131,14 @@ function ProfileEditForm({
   const upsertProfile = useMutation(api.profiles.upsertProfile);
   const generateUploadUrl = useMutation(api.files.generateUploadUrl);
   const saveProfileImage = useMutation(api.files.saveProfileImage);
+  const saveProfileImageUrl = useMutation(api.files.saveProfileImageUrl);
   const deleteProfileImage = useMutation(api.files.deleteProfileImage);
 
   const [name, setName] = useState("");
   const [bio, setBio] = useState("");
   const [location, setLocation] = useState("");
   const [imageUrl, setImageUrl] = useState("");
+  const [imageUrlInput, setImageUrlInput] = useState("");
   const [jobFunctions, setJobFunctions] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -302,6 +304,47 @@ function ProfileEditForm({
             <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
               JPG, PNG or GIF. Max 5MB.
             </p>
+            {/* URL input option */}
+            <div className="mt-3">
+              <div className="flex items-center gap-2 text-xs text-gray-400 mb-2">
+                <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
+                <span>or use URL</span>
+                <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="url"
+                  value={imageUrlInput}
+                  onChange={(e) => setImageUrlInput(e.target.value)}
+                  placeholder="https://example.com/photo.jpg"
+                  className="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
+                />
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!imageUrlInput.trim()) return;
+                    setUploading(true);
+                    try {
+                      await saveProfileImageUrl({
+                        imageUrl: imageUrlInput.trim(),
+                      });
+                      setImageUrlInput("");
+                    } catch (err) {
+                      console.error("Save URL error:", err);
+                      alert(
+                        "Failed to save image URL. Please check the URL and try again.",
+                      );
+                    } finally {
+                      setUploading(false);
+                    }
+                  }}
+                  disabled={uploading || !imageUrlInput.trim()}
+                  className="px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg text-sm font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors disabled:opacity-50"
+                >
+                  Use
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
