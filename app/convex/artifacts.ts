@@ -1,0 +1,169 @@
+import { v } from "convex/values";
+import { mutation, query } from "./_generated/server";
+import { auth } from "./auth";
+
+export const getMyArtifacts = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await auth.getUserId(ctx);
+    if (!userId) return [];
+
+    const profile = await ctx.db
+      .query("profiles")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .first();
+
+    if (!profile) return [];
+
+    const artifacts = await ctx.db
+      .query("artifacts")
+      .withIndex("by_profileId", (q) => q.eq("profileId", profile._id))
+      .collect();
+
+    // Resolve storage URLs
+    const withUrls = await Promise.all(
+      artifacts.map(async (artifact) => {
+        let resolvedMediaUrl = artifact.mediaUrl || null;
+        if (artifact.mediaStorageId) {
+          resolvedMediaUrl = await ctx.storage.getUrl(artifact.mediaStorageId);
+        }
+        return { ...artifact, resolvedMediaUrl };
+      }),
+    );
+
+    return withUrls.sort((a, b) => a.order - b.order);
+  },
+});
+
+export const create = mutation({
+  args: {
+    type: v.string(),
+    title: v.optional(v.string()),
+    content: v.optional(v.string()),
+    mediaUrl: v.optional(v.string()),
+    mediaStorageId: v.optional(v.id("_storage")),
+  },
+  handler: async (ctx, args) => {
+    const userId = await auth.getUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
+    const profile = await ctx.db
+      .query("profiles")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .first();
+
+    if (!profile) throw new Error("Profile not found");
+
+    // Validate type
+    const validTypes = ["text", "image", "video", "audio", "link"];
+    if (!validTypes.includes(args.type)) {
+      throw new Error("Invalid artifact type");
+    }
+
+    // Get current max order
+    const existing = await ctx.db
+      .query("artifacts")
+      .withIndex("by_profileId", (q) => q.eq("profileId", profile._id))
+      .collect();
+
+    const maxOrder =
+      existing.length > 0 ? Math.max(...existing.map((a) => a.order)) : -1;
+
+    return await ctx.db.insert("artifacts", {
+      profileId: profile._id,
+      type: args.type,
+      title: args.title,
+      content: args.content,
+      mediaUrl: args.mediaUrl,
+      mediaStorageId: args.mediaStorageId,
+      order: maxOrder + 1,
+      createdAt: Date.now(),
+    });
+  },
+});
+
+export const update = mutation({
+  args: {
+    artifactId: v.id("artifacts"),
+    title: v.optional(v.string()),
+    content: v.optional(v.string()),
+    mediaUrl: v.optional(v.string()),
+    mediaStorageId: v.optional(v.id("_storage")),
+  },
+  handler: async (ctx, args) => {
+    const userId = await auth.getUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
+    const artifact = await ctx.db.get(args.artifactId);
+    if (!artifact) throw new Error("Artifact not found");
+
+    // Verify ownership
+    const profile = await ctx.db.get(artifact.profileId);
+    if (!profile || profile.userId !== userId) {
+      throw new Error("Not authorized");
+    }
+
+    // Delete old storage file if replacing
+    if (args.mediaStorageId && artifact.mediaStorageId) {
+      await ctx.storage.delete(artifact.mediaStorageId);
+    }
+
+    await ctx.db.patch(args.artifactId, {
+      title: args.title,
+      content: args.content,
+      mediaUrl: args.mediaUrl,
+      mediaStorageId: args.mediaStorageId,
+    });
+  },
+});
+
+export const remove = mutation({
+  args: {
+    artifactId: v.id("artifacts"),
+  },
+  handler: async (ctx, args) => {
+    const userId = await auth.getUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
+    const artifact = await ctx.db.get(args.artifactId);
+    if (!artifact) throw new Error("Artifact not found");
+
+    // Verify ownership
+    const profile = await ctx.db.get(artifact.profileId);
+    if (!profile || profile.userId !== userId) {
+      throw new Error("Not authorized");
+    }
+
+    // Delete associated storage file
+    if (artifact.mediaStorageId) {
+      await ctx.storage.delete(artifact.mediaStorageId);
+    }
+
+    await ctx.db.delete(args.artifactId);
+  },
+});
+
+export const reorder = mutation({
+  args: {
+    artifactIds: v.array(v.id("artifacts")),
+  },
+  handler: async (ctx, args) => {
+    const userId = await auth.getUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
+    const profile = await ctx.db
+      .query("profiles")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .first();
+
+    if (!profile) throw new Error("Profile not found");
+
+    // Update order for each artifact
+    for (let i = 0; i < args.artifactIds.length; i++) {
+      const artifact = await ctx.db.get(args.artifactIds[i]);
+      if (artifact && artifact.profileId === profile._id) {
+        await ctx.db.patch(args.artifactIds[i], { order: i });
+      }
+    }
+  },
+});

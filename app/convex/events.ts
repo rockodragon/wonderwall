@@ -56,6 +56,24 @@ export const get = query({
       .withIndex("by_userId", (q) => q.eq("userId", event.organizerId))
       .first();
 
+    // Resolve organizer image URL
+    let organizerImageUrl = profile?.imageUrl || null;
+    if (profile?.imageStorageId) {
+      organizerImageUrl = await ctx.storage.getUrl(profile.imageStorageId);
+    }
+
+    // Resolve cover image URL
+    const coverImageUrl = event.coverImageStorageId
+      ? await ctx.storage.getUrl(event.coverImageStorageId)
+      : null;
+
+    // Resolve gallery image URLs
+    const galleryImageUrls = event.imageStorageIds
+      ? await Promise.all(
+          event.imageStorageIds.map((id) => ctx.storage.getUrl(id)),
+        )
+      : [];
+
     // Get application count
     const applications = await ctx.db
       .query("eventApplications")
@@ -70,8 +88,10 @@ export const get = query({
 
     return {
       ...event,
+      coverImageUrl,
+      galleryImageUrls: galleryImageUrls.filter(Boolean) as string[],
       organizer: profile
-        ? { name: profile.name, imageUrl: profile.imageUrl }
+        ? { name: profile.name, imageUrl: organizerImageUrl }
         : null,
       applicationCount: applications.length,
       userApplication,
@@ -256,5 +276,40 @@ export const updateApplicationStatus = mutation({
       status: args.status,
       updatedAt: Date.now(),
     });
+  },
+});
+
+export const getAttendees = query({
+  args: { eventId: v.id("events") },
+  handler: async (ctx, args) => {
+    const acceptedApplications = await ctx.db
+      .query("eventApplications")
+      .withIndex("by_eventId", (q) => q.eq("eventId", args.eventId))
+      .filter((q) => q.eq(q.field("status"), "accepted"))
+      .collect();
+
+    const attendees = await Promise.all(
+      acceptedApplications.map(async (app) => {
+        const profile = await ctx.db
+          .query("profiles")
+          .withIndex("by_userId", (q) => q.eq("userId", app.applicantId))
+          .first();
+
+        let imageUrl = profile?.imageUrl || null;
+        if (profile?.imageStorageId) {
+          imageUrl = await ctx.storage.getUrl(profile.imageStorageId);
+        }
+
+        return {
+          applicationId: app._id,
+          userId: app.applicantId,
+          profileId: profile?._id || null,
+          name: profile?.name || "Anonymous",
+          imageUrl,
+        };
+      }),
+    );
+
+    return attendees;
   },
 });

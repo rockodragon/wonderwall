@@ -20,7 +20,7 @@ type ProfileWithWondering = {
   name: string;
   imageUrl?: string;
   jobFunctions: string[];
-  wondering: { prompt: string; _id: string } | null;
+  wondering: { prompt: string; _id: string; imageUrl: string | null } | null;
 };
 
 export default function Search() {
@@ -32,18 +32,9 @@ export default function Search() {
     jobFunction: activeFilter,
   }) as ProfileWithWondering[] | undefined;
 
-  // Sort profiles: those with wonderings first, then those with images
-  const sortedProfiles = profiles
-    ? [...profiles].sort((a, b) => {
-        // Profiles with wondering come first
-        if (a.wondering && !b.wondering) return -1;
-        if (!a.wondering && b.wondering) return 1;
-        // Then profiles with images
-        if (a.imageUrl && !b.imageUrl) return -1;
-        if (!a.imageUrl && b.imageUrl) return 1;
-        return 0;
-      })
-    : undefined;
+  // Split into profiles with wonderings and without
+  const profilesWithWonderings = profiles?.filter((p) => p.wondering) || [];
+  const profilesWithoutWonderings = profiles?.filter((p) => !p.wondering) || [];
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
@@ -51,32 +42,10 @@ export default function Search() {
         Discover
       </h1>
       <p className="text-gray-500 dark:text-gray-400 mb-8">
-        Find Christian creatives to connect with
+        See what Christian creatives are wondering about
       </p>
 
-      {/* Search input */}
-      <div className="relative mb-6">
-        <input
-          type="text"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search by name or skills..."
-          className="w-full px-4 py-3 pl-12 border border-gray-300 dark:border-gray-700 rounded-2xl shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
-        />
-        <svg
-          className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-          />
-        </svg>
-      </div>
+      {/* Search input - hidden until enabled */}
 
       {/* Filters */}
       <div className="flex flex-wrap gap-2 mb-8">
@@ -90,166 +59,125 @@ export default function Search() {
         ))}
       </div>
 
-      {/* Bento Grid Results */}
-      {sortedProfiles === undefined ? (
+      {/* Results */}
+      {profiles === undefined ? (
         <div className="text-center py-12">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto" />
         </div>
-      ) : sortedProfiles.length === 0 ? (
+      ) : profiles.length === 0 ? (
         <div className="text-center py-12 text-gray-500 dark:text-gray-400">
           <p>{query ? "No results found" : "No creatives to show yet"}</p>
         </div>
       ) : (
-        <BentoGrid profiles={sortedProfiles} />
+        <div className="space-y-12">
+          {/* Wonder Cards - Primary Section */}
+          {profilesWithWonderings.length > 0 && (
+            <section>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                What people are wondering
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {profilesWithWonderings.map((profile) => (
+                  <WonderCard key={profile._id} profile={profile} />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* Profiles without wonderings */}
+          {profilesWithoutWonderings.length > 0 && (
+            <section>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                More creatives
+              </h2>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {profilesWithoutWonderings.map((profile) => (
+                  <ProfileCard key={profile._id} profile={profile} />
+                ))}
+              </div>
+            </section>
+          )}
+        </div>
       )}
     </div>
   );
 }
 
-function BentoGrid({ profiles }: { profiles: ProfileWithWondering[] }) {
-  // Assign tile sizes based on wondering and image
-  const getTileSize = (
-    profile: ProfileWithWondering,
-    index: number,
-  ): "large" | "medium" | "small" => {
-    const hasImage = !!profile.imageUrl;
-    const hasWondering = !!profile.wondering;
+function WonderCard({ profile }: { profile: ProfileWithWondering }) {
+  const wondering = profile.wondering!;
 
-    // Profiles with wondering get large tiles (first 2) or medium
-    if (hasWondering && index < 2) return "large";
-    if (hasWondering) return "medium";
-    // Profiles with images get medium tiles
-    if (hasImage) return "medium";
-    // Others get small tiles
-    return "small";
-  };
+  // Use wondering image, or profile image, or gradient
+  const hasWonderingImage = !!wondering.imageUrl;
+  const hasProfileImage = !!profile.imageUrl;
 
-  return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 auto-rows-[140px]">
-      {profiles.map((profile, index) => {
-        const size = getTileSize(profile, index);
-        return <ProfileTile key={profile._id} profile={profile} size={size} />;
-      })}
-    </div>
-  );
-}
-
-function ProfileTile({
-  profile,
-  size,
-}: {
-  profile: ProfileWithWondering;
-  size: "large" | "medium" | "small";
-}) {
-  const sizeClasses = {
-    large: "col-span-2 row-span-2",
-    medium: "col-span-1 row-span-2",
-    small: "col-span-1 row-span-1",
-  };
-
-  const hasImage = !!profile.imageUrl;
-  const hasWondering = !!profile.wondering;
-
-  // Large tile - for profiles with wondering and image
-  if (size === "large") {
-    return (
-      <Link
-        to={`/profile/${profile._id}`}
-        className={`${sizeClasses[size]} group relative overflow-hidden rounded-3xl bg-gray-100 dark:bg-gray-800`}
-      >
-        {hasImage ? (
-          <img
-            src={profile.imageUrl}
-            alt={profile.name}
-            className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-          />
-        ) : (
-          <div className="absolute inset-0 bg-gradient-to-br from-blue-500 to-purple-600" />
-        )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
-        <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
-          <FavoriteButton
-            targetType="profile"
-            targetId={profile._id}
-            size="sm"
-          />
-        </div>
-        <div className="absolute bottom-0 left-0 right-0 p-6">
-          <h3 className="text-2xl font-bold text-white mb-1">{profile.name}</h3>
-          <p className="text-white/70 text-sm mb-3">
-            {profile.jobFunctions.slice(0, 3).join(" • ")}
-          </p>
-          {hasWondering && (
-            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 border border-white/20">
-              <p className="text-xs text-white/60 mb-1">Wondering...</p>
-              <p className="text-white text-sm line-clamp-2">
-                "{profile.wondering!.prompt}"
-              </p>
-            </div>
-          )}
-        </div>
-      </Link>
-    );
-  }
-
-  // Medium tile - for profiles with wondering or image
-  if (size === "medium") {
-    return (
-      <Link
-        to={`/profile/${profile._id}`}
-        className={`${sizeClasses[size]} group relative overflow-hidden rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-blue-500 dark:hover:border-blue-500 transition-all duration-300`}
-      >
-        <div className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
-          <FavoriteButton
-            targetType="profile"
-            targetId={profile._id}
-            size="sm"
-          />
-        </div>
-        {hasImage ? (
-          <div className="h-2/5 overflow-hidden">
-            <img
-              src={profile.imageUrl}
-              alt={profile.name}
-              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-            />
-          </div>
-        ) : (
-          <div className="h-2/5 bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center">
-            <span className="text-4xl font-bold text-white">
-              {profile.name.charAt(0).toUpperCase()}
-            </span>
-          </div>
-        )}
-        <div className="p-4 h-3/5 flex flex-col">
-          <h3 className="font-semibold text-gray-900 dark:text-white truncate">
-            {profile.name}
-          </h3>
-          <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">
-            {profile.jobFunctions.slice(0, 2).join(" • ")}
-          </p>
-          {hasWondering && (
-            <div className="mt-auto pt-2">
-              <div className="bg-blue-50 dark:bg-blue-900/30 rounded-lg p-2">
-                <p className="text-[10px] text-blue-600 dark:text-blue-400 mb-0.5">
-                  Wondering...
-                </p>
-                <p className="text-xs text-gray-700 dark:text-gray-300 line-clamp-2">
-                  "{profile.wondering!.prompt}"
-                </p>
-              </div>
-            </div>
-          )}
-        </div>
-      </Link>
-    );
-  }
-
-  // Small tile - compact view
   return (
     <Link
       to={`/profile/${profile._id}`}
-      className={`${sizeClasses[size]} group flex items-center gap-3 p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-blue-500 dark:hover:border-blue-500 transition-colors`}
+      className="group relative block overflow-hidden rounded-2xl aspect-[4/5] bg-gray-100 dark:bg-gray-800"
+    >
+      {/* Background */}
+      {hasWonderingImage ? (
+        <img
+          src={wondering.imageUrl!}
+          alt=""
+          className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+        />
+      ) : hasProfileImage ? (
+        <img
+          src={profile.imageUrl}
+          alt=""
+          className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+        />
+      ) : (
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500" />
+      )}
+
+      {/* Overlay */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/20" />
+
+      {/* Favorite button */}
+      <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+        <FavoriteButton targetType="profile" targetId={profile._id} size="sm" />
+      </div>
+
+      {/* Content */}
+      <div className="absolute inset-0 flex flex-col justify-between p-5">
+        {/* Wonder prompt - hero text */}
+        <div className="flex-1 flex items-center justify-center">
+          <p className="text-white text-xl md:text-2xl font-medium text-center leading-relaxed px-2">
+            "{wondering.prompt}"
+          </p>
+        </div>
+
+        {/* Profile info - lower left */}
+        <div className="flex items-center gap-2">
+          {hasProfileImage ? (
+            <img
+              src={profile.imageUrl}
+              alt={profile.name}
+              className="w-8 h-8 rounded-full object-cover border border-white/30"
+            />
+          ) : (
+            <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white text-sm font-medium">
+              {profile.name.charAt(0).toUpperCase()}
+            </div>
+          )}
+          <span className="text-white/90 text-sm font-medium">
+            {profile.name}
+          </span>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+function ProfileCard({ profile }: { profile: ProfileWithWondering }) {
+  const hasImage = !!profile.imageUrl;
+
+  return (
+    <Link
+      to={`/profile/${profile._id}`}
+      className="group flex items-center gap-3 p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-blue-500 dark:hover:border-blue-500 transition-colors"
     >
       {hasImage ? (
         <img

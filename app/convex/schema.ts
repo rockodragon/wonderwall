@@ -45,6 +45,8 @@ export default defineSchema({
     type: v.string(), // "text" | "image" | "video" | "audio" | "link"
     content: v.optional(v.string()), // markdown for text type
     mediaUrl: v.optional(v.string()), // external URL for media
+    mediaStorageId: v.optional(v.id("_storage")), // Convex file storage
+    title: v.optional(v.string()), // optional title for the artifact
     order: v.number(),
     createdAt: v.number(),
   }).index("by_profileId", ["profileId"]),
@@ -53,6 +55,7 @@ export default defineSchema({
   wonderings: defineTable({
     profileId: v.id("profiles"),
     prompt: v.string(),
+    imageStorageId: v.optional(v.id("_storage")), // background image
     expiresAt: v.optional(v.number()), // null = permanent (paid)
     isPermanent: v.boolean(),
     isActive: v.boolean(), // only one active at a time for free
@@ -84,6 +87,9 @@ export default defineSchema({
     tags: v.array(v.string()),
     requiresApproval: v.boolean(),
     status: v.string(), // "draft" | "published" | "cancelled" | "completed"
+    coverImageStorageId: v.optional(v.id("_storage")), // cover/background image
+    coverColor: v.optional(v.string()), // fallback gradient color (e.g. "blue", "purple")
+    imageStorageIds: v.optional(v.array(v.id("_storage"))), // up to 3 gallery images
     createdAt: v.number(),
     updatedAt: v.number(),
   })
