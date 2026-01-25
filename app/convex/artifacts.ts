@@ -214,7 +214,7 @@ export const getAllArtifacts = query({
           profile: profile
             ? {
                 _id: profile._id,
-                displayName: profile.displayName,
+                displayName: profile.name,
                 imageUrl: profileImageUrl,
               }
             : null,

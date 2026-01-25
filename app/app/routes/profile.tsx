@@ -1,12 +1,14 @@
 import { useMutation, useQuery } from "convex/react";
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router";
+import { Link, useNavigate, useParams } from "react-router";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { FavoriteButton } from "../components/FavoriteButton";
 
 export default function Profile() {
   const { profileId } = useParams();
+  const navigate = useNavigate();
+  const myProfile = useQuery(api.profiles.getMyProfile);
   const profile = useQuery(
     api.profiles.getProfile,
     profileId ? { profileId: profileId as Id<"profiles"> } : "skip",
@@ -21,6 +23,15 @@ export default function Profile() {
   );
   const recordView = useMutation(api.analytics.recordProfileView);
   const toggleLike = useMutation(api.analytics.toggleProfileLike);
+
+  // Check if viewing own profile
+  const isOwnProfile = myProfile?._id === profileId;
+  const profileNeedsSetup =
+    isOwnProfile &&
+    !profile?.bio?.trim() &&
+    (!profile?.jobFunctions || profile.jobFunctions.length === 0) &&
+    (!profile?.artifacts || profile.artifacts.length === 0) &&
+    !profile?.wondering;
 
   // Record profile view on mount
   useEffect(() => {
@@ -153,6 +164,55 @@ export default function Profile() {
         </div>
       </div>
 
+      {/* Profile setup prompt for own incomplete profile */}
+      {profileNeedsSetup && (
+        <div className="mb-8 p-6 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-2xl border border-blue-100 dark:border-blue-800">
+          <div className="text-center">
+            <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-blue-400 to-purple-500 rounded-2xl flex items-center justify-center">
+              <svg
+                className="w-8 h-8 text-white"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                />
+              </svg>
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+              Complete your profile
+            </h3>
+            <p className="text-gray-600 dark:text-gray-400 mb-4 max-w-md mx-auto">
+              Add a bio, share your work, and post a wondering to help others
+              discover and connect with you.
+            </p>
+            <Link
+              to="/settings"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors"
+            >
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                />
+              </svg>
+              Set Up Profile
+            </Link>
+          </div>
+        </div>
+      )}
+
       {/* Wondering card */}
       {profile.wondering && (
         <WonderingCard
@@ -231,9 +291,10 @@ export default function Profile() {
         </>
       )}
 
-      {/* Empty state for no artifacts */}
+      {/* Empty state for no artifacts - only show for other profiles */}
       {(!profile.artifacts || profile.artifacts.length === 0) &&
-        !profile.wondering && (
+        !profile.wondering &&
+        !profileNeedsSetup && (
           <div className="text-center py-12 text-gray-500 dark:text-gray-400">
             <p>This profile doesn't have any content yet</p>
           </div>
