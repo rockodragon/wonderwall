@@ -2,7 +2,18 @@ import { useAuthActions } from "@convex-dev/auth/react";
 import { useMutation, useQuery } from "convex/react";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
+import confetti from "canvas-confetti";
 import { api } from "../../convex/_generated/api";
+
+// Normalize URL by adding https:// if missing
+function normalizeUrl(url: string): string {
+  const trimmed = url.trim();
+  if (!trimmed) return trimmed;
+  if (!/^https?:\/\//i.test(trimmed)) {
+    return `https://${trimmed}`;
+  }
+  return trimmed;
+}
 
 const JOB_FUNCTIONS = [
   "Designer",
@@ -37,7 +48,7 @@ export default function Settings() {
   const isEditingProfile = showProfileEdit || profileNeedsSetup;
 
   return (
-    <div className="p-6 max-w-2xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-2xl mx-auto text-base sm:text-sm">
       {/* Profile section - at top */}
       <div className="mb-8">
         {hasProfile && !isEditingProfile ? (
@@ -313,10 +324,10 @@ function ProfileEditForm({
               </div>
               <div className="flex gap-2">
                 <input
-                  type="url"
+                  type="text"
                   value={imageUrlInput}
                   onChange={(e) => setImageUrlInput(e.target.value)}
-                  placeholder="https://example.com/photo.jpg"
+                  placeholder="example.com/photo.jpg"
                   className="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
                 />
                 <button
@@ -326,7 +337,7 @@ function ProfileEditForm({
                     setUploading(true);
                     try {
                       await saveProfileImageUrl({
-                        imageUrl: imageUrlInput.trim(),
+                        imageUrl: normalizeUrl(imageUrlInput),
                       });
                       setImageUrlInput("");
                     } catch (err) {
@@ -453,7 +464,7 @@ function LinksSection() {
     if (!label.trim() || !url.trim()) return;
     setSaving(true);
     try {
-      await addLink({ label: label.trim(), url: url.trim() });
+      await addLink({ label: label.trim(), url: normalizeUrl(url) });
       resetForm();
     } finally {
       setSaving(false);
@@ -467,7 +478,7 @@ function LinksSection() {
       await updateLink({
         linkId: linkId as any,
         label: label.trim(),
-        url: url.trim(),
+        url: normalizeUrl(url),
       });
       resetForm();
     } finally {
@@ -529,10 +540,10 @@ function LinksSection() {
             className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-900 dark:text-white"
           />
           <input
-            type="url"
+            type="text"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
-            placeholder="URL (e.g., https://myportfolio.com)"
+            placeholder="URL (e.g., myportfolio.com)"
             className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-900 dark:text-white"
           />
           <div className="flex gap-2">
@@ -805,13 +816,11 @@ function WonderingSection() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-        What are you wondering?
-      </h1>
-      <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
-        Share a question you're pondering. Others can respond with their
-        thoughts. Wonderings last 2 weeks, but you can replace yours early if
-        you have a new question. One at a time.
+      <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+        Wondering
+      </h2>
+      <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+        Share a question. Others can respond. Lasts 2 weeks.
       </p>
 
       {wondering && !isEditing ? (
@@ -1133,6 +1142,7 @@ function ArtifactsSection() {
     if (type !== "text" && !mediaUrl.trim() && !uploadedStorageId) return;
 
     const mediaStorageId = uploadedStorageId ?? undefined;
+    const isFirstArtifact = !artifacts || artifacts.length === 0;
 
     setSaving(true);
     try {
@@ -1141,10 +1151,21 @@ function ArtifactsSection() {
         title: title.trim() || undefined,
         content: type === "text" ? content.trim() : undefined,
         mediaUrl:
-          type !== "text" && !uploadedStorageId ? mediaUrl.trim() : undefined,
+          type !== "text" && !uploadedStorageId
+            ? normalizeUrl(mediaUrl)
+            : undefined,
         mediaStorageId: mediaStorageId as any,
       });
       resetForm();
+
+      // Celebrate first work added with confetti
+      if (isFirstArtifact) {
+        confetti({
+          particleCount: 100,
+          spread: 70,
+          origin: { y: 0.6 },
+        });
+      }
     } finally {
       setSaving(false);
     }
@@ -1160,7 +1181,9 @@ function ArtifactsSection() {
         title: title.trim() || undefined,
         content: type === "text" ? content.trim() : undefined,
         mediaUrl:
-          type !== "text" && !uploadedStorageId ? mediaUrl.trim() : undefined,
+          type !== "text" && !uploadedStorageId
+            ? normalizeUrl(mediaUrl)
+            : undefined,
         mediaStorageId: mediaStorageId as any,
       });
       resetForm();
@@ -1319,17 +1342,17 @@ function ArtifactsSection() {
               </div>
 
               <input
-                type="url"
+                type="text"
                 value={mediaUrl}
                 onChange={(e) => setMediaUrl(e.target.value)}
                 placeholder={
                   type === "image"
-                    ? "Image URL"
+                    ? "example.com/image.jpg"
                     : type === "video"
-                      ? "Video URL (YouTube, Vimeo)"
+                      ? "youtube.com/watch?v=..."
                       : type === "audio"
-                        ? "Audio URL (SoundCloud, Spotify)"
-                        : "Link URL"
+                        ? "soundcloud.com/..."
+                        : "example.com"
                 }
                 className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-900 dark:text-white"
                 disabled={!!uploadedStorageId}
