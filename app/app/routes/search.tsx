@@ -1,8 +1,20 @@
-import { useQuery } from "convex/react";
-import { useState } from "react";
+import { useAction, useQuery } from "convex/react";
+import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router";
 import { api } from "../../convex/_generated/api";
 import { FavoriteButton } from "../components/FavoriteButton";
+
+// Debounce hook for search
+function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedValue(value), delay);
+    return () => clearTimeout(timer);
+  }, [value, delay]);
+
+  return debouncedValue;
+}
 
 const FILTERS = [
   { label: "All", value: undefined },
@@ -26,45 +38,121 @@ type ProfileWithWondering = {
 export default function Search() {
   const [query, setQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<string | undefined>();
+  const [semanticResults, setSemanticResults] = useState<any[] | null>(null);
+  const [searching, setSearching] = useState(false);
 
-  const profiles = useQuery(api.profiles.search, {
-    query: query || undefined,
-    jobFunction: activeFilter,
-  }) as ProfileWithWondering[] | undefined;
+  const debouncedQuery = useDebounce(query, 300);
+  const searchAction = useAction(api.embeddings.search);
+  const searchResultDetails = useQuery(
+    api.embeddings.getSearchResultDetails,
+    semanticResults ? { results: semanticResults } : "skip",
+  );
+
+  // Use basic query for filters-only, semantic search when there's a query
+  const profiles = useQuery(
+    api.profiles.search,
+    !debouncedQuery ? { jobFunction: activeFilter } : "skip",
+  ) as ProfileWithWondering[] | undefined;
+
+  // Perform semantic search when query changes
+  useEffect(() => {
+    if (!debouncedQuery) {
+      setSemanticResults(null);
+      return;
+    }
+
+    setSearching(true);
+    searchAction({ query: debouncedQuery, limit: 30 })
+      .then((results) => {
+        setSemanticResults(results);
+      })
+      .catch(console.error)
+      .finally(() => setSearching(false));
+  }, [debouncedQuery, searchAction]);
+
+  // Combine results based on mode
+  const isSemanticMode = !!debouncedQuery;
+  const loading = isSemanticMode
+    ? searching || (semanticResults && !searchResultDetails)
+    : profiles === undefined;
+
+  // Extract profiles from semantic results
+  const semanticProfiles =
+    searchResultDetails
+      ?.filter((r: any) => r.type === "profile")
+      .map((r: any) => ({
+        ...r.data,
+        wondering: null,
+        score: r.score,
+      })) || [];
 
   // Split into profiles with wonderings and without
-  const profilesWithWonderings = profiles?.filter((p) => p.wondering) || [];
-  const profilesWithoutWonderings = profiles?.filter((p) => !p.wondering) || [];
+  const displayProfiles = isSemanticMode ? semanticProfiles : profiles;
+  const profilesWithWonderings =
+    displayProfiles?.filter((p: any) => p.wondering) || [];
+  const profilesWithoutWonderings =
+    displayProfiles?.filter((p: any) => !p.wondering) || [];
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
       <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
         Discover
       </h1>
-      <p className="text-gray-500 dark:text-gray-400 mb-8">
-        What the community is thinking about
+      <p className="text-gray-500 dark:text-gray-400 mb-6">
+        Find creatives by what they do, think, or create
       </p>
 
-      {/* Search input - hidden until enabled */}
-
-      {/* Filters */}
-      <div className="flex flex-wrap gap-2 mb-8">
-        {FILTERS.map((filter) => (
-          <FilterChip
-            key={filter.label}
-            label={filter.label}
-            active={activeFilter === filter.value}
-            onClick={() => setActiveFilter(filter.value)}
-          />
-        ))}
+      {/* Search input */}
+      <div className="relative mb-6">
+        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+          <svg
+            className="w-5 h-5 text-gray-400"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+            />
+          </svg>
+        </div>
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search by name, role, or interests..."
+          className="w-full pl-12 pr-4 py-3 border border-gray-300 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
+        />
+        {searching && (
+          <div className="absolute inset-y-0 right-0 pr-4 flex items-center">
+            <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-600 border-t-transparent" />
+          </div>
+        )}
       </div>
 
+      {/* Filters - only show when not searching */}
+      {!isSemanticMode && (
+        <div className="flex flex-wrap gap-2 mb-8">
+          {FILTERS.map((filter) => (
+            <FilterChip
+              key={filter.label}
+              label={filter.label}
+              active={activeFilter === filter.value}
+              onClick={() => setActiveFilter(filter.value)}
+            />
+          ))}
+        </div>
+      )}
+
       {/* Results */}
-      {profiles === undefined ? (
+      {loading ? (
         <div className="text-center py-12">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto" />
         </div>
-      ) : profiles.length === 0 ? (
+      ) : !displayProfiles || displayProfiles.length === 0 ? (
         <div className="text-center py-12 text-gray-500 dark:text-gray-400">
           <p>{query ? "No results found" : "No creatives to show yet"}</p>
         </div>
