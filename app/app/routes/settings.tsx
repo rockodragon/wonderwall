@@ -1,9 +1,10 @@
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useMutation, useQuery } from "convex/react";
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router";
+import { Link, useNavigate } from "react-router";
 import confetti from "canvas-confetti";
 import { api } from "../../convex/_generated/api";
+import { InviteCTA } from "../components/InviteCTA";
 
 // Normalize URL by adding https:// if missing
 function normalizeUrl(url: string): string {
@@ -32,6 +33,10 @@ export default function Settings() {
   const { signOut } = useAuthActions();
   const navigate = useNavigate();
   const profile = useQuery(api.profiles.getMyProfile);
+  const inviteStats = useQuery(
+    api.invites.getInviteStats,
+    profile?.userId ? { userId: profile.userId } : "skip",
+  );
   const [showProfileEdit, setShowProfileEdit] = useState(false);
 
   async function handleSignOut() {
@@ -63,6 +68,56 @@ export default function Settings() {
             isNewProfile={profileNeedsSetup}
           />
         )}
+      </div>
+
+      {/* Network stats & Invite */}
+      <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-800">
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+          Your Network
+        </h2>
+        {inviteStats && (
+          <div className="flex flex-wrap items-center gap-3 mb-4 text-sm">
+            {inviteStats.invitedBy && (
+              <Link
+                to={`/profile/${inviteStats.invitedBy.profileId}`}
+                className="text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400"
+              >
+                Invited by{" "}
+                <span className="font-medium">
+                  {inviteStats.invitedBy.name}
+                </span>
+              </Link>
+            )}
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded-full">
+              <svg
+                className="w-3.5 h-3.5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"
+                />
+              </svg>
+              <span className="font-semibold">{inviteStats.networkSize}</span>
+              <span className="text-emerald-600 dark:text-emerald-500">
+                in network
+              </span>
+            </span>
+            {inviteStats.directInvitees > 0 && (
+              <span className="text-gray-400 dark:text-gray-500 text-xs">
+                ({inviteStats.directInvitees} invited
+                {inviteStats.downstreamCount > 0 &&
+                  `, +${inviteStats.downstreamCount} downstream`}
+                )
+              </span>
+            )}
+          </div>
+        )}
+        <InviteCTA variant="profile" />
       </div>
 
       {/* Wondering section */}
