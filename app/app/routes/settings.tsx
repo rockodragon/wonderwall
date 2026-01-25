@@ -26,6 +26,17 @@ const JOB_FUNCTIONS = [
   "Illustrator",
   "Animator",
   "Producer",
+  "Pastor",
+  "Leader",
+  "Roadie",
+  "Teacher",
+  "Speaker",
+  "Worship Leader",
+  "Sound Engineer",
+  "Dancer",
+  "Actor",
+  "Poet",
+  "Craftsman",
   "Other",
 ];
 
