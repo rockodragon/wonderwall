@@ -346,3 +346,50 @@ export const getAttendees = query({
     return attendees;
   },
 });
+
+// Search events by title, description, location, tags
+export const search = query({
+  args: {
+    query: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const q = args.query.toLowerCase();
+
+    // Get published, upcoming events
+    const now = Date.now();
+    let events = await ctx.db.query("events").collect();
+    events = events.filter((e) => e.status === "published" && e.datetime > now);
+
+    // Filter by search query
+    const filtered = events.filter(
+      (e) =>
+        e.title.toLowerCase().includes(q) ||
+        e.description.toLowerCase().includes(q) ||
+        e.location?.toLowerCase().includes(q) ||
+        e.tags.some((t) => t.toLowerCase().includes(q)),
+    );
+
+    // Sort by date
+    filtered.sort((a, b) => a.datetime - b.datetime);
+
+    // Resolve cover images
+    const eventsWithImages = await Promise.all(
+      filtered.slice(0, 20).map(async (event) => {
+        let coverImageUrl: string | null = null;
+
+        if (event.coverImageStorageId) {
+          coverImageUrl = await ctx.storage.getUrl(event.coverImageStorageId);
+        } else if (event.imageStorageIds && event.imageStorageIds.length > 0) {
+          coverImageUrl = await ctx.storage.getUrl(event.imageStorageIds[0]);
+        }
+
+        return {
+          ...event,
+          coverImageUrl,
+        };
+      }),
+    );
+
+    return eventsWithImages;
+  },
+});

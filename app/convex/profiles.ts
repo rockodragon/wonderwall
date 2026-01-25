@@ -79,6 +79,15 @@ export const getProfile = query({
       .query("artifacts")
       .withIndex("by_profileId", (q) => q.eq("profileId", profile._id))
       .collect();
+    const artifactsWithUrls = await Promise.all(
+      artifacts.map(async (artifact) => {
+        let mediaUrl = artifact.mediaUrl || null;
+        if (artifact.mediaStorageId) {
+          mediaUrl = await ctx.storage.getUrl(artifact.mediaStorageId);
+        }
+        return { ...artifact, mediaUrl };
+      }),
+    );
 
     // Get active wondering
     const wondering = await ctx.db
@@ -105,7 +114,7 @@ export const getProfile = query({
       imageUrl,
       attributes: Object.fromEntries(attributes.map((a) => [a.key, a.value])),
       links: links.sort((a, b) => a.order - b.order),
-      artifacts: artifacts.sort((a, b) => a.order - b.order),
+      artifacts: artifactsWithUrls.sort((a, b) => a.order - b.order),
       wondering: wonderingWithImage,
     };
   },
@@ -204,40 +213,54 @@ export const search = query({
     location: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    // For now, simple text search - will be replaced with vector search
-    let profiles = await ctx.db.query("profiles").collect();
+    // Get all profiles with their wonderings pre-fetched
+    const profiles = await ctx.db.query("profiles").collect();
+
+    // Fetch all active wonderings to search
+    const wonderings = await ctx.db
+      .query("wonderings")
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .collect();
+
+    // Create a map of profileId -> wondering for quick lookup
+    const wonderingMap = new Map<string, (typeof wonderings)[0]>();
+    for (const w of wonderings) {
+      wonderingMap.set(w.profileId, w);
+    }
+
+    // Filter profiles
+    let filteredProfiles = profiles;
 
     if (args.jobFunction) {
-      profiles = profiles.filter((p) =>
+      filteredProfiles = filteredProfiles.filter((p) =>
         p.jobFunctions.includes(args.jobFunction!),
       );
     }
 
     if (args.location) {
-      profiles = profiles.filter((p) =>
+      filteredProfiles = filteredProfiles.filter((p) =>
         p.location?.toLowerCase().includes(args.location!.toLowerCase()),
       );
     }
 
     if (args.query) {
       const q = args.query.toLowerCase();
-      profiles = profiles.filter(
-        (p) =>
+      filteredProfiles = filteredProfiles.filter((p) => {
+        const wondering = wonderingMap.get(p._id);
+        return (
           p.name.toLowerCase().includes(q) ||
           p.bio?.toLowerCase().includes(q) ||
-          p.jobFunctions.some((jf) => jf.toLowerCase().includes(q)),
-      );
+          p.jobFunctions.some((jf) => jf.toLowerCase().includes(q)) ||
+          p.location?.toLowerCase().includes(q) ||
+          wondering?.prompt.toLowerCase().includes(q)
+        );
+      });
     }
 
     // Fetch active wondering and resolve image URL for each profile
     const profilesWithData = await Promise.all(
-      profiles.slice(0, 20).map(async (profile) => {
-        const wondering = await ctx.db
-          .query("wonderings")
-          .withIndex("by_profileId_active", (q) =>
-            q.eq("profileId", profile._id).eq("isActive", true),
-          )
-          .first();
+      filteredProfiles.slice(0, 30).map(async (profile) => {
+        const wondering = wonderingMap.get(profile._id) || null;
 
         // Resolve profile image URL
         const imageUrl = await resolveImageUrl(ctx, profile);

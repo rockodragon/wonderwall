@@ -1,5 +1,5 @@
-import { useAction, useQuery } from "convex/react";
-import { useCallback, useEffect, useState } from "react";
+import { useQuery } from "convex/react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { api } from "../../convex/_generated/api";
 import { FavoriteButton } from "../components/FavoriteButton";
@@ -38,60 +38,26 @@ type ProfileWithWondering = {
 export default function Search() {
   const [query, setQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<string | undefined>();
-  const [semanticResults, setSemanticResults] = useState<any[] | null>(null);
-  const [searching, setSearching] = useState(false);
 
   const debouncedQuery = useDebounce(query, 300);
-  const searchAction = useAction(api.embeddings.search);
-  const searchResultDetails = useQuery(
-    api.embeddings.getSearchResultDetails,
-    semanticResults ? { results: semanticResults } : "skip",
+
+  // Text-based search for profiles (includes name, bio, job functions, wonderings)
+  const profiles = useQuery(api.profiles.search, {
+    query: debouncedQuery || undefined,
+    jobFunction: activeFilter,
+  }) as ProfileWithWondering[] | undefined;
+
+  // Search events when there's a query
+  const events = useQuery(
+    api.events.search,
+    debouncedQuery ? { query: debouncedQuery } : "skip",
   );
 
-  // Use basic query for filters-only, semantic search when there's a query
-  const profiles = useQuery(
-    api.profiles.search,
-    !debouncedQuery ? { jobFunction: activeFilter } : "skip",
-  ) as ProfileWithWondering[] | undefined;
-
-  // Perform semantic search when query changes
-  useEffect(() => {
-    if (!debouncedQuery) {
-      setSemanticResults(null);
-      return;
-    }
-
-    setSearching(true);
-    searchAction({ query: debouncedQuery, limit: 30 })
-      .then((results) => {
-        setSemanticResults(results);
-      })
-      .catch(console.error)
-      .finally(() => setSearching(false));
-  }, [debouncedQuery, searchAction]);
-
-  // Combine results based on mode
-  const isSemanticMode = !!debouncedQuery;
-  const loading = isSemanticMode
-    ? searching || (semanticResults && !searchResultDetails)
-    : profiles === undefined;
-
-  // Extract profiles from semantic results
-  const semanticProfiles =
-    searchResultDetails
-      ?.filter((r: any) => r.type === "profile")
-      .map((r: any) => ({
-        ...r.data,
-        wondering: null,
-        score: r.score,
-      })) || [];
+  const loading = profiles === undefined;
 
   // Split into profiles with wonderings and without
-  const displayProfiles = isSemanticMode ? semanticProfiles : profiles;
-  const profilesWithWonderings =
-    displayProfiles?.filter((p: any) => p.wondering) || [];
-  const profilesWithoutWonderings =
-    displayProfiles?.filter((p: any) => !p.wondering) || [];
+  const profilesWithWonderings = profiles?.filter((p) => p.wondering) || [];
+  const profilesWithoutWonderings = profiles?.filter((p) => !p.wondering) || [];
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
@@ -123,41 +89,48 @@ export default function Search() {
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search by name, role, or interests..."
+          placeholder="Search by name, role, wondering, or event..."
           className="w-full pl-12 pr-4 py-3 border border-gray-300 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
         />
-        {searching && (
-          <div className="absolute inset-y-0 right-0 pr-4 flex items-center">
-            <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-600 border-t-transparent" />
-          </div>
-        )}
       </div>
 
-      {/* Filters - only show when not searching */}
-      {!isSemanticMode && (
-        <div className="flex flex-wrap gap-2 mb-8">
-          {FILTERS.map((filter) => (
-            <FilterChip
-              key={filter.label}
-              label={filter.label}
-              active={activeFilter === filter.value}
-              onClick={() => setActiveFilter(filter.value)}
-            />
-          ))}
-        </div>
-      )}
+      {/* Filters */}
+      <div className="flex flex-wrap gap-2 mb-8">
+        {FILTERS.map((filter) => (
+          <FilterChip
+            key={filter.label}
+            label={filter.label}
+            active={activeFilter === filter.value}
+            onClick={() => setActiveFilter(filter.value)}
+          />
+        ))}
+      </div>
 
       {/* Results */}
       {loading ? (
         <div className="text-center py-12">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto" />
         </div>
-      ) : !displayProfiles || displayProfiles.length === 0 ? (
+      ) : profiles?.length === 0 && (!events || events.length === 0) ? (
         <div className="text-center py-12 text-gray-500 dark:text-gray-400">
           <p>{query ? "No results found" : "No creatives to show yet"}</p>
         </div>
       ) : (
         <div className="space-y-12">
+          {/* Events section - show when searching */}
+          {events && events.length > 0 && (
+            <section>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                Events
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {events.map((event: any) => (
+                  <EventCard key={event._id} event={event} />
+                ))}
+              </div>
+            </section>
+          )}
+
           {/* Wonder Cards - Primary Section */}
           {profilesWithWonderings.length > 0 && (
             <section>
@@ -176,7 +149,7 @@ export default function Search() {
           {profilesWithoutWonderings.length > 0 && (
             <section>
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                More creatives
+                {query ? "People" : "More creatives"}
               </h2>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 {profilesWithoutWonderings.map((profile) => (
@@ -313,5 +286,72 @@ function FilterChip({
     >
       {label}
     </button>
+  );
+}
+
+function EventCard({ event }: { event: any }) {
+  const date = new Date(event.datetime);
+  const formattedDate = date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  });
+
+  return (
+    <Link
+      to={`/events/${event._id}`}
+      className="group block overflow-hidden rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-blue-500 dark:hover:border-blue-500 transition-colors"
+    >
+      {/* Cover image */}
+      <div className="aspect-[16/9] bg-gray-100 dark:bg-gray-700 relative overflow-hidden">
+        {event.coverImageUrl ? (
+          <img
+            src={event.coverImageUrl}
+            alt={event.title}
+            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+          />
+        ) : (
+          <div
+            className={`w-full h-full bg-gradient-to-br ${
+              event.coverColor === "purple"
+                ? "from-purple-400 to-pink-500"
+                : event.coverColor === "green"
+                  ? "from-green-400 to-emerald-500"
+                  : event.coverColor === "orange"
+                    ? "from-orange-400 to-red-500"
+                    : "from-blue-400 to-indigo-500"
+            }`}
+          />
+        )}
+        <div className="absolute top-3 left-3 bg-white dark:bg-gray-900 rounded-lg px-2 py-1">
+          <span className="text-xs font-semibold text-gray-900 dark:text-white">
+            {formattedDate}
+          </span>
+        </div>
+      </div>
+
+      {/* Content */}
+      <div className="p-4">
+        <h3 className="font-semibold text-gray-900 dark:text-white line-clamp-1">
+          {event.title}
+        </h3>
+        {event.location && (
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 line-clamp-1">
+            {event.location}
+          </p>
+        )}
+        {event.tags.length > 0 && (
+          <div className="flex flex-wrap gap-1 mt-2">
+            {event.tags.slice(0, 3).map((tag: string) => (
+              <span
+                key={tag}
+                className="text-xs px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded-full"
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+    </Link>
   );
 }
