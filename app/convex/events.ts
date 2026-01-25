@@ -27,7 +27,36 @@ export const list = query({
     // Sort by date
     events.sort((a, b) => a.datetime - b.datetime);
 
-    return events;
+    // Resolve cover images
+    const eventsWithImages = await Promise.all(
+      events.map(async (event) => {
+        let coverImageUrl: string | null = null;
+
+        // Try cover image first
+        if (event.coverImageStorageId) {
+          coverImageUrl = await ctx.storage.getUrl(event.coverImageStorageId);
+        }
+        // Fall back to first gallery image
+        else if (event.imageStorageIds && event.imageStorageIds.length > 0) {
+          coverImageUrl = await ctx.storage.getUrl(event.imageStorageIds[0]);
+        }
+
+        // Get attendee count
+        const applications = await ctx.db
+          .query("eventApplications")
+          .withIndex("by_eventId", (q) => q.eq("eventId", event._id))
+          .filter((q) => q.eq(q.field("status"), "accepted"))
+          .collect();
+
+        return {
+          ...event,
+          coverImageUrl,
+          attendeeCount: applications.length,
+        };
+      }),
+    );
+
+    return eventsWithImages;
   },
 });
 
