@@ -175,6 +175,32 @@ export default function Favorites() {
   );
 }
 
+// Get text size class based on prompt length for optimal readability
+function getWonderTextStyle(prompt: string): {
+  sizeClass: string;
+  fontClass: string;
+} {
+  const len = prompt.length;
+
+  // Size based on length - aim for 40-75% of card space
+  let sizeClass: string;
+  if (len < 40) {
+    sizeClass = "text-2xl md:text-3xl";
+  } else if (len < 80) {
+    sizeClass = "text-xl md:text-2xl";
+  } else if (len < 150) {
+    sizeClass = "text-lg md:text-xl";
+  } else {
+    sizeClass = "text-base md:text-lg";
+  }
+
+  // Alternate font styles based on prompt characteristics
+  const isQuestion = prompt.includes("?");
+  const fontClass = isQuestion ? "font-serif italic" : "font-medium";
+
+  return { sizeClass, fontClass };
+}
+
 function FavoriteWonderCard({
   item,
 }: {
@@ -182,6 +208,7 @@ function FavoriteWonderCard({
     wondering: NonNullable<FavoriteProfileItem["wondering"]>;
   };
 }) {
+  const { sizeClass, fontClass } = getWonderTextStyle(item.wondering.prompt);
   const hasWonderingImage = !!item.wondering.imageUrl;
   const hasProfileImage = !!item.profile.imageUrl;
 
@@ -212,7 +239,9 @@ function FavoriteWonderCard({
 
       <div className="absolute inset-0 flex flex-col justify-between p-5">
         <div className="flex-1 flex items-center justify-center">
-          <p className="text-white text-xl md:text-2xl font-medium text-center leading-relaxed px-2">
+          <p
+            className={`text-white ${sizeClass} ${fontClass} text-center leading-relaxed px-2`}
+          >
             "{item.wondering.prompt}"
           </p>
         </div>

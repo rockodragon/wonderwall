@@ -392,6 +392,25 @@ function WonderingCard({
   const hasProfileImage = !!profileImageUrl;
   const isExpired = wondering.expiresAt && Date.now() > wondering.expiresAt;
 
+  // Get variable text size based on prompt length
+  const getWonderTextStyle = (prompt: string) => {
+    const len = prompt.length;
+    let sizeClass: string;
+    if (len < 40) {
+      sizeClass = "text-2xl md:text-4xl";
+    } else if (len < 80) {
+      sizeClass = "text-xl md:text-3xl";
+    } else if (len < 150) {
+      sizeClass = "text-lg md:text-2xl";
+    } else {
+      sizeClass = "text-base md:text-xl";
+    }
+    const isQuestion = prompt.includes("?");
+    const fontClass = isQuestion ? "font-serif italic" : "font-medium";
+    return { sizeClass, fontClass };
+  };
+  const { sizeClass, fontClass } = getWonderTextStyle(wondering.prompt);
+
   // Check if user already submitted (to hide button)
   const userHasResponded = publicResponses?.some((r) => r.isOwnResponse);
 
@@ -452,7 +471,9 @@ function WonderingCard({
 
           {/* Wonder prompt */}
           <div className="flex-1 flex items-center justify-center py-6">
-            <p className="text-white text-2xl md:text-3xl font-medium text-center leading-relaxed max-w-2xl">
+            <p
+              className={`text-white ${sizeClass} ${fontClass} text-center leading-relaxed max-w-2xl`}
+            >
               "{wondering.prompt}"
             </p>
           </div>
