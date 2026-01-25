@@ -94,11 +94,20 @@ export const getMyFavorites = query({
           imageUrl = await ctx.storage.getUrl(profile.imageStorageId);
         }
 
-        // Get wondering if exists
+        // Get active wondering if exists
         const wondering = await ctx.db
           .query("wonderings")
-          .withIndex("by_profileId", (q) => q.eq("profileId", profileId))
+          .withIndex("by_profileId_active", (q) =>
+            q.eq("profileId", profileId).eq("isActive", true),
+          )
           .first();
+
+        let wonderingImageUrl: string | null = null;
+        if (wondering?.imageStorageId) {
+          wonderingImageUrl = await ctx.storage.getUrl(
+            wondering.imageStorageId,
+          );
+        }
 
         return {
           favoriteId: fav._id,
@@ -113,6 +122,7 @@ export const getMyFavorites = query({
             ? {
                 _id: wondering._id,
                 prompt: wondering.prompt,
+                imageUrl: wonderingImageUrl,
               }
             : null,
         };
@@ -126,6 +136,21 @@ export const getMyFavorites = query({
         const event = await ctx.db.get(eventId);
         if (!event) return null;
 
+        // Resolve cover image URL (cover or first gallery image)
+        let coverImageUrl: string | null = null;
+        if (event.coverImageStorageId) {
+          coverImageUrl = await ctx.storage.getUrl(event.coverImageStorageId);
+        } else if (event.imageStorageIds && event.imageStorageIds.length > 0) {
+          coverImageUrl = await ctx.storage.getUrl(event.imageStorageIds[0]);
+        }
+
+        // Get attendee count
+        const applications = await ctx.db
+          .query("eventApplications")
+          .withIndex("by_eventId", (q) => q.eq("eventId", eventId))
+          .filter((q) => q.eq(q.field("status"), "accepted"))
+          .collect();
+
         return {
           favoriteId: fav._id,
           favoritedAt: fav.createdAt,
@@ -136,6 +161,9 @@ export const getMyFavorites = query({
             location: event.location,
             tags: event.tags,
             status: event.status,
+            requiresApproval: event.requiresApproval,
+            coverImageUrl,
+            attendeeCount: applications.length,
           },
         };
       }),

@@ -120,7 +120,11 @@ export const get = query({
       coverImageUrl,
       galleryImageUrls: galleryImageUrls.filter(Boolean) as string[],
       organizer: profile
-        ? { name: profile.name, imageUrl: organizerImageUrl }
+        ? {
+            name: profile.name,
+            imageUrl: organizerImageUrl,
+            profileId: profile._id,
+          }
         : null,
       applicationCount: applications.length,
       userApplication,

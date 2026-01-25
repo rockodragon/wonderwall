@@ -210,28 +210,46 @@ export default function EventDetail() {
 
         {/* Organizer */}
         {event.organizer && (
-          <div className="flex items-center gap-3 mb-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-xl">
-            <div className="w-10 h-10 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center overflow-hidden">
-              {event.organizer.imageUrl ? (
-                <img
-                  src={event.organizer.imageUrl}
-                  alt=""
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <span className="text-sm font-medium text-gray-500">
-                  {event.organizer.name.charAt(0)}
+          <div className="mb-6 text-sm text-gray-500 dark:text-gray-400">
+            <span>Organized by </span>
+            {event.organizer.profileId ? (
+              <Link
+                to={`/profile/${event.organizer.profileId}`}
+                className="inline-flex items-center gap-2 font-medium text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400"
+              >
+                <span className="w-7 h-7 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center overflow-hidden">
+                  {event.organizer.imageUrl ? (
+                    <img
+                      src={event.organizer.imageUrl}
+                      alt={event.organizer.name}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-xs font-medium text-gray-500">
+                      {event.organizer.name.charAt(0)}
+                    </span>
+                  )}
                 </span>
-              )}
-            </div>
-            <div>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                Organized by
-              </p>
-              <p className="font-medium text-gray-900 dark:text-white">
                 {event.organizer.name}
-              </p>
-            </div>
+              </Link>
+            ) : (
+              <span className="inline-flex items-center gap-2 font-medium text-gray-900 dark:text-white">
+                <span className="w-7 h-7 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center overflow-hidden">
+                  {event.organizer.imageUrl ? (
+                    <img
+                      src={event.organizer.imageUrl}
+                      alt={event.organizer.name}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-xs font-medium text-gray-500">
+                      {event.organizer.name.charAt(0)}
+                    </span>
+                  )}
+                </span>
+                {event.organizer.name}
+              </span>
+            )}
           </div>
         )}
 
@@ -243,7 +261,9 @@ export default function EventDetail() {
         </div>
 
         {/* Gallery Images */}
-        {event.galleryImageUrls && event.galleryImageUrls.length > 0 && (
+        {!event.isOrganizer &&
+          event.galleryImageUrls &&
+          event.galleryImageUrls.length > 0 && (
           <div className="mb-8">
             <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
               Photos

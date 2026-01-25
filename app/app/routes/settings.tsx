@@ -28,9 +28,13 @@ export default function Settings() {
     navigate("/login");
   }
 
-  // Show profile edit by default if no profile exists yet
-  const hasProfile = profile && profile.name;
-  const isEditingProfile = showProfileEdit || !hasProfile;
+  const hasProfile = Boolean(profile?.name?.trim());
+  const profileNeedsSetup =
+    !hasProfile ||
+    (!profile?.jobFunctions?.length &&
+      !profile?.bio?.trim() &&
+      !profile?.location?.trim());
+  const isEditingProfile = showProfileEdit || profileNeedsSetup;
 
   return (
     <div className="p-6 max-w-2xl mx-auto">
@@ -45,14 +49,9 @@ export default function Settings() {
           <ProfileEditForm
             profile={profile}
             onDone={() => setShowProfileEdit(false)}
-            isNewProfile={!hasProfile}
+            isNewProfile={profileNeedsSetup}
           />
         )}
-      </div>
-
-      {/* Links section */}
-      <div className="pt-6 border-t border-gray-200 dark:border-gray-800">
-        <LinksSection />
       </div>
 
       {/* Wondering section */}
@@ -379,6 +378,10 @@ function ProfileEditForm({
           {saving ? "Saving..." : "Save Profile"}
         </button>
       </form>
+
+      <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-800">
+        <LinksSection />
+      </div>
     </div>
   );
 }
@@ -950,6 +953,50 @@ const ARTIFACT_TYPES = [
   },
 ];
 
+function getVideoEmbedUrl(mediaUrl: string): string | null {
+  try {
+    const url = new URL(mediaUrl);
+    const host = url.hostname.replace("www.", "");
+
+    if (host === "youtu.be") {
+      const id = url.pathname.slice(1);
+      return id ? `https://www.youtube.com/embed/${id}` : null;
+    }
+
+    if (
+      host === "youtube.com" ||
+      host === "m.youtube.com" ||
+      host === "youtube-nocookie.com"
+    ) {
+      if (url.pathname === "/watch") {
+        const id = url.searchParams.get("v");
+        return id ? `https://www.youtube.com/embed/${id}` : null;
+      }
+
+      if (
+        url.pathname.startsWith("/embed/") ||
+        url.pathname.startsWith("/shorts/") ||
+        url.pathname.startsWith("/live/")
+      ) {
+        const id = url.pathname.split("/")[2];
+        return id ? `https://www.youtube.com/embed/${id}` : null;
+      }
+    }
+
+    if (host === "vimeo.com" || host === "player.vimeo.com") {
+      const parts = url.pathname.split("/").filter(Boolean);
+      const id = parts[parts.length - 1];
+      if (id && /^[0-9]+$/.test(id)) {
+        return `https://player.vimeo.com/video/${id}`;
+      }
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
 function ArtifactsSection() {
   const artifacts = useQuery(api.artifacts.getMyArtifacts);
   const createArtifact = useMutation(api.artifacts.create);
@@ -1042,6 +1089,8 @@ function ArtifactsSection() {
     if (type === "text" && !content.trim()) return;
     if (type !== "text" && !mediaUrl.trim() && !uploadedStorageId) return;
 
+    const mediaStorageId = uploadedStorageId ?? undefined;
+
     setSaving(true);
     try {
       await createArtifact({
@@ -1050,7 +1099,7 @@ function ArtifactsSection() {
         content: type === "text" ? content.trim() : undefined,
         mediaUrl:
           type !== "text" && !uploadedStorageId ? mediaUrl.trim() : undefined,
-        mediaStorageId: uploadedStorageId as any,
+        mediaStorageId: mediaStorageId as any,
       });
       resetForm();
     } finally {
@@ -1059,6 +1108,8 @@ function ArtifactsSection() {
   }
 
   async function handleUpdate(artifactId: string) {
+    const mediaStorageId = uploadedStorageId ?? undefined;
+
     setSaving(true);
     try {
       await updateArtifact({
@@ -1067,7 +1118,7 @@ function ArtifactsSection() {
         content: type === "text" ? content.trim() : undefined,
         mediaUrl:
           type !== "text" && !uploadedStorageId ? mediaUrl.trim() : undefined,
-        mediaStorageId: uploadedStorageId as any,
+        mediaStorageId: mediaStorageId as any,
       });
       resetForm();
     } finally {
@@ -1129,7 +1180,7 @@ function ArtifactsSection() {
                     : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
                 }`}
               >
-                {t.icon} {t.label}
+                {t.label}
               </button>
             ))}
           </div>
@@ -1271,6 +1322,10 @@ function ArtifactsSection() {
               (t) => t.value === artifact.type,
             );
             const mediaUrl = artifact.resolvedMediaUrl || artifact.mediaUrl;
+            const videoEmbedUrl =
+              artifact.type === "video" && mediaUrl
+                ? getVideoEmbedUrl(mediaUrl)
+                : null;
 
             return (
               <div
@@ -1285,13 +1340,24 @@ function ArtifactsSection() {
                     className="w-full h-full object-cover"
                   />
                 ) : artifact.type === "video" && mediaUrl ? (
-                  <div className="w-full h-full bg-gray-900 flex items-center justify-center">
-                    <video
-                      src={mediaUrl}
-                      className="w-full h-full object-cover"
-                      muted
+                  videoEmbedUrl ? (
+                    <iframe
+                      src={videoEmbedUrl}
+                      title={artifact.title || "Video"}
+                      className="w-full h-full"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                      loading="lazy"
                     />
-                  </div>
+                  ) : (
+                    <div className="w-full h-full bg-gray-900 flex items-center justify-center">
+                      <video
+                        src={mediaUrl}
+                        className="w-full h-full object-cover"
+                        muted
+                      />
+                    </div>
+                  )
                 ) : (
                   <div
                     className={`w-full h-full bg-gradient-to-br ${typeInfo?.gradient || "from-gray-400 to-gray-500"}`}
@@ -1303,9 +1369,7 @@ function ArtifactsSection() {
 
                 {/* Content */}
                 <div className="absolute inset-0 p-3 flex flex-col justify-between">
-                  {/* Type icon */}
-                  <div className="flex justify-between items-start">
-                    <span className="text-2xl">{typeInfo?.icon}</span>
+                  <div className="flex justify-end">
                     {/* Actions (show on hover) */}
                     <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button

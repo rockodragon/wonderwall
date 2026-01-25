@@ -114,23 +114,6 @@ export default function Profile() {
         </div>
       </div>
 
-      {/* Links */}
-      {profile.links && profile.links.length > 0 && (
-        <div className="flex flex-wrap gap-2 mb-8">
-          {profile.links.map((link) => (
-            <a
-              key={link._id}
-              href={link.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-4 py-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg text-sm hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-            >
-              {link.label}
-            </a>
-          ))}
-        </div>
-      )}
-
       {/* Wondering card */}
       {profile.wondering && (
         <WonderingCard
@@ -147,28 +130,64 @@ export default function Profile() {
             Work
           </h2>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            {profile.artifacts.map((artifact) => (
-              <div
-                key={artifact._id}
-                className="aspect-square bg-gray-100 dark:bg-gray-800 rounded-xl overflow-hidden"
-              >
-                {artifact.type === "image" && artifact.mediaUrl ? (
-                  <img
-                    src={artifact.mediaUrl}
-                    alt=""
-                    className="w-full h-full object-cover"
-                  />
-                ) : artifact.type === "text" && artifact.content ? (
-                  <div className="p-4 text-sm text-gray-700 dark:text-gray-300 line-clamp-6">
-                    {artifact.content}
-                  </div>
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-gray-400">
-                    {artifact.type}
-                  </div>
-                )}
-              </div>
-            ))}
+            {profile.artifacts.map((artifact) => {
+              const videoEmbedUrl =
+                artifact.type === "video" && artifact.mediaUrl
+                  ? getVideoEmbedUrl(artifact.mediaUrl)
+                  : null;
+
+              return (
+                <div
+                  key={artifact._id}
+                  className="aspect-square bg-gray-100 dark:bg-gray-800 rounded-xl overflow-hidden"
+                >
+                  {artifact.type === "image" && artifact.mediaUrl ? (
+                    <img
+                      src={artifact.mediaUrl}
+                      alt=""
+                      className="w-full h-full object-cover"
+                    />
+                  ) : artifact.type === "video" && artifact.mediaUrl ? (
+                    videoEmbedUrl ? (
+                      <iframe
+                        src={videoEmbedUrl}
+                        title={artifact.title || "Video"}
+                        className="w-full h-full"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gray-900 flex items-center justify-center">
+                        <video
+                          src={artifact.mediaUrl}
+                          className="w-full h-full object-cover"
+                          muted
+                        />
+                      </div>
+                    )
+                  ) : artifact.type === "text" && artifact.content ? (
+                    <div className="p-4 text-sm text-gray-700 dark:text-gray-300 line-clamp-6">
+                      {artifact.content}
+                    </div>
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-br from-gray-700 to-gray-900 flex items-end">
+                      <div className="p-3">
+                        {artifact.title ? (
+                          <p className="text-white text-sm font-medium line-clamp-2">
+                            {artifact.title}
+                          </p>
+                        ) : (
+                          <p className="text-white/70 text-xs uppercase tracking-wide">
+                            {artifact.type}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </>
       )}
@@ -180,8 +199,53 @@ export default function Profile() {
             <p>This profile doesn't have any content yet</p>
           </div>
         )}
+
     </div>
   );
+}
+
+function getVideoEmbedUrl(mediaUrl: string): string | null {
+  try {
+    const url = new URL(mediaUrl);
+    const host = url.hostname.replace("www.", "");
+
+    if (host === "youtu.be") {
+      const id = url.pathname.slice(1);
+      return id ? `https://www.youtube.com/embed/${id}` : null;
+    }
+
+    if (
+      host === "youtube.com" ||
+      host === "m.youtube.com" ||
+      host === "youtube-nocookie.com"
+    ) {
+      if (url.pathname === "/watch") {
+        const id = url.searchParams.get("v");
+        return id ? `https://www.youtube.com/embed/${id}` : null;
+      }
+
+      if (
+        url.pathname.startsWith("/embed/") ||
+        url.pathname.startsWith("/shorts/") ||
+        url.pathname.startsWith("/live/")
+      ) {
+        const id = url.pathname.split("/")[2];
+        return id ? `https://www.youtube.com/embed/${id}` : null;
+      }
+    }
+
+    if (host === "vimeo.com" || host === "player.vimeo.com") {
+      const parts = url.pathname.split("/").filter(Boolean);
+      const id = parts[parts.length - 1];
+      if (id && /^[0-9]+$/.test(id)) {
+        return `https://player.vimeo.com/video/${id}`;
+      }
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
 }
 
 function WonderingCard({
