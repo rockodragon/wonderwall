@@ -139,25 +139,37 @@ export default function Profile() {
               )}
               {(inviteStats.directInvitees > 0 ||
                 inviteStats.downstreamCount > 0) && (
-                <span className="text-gray-500 dark:text-gray-400">
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded-full">
+                    <svg
+                      className="w-3.5 h-3.5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"
+                      />
+                    </svg>
+                    <span className="font-semibold">
+                      {inviteStats.directInvitees + inviteStats.downstreamCount}
+                    </span>
+                    <span className="text-emerald-600 dark:text-emerald-500">
+                      in network
+                    </span>
+                  </span>
                   {inviteStats.directInvitees > 0 && (
-                    <>
-                      <span className="font-medium">
-                        {inviteStats.directInvitees}
-                      </span>{" "}
-                      invited
-                    </>
+                    <span className="text-gray-400 dark:text-gray-500 text-xs">
+                      ({inviteStats.directInvitees} direct
+                      {inviteStats.downstreamCount > 0 &&
+                        `, ${inviteStats.downstreamCount} downstream`}
+                      )
+                    </span>
                   )}
-                  {inviteStats.downstreamCount > 0 && (
-                    <>
-                      {inviteStats.directInvitees > 0 && ", "}
-                      <span className="font-medium">
-                        {inviteStats.downstreamCount}
-                      </span>{" "}
-                      downstream
-                    </>
-                  )}
-                </span>
+                </div>
               )}
             </div>
           )}
