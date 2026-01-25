@@ -56,6 +56,16 @@ export default function Works() {
           // Determine size class for bento effect
           const sizeClass = getBentoSize(index);
 
+          // Check if URL is an image (for link types with image URLs)
+          const isImageUrl =
+            artifact.resolvedMediaUrl &&
+            /\.(jpg|jpeg|png|gif|webp|svg|bmp)/i.test(
+              artifact.resolvedMediaUrl,
+            );
+          const showAsImage =
+            artifact.type === "image" ||
+            (artifact.type === "link" && isImageUrl);
+
           return (
             <Link
               key={artifact._id}
@@ -63,7 +73,7 @@ export default function Works() {
               className={`group relative overflow-hidden rounded-2xl bg-gray-100 dark:bg-gray-800 ${sizeClass}`}
             >
               {/* Media content */}
-              {artifact.type === "image" && artifact.resolvedMediaUrl && (
+              {showAsImage && artifact.resolvedMediaUrl && (
                 <img
                   src={artifact.resolvedMediaUrl}
                   alt={artifact.title || "Work"}
@@ -101,7 +111,7 @@ export default function Works() {
                 </div>
               )}
 
-              {artifact.type === "link" && (
+              {artifact.type === "link" && !isImageUrl && (
                 <div className="w-full h-full p-4 flex flex-col justify-center bg-gradient-to-br from-emerald-50 to-cyan-50 dark:from-emerald-900/30 dark:to-cyan-900/30">
                   <svg
                     className="w-8 h-8 text-emerald-600 dark:text-emerald-400 mb-2"
