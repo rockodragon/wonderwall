@@ -17,18 +17,31 @@ export const getMyWondering = query({
 
     if (!profile) return null;
 
-    return await ctx.db
+    const wondering = await ctx.db
       .query("wonderings")
       .withIndex("by_profileId_active", (q) =>
         q.eq("profileId", profile._id).eq("isActive", true),
       )
       .first();
+
+    if (!wondering) return null;
+
+    // Resolve image URL from storage
+    const imageUrl = wondering.imageStorageId
+      ? await ctx.storage.getUrl(wondering.imageStorageId)
+      : null;
+
+    return {
+      ...wondering,
+      imageUrl,
+    };
   },
 });
 
 export const create = mutation({
   args: {
     prompt: v.string(),
+    imageStorageId: v.optional(v.id("_storage")),
   },
   handler: async (ctx, args) => {
     const userId = await auth.getUserId(ctx);
@@ -63,6 +76,7 @@ export const create = mutation({
     return await ctx.db.insert("wonderings", {
       profileId: profile._id,
       prompt: args.prompt.trim(),
+      imageStorageId: args.imageStorageId,
       expiresAt: isPaidPlan ? undefined : now + TWO_WEEKS_MS,
       isPermanent: isPaidPlan,
       isActive: true,
@@ -75,6 +89,7 @@ export const update = mutation({
   args: {
     wonderingId: v.id("wonderings"),
     prompt: v.string(),
+    imageStorageId: v.optional(v.id("_storage")),
   },
   handler: async (ctx, args) => {
     const userId = await auth.getUserId(ctx);
@@ -91,6 +106,7 @@ export const update = mutation({
 
     await ctx.db.patch(args.wonderingId, {
       prompt: args.prompt.trim(),
+      imageStorageId: args.imageStorageId,
     });
   },
 });
@@ -118,6 +134,7 @@ export const archive = mutation({
   },
 });
 
+// For wondering owner - get all responses
 export const getResponses = query({
   args: { wonderingId: v.id("wonderings") },
   handler: async (ctx, args) => {
@@ -137,6 +154,45 @@ export const getResponses = query({
       .query("wonderingResponses")
       .withIndex("by_wonderingId", (q) => q.eq("wonderingId", args.wonderingId))
       .collect();
+  },
+});
+
+// For profile page - get public responses + user's own pending response
+export const getPublicResponses = query({
+  args: { wonderingId: v.id("wonderings") },
+  handler: async (ctx, args) => {
+    const userId = await auth.getUserId(ctx);
+
+    const allResponses = await ctx.db
+      .query("wonderingResponses")
+      .withIndex("by_wonderingId", (q) => q.eq("wonderingId", args.wonderingId))
+      .collect();
+
+    // Filter to public responses + current user's own response
+    const visibleResponses = allResponses.filter(
+      (r) => r.isPublic || (userId && r.responderId === userId),
+    );
+
+    // Get responder profiles for display
+    const responsesWithProfiles = await Promise.all(
+      visibleResponses.map(async (response) => {
+        const responderProfile = await ctx.db
+          .query("profiles")
+          .withIndex("by_userId", (q) => q.eq("userId", response.responderId))
+          .first();
+
+        return {
+          ...response,
+          responderName: responderProfile?.name || "Anonymous",
+          responderImageUrl: responderProfile?.imageStorageId
+            ? await ctx.storage.getUrl(responderProfile.imageStorageId)
+            : responderProfile?.imageUrl || null,
+          isOwnResponse: userId === response.responderId,
+        };
+      }),
+    );
+
+    return responsesWithProfiles.sort((a, b) => b.createdAt - a.createdAt);
   },
 });
 

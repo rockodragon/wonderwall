@@ -82,3 +82,199 @@ export const deleteProfileImage = mutation({
     return { success: true };
   },
 });
+
+// Save wondering background image
+export const saveWonderingImage = mutation({
+  args: {
+    wonderingId: v.id("wonderings"),
+    storageId: v.id("_storage"),
+  },
+  handler: async (ctx, args) => {
+    const userId = await auth.getUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
+    const wondering = await ctx.db.get(args.wonderingId);
+    if (!wondering) throw new Error("Wondering not found");
+
+    // Verify ownership
+    const profile = await ctx.db.get(wondering.profileId);
+    if (!profile || profile.userId !== userId) {
+      throw new Error("Not authorized");
+    }
+
+    // Delete old image if exists
+    if (wondering.imageStorageId) {
+      await ctx.storage.delete(wondering.imageStorageId);
+    }
+
+    await ctx.db.patch(args.wonderingId, {
+      imageStorageId: args.storageId,
+    });
+
+    return { success: true };
+  },
+});
+
+// Delete wondering background image
+export const deleteWonderingImage = mutation({
+  args: {
+    wonderingId: v.id("wonderings"),
+  },
+  handler: async (ctx, args) => {
+    const userId = await auth.getUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
+    const wondering = await ctx.db.get(args.wonderingId);
+    if (!wondering) throw new Error("Wondering not found");
+
+    // Verify ownership
+    const profile = await ctx.db.get(wondering.profileId);
+    if (!profile || profile.userId !== userId) {
+      throw new Error("Not authorized");
+    }
+
+    if (wondering.imageStorageId) {
+      await ctx.storage.delete(wondering.imageStorageId);
+    }
+
+    await ctx.db.patch(args.wonderingId, {
+      imageStorageId: undefined,
+    });
+
+    return { success: true };
+  },
+});
+
+// Save event cover image
+export const saveEventCoverImage = mutation({
+  args: {
+    eventId: v.id("events"),
+    storageId: v.id("_storage"),
+  },
+  handler: async (ctx, args) => {
+    const userId = await auth.getUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
+    const event = await ctx.db.get(args.eventId);
+    if (!event) throw new Error("Event not found");
+    if (event.organizerId !== userId) throw new Error("Not authorized");
+
+    // Delete old image if exists
+    if (event.coverImageStorageId) {
+      await ctx.storage.delete(event.coverImageStorageId);
+    }
+
+    await ctx.db.patch(args.eventId, {
+      coverImageStorageId: args.storageId,
+      updatedAt: Date.now(),
+    });
+
+    return { success: true };
+  },
+});
+
+// Delete event cover image
+export const deleteEventCoverImage = mutation({
+  args: {
+    eventId: v.id("events"),
+  },
+  handler: async (ctx, args) => {
+    const userId = await auth.getUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
+    const event = await ctx.db.get(args.eventId);
+    if (!event) throw new Error("Event not found");
+    if (event.organizerId !== userId) throw new Error("Not authorized");
+
+    if (event.coverImageStorageId) {
+      await ctx.storage.delete(event.coverImageStorageId);
+    }
+
+    await ctx.db.patch(args.eventId, {
+      coverImageStorageId: undefined,
+      updatedAt: Date.now(),
+    });
+
+    return { success: true };
+  },
+});
+
+// Add event gallery image (up to 3)
+export const addEventGalleryImage = mutation({
+  args: {
+    eventId: v.id("events"),
+    storageId: v.id("_storage"),
+  },
+  handler: async (ctx, args) => {
+    const userId = await auth.getUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
+    const event = await ctx.db.get(args.eventId);
+    if (!event) throw new Error("Event not found");
+    if (event.organizerId !== userId) throw new Error("Not authorized");
+
+    const currentImages = event.imageStorageIds || [];
+    if (currentImages.length >= 3) {
+      throw new Error("Maximum 3 gallery images allowed");
+    }
+
+    await ctx.db.patch(args.eventId, {
+      imageStorageIds: [...currentImages, args.storageId],
+      updatedAt: Date.now(),
+    });
+
+    return { success: true };
+  },
+});
+
+// Remove event gallery image
+export const removeEventGalleryImage = mutation({
+  args: {
+    eventId: v.id("events"),
+    storageId: v.id("_storage"),
+  },
+  handler: async (ctx, args) => {
+    const userId = await auth.getUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
+    const event = await ctx.db.get(args.eventId);
+    if (!event) throw new Error("Event not found");
+    if (event.organizerId !== userId) throw new Error("Not authorized");
+
+    const currentImages = event.imageStorageIds || [];
+    const newImages = currentImages.filter((id) => id !== args.storageId);
+
+    // Delete from storage
+    await ctx.storage.delete(args.storageId);
+
+    await ctx.db.patch(args.eventId, {
+      imageStorageIds: newImages.length > 0 ? newImages : undefined,
+      updatedAt: Date.now(),
+    });
+
+    return { success: true };
+  },
+});
+
+// Update event cover color
+export const updateEventCoverColor = mutation({
+  args: {
+    eventId: v.id("events"),
+    color: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const userId = await auth.getUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
+    const event = await ctx.db.get(args.eventId);
+    if (!event) throw new Error("Event not found");
+    if (event.organizerId !== userId) throw new Error("Not authorized");
+
+    await ctx.db.patch(args.eventId, {
+      coverColor: args.color,
+      updatedAt: Date.now(),
+    });
+
+    return { success: true };
+  },
+});

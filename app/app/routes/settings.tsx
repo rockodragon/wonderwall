@@ -50,8 +50,13 @@ export default function Settings() {
         )}
       </div>
 
-      {/* Wondering section */}
+      {/* Links section */}
       <div className="pt-6 border-t border-gray-200 dark:border-gray-800">
+        <LinksSection />
+      </div>
+
+      {/* Wondering section */}
+      <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-800">
         <WonderingSection />
       </div>
 
@@ -374,6 +379,282 @@ function ProfileEditForm({
           {saving ? "Saving..." : "Save Profile"}
         </button>
       </form>
+    </div>
+  );
+}
+
+function LinksSection() {
+  const links = useQuery(api.links.getMyLinks);
+  const addLink = useMutation(api.links.add);
+  const updateLink = useMutation(api.links.update);
+  const removeLink = useMutation(api.links.remove);
+  const reorderLinks = useMutation(api.links.reorder);
+
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [label, setLabel] = useState("");
+  const [url, setUrl] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  function resetForm() {
+    setLabel("");
+    setUrl("");
+    setShowAddForm(false);
+    setEditingId(null);
+  }
+
+  async function handleAdd() {
+    if (!label.trim() || !url.trim()) return;
+    setSaving(true);
+    try {
+      await addLink({ label: label.trim(), url: url.trim() });
+      resetForm();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleUpdate(linkId: string) {
+    if (!label.trim() || !url.trim()) return;
+    setSaving(true);
+    try {
+      await updateLink({
+        linkId: linkId as any,
+        label: label.trim(),
+        url: url.trim(),
+      });
+      resetForm();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete(linkId: string) {
+    if (!confirm("Delete this link?")) return;
+    await removeLink({ linkId: linkId as any });
+  }
+
+  function startEdit(link: { _id: string; label: string; url: string }) {
+    setEditingId(link._id);
+    setLabel(link.label);
+    setUrl(link.url);
+  }
+
+  async function moveLink(index: number, direction: "up" | "down") {
+    if (!links) return;
+    const newIndex = direction === "up" ? index - 1 : index + 1;
+    if (newIndex < 0 || newIndex >= links.length) return;
+
+    const newOrder = [...links];
+    [newOrder[index], newOrder[newIndex]] = [
+      newOrder[newIndex],
+      newOrder[index],
+    ];
+    await reorderLinks({ linkIds: newOrder.map((l) => l._id) as any });
+  }
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+          Links
+        </h2>
+        {!showAddForm && !editingId && (
+          <button
+            onClick={() => setShowAddForm(true)}
+            className="text-sm text-blue-600 hover:text-blue-500 font-medium"
+          >
+            + Add Link
+          </button>
+        )}
+      </div>
+      <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+        Add links to your website, social profiles, or portfolio.
+      </p>
+
+      {/* Add/Edit Form */}
+      {(showAddForm || editingId) && (
+        <div className="mb-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-xl space-y-3">
+          <input
+            type="text"
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            placeholder="Label (e.g., Portfolio, Twitter)"
+            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-900 dark:text-white"
+          />
+          <input
+            type="url"
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            placeholder="URL (e.g., https://myportfolio.com)"
+            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-900 dark:text-white"
+          />
+          <div className="flex gap-2">
+            <button
+              onClick={() =>
+                editingId ? handleUpdate(editingId) : handleAdd()
+              }
+              disabled={saving || !label.trim() || !url.trim()}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+            >
+              {saving ? "Saving..." : editingId ? "Update" : "Add"}
+            </button>
+            <button
+              onClick={resetForm}
+              className="px-4 py-2 text-gray-600 dark:text-gray-400 text-sm"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Links List */}
+      {links && links.length > 0 ? (
+        <div className="space-y-2">
+          {links.map((link, index) => (
+            <div
+              key={link._id}
+              className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-xl group"
+            >
+              {/* Reorder buttons */}
+              <div className="flex flex-col gap-0.5">
+                <button
+                  onClick={() => moveLink(index, "up")}
+                  disabled={index === 0}
+                  className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 disabled:opacity-30"
+                >
+                  <svg
+                    className="w-3 h-3"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M5 15l7-7 7 7"
+                    />
+                  </svg>
+                </button>
+                <button
+                  onClick={() => moveLink(index, "down")}
+                  disabled={index === links.length - 1}
+                  className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 disabled:opacity-30"
+                >
+                  <svg
+                    className="w-3 h-3"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 9l-7 7-7-7"
+                    />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Link icon */}
+              <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-lg flex items-center justify-center shrink-0">
+                <svg
+                  className="w-5 h-5 text-white"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+                  />
+                </svg>
+              </div>
+
+              {/* Link content */}
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-gray-900 dark:text-white text-sm">
+                  {link.label}
+                </p>
+                <a
+                  href={link.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-blue-600 dark:text-blue-400 hover:underline truncate block"
+                >
+                  {link.url}
+                </a>
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button
+                  onClick={() => startEdit(link)}
+                  className="p-2 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400"
+                >
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                    />
+                  </svg>
+                </button>
+                <button
+                  onClick={() => handleDelete(link._id)}
+                  className="p-2 text-gray-400 hover:text-red-600 dark:hover:text-red-400"
+                >
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                    />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : !showAddForm ? (
+        <div className="text-center py-8">
+          <div className="w-16 h-16 mx-auto mb-3 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-2xl flex items-center justify-center">
+            <svg
+              className="w-8 h-8 text-white"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+              />
+            </svg>
+          </div>
+          <p className="text-gray-500 dark:text-gray-400 text-sm">
+            No links yet. Click "+ Add Link" to add your first.
+          </p>
+        </div>
+      ) : null}
     </div>
   );
 }

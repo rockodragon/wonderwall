@@ -87,13 +87,25 @@ export const getProfile = query({
       )
       .first();
 
+    // Resolve wondering image URL if exists
+    let wonderingWithImage = null;
+    if (wondering) {
+      const wonderingImageUrl = wondering.imageStorageId
+        ? await ctx.storage.getUrl(wondering.imageStorageId)
+        : null;
+      wonderingWithImage = {
+        ...wondering,
+        imageUrl: wonderingImageUrl,
+      };
+    }
+
     return {
       ...profile,
       imageUrl,
       attributes: Object.fromEntries(attributes.map((a) => [a.key, a.value])),
       links: links.sort((a, b) => a.order - b.order),
       artifacts: artifacts.sort((a, b) => a.order - b.order),
-      wondering,
+      wondering: wonderingWithImage,
     };
   },
 });
@@ -220,14 +232,26 @@ export const search = query({
           )
           .first();
 
-        // Resolve image URL
+        // Resolve profile image URL
         const imageUrl = await resolveImageUrl(ctx, profile);
+
+        // Resolve wondering image URL if exists
+        let wonderingImageUrl: string | null = null;
+        if (wondering?.imageStorageId) {
+          wonderingImageUrl = await ctx.storage.getUrl(
+            wondering.imageStorageId,
+          );
+        }
 
         return {
           ...profile,
           imageUrl,
           wondering: wondering
-            ? { prompt: wondering.prompt, _id: wondering._id }
+            ? {
+                prompt: wondering.prompt,
+                _id: wondering._id,
+                imageUrl: wonderingImageUrl,
+              }
             : null,
         };
       }),
