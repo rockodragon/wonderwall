@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "convex/react";
 import { useState } from "react";
-import { useParams } from "react-router";
+import { Link, useParams } from "react-router";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { FavoriteButton } from "../components/FavoriteButton";
@@ -10,6 +10,10 @@ export default function Profile() {
   const profile = useQuery(
     api.profiles.getProfile,
     profileId ? { profileId: profileId as Id<"profiles"> } : "skip",
+  );
+  const inviteStats = useQuery(
+    api.invites.getInviteStats,
+    profile?.userId ? { userId: profile.userId } : "skip",
   );
 
   if (profile === undefined) {
@@ -68,6 +72,44 @@ export default function Profile() {
             <p className="text-gray-700 dark:text-gray-300 mt-3 max-w-xl">
               {profile.bio}
             </p>
+          )}
+          {/* Invite stats */}
+          {inviteStats && (
+            <div className="flex flex-wrap items-center gap-3 mt-3 text-sm">
+              {inviteStats.invitedBy && (
+                <Link
+                  to={`/profile/${inviteStats.invitedBy.profileId}`}
+                  className="text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400"
+                >
+                  Invited by{" "}
+                  <span className="font-medium">
+                    {inviteStats.invitedBy.name}
+                  </span>
+                </Link>
+              )}
+              {(inviteStats.directInvitees > 0 ||
+                inviteStats.downstreamCount > 0) && (
+                <span className="text-gray-500 dark:text-gray-400">
+                  {inviteStats.directInvitees > 0 && (
+                    <>
+                      <span className="font-medium">
+                        {inviteStats.directInvitees}
+                      </span>{" "}
+                      invited
+                    </>
+                  )}
+                  {inviteStats.downstreamCount > 0 && (
+                    <>
+                      {inviteStats.directInvitees > 0 && ", "}
+                      <span className="font-medium">
+                        {inviteStats.downstreamCount}
+                      </span>{" "}
+                      downstream
+                    </>
+                  )}
+                </span>
+              )}
+            </div>
           )}
         </div>
       </div>
