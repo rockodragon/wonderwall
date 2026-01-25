@@ -2,7 +2,6 @@ import { useQuery } from "convex/react";
 import { useState } from "react";
 import { Link } from "react-router";
 import { api } from "../../convex/_generated/api";
-import type { Doc } from "../../convex/_generated/dataModel";
 import { FavoriteButton } from "../components/FavoriteButton";
 
 const FILTERS = [
@@ -16,6 +15,14 @@ const FILTERS = [
   { label: "Illustrators", value: "Illustrator" },
 ];
 
+type ProfileWithWondering = {
+  _id: string;
+  name: string;
+  imageUrl?: string;
+  jobFunctions: string[];
+  wondering: { prompt: string; _id: string } | null;
+};
+
 export default function Search() {
   const [query, setQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<string | undefined>();
@@ -23,11 +30,15 @@ export default function Search() {
   const profiles = useQuery(api.profiles.search, {
     query: query || undefined,
     jobFunction: activeFilter,
-  });
+  }) as ProfileWithWondering[] | undefined;
 
-  // Sort profiles so those with images come first (they get featured tiles)
+  // Sort profiles: those with wonderings first, then those with images
   const sortedProfiles = profiles
     ? [...profiles].sort((a, b) => {
+        // Profiles with wondering come first
+        if (a.wondering && !b.wondering) return -1;
+        if (!a.wondering && b.wondering) return 1;
+        // Then profiles with images
         if (a.imageUrl && !b.imageUrl) return -1;
         if (!a.imageUrl && b.imageUrl) return 1;
         return 0;
@@ -49,7 +60,7 @@ export default function Search() {
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search by name, skills, or bio..."
+          placeholder="Search by name or skills..."
           className="w-full px-4 py-3 pl-12 border border-gray-300 dark:border-gray-700 rounded-2xl shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
         />
         <svg
@@ -95,25 +106,26 @@ export default function Search() {
   );
 }
 
-function BentoGrid({ profiles }: { profiles: Doc<"profiles">[] }) {
-  // Assign tile sizes based on profile completeness
+function BentoGrid({ profiles }: { profiles: ProfileWithWondering[] }) {
+  // Assign tile sizes based on wondering and image
   const getTileSize = (
-    profile: Doc<"profiles">,
+    profile: ProfileWithWondering,
     index: number,
   ): "large" | "medium" | "small" => {
     const hasImage = !!profile.imageUrl;
-    const hasBio = !!profile.bio;
+    const hasWondering = !!profile.wondering;
 
-    // First few profiles with images get large tiles
-    if (hasImage && index < 2) return "large";
-    // Profiles with images or bio get medium tiles
-    if (hasImage || hasBio) return "medium";
+    // Profiles with wondering get large tiles (first 2) or medium
+    if (hasWondering && index < 2) return "large";
+    if (hasWondering) return "medium";
+    // Profiles with images get medium tiles
+    if (hasImage) return "medium";
     // Others get small tiles
     return "small";
   };
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 auto-rows-[180px]">
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 auto-rows-[140px]">
       {profiles.map((profile, index) => {
         const size = getTileSize(profile, index);
         return <ProfileTile key={profile._id} profile={profile} size={size} />;
@@ -126,29 +138,35 @@ function ProfileTile({
   profile,
   size,
 }: {
-  profile: Doc<"profiles">;
+  profile: ProfileWithWondering;
   size: "large" | "medium" | "small";
 }) {
   const sizeClasses = {
     large: "col-span-2 row-span-2",
-    medium: "col-span-1 row-span-2 md:col-span-1",
+    medium: "col-span-1 row-span-2",
     small: "col-span-1 row-span-1",
   };
 
   const hasImage = !!profile.imageUrl;
+  const hasWondering = !!profile.wondering;
 
-  if (size === "large" && hasImage) {
+  // Large tile - for profiles with wondering and image
+  if (size === "large") {
     return (
       <Link
         to={`/profile/${profile._id}`}
         className={`${sizeClasses[size]} group relative overflow-hidden rounded-3xl bg-gray-100 dark:bg-gray-800`}
       >
-        <img
-          src={profile.imageUrl}
-          alt={profile.name}
-          className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+        {hasImage ? (
+          <img
+            src={profile.imageUrl}
+            alt={profile.name}
+            className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+          />
+        ) : (
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-500 to-purple-600" />
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
         <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
           <FavoriteButton
             targetType="profile"
@@ -158,29 +176,23 @@ function ProfileTile({
         </div>
         <div className="absolute bottom-0 left-0 right-0 p-6">
           <h3 className="text-2xl font-bold text-white mb-1">{profile.name}</h3>
-          <p className="text-white/80 text-sm mb-2">
-            {profile.jobFunctions.join(" • ")}
+          <p className="text-white/70 text-sm mb-3">
+            {profile.jobFunctions.slice(0, 3).join(" • ")}
           </p>
-          {profile.bio && (
-            <p className="text-white/70 text-sm line-clamp-2">{profile.bio}</p>
-          )}
-          {profile.location && (
-            <p className="text-white/60 text-xs mt-2 flex items-center gap-1">
-              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                <path
-                  fillRule="evenodd"
-                  d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z"
-                  clipRule="evenodd"
-                />
-              </svg>
-              {profile.location}
-            </p>
+          {hasWondering && (
+            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 border border-white/20">
+              <p className="text-xs text-white/60 mb-1">Wondering...</p>
+              <p className="text-white text-sm line-clamp-2">
+                "{profile.wondering!.prompt}"
+              </p>
+            </div>
           )}
         </div>
       </Link>
     );
   }
 
+  // Medium tile - for profiles with wondering or image
   if (size === "medium") {
     return (
       <Link
@@ -195,85 +207,45 @@ function ProfileTile({
           />
         </div>
         {hasImage ? (
-          <>
-            <div className="h-1/2 overflow-hidden">
-              <img
-                src={profile.imageUrl}
-                alt={profile.name}
-                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-              />
-            </div>
-            <div className="p-4 h-1/2 flex flex-col justify-between">
-              <div>
-                <h3 className="font-semibold text-gray-900 dark:text-white truncate">
-                  {profile.name}
-                </h3>
-                <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-1">
-                  {profile.jobFunctions.slice(0, 2).join(" • ")}
-                </p>
-              </div>
-              {profile.bio && (
-                <p className="text-xs text-gray-600 dark:text-gray-300 line-clamp-3">
-                  {profile.bio}
-                </p>
-              )}
-              {profile.location && (
-                <p className="text-xs text-gray-400 flex items-center gap-1 mt-auto">
-                  <svg
-                    className="w-3 h-3"
-                    fill="currentColor"
-                    viewBox="0 0 20 20"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                  {profile.location}
-                </p>
-              )}
-            </div>
-          </>
+          <div className="h-2/5 overflow-hidden">
+            <img
+              src={profile.imageUrl}
+              alt={profile.name}
+              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+            />
+          </div>
         ) : (
-          <div className="p-5 h-full flex flex-col">
-            <div className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-xl font-bold mb-4">
+          <div className="h-2/5 bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center">
+            <span className="text-4xl font-bold text-white">
               {profile.name.charAt(0).toUpperCase()}
-            </div>
-            <h3 className="font-semibold text-gray-900 dark:text-white">
-              {profile.name}
-            </h3>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              {profile.jobFunctions.slice(0, 2).join(" • ")}
-            </p>
-            {profile.bio && (
-              <p className="text-sm text-gray-600 dark:text-gray-300 mt-3 line-clamp-4 flex-1">
-                {profile.bio}
-              </p>
-            )}
-            {profile.location && (
-              <p className="text-xs text-gray-400 flex items-center gap-1 mt-auto pt-2">
-                <svg
-                  className="w-3 h-3"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-                {profile.location}
-              </p>
-            )}
+            </span>
           </div>
         )}
+        <div className="p-4 h-3/5 flex flex-col">
+          <h3 className="font-semibold text-gray-900 dark:text-white truncate">
+            {profile.name}
+          </h3>
+          <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">
+            {profile.jobFunctions.slice(0, 2).join(" • ")}
+          </p>
+          {hasWondering && (
+            <div className="mt-auto pt-2">
+              <div className="bg-blue-50 dark:bg-blue-900/30 rounded-lg p-2">
+                <p className="text-[10px] text-blue-600 dark:text-blue-400 mb-0.5">
+                  Wondering...
+                </p>
+                <p className="text-xs text-gray-700 dark:text-gray-300 line-clamp-2">
+                  "{profile.wondering!.prompt}"
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
       </Link>
     );
   }
 
-  // Small tile
+  // Small tile - compact view
   return (
     <Link
       to={`/profile/${profile._id}`}

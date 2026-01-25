@@ -192,6 +192,24 @@ export const search = query({
       );
     }
 
-    return profiles.slice(0, 20);
+    // Fetch active wondering for each profile
+    const profilesWithWondering = await Promise.all(
+      profiles.slice(0, 20).map(async (profile) => {
+        const wondering = await ctx.db
+          .query("wonderings")
+          .withIndex("by_profileId_active", (q) =>
+            q.eq("profileId", profile._id).eq("isActive", true),
+          )
+          .first();
+        return {
+          ...profile,
+          wondering: wondering
+            ? { prompt: wondering.prompt, _id: wondering._id }
+            : null,
+        };
+      }),
+    );
+
+    return profilesWithWondering;
   },
 });
