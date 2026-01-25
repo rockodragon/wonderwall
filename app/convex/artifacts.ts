@@ -1,6 +1,6 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
-import { api } from "./_generated/api";
+import { action, internalMutation, mutation, query } from "./_generated/server";
+import { api, internal } from "./_generated/api";
 import { auth } from "./auth";
 
 export const getMyArtifacts = query({
@@ -163,6 +163,14 @@ export const create = mutation({
       });
     }
 
+    // Schedule og:image fetching for link-type artifacts
+    if (args.type === "link" && args.mediaUrl) {
+      await ctx.scheduler.runAfter(0, api.artifacts.fetchOgImage, {
+        artifactId,
+        url: args.mediaUrl,
+      });
+    }
+
     return artifactId;
   },
 });
@@ -298,5 +306,74 @@ export const getAllArtifacts = query({
     );
 
     return withDetails;
+  },
+});
+
+// Fetch og:image from a URL and update the artifact
+export const fetchOgImage = action({
+  args: {
+    artifactId: v.id("artifacts"),
+    url: v.string(),
+  },
+  handler: async (ctx, args) => {
+    try {
+      // Fetch the page HTML
+      const response = await fetch(args.url, {
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (compatible; Wonderwall/1.0; +https://wonderwall.community)",
+        },
+        signal: AbortSignal.timeout(10000), // 10 second timeout
+      });
+
+      if (!response.ok) {
+        console.log(`Failed to fetch ${args.url}: ${response.status}`);
+        return;
+      }
+
+      const html = await response.text();
+
+      // Extract og:image using regex (works for most cases)
+      const ogImageMatch = html.match(
+        /<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["'][^>]*>/i,
+      );
+      const ogImageMatchAlt = html.match(
+        /<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:image["'][^>]*>/i,
+      );
+
+      const ogImageUrl = ogImageMatch?.[1] || ogImageMatchAlt?.[1];
+
+      if (ogImageUrl) {
+        // Handle relative URLs
+        let absoluteUrl = ogImageUrl;
+        if (ogImageUrl.startsWith("/")) {
+          const urlObj = new URL(args.url);
+          absoluteUrl = `${urlObj.origin}${ogImageUrl}`;
+        } else if (!ogImageUrl.startsWith("http")) {
+          const urlObj = new URL(args.url);
+          absoluteUrl = `${urlObj.origin}/${ogImageUrl}`;
+        }
+
+        await ctx.runMutation(internal.artifacts.updateOgImage, {
+          artifactId: args.artifactId,
+          ogImageUrl: absoluteUrl,
+        });
+      }
+    } catch (error) {
+      console.log(`Error fetching og:image for ${args.url}:`, error);
+    }
+  },
+});
+
+// Internal mutation to update og:image URL
+export const updateOgImage = internalMutation({
+  args: {
+    artifactId: v.id("artifacts"),
+    ogImageUrl: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.artifactId, {
+      ogImageUrl: args.ogImageUrl,
+    });
   },
 });

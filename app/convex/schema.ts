@@ -46,6 +46,7 @@ export default defineSchema({
     content: v.optional(v.string()), // markdown for text type
     mediaUrl: v.optional(v.string()), // external URL for media
     mediaStorageId: v.optional(v.id("_storage")), // Convex file storage
+    ogImageUrl: v.optional(v.string()), // fetched og:image for link types
     title: v.optional(v.string()), // optional title for the artifact
     order: v.number(),
     createdAt: v.number(),

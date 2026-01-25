@@ -151,29 +151,65 @@ export default function WorkDetail() {
             !isImageUrl &&
             !youtubeId &&
             artifact.resolvedMediaUrl && (
-              <div className="p-8 flex flex-col items-center justify-center min-h-[200px] bg-gradient-to-br from-emerald-50 to-cyan-50 dark:from-emerald-900/20 dark:to-cyan-900/20">
-                <svg
-                  className="w-16 h-16 text-emerald-500 mb-4"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
-                  />
-                </svg>
-                <a
-                  href={artifact.resolvedMediaUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-emerald-600 dark:text-emerald-400 hover:underline text-lg"
-                >
-                  {artifact.resolvedMediaUrl}
-                </a>
-              </div>
+              <>
+                {artifact.ogImageUrl ? (
+                  <div className="relative min-h-[300px]">
+                    <img
+                      src={artifact.ogImageUrl}
+                      alt={artifact.title || "Link preview"}
+                      className="w-full h-full object-cover max-h-[50vh]"
+                    />
+                    {/* Link badge */}
+                    <a
+                      href={artifact.resolvedMediaUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="absolute bottom-4 right-4 flex items-center gap-2 px-4 py-2 bg-white/90 dark:bg-black/70 rounded-xl shadow-lg hover:bg-white dark:hover:bg-black transition-colors"
+                    >
+                      <svg
+                        className="w-5 h-5 text-emerald-600 dark:text-emerald-400"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                        />
+                      </svg>
+                      <span className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                        Open Link
+                      </span>
+                    </a>
+                  </div>
+                ) : (
+                  <div className="p-8 flex flex-col items-center justify-center min-h-[200px] bg-gradient-to-br from-emerald-50 to-cyan-50 dark:from-emerald-900/20 dark:to-cyan-900/20">
+                    <svg
+                      className="w-16 h-16 text-emerald-500 mb-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+                      />
+                    </svg>
+                    <a
+                      href={artifact.resolvedMediaUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-emerald-600 dark:text-emerald-400 hover:underline text-lg"
+                    >
+                      {artifact.resolvedMediaUrl}
+                    </a>
+                  </div>
+                )}
+              </>
             )}
         </div>
 

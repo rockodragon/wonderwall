@@ -147,26 +147,64 @@ export default function Works() {
               )}
 
               {artifact.type === "link" && !isImageUrl && !youtubeId && (
-                <div className="w-full h-full p-4 flex flex-col justify-center bg-gradient-to-br from-emerald-50 to-cyan-50 dark:from-emerald-900/30 dark:to-cyan-900/30">
-                  <svg
-                    className="w-8 h-8 text-emerald-600 dark:text-emerald-400 mb-2"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
-                    />
-                  </svg>
-                  {artifact.title && (
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white line-clamp-2">
-                      {artifact.title}
-                    </h3>
+                <>
+                  {artifact.ogImageUrl ? (
+                    // Use og:image as background
+                    <div className="relative w-full h-full">
+                      <img
+                        src={artifact.ogImageUrl}
+                        alt={artifact.title || "Link preview"}
+                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                      />
+                      {/* Title overlay */}
+                      {artifact.title && (
+                        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-4">
+                          <h3 className="text-white font-semibold line-clamp-2">
+                            {artifact.title}
+                          </h3>
+                        </div>
+                      )}
+                      {/* Link icon badge */}
+                      <div className="absolute top-3 right-3 w-8 h-8 bg-white/90 dark:bg-black/70 rounded-full flex items-center justify-center">
+                        <svg
+                          className="w-4 h-4 text-gray-700 dark:text-gray-300"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+                          />
+                        </svg>
+                      </div>
+                    </div>
+                  ) : (
+                    // Fallback gradient card
+                    <div className="w-full h-full p-4 flex flex-col justify-center bg-gradient-to-br from-emerald-50 to-cyan-50 dark:from-emerald-900/30 dark:to-cyan-900/30">
+                      <svg
+                        className="w-8 h-8 text-emerald-600 dark:text-emerald-400 mb-2"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+                        />
+                      </svg>
+                      {artifact.title && (
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white line-clamp-2">
+                          {artifact.title}
+                        </h3>
+                      )}
+                    </div>
                   )}
-                </div>
+                </>
               )}
 
               {artifact.type === "audio" && (

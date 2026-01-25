@@ -875,7 +875,7 @@ function WonderingSection() {
         Wondering
       </h2>
       <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-        Share a question. Others can respond. Lasts 2 weeks.
+        Share one post at a time
       </p>
 
       {wondering && !isEditing ? (
