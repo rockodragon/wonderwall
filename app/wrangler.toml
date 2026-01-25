@@ -1,0 +1,8 @@
+name = "wonderwall"
+compatibility_date = "2024-12-01"
+compatibility_flags = ["nodejs_compat"]
+pages_build_output_dir = "./build/client"
+
+[vars]
+# These will be overridden by Cloudflare dashboard secrets
+# VITE_CONVEX_URL = "https://your-deployment.convex.cloud"
