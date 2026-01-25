@@ -2,6 +2,7 @@ import { useQuery } from "convex/react";
 import { Link } from "react-router";
 import { api } from "../../convex/_generated/api";
 import { FavoriteButton } from "../components/FavoriteButton";
+import { InviteCTA } from "../components/InviteCTA";
 
 const EVENT_GRADIENTS = [
   "from-blue-500 to-indigo-600",
@@ -132,10 +133,7 @@ export default function Favorites() {
               {profilesWithWonderings.length > 0 && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-6">
                   {profilesWithWonderings.map((item) => (
-                    <FavoriteWonderCard
-                      key={item.favoriteId}
-                      item={item}
-                    />
+                    <FavoriteWonderCard key={item.favoriteId} item={item} />
                   ))}
                 </div>
               )}
@@ -143,10 +141,7 @@ export default function Favorites() {
               {profilesWithoutWonderings.length > 0 && (
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                   {profilesWithoutWonderings.map((item) => (
-                    <FavoriteProfileCard
-                      key={item.favoriteId}
-                      item={item}
-                    />
+                    <FavoriteProfileCard key={item.favoriteId} item={item} />
                   ))}
                 </div>
               )}
@@ -169,6 +164,11 @@ export default function Favorites() {
               </div>
             </section>
           )}
+
+          {/* Invite CTA */}
+          <div className="mt-12 max-w-md">
+            <InviteCTA variant="favorites" />
+          </div>
         </div>
       )}
     </div>
@@ -178,7 +178,9 @@ export default function Favorites() {
 function FavoriteWonderCard({
   item,
 }: {
-  item: FavoriteProfileItem & { wondering: NonNullable<FavoriteProfileItem["wondering"]> };
+  item: FavoriteProfileItem & {
+    wondering: NonNullable<FavoriteProfileItem["wondering"]>;
+  };
 }) {
   const hasWonderingImage = !!item.wondering.imageUrl;
   const hasProfileImage = !!item.profile.imageUrl;
@@ -236,11 +238,7 @@ function FavoriteWonderCard({
   );
 }
 
-function FavoriteProfileCard({
-  item,
-}: {
-  item: FavoriteProfileItem;
-}) {
+function FavoriteProfileCard({ item }: { item: FavoriteProfileItem }) {
   const hasImage = !!item.profile.imageUrl;
 
   return (

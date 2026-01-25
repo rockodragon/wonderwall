@@ -1,6 +1,15 @@
-import { Link } from "react-router";
+import { useMutation, useQuery } from "convex/react";
+import { useState } from "react";
+import { api } from "../../convex/_generated/api";
+import type { Doc } from "../../convex/_generated/dataModel";
 
-type InviteCTAVariant = "profile" | "works" | "discover" | "events";
+type InviteCTAVariant =
+  | "profile"
+  | "works"
+  | "discover"
+  | "events"
+  | "favorites"
+  | "sidebar";
 
 const VARIANTS: Record<
   InviteCTAVariant,
@@ -34,15 +43,62 @@ const VARIANTS: Record<
     pattern:
       "radial-gradient(circle at 70% 30%, rgba(255,255,255,0.1) 0%, transparent 50%)",
   },
+  favorites: {
+    headline: "Invite more of what you love",
+    subtitle: "Know someone who'd add to your favorites?",
+    gradient: "from-pink-500 via-rose-500 to-red-500",
+    pattern:
+      "radial-gradient(circle at 50% 50%, rgba(255,255,255,0.12) 0%, transparent 50%)",
+  },
+  sidebar: {
+    headline: "Invite someone",
+    subtitle: "Grow the community with people you know.",
+    gradient: "from-indigo-500 via-purple-500 to-pink-500",
+    pattern:
+      "radial-gradient(circle at 40% 60%, rgba(255,255,255,0.1) 0%, transparent 50%)",
+  },
 };
 
 export function InviteCTA({ variant }: { variant: InviteCTAVariant }) {
   const config = VARIANTS[variant];
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [copied, setCopied] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const invites = useQuery(api.invites.getMyInvites);
+  const createInvite = useMutation(api.invites.create);
+
+  const unusedInvites = invites?.filter((i) => !i.usedBy) || [];
+  const usedInvites = invites?.filter((i) => i.usedBy) || [];
+  const canCreate = unusedInvites.length < 3;
+
+  async function handleCreateInvite() {
+    setCreating(true);
+    setError(null);
+    try {
+      const code = await createInvite({});
+      copyToClipboard(code);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create invite");
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  function copyToClipboard(code: string) {
+    const url = `${window.location.origin}/signup/${code}`;
+    navigator.clipboard.writeText(url);
+    setCopied(code);
+    setTimeout(() => setCopied(null), 2000);
+  }
 
   return (
-    <Link
-      to="/settings"
-      className={`group relative block overflow-hidden rounded-2xl bg-gradient-to-br ${config.gradient} p-6 transition-all duration-300 hover:scale-[1.02] hover:shadow-xl`}
+    <div
+      className={`group relative overflow-hidden rounded-2xl bg-gradient-to-br ${config.gradient} transition-all duration-300 ${
+        isExpanded ? "" : "hover:scale-[1.02] hover:shadow-xl cursor-pointer"
+      }`}
+      onClick={() => !isExpanded && setIsExpanded(true)}
     >
       {/* Texture overlay */}
       <div
@@ -60,15 +116,68 @@ export function InviteCTA({ variant }: { variant: InviteCTAVariant }) {
         }}
       />
 
-      {/* Shine effect on hover */}
-      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
+      {/* Shine effect on hover (only when collapsed) */}
+      {!isExpanded && (
+        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
+      )}
 
       {/* Content */}
-      <div className="relative z-10">
-        <div className="flex items-center gap-3 mb-3">
-          <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+      <div className="relative z-10 p-6">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+              <svg
+                className="w-5 h-5 text-white"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"
+                />
+              </svg>
+            </div>
+            <h3 className="text-lg font-semibold text-white">
+              {config.headline}
+            </h3>
+          </div>
+          {isExpanded && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsExpanded(false);
+              }}
+              className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white hover:bg-white/30 transition-colors"
+            >
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          )}
+        </div>
+
+        <p className="text-white/90 text-sm leading-relaxed mb-4">
+          {config.subtitle}
+        </p>
+
+        {!isExpanded ? (
+          <div className="inline-flex items-center gap-2 text-white font-medium text-sm group-hover:gap-3 transition-all">
+            <span>Send an invite</span>
             <svg
-              className="w-5 h-5 text-white"
+              className="w-4 h-4 transition-transform group-hover:translate-x-1"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -77,36 +186,61 @@ export function InviteCTA({ variant }: { variant: InviteCTAVariant }) {
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"
+                d="M13 7l5 5m0 0l-5 5m5-5H6"
               />
             </svg>
           </div>
-          <h3 className="text-lg font-semibold text-white">
-            {config.headline}
-          </h3>
-        </div>
+        ) : (
+          <div className="space-y-3">
+            {error && (
+              <p className="text-white/80 text-xs bg-red-500/30 rounded-lg px-3 py-2">
+                {error}
+              </p>
+            )}
 
-        <p className="text-white/90 text-sm leading-relaxed mb-4">
-          {config.subtitle}
-        </p>
+            {/* Invite codes */}
+            <div className="space-y-2">
+              {unusedInvites.map((invite: Doc<"invites">) => (
+                <div
+                  key={invite._id}
+                  className="flex items-center justify-between p-3 bg-white/10 backdrop-blur-sm rounded-xl"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <code className="text-sm font-mono text-white/90">
+                    {invite.code}
+                  </code>
+                  <button
+                    onClick={() => copyToClipboard(invite.code)}
+                    className="px-3 py-1 bg-white/20 hover:bg-white/30 text-white text-xs font-medium rounded-lg transition-colors"
+                  >
+                    {copied === invite.code ? "Copied!" : "Copy link"}
+                  </button>
+                </div>
+              ))}
+            </div>
 
-        <div className="inline-flex items-center gap-2 text-white font-medium text-sm group-hover:gap-3 transition-all">
-          <span>Send an invite</span>
-          <svg
-            className="w-4 h-4 transition-transform group-hover:translate-x-1"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={2}
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M13 7l5 5m0 0l-5 5m5-5H6"
-            />
-          </svg>
-        </div>
+            {/* Create new invite button */}
+            {canCreate && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleCreateInvite();
+                }}
+                disabled={creating}
+                className="w-full py-3 bg-white/20 hover:bg-white/30 text-white font-medium rounded-xl transition-colors disabled:opacity-50"
+              >
+                {creating ? "Creating..." : "+ Create new invite"}
+              </button>
+            )}
+
+            {/* Stats */}
+            <div className="flex items-center justify-between text-white/70 text-xs pt-2">
+              <span>{unusedInvites.length}/3 invites available</span>
+              {usedInvites.length > 0 && <span>{usedInvites.length} used</span>}
+            </div>
+          </div>
+        )}
       </div>
-    </Link>
+    </div>
   );
 }
