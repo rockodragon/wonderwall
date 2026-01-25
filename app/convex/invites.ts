@@ -158,9 +158,8 @@ export const getInviteStats = query({
 
     const totalDownstream = countDownstream(args.userId, new Set());
 
-    // Network size includes: inviter (if any) + direct invitees + downstream
-    const networkSize =
-      (invitedBy ? 1 : 0) + directInvitees + (totalDownstream - directInvitees);
+    // Network size includes: self (1) + inviter (if any) + all downstream
+    const networkSize = 1 + (invitedBy ? 1 : 0) + totalDownstream;
 
     return {
       invitedBy,

@@ -150,11 +150,11 @@ export default function Works() {
                 <>
                   {artifact.ogImageUrl ? (
                     // Use og:image as background
-                    <div className="relative w-full h-full">
+                    <div className="relative w-full h-full bg-gray-100 dark:bg-gray-800">
                       <img
                         src={artifact.ogImageUrl}
                         alt={artifact.title || "Link preview"}
-                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                        className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105"
                       />
                       {/* Title overlay */}
                       {artifact.title && (

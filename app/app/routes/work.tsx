@@ -153,11 +153,11 @@ export default function WorkDetail() {
             artifact.resolvedMediaUrl && (
               <>
                 {artifact.ogImageUrl ? (
-                  <div className="relative min-h-[300px]">
+                  <div className="relative min-h-[300px] bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
                     <img
                       src={artifact.ogImageUrl}
                       alt={artifact.title || "Link preview"}
-                      className="w-full h-full object-cover max-h-[50vh]"
+                      className="max-w-full max-h-[50vh] object-contain"
                     />
                     {/* Link badge */}
                     <a
