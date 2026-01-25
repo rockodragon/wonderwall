@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { api } from "./_generated/api";
 import { auth } from "./auth";
 
 const TWO_WEEKS_MS = 14 * 24 * 60 * 60 * 1000;
@@ -73,7 +74,7 @@ export const create = mutation({
 
     const now = Date.now();
 
-    return await ctx.db.insert("wonderings", {
+    const wonderingId = await ctx.db.insert("wonderings", {
       profileId: profile._id,
       prompt: args.prompt.trim(),
       imageStorageId: args.imageStorageId,
@@ -82,6 +83,13 @@ export const create = mutation({
       isActive: true,
       createdAt: now,
     });
+
+    // Schedule embedding generation
+    await ctx.scheduler.runAfter(0, api.embeddings.embedWondering, {
+      wonderingId,
+    });
+
+    return wonderingId;
   },
 });
 
@@ -107,6 +115,11 @@ export const update = mutation({
     await ctx.db.patch(args.wonderingId, {
       prompt: args.prompt.trim(),
       imageStorageId: args.imageStorageId,
+    });
+
+    // Schedule embedding regeneration
+    await ctx.scheduler.runAfter(0, api.embeddings.embedWondering, {
+      wonderingId: args.wonderingId,
     });
   },
 });

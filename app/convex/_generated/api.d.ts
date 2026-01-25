@@ -10,6 +10,7 @@
 
 import type * as artifacts from "../artifacts.js";
 import type * as auth from "../auth.js";
+import type * as embeddings from "../embeddings.js";
 import type * as events from "../events.js";
 import type * as favorites from "../favorites.js";
 import type * as files from "../files.js";
@@ -29,6 +30,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   artifacts: typeof artifacts;
   auth: typeof auth;
+  embeddings: typeof embeddings;
   events: typeof events;
   favorites: typeof favorites;
   files: typeof files;

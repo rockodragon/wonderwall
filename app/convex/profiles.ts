@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import type { QueryCtx } from "./_generated/server";
+import { api } from "./_generated/api";
 import { auth } from "./auth";
 import type { Doc } from "./_generated/dataModel";
 
@@ -128,6 +129,7 @@ export const upsertProfile = mutation({
 
     const now = Date.now();
 
+    let profileId;
     if (existing) {
       await ctx.db.patch(existing._id, {
         name: args.name,
@@ -136,9 +138,9 @@ export const upsertProfile = mutation({
         location: args.location,
         updatedAt: now,
       });
-      return existing._id;
+      profileId = existing._id;
     } else {
-      return await ctx.db.insert("profiles", {
+      profileId = await ctx.db.insert("profiles", {
         userId,
         name: args.name,
         bio: args.bio,
@@ -148,6 +150,11 @@ export const upsertProfile = mutation({
         updatedAt: now,
       });
     }
+
+    // Schedule embedding generation
+    await ctx.scheduler.runAfter(0, api.embeddings.embedProfile, { profileId });
+
+    return profileId;
   },
 });
 

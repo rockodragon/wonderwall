@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { api } from "./_generated/api";
 import { auth } from "./auth";
 
 export const getMyArtifacts = query({
@@ -69,7 +70,7 @@ export const create = mutation({
     const maxOrder =
       existing.length > 0 ? Math.max(...existing.map((a) => a.order)) : -1;
 
-    return await ctx.db.insert("artifacts", {
+    const artifactId = await ctx.db.insert("artifacts", {
       profileId: profile._id,
       type: args.type,
       title: args.title,
@@ -79,6 +80,15 @@ export const create = mutation({
       order: maxOrder + 1,
       createdAt: Date.now(),
     });
+
+    // Schedule embedding generation for text-based artifacts
+    if (args.title || args.content) {
+      await ctx.scheduler.runAfter(0, api.embeddings.embedArtifact, {
+        artifactId,
+      });
+    }
+
+    return artifactId;
   },
 });
 
@@ -114,6 +124,13 @@ export const update = mutation({
       mediaUrl: args.mediaUrl,
       mediaStorageId: args.mediaStorageId,
     });
+
+    // Schedule embedding regeneration if content changed
+    if (args.title || args.content) {
+      await ctx.scheduler.runAfter(0, api.embeddings.embedArtifact, {
+        artifactId: args.artifactId,
+      });
+    }
   },
 });
 
