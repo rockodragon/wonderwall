@@ -51,10 +51,13 @@ export const getMyInvites = query({
     const userId = await auth.getUserId(ctx);
     if (!userId) return [];
 
-    return await ctx.db
+    const invites = await ctx.db
       .query("invites")
       .withIndex("by_inviterId", (q) => q.eq("inviterId", userId))
       .collect();
+
+    // Only return unused invites
+    return invites.filter((invite) => !invite.usedBy);
   },
 });
 
