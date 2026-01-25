@@ -69,8 +69,9 @@ export default function Signup() {
       }
 
       navigate("/settings"); // Go to profile setup
-    } catch {
-      setError("Email already in use or signup failed");
+    } catch (err) {
+      console.error("Signup error:", err);
+      setError(err instanceof Error ? err.message : "Signup failed");
     } finally {
       setLoading(false);
     }
