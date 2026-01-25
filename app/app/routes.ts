@@ -19,5 +19,6 @@ export default [
     route("profile/:profileId", "routes/profile.tsx"),
     route("favorites", "routes/favorites.tsx"),
     route("settings", "routes/settings.tsx"),
+    route("faq", "routes/faq.tsx"),
   ]),
 ] satisfies RouteConfig;
