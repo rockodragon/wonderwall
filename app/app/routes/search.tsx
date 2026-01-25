@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { api } from "../../convex/_generated/api";
 import { FavoriteButton } from "../components/FavoriteButton";
+import { InviteCTA } from "../components/InviteCTA";
 
 // Debounce hook for search
 function useDebounce<T>(value: T, delay: number): T {
@@ -158,6 +159,11 @@ export default function Search() {
               </div>
             </section>
           )}
+
+          {/* Invite CTA */}
+          <div className="mt-8 max-w-md">
+            <InviteCTA variant="discover" />
+          </div>
         </div>
       )}
     </div>

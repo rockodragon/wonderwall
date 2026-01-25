@@ -2,6 +2,7 @@ import { useQuery } from "convex/react";
 import { Link } from "react-router";
 import { useMemo } from "react";
 import { api } from "../../convex/_generated/api";
+import { InviteCTA } from "../components/InviteCTA";
 
 export default function Works() {
   const artifacts = useQuery(api.artifacts.getAllArtifacts);
@@ -218,6 +219,11 @@ export default function Works() {
             </Link>
           );
         })}
+      </div>
+
+      {/* Invite CTA */}
+      <div className="mt-12 max-w-md">
+        <InviteCTA variant="works" />
       </div>
     </div>
   );

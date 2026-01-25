@@ -4,6 +4,7 @@ import { Link } from "react-router";
 import { api } from "../../convex/_generated/api";
 import { CreateEventModal } from "../components/CreateEventModal";
 import { FavoriteButton } from "../components/FavoriteButton";
+import { InviteCTA } from "../components/InviteCTA";
 
 const EVENT_GRADIENTS = [
   "from-blue-500 to-indigo-600",
@@ -257,6 +258,11 @@ export default function Events() {
           })}
         </div>
       )}
+
+      {/* Invite CTA */}
+      <div className="mt-12 max-w-md">
+        <InviteCTA variant="events" />
+      </div>
 
       {showCreate && <CreateEventModal onClose={() => setShowCreate(false)} />}
     </div>

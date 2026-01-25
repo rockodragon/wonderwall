@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams } from "react-router";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { FavoriteButton } from "../components/FavoriteButton";
+import { InviteCTA } from "../components/InviteCTA";
 
 export default function Profile() {
   const { profileId } = useParams();
@@ -308,6 +309,13 @@ export default function Profile() {
             <p>This profile doesn't have any content yet</p>
           </div>
         )}
+
+      {/* Invite CTA - only show on own profile */}
+      {isOwnProfile && (
+        <div className="mt-8">
+          <InviteCTA variant="profile" />
+        </div>
+      )}
     </div>
   );
 }
