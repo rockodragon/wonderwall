@@ -4,5 +4,4 @@ compatibility_flags = ["nodejs_compat"]
 pages_build_output_dir = "./build/client"
 
 [vars]
-# These will be overridden by Cloudflare dashboard secrets
-# VITE_CONVEX_URL = "https://your-deployment.convex.cloud"
+VITE_CONVEX_URL = "https://courteous-rabbit-750.convex.cloud"
