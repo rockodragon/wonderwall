@@ -154,7 +154,7 @@ export default function Profile() {
                     />
                   </svg>
                   <span className="font-semibold">
-                    {inviteStats.directInvitees + inviteStats.downstreamCount}
+                    {inviteStats.networkSize}
                   </span>
                   <span className="text-emerald-600 dark:text-emerald-500">
                     in network
@@ -162,9 +162,9 @@ export default function Profile() {
                 </span>
                 {inviteStats.directInvitees > 0 && (
                   <span className="text-gray-400 dark:text-gray-500 text-xs">
-                    ({inviteStats.directInvitees} direct
+                    ({inviteStats.directInvitees} invited
                     {inviteStats.downstreamCount > 0 &&
-                      `, ${inviteStats.downstreamCount} downstream`}
+                      `, +${inviteStats.downstreamCount} downstream`}
                     )
                   </span>
                 )}
