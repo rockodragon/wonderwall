@@ -184,3 +184,44 @@ export const reorder = mutation({
     }
   },
 });
+
+// Get all artifacts for the Works gallery
+export const getAllArtifacts = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await auth.getUserId(ctx);
+    if (!userId) return [];
+
+    const artifacts = await ctx.db.query("artifacts").collect();
+
+    // Resolve storage URLs and get profile info
+    const withDetails = await Promise.all(
+      artifacts.map(async (artifact) => {
+        let resolvedMediaUrl = artifact.mediaUrl || null;
+        if (artifact.mediaStorageId) {
+          resolvedMediaUrl = await ctx.storage.getUrl(artifact.mediaStorageId);
+        }
+
+        const profile = await ctx.db.get(artifact.profileId);
+        let profileImageUrl = profile?.imageUrl || null;
+        if (profile?.imageStorageId) {
+          profileImageUrl = await ctx.storage.getUrl(profile.imageStorageId);
+        }
+
+        return {
+          ...artifact,
+          resolvedMediaUrl,
+          profile: profile
+            ? {
+                _id: profile._id,
+                displayName: profile.displayName,
+                imageUrl: profileImageUrl,
+              }
+            : null,
+        };
+      }),
+    );
+
+    return withDetails;
+  },
+});
