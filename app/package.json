@@ -9,7 +9,7 @@
     "typecheck": "react-router typegen && tsc"
   },
   "dependencies": {
-    "@auth/core": "^0.37.4",
+    "@auth/core": "0.37.0",
     "@convex-dev/auth": "^0.0.90",
     "@react-router/node": "7.12.0",
     "@react-router/serve": "7.12.0",

@@ -49,9 +49,8 @@ export const create = mutation({
       )
       .first();
 
-    // Get user to check plan
-    const user = await ctx.db.get(userId);
-    const isPaidPlan = user?.plan === "paid";
+    // Check plan from profile (defaults to free)
+    const isPaidPlan = profile.plan === "paid";
 
     if (existing && !isPaidPlan) {
       throw new Error(

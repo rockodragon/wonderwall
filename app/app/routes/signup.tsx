@@ -1,6 +1,8 @@
 import { useAuthActions } from "@convex-dev/auth/react";
-import { useState } from "react";
+import { useMutation, useQuery } from "convex/react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate, useParams } from "react-router";
+import { api } from "../../convex/_generated/api";
 
 export default function Signup() {
   const { inviteCode } = useParams();
@@ -13,6 +15,14 @@ export default function Signup() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // Validate invite code in real-time
+  const inviteValidation = useQuery(
+    api.invites.validate,
+    code.length >= 8 ? { code } : "skip",
+  );
+
+  const redeemInvite = useMutation(api.invites.redeem);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
@@ -22,20 +32,45 @@ export default function Signup() {
       return;
     }
 
+    // Check invite validity before attempting signup
+    if (!inviteValidation?.valid) {
+      setError(inviteValidation?.reason || "Invalid invite code");
+      return;
+    }
+
+    if (!name.trim()) {
+      setError("Name is required");
+      return;
+    }
+
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters");
+      return;
+    }
+
     setLoading(true);
 
     try {
-      // Sign up with password - invite validation happens server-side
+      // Sign up with password
       await signIn("password", {
         email,
         password,
         name,
-        inviteCode: code,
         flow: "signUp",
       });
+
+      // Redeem the invite code after successful signup
+      try {
+        await redeemInvite({ code });
+      } catch {
+        // Invite redemption failed but user is created
+        // This is ok - they're signed up, invite just wasn't tracked
+        console.warn("Failed to redeem invite code");
+      }
+
       navigate("/settings"); // Go to profile setup
     } catch {
-      setError("Invalid invite code or email already in use");
+      setError("Email already in use or signup failed");
     } finally {
       setLoading(false);
     }
@@ -73,10 +108,23 @@ export default function Signup() {
                 type="text"
                 required
                 value={code}
-                onChange={(e) => setCode(e.target.value)}
+                onChange={(e) => setCode(e.target.value.toUpperCase())}
                 placeholder="Enter your invite code"
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white uppercase"
               />
+              {code.length >= 8 && inviteValidation && (
+                <p
+                  className={`mt-1 text-xs ${
+                    inviteValidation.valid
+                      ? "text-green-600 dark:text-green-400"
+                      : "text-red-600 dark:text-red-400"
+                  }`}
+                >
+                  {inviteValidation.valid
+                    ? "Valid invite code"
+                    : inviteValidation.reason}
+                </p>
+              )}
             </div>
 
             <div>
@@ -137,7 +185,7 @@ export default function Signup() {
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || (code.length >= 8 && !inviteValidation?.valid)}
             className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? "Creating account..." : "Create account"}

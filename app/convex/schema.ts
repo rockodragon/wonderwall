@@ -1,14 +1,10 @@
+import { authTables } from "@convex-dev/auth/server";
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
 export default defineSchema({
-  // User account (linked to auth)
-  users: defineTable({
-    email: v.string(),
-    authProvider: v.string(), // "email" | "google" | etc.
-    plan: v.string(), // "free" | "paid"
-    createdAt: v.number(),
-  }).index("by_email", ["email"]),
+  // Convex Auth tables (users, sessions, accounts, etc.)
+  ...authTables,
 
   // Profile (1:1 with user)
   profiles: defineTable({
@@ -18,6 +14,7 @@ export default defineSchema({
     imageUrl: v.optional(v.string()),
     jobFunctions: v.array(v.string()), // curated list + "other:custom"
     location: v.optional(v.string()),
+    plan: v.optional(v.string()), // "free" | "paid" - defaults to free
     createdAt: v.number(),
     updatedAt: v.number(),
   })
