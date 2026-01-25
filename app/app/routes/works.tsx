@@ -56,12 +56,22 @@ export default function Works() {
           // Determine size class for bento effect
           const sizeClass = getBentoSize(index);
 
-          // Check if URL is an image (for link types with image URLs)
-          const isImageUrl =
-            artifact.resolvedMediaUrl &&
-            /\.(jpg|jpeg|png|gif|webp|svg|bmp)/i.test(
-              artifact.resolvedMediaUrl,
-            );
+          // Check if URL is an image (strip query string first)
+          const urlWithoutQuery =
+            artifact.resolvedMediaUrl?.split("?")[0] || "";
+          const isImageUrl = /\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i.test(
+            urlWithoutQuery,
+          );
+
+          // Check if URL is YouTube
+          const youtubeMatch = artifact.resolvedMediaUrl?.match(
+            /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
+          );
+          const youtubeId = youtubeMatch?.[1];
+          const youtubeThumbnail = youtubeId
+            ? `https://img.youtube.com/vi/${youtubeId}/hqdefault.jpg`
+            : null;
+
           const showAsImage =
             artifact.type === "image" ||
             (artifact.type === "link" && isImageUrl);
@@ -81,20 +91,44 @@ export default function Works() {
                 />
               )}
 
-              {artifact.type === "video" && artifact.resolvedMediaUrl && (
-                <video
-                  src={artifact.resolvedMediaUrl}
-                  className="w-full h-full object-cover"
-                  muted
-                  loop
-                  playsInline
-                  onMouseEnter={(e) => e.currentTarget.play()}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.pause();
-                    e.currentTarget.currentTime = 0;
-                  }}
-                />
+              {/* YouTube video thumbnail */}
+              {youtubeThumbnail && !showAsImage && (
+                <div className="relative w-full h-full">
+                  <img
+                    src={youtubeThumbnail}
+                    alt={artifact.title || "Video"}
+                    className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="w-16 h-16 bg-red-600 rounded-full flex items-center justify-center shadow-lg">
+                      <svg
+                        className="w-8 h-8 text-white ml-1"
+                        fill="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path d="M8 5v14l11-7z" />
+                      </svg>
+                    </div>
+                  </div>
+                </div>
               )}
+
+              {artifact.type === "video" &&
+                artifact.resolvedMediaUrl &&
+                !youtubeId && (
+                  <video
+                    src={artifact.resolvedMediaUrl}
+                    className="w-full h-full object-cover"
+                    muted
+                    loop
+                    playsInline
+                    onMouseEnter={(e) => e.currentTarget.play()}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.pause();
+                      e.currentTarget.currentTime = 0;
+                    }}
+                  />
+                )}
 
               {artifact.type === "text" && (
                 <div className="w-full h-full p-4 flex flex-col justify-center bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-900/30 dark:to-purple-900/30">
@@ -111,7 +145,7 @@ export default function Works() {
                 </div>
               )}
 
-              {artifact.type === "link" && !isImageUrl && (
+              {artifact.type === "link" && !isImageUrl && !youtubeId && (
                 <div className="w-full h-full p-4 flex flex-col justify-center bg-gradient-to-br from-emerald-50 to-cyan-50 dark:from-emerald-900/30 dark:to-cyan-900/30">
                   <svg
                     className="w-8 h-8 text-emerald-600 dark:text-emerald-400 mb-2"
