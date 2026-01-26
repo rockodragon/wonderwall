@@ -180,4 +180,10 @@ export default defineSchema({
     .index("by_userId_type", ["userId", "targetType"])
     .index("by_target", ["targetType", "targetId"])
     .index("by_userId_target", ["userId", "targetType", "targetId"]),
+
+  // Waitlist for users interested in joining
+  waitlist: defineTable({
+    email: v.string(),
+    createdAt: v.number(),
+  }).index("by_email", ["email"]),
 });

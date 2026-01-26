@@ -1,7 +1,8 @@
-import { useConvexAuth } from "convex/react";
+import { useConvexAuth, useMutation } from "convex/react";
 import { Link, useNavigate } from "react-router";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import type { Route } from "./+types/home";
+import { api } from "../../convex/_generated/api";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -17,12 +18,38 @@ export function meta({}: Route.MetaArgs) {
 export default function Home() {
   const { isAuthenticated, isLoading } = useConvexAuth();
   const navigate = useNavigate();
+  const [email, setEmail] = useState("");
+  const [status, setStatus] = useState<
+    "idle" | "loading" | "success" | "error"
+  >("idle");
+  const [message, setMessage] = useState("");
+  const addToWaitlist = useMutation(api.waitlist.addToWaitlist);
 
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
       navigate("/search");
     }
   }, [isAuthenticated, isLoading, navigate]);
+
+  async function handleWaitlistSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!email || !email.includes("@")) {
+      setStatus("error");
+      setMessage("Please enter a valid email");
+      return;
+    }
+
+    setStatus("loading");
+    try {
+      const result = await addToWaitlist({ email });
+      setStatus("success");
+      setMessage(result.message);
+      setEmail("");
+    } catch (err) {
+      setStatus("error");
+      setMessage("Something went wrong. Please try again.");
+    }
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white dark:from-gray-950 dark:to-gray-900">
@@ -38,12 +65,6 @@ export default function Home() {
           >
             Sign in
           </Link>
-          <Link
-            to="/signup"
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
-          >
-            Join
-          </Link>
         </div>
       </header>
 
@@ -58,19 +79,83 @@ export default function Home() {
           Discover peers, share your work, explore what others are wondering,
           and find your next collaboration.
         </p>
-        <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
-          <Link
-            to="/signup"
-            className="w-full sm:w-auto px-8 py-4 bg-blue-600 text-white rounded-xl font-medium text-lg hover:bg-blue-700 transition-colors"
+        <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full text-sm font-medium mt-4">
+          <svg
+            className="w-4 h-4"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
           >
-            Get Started
-          </Link>
-          <Link
-            to="/login"
-            className="w-full sm:w-auto px-8 py-4 border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-xl font-medium text-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-          >
-            Sign In
-          </Link>
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+            />
+          </svg>
+          Closed Beta • Invite Only
+        </div>
+
+        {/* Waitlist Form */}
+        <div className="mt-10 max-w-md mx-auto">
+          {status === "success" ? (
+            <div className="p-6 bg-green-50 dark:bg-green-900/20 rounded-2xl border border-green-200 dark:border-green-800">
+              <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg
+                  className="w-6 h-6 text-green-600 dark:text-green-400"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5 13l4 4L19 7"
+                  />
+                </svg>
+              </div>
+              <h3 className="text-lg font-semibold text-green-900 dark:text-green-100 mb-2">
+                You're on the list!
+              </h3>
+              <p className="text-green-700 dark:text-green-300">{message}</p>
+            </div>
+          ) : (
+            <form onSubmit={handleWaitlistSubmit} className="space-y-4">
+              <div className="flex flex-col sm:flex-row gap-3">
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Enter your email"
+                  className="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  disabled={status === "loading"}
+                />
+                <button
+                  type="submit"
+                  disabled={status === "loading"}
+                  className="px-8 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                >
+                  {status === "loading" ? "Joining..." : "Get on Waitlist"}
+                </button>
+              </div>
+              {status === "error" && (
+                <p className="text-sm text-red-600 dark:text-red-400">
+                  {message}
+                </p>
+              )}
+            </form>
+          )}
+
+          <p className="mt-4 text-sm text-gray-600 dark:text-gray-400">
+            Have an invite?{" "}
+            <Link
+              to="/login"
+              className="text-blue-600 hover:text-blue-500 font-medium"
+            >
+              Sign in here
+            </Link>
+          </p>
         </div>
       </main>
 
