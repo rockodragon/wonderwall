@@ -1,15 +1,35 @@
 import { useMutation, useQuery } from "convex/react";
-import { Link, useParams } from "react-router";
+import { useState } from "react";
+import { Link, useNavigate, useParams } from "react-router";
+import Markdown from "react-markdown";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 
 export default function WorkDetail() {
   const { artifactId } = useParams();
+  const navigate = useNavigate();
   const artifact = useQuery(
     api.artifacts.get,
     artifactId ? { artifactId: artifactId as Id<"artifacts"> } : "skip",
   );
   const toggleLike = useMutation(api.artifacts.toggleLike);
+  const removeArtifact = useMutation(api.artifacts.remove);
+  const [deleting, setDeleting] = useState(false);
+
+  async function handleDelete() {
+    if (!artifactId) return;
+    if (!confirm("Are you sure you want to delete this work?")) return;
+
+    setDeleting(true);
+    try {
+      await removeArtifact({ artifactId: artifactId as Id<"artifacts"> });
+      navigate("/works");
+    } catch (err) {
+      console.error("Delete failed:", err);
+      alert("Failed to delete. Please try again.");
+      setDeleting(false);
+    }
+  }
 
   if (artifact === undefined) {
     return (
@@ -135,13 +155,13 @@ export default function WorkDetail() {
             </div>
           )}
 
-          {/* Text content */}
+          {/* Text content with Markdown */}
           {artifact.type === "text" && (
             <div className="p-8 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 min-h-[200px]">
               {artifact.content && (
-                <p className="text-gray-800 dark:text-gray-200 whitespace-pre-wrap text-lg leading-relaxed">
-                  {artifact.content}
-                </p>
+                <div className="prose prose-lg dark:prose-invert max-w-none prose-headings:text-gray-900 dark:prose-headings:text-white prose-p:text-gray-700 dark:prose-p:text-gray-300 prose-a:text-blue-600 dark:prose-a:text-blue-400 prose-strong:text-gray-900 dark:prose-strong:text-white prose-code:bg-gray-100 dark:prose-code:bg-gray-800 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-gray-100 dark:prose-pre:bg-gray-800">
+                  <Markdown>{artifact.content}</Markdown>
+                </div>
               )}
             </div>
           )}
@@ -229,32 +249,83 @@ export default function WorkDetail() {
               )}
             </div>
 
-            {/* Like button */}
-            <button
-              onClick={() =>
-                toggleLike({ artifactId: artifact._id }).catch(() => {})
-              }
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
-                artifact.userLiked
-                  ? "bg-pink-100 dark:bg-pink-900/30 text-pink-600 dark:text-pink-400"
-                  : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"
-              }`}
-            >
-              <svg
-                className="w-5 h-5"
-                fill={artifact.userLiked ? "currentColor" : "none"}
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
+            <div className="flex items-center gap-2">
+              {/* Like button */}
+              <button
+                onClick={() =>
+                  toggleLike({ artifactId: artifact._id }).catch(() => {})
+                }
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
+                  artifact.userLiked
+                    ? "bg-pink-100 dark:bg-pink-900/30 text-pink-600 dark:text-pink-400"
+                    : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"
+                }`}
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
-                />
-              </svg>
-              {artifact.likeCount > 0 ? artifact.likeCount : "Like"}
-            </button>
+                <svg
+                  className="w-5 h-5"
+                  fill={artifact.userLiked ? "currentColor" : "none"}
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+                  />
+                </svg>
+                {artifact.likeCount > 0 ? artifact.likeCount : "Like"}
+              </button>
+
+              {/* Owner controls */}
+              {artifact.isOwner && (
+                <>
+                  <Link
+                    to="/settings"
+                    className="p-2 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                    title="Edit in Settings"
+                  >
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                      />
+                    </svg>
+                  </Link>
+                  <button
+                    onClick={handleDelete}
+                    disabled={deleting}
+                    className="p-2 text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors disabled:opacity-50"
+                    title="Delete"
+                  >
+                    {deleting ? (
+                      <div className="w-5 h-5 animate-spin rounded-full border-2 border-gray-300 border-t-red-500" />
+                    ) : (
+                      <svg
+                        className="w-5 h-5"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                        />
+                      </svg>
+                    )}
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         </div>
       </div>

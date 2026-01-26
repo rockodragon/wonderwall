@@ -62,9 +62,10 @@ export const get = query({
       .withIndex("by_artifactId", (q) => q.eq("artifactId", args.artifactId))
       .collect();
 
-    // Check if current user liked
+    // Check if current user liked and if they own this artifact
     const userId = await auth.getUserId(ctx);
     const userLiked = userId ? likes.some((l) => l.userId === userId) : false;
+    const isOwner = userId && profile ? profile.userId === userId : false;
 
     return {
       ...artifact,
@@ -79,6 +80,7 @@ export const get = query({
         : null,
       likeCount: likes.length,
       userLiked,
+      isOwner,
     };
   },
 });
