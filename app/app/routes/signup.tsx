@@ -66,20 +66,30 @@ export default function Signup() {
         flow: "signUp",
       });
 
+      // Wait a moment for Convex auth session to fully establish
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
       // Redeem the invite link after successful signup
       try {
         await redeemInvite({ slug: inviteSlug });
+        console.log("✅ Successfully redeemed invite:", inviteSlug);
       } catch (err) {
-        console.error("Failed to redeem invite:", err);
+        console.error("❌ Failed to redeem invite:", err);
         // Don't block signup, but log the error for debugging
         posthog?.captureException(err);
+        posthog?.capture("invite_redemption_failed", {
+          error: err instanceof Error ? err.message : "Unknown error",
+          invite_slug: inviteSlug,
+        });
       }
 
       // Generate invite slug for new user
       try {
-        await generateSlug({});
+        const newSlug = await generateSlug({});
+        console.log("✅ Generated new invite slug:", newSlug);
       } catch (err) {
-        console.warn("Failed to generate invite slug:", err);
+        console.error("❌ Failed to generate invite slug:", err);
+        posthog?.captureException(err);
       }
 
       // Identify user and capture signup event
