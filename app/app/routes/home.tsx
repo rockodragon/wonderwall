@@ -1,4 +1,4 @@
-import { useConvexAuth, useMutation } from "convex/react";
+import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { Link, useNavigate } from "react-router";
 import { useEffect, useState } from "react";
 import type { Route } from "./+types/home";
@@ -26,7 +26,14 @@ export default function Home() {
   const [showInviteInput, setShowInviteInput] = useState(false);
   const [inviteInput, setInviteInput] = useState("");
   const [inviteError, setInviteError] = useState("");
+  const [inviteSlug, setInviteSlug] = useState<string | null>(null);
   const addToWaitlist = useMutation(api.waitlist.addToWaitlist);
+
+  // Fetch inviter info when slug is set
+  const inviterInfo = useQuery(
+    api.invites.getInviterInfo,
+    inviteSlug ? { slug: inviteSlug } : "skip",
+  );
 
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
@@ -77,9 +84,9 @@ export default function Home() {
       slug = slug.replace(/^\/+|\/+$/g, "");
     }
 
-    // Navigate to signup page with the slug
+    // Set slug to fetch invite info and show preview (don't navigate yet)
     if (slug) {
-      navigate(`/signup/${slug}`);
+      setInviteSlug(slug);
     } else {
       setInviteError("Invalid invite format");
     }
@@ -183,53 +190,180 @@ export default function Home() {
 
           {/* Invite Input Section */}
           <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-            {!showInviteInput ? (
-              <button
-                onClick={() => setShowInviteInput(true)}
-                className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-              >
-                Have an invite?{" "}
-                <span className="text-blue-600 hover:text-blue-500 font-medium">
-                  Enter it here
-                </span>
-              </button>
-            ) : (
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Enter your invite
-                  </p>
-                  <button
-                    onClick={() => {
-                      setShowInviteInput(false);
-                      setInviteInput("");
-                      setInviteError("");
-                    }}
-                    className="text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
-                  >
-                    Cancel
-                  </button>
-                </div>
-                <form onSubmit={handleInviteSubmit} className="space-y-3">
-                  <input
-                    type="text"
-                    value={inviteInput}
-                    onChange={(e) => setInviteInput(e.target.value)}
-                    placeholder="Paste invite link or code (e.g., rick-moy)"
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                  {inviteError && (
-                    <p className="text-sm text-red-600 dark:text-red-400">
-                      {inviteError}
+            {!inviteSlug ? (
+              // Show invite input form
+              !showInviteInput ? (
+                <button
+                  onClick={() => setShowInviteInput(true)}
+                  className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+                >
+                  Have an invite?{" "}
+                  <span className="text-blue-600 hover:text-blue-500 font-medium">
+                    Enter it here
+                  </span>
+                </button>
+              ) : (
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Enter your invite
                     </p>
-                  )}
-                  <button
-                    type="submit"
-                    className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg font-medium text-sm hover:bg-blue-700 transition-colors"
-                  >
-                    Continue
-                  </button>
-                </form>
+                    <button
+                      onClick={() => {
+                        setShowInviteInput(false);
+                        setInviteInput("");
+                        setInviteError("");
+                      }}
+                      className="text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                  <form onSubmit={handleInviteSubmit} className="space-y-3">
+                    <input
+                      type="text"
+                      value={inviteInput}
+                      onChange={(e) => setInviteInput(e.target.value)}
+                      placeholder="Paste invite link or code"
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                    {inviteError && (
+                      <p className="text-sm text-red-600 dark:text-red-400">
+                        {inviteError}
+                      </p>
+                    )}
+                    <button
+                      type="submit"
+                      className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg font-medium text-sm hover:bg-blue-700 transition-colors"
+                    >
+                      Continue
+                    </button>
+                  </form>
+                </div>
+              )
+            ) : inviterInfo === undefined ? (
+              // Loading state
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+              </div>
+            ) : inviterInfo === null ? (
+              // Invalid invite
+              <div className="text-center py-4">
+                <p className="text-sm text-red-600 dark:text-red-400 mb-3">
+                  Invalid invite link
+                </p>
+                <button
+                  onClick={() => {
+                    setInviteSlug(null);
+                    setInviteInput("");
+                  }}
+                  className="text-sm text-blue-600 hover:text-blue-500 font-medium"
+                >
+                  Try again
+                </button>
+              </div>
+            ) : (
+              // Show personalized invite preview
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+                <div className="bg-gradient-to-r from-blue-500 to-purple-600 px-6 py-4">
+                  <p className="text-white/90 text-xs font-medium uppercase tracking-wide mb-1">
+                    You've been invited
+                  </p>
+                  <h3 className="text-xl font-bold text-white">
+                    {inviterInfo.name} invited you to join
+                  </h3>
+                </div>
+
+                <div className="p-6">
+                  {/* Inviter Info */}
+                  <div className="flex items-center gap-3 mb-4">
+                    {inviterInfo.imageUrl ? (
+                      <img
+                        src={inviterInfo.imageUrl}
+                        alt={inviterInfo.name}
+                        className="w-14 h-14 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-lg font-bold">
+                        {inviterInfo.name.charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                    <div className="text-left flex-1">
+                      <div className="font-semibold text-gray-900 dark:text-white">
+                        {inviterInfo.name}
+                      </div>
+                      {inviterInfo.jobFunctions &&
+                        inviterInfo.jobFunctions.length > 0 && (
+                          <div className="text-sm text-gray-600 dark:text-gray-400">
+                            {inviterInfo.jobFunctions.join(", ")}
+                          </div>
+                        )}
+                    </div>
+                  </div>
+
+                  {/* Connected Members - Show who's already here */}
+                  {inviterInfo.recentInvitees &&
+                    inviterInfo.recentInvitees.length > 0 && (
+                      <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
+                        <div className="flex items-center gap-3 mb-2">
+                          <div className="flex -space-x-2">
+                            {/* Show inviter + recent invitees */}
+                            <div
+                              className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-xs font-bold ring-2 ring-white dark:ring-blue-900/20"
+                              title={inviterInfo.name}
+                            >
+                              {inviterInfo.name.charAt(0).toUpperCase()}
+                            </div>
+                            {inviterInfo.recentInvitees.map((invitee, idx) => (
+                              <div
+                                key={idx}
+                                className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-400 to-pink-500 flex items-center justify-center text-white text-xs font-bold ring-2 ring-white dark:ring-blue-900/20"
+                                title={invitee.name}
+                              >
+                                {invitee.name.charAt(0).toUpperCase()}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                        <p className="text-sm text-gray-700 dark:text-gray-300">
+                          Join{" "}
+                          <span className="font-semibold">
+                            {inviterInfo.name}
+                          </span>
+                          {inviterInfo.recentInvitees.map((invitee, idx) => (
+                            <span key={idx}>
+                              {idx === 0 && ", "}
+                              <span className="font-semibold">
+                                {invitee.name}
+                              </span>
+                              {idx < inviterInfo.recentInvitees.length - 1 &&
+                                ", "}
+                            </span>
+                          ))}{" "}
+                          and others on Wonderwall
+                        </p>
+                      </div>
+                    )}
+
+                  {/* CTA Buttons */}
+                  <div className="space-y-2">
+                    <button
+                      onClick={() => navigate(`/signup/${inviteSlug}`)}
+                      className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+                    >
+                      Accept Invite & Join
+                    </button>
+                    <button
+                      onClick={() => {
+                        setInviteSlug(null);
+                        setInviteInput("");
+                      }}
+                      className="w-full px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white text-sm"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
           </div>
