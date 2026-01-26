@@ -26,6 +26,19 @@ const FILTERS = [
   { label: "Developers", value: "Developer" },
   { label: "Photographers", value: "Photographer" },
   { label: "Illustrators", value: "Illustrator" },
+  { label: "Animators", value: "Animator" },
+  { label: "Producers", value: "Producer" },
+  { label: "Pastors", value: "Pastor" },
+  { label: "Leaders", value: "Leader" },
+  { label: "Roadies", value: "Roadie" },
+  { label: "Teachers", value: "Teacher" },
+  { label: "Speakers", value: "Speaker" },
+  { label: "Worship Leaders", value: "Worship Leader" },
+  { label: "Sound Engineers", value: "Sound Engineer" },
+  { label: "Dancers", value: "Dancer" },
+  { label: "Actors", value: "Actor" },
+  { label: "Poets", value: "Poet" },
+  { label: "Craftsmen", value: "Craftsman" },
 ];
 
 type ProfileWithWondering = {
