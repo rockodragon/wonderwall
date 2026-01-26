@@ -311,7 +311,7 @@ export default function Signup() {
               }
             />
           </div>
-        </main>
+        </section>
 
         {/* Footer */}
         <footer className="px-6 py-8 border-t border-gray-200 dark:border-gray-800 mt-12">
