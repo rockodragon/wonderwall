@@ -166,7 +166,16 @@ export default function Signup() {
 
         {/* Hero */}
         <main className="px-6 py-20 max-w-4xl mx-auto text-center">
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full text-sm font-medium mb-6">
+          <h2 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white leading-tight">
+            Connect with
+            <br />
+            <span className="text-blue-600">Christian creatives</span>
+          </h2>
+          <p className="mt-6 text-xl text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
+            Discover peers, share your work, explore what others are wondering,
+            and find your next collaboration.
+          </p>
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full text-sm font-medium mt-4">
             <svg
               className="w-4 h-4"
               fill="none"
@@ -182,15 +191,6 @@ export default function Signup() {
             </svg>
             Closed Beta • Invite Only
           </div>
-          <h2 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white leading-tight">
-            Connect with
-            <br />
-            <span className="text-blue-600">Christian creatives</span>
-          </h2>
-          <p className="mt-6 text-xl text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
-            Discover peers, share your work, explore what others are wondering,
-            and find your next collaboration.
-          </p>
 
           {/* Personalized Invite Card - Replaces CTA buttons */}
           <div className="mt-10 max-w-lg mx-auto">
@@ -225,30 +225,53 @@ export default function Signup() {
                     {inviterInfo.jobFunctions &&
                       inviterInfo.jobFunctions.length > 0 && (
                         <div className="text-sm text-gray-600 dark:text-gray-400">
-                          {inviterInfo.jobFunctions[0]}
+                          {inviterInfo.jobFunctions.join(", ")}
                         </div>
                       )}
                   </div>
                 </div>
 
-                {/* Social Proof - Compact */}
+                {/* Connected Members - Show who's already here */}
                 {inviterInfo.recentInvitees &&
                   inviterInfo.recentInvitees.length > 0 && (
-                    <div className="flex items-center gap-2 mb-4 text-sm text-gray-600 dark:text-gray-400">
-                      <div className="flex -space-x-2">
-                        {inviterInfo.recentInvitees.map((invitee, idx) => (
+                    <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className="flex -space-x-2">
+                          {/* Show inviter + recent invitees */}
                           <div
-                            key={idx}
-                            className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-xs font-bold ring-2 ring-white dark:ring-gray-800"
-                            title={invitee.name}
+                            className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-xs font-bold ring-2 ring-white dark:ring-blue-900/20"
+                            title={inviterInfo.name}
                           >
-                            {invitee.name.charAt(0).toUpperCase()}
+                            {inviterInfo.name.charAt(0).toUpperCase()}
                           </div>
-                        ))}
+                          {inviterInfo.recentInvitees.map((invitee, idx) => (
+                            <div
+                              key={idx}
+                              className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-400 to-pink-500 flex items-center justify-center text-white text-xs font-bold ring-2 ring-white dark:ring-blue-900/20"
+                              title={invitee.name}
+                            >
+                              {invitee.name.charAt(0).toUpperCase()}
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                      <span className="text-xs">
-                        +{inviterInfo.usageCount} others joined
-                      </span>
+                      <p className="text-sm text-gray-700 dark:text-gray-300">
+                        Join{" "}
+                        <span className="font-semibold">
+                          {inviterInfo.name}
+                        </span>
+                        {inviterInfo.recentInvitees.map((invitee, idx) => (
+                          <span key={idx}>
+                            {idx === 0 && ", "}
+                            <span className="font-semibold">
+                              {invitee.name}
+                            </span>
+                            {idx < inviterInfo.recentInvitees.length - 1 &&
+                              ", "}
+                          </span>
+                        ))}{" "}
+                        and others on Wonderwall
+                      </p>
                     </div>
                   )}
 
@@ -259,13 +282,6 @@ export default function Signup() {
                 >
                   Accept Invite & Join
                 </button>
-
-                {inviterInfo.remainingUses > 0 && (
-                  <p className="text-center text-xs text-gray-500 dark:text-gray-400 mt-3">
-                    {inviterInfo.remainingUses} invite
-                    {inviterInfo.remainingUses !== 1 ? "s" : ""} remaining
-                  </p>
-                )}
               </div>
             </div>
           </div>
@@ -382,17 +398,26 @@ export default function Signup() {
             {inviterInfo.recentInvitees &&
               inviterInfo.recentInvitees.length > 0 && (
                 <div className="pt-4 border-t border-gray-100 dark:border-gray-700">
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
-                    Others who joined:
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                    Also connected here:
                   </p>
-                  <div className="flex -space-x-2">
+                  <div className="space-y-2">
                     {inviterInfo.recentInvitees.map((invitee, idx) => (
-                      <div
-                        key={idx}
-                        className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-xs font-bold ring-2 ring-white dark:ring-gray-800"
-                        title={invitee.name}
-                      >
-                        {invitee.name.charAt(0).toUpperCase()}
+                      <div key={idx} className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-400 to-pink-500 flex items-center justify-center text-white text-xs font-bold">
+                          {invitee.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                            {invitee.name}
+                          </div>
+                          {invitee.jobFunctions &&
+                            invitee.jobFunctions.length > 0 && (
+                              <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                                {invitee.jobFunctions.join(", ")}
+                              </div>
+                            )}
+                        </div>
                       </div>
                     ))}
                   </div>
