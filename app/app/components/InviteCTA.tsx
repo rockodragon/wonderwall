@@ -273,8 +273,8 @@ export function InviteCTA({ variant }: { variant: InviteCTAVariant }) {
                 {/* Usage stats */}
                 <div className="flex items-center justify-between text-white/70 text-xs">
                   <span>
-                    {inviteLink.usageCount}/{inviteLink.currentLimit} invites
-                    used • {inviteLink.remainingUses} remaining
+                    {inviteLink.remainingUses} of {inviteLink.currentLimit}{" "}
+                    invites remaining
                   </span>
                   {inviteLink.usageCount >= 3 &&
                     inviteLink.currentLimit > 3 && (

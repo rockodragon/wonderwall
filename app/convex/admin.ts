@@ -166,3 +166,86 @@ export const manuallyLinkInvite = mutation({
     return { message: "Successfully linked invite", existing: false };
   },
 });
+
+// Delete user and all their data
+export const deleteUser = mutation({
+  args: {
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    const adminUserId = await auth.getUserId(ctx);
+    if (!adminUserId) {
+      throw new Error("Not authenticated");
+    }
+
+    const currentUser = await ctx.db.get(adminUserId);
+    const userEmail =
+      currentUser && "email" in currentUser ? currentUser.email : null;
+    if (!userEmail || userEmail !== "rickmoy@gmail.com") {
+      throw new Error("Unauthorized - Admin access only");
+    }
+
+    // Get user's profile
+    const profile = await ctx.db
+      .query("profiles")
+      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+      .first();
+
+    if (!profile) {
+      throw new Error("Profile not found");
+    }
+
+    // Delete all artifacts (works)
+    const artifacts = await ctx.db
+      .query("artifacts")
+      .withIndex("by_creatorId", (q) => q.eq("creatorId", profile._id))
+      .collect();
+    for (const artifact of artifacts) {
+      await ctx.db.delete(artifact._id);
+    }
+
+    // Delete all wonderings
+    const wonderings = await ctx.db
+      .query("wonderings")
+      .withIndex("by_profileId", (q) => q.eq("profileId", profile._id))
+      .collect();
+    for (const wondering of wonderings) {
+      await ctx.db.delete(wondering._id);
+    }
+
+    // Delete all invites created by this user
+    const createdInvites = await ctx.db
+      .query("invites")
+      .withIndex("by_inviterId", (q) => q.eq("inviterId", args.userId))
+      .collect();
+    for (const invite of createdInvites) {
+      await ctx.db.delete(invite._id);
+    }
+
+    // Delete all invites used by this user
+    const usedInvites = await ctx.db
+      .query("invites")
+      .filter((q) => q.eq(q.field("usedBy"), args.userId))
+      .collect();
+    for (const invite of usedInvites) {
+      await ctx.db.delete(invite._id);
+    }
+
+    // Delete all favorites
+    const favorites = await ctx.db
+      .query("favorites")
+      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+      .collect();
+    for (const favorite of favorites) {
+      await ctx.db.delete(favorite._id);
+    }
+
+    // Delete profile
+    await ctx.db.delete(profile._id);
+
+    // Delete auth user
+    await ctx.db.delete(args.userId);
+
+    return { success: true, message: "User deleted successfully" };
+  },
+});

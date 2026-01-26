@@ -46,6 +46,10 @@ export default function Onboarding() {
   const upsertProfile = useMutation(api.profiles.upsertProfile);
   const generateUploadUrl = useMutation(api.files.generateUploadUrl);
   const saveProfileImage = useMutation(api.files.saveProfileImage);
+  const getImageUrl = useQuery(
+    api.files.getImageUrl,
+    profileImageUrl ? { storageId: profileImageUrl } : "skip",
+  );
   const createArtifact = useMutation(api.artifacts.create);
   const createWondering = useMutation(api.wonderings.create);
   const inviteLink = useQuery(api.invites.getMyInviteLink);
@@ -283,9 +287,17 @@ export default function Onboarding() {
                 Profile Photo (Optional)
               </label>
               <div className="flex items-center gap-4">
-                <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-2xl font-bold">
-                  {profile.name.charAt(0).toUpperCase()}
-                </div>
+                {getImageUrl ? (
+                  <img
+                    src={getImageUrl}
+                    alt={profile.name}
+                    className="w-20 h-20 rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-2xl font-bold">
+                    {profile.name.charAt(0).toUpperCase()}
+                  </div>
+                )}
                 <div>
                   <input
                     ref={imageInputRef}

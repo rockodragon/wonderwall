@@ -1,6 +1,6 @@
 import { useQuery, useConvexAuth, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import { useNavigate } from "react-router";
+import { useNavigate, Link } from "react-router";
 import { useEffect, useState } from "react";
 
 export default function AdminPage() {
@@ -9,10 +9,13 @@ export default function AdminPage() {
   const users = useQuery(api.admin.getAllUsersWithInvites);
   const debugData = useQuery(api.admin.debugInvites);
   const manuallyLinkInvite = useMutation(api.admin.manuallyLinkInvite);
+  const deleteUser = useMutation(api.admin.deleteUser);
 
   const [linkingUser, setLinkingUser] = useState<string | null>(null);
   const [selectedInviter, setSelectedInviter] = useState<string>("");
   const [linkStatus, setLinkStatus] = useState<string>("");
+  const [deletingUser, setDeletingUser] = useState<string | null>(null);
+  const [deleteStatus, setDeleteStatus] = useState<string>("");
 
   const handleLinkInvite = async (inviteeUserId: string) => {
     if (!selectedInviter) {
@@ -33,6 +36,29 @@ export default function AdminPage() {
       setLinkStatus(
         err instanceof Error ? err.message : "Failed to link invite",
       );
+    }
+  };
+
+  const handleDeleteUser = async (userId: string, userName: string) => {
+    const confirmed = window.confirm(
+      `Are you sure you want to delete ${userName}? This will permanently delete their profile, works, wonderings, and all associated data.`,
+    );
+
+    if (!confirmed) return;
+
+    setDeletingUser(userId);
+    setDeleteStatus("");
+
+    try {
+      await deleteUser({ userId: userId as any });
+      setDeleteStatus(`Successfully deleted ${userName}`);
+      setTimeout(() => setDeleteStatus(""), 3000);
+    } catch (err) {
+      setDeleteStatus(
+        err instanceof Error ? err.message : "Failed to delete user",
+      );
+    } finally {
+      setDeletingUser(null);
     }
   };
 
@@ -66,6 +92,11 @@ export default function AdminPage() {
           <p className="mt-2 text-sm text-gray-600">
             Total Users: {users.length}
           </p>
+          {deleteStatus && (
+            <div className="mt-4 p-3 bg-green-50 text-green-700 rounded-lg">
+              {deleteStatus}
+            </div>
+          )}
         </div>
 
         <div className="bg-white shadow-md rounded-lg overflow-hidden">
@@ -91,15 +122,21 @@ export default function AdminPage() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Joined
                   </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {users.map((user) => (
                   <tr key={user._id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">
+                      <Link
+                        to={`/profile/${user._id}`}
+                        className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline"
+                      >
                         {user.name}
-                      </div>
+                      </Link>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-600">{user.email}</div>
@@ -134,6 +171,17 @@ export default function AdminPage() {
                       <div className="text-sm text-gray-600">
                         {new Date(user.createdAt).toLocaleDateString()}
                       </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <button
+                        onClick={() => handleDeleteUser(user.userId, user.name)}
+                        disabled={deletingUser === user.userId}
+                        className="px-3 py-1 text-sm text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {deletingUser === user.userId
+                          ? "Deleting..."
+                          : "Delete"}
+                      </button>
                     </td>
                   </tr>
                 ))}

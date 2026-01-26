@@ -1,16 +1,26 @@
 import { useAuthActions } from "@convex-dev/auth/react";
 import { usePostHog } from "@posthog/react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router";
+import { useConvexAuth } from "convex/react";
 
 export default function Login() {
   const { signIn } = useAuthActions();
+  const { isAuthenticated, isLoading: authLoading } = useConvexAuth();
   const navigate = useNavigate();
   const posthog = usePostHog();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [shouldRedirect, setShouldRedirect] = useState(false);
+
+  // Redirect when authenticated (avoids race condition)
+  useEffect(() => {
+    if (!authLoading && isAuthenticated && shouldRedirect) {
+      navigate("/search");
+    }
+  }, [isAuthenticated, authLoading, shouldRedirect, navigate]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -24,11 +34,11 @@ export default function Login() {
       posthog?.identify(email, { email });
       posthog?.capture("user_logged_in", { email });
 
-      navigate("/search");
+      // Set flag to trigger redirect once auth state updates
+      setShouldRedirect(true);
     } catch (err) {
       setError("Invalid email or password");
       posthog?.captureException(err);
-    } finally {
       setLoading(false);
     }
   }
