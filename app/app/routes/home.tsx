@@ -137,59 +137,68 @@ export default function Home() {
           Closed Beta • Invite Only
         </div>
 
-        {/* Waitlist Form */}
+        {/* Waitlist Form or Invite Preview */}
         <div className="mt-10 max-w-md mx-auto">
-          {status === "success" ? (
-            <div className="p-6 bg-green-50 dark:bg-green-900/20 rounded-2xl border border-green-200 dark:border-green-800">
-              <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg
-                  className="w-6 h-6 text-green-600 dark:text-green-400"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M5 13l4 4L19 7"
+          {!inviteSlug ? (
+            // Show waitlist form when no invite is being processed
+            status === "success" ? (
+              <div className="p-6 bg-green-50 dark:bg-green-900/20 rounded-2xl border border-green-200 dark:border-green-800">
+                <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <svg
+                    className="w-6 h-6 text-green-600 dark:text-green-400"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M5 13l4 4L19 7"
+                    />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-semibold text-green-900 dark:text-green-100 mb-2">
+                  You're on the list!
+                </h3>
+                <p className="text-green-700 dark:text-green-300">{message}</p>
+              </div>
+            ) : (
+              <form onSubmit={handleWaitlistSubmit} className="space-y-4">
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="Enter your email"
+                    className="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    disabled={status === "loading"}
                   />
-                </svg>
-              </div>
-              <h3 className="text-lg font-semibold text-green-900 dark:text-green-100 mb-2">
-                You're on the list!
-              </h3>
-              <p className="text-green-700 dark:text-green-300">{message}</p>
-            </div>
-          ) : (
-            <form onSubmit={handleWaitlistSubmit} className="space-y-4">
-              <div className="flex flex-col sm:flex-row gap-3">
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Enter your email"
-                  className="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  disabled={status === "loading"}
-                />
-                <button
-                  type="submit"
-                  disabled={status === "loading"}
-                  className="px-8 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
-                >
-                  {status === "loading" ? "Joining..." : "Get on Waitlist"}
-                </button>
-              </div>
-              {status === "error" && (
-                <p className="text-sm text-red-600 dark:text-red-400">
-                  {message}
-                </p>
-              )}
-            </form>
-          )}
+                  <button
+                    type="submit"
+                    disabled={status === "loading"}
+                    className="px-8 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                  >
+                    {status === "loading" ? "Joining..." : "Get on Waitlist"}
+                  </button>
+                </div>
+                {status === "error" && (
+                  <p className="text-sm text-red-600 dark:text-red-400">
+                    {message}
+                  </p>
+                )}
+              </form>
+            )
+          ) : null}
 
           {/* Invite Input Section */}
-          <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+          <div
+            className={
+              inviteSlug
+                ? ""
+                : "mt-6 pt-6 border-t border-gray-200 dark:border-gray-700"
+            }
+          >
             {!inviteSlug ? (
               // Show invite input form
               !showInviteInput ? (
@@ -303,47 +312,57 @@ export default function Home() {
 
                   {/* Connected Members - Show who's already here */}
                   {inviterInfo.recentInvitees &&
-                    inviterInfo.recentInvitees.length > 0 && (
-                      <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
-                        <div className="flex items-center gap-3 mb-2">
-                          <div className="flex -space-x-2">
-                            {/* Show inviter + recent invitees */}
-                            <div
-                              className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-xs font-bold ring-2 ring-white dark:ring-blue-900/20"
-                              title={inviterInfo.name}
-                            >
-                              {inviterInfo.name.charAt(0).toUpperCase()}
-                            </div>
-                            {inviterInfo.recentInvitees.map((invitee, idx) => (
-                              <div
-                                key={idx}
-                                className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-400 to-pink-500 flex items-center justify-center text-white text-xs font-bold ring-2 ring-white dark:ring-blue-900/20"
-                                title={invitee.name}
-                              >
-                                {invitee.name.charAt(0).toUpperCase()}
-                              </div>
-                            ))}
+                  inviterInfo.recentInvitees.length > 0 ? (
+                    <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className="flex -space-x-2">
+                          {/* Show inviter + recent invitees */}
+                          <div
+                            className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-xs font-bold ring-2 ring-white dark:ring-blue-900/20"
+                            title={inviterInfo.name}
+                          >
+                            {inviterInfo.name.charAt(0).toUpperCase()}
                           </div>
-                        </div>
-                        <p className="text-sm text-gray-700 dark:text-gray-300">
-                          Join{" "}
-                          <span className="font-semibold">
-                            {inviterInfo.name}
-                          </span>
                           {inviterInfo.recentInvitees.map((invitee, idx) => (
-                            <span key={idx}>
-                              {idx === 0 && ", "}
-                              <span className="font-semibold">
-                                {invitee.name}
-                              </span>
-                              {idx < inviterInfo.recentInvitees.length - 1 &&
-                                ", "}
-                            </span>
-                          ))}{" "}
-                          and others on Wonderwall
-                        </p>
+                            <div
+                              key={idx}
+                              className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-400 to-pink-500 flex items-center justify-center text-white text-xs font-bold ring-2 ring-white dark:ring-blue-900/20"
+                              title={invitee.name}
+                            >
+                              {invitee.name.charAt(0).toUpperCase()}
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    )}
+                      <p className="text-sm text-gray-700 dark:text-gray-300">
+                        Join{" "}
+                        <span className="font-semibold">
+                          {inviterInfo.name}
+                        </span>
+                        {inviterInfo.recentInvitees.map((invitee, idx) => (
+                          <span key={idx}>
+                            {idx === 0 && ", "}
+                            <span className="font-semibold">
+                              {invitee.name}
+                            </span>
+                            {idx < inviterInfo.recentInvitees.length - 1 &&
+                              ", "}
+                          </span>
+                        ))}{" "}
+                        and others on Wonderwall
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
+                      <p className="text-sm text-gray-700 dark:text-gray-300">
+                        Be one of the first to join{" "}
+                        <span className="font-semibold">
+                          {inviterInfo.name}
+                        </span>
+                        's network on Wonderwall
+                      </p>
+                    </div>
+                  )}
 
                   {/* CTA Buttons */}
                   <div className="space-y-2">
