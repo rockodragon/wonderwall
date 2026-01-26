@@ -16,6 +16,7 @@ export default function Signup() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
+  const [showSignupForm, setShowSignupForm] = useState(false);
 
   // Get inviter information if arriving via invite link
   const inviterInfo = useQuery(
@@ -146,9 +147,199 @@ export default function Signup() {
     );
   }
 
+  // Show landing page with invite info (before signup form)
+  if (!showSignupForm && inviterInfo) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white dark:from-gray-950 dark:to-gray-900">
+        {/* Header */}
+        <header className="px-6 py-4 flex items-center justify-between max-w-6xl mx-auto">
+          <h1 className="text-xl font-bold text-gray-900 dark:text-white">
+            Wonderwall
+          </h1>
+          <Link
+            to="/login"
+            className="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white font-medium"
+          >
+            Sign in
+          </Link>
+        </header>
+
+        {/* Invite Hero */}
+        <main className="px-6 py-12 max-w-4xl mx-auto">
+          {/* Personalized Invite Card */}
+          <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden mb-12">
+            <div className="bg-gradient-to-r from-blue-500 to-purple-600 px-8 py-6">
+              <p className="text-white/90 text-sm font-medium mb-2">
+                YOU'VE BEEN INVITED
+              </p>
+              <h2 className="text-3xl font-bold text-white">
+                Join {inviterInfo.name} on Wonderwall
+              </h2>
+            </div>
+
+            <div className="p-8">
+              {/* Inviter Info */}
+              <div className="flex items-center gap-4 mb-6">
+                {inviterInfo.imageUrl ? (
+                  <img
+                    src={inviterInfo.imageUrl}
+                    alt={inviterInfo.name}
+                    className="w-20 h-20 rounded-full object-cover ring-4 ring-blue-100 dark:ring-blue-900"
+                  />
+                ) : (
+                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-2xl font-bold ring-4 ring-blue-100 dark:ring-blue-900">
+                    {inviterInfo.name.charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-white">
+                    {inviterInfo.name}
+                  </h3>
+                  {inviterInfo.jobFunctions &&
+                    inviterInfo.jobFunctions.length > 0 && (
+                      <p className="text-gray-600 dark:text-gray-400">
+                        {inviterInfo.jobFunctions.join(", ")}
+                      </p>
+                    )}
+                </div>
+              </div>
+
+              {/* Social Proof - Recent Invitees */}
+              {inviterInfo.recentInvitees &&
+                inviterInfo.recentInvitees.length > 0 && (
+                  <div className="bg-blue-50 dark:bg-blue-900/20 rounded-2xl p-6 mb-6">
+                    <p className="text-sm text-blue-900 dark:text-blue-300 font-medium mb-3">
+                      Recently joined from {inviterInfo.name}'s invite:
+                    </p>
+                    <div className="space-y-2">
+                      {inviterInfo.recentInvitees.map((invitee, idx) => (
+                        <div key={idx} className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-sm font-bold">
+                            {invitee.name.charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <div className="text-sm font-medium text-gray-900 dark:text-white">
+                              {invitee.name}
+                            </div>
+                            {invitee.jobFunctions &&
+                              invitee.jobFunctions.length > 0 && (
+                                <div className="text-xs text-gray-600 dark:text-gray-400">
+                                  {invitee.jobFunctions.join(", ")}
+                                </div>
+                              )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+              {/* CTA Button */}
+              <button
+                onClick={() => setShowSignupForm(true)}
+                className="w-full px-8 py-4 bg-blue-600 text-white rounded-xl font-semibold text-lg hover:bg-blue-700 transition-colors shadow-lg hover:shadow-xl"
+              >
+                Accept Invite & Join Wonderwall
+              </button>
+
+              <p className="text-center text-sm text-gray-500 dark:text-gray-400 mt-4">
+                {inviterInfo.remainingUses > 0 && (
+                  <>
+                    {inviterInfo.remainingUses} invite
+                    {inviterInfo.remainingUses !== 1 ? "s" : ""} remaining
+                  </>
+                )}
+              </p>
+            </div>
+          </div>
+
+          {/* What is Wonderwall */}
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
+              What is Wonderwall?
+            </h2>
+            <p className="text-xl text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
+              A community for Christian creatives to connect, collaborate, and
+              grow together.
+            </p>
+          </div>
+
+          {/* Features */}
+          <div className="grid md:grid-cols-3 gap-6">
+            <FeatureCard
+              title="Share Your Work"
+              description="Build a portfolio that showcases your creative journey and connects you with like-minded collaborators."
+              icon={
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                />
+              }
+            />
+            <FeatureCard
+              title="Wonder Together"
+              description="Post questions you're pondering and receive thoughtful responses from the community."
+              icon={
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              }
+            />
+            <FeatureCard
+              title="Find Events"
+              description="Discover community gatherings, workshops, and opportunities to connect in person."
+              icon={
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                />
+              }
+            />
+          </div>
+        </main>
+
+        {/* Footer */}
+        <footer className="px-6 py-8 border-t border-gray-200 dark:border-gray-800 mt-12">
+          <p className="text-center text-gray-500 dark:text-gray-400 text-sm">
+            Wonderwall — A community for Christian creatives
+          </p>
+        </footer>
+      </div>
+    );
+  }
+
+  // Show signup form
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950 px-4 py-8">
       <div className="max-w-md w-full space-y-6">
+        {/* Back Button */}
+        <button
+          onClick={() => setShowSignupForm(false)}
+          className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+        >
+          <svg
+            className="w-5 h-5"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M15 19l-7-7 7-7"
+            />
+          </svg>
+          Back
+        </button>
+
         {/* Inviter Card */}
         {inviterInfo && (
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg border border-gray-200 dark:border-gray-700">
@@ -171,66 +362,50 @@ export default function Signup() {
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-white truncate">
                   {inviterInfo.name}
                 </h2>
-                {inviterInfo.jobFunctions.length > 0 && (
-                  <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
-                    {inviterInfo.jobFunctions.slice(0, 2).join(" • ")}
-                  </p>
-                )}
+                {inviterInfo.jobFunctions &&
+                  inviterInfo.jobFunctions.length > 0 && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      {inviterInfo.jobFunctions.join(", ")}
+                    </p>
+                  )}
               </div>
             </div>
 
-            {/* Recent invitees */}
-            {inviterInfo.recentInvitees.length > 0 && (
-              <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-                <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
-                  Recently joined through {inviterInfo.name}:
-                </p>
-                <div className="flex gap-2">
-                  {inviterInfo.recentInvitees.map((invitee, i) => (
-                    <div
-                      key={i}
-                      className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 dark:bg-gray-700/50 rounded-full"
-                    >
-                      {invitee.imageUrl ? (
-                        <img
-                          src={invitee.imageUrl}
-                          alt={invitee.name}
-                          className="w-5 h-5 rounded-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-5 h-5 rounded-full bg-gray-400 flex items-center justify-center text-white text-[10px] font-medium">
-                          {invitee.name.charAt(0).toUpperCase()}
-                        </div>
-                      )}
-                      <span className="text-xs text-gray-700 dark:text-gray-300 truncate max-w-[120px]">
-                        {invitee.name}
-                      </span>
-                    </div>
-                  ))}
+            {inviterInfo.recentInvitees &&
+              inviterInfo.recentInvitees.length > 0 && (
+                <div className="pt-4 border-t border-gray-100 dark:border-gray-700">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                    Others who joined:
+                  </p>
+                  <div className="flex -space-x-2">
+                    {inviterInfo.recentInvitees.map((invitee, idx) => (
+                      <div
+                        key={idx}
+                        className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-xs font-bold ring-2 ring-white dark:ring-gray-800"
+                        title={invitee.name}
+                      >
+                        {invitee.name.charAt(0).toUpperCase()}
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
           </div>
         )}
 
         {/* Signup Form */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-lg">
-          <div className="text-center mb-6">
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-              Join Wonderwall
-            </h1>
-            <p className="mt-2 text-gray-600 dark:text-gray-400 text-sm">
-              Connect with Christian creatives
-            </p>
-          </div>
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 p-8">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
+            Create your account
+          </h1>
+
+          {error && (
+            <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg text-sm">
+              {error}
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            {error && (
-              <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-3 rounded-lg text-sm">
-                {error}
-              </div>
-            )}
-
             <div>
               <label
                 htmlFor="name"
@@ -241,10 +416,11 @@ export default function Signup() {
               <input
                 id="name"
                 type="text"
-                required
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
+                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="John Doe"
+                required
               />
             </div>
 
@@ -258,10 +434,11 @@ export default function Signup() {
               <input
                 id="email"
                 type="email"
-                required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
+                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="you@example.com"
+                required
               />
             </div>
 
@@ -275,23 +452,20 @@ export default function Signup() {
               <input
                 id="password"
                 type="password"
-                required
-                minLength={8}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
+                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="At least 8 characters"
+                required
               />
-              <p className="mt-1 text-xs text-gray-500">
-                At least 8 characters
-              </p>
             </div>
 
             <button
               type="submit"
-              disabled={loading || !inviterInfo?.canAcceptMore}
-              className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={loading}
+              className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              {loading ? "Creating account..." : "Create account"}
+              {loading ? "Creating account..." : "Sign Up"}
             </button>
           </form>
 
@@ -312,123 +486,66 @@ export default function Signup() {
 
 function WelcomeModal({ onContinue }: { onContinue: () => void }) {
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-900 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl">
-        <div className="p-8">
-          {/* Icon */}
-          <div className="w-16 h-16 mx-auto mb-6 bg-gradient-to-br from-blue-400 to-purple-500 rounded-2xl flex items-center justify-center">
-            <svg
-              className="w-10 h-10 text-white"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"
-              />
-            </svg>
-          </div>
-
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white text-center mb-3">
-            Welcome to Wonderwall!
-          </h2>
-          <p className="text-gray-600 dark:text-gray-400 text-center mb-6">
-            A place for Kingdom-minded creatives
-          </p>
-
-          {/* Values */}
-          <div className="space-y-4 mb-8">
-            <div className="flex gap-3">
-              <div className="w-8 h-8 shrink-0 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
-                <svg
-                  className="w-4 h-4 text-blue-600 dark:text-blue-400"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
-                  />
-                </svg>
-              </div>
-              <div>
-                <h3 className="font-semibold text-gray-900 dark:text-white text-sm mb-1">
-                  Kingdom Principles First
-                </h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Thoughtfulness, purpose, and compassion over engagement
-                  metrics
-                </p>
-              </div>
-            </div>
-
-            <div className="flex gap-3">
-              <div className="w-8 h-8 shrink-0 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
-                <svg
-                  className="w-4 h-4 text-purple-600 dark:text-purple-400"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-              </div>
-              <div>
-                <h3 className="font-semibold text-gray-900 dark:text-white text-sm mb-1">
-                  Wonder Over Noise
-                </h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  One wondering at a time — breathe, reflect, make it count
-                </p>
-              </div>
-            </div>
-
-            <div className="flex gap-3">
-              <div className="w-8 h-8 shrink-0 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
-                <svg
-                  className="w-4 h-4 text-emerald-600 dark:text-emerald-400"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
-                  />
-                </svg>
-              </div>
-              <div>
-                <h3 className="font-semibold text-gray-900 dark:text-white text-sm mb-1">
-                  Share Your Best Work
-                </h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Up to 5 portfolio pieces at a time — quality over quantity
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <button
-            onClick={onContinue}
-            className="w-full py-3 px-4 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors"
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl max-w-md w-full p-8 text-center">
+        <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-6">
+          <svg
+            className="w-10 h-10 text-white"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
           >
-            Let's Go!
-          </button>
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M5 13l4 4L19 7"
+            />
+          </svg>
         </div>
+        <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
+          Welcome to Wonderwall!
+        </h2>
+        <p className="text-gray-600 dark:text-gray-400 mb-8">
+          Your account has been created. Let's set up your profile and share
+          what you're wondering about.
+        </p>
+        <button
+          onClick={onContinue}
+          className="w-full px-6 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors"
+        >
+          Continue
+        </button>
       </div>
+    </div>
+  );
+}
+
+function FeatureCard({
+  title,
+  description,
+  icon,
+}: {
+  title: string;
+  description: string;
+  icon: React.ReactNode;
+}) {
+  return (
+    <div className="p-6 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
+      <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center mb-4">
+        <svg
+          className="w-6 h-6 text-blue-600 dark:text-blue-400"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          {icon}
+        </svg>
+      </div>
+      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+        {title}
+      </h3>
+      <p className="text-gray-600 dark:text-gray-400">{description}</p>
     </div>
   );
 }
