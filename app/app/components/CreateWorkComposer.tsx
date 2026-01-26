@@ -124,7 +124,9 @@ export function CreateWorkComposer({ onCreated }: { onCreated?: () => void }) {
           type !== "text" && !uploadedStorageId
             ? normalizeUrl(mediaUrl)
             : undefined,
-        mediaStorageId: uploadedStorageId as any,
+        mediaStorageId: uploadedStorageId
+          ? (uploadedStorageId as any)
+          : undefined,
       });
 
       if (isFirstWork) {
