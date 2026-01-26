@@ -3,6 +3,7 @@ import { Link } from "react-router";
 import { useMemo } from "react";
 import { api } from "../../convex/_generated/api";
 import { InviteCTA } from "../components/InviteCTA";
+import { CreateWorkComposer } from "../components/CreateWorkComposer";
 
 export default function Works() {
   const artifacts = useQuery(api.artifacts.getAllArtifacts);
@@ -32,11 +33,31 @@ export default function Works() {
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
           Works
         </h1>
-        <p className="text-gray-500 dark:text-gray-400 mb-8">
+        <p className="text-gray-500 dark:text-gray-400 mb-6">
           Creative works from the community
         </p>
-        <div className="text-center py-16 text-gray-500 dark:text-gray-400">
-          No works have been shared yet. Be the first to add one!
+
+        {/* Create Work Composer */}
+        <div className="mb-8">
+          <CreateWorkComposer />
+        </div>
+
+        <div className="text-center py-12 text-gray-400 dark:text-gray-500">
+          <svg
+            className="w-16 h-16 mx-auto mb-4 opacity-50"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={1}
+              d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+            />
+          </svg>
+          <p className="text-lg font-medium mb-1">No works yet</p>
+          <p className="text-sm">Be the first to share something you've made</p>
         </div>
       </div>
     );
@@ -47,9 +68,14 @@ export default function Works() {
       <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
         Works
       </h1>
-      <p className="text-gray-500 dark:text-gray-400 mb-8">
+      <p className="text-gray-500 dark:text-gray-400 mb-6">
         Creative works from the community
       </p>
+
+      {/* Create Work Composer */}
+      <div className="mb-8">
+        <CreateWorkComposer />
+      </div>
 
       {/* Bento grid layout */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 auto-rows-[200px]">
