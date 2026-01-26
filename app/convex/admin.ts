@@ -73,3 +73,36 @@ export const getAllUsersWithInvites = query({
     return users.sort((a, b) => b.createdAt - a.createdAt);
   },
 });
+
+// Debug query to check invite records
+export const debugInvites = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await auth.getUserId(ctx);
+    if (!userId) {
+      throw new Error("Not authenticated");
+    }
+
+    const currentUser = await ctx.db.get(userId);
+    const userEmail =
+      currentUser && "email" in currentUser ? currentUser.email : null;
+    if (!userEmail || userEmail !== "rickmoy@gmail.com") {
+      throw new Error("Unauthorized - Admin access only");
+    }
+
+    const invites = await ctx.db.query("invites").collect();
+
+    return {
+      totalInvites: invites.length,
+      usedInvites: invites.filter((i) => i.usedBy).length,
+      unusedInvites: invites.filter((i) => !i.usedBy).length,
+      invites: invites.map((inv) => ({
+        code: inv.code,
+        inviterId: inv.inviterId,
+        usedBy: inv.usedBy,
+        usedAt: inv.usedAt,
+        createdAt: inv.createdAt,
+      })),
+    };
+  },
+});

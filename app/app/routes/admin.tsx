@@ -7,6 +7,7 @@ export default function AdminPage() {
   const { isAuthenticated, isLoading: authLoading } = useConvexAuth();
   const navigate = useNavigate();
   const users = useQuery(api.admin.getAllUsersWithInvites);
+  const debugData = useQuery(api.admin.debugInvites);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -145,6 +146,43 @@ export default function AdminPage() {
             </div>
           </div>
         </div>
+
+        {/* Debug Section */}
+        {debugData && (
+          <div className="mt-8 bg-yellow-50 border border-yellow-200 rounded-lg p-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">
+              Debug: Invite Records
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+              <div className="bg-white rounded-lg p-4">
+                <div className="text-sm text-gray-600">Total Invites</div>
+                <div className="text-2xl font-bold text-gray-900">
+                  {debugData.totalInvites}
+                </div>
+              </div>
+              <div className="bg-white rounded-lg p-4">
+                <div className="text-sm text-gray-600">Used Invites</div>
+                <div className="text-2xl font-bold text-green-600">
+                  {debugData.usedInvites}
+                </div>
+              </div>
+              <div className="bg-white rounded-lg p-4">
+                <div className="text-sm text-gray-600">Unused Invites</div>
+                <div className="text-2xl font-bold text-gray-600">
+                  {debugData.unusedInvites}
+                </div>
+              </div>
+            </div>
+            {debugData.invites.length > 0 && (
+              <div className="bg-white rounded-lg p-4 max-h-96 overflow-y-auto">
+                <h3 className="font-semibold mb-2">All Invite Records:</h3>
+                <pre className="text-xs overflow-x-auto">
+                  {JSON.stringify(debugData.invites, null, 2)}
+                </pre>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
