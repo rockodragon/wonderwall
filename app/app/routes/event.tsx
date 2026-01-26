@@ -28,6 +28,7 @@ export default function EventDetail() {
     eventId ? { eventId: eventId as Id<"events"> } : "skip",
   );
   const applyToEvent = useMutation(api.events.apply);
+  const cancelEvent = useMutation(api.events.cancel);
   const applications = useQuery(
     api.events.getApplications,
     eventId && event?.isOrganizer
@@ -45,6 +46,27 @@ export default function EventDetail() {
   const [showApplyForm, setShowApplyForm] = useState(false);
   const [joining, setJoining] = useState(false);
   const [showEditForm, setShowEditForm] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+
+  async function handleCancelEvent() {
+    if (!eventId) return;
+    if (
+      !confirm(
+        "Are you sure you want to cancel this event? This cannot be undone.",
+      )
+    )
+      return;
+
+    setCancelling(true);
+    try {
+      await cancelEvent({ eventId: eventId as Id<"events"> });
+    } catch (err) {
+      console.error("Cancel failed:", err);
+      alert("Failed to cancel event. Please try again.");
+    } finally {
+      setCancelling(false);
+    }
+  }
 
   if (event === undefined) {
     return (
@@ -134,12 +156,23 @@ export default function EventDetail() {
             </h1>
             <FavoriteButton targetType="event" targetId={event._id} />
             {event.isOrganizer && (
-              <button
-                onClick={() => setShowEditForm(true)}
-                className="px-3 py-1 bg-white/20 backdrop-blur-sm text-white rounded-lg text-sm font-medium hover:bg-white/30 transition-colors"
-              >
-                Edit
-              </button>
+              <>
+                <button
+                  onClick={() => setShowEditForm(true)}
+                  className="px-3 py-1 bg-white/20 backdrop-blur-sm text-white rounded-lg text-sm font-medium hover:bg-white/30 transition-colors"
+                >
+                  Edit
+                </button>
+                {event.status !== "cancelled" && (
+                  <button
+                    onClick={handleCancelEvent}
+                    disabled={cancelling}
+                    className="px-3 py-1 bg-red-500/80 backdrop-blur-sm text-white rounded-lg text-sm font-medium hover:bg-red-600/80 transition-colors disabled:opacity-50"
+                  >
+                    {cancelling ? "Cancelling..." : "Cancel Event"}
+                  </button>
+                )}
+              </>
             )}
           </div>
           <div className="flex flex-wrap items-center gap-4 text-white/80 text-sm">
@@ -264,26 +297,26 @@ export default function EventDetail() {
         {!event.isOrganizer &&
           event.galleryImageUrls &&
           event.galleryImageUrls.length > 0 && (
-          <div className="mb-8">
-            <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
-              Photos
-            </h3>
-            <div className="grid grid-cols-3 gap-2">
-              {event.galleryImageUrls.map((url, i) => (
-                <div
-                  key={i}
-                  className="aspect-square rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800"
-                >
-                  <img
-                    src={url}
-                    alt=""
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-              ))}
+            <div className="mb-8">
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
+                Photos
+              </h3>
+              <div className="grid grid-cols-3 gap-2">
+                {event.galleryImageUrls.map((url, i) => (
+                  <div
+                    key={i}
+                    className="aspect-square rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800"
+                  >
+                    <img
+                      src={url}
+                      alt=""
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
         {/* Attendees */}
         {attendees && attendees.length > 0 && (
