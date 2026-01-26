@@ -21,7 +21,6 @@ export default function Onboarding() {
     try {
       await createWondering({
         prompt: wonderPrompt.trim(),
-        isPermanent: false,
       });
 
       // Celebrate!

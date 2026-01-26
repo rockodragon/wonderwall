@@ -87,7 +87,6 @@ export function CreateWonderingComposer() {
       // Create new wondering
       await createWondering({
         prompt: prompt.trim(),
-        isPermanent: false,
       });
 
       // Celebrate with confetti
