@@ -4,6 +4,7 @@ import { Link } from "react-router";
 import { api } from "../../convex/_generated/api";
 import { FavoriteButton } from "../components/FavoriteButton";
 import { InviteCTA } from "../components/InviteCTA";
+import { CreateWonderingComposer } from "../components/CreateWonderingComposer";
 
 // Debounce hook for search
 function useDebounce<T>(value: T, delay: number): T {
@@ -86,6 +87,11 @@ export default function Search() {
       <p className="text-gray-500 dark:text-gray-400 mb-6">
         Find creatives by what they do, think, or create
       </p>
+
+      {/* Create Wondering Composer */}
+      <div className="mb-6">
+        <CreateWonderingComposer />
+      </div>
 
       {/* Search input */}
       <div className="relative mb-6">
