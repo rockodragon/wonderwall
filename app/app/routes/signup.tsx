@@ -164,108 +164,116 @@ export default function Signup() {
           </Link>
         </header>
 
-        {/* Invite Hero */}
-        <main className="px-6 py-12 max-w-4xl mx-auto">
-          {/* Personalized Invite Card */}
-          <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden mb-12">
-            <div className="bg-gradient-to-r from-blue-500 to-purple-600 px-8 py-6">
-              <p className="text-white/90 text-sm font-medium mb-2">
-                YOU'VE BEEN INVITED
-              </p>
-              <h2 className="text-3xl font-bold text-white">
-                Join {inviterInfo.name} on Wonderwall
-              </h2>
-            </div>
+        {/* Hero */}
+        <main className="px-6 py-20 max-w-4xl mx-auto text-center">
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full text-sm font-medium mb-6">
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+              />
+            </svg>
+            Closed Beta • Invite Only
+          </div>
+          <h2 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white leading-tight">
+            Connect with
+            <br />
+            <span className="text-blue-600">Christian creatives</span>
+          </h2>
+          <p className="mt-6 text-xl text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
+            Discover peers, share your work, explore what others are wondering,
+            and find your next collaboration.
+          </p>
 
-            <div className="p-8">
-              {/* Inviter Info */}
-              <div className="flex items-center gap-4 mb-6">
-                {inviterInfo.imageUrl ? (
-                  <img
-                    src={inviterInfo.imageUrl}
-                    alt={inviterInfo.name}
-                    className="w-20 h-20 rounded-full object-cover ring-4 ring-blue-100 dark:ring-blue-900"
-                  />
-                ) : (
-                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-2xl font-bold ring-4 ring-blue-100 dark:ring-blue-900">
-                    {inviterInfo.name.charAt(0).toUpperCase()}
-                  </div>
-                )}
-                <div>
-                  <h3 className="text-xl font-bold text-gray-900 dark:text-white">
-                    {inviterInfo.name}
-                  </h3>
-                  {inviterInfo.jobFunctions &&
-                    inviterInfo.jobFunctions.length > 0 && (
-                      <p className="text-gray-600 dark:text-gray-400">
-                        {inviterInfo.jobFunctions.join(", ")}
-                      </p>
-                    )}
-                </div>
+          {/* Personalized Invite Card - Replaces CTA buttons */}
+          <div className="mt-10 max-w-lg mx-auto">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+              <div className="bg-gradient-to-r from-blue-500 to-purple-600 px-6 py-4">
+                <p className="text-white/90 text-xs font-medium uppercase tracking-wide mb-1">
+                  You've been invited
+                </p>
+                <h3 className="text-xl font-bold text-white">
+                  {inviterInfo.name} invited you to join
+                </h3>
               </div>
 
-              {/* Social Proof - Recent Invitees */}
-              {inviterInfo.recentInvitees &&
-                inviterInfo.recentInvitees.length > 0 && (
-                  <div className="bg-blue-50 dark:bg-blue-900/20 rounded-2xl p-6 mb-6">
-                    <p className="text-sm text-blue-900 dark:text-blue-300 font-medium mb-3">
-                      Recently joined from {inviterInfo.name}'s invite:
-                    </p>
-                    <div className="space-y-2">
-                      {inviterInfo.recentInvitees.map((invitee, idx) => (
-                        <div key={idx} className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-sm font-bold">
+              <div className="p-6">
+                {/* Inviter Info */}
+                <div className="flex items-center gap-3 mb-4">
+                  {inviterInfo.imageUrl ? (
+                    <img
+                      src={inviterInfo.imageUrl}
+                      alt={inviterInfo.name}
+                      className="w-14 h-14 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-lg font-bold">
+                      {inviterInfo.name.charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                  <div className="text-left flex-1">
+                    <div className="font-semibold text-gray-900 dark:text-white">
+                      {inviterInfo.name}
+                    </div>
+                    {inviterInfo.jobFunctions &&
+                      inviterInfo.jobFunctions.length > 0 && (
+                        <div className="text-sm text-gray-600 dark:text-gray-400">
+                          {inviterInfo.jobFunctions[0]}
+                        </div>
+                      )}
+                  </div>
+                </div>
+
+                {/* Social Proof - Compact */}
+                {inviterInfo.recentInvitees &&
+                  inviterInfo.recentInvitees.length > 0 && (
+                    <div className="flex items-center gap-2 mb-4 text-sm text-gray-600 dark:text-gray-400">
+                      <div className="flex -space-x-2">
+                        {inviterInfo.recentInvitees.map((invitee, idx) => (
+                          <div
+                            key={idx}
+                            className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-xs font-bold ring-2 ring-white dark:ring-gray-800"
+                            title={invitee.name}
+                          >
                             {invitee.name.charAt(0).toUpperCase()}
                           </div>
-                          <div>
-                            <div className="text-sm font-medium text-gray-900 dark:text-white">
-                              {invitee.name}
-                            </div>
-                            {invitee.jobFunctions &&
-                              invitee.jobFunctions.length > 0 && (
-                                <div className="text-xs text-gray-600 dark:text-gray-400">
-                                  {invitee.jobFunctions.join(", ")}
-                                </div>
-                              )}
-                          </div>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
+                      <span className="text-xs">
+                        +{inviterInfo.usageCount} others joined
+                      </span>
                     </div>
-                  </div>
-                )}
+                  )}
 
-              {/* CTA Button */}
-              <button
-                onClick={() => setShowSignupForm(true)}
-                className="w-full px-8 py-4 bg-blue-600 text-white rounded-xl font-semibold text-lg hover:bg-blue-700 transition-colors shadow-lg hover:shadow-xl"
-              >
-                Accept Invite & Join Wonderwall
-              </button>
+                {/* CTA Button */}
+                <button
+                  onClick={() => setShowSignupForm(true)}
+                  className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+                >
+                  Accept Invite & Join
+                </button>
 
-              <p className="text-center text-sm text-gray-500 dark:text-gray-400 mt-4">
                 {inviterInfo.remainingUses > 0 && (
-                  <>
+                  <p className="text-center text-xs text-gray-500 dark:text-gray-400 mt-3">
                     {inviterInfo.remainingUses} invite
                     {inviterInfo.remainingUses !== 1 ? "s" : ""} remaining
-                  </>
+                  </p>
                 )}
-              </p>
+              </div>
             </div>
           </div>
+        </main>
 
-          {/* What is Wonderwall */}
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
-              What is Wonderwall?
-            </h2>
-            <p className="text-xl text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
-              A community for Christian creatives to connect, collaborate, and
-              grow together.
-            </p>
-          </div>
-
-          {/* Features */}
-          <div className="grid md:grid-cols-3 gap-6">
+        {/* Features */}
+        <section className="px-6 py-20 max-w-6xl mx-auto">
+          <div className="grid md:grid-cols-3 gap-8">
             <FeatureCard
               title="Share Your Work"
               description="Build a portfolio that showcases your creative journey and connects you with like-minded collaborators."
