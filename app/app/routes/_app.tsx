@@ -13,6 +13,10 @@ const navItems = [
   { path: "/settings", label: "Profile", icon: UserIcon },
 ];
 
+const comingSoonItems = [
+  { path: "#", label: "Jobs", icon: BriefcaseIcon, comingSoon: true },
+];
+
 export default function AppLayout() {
   const { isAuthenticated, isLoading } = useConvexAuth();
   const navigate = useNavigate();
@@ -109,6 +113,22 @@ export default function AppLayout() {
               </Link>
             );
           })}
+
+          {/* Coming Soon Items */}
+          <div className="pt-2 mt-2 border-t border-gray-200 dark:border-gray-700">
+            {comingSoonItems.map((item) => (
+              <div
+                key={item.label}
+                className="flex items-center gap-3 px-4 py-3 rounded-lg text-gray-400 dark:text-gray-600 cursor-not-allowed"
+              >
+                <item.icon className="w-5 h-5" />
+                <span>{item.label}</span>
+                <span className="ml-auto text-xs bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">
+                  Soon
+                </span>
+              </div>
+            ))}
+          </div>
         </nav>
 
         <div className="p-4">
@@ -204,6 +224,24 @@ function GridIcon({ className }: { className?: string }) {
         strokeLinejoin="round"
         strokeWidth={2}
         d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"
+      />
+    </svg>
+  );
+}
+
+function BriefcaseIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
       />
     </svg>
   );
