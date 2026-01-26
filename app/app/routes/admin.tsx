@@ -1,13 +1,40 @@
-import { useQuery, useConvexAuth } from "convex/react";
+import { useQuery, useConvexAuth, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useNavigate } from "react-router";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 export default function AdminPage() {
   const { isAuthenticated, isLoading: authLoading } = useConvexAuth();
   const navigate = useNavigate();
   const users = useQuery(api.admin.getAllUsersWithInvites);
   const debugData = useQuery(api.admin.debugInvites);
+  const manuallyLinkInvite = useMutation(api.admin.manuallyLinkInvite);
+
+  const [linkingUser, setLinkingUser] = useState<string | null>(null);
+  const [selectedInviter, setSelectedInviter] = useState<string>("");
+  const [linkStatus, setLinkStatus] = useState<string>("");
+
+  const handleLinkInvite = async (inviteeUserId: string) => {
+    if (!selectedInviter) {
+      setLinkStatus("Please select an inviter");
+      return;
+    }
+
+    try {
+      const result = await manuallyLinkInvite({
+        inviteeUserId: inviteeUserId as any,
+        inviterUserId: selectedInviter as any,
+      });
+      setLinkStatus(result.message);
+      setLinkingUser(null);
+      setSelectedInviter("");
+      setTimeout(() => setLinkStatus(""), 3000);
+    } catch (err) {
+      setLinkStatus(
+        err instanceof Error ? err.message : "Failed to link invite",
+      );
+    }
+  };
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -144,6 +171,78 @@ export default function AdminPage() {
                 {users.reduce((sum, u) => sum + u.inviteUsageCount, 0)}
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* Manual Invite Linking */}
+        <div className="mt-8 bg-white shadow-md rounded-lg p-6">
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">
+            Manual Invite Linking
+          </h2>
+          {linkStatus && (
+            <div className="mb-4 p-3 bg-blue-50 text-blue-700 rounded-lg">
+              {linkStatus}
+            </div>
+          )}
+          <div className="space-y-4">
+            {users
+              ?.filter((u) => !u.invitedBy)
+              .map((user) => (
+                <div
+                  key={user._id}
+                  className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg"
+                >
+                  <div className="flex-1">
+                    <div className="font-medium text-gray-900">{user.name}</div>
+                    <div className="text-sm text-gray-500">{user.email}</div>
+                  </div>
+                  {linkingUser === user.userId ? (
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={selectedInviter}
+                        onChange={(e) => setSelectedInviter(e.target.value)}
+                        className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                      >
+                        <option value="">Select inviter...</option>
+                        {users
+                          ?.filter((u) => u.userId !== user.userId)
+                          .map((u) => (
+                            <option key={u.userId} value={u.userId}>
+                              {u.name} ({u.email})
+                            </option>
+                          ))}
+                      </select>
+                      <button
+                        onClick={() => handleLinkInvite(user.userId)}
+                        className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700"
+                      >
+                        Link
+                      </button>
+                      <button
+                        onClick={() => {
+                          setLinkingUser(null);
+                          setSelectedInviter("");
+                        }}
+                        className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-400"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setLinkingUser(user.userId)}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700"
+                    >
+                      Set Inviter
+                    </button>
+                  )}
+                </div>
+              ))}
+            {users?.filter((u) => !u.invitedBy).length === 0 && (
+              <p className="text-gray-500 text-center py-4">
+                All users have inviters linked
+              </p>
+            )}
           </div>
         </div>
 

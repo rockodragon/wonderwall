@@ -1,4 +1,5 @@
-import { query } from "./_generated/server";
+import { query, mutation } from "./_generated/server";
+import { v } from "convex/values";
 import { auth } from "./auth";
 
 export const getAllUsersWithInvites = query({
@@ -104,5 +105,64 @@ export const debugInvites = query({
         createdAt: inv.createdAt,
       })),
     };
+  },
+});
+
+// Manual backfill mutation to link a user to their inviter
+export const manuallyLinkInvite = mutation({
+  args: {
+    inviteeUserId: v.id("users"),
+    inviterUserId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    const userId = await auth.getUserId(ctx);
+    if (!userId) {
+      throw new Error("Not authenticated");
+    }
+
+    const currentUser = await ctx.db.get(userId);
+    const userEmail =
+      currentUser && "email" in currentUser ? currentUser.email : null;
+    if (!userEmail || userEmail !== "rickmoy@gmail.com") {
+      throw new Error("Unauthorized - Admin access only");
+    }
+
+    // Get inviter profile to increment their usage count
+    const inviterProfile = await ctx.db
+      .query("profiles")
+      .withIndex("by_userId", (q) => q.eq("userId", args.inviterUserId))
+      .first();
+
+    if (!inviterProfile) {
+      throw new Error("Inviter profile not found");
+    }
+
+    // Check if invite record already exists
+    const existingInvite = await ctx.db
+      .query("invites")
+      .withIndex("by_inviterId", (q) => q.eq("inviterId", args.inviterUserId))
+      .filter((q) => q.eq(q.field("usedBy"), args.inviteeUserId))
+      .first();
+
+    if (existingInvite) {
+      return { message: "Invite link already exists", existing: true };
+    }
+
+    // Create invite record
+    await ctx.db.insert("invites", {
+      inviterId: args.inviterUserId,
+      code: inviterProfile.inviteSlug || "manual-backfill",
+      usedBy: args.inviteeUserId,
+      usedAt: Date.now(),
+      createdAt: Date.now(),
+    });
+
+    // Increment inviter's usage count
+    const currentCount = inviterProfile.inviteUsageCount || 0;
+    await ctx.db.patch(inviterProfile._id, {
+      inviteUsageCount: currentCount + 1,
+    });
+
+    return { message: "Successfully linked invite", existing: false };
   },
 });

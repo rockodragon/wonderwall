@@ -1,4 +1,5 @@
 import { useAuthActions } from "@convex-dev/auth/react";
+import { usePostHog } from "@posthog/react";
 import { useMutation, useQuery } from "convex/react";
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
@@ -8,6 +9,7 @@ export default function Signup() {
   const { inviteSlug } = useParams();
   const { signIn } = useAuthActions();
   const navigate = useNavigate();
+  const posthog = usePostHog();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -68,7 +70,9 @@ export default function Signup() {
       try {
         await redeemInvite({ slug: inviteSlug });
       } catch (err) {
-        console.warn("Failed to redeem invite:", err);
+        console.error("Failed to redeem invite:", err);
+        // Don't block signup, but log the error for debugging
+        posthog?.captureException(err);
       }
 
       // Generate invite slug for new user
@@ -78,11 +82,21 @@ export default function Signup() {
         console.warn("Failed to generate invite slug:", err);
       }
 
+      // Identify user and capture signup event
+      posthog?.identify(email, { email, name, invite_slug: inviteSlug });
+      posthog?.capture("user_signed_up", {
+        email,
+        name,
+        invite_slug: inviteSlug,
+        inviter_name: inviterInfo?.name,
+      });
+
       // Show welcome modal
       setShowWelcome(true);
     } catch (err) {
       console.error("Signup error:", err);
       setError(err instanceof Error ? err.message : "Signup failed");
+      posthog?.captureException(err);
       setLoading(false);
     }
   }
