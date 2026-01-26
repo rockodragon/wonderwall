@@ -23,6 +23,9 @@ export default function Home() {
     "idle" | "loading" | "success" | "error"
   >("idle");
   const [message, setMessage] = useState("");
+  const [showInviteInput, setShowInviteInput] = useState(false);
+  const [inviteInput, setInviteInput] = useState("");
+  const [inviteError, setInviteError] = useState("");
   const addToWaitlist = useMutation(api.waitlist.addToWaitlist);
 
   useEffect(() => {
@@ -48,6 +51,37 @@ export default function Home() {
     } catch (err) {
       setStatus("error");
       setMessage("Something went wrong. Please try again.");
+    }
+  }
+
+  function handleInviteSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setInviteError("");
+
+    if (!inviteInput.trim()) {
+      setInviteError("Please enter an invite link or code");
+      return;
+    }
+
+    // Parse the invite - accept full URL or just the slug
+    let slug = inviteInput.trim();
+
+    // If it's a full URL, extract the slug
+    if (slug.includes("/signup/")) {
+      const match = slug.match(/\/signup\/([^/?]+)/);
+      if (match) {
+        slug = match[1];
+      }
+    } else if (slug.includes("/")) {
+      // Remove any leading/trailing slashes
+      slug = slug.replace(/^\/+|\/+$/g, "");
+    }
+
+    // Navigate to signup page with the slug
+    if (slug) {
+      navigate(`/signup/${slug}`);
+    } else {
+      setInviteError("Invalid invite format");
     }
   }
 
@@ -147,15 +181,58 @@ export default function Home() {
             </form>
           )}
 
-          <p className="mt-4 text-sm text-gray-600 dark:text-gray-400">
-            Have an invite?{" "}
-            <Link
-              to="/login"
-              className="text-blue-600 hover:text-blue-500 font-medium"
-            >
-              Sign in here
-            </Link>
-          </p>
+          {/* Invite Input Section */}
+          <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+            {!showInviteInput ? (
+              <button
+                onClick={() => setShowInviteInput(true)}
+                className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+              >
+                Have an invite?{" "}
+                <span className="text-blue-600 hover:text-blue-500 font-medium">
+                  Enter it here
+                </span>
+              </button>
+            ) : (
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Enter your invite
+                  </p>
+                  <button
+                    onClick={() => {
+                      setShowInviteInput(false);
+                      setInviteInput("");
+                      setInviteError("");
+                    }}
+                    className="text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                  >
+                    Cancel
+                  </button>
+                </div>
+                <form onSubmit={handleInviteSubmit} className="space-y-3">
+                  <input
+                    type="text"
+                    value={inviteInput}
+                    onChange={(e) => setInviteInput(e.target.value)}
+                    placeholder="Paste invite link or code (e.g., rick-moy)"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  {inviteError && (
+                    <p className="text-sm text-red-600 dark:text-red-400">
+                      {inviteError}
+                    </p>
+                  )}
+                  <button
+                    type="submit"
+                    className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg font-medium text-sm hover:bg-blue-700 transition-colors"
+                  >
+                    Continue
+                  </button>
+                </form>
+              </div>
+            )}
+          </div>
         </div>
       </main>
 
