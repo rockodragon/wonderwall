@@ -44,7 +44,8 @@ export default function Onboarding() {
 
   const profile = useQuery(api.profiles.getMyProfile);
   const upsertProfile = useMutation(api.profiles.upsertProfile);
-  const generateUploadUrl = useMutation(api.artifacts.generateUploadUrl);
+  const generateUploadUrl = useMutation(api.files.generateUploadUrl);
+  const saveProfileImage = useMutation(api.files.saveProfileImage);
   const createArtifact = useMutation(api.artifacts.create);
   const createWondering = useMutation(api.wonderings.create);
   const inviteLink = useQuery(api.invites.getMyInviteLink);
@@ -56,13 +57,21 @@ export default function Onboarding() {
       return;
     }
 
+    if (!profile) return;
+
     setUploading(true);
     try {
+      // Update profile with job functions and bio
       await upsertProfile({
+        name: profile.name, // Keep existing name
         jobFunctions: selectedJobFunctions,
         bio: bio.trim() || undefined,
-        imageUrl: profileImageUrl || undefined,
       });
+
+      // Save profile image if uploaded
+      if (profileImageUrl) {
+        await saveProfileImage({ storageId: profileImageUrl });
+      }
 
       posthog?.capture("onboarding_step_completed", {
         step_number: 1,
