@@ -1,3 +1,4 @@
+import { usePostHog } from "@posthog/react";
 import { useMutation } from "convex/react";
 import { useState } from "react";
 import { useNavigate } from "react-router";
@@ -18,6 +19,7 @@ const EVENT_TAGS = [
 
 export function CreateEventModal({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate();
+  const posthog = usePostHog();
   const createEvent = useMutation(api.events.create);
 
   const [title, setTitle] = useState("");
@@ -61,6 +63,14 @@ export function CreateEventModal({ onClose }: { onClose: () => void }) {
         tags,
         requiresApproval,
       });
+
+      // Track event created
+      posthog?.capture("event_created", {
+        has_location: !!location,
+        tags_count: tags.length,
+        requires_approval: requiresApproval,
+      });
+
       navigate(`/events/${eventId}`);
     } catch (err) {
       setError("Failed to create event");

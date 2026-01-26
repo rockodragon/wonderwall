@@ -1,9 +1,11 @@
+import { usePostHog } from "@posthog/react";
 import { useMutation, useQuery } from "convex/react";
 import { useRef, useState } from "react";
 import confetti from "canvas-confetti";
 import { api } from "../../convex/_generated/api";
 
 export function CreateWonderingComposer() {
+  const posthog = usePostHog();
   const profile = useQuery(api.profiles.getMyProfile);
   const wondering = useQuery(api.wonderings.getMyWondering);
   const createWondering = useMutation(api.wonderings.create);
@@ -94,6 +96,12 @@ export function CreateWonderingComposer() {
         particleCount: 100,
         spread: 70,
         origin: { y: 0.6 },
+      });
+
+      // Track wondering created
+      posthog?.capture("wondering_created", {
+        prompt_length: prompt.trim().length,
+        replaced_existing: hasActiveWondering,
       });
 
       // Reset form

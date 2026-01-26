@@ -1,3 +1,4 @@
+import { usePostHog } from "@posthog/react";
 import { useMutation, useQuery } from "convex/react";
 import { useRef, useState } from "react";
 import { api } from "../../convex/_generated/api";
@@ -21,6 +22,7 @@ function normalizeUrl(url: string): string {
 }
 
 export function CreateWorkComposer({ onCreated }: { onCreated?: () => void }) {
+  const posthog = usePostHog();
   const profile = useQuery(api.profiles.getMyProfile);
   const artifacts = useQuery(api.artifacts.getMyArtifacts);
   const createArtifact = useMutation(api.artifacts.create);
@@ -136,6 +138,14 @@ export function CreateWorkComposer({ onCreated }: { onCreated?: () => void }) {
           origin: { y: 0.6 },
         });
       }
+
+      // Track work created
+      posthog?.capture("work_created", {
+        work_type: type,
+        has_title: !!title.trim(),
+        is_first_work: isFirstWork,
+        has_uploaded_file: !!uploadedStorageId,
+      });
 
       resetForm();
       onCreated?.();

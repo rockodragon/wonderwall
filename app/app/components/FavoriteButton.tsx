@@ -1,3 +1,4 @@
+import { usePostHog } from "@posthog/react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 
@@ -14,6 +15,7 @@ export function FavoriteButton({
   size = "md",
   showCount = false,
 }: FavoriteButtonProps) {
+  const posthog = usePostHog();
   const isFavorited = useQuery(api.favorites.isFavorited, {
     targetType,
     targetId,
@@ -28,6 +30,12 @@ export function FavoriteButton({
     e.preventDefault();
     e.stopPropagation();
     await toggleFavorite({ targetType, targetId });
+
+    // Track favorite toggled
+    posthog?.capture("favorite_toggled", {
+      target_type: targetType,
+      action: isFavorited ? "unfavorited" : "favorited",
+    });
   }
 
   const sizeClasses = {

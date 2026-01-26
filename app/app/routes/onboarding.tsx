@@ -1,3 +1,4 @@
+import { usePostHog } from "@posthog/react";
 import { useMutation, useQuery } from "convex/react";
 import { useState } from "react";
 import { useNavigate } from "react-router";
@@ -6,6 +7,7 @@ import { api } from "../../convex/_generated/api";
 
 export default function Onboarding() {
   const navigate = useNavigate();
+  const posthog = usePostHog();
   const [step, setStep] = useState(1);
   const [wonderPrompt, setWonderPrompt] = useState("");
   const [uploading, setUploading] = useState(false);
@@ -28,6 +30,13 @@ export default function Onboarding() {
         particleCount: 100,
         spread: 70,
         origin: { y: 0.6 },
+      });
+
+      // Track onboarding step completed
+      posthog?.capture("onboarding_step_completed", {
+        step_number: 2,
+        step_name: "create_wondering",
+        wondering_length: wonderPrompt.trim().length,
       });
 
       setStep(3); // Go to celebration step
@@ -132,7 +141,13 @@ export default function Onboarding() {
             </div>
 
             <button
-              onClick={() => setStep(2)}
+              onClick={() => {
+                posthog?.capture("onboarding_step_completed", {
+                  step_number: 1,
+                  step_name: "welcome",
+                });
+                setStep(2);
+              }}
               className="w-full py-3 px-4 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors"
             >
               Create your first wondering
@@ -258,7 +273,13 @@ export default function Onboarding() {
             </div>
 
             <button
-              onClick={() => navigate("/search")}
+              onClick={() => {
+                posthog?.capture("onboarding_step_completed", {
+                  step_number: 3,
+                  step_name: "completion",
+                });
+                navigate("/search");
+              }}
               className="w-full py-3 px-4 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors"
             >
               Explore Wonderwall

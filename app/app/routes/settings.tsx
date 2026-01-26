@@ -1,4 +1,5 @@
 import { useAuthActions } from "@convex-dev/auth/react";
+import { usePostHog } from "@posthog/react";
 import { useMutation, useQuery } from "convex/react";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
@@ -43,6 +44,7 @@ const JOB_FUNCTIONS = [
 export default function Settings() {
   const { signOut } = useAuthActions();
   const navigate = useNavigate();
+  const posthog = usePostHog();
   const profile = useQuery(api.profiles.getMyProfile);
   const inviteStats = useQuery(
     api.invites.getInviteStats,
@@ -51,6 +53,8 @@ export default function Settings() {
   const [showProfileEdit, setShowProfileEdit] = useState(false);
 
   async function handleSignOut() {
+    posthog?.capture("user_logged_out");
+    posthog?.reset();
     await signOut();
     navigate("/login");
   }
@@ -205,6 +209,7 @@ function ProfileEditForm({
   onDone: () => void;
   isNewProfile: boolean;
 }) {
+  const posthog = usePostHog();
   const upsertProfile = useMutation(api.profiles.upsertProfile);
   const generateUploadUrl = useMutation(api.files.generateUploadUrl);
   const saveProfileImage = useMutation(api.files.saveProfileImage);
@@ -299,6 +304,14 @@ function ProfileEditForm({
         location: location.trim() || undefined,
         jobFunctions,
       });
+
+      posthog?.capture("profile_updated", {
+        has_bio: !!bio.trim(),
+        has_location: !!location.trim(),
+        job_functions_count: jobFunctions.length,
+        is_new_profile: isNewProfile,
+      });
+
       onDone();
     } finally {
       setSaving(false);

@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as admin from "../admin.js";
 import type * as analytics from "../analytics.js";
 import type * as artifacts from "../artifacts.js";
 import type * as auth from "../auth.js";
@@ -20,6 +21,7 @@ import type * as invites from "../invites.js";
 import type * as links from "../links.js";
 import type * as profiles from "../profiles.js";
 import type * as seed from "../seed.js";
+import type * as waitlist from "../waitlist.js";
 import type * as wonderings from "../wonderings.js";
 
 import type {
@@ -29,6 +31,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  admin: typeof admin;
   analytics: typeof analytics;
   artifacts: typeof artifacts;
   auth: typeof auth;
@@ -41,6 +44,7 @@ declare const fullApi: ApiFromModules<{
   links: typeof links;
   profiles: typeof profiles;
   seed: typeof seed;
+  waitlist: typeof waitlist;
   wonderings: typeof wonderings;
 }>;
 

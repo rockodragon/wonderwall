@@ -1,10 +1,12 @@
 import { useAuthActions } from "@convex-dev/auth/react";
+import { usePostHog } from "@posthog/react";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router";
 
 export default function Login() {
   const { signIn } = useAuthActions();
   const navigate = useNavigate();
+  const posthog = usePostHog();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -17,9 +19,15 @@ export default function Login() {
 
     try {
       await signIn("password", { email, password, flow: "signIn" });
+
+      // Identify user and capture login event
+      posthog?.identify(email, { email });
+      posthog?.capture("user_logged_in", { email });
+
       navigate("/search");
-    } catch {
+    } catch (err) {
       setError("Invalid email or password");
+      posthog?.captureException(err);
     } finally {
       setLoading(false);
     }

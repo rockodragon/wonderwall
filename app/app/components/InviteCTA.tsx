@@ -1,3 +1,4 @@
+import { usePostHog } from "@posthog/react";
 import { useMutation, useQuery } from "convex/react";
 import { useState, useEffect } from "react";
 import { api } from "../../convex/_generated/api";
@@ -60,6 +61,7 @@ const VARIANTS: Record<
 
 export function InviteCTA({ variant }: { variant: InviteCTAVariant }) {
   const config = VARIANTS[variant];
+  const posthog = usePostHog();
   const [isExpanded, setIsExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -82,6 +84,14 @@ export function InviteCTA({ variant }: { variant: InviteCTAVariant }) {
     const url = `${window.location.origin}/signup/${inviteLink.slug}`;
     navigator.clipboard.writeText(url);
     setCopied(true);
+
+    // Track invite link copied
+    posthog?.capture("invite_link_copied", {
+      variant,
+      invites_used: inviteLink.usageCount,
+      invites_remaining: inviteLink.remainingUses,
+    });
+
     setTimeout(() => setCopied(false), 2000);
   }
 
