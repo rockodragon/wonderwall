@@ -23,5 +23,6 @@ export default [
     route("favorites", "routes/favorites.tsx"),
     route("settings", "routes/settings.tsx"),
     route("faq", "routes/faq.tsx"),
+    route("admin", "routes/admin.tsx"),
   ]),
 ] satisfies RouteConfig;

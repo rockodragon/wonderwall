@@ -1,6 +1,8 @@
-import { useConvexAuth } from "convex/react";
+import { useConvexAuth, useQuery } from "convex/react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router";
 import { useEffect } from "react";
+import { usePostHog } from "@posthog/react";
+import { api } from "../../convex/_generated/api";
 import { InviteCTA } from "../components/InviteCTA";
 
 const navItems = [
@@ -15,12 +17,26 @@ export default function AppLayout() {
   const { isAuthenticated, isLoading } = useConvexAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const posthog = usePostHog();
+  const profile = useQuery(api.profiles.getMyProfile);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       navigate("/login");
     }
   }, [isAuthenticated, isLoading, navigate]);
+
+  // Identify user in PostHog when authenticated and profile loaded
+  useEffect(() => {
+    if (isAuthenticated && profile && posthog) {
+      posthog.identify(profile.userId, {
+        email: profile.attributes?.email,
+        name: profile.name,
+        plan: profile.plan,
+        jobFunctions: profile.jobFunctions,
+      });
+    }
+  }, [isAuthenticated, profile, posthog]);
 
   if (isLoading) {
     return (
