@@ -198,7 +198,7 @@ export const deleteUser = mutation({
     // Delete all artifacts (works)
     const artifacts = await ctx.db
       .query("artifacts")
-      .withIndex("by_creatorId", (q) => q.eq("creatorId", profile._id))
+      .withIndex("by_profileId", (q) => q.eq("profileId", profile._id))
       .collect();
     for (const artifact of artifacts) {
       await ctx.db.delete(artifact._id);
