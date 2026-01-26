@@ -3,6 +3,7 @@ import { usePostHog } from "@posthog/react";
 import { useMutation, useQuery } from "convex/react";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
+import confetti from "canvas-confetti";
 import { api } from "../../convex/_generated/api";
 
 export default function Signup() {
@@ -350,12 +351,46 @@ export default function Signup() {
 }
 
 function WelcomeModal({ onContinue }: { onContinue: () => void }) {
+  // Trigger confetti on mount
+  useEffect(() => {
+    const duration = 3000;
+    const animationEnd = Date.now() + duration;
+    const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 100 };
+
+    function randomInRange(min: number, max: number) {
+      return Math.random() * (max - min) + min;
+    }
+
+    const interval: ReturnType<typeof setInterval> = setInterval(function () {
+      const timeLeft = animationEnd - Date.now();
+
+      if (timeLeft <= 0) {
+        return clearInterval(interval);
+      }
+
+      const particleCount = 50 * (timeLeft / duration);
+
+      confetti({
+        ...defaults,
+        particleCount,
+        origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 },
+      });
+      confetti({
+        ...defaults,
+        particleCount,
+        origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 },
+      });
+    }, 250);
+
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl max-w-md w-full p-8 text-center">
-        <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-6">
+      <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl max-w-lg w-full p-10 text-center">
+        <div className="w-24 h-24 bg-gradient-to-br from-blue-500 via-purple-600 to-pink-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg">
           <svg
-            className="w-10 h-10 text-white"
+            className="w-14 h-14 text-white"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -364,22 +399,95 @@ function WelcomeModal({ onContinue }: { onContinue: () => void }) {
               strokeLinecap="round"
               strokeLinejoin="round"
               strokeWidth={2}
-              d="M5 13l4 4L19 7"
+              d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"
             />
           </svg>
         </div>
-        <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
-          Welcome to Wonderwall!
+
+        <h2 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">
+          Welcome!
         </h2>
-        <p className="text-gray-600 dark:text-gray-400 mb-8">
-          Your account has been created. Let's set up your profile and share
-          what you're wondering about.
+
+        <p className="text-xl text-gray-700 dark:text-gray-300 mb-6 font-medium">
+          You're joining a community of{" "}
+          <span className="text-blue-600 dark:text-blue-400">
+            kingdom-minded creatives
+          </span>
         </p>
+
+        <div className="space-y-4 mb-8 text-left">
+          <div className="flex gap-3 items-start">
+            <div className="w-6 h-6 shrink-0 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center mt-0.5">
+              <svg
+                className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </div>
+            <p className="text-gray-600 dark:text-gray-400 text-sm">
+              <strong className="text-gray-900 dark:text-white">
+                Share your creative work
+              </strong>{" "}
+              and inspire others with your gifts
+            </p>
+          </div>
+
+          <div className="flex gap-3 items-start">
+            <div className="w-6 h-6 shrink-0 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center mt-0.5">
+              <svg
+                className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </div>
+            <p className="text-gray-600 dark:text-gray-400 text-sm">
+              <strong className="text-gray-900 dark:text-white">
+                Wonder together
+              </strong>{" "}
+              by asking questions and exploring ideas with peers
+            </p>
+          </div>
+
+          <div className="flex gap-3 items-start">
+            <div className="w-6 h-6 shrink-0 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center mt-0.5">
+              <svg
+                className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </div>
+            <p className="text-gray-600 dark:text-gray-400 text-sm">
+              <strong className="text-gray-900 dark:text-white">
+                Find collaborators
+              </strong>{" "}
+              and build meaningful connections
+            </p>
+          </div>
+        </div>
+
         <button
           onClick={onContinue}
-          className="w-full px-6 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors"
+          className="w-full px-6 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-semibold hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg hover:shadow-xl text-lg"
         >
-          Continue
+          Let's get started
         </button>
       </div>
     </div>
