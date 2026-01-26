@@ -35,6 +35,18 @@ export default function Home() {
     inviteSlug ? { slug: inviteSlug } : "skip",
   );
 
+  // Check for invite parameter in URL
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const inviteParam = urlParams.get("invite");
+    if (inviteParam) {
+      setInviteSlug(inviteParam);
+      setShowInviteInput(true);
+      // Clean up URL
+      window.history.replaceState({}, "", "/");
+    }
+  }, []);
+
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
       navigate("/search");
@@ -367,7 +379,11 @@ export default function Home() {
                   {/* CTA Buttons */}
                   <div className="space-y-2">
                     <button
-                      onClick={() => navigate(`/signup/${inviteSlug}`)}
+                      onClick={() => {
+                        // Mark that user accepted invite from home page
+                        sessionStorage.setItem("invite-accepted", inviteSlug);
+                        navigate(`/signup/${inviteSlug}`);
+                      }}
                       className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors"
                     >
                       Accept Invite & Join

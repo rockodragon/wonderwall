@@ -1,7 +1,7 @@
 import { useAuthActions } from "@convex-dev/auth/react";
 import { usePostHog } from "@posthog/react";
 import { useMutation, useQuery } from "convex/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { api } from "../../convex/_generated/api";
 
@@ -25,6 +25,20 @@ export default function Signup() {
 
   const redeemInvite = useMutation(api.invites.redeemBySlug);
   const generateSlug = useMutation(api.invites.generateInviteSlug);
+
+  // Redirect to home page with invite preview if arriving directly
+  useEffect(() => {
+    if (inviteSlug && typeof window !== "undefined") {
+      const fromHome = sessionStorage.getItem("invite-accepted");
+      if (!fromHome || fromHome !== inviteSlug) {
+        // Redirect to home page to show invite preview
+        navigate(`/?invite=${inviteSlug}`, { replace: true });
+      } else {
+        // Clear the flag since we've used it
+        sessionStorage.removeItem("invite-accepted");
+      }
+    }
+  }, [inviteSlug, navigate]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
