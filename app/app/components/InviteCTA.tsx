@@ -1,7 +1,6 @@
 import { useMutation, useQuery } from "convex/react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { api } from "../../convex/_generated/api";
-import type { Doc } from "../../convex/_generated/dataModel";
 
 type InviteCTAVariant =
   | "profile"
@@ -16,8 +15,8 @@ const VARIANTS: Record<
   { headline: string; subtitle: string; gradient: string; pattern: string }
 > = {
   profile: {
-    headline: "Invite a friend",
-    subtitle: "Who do you know that should belong here?",
+    headline: "Invite someone",
+    subtitle: "Share your personal invite link with people you know.",
     gradient: "from-violet-500 via-purple-500 to-fuchsia-500",
     pattern:
       "radial-gradient(circle at 20% 80%, rgba(255,255,255,0.1) 0%, transparent 50%)",
@@ -62,36 +61,34 @@ const VARIANTS: Record<
 export function InviteCTA({ variant }: { variant: InviteCTAVariant }) {
   const config = VARIANTS[variant];
   const [isExpanded, setIsExpanded] = useState(false);
-  const [copied, setCopied] = useState<string | null>(null);
-  const [creating, setCreating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [generating, setGenerating] = useState(false);
 
-  const invites = useQuery(api.invites.getMyInvites);
-  const createInvite = useMutation(api.invites.create);
+  const inviteLink = useQuery(api.invites.getMyInviteLink);
+  const generateSlug = useMutation(api.invites.generateInviteSlug);
 
-  const unusedInvites = invites?.filter((i) => !i.usedBy) || [];
-  const usedInvites = invites?.filter((i) => i.usedBy) || [];
-  const canCreate = unusedInvites.length < 3;
-
-  async function handleCreateInvite() {
-    setCreating(true);
-    setError(null);
-    try {
-      const code = await createInvite({});
-      copyToClipboard(code);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create invite");
-    } finally {
-      setCreating(false);
+  // Auto-generate slug if user doesn't have one
+  useEffect(() => {
+    if (inviteLink && !inviteLink.slug && !generating) {
+      setGenerating(true);
+      generateSlug({})
+        .catch((err) => console.error("Failed to generate slug:", err))
+        .finally(() => setGenerating(false));
     }
+  }, [inviteLink, generateSlug, generating]);
+
+  function copyToClipboard() {
+    if (!inviteLink?.slug) return;
+    const url = `${window.location.origin}/signup/${inviteLink.slug}`;
+    navigator.clipboard.writeText(url);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   }
 
-  function copyToClipboard(code: string) {
-    const url = `${window.location.origin}/signup/${code}`;
-    navigator.clipboard.writeText(url);
-    setCopied(code);
-    setTimeout(() => setCopied(null), 2000);
-  }
+  const inviteUrl = inviteLink?.slug
+    ? `${window.location.origin}/signup/${inviteLink.slug}`
+    : "";
+  const hasUsesLeft = inviteLink && inviteLink.remainingUses > 0;
 
   return (
     <div
@@ -175,7 +172,7 @@ export function InviteCTA({ variant }: { variant: InviteCTAVariant }) {
 
         {!isExpanded ? (
           <div className="inline-flex items-center gap-2 text-white font-medium text-sm group-hover:gap-3 transition-all">
-            <span>Send an invite</span>
+            <span>Share your link</span>
             <svg
               className="w-4 h-4 transition-transform group-hover:translate-x-1"
               fill="none"
@@ -191,53 +188,99 @@ export function InviteCTA({ variant }: { variant: InviteCTAVariant }) {
             </svg>
           </div>
         ) : (
-          <div className="space-y-3">
-            {error && (
-              <p className="text-white/80 text-xs bg-red-500/30 rounded-lg px-3 py-2">
-                {error}
-              </p>
-            )}
-
-            {/* Invite codes */}
-            <div className="space-y-2">
-              {unusedInvites.map((invite: Doc<"invites">) => (
-                <div
-                  key={invite._id}
-                  className="flex items-center justify-between p-3 bg-white/10 backdrop-blur-sm rounded-xl"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <code className="text-sm font-mono text-white/90">
-                    {invite.code}
-                  </code>
-                  <button
-                    onClick={() => copyToClipboard(invite.code)}
-                    className="px-3 py-1 bg-white/20 hover:bg-white/30 text-white text-xs font-medium rounded-lg transition-colors"
-                  >
-                    {copied === invite.code ? "Copied!" : "Copy link"}
-                  </button>
+          <div className="space-y-3" onClick={(e) => e.stopPropagation()}>
+            {generating ? (
+              <div className="flex items-center justify-center py-4">
+                <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              </div>
+            ) : !inviteLink?.slug ? (
+              <p className="text-white/80 text-sm">Loading invite link...</p>
+            ) : !hasUsesLeft ? (
+              <div className="p-4 bg-white/10 backdrop-blur-sm rounded-xl">
+                <p className="text-white text-sm font-medium mb-2">
+                  🎉 You've invited {inviteLink.usageCount} people!
+                </p>
+                <p className="text-white/70 text-xs">
+                  {inviteLink.currentLimit === 3
+                    ? "You'll unlock 5 more invites when your invitees start joining!"
+                    : inviteLink.currentLimit === 8
+                      ? "You'll unlock 10 more invites as your network grows!"
+                      : "More invites will unlock as your network grows!"}
+                </p>
+              </div>
+            ) : (
+              <>
+                {/* Invite link */}
+                <div className="p-3 bg-white/10 backdrop-blur-sm rounded-xl">
+                  <p className="text-white/70 text-xs mb-2">Your invite link</p>
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 text-sm font-mono text-white/90 truncate">
+                      {inviteUrl}
+                    </code>
+                    <button
+                      onClick={copyToClipboard}
+                      className="px-3 py-1.5 bg-white/20 hover:bg-white/30 text-white text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5"
+                    >
+                      {copied ? (
+                        <>
+                          <svg
+                            className="w-3.5 h-3.5"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M5 13l4 4L19 7"
+                            />
+                          </svg>
+                          Copied!
+                        </>
+                      ) : (
+                        <>
+                          <svg
+                            className="w-3.5 h-3.5"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                            />
+                          </svg>
+                          Copy
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </div>
-              ))}
-            </div>
 
-            {/* Create new invite button */}
-            {canCreate && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleCreateInvite();
-                }}
-                disabled={creating}
-                className="w-full py-3 bg-white/20 hover:bg-white/30 text-white font-medium rounded-xl transition-colors disabled:opacity-50"
-              >
-                {creating ? "Creating..." : "+ Create new invite"}
-              </button>
+                {/* Usage stats */}
+                <div className="flex items-center justify-between text-white/70 text-xs">
+                  <span>
+                    {inviteLink.usageCount}/{inviteLink.currentLimit} invites
+                    used • {inviteLink.remainingUses} remaining
+                  </span>
+                  {inviteLink.usageCount >= 3 &&
+                    inviteLink.currentLimit > 3 && (
+                      <span className="px-2 py-0.5 bg-yellow-400/20 text-yellow-200 rounded-full text-[10px] font-medium">
+                        Unlocked +{inviteLink.currentLimit - 3}!
+                      </span>
+                    )}
+                </div>
+
+                {/* Info */}
+                <p className="text-white/60 text-xs pt-2">
+                  Share thoughtfully. As people join and grow the network,
+                  you'll unlock more invites!
+                </p>
+              </>
             )}
-
-            {/* Stats */}
-            <div className="flex items-center justify-between text-white/70 text-xs pt-2">
-              <span>{unusedInvites.length}/3 invites available</span>
-              {usedInvites.length > 0 && <span>{usedInvites.length} used</span>}
-            </div>
           </div>
         )}
       </div>

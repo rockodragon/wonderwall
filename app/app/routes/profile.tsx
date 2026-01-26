@@ -313,6 +313,11 @@ export default function Profile() {
                         </svg>
                       </div>
                     </div>
+                  ) : artifact.type === "link" ? (
+                    <LinkFallbackCard
+                      title={artifact.title}
+                      url={artifact.mediaUrl}
+                    />
                   ) : (
                     <div className="w-full h-full bg-gradient-to-br from-gray-700 to-gray-900 flex items-end">
                       <div className="p-3">
@@ -679,6 +684,74 @@ function WonderingCard({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function LinkFallbackCard({
+  title,
+  url,
+}: {
+  title?: string | null;
+  url?: string | null;
+}) {
+  // Extract domain from URL for display
+  const domain = url
+    ? (() => {
+        try {
+          const parsed = new URL(url);
+          return parsed.hostname.replace("www.", "");
+        } catch {
+          return null;
+        }
+      })()
+    : null;
+
+  return (
+    <div className="w-full h-full p-4 flex flex-col justify-between bg-gradient-to-br from-emerald-50 to-cyan-50 dark:from-emerald-900/30 dark:to-cyan-900/30">
+      {/* Link icon */}
+      <div className="flex justify-between items-start">
+        <svg
+          className="w-8 h-8 text-emerald-600 dark:text-emerald-400"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+          />
+        </svg>
+        <svg
+          className="w-4 h-4 text-emerald-500/50 dark:text-emerald-400/50"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+          />
+        </svg>
+      </div>
+
+      {/* Title and domain */}
+      <div>
+        {title && (
+          <h3 className="text-sm font-semibold text-gray-900 dark:text-white line-clamp-2 mb-1">
+            {title}
+          </h3>
+        )}
+        {domain && (
+          <p className="text-xs text-emerald-600 dark:text-emerald-400 truncate">
+            {domain}
+          </p>
+        )}
+      </div>
     </div>
   );
 }

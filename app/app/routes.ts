@@ -9,7 +9,8 @@ export default [
   // Public routes
   index("routes/home.tsx"),
   route("login", "routes/login.tsx"),
-  route("signup/:inviteCode?", "routes/signup.tsx"),
+  route("signup/:inviteSlug", "routes/signup.tsx"),
+  route("onboarding", "routes/onboarding.tsx"),
 
   // App routes (with nav layout)
   layout("routes/_app.tsx", [

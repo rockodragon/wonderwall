@@ -16,11 +16,14 @@ export default defineSchema({
     jobFunctions: v.array(v.string()), // curated list + "other:custom"
     location: v.optional(v.string()),
     plan: v.optional(v.string()), // "free" | "paid" - defaults to free
+    inviteSlug: v.optional(v.string()), // unique slug for invite links (e.g., "rick-moy")
+    inviteUsageCount: v.optional(v.number()), // track how many times their invite link has been used
     createdAt: v.number(),
     updatedAt: v.number(),
   })
     .index("by_userId", ["userId"])
-    .index("by_name", ["name"]),
+    .index("by_name", ["name"])
+    .index("by_inviteSlug", ["inviteSlug"]),
 
   // Flexible key-value attributes (social handles, employer, etc.)
   attributes: defineTable({

@@ -11,7 +11,25 @@ function generateCode(): string {
   return code;
 }
 
+// Generate a URL-friendly slug from a name
+function generateSlugFromName(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 const MAX_UNUSED_INVITES = 3;
+
+// Progressive invite rewards system
+// Start with 3, then unlock 5 more, then 10 more, etc.
+function getInviteLimit(usageCount: number): number {
+  if (usageCount < 3) return 3;
+  if (usageCount < 8) return 8; // 3 + 5
+  if (usageCount < 18) return 18; // 8 + 10
+  if (usageCount < 38) return 38; // 18 + 20
+  return usageCount + 20; // Keep expanding by 20
+}
 
 export const create = mutation({
   args: {},
@@ -170,5 +188,182 @@ export const getInviteStats = query({
       downstreamCount: totalDownstream - directInvitees, // Exclude direct
       networkSize,
     };
+  },
+});
+
+// ===== NEW INVITE LINK SYSTEM =====
+
+// Get or create a user's personal invite link
+export const getMyInviteLink = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await auth.getUserId(ctx);
+    if (!userId) return null;
+
+    const profile = await ctx.db
+      .query("profiles")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .first();
+
+    if (!profile) return null;
+
+    // If profile doesn't have a slug yet, we'll need to create one
+    if (!profile.inviteSlug) {
+      return {
+        slug: null,
+        usageCount: 0,
+        remainingUses: 3,
+        currentLimit: 3,
+      };
+    }
+
+    const usageCount = profile.inviteUsageCount || 0;
+    const currentLimit = getInviteLimit(usageCount);
+    return {
+      slug: profile.inviteSlug,
+      usageCount,
+      remainingUses: Math.max(0, currentLimit - usageCount),
+      currentLimit,
+    };
+  },
+});
+
+// Generate invite slug for a user (called once during profile creation)
+export const generateInviteSlug = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await auth.getUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
+    const profile = await ctx.db
+      .query("profiles")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .first();
+
+    if (!profile) throw new Error("Profile not found");
+    if (profile.inviteSlug) return profile.inviteSlug; // Already has one
+
+    // Generate slug from name
+    let slug = generateSlugFromName(profile.name);
+
+    // Check if slug is unique, add number if not
+    let attempt = 0;
+    let finalSlug = slug;
+    while (true) {
+      const existing = await ctx.db
+        .query("profiles")
+        .withIndex("by_inviteSlug", (q) => q.eq("inviteSlug", finalSlug))
+        .first();
+
+      if (!existing) break;
+
+      attempt++;
+      finalSlug = `${slug}-${attempt}`;
+    }
+
+    // Update profile with slug
+    await ctx.db.patch(profile._id, {
+      inviteSlug: finalSlug,
+      inviteUsageCount: 0,
+    });
+
+    return finalSlug;
+  },
+});
+
+// Get inviter information by slug
+export const getInviterInfo = query({
+  args: { slug: v.string() },
+  handler: async (ctx, args) => {
+    const profile = await ctx.db
+      .query("profiles")
+      .withIndex("by_inviteSlug", (q) => q.eq("inviteSlug", args.slug))
+      .first();
+
+    if (!profile) return null;
+
+    const usageCount = profile.inviteUsageCount || 0;
+    const currentLimit = getInviteLimit(usageCount);
+    const remainingUses = Math.max(0, currentLimit - usageCount);
+
+    // Get the 2 most recent people who accepted this person's invite
+    const invites = await ctx.db
+      .query("invites")
+      .withIndex("by_inviterId", (q) => q.eq("inviterId", profile.userId))
+      .filter((q) => q.neq(q.field("usedBy"), undefined))
+      .collect();
+
+    // Sort by usedAt descending and take top 2
+    const recentInvites = invites
+      .sort((a, b) => (b.usedAt || 0) - (a.usedAt || 0))
+      .slice(0, 2);
+
+    // Get profiles for recent invitees
+    const recentInvitees = [];
+    for (const invite of recentInvites) {
+      if (!invite.usedBy) continue;
+      const inviteeProfile = await ctx.db
+        .query("profiles")
+        .withIndex("by_userId", (q) => q.eq("userId", invite.usedBy!))
+        .first();
+      if (inviteeProfile) {
+        recentInvitees.push({
+          name: inviteeProfile.name,
+          imageUrl: inviteeProfile.imageUrl,
+          jobFunctions: inviteeProfile.jobFunctions,
+        });
+      }
+    }
+
+    return {
+      name: profile.name,
+      imageUrl: profile.imageUrl,
+      jobFunctions: profile.jobFunctions,
+      usageCount,
+      remainingUses,
+      canAcceptMore: remainingUses > 0,
+      recentInvitees,
+    };
+  },
+});
+
+// Redeem invite by slug (called during signup)
+export const redeemBySlug = mutation({
+  args: { slug: v.string() },
+  handler: async (ctx, args) => {
+    const userId = await auth.getUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
+    // Find the inviter profile
+    const inviterProfile = await ctx.db
+      .query("profiles")
+      .withIndex("by_inviteSlug", (q) => q.eq("inviteSlug", args.slug))
+      .first();
+
+    if (!inviterProfile) throw new Error("Invalid invite link");
+
+    const usageCount = inviterProfile.inviteUsageCount || 0;
+    const currentLimit = getInviteLimit(usageCount);
+    if (usageCount >= currentLimit) {
+      throw new Error(
+        "This invite link has reached its current limit. The owner needs to wait for more invites to unlock.",
+      );
+    }
+
+    // Create an invite record (for backward compatibility with stats)
+    await ctx.db.insert("invites", {
+      inviterId: inviterProfile.userId,
+      code: args.slug, // Store slug as code for now
+      usedBy: userId,
+      usedAt: Date.now(),
+      createdAt: Date.now(),
+    });
+
+    // Increment usage count
+    await ctx.db.patch(inviterProfile._id, {
+      inviteUsageCount: usageCount + 1,
+    });
+
+    return true;
   },
 });

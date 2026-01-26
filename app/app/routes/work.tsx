@@ -205,9 +205,9 @@ export default function WorkDetail() {
                     </a>
                   </div>
                 ) : (
-                  <div className="p-8 flex flex-col items-center justify-center min-h-[200px] bg-gradient-to-br from-emerald-50 to-cyan-50 dark:from-emerald-900/20 dark:to-cyan-900/20">
+                  <div className="p-8 flex flex-col items-center justify-center min-h-[250px] bg-gradient-to-br from-emerald-50 to-cyan-50 dark:from-emerald-900/20 dark:to-cyan-900/20">
                     <svg
-                      className="w-16 h-16 text-emerald-500 mb-4"
+                      className="w-20 h-20 text-emerald-500 mb-6"
                       fill="none"
                       viewBox="0 0 24 24"
                       stroke="currentColor"
@@ -215,17 +215,33 @@ export default function WorkDetail() {
                       <path
                         strokeLinecap="round"
                         strokeLinejoin="round"
-                        strokeWidth={2}
+                        strokeWidth={1.5}
                         d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
                       />
                     </svg>
+                    <p className="text-emerald-600 dark:text-emerald-400 text-lg font-medium mb-3">
+                      {getDomainFromUrl(artifact.resolvedMediaUrl)}
+                    </p>
                     <a
                       href={artifact.resolvedMediaUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-emerald-600 dark:text-emerald-400 hover:underline text-lg"
+                      className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700 transition-colors"
                     >
-                      {artifact.resolvedMediaUrl}
+                      <svg
+                        className="w-5 h-5"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                        />
+                      </svg>
+                      Open Link
                     </a>
                   </div>
                 )}
@@ -379,4 +395,13 @@ export default function WorkDetail() {
       )}
     </div>
   );
+}
+
+function getDomainFromUrl(url: string): string {
+  try {
+    const parsed = new URL(url);
+    return parsed.hostname.replace("www.", "");
+  } catch {
+    return url;
+  }
 }
