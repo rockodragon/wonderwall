@@ -218,12 +218,17 @@ export const getMyInviteLink = query({
     }
 
     const usageCount = profile.inviteUsageCount || 0;
-    const currentLimit = getInviteLimit(usageCount);
+    const currentLimit = profile.unlimitedInvites
+      ? Infinity
+      : getInviteLimit(usageCount);
     return {
       slug: profile.inviteSlug,
       usageCount,
-      remainingUses: Math.max(0, currentLimit - usageCount),
+      remainingUses: profile.unlimitedInvites
+        ? Infinity
+        : Math.max(0, currentLimit - usageCount),
       currentLimit,
+      unlimitedInvites: profile.unlimitedInvites || false,
     };
   },
 });
@@ -283,8 +288,11 @@ export const getInviterInfo = query({
     if (!profile) return null;
 
     const usageCount = profile.inviteUsageCount || 0;
-    const currentLimit = getInviteLimit(usageCount);
-    const remainingUses = Math.max(0, currentLimit - usageCount);
+    const hasUnlimited = profile.unlimitedInvites || false;
+    const currentLimit = hasUnlimited ? Infinity : getInviteLimit(usageCount);
+    const remainingUses = hasUnlimited
+      ? Infinity
+      : Math.max(0, currentLimit - usageCount);
 
     // Get the 2 most recent people who accepted this person's invite
     const invites = await ctx.db
@@ -327,6 +335,33 @@ export const getInviterInfo = query({
   },
 });
 
+// Admin: Set unlimited invites for a profile by email
+export const setUnlimitedInvites = mutation({
+  args: { email: v.string(), unlimited: v.boolean() },
+  handler: async (ctx, args) => {
+    // Find user by email
+    const user = await ctx.db
+      .query("users")
+      .filter((q) => q.eq(q.field("email"), args.email))
+      .first();
+
+    if (!user) throw new Error("User not found");
+
+    const profile = await ctx.db
+      .query("profiles")
+      .withIndex("by_userId", (q) => q.eq("userId", user._id))
+      .first();
+
+    if (!profile) throw new Error("Profile not found");
+
+    await ctx.db.patch(profile._id, {
+      unlimitedInvites: args.unlimited,
+    });
+
+    return { success: true, email: args.email, unlimited: args.unlimited };
+  },
+});
+
 // Redeem invite by slug (called during signup)
 export const redeemBySlug = mutation({
   args: { slug: v.string() },
@@ -344,7 +379,8 @@ export const redeemBySlug = mutation({
 
     const usageCount = inviterProfile.inviteUsageCount || 0;
     const currentLimit = getInviteLimit(usageCount);
-    if (usageCount >= currentLimit) {
+    // Skip limit check for accounts with unlimited invites
+    if (!inviterProfile.unlimitedInvites && usageCount >= currentLimit) {
       throw new Error(
         "This invite link has reached its current limit. The owner needs to wait for more invites to unlock.",
       );

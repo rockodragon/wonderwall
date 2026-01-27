@@ -18,6 +18,7 @@ export default defineSchema({
     plan: v.optional(v.string()), // "free" | "paid" - defaults to free
     inviteSlug: v.optional(v.string()), // unique slug for invite links (e.g., "rick-moy")
     inviteUsageCount: v.optional(v.number()), // track how many times their invite link has been used
+    unlimitedInvites: v.optional(v.boolean()), // admin accounts with unlimited invites
     createdAt: v.number(),
     updatedAt: v.number(),
   })
