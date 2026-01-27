@@ -35,8 +35,8 @@ Enable direct communication between job posters and interested candidates, as we
 ### 1. Conversations
 
 #### Creating a Conversation
-- Job poster can initiate conversation with any interested candidate from job detail page
-- Members can initiate conversation from another member's profile (future)
+- Any member can initiate conversation with any other member from their profile page
+- Job poster can also initiate conversation with interested candidates from job detail page
 - Cannot message blocked users or users who blocked you
 - Cannot message yourself
 
@@ -364,6 +364,7 @@ reviewReport(reportId, status, adminNotes?)
 - Users cannot message blocked/blocking users
 - Only admin can see/action reports
 - Cannot send empty messages
+- Rate limit: 5 messages per day per user (to prevent spam)
 
 ## Success Metrics
 
@@ -402,18 +403,12 @@ reviewReport(reportId, status, adminNotes?)
 - Archive conversations
 - Mute notifications per conversation
 
-## Open Questions
+## Design Decisions
 
-1. Should we allow messaging between any members, or only job-related contexts initially?
-ANY
-2. Should blocked users be notified they've been blocked?
-What's standard in industry? my gut says no, just block.
-
-3. Rate limiting on messages to prevent spam?
-Whats industry standard? < 5/day?
-
-4. Message retention policy (how long to keep messages)?
-indefinitely for now.
+1. **Messaging scope**: Allow messaging between ANY members (not just job-related contexts)
+2. **Block behavior**: Silent blocking - blocked users are NOT notified (industry standard)
+3. **Rate limiting**: Limit to 5 messages per day per user to prevent spam
+4. **Message retention**: Indefinite - messages are retained forever
 
 ## Timeline
 
@@ -426,7 +421,7 @@ indefinitely for now.
 - [x] Reviewed by product team
 - [x] Reviewed by engineering
 - [x] Reviewed by design
-- [ ] Approved for development
+- [x] Approved for development
 
 ---
 

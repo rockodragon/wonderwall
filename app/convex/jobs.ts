@@ -42,8 +42,9 @@ export const getJobs = query({
     let jobs = await ctx.db.query("jobs").collect();
 
     // Filter by status (default: All)
+    // Skip status filter if myInterests is enabled - users should see ALL jobs they expressed interest in
     const statusFilter = args.statusFilter || "All";
-    if (statusFilter !== "All") {
+    if (statusFilter !== "All" && !args.myInterests) {
       jobs = jobs.filter((j) => j.status === statusFilter);
     }
 
