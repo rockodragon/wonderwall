@@ -339,13 +339,11 @@ export const getInviterInfo = query({
 export const setUnlimitedInvites = mutation({
   args: { email: v.string(), unlimited: v.boolean() },
   handler: async (ctx, args) => {
-    // Find user by email
-    const user = await ctx.db
-      .query("users")
-      .filter((q) => q.eq(q.field("email"), args.email))
-      .first();
+    // Get all users and find one with matching email
+    const allUsers = await ctx.db.query("users").collect();
+    const user = allUsers.find((u) => "email" in u && u.email === args.email);
 
-    if (!user) throw new Error("User not found");
+    if (!user) throw new Error(`User not found with email: ${args.email}`);
 
     const profile = await ctx.db
       .query("profiles")
@@ -358,7 +356,12 @@ export const setUnlimitedInvites = mutation({
       unlimitedInvites: args.unlimited,
     });
 
-    return { success: true, email: args.email, unlimited: args.unlimited };
+    return {
+      success: true,
+      email: args.email,
+      unlimited: args.unlimited,
+      profileName: profile.name,
+    };
   },
 });
 
