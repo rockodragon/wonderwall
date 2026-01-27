@@ -130,6 +130,18 @@ export default function Home() {
       <main className="relative pt-32 pb-20">
         {/* Hero Content - Centered */}
         <div className="relative z-10 px-6 max-w-5xl mx-auto text-center mb-20">
+          <h2 className="text-5xl md:text-7xl font-bold text-white leading-tight mb-6">
+            Connect with
+            <br />
+            <span className="bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+              Kingdom-minded creatives
+            </span>
+          </h2>
+          <p className="mt-6 text-xl text-gray-400 max-w-2xl mx-auto mb-8">
+            Share your work, discover peers, and spark collaborations.
+          </p>
+
+          {/* Closed Beta Badge */}
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-500/10 border border-blue-500/20 text-blue-400 rounded-full text-sm font-medium mb-6">
             <svg
               className="w-4 h-4"
@@ -146,19 +158,9 @@ export default function Home() {
             </svg>
             Closed Beta • Invite Only
           </div>
-          <h2 className="text-5xl md:text-7xl font-bold text-white leading-tight mb-6">
-            Connect with
-            <br />
-            <span className="bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
-              Kingdom-minded creatives
-            </span>
-          </h2>
-          <p className="mt-6 text-xl text-gray-400 max-w-2xl mx-auto mb-8">
-            Share your work, discover peers, and spark collaborations.
-          </p>
 
           {/* Waitlist Form or Invite Preview */}
-          <div className="mt-10 max-w-md mx-auto">
+          <div className="max-w-md mx-auto">
             {!inviteSlug ? (
               // Show waitlist form when no invite is being processed
               status === "success" ? (
