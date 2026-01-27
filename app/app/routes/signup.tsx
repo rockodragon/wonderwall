@@ -91,7 +91,6 @@ export default function Signup() {
       } catch (err) {
         console.error("❌ Failed to redeem invite:", err);
         // Don't block signup, but log the error for debugging
-        posthog?.captureException(err);
         posthog?.capture("invite_redemption_failed", {
           error: err instanceof Error ? err.message : "Unknown error",
           invite_slug: inviteSlug,
@@ -104,7 +103,9 @@ export default function Signup() {
         console.log("✅ Generated new invite slug:", newSlug);
       } catch (err) {
         console.error("❌ Failed to generate invite slug:", err);
-        posthog?.captureException(err);
+        posthog?.capture("invite_slug_generation_failed", {
+          error: err instanceof Error ? err.message : "Unknown error",
+        });
       }
 
       // Identify user and capture signup event
@@ -121,7 +122,9 @@ export default function Signup() {
     } catch (err) {
       console.error("Signup error:", err);
       setError(err instanceof Error ? err.message : "Signup failed");
-      posthog?.captureException(err);
+      posthog?.capture("signup_error", {
+        error: err instanceof Error ? err.message : "Unknown error",
+      });
       setLoading(false);
     }
   }

@@ -30,9 +30,8 @@ export default function Home() {
   const [inviteSlug, setInviteSlug] = useState<string | null>(null);
   const addToWaitlist = useMutation(api.waitlist.addToWaitlist);
 
-  // Fetch featured content for marquees
+  // Fetch featured content for marquee
   const wonderings = useQuery(api.public.getFeaturedWonderings);
-  const works = useQuery(api.public.getFeaturedWorks);
 
   // Fetch inviter info when slug is set
   const inviterInfo = useQuery(
@@ -407,34 +406,18 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Animated Content Marquees */}
-        <div className="space-y-8 mt-24">
-          {/* Wonderings Marquee */}
-          {wonderings && wonderings.length > 0 && (
-            <div className="marquee-container relative">
-              <div className="absolute left-0 top-0 bottom-0 w-32 bg-gradient-to-r from-gray-950 to-transparent z-10" />
-              <div className="absolute right-0 top-0 bottom-0 w-32 bg-gradient-to-l from-gray-950 to-transparent z-10" />
-              <div className="flex gap-4 marquee-scroll-left">
-                {[...wonderings, ...wonderings].map((wondering, idx) => (
-                  <WonderingCard key={idx} wondering={wondering} />
-                ))}
-              </div>
+        {/* Animated Content Marquee */}
+        {wonderings && wonderings.length > 0 && (
+          <div className="marquee-container relative mt-24">
+            <div className="absolute left-0 top-0 bottom-0 w-32 bg-gradient-to-r from-gray-950 to-transparent z-10" />
+            <div className="absolute right-0 top-0 bottom-0 w-32 bg-gradient-to-l from-gray-950 to-transparent z-10" />
+            <div className="flex gap-4 marquee-scroll-left">
+              {[...wonderings, ...wonderings].map((wondering, idx) => (
+                <WonderingCard key={idx} wondering={wondering} />
+              ))}
             </div>
-          )}
-
-          {/* Works Marquee (scroll opposite direction) */}
-          {works && works.length > 0 && (
-            <div className="marquee-container relative">
-              <div className="absolute left-0 top-0 bottom-0 w-32 bg-gradient-to-r from-gray-950 to-transparent z-10" />
-              <div className="absolute right-0 top-0 bottom-0 w-32 bg-gradient-to-l from-gray-950 to-transparent z-10" />
-              <div className="flex gap-4 marquee-scroll-right">
-                {[...works, ...works].map((work, idx) => (
-                  <WorkCard key={idx} work={work} />
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
+          </div>
+        )}
       </main>
 
       {/* Features */}
@@ -547,70 +530,6 @@ function WonderingCard({ wondering }: { wondering: any }) {
             {wondering.profile.jobFunctions.length > 0 && (
               <span className="text-white/60 text-xs">
                 {wondering.profile.jobFunctions.join(" • ")}
-              </span>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// Work Card Component
-function WorkCard({ work }: { work: any }) {
-  const hasImage = work.type === "image" && (work.mediaUrl || work.ogImageUrl);
-  const hasProfileImage = !!work.profile.imageUrl;
-
-  return (
-    <div className="group relative flex-shrink-0 w-80 h-96 rounded-2xl overflow-hidden bg-gray-900 border border-gray-800 hover:border-blue-500 transition-all duration-300 hover:scale-105 cursor-pointer">
-      {/* Background */}
-      {hasImage ? (
-        <img
-          src={work.mediaUrl || work.ogImageUrl}
-          alt={work.title || "Work"}
-          className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-        />
-      ) : (
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-600 via-cyan-600 to-teal-600 flex items-center justify-center p-6">
-          {work.content && (
-            <p className="text-white text-lg text-center line-clamp-6">
-              {work.content.substring(0, 200)}...
-            </p>
-          )}
-        </div>
-      )}
-
-      {/* Overlay */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-100 group-hover:opacity-90 transition-opacity" />
-
-      {/* Content */}
-      <div className="absolute inset-0 flex flex-col justify-end p-6">
-        {work.title && (
-          <h3 className="text-white text-lg font-semibold mb-2 line-clamp-2">
-            {work.title}
-          </h3>
-        )}
-
-        {/* Profile info */}
-        <div className="flex items-center gap-2">
-          {hasProfileImage ? (
-            <img
-              src={work.profile.imageUrl}
-              alt={work.profile.name}
-              className="w-8 h-8 rounded-full object-cover border border-white/30"
-            />
-          ) : (
-            <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white text-sm font-medium">
-              {work.profile.name.charAt(0).toUpperCase()}
-            </div>
-          )}
-          <div>
-            <span className="text-white/90 text-sm font-medium block">
-              {work.profile.name}
-            </span>
-            {work.profile.jobFunctions.length > 0 && (
-              <span className="text-white/60 text-xs">
-                {work.profile.jobFunctions.join(" • ")}
               </span>
             )}
           </div>

@@ -38,7 +38,9 @@ export default function Login() {
       setShouldRedirect(true);
     } catch (err) {
       setError("Invalid email or password");
-      posthog?.captureException(err);
+      posthog?.capture("login_error", {
+        error: err instanceof Error ? err.message : "Unknown error",
+      });
       setLoading(false);
     }
   }

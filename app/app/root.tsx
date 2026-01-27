@@ -57,7 +57,15 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
   let stack: string | undefined;
 
   const posthog = usePostHog();
-  posthog?.captureException(error);
+
+  // Capture error in PostHog
+  if (posthog && error instanceof Error) {
+    posthog.capture("error_boundary_triggered", {
+      error_message: error.message,
+      error_name: error.name,
+      error_stack: error.stack,
+    });
+  }
 
   if (isRouteErrorResponse(error)) {
     message = error.status === 404 ? "404" : "Error";
