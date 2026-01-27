@@ -31,4 +31,7 @@ export default [
     route("messages", "routes/messages._index.tsx"),
     route("messages/:conversationId", "routes/messages.$conversationId.tsx"),
   ]),
+
+  // 404 catch-all
+  route("*", "routes/404.tsx"),
 ] satisfies RouteConfig;
