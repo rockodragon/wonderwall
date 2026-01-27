@@ -164,16 +164,16 @@ export default function JobDetail() {
 
             {/* Job Description */}
             <div className="mb-6">
-              <div className="prose prose-sm dark:prose-invert max-w-none prose-headings:text-gray-900 dark:prose-headings:text-white prose-p:text-gray-700 dark:prose-p:text-gray-300 prose-a:text-blue-600 dark:prose-a:text-blue-400 prose-strong:text-gray-900 dark:prose-strong:text-white prose-ul:text-gray-700 dark:prose-ul:text-gray-300 prose-ol:text-gray-700 dark:prose-ol:text-gray-300">
+              <div className="prose prose-base dark:prose-invert max-w-none prose-headings:text-gray-900 dark:prose-headings:text-white prose-p:text-gray-800 dark:prose-p:text-gray-200 prose-p:leading-relaxed prose-a:text-blue-600 dark:prose-a:text-blue-400 prose-strong:text-gray-900 dark:prose-strong:text-white prose-ul:text-gray-800 dark:prose-ul:text-gray-200 prose-ol:text-gray-800 dark:prose-ol:text-gray-200">
                 <Markdown>{job.description}</Markdown>
               </div>
             </div>
 
-            {/* Secondary Metadata - Lower priority, gray text */}
-            <div className="pt-6 border-t border-gray-200 dark:border-gray-700 space-y-3">
-              <div className="flex flex-wrap gap-4 text-sm text-gray-600 dark:text-gray-400">
+            {/* Secondary Metadata - Outlined badges */}
+            <div className="pt-6 border-t border-gray-200 dark:border-gray-700 space-y-4">
+              <div className="flex flex-wrap gap-2">
                 {/* Location */}
-                <div className="flex items-center gap-1.5">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 rounded-full text-sm">
                   <svg
                     className="w-4 h-4"
                     fill="none"
@@ -193,15 +193,13 @@ export default function JobDetail() {
                       d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
                     />
                   </svg>
-                  <span>
-                    {job.location}
-                    {job.city && ` - ${job.city}`}
-                    {job.state && `, ${job.state}`}
-                  </span>
-                </div>
+                  {job.location}
+                  {job.city && ` · ${job.city}`}
+                  {job.state && `, ${job.state}`}
+                </span>
 
                 {/* Job Type */}
-                <div className="flex items-center gap-1.5">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 rounded-full text-sm">
                   <svg
                     className="w-4 h-4"
                     fill="none"
@@ -215,21 +213,27 @@ export default function JobDetail() {
                       d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
                     />
                   </svg>
-                  <span>{job.jobType}</span>
-                </div>
+                  {job.jobType}
+                </span>
 
                 {/* Status */}
-                <div className="flex items-center gap-1.5">
+                <span
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 border rounded-full text-sm ${
+                    job.status === "Open"
+                      ? "border-green-300 dark:border-green-700 text-green-600 dark:text-green-400"
+                      : "border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400"
+                  }`}
+                >
                   <div
                     className={`w-2 h-2 rounded-full ${
                       job.status === "Open" ? "bg-green-500" : "bg-gray-500"
                     }`}
                   />
-                  <span>{job.status}</span>
-                </div>
+                  {job.status}
+                </span>
 
                 {/* Posted date */}
-                <div className="flex items-center gap-1.5">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 rounded-full text-sm">
                   <svg
                     className="w-4 h-4"
                     fill="none"
@@ -243,18 +247,22 @@ export default function JobDetail() {
                       d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
                     />
                   </svg>
-                  <span>Posted {formatDate(job.createdAt)}</span>
-                </div>
+                  Posted {formatDate(job.createdAt)}
+                </span>
               </div>
 
               {/* Additional Info */}
               {(job.experienceLevel || job.compensationRange) && (
-                <div className="flex flex-wrap gap-4 text-sm text-gray-600 dark:text-gray-400">
+                <div className="flex flex-wrap gap-2">
                   {job.experienceLevel && job.experienceLevel !== "Any" && (
-                    <div>Experience: {job.experienceLevel}</div>
+                    <span className="inline-flex items-center px-3 py-1.5 border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 rounded-full text-sm">
+                      {job.experienceLevel} level
+                    </span>
                   )}
                   {job.compensationRange && (
-                    <div>Compensation: {job.compensationRange}</div>
+                    <span className="inline-flex items-center px-3 py-1.5 border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 rounded-full text-sm">
+                      {job.compensationRange}
+                    </span>
                   )}
                 </div>
               )}
