@@ -186,4 +186,67 @@ export default defineSchema({
     email: v.string(),
     createdAt: v.number(),
   }).index("by_email", ["email"]),
+
+  // Jobs board
+  jobs: defineTable({
+    posterId: v.id("users"),
+    profileId: v.id("profiles"),
+    // Required fields
+    title: v.string(),
+    description: v.string(), // Rich text/markdown
+    location: v.union(
+      v.literal("Remote"),
+      v.literal("Hybrid"),
+      v.literal("On-site"),
+    ),
+    city: v.optional(v.string()),
+    state: v.optional(v.string()),
+    country: v.optional(v.string()),
+    zipCode: v.optional(v.string()), // For future distance-based filtering
+    jobType: v.union(
+      v.literal("Full-time"),
+      v.literal("Part-time"),
+      v.literal("Contract"),
+      v.literal("Freelance"),
+    ),
+    visibility: v.union(v.literal("Private"), v.literal("Members")),
+    // Optional fields
+    hiringOrg: v.optional(v.string()), // Company/organization name
+    postAnonymously: v.boolean(), // Default false, hides hiringOrg if true
+    compensationRange: v.optional(v.string()),
+    externalLink: v.optional(v.string()),
+    disciplines: v.optional(v.array(v.string())), // Job functions from profiles
+    experienceLevel: v.optional(
+      v.union(
+        v.literal("Entry"),
+        v.literal("Mid"),
+        v.literal("Senior"),
+        v.literal("Any"),
+      ),
+    ),
+    // Metadata
+    status: v.union(v.literal("Open"), v.literal("Closed")),
+    createdAt: v.number(),
+    updatedAt: v.optional(v.number()),
+  })
+    .index("by_posterId", ["posterId"])
+    .index("by_profileId", ["profileId"])
+    .index("by_status", ["status"])
+    .index("by_visibility", ["visibility"])
+    .index("by_status_and_visibility", ["status", "visibility"])
+    .index("by_location", ["location"]),
+
+  // Job interest tracking
+  jobInterests: defineTable({
+    jobId: v.id("jobs"),
+    userId: v.id("users"),
+    profileId: v.id("profiles"),
+    note: v.optional(v.string()), // Max 500 chars (enforced in mutation)
+    workLinks: v.array(v.id("artifacts")), // Max 3 (enforced in mutation)
+    createdAt: v.number(),
+    updatedAt: v.optional(v.number()),
+  })
+    .index("by_jobId", ["jobId"])
+    .index("by_userId", ["userId"])
+    .index("by_jobId_userId", ["jobId", "userId"]), // Unique constraint
 });
