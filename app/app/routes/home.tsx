@@ -141,8 +141,12 @@ export default function Home() {
               Kingdom-minded creatives
             </span>
           </h2>
-          <p className="mt-6 text-xl text-gray-400 max-w-2xl mx-auto mb-8">
-            Share your work, discover peers, and spark collaborations.
+          <p className="mt-6 text-xl text-gray-400 max-w-2xl mx-auto mb-4">
+            Share your work, find jobs, connect with peers, and spark
+            collaborations.
+          </p>
+          <p className="text-lg text-gray-500 max-w-xl mx-auto mb-8">
+            Because the world needs a different algorithm and platform.
           </p>
 
           {/* Closed Beta Badge */}
@@ -427,7 +431,7 @@ export default function Home() {
 
       {/* Features */}
       <section className="px-6 py-20 max-w-6xl mx-auto bg-gray-950">
-        <div className="grid md:grid-cols-3 gap-8">
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
           <FeatureCard
             title="Share Your Work"
             description="Build a portfolio that showcases your creative journey and connects you with like-minded collaborators."
@@ -437,6 +441,18 @@ export default function Home() {
                 strokeLinejoin="round"
                 strokeWidth={2}
                 d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+              />
+            }
+          />
+          <FeatureCard
+            title="Find Work"
+            description="Discover job opportunities posted by community members who value creativity and craftsmanship."
+            icon={
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
               />
             }
           />
@@ -464,6 +480,44 @@ export default function Home() {
               />
             }
           />
+        </div>
+      </section>
+
+      {/* Manifesto */}
+      <section className="px-6 py-20 bg-gray-900/50">
+        <div className="max-w-4xl mx-auto">
+          <h3 className="text-3xl md:text-4xl font-bold text-white text-center mb-6">
+            A Different Kind of Platform
+          </h3>
+          <div className="prose prose-lg prose-invert mx-auto">
+            <p className="text-gray-300 text-lg leading-relaxed mb-6">
+              We believe the creative economy is broken. Algorithms optimized
+              for engagement have turned social platforms into attention
+              factories, rewarding outrage over craftsmanship, and virality over
+              value. The result? Burnout, comparison, and a race to the bottom.
+            </p>
+            <p className="text-gray-300 text-lg leading-relaxed mb-6">
+              <span className="text-white font-semibold">
+                Wonderwall is different by design.
+              </span>{" "}
+              We're building for depth, not distraction. For connection, not
+              clout. Our platform prioritizes thoughtful engagement over
+              infinite scroll, meaningful relationships over follower counts,
+              and sustainable creativity over content mills.
+            </p>
+            <p className="text-gray-300 text-lg leading-relaxed mb-6">
+              Here, your work speaks for itself. Jobs are posted by real
+              community members, not faceless corporations. Conversations happen
+              between people, not personas. And the algorithm? It's simple: show
+              people what they're actually looking for, and get out of the way.
+            </p>
+            <p className="text-gray-400 text-lg leading-relaxed">
+              This is a space for Kingdom-minded creatives who want to do
+              excellent work, support each other, and build something that
+              lasts. No hacks. No hustle culture. Just good work, good people,
+              and good conversations.
+            </p>
+          </div>
         </div>
       </section>
 
