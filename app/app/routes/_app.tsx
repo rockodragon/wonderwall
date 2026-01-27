@@ -1,6 +1,6 @@
-import { useConvexAuth, useQuery } from "convex/react";
+import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router";
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePostHog } from "@posthog/react";
 import { api } from "../../convex/_generated/api";
 import { InviteCTA } from "../components/InviteCTA";
@@ -21,6 +21,7 @@ export default function AppLayout() {
   const posthog = usePostHog();
   const profile = useQuery(api.profiles.getMyProfile);
   const unreadCount = useQuery(api.messaging.getUnreadCount) ?? 0;
+  const notificationCount = useQuery(api.notifications.getUnreadCount) ?? 0;
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -149,7 +150,8 @@ export default function AppLayout() {
           </Link>
         </nav>
 
-        <div className="p-4">
+        <div className="p-4 space-y-4">
+          <NotificationDropdown count={notificationCount} />
           <InviteCTA variant="sidebar" />
         </div>
       </aside>
@@ -280,5 +282,160 @@ function EnvelopeIcon({ className }: { className?: string }) {
         d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
       />
     </svg>
+  );
+}
+
+function BellIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
+      />
+    </svg>
+  );
+}
+
+function NotificationDropdown({ count }: { count: number }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const notifications = useQuery(
+    api.notifications.getNotifications,
+    isOpen ? { limit: 10 } : "skip",
+  );
+  const markAsRead = useMutation(api.notifications.markAsRead);
+  const markAllAsRead = useMutation(api.notifications.markAllAsRead);
+  const navigate = useNavigate();
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const handleNotificationClick = async (
+    notification: NonNullable<typeof notifications>[number],
+  ) => {
+    if (!notification.readAt) {
+      await markAsRead({ notificationId: notification._id });
+    }
+    if (notification.linkUrl) {
+      navigate(notification.linkUrl);
+    }
+    setIsOpen(false);
+  };
+
+  const handleMarkAllAsRead = async () => {
+    await markAllAsRead({});
+  };
+
+  const formatTime = (timestamp: number) => {
+    const diff = Date.now() - timestamp;
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    const days = Math.floor(diff / 86400000);
+
+    if (minutes < 1) return "just now";
+    if (minutes < 60) return `${minutes}m ago`;
+    if (hours < 24) return `${hours}h ago`;
+    return `${days}d ago`;
+  };
+
+  return (
+    <div className="relative" ref={dropdownRef}>
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="flex items-center gap-3 w-full px-4 py-3 rounded-lg transition-colors text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+      >
+        <div className="relative">
+          <BellIcon className="w-5 h-5" />
+          {count > 0 && (
+            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 min-w-5 flex items-center justify-center px-1">
+              {count > 99 ? "99+" : count}
+            </span>
+          )}
+        </div>
+        Notifications
+      </button>
+
+      {isOpen && (
+        <div className="absolute bottom-full left-0 mb-2 w-80 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden z-50">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+            <h3 className="font-semibold text-gray-900 dark:text-white">
+              Notifications
+            </h3>
+            {count > 0 && (
+              <button
+                onClick={handleMarkAllAsRead}
+                className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+              >
+                Mark all read
+              </button>
+            )}
+          </div>
+
+          <div className="max-h-80 overflow-y-auto">
+            {!notifications || notifications.length === 0 ? (
+              <div className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
+                No notifications yet
+              </div>
+            ) : (
+              notifications.map((notification) => (
+                <button
+                  key={notification._id}
+                  onClick={() => handleNotificationClick(notification)}
+                  className={`w-full px-4 py-3 flex items-start gap-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors text-left ${
+                    !notification.readAt
+                      ? "bg-blue-50/50 dark:bg-blue-900/10"
+                      : ""
+                  }`}
+                >
+                  {notification.relatedUserProfile?.imageUrl ? (
+                    <img
+                      src={notification.relatedUserProfile.imageUrl}
+                      alt=""
+                      className="w-10 h-10 rounded-full object-cover flex-shrink-0"
+                    />
+                  ) : (
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white font-bold flex-shrink-0">
+                      {notification.relatedUserProfile?.name?.charAt(0) || "?"}
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">
+                      {notification.title}
+                    </p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
+                      {notification.message}
+                    </p>
+                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                      {formatTime(notification.createdAt)}
+                    </p>
+                  </div>
+                  {!notification.readAt && (
+                    <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0 mt-2" />
+                  )}
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

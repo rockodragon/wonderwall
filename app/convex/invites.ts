@@ -364,6 +364,30 @@ export const redeemBySlug = mutation({
       inviteUsageCount: usageCount + 1,
     });
 
+    // Get the new user's profile info for the notification
+    // Note: Profile may not exist yet at signup time, so we'll get it later or use user info
+    const newUserProfile = await ctx.db
+      .query("profiles")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .first();
+
+    const newUserName = newUserProfile?.name || "Someone";
+    const newUserImageUrl = newUserProfile?.imageUrl;
+
+    // Create notification for the inviter
+    await ctx.db.insert("notifications", {
+      userId: inviterProfile.userId,
+      type: "invite_accepted",
+      title: "New member joined!",
+      message: `${newUserName} joined Wonderwall using your invite link.`,
+      linkUrl: newUserProfile?.inviteSlug
+        ? `/profile/${newUserProfile.inviteSlug}`
+        : undefined,
+      imageUrl: newUserImageUrl,
+      relatedUserId: userId,
+      createdAt: Date.now(),
+    });
+
     return true;
   },
 });

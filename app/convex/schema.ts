@@ -279,6 +279,21 @@ export default defineSchema({
     .index("by_blockedId", ["blockedId"])
     .index("by_blocker_blocked", ["blockerId", "blockedId"]),
 
+  // Notifications
+  notifications: defineTable({
+    userId: v.id("users"), // Recipient of the notification
+    type: v.string(), // "invite_accepted" | "message" | etc.
+    title: v.string(),
+    message: v.string(),
+    linkUrl: v.optional(v.string()), // URL to navigate to when clicked
+    imageUrl: v.optional(v.string()), // Avatar or related image
+    relatedUserId: v.optional(v.id("users")), // User who triggered the notification
+    readAt: v.optional(v.number()),
+    createdAt: v.number(),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_userId_readAt", ["userId", "readAt"]),
+
   // Content/user reports for admin review
   reports: defineTable({
     reporterId: v.id("users"),
