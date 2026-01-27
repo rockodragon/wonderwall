@@ -19,6 +19,8 @@ export default [
     route("works/:artifactId", "routes/work.tsx"),
     route("events", "routes/events.tsx"),
     route("events/:eventId", "routes/event.tsx"),
+    route("jobs", "routes/jobs._index.tsx"),
+    route("jobs/new", "routes/jobs.new.tsx"),
     route("jobs/:id", "routes/jobs.$id.tsx"),
     route("profile/:profileId", "routes/profile.tsx"),
     route("favorites", "routes/favorites.tsx"),
