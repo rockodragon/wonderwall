@@ -4,12 +4,18 @@ import { query } from "./_generated/server";
 export const getFeaturedWonderings = query({
   args: {},
   handler: async (ctx) => {
-    const wonderings = await ctx.db.query("wonderings").order("desc").take(20);
+    const wonderings = await ctx.db.query("wonderings").order("desc").take(50);
 
     const result = await Promise.all(
       wonderings.map(async (wondering) => {
         const profile = await ctx.db.get(wondering.profileId);
         if (!profile) return null;
+
+        // Get user to check if admin
+        const user = await ctx.db.get(profile.userId);
+        const isAdmin =
+          user && "email" in user && user.email === "rickmoy@gmail.com";
+        if (isAdmin) return null;
 
         // Get profile image URL if exists
         let imageUrl = profile.imageUrl;
@@ -39,7 +45,16 @@ export const getFeaturedWonderings = query({
       }),
     );
 
-    return result.filter((w) => w !== null);
+    // Filter nulls and remove duplicates by wondering ID
+    const filtered = result.filter((w) => w !== null);
+    const seen = new Set();
+    const unique = filtered.filter((w) => {
+      if (seen.has(w._id)) return false;
+      seen.add(w._id);
+      return true;
+    });
+
+    return unique.slice(0, 15); // Return max 15 unique wonderings
   },
 });
 
@@ -47,12 +62,18 @@ export const getFeaturedWonderings = query({
 export const getFeaturedWorks = query({
   args: {},
   handler: async (ctx) => {
-    const artifacts = await ctx.db.query("artifacts").order("desc").take(20);
+    const artifacts = await ctx.db.query("artifacts").order("desc").take(50);
 
     const result = await Promise.all(
       artifacts.map(async (artifact) => {
         const profile = await ctx.db.get(artifact.profileId);
         if (!profile) return null;
+
+        // Get user to check if admin
+        const user = await ctx.db.get(profile.userId);
+        const isAdmin =
+          user && "email" in user && user.email === "rickmoy@gmail.com";
+        if (isAdmin) return null;
 
         // Get profile image URL if exists
         let profileImageUrl = profile.imageUrl;
@@ -85,34 +106,15 @@ export const getFeaturedWorks = query({
       }),
     );
 
-    return result.filter((w) => w !== null);
-  },
-});
+    // Filter nulls and remove duplicates by artifact ID
+    const filtered = result.filter((w) => w !== null);
+    const seen = new Set();
+    const unique = filtered.filter((w) => {
+      if (seen.has(w._id)) return false;
+      seen.add(w._id);
+      return true;
+    });
 
-// Get featured profiles for landing page
-export const getFeaturedProfiles = query({
-  args: {},
-  handler: async (ctx) => {
-    const profiles = await ctx.db.query("profiles").order("desc").take(20);
-
-    const result = await Promise.all(
-      profiles.map(async (profile) => {
-        let imageUrl = profile.imageUrl;
-        if (profile.imageStorageId) {
-          imageUrl =
-            (await ctx.storage.getUrl(profile.imageStorageId)) ?? undefined;
-        }
-
-        return {
-          _id: profile._id,
-          name: profile.name,
-          imageUrl,
-          jobFunctions: profile.jobFunctions?.slice(0, 2) || [],
-          bio: profile.bio,
-        };
-      }),
-    );
-
-    return result;
+    return unique.slice(0, 15); // Return max 15 unique works
   },
 });

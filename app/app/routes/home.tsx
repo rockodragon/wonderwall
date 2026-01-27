@@ -33,7 +33,6 @@ export default function Home() {
   // Fetch featured content for marquees
   const wonderings = useQuery(api.public.getFeaturedWonderings);
   const works = useQuery(api.public.getFeaturedWorks);
-  const profiles = useQuery(api.public.getFeaturedProfiles);
 
   // Fetch inviter info when slug is set
   const inviterInfo = useQuery(
@@ -434,19 +433,6 @@ export default function Home() {
               </div>
             </div>
           )}
-
-          {/* Profiles Marquee */}
-          {profiles && profiles.length > 0 && (
-            <div className="marquee-container relative">
-              <div className="absolute left-0 top-0 bottom-0 w-32 bg-gradient-to-r from-gray-950 to-transparent z-10" />
-              <div className="absolute right-0 top-0 bottom-0 w-32 bg-gradient-to-l from-gray-950 to-transparent z-10" />
-              <div className="flex gap-4 marquee-scroll-left">
-                {[...profiles, ...profiles].map((profile, idx) => (
-                  <ProfileCard key={idx} profile={profile} />
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       </main>
 
@@ -628,42 +614,6 @@ function WorkCard({ work }: { work: any }) {
             )}
           </div>
         </div>
-      </div>
-    </div>
-  );
-}
-
-// Profile Card Component
-function ProfileCard({ profile }: { profile: any }) {
-  const hasImage = !!profile.imageUrl;
-
-  return (
-    <div className="group relative flex-shrink-0 w-64 h-80 rounded-2xl overflow-hidden bg-gray-900 border border-gray-800 hover:border-pink-500 transition-all duration-300 hover:scale-105 cursor-pointer">
-      {/* Background */}
-      {hasImage ? (
-        <img
-          src={profile.imageUrl}
-          alt={profile.name}
-          className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-        />
-      ) : (
-        <div className="absolute inset-0 bg-gradient-to-br from-pink-500 via-rose-500 to-orange-500" />
-      )}
-
-      {/* Overlay */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
-
-      {/* Content */}
-      <div className="absolute inset-0 flex flex-col justify-end p-6">
-        <h3 className="text-white text-xl font-bold mb-1">{profile.name}</h3>
-        {profile.jobFunctions.length > 0 && (
-          <p className="text-white/80 text-sm mb-2">
-            {profile.jobFunctions.join(" • ")}
-          </p>
-        )}
-        {profile.bio && (
-          <p className="text-white/60 text-sm line-clamp-2">{profile.bio}</p>
-        )}
       </div>
     </div>
   );
