@@ -20,17 +20,24 @@ const JOB_FUNCTIONS = [
 
 type StatusFilter = "All" | "Open" | "Closed";
 type LocationFilter = "All" | "Remote" | "Hybrid" | "On-site";
+type TabFilter = "all" | "matches" | "interested" | "posts";
 
 export default function JobsIndex() {
   const posthog = usePostHog();
+
+  // Tab state
+  const [activeTab, setActiveTab] = useState<TabFilter>("all");
 
   // Filter state
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("Open");
   const [locationFilter, setLocationFilter] = useState<LocationFilter>("All");
   const [disciplinesFilter, setDisciplinesFilter] = useState<string[]>([]);
-  const [forMe, setForMe] = useState(false);
-  const [myPosts, setMyPosts] = useState(false);
-  const [myInterests, setMyInterests] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+
+  // Derive filter booleans from active tab
+  const forMe = activeTab === "matches";
+  const myInterests = activeTab === "interested";
+  const myPosts = activeTab === "posts";
 
   // Query jobs with filters
   const jobs = useQuery(api.jobs.getJobs, {
@@ -54,25 +61,16 @@ export default function JobsIndex() {
       statusFilter !== "Open" ||
       locationFilter !== "All" ||
       disciplinesFilter.length > 0 ||
-      myPosts ||
-      myInterests
+      activeTab !== "all"
     ) {
       posthog?.capture("jobs_filters_changed", {
+        activeTab,
         statusFilter,
         locationFilter,
         disciplinesFilter,
-        myPosts,
-        myInterests,
       });
     }
-  }, [
-    statusFilter,
-    locationFilter,
-    disciplinesFilter,
-    myPosts,
-    myInterests,
-    posthog,
-  ]);
+  }, [activeTab, statusFilter, locationFilter, disciplinesFilter, posthog]);
 
   const toggleDiscipline = (discipline: string) => {
     setDisciplinesFilter((prev) =>
@@ -81,6 +79,20 @@ export default function JobsIndex() {
         : [...prev, discipline],
     );
   };
+
+  // Reset status filter when switching to interested tab (show all statuses)
+  const handleTabChange = (tab: TabFilter) => {
+    setActiveTab(tab);
+    if (tab === "interested") {
+      setStatusFilter("All");
+    }
+  };
+
+  // Check if any filters are active
+  const hasActiveFilters =
+    statusFilter !== "Open" ||
+    locationFilter !== "All" ||
+    disciplinesFilter.length > 0;
 
   // Helper to format relative time
   const getRelativeTime = (timestamp: number): string => {
@@ -100,6 +112,13 @@ export default function JobsIndex() {
     if (minutes > 0) return `${minutes}m ago`;
     return "just now";
   };
+
+  const tabs = [
+    { id: "all" as const, label: "All Jobs" },
+    { id: "matches" as const, label: "My Matches" },
+    { id: "interested" as const, label: "Interested Jobs" },
+    { id: "posts" as const, label: "My Job Posts" },
+  ];
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -121,115 +140,146 @@ export default function JobsIndex() {
         </Link>
       </div>
 
-      {/* Filters Section */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 mb-6 border border-gray-200 dark:border-gray-700">
-        <div className="space-y-4">
-          {/* Status and Location Dropdowns */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Status Filter */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Status
-              </label>
-              <select
-                value={statusFilter}
-                onChange={(e) =>
-                  setStatusFilter(e.target.value as StatusFilter)
-                }
-                className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-xl text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="All">All</option>
-                <option value="Open">Open Only</option>
-                <option value="Closed">Closed</option>
-              </select>
-            </div>
+      {/* Tab Navigation */}
+      <div className="flex items-center gap-2 mb-4 overflow-x-auto pb-2">
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => handleTabChange(tab.id)}
+            className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
+              activeTab === tab.id
+                ? "bg-blue-600 text-white"
+                : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
 
-            {/* Location Filter */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Location
-              </label>
-              <select
-                value={locationFilter}
-                onChange={(e) =>
-                  setLocationFilter(e.target.value as LocationFilter)
-                }
-                className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-xl text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="All">All</option>
-                <option value="Remote">Remote</option>
-                <option value="Hybrid">Hybrid</option>
-                <option value="On-site">On-site</option>
-              </select>
-            </div>
-          </div>
+        {/* Filter Button */}
+        <button
+          onClick={() => setShowFilters(!showFilters)}
+          className={`ml-auto flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+            hasActiveFilters
+              ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400"
+              : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"
+          }`}
+        >
+          <svg
+            className="w-4 h-4"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
+            />
+          </svg>
+          Filter
+          {hasActiveFilters && (
+            <span className="w-2 h-2 bg-blue-600 rounded-full" />
+          )}
+          <svg
+            className={`w-4 h-4 transition-transform ${showFilters ? "rotate-180" : ""}`}
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M19 9l-7 7-7-7"
+            />
+          </svg>
+        </button>
+      </div>
 
-          {/* Disciplines Multi-Select */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Disciplines
-            </label>
-            <div className="flex flex-wrap gap-2">
-              {JOB_FUNCTIONS.map((discipline) => (
-                <button
-                  key={discipline}
-                  onClick={() => toggleDiscipline(discipline)}
-                  className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                    disciplinesFilter.includes(discipline)
-                      ? "bg-blue-600 text-white"
-                      : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
-                  }`}
-                >
-                  {discipline}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Quick Filter Toggles */}
-          <div className="flex flex-wrap gap-4 pt-2 border-t border-gray-200 dark:border-gray-700">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={forMe}
-                onChange={(e) => setForMe(e.target.checked)}
-                className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-              />
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                For Me
-              </span>
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={myPosts}
-                onChange={(e) => setMyPosts(e.target.checked)}
-                className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-              />
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                My Posts
-              </span>
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={myInterests}
-                onChange={(e) => {
-                  setMyInterests(e.target.checked);
-                  // When enabling My Interests, show all statuses so user sees all their interested jobs
-                  if (e.target.checked) {
-                    setStatusFilter("All");
+      {/* Collapsible Filters */}
+      {showFilters && (
+        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 mb-6 border border-gray-200 dark:border-gray-700 animate-in slide-in-from-top-2 duration-200">
+          <div className="space-y-4">
+            {/* Status and Location Dropdowns */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Status Filter */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Status
+                </label>
+                <select
+                  value={statusFilter}
+                  onChange={(e) =>
+                    setStatusFilter(e.target.value as StatusFilter)
                   }
+                  className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-xl text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="All">All</option>
+                  <option value="Open">Open Only</option>
+                  <option value="Closed">Closed</option>
+                </select>
+              </div>
+
+              {/* Location Filter */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Location
+                </label>
+                <select
+                  value={locationFilter}
+                  onChange={(e) =>
+                    setLocationFilter(e.target.value as LocationFilter)
+                  }
+                  className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-xl text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="All">All</option>
+                  <option value="Remote">Remote</option>
+                  <option value="Hybrid">Hybrid</option>
+                  <option value="On-site">On-site</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Disciplines Multi-Select */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Disciplines
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {JOB_FUNCTIONS.map((discipline) => (
+                  <button
+                    key={discipline}
+                    onClick={() => toggleDiscipline(discipline)}
+                    className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                      disciplinesFilter.includes(discipline)
+                        ? "bg-blue-600 text-white"
+                        : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+                    }`}
+                  >
+                    {discipline}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Clear Filters */}
+            {hasActiveFilters && (
+              <button
+                onClick={() => {
+                  setStatusFilter("Open");
+                  setLocationFilter("All");
+                  setDisciplinesFilter([]);
                 }}
-                className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-              />
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                My Interests
-              </span>
-            </label>
+                className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+              >
+                Clear all filters
+              </button>
+            )}
           </div>
         </div>
-      </div>
+      )}
 
       {/* Loading State */}
       {jobs === undefined ? (
@@ -254,7 +304,13 @@ export default function JobsIndex() {
           </svg>
           <p className="text-lg font-medium mb-1">No jobs found</p>
           <p className="text-sm">
-            Try adjusting your filters or be the first to post a job
+            {activeTab === "matches"
+              ? "No jobs match your profile disciplines yet"
+              : activeTab === "interested"
+                ? "You haven't expressed interest in any jobs yet"
+                : activeTab === "posts"
+                  ? "You haven't posted any jobs yet"
+                  : "Try adjusting your filters or be the first to post a job"}
           </p>
         </div>
       ) : (

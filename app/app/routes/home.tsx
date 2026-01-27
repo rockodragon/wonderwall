@@ -51,11 +51,7 @@ export default function Home() {
     }
   }, []);
 
-  useEffect(() => {
-    if (!isLoading && isAuthenticated) {
-      navigate("/search");
-    }
-  }, [isAuthenticated, isLoading, navigate]);
+  // No longer auto-redirect - show homepage with "Go to App" button instead
 
   async function handleWaitlistSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -116,12 +112,21 @@ export default function Home() {
           Wonderwall
         </h1>
         <div className="flex items-center gap-4">
-          <Link
-            to="/login"
-            className="px-4 py-2 text-white/80 hover:text-white font-medium transition-colors"
-          >
-            Sign in
-          </Link>
+          {isAuthenticated ? (
+            <Link
+              to="/search"
+              className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-semibold hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg shadow-blue-500/25"
+            >
+              Go to App
+            </Link>
+          ) : (
+            <Link
+              to="/login"
+              className="px-4 py-2 text-white/80 hover:text-white font-medium transition-colors"
+            >
+              Sign in
+            </Link>
+          )}
         </div>
       </header>
 
