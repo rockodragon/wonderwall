@@ -11,3 +11,4 @@ package-lock.json
 
 # bv (beads viewer) local config and caches
 .bv/
+.wrangler
