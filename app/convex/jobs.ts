@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { query } from "./_generated/server";
+import { mutation, query } from "./_generated/server";
 import type { QueryCtx } from "./_generated/server";
 import { auth } from "./auth";
 import type { Doc } from "./_generated/dataModel";
@@ -81,7 +81,7 @@ export const getJobs = query({
     // Sort by createdAt descending (newest first)
     jobs.sort((a, b) => b.createdAt - a.createdAt);
 
-    // Get poster profile info for each job
+    // Get poster profile info and interest counts for each job
     const jobsWithPosterInfo = await Promise.all(
       jobs.map(async (job) => {
         const posterProfile = await ctx.db
@@ -95,6 +95,12 @@ export const getJobs = query({
           posterImageUrl = await resolveImageUrl(ctx, posterProfile);
         }
 
+        // Get interest count
+        const interests = await ctx.db
+          .query("jobInterests")
+          .withIndex("by_jobId", (q) => q.eq("jobId", job._id))
+          .collect();
+
         return {
           ...job,
           poster: posterProfile
@@ -105,6 +111,7 @@ export const getJobs = query({
                 profileId: posterProfile._id,
               }
             : null,
+          interestCount: interests.length,
         };
       }),
     );
@@ -284,5 +291,165 @@ export const getUserJobInterest = query({
       ...interest,
       workLinkArtifacts: workLinkArtifacts.filter(Boolean),
     };
+  },
+});
+
+/**
+ * Close a job (poster only)
+ */
+export const closeJob = mutation({
+  args: { jobId: v.id("jobs") },
+  handler: async (ctx, args) => {
+    const userId = await auth.getUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
+    const job = await ctx.db.get(args.jobId);
+    if (!job) throw new Error("Job not found");
+
+    if (job.posterId !== userId) {
+      throw new Error("Only the poster can close this job");
+    }
+
+    await ctx.db.patch(args.jobId, {
+      status: "Closed",
+      updatedAt: Date.now(),
+    });
+  },
+});
+
+/**
+ * Reopen a closed job (poster only)
+ */
+export const reopenJob = mutation({
+  args: { jobId: v.id("jobs") },
+  handler: async (ctx, args) => {
+    const userId = await auth.getUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
+    const job = await ctx.db.get(args.jobId);
+    if (!job) throw new Error("Job not found");
+
+    if (job.posterId !== userId) {
+      throw new Error("Only the poster can reopen this job");
+    }
+
+    await ctx.db.patch(args.jobId, {
+      status: "Open",
+      updatedAt: Date.now(),
+    });
+  },
+});
+
+/**
+ * Express interest in a job
+ */
+export const expressInterest = mutation({
+  args: {
+    jobId: v.id("jobs"),
+    note: v.optional(v.string()),
+    workLinks: v.array(v.id("artifacts")),
+  },
+  handler: async (ctx, args) => {
+    const userId = await auth.getUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
+    // Get user's profile
+    const profile = await ctx.db
+      .query("profiles")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .first();
+
+    if (!profile) throw new Error("Profile not found");
+
+    // Get the job and validate it's available
+    const job = await ctx.db.get(args.jobId);
+    if (!job) throw new Error("Job not found");
+
+    // Check job is Open
+    if (job.status !== "Open") {
+      throw new Error("This job is no longer accepting interest");
+    }
+
+    // Check job is visible (Members visibility means visible to all logged-in users)
+    if (job.visibility !== "Members") {
+      throw new Error("This job is not accepting interest");
+    }
+
+    // Validate note length
+    if (args.note && args.note.trim().length > 500) {
+      throw new Error("Note must be 500 characters or less");
+    }
+
+    // Validate workLinks max 3
+    if (args.workLinks.length > 3) {
+      throw new Error("You can select up to 3 work samples");
+    }
+
+    // Verify all workLinks belong to the user
+    for (const artifactId of args.workLinks) {
+      const artifact = await ctx.db.get(artifactId);
+      if (!artifact) {
+        throw new Error("Work sample not found");
+      }
+      if (artifact.profileId !== profile._id) {
+        throw new Error("Work sample does not belong to you");
+      }
+    }
+
+    // Check if user has already expressed interest
+    const existing = await ctx.db
+      .query("jobInterests")
+      .withIndex("by_jobId_userId", (q) =>
+        q.eq("jobId", args.jobId).eq("userId", userId),
+      )
+      .first();
+
+    const now = Date.now();
+
+    if (existing) {
+      // Update existing interest
+      await ctx.db.patch(existing._id, {
+        note: args.note?.trim(),
+        workLinks: args.workLinks,
+        updatedAt: now,
+      });
+    } else {
+      // Create new interest
+      await ctx.db.insert("jobInterests", {
+        jobId: args.jobId,
+        userId,
+        profileId: profile._id,
+        note: args.note?.trim(),
+        workLinks: args.workLinks,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+  },
+});
+
+/**
+ * Withdraw interest from a job
+ */
+export const withdrawInterest = mutation({
+  args: { jobId: v.id("jobs") },
+  handler: async (ctx, args) => {
+    const userId = await auth.getUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
+    // Find the user's interest record
+    const interest = await ctx.db
+      .query("jobInterests")
+      .withIndex("by_jobId_userId", (q) =>
+        q.eq("jobId", args.jobId).eq("userId", userId),
+      )
+      .first();
+
+    if (!interest) {
+      throw new Error("You have not expressed interest in this job");
+    }
+
+    // Delete the interest record
+    await ctx.db.delete(interest._id);
   },
 });
