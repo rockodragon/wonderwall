@@ -25,7 +25,7 @@ The Jobs feature enables Wonderwall members to post and discover creative opport
 - I want to express interest in a job so posters know I'm available
 - I want to include a note with my interest so I can personalize my application
 - I want to link relevant works so posters can see my capabilities
-- I want to filter for open jobs so I don't waste time on closed positions
+- I want to filter for jobs that are open, near me or remote, in my skills category so I don't waste time on closed positions
 
 ## Features & Requirements
 
@@ -36,12 +36,15 @@ The Jobs feature enables Wonderwall members to post and discover creative opport
 - **Description** (rich text, max 5000 chars) - Detailed job description
 - **Location** (enum: Remote, Hybrid, On-site)
   - If On-site or Hybrid: City, State/Country (string)
+  - Optional: Zip/Postal Code (string) - For distance-based filtering in future phases
 - **Job Type** (enum: Full-time, Part-time, Contract, Freelance)
 - **Visibility** (enum: Private, Members Only)
   - Private: Only poster can see
   - Members Only: All authenticated members can see
 
 #### Optional Fields
+- **Hiring Organization** (string, max 100 chars) - Company or organization name
+  - Toggle: "Post anonymously" - Hides org name and shows poster as individual
 - **Compensation Range** (string) - e.g., "$50k-$70k" or "Negotiable"
 - **External Link** (URL) - Link to full posting or application page
 - **Creative Disciplines** (multi-select) - Same job functions from profiles (Designer, Writer, Musician, etc.)
@@ -82,7 +85,10 @@ The Jobs feature enables Wonderwall members to post and discover creative opport
 
 #### Views
 - **Main Feed**: Lists all jobs (open and closed) by default
-- **Open Only Filter**: Toggle to show only open jobs
+- **Filters**:
+  - Status: Open Only / All
+  - Location: Remote / Hybrid / On-site / All
+  - Disciplines: Multi-select from available creative disciplines (Designer, Writer, etc.)
 - **My Posts**: Filter to show only jobs I posted
 - **My Interests**: Filter to show jobs I've expressed interest in
 
@@ -149,10 +155,13 @@ Each job card shows:
   city?: string, // Required if not Remote
   state?: string, // Required if not Remote
   country?: string, // Required if not Remote
+  zipCode?: string, // Optional, for future distance filtering
   jobType: "Full-time" | "Part-time" | "Contract" | "Freelance",
   visibility: "Private" | "Members",
 
   // Optional fields
+  hiringOrg?: string, // Company/organization name
+  postAnonymously: boolean, // Default false, hides hiringOrg if true
   compensationRange?: string,
   externalLink?: string,
   disciplines?: string[], // Job functions
@@ -193,7 +202,8 @@ jobs: defineTable({
   .index("by_posterId", ["posterId"])
   .index("by_status", ["status"])
   .index("by_visibility", ["visibility"])
-  .index("by_status_and_visibility", ["status", "visibility"]),
+  .index("by_status_and_visibility", ["status", "visibility"])
+  .index("by_location", ["location"]),
 
 jobInterests: defineTable({
   // ... fields
@@ -213,10 +223,13 @@ jobInterests: defineTable({
 ### Jobs Index Page (`/jobs`)
 - Header with "Jobs" title
 - "Post a Job" button (prominent, top-right)
-- Filter toggles:
-  - [ ] Open Only
-  - [ ] My Posts
-  - [ ] My Interests
+- Filter section:
+  - Status dropdown: All / Open Only
+  - Location dropdown: All / Remote / Hybrid / On-site
+  - Disciplines multi-select: All / Designer / Writer / Musician / etc.
+  - Quick toggles:
+    - [ ] My Posts
+    - [ ] My Interests
 - Grid or list view of job cards
 - Infinite scroll or pagination
 
@@ -273,7 +286,9 @@ jobInterests: defineTable({
 // Get all jobs (with filters)
 export const getJobs = query({
   args: {
-    statusFilter?: v.optional(v.union(v.literal("Open"), v.literal("Closed"))),
+    statusFilter?: v.optional(v.union(v.literal("Open"), v.literal("Closed"), v.literal("All"))),
+    locationFilter?: v.optional(v.union(v.literal("Remote"), v.literal("Hybrid"), v.literal("On-site"), v.literal("All"))),
+    disciplinesFilter?: v.optional(v.array(v.string())),
     myPosts?: v.optional(v.boolean()),
     myInterests?: v.optional(v.boolean()),
   },
@@ -401,9 +416,10 @@ export const withdrawInterest = mutation({
 - **Job Alerts**: Subscribe to new jobs matching criteria
 
 ### Phase 3
+- **Distance-Based Filtering**: Use zip codes to show "jobs within X miles"
 - **Featured Jobs**: Paid promotion for job posts
 - **Company Profiles**: Organizations can create profiles and post jobs
-- **Advanced Filters**: Filter by discipline, experience, compensation, location
+- **Advanced Filters**: Filter by experience, compensation, sort by distance
 - **Search**: Full-text search across job titles and descriptions
 - **Analytics Dashboard**: For posters to see views, interest trends
 
@@ -433,10 +449,10 @@ export const withdrawInterest = mutation({
 
 ## Approval
 
-- [ ] Reviewed by product team
-- [ ] Reviewed by engineering
-- [ ] Reviewed by design
-- [ ] Approved for development
+- [x] Reviewed by product team
+- [x] Reviewed by engineering
+- [x] Reviewed by design
+- [x] Approved for development
 
 ---
 
