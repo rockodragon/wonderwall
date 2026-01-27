@@ -295,6 +295,114 @@ export const getUserJobInterest = query({
 });
 
 /**
+ * Create a new job posting
+ */
+export const createJob = mutation({
+  args: {
+    title: v.string(),
+    description: v.string(),
+    location: v.union(
+      v.literal("Remote"),
+      v.literal("Hybrid"),
+      v.literal("On-site"),
+    ),
+    city: v.optional(v.string()),
+    state: v.optional(v.string()),
+    country: v.optional(v.string()),
+    zipCode: v.optional(v.string()),
+    jobType: v.union(
+      v.literal("Full-time"),
+      v.literal("Part-time"),
+      v.literal("Contract"),
+      v.literal("Freelance"),
+    ),
+    visibility: v.union(v.literal("Private"), v.literal("Members")),
+    hiringOrg: v.optional(v.string()),
+    postAnonymously: v.optional(v.boolean()),
+    compensationRange: v.optional(v.string()),
+    externalLink: v.optional(v.string()),
+    disciplines: v.optional(v.array(v.string())),
+    experienceLevel: v.optional(
+      v.union(
+        v.literal("Entry"),
+        v.literal("Mid"),
+        v.literal("Senior"),
+        v.literal("Any"),
+      ),
+    ),
+  },
+  handler: async (ctx, args) => {
+    const userId = await auth.getUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
+    const profile = await ctx.db
+      .query("profiles")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .first();
+
+    if (!profile) throw new Error("Profile not found");
+
+    // Validate required fields
+    if (!args.title.trim()) throw new Error("Title is required");
+    if (args.title.length > 100)
+      throw new Error("Title must be 100 characters or less");
+
+    if (!args.description.trim()) throw new Error("Description is required");
+    if (args.description.length > 5000)
+      throw new Error("Description must be 5000 characters or less");
+
+    // Validate location fields
+    if (args.location !== "Remote") {
+      if (!args.city?.trim())
+        throw new Error("City is required for non-remote jobs");
+      if (!args.country?.trim())
+        throw new Error("Country is required for non-remote jobs");
+    }
+
+    // Validate hiring org
+    if (args.hiringOrg && args.hiringOrg.length > 100) {
+      throw new Error("Hiring organization must be 100 characters or less");
+    }
+
+    // Validate external link
+    if (args.externalLink) {
+      try {
+        new URL(args.externalLink);
+      } catch {
+        throw new Error("External link must be a valid URL");
+      }
+    }
+
+    const now = Date.now();
+
+    const jobId = await ctx.db.insert("jobs", {
+      posterId: userId,
+      profileId: profile._id,
+      title: args.title.trim(),
+      description: args.description.trim(),
+      location: args.location,
+      city: args.city?.trim(),
+      state: args.state?.trim(),
+      country: args.country?.trim(),
+      zipCode: args.zipCode?.trim(),
+      jobType: args.jobType,
+      visibility: args.visibility,
+      hiringOrg: args.hiringOrg?.trim(),
+      postAnonymously: args.postAnonymously || false,
+      compensationRange: args.compensationRange?.trim(),
+      externalLink: args.externalLink?.trim(),
+      disciplines: args.disciplines,
+      experienceLevel: args.experienceLevel,
+      status: "Open",
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    return jobId;
+  },
+});
+
+/**
  * Close a job (poster only)
  */
 export const closeJob = mutation({
