@@ -12,6 +12,9 @@ export default defineConfig({
     tsconfigPaths(),
   ],
   ssr: {
+    // Bundle these into SSR (they have browser-specific code that needs transformation)
     noExternal: ["posthog-js", "@posthog/react"],
+    // Don't bundle these - they use Node.js APIs not available in Workers
+    external: ["ws", "bufferutil", "utf-8-validate"],
   },
 });
