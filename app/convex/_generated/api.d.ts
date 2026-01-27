@@ -20,6 +20,7 @@ import type * as http from "../http.js";
 import type * as invites from "../invites.js";
 import type * as links from "../links.js";
 import type * as profiles from "../profiles.js";
+import type * as public_ from "../public.js";
 import type * as seed from "../seed.js";
 import type * as waitlist from "../waitlist.js";
 import type * as wonderings from "../wonderings.js";
@@ -43,6 +44,7 @@ declare const fullApi: ApiFromModules<{
   invites: typeof invites;
   links: typeof links;
   profiles: typeof profiles;
+  public: typeof public_;
   seed: typeof seed;
   waitlist: typeof waitlist;
   wonderings: typeof wonderings;

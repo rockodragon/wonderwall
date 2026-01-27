@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router";
 import { useEffect, useState } from "react";
 import type { Route } from "./+types/home";
 import { api } from "../../convex/_generated/api";
+import "../styles/marquee.css";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -28,6 +29,11 @@ export default function Home() {
   const [inviteError, setInviteError] = useState("");
   const [inviteSlug, setInviteSlug] = useState<string | null>(null);
   const addToWaitlist = useMutation(api.waitlist.addToWaitlist);
+
+  // Fetch featured content for marquees
+  const wonderings = useQuery(api.public.getFeaturedWonderings);
+  const works = useQuery(api.public.getFeaturedWorks);
+  const profiles = useQuery(api.public.getFeaturedProfiles);
 
   // Fetch inviter info when slug is set
   const inviterInfo = useQuery(
@@ -105,308 +111,347 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white dark:from-gray-950 dark:to-gray-900">
+    <div className="min-h-screen bg-gray-950 overflow-hidden">
       {/* Header */}
-      <header className="px-6 py-4 flex items-center justify-between max-w-6xl mx-auto">
-        <h1 className="text-xl font-bold text-gray-900 dark:text-white">
+      <header className="absolute top-0 left-0 right-0 z-50 px-6 py-6 flex items-center justify-between max-w-7xl mx-auto">
+        <h1 className="text-2xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
           Wonderwall
         </h1>
         <div className="flex items-center gap-4">
           <Link
             to="/login"
-            className="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white font-medium"
+            className="px-4 py-2 text-white/80 hover:text-white font-medium transition-colors"
           >
             Sign in
           </Link>
         </div>
       </header>
 
-      {/* Hero */}
-      <main className="px-6 py-20 max-w-4xl mx-auto text-center">
-        <h2 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white leading-tight">
-          Connect with
-          <br />
-          <span className="text-blue-600">Christian creatives</span>
-        </h2>
-        <p className="mt-6 text-xl text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
-          Discover peers, share your work, explore what others are wondering,
-          and find your next collaboration.
-        </p>
-        <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full text-sm font-medium mt-4">
-          <svg
-            className="w-4 h-4"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-            />
-          </svg>
-          Closed Beta • Invite Only
-        </div>
+      {/* Hero Section with Marquees */}
+      <main className="relative pt-32 pb-20">
+        {/* Hero Content - Centered */}
+        <div className="relative z-10 px-6 max-w-5xl mx-auto text-center mb-20">
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-500/10 border border-blue-500/20 text-blue-400 rounded-full text-sm font-medium mb-6">
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+              />
+            </svg>
+            Closed Beta • Invite Only
+          </div>
+          <h2 className="text-5xl md:text-7xl font-bold text-white leading-tight mb-6">
+            Connect with
+            <br />
+            <span className="bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+              Christian creatives
+            </span>
+          </h2>
+          <p className="mt-6 text-xl text-gray-400 max-w-2xl mx-auto mb-8">
+            Discover peers, share your work, explore what others are wondering,
+            and find your next collaboration.
+          </p>
 
-        {/* Waitlist Form or Invite Preview */}
-        <div className="mt-10 max-w-md mx-auto">
-          {!inviteSlug ? (
-            // Show waitlist form when no invite is being processed
-            status === "success" ? (
-              <div className="p-6 bg-green-50 dark:bg-green-900/20 rounded-2xl border border-green-200 dark:border-green-800">
-                <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <svg
-                    className="w-6 h-6 text-green-600 dark:text-green-400"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M5 13l4 4L19 7"
-                    />
-                  </svg>
-                </div>
-                <h3 className="text-lg font-semibold text-green-900 dark:text-green-100 mb-2">
-                  You're on the list!
-                </h3>
-                <p className="text-green-700 dark:text-green-300">{message}</p>
-              </div>
-            ) : (
-              <form onSubmit={handleWaitlistSubmit} className="space-y-4">
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="Enter your email"
-                    className="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    disabled={status === "loading"}
-                  />
-                  <button
-                    type="submit"
-                    disabled={status === "loading"}
-                    className="px-8 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
-                  >
-                    {status === "loading" ? "Joining..." : "Get on Waitlist"}
-                  </button>
-                </div>
-                {status === "error" && (
-                  <p className="text-sm text-red-600 dark:text-red-400">
-                    {message}
-                  </p>
-                )}
-              </form>
-            )
-          ) : null}
-
-          {/* Invite Input Section */}
-          <div
-            className={
-              inviteSlug
-                ? ""
-                : "mt-6 pt-6 border-t border-gray-200 dark:border-gray-700"
-            }
-          >
+          {/* Waitlist Form or Invite Preview */}
+          <div className="mt-10 max-w-md mx-auto">
             {!inviteSlug ? (
-              // Show invite input form
-              !showInviteInput ? (
-                <button
-                  onClick={() => setShowInviteInput(true)}
-                  className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-                >
-                  Have an invite?{" "}
-                  <span className="text-blue-600 hover:text-blue-500 font-medium">
-                    Enter it here
-                  </span>
-                </button>
-              ) : (
-                <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                      Enter your invite
-                    </p>
-                    <button
-                      onClick={() => {
-                        setShowInviteInput(false);
-                        setInviteInput("");
-                        setInviteError("");
-                      }}
-                      className="text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+              // Show waitlist form when no invite is being processed
+              status === "success" ? (
+                <div className="p-8 bg-green-500/10 rounded-2xl border border-green-500/20 backdrop-blur-sm">
+                  <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg
+                      className="w-8 h-8 text-green-400"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
                     >
-                      Cancel
-                    </button>
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M5 13l4 4L19 7"
+                      />
+                    </svg>
                   </div>
-                  <form onSubmit={handleInviteSubmit} className="space-y-3">
+                  <h3 className="text-xl font-bold text-green-100 mb-2">
+                    You're on the list!
+                  </h3>
+                  <p className="text-green-300">{message}</p>
+                </div>
+              ) : (
+                <form onSubmit={handleWaitlistSubmit} className="space-y-4">
+                  <div className="flex flex-col sm:flex-row gap-3">
                     <input
-                      type="text"
-                      value={inviteInput}
-                      onChange={(e) => setInviteInput(e.target.value)}
-                      placeholder="Paste invite link or code"
-                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="Enter your email"
+                      className="flex-1 px-5 py-4 border border-gray-700 rounded-xl bg-gray-900/50 backdrop-blur-sm text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                      disabled={status === "loading"}
                     />
-                    {inviteError && (
-                      <p className="text-sm text-red-600 dark:text-red-400">
-                        {inviteError}
-                      </p>
-                    )}
                     <button
                       type="submit"
-                      className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg font-medium text-sm hover:bg-blue-700 transition-colors"
+                      disabled={status === "loading"}
+                      className="px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-semibold hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
                     >
-                      Continue
+                      {status === "loading" ? "Joining..." : "Join Waitlist"}
                     </button>
-                  </form>
-                </div>
+                  </div>
+                  {status === "error" && (
+                    <p className="text-sm text-red-400">{message}</p>
+                  )}
+                </form>
               )
-            ) : inviterInfo === undefined ? (
-              // Loading state
-              <div className="flex items-center justify-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
-              </div>
-            ) : inviterInfo === null ? (
-              // Invalid invite
-              <div className="text-center py-4">
-                <p className="text-sm text-red-600 dark:text-red-400 mb-3">
-                  Invalid invite link
-                </p>
-                <button
-                  onClick={() => {
-                    setInviteSlug(null);
-                    setInviteInput("");
-                  }}
-                  className="text-sm text-blue-600 hover:text-blue-500 font-medium"
-                >
-                  Try again
-                </button>
-              </div>
-            ) : (
-              // Show personalized invite preview
-              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-                <div className="bg-gradient-to-r from-blue-500 to-purple-600 px-6 py-4">
-                  <p className="text-white/90 text-xs font-medium uppercase tracking-wide mb-1">
-                    You've been invited
-                  </p>
-                  <h3 className="text-xl font-bold text-white">
-                    {inviterInfo.name} invited you to join
-                  </h3>
-                </div>
+            ) : null}
 
-                <div className="p-6">
-                  {/* Inviter Info */}
-                  <div className="flex items-center gap-3 mb-4">
-                    {inviterInfo.imageUrl ? (
-                      <img
-                        src={inviterInfo.imageUrl}
-                        alt={inviterInfo.name}
-                        className="w-14 h-14 rounded-full object-cover"
+            {/* Invite Input Section */}
+            <div
+              className={inviteSlug ? "" : "mt-6 pt-6 border-t border-gray-800"}
+            >
+              {!inviteSlug ? (
+                // Show invite input form
+                !showInviteInput ? (
+                  <button
+                    onClick={() => setShowInviteInput(true)}
+                    className="text-sm text-gray-500 hover:text-gray-300 transition-colors"
+                  >
+                    Have an invite?{" "}
+                    <span className="text-blue-400 hover:text-blue-300 font-medium">
+                      Enter it here
+                    </span>
+                  </button>
+                ) : (
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="text-sm font-medium text-gray-300">
+                        Enter your invite
+                      </p>
+                      <button
+                        onClick={() => {
+                          setShowInviteInput(false);
+                          setInviteInput("");
+                          setInviteError("");
+                        }}
+                        className="text-sm text-gray-500 hover:text-gray-300 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                    <form onSubmit={handleInviteSubmit} className="space-y-3">
+                      <input
+                        type="text"
+                        value={inviteInput}
+                        onChange={(e) => setInviteInput(e.target.value)}
+                        placeholder="Paste invite link or code"
+                        className="w-full px-4 py-3 border border-gray-700 rounded-xl bg-gray-900/50 backdrop-blur-sm text-white text-sm placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                       />
+                      {inviteError && (
+                        <p className="text-sm text-red-400">{inviteError}</p>
+                      )}
+                      <button
+                        type="submit"
+                        className="w-full px-4 py-3 bg-blue-600 text-white rounded-xl font-medium text-sm hover:bg-blue-700 transition-colors shadow-lg shadow-blue-500/25"
+                      >
+                        Continue
+                      </button>
+                    </form>
+                  </div>
+                )
+              ) : inviterInfo === undefined ? (
+                // Loading state
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+                </div>
+              ) : inviterInfo === null ? (
+                // Invalid invite
+                <div className="text-center py-4">
+                  <p className="text-sm text-red-400 mb-3">
+                    Invalid invite link
+                  </p>
+                  <button
+                    onClick={() => {
+                      setInviteSlug(null);
+                      setInviteInput("");
+                    }}
+                    className="text-sm text-blue-400 hover:text-blue-300 font-medium transition-colors"
+                  >
+                    Try again
+                  </button>
+                </div>
+              ) : (
+                // Show personalized invite preview
+                <div className="bg-gray-900 rounded-2xl shadow-2xl border border-gray-800 overflow-hidden backdrop-blur-sm">
+                  <div className="bg-gradient-to-r from-blue-600 to-purple-600 px-6 py-5">
+                    <p className="text-white/80 text-xs font-medium uppercase tracking-wide mb-1">
+                      You've been invited
+                    </p>
+                    <h3 className="text-2xl font-bold text-white">
+                      {inviterInfo.name} invited you to join
+                    </h3>
+                  </div>
+
+                  <div className="p-6">
+                    {/* Inviter Info */}
+                    <div className="flex items-center gap-3 mb-4">
+                      {inviterInfo.imageUrl ? (
+                        <img
+                          src={inviterInfo.imageUrl}
+                          alt={inviterInfo.name}
+                          className="w-14 h-14 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-lg font-bold">
+                          {inviterInfo.name.charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                      <div className="text-left flex-1">
+                        <div className="font-semibold text-white">
+                          {inviterInfo.name}
+                        </div>
+                        {inviterInfo.jobFunctions &&
+                          inviterInfo.jobFunctions.length > 0 && (
+                            <div className="text-sm text-gray-400">
+                              {inviterInfo.jobFunctions.join(", ")}
+                            </div>
+                          )}
+                      </div>
+                    </div>
+
+                    {/* Connected Members - Show who's already here */}
+                    {inviterInfo.recentInvitees &&
+                    inviterInfo.recentInvitees.length > 0 ? (
+                      <div className="mb-4 p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl">
+                        <div className="flex items-center gap-3 mb-2">
+                          <div className="flex -space-x-2">
+                            {/* Show inviter + recent invitees */}
+                            <div
+                              className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-xs font-bold ring-2 ring-gray-900"
+                              title={inviterInfo.name}
+                            >
+                              {inviterInfo.name.charAt(0).toUpperCase()}
+                            </div>
+                            {inviterInfo.recentInvitees.map((invitee, idx) => (
+                              <div
+                                key={idx}
+                                className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-400 to-pink-500 flex items-center justify-center text-white text-xs font-bold ring-2 ring-gray-900"
+                                title={invitee.name}
+                              >
+                                {invitee.name.charAt(0).toUpperCase()}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                        <p className="text-sm text-gray-300">
+                          Join{" "}
+                          <span className="font-semibold">
+                            {inviterInfo.name}
+                          </span>
+                          {inviterInfo.recentInvitees.map((invitee, idx) => (
+                            <span key={idx}>
+                              {idx === 0 && ", "}
+                              <span className="font-semibold">
+                                {invitee.name}
+                              </span>
+                              {idx < inviterInfo.recentInvitees.length - 1 &&
+                                ", "}
+                            </span>
+                          ))}{" "}
+                          and others on Wonderwall
+                        </p>
+                      </div>
                     ) : (
-                      <div className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-lg font-bold">
-                        {inviterInfo.name.charAt(0).toUpperCase()}
+                      <div className="mb-4 p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl">
+                        <p className="text-sm text-gray-300">
+                          Be one of the first to join{" "}
+                          <span className="font-semibold text-white">
+                            {inviterInfo.name}
+                          </span>
+                          's network on Wonderwall
+                        </p>
                       </div>
                     )}
-                    <div className="text-left flex-1">
-                      <div className="font-semibold text-gray-900 dark:text-white">
-                        {inviterInfo.name}
-                      </div>
-                      {inviterInfo.jobFunctions &&
-                        inviterInfo.jobFunctions.length > 0 && (
-                          <div className="text-sm text-gray-600 dark:text-gray-400">
-                            {inviterInfo.jobFunctions.join(", ")}
-                          </div>
-                        )}
-                    </div>
-                  </div>
 
-                  {/* Connected Members - Show who's already here */}
-                  {inviterInfo.recentInvitees &&
-                  inviterInfo.recentInvitees.length > 0 ? (
-                    <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
-                      <div className="flex items-center gap-3 mb-2">
-                        <div className="flex -space-x-2">
-                          {/* Show inviter + recent invitees */}
-                          <div
-                            className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-xs font-bold ring-2 ring-white dark:ring-blue-900/20"
-                            title={inviterInfo.name}
-                          >
-                            {inviterInfo.name.charAt(0).toUpperCase()}
-                          </div>
-                          {inviterInfo.recentInvitees.map((invitee, idx) => (
-                            <div
-                              key={idx}
-                              className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-400 to-pink-500 flex items-center justify-center text-white text-xs font-bold ring-2 ring-white dark:ring-blue-900/20"
-                              title={invitee.name}
-                            >
-                              {invitee.name.charAt(0).toUpperCase()}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                      <p className="text-sm text-gray-700 dark:text-gray-300">
-                        Join{" "}
-                        <span className="font-semibold">
-                          {inviterInfo.name}
-                        </span>
-                        {inviterInfo.recentInvitees.map((invitee, idx) => (
-                          <span key={idx}>
-                            {idx === 0 && ", "}
-                            <span className="font-semibold">
-                              {invitee.name}
-                            </span>
-                            {idx < inviterInfo.recentInvitees.length - 1 &&
-                              ", "}
-                          </span>
-                        ))}{" "}
-                        and others on Wonderwall
-                      </p>
+                    {/* CTA Buttons */}
+                    <div className="space-y-2">
+                      <button
+                        onClick={() => {
+                          // Mark that user accepted invite from home page
+                          sessionStorage.setItem("invite-accepted", inviteSlug);
+                          navigate(`/signup/${inviteSlug}`);
+                        }}
+                        className="w-full px-6 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-semibold hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg shadow-blue-500/25"
+                      >
+                        Accept Invite & Join
+                      </button>
+                      <button
+                        onClick={() => {
+                          setInviteSlug(null);
+                          setInviteInput("");
+                        }}
+                        className="w-full px-4 py-2 text-gray-400 hover:text-white text-sm transition-colors"
+                      >
+                        Cancel
+                      </button>
                     </div>
-                  ) : (
-                    <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
-                      <p className="text-sm text-gray-700 dark:text-gray-300">
-                        Be one of the first to join{" "}
-                        <span className="font-semibold">
-                          {inviterInfo.name}
-                        </span>
-                        's network on Wonderwall
-                      </p>
-                    </div>
-                  )}
-
-                  {/* CTA Buttons */}
-                  <div className="space-y-2">
-                    <button
-                      onClick={() => {
-                        // Mark that user accepted invite from home page
-                        sessionStorage.setItem("invite-accepted", inviteSlug);
-                        navigate(`/signup/${inviteSlug}`);
-                      }}
-                      className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors"
-                    >
-                      Accept Invite & Join
-                    </button>
-                    <button
-                      onClick={() => {
-                        setInviteSlug(null);
-                        setInviteInput("");
-                      }}
-                      className="w-full px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white text-sm"
-                    >
-                      Cancel
-                    </button>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
+        </div>
+
+        {/* Animated Content Marquees */}
+        <div className="space-y-8 mt-24">
+          {/* Wonderings Marquee */}
+          {wonderings && wonderings.length > 0 && (
+            <div className="marquee-container relative">
+              <div className="absolute left-0 top-0 bottom-0 w-32 bg-gradient-to-r from-gray-950 to-transparent z-10" />
+              <div className="absolute right-0 top-0 bottom-0 w-32 bg-gradient-to-l from-gray-950 to-transparent z-10" />
+              <div className="flex gap-4 marquee-scroll-left">
+                {[...wonderings, ...wonderings].map((wondering, idx) => (
+                  <WonderingCard key={idx} wondering={wondering} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Works Marquee (scroll opposite direction) */}
+          {works && works.length > 0 && (
+            <div className="marquee-container relative">
+              <div className="absolute left-0 top-0 bottom-0 w-32 bg-gradient-to-r from-gray-950 to-transparent z-10" />
+              <div className="absolute right-0 top-0 bottom-0 w-32 bg-gradient-to-l from-gray-950 to-transparent z-10" />
+              <div className="flex gap-4 marquee-scroll-right">
+                {[...works, ...works].map((work, idx) => (
+                  <WorkCard key={idx} work={work} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Profiles Marquee */}
+          {profiles && profiles.length > 0 && (
+            <div className="marquee-container relative">
+              <div className="absolute left-0 top-0 bottom-0 w-32 bg-gradient-to-r from-gray-950 to-transparent z-10" />
+              <div className="absolute right-0 top-0 bottom-0 w-32 bg-gradient-to-l from-gray-950 to-transparent z-10" />
+              <div className="flex gap-4 marquee-scroll-left">
+                {[...profiles, ...profiles].map((profile, idx) => (
+                  <ProfileCard key={idx} profile={profile} />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </main>
 
       {/* Features */}
-      <section className="px-6 py-20 max-w-6xl mx-auto">
+      <section className="px-6 py-20 max-w-6xl mx-auto bg-gray-950">
         <div className="grid md:grid-cols-3 gap-8">
           <FeatureCard
             title="Share Your Work"
@@ -448,13 +493,196 @@ export default function Home() {
       </section>
 
       {/* Footer */}
-      <footer className="px-6 py-8 border-t border-gray-200 dark:border-gray-800">
-        <p className="text-center text-gray-500 dark:text-gray-400 text-sm">
+      <footer className="px-6 py-8 border-t border-gray-800">
+        <p className="text-center text-gray-500 text-sm">
           Wonderwall — A community for Christian creatives
         </p>
       </footer>
     </div>
   );
+}
+
+// Wondering Card Component
+function WonderingCard({ wondering }: { wondering: any }) {
+  const { sizeClass } = getWonderTextStyle(wondering.prompt);
+  const hasImage = !!wondering.wonderingImageUrl;
+  const hasProfileImage = !!wondering.profile.imageUrl;
+
+  return (
+    <div className="group relative flex-shrink-0 w-80 h-96 rounded-2xl overflow-hidden bg-gray-900 border border-gray-800 hover:border-purple-500 transition-all duration-300 hover:scale-105 cursor-pointer">
+      {/* Background */}
+      {hasImage ? (
+        <img
+          src={wondering.wonderingImageUrl}
+          alt=""
+          className="absolute inset-0 w-full h-full object-cover"
+        />
+      ) : hasProfileImage ? (
+        <img
+          src={wondering.profile.imageUrl}
+          alt=""
+          className="absolute inset-0 w-full h-full object-cover"
+        />
+      ) : (
+        <div className="absolute inset-0 bg-gradient-to-br from-purple-600 via-blue-600 to-pink-600" />
+      )}
+
+      {/* Overlay */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-black/20" />
+
+      {/* Content */}
+      <div className="absolute inset-0 flex flex-col justify-between p-6">
+        <div className="flex-1 flex items-center justify-center">
+          <p
+            className={`text-white ${sizeClass} font-medium text-center leading-relaxed`}
+          >
+            "{wondering.prompt}"
+          </p>
+        </div>
+
+        {/* Profile info */}
+        <div className="flex items-center gap-2">
+          {hasProfileImage ? (
+            <img
+              src={wondering.profile.imageUrl}
+              alt={wondering.profile.name}
+              className="w-8 h-8 rounded-full object-cover border border-white/30"
+            />
+          ) : (
+            <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white text-sm font-medium">
+              {wondering.profile.name.charAt(0).toUpperCase()}
+            </div>
+          )}
+          <div>
+            <span className="text-white/90 text-sm font-medium block">
+              {wondering.profile.name}
+            </span>
+            {wondering.profile.jobFunctions.length > 0 && (
+              <span className="text-white/60 text-xs">
+                {wondering.profile.jobFunctions.join(" • ")}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Work Card Component
+function WorkCard({ work }: { work: any }) {
+  const hasImage = work.type === "image" && (work.mediaUrl || work.ogImageUrl);
+  const hasProfileImage = !!work.profile.imageUrl;
+
+  return (
+    <div className="group relative flex-shrink-0 w-80 h-96 rounded-2xl overflow-hidden bg-gray-900 border border-gray-800 hover:border-blue-500 transition-all duration-300 hover:scale-105 cursor-pointer">
+      {/* Background */}
+      {hasImage ? (
+        <img
+          src={work.mediaUrl || work.ogImageUrl}
+          alt={work.title || "Work"}
+          className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+        />
+      ) : (
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-600 via-cyan-600 to-teal-600 flex items-center justify-center p-6">
+          {work.content && (
+            <p className="text-white text-lg text-center line-clamp-6">
+              {work.content.substring(0, 200)}...
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Overlay */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-100 group-hover:opacity-90 transition-opacity" />
+
+      {/* Content */}
+      <div className="absolute inset-0 flex flex-col justify-end p-6">
+        {work.title && (
+          <h3 className="text-white text-lg font-semibold mb-2 line-clamp-2">
+            {work.title}
+          </h3>
+        )}
+
+        {/* Profile info */}
+        <div className="flex items-center gap-2">
+          {hasProfileImage ? (
+            <img
+              src={work.profile.imageUrl}
+              alt={work.profile.name}
+              className="w-8 h-8 rounded-full object-cover border border-white/30"
+            />
+          ) : (
+            <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white text-sm font-medium">
+              {work.profile.name.charAt(0).toUpperCase()}
+            </div>
+          )}
+          <div>
+            <span className="text-white/90 text-sm font-medium block">
+              {work.profile.name}
+            </span>
+            {work.profile.jobFunctions.length > 0 && (
+              <span className="text-white/60 text-xs">
+                {work.profile.jobFunctions.join(" • ")}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Profile Card Component
+function ProfileCard({ profile }: { profile: any }) {
+  const hasImage = !!profile.imageUrl;
+
+  return (
+    <div className="group relative flex-shrink-0 w-64 h-80 rounded-2xl overflow-hidden bg-gray-900 border border-gray-800 hover:border-pink-500 transition-all duration-300 hover:scale-105 cursor-pointer">
+      {/* Background */}
+      {hasImage ? (
+        <img
+          src={profile.imageUrl}
+          alt={profile.name}
+          className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+        />
+      ) : (
+        <div className="absolute inset-0 bg-gradient-to-br from-pink-500 via-rose-500 to-orange-500" />
+      )}
+
+      {/* Overlay */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
+
+      {/* Content */}
+      <div className="absolute inset-0 flex flex-col justify-end p-6">
+        <h3 className="text-white text-xl font-bold mb-1">{profile.name}</h3>
+        {profile.jobFunctions.length > 0 && (
+          <p className="text-white/80 text-sm mb-2">
+            {profile.jobFunctions.join(" • ")}
+          </p>
+        )}
+        {profile.bio && (
+          <p className="text-white/60 text-sm line-clamp-2">{profile.bio}</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Helper function for wondering text sizing
+function getWonderTextStyle(prompt: string): { sizeClass: string } {
+  const len = prompt.length;
+  let sizeClass: string;
+  if (len < 40) {
+    sizeClass = "text-2xl";
+  } else if (len < 80) {
+    sizeClass = "text-xl";
+  } else if (len < 150) {
+    sizeClass = "text-lg";
+  } else {
+    sizeClass = "text-base";
+  }
+  return { sizeClass };
 }
 
 function FeatureCard({
@@ -467,10 +695,10 @@ function FeatureCard({
   icon: React.ReactNode;
 }) {
   return (
-    <div className="p-6 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
-      <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center mb-4">
+    <div className="group p-8 bg-gray-900 rounded-2xl border border-gray-800 hover:border-blue-500 transition-all duration-300">
+      <div className="w-14 h-14 bg-blue-500/10 rounded-xl flex items-center justify-center mb-4 group-hover:bg-blue-500/20 transition-colors">
         <svg
-          className="w-6 h-6 text-blue-600 dark:text-blue-400"
+          className="w-7 h-7 text-blue-400"
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -478,10 +706,8 @@ function FeatureCard({
           {icon}
         </svg>
       </div>
-      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-        {title}
-      </h3>
-      <p className="text-gray-600 dark:text-gray-400">{description}</p>
+      <h3 className="text-xl font-bold text-white mb-3">{title}</h3>
+      <p className="text-gray-400 leading-relaxed">{description}</p>
     </div>
   );
 }

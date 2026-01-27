@@ -1,0 +1,62 @@
+[
+  {
+    "event": "user_signed_up",
+    "description": "User successfully creates a new account via invite link",
+    "file_path": "app/routes/signup.tsx"
+  },
+  {
+    "event": "user_logged_in",
+    "description": "User successfully logs in to their account",
+    "file_path": "app/routes/login.tsx"
+  },
+  {
+    "event": "user_logged_out",
+    "description": "User logs out from their account",
+    "file_path": "app/routes/settings.tsx"
+  },
+  {
+    "event": "onboarding_step_completed",
+    "description": "User completes a step in the onboarding flow",
+    "file_path": "app/routes/onboarding.tsx"
+  },
+  {
+    "event": "wondering_created",
+    "description": "User posts a new wondering (question/thought)",
+    "file_path": "app/components/CreateWonderingComposer.tsx"
+  },
+  {
+    "event": "work_created",
+    "description": "User shares a new portfolio piece (image, video, audio, link, or text)",
+    "file_path": "app/components/CreateWorkComposer.tsx"
+  },
+  {
+    "event": "event_created",
+    "description": "User creates a new community event",
+    "file_path": "app/components/CreateEventModal.tsx"
+  },
+  {
+    "event": "event_joined",
+    "description": "User joins an event (with or without approval required)",
+    "file_path": "app/routes/event.tsx"
+  },
+  {
+    "event": "favorite_toggled",
+    "description": "User favorites or unfavorites a profile or event",
+    "file_path": "app/components/FavoriteButton.tsx"
+  },
+  {
+    "event": "invite_link_copied",
+    "description": "User copies their invite link to share with others",
+    "file_path": "app/components/InviteCTA.tsx"
+  },
+  {
+    "event": "profile_updated",
+    "description": "User updates their profile information",
+    "file_path": "app/routes/settings.tsx"
+  },
+  {
+    "event": "search_performed",
+    "description": "User performs a search for creatives or events",
+    "file_path": "app/routes/search.tsx"
+  }
+]
