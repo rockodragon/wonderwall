@@ -201,7 +201,13 @@ export default function JobsIndex() {
               <input
                 type="checkbox"
                 checked={myInterests}
-                onChange={(e) => setMyInterests(e.target.checked)}
+                onChange={(e) => {
+                  setMyInterests(e.target.checked);
+                  // When enabling My Interests, show all statuses so user sees all their interested jobs
+                  if (e.target.checked) {
+                    setStatusFilter("All");
+                  }
+                }}
                 className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
               />
               <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
