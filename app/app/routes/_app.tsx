@@ -104,7 +104,7 @@ export default function AppLayout() {
       <aside className="hidden md:flex md:flex-col md:fixed md:inset-y-0 md:w-64 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800">
         <div className="p-6">
           <Link
-            to="/search"
+            to="/"
             className="text-xl font-bold text-gray-900 dark:text-white"
           >
             Wonderwall
