@@ -18,6 +18,7 @@ import type * as favorites from "../favorites.js";
 import type * as files from "../files.js";
 import type * as http from "../http.js";
 import type * as invites from "../invites.js";
+import type * as jobs from "../jobs.js";
 import type * as links from "../links.js";
 import type * as profiles from "../profiles.js";
 import type * as public_ from "../public.js";
@@ -42,6 +43,7 @@ declare const fullApi: ApiFromModules<{
   files: typeof files;
   http: typeof http;
   invites: typeof invites;
+  jobs: typeof jobs;
   links: typeof links;
   profiles: typeof profiles;
   public: typeof public_;
