@@ -5,6 +5,7 @@ import { api } from "../../convex/_generated/api";
 import { FavoriteButton } from "../components/FavoriteButton";
 import { InviteCTA } from "../components/InviteCTA";
 import { CreateWonderingComposer } from "../components/CreateWonderingComposer";
+import { AboutWonderPopover } from "../components/AboutWonderPopover";
 
 // Debounce hook for search
 function useDebounce<T>(value: T, delay: number): T {
@@ -202,9 +203,12 @@ export default function Search() {
           {/* Wonder Cards - Primary Section */}
           {profilesWithWonderings.length > 0 && (
             <section>
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                What people are wondering
-              </h2>
+              <div className="flex items-center gap-2 mb-4">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  What people are wondering
+                </h2>
+                <AboutWonderPopover />
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {profilesWithWonderings.map((profile) => (
                   <WonderCard key={profile._id} profile={profile} />
