@@ -4,7 +4,50 @@ import { useMutation, useQuery } from "convex/react";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import confetti from "canvas-confetti";
+import { ConvexHttpClient } from "convex/browser";
 import { api } from "../../convex/_generated/api";
+import type { Route } from "./+types/signup";
+
+export async function loader({ params, context }: Route.LoaderArgs) {
+  const convexUrl =
+    context.cloudflare?.env?.VITE_CONVEX_URL || process.env.VITE_CONVEX_URL;
+
+  if (!convexUrl || !params.inviteSlug) {
+    return { inviterInfo: null };
+  }
+
+  try {
+    const convex = new ConvexHttpClient(convexUrl);
+    const inviterInfo = await convex.query(api.invites.getInviterInfo, {
+      slug: params.inviteSlug,
+    });
+    return { inviterInfo };
+  } catch {
+    return { inviterInfo: null };
+  }
+}
+
+export function meta({ data }: Route.MetaArgs) {
+  const inviterName = data?.inviterInfo?.name;
+  const title = inviterName
+    ? `${inviterName} invited you to Wonderwall`
+    : "Join Wonderwall";
+  const description = inviterName
+    ? `${inviterName} invited you to join Wonderwall - a community for Kingdom-minded creatives.`
+    : "Join Wonderwall - a community for Kingdom-minded creatives.";
+
+  return [
+    { title },
+    { name: "description", content: description },
+    { property: "og:title", content: title },
+    { property: "og:description", content: description },
+    { property: "og:type", content: "website" },
+    { property: "og:image", content: "https://wonderwall.app/og-image.png" },
+    { name: "twitter:card", content: "summary_large_image" },
+    { name: "twitter:title", content: title },
+    { name: "twitter:description", content: description },
+  ];
+}
 
 export default function Signup() {
   const { inviteSlug } = useParams();

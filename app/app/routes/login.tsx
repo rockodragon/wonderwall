@@ -4,6 +4,32 @@ import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router";
 import { useConvexAuth } from "convex/react";
 
+export function meta() {
+  return [
+    { title: "Sign In - Wonderwall" },
+    {
+      name: "description",
+      content:
+        "Sign in to Wonderwall to connect with Kingdom-minded creatives.",
+    },
+    { property: "og:title", content: "Sign In - Wonderwall" },
+    {
+      property: "og:description",
+      content:
+        "Sign in to Wonderwall to connect with Kingdom-minded creatives.",
+    },
+    { property: "og:type", content: "website" },
+    { property: "og:image", content: "https://wonderwall.app/og-image.png" },
+    { name: "twitter:card", content: "summary_large_image" },
+    { name: "twitter:title", content: "Sign In - Wonderwall" },
+    {
+      name: "twitter:description",
+      content:
+        "Sign in to Wonderwall to connect with Kingdom-minded creatives.",
+    },
+  ];
+}
+
 export default function Login() {
   const { signIn } = useAuthActions();
   const { isAuthenticated, isLoading: authLoading } = useConvexAuth();

@@ -3,5 +3,9 @@ compatibility_date = "2024-12-01"
 compatibility_flags = ["nodejs_compat"]
 pages_build_output_dir = "./build/client"
 
+# Functions configuration for SSR
+[site]
+bucket = "./build/client"
+
 [vars]
 VITE_CONVEX_URL = "https://courteous-rabbit-750.convex.cloud"

@@ -1,5 +1,22 @@
 import { Link } from "react-router";
 
+export function meta() {
+  return [
+    { title: "Page Not Found - Wonderwall" },
+    {
+      name: "description",
+      content: "The page you're looking for doesn't exist.",
+    },
+    { property: "og:title", content: "Page Not Found - Wonderwall" },
+    {
+      property: "og:description",
+      content: "The page you're looking for doesn't exist.",
+    },
+    { property: "og:type", content: "website" },
+    { name: "robots", content: "noindex" },
+  ];
+}
+
 export default function NotFound() {
   return (
     <div className="min-h-screen bg-gray-950 flex items-center justify-center px-6">

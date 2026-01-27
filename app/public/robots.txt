@@ -1,0 +1,18 @@
+User-agent: *
+Allow: /
+Allow: /login
+Allow: /faq
+Allow: /signup/
+
+Disallow: /search
+Disallow: /works
+Disallow: /events
+Disallow: /jobs
+Disallow: /profile
+Disallow: /favorites
+Disallow: /settings
+Disallow: /admin
+Disallow: /messages
+Disallow: /onboarding
+
+Sitemap: https://wonderwall.app/sitemap.xml

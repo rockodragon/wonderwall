@@ -1,5 +1,31 @@
 import { useState } from "react";
 
+export function meta() {
+  return [
+    { title: "FAQ - Wonderwall" },
+    {
+      name: "description",
+      content:
+        "Frequently asked questions about Wonderwall - invites, profiles, events, and account management.",
+    },
+    { property: "og:title", content: "FAQ - Wonderwall" },
+    {
+      property: "og:description",
+      content:
+        "Frequently asked questions about Wonderwall - invites, profiles, events, and account management.",
+    },
+    { property: "og:type", content: "website" },
+    { property: "og:image", content: "https://wonderwall.app/og-image.png" },
+    { name: "twitter:card", content: "summary_large_image" },
+    { name: "twitter:title", content: "FAQ - Wonderwall" },
+    {
+      name: "twitter:description",
+      content:
+        "Frequently asked questions about Wonderwall - invites, profiles, events, and account management.",
+    },
+  ];
+}
+
 const FAQ_SECTIONS = [
   {
     title: "Invites",
