@@ -5,6 +5,7 @@ import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { FavoriteButton } from "../components/FavoriteButton";
 import { InviteCTA } from "../components/InviteCTA";
+import { usePostHog } from "@posthog/react";
 
 export default function Profile() {
   const { profileId } = useParams();
@@ -24,6 +25,11 @@ export default function Profile() {
   );
   const recordView = useMutation(api.analytics.recordProfileView);
   const toggleLike = useMutation(api.analytics.toggleProfileLike);
+  const getOrCreateConversation = useMutation(
+    api.messaging.getOrCreateConversation,
+  );
+  const posthog = usePostHog();
+  const [startingConversation, setStartingConversation] = useState(false);
 
   // Check if viewing own profile
   const isOwnProfile = myProfile?._id === profileId;
@@ -40,6 +46,28 @@ export default function Profile() {
       recordView({ profileId: profileId as Id<"profiles"> }).catch(() => {});
     }
   }, [profileId, recordView]);
+
+  // Start a conversation with this user
+  const handleStartConversation = async () => {
+    if (!profile?.userId || startingConversation) return;
+    setStartingConversation(true);
+    try {
+      const conversation = await getOrCreateConversation({
+        otherUserId: profile.userId,
+      });
+      posthog?.capture("conversation_started", {
+        profileId: profile._id,
+        profileName: profile.name,
+      });
+      if (conversation) {
+        navigate(`/messages/${conversation._id}`);
+      }
+    } catch (error) {
+      console.error("Failed to start conversation:", error);
+    } finally {
+      setStartingConversation(false);
+    }
+  };
 
   if (profile === undefined) {
     return (
@@ -114,6 +142,33 @@ export default function Profile() {
               </svg>
               {likeStatus?.count || 0}
             </button>
+            {/* Message button - only show for other profiles */}
+            {!isOwnProfile && (
+              <button
+                onClick={handleStartConversation}
+                disabled={startingConversation}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm transition-colors bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+              >
+                {startingConversation ? (
+                  <div className="w-4 h-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                ) : (
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                    />
+                  </svg>
+                )}
+                Message
+              </button>
+            )}
           </div>
           <p className="text-gray-600 dark:text-gray-400 mt-1 text-sm sm:text-base">
             {profile.jobFunctions.join(" • ")}
