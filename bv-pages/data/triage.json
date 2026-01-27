@@ -1,0 +1,449 @@
+{
+  "meta": {
+    "version": "1.0.0",
+    "generated_at": "2026-01-27T11:00:32.4652-08:00",
+    "phase2_ready": true,
+    "issue_count": 71,
+    "compute_time_ms": 0
+  },
+  "quick_ref": {
+    "open_count": 7,
+    "actionable_count": 7,
+    "blocked_count": 0,
+    "in_progress_count": 0,
+    "top_picks": [
+      {
+        "id": "wonderwall-86n",
+        "title": "support multiple image/text blocks for works cards",
+        "score": 0.10032800818818094,
+        "reasons": [
+          "✅ Currently unclaimed - available for work"
+        ],
+        "unblocks": 0
+      },
+      {
+        "id": "wonderwall-iod",
+        "title": "Add notifications when someone joins with your invite link",
+        "score": 0.09579821408959481,
+        "reasons": [
+          "✅ Currently unclaimed - available for work"
+        ],
+        "unblocks": 0
+      },
+      {
+        "id": "wonderwall-yp5",
+        "title": "bug: fixwork card edit should open edit of that specific work card",
+        "score": 0.08636912173352622,
+        "reasons": [
+          "✅ Currently unclaimed - available for work"
+        ],
+        "unblocks": 0
+      }
+    ]
+  },
+  "recommendations": [
+    {
+      "id": "wonderwall-86n",
+      "title": "support multiple image/text blocks for works cards",
+      "type": "task",
+      "status": "open",
+      "priority": 2,
+      "labels": null,
+      "score": 0.10032800818818094,
+      "breakdown": {
+        "pagerank": 0.01633534322796816,
+        "betweenness": 0,
+        "blocker_ratio": 0,
+        "staleness": 0.0034972501716435188,
+        "priority_boost": 0.05,
+        "time_to_impact": 0.033249999999999995,
+        "urgency": 0.012950357410012981,
+        "risk": 0.0020000000000000005,
+        "pagerank_norm": 0.074251560127128,
+        "betweenness_norm": 0,
+        "blocker_ratio_norm": 0,
+        "staleness_norm": 0.06994500343287037,
+        "priority_boost_norm": 0.5,
+        "time_to_impact_norm": 0.33249999999999996,
+        "urgency_norm": 0.1295035741001298,
+        "risk_norm": 0.020000000000000004,
+        "time_to_impact_explanation": "On dependency chain (depth 1), median estimate 60m",
+        "urgency_explanation": "moderate time pressure",
+        "risk_explanation": "Low risk - stable dependency structure",
+        "risk_signals": {
+          "fan_variance": 0,
+          "activity_churn": 0,
+          "cross_repo_risk": 0,
+          "status_risk": 0.1,
+          "composite_risk": 0.020000000000000004,
+          "explanation": "Low risk - stable dependency structure"
+        }
+      },
+      "action": "Start work on this issue",
+      "reasons": [
+        "✅ Currently unclaimed - available for work"
+      ]
+    },
+    {
+      "id": "wonderwall-iod",
+      "title": "Add notifications when someone joins with your invite link",
+      "type": "feature",
+      "status": "open",
+      "priority": 2,
+      "labels": null,
+      "score": 0.09579821408959481,
+      "breakdown": {
+        "pagerank": 0.01633534322796816,
+        "betweenness": 0,
+        "blocker_ratio": 0,
+        "staleness": 0.002271724260069445,
+        "priority_boost": 0.05,
+        "time_to_impact": 0.033249999999999995,
+        "urgency": 0.008846713793838652,
+        "risk": 0.0020000000000000005,
+        "pagerank_norm": 0.074251560127128,
+        "betweenness_norm": 0,
+        "blocker_ratio_norm": 0,
+        "staleness_norm": 0.045434485201388895,
+        "priority_boost_norm": 0.5,
+        "time_to_impact_norm": 0.33249999999999996,
+        "urgency_norm": 0.08846713793838651,
+        "risk_norm": 0.020000000000000004,
+        "time_to_impact_explanation": "On dependency chain (depth 1), median estimate 60m",
+        "risk_explanation": "Low risk - stable dependency structure",
+        "risk_signals": {
+          "fan_variance": 0,
+          "activity_churn": 0,
+          "cross_repo_risk": 0,
+          "status_risk": 0.1,
+          "composite_risk": 0.020000000000000004,
+          "explanation": "Low risk - stable dependency structure"
+        }
+      },
+      "action": "Start work on this issue",
+      "reasons": [
+        "✅ Currently unclaimed - available for work"
+      ]
+    },
+    {
+      "id": "wonderwall-yp5",
+      "title": "bug: fixwork card edit should open edit of that specific work card",
+      "type": "task",
+      "status": "open",
+      "priority": 2,
+      "labels": null,
+      "score": 0.08636912173352622,
+      "breakdown": {
+        "pagerank": 0.01633534322796816,
+        "betweenness": 0,
+        "blocker_ratio": 0,
+        "staleness": 0.000004803979205246914,
+        "priority_boost": 0.05,
+        "time_to_impact": 0.033249999999999995,
+        "urgency": 0.000020584244033916567,
+        "risk": 0.0020000000000000005,
+        "pagerank_norm": 0.074251560127128,
+        "betweenness_norm": 0,
+        "blocker_ratio_norm": 0,
+        "staleness_norm": 0.00009607958410493827,
+        "priority_boost_norm": 0.5,
+        "time_to_impact_norm": 0.33249999999999996,
+        "urgency_norm": 0.00020584244033916566,
+        "risk_norm": 0.020000000000000004,
+        "time_to_impact_explanation": "On dependency chain (depth 1), median estimate 60m",
+        "risk_explanation": "Low risk - stable dependency structure",
+        "risk_signals": {
+          "fan_variance": 0,
+          "activity_churn": 0,
+          "cross_repo_risk": 0,
+          "status_risk": 0.1,
+          "composite_risk": 0.020000000000000004,
+          "explanation": "Low risk - stable dependency structure"
+        }
+      },
+      "action": "Start work on this issue",
+      "reasons": [
+        "✅ Currently unclaimed - available for work"
+      ]
+    },
+    {
+      "id": "wonderwall-3hu",
+      "title": "Add SMS and Google OAuth authentication methods",
+      "type": "feature",
+      "status": "open",
+      "priority": 3,
+      "labels": null,
+      "score": 0.08572154343701227,
+      "breakdown": {
+        "pagerank": 0.01633534322796816,
+        "betweenness": 0,
+        "blocker_ratio": 0,
+        "staleness": 0.0029181303518132718,
+        "priority_boost": 0.025,
+        "time_to_impact": 0.033249999999999995,
+        "urgency": 0.011064845907722332,
+        "risk": 0.012280555144275361,
+        "pagerank_norm": 0.074251560127128,
+        "betweenness_norm": 0,
+        "blocker_ratio_norm": 0,
+        "staleness_norm": 0.05836260703626543,
+        "priority_boost_norm": 0.25,
+        "time_to_impact_norm": 0.33249999999999996,
+        "urgency_norm": 0.11064845907722332,
+        "risk_norm": 0.12280555144275361,
+        "time_to_impact_explanation": "On dependency chain (depth 1), median estimate 60m",
+        "urgency_explanation": "moderate time pressure",
+        "risk_explanation": "Low risk - stable dependency structure",
+        "risk_signals": {
+          "fan_variance": 0,
+          "activity_churn": 0.3426851714758454,
+          "cross_repo_risk": 0,
+          "status_risk": 0.1,
+          "composite_risk": 0.12280555144275361,
+          "explanation": "Low risk - stable dependency structure"
+        }
+      },
+      "action": "Start work on this issue",
+      "reasons": [
+        "✅ Currently unclaimed - available for work"
+      ]
+    },
+    {
+      "id": "wonderwall-7df",
+      "title": "Switch embeddings from OpenAI to Cloudflare Workers AI",
+      "type": "task",
+      "status": "open",
+      "priority": 3,
+      "labels": null,
+      "score": 0.0806441948934021,
+      "breakdown": {
+        "pagerank": 0.01633534322796816,
+        "betweenness": 0,
+        "blocker_ratio": 0,
+        "staleness": 0.003944766656037809,
+        "priority_boost": 0.025,
+        "time_to_impact": 0.033249999999999995,
+        "urgency": 0.014345015871819878,
+        "risk": 0.0020003976481766453,
+        "pagerank_norm": 0.074251560127128,
+        "betweenness_norm": 0,
+        "blocker_ratio_norm": 0,
+        "staleness_norm": 0.07889533312075618,
+        "priority_boost_norm": 0.25,
+        "time_to_impact_norm": 0.33249999999999996,
+        "urgency_norm": 0.14345015871819877,
+        "risk_norm": 0.020003976481766453,
+        "time_to_impact_explanation": "On dependency chain (depth 1), median estimate 60m",
+        "urgency_explanation": "moderate time pressure",
+        "risk_explanation": "Low risk - stable dependency structure",
+        "risk_signals": {
+          "fan_variance": 0,
+          "activity_churn": 0.00001325493922150004,
+          "cross_repo_risk": 0,
+          "status_risk": 0.1,
+          "composite_risk": 0.020003976481766453,
+          "explanation": "Low risk - stable dependency structure"
+        }
+      },
+      "action": "Start work on this issue",
+      "reasons": [
+        "✅ Currently unclaimed - available for work"
+      ]
+    },
+    {
+      "id": "wonderwall-vrm",
+      "title": "Fix Chrome DevTools route error",
+      "type": "bug",
+      "status": "open",
+      "priority": 3,
+      "labels": null,
+      "score": 0.06539697707750369,
+      "breakdown": {
+        "pagerank": 0.01633534322796816,
+        "betweenness": 0,
+        "blocker_ratio": 0,
+        "staleness": 0.00006680174521604938,
+        "priority_boost": 0.025,
+        "time_to_impact": 0.033249999999999995,
+        "urgency": 0.0002854751179966142,
+        "risk": 0.0020000000000000005,
+        "pagerank_norm": 0.074251560127128,
+        "betweenness_norm": 0,
+        "blocker_ratio_norm": 0,
+        "staleness_norm": 0.0013360349043209875,
+        "priority_boost_norm": 0.25,
+        "time_to_impact_norm": 0.33249999999999996,
+        "urgency_norm": 0.002854751179966142,
+        "risk_norm": 0.020000000000000004,
+        "time_to_impact_explanation": "On dependency chain (depth 1), median estimate 60m",
+        "risk_explanation": "Low risk - stable dependency structure",
+        "risk_signals": {
+          "fan_variance": 0,
+          "activity_churn": 0,
+          "cross_repo_risk": 0,
+          "status_risk": 0.1,
+          "composite_risk": 0.020000000000000004,
+          "explanation": "Low risk - stable dependency structure"
+        }
+      },
+      "action": "Start work on this issue",
+      "reasons": [
+        "✅ Currently unclaimed - available for work"
+      ]
+    },
+    {
+      "id": "wonderwall-pjd",
+      "title": "Design: Social connection metaphor (connect vs follow vs friend)",
+      "type": "feature",
+      "status": "open",
+      "priority": 4,
+      "labels": null,
+      "score": 0.057594221812164115,
+      "breakdown": {
+        "pagerank": 0.01633534322796816,
+        "betweenness": 0,
+        "blocker_ratio": 0,
+        "staleness": 0.0034315235126543215,
+        "priority_boost": 0,
+        "time_to_impact": 0.033249999999999995,
+        "urgency": 0.012741041273688247,
+        "risk": 0.0020000000000000005,
+        "pagerank_norm": 0.074251560127128,
+        "betweenness_norm": 0,
+        "blocker_ratio_norm": 0,
+        "staleness_norm": 0.06863047025308643,
+        "priority_boost_norm": 0,
+        "time_to_impact_norm": 0.33249999999999996,
+        "urgency_norm": 0.12741041273688247,
+        "risk_norm": 0.020000000000000004,
+        "time_to_impact_explanation": "On dependency chain (depth 1), median estimate 60m",
+        "urgency_explanation": "moderate time pressure",
+        "risk_explanation": "Low risk - stable dependency structure",
+        "risk_signals": {
+          "fan_variance": 0,
+          "activity_churn": 0,
+          "cross_repo_risk": 0,
+          "status_risk": 0.1,
+          "composite_risk": 0.020000000000000004,
+          "explanation": "Low risk - stable dependency structure"
+        }
+      },
+      "action": "Start work on this issue",
+      "reasons": [
+        "✅ Currently unclaimed - available for work"
+      ]
+    }
+  ],
+  "quick_wins": [
+    {
+      "id": "wonderwall-3hu",
+      "title": "Add SMS and Google OAuth authentication methods",
+      "score": 0.4,
+      "reason": "Low complexity"
+    },
+    {
+      "id": "wonderwall-7df",
+      "title": "Switch embeddings from OpenAI to Cloudflare Workers AI",
+      "score": 0.4,
+      "reason": "Low complexity"
+    },
+    {
+      "id": "wonderwall-86n",
+      "title": "support multiple image/text blocks for works cards",
+      "score": 0.4,
+      "reason": "Low complexity"
+    },
+    {
+      "id": "wonderwall-iod",
+      "title": "Add notifications when someone joins with your invite link",
+      "score": 0.4,
+      "reason": "Low complexity"
+    },
+    {
+      "id": "wonderwall-pjd",
+      "title": "Design: Social connection metaphor (connect vs follow vs friend)",
+      "score": 0.4,
+      "reason": "Low complexity"
+    }
+  ],
+  "blockers_to_clear": [],
+  "project_health": {
+    "counts": {
+      "total": 71,
+      "open": 7,
+      "closed": 64,
+      "blocked": 0,
+      "actionable": 7,
+      "by_status": {
+        "closed": 64,
+        "open": 7
+      },
+      "by_type": {
+        "bug": 1,
+        "epic": 8,
+        "feature": 17,
+        "task": 45
+      },
+      "by_priority": {
+        "0": 5,
+        "1": 17,
+        "2": 41,
+        "3": 7,
+        "4": 1
+      }
+    },
+    "graph": {
+      "node_count": 71,
+      "edge_count": 43,
+      "density": 0.008651911468812877,
+      "has_cycles": false,
+      "phase2_ready": true
+    },
+    "velocity": {
+      "closed_last_7_days": 64,
+      "closed_last_30_days": 64,
+      "avg_days_to_close": 0.09680267576406974,
+      "weekly": [
+        {
+          "week_start": "2026-01-26T00:00:00Z",
+          "closed": 12
+        },
+        {
+          "week_start": "2026-01-19T00:00:00Z",
+          "closed": 52
+        },
+        {
+          "week_start": "2026-01-12T00:00:00Z",
+          "closed": 0
+        },
+        {
+          "week_start": "2026-01-05T00:00:00Z",
+          "closed": 0
+        },
+        {
+          "week_start": "2025-12-29T00:00:00Z",
+          "closed": 0
+        },
+        {
+          "week_start": "2025-12-22T00:00:00Z",
+          "closed": 0
+        },
+        {
+          "week_start": "2025-12-15T00:00:00Z",
+          "closed": 0
+        },
+        {
+          "week_start": "2025-12-08T00:00:00Z",
+          "closed": 0
+        }
+      ]
+    }
+  },
+  "commands": {
+    "claim_top": "CI=1 bd update wonderwall-86n --status in_progress --json",
+    "show_top": "CI=1 bd show wonderwall-86n --json",
+    "list_ready": "CI=1 bd ready --json",
+    "list_blocked": "CI=1 bd blocked --json",
+    "refresh_triage": "bv --robot-triage"
+  }
+}

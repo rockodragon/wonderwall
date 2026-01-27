@@ -8,3 +8,6 @@ package-lock.json
 /build/
 
 .env.local
+
+# bv (beads viewer) local config and caches
+.bv/

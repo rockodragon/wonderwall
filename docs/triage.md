@@ -1,0 +1,2100 @@
+# Beads Export
+
+*Generated: Tue, 27 Jan 2026 11:02:45 PST*
+
+## Summary
+
+| Metric | Count |
+|--------|-------|
+| **Total** | 71 |
+| Open | 7 |
+| In Progress | 0 |
+| Blocked | 0 |
+| Closed | 64 |
+
+## Quick Actions
+
+Ready-to-run commands for bulk operations:
+
+```bash
+# Close all open items
+bd close wonderwall-yp5 wonderwall-iod wonderwall-86n wonderwall-vrm wonderwall-3hu wonderwall-7df wonderwall-pjd
+
+```
+
+## Table of Contents
+
+- [🟢 wonderwall-yp5 bug: fixwork card edit should open edit of that specific work card](#wonderwall-yp5-bug-fixwork-card-edit-should-open-edit-of-that-specific-work-card)
+- [🟢 wonderwall-iod Add notifications when someone joins with your invite link](#wonderwall-iod-add-notifications-when-someone-joins-with-your-invite-link)
+- [🟢 wonderwall-86n support multiple image/text blocks for works cards](#wonderwall-86n-support-multiple-image-text-blocks-for-works-cards)
+- [🟢 wonderwall-vrm Fix Chrome DevTools route error](#wonderwall-vrm-fix-chrome-devtools-route-error)
+- [🟢 wonderwall-3hu Add SMS and Google OAuth authentication methods](#wonderwall-3hu-add-sms-and-google-oauth-authentication-methods)
+- [🟢 wonderwall-7df Switch embeddings from OpenAI to Cloudflare Workers AI](#wonderwall-7df-switch-embeddings-from-openai-to-cloudflare-workers-ai)
+- [🟢 wonderwall-pjd Design: Social connection metaphor (connect vs follow vs friend)](#wonderwall-pjd-design-social-connection-metaphor-connect-vs-follow-vs-friend)
+- [⚫ wonderwall-21z Deploy to Cloudflare Pages](#wonderwall-21z-deploy-to-cloudflare-pages)
+- [⚫ wonderwall-rl7 Configure Convex Auth (email + OAuth)](#wonderwall-rl7-configure-convex-auth-email-oauth)
+- [⚫ wonderwall-7k3 Set up Convex backend + schema](#wonderwall-7k3-set-up-convex-backend-schema)
+- [⚫ wonderwall-fwi Init Remix project with TypeScript + Tailwind](#wonderwall-fwi-init-remix-project-with-typescript-tailwind)
+- [⚫ wonderwall-5id Foundation: Project setup, Convex schema, auth](#wonderwall-5id-foundation-project-setup-convex-schema-auth)
+- [⚫ wonderwall-9wv Implement backend mutations for jobs](#wonderwall-9wv-implement-backend-mutations-for-jobs)
+- [⚫ wonderwall-s67 Implement backend queries for jobs](#wonderwall-s67-implement-backend-queries-for-jobs)
+- [⚫ wonderwall-797 Define data model and schema for jobs and interests](#wonderwall-797-define-data-model-and-schema-for-jobs-and-interests)
+- [⚫ wonderwall-28o Enable responding to wonderings (share thoughts)](#wonderwall-28o-enable-responding-to-wonderings-share-thoughts)
+- [⚫ wonderwall-8sp Redesign Discover to be wondering-first](#wonderwall-8sp-redesign-discover-to-be-wondering-first)
+- [⚫ wonderwall-5od Discover page redesign - bento layout](#wonderwall-5od-discover-page-redesign-bento-layout)
+- [⚫ wonderwall-e84 Signup flow with invite gate](#wonderwall-e84-signup-flow-with-invite-gate)
+- [⚫ wonderwall-i7k Invite generation + validation](#wonderwall-i7k-invite-generation-validation)
+- [⚫ wonderwall-6zu Wondering response submission](#wonderwall-6zu-wondering-response-submission)
+- [⚫ wonderwall-9a2 Wondering create/edit/archive](#wonderwall-9a2-wondering-create-edit-archive)
+- [⚫ wonderwall-3xo Profile view page with bento layout](#wonderwall-3xo-profile-view-page-with-bento-layout)
+- [⚫ wonderwall-c3e Profile edit page + form](#wonderwall-c3e-profile-edit-page-form)
+- [⚫ wonderwall-23q Create app shell + routing structure](#wonderwall-23q-create-app-shell-routing-structure)
+- [⚫ wonderwall-8na Set up Cloudflare Pages deployment](#wonderwall-8na-set-up-cloudflare-pages-deployment)
+- [⚫ wonderwall-dak Invites: generation, validation, onboarding gate](#wonderwall-dak-invites-generation-validation-onboarding-gate)
+- [⚫ wonderwall-a64 Wonderings: prompts, responses, expiry](#wonderwall-a64-wonderings-prompts-responses-expiry)
+- [⚫ wonderwall-vya Profiles: CRUD, attributes, links, artifacts](#wonderwall-vya-profiles-crud-attributes-links-artifacts)
+- [⚫ wonderwall-cgm Add Jobs navigation and routing](#wonderwall-cgm-add-jobs-navigation-and-routing)
+- [⚫ wonderwall-vzp Build Interest Modal and flow](#wonderwall-vzp-build-interest-modal-and-flow)
+- [⚫ wonderwall-1mb Build Job Detail page](#wonderwall-1mb-build-job-detail-page)
+- [⚫ wonderwall-1r2 Build Post Job form page](#wonderwall-1r2-build-post-job-form-page)
+- [⚫ wonderwall-719 Build Jobs Index page with filtering](#wonderwall-719-build-jobs-index-page-with-filtering)
+- [⚫ wonderwall-511 Jobs Feature](#wonderwall-511-jobs-feature)
+- [⚫ wonderwall-6rd create fallback for works card where url link does not have og:image](#wonderwall-6rd-create-fallback-for-works-card-where-url-link-does-not-have-og-image)
+- [⚫ wonderwall-43a Add 'create wondering' input to Discover page](#wonderwall-43a-add-create-wondering-input-to-discover-page)
+- [⚫ wonderwall-klw Add 'create work' input to Works page](#wonderwall-klw-add-create-work-input-to-works-page)
+- [⚫ wonderwall-cxj show user in their profile their network stats, and include the Invite CTA card](#wonderwall-cxj-show-user-in-their-profile-their-network-stats-and-include-the-invite-cta-card)
+- [⚫ wonderwall-dzn make text size in wonder cards variable](#wonderwall-dzn-make-text-size-in-wonder-cards-variable)
+- [⚫ wonderwall-4ne nudge user to complete signup](#wonderwall-4ne-nudge-user-to-complete-signup)
+- [⚫ wonderwall-hnb Add contextual Invite CTA cards across pages](#wonderwall-hnb-add-contextual-invite-cta-cards-across-pages)
+- [⚫ wonderwall-869 Fix responsive profile layout (left-justify/wider intro)](#wonderwall-869-fix-responsive-profile-layout-left-justify-wider-intro)
+- [⚫ wonderwall-uot add Works nav item that shows every persons work items in a bento box layout, random order](#wonderwall-uot-add-works-nav-item-that-shows-every-persons-work-items-in-a-bento-box-layout-random-order)
+- [⚫ wonderwall-87u edit profile pic should accept an optional image url to load from remote site](#wonderwall-87u-edit-profile-pic-should-accept-an-optional-image-url-to-load-from-remote-site)
+- [⚫ wonderwall-txn onboard profile setup - if no profile filled out, show it on profile page, dont hide behind edit btn](#wonderwall-txn-onboard-profile-setup-if-no-profile-filled-out-show-it-on-profile-page-dont-hide-behind-edit-btn)
+- [⚫ wonderwall-ccz Events route: stylized cards with bg images/colors, bento layout, favorites filter](#wonderwall-ccz-events-route-stylized-cards-with-bg-images-colors-bento-layout-favorites-filter)
+- [⚫ wonderwall-5fs Edit events + use first gallery image as banner](#wonderwall-5fs-edit-events-use-first-gallery-image-as-banner)
+- [⚫ wonderwall-2w6 copy invite link not just the code. this will append code as urlparam and route will prepopulate in signup form](#wonderwall-2w6-copy-invite-link-not-just-the-code-this-will-append-code-as-urlparam-and-route-will-prepopulate-in-signup-form)
+- [⚫ wonderwall-8d9 events bg image or color too. and add up to 3 images](#wonderwall-8d9-events-bg-image-or-color-too-and-add-up-to-3-images)
+- [⚫ wonderwall-7uw Track invitation relationships with directionality](#wonderwall-7uw-track-invitation-relationships-with-directionality)
+- [⚫ wonderwall-111 Add image URL field to wonderings](#wonderwall-111-add-image-url-field-to-wonderings)
+- [⚫ wonderwall-d42 Enable event joining/RSVP](#wonderwall-d42-enable-event-joining-rsvp)
+- [⚫ wonderwall-17a Move invites to sidebar with limits](#wonderwall-17a-move-invites-to-sidebar-with-limits)
+- [⚫ wonderwall-v5a Favorites system for people and events](#wonderwall-v5a-favorites-system-for-people-and-events)
+- [⚫ wonderwall-hej Profile image upload support](#wonderwall-hej-profile-image-upload-support)
+- [⚫ wonderwall-c1t Events browse/list page](#wonderwall-c1t-events-browse-list-page)
+- [⚫ wonderwall-c8z Event organizer dashboard](#wonderwall-c8z-event-organizer-dashboard)
+- [⚫ wonderwall-r9b Event detail + application flow](#wonderwall-r9b-event-detail-application-flow)
+- [⚫ wonderwall-0h6 Event create/edit page](#wonderwall-0h6-event-create-edit-page)
+- [⚫ wonderwall-rj1 Embeddings generation + vector search](#wonderwall-rj1-embeddings-generation-vector-search)
+- [⚫ wonderwall-kto Search page with filters](#wonderwall-kto-search-page-with-filters)
+- [⚫ wonderwall-aoo Wondering responses inbox for owner](#wonderwall-aoo-wondering-responses-inbox-for-owner)
+- [⚫ wonderwall-c33 Artifacts CRUD](#wonderwall-c33-artifacts-crud)
+- [⚫ wonderwall-nl0 Links CRUD](#wonderwall-nl0-links-crud)
+- [⚫ wonderwall-1qs Events: CRUD, applications, organizer flow](#wonderwall-1qs-events-crud-applications-organizer-flow)
+- [⚫ wonderwall-v2p Search & Discovery: semantic search, filters](#wonderwall-v2p-search-discovery-semantic-search-filters)
+- [⚫ wonderwall-u64 Create FAQ page](#wonderwall-u64-create-faq-page)
+- [⚫ wonderwall-6mu Rename Applications to Who's down](#wonderwall-6mu-rename-applications-to-who-s-down)
+- [⚫ wonderwall-ksf Profile view + like tracking](#wonderwall-ksf-profile-view-like-tracking)
+- [⚫ wonderwall-f76 Analytics: profile views, likes tracking](#wonderwall-f76-analytics-profile-views-likes-tracking)
+
+---
+
+## Dependency Graph
+
+```mermaid
+graph TD
+    classDef open fill:#50FA7B,stroke:#333,color:#000
+    classDef inprogress fill:#8BE9FD,stroke:#333,color:#000
+    classDef blocked fill:#FF5555,stroke:#333,color:#000
+    classDef closed fill:#6272A4,stroke:#333,color:#fff
+
+    wonderwall-0h6["wonderwall-0h6<br/>Event create/edit page"]
+    class wonderwall-0h6 closed
+    wonderwall-111["wonderwall-111<br/>Add image URL field to wonderings"]
+    class wonderwall-111 closed
+    wonderwall-17a["wonderwall-17a<br/>Move invites to sidebar with limits"]
+    class wonderwall-17a closed
+    wonderwall-1mb["wonderwall-1mb<br/>Build Job Detail page"]
+    class wonderwall-1mb closed
+    wonderwall-1qs["wonderwall-1qs<br/>Events: CRUD, applications, organizer..."]
+    class wonderwall-1qs closed
+    wonderwall-1r2["wonderwall-1r2<br/>Build Post Job form page"]
+    class wonderwall-1r2 closed
+    wonderwall-21z["wonderwall-21z<br/>Deploy to Cloudflare Pages"]
+    class wonderwall-21z closed
+    wonderwall-23q["wonderwall-23q<br/>Create app shell + routing structure"]
+    class wonderwall-23q closed
+    wonderwall-28o["wonderwall-28o<br/>Enable responding to wonderings (shar..."]
+    class wonderwall-28o closed
+    wonderwall-2w6["wonderwall-2w6<br/>copy invite link not just the code. t..."]
+    class wonderwall-2w6 closed
+    wonderwall-3hu["wonderwall-3hu<br/>Add SMS and Google OAuth authenticati..."]
+    class wonderwall-3hu open
+    wonderwall-3xo["wonderwall-3xo<br/>Profile view page with bento layout"]
+    class wonderwall-3xo closed
+    wonderwall-43a["wonderwall-43a<br/>Add 'create wondering' input to Disco..."]
+    class wonderwall-43a closed
+    wonderwall-4ne["wonderwall-4ne<br/>nudge user to complete signup"]
+    class wonderwall-4ne closed
+    wonderwall-511["wonderwall-511<br/>Jobs Feature"]
+    class wonderwall-511 closed
+    wonderwall-5fs["wonderwall-5fs<br/>Edit events + use first gallery image..."]
+    class wonderwall-5fs closed
+    wonderwall-5id["wonderwall-5id<br/>Foundation: Project setup, Convex sch..."]
+    class wonderwall-5id closed
+    wonderwall-5od["wonderwall-5od<br/>Discover page redesign - bento layout"]
+    class wonderwall-5od closed
+    wonderwall-6mu["wonderwall-6mu<br/>Rename Applications to Who's down"]
+    class wonderwall-6mu closed
+    wonderwall-6rd["wonderwall-6rd<br/>create fallback for works card where ..."]
+    class wonderwall-6rd closed
+    wonderwall-6zu["wonderwall-6zu<br/>Wondering response submission"]
+    class wonderwall-6zu closed
+    wonderwall-719["wonderwall-719<br/>Build Jobs Index page with filtering"]
+    class wonderwall-719 closed
+    wonderwall-797["wonderwall-797<br/>Define data model and schema for jobs..."]
+    class wonderwall-797 closed
+    wonderwall-7df["wonderwall-7df<br/>Switch embeddings from OpenAI to Clou..."]
+    class wonderwall-7df open
+    wonderwall-7k3["wonderwall-7k3<br/>Set up Convex backend + schema"]
+    class wonderwall-7k3 closed
+    wonderwall-7uw["wonderwall-7uw<br/>Track invitation relationships with d..."]
+    class wonderwall-7uw closed
+    wonderwall-869["wonderwall-869<br/>Fix responsive profile layout (left-j..."]
+    class wonderwall-869 closed
+    wonderwall-86n["wonderwall-86n<br/>support multiple image/text blocks fo..."]
+    class wonderwall-86n open
+    wonderwall-87u["wonderwall-87u<br/>edit profile pic should accept an opt..."]
+    class wonderwall-87u closed
+    wonderwall-8d9["wonderwall-8d9<br/>events bg image or color too. and add..."]
+    class wonderwall-8d9 closed
+    wonderwall-8na["wonderwall-8na<br/>Set up Cloudflare Pages deployment"]
+    class wonderwall-8na closed
+    wonderwall-8sp["wonderwall-8sp<br/>Redesign Discover to be wondering-first"]
+    class wonderwall-8sp closed
+    wonderwall-9a2["wonderwall-9a2<br/>Wondering create/edit/archive"]
+    class wonderwall-9a2 closed
+    wonderwall-9wv["wonderwall-9wv<br/>Implement backend mutations for jobs"]
+    class wonderwall-9wv closed
+    wonderwall-a64["wonderwall-a64<br/>Wonderings: prompts, responses, expiry"]
+    class wonderwall-a64 closed
+    wonderwall-aoo["wonderwall-aoo<br/>Wondering responses inbox for owner"]
+    class wonderwall-aoo closed
+    wonderwall-c1t["wonderwall-c1t<br/>Events browse/list page"]
+    class wonderwall-c1t closed
+    wonderwall-c33["wonderwall-c33<br/>Artifacts CRUD"]
+    class wonderwall-c33 closed
+    wonderwall-c3e["wonderwall-c3e<br/>Profile edit page + form"]
+    class wonderwall-c3e closed
+    wonderwall-c8z["wonderwall-c8z<br/>Event organizer dashboard"]
+    class wonderwall-c8z closed
+    wonderwall-ccz["wonderwall-ccz<br/>Events route: stylized cards with bg ..."]
+    class wonderwall-ccz closed
+    wonderwall-cgm["wonderwall-cgm<br/>Add Jobs navigation and routing"]
+    class wonderwall-cgm closed
+    wonderwall-cxj["wonderwall-cxj<br/>show user in their profile their netw..."]
+    class wonderwall-cxj closed
+    wonderwall-d42["wonderwall-d42<br/>Enable event joining/RSVP"]
+    class wonderwall-d42 closed
+    wonderwall-dak["wonderwall-dak<br/>Invites: generation, validation, onbo..."]
+    class wonderwall-dak closed
+    wonderwall-dzn["wonderwall-dzn<br/>make text size in wonder cards variable"]
+    class wonderwall-dzn closed
+    wonderwall-e84["wonderwall-e84<br/>Signup flow with invite gate"]
+    class wonderwall-e84 closed
+    wonderwall-f76["wonderwall-f76<br/>Analytics: profile views, likes tracking"]
+    class wonderwall-f76 closed
+    wonderwall-fwi["wonderwall-fwi<br/>Init Remix project with TypeScript + ..."]
+    class wonderwall-fwi closed
+    wonderwall-hej["wonderwall-hej<br/>Profile image upload support"]
+    class wonderwall-hej closed
+    wonderwall-hnb["wonderwall-hnb<br/>Add contextual Invite CTA cards acros..."]
+    class wonderwall-hnb closed
+    wonderwall-i7k["wonderwall-i7k<br/>Invite generation + validation"]
+    class wonderwall-i7k closed
+    wonderwall-iod["wonderwall-iod<br/>Add notifications when someone joins ..."]
+    class wonderwall-iod open
+    wonderwall-klw["wonderwall-klw<br/>Add 'create work' input to Works page"]
+    class wonderwall-klw closed
+    wonderwall-ksf["wonderwall-ksf<br/>Profile view + like tracking"]
+    class wonderwall-ksf closed
+    wonderwall-kto["wonderwall-kto<br/>Search page with filters"]
+    class wonderwall-kto closed
+    wonderwall-nl0["wonderwall-nl0<br/>Links CRUD"]
+    class wonderwall-nl0 closed
+    wonderwall-pjd["wonderwall-pjd<br/>Design: Social connection metaphor (c..."]
+    class wonderwall-pjd open
+    wonderwall-r9b["wonderwall-r9b<br/>Event detail + application flow"]
+    class wonderwall-r9b closed
+    wonderwall-rj1["wonderwall-rj1<br/>Embeddings generation + vector search"]
+    class wonderwall-rj1 closed
+    wonderwall-rl7["wonderwall-rl7<br/>Configure Convex Auth (email + OAuth)"]
+    class wonderwall-rl7 closed
+    wonderwall-s67["wonderwall-s67<br/>Implement backend queries for jobs"]
+    class wonderwall-s67 closed
+    wonderwall-txn["wonderwall-txn<br/>onboard profile setup - if no profile..."]
+    class wonderwall-txn closed
+    wonderwall-u64["wonderwall-u64<br/>Create FAQ page"]
+    class wonderwall-u64 closed
+    wonderwall-uot["wonderwall-uot<br/>add Works nav item that shows every p..."]
+    class wonderwall-uot closed
+    wonderwall-v2p["wonderwall-v2p<br/>Search & Discovery: semantic search, ..."]
+    class wonderwall-v2p closed
+    wonderwall-v5a["wonderwall-v5a<br/>Favorites system for people and events"]
+    class wonderwall-v5a closed
+    wonderwall-vrm["wonderwall-vrm<br/>Fix Chrome DevTools route error"]
+    class wonderwall-vrm open
+    wonderwall-vya["wonderwall-vya<br/>Profiles: CRUD, attributes, links, ar..."]
+    class wonderwall-vya closed
+    wonderwall-vzp["wonderwall-vzp<br/>Build Interest Modal and flow"]
+    class wonderwall-vzp closed
+    wonderwall-yp5["wonderwall-yp5<br/>bug: fixwork card edit should open ed..."]
+    class wonderwall-yp5 open
+
+    wonderwall-0h6 ==> wonderwall-c3e
+    wonderwall-1mb ==> wonderwall-9wv
+    wonderwall-1mb ==> wonderwall-s67
+    wonderwall-1qs ==> wonderwall-vya
+    wonderwall-1r2 ==> wonderwall-797
+    wonderwall-1r2 ==> wonderwall-9wv
+    wonderwall-23q ==> wonderwall-fwi
+    wonderwall-3xo ==> wonderwall-c3e
+    wonderwall-511 ==> wonderwall-1mb
+    wonderwall-511 ==> wonderwall-1r2
+    wonderwall-511 ==> wonderwall-719
+    wonderwall-511 ==> wonderwall-797
+    wonderwall-511 ==> wonderwall-9wv
+    wonderwall-511 ==> wonderwall-cgm
+    wonderwall-511 ==> wonderwall-s67
+    wonderwall-511 ==> wonderwall-vzp
+    wonderwall-6zu ==> wonderwall-9a2
+    wonderwall-719 ==> wonderwall-797
+    wonderwall-719 ==> wonderwall-s67
+    wonderwall-7k3 ==> wonderwall-fwi
+    wonderwall-8na ==> wonderwall-fwi
+    wonderwall-9a2 ==> wonderwall-c3e
+    wonderwall-a64 ==> wonderwall-vya
+    wonderwall-aoo ==> wonderwall-6zu
+    wonderwall-c1t ==> wonderwall-0h6
+    wonderwall-c33 ==> wonderwall-c3e
+    wonderwall-c3e ==> wonderwall-7k3
+    wonderwall-c8z ==> wonderwall-r9b
+    wonderwall-dak ==> wonderwall-5id
+    wonderwall-e84 ==> wonderwall-i7k
+    wonderwall-f76 ==> wonderwall-vya
+    wonderwall-i7k ==> wonderwall-rl7
+    wonderwall-ksf ==> wonderwall-3xo
+    wonderwall-kto ==> wonderwall-3xo
+    wonderwall-kto ==> wonderwall-rj1
+    wonderwall-nl0 ==> wonderwall-c3e
+    wonderwall-r9b ==> wonderwall-0h6
+    wonderwall-rj1 ==> wonderwall-7k3
+    wonderwall-rl7 ==> wonderwall-7k3
+    wonderwall-v2p ==> wonderwall-a64
+    wonderwall-v2p ==> wonderwall-vya
+    wonderwall-vya ==> wonderwall-5id
+    wonderwall-vzp ==> wonderwall-9wv
+```
+
+---
+
+<a id="wonderwall-yp5-bug-fixwork-card-edit-should-open-edit-of-that-specific-work-card"></a>
+
+## 📋 wonderwall-yp5 bug: fixwork card edit should open edit of that specific work card
+
+| Property | Value |
+|----------|-------|
+| **Type** | 📋 task |
+| **Priority** | 🔹 Medium (P2) |
+| **Status** | 🟢 open |
+| **Created** | 2026-01-27 10:56 |
+| **Updated** | 2026-01-27 10:56 |
+
+### Description
+
+now it goes to profile page. wrong
+
+<details>
+<summary>📋 Commands</summary>
+
+```bash
+# Start working on this issue
+bd update wonderwall-yp5 -s in_progress
+
+# Add a comment
+bd comment wonderwall-yp5 'Your comment here'
+
+# Change priority (0=Critical, 1=High, 2=Medium, 3=Low)
+bd update wonderwall-yp5 -p 1
+
+# View full details
+bd show wonderwall-yp5
+```
+
+</details>
+
+---
+
+<a id="wonderwall-iod-add-notifications-when-someone-joins-with-your-invite-link"></a>
+
+## ✨ wonderwall-iod Add notifications when someone joins with your invite link
+
+| Property | Value |
+|----------|-------|
+| **Type** | ✨ feature |
+| **Priority** | 🔹 Medium (P2) |
+| **Status** | 🟢 open |
+| **Created** | 2026-01-26 02:17 |
+| **Updated** | 2026-01-26 02:17 |
+
+### Description
+
+Send email and show in-app banner when someone joins using your invite link. Include 'Your network' page to see all invitees and their status.
+
+<details>
+<summary>📋 Commands</summary>
+
+```bash
+# Start working on this issue
+bd update wonderwall-iod -s in_progress
+
+# Add a comment
+bd comment wonderwall-iod 'Your comment here'
+
+# Change priority (0=Critical, 1=High, 2=Medium, 3=Low)
+bd update wonderwall-iod -p 1
+
+# View full details
+bd show wonderwall-iod
+```
+
+</details>
+
+---
+
+<a id="wonderwall-86n-support-multiple-image-text-blocks-for-works-cards"></a>
+
+## 📋 wonderwall-86n support multiple image/text blocks for works cards
+
+| Property | Value |
+|----------|-------|
+| **Type** | 📋 task |
+| **Priority** | 🔹 Medium (P2) |
+| **Status** | 🟢 open |
+| **Created** | 2026-01-25 08:38 |
+| **Updated** | 2026-01-25 08:38 |
+
+### Description
+
+the first one is the main one
+
+<details>
+<summary>📋 Commands</summary>
+
+```bash
+# Start working on this issue
+bd update wonderwall-86n -s in_progress
+
+# Add a comment
+bd comment wonderwall-86n 'Your comment here'
+
+# Change priority (0=Critical, 1=High, 2=Medium, 3=Low)
+bd update wonderwall-86n -p 1
+
+# View full details
+bd show wonderwall-86n
+```
+
+</details>
+
+---
+
+<a id="wonderwall-vrm-fix-chrome-devtools-route-error"></a>
+
+## 🐛 wonderwall-vrm Fix Chrome DevTools route error
+
+| Property | Value |
+|----------|-------|
+| **Type** | 🐛 bug |
+| **Priority** | ☕ Low (P3) |
+| **Status** | 🟢 open |
+| **Created** | 2026-01-27 10:02 |
+| **Updated** | 2026-01-27 10:02 |
+
+### Description
+
+Error: No route matches URL "/.well-known/appspecific/com.chrome.devtools.json". This route is requested by Chrome DevTools and should either be handled gracefully or suppressed. Add a catch-all route or specific handler to prevent this error from appearing in logs.
+
+<details>
+<summary>📋 Commands</summary>
+
+```bash
+# Start working on this issue
+bd update wonderwall-vrm -s in_progress
+
+# Add a comment
+bd comment wonderwall-vrm 'Your comment here'
+
+# Change priority (0=Critical, 1=High, 2=Medium, 3=Low)
+bd update wonderwall-vrm -p 1
+
+# View full details
+bd show wonderwall-vrm
+```
+
+</details>
+
+---
+
+<a id="wonderwall-3hu-add-sms-and-google-oauth-authentication-methods"></a>
+
+## ✨ wonderwall-3hu Add SMS and Google OAuth authentication methods
+
+| Property | Value |
+|----------|-------|
+| **Type** | ✨ feature |
+| **Priority** | ☕ Low (P3) |
+| **Status** | 🟢 open |
+| **Created** | 2026-01-25 16:59 |
+| **Updated** | 2026-01-25 16:59 |
+
+### Description
+
+Add additional authentication methods beyond the current email-based auth.
+
+## Requirements
+- Add SMS/phone number authentication
+- Add Google OAuth sign-in
+- Both should work alongside existing email auth
+
+## Implementation Notes
+- Using Convex Auth - check docs for supported providers
+- SMS will need Twilio or similar provider setup
+- Google OAuth needs Google Cloud Console setup
+- Update login/signup pages to show auth options
+
+## Acceptance Criteria
+- [ ] Users can sign up/login with phone number via SMS code
+- [ ] Users can sign up/login with Google account
+- [ ] Existing email auth continues to work
+- [ ] Invite code validation works with all auth methods
+
+### Comments
+
+> **Rick Moy** (2026-01-26)
+>
+> Note: we can use Brevo for transactional SMS.
+
+<details>
+<summary>📋 Commands</summary>
+
+```bash
+# Start working on this issue
+bd update wonderwall-3hu -s in_progress
+
+# Add a comment
+bd comment wonderwall-3hu 'Your comment here'
+
+# Change priority (0=Critical, 1=High, 2=Medium, 3=Low)
+bd update wonderwall-3hu -p 1
+
+# View full details
+bd show wonderwall-3hu
+```
+
+</details>
+
+---
+
+<a id="wonderwall-7df-switch-embeddings-from-openai-to-cloudflare-workers-ai"></a>
+
+## 📋 wonderwall-7df Switch embeddings from OpenAI to Cloudflare Workers AI
+
+| Property | Value |
+|----------|-------|
+| **Type** | 📋 task |
+| **Priority** | ☕ Low (P3) |
+| **Status** | 🟢 open |
+| **Created** | 2026-01-25 02:12 |
+| **Updated** | 2026-01-25 02:12 |
+
+### Description
+
+Replace OpenAI text-embedding-ada-002 with Cloudflare Workers AI embeddings (e.g., @cf/baai/bge-base-en-v1.5). Cloudflare embeddings are much more cost-effective and don't require OpenAI API key. Update convex/embeddings.ts to use Cloudflare AI API instead.
+
+<details>
+<summary>📋 Commands</summary>
+
+```bash
+# Start working on this issue
+bd update wonderwall-7df -s in_progress
+
+# Add a comment
+bd comment wonderwall-7df 'Your comment here'
+
+# Change priority (0=Critical, 1=High, 2=Medium, 3=Low)
+bd update wonderwall-7df -p 1
+
+# View full details
+bd show wonderwall-7df
+```
+
+</details>
+
+---
+
+<a id="wonderwall-pjd-design-social-connection-metaphor-connect-vs-follow-vs-friend"></a>
+
+## ✨ wonderwall-pjd Design: Social connection metaphor (connect vs follow vs friend)
+
+| Property | Value |
+|----------|-------|
+| **Type** | ✨ feature |
+| **Priority** | 💤 Backlog (P4) |
+| **Status** | 🟢 open |
+| **Created** | 2026-01-25 09:35 |
+| **Updated** | 2026-01-25 09:35 |
+
+### Description
+
+Explore what social connection metaphor best fits Wonderwall's community of Christian creatives.
+
+## Current State
+- App has "Favorites" (one-way, bookmark-style)
+- No mutual connection system yet
+- Invite-only community with network stats
+
+## Options to Consider
+
+### 1. "Connect" (LinkedIn-style)
+**Pros:**
+- Implies mutual, bi-directional relationship
+- Professional tone fits creative professionals
+- Suggests collaboration potential
+- More intimate than "follow"
+
+**Cons:**
+- Requires acceptance (adds friction)
+- Can feel transactional/corporate
+- Doesn't scale for creators with many admirers
+- "Connection request pending" feels formal
+
+### 2. "Follow" (Twitter/Instagram-style)
+**Pros:**
+- Familiar UX, low friction
+- One-directional, no acceptance needed
+- Scales well for popular creators
+- Clear, understood paradigm
+
+**Cons:**
+- Impersonal, platform-y
+- Implies hierarchy (follower vs followed)
+- "Follower" has negative connotations for some Christians
+- Doesn't encourage reciprocity
+
+### 3. "Friend" (Facebook-style)
+**Pros:**
+- Warm, personal tone
+- Fits community-focused values
+- Implies mutual care
+
+**Cons:**
+- Requires acceptance (friction)
+- "Unfriend" feels harsh
+- Can feel dated/juvenile
+- Awkward mixing personal + professional
+
+### 4. Creative Alternatives
+
+**"Crew" / "Add to Crew"**
+- Fits production/creative industry language
+- Implies collaboration, working together
+- Could be asymmetric ("They're on my crew")
+
+**"Circle" / "Inner Circle"**
+- Community-oriented language
+- Tiered possibilities (close circle vs wider)
+- Google+ baggage though
+
+**"Know" / "I know them"**
+- Authentic real-world language
+- "People you know" feels natural
+- Awkward as action verb
+
+**"Admire"**
+- Positive, non-hierarchical
+- Fits appreciating others' work
+- One-way, like favorites
+
+### 5. Keep Enhanced Favorites
+- Don't add new system
+- "Favorites" already works
+- Add mutual indicator ("You're both favorites")
+- Simplest approach
+
+## Recommendation Considerations
+- Community is invite-only, already somewhat intimate
+- Christian values: mutual respect, not hierarchy
+- Creative professionals: collaboration > fandom
+- App name "Wonderwall" could inspire themed language
+
+## Questions to Resolve
+1. Do we need mutual connections, or is one-way sufficient?
+2. Should connections unlock features (DMs, etc)?
+3. How does this interact with existing Favorites?
+4. What's the notification/acceptance UX?
+
+<details>
+<summary>📋 Commands</summary>
+
+```bash
+# Start working on this issue
+bd update wonderwall-pjd -s in_progress
+
+# Add a comment
+bd comment wonderwall-pjd 'Your comment here'
+
+# Change priority (0=Critical, 1=High, 2=Medium, 3=Low)
+bd update wonderwall-pjd -p 1
+
+# View full details
+bd show wonderwall-pjd
+```
+
+</details>
+
+---
+
+<a id="wonderwall-21z-deploy-to-cloudflare-pages"></a>
+
+## 📋 wonderwall-21z Deploy to Cloudflare Pages
+
+| Property | Value |
+|----------|-------|
+| **Type** | 📋 task |
+| **Priority** | 🔥 Critical (P0) |
+| **Status** | ⚫ closed |
+| **Created** | 2026-01-24 21:31 |
+| **Updated** | 2026-01-24 22:34 |
+| **Closed** | 2026-01-24 22:34 |
+
+### Description
+
+Set up Cloudflare Pages deployment for the React Router app with Convex backend.
+
+---
+
+<a id="wonderwall-rl7-configure-convex-auth-email-oauth"></a>
+
+## 📋 wonderwall-rl7 Configure Convex Auth (email + OAuth)
+
+| Property | Value |
+|----------|-------|
+| **Type** | 📋 task |
+| **Priority** | 🔥 Critical (P0) |
+| **Status** | ⚫ closed |
+| **Created** | 2026-01-24 14:55 |
+| **Updated** | 2026-01-24 15:47 |
+| **Closed** | 2026-01-24 15:47 |
+
+### Description
+
+Set up Convex Auth with email/password and Google OAuth providers
+
+### Dependencies
+
+- ⛔ **blocks**: `wonderwall-7k3`
+
+---
+
+<a id="wonderwall-7k3-set-up-convex-backend-schema"></a>
+
+## 📋 wonderwall-7k3 Set up Convex backend + schema
+
+| Property | Value |
+|----------|-------|
+| **Type** | 📋 task |
+| **Priority** | 🔥 Critical (P0) |
+| **Status** | ⚫ closed |
+| **Created** | 2026-01-24 14:55 |
+| **Updated** | 2026-01-24 15:47 |
+| **Closed** | 2026-01-24 15:47 |
+
+### Description
+
+npx convex dev, define schema.ts with User, Profile, Attribute, Link, Artifact, Wondering, WonderingResponse, Event, EventApplication, Invite, Embedding, ProfileView, ProfileLike tables
+
+### Dependencies
+
+- ⛔ **blocks**: `wonderwall-fwi`
+
+---
+
+<a id="wonderwall-fwi-init-remix-project-with-typescript-tailwind"></a>
+
+## 📋 wonderwall-fwi Init Remix project with TypeScript + Tailwind
+
+| Property | Value |
+|----------|-------|
+| **Type** | 📋 task |
+| **Priority** | 🔥 Critical (P0) |
+| **Status** | ⚫ closed |
+| **Created** | 2026-01-24 14:55 |
+| **Updated** | 2026-01-24 15:44 |
+| **Closed** | 2026-01-24 15:44 |
+
+### Description
+
+Create new Remix app, configure TS strict mode, add Tailwind CSS
+
+---
+
+<a id="wonderwall-5id-foundation-project-setup-convex-schema-auth"></a>
+
+## 🚀 wonderwall-5id Foundation: Project setup, Convex schema, auth
+
+| Property | Value |
+|----------|-------|
+| **Type** | 🚀 epic |
+| **Priority** | 🔥 Critical (P0) |
+| **Status** | ⚫ closed |
+| **Created** | 2026-01-24 14:54 |
+| **Updated** | 2026-01-24 15:50 |
+| **Closed** | 2026-01-24 15:50 |
+
+---
+
+<a id="wonderwall-9wv-implement-backend-mutations-for-jobs"></a>
+
+## 📋 wonderwall-9wv Implement backend mutations for jobs
+
+| Property | Value |
+|----------|-------|
+| **Type** | 📋 task |
+| **Priority** | ⚡ High (P1) |
+| **Status** | ⚫ closed |
+| **Created** | 2026-01-27 09:52 |
+| **Updated** | 2026-01-27 10:10 |
+| **Closed** | 2026-01-27 10:10 |
+
+### Description
+
+Create Convex mutations: createJob (validate and create new job), updateJob (poster-only edit), closeJob (poster-only status change), reopenJob (poster-only), expressInterest (with note and workLinks), withdrawInterest (delete user's interest).
+
+---
+
+<a id="wonderwall-s67-implement-backend-queries-for-jobs"></a>
+
+## 📋 wonderwall-s67 Implement backend queries for jobs
+
+| Property | Value |
+|----------|-------|
+| **Type** | 📋 task |
+| **Priority** | ⚡ High (P1) |
+| **Status** | ⚫ closed |
+| **Created** | 2026-01-27 09:52 |
+| **Updated** | 2026-01-27 10:10 |
+| **Closed** | 2026-01-27 10:10 |
+
+### Description
+
+Create Convex queries: getJobs (with filters for status, location, disciplines, myPosts, myInterests), getJob (single job with poster profile), getJobInterests (count for all, full details for poster), getUserJobInterest (current user's interest if exists).
+
+---
+
+<a id="wonderwall-797-define-data-model-and-schema-for-jobs-and-interests"></a>
+
+## 📋 wonderwall-797 Define data model and schema for jobs and interests
+
+| Property | Value |
+|----------|-------|
+| **Type** | 📋 task |
+| **Priority** | ⚡ High (P1) |
+| **Status** | ⚫ closed |
+| **Created** | 2026-01-27 09:52 |
+| **Updated** | 2026-01-27 10:03 |
+| **Closed** | 2026-01-27 10:03 |
+
+### Description
+
+Create Convex schema for jobs and jobInterests tables with all required fields, indexes, and relationships. Include: jobs table (title, description, location, jobType, visibility, disciplines, hiringOrg, postAnonymously, etc), jobInterests table (jobId, userId, note, workLinks), and proper indexes for filtering.
+
+---
+
+<a id="wonderwall-28o-enable-responding-to-wonderings-share-thoughts"></a>
+
+## ✨ wonderwall-28o Enable responding to wonderings (share thoughts)
+
+| Property | Value |
+|----------|-------|
+| **Type** | ✨ feature |
+| **Priority** | ⚡ High (P1) |
+| **Status** | ⚫ closed |
+| **Created** | 2026-01-24 22:51 |
+| **Updated** | 2026-01-24 23:11 |
+| **Closed** | 2026-01-24 23:11 |
+
+### Description
+
+Allow users to respond to other people's wonderings. Responses can be text, video, audio, or links. Owner can choose to make responses public.
+
+---
+
+<a id="wonderwall-8sp-redesign-discover-to-be-wondering-first"></a>
+
+## ✨ wonderwall-8sp Redesign Discover to be wondering-first
+
+| Property | Value |
+|----------|-------|
+| **Type** | ✨ feature |
+| **Priority** | ⚡ High (P1) |
+| **Status** | ⚫ closed |
+| **Created** | 2026-01-24 22:51 |
+| **Updated** | 2026-01-24 23:17 |
+| **Closed** | 2026-01-24 23:17 |
+
+### Description
+
+Change Discover page to feature wonderings as primary content with person as secondary. Cards should show the wondering prominently with person info below. Use wondering image URL as background, or fallback to random gradient surface.
+
+---
+
+<a id="wonderwall-5od-discover-page-redesign-bento-layout"></a>
+
+## ✨ wonderwall-5od Discover page redesign - bento layout
+
+| Property | Value |
+|----------|-------|
+| **Type** | ✨ feature |
+| **Priority** | ⚡ High (P1) |
+| **Status** | ⚫ closed |
+| **Created** | 2026-01-24 21:31 |
+| **Updated** | 2026-01-24 22:39 |
+| **Closed** | 2026-01-24 22:39 |
+
+### Description
+
+Redesign Discover/Search page:
+- Responsive layout
+- Bento grid style with different neutral surfaces
+- People with profile images get bigger blocks
+- Creative, stylistic approach
+- Clarify: is Discover for people or wonderings? (probably both)
+
+---
+
+<a id="wonderwall-e84-signup-flow-with-invite-gate"></a>
+
+## 📋 wonderwall-e84 Signup flow with invite gate
+
+| Property | Value |
+|----------|-------|
+| **Type** | 📋 task |
+| **Priority** | ⚡ High (P1) |
+| **Status** | ⚫ closed |
+| **Created** | 2026-01-24 14:57 |
+| **Updated** | 2026-01-24 16:25 |
+| **Closed** | 2026-01-24 16:25 |
+
+### Description
+
+Signup requires valid invite code. Validate before allowing registration. Link new user to inviter.
+
+### Dependencies
+
+- ⛔ **blocks**: `wonderwall-i7k`
+
+---
+
+<a id="wonderwall-i7k-invite-generation-validation"></a>
+
+## 📋 wonderwall-i7k Invite generation + validation
+
+| Property | Value |
+|----------|-------|
+| **Type** | 📋 task |
+| **Priority** | ⚡ High (P1) |
+| **Status** | ⚫ closed |
+| **Created** | 2026-01-24 14:57 |
+| **Updated** | 2026-01-24 16:25 |
+| **Closed** | 2026-01-24 16:25 |
+
+### Description
+
+Generate unique invite codes/links. Validate on signup. Track inviter, usedBy, usedAt. Invite limit per user (optional).
+
+### Dependencies
+
+- ⛔ **blocks**: `wonderwall-rl7`
+
+---
+
+<a id="wonderwall-6zu-wondering-response-submission"></a>
+
+## 📋 wonderwall-6zu Wondering response submission
+
+| Property | Value |
+|----------|-------|
+| **Type** | 📋 task |
+| **Priority** | ⚡ High (P1) |
+| **Status** | ⚫ closed |
+| **Created** | 2026-01-24 14:56 |
+| **Updated** | 2026-01-24 16:26 |
+| **Closed** | 2026-01-24 16:26 |
+
+### Description
+
+Response form with text/video/audio/link input. External capture link integration. Private by default, stored in WonderingResponse.
+
+### Dependencies
+
+- ⛔ **blocks**: `wonderwall-9a2`
+
+---
+
+<a id="wonderwall-9a2-wondering-create-edit-archive"></a>
+
+## 📋 wonderwall-9a2 Wondering create/edit/archive
+
+| Property | Value |
+|----------|-------|
+| **Type** | 📋 task |
+| **Priority** | ⚡ High (P1) |
+| **Status** | ⚫ closed |
+| **Created** | 2026-01-24 14:56 |
+| **Updated** | 2026-01-24 16:26 |
+| **Closed** | 2026-01-24 16:26 |
+
+### Description
+
+Create/edit wondering prompt. Auto-set expiresAt to +2 weeks. Archive/delete. Show expiry countdown on profile.
+
+### Dependencies
+
+- ⛔ **blocks**: `wonderwall-c3e`
+
+---
+
+<a id="wonderwall-3xo-profile-view-page-with-bento-layout"></a>
+
+## 📋 wonderwall-3xo Profile view page with bento layout
+
+| Property | Value |
+|----------|-------|
+| **Type** | 📋 task |
+| **Priority** | ⚡ High (P1) |
+| **Status** | ⚫ closed |
+| **Created** | 2026-01-24 14:56 |
+| **Updated** | 2026-01-24 16:24 |
+| **Closed** | 2026-01-24 16:24 |
+
+### Description
+
+Create /profile/:id route. Display name, bio, job functions, links, artifacts in bento grid, active wondering. Show response CTA if wondering exists.
+
+### Dependencies
+
+- ⛔ **blocks**: `wonderwall-c3e`
+
+---
+
+<a id="wonderwall-c3e-profile-edit-page-form"></a>
+
+## 📋 wonderwall-c3e Profile edit page + form
+
+| Property | Value |
+|----------|-------|
+| **Type** | 📋 task |
+| **Priority** | ⚡ High (P1) |
+| **Status** | ⚫ closed |
+| **Created** | 2026-01-24 14:56 |
+| **Updated** | 2026-01-24 16:24 |
+| **Closed** | 2026-01-24 16:24 |
+
+### Description
+
+Create /settings/profile route. Form for name, bio, imageUrl, jobFunctions (multi-select from curated list + Other), location. Convex mutations for update.
+
+### Dependencies
+
+- ⛔ **blocks**: `wonderwall-7k3`
+
+---
+
+<a id="wonderwall-23q-create-app-shell-routing-structure"></a>
+
+## 📋 wonderwall-23q Create app shell + routing structure
+
+| Property | Value |
+|----------|-------|
+| **Type** | 📋 task |
+| **Priority** | ⚡ High (P1) |
+| **Status** | ⚫ closed |
+| **Created** | 2026-01-24 14:55 |
+| **Updated** | 2026-01-24 15:50 |
+| **Closed** | 2026-01-24 15:50 |
+
+### Description
+
+Set up routes: /, /login, /signup, /profile/:id, /search, /events, /events/:id, /settings. Add layout with nav
+
+### Dependencies
+
+- ⛔ **blocks**: `wonderwall-fwi`
+
+---
+
+<a id="wonderwall-8na-set-up-cloudflare-pages-deployment"></a>
+
+## 📋 wonderwall-8na Set up Cloudflare Pages deployment
+
+| Property | Value |
+|----------|-------|
+| **Type** | 📋 task |
+| **Priority** | ⚡ High (P1) |
+| **Status** | ⚫ closed |
+| **Created** | 2026-01-24 14:55 |
+| **Updated** | 2026-01-24 22:34 |
+| **Closed** | 2026-01-24 22:34 |
+
+### Description
+
+Configure wrangler, set up CI/CD for Cloudflare Pages with Remix adapter
+
+### Dependencies
+
+- ⛔ **blocks**: `wonderwall-fwi`
+
+---
+
+<a id="wonderwall-dak-invites-generation-validation-onboarding-gate"></a>
+
+## 🚀 wonderwall-dak Invites: generation, validation, onboarding gate
+
+| Property | Value |
+|----------|-------|
+| **Type** | 🚀 epic |
+| **Priority** | ⚡ High (P1) |
+| **Status** | ⚫ closed |
+| **Created** | 2026-01-24 14:54 |
+| **Updated** | 2026-01-24 16:25 |
+| **Closed** | 2026-01-24 16:25 |
+
+### Dependencies
+
+- ⛔ **blocks**: `wonderwall-5id`
+
+---
+
+<a id="wonderwall-a64-wonderings-prompts-responses-expiry"></a>
+
+## 🚀 wonderwall-a64 Wonderings: prompts, responses, expiry
+
+| Property | Value |
+|----------|-------|
+| **Type** | 🚀 epic |
+| **Priority** | ⚡ High (P1) |
+| **Status** | ⚫ closed |
+| **Created** | 2026-01-24 14:54 |
+| **Updated** | 2026-01-24 16:26 |
+| **Closed** | 2026-01-24 16:26 |
+
+### Dependencies
+
+- ⛔ **blocks**: `wonderwall-vya`
+
+---
+
+<a id="wonderwall-vya-profiles-crud-attributes-links-artifacts"></a>
+
+## 🚀 wonderwall-vya Profiles: CRUD, attributes, links, artifacts
+
+| Property | Value |
+|----------|-------|
+| **Type** | 🚀 epic |
+| **Priority** | ⚡ High (P1) |
+| **Status** | ⚫ closed |
+| **Created** | 2026-01-24 14:54 |
+| **Updated** | 2026-01-24 16:26 |
+| **Closed** | 2026-01-24 16:26 |
+
+### Dependencies
+
+- ⛔ **blocks**: `wonderwall-5id`
+
+---
+
+<a id="wonderwall-cgm-add-jobs-navigation-and-routing"></a>
+
+## 📋 wonderwall-cgm Add Jobs navigation and routing
+
+| Property | Value |
+|----------|-------|
+| **Type** | 📋 task |
+| **Priority** | 🔹 Medium (P2) |
+| **Status** | ⚫ closed |
+| **Created** | 2026-01-27 09:52 |
+| **Updated** | 2026-01-27 10:23 |
+| **Closed** | 2026-01-27 10:23 |
+
+### Description
+
+Add Jobs link to main navigation with briefcase icon. Set up routing for /jobs, /jobs/new, /jobs/:id. Ensure proper auth guards for all routes (members only).
+
+---
+
+<a id="wonderwall-vzp-build-interest-modal-and-flow"></a>
+
+## 📋 wonderwall-vzp Build Interest Modal and flow
+
+| Property | Value |
+|----------|-------|
+| **Type** | 📋 task |
+| **Priority** | 🔹 Medium (P2) |
+| **Status** | ⚫ closed |
+| **Created** | 2026-01-27 09:52 |
+| **Updated** | 2026-01-27 10:28 |
+| **Closed** | 2026-01-27 10:28 |
+
+### Description
+
+Create modal triggered by I'm Interested button with form for note (500 char max) and work links selector (max 3 from user's artifacts). Handle submit, update, and withdraw actions. Show confirmation on submit and update interest count in real-time.
+
+### Dependencies
+
+- ⛔ **blocks**: `wonderwall-9wv`
+
+---
+
+<a id="wonderwall-1mb-build-job-detail-page"></a>
+
+## 📋 wonderwall-1mb Build Job Detail page
+
+| Property | Value |
+|----------|-------|
+| **Type** | 📋 task |
+| **Priority** | 🔹 Medium (P2) |
+| **Status** | ⚫ closed |
+| **Created** | 2026-01-27 09:52 |
+| **Updated** | 2026-01-27 10:28 |
+| **Closed** | 2026-01-27 10:28 |
+
+### Description
+
+Create /jobs/:id route showing full job details, poster profile, interest count, and I'm Interested button. For poster: show list of interested members with notes and work links, Edit and Mark as Closed buttons. Display hiringOrg if not anonymous. Add PostHog view tracking.
+
+### Dependencies
+
+- ⛔ **blocks**: `wonderwall-s67`
+- ⛔ **blocks**: `wonderwall-9wv`
+
+---
+
+<a id="wonderwall-1r2-build-post-job-form-page"></a>
+
+## 📋 wonderwall-1r2 Build Post Job form page
+
+| Property | Value |
+|----------|-------|
+| **Type** | 📋 task |
+| **Priority** | 🔹 Medium (P2) |
+| **Status** | ⚫ closed |
+| **Created** | 2026-01-27 09:52 |
+| **Updated** | 2026-01-27 10:28 |
+| **Closed** | 2026-01-27 10:28 |
+
+### Description
+
+Create /jobs/new route with form for creating jobs. Include: title, description (rich text), location (with conditional city/state/zip fields), jobType, visibility toggle, optional hiringOrg with anonymity toggle, compensation, externalLink, disciplines multi-select, experienceLevel. Add validation and PostHog event tracking.
+
+### Dependencies
+
+- ⛔ **blocks**: `wonderwall-797`
+- ⛔ **blocks**: `wonderwall-9wv`
+
+---
+
+<a id="wonderwall-719-build-jobs-index-page-with-filtering"></a>
+
+## 📋 wonderwall-719 Build Jobs Index page with filtering
+
+| Property | Value |
+|----------|-------|
+| **Type** | 📋 task |
+| **Priority** | 🔹 Medium (P2) |
+| **Status** | ⚫ closed |
+| **Created** | 2026-01-27 09:52 |
+| **Updated** | 2026-01-27 10:27 |
+| **Closed** | 2026-01-27 10:27 |
+
+### Description
+
+Create /jobs route with job cards, filters (status, location, disciplines), My Posts/My Interests toggles, and sorting. Display job title, poster, location, type, interest count, status badge. Use grid/list layout similar to works page.
+
+### Dependencies
+
+- ⛔ **blocks**: `wonderwall-797`
+- ⛔ **blocks**: `wonderwall-s67`
+
+---
+
+<a id="wonderwall-511-jobs-feature"></a>
+
+## 🚀 wonderwall-511 Jobs Feature
+
+| Property | Value |
+|----------|-------|
+| **Type** | 🚀 epic |
+| **Priority** | 🔹 Medium (P2) |
+| **Status** | ⚫ closed |
+| **Created** | 2026-01-27 09:51 |
+| **Updated** | 2026-01-27 10:29 |
+| **Closed** | 2026-01-27 10:29 |
+
+### Description
+
+Enable members to post job opportunities and express interest. Includes job posting, interest tracking, filtering by location/disciplines, and visibility controls.
+
+### Dependencies
+
+- ⛔ **blocks**: `wonderwall-797`
+- ⛔ **blocks**: `wonderwall-s67`
+- ⛔ **blocks**: `wonderwall-9wv`
+- ⛔ **blocks**: `wonderwall-719`
+- ⛔ **blocks**: `wonderwall-1r2`
+- ⛔ **blocks**: `wonderwall-1mb`
+- ⛔ **blocks**: `wonderwall-vzp`
+- ⛔ **blocks**: `wonderwall-cgm`
+
+---
+
+<a id="wonderwall-6rd-create-fallback-for-works-card-where-url-link-does-not-have-og-image"></a>
+
+## 📋 wonderwall-6rd create fallback for works card where url link does not have og:image
+
+| Property | Value |
+|----------|-------|
+| **Type** | 📋 task |
+| **Priority** | 🔹 Medium (P2) |
+| **Status** | ⚫ closed |
+| **Created** | 2026-01-25 19:00 |
+| **Updated** | 2026-01-26 01:08 |
+| **Closed** | 2026-01-26 01:08 |
+
+---
+
+<a id="wonderwall-43a-add-create-wondering-input-to-discover-page"></a>
+
+## ✨ wonderwall-43a Add 'create wondering' input to Discover page
+
+| Property | Value |
+|----------|-------|
+| **Type** | ✨ feature |
+| **Priority** | 🔹 Medium (P2) |
+| **Status** | ⚫ closed |
+| **Created** | 2026-01-25 16:59 |
+| **Updated** | 2026-01-26 02:19 |
+| **Closed** | 2026-01-26 02:19 |
+
+### Description
+
+Add a persistent "create wondering" input at the top of the Discover page, like the Works page post composer. Users browsing others' wonderings might get inspired to share their own.
+
+## Requirements
+- Add always-visible "create wondering" component at top of /search (Discover) route
+- Shows collapsed state: avatar + "What are you wondering?" input placeholder
+- Clicking expands to full form (prompt input, optional background image)
+- Reuse and refactor the wondering creation logic from settings.tsx
+
+## Special Logic
+- If user already has an active, non-expired wondering: show "Replace your wondering?" confirmation
+- If user's wondering is expired: allow creating new one directly
+- If user has no wondering: allow creating directly
+- Maintain the "one active wondering at a time" rule for free users
+
+## Design Reference
+- Like Facebook's "What's on your mind?" post box at top of feed
+- Always visible, inviting users to share
+- Expands inline when clicked (not a modal)
+
+## Implementation Notes
+- Look at settings.tsx wondering creation section for existing UI
+- Extract into reusable component like `<CreateWonderingForm />`
+- Need to check user's current wondering status before allowing creation
+- Handle the replacement flow gracefully
+
+## Acceptance Criteria
+- [ ] Always-visible wondering input at top of Discover page
+- [ ] Expands inline when clicked
+- [ ] Shows replacement confirmation if user has active wondering
+- [ ] Form is extracted into reusable component
+- [ ] Both Settings and Discover pages use the same component
+- [ ] Background image upload works
+- [ ] 2-week expiration logic maintained
+
+---
+
+<a id="wonderwall-klw-add-create-work-input-to-works-page"></a>
+
+## ✨ wonderwall-klw Add 'create work' input to Works page
+
+| Property | Value |
+|----------|-------|
+| **Type** | ✨ feature |
+| **Priority** | 🔹 Medium (P2) |
+| **Status** | ⚫ closed |
+| **Created** | 2026-01-25 16:44 |
+| **Updated** | 2026-01-25 18:21 |
+| **Closed** | 2026-01-25 18:21 |
+
+### Description
+
+Add a persistent "create work" input at the top of the Works page, like Facebook's post composer that's always visible at the top of the feed.
+
+## Requirements
+- Add always-visible "create work" component at top of /works route
+- Shows collapsed state: avatar + "Share something you made..." input placeholder
+- Clicking expands to full form (type selector, URL/content input, title)
+- Reuse and refactor the work creation logic from settings.tsx
+- Extract shared component that can be used in both places
+
+## Design Reference
+- Like Facebook's "What's on your mind?" post box at top of feed
+- Always visible, inviting users to post
+- Expands inline when clicked (not a modal)
+
+## Implementation Notes
+- Look at settings.tsx lines ~1200-1400 for existing work creation UI
+- Extract into reusable component like `<CreateWorkForm />`
+- Collapsed state shows user avatar + placeholder text
+- Expanded state shows full form with type pills, input fields
+
+## Acceptance Criteria
+- [ ] Always-visible post input at top of Works page
+- [ ] Expands inline when clicked
+- [ ] Form is extracted into reusable component
+- [ ] Both Settings and Works pages use the same component
+- [ ] og:image fetching works for link types
+- [ ] Confetti on first work creation (if applicable)
+
+---
+
+<a id="wonderwall-cxj-show-user-in-their-profile-their-network-stats-and-include-the-invite-cta-card"></a>
+
+## 📋 wonderwall-cxj show user in their profile their network stats, and include the Invite CTA card
+
+| Property | Value |
+|----------|-------|
+| **Type** | 📋 task |
+| **Priority** | 🔹 Medium (P2) |
+| **Status** | ⚫ closed |
+| **Created** | 2026-01-25 08:50 |
+| **Updated** | 2026-01-25 09:05 |
+| **Closed** | 2026-01-25 09:05 |
+
+### Notes
+
+Bug: network stats show 0 for someone who joined on an invite. Should show at least 1 to start (counting the person who invited them).
+
+---
+
+<a id="wonderwall-dzn-make-text-size-in-wonder-cards-variable"></a>
+
+## 📋 wonderwall-dzn make text size in wonder cards variable
+
+| Property | Value |
+|----------|-------|
+| **Type** | 📋 task |
+| **Priority** | 🔹 Medium (P2) |
+| **Status** | ⚫ closed |
+| **Created** | 2026-01-25 08:45 |
+| **Updated** | 2026-01-25 09:11 |
+| **Closed** | 2026-01-25 09:11 |
+
+### Description
+
+support css design treatment options simply. so text takes between 40-75% of space in card. alternate fonts and styles. should support css
+
+---
+
+<a id="wonderwall-4ne-nudge-user-to-complete-signup"></a>
+
+## 📋 wonderwall-4ne nudge user to complete signup
+
+| Property | Value |
+|----------|-------|
+| **Type** | 📋 task |
+| **Priority** | 🔹 Medium (P2) |
+| **Status** | ⚫ closed |
+| **Created** | 2026-01-25 08:38 |
+| **Updated** | 2026-01-25 08:44 |
+| **Closed** | 2026-01-25 08:44 |
+
+### Description
+
+make celebration confetti for first work card added. the url should not rquire http: in front. and reduce the amount of text for the Wonder input and description. users found it overwhelming. text size on mobile could be bigger.
+
+---
+
+<a id="wonderwall-hnb-add-contextual-invite-cta-cards-across-pages"></a>
+
+## ✨ wonderwall-hnb Add contextual Invite CTA cards across pages
+
+| Property | Value |
+|----------|-------|
+| **Type** | ✨ feature |
+| **Priority** | 🔹 Medium (P2) |
+| **Status** | ⚫ closed |
+| **Created** | 2026-01-25 08:21 |
+| **Updated** | 2026-01-25 08:52 |
+| **Closed** | 2026-01-25 08:52 |
+
+### Description
+
+Add attractive invite CTA cards with contextual messaging on different pages:
+
+**Design:**
+- Nice colored surface with texture to make it attractive/clickable
+- Should feel like a special invitation card
+
+**Contextual messaging by page:**
+
+1. **Profile (own profile):** Section to invite someone to join the community
+   - Subtitle: "Who do you know that should belong here?"
+
+2. **Works:** 
+   - "Invite someone to share what they're working on."
+
+3. **Discover:**
+   - "Know someone who's wondering? Invite them."
+
+4. **Events:**
+   - "Invite someone to share their event or opportunity here."
+
+Each card should link to the invite/settings page where users can generate and share invite codes.
+
+---
+
+<a id="wonderwall-869-fix-responsive-profile-layout-left-justify-wider-intro"></a>
+
+## 📋 wonderwall-869 Fix responsive profile layout (left-justify/wider intro)
+
+| Property | Value |
+|----------|-------|
+| **Type** | 📋 task |
+| **Priority** | 🔹 Medium (P2) |
+| **Status** | ⚫ closed |
+| **Created** | 2026-01-25 01:49 |
+| **Updated** | 2026-01-25 01:52 |
+| **Closed** | 2026-01-25 01:52 |
+
+### Description
+
+Profile page on mobile feels centered/narrow. Make the intro (name, roles, bio) left-justified and give it more width so it reads like a proper header block. Ensure the Wonder card still follows below.
+
+---
+
+<a id="wonderwall-uot-add-works-nav-item-that-shows-every-persons-work-items-in-a-bento-box-layout-random-order"></a>
+
+## 📋 wonderwall-uot add Works nav item that shows every persons work items in a bento box layout, random order
+
+| Property | Value |
+|----------|-------|
+| **Type** | 📋 task |
+| **Priority** | 🔹 Medium (P2) |
+| **Status** | ⚫ closed |
+| **Created** | 2026-01-25 00:57 |
+| **Updated** | 2026-01-25 01:49 |
+| **Closed** | 2026-01-25 01:49 |
+
+---
+
+<a id="wonderwall-87u-edit-profile-pic-should-accept-an-optional-image-url-to-load-from-remote-site"></a>
+
+## 📋 wonderwall-87u edit profile pic should accept an optional image url to load from remote site
+
+| Property | Value |
+|----------|-------|
+| **Type** | 📋 task |
+| **Priority** | 🔹 Medium (P2) |
+| **Status** | ⚫ closed |
+| **Created** | 2026-01-25 00:27 |
+| **Updated** | 2026-01-25 01:47 |
+| **Closed** | 2026-01-25 01:47 |
+
+---
+
+<a id="wonderwall-txn-onboard-profile-setup-if-no-profile-filled-out-show-it-on-profile-page-dont-hide-behind-edit-btn"></a>
+
+## 📋 wonderwall-txn onboard profile setup - if no profile filled out, show it on profile page, dont hide behind edit btn
+
+| Property | Value |
+|----------|-------|
+| **Type** | 📋 task |
+| **Priority** | 🔹 Medium (P2) |
+| **Status** | ⚫ closed |
+| **Created** | 2026-01-25 00:05 |
+| **Updated** | 2026-01-25 01:51 |
+| **Closed** | 2026-01-25 01:51 |
+
+---
+
+<a id="wonderwall-ccz-events-route-stylized-cards-with-bg-images-colors-bento-layout-favorites-filter"></a>
+
+## ✨ wonderwall-ccz Events route: stylized cards with bg images/colors, bento layout, favorites filter
+
+| Property | Value |
+|----------|-------|
+| **Type** | ✨ feature |
+| **Priority** | 🔹 Medium (P2) |
+| **Status** | ⚫ closed |
+| **Created** | 2026-01-24 23:47 |
+| **Updated** | 2026-01-24 23:54 |
+| **Closed** | 2026-01-24 23:54 |
+
+---
+
+<a id="wonderwall-5fs-edit-events-use-first-gallery-image-as-banner"></a>
+
+## 📋 wonderwall-5fs Edit events + use first gallery image as banner
+
+| Property | Value |
+|----------|-------|
+| **Type** | 📋 task |
+| **Priority** | 🔹 Medium (P2) |
+| **Status** | ⚫ closed |
+| **Created** | 2026-01-24 23:32 |
+| **Updated** | 2026-01-24 23:41 |
+| **Closed** | 2026-01-24 23:41 |
+
+### Description
+
+Add ability for organizers to edit existing events (title, description, date, location, tags, requiresApproval). Also update event display to use first gallery image as the cover/banner instead of color gradient when no dedicated cover image is uploaded.
+
+---
+
+<a id="wonderwall-2w6-copy-invite-link-not-just-the-code-this-will-append-code-as-urlparam-and-route-will-prepopulate-in-signup-form"></a>
+
+## 📋 wonderwall-2w6 copy invite link not just the code. this will append code as urlparam and route will prepopulate in signup form
+
+| Property | Value |
+|----------|-------|
+| **Type** | 📋 task |
+| **Priority** | 🔹 Medium (P2) |
+| **Status** | ⚫ closed |
+| **Created** | 2026-01-24 23:12 |
+| **Updated** | 2026-01-24 23:57 |
+| **Closed** | 2026-01-24 23:57 |
+
+---
+
+<a id="wonderwall-8d9-events-bg-image-or-color-too-and-add-up-to-3-images"></a>
+
+## 📋 wonderwall-8d9 events bg image or color too. and add up to 3 images
+
+| Property | Value |
+|----------|-------|
+| **Type** | 📋 task |
+| **Priority** | 🔹 Medium (P2) |
+| **Status** | ⚫ closed |
+| **Created** | 2026-01-24 23:09 |
+| **Updated** | 2026-01-24 23:20 |
+| **Closed** | 2026-01-24 23:20 |
+
+---
+
+<a id="wonderwall-7uw-track-invitation-relationships-with-directionality"></a>
+
+## ✨ wonderwall-7uw Track invitation relationships with directionality
+
+| Property | Value |
+|----------|-------|
+| **Type** | ✨ feature |
+| **Priority** | 🔹 Medium (P2) |
+| **Status** | ⚫ closed |
+| **Created** | 2026-01-24 22:56 |
+| **Updated** | 2026-01-24 23:59 |
+| **Closed** | 2026-01-24 23:59 |
+
+### Description
+
+Track who invited whom to create an invitation tree/chain.
+
+**Data model:**
+- When invite is redeemed, link inviter -> invitee (directional)
+- Store inviterId on the new user's profile or in invites table
+
+**Profile display:**
+- Show "Invited by [Name]" on profile
+- Show # of accepted invites (direct invitees)
+- Show downstream count (recursive: invitees of invitees)
+  - e.g., Rick invited Sue, Sue invited Bob = Rick has 1 direct + 1 downstream
+
+**Example tree:**
+```
+Rick
+├── Sue (Rick's invite)
+│   └── Bob (Sue's invite, Rick's downstream)
+└── Jane (Rick's invite)
+```
+
+Rick's profile would show: "2 invited, 1 downstream"
+
+---
+
+<a id="wonderwall-111-add-image-url-field-to-wonderings"></a>
+
+## ✨ wonderwall-111 Add image URL field to wonderings
+
+| Property | Value |
+|----------|-------|
+| **Type** | ✨ feature |
+| **Priority** | 🔹 Medium (P2) |
+| **Status** | ⚫ closed |
+| **Created** | 2026-01-24 22:51 |
+| **Updated** | 2026-01-24 23:00 |
+| **Closed** | 2026-01-24 23:00 |
+
+### Description
+
+Allow users to attach an image URL to their wondering for visual context. This image will be used as background on wonder cards in Discover.
+
+---
+
+<a id="wonderwall-d42-enable-event-joining-rsvp"></a>
+
+## ✨ wonderwall-d42 Enable event joining/RSVP
+
+| Property | Value |
+|----------|-------|
+| **Type** | ✨ feature |
+| **Priority** | 🔹 Medium (P2) |
+| **Status** | ⚫ closed |
+| **Created** | 2026-01-24 22:51 |
+| **Updated** | 2026-01-24 23:39 |
+| **Closed** | 2026-01-24 23:39 |
+
+### Description
+
+Allow users to join/RSVP to events. Show public list of attendees (accepted applications) with avatars and links to their profiles.
+
+---
+
+<a id="wonderwall-17a-move-invites-to-sidebar-with-limits"></a>
+
+## ✨ wonderwall-17a Move invites to sidebar with limits
+
+| Property | Value |
+|----------|-------|
+| **Type** | ✨ feature |
+| **Priority** | 🔹 Medium (P2) |
+| **Status** | ⚫ closed |
+| **Created** | 2026-01-24 21:31 |
+| **Updated** | 2026-01-24 22:39 |
+| **Closed** | 2026-01-24 22:39 |
+
+### Description
+
+- Move invite functionality to sidebar
+- Limit to 3 active invites at a time
+- When someone accepts an invite, user gets another invite code automatically
+
+---
+
+<a id="wonderwall-v5a-favorites-system-for-people-and-events"></a>
+
+## ✨ wonderwall-v5a Favorites system for people and events
+
+| Property | Value |
+|----------|-------|
+| **Type** | ✨ feature |
+| **Priority** | 🔹 Medium (P2) |
+| **Status** | ⚫ closed |
+| **Created** | 2026-01-24 21:31 |
+| **Updated** | 2026-01-24 23:44 |
+| **Closed** | 2026-01-24 23:44 |
+
+### Description
+
+Add sidebar or section to view favorited events and wonderings. Currently only marking as favorite works but there's no way to view favorites.
+
+---
+
+<a id="wonderwall-hej-profile-image-upload-support"></a>
+
+## ✨ wonderwall-hej Profile image upload support
+
+| Property | Value |
+|----------|-------|
+| **Type** | ✨ feature |
+| **Priority** | 🔹 Medium (P2) |
+| **Status** | ⚫ closed |
+| **Created** | 2026-01-24 21:31 |
+| **Updated** | 2026-01-24 22:39 |
+| **Closed** | 2026-01-24 22:39 |
+
+### Description
+
+Add ability to upload/set profile image URL. Display in profile view and throughout app.
+
+---
+
+<a id="wonderwall-c1t-events-browse-list-page"></a>
+
+## 📋 wonderwall-c1t Events browse/list page
+
+| Property | Value |
+|----------|-------|
+| **Type** | 📋 task |
+| **Priority** | 🔹 Medium (P2) |
+| **Status** | ⚫ closed |
+| **Created** | 2026-01-24 14:56 |
+| **Updated** | 2026-01-24 16:59 |
+| **Closed** | 2026-01-24 16:59 |
+
+### Description
+
+Create /events route. List upcoming events. Filter by date, tags. Paginated results.
+
+### Dependencies
+
+- ⛔ **blocks**: `wonderwall-0h6`
+
+---
+
+<a id="wonderwall-c8z-event-organizer-dashboard"></a>
+
+## 📋 wonderwall-c8z Event organizer dashboard
+
+| Property | Value |
+|----------|-------|
+| **Type** | 📋 task |
+| **Priority** | 🔹 Medium (P2) |
+| **Status** | ⚫ closed |
+| **Created** | 2026-01-24 14:56 |
+| **Updated** | 2026-01-24 16:59 |
+| **Closed** | 2026-01-24 16:59 |
+
+### Description
+
+Organizer view of applications. Accept/decline applicants. View applicant profiles.
+
+### Dependencies
+
+- ⛔ **blocks**: `wonderwall-r9b`
+
+---
+
+<a id="wonderwall-r9b-event-detail-application-flow"></a>
+
+## 📋 wonderwall-r9b Event detail + application flow
+
+| Property | Value |
+|----------|-------|
+| **Type** | 📋 task |
+| **Priority** | 🔹 Medium (P2) |
+| **Status** | ⚫ closed |
+| **Created** | 2026-01-24 14:56 |
+| **Updated** | 2026-01-24 16:59 |
+| **Closed** | 2026-01-24 16:59 |
+
+### Description
+
+Create /events/:id route. Show event details. One-tap apply with optional message. Store EventApplication.
+
+### Dependencies
+
+- ⛔ **blocks**: `wonderwall-0h6`
+
+---
+
+<a id="wonderwall-0h6-event-create-edit-page"></a>
+
+## 📋 wonderwall-0h6 Event create/edit page
+
+| Property | Value |
+|----------|-------|
+| **Type** | 📋 task |
+| **Priority** | 🔹 Medium (P2) |
+| **Status** | ⚫ closed |
+| **Created** | 2026-01-24 14:56 |
+| **Updated** | 2026-01-24 16:59 |
+| **Closed** | 2026-01-24 16:59 |
+
+### Description
+
+Create /events/new route. Form: title, description, datetime, location, tags, requiresApproval toggle. Convex mutations.
+
+### Dependencies
+
+- ⛔ **blocks**: `wonderwall-c3e`
+
+---
+
+<a id="wonderwall-rj1-embeddings-generation-vector-search"></a>
+
+## 📋 wonderwall-rj1 Embeddings generation + vector search
+
+| Property | Value |
+|----------|-------|
+| **Type** | 📋 task |
+| **Priority** | 🔹 Medium (P2) |
+| **Status** | ⚫ closed |
+| **Created** | 2026-01-24 14:56 |
+| **Updated** | 2026-01-25 00:02 |
+| **Closed** | 2026-01-25 00:02 |
+
+### Description
+
+Generate embeddings for profiles, artifacts, wonderings on create/update. Convex vector index. Hybrid search query combining vector + keyword.
+
+### Dependencies
+
+- ⛔ **blocks**: `wonderwall-7k3`
+
+---
+
+<a id="wonderwall-kto-search-page-with-filters"></a>
+
+## 📋 wonderwall-kto Search page with filters
+
+| Property | Value |
+|----------|-------|
+| **Type** | 📋 task |
+| **Priority** | 🔹 Medium (P2) |
+| **Status** | ⚫ closed |
+| **Created** | 2026-01-24 14:56 |
+| **Updated** | 2026-01-25 01:41 |
+| **Closed** | 2026-01-25 01:41 |
+
+### Description
+
+Create /search route. Text input for semantic search. Filters: job function, location. Results as profile cards with snippets.
+
+### Dependencies
+
+- ⛔ **blocks**: `wonderwall-3xo`
+- ⛔ **blocks**: `wonderwall-rj1`
+
+---
+
+<a id="wonderwall-aoo-wondering-responses-inbox-for-owner"></a>
+
+## 📋 wonderwall-aoo Wondering responses inbox for owner
+
+| Property | Value |
+|----------|-------|
+| **Type** | 📋 task |
+| **Priority** | 🔹 Medium (P2) |
+| **Status** | ⚫ closed |
+| **Created** | 2026-01-24 14:56 |
+| **Updated** | 2026-01-24 16:26 |
+| **Closed** | 2026-01-24 16:26 |
+
+### Description
+
+Owner can view all responses to their wondering. Mark response as public to share. Delete responses.
+
+### Dependencies
+
+- ⛔ **blocks**: `wonderwall-6zu`
+
+---
+
+<a id="wonderwall-c33-artifacts-crud"></a>
+
+## 📋 wonderwall-c33 Artifacts CRUD
+
+| Property | Value |
+|----------|-------|
+| **Type** | 📋 task |
+| **Priority** | 🔹 Medium (P2) |
+| **Status** | ⚫ closed |
+| **Created** | 2026-01-24 14:56 |
+| **Updated** | 2026-01-24 23:37 |
+| **Closed** | 2026-01-24 23:37 |
+
+### Description
+
+Add/edit/delete artifacts (text/image/video/audio/link types). Markdown editor for text type. External URL input for media.
+
+### Dependencies
+
+- ⛔ **blocks**: `wonderwall-c3e`
+
+---
+
+<a id="wonderwall-nl0-links-crud"></a>
+
+## 📋 wonderwall-nl0 Links CRUD
+
+| Property | Value |
+|----------|-------|
+| **Type** | 📋 task |
+| **Priority** | 🔹 Medium (P2) |
+| **Status** | ⚫ closed |
+| **Created** | 2026-01-24 14:56 |
+| **Updated** | 2026-01-24 23:56 |
+| **Closed** | 2026-01-24 23:56 |
+
+### Description
+
+Add/edit/delete/reorder links on profile. Convex mutations, drag-drop reorder UI.
+
+### Dependencies
+
+- ⛔ **blocks**: `wonderwall-c3e`
+
+---
+
+<a id="wonderwall-1qs-events-crud-applications-organizer-flow"></a>
+
+## 🚀 wonderwall-1qs Events: CRUD, applications, organizer flow
+
+| Property | Value |
+|----------|-------|
+| **Type** | 🚀 epic |
+| **Priority** | 🔹 Medium (P2) |
+| **Status** | ⚫ closed |
+| **Created** | 2026-01-24 14:54 |
+| **Updated** | 2026-01-24 16:59 |
+| **Closed** | 2026-01-24 16:59 |
+
+### Dependencies
+
+- ⛔ **blocks**: `wonderwall-vya`
+
+---
+
+<a id="wonderwall-v2p-search-discovery-semantic-search-filters"></a>
+
+## 🚀 wonderwall-v2p Search & Discovery: semantic search, filters
+
+| Property | Value |
+|----------|-------|
+| **Type** | 🚀 epic |
+| **Priority** | 🔹 Medium (P2) |
+| **Status** | ⚫ closed |
+| **Created** | 2026-01-24 14:54 |
+| **Updated** | 2026-01-25 01:41 |
+| **Closed** | 2026-01-25 01:41 |
+
+### Dependencies
+
+- ⛔ **blocks**: `wonderwall-vya`
+- ⛔ **blocks**: `wonderwall-a64`
+
+---
+
+<a id="wonderwall-u64-create-faq-page"></a>
+
+## ✨ wonderwall-u64 Create FAQ page
+
+| Property | Value |
+|----------|-------|
+| **Type** | ✨ feature |
+| **Priority** | ☕ Low (P3) |
+| **Status** | ⚫ closed |
+| **Created** | 2026-01-24 22:37 |
+| **Updated** | 2026-01-25 01:44 |
+| **Closed** | 2026-01-25 01:44 |
+
+### Comments
+
+> **Rick Moy** (2026-01-25)
+>
+> ## FAQ Content to Include
+> 
+> ### Invites
+> **Q: How do invites work?**
+> A: Each invite code can only be used once. When someone signs up using your invite code, it gets marked as "used" and cannot be reused.
+> 
+> **Q: How many invites can I create?**
+> A: You can create up to 3 invite codes at a time. Once an invite is used by someone, you can create a new one.
+> 
+> **Q: Can I see who used my invite?**
+> A: Currently, you can see if an invite has been used, but not who used it.
+> 
+> ### Account
+> **Q: How do I reset my password?**
+> A: Password reset is not yet implemented. Contact support for help.
+> 
+> **Q: Can I change my email?**
+> A: Email changes are not currently supported.
+> 
+> ### Profiles
+> **Q: How do I add a profile photo?**
+> A: Go to Settings and paste a URL to your profile image. We currently support URL-based images (e.g., from Gravatar, social media, or hosted services).
+> 
+> **Q: What are job functions?**
+> A: Job functions describe what you do creatively - Designer, Writer, Musician, etc. You can select multiple.
+> 
+> ### Events
+> **Q: Who can create events?**
+> A: Any member can create events for the community.
+> 
+> **Q: What does "Approval required" mean?**
+> A: Event organizers can require approval before someone can attend. This helps manage capacity and ensure the right fit.
+
+---
+
+<a id="wonderwall-6mu-rename-applications-to-who-s-down"></a>
+
+## 📋 wonderwall-6mu Rename Applications to Who's down
+
+| Property | Value |
+|----------|-------|
+| **Type** | 📋 task |
+| **Priority** | ☕ Low (P3) |
+| **Status** | ⚫ closed |
+| **Created** | 2026-01-24 21:31 |
+| **Updated** | 2026-01-24 22:39 |
+| **Closed** | 2026-01-24 22:39 |
+
+### Description
+
+In events, change 'Applications' section header to 'Who's down' for more casual tone.
+
+---
+
+<a id="wonderwall-ksf-profile-view-like-tracking"></a>
+
+## 📋 wonderwall-ksf Profile view + like tracking
+
+| Property | Value |
+|----------|-------|
+| **Type** | 📋 task |
+| **Priority** | ☕ Low (P3) |
+| **Status** | ⚫ closed |
+| **Created** | 2026-01-24 14:57 |
+| **Updated** | 2026-01-25 01:42 |
+| **Closed** | 2026-01-25 01:42 |
+
+### Description
+
+Track profile views (viewer, timestamp). Track likes. Display counts on profile. Convex mutations + queries.
+
+### Dependencies
+
+- ⛔ **blocks**: `wonderwall-3xo`
+
+---
+
+<a id="wonderwall-f76-analytics-profile-views-likes-tracking"></a>
+
+## 🚀 wonderwall-f76 Analytics: profile views, likes tracking
+
+| Property | Value |
+|----------|-------|
+| **Type** | 🚀 epic |
+| **Priority** | ☕ Low (P3) |
+| **Status** | ⚫ closed |
+| **Created** | 2026-01-24 14:54 |
+| **Updated** | 2026-01-25 01:42 |
+| **Closed** | 2026-01-25 01:42 |
+
+### Dependencies
+
+- ⛔ **blocks**: `wonderwall-vya`
+
+---
+

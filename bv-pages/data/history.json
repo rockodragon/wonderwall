@@ -1,0 +1,246 @@
+{
+  "generated_at": "2026-01-27T19:00:33Z",
+  "commits": [
+    {
+      "sha": "3326f439fe4e3e759bd31545e7bd61a0faa74ca0",
+      "date": "2026-01-24T20:01:34-08:00",
+      "message": "feat: MVP implementation - profiles, wonderings, invites, events",
+      "beads_added": [
+        "wonderwall-vya",
+        "wonderwall-i7k",
+        "wonderwall-e84",
+        "wonderwall-1qs",
+        "wonderwall-9a2",
+        "wonderwall-dak",
+        "wonderwall-c3e",
+        "wonderwall-3xo",
+        "wonderwall-r9b",
+        "wonderwall-aoo",
+        "wonderwall-6zu",
+        "wonderwall-a64",
+        "wonderwall-c8z",
+        "wonderwall-0h6",
+        "wonderwall-c1t"
+      ]
+    },
+    {
+      "sha": "cef74ab40f5da31daca528b65d68883ebe8e24e0",
+      "date": "2026-01-24T23:47:57-08:00",
+      "message": "Add favorites page, event editing, attendees list, and improved artifacts",
+      "beads_added": [
+        "wonderwall-c33"
+      ]
+    },
+    {
+      "sha": "8c545d15c04138f578fff1aa56982e708c2aac7e",
+      "date": "2026-01-24T23:53:52-08:00",
+      "message": "Style events page with bento cards, gradients, and favorites filter",
+      "beads_added": [
+        "wonderwall-ccz"
+      ]
+    },
+    {
+      "sha": "07e9a7403200baf15583e713cc66978de55fcc0e",
+      "date": "2026-01-24T23:56:47-08:00",
+      "message": "Add links CRUD UI to settings page",
+      "beads_added": [
+        "wonderwall-nl0",
+        "wonderwall-ccz"
+      ]
+    },
+    {
+      "sha": "cf2ca480529ef349aed7e0b40ab9b6389ca65eac",
+      "date": "2026-01-24T23:59:15-08:00",
+      "message": "Track invitation relationships with directionality",
+      "beads_added": [
+        "wonderwall-nl0",
+        "wonderwall-2w6"
+      ]
+    },
+    {
+      "sha": "4cc8c007f2d82d58d364324ce27e2adb716811f9",
+      "date": "2026-01-25T00:02:23-08:00",
+      "message": "Add embeddings generation + vector search",
+      "beads_added": [
+        "wonderwall-7uw"
+      ]
+    },
+    {
+      "sha": "42b1409c5c18d2e8f65f1a05a9bd6ea116607172",
+      "date": "2026-01-25T01:21:30-08:00",
+      "message": "Fix embeddings result typing",
+      "beads_added": [
+        "wonderwall-uot"
+      ]
+    },
+    {
+      "sha": "7165015a9a648fcb240cee0556c7ed2b545cecc1",
+      "date": "2026-01-25T01:42:46-08:00",
+      "message": "Add profile analytics: views and likes tracking",
+      "beads_added": [
+        "wonderwall-v2p",
+        "wonderwall-kto"
+      ]
+    },
+    {
+      "sha": "ad8c1d2243c616eb55f63e28e318e43ea9fcb7be",
+      "date": "2026-01-25T01:44:07-08:00",
+      "message": "Add FAQ page with accordion sections",
+      "beads_added": [
+        "wonderwall-f76",
+        "wonderwall-ksf"
+      ]
+    },
+    {
+      "sha": "806f1a78cc18908c244c816093355579aed15136",
+      "date": "2026-01-25T01:47:18-08:00",
+      "message": "Add profile image URL option",
+      "beads_added": [
+        "wonderwall-u64"
+      ]
+    },
+    {
+      "sha": "04b5c93a4ec8dc7f448d363b007eaf39b10d6f4a",
+      "date": "2026-01-25T01:51:01-08:00",
+      "message": "Show profile setup prompt on own incomplete profile",
+      "beads_added": [
+        "wonderwall-uot"
+      ]
+    },
+    {
+      "sha": "3c6186e75216ceb7a848ee58a98ca3319512d6d0",
+      "date": "2026-01-25T01:52:13-08:00",
+      "message": "Fix responsive profile layout",
+      "beads_added": [
+        "wonderwall-txn"
+      ]
+    },
+    {
+      "sha": "76688592e467a700123a3747941bf6a2517629f4",
+      "date": "2026-01-25T01:55:49-08:00",
+      "message": "Enhance invite network stats display",
+      "beads_added": [
+        "wonderwall-869"
+      ]
+    },
+    {
+      "sha": "ce95cad82ba377e8917e28c917121dc1f338fa74",
+      "date": "2026-01-25T08:30:16-08:00",
+      "message": "Add Works detail page with expanded view, creator card, and likes",
+      "beads_added": [
+        "wonderwall-hnb"
+      ]
+    },
+    {
+      "sha": "c506c849725ad789cb3941903a9b7d35558017f9",
+      "date": "2026-01-25T08:51:55-08:00",
+      "message": "Make InviteCTA expandable with invite code management",
+      "beads_added": [
+        "wonderwall-hnb"
+      ]
+    },
+    {
+      "sha": "9b83ba8d043222fc9864ecdd868fbe0bcbbd39b1",
+      "date": "2026-01-25T09:04:42-08:00",
+      "message": "Fix network stats to include inviter in count",
+      "beads_added": [
+        "wonderwall-cxj"
+      ]
+    },
+    {
+      "sha": "a2c004a17d6c2f0acf8ca4b83be55e103fea38a2",
+      "date": "2026-01-25T09:06:00-08:00",
+      "message": "Require title for link-type works cards",
+      "beads_added": [
+        "wonderwall-cxj"
+      ]
+    },
+    {
+      "sha": "6195e4f4698a24a9fe6ed22f89e6e2e62bf427d1",
+      "date": "2026-01-25T18:27:26-08:00",
+      "message": "fix: Pass undefined instead of null for mediaStorageId",
+      "beads_added": [
+        "wonderwall-klw"
+      ]
+    },
+    {
+      "sha": "84f9f26b16d560d62b61ea946c7d53b18ee108c6",
+      "date": "2026-01-26T02:15:27-08:00",
+      "message": "Implement personal invite links and onboarding flow",
+      "beads_added": [
+        "wonderwall-6rd"
+      ]
+    },
+    {
+      "sha": "e409bc34cb8a4558731d578580a0452774df8c83",
+      "date": "2026-01-26T02:19:44-08:00",
+      "message": "Add CreateWonderingComposer to Discover page",
+      "beads_added": [
+        "wonderwall-43a"
+      ]
+    },
+    {
+      "sha": "4237999b9b98beec4a8b819e120efc220bc24cad",
+      "date": "2026-01-27T10:07:26-08:00",
+      "message": "Add Convex backend mutations and queries for jobs feature",
+      "beads_added": [
+        "wonderwall-797"
+      ]
+    },
+    {
+      "sha": "fae6694e4fe2a1ef9d1fb2c97efca659aff57c37",
+      "date": "2026-01-27T10:23:22-08:00",
+      "message": "Add Jobs to navigation menu",
+      "beads_added": [
+        "wonderwall-s67",
+        "wonderwall-cgm",
+        "wonderwall-9wv"
+      ]
+    },
+    {
+      "sha": "b2670ef31c19ba312aeffac24173e50d92ce351a",
+      "date": "2026-01-27T10:27:00-08:00",
+      "message": "Add Jobs Index page with filtering and interest tracking",
+      "beads_added": [
+        "wonderwall-vzp",
+        "wonderwall-1r2",
+        "wonderwall-1mb",
+        "wonderwall-cgm",
+        "wonderwall-719"
+      ]
+    },
+    {
+      "sha": "609bfcdce09b70ddfbe01cdef05640614b9631ac",
+      "date": "2026-01-27T10:27:53-08:00",
+      "message": "Add InterestModal component and job mutations",
+      "beads_added": [
+        "wonderwall-719"
+      ]
+    },
+    {
+      "sha": "a66e3aa9873c595e1650cc327bef5b4c2e072c68",
+      "date": "2026-01-27T10:28:20-08:00",
+      "message": "Add Job Detail page with full functionality",
+      "beads_added": [
+        "wonderwall-vzp"
+      ]
+    },
+    {
+      "sha": "22689ccf874a55225a1923e2f8153936cce00f61",
+      "date": "2026-01-27T10:28:53-08:00",
+      "message": "Add Post Job form page (jobs.new.tsx)",
+      "beads_added": [
+        "wonderwall-1mb"
+      ]
+    },
+    {
+      "sha": "26ce641d233508be4590dbcc4d549c98b771de8e",
+      "date": "2026-01-27T10:30:09-08:00",
+      "message": "Integrate InterestModal into Job Detail page",
+      "beads_added": [
+        "wonderwall-511",
+        "wonderwall-1r2"
+      ]
+    }
+  ]
+}

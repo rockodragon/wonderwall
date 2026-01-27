@@ -405,9 +405,15 @@ reviewReport(reportId, status, adminNotes?)
 ## Open Questions
 
 1. Should we allow messaging between any members, or only job-related contexts initially?
+ANY
 2. Should blocked users be notified they've been blocked?
+What's standard in industry? my gut says no, just block.
+
 3. Rate limiting on messages to prevent spam?
+Whats industry standard? < 5/day?
+
 4. Message retention policy (how long to keep messages)?
+indefinitely for now.
 
 ## Timeline
 
@@ -417,9 +423,9 @@ reviewReport(reportId, status, adminNotes?)
 
 ## Approval
 
-- [ ] Reviewed by product team
-- [ ] Reviewed by engineering
-- [ ] Reviewed by design
+- [x] Reviewed by product team
+- [x] Reviewed by engineering
+- [x] Reviewed by design
 - [ ] Approved for development
 
 ---
