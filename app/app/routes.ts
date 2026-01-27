@@ -22,6 +22,7 @@ export default [
     route("jobs", "routes/jobs._index.tsx"),
     route("jobs/new", "routes/jobs.new.tsx"),
     route("jobs/:id", "routes/jobs.$id.tsx"),
+    route("jobs/:id/edit", "routes/jobs.$id.edit.tsx"),
     route("profile/:profileId", "routes/profile.tsx"),
     route("favorites", "routes/favorites.tsx"),
     route("settings", "routes/settings.tsx"),
