@@ -7,11 +7,11 @@ import "../styles/marquee.css";
 
 export function meta({}: Route.MetaArgs) {
   return [
-    { title: "Wonderwall - Christian Creatives Community" },
+    { title: "Wonderwall - Kingdom Minded Creatives" },
     {
       name: "description",
       content:
-        "Discover and connect with Christian creatives. Share your work, explore what others are wondering, and find community events.",
+        "Connect with kingdom minded creatives. Share your work, explore what others are wondering, and find your next collaboration.",
     },
   ];
 }
@@ -150,7 +150,7 @@ export default function Home() {
             Connect with
             <br />
             <span className="bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
-              Christian creatives
+              kingdom minded creatives
             </span>
           </h2>
           <p className="mt-6 text-xl text-gray-400 max-w-2xl mx-auto mb-8">
@@ -481,7 +481,7 @@ export default function Home() {
       {/* Footer */}
       <footer className="px-6 py-8 border-t border-gray-800">
         <p className="text-center text-gray-500 text-sm">
-          Wonderwall — A community for Christian creatives
+          Wonderwall — A community for kingdom minded creatives
         </p>
       </footer>
     </div>
