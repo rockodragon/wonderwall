@@ -114,10 +114,14 @@ export default function JobsIndex() {
   };
 
   const tabs = [
-    { id: "all" as const, label: "All Jobs" },
-    { id: "matches" as const, label: "My Matches" },
-    { id: "interested" as const, label: "Interested Jobs" },
-    { id: "posts" as const, label: "My Job Posts" },
+    { id: "all" as const, label: "All Jobs", shortLabel: "All" },
+    { id: "matches" as const, label: "My Matches", shortLabel: "Matches" },
+    {
+      id: "interested" as const,
+      label: "Interested Jobs",
+      shortLabel: "Interested",
+    },
+    { id: "posts" as const, label: "My Job Posts", shortLabel: "My Posts" },
   ];
 
   return (
@@ -146,13 +150,14 @@ export default function JobsIndex() {
           <button
             key={tab.id}
             onClick={() => handleTabChange(tab.id)}
-            className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
+            className={`px-3 md:px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
               activeTab === tab.id
                 ? "bg-blue-600 text-white"
                 : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"
             }`}
           >
-            {tab.label}
+            <span className="md:hidden">{tab.shortLabel}</span>
+            <span className="hidden md:inline">{tab.label}</span>
           </button>
         ))}
 

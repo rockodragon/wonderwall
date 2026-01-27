@@ -59,43 +59,43 @@ export default function AppLayout() {
         <Outlet />
       </main>
 
-      {/* Mobile bottom nav */}
+      {/* Mobile bottom nav - icons only to fit 7 items */}
       <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 md:hidden">
-        <div className="flex justify-around py-2">
+        <div className="flex justify-around py-3">
           {navItems.map((item) => {
             const isActive = location.pathname.startsWith(item.path);
             return (
               <Link
                 key={item.path}
                 to={item.path}
-                className={`flex flex-col items-center py-2 px-4 ${
+                className={`flex items-center justify-center p-2 ${
                   isActive
                     ? "text-blue-600 dark:text-blue-400"
-                    : "text-gray-600 dark:text-gray-400"
+                    : "text-gray-500 dark:text-gray-400"
                 }`}
+                aria-label={item.label}
               >
                 <item.icon className="w-6 h-6" />
-                <span className="text-xs mt-1">{item.label}</span>
               </Link>
             );
           })}
           <Link
             to="/messages"
-            className={`flex flex-col items-center py-2 px-4 ${
+            className={`flex items-center justify-center p-2 ${
               location.pathname.startsWith("/messages")
                 ? "text-blue-600 dark:text-blue-400"
-                : "text-gray-600 dark:text-gray-400"
+                : "text-gray-500 dark:text-gray-400"
             }`}
+            aria-label="Messages"
           >
             <div className="relative">
               <EnvelopeIcon className="w-6 h-6" />
               {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 min-w-5 flex items-center justify-center px-1">
+                <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] rounded-full h-4 min-w-4 flex items-center justify-center px-1">
                   {unreadCount > 99 ? "99+" : unreadCount}
                 </span>
               )}
             </div>
-            <span className="text-xs mt-1">Messages</span>
           </Link>
         </div>
       </nav>
