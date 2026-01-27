@@ -20,6 +20,7 @@ export default function AppLayout() {
   const location = useLocation();
   const posthog = usePostHog();
   const profile = useQuery(api.profiles.getMyProfile);
+  const unreadCount = useQuery(api.messaging.getUnreadCount) ?? 0;
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -78,6 +79,24 @@ export default function AppLayout() {
               </Link>
             );
           })}
+          <Link
+            to="/messages"
+            className={`flex flex-col items-center py-2 px-4 ${
+              location.pathname.startsWith("/messages")
+                ? "text-blue-600 dark:text-blue-400"
+                : "text-gray-600 dark:text-gray-400"
+            }`}
+          >
+            <div className="relative">
+              <EnvelopeIcon className="w-6 h-6" />
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 min-w-5 flex items-center justify-center px-1">
+                  {unreadCount > 99 ? "99+" : unreadCount}
+                </span>
+              )}
+            </div>
+            <span className="text-xs mt-1">Messages</span>
+          </Link>
         </div>
       </nav>
 
@@ -110,6 +129,24 @@ export default function AppLayout() {
               </Link>
             );
           })}
+          <Link
+            to="/messages"
+            className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+              location.pathname.startsWith("/messages")
+                ? "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
+                : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+            }`}
+          >
+            <div className="relative">
+              <EnvelopeIcon className="w-5 h-5" />
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 min-w-5 flex items-center justify-center px-1">
+                  {unreadCount > 99 ? "99+" : unreadCount}
+                </span>
+              )}
+            </div>
+            Messages
+          </Link>
         </nav>
 
         <div className="p-4">
@@ -223,6 +260,24 @@ function BriefcaseIcon({ className }: { className?: string }) {
         strokeLinejoin="round"
         strokeWidth={2}
         d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+      />
+    </svg>
+  );
+}
+
+function EnvelopeIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
       />
     </svg>
   );

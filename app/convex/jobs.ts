@@ -32,6 +32,7 @@ export const getJobs = query({
       ),
     ),
     disciplinesFilter: v.optional(v.array(v.string())),
+    forMe: v.optional(v.boolean()),
     myPosts: v.optional(v.boolean()),
     myInterests: v.optional(v.boolean()),
   },
@@ -40,6 +41,23 @@ export const getJobs = query({
 
     // Get all jobs
     let jobs = await ctx.db.query("jobs").collect();
+
+    // Filter by "For Me" - jobs matching user's job functions
+    if (args.forMe && userId) {
+      const userProfile = await ctx.db
+        .query("profiles")
+        .withIndex("by_userId", (q) => q.eq("userId", userId))
+        .first();
+
+      if (userProfile && userProfile.jobFunctions.length > 0) {
+        const userJobFunctions = new Set(userProfile.jobFunctions);
+        jobs = jobs.filter((j) => {
+          if (!j.disciplines || j.disciplines.length === 0) return false;
+          // Check if any of the job's disciplines match user's job functions
+          return j.disciplines.some((d) => userJobFunctions.has(d));
+        });
+      }
+    }
 
     // Filter by status (default: All)
     // Skip status filter if myInterests is enabled - users should see ALL jobs they expressed interest in

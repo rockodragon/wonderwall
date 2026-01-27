@@ -28,6 +28,7 @@ export default function JobsIndex() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("Open");
   const [locationFilter, setLocationFilter] = useState<LocationFilter>("All");
   const [disciplinesFilter, setDisciplinesFilter] = useState<string[]>([]);
+  const [forMe, setForMe] = useState(false);
   const [myPosts, setMyPosts] = useState(false);
   const [myInterests, setMyInterests] = useState(false);
 
@@ -37,6 +38,7 @@ export default function JobsIndex() {
     locationFilter: locationFilter === "All" ? undefined : locationFilter,
     disciplinesFilter:
       disciplinesFilter.length > 0 ? disciplinesFilter : undefined,
+    forMe,
     myPosts,
     myInterests,
   });
@@ -186,6 +188,17 @@ export default function JobsIndex() {
 
           {/* Quick Filter Toggles */}
           <div className="flex flex-wrap gap-4 pt-2 border-t border-gray-200 dark:border-gray-700">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={forMe}
+                onChange={(e) => setForMe(e.target.checked)}
+                className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                For Me
+              </span>
+            </label>
             <label className="flex items-center gap-2 cursor-pointer">
               <input
                 type="checkbox"

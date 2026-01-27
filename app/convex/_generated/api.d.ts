@@ -20,6 +20,7 @@ import type * as http from "../http.js";
 import type * as invites from "../invites.js";
 import type * as jobs from "../jobs.js";
 import type * as links from "../links.js";
+import type * as messaging from "../messaging.js";
 import type * as profiles from "../profiles.js";
 import type * as public_ from "../public.js";
 import type * as seed from "../seed.js";
@@ -45,6 +46,7 @@ declare const fullApi: ApiFromModules<{
   invites: typeof invites;
   jobs: typeof jobs;
   links: typeof links;
+  messaging: typeof messaging;
   profiles: typeof profiles;
   public: typeof public_;
   seed: typeof seed;

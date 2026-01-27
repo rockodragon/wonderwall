@@ -249,4 +249,60 @@ export default defineSchema({
     .index("by_jobId", ["jobId"])
     .index("by_userId", ["userId"])
     .index("by_jobId_userId", ["jobId", "userId"]), // Unique constraint
+
+  // Direct messaging - Conversations
+  conversations: defineTable({
+    participants: v.array(v.id("users")), // Exactly 2 participants
+    lastMessageAt: v.number(), // For sorting conversations by recency
+    createdAt: v.number(),
+  }).index("by_lastMessageAt", ["lastMessageAt"]),
+
+  // Direct messaging - Messages
+  messages: defineTable({
+    conversationId: v.id("conversations"),
+    senderId: v.id("users"),
+    content: v.string(), // Max 2000 chars (enforced in mutation)
+    readAt: v.optional(v.number()), // When recipient read the message
+    createdAt: v.number(),
+  })
+    .index("by_conversationId", ["conversationId"])
+    .index("by_senderId", ["senderId"])
+    .index("by_conversationId_createdAt", ["conversationId", "createdAt"]),
+
+  // User blocking
+  blocks: defineTable({
+    blockerId: v.id("users"), // User who blocked
+    blockedId: v.id("users"), // User who was blocked
+    createdAt: v.number(),
+  })
+    .index("by_blockerId", ["blockerId"])
+    .index("by_blockedId", ["blockedId"])
+    .index("by_blocker_blocked", ["blockerId", "blockedId"]),
+
+  // Content/user reports for admin review
+  reports: defineTable({
+    reporterId: v.id("users"),
+    reportedUserId: v.id("users"),
+    messageId: v.optional(v.id("messages")), // If reporting a specific message
+    reason: v.union(
+      v.literal("harassment"),
+      v.literal("spam"),
+      v.literal("inappropriate"),
+      v.literal("other"),
+    ),
+    details: v.optional(v.string()), // Max 500 chars (enforced in mutation)
+    status: v.union(
+      v.literal("pending"),
+      v.literal("reviewed"),
+      v.literal("dismissed"),
+      v.literal("action_taken"),
+    ),
+    adminNotes: v.optional(v.string()),
+    reviewedAt: v.optional(v.number()),
+    reviewedBy: v.optional(v.id("users")),
+    createdAt: v.number(),
+  })
+    .index("by_status", ["status"])
+    .index("by_reportedUserId", ["reportedUserId"])
+    .index("by_reporterId", ["reporterId"]),
 });
