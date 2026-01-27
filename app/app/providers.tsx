@@ -12,7 +12,6 @@ export function ConvexClientProvider({ children }: { children: ReactNode }) {
   }, []);
 
   if (!client) {
-    // Convex not configured yet
     return <>{children}</>;
   }
 

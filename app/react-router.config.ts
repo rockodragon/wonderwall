@@ -1,9 +1,6 @@
 import type { Config } from "@react-router/dev/config";
 
 export default {
-  // Enable SSR for SEO - works with Cloudflare Workers
-  ssr: true,
-  future: {
-    v8_viteEnvironmentApi: true,
-  },
+  // SPA mode - Convex WebSocket client incompatible with Workers SSR
+  ssr: false,
 } satisfies Config;

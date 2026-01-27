@@ -5,7 +5,6 @@ import { api } from "../../convex/_generated/api";
 import { FavoriteButton } from "../components/FavoriteButton";
 import { InviteCTA } from "../components/InviteCTA";
 import { CreateWonderingComposer } from "../components/CreateWonderingComposer";
-import { AboutWonderPopover } from "../components/AboutWonderPopover";
 
 // Debounce hook for search
 function useDebounce<T>(value: T, delay: number): T {
@@ -203,13 +202,11 @@ export default function Search() {
           {/* Wonder Cards - Primary Section */}
           {profilesWithWonderings.length > 0 && (
             <section>
-              <div className="flex items-center gap-2 mb-4">
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  What people are wondering
-                </h2>
-                <AboutWonderPopover />
-              </div>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                What people are wondering
+              </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <AboutWonderCard />
                 {profilesWithWonderings.map((profile) => (
                   <WonderCard key={profile._id} profile={profile} />
                 ))}
@@ -266,6 +263,61 @@ function getWonderTextStyle(prompt: string): {
   const fontClass = isQuestion ? "font-serif italic" : "font-medium";
 
   return { sizeClass, fontClass };
+}
+
+function AboutWonderCard() {
+  return (
+    <div className="relative overflow-hidden rounded-2xl aspect-[4/5] bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500">
+      {/* Decorative elements */}
+      <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
+      <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full translate-y-1/2 -translate-x-1/2" />
+
+      {/* Content */}
+      <div className="absolute inset-0 flex flex-col justify-between p-6">
+        {/* Header */}
+        <div className="flex items-center gap-2">
+          <span className="text-2xl">?</span>
+          <span className="text-white/80 text-sm font-medium uppercase tracking-wider">
+            About Wondering
+          </span>
+        </div>
+
+        {/* Main content */}
+        <div className="space-y-4">
+          <h3 className="text-white text-xl font-bold leading-tight">
+            One thought at a time.
+          </h3>
+          <p className="text-white/80 text-sm leading-relaxed">
+            Wonderings are thoughtful questions you're pondering. Not a feed of
+            hot takes. Your one current thought is enough to spark connection.
+          </p>
+          <p className="text-white/60 text-xs italic">
+            "Seek and you will find."
+          </p>
+        </div>
+
+        {/* Footer badge */}
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
+            <svg
+              className="w-4 h-4 text-white"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+          </div>
+          <span className="text-white/70 text-sm">Seek, don't scroll</span>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function WonderCard({ profile }: { profile: ProfileWithWondering }) {
