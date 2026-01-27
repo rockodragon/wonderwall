@@ -33,9 +33,7 @@ export default function NotFound() {
           Page Not Found
         </h1>
         <p className="text-xl text-gray-400 mb-2">Seek and you will find...</p>
-        <p className="text-gray-500 mb-8">
-          But not always in this case. This page doesn't exist.
-        </p>
+        <p className="text-gray-500 mb-8">but this page is truly missing.</p>
 
         {/* Actions */}
         <div className="flex flex-col sm:flex-row gap-3 justify-center">

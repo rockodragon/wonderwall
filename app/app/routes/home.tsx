@@ -415,6 +415,61 @@ export default function Home() {
           </div>
         </div>
 
+        {/* Manifesto */}
+        <div className="px-6 mt-20 max-w-4xl mx-auto">
+          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 border border-gray-700/50 shadow-2xl">
+            {/* Decorative gradient orbs */}
+            <div className="absolute -top-24 -right-24 w-64 h-64 bg-blue-500/20 rounded-full blur-3xl" />
+            <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-purple-500/20 rounded-full blur-3xl" />
+
+            <div className="relative p-8 md:p-12 lg:p-16">
+              <div className="flex items-center justify-center gap-2 mb-6">
+                <div className="h-px w-8 bg-gradient-to-r from-transparent to-blue-400" />
+                <span className="text-blue-400 text-sm font-medium uppercase tracking-widest">
+                  Our Manifesto
+                </span>
+                <div className="h-px w-8 bg-gradient-to-l from-transparent to-blue-400" />
+              </div>
+
+              <h3 className="text-3xl md:text-4xl font-bold text-white text-center mb-10">
+                A Different Kind of Platform
+              </h3>
+
+              <div className="space-y-6 text-center">
+                <p className="text-gray-300 text-lg leading-relaxed">
+                  We believe the creative economy is broken. Algorithms
+                  optimized for engagement have turned social platforms into
+                  attention factories, rewarding outrage over craftsmanship, and
+                  virality over value. The result? Burnout, comparison, and a
+                  race to the bottom.
+                </p>
+                <p className="text-gray-300 text-lg leading-relaxed">
+                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400 font-semibold">
+                    Wonderwall is different by design.
+                  </span>{" "}
+                  We're building for depth, not distraction. For connection, not
+                  clout. Our platform prioritizes thoughtful engagement over
+                  infinite scroll, meaningful relationships over follower
+                  counts, and sustainable creativity over content mills.
+                </p>
+                <p className="text-gray-300 text-lg leading-relaxed">
+                  Here, your work speaks for itself. Jobs are posted by real
+                  community members, not faceless corporations. Conversations
+                  happen between people, not personas. And the algorithm? It's
+                  simple: show people what they're actually looking for, and get
+                  out of the way.
+                </p>
+                <div className="pt-4">
+                  <p className="text-gray-400 text-lg leading-relaxed italic">
+                    "No hacks. No hustle culture. Just good work, good people,
+                    and good conversations."
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Animated Content Marquee */}
         {wonderings && wonderings.length > 0 && (
           <div className="marquee-container relative mt-24">
@@ -480,63 +535,6 @@ export default function Home() {
               />
             }
           />
-        </div>
-      </section>
-
-      {/* Manifesto */}
-      <section className="px-6 py-24">
-        <div className="max-w-4xl mx-auto">
-          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 border border-gray-700/50 shadow-2xl">
-            {/* Decorative gradient orbs */}
-            <div className="absolute -top-24 -right-24 w-64 h-64 bg-blue-500/20 rounded-full blur-3xl" />
-            <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-purple-500/20 rounded-full blur-3xl" />
-
-            <div className="relative p-8 md:p-12 lg:p-16">
-              <div className="flex items-center justify-center gap-2 mb-6">
-                <div className="h-px w-8 bg-gradient-to-r from-transparent to-blue-400" />
-                <span className="text-blue-400 text-sm font-medium uppercase tracking-widest">
-                  Our Manifesto
-                </span>
-                <div className="h-px w-8 bg-gradient-to-l from-transparent to-blue-400" />
-              </div>
-
-              <h3 className="text-3xl md:text-4xl font-bold text-white text-center mb-10">
-                A Different Kind of Platform
-              </h3>
-
-              <div className="space-y-6 text-center">
-                <p className="text-gray-300 text-lg leading-relaxed">
-                  We believe the creative economy is broken. Algorithms
-                  optimized for engagement have turned social platforms into
-                  attention factories, rewarding outrage over craftsmanship, and
-                  virality over value. The result? Burnout, comparison, and a
-                  race to the bottom.
-                </p>
-                <p className="text-gray-300 text-lg leading-relaxed">
-                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400 font-semibold">
-                    Wonderwall is different by design.
-                  </span>{" "}
-                  We're building for depth, not distraction. For connection, not
-                  clout. Our platform prioritizes thoughtful engagement over
-                  infinite scroll, meaningful relationships over follower
-                  counts, and sustainable creativity over content mills.
-                </p>
-                <p className="text-gray-300 text-lg leading-relaxed">
-                  Here, your work speaks for itself. Jobs are posted by real
-                  community members, not faceless corporations. Conversations
-                  happen between people, not personas. And the algorithm? It's
-                  simple: show people what they're actually looking for, and get
-                  out of the way.
-                </p>
-                <div className="pt-4">
-                  <p className="text-gray-400 text-lg leading-relaxed italic">
-                    "No hacks. No hustle culture. Just good work, good people,
-                    and good conversations."
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
       </section>
 
