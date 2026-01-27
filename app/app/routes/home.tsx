@@ -7,11 +7,11 @@ import "../styles/marquee.css";
 
 export function meta({}: Route.MetaArgs) {
   return [
-    { title: "Wonderwall - Kingdom Minded Creatives" },
+    { title: "Wonderwall - Kingdom-Minded Creatives" },
     {
       name: "description",
       content:
-        "Connect with kingdom minded creatives. Share your work, explore what others are wondering, and find your next collaboration.",
+        "Connect with Kingdom-minded creatives. Share your work, discover peers, and spark collaborations.",
     },
   ];
 }
@@ -150,12 +150,11 @@ export default function Home() {
             Connect with
             <br />
             <span className="bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
-              kingdom minded creatives
+              Kingdom-minded creatives
             </span>
           </h2>
           <p className="mt-6 text-xl text-gray-400 max-w-2xl mx-auto mb-8">
-            Discover peers, share your work, explore what others are wondering,
-            and find your next collaboration.
+            Share your work, discover peers, and spark collaborations.
           </p>
 
           {/* Waitlist Form or Invite Preview */}
@@ -481,7 +480,7 @@ export default function Home() {
       {/* Footer */}
       <footer className="px-6 py-8 border-t border-gray-800">
         <p className="text-center text-gray-500 text-sm">
-          Wonderwall — A community for kingdom minded creatives
+          Wonderwall — A community for Kingdom-minded creatives
         </p>
       </footer>
     </div>
