@@ -5,11 +5,15 @@ import { HydratedRouter } from "react-router/dom";
 import posthog from "posthog-js";
 import { PostHogProvider } from "@posthog/react";
 
-posthog.init(import.meta.env.VITE_PUBLIC_POSTHOG_KEY, {
-  api_host: import.meta.env.VITE_PUBLIC_POSTHOG_HOST,
-  defaults: "2025-05-05",
-  __add_tracing_headers: [window.location.host, "localhost"],
-});
+// Only initialize PostHog in the browser
+if (typeof window !== "undefined") {
+  posthog.init(import.meta.env.VITE_PUBLIC_POSTHOG_KEY, {
+    api_host: import.meta.env.VITE_PUBLIC_POSTHOG_HOST,
+    person_profiles: "identified_only",
+    capture_pageview: false, // We'll capture manually to avoid double-counting
+    disable_session_recording: false,
+  });
+}
 
 startTransition(() => {
   hydrateRoot(
