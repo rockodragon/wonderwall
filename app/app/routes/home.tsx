@@ -538,6 +538,11 @@ export default function Home() {
         </div>
       </section>
 
+      {/* UpSight Embed - Test */}
+      <section className="px-6 py-12 max-w-md mx-auto">
+        <UpSightEmbed />
+      </section>
+
       {/* Footer */}
       <footer className="px-6 py-8 border-t border-gray-800">
         <p className="text-center text-gray-500 text-sm">
@@ -545,6 +550,34 @@ export default function Home() {
         </p>
       </footer>
     </div>
+  );
+}
+
+function UpSightEmbed() {
+  useEffect(() => {
+    const script = document.createElement("script");
+    script.src = "https://getupsight.com/embed.js";
+    script.async = true;
+    document.body.appendChild(script);
+
+    return () => {
+      document.body.removeChild(script);
+    };
+  }, []);
+
+  return (
+    <div
+      id="upsight-form"
+      data-upsight-slug="wonderwall"
+      data-upsight-layout="inline-email"
+      data-upsight-theme="transparent"
+      data-upsight-accent="#ffffff"
+      data-upsight-radius="12"
+      data-upsight-branding="true"
+      data-upsight-button-text="Join"
+      data-upsight-placeholder="you@company.com"
+      data-upsight-success="You're on the list!"
+    />
   );
 }
 
