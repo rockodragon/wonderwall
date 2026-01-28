@@ -311,7 +311,7 @@ export default function EventDetail() {
               }
               target="_blank"
               rel="noopener noreferrer"
-              className="block rounded-xl overflow-hidden hover:opacity-90 transition-opacity"
+              className="block rounded-xl overflow-hidden hover:opacity-90 transition-opacity max-w-[300px]"
             >
               <img
                 src={
@@ -320,13 +320,13 @@ export default function EventDetail() {
                     : `https://maps.googleapis.com/maps/api/staticmap?center=${encodeURIComponent(event.location)}&zoom=15&size=400x400&scale=2&markers=color:red%7C${encodeURIComponent(event.location)}&key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY}`
                 }
                 alt={event.location}
-                className="w-full aspect-square object-cover bg-gray-200 dark:bg-gray-700 max-w-[300px]"
+                className="w-full aspect-square object-cover bg-gray-200 dark:bg-gray-700"
               />
               <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800">
-                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate mr-2">
                   {event.location}
                 </p>
-                <span className="text-xs text-blue-600 dark:text-blue-400 flex items-center gap-1">
+                <span className="text-xs text-blue-600 dark:text-blue-400 flex items-center gap-1 flex-shrink-0">
                   Open in Maps
                   <svg
                     className="w-3 h-3"
