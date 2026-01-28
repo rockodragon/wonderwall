@@ -119,11 +119,15 @@ export default function Search() {
         />
       </div>
 
-      {/* Filters - Mobile dropdown */}
-      <div className="relative mb-8 md:hidden">
+      {/* Filter dropdown */}
+      <div className="relative mb-8">
         <button
           onClick={() => setFilterDropdownOpen(!filterDropdownOpen)}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-colors ${
+            activeFilter
+              ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
+              : "border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+          }`}
         >
           <FilterIcon className="w-4 h-4" />
           <span className="font-medium">{activeFilterLabel}</span>
@@ -140,7 +144,7 @@ export default function Search() {
               onClick={() => setFilterDropdownOpen(false)}
             />
             {/* Dropdown */}
-            <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg z-50 max-h-[60vh] overflow-y-auto">
+            <div className="absolute top-full left-0 mt-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg z-50 max-h-[60vh] overflow-y-auto min-w-[200px]">
               {FILTERS.map((filter) => (
                 <button
                   key={filter.label}
@@ -160,18 +164,6 @@ export default function Search() {
             </div>
           </>
         )}
-      </div>
-
-      {/* Filters - Desktop pills */}
-      <div className="hidden md:flex flex-wrap gap-2 mb-8">
-        {FILTERS.map((filter) => (
-          <FilterChip
-            key={filter.label}
-            label={filter.label}
-            active={activeFilter === filter.value}
-            onClick={() => setActiveFilter(filter.value)}
-          />
-        ))}
       </div>
 
       {/* Results */}

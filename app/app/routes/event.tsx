@@ -372,21 +372,24 @@ export default function EventDetail() {
             </div>
           )}
 
-        {/* Attendees with messages */}
+        {/* Attendees - Partiful style grid */}
         {attendees && attendees.length > 0 && (
           <div className="mb-8">
             <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
-              Who's going ({attendees.length})
+              Going ({attendees.length})
             </h3>
-            <div className="space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {attendees.map((attendee) => (
                 <div
                   key={attendee.applicationId}
-                  className="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-xl"
+                  className="flex items-center gap-2.5 p-2.5 bg-gray-50 dark:bg-gray-800/50 rounded-xl"
                 >
                   {attendee.profileId ? (
-                    <Link to={`/profile/${attendee.profileId}`}>
-                      <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center overflow-hidden flex-shrink-0">
+                    <Link
+                      to={`/profile/${attendee.profileId}`}
+                      className="flex-shrink-0"
+                    >
+                      <div className="w-9 h-9 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center overflow-hidden ring-2 ring-white dark:ring-gray-900">
                         {attendee.imageUrl ? (
                           <img
                             src={attendee.imageUrl}
@@ -394,38 +397,35 @@ export default function EventDetail() {
                             className="w-full h-full object-cover"
                           />
                         ) : (
-                          <span className="text-sm font-medium text-gray-500">
+                          <span className="text-xs font-medium text-gray-500">
                             {attendee.name.charAt(0)}
                           </span>
                         )}
                       </div>
                     </Link>
                   ) : (
-                    <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center flex-shrink-0">
-                      <span className="text-sm font-medium text-gray-500">
+                    <div className="w-9 h-9 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center flex-shrink-0 ring-2 ring-white dark:ring-gray-900">
+                      <span className="text-xs font-medium text-gray-500">
                         {attendee.name.charAt(0)}
                       </span>
                     </div>
                   )}
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      {attendee.profileId ? (
-                        <Link
-                          to={`/profile/${attendee.profileId}`}
-                          className="font-medium text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400"
-                        >
-                          {attendee.name}
-                        </Link>
-                      ) : (
-                        <span className="font-medium text-gray-900 dark:text-white">
-                          {attendee.name}
-                        </span>
-                      )}
-                      <span className="text-xs text-gray-400">is going</span>
-                    </div>
+                    {attendee.profileId ? (
+                      <Link
+                        to={`/profile/${attendee.profileId}`}
+                        className="block text-sm font-medium text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 truncate"
+                      >
+                        {attendee.name}
+                      </Link>
+                    ) : (
+                      <span className="block text-sm font-medium text-gray-900 dark:text-white truncate">
+                        {attendee.name}
+                      </span>
+                    )}
                     {attendee.message && (
-                      <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                        "{attendee.message}"
+                      <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                        {attendee.message}
                       </p>
                     )}
                   </div>
