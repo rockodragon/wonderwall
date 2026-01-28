@@ -303,36 +303,33 @@ export default function EventDetail() {
             <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
               Location
             </h3>
-            {event.coordinates && import.meta.env.VITE_GOOGLE_MAPS_API_KEY ? (
-              <a
-                href={`https://www.google.com/maps/search/?api=1&query=${event.coordinates.lat},${event.coordinates.lng}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block rounded-xl overflow-hidden hover:opacity-90 transition-opacity"
-              >
-                <img
-                  src={`https://maps.googleapis.com/maps/api/staticmap?center=${event.coordinates.lat},${event.coordinates.lng}&zoom=15&size=600x200&scale=2&markers=color:red%7C${event.coordinates.lat},${event.coordinates.lng}&key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY}`}
-                  alt={event.location}
-                  className="w-full h-[150px] object-cover bg-gray-100 dark:bg-gray-800"
-                  onError={(e) => {
-                    // Hide broken image
-                    e.currentTarget.style.display = "none";
-                  }}
-                />
-                <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+            <a
+              href={
+                event.coordinates
+                  ? `https://www.google.com/maps/search/?api=1&query=${event.coordinates.lat},${event.coordinates.lng}`
+                  : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`
+              }
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block rounded-xl overflow-hidden hover:opacity-90 transition-opacity"
+            >
+              <img
+                src={
+                  event.coordinates
+                    ? `https://maps.googleapis.com/maps/api/staticmap?center=${event.coordinates.lat},${event.coordinates.lng}&zoom=15&size=600x200&scale=2&markers=color:red%7C${event.coordinates.lat},${event.coordinates.lng}&key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY}`
+                    : `https://maps.googleapis.com/maps/api/staticmap?center=${encodeURIComponent(event.location)}&zoom=15&size=600x200&scale=2&markers=color:red%7C${encodeURIComponent(event.location)}&key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY}`
+                }
+                alt={event.location}
+                className="w-full h-[150px] object-cover bg-gray-200 dark:bg-gray-700"
+              />
+              <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800">
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
                   {event.location}
                 </p>
-              </a>
-            ) : (
-              <a
-                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-3 p-4 bg-gray-50 dark:bg-gray-800 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-              >
-                <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
+                <span className="text-xs text-blue-600 dark:text-blue-400 flex items-center gap-1">
+                  Open in Maps
                   <svg
-                    className="w-5 h-5 text-blue-600 dark:text-blue-400"
+                    className="w-3 h-3"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
@@ -341,39 +338,12 @@ export default function EventDetail() {
                       strokeLinecap="round"
                       strokeLinejoin="round"
                       strokeWidth={2}
-                      d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-                    />
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+                      d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
                     />
                   </svg>
-                </div>
-                <div className="flex-1">
-                  <p className="font-medium text-gray-900 dark:text-white">
-                    {event.location}
-                  </p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    Open in Google Maps
-                  </p>
-                </div>
-                <svg
-                  className="w-5 h-5 text-gray-400"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                  />
-                </svg>
-              </a>
-            )}
+                </span>
+              </div>
+            </a>
           </div>
         )}
 
@@ -580,87 +550,6 @@ export default function EventDetail() {
         {/* Organizer image management */}
         {event.isOrganizer && (
           <EventImageManager eventId={event._id} event={event} />
-        )}
-
-        {/* Organizer dashboard */}
-        {event.isOrganizer && applications && (
-          <div className="mt-8 pt-8 border-t border-gray-200 dark:border-gray-700">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-              Who's down ({applications.length})
-            </h2>
-            {applications.length === 0 ? (
-              <p className="text-gray-500 dark:text-gray-400">
-                No one yet - share this event to get people interested
-              </p>
-            ) : (
-              <div className="space-y-3">
-                {applications.map((app) => (
-                  <div
-                    key={app._id}
-                    className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-xl"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center overflow-hidden">
-                        {app.applicant?.imageUrl ? (
-                          <img
-                            src={app.applicant.imageUrl}
-                            alt=""
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <span className="text-sm font-medium text-gray-500">
-                            {app.applicant?.name?.charAt(0) || "?"}
-                          </span>
-                        )}
-                      </div>
-                      <div>
-                        <p className="font-medium text-gray-900 dark:text-white">
-                          {app.applicant?.name || "Unknown"}
-                        </p>
-                        {app.message && (
-                          <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-1">
-                            {app.message}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {app.status === "pending" ? (
-                        <>
-                          <button
-                            onClick={() =>
-                              handleUpdateStatus(app._id, "accepted")
-                            }
-                            className="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700"
-                          >
-                            Accept
-                          </button>
-                          <button
-                            onClick={() =>
-                              handleUpdateStatus(app._id, "declined")
-                            }
-                            className="px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700"
-                          >
-                            Decline
-                          </button>
-                        </>
-                      ) : (
-                        <span
-                          className={`px-2 py-1 rounded text-sm ${
-                            app.status === "accepted"
-                              ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                              : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-                          }`}
-                        >
-                          {app.status}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
         )}
 
         {/* Back link */}
