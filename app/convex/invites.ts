@@ -335,6 +335,32 @@ export const getInviterInfo = query({
   },
 });
 
+// Debug: Check profile's unlimited status
+export const debugUnlimitedStatus = query({
+  args: { email: v.string() },
+  handler: async (ctx, args) => {
+    const allUsers = await ctx.db.query("users").collect();
+    const user = allUsers.find((u) => "email" in u && u.email === args.email);
+
+    if (!user) return { error: "User not found", email: args.email };
+
+    const profile = await ctx.db
+      .query("profiles")
+      .withIndex("by_userId", (q) => q.eq("userId", user._id))
+      .first();
+
+    if (!profile) return { error: "Profile not found", userId: user._id };
+
+    return {
+      userId: user._id,
+      profileId: profile._id,
+      name: profile.name,
+      unlimitedInvites: profile.unlimitedInvites,
+      inviteUsageCount: profile.inviteUsageCount,
+    };
+  },
+});
+
 // Admin: Set unlimited invites for a profile by email
 export const setUnlimitedInvites = mutation({
   args: { email: v.string(), unlimited: v.boolean() },

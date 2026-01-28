@@ -288,6 +288,38 @@ export const removeEventGalleryImage = mutation({
   },
 });
 
+// Admin: Set artifact image from storage ID (no auth required)
+export const adminSetArtifactImage = mutation({
+  args: {
+    artifactId: v.id("artifacts"),
+    storageId: v.id("_storage"),
+  },
+  handler: async (ctx, args) => {
+    const artifact = await ctx.db.get(args.artifactId);
+    if (!artifact) throw new Error("Artifact not found");
+
+    // Delete old image if exists
+    if (artifact.mediaStorageId) {
+      await ctx.storage.delete(artifact.mediaStorageId);
+    }
+
+    await ctx.db.patch(args.artifactId, {
+      mediaStorageId: args.storageId,
+    });
+
+    const url = await ctx.storage.getUrl(args.storageId);
+    return { success: true, url };
+  },
+});
+
+// Admin: Generate upload URL without auth (for CLI uploads)
+export const adminGenerateUploadUrl = mutation({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.storage.generateUploadUrl();
+  },
+});
+
 // Update event cover color
 export const updateEventCoverColor = mutation({
   args: {
