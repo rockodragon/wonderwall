@@ -65,6 +65,7 @@ export default function AppLayout() {
         <div className="flex justify-around py-3">
           {navItems.map((item) => {
             const isActive = location.pathname.startsWith(item.path);
+            const isProfileItem = item.path === "/settings";
             return (
               <Link
                 key={item.path}
@@ -76,7 +77,15 @@ export default function AppLayout() {
                 }`}
                 aria-label={item.label}
               >
-                <item.icon className="w-6 h-6" />
+                {isProfileItem && profile?.imageUrl ? (
+                  <img
+                    src={profile.imageUrl}
+                    alt={profile.name}
+                    className={`w-6 h-6 rounded-full object-cover ${isActive ? "ring-2 ring-blue-500" : ""}`}
+                  />
+                ) : (
+                  <item.icon className="w-6 h-6" />
+                )}
               </Link>
             );
           })}
@@ -115,6 +124,7 @@ export default function AppLayout() {
         <nav className="flex-1 px-4 space-y-1">
           {navItems.map((item) => {
             const isActive = location.pathname.startsWith(item.path);
+            const isProfileItem = item.path === "/settings";
             return (
               <Link
                 key={item.path}
@@ -125,7 +135,15 @@ export default function AppLayout() {
                     : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
                 }`}
               >
-                <item.icon className="w-5 h-5" />
+                {isProfileItem && profile?.imageUrl ? (
+                  <img
+                    src={profile.imageUrl}
+                    alt={profile.name}
+                    className="w-5 h-5 rounded-full object-cover"
+                  />
+                ) : (
+                  <item.icon className="w-5 h-5" />
+                )}
                 {item.label}
               </Link>
             );
