@@ -46,12 +46,6 @@ export function LocationAutocomplete({
   const dropdownRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Get Convex URL for HTTP endpoint
-  const convexUrl =
-    typeof window !== "undefined"
-      ? (window as unknown as { ENV?: { CONVEX_URL?: string } }).ENV?.CONVEX_URL
-      : undefined;
-
   // Debounced search
   useEffect(() => {
     if (debounceRef.current) {
@@ -67,9 +61,18 @@ export function LocationAutocomplete({
     debounceRef.current = setTimeout(async () => {
       setIsLoading(true);
       try {
-        // Call Convex HTTP endpoint
-        const baseUrl = convexUrl?.replace(".cloud", ".site") || "";
-        const response = await fetch(`${baseUrl}/api/location/autocomplete`, {
+        // Get Convex site URL from environment variable
+        // VITE_CONVEX_URL is like "https://xxx.convex.cloud"
+        // HTTP endpoints are at "https://xxx.convex.site"
+        const convexUrl = import.meta.env.VITE_CONVEX_URL as string;
+        const siteUrl = convexUrl?.replace(".convex.cloud", ".convex.site");
+
+        if (!siteUrl) {
+          console.error("VITE_CONVEX_URL not configured");
+          return;
+        }
+
+        const response = await fetch(`${siteUrl}/api/location/autocomplete`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ query: value }),
@@ -93,7 +96,7 @@ export function LocationAutocomplete({
         clearTimeout(debounceRef.current);
       }
     };
-  }, [value, convexUrl]);
+  }, [value]);
 
   // Close dropdown on outside click
   useEffect(() => {
