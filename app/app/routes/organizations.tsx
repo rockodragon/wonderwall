@@ -415,7 +415,7 @@ function UpSightOrgEmbed({
     <div
       id={id}
       data-upsight-slug="5ky-bxs"
-      data-upsight-layout="email-first"
+      data-upsight-layout="inline"
       data-upsight-theme="transparent"
       data-upsight-accent={accentColor}
       data-upsight-radius="12"
