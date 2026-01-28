@@ -177,31 +177,15 @@ export default function Organizations() {
             musicians, writers, and more.
           </p>
 
-          <p className="text-lg text-gray-500 max-w-xl mx-auto mb-12">
+          <p className="text-lg text-gray-500 max-w-xl mx-auto mb-8">
             No more searching secular platforms for values-aligned talent. Find
             creatives whose work and faith speak for themselves.
           </p>
 
-          {/* Quick CTA */}
-          <a
-            href="#register"
-            className="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-semibold hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg shadow-blue-500/25"
-          >
-            Register Your Organization
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M19 9l-7 7-7-7"
-              />
-            </svg>
-          </a>
+          {/* Inline Registration Form */}
+          <div className="max-w-md mx-auto">
+            <UpSightOrgEmbed id="upsight-form-hero" accentColor="#60a5fa" />
+          </div>
         </div>
       </section>
 
