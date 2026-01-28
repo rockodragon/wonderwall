@@ -377,24 +377,31 @@ export default function Organizations() {
 
 function UpSightOrgEmbed({
   accentColor = "#60a5fa",
-  theme = "dark",
 }: {
   accentColor?: string;
-  theme?: "dark" | "light" | "transparent";
 }) {
   const encodedAccent = encodeURIComponent(accentColor);
   return (
-    <iframe
-      src={`https://getupsight.com/embed/5ky-bxs?layout=inline-email&theme=${theme}&accent=${encodedAccent}&radius=12&branding=true&buttonText=Register&placeholder=you%40organization.com&success=Thanks%21+We%27ll+be+in+touch.`}
-      width="100%"
-      height="200"
-      frameBorder="0"
-      scrolling="no"
-      allowTransparency={true}
-      style={{ border: "none", overflow: "hidden", background: "transparent" }}
-      allow="camera; microphone"
-      title="Organization Registration"
-    />
+    <div
+      className="relative overflow-hidden rounded-xl"
+      style={{ background: "#030712" }}
+    >
+      <iframe
+        src={`https://getupsight.com/embed/5ky-bxs?layout=inline-email&theme=dark&accent=${encodedAccent}&radius=12&branding=false&buttonText=Register&placeholder=you%40organization.com&success=Thanks%21+We%27ll+be+in+touch.`}
+        width="100%"
+        height="160"
+        frameBorder="0"
+        scrolling="no"
+        allowTransparency={true}
+        style={{
+          border: "none",
+          overflow: "hidden",
+          display: "block",
+        }}
+        allow="camera; microphone"
+        title="Organization Registration"
+      />
+    </div>
   );
 }
 
