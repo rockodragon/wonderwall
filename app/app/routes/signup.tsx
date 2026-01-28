@@ -151,13 +151,14 @@ export default function Signup() {
     setGoogleLoading(true);
 
     try {
-      // Store invite slug in session to redeem after OAuth callback
-      sessionStorage.setItem("pending-invite-slug", inviteSlug);
-
-      await signIn("google");
       posthog?.capture("google_signup_initiated", {
         invite_slug: inviteSlug,
         inviter_name: inviterInfo?.name,
+      });
+
+      // Pass invite slug via redirectTo URL param so it survives OAuth redirect
+      await signIn("google", {
+        redirectTo: `/oauth-callback?invite=${encodeURIComponent(inviteSlug)}`,
       });
     } catch (err) {
       setError("Failed to sign up with Google");
