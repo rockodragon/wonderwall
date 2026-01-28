@@ -8,6 +8,7 @@ import {
   LocationAutocomplete,
   type LocationSuggestion,
 } from "../components/LocationAutocomplete";
+import { ShareButton } from "../components/ShareButton";
 
 const COVER_COLORS = [
   { name: "Blue", value: "blue", gradient: "from-blue-500 to-blue-600" },
@@ -163,6 +164,12 @@ export default function EventDetail() {
               {event.title}
             </h1>
             <FavoriteButton targetType="event" targetId={event._id} />
+            <ShareButton
+              type="event"
+              title={event.title}
+              size="sm"
+              className="text-white/80 hover:text-white hover:bg-white/20"
+            />
             {event.isOrganizer && (
               <>
                 <button

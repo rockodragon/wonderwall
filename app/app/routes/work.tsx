@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams } from "react-router";
 import Markdown from "react-markdown";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
+import { ShareButton } from "../components/ShareButton";
 
 export default function WorkDetail() {
   const { artifactId } = useParams();
@@ -323,6 +324,13 @@ export default function WorkDetail() {
                 </svg>
                 {artifact.likeCount > 0 ? artifact.likeCount : "Like"}
               </button>
+
+              {/* Share button */}
+              <ShareButton
+                type="work"
+                title={artifact.title || "Work"}
+                size="md"
+              />
 
               {/* Owner controls */}
               {artifact.isOwner && (

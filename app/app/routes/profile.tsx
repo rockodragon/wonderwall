@@ -5,6 +5,7 @@ import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { FavoriteButton } from "../components/FavoriteButton";
 import { InviteCTA } from "../components/InviteCTA";
+import { ShareButton } from "../components/ShareButton";
 import { usePostHog } from "@posthog/react";
 
 export default function Profile() {
@@ -116,6 +117,7 @@ export default function Profile() {
               {profile.name}
             </h1>
             <FavoriteButton targetType="profile" targetId={profile._id} />
+            <ShareButton type="profile" title={profile.name} size="sm" />
             {/* Like button */}
             <button
               onClick={() =>
