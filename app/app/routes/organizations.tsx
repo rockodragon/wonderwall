@@ -184,7 +184,7 @@ export default function Organizations() {
 
           {/* Inline Registration Form */}
           <div className="max-w-md mx-auto">
-            <UpSightOrgEmbed id="upsight-form-hero" accentColor="#60a5fa" />
+            <UpSightOrgEmbed accentColor="#60a5fa" />
           </div>
         </div>
       </section>
@@ -233,12 +233,12 @@ export default function Organizations() {
         </div>
       </section>
 
-      {/* Sponsorship Tiers */}
+      {/* Partnership Tiers */}
       <section className="px-6 py-20">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
-              Organization Sponsorship Tiers
+              Organization Partnership Tiers
             </h2>
             <p className="text-gray-400 text-lg max-w-2xl mx-auto">
               Choose the level that fits your hiring needs. All tiers include a
@@ -324,7 +324,7 @@ export default function Organizations() {
             We're onboarding organizations in phases. Register below and we'll
             reach out to discuss your needs and get you set up.
           </p>
-          <UpSightOrgEmbed id="upsight-form-main" accentColor="#60a5fa" />
+          <UpSightOrgEmbed accentColor="#60a5fa" />
         </div>
       </section>
 
@@ -342,7 +342,7 @@ export default function Organizations() {
                 discovering Kingdom-minded creative talent.
               </p>
               <div className="max-w-md mx-auto">
-                <UpSightOrgEmbed id="upsight-form-cta" accentColor="#ffffff" />
+                <UpSightOrgEmbed accentColor="#ffffff" />
               </div>
             </div>
           </div>
@@ -376,37 +376,24 @@ export default function Organizations() {
 }
 
 function UpSightOrgEmbed({
-  id,
   accentColor = "#60a5fa",
+  theme = "dark",
 }: {
-  id: string;
   accentColor?: string;
+  theme?: "dark" | "light" | "transparent";
 }) {
-  useEffect(() => {
-    // Check if script already exists
-    const existingScript = document.querySelector(
-      'script[src="https://getupsight.com/embed.js"]',
-    );
-    if (!existingScript) {
-      const script = document.createElement("script");
-      script.src = "https://getupsight.com/embed.js";
-      script.async = true;
-      document.body.appendChild(script);
-    }
-  }, []);
-
+  const encodedAccent = encodeURIComponent(accentColor);
   return (
-    <div
-      id={id}
-      data-upsight-slug="5ky-bxs"
-      data-upsight-layout="inline"
-      data-upsight-theme="transparent"
-      data-upsight-accent={accentColor}
-      data-upsight-radius="12"
-      data-upsight-branding="true"
-      data-upsight-button-text="Continue"
-      data-upsight-placeholder="you@company.com"
-      data-upsight-success="Thanks for signing up!"
+    <iframe
+      src={`https://getupsight.com/embed/5ky-bxs?layout=inline-email&theme=${theme}&accent=${encodedAccent}&radius=12&branding=true&buttonText=Register&placeholder=you%40organization.com&success=Thanks%21+We%27ll+be+in+touch.`}
+      width="100%"
+      height="200"
+      frameBorder="0"
+      scrolling="no"
+      allowTransparency={true}
+      style={{ border: "none", overflow: "hidden", background: "transparent" }}
+      allow="camera; microphone"
+      title="Organization Registration"
     />
   );
 }
