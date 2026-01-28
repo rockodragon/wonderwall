@@ -243,6 +243,37 @@ export const deleteUser = mutation({
     // Delete profile
     await ctx.db.delete(profile._id);
 
+    // Delete auth accounts (OAuth links, password credentials)
+    const authAccounts = await ctx.db
+      .query("authAccounts")
+      .withIndex("userIdAndProvider", (q) => q.eq("userId", args.userId))
+      .collect();
+    for (const account of authAccounts) {
+      await ctx.db.delete(account._id);
+    }
+
+    // Delete auth sessions
+    const authSessions = await ctx.db
+      .query("authSessions")
+      .withIndex("userId", (q) => q.eq("userId", args.userId))
+      .collect();
+    for (const session of authSessions) {
+      await ctx.db.delete(session._id);
+    }
+
+    // Delete auth refresh tokens
+    const authRefreshTokens = await ctx.db
+      .query("authRefreshTokens")
+      .withIndex("sessionId")
+      .collect();
+    // Filter by session IDs we just collected
+    const sessionIds = new Set(authSessions.map((s) => s._id));
+    for (const token of authRefreshTokens) {
+      if (sessionIds.has(token.sessionId)) {
+        await ctx.db.delete(token._id);
+      }
+    }
+
     // Delete auth user
     await ctx.db.delete(args.userId);
 
