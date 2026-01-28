@@ -156,10 +156,10 @@ export default function Signup() {
         inviter_name: inviterInfo?.name,
       });
 
-      // Store invite slug in sessionStorage - persists within same tab through OAuth redirect
-      sessionStorage.setItem("pending-invite-slug", inviteSlug);
-
-      await signIn("google");
+      // Pass invite slug via redirectTo URL param so it survives OAuth redirect
+      await signIn("google", {
+        redirectTo: `/oauth-callback?invite=${encodeURIComponent(inviteSlug)}`,
+      });
     } catch (err) {
       setError("Failed to sign up with Google");
       posthog?.capture("google_signup_error", {
