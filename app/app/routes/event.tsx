@@ -329,11 +329,7 @@ export default function EventDetail() {
               Location
             </h3>
             <a
-              href={
-                event.coordinates
-                  ? `https://www.google.com/maps/search/?api=1&query=${event.coordinates.lat},${event.coordinates.lng}`
-                  : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`
-              }
+              href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`}
               target="_blank"
               rel="noopener noreferrer"
               className="block rounded-xl overflow-hidden hover:opacity-90 transition-opacity max-w-[300px]"
