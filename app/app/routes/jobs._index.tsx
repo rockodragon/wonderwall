@@ -338,13 +338,23 @@ export default function JobsIndex() {
                   {job.title}
                 </h3>
 
-                {/* Disciplines / Job Function */}
+                {/* Disciplines / Job Function - Orange badges like detail page */}
                 {job.disciplines && job.disciplines.length > 0 && (
-                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">
-                    {job.disciplines.slice(0, 2).join(" · ")}
-                    {job.disciplines.length > 2 &&
-                      ` +${job.disciplines.length - 2}`}
-                  </p>
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {job.disciplines.slice(0, 2).map((discipline) => (
+                      <span
+                        key={discipline}
+                        className="px-2 py-0.5 bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 rounded-md text-xs font-medium"
+                      >
+                        {discipline}
+                      </span>
+                    ))}
+                    {job.disciplines.length > 2 && (
+                      <span className="px-2 py-0.5 text-gray-500 dark:text-gray-400 text-xs">
+                        +{job.disciplines.length - 2}
+                      </span>
+                    )}
+                  </div>
                 )}
 
                 {/* Description Preview */}
@@ -352,32 +362,37 @@ export default function JobsIndex() {
                   {descriptionPreview}
                 </p>
 
-                {/* Badges Row */}
+                {/* Badges Row - Outlined style like detail page */}
                 <div className="flex flex-wrap gap-1.5 mb-auto">
                   {/* Status Badge */}
                   <span
-                    className={`px-2 py-0.5 rounded-md text-xs font-medium ${
+                    className={`inline-flex items-center gap-1 px-2 py-0.5 border rounded-full text-xs font-medium ${
                       job.status === "Open"
-                        ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
-                        : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
+                        ? "border-green-300 dark:border-green-700 text-green-600 dark:text-green-400"
+                        : "border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400"
                     }`}
                   >
+                    <span
+                      className={`w-1.5 h-1.5 rounded-full ${
+                        job.status === "Open" ? "bg-green-500" : "bg-gray-400"
+                      }`}
+                    />
                     {job.status}
                   </span>
 
                   {/* Location Badge */}
-                  <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded-md text-xs font-medium">
+                  <span className="px-2 py-0.5 border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 rounded-full text-xs font-medium">
                     {job.location}
                   </span>
 
                   {/* Job Type Badge */}
-                  <span className="px-2 py-0.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 rounded-md text-xs font-medium">
+                  <span className="px-2 py-0.5 border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 rounded-full text-xs font-medium">
                     {job.jobType}
                   </span>
 
                   {/* Interest Count Badge */}
                   {job.interestCount > 0 && (
-                    <span className="px-2 py-0.5 bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-400 rounded-md text-xs font-medium flex items-center gap-1">
+                    <span className="px-2 py-0.5 border border-pink-300 dark:border-pink-700 text-pink-600 dark:text-pink-400 rounded-full text-xs font-medium inline-flex items-center gap-1">
                       <svg
                         className="w-3 h-3"
                         fill="currentColor"
