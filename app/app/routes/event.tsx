@@ -4,6 +4,10 @@ import { Link, useParams } from "react-router";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { FavoriteButton } from "../components/FavoriteButton";
+import {
+  LocationAutocomplete,
+  type LocationSuggestion,
+} from "../components/LocationAutocomplete";
 
 const COVER_COLORS = [
   { name: "Blue", value: "blue", gradient: "from-blue-500 to-blue-600" },
@@ -863,12 +867,30 @@ function EditEventModal({
   const [date, setDate] = useState(dateStr);
   const [time, setTime] = useState(timeStr);
   const [location, setLocation] = useState(initialValues.location || "");
+  const [selectedLocation, setSelectedLocation] =
+    useState<LocationSuggestion | null>(null);
   const [tags, setTags] = useState<string[]>(initialValues.tags);
   const [requiresApproval, setRequiresApproval] = useState(
     initialValues.requiresApproval,
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  // Handle location selection from autocomplete
+  function handleLocationSelect(suggestion: LocationSuggestion) {
+    setSelectedLocation(suggestion);
+  }
+
+  // Clear selected location if user manually edits
+  function handleLocationChange(value: string) {
+    setLocation(value);
+    if (
+      !value ||
+      (selectedLocation && !value.includes(selectedLocation.displayName))
+    ) {
+      setSelectedLocation(null);
+    }
+  }
 
   function toggleTag(tag: string) {
     setTags((prev) =>
@@ -895,6 +917,10 @@ function EditEventModal({
         description,
         datetime,
         location: location || undefined,
+        locationType: selectedLocation?.locationType,
+        address: selectedLocation?.address,
+        coordinates: selectedLocation?.coordinates,
+        placeId: selectedLocation?.placeId,
         tags,
         requiresApproval,
       });
@@ -996,13 +1022,31 @@ function EditEventModal({
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Location
               </label>
-              <input
-                type="text"
+              <LocationAutocomplete
                 value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                placeholder="Address or 'Online'"
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
+                onChange={handleLocationChange}
+                onSelect={handleLocationSelect}
+                placeholder="Search for a location, type 'Online', or 'TBD'"
               />
+              {selectedLocation && (
+                <p className="mt-1 text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
+                  <svg
+                    className="w-3 h-3"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M5 13l4 4L19 7"
+                    />
+                  </svg>
+                  Location verified
+                  {selectedLocation.coordinates && " with coordinates"}
+                </p>
+              )}
             </div>
 
             <div>
