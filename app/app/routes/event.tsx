@@ -297,6 +297,32 @@ export default function EventDetail() {
           </p>
         </div>
 
+        {/* Location Map */}
+        {event.coordinates && event.locationType !== "online" && (
+          <div className="mb-8">
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
+              Location
+            </h3>
+            <a
+              href={`https://www.google.com/maps/search/?api=1&query=${event.coordinates.lat},${event.coordinates.lng}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block rounded-xl overflow-hidden hover:opacity-90 transition-opacity"
+            >
+              <img
+                src={`https://maps.googleapis.com/maps/api/staticmap?center=${event.coordinates.lat},${event.coordinates.lng}&zoom=15&size=600x200&scale=2&markers=color:red%7C${event.coordinates.lat},${event.coordinates.lng}&key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY}`}
+                alt={event.location || "Event location"}
+                className="w-full h-[150px] object-cover"
+              />
+            </a>
+            {event.location && (
+              <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                {event.location}
+              </p>
+            )}
+          </div>
+        )}
+
         {/* Gallery Images */}
         {!event.isOrganizer &&
           event.galleryImageUrls &&
