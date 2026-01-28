@@ -88,7 +88,27 @@ export default defineSchema({
     title: v.string(),
     description: v.string(),
     datetime: v.number(),
-    location: v.optional(v.string()),
+    // Location fields
+    location: v.optional(v.string()), // Display string: "Tamarack State Beach, Carlsbad, CA"
+    locationType: v.optional(v.string()), // "venue" | "city" | "zip" | "online" | "tbd"
+    address: v.optional(
+      v.object({
+        street: v.optional(v.string()),
+        city: v.optional(v.string()),
+        state: v.optional(v.string()),
+        stateCode: v.optional(v.string()),
+        zip: v.optional(v.string()),
+        country: v.optional(v.string()),
+        countryCode: v.optional(v.string()),
+      }),
+    ),
+    coordinates: v.optional(
+      v.object({
+        lat: v.number(),
+        lng: v.number(),
+      }),
+    ),
+    placeId: v.optional(v.string()), // Radar place ID for enrichment
     tags: v.array(v.string()),
     requiresApproval: v.boolean(),
     status: v.string(), // "draft" | "published" | "cancelled" | "completed"
