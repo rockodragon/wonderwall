@@ -98,7 +98,7 @@ export default function Works() {
           );
           const youtubeId = youtubeMatch?.[1];
           const youtubeThumbnail = youtubeId
-            ? `https://img.youtube.com/vi/${youtubeId}/hqdefault.jpg`
+            ? `https://img.youtube.com/vi/${youtubeId}/mqdefault.jpg`
             : null;
 
           const showAsImage =

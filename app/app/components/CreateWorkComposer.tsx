@@ -116,16 +116,23 @@ export function CreateWorkComposer({ onCreated }: { onCreated?: () => void }) {
 
     const isFirstWork = !artifacts || artifacts.length === 0;
 
+    // Auto-detect YouTube/Vimeo URLs and treat them as video type
+    const normalizedUrl = normalizeUrl(mediaUrl);
+    const isYouTubeUrl =
+      normalizedUrl.includes("youtube.com") ||
+      normalizedUrl.includes("youtu.be");
+    const isVimeoUrl = normalizedUrl.includes("vimeo.com");
+    const effectiveType =
+      type === "link" && (isYouTubeUrl || isVimeoUrl) ? "video" : type;
+
     setSaving(true);
     try {
       await createArtifact({
-        type,
+        type: effectiveType,
         title: title.trim() || undefined,
         content: type === "text" ? content.trim() : undefined,
         mediaUrl:
-          type !== "text" && !uploadedStorageId
-            ? normalizeUrl(mediaUrl)
-            : undefined,
+          type !== "text" && !uploadedStorageId ? normalizedUrl : undefined,
         mediaStorageId: uploadedStorageId
           ? (uploadedStorageId as any)
           : undefined,
@@ -141,7 +148,9 @@ export function CreateWorkComposer({ onCreated }: { onCreated?: () => void }) {
 
       // Track work created
       posthog?.capture("work_created", {
-        work_type: type,
+        work_type: effectiveType,
+        original_type: type,
+        auto_detected_video: effectiveType !== type,
         has_title: !!title.trim(),
         is_first_work: isFirstWork,
         has_uploaded_file: !!uploadedStorageId,
