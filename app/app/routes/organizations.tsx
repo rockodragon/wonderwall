@@ -161,19 +161,20 @@ export default function Organizations() {
                 d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
               />
             </svg>
-            For Churches, Ministries & Organizations
+            For Any Organization
           </div>
 
           <h1 className="text-4xl md:text-6xl font-bold text-white leading-tight mb-6">
             Hire{" "}
             <span className="bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
-              Kingdom Creatives
+              Kingdom-Minded Creatives
             </span>
           </h1>
 
           <p className="text-xl text-gray-400 max-w-2xl mx-auto mb-4">
-            Connect with talented designers, filmmakers, musicians, writers, and
-            more—all united by a shared calling to create for the Kingdom.
+            Churches, nonprofits, ministries, agencies, and mission
+            organizations—connect with talented designers, filmmakers,
+            musicians, writers, and more.
           </p>
 
           <p className="text-lg text-gray-500 max-w-xl mx-auto mb-12">
@@ -331,20 +332,15 @@ export default function Organizations() {
 
       {/* Registration Form */}
       <section id="register" className="px-6 py-20 bg-gray-900/50">
-        <div className="max-w-xl mx-auto">
-          <div className="text-center mb-8">
-            <h2 className="text-3xl font-bold text-white mb-4">
-              Register Your Interest
-            </h2>
-            <p className="text-gray-400">
-              We're onboarding organizations in phases. Register below and we'll
-              reach out to discuss your needs and get you set up.
-            </p>
-          </div>
-
-          <div className="bg-gray-900 rounded-2xl border border-gray-800 p-8">
-            <UpSightOrgEmbed />
-          </div>
+        <div className="max-w-xl mx-auto text-center">
+          <h2 className="text-3xl font-bold text-white mb-4">
+            Register Your Interest
+          </h2>
+          <p className="text-gray-400 mb-8">
+            We're onboarding organizations in phases. Register below and we'll
+            reach out to discuss your needs and get you set up.
+          </p>
+          <UpSightOrgEmbed id="upsight-form-main" accentColor="#60a5fa" />
         </div>
       </section>
 
@@ -357,29 +353,13 @@ export default function Organizations() {
               <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
                 Ready to Find Your Next Creative?
               </h2>
-              <p className="text-white/80 text-lg mb-8 max-w-xl mx-auto">
+              <p className="text-white/90 text-lg mb-8 max-w-xl mx-auto">
                 Join the growing community of churches and ministries
                 discovering Kingdom-minded creative talent.
               </p>
-              <a
-                href="#register"
-                className="inline-flex items-center gap-2 px-8 py-4 bg-white text-gray-900 rounded-xl font-semibold hover:bg-gray-100 transition-all"
-              >
-                Get Started
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M17 8l4 4m0 0l-4 4m4-4H3"
-                  />
-                </svg>
-              </a>
+              <div className="max-w-md mx-auto">
+                <UpSightOrgEmbed id="upsight-form-cta" accentColor="#ffffff" />
+              </div>
             </div>
           </div>
         </div>
@@ -411,7 +391,13 @@ export default function Organizations() {
   );
 }
 
-function UpSightOrgEmbed() {
+function UpSightOrgEmbed({
+  id,
+  accentColor = "#60a5fa",
+}: {
+  id: string;
+  accentColor?: string;
+}) {
   useEffect(() => {
     // Check if script already exists
     const existingScript = document.querySelector(
@@ -427,11 +413,11 @@ function UpSightOrgEmbed() {
 
   return (
     <div
-      id="upsight-form"
+      id={id}
       data-upsight-slug="5ky-bxs"
       data-upsight-layout="email-first"
       data-upsight-theme="transparent"
-      data-upsight-accent="#ffffff"
+      data-upsight-accent={accentColor}
       data-upsight-radius="12"
       data-upsight-branding="true"
       data-upsight-button-text="Continue"
