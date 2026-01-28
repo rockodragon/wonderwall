@@ -321,7 +321,9 @@ function AboutWonderCard() {
 }
 
 function WonderCard({ profile }: { profile: ProfileWithWondering }) {
-  const wondering = profile.wondering!;
+  // Safety check - prevents crash during data refetch timing issues
+  if (!profile.wondering) return null;
+  const wondering = profile.wondering;
   const { sizeClass, fontClass } = getWonderTextStyle(wondering.prompt);
 
   // Use wondering image, or profile image, or gradient
