@@ -286,11 +286,26 @@ export const search = query({
                 prompt: wondering.prompt,
                 _id: wondering._id,
                 imageUrl: wonderingImageUrl,
+                createdAt: wondering.createdAt,
               }
             : null,
         };
       }),
     );
+
+    // Sort profiles: those with wonderings first (most recent wondering first), then others
+    profilesWithData.sort((a, b) => {
+      // Both have wonderings - sort by wondering createdAt (most recent first)
+      if (a.wondering && b.wondering) {
+        return b.wondering.createdAt - a.wondering.createdAt;
+      }
+      // Only a has wondering - a comes first
+      if (a.wondering) return -1;
+      // Only b has wondering - b comes first
+      if (b.wondering) return 1;
+      // Neither has wondering - maintain original order
+      return 0;
+    });
 
     return profilesWithData;
   },
