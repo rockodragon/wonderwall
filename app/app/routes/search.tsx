@@ -52,20 +52,46 @@ type ProfileWithWondering = {
 
 export default function Search() {
   const [query, setQuery] = useState("");
-  const [activeFilter, setActiveFilter] = useState<string | undefined>();
-  const [filterDropdownOpen, setFilterDropdownOpen] = useState(false);
+  const [activeFilters, setActiveFilters] = useState<string[]>([]);
+  const [filterExpanded, setFilterExpanded] = useState(false);
 
   const debouncedQuery = useDebounce(query, 300);
 
-  // Get current filter label for mobile button
-  const activeFilterLabel =
-    FILTERS.find((f) => f.value === activeFilter)?.label || "All";
+  // Toggle a filter on/off
+  function toggleFilter(value: string | undefined) {
+    if (!value) {
+      // "All" clears all filters
+      setActiveFilters([]);
+      return;
+    }
+    setActiveFilters((prev) =>
+      prev.includes(value) ? prev.filter((f) => f !== value) : [...prev, value],
+    );
+  }
+
+  // Get filter label for button
+  const filterLabel =
+    activeFilters.length === 0
+      ? "All"
+      : activeFilters.length === 1
+        ? FILTERS.find((f) => f.value === activeFilters[0])?.label || "1 filter"
+        : `${activeFilters.length} filters`;
 
   // Text-based search for profiles (includes name, bio, job functions, wonderings)
+  // Pass first filter for now (API would need update to support multiple)
   const profiles = useQuery(api.profiles.search, {
     query: debouncedQuery || undefined,
-    jobFunction: activeFilter,
+    jobFunction: activeFilters[0],
   }) as ProfileWithWondering[] | undefined;
+
+  // Client-side filter for additional filters
+  const filteredProfiles = profiles?.filter((profile) => {
+    if (activeFilters.length <= 1) return true;
+    // Check if profile has ANY of the selected job functions
+    return activeFilters.some((filter) =>
+      profile.jobFunctions.includes(filter),
+    );
+  });
 
   // Search events when there's a query
   const events = useQuery(
@@ -75,9 +101,11 @@ export default function Search() {
 
   const loading = profiles === undefined;
 
-  // Split into profiles with wonderings and without
-  const profilesWithWonderings = profiles?.filter((p) => p.wondering) || [];
-  const profilesWithoutWonderings = profiles?.filter((p) => !p.wondering) || [];
+  // Split filtered profiles into with wonderings and without
+  const filteredProfilesWithWonderings =
+    filteredProfiles?.filter((p) => p.wondering) || [];
+  const filteredProfilesWithoutWonderings =
+    filteredProfiles?.filter((p) => !p.wondering) || [];
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
@@ -119,50 +147,53 @@ export default function Search() {
         />
       </div>
 
-      {/* Filter dropdown */}
-      <div className="relative mb-8">
+      {/* Filter accordion */}
+      <div className="mb-8">
         <button
-          onClick={() => setFilterDropdownOpen(!filterDropdownOpen)}
+          onClick={() => setFilterExpanded(!filterExpanded)}
           className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-colors ${
-            activeFilter
+            activeFilters.length > 0
               ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
               : "border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
           }`}
         >
           <FilterIcon className="w-4 h-4" />
-          <span className="font-medium">{activeFilterLabel}</span>
+          <span className="font-medium">{filterLabel}</span>
           <ChevronDownIcon
-            className={`w-4 h-4 transition-transform ${filterDropdownOpen ? "rotate-180" : ""}`}
+            className={`w-4 h-4 transition-transform ${filterExpanded ? "rotate-180" : ""}`}
           />
         </button>
 
-        {filterDropdownOpen && (
-          <>
-            {/* Backdrop */}
-            <div
-              className="fixed inset-0 z-40"
-              onClick={() => setFilterDropdownOpen(false)}
-            />
-            {/* Dropdown */}
-            <div className="absolute top-full left-0 mt-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg z-50 max-h-[60vh] overflow-y-auto min-w-[200px]">
-              {FILTERS.map((filter) => (
+        {/* Accordion content */}
+        {filterExpanded && (
+          <div className="mt-3 p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl">
+            <div className="flex flex-wrap gap-2">
+              {/* Clear all button */}
+              <button
+                onClick={() => setActiveFilters([])}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                  activeFilters.length === 0
+                    ? "bg-blue-600 text-white"
+                    : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+                }`}
+              >
+                All
+              </button>
+              {FILTERS.filter((f) => f.value).map((filter) => (
                 <button
                   key={filter.label}
-                  onClick={() => {
-                    setActiveFilter(filter.value);
-                    setFilterDropdownOpen(false);
-                  }}
-                  className={`w-full text-left px-4 py-3 transition-colors ${
-                    activeFilter === filter.value
-                      ? "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
-                      : "text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                  onClick={() => toggleFilter(filter.value)}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                    activeFilters.includes(filter.value!)
+                      ? "bg-blue-600 text-white"
+                      : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
                   }`}
                 >
                   {filter.label}
                 </button>
               ))}
             </div>
-          </>
+          </div>
         )}
       </div>
 
@@ -171,7 +202,7 @@ export default function Search() {
         <div className="text-center py-12">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto" />
         </div>
-      ) : profiles?.length === 0 && (!events || events.length === 0) ? (
+      ) : filteredProfiles?.length === 0 && (!events || events.length === 0) ? (
         <div className="text-center py-12 text-gray-500 dark:text-gray-400">
           <p>{query ? "No results found" : "No creatives to show yet"}</p>
         </div>
@@ -192,14 +223,14 @@ export default function Search() {
           )}
 
           {/* Wonder Cards - Primary Section */}
-          {profilesWithWonderings.length > 0 && (
+          {filteredProfilesWithWonderings.length > 0 && (
             <section>
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
                 What people are wondering
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <AboutWonderCard />
-                {profilesWithWonderings.map((profile) => (
+                {filteredProfilesWithWonderings.map((profile) => (
                   <WonderCard key={profile._id} profile={profile} />
                 ))}
               </div>
@@ -207,13 +238,13 @@ export default function Search() {
           )}
 
           {/* Profiles without wonderings */}
-          {profilesWithoutWonderings.length > 0 && (
+          {filteredProfilesWithoutWonderings.length > 0 && (
             <section>
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
                 {query ? "People" : "More creatives"}
               </h2>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {profilesWithoutWonderings.map((profile) => (
+                {filteredProfilesWithoutWonderings.map((profile) => (
                   <ProfileCard key={profile._id} profile={profile} />
                 ))}
               </div>

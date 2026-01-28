@@ -144,7 +144,7 @@ export function CreateWonderingComposer() {
             </div>
           )}
           <span className="text-gray-500 dark:text-gray-400">
-            What are you wondering about?
+            Post to share what you're wondering about
           </span>
         </button>
       ) : (
