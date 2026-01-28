@@ -163,13 +163,6 @@ export default function EventDetail() {
             <h1 className="text-2xl md:text-3xl font-bold text-white">
               {event.title}
             </h1>
-            <FavoriteButton targetType="event" targetId={event._id} />
-            <ShareButton
-              type="event"
-              title={event.title}
-              size="sm"
-              className="text-white/80 hover:text-white hover:bg-white/20"
-            />
             {event.isOrganizer && (
               <>
                 <button
@@ -242,9 +235,9 @@ export default function EventDetail() {
       </div>
 
       <div className="p-6">
-        {/* Tags */}
-        {event.tags.length > 0 && (
-          <div className="flex flex-wrap gap-2 mb-6">
+        {/* Tags and Actions Row */}
+        <div className="flex items-center justify-between gap-4 mb-6">
+          <div className="flex flex-wrap gap-2">
             {event.tags.map((tag) => (
               <span
                 key={tag}
@@ -254,58 +247,182 @@ export default function EventDetail() {
               </span>
             ))}
           </div>
-        )}
-
-        {/* Organizer */}
-        {event.organizer && (
-          <div className="mb-6 text-sm text-gray-500 dark:text-gray-400">
-            <span>Organized by </span>
-            {event.organizer.profileId ? (
-              <Link
-                to={`/profile/${event.organizer.profileId}`}
-                className="inline-flex items-center gap-2 font-medium text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400"
-              >
-                <span className="w-7 h-7 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center overflow-hidden">
-                  {event.organizer.imageUrl ? (
-                    <img
-                      src={event.organizer.imageUrl}
-                      alt={event.organizer.name}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <span className="text-xs font-medium text-gray-500">
-                      {event.organizer.name.charAt(0)}
-                    </span>
-                  )}
-                </span>
-                {event.organizer.name}
-              </Link>
-            ) : (
-              <span className="inline-flex items-center gap-2 font-medium text-gray-900 dark:text-white">
-                <span className="w-7 h-7 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center overflow-hidden">
-                  {event.organizer.imageUrl ? (
-                    <img
-                      src={event.organizer.imageUrl}
-                      alt={event.organizer.name}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <span className="text-xs font-medium text-gray-500">
-                      {event.organizer.name.charAt(0)}
-                    </span>
-                  )}
-                </span>
-                {event.organizer.name}
-              </span>
-            )}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <FavoriteButton targetType="event" targetId={event._id} />
+            <ShareButton type="event" title={event.title} size="sm" />
           </div>
-        )}
+        </div>
 
-        {/* Description */}
-        <div className="prose dark:prose-invert max-w-none mb-8">
-          <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
-            {event.description}
-          </p>
+        {/* Organizer, Description, and Join Button */}
+        <div className="flex flex-col md:flex-row md:gap-8 mb-8">
+          {/* Left: Organizer and Description */}
+          <div className="flex-1">
+            {/* Organizer */}
+            {event.organizer && (
+              <div className="mb-4 text-sm text-gray-500 dark:text-gray-400">
+                <span>Organized by </span>
+                {event.organizer.profileId ? (
+                  <Link
+                    to={`/profile/${event.organizer.profileId}`}
+                    className="inline-flex items-center gap-2 font-medium text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400"
+                  >
+                    <span className="w-7 h-7 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center overflow-hidden">
+                      {event.organizer.imageUrl ? (
+                        <img
+                          src={event.organizer.imageUrl}
+                          alt={event.organizer.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-xs font-medium text-gray-500">
+                          {event.organizer.name.charAt(0)}
+                        </span>
+                      )}
+                    </span>
+                    {event.organizer.name}
+                  </Link>
+                ) : (
+                  <span className="inline-flex items-center gap-2 font-medium text-gray-900 dark:text-white">
+                    <span className="w-7 h-7 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center overflow-hidden">
+                      {event.organizer.imageUrl ? (
+                        <img
+                          src={event.organizer.imageUrl}
+                          alt={event.organizer.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-xs font-medium text-gray-500">
+                          {event.organizer.name.charAt(0)}
+                        </span>
+                      )}
+                    </span>
+                    {event.organizer.name}
+                  </span>
+                )}
+              </div>
+            )}
+
+            {/* Description */}
+            <div className="prose dark:prose-invert max-w-none">
+              <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                {event.description}
+              </p>
+            </div>
+          </div>
+
+          {/* Right: Join Button (desktop) */}
+          <div className="hidden md:block flex-shrink-0 w-56">
+            {isPast ? (
+              <div className="p-3 bg-gray-100 dark:bg-gray-800 rounded-xl text-center">
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Event ended
+                </p>
+              </div>
+            ) : event.userApplication ? (
+              <div
+                className={`p-3 rounded-xl text-center ${
+                  event.userApplication.status === "accepted"
+                    ? "bg-green-50 dark:bg-green-900/20"
+                    : event.userApplication.status === "declined"
+                      ? "bg-red-50 dark:bg-red-900/20"
+                      : "bg-blue-50 dark:bg-blue-900/20"
+                }`}
+              >
+                <p
+                  className={`text-sm font-medium ${
+                    event.userApplication.status === "accepted"
+                      ? "text-green-700 dark:text-green-300"
+                      : event.userApplication.status === "declined"
+                        ? "text-red-700 dark:text-red-300"
+                        : "text-blue-700 dark:text-blue-300"
+                  }`}
+                >
+                  {event.userApplication.status === "accepted"
+                    ? "You're in!"
+                    : event.userApplication.status === "declined"
+                      ? "Declined"
+                      : "Pending"}
+                </p>
+              </div>
+            ) : canApply ? (
+              event.requiresApproval ? (
+                showApplyForm ? (
+                  <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl">
+                    <h3 className="font-medium text-gray-900 dark:text-white mb-3 text-sm">
+                      Apply to attend
+                    </h3>
+                    <textarea
+                      value={message}
+                      onChange={(e) => setMessage(e.target.value)}
+                      placeholder="Why you'd like to attend..."
+                      rows={3}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-900 dark:text-white resize-none mb-3 text-sm"
+                    />
+                    <div className="flex flex-col gap-2">
+                      <button
+                        onClick={handleApply}
+                        disabled={applying}
+                        className="w-full py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 text-sm"
+                      >
+                        {applying ? "Applying..." : "Submit"}
+                      </button>
+                      <button
+                        onClick={() => setShowApplyForm(false)}
+                        className="py-2 text-gray-600 dark:text-gray-400 text-sm"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setShowApplyForm(true)}
+                    className="w-full py-2.5 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors"
+                  >
+                    Apply to Attend
+                  </button>
+                )
+              ) : showJoinForm ? (
+                <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl">
+                  <h3 className="font-medium text-gray-900 dark:text-white mb-3 text-sm">
+                    Join this event
+                  </h3>
+                  <textarea
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    placeholder="Share why you're excited! (optional)"
+                    rows={2}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent dark:bg-gray-900 dark:text-white resize-none mb-3 text-sm"
+                  />
+                  <div className="flex flex-col gap-2">
+                    <button
+                      onClick={handleJoin}
+                      disabled={joining}
+                      className="w-full py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:opacity-50 text-sm"
+                    >
+                      {joining ? "Joining..." : "Join"}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowJoinForm(false);
+                        setMessage("");
+                      }}
+                      className="py-2 text-gray-600 dark:text-gray-400 text-sm"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setShowJoinForm(true)}
+                  className="w-full py-2.5 bg-green-600 text-white rounded-xl font-medium hover:bg-green-700 transition-colors"
+                >
+                  Join Event
+                </button>
+              )
+            ) : null}
+          </div>
         </div>
 
         {/* Gallery Images - show first for visual appeal */}
@@ -332,6 +449,120 @@ export default function EventDetail() {
               </div>
             </div>
           )}
+
+        {/* Mobile Join Button - between description/gallery and location */}
+        <div className="md:hidden mb-8">
+          {isPast ? (
+            <div className="p-4 bg-gray-100 dark:bg-gray-800 rounded-xl text-center">
+              <p className="text-gray-500 dark:text-gray-400">
+                This event has ended
+              </p>
+            </div>
+          ) : event.userApplication ? (
+            <div
+              className={`p-4 rounded-xl ${
+                event.userApplication.status === "accepted"
+                  ? "bg-green-50 dark:bg-green-900/20"
+                  : event.userApplication.status === "declined"
+                    ? "bg-red-50 dark:bg-red-900/20"
+                    : "bg-blue-50 dark:bg-blue-900/20"
+              }`}
+            >
+              <p
+                className={`font-medium ${
+                  event.userApplication.status === "accepted"
+                    ? "text-green-700 dark:text-green-300"
+                    : event.userApplication.status === "declined"
+                      ? "text-red-700 dark:text-red-300"
+                      : "text-blue-700 dark:text-blue-300"
+                }`}
+              >
+                {event.userApplication.status === "accepted"
+                  ? "You're in! See you there."
+                  : event.userApplication.status === "declined"
+                    ? "Your application was declined"
+                    : "Your application is pending approval"}
+              </p>
+            </div>
+          ) : canApply ? (
+            event.requiresApproval ? (
+              showApplyForm ? (
+                <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl">
+                  <h3 className="font-medium text-gray-900 dark:text-white mb-3">
+                    Apply to attend
+                  </h3>
+                  <textarea
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    placeholder="Tell the organizer why you'd like to attend..."
+                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-900 dark:text-white resize-none mb-3"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleApply}
+                      disabled={applying}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50"
+                    >
+                      {applying ? "Applying..." : "Submit Application"}
+                    </button>
+                    <button
+                      onClick={() => setShowApplyForm(false)}
+                      className="px-4 py-2 text-gray-600 dark:text-gray-400"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setShowApplyForm(true)}
+                  className="w-full py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors"
+                >
+                  Apply to Attend
+                </button>
+              )
+            ) : showJoinForm ? (
+              <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl">
+                <h3 className="font-medium text-gray-900 dark:text-white mb-3">
+                  Join this event
+                </h3>
+                <textarea
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  placeholder="Share why you're excited to attend! (optional)"
+                  rows={2}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent dark:bg-gray-900 dark:text-white resize-none mb-3"
+                />
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleJoin}
+                    disabled={joining}
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:opacity-50"
+                  >
+                    {joining ? "Joining..." : "Join Event"}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowJoinForm(false);
+                      setMessage("");
+                    }}
+                    className="px-4 py-2 text-gray-600 dark:text-gray-400"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowJoinForm(true)}
+                className="w-full py-3 bg-green-600 text-white rounded-xl font-medium hover:bg-green-700 transition-colors"
+              >
+                Join Event
+              </button>
+            )
+          ) : null}
+        </div>
 
         {/* Location Map */}
         {event.location && event.locationType !== "online" && (
@@ -441,118 +672,6 @@ export default function EventDetail() {
             </div>
           </div>
         )}
-
-        {/* Status / Apply section */}
-        {isPast ? (
-          <div className="p-4 bg-gray-100 dark:bg-gray-800 rounded-xl text-center">
-            <p className="text-gray-500 dark:text-gray-400">
-              This event has ended
-            </p>
-          </div>
-        ) : event.userApplication ? (
-          <div
-            className={`p-4 rounded-xl ${
-              event.userApplication.status === "accepted"
-                ? "bg-green-50 dark:bg-green-900/20"
-                : event.userApplication.status === "declined"
-                  ? "bg-red-50 dark:bg-red-900/20"
-                  : "bg-blue-50 dark:bg-blue-900/20"
-            }`}
-          >
-            <p
-              className={`font-medium ${
-                event.userApplication.status === "accepted"
-                  ? "text-green-700 dark:text-green-300"
-                  : event.userApplication.status === "declined"
-                    ? "text-red-700 dark:text-red-300"
-                    : "text-blue-700 dark:text-blue-300"
-              }`}
-            >
-              {event.userApplication.status === "accepted"
-                ? "You're in! See you there."
-                : event.userApplication.status === "declined"
-                  ? "Your application was declined"
-                  : "Your application is pending approval"}
-            </p>
-          </div>
-        ) : canApply ? (
-          event.requiresApproval ? (
-            showApplyForm ? (
-              <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl">
-                <h3 className="font-medium text-gray-900 dark:text-white mb-3">
-                  Apply to attend
-                </h3>
-                <textarea
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  placeholder="Tell the organizer why you'd like to attend..."
-                  rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-900 dark:text-white resize-none mb-3"
-                />
-                <div className="flex gap-2">
-                  <button
-                    onClick={handleApply}
-                    disabled={applying}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50"
-                  >
-                    {applying ? "Applying..." : "Submit Application"}
-                  </button>
-                  <button
-                    onClick={() => setShowApplyForm(false)}
-                    className="px-4 py-2 text-gray-600 dark:text-gray-400"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <button
-                onClick={() => setShowApplyForm(true)}
-                className="w-full py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors"
-              >
-                Apply to Attend
-              </button>
-            )
-          ) : showJoinForm ? (
-            <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl">
-              <h3 className="font-medium text-gray-900 dark:text-white mb-3">
-                Join this event
-              </h3>
-              <textarea
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                placeholder="Share why you're excited to attend! (optional)"
-                rows={2}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent dark:bg-gray-900 dark:text-white resize-none mb-3"
-              />
-              <div className="flex gap-2">
-                <button
-                  onClick={handleJoin}
-                  disabled={joining}
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:opacity-50"
-                >
-                  {joining ? "Joining..." : "Join Event"}
-                </button>
-                <button
-                  onClick={() => {
-                    setShowJoinForm(false);
-                    setMessage("");
-                  }}
-                  className="px-4 py-2 text-gray-600 dark:text-gray-400"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          ) : (
-            <button
-              onClick={() => setShowJoinForm(true)}
-              className="w-full py-3 bg-green-600 text-white rounded-xl font-medium hover:bg-green-700 transition-colors"
-            >
-              Join Event
-            </button>
-          )
-        ) : null}
 
         {/* Organizer image management */}
         {event.isOrganizer && (
