@@ -112,12 +112,38 @@ export default function WorkDetail() {
 
           {/* Image */}
           {showAsImage && artifact.resolvedMediaUrl && !youtubeId && (
-            <div className="flex items-center justify-center min-h-[300px] max-h-[70vh]">
+            <div className="relative flex items-center justify-center min-h-[300px] max-h-[70vh]">
               <img
                 src={artifact.resolvedMediaUrl}
                 alt={artifact.title || "Work"}
                 className="max-w-full max-h-[70vh] object-contain"
               />
+              {/* Link badge for images that have an associated link */}
+              {artifact.type === "link" && artifact.mediaUrl && (
+                <a
+                  href={artifact.mediaUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="absolute bottom-4 right-4 flex items-center gap-2 px-4 py-2 bg-white/90 dark:bg-black/70 rounded-xl shadow-lg hover:bg-white dark:hover:bg-black transition-colors"
+                >
+                  <svg
+                    className="w-5 h-5 text-emerald-600 dark:text-emerald-400"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                    />
+                  </svg>
+                  <span className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                    {getDomainFromUrl(artifact.mediaUrl)}
+                  </span>
+                </a>
+              )}
             </div>
           )}
 
@@ -170,11 +196,12 @@ export default function WorkDetail() {
             </div>
           )}
 
-          {/* Link (non-image) */}
+          {/* Link (non-image) - only show if no stored image */}
           {artifact.type === "link" &&
             !isImageUrl &&
+            !hasStoredImage &&
             !youtubeId &&
-            artifact.resolvedMediaUrl && (
+            artifact.mediaUrl && (
               <>
                 {artifact.ogImageUrl ? (
                   <div className="relative min-h-[300px] bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
@@ -185,7 +212,7 @@ export default function WorkDetail() {
                     />
                     {/* Link badge */}
                     <a
-                      href={artifact.resolvedMediaUrl}
+                      href={artifact.mediaUrl}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="absolute bottom-4 right-4 flex items-center gap-2 px-4 py-2 bg-white/90 dark:bg-black/70 rounded-xl shadow-lg hover:bg-white dark:hover:bg-black transition-colors"
@@ -224,10 +251,10 @@ export default function WorkDetail() {
                       />
                     </svg>
                     <p className="text-emerald-600 dark:text-emerald-400 text-lg font-medium mb-3">
-                      {getDomainFromUrl(artifact.resolvedMediaUrl)}
+                      {getDomainFromUrl(artifact.mediaUrl)}
                     </p>
                     <a
-                      href={artifact.resolvedMediaUrl}
+                      href={artifact.mediaUrl}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700 transition-colors"
