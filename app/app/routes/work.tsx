@@ -122,7 +122,7 @@ export default function WorkDetail() {
               {/* Link badge for images that have an associated link */}
               {artifact.type === "link" && artifact.mediaUrl && (
                 <a
-                  href={artifact.mediaUrl}
+                  href={ensureHttps(artifact.mediaUrl!)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="absolute bottom-4 right-4 flex items-center gap-2 px-4 py-2 bg-white/90 dark:bg-black/70 rounded-xl shadow-lg hover:bg-white dark:hover:bg-black transition-colors"
@@ -213,7 +213,7 @@ export default function WorkDetail() {
                     />
                     {/* Link badge */}
                     <a
-                      href={artifact.mediaUrl}
+                      href={ensureHttps(artifact.mediaUrl!)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="absolute bottom-4 right-4 flex items-center gap-2 px-4 py-2 bg-white/90 dark:bg-black/70 rounded-xl shadow-lg hover:bg-white dark:hover:bg-black transition-colors"
@@ -255,7 +255,7 @@ export default function WorkDetail() {
                       {getDomainFromUrl(artifact.mediaUrl)}
                     </p>
                     <a
-                      href={artifact.mediaUrl}
+                      href={ensureHttps(artifact.mediaUrl!)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700 transition-colors"
@@ -436,9 +436,17 @@ export default function WorkDetail() {
   );
 }
 
+function ensureHttps(url: string): string {
+  if (!url) return url;
+  if (url.startsWith("http://") || url.startsWith("https://")) {
+    return url;
+  }
+  return `https://${url}`;
+}
+
 function getDomainFromUrl(url: string): string {
   try {
-    const parsed = new URL(url);
+    const parsed = new URL(ensureHttps(url));
     return parsed.hostname.replace("www.", "");
   } catch {
     return url;
