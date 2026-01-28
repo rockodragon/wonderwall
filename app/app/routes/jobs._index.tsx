@@ -331,42 +331,32 @@ export default function JobsIndex() {
               <Link
                 key={job._id}
                 to={`/jobs/${job._id}`}
-                className="group block bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 hover:border-blue-500 dark:hover:border-blue-500 transition-all hover:shadow-lg"
+                className="group flex flex-col bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 hover:border-blue-500 dark:hover:border-blue-500 transition-all hover:shadow-lg"
               >
                 {/* Job Title */}
-                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2 line-clamp-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1 line-clamp-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                   {job.title}
                 </h3>
 
-                {/* Poster Info */}
-                {job.poster && (
-                  <div className="flex items-center gap-2 mb-3">
-                    {job.poster.imageUrl ? (
-                      <img
-                        src={job.poster.imageUrl}
-                        alt={job.poster.name}
-                        className="w-6 h-6 rounded-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-6 h-6 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center text-white text-xs">
-                        {job.poster.name[0]?.toUpperCase() || "?"}
-                      </div>
-                    )}
-                    <Link
-                      to={`/profile/${job.poster.profileId}`}
-                      className="text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 truncate"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      {job.poster.name}
-                    </Link>
-                  </div>
+                {/* Disciplines / Job Function */}
+                {job.disciplines && job.disciplines.length > 0 && (
+                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">
+                    {job.disciplines.slice(0, 2).join(" · ")}
+                    {job.disciplines.length > 2 &&
+                      ` +${job.disciplines.length - 2}`}
+                  </p>
                 )}
 
+                {/* Description Preview */}
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-3 line-clamp-2">
+                  {descriptionPreview}
+                </p>
+
                 {/* Badges Row */}
-                <div className="flex flex-wrap gap-2 mb-3">
+                <div className="flex flex-wrap gap-1.5 mb-auto">
                   {/* Status Badge */}
                   <span
-                    className={`px-2 py-1 rounded-lg text-xs font-medium ${
+                    className={`px-2 py-0.5 rounded-md text-xs font-medium ${
                       job.status === "Open"
                         ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
                         : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
@@ -376,62 +366,54 @@ export default function JobsIndex() {
                   </span>
 
                   {/* Location Badge */}
-                  <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded-lg text-xs font-medium">
+                  <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded-md text-xs font-medium">
                     {job.location}
                   </span>
 
                   {/* Job Type Badge */}
-                  <span className="px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 rounded-lg text-xs font-medium">
+                  <span className="px-2 py-0.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 rounded-md text-xs font-medium">
                     {job.jobType}
                   </span>
-                </div>
 
-                {/* Description Preview */}
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-3 line-clamp-3">
-                  {descriptionPreview}
-                </p>
-
-                {/* Footer with Date and Interest Count */}
-                <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-500">
-                  <span>{getRelativeTime(job.createdAt)}</span>
+                  {/* Interest Count Badge */}
                   {job.interestCount > 0 && (
-                    <div className="flex items-center gap-1">
+                    <span className="px-2 py-0.5 bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-400 rounded-md text-xs font-medium flex items-center gap-1">
                       <svg
-                        className="w-4 h-4"
-                        fill="none"
+                        className="w-3 h-3"
+                        fill="currentColor"
                         viewBox="0 0 24 24"
-                        stroke="currentColor"
                       >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
-                        />
+                        <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
                       </svg>
-                      <span>{job.interestCount} interested</span>
-                    </div>
+                      {job.interestCount}
+                    </span>
                   )}
                 </div>
 
-                {/* Disciplines Tags */}
-                {job.disciplines && job.disciplines.length > 0 && (
-                  <div className="flex flex-wrap gap-1 mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
-                    {job.disciplines.slice(0, 3).map((discipline) => (
-                      <span
-                        key={discipline}
-                        className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded-full text-xs"
-                      >
-                        {discipline}
+                {/* Footer - Poster and Date */}
+                <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-100 dark:border-gray-700">
+                  {job.poster && (
+                    <div className="flex items-center gap-2 min-w-0">
+                      {job.poster.imageUrl ? (
+                        <img
+                          src={job.poster.imageUrl}
+                          alt={job.poster.name}
+                          className="w-5 h-5 rounded-full object-cover flex-shrink-0"
+                        />
+                      ) : (
+                        <div className="w-5 h-5 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center text-white text-xs flex-shrink-0">
+                          {job.poster.name[0]?.toUpperCase() || "?"}
+                        </div>
+                      )}
+                      <span className="text-xs text-gray-600 dark:text-gray-400 truncate">
+                        {job.poster.name}
                       </span>
-                    ))}
-                    {job.disciplines.length > 3 && (
-                      <span className="px-2 py-0.5 text-gray-500 dark:text-gray-500 text-xs">
-                        +{job.disciplines.length - 3} more
-                      </span>
-                    )}
-                  </div>
-                )}
+                    </div>
+                  )}
+                  <span className="text-xs text-gray-400 dark:text-gray-500 flex-shrink-0">
+                    {getRelativeTime(job.createdAt)}
+                  </span>
+                </div>
               </Link>
             );
           })}
