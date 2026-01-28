@@ -16,6 +16,10 @@ export default function Profile() {
     api.profiles.getProfile,
     profileId ? { profileId: profileId as Id<"profiles"> } : "skip",
   );
+  const archivedWonderings = useQuery(
+    api.wonderings.getProfileArchivedWonderings,
+    profileId ? { profileId: profileId as Id<"profiles"> } : "skip",
+  );
   const inviteStats = useQuery(
     api.invites.getInviteStats,
     profile?.userId ? { userId: profile.userId } : "skip",
@@ -255,6 +259,15 @@ export default function Profile() {
           wondering={profile.wondering}
           profileName={profile.name}
           profileImageUrl={profile.imageUrl}
+        />
+      )}
+
+      {/* Archived wonderings */}
+      {archivedWonderings && archivedWonderings.length > 0 && (
+        <ArchivedWonderingsSection
+          wonderings={archivedWonderings}
+          profileName={profile.name}
+          isOwnProfile={isOwnProfile}
         />
       )}
 
@@ -829,6 +842,89 @@ function LinkFallbackCard({
           </p>
         )}
       </div>
+    </div>
+  );
+}
+
+function ArchivedWonderingsSection({
+  wonderings,
+  profileName,
+  isOwnProfile,
+}: {
+  wonderings: Array<{
+    _id: Id<"wonderings">;
+    prompt: string;
+    imageUrl?: string | null;
+    archivedAt?: number;
+    createdAt: number;
+  }>;
+  profileName: string;
+  isOwnProfile: boolean;
+}) {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  return (
+    <div className="mb-8">
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+      >
+        <svg
+          className={`w-4 h-4 transition-transform ${isExpanded ? "rotate-90" : ""}`}
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+        </svg>
+        <span className="text-sm font-medium">
+          {isOwnProfile ? "Your past wonderings" : `${profileName}'s past wonderings`} ({wonderings.length})
+        </span>
+      </button>
+
+      {isExpanded && (
+        <div className="mt-4 space-y-3">
+          {wonderings.map((wondering) => (
+            <div
+              key={wondering._id}
+              className="relative rounded-xl overflow-hidden"
+              style={{ minHeight: "120px" }}
+            >
+              {/* Background */}
+              {wondering.imageUrl ? (
+                <img
+                  src={wondering.imageUrl}
+                  alt=""
+                  className="absolute inset-0 w-full h-full object-cover"
+                />
+              ) : (
+                <div className="absolute inset-0 bg-gradient-to-br from-gray-400 to-gray-600" />
+              )}
+
+              {/* Overlay */}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/40 to-black/20" />
+
+              {/* Content */}
+              <div className="relative p-4 flex flex-col justify-between min-h-[120px]">
+                <p className="text-white/60 text-xs">
+                  {wondering.archivedAt
+                    ? new Date(wondering.archivedAt).toLocaleDateString(undefined, {
+                        month: "short",
+                        year: "numeric",
+                      })
+                    : new Date(wondering.createdAt).toLocaleDateString(undefined, {
+                        month: "short",
+                        year: "numeric",
+                      })}
+                </p>
+                <p className="text-white text-base font-medium leading-relaxed mt-2">
+                  "{wondering.prompt}"
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

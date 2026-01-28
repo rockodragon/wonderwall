@@ -19,6 +19,7 @@ export default defineSchema({
     inviteSlug: v.optional(v.string()), // unique slug for invite links (e.g., "rick-moy")
     inviteUsageCount: v.optional(v.number()), // track how many times their invite link has been used
     unlimitedInvites: v.optional(v.boolean()), // admin accounts with unlimited invites
+    showWonderingHistory: v.optional(v.boolean()), // show archived wonderings to profile visitors (default: false)
     createdAt: v.number(),
     updatedAt: v.number(),
   })
@@ -64,6 +65,7 @@ export default defineSchema({
     expiresAt: v.optional(v.number()), // null = permanent (paid)
     isPermanent: v.boolean(),
     isActive: v.boolean(), // only one active at a time for free
+    archivedAt: v.optional(v.number()), // timestamp when archived
     createdAt: v.number(),
   })
     .index("by_profileId", ["profileId"])

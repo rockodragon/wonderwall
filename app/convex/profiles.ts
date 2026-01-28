@@ -211,6 +211,28 @@ export const updateAttribute = mutation({
   },
 });
 
+export const updateWonderingHistoryVisibility = mutation({
+  args: {
+    showWonderingHistory: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    const userId = await auth.getUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
+    const profile = await ctx.db
+      .query("profiles")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .first();
+
+    if (!profile) throw new Error("Profile not found");
+
+    await ctx.db.patch(profile._id, {
+      showWonderingHistory: args.showWonderingHistory,
+      updatedAt: Date.now(),
+    });
+  },
+});
+
 export const search = query({
   args: {
     query: v.optional(v.string()),

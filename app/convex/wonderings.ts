@@ -143,7 +143,82 @@ export const archive = mutation({
 
     await ctx.db.patch(args.wonderingId, {
       isActive: false,
+      archivedAt: Date.now(),
     });
+  },
+});
+
+// Get archived wonderings for the current user (owner view)
+export const getMyArchivedWonderings = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await auth.getUserId(ctx);
+    if (!userId) return [];
+
+    const profile = await ctx.db
+      .query("profiles")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .first();
+
+    if (!profile) return [];
+
+    const wonderings = await ctx.db
+      .query("wonderings")
+      .withIndex("by_profileId", (q) => q.eq("profileId", profile._id))
+      .collect();
+
+    // Filter to archived only (isActive = false) and sort by archivedAt/createdAt desc
+    const archived = wonderings
+      .filter((w) => !w.isActive)
+      .sort((a, b) => (b.archivedAt || b.createdAt) - (a.archivedAt || a.createdAt));
+
+    // Resolve image URLs
+    return await Promise.all(
+      archived.map(async (w) => ({
+        ...w,
+        imageUrl: w.imageStorageId
+          ? await ctx.storage.getUrl(w.imageStorageId)
+          : null,
+      })),
+    );
+  },
+});
+
+// Get archived wonderings for a profile (visitor view - respects privacy setting)
+export const getProfileArchivedWonderings = query({
+  args: { profileId: v.id("profiles") },
+  handler: async (ctx, args) => {
+    const profile = await ctx.db.get(args.profileId);
+    if (!profile) return [];
+
+    // Check if viewer is the owner
+    const viewerId = await auth.getUserId(ctx);
+    const isOwner = viewerId === profile.userId;
+
+    // If not owner, check visibility setting
+    if (!isOwner && !profile.showWonderingHistory) {
+      return [];
+    }
+
+    const wonderings = await ctx.db
+      .query("wonderings")
+      .withIndex("by_profileId", (q) => q.eq("profileId", args.profileId))
+      .collect();
+
+    // Filter to archived only and sort by archivedAt/createdAt desc
+    const archived = wonderings
+      .filter((w) => !w.isActive)
+      .sort((a, b) => (b.archivedAt || b.createdAt) - (a.archivedAt || a.createdAt));
+
+    // Resolve image URLs
+    return await Promise.all(
+      archived.map(async (w) => ({
+        ...w,
+        imageUrl: w.imageStorageId
+          ? await ctx.storage.getUrl(w.imageStorageId)
+          : null,
+      })),
+    );
   },
 });
 

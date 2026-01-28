@@ -786,7 +786,9 @@ function LinksSection() {
 }
 
 function WonderingSection() {
+  const profile = useQuery(api.profiles.getMyProfile);
   const wondering = useQuery(api.wonderings.getMyWondering);
+  const archivedWonderings = useQuery(api.wonderings.getMyArchivedWonderings);
   const responses = useQuery(
     api.wonderings.getResponses,
     wondering ? { wonderingId: wondering._id } : "skip",
@@ -795,6 +797,7 @@ function WonderingSection() {
   const updateWondering = useMutation(api.wonderings.update);
   const archiveWondering = useMutation(api.wonderings.archive);
   const toggleResponsePublic = useMutation(api.wonderings.toggleResponsePublic);
+  const updateHistoryVisibility = useMutation(api.profiles.updateWonderingHistoryVisibility);
   const generateUploadUrl = useMutation(api.files.generateUploadUrl);
   const saveWonderingImage = useMutation(api.files.saveWonderingImage);
   const deleteWonderingImage = useMutation(api.files.deleteWonderingImage);
@@ -803,6 +806,7 @@ function WonderingSection() {
   const [prompt, setPrompt] = useState("");
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -1005,6 +1009,88 @@ function WonderingSection() {
               </div>
             </div>
           )}
+
+          {/* Past Wonderings section */}
+          {archivedWonderings && archivedWonderings.length > 0 && (
+            <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+              <button
+                onClick={() => setShowHistory(!showHistory)}
+                className="flex items-center justify-between w-full text-left"
+              >
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+                  Past Wonderings ({archivedWonderings.length})
+                </h3>
+                <svg
+                  className={`w-5 h-5 text-gray-400 transition-transform ${showHistory ? "rotate-180" : ""}`}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {showHistory && (
+                <div className="mt-4 space-y-4">
+                  {/* Visibility toggle */}
+                  <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <div>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">
+                        Show history on profile
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        Let others see your past wonderings
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => updateHistoryVisibility({ showWonderingHistory: !profile?.showWonderingHistory })}
+                      className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                        profile?.showWonderingHistory ? "bg-blue-600" : "bg-gray-200 dark:bg-gray-700"
+                      }`}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                          profile?.showWonderingHistory ? "translate-x-5" : "translate-x-0"
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  {/* Archived wonderings list */}
+                  <div className="space-y-3">
+                    {archivedWonderings.map((archived) => (
+                      <div
+                        key={archived._id}
+                        className="relative rounded-lg overflow-hidden"
+                        style={{ minHeight: "100px" }}
+                      >
+                        {archived.imageUrl ? (
+                          <img
+                            src={archived.imageUrl}
+                            alt=""
+                            className="absolute inset-0 w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="absolute inset-0 bg-gradient-to-br from-gray-400 to-gray-600" />
+                        )}
+                        <div className="absolute inset-0 bg-black/50" />
+                        <div className="relative p-4 flex flex-col justify-between min-h-[100px]">
+                          <p className="text-white text-sm font-medium leading-relaxed">
+                            "{archived.prompt}"
+                          </p>
+                          <p className="text-white/60 text-xs mt-2">
+                            {archived.archivedAt
+                              ? `Archived ${new Date(archived.archivedAt).toLocaleDateString()}`
+                              : `Created ${new Date(archived.createdAt).toLocaleDateString()}`}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       ) : (
         <div className="space-y-3">
@@ -1035,6 +1121,88 @@ function WonderingSection() {
               </button>
             )}
           </div>
+
+          {/* Past Wonderings section (when no active wondering) */}
+          {archivedWonderings && archivedWonderings.length > 0 && (
+            <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+              <button
+                onClick={() => setShowHistory(!showHistory)}
+                className="flex items-center justify-between w-full text-left"
+              >
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+                  Past Wonderings ({archivedWonderings.length})
+                </h3>
+                <svg
+                  className={`w-5 h-5 text-gray-400 transition-transform ${showHistory ? "rotate-180" : ""}`}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {showHistory && (
+                <div className="mt-4 space-y-4">
+                  {/* Visibility toggle */}
+                  <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <div>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">
+                        Show history on profile
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        Let others see your past wonderings
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => updateHistoryVisibility({ showWonderingHistory: !profile?.showWonderingHistory })}
+                      className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                        profile?.showWonderingHistory ? "bg-blue-600" : "bg-gray-200 dark:bg-gray-700"
+                      }`}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                          profile?.showWonderingHistory ? "translate-x-5" : "translate-x-0"
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  {/* Archived wonderings list */}
+                  <div className="space-y-3">
+                    {archivedWonderings.map((archived) => (
+                      <div
+                        key={archived._id}
+                        className="relative rounded-lg overflow-hidden"
+                        style={{ minHeight: "100px" }}
+                      >
+                        {archived.imageUrl ? (
+                          <img
+                            src={archived.imageUrl}
+                            alt=""
+                            className="absolute inset-0 w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="absolute inset-0 bg-gradient-to-br from-gray-400 to-gray-600" />
+                        )}
+                        <div className="absolute inset-0 bg-black/50" />
+                        <div className="relative p-4 flex flex-col justify-between min-h-[100px]">
+                          <p className="text-white text-sm font-medium leading-relaxed">
+                            "{archived.prompt}"
+                          </p>
+                          <p className="text-white/60 text-xs mt-2">
+                            {archived.archivedAt
+                              ? `Archived ${new Date(archived.archivedAt).toLocaleDateString()}`
+                              : `Created ${new Date(archived.createdAt).toLocaleDateString()}`}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>
