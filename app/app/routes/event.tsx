@@ -298,27 +298,81 @@ export default function EventDetail() {
         </div>
 
         {/* Location Map */}
-        {event.coordinates && event.locationType !== "online" && (
+        {event.location && event.locationType !== "online" && (
           <div className="mb-8">
             <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
               Location
             </h3>
-            <a
-              href={`https://www.google.com/maps/search/?api=1&query=${event.coordinates.lat},${event.coordinates.lng}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="block rounded-xl overflow-hidden hover:opacity-90 transition-opacity"
-            >
-              <img
-                src={`https://maps.googleapis.com/maps/api/staticmap?center=${event.coordinates.lat},${event.coordinates.lng}&zoom=15&size=600x200&scale=2&markers=color:red%7C${event.coordinates.lat},${event.coordinates.lng}&key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY}`}
-                alt={event.location || "Event location"}
-                className="w-full h-[150px] object-cover"
-              />
-            </a>
-            {event.location && (
-              <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                {event.location}
-              </p>
+            {event.coordinates && import.meta.env.VITE_GOOGLE_MAPS_API_KEY ? (
+              <a
+                href={`https://www.google.com/maps/search/?api=1&query=${event.coordinates.lat},${event.coordinates.lng}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block rounded-xl overflow-hidden hover:opacity-90 transition-opacity"
+              >
+                <img
+                  src={`https://maps.googleapis.com/maps/api/staticmap?center=${event.coordinates.lat},${event.coordinates.lng}&zoom=15&size=600x200&scale=2&markers=color:red%7C${event.coordinates.lat},${event.coordinates.lng}&key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY}`}
+                  alt={event.location}
+                  className="w-full h-[150px] object-cover bg-gray-100 dark:bg-gray-800"
+                  onError={(e) => {
+                    // Hide broken image
+                    e.currentTarget.style.display = "none";
+                  }}
+                />
+                <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                  {event.location}
+                </p>
+              </a>
+            ) : (
+              <a
+                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-3 p-4 bg-gray-50 dark:bg-gray-800 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              >
+                <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
+                  <svg
+                    className="w-5 h-5 text-blue-600 dark:text-blue-400"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+                    />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+                    />
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <p className="font-medium text-gray-900 dark:text-white">
+                    {event.location}
+                  </p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Open in Google Maps
+                  </p>
+                </div>
+                <svg
+                  className="w-5 h-5 text-gray-400"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                  />
+                </svg>
+              </a>
             )}
           </div>
         )}
