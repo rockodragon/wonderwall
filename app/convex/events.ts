@@ -339,6 +339,8 @@ export const getAttendees = query({
           profileId: profile?._id || null,
           name: profile?.name || "Anonymous",
           imageUrl,
+          message: app.message || null,
+          joinedAt: app.createdAt,
         };
       }),
     );

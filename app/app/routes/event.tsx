@@ -44,6 +44,7 @@ export default function EventDetail() {
   const [message, setMessage] = useState("");
   const [applying, setApplying] = useState(false);
   const [showApplyForm, setShowApplyForm] = useState(false);
+  const [showJoinForm, setShowJoinForm] = useState(false);
   const [joining, setJoining] = useState(false);
   const [showEditForm, setShowEditForm] = useState(false);
   const [cancelling, setCancelling] = useState(false);
@@ -94,7 +95,10 @@ export default function EventDetail() {
     try {
       await applyToEvent({
         eventId: eventId as Id<"events">,
+        message: message || undefined,
       });
+      setShowJoinForm(false);
+      setMessage("");
     } finally {
       setJoining(false);
     }
@@ -318,53 +322,65 @@ export default function EventDetail() {
             </div>
           )}
 
-        {/* Attendees */}
+        {/* Attendees with messages */}
         {attendees && attendees.length > 0 && (
           <div className="mb-8">
             <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
-              Going ({attendees.length})
+              Who's going ({attendees.length})
             </h3>
-            <div className="flex flex-wrap gap-2">
-              {attendees.map((attendee) =>
-                attendee.profileId ? (
-                  <Link
-                    key={attendee.applicationId}
-                    to={`/profile/${attendee.profileId}`}
-                    className="flex items-center gap-2 px-3 py-2 bg-gray-50 dark:bg-gray-800 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                  >
-                    <div className="w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center overflow-hidden">
-                      {attendee.imageUrl ? (
-                        <img
-                          src={attendee.imageUrl}
-                          alt={attendee.name}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <span className="text-xs font-medium text-gray-500">
-                          {attendee.name.charAt(0)}
-                        </span>
-                      )}
-                    </div>
-                    <span className="text-sm text-gray-700 dark:text-gray-300">
-                      {attendee.name}
-                    </span>
-                  </Link>
-                ) : (
-                  <div
-                    key={attendee.applicationId}
-                    className="flex items-center gap-2 px-3 py-2 bg-gray-50 dark:bg-gray-800 rounded-full"
-                  >
-                    <div className="w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
-                      <span className="text-xs font-medium text-gray-500">
+            <div className="space-y-3">
+              {attendees.map((attendee) => (
+                <div
+                  key={attendee.applicationId}
+                  className="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-xl"
+                >
+                  {attendee.profileId ? (
+                    <Link to={`/profile/${attendee.profileId}`}>
+                      <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center overflow-hidden flex-shrink-0">
+                        {attendee.imageUrl ? (
+                          <img
+                            src={attendee.imageUrl}
+                            alt={attendee.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <span className="text-sm font-medium text-gray-500">
+                            {attendee.name.charAt(0)}
+                          </span>
+                        )}
+                      </div>
+                    </Link>
+                  ) : (
+                    <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center flex-shrink-0">
+                      <span className="text-sm font-medium text-gray-500">
                         {attendee.name.charAt(0)}
                       </span>
                     </div>
-                    <span className="text-sm text-gray-700 dark:text-gray-300">
-                      {attendee.name}
-                    </span>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      {attendee.profileId ? (
+                        <Link
+                          to={`/profile/${attendee.profileId}`}
+                          className="font-medium text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400"
+                        >
+                          {attendee.name}
+                        </Link>
+                      ) : (
+                        <span className="font-medium text-gray-900 dark:text-white">
+                          {attendee.name}
+                        </span>
+                      )}
+                      <span className="text-xs text-gray-400">is going</span>
+                    </div>
+                    {attendee.message && (
+                      <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                        "{attendee.message}"
+                      </p>
+                    )}
                   </div>
-                ),
-              )}
+                </div>
+              ))}
             </div>
           </div>
         )}
@@ -440,13 +456,43 @@ export default function EventDetail() {
                 Apply to Attend
               </button>
             )
+          ) : showJoinForm ? (
+            <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl">
+              <h3 className="font-medium text-gray-900 dark:text-white mb-3">
+                Join this event
+              </h3>
+              <textarea
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                placeholder="Share why you're excited to attend! (optional)"
+                rows={2}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent dark:bg-gray-900 dark:text-white resize-none mb-3"
+              />
+              <div className="flex gap-2">
+                <button
+                  onClick={handleJoin}
+                  disabled={joining}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:opacity-50"
+                >
+                  {joining ? "Joining..." : "Join Event"}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowJoinForm(false);
+                    setMessage("");
+                  }}
+                  className="px-4 py-2 text-gray-600 dark:text-gray-400"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
           ) : (
             <button
-              onClick={handleJoin}
-              disabled={joining}
-              className="w-full py-3 bg-green-600 text-white rounded-xl font-medium hover:bg-green-700 transition-colors disabled:opacity-50"
+              onClick={() => setShowJoinForm(true)}
+              className="w-full py-3 bg-green-600 text-white rounded-xl font-medium hover:bg-green-700 transition-colors"
             >
-              {joining ? "Joining..." : "Join Event"}
+              Join Event
             </button>
           )
         ) : null}
