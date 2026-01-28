@@ -15,7 +15,23 @@ export default function WorkDetail() {
   );
   const toggleLike = useMutation(api.artifacts.toggleLike);
   const removeArtifact = useMutation(api.artifacts.remove);
+  const refetchOgImage = useMutation(api.artifacts.refetchOgImage);
   const [deleting, setDeleting] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  async function handleRefreshPreview() {
+    if (!artifactId) return;
+
+    setRefreshing(true);
+    try {
+      await refetchOgImage({ artifactId: artifactId as Id<"artifacts"> });
+      // Show a brief success message
+      setTimeout(() => setRefreshing(false), 2000);
+    } catch (err) {
+      console.error("Refresh failed:", err);
+      setRefreshing(false);
+    }
+  }
 
   async function handleDelete() {
     if (!artifactId) return;
@@ -339,6 +355,39 @@ export default function WorkDetail() {
             {/* Owner controls */}
             {artifact.isOwner && (
               <>
+                {/* Refresh preview button for link-type artifacts */}
+                {artifact.type === "link" && artifact.mediaUrl && (
+                  <button
+                    onClick={handleRefreshPreview}
+                    disabled={refreshing}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 dark:hover:text-blue-400 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                    title="Refresh preview image"
+                  >
+                    {refreshing ? (
+                      <>
+                        <div className="w-4 h-4 animate-spin rounded-full border-2 border-gray-300 border-t-blue-500" />
+                        Refreshing...
+                      </>
+                    ) : (
+                      <>
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                          />
+                        </svg>
+                        Refresh Preview
+                      </>
+                    )}
+                  </button>
+                )}
                 <Link
                   to={`/settings?editArtifact=${artifact._id}`}
                   className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg text-sm font-medium transition-colors"

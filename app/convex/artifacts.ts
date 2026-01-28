@@ -165,8 +165,18 @@ export const create = mutation({
       });
     }
 
-    // Schedule og:image fetching for link-type artifacts
-    if (args.type === "link" && args.mediaUrl) {
+    // Schedule og:image fetching for link and video-type artifacts (except YouTube/Vimeo which have thumbnails)
+    const isYouTubeOrVimeo =
+      args.mediaUrl &&
+      (args.mediaUrl.includes("youtube.com") ||
+        args.mediaUrl.includes("youtu.be") ||
+        args.mediaUrl.includes("vimeo.com"));
+
+    if (
+      (args.type === "link" || args.type === "video") &&
+      args.mediaUrl &&
+      !isYouTubeOrVimeo
+    ) {
       await ctx.scheduler.runAfter(0, api.artifacts.fetchOgImage, {
         artifactId,
         url: args.mediaUrl,
@@ -323,9 +333,13 @@ export const fetchOgImage = action({
       const response = await fetch(args.url, {
         headers: {
           "User-Agent":
-            "Mozilla/5.0 (compatible; Wonderwall/1.0; +https://wonderwall.community)",
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          Accept:
+            "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
         },
-        signal: AbortSignal.timeout(10000), // 10 second timeout
+        redirect: "follow",
+        signal: AbortSignal.timeout(15000), // 15 second timeout
       });
 
       if (!response.ok) {
@@ -335,31 +349,56 @@ export const fetchOgImage = action({
 
       const html = await response.text();
 
-      // Extract og:image using regex (works for most cases)
-      const ogImageMatch = html.match(
+      // Try multiple patterns to find an image
+      const patterns = [
+        // og:image (property before content)
         /<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["'][^>]*>/i,
-      );
-      const ogImageMatchAlt = html.match(
+        // og:image (content before property)
         /<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:image["'][^>]*>/i,
-      );
+        // twitter:image (property before content)
+        /<meta[^>]*(?:name|property)=["']twitter:image["'][^>]*content=["']([^"']+)["'][^>]*>/i,
+        // twitter:image (content before name/property)
+        /<meta[^>]*content=["']([^"']+)["'][^>]*(?:name|property)=["']twitter:image["'][^>]*>/i,
+        // og:image:url variant
+        /<meta[^>]*property=["']og:image:url["'][^>]*content=["']([^"']+)["'][^>]*>/i,
+        // itemprop image (Schema.org)
+        /<meta[^>]*itemprop=["']image["'][^>]*content=["']([^"']+)["'][^>]*>/i,
+        // link rel="image_src"
+        /<link[^>]*rel=["']image_src["'][^>]*href=["']([^"']+)["'][^>]*>/i,
+      ];
 
-      const ogImageUrl = ogImageMatch?.[1] || ogImageMatchAlt?.[1];
+      let imageUrl: string | null = null;
 
-      if (ogImageUrl) {
+      for (const pattern of patterns) {
+        const match = html.match(pattern);
+        if (match?.[1]) {
+          imageUrl = match[1];
+          break;
+        }
+      }
+
+      if (imageUrl) {
         // Handle relative URLs
-        let absoluteUrl = ogImageUrl;
-        if (ogImageUrl.startsWith("/")) {
+        let absoluteUrl = imageUrl;
+        if (imageUrl.startsWith("//")) {
+          absoluteUrl = `https:${imageUrl}`;
+        } else if (imageUrl.startsWith("/")) {
           const urlObj = new URL(args.url);
-          absoluteUrl = `${urlObj.origin}${ogImageUrl}`;
-        } else if (!ogImageUrl.startsWith("http")) {
+          absoluteUrl = `${urlObj.origin}${imageUrl}`;
+        } else if (!imageUrl.startsWith("http")) {
           const urlObj = new URL(args.url);
-          absoluteUrl = `${urlObj.origin}/${ogImageUrl}`;
+          absoluteUrl = `${urlObj.origin}/${imageUrl}`;
         }
 
         await ctx.runMutation(internal.artifacts.updateOgImage, {
           artifactId: args.artifactId,
           ogImageUrl: absoluteUrl,
         });
+        console.log(
+          `Successfully fetched og:image for ${args.url}: ${absoluteUrl}`,
+        );
+      } else {
+        console.log(`No og:image found for ${args.url}`);
       }
     } catch (error) {
       console.log(`Error fetching og:image for ${args.url}:`, error);
@@ -392,5 +431,37 @@ export const updateOgImage = internalMutation({
     await ctx.db.patch(args.artifactId, {
       ogImageUrl: args.ogImageUrl,
     });
+  },
+});
+
+// Mutation to manually trigger og:image refetch for an artifact
+export const refetchOgImage = mutation({
+  args: {
+    artifactId: v.id("artifacts"),
+  },
+  handler: async (ctx, args) => {
+    const userId = await auth.getUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
+    const artifact = await ctx.db.get(args.artifactId);
+    if (!artifact) throw new Error("Artifact not found");
+
+    // Verify ownership
+    const profile = await ctx.db.get(artifact.profileId);
+    if (!profile || profile.userId !== userId) {
+      throw new Error("Not authorized");
+    }
+
+    if (!artifact.mediaUrl) {
+      throw new Error("Artifact has no URL to fetch og:image from");
+    }
+
+    // Schedule og:image fetch
+    await ctx.scheduler.runAfter(0, api.artifacts.fetchOgImage, {
+      artifactId: args.artifactId,
+      url: artifact.mediaUrl,
+    });
+
+    return { success: true };
   },
 });
