@@ -297,6 +297,31 @@ export default function EventDetail() {
           </p>
         </div>
 
+        {/* Gallery Images - show first for visual appeal */}
+        {!event.isOrganizer &&
+          event.galleryImageUrls &&
+          event.galleryImageUrls.length > 0 && (
+            <div className="mb-8">
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
+                Photos
+              </h3>
+              <div className="grid grid-cols-3 gap-2">
+                {event.galleryImageUrls.map((url, i) => (
+                  <div
+                    key={i}
+                    className="aspect-square rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800"
+                  >
+                    <img
+                      src={url}
+                      alt=""
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
         {/* Location Map */}
         {event.location && event.locationType !== "online" && (
           <div className="mb-8">
@@ -346,31 +371,6 @@ export default function EventDetail() {
             </a>
           </div>
         )}
-
-        {/* Gallery Images */}
-        {!event.isOrganizer &&
-          event.galleryImageUrls &&
-          event.galleryImageUrls.length > 0 && (
-            <div className="mb-8">
-              <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
-                Photos
-              </h3>
-              <div className="grid grid-cols-3 gap-2">
-                {event.galleryImageUrls.map((url, i) => (
-                  <div
-                    key={i}
-                    className="aspect-square rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800"
-                  >
-                    <img
-                      src={url}
-                      alt=""
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
 
         {/* Attendees - Partiful style grid */}
         {attendees && attendees.length > 0 && (
