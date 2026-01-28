@@ -136,12 +136,37 @@ export default function JobsIndex() {
             Discover opportunities in the creative community
           </p>
         </div>
-        <Link
-          to="/jobs/new"
-          className="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 transition-colors"
-        >
-          + Post a Job
-        </Link>
+        <div className="flex items-center gap-2">
+          <button
+            className="px-4 py-2 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-xl text-sm font-medium cursor-not-allowed opacity-75 flex items-center gap-2"
+            disabled
+            title="Coming soon for churches, ministries, and organizations"
+          >
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+              />
+            </svg>
+            <span className="hidden sm:inline">Hire Creatives</span>
+            <span className="text-xs bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 px-1.5 py-0.5 rounded-full">
+              Soon
+            </span>
+          </button>
+          <Link
+            to="/jobs/new"
+            className="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 transition-colors"
+          >
+            + Post a Job
+          </Link>
+        </div>
       </div>
 
       {/* Tab Navigation */}
