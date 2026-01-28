@@ -3,6 +3,27 @@ import { Link } from "react-router";
 import { usePostHog } from "@posthog/react";
 import type { Route } from "./+types/organizations";
 
+declare global {
+  interface Window {
+    UpSight?: {
+      create: (
+        containerId: string,
+        slug: string,
+        options: {
+          layout: string;
+          theme: string;
+          accent: string;
+          radius: number;
+          branding: boolean;
+          buttonText: string;
+          placeholder: string;
+          success: string;
+        },
+      ) => void;
+    };
+  }
+}
+
 export function meta({}: Route.MetaArgs) {
   return [
     { title: "Hire Kingdom Creatives | Wonderwall" },
@@ -184,7 +205,7 @@ export default function Organizations() {
 
           {/* Inline Registration Form */}
           <div className="max-w-md mx-auto">
-            <UpSightOrgEmbed accentColor="#60a5fa" />
+            <UpSightOrgEmbed id="upsight-hero" accentColor="#60a5fa" />
           </div>
         </div>
       </section>
@@ -324,7 +345,7 @@ export default function Organizations() {
             We're onboarding organizations in phases. Register below and we'll
             reach out to discuss your needs and get you set up.
           </p>
-          <UpSightOrgEmbed accentColor="#60a5fa" />
+          <UpSightOrgEmbed id="upsight-register" accentColor="#60a5fa" />
         </div>
       </section>
 
@@ -342,7 +363,7 @@ export default function Organizations() {
                 discovering Kingdom-minded creative talent.
               </p>
               <div className="max-w-md mx-auto">
-                <UpSightOrgEmbed accentColor="#ffffff" />
+                <UpSightOrgEmbed id="upsight-cta" accentColor="#ffffff" />
               </div>
             </div>
           </div>
@@ -376,33 +397,46 @@ export default function Organizations() {
 }
 
 function UpSightOrgEmbed({
+  id,
   accentColor = "#60a5fa",
 }: {
+  id: string;
   accentColor?: string;
 }) {
-  const encodedAccent = encodeURIComponent(accentColor);
-  return (
-    <div
-      className="relative overflow-hidden rounded-xl"
-      style={{ background: "#030712" }}
-    >
-      <iframe
-        src={`https://getupsight.com/embed/5ky-bxs?layout=inline-email&theme=dark&accent=${encodedAccent}&radius=12&branding=false&buttonText=Register&placeholder=you%40organization.com&success=Thanks%21+We%27ll+be+in+touch.`}
-        width="100%"
-        height="160"
-        frameBorder="0"
-        scrolling="no"
-        allowTransparency={true}
-        style={{
-          border: "none",
-          overflow: "hidden",
-          display: "block",
-        }}
-        allow="camera; microphone"
-        title="Organization Registration"
-      />
-    </div>
-  );
+  useEffect(() => {
+    // Load the UpSight script if not already loaded
+    const existingScript = document.querySelector(
+      'script[src="https://getupsight.com/embed.js"]',
+    );
+
+    const initForm = () => {
+      if (window.UpSight && typeof window.UpSight.create === "function") {
+        window.UpSight.create(id, "5ky-bxs", {
+          layout: "inline-email",
+          theme: "transparent",
+          accent: accentColor,
+          radius: 12,
+          branding: false,
+          buttonText: "Register",
+          placeholder: "you@organization.com",
+          success: "Thanks! We'll be in touch.",
+        });
+      }
+    };
+
+    if (!existingScript) {
+      const script = document.createElement("script");
+      script.src = "https://getupsight.com/embed.js";
+      script.async = true;
+      script.onload = initForm;
+      document.body.appendChild(script);
+    } else {
+      // Script already loaded, just init
+      initForm();
+    }
+  }, [id, accentColor]);
+
+  return <div id={id} />;
 }
 
 function ValueProp({
