@@ -13,6 +13,21 @@ export function meta({}: Route.MetaArgs) {
       content:
         "Connect with Kingdom-minded creatives. Share your work, discover peers, and spark collaborations.",
     },
+    { property: "og:title", content: "Wonderwall - Kingdom-Minded Creatives" },
+    {
+      property: "og:description",
+      content:
+        "Connect with Kingdom-minded creatives. Share your work, discover peers, and spark collaborations.",
+    },
+    { property: "og:type", content: "website" },
+    { property: "og:image", content: "https://wonderwall.app/og-image.png" },
+    { name: "twitter:card", content: "summary_large_image" },
+    { name: "twitter:title", content: "Wonderwall - Kingdom-Minded Creatives" },
+    {
+      name: "twitter:description",
+      content:
+        "Connect with Kingdom-minded creatives. Share your work, discover peers, and spark collaborations.",
+    },
   ];
 }
 

@@ -6,6 +6,32 @@ import { Link, useNavigate, useParams } from "react-router";
 import confetti from "canvas-confetti";
 import { api } from "../../convex/_generated/api";
 
+export function meta() {
+  return [
+    { title: "Join Wonderwall - Invite Only" },
+    {
+      name: "description",
+      content:
+        "Join Wonderwall, a community of Kingdom-minded creatives. By invitation only.",
+    },
+    { property: "og:title", content: "Join Wonderwall" },
+    {
+      property: "og:description",
+      content:
+        "Join Wonderwall, a community of Kingdom-minded creatives. By invitation only.",
+    },
+    { property: "og:type", content: "website" },
+    { property: "og:image", content: "https://wonderwall.app/og-image.png" },
+    { name: "twitter:card", content: "summary_large_image" },
+    { name: "twitter:title", content: "Join Wonderwall" },
+    {
+      name: "twitter:description",
+      content:
+        "Join Wonderwall, a community of Kingdom-minded creatives. By invitation only.",
+    },
+  ];
+}
+
 export default function Signup() {
   const { inviteSlug } = useParams();
   const { signIn } = useAuthActions();
