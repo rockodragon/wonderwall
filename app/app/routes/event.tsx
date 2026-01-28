@@ -316,11 +316,11 @@ export default function EventDetail() {
               <img
                 src={
                   event.coordinates
-                    ? `https://maps.googleapis.com/maps/api/staticmap?center=${event.coordinates.lat},${event.coordinates.lng}&zoom=15&size=600x200&scale=2&markers=color:red%7C${event.coordinates.lat},${event.coordinates.lng}&key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY}`
-                    : `https://maps.googleapis.com/maps/api/staticmap?center=${encodeURIComponent(event.location)}&zoom=15&size=600x200&scale=2&markers=color:red%7C${encodeURIComponent(event.location)}&key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY}`
+                    ? `https://maps.googleapis.com/maps/api/staticmap?center=${event.coordinates.lat},${event.coordinates.lng}&zoom=15&size=400x400&scale=2&markers=color:red%7C${event.coordinates.lat},${event.coordinates.lng}&key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY}`
+                    : `https://maps.googleapis.com/maps/api/staticmap?center=${encodeURIComponent(event.location)}&zoom=15&size=400x400&scale=2&markers=color:red%7C${encodeURIComponent(event.location)}&key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY}`
                 }
                 alt={event.location}
-                className="w-full h-[150px] object-cover bg-gray-200 dark:bg-gray-700"
+                className="w-full aspect-square object-cover bg-gray-200 dark:bg-gray-700 max-w-[300px]"
               />
               <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800">
                 <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -833,6 +833,10 @@ const EVENT_TAGS = [
   "Art",
   "Writing",
   "Tech",
+  "Worship",
+  "Bible Study",
+  "Fellowship",
+  "Reading",
 ];
 
 function EditEventModal({

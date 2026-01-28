@@ -19,6 +19,10 @@ const EVENT_TAGS = [
   "Art",
   "Writing",
   "Tech",
+  "Worship",
+  "Bible Study",
+  "Fellowship",
+  "Reading",
 ];
 
 export function CreateEventModal({ onClose }: { onClose: () => void }) {
