@@ -64,8 +64,12 @@ export default function WorkDetail() {
   const isImageUrl = /\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i.test(
     urlWithoutQuery,
   );
+  // Also treat as image if it has a mediaStorageId (Convex storage URLs don't have extensions)
+  const hasStoredImage = !!artifact.mediaStorageId;
   const showAsImage =
-    artifact.type === "image" || (artifact.type === "link" && isImageUrl);
+    artifact.type === "image" ||
+    hasStoredImage ||
+    (artifact.type === "link" && isImageUrl);
 
   return (
     <div className="p-4 sm:p-6 max-w-5xl mx-auto">

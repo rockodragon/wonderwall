@@ -89,6 +89,8 @@ export default function Works() {
           const isImageUrl = /\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i.test(
             urlWithoutQuery,
           );
+          // Also treat as image if it has a mediaStorageId (Convex storage URLs don't have extensions)
+          const hasStoredImage = !!artifact.mediaStorageId;
 
           // Check if URL is YouTube
           const youtubeMatch = artifact.resolvedMediaUrl?.match(
@@ -101,6 +103,7 @@ export default function Works() {
 
           const showAsImage =
             artifact.type === "image" ||
+            hasStoredImage ||
             (artifact.type === "link" && isImageUrl);
 
           return (
