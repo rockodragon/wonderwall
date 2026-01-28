@@ -5,18 +5,7 @@ import { useNavigate } from "react-router";
 import confetti from "canvas-confetti";
 import { api } from "../../convex/_generated/api";
 
-const JOB_FUNCTIONS = [
-  "Photographer",
-  "Videographer",
-  "Designer",
-  "Developer",
-  "Writer",
-  "Musician",
-  "Artist",
-  "Filmmaker",
-  "Content Creator",
-  "Other",
-];
+import { JOB_FUNCTIONS } from "../constants/jobFunctions";
 
 export default function Onboarding() {
   const navigate = useNavigate();

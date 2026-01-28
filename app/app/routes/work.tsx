@@ -99,6 +99,16 @@ export default function WorkDetail() {
       <div className="bg-white dark:bg-gray-800 rounded-2xl overflow-hidden shadow-lg">
         {/* Media section */}
         <div className="relative bg-gray-100 dark:bg-gray-900">
+          {/* Share button - top right */}
+          <div className="absolute top-4 right-4 z-10">
+            <ShareButton
+              type="work"
+              title={artifact.title || "Work"}
+              size="sm"
+              className="bg-white/90 dark:bg-black/70 hover:bg-white dark:hover:bg-black shadow-lg"
+            />
+          </div>
+
           {/* YouTube embed */}
           {youtubeId && (
             <div className="aspect-video">
@@ -325,13 +335,6 @@ export default function WorkDetail() {
               </svg>
               {artifact.likeCount > 0 ? artifact.likeCount : "Like"}
             </button>
-
-            {/* Share button */}
-            <ShareButton
-              type="work"
-              title={artifact.title || "Work"}
-              size="sm"
-            />
 
             {/* Owner controls */}
             {artifact.isOwner && (

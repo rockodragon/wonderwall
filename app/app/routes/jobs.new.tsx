@@ -3,20 +3,7 @@ import { useMutation } from "convex/react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { api } from "../../convex/_generated/api";
-
-const JOB_FUNCTIONS = [
-  "Designer",
-  "Writer",
-  "Musician",
-  "Developer",
-  "Filmmaker",
-  "Photographer",
-  "Artist",
-  "Entrepreneur",
-  "Marketer",
-  "Product Manager",
-  "Other",
-];
+import { JOB_FUNCTIONS } from "../constants/jobFunctions";
 
 type LocationType = "Remote" | "Hybrid" | "On-site";
 type JobType = "Full-time" | "Part-time" | "Contract" | "Freelance";

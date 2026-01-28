@@ -6,6 +6,7 @@ import { Link, useNavigate, useSearchParams } from "react-router";
 import confetti from "canvas-confetti";
 import { api } from "../../convex/_generated/api";
 import { InviteCTA } from "../components/InviteCTA";
+import { JOB_FUNCTIONS } from "../constants/jobFunctions";
 
 // Normalize URL by adding https:// if missing
 function normalizeUrl(url: string): string {
@@ -16,30 +17,6 @@ function normalizeUrl(url: string): string {
   }
   return trimmed;
 }
-
-const JOB_FUNCTIONS = [
-  "Designer",
-  "Writer",
-  "Filmmaker",
-  "Musician",
-  "Photographer",
-  "Developer",
-  "Illustrator",
-  "Animator",
-  "Producer",
-  "Pastor",
-  "Leader",
-  "Roadie",
-  "Teacher",
-  "Speaker",
-  "Worship Leader",
-  "Sound Engineer",
-  "Dancer",
-  "Actor",
-  "Poet",
-  "Craftsman",
-  "Other",
-];
 
 export default function Settings() {
   const { signOut } = useAuthActions();

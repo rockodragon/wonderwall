@@ -4,20 +4,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
-
-const JOB_FUNCTIONS = [
-  "Designer",
-  "Writer",
-  "Musician",
-  "Developer",
-  "Filmmaker",
-  "Photographer",
-  "Artist",
-  "Entrepreneur",
-  "Marketer",
-  "Product Manager",
-  "Other",
-];
+import { JOB_FUNCTIONS } from "../constants/jobFunctions";
 
 type LocationType = "Remote" | "Hybrid" | "On-site";
 type JobType = "Full-time" | "Part-time" | "Contract" | "Freelance";
