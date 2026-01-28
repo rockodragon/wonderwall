@@ -2,7 +2,7 @@ import { useAuthActions } from "@convex-dev/auth/react";
 import { usePostHog } from "@posthog/react";
 import { useMutation, useQuery } from "convex/react";
 import { useEffect, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router";
+import { Link, useNavigate, useSearchParams } from "react-router";
 import confetti from "canvas-confetti";
 import { api } from "../../convex/_generated/api";
 import { InviteCTA } from "../components/InviteCTA";
@@ -45,12 +45,22 @@ export default function Settings() {
   const { signOut } = useAuthActions();
   const navigate = useNavigate();
   const posthog = usePostHog();
+  const [searchParams, setSearchParams] = useSearchParams();
   const profile = useQuery(api.profiles.getMyProfile);
   const inviteStats = useQuery(
     api.invites.getInviteStats,
     profile?.userId ? { userId: profile.userId } : "skip",
   );
   const [showProfileEdit, setShowProfileEdit] = useState(false);
+
+  // Check for editArtifact query param
+  const editArtifactId = searchParams.get("editArtifact");
+
+  // Clear the query param after it's been used
+  const clearEditParam = () => {
+    searchParams.delete("editArtifact");
+    setSearchParams(searchParams, { replace: true });
+  };
 
   async function handleSignOut() {
     posthog?.capture("user_logged_out");
@@ -142,7 +152,10 @@ export default function Settings() {
 
       {/* Artifacts section */}
       <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-800">
-        <ArtifactsSection />
+        <ArtifactsSection
+          editArtifactId={editArtifactId}
+          onEditComplete={clearEditParam}
+        />
       </div>
 
       {/* Sign out */}
@@ -1128,7 +1141,13 @@ function getVideoEmbedUrl(mediaUrl: string): string | null {
   return null;
 }
 
-function ArtifactsSection() {
+function ArtifactsSection({
+  editArtifactId,
+  onEditComplete,
+}: {
+  editArtifactId?: string | null;
+  onEditComplete?: () => void;
+}) {
   const artifacts = useQuery(api.artifacts.getMyArtifacts);
   const createArtifact = useMutation(api.artifacts.create);
   const updateArtifact = useMutation(api.artifacts.update);
@@ -1148,6 +1167,19 @@ function ArtifactsSection() {
   );
   const [uploadedPreview, setUploadedPreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const sectionRef = useRef<HTMLDivElement>(null);
+
+  // Auto-start editing if editArtifactId is provided
+  useEffect(() => {
+    if (editArtifactId && artifacts) {
+      const artifact = artifacts.find((a) => a._id === editArtifactId);
+      if (artifact) {
+        startEdit(artifact);
+        // Scroll to the artifacts section
+        sectionRef.current?.scrollIntoView({ behavior: "smooth" });
+      }
+    }
+  }, [editArtifactId, artifacts]);
 
   function resetForm() {
     setType("text");
@@ -1158,6 +1190,8 @@ function ArtifactsSection() {
     setUploadedPreview(null);
     setShowAddForm(false);
     setEditingId(null);
+    // Clear the URL param if we were editing from a deep link
+    onEditComplete?.();
   }
 
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -1297,7 +1331,7 @@ function ArtifactsSection() {
         : hasMedia;
 
   return (
-    <div>
+    <div ref={sectionRef}>
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
           Work & Portfolio

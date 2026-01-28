@@ -328,9 +328,9 @@ export default function WorkDetail() {
               {artifact.isOwner && (
                 <>
                   <Link
-                    to="/settings"
+                    to={`/settings?editArtifact=${artifact._id}`}
                     className="p-2 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
-                    title="Edit in Settings"
+                    title="Edit"
                   >
                     <svg
                       className="w-5 h-5"
