@@ -131,8 +131,7 @@ export function CreateWorkComposer({ onCreated }: { onCreated?: () => void }) {
         type: effectiveType,
         title: title.trim() || undefined,
         content: type === "text" ? content.trim() : undefined,
-        mediaUrl:
-          type !== "text" && !uploadedStorageId ? normalizedUrl : undefined,
+        mediaUrl: type !== "text" && normalizedUrl ? normalizedUrl : undefined,
         mediaStorageId: uploadedStorageId
           ? (uploadedStorageId as any)
           : undefined,
@@ -392,26 +391,26 @@ export function CreateWorkComposer({ onCreated }: { onCreated?: () => void }) {
               ) : null}
 
               {/* URL Input */}
-              {!uploadedStorageId && (
-                <div className="relative mt-3">
-                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                    <LinkIcon className="w-4 h-4 text-gray-400" />
-                  </div>
-                  <input
-                    type="text"
-                    value={mediaUrl}
-                    onChange={(e) => setMediaUrl(e.target.value)}
-                    placeholder={
-                      type === "link"
+              <div className="relative mt-3">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <LinkIcon className="w-4 h-4 text-gray-400" />
+                </div>
+                <input
+                  type="text"
+                  value={mediaUrl}
+                  onChange={(e) => setMediaUrl(e.target.value)}
+                  placeholder={
+                    uploadedStorageId
+                      ? "Add a link for the image to open..."
+                      : type === "link"
                         ? "Paste a link..."
                         : type === "video"
                           ? "Or paste a YouTube URL..."
                           : "Or paste a URL..."
-                    }
-                    className="w-full pl-10 pr-4 py-3 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
-                  />
-                </div>
-              )}
+                  }
+                  className="w-full pl-10 pr-4 py-3 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                />
+              </div>
             </div>
           )}
 

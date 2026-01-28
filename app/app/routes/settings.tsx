@@ -1129,6 +1129,7 @@ function ArtifactsSection({
   const createArtifact = useMutation(api.artifacts.create);
   const updateArtifact = useMutation(api.artifacts.update);
   const removeArtifact = useMutation(api.artifacts.remove);
+  const refetchOgImage = useMutation(api.artifacts.refetchOgImage);
   const generateUploadUrl = useMutation(api.files.generateUploadUrl);
 
   const [showAddForm, setShowAddForm] = useState(false);
@@ -1139,6 +1140,7 @@ function ArtifactsSection({
   const [mediaUrl, setMediaUrl] = useState("");
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [refreshingId, setRefreshingId] = useState<string | null>(null);
   const [uploadedStorageId, setUploadedStorageId] = useState<string | null>(
     null,
   );
@@ -1285,6 +1287,18 @@ function ArtifactsSection({
   async function handleDelete(artifactId: string) {
     if (!confirm("Delete this artifact?")) return;
     await removeArtifact({ artifactId: artifactId as any });
+  }
+
+  async function handleRefreshPreview(artifactId: string) {
+    setRefreshingId(artifactId);
+    try {
+      await refetchOgImage({ artifactId: artifactId as any });
+      // Keep showing for 2 seconds to indicate success
+      setTimeout(() => setRefreshingId(null), 2000);
+    } catch (err) {
+      console.error("Refresh failed:", err);
+      setRefreshingId(null);
+    }
   }
 
   function startEdit(artifact: any) {
@@ -1537,6 +1551,33 @@ function ArtifactsSection({
                   <div className="flex justify-end">
                     {/* Actions (show on hover) */}
                     <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      {/* Refresh preview button for link-type artifacts */}
+                      {artifact.type === "link" && artifact.mediaUrl && (
+                        <button
+                          onClick={() => handleRefreshPreview(artifact._id)}
+                          disabled={refreshingId === artifact._id}
+                          className="w-7 h-7 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center text-white hover:bg-blue-500/80 disabled:opacity-50"
+                          title="Refresh preview image"
+                        >
+                          {refreshingId === artifact._id ? (
+                            <div className="w-3.5 h-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                          ) : (
+                            <svg
+                              className="w-3.5 h-3.5"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                              />
+                            </svg>
+                          )}
+                        </button>
+                      )}
                       <button
                         onClick={() => startEdit(artifact)}
                         className="w-7 h-7 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center text-white hover:bg-white/30"

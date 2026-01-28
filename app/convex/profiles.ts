@@ -81,11 +81,16 @@ export const getProfile = query({
       .collect();
     const artifactsWithUrls = await Promise.all(
       artifacts.map(async (artifact) => {
-        let mediaUrl = artifact.mediaUrl || null;
-        if (artifact.mediaStorageId) {
-          mediaUrl = await ctx.storage.getUrl(artifact.mediaStorageId);
-        }
-        return { ...artifact, mediaUrl };
+        // Resolve storage URL if exists
+        const resolvedMediaUrl = artifact.mediaStorageId
+          ? await ctx.storage.getUrl(artifact.mediaStorageId)
+          : artifact.mediaUrl || null;
+
+        return {
+          ...artifact,
+          mediaUrl: resolvedMediaUrl, // The displayable media (uploaded image or external URL)
+          linkUrl: artifact.mediaUrl || null, // The original link URL (if any)
+        };
       }),
     );
 
