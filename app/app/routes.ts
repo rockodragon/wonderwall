@@ -10,6 +10,7 @@ export default [
   index("routes/home.tsx"),
   route("login", "routes/login.tsx"),
   route("signup/:inviteSlug", "routes/signup.tsx"),
+  route("oauth-callback", "routes/oauth-callback.tsx"),
   route("onboarding", "routes/onboarding.tsx"),
 
   // App routes (with nav layout)
