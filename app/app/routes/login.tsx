@@ -40,14 +40,13 @@ export default function Login() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
-  const [shouldRedirect, setShouldRedirect] = useState(false);
 
-  // Redirect when authenticated (avoids race condition)
+  // Redirect when authenticated (handles both password login and OAuth return)
   useEffect(() => {
-    if (!authLoading && isAuthenticated && shouldRedirect) {
+    if (!authLoading && isAuthenticated) {
       navigate("/search");
     }
-  }, [isAuthenticated, authLoading, shouldRedirect, navigate]);
+  }, [isAuthenticated, authLoading, navigate]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -60,9 +59,7 @@ export default function Login() {
       // Identify user and capture login event
       posthog?.identify(email, { email });
       posthog?.capture("user_logged_in", { email });
-
-      // Set flag to trigger redirect once auth state updates
-      setShouldRedirect(true);
+      // Redirect happens automatically via useEffect when auth state updates
     } catch (err) {
       setError("Invalid email or password");
       posthog?.capture("login_error", {
@@ -79,7 +76,7 @@ export default function Login() {
     try {
       await signIn("google");
       posthog?.capture("google_sign_in_initiated");
-      setShouldRedirect(true);
+      // Redirect happens automatically via useEffect when auth state updates
     } catch (err) {
       setError("Failed to sign in with Google");
       posthog?.capture("google_login_error", {
