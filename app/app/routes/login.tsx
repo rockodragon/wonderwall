@@ -199,6 +199,15 @@ export default function Login() {
             Sign up
           </Link>
         </p>
+
+        <p className="text-center text-sm">
+          <Link
+            to="/"
+            className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+          >
+            ← Back to home
+          </Link>
+        </p>
       </div>
     </div>
   );
