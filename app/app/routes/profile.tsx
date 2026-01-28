@@ -20,12 +20,7 @@ export default function Profile() {
     api.invites.getInviteStats,
     profile?.userId ? { userId: profile.userId } : "skip",
   );
-  const likeStatus = useQuery(
-    api.analytics.getProfileLikeStatus,
-    profileId ? { profileId: profileId as Id<"profiles"> } : "skip",
-  );
   const recordView = useMutation(api.analytics.recordProfileView);
-  const toggleLike = useMutation(api.analytics.toggleProfileLike);
   const getOrCreateConversation = useMutation(
     api.messaging.getOrCreateConversation,
   );
@@ -118,59 +113,6 @@ export default function Profile() {
             </h1>
             <FavoriteButton targetType="profile" targetId={profile._id} />
             <ShareButton type="profile" title={profile.name} size="sm" />
-            {/* Like button */}
-            <button
-              onClick={() =>
-                toggleLike({ profileId: profile._id }).catch(() => {})
-              }
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm transition-colors ${
-                likeStatus?.userLiked
-                  ? "bg-pink-100 dark:bg-pink-900/30 text-pink-600 dark:text-pink-400"
-                  : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
-              }`}
-            >
-              <svg
-                className="w-4 h-4"
-                fill={likeStatus?.userLiked ? "currentColor" : "none"}
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5"
-                />
-              </svg>
-              {likeStatus?.count || 0}
-            </button>
-            {/* Message button - only show for other profiles */}
-            {!isOwnProfile && (
-              <button
-                onClick={handleStartConversation}
-                disabled={startingConversation}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm transition-colors bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
-              >
-                {startingConversation ? (
-                  <div className="w-4 h-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                ) : (
-                  <svg
-                    className="w-4 h-4"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-                    />
-                  </svg>
-                )}
-                Message
-              </button>
-            )}
           </div>
           <p className="text-gray-600 dark:text-gray-400 mt-1 text-sm sm:text-base">
             {profile.jobFunctions.join(" • ")}
@@ -180,6 +122,33 @@ export default function Profile() {
             <p className="text-gray-700 dark:text-gray-300 mt-3 text-sm sm:text-base">
               {profile.bio}
             </p>
+          )}
+          {/* Message button - below bio, only for other profiles */}
+          {!isOwnProfile && (
+            <button
+              onClick={handleStartConversation}
+              disabled={startingConversation}
+              className="mt-4 flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-colors bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+            >
+              {startingConversation ? (
+                <div className="w-4 h-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+              ) : (
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                  />
+                </svg>
+              )}
+              Message
+            </button>
           )}
           {/* Invite stats */}
           {inviteStats && (
