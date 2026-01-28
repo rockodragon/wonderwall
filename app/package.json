@@ -7,7 +7,7 @@
     "dev": "react-router dev",
     "start": "wrangler pages dev ./build/client",
     "typecheck": "react-router typegen && tsc",
-    "deploy": "bun run build && wrangler pages deploy ./build/client",
+    "deploy": "VITE_CONVEX_URL=https://courteous-rabbit-750.convex.cloud bun run build && wrangler pages deploy ./build/client",
     "preview": "bun run build && wrangler pages dev ./build/client"
   },
   "dependencies": {
