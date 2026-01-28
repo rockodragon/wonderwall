@@ -6,6 +6,20 @@ import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { ShareButton } from "../components/ShareButton";
 
+function formatTimeAgo(timestamp: number): string {
+  const now = Date.now();
+  const diff = now - timestamp;
+  const minutes = Math.floor(diff / 60000);
+  const hours = Math.floor(diff / 3600000);
+  const days = Math.floor(diff / 86400000);
+
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  if (hours < 24) return `${hours}h ago`;
+  if (days < 7) return `${days}d ago`;
+  return new Date(timestamp).toLocaleDateString();
+}
+
 export default function WorkDetail() {
   const { artifactId } = useParams();
   const navigate = useNavigate();
@@ -18,6 +32,49 @@ export default function WorkDetail() {
   const refetchOgImage = useMutation(api.artifacts.refetchOgImage);
   const [deleting, setDeleting] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Comments state
+  const [showCommentForm, setShowCommentForm] = useState(false);
+  const [comment, setComment] = useState("");
+  const [submittingComment, setSubmittingComment] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+
+  // Comments queries and mutations
+  const publicComments = useQuery(
+    api.artifactComments.getPublicComments,
+    artifactId ? { artifactId: artifactId as Id<"artifacts"> } : "skip",
+  );
+  const allComments = useQuery(
+    api.artifactComments.getAllComments,
+    artifactId ? { artifactId: artifactId as Id<"artifacts"> } : "skip",
+  );
+  const submitComment = useMutation(api.artifactComments.submitComment);
+  const toggleCommentPublic = useMutation(api.artifactComments.toggleCommentPublic);
+  const deleteComment = useMutation(api.artifactComments.deleteComment);
+
+  // Use allComments for owner, publicComments for others
+  const comments = artifact?.isOwner ? allComments : publicComments;
+  const userHasCommented = publicComments?.some((c) => c.isOwnComment);
+
+  async function handleSubmitComment() {
+    if (!comment.trim() || !artifactId) return;
+
+    setSubmittingComment(true);
+    try {
+      await submitComment({
+        artifactId: artifactId as Id<"artifacts">,
+        content: comment.trim(),
+      });
+      setSubmitted(true);
+      setComment("");
+      setShowCommentForm(false);
+    } catch (err) {
+      console.error("Submit error:", err);
+      alert("Failed to submit comment. Please try again.");
+    } finally {
+      setSubmittingComment(false);
+    }
+  }
 
   async function handleRefreshPreview() {
     if (!artifactId) return;
@@ -486,6 +543,242 @@ export default function WorkDetail() {
             </svg>
           </div>
         </Link>
+      )}
+
+      {/* Comments section */}
+      <div className="mt-6 bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-lg">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+            Comments
+            {comments && comments.length > 0 && (
+              <span className="ml-2 text-sm font-normal text-gray-500 dark:text-gray-400">
+                ({comments.length})
+              </span>
+            )}
+          </h3>
+          {!artifact.isOwner && !submitted && !userHasCommented && (
+            <button
+              onClick={() => setShowCommentForm(true)}
+              className="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 transition-colors"
+            >
+              Add Comment
+            </button>
+          )}
+        </div>
+
+        {/* User submitted message */}
+        {(submitted || userHasCommented) && !artifact.isOwner && (
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+            You've shared your thoughts
+          </p>
+        )}
+
+        {/* Comments list */}
+        {comments && comments.length > 0 ? (
+          <div className="space-y-4">
+            {comments.map((c) => (
+              <div
+                key={c._id}
+                className={`p-4 rounded-xl ${
+                  c.isOwnComment && !c.isPublic
+                    ? "bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800"
+                    : "bg-gray-50 dark:bg-gray-700/50"
+                }`}
+              >
+                <div className="flex items-start gap-3">
+                  {c.commenterProfileId ? (
+                    <Link to={`/profile/${c.commenterProfileId}`}>
+                      {c.commenterImageUrl ? (
+                        <img
+                          src={c.commenterImageUrl}
+                          alt={c.commenterName}
+                          className="w-8 h-8 rounded-full object-cover hover:ring-2 hover:ring-blue-500 transition-all"
+                        />
+                      ) : (
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-sm font-medium hover:ring-2 hover:ring-blue-500 transition-all">
+                          {c.commenterName.charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                    </Link>
+                  ) : c.commenterImageUrl ? (
+                    <img
+                      src={c.commenterImageUrl}
+                      alt={c.commenterName}
+                      className="w-8 h-8 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-sm font-medium">
+                      {c.commenterName.charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {c.commenterProfileId ? (
+                        <Link
+                          to={`/profile/${c.commenterProfileId}`}
+                          className="font-medium text-sm text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400"
+                        >
+                          {c.commenterName}
+                        </Link>
+                      ) : (
+                        <span className="font-medium text-sm text-gray-900 dark:text-white">
+                          {c.commenterName}
+                        </span>
+                      )}
+                      <span className="text-xs text-gray-400 dark:text-gray-500">
+                        {formatTimeAgo(c.createdAt)}
+                      </span>
+                      {c.isOwnComment && !c.isPublic && (
+                        <span className="text-xs px-2 py-0.5 bg-yellow-200 dark:bg-yellow-800 text-yellow-800 dark:text-yellow-200 rounded-full">
+                          Pending
+                        </span>
+                      )}
+                      {!c.isPublic && artifact.isOwner && !c.isOwnComment && (
+                        <span className="text-xs px-2 py-0.5 bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300 rounded-full">
+                          Hidden
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-gray-700 dark:text-gray-300 text-sm mt-1">
+                      {c.content}
+                    </p>
+
+                    {/* Owner controls for each comment */}
+                    {artifact.isOwner && !c.isOwnComment && (
+                      <div className="flex items-center gap-2 mt-2">
+                        <button
+                          onClick={() =>
+                            toggleCommentPublic({ commentId: c._id }).catch(
+                              () => {},
+                            )
+                          }
+                          className={`text-xs px-2 py-1 rounded transition-colors ${
+                            c.isPublic
+                              ? "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                              : "text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300"
+                          }`}
+                        >
+                          {c.isPublic ? "Hide" : "Publish"}
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (
+                              confirm(
+                                "Are you sure you want to delete this comment?",
+                              )
+                            ) {
+                              deleteComment({ commentId: c._id }).catch(
+                                () => {},
+                              );
+                            }
+                          }}
+                          className="text-xs px-2 py-1 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 rounded transition-colors"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Commenter can delete their own comment */}
+                    {c.isOwnComment && (
+                      <div className="flex items-center gap-2 mt-2">
+                        <button
+                          onClick={() => {
+                            if (
+                              confirm(
+                                "Are you sure you want to delete your comment?",
+                              )
+                            ) {
+                              deleteComment({ commentId: c._id }).catch(
+                                () => {},
+                              );
+                            }
+                          }}
+                          className="text-xs px-2 py-1 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 rounded transition-colors"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-gray-500 dark:text-gray-400 text-sm">
+            No comments yet. Be the first to share your thoughts!
+          </p>
+        )}
+      </div>
+
+      {/* Comment Form Modal */}
+      {showCommentForm && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-900 rounded-2xl w-full max-w-lg overflow-hidden">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Add a comment
+                </h3>
+                <button
+                  onClick={() => setShowCommentForm(false)}
+                  className="text-gray-400 hover:text-gray-500"
+                >
+                  <svg
+                    className="w-6 h-6"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              </div>
+
+              {artifact.title && (
+                <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">
+                  Commenting on: "{artifact.title}"
+                </p>
+              )}
+
+              <textarea
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                placeholder="Share your thoughts on this work..."
+                rows={5}
+                maxLength={1000}
+                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white resize-none"
+                autoFocus
+              />
+
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 mb-4">
+                Your comment will be pending until {artifact.profile?.name || "the creator"} publishes it.
+              </p>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowCommentForm(false)}
+                  className="flex-1 py-2.5 text-gray-600 dark:text-gray-400 text-sm font-medium hover:text-gray-800 dark:hover:text-gray-200"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSubmitComment}
+                  disabled={submittingComment || !comment.trim()}
+                  className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
+                >
+                  {submittingComment ? "Sending..." : "Submit Comment"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

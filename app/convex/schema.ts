@@ -190,6 +190,17 @@ export default defineSchema({
     .index("by_userId", ["userId"])
     .index("by_artifactId_userId", ["artifactId", "userId"]),
 
+  // Artifact comments
+  artifactComments: defineTable({
+    artifactId: v.id("artifacts"),
+    commenterId: v.id("users"),
+    content: v.string(),
+    isPublic: v.boolean(), // artifact owner can publish
+    createdAt: v.number(),
+  })
+    .index("by_artifactId", ["artifactId"])
+    .index("by_commenterId", ["commenterId"]),
+
   // Favorites (can favorite profiles or events)
   favorites: defineTable({
     userId: v.id("users"),
