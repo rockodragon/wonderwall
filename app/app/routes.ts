@@ -12,6 +12,7 @@ export default [
   route("signup/:inviteSlug", "routes/signup.tsx"),
   route("oauth-callback", "routes/oauth-callback.tsx"),
   route("onboarding", "routes/onboarding.tsx"),
+  route("organizations", "routes/organizations.tsx"),
 
   // App routes (with nav layout)
   layout("routes/_app.tsx", [
