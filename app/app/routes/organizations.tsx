@@ -436,7 +436,31 @@ function UpSightOrgEmbed({
     }
   }, [id, accentColor]);
 
-  return <div id={id} />;
+  return (
+    <>
+      <style>{`
+        #${id}, #${id} * {
+          background: transparent !important;
+          background-color: transparent !important;
+        }
+        #${id} input {
+          background: rgba(255,255,255,0.1) !important;
+          border: 1px solid rgba(255,255,255,0.2) !important;
+          color: white !important;
+        }
+        #${id} input::placeholder {
+          color: rgba(255,255,255,0.5) !important;
+        }
+        #${id} button {
+          background: ${accentColor} !important;
+        }
+        #${id} label, #${id} p, #${id} span {
+          color: rgba(255,255,255,0.7) !important;
+        }
+      `}</style>
+      <div id={id} />
+    </>
+  );
 }
 
 function ValueProp({
