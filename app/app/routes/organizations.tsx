@@ -52,71 +52,60 @@ const TIERS = [
       "Organization name in directory",
       "Website link and contact info",
       "Organization type badge",
-      "Access to browse creative portfolios",
-      "Community updates and newsletter",
+      "Browse creative portfolios",
+      "Community newsletter",
     ],
     highlighted: false,
     free: true,
   },
   {
-    name: "Sower",
-    price: 500,
-    period: "year",
-    description: "For organizations ready to actively recruit talent",
+    name: "Partner",
+    price: 100,
+    period: "month",
+    description: "For organizations ready to actively hire creative talent",
     features: [
       "Everything in Community, plus:",
       "Logo displayed in directory",
       "Dedicated organization profile page",
-      "Post up to 3 jobs per year",
-      "Direct messaging with creatives",
-    ],
-    highlighted: false,
-  },
-  {
-    name: "Builder",
-    price: 1500,
-    period: "year",
-    description: "For organizations with ongoing creative hiring needs",
-    features: [
-      "Everything in Sower, plus:",
       "Unlimited job postings",
-      "Featured organization badge",
-      "Priority support",
-      "Talent matching assistance",
-      "Quarterly newsletter spotlight",
+      "Direct messaging with creatives",
+      "Sponsor 2 creative memberships",
     ],
     highlighted: true,
+    patronage: 2,
   },
   {
-    name: "Steward",
-    price: 3000,
-    period: "year",
-    description: "For established organizations building creative teams",
-    features: [
-      "Everything in Builder, plus:",
-      "Homepage feature rotation",
-      "Sponsored content opportunities",
-      "Early access to new features",
-      "Dedicated account manager",
-      "Custom job application forms",
-    ],
-    highlighted: false,
-  },
-  {
-    name: "Kingdom Partner",
+    name: "Patron",
     price: 5000,
     period: "year",
-    description: "Strategic partnership for mission-critical hiring",
+    description: "For established organizations investing in Kingdom creatives",
     features: [
-      "Everything in Steward, plus:",
+      "Everything in Partner, plus:",
+      "Featured organization badge",
+      "Homepage feature rotation",
+      "Priority support & talent matching",
+      "Quarterly newsletter spotlight",
+      "Sponsor 10 creative memberships",
+    ],
+    highlighted: false,
+    patronage: 10,
+  },
+  {
+    name: "Founding Partner",
+    price: 25000,
+    period: "year",
+    description: "Strategic partnership shaping the future of Kingdom creativity",
+    features: [
+      "Everything in Patron, plus:",
       "Event and feature naming rights",
       "Advisory board participation",
       "Custom platform integrations",
-      "Branded talent pipeline program",
       "Co-branded marketing initiatives",
+      "Sponsor 50+ creative memberships",
     ],
     highlighted: false,
     custom: true,
+    patronage: 50,
   },
 ];
 
@@ -132,9 +121,14 @@ const FAQS = [
       "Absolutely. Many businesses value working with creatives who bring strong ethics, reliability, and character to their work. Our community includes talented professionals across every creative discipline who happen to share Kingdom values—and that translates into excellent work for any organization.",
   },
   {
-    question: "What's the difference between the free and paid tiers?",
+    question: "What's the difference between the tiers?",
     answer:
-      "The free Community tier gets your organization listed in our directory with basic contact information—great for getting started. Paid tiers unlock features like logo display, dedicated profile pages, job posting capabilities, direct messaging with creatives, and premium visibility. Most organizations that actively hire start at the Sower tier.",
+      "The free Community tier gets your organization listed in our directory—great for getting started. The Partner tier ($100/month) unlocks job posting and direct messaging. Patron and Founding Partner tiers add premium visibility, dedicated support, and the ability to sponsor creative memberships as a 'patron of the arts.'",
+  },
+  {
+    question: "What does 'sponsor creative memberships' mean?",
+    answer:
+      "Like Renaissance patrons who supported artists, your organization can sponsor memberships for emerging creatives who couldn't otherwise afford to join. Partner tier sponsors 2, Patron sponsors 10, and Founding Partners sponsor 50+ creatives. It's a tangible way to invest in Kingdom creativity while building goodwill with future talent.",
   },
   {
     question: "What creative roles can we hire for?",
@@ -152,9 +146,9 @@ const FAQS = [
       "Yes—our Community tier is completely free. Get listed, browse portfolios, and see if Wonderwall is right for your organization. When you're ready to post jobs and connect directly with creatives, upgrading is simple.",
   },
   {
-    question: "What if we have custom needs?",
+    question: "What if we have larger partnership needs?",
     answer:
-      "Our Kingdom Partner tier is designed for organizations with unique requirements. We're happy to discuss custom integrations, API access, branded talent pipelines, and tailored solutions. Let's talk.",
+      "Our Founding Partner tier is designed for organizations wanting to make a significant impact—think Life.Church, Compassion International, or values-aligned businesses like Chick-fil-A. We offer custom integrations, naming rights, advisory board participation, and tailored solutions. Let's talk.",
   },
 ];
 
@@ -293,11 +287,75 @@ export default function Organizations() {
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
             {TIERS.map((tier) => (
               <TierCard key={tier.name} tier={tier} showPricing={showPricing} />
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* Patronage Section */}
+      <section className="px-6 py-16 bg-gradient-to-br from-amber-900/20 via-gray-900 to-gray-900">
+        <div className="max-w-4xl mx-auto">
+          <div className="text-center mb-10">
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded-full text-sm font-medium mb-4">
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+              Patron of the Arts
+            </div>
+            <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
+              Invest in Kingdom Creativity
+            </h2>
+            <p className="text-gray-300 text-lg max-w-2xl mx-auto">
+              Like the Medicis of Florence, your organization can become a patron
+              of Kingdom creatives—sponsoring memberships for talented artists who
+              couldn't otherwise afford to join.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-6">
+            <div className="bg-gray-800/50 rounded-2xl p-6 border border-amber-500/20">
+              <div className="text-3xl font-bold text-amber-400 mb-2">2</div>
+              <div className="text-white font-medium mb-1">Partner Tier</div>
+              <p className="text-gray-400 text-sm">
+                Sponsor 2 creative memberships per year—perfect for small churches
+                and startups wanting to give back.
+              </p>
+            </div>
+            <div className="bg-gray-800/50 rounded-2xl p-6 border border-amber-500/30">
+              <div className="text-3xl font-bold text-amber-400 mb-2">10</div>
+              <div className="text-white font-medium mb-1">Patron Tier</div>
+              <p className="text-gray-400 text-sm">
+                Sponsor 10 creatives annually. Build relationships with emerging
+                talent before you ever need to hire.
+              </p>
+            </div>
+            <div className="bg-gray-800/50 rounded-2xl p-6 border border-amber-500/40">
+              <div className="text-3xl font-bold text-amber-400 mb-2">50+</div>
+              <div className="text-white font-medium mb-1">Founding Partner</div>
+              <p className="text-gray-400 text-sm">
+                Make a generational investment. Your name becomes synonymous with
+                supporting Kingdom creativity.
+              </p>
+            </div>
+          </div>
+
+          <p className="text-center text-gray-500 text-sm mt-8">
+            Sponsored creatives get full platform access. You get the joy of
+            investing in the next generation—and first look at emerging talent.
+          </p>
         </div>
       </section>
 
@@ -523,6 +581,8 @@ function TierCard({
   showPricing: boolean;
 }) {
   const isFree = "free" in tier && tier.free;
+  const hasPatronage = "patronage" in tier && tier.patronage;
+  const isCustom = "custom" in tier && tier.custom;
 
   return (
     <div
@@ -544,6 +604,11 @@ function TierCard({
           Free Forever
         </div>
       )}
+      {hasPatronage && !tier.highlighted && !isFree && (
+        <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-amber-600 text-white text-xs font-medium rounded-full">
+          Patron of the Arts
+        </div>
+      )}
 
       <div className="mb-4">
         <h3 className="text-xl font-bold text-white">{tier.name}</h3>
@@ -555,13 +620,18 @@ function TierCard({
           <span className="text-4xl font-bold text-green-400">Free</span>
         ) : showPricing ? (
           <>
+            {isCustom && (
+              <span className="block text-sm text-gray-500 mb-1">
+                Starting at
+              </span>
+            )}
             <span className="text-4xl font-bold text-white">
               ${tier.price.toLocaleString()}
             </span>
             <span className="text-gray-400">/{tier.period}</span>
-            {"custom" in tier && tier.custom && (
+            {tier.period === "month" && (
               <span className="block text-sm text-gray-500 mt-1">
-                Starting at
+                ${(tier.price * 12).toLocaleString()}/year
               </span>
             )}
           </>
@@ -573,24 +643,38 @@ function TierCard({
       </div>
 
       <ul className="space-y-3 mb-6">
-        {tier.features.map((feature, idx) => (
-          <li key={idx} className="flex items-start gap-2 text-sm">
-            <svg
-              className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M5 13l4 4L19 7"
-              />
-            </svg>
-            <span className="text-gray-300">{feature}</span>
-          </li>
-        ))}
+        {tier.features.map((feature, idx) => {
+          const isPatronageFeature = feature.includes("Sponsor");
+          return (
+            <li key={idx} className="flex items-start gap-2 text-sm">
+              <svg
+                className={`w-5 h-5 flex-shrink-0 mt-0.5 ${isPatronageFeature ? "text-amber-400" : "text-green-400"}`}
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                {isPatronageFeature ? (
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                ) : (
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5 13l4 4L19 7"
+                  />
+                )}
+              </svg>
+              <span className={isPatronageFeature ? "text-amber-200" : "text-gray-300"}>
+                {feature}
+              </span>
+            </li>
+          );
+        })}
       </ul>
 
       <a
@@ -603,7 +687,7 @@ function TierCard({
               : "bg-gray-800 text-white hover:bg-gray-700"
         }`}
       >
-        {isFree ? "Join Free" : "Get Started"}
+        {isFree ? "Join Free" : isCustom ? "Contact Us" : "Get Started"}
       </a>
     </div>
   );
