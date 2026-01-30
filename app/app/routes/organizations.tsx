@@ -30,13 +30,13 @@ export function meta({}: Route.MetaArgs) {
     {
       name: "description",
       content:
-        "Connect with talented Kingdom-minded creatives. Post jobs, build your team, and find values-aligned talent for your church, ministry, or organization.",
+        "Connect with talented creatives known for integrity and excellence. Post jobs, build your team, and find values-aligned talent—whether you're a church, nonprofit, startup, or enterprise.",
     },
     { property: "og:title", content: "Hire Kingdom Creatives | Wonderwall" },
     {
       property: "og:description",
       content:
-        "Connect with talented Kingdom-minded creatives for your church, ministry, or organization.",
+        "Connect with talented creatives known for integrity and excellence—for any organization.",
     },
     { property: "og:type", content: "website" },
   ];
@@ -44,15 +44,30 @@ export function meta({}: Route.MetaArgs) {
 
 const TIERS = [
   {
+    name: "Community",
+    price: 0,
+    period: "year",
+    description: "Get listed and start connecting with the creative community",
+    features: [
+      "Organization name in directory",
+      "Website link and contact info",
+      "Organization type badge",
+      "Access to browse creative portfolios",
+      "Community updates and newsletter",
+    ],
+    highlighted: false,
+    free: true,
+  },
+  {
     name: "Sower",
     price: 500,
     period: "year",
-    description: "Perfect for small churches and ministries starting out",
+    description: "For organizations ready to actively recruit talent",
     features: [
-      "Organization profile page",
+      "Everything in Community, plus:",
+      "Logo displayed in directory",
+      "Dedicated organization profile page",
       "Post up to 3 jobs per year",
-      "Logo in organization directory",
-      "Browse creative portfolios",
       "Direct messaging with creatives",
     ],
     highlighted: false,
@@ -61,14 +76,14 @@ const TIERS = [
     name: "Builder",
     price: 1500,
     period: "year",
-    description: "For growing organizations with ongoing creative needs",
+    description: "For organizations with ongoing creative hiring needs",
     features: [
       "Everything in Sower, plus:",
       "Unlimited job postings",
       "Featured organization badge",
       "Priority support",
       "Talent matching assistance",
-      "Quarterly newsletter feature",
+      "Quarterly newsletter spotlight",
     ],
     highlighted: true,
   },
@@ -76,11 +91,11 @@ const TIERS = [
     name: "Steward",
     price: 3000,
     period: "year",
-    description: "For established ministries building creative teams",
+    description: "For established organizations building creative teams",
     features: [
       "Everything in Builder, plus:",
       "Homepage feature rotation",
-      "Sponsored content posts",
+      "Sponsored content opportunities",
       "Early access to new features",
       "Dedicated account manager",
       "Custom job application forms",
@@ -88,17 +103,17 @@ const TIERS = [
     highlighted: false,
   },
   {
-    name: "Kingdom Builder",
+    name: "Kingdom Partner",
     price: 5000,
     period: "year",
-    description: "Strategic partnership for large organizations",
+    description: "Strategic partnership for mission-critical hiring",
     features: [
       "Everything in Steward, plus:",
-      "Naming rights for events/features",
+      "Event and feature naming rights",
       "Advisory board participation",
-      "Custom integrations",
-      "Branded talent pipeline",
-      "Co-branded marketing opportunities",
+      "Custom platform integrations",
+      "Branded talent pipeline program",
+      "Co-branded marketing initiatives",
     ],
     highlighted: false,
     custom: true,
@@ -109,27 +124,37 @@ const FAQS = [
   {
     question: "What types of organizations can join?",
     answer:
-      "Wonderwall welcomes churches of all sizes, parachurch ministries, Christian non-profits, faith-based media companies, mission organizations, and any organization seeking values-aligned creative talent.",
+      "Wonderwall welcomes any organization seeking values-aligned creative talent. This includes churches, Christian nonprofits, mission organizations, faith-based media companies, as well as secular businesses, startups, agencies, and nonprofits who want to hire creatives known for their integrity, work ethic, and character.",
+  },
+  {
+    question: "I'm not a church or Christian organization. Can I still join?",
+    answer:
+      "Absolutely. Many businesses value working with creatives who bring strong ethics, reliability, and character to their work. Our community includes talented professionals across every creative discipline who happen to share Kingdom values—and that translates into excellent work for any organization.",
+  },
+  {
+    question: "What's the difference between the free and paid tiers?",
+    answer:
+      "The free Community tier gets your organization listed in our directory with basic contact information—great for getting started. Paid tiers unlock features like logo display, dedicated profile pages, job posting capabilities, direct messaging with creatives, and premium visibility. Most organizations that actively hire start at the Sower tier.",
   },
   {
     question: "What creative roles can we hire for?",
     answer:
-      "Our community includes designers, filmmakers, photographers, musicians, writers, developers, marketers, worship leaders, and many more creative disciplines. Whether you need a full-time creative director or a freelancer for a single project, you'll find talented Kingdom creatives here.",
+      "Our community includes designers, filmmakers, photographers, musicians, writers, developers, marketers, worship leaders, and 30+ creative disciplines. Whether you need a full-time creative director, a freelancer for a campaign, or a worship leader, you'll find talented professionals here.",
   },
   {
     question: "How is Wonderwall different from other job boards?",
     answer:
-      "Unlike traditional job boards, Wonderwall is a community first. Creatives here showcase their portfolios, share their journey, and connect based on shared values. When you post a job, you see complete portfolios—not just resumes. You're hiring people whose work and values you can evaluate before reaching out.",
+      "Unlike traditional job boards, Wonderwall is a community first. Creatives showcase portfolios, share their journey, and connect based on shared values. When you post a job, you see complete portfolios—not just resumes. You're hiring people whose work quality and character you can evaluate before reaching out.",
   },
   {
     question: "Can we try before we commit?",
     answer:
-      "Absolutely. Register your interest below and we'll set up a call to discuss your needs, give you a tour of the platform, and help you determine which tier makes sense for your organization.",
+      "Yes—our Community tier is completely free. Get listed, browse portfolios, and see if Wonderwall is right for your organization. When you're ready to post jobs and connect directly with creatives, upgrading is simple.",
   },
   {
     question: "What if we have custom needs?",
     answer:
-      "Our Kingdom Builder tier is designed for organizations with unique requirements. We're happy to discuss custom integrations, API access, and tailored solutions. Let's talk.",
+      "Our Kingdom Partner tier is designed for organizations with unique requirements. We're happy to discuss custom integrations, API access, branded talent pipelines, and tailored solutions. Let's talk.",
   },
 ];
 
@@ -192,15 +217,15 @@ export default function Organizations() {
             </span>
           </h1>
 
-          <p className="text-xl text-gray-400 max-w-2xl mx-auto mb-4">
-            Churches, nonprofits, ministries, agencies, and mission
+          <p className="text-xl text-gray-300 max-w-2xl mx-auto mb-4">
+            Churches, nonprofits, businesses, and mission-driven
             organizations—connect with talented designers, filmmakers,
-            musicians, writers, and more.
+            musicians, writers, and more who share your values.
           </p>
 
-          <p className="text-lg text-gray-500 max-w-xl mx-auto mb-8">
-            No more searching secular platforms for values-aligned talent. Find
-            creatives whose work and faith speak for themselves.
+          <p className="text-lg text-gray-300 max-w-xl mx-auto mb-8">
+            Whether you're a church, a startup, or a Fortune 500—find creatives
+            whose work ethic and integrity speak for themselves.
           </p>
 
           {/* Inline Registration Form */}
@@ -268,7 +293,7 @@ export default function Organizations() {
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
             {TIERS.map((tier) => (
               <TierCard key={tier.name} tier={tier} showPricing={showPricing} />
             ))}
@@ -359,8 +384,8 @@ export default function Organizations() {
                 Ready to Find Your Next Creative?
               </h2>
               <p className="text-white/90 text-lg mb-8 max-w-xl mx-auto">
-                Join the growing community of churches and ministries
-                discovering Kingdom-minded creative talent.
+                Join the growing community of organizations discovering
+                exceptional creative talent with integrity and purpose.
               </p>
               <div className="max-w-md mx-auto">
                 <UpSightOrgEmbed id="upsight-cta" accentColor="#ffffff" />
@@ -497,17 +522,26 @@ function TierCard({
   tier: (typeof TIERS)[0];
   showPricing: boolean;
 }) {
+  const isFree = "free" in tier && tier.free;
+
   return (
     <div
       className={`relative rounded-2xl p-6 transition-all ${
         tier.highlighted
           ? "bg-gradient-to-br from-blue-600/20 to-purple-600/20 border-2 border-blue-500"
-          : "bg-gray-900 border border-gray-800 hover:border-gray-700"
+          : isFree
+            ? "bg-gray-900/50 border border-gray-700 hover:border-gray-600"
+            : "bg-gray-900 border border-gray-800 hover:border-gray-700"
       }`}
     >
       {tier.highlighted && (
         <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-blue-600 text-white text-xs font-medium rounded-full">
           Most Popular
+        </div>
+      )}
+      {isFree && (
+        <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-green-600 text-white text-xs font-medium rounded-full">
+          Free Forever
         </div>
       )}
 
@@ -517,13 +551,15 @@ function TierCard({
       </div>
 
       <div className="mb-6">
-        {showPricing ? (
+        {isFree ? (
+          <span className="text-4xl font-bold text-green-400">Free</span>
+        ) : showPricing ? (
           <>
             <span className="text-4xl font-bold text-white">
               ${tier.price.toLocaleString()}
             </span>
             <span className="text-gray-400">/{tier.period}</span>
-            {tier.custom && (
+            {"custom" in tier && tier.custom && (
               <span className="block text-sm text-gray-500 mt-1">
                 Starting at
               </span>
@@ -562,10 +598,12 @@ function TierCard({
         className={`block w-full py-3 rounded-xl font-medium text-center transition-all ${
           tier.highlighted
             ? "bg-blue-600 text-white hover:bg-blue-700"
-            : "bg-gray-800 text-white hover:bg-gray-700"
+            : isFree
+              ? "bg-green-600 text-white hover:bg-green-700"
+              : "bg-gray-800 text-white hover:bg-gray-700"
         }`}
       >
-        Get Started
+        {isFree ? "Join Free" : "Get Started"}
       </a>
     </div>
   );
