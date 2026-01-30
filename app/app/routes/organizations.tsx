@@ -30,13 +30,13 @@ export function meta({}: Route.MetaArgs) {
     {
       name: "description",
       content:
-        "Connect with talented Kingdom-minded creatives. Post jobs, build your team, and find values-aligned talent for your church, ministry, or organization.",
+        "Connect with talented creatives known for integrity and excellence. Post jobs, build your team, and find values-aligned talent—whether you're a church, nonprofit, startup, or enterprise.",
     },
     { property: "og:title", content: "Hire Kingdom Creatives | Wonderwall" },
     {
       property: "og:description",
       content:
-        "Connect with talented Kingdom-minded creatives for your church, ministry, or organization.",
+        "Connect with talented creatives known for integrity and excellence—for any organization.",
     },
     { property: "og:type", content: "website" },
   ];
@@ -44,64 +44,68 @@ export function meta({}: Route.MetaArgs) {
 
 const TIERS = [
   {
-    name: "Sower",
-    price: 500,
+    name: "Community",
+    price: 0,
     period: "year",
-    description: "Perfect for small churches and ministries starting out",
+    description: "Get listed and start connecting with the creative community",
     features: [
-      "Organization profile page",
-      "Post up to 3 jobs per year",
-      "Logo in organization directory",
+      "Organization name in directory",
+      "Website link and contact info",
+      "Organization type badge",
       "Browse creative portfolios",
-      "Direct messaging with creatives",
+      "Community newsletter",
     ],
     highlighted: false,
+    free: true,
   },
   {
-    name: "Builder",
-    price: 1500,
-    period: "year",
-    description: "For growing organizations with ongoing creative needs",
+    name: "Partner",
+    price: 100,
+    period: "month",
+    description: "For organizations ready to actively hire creative talent",
     features: [
-      "Everything in Sower, plus:",
+      "Everything in Community, plus:",
+      "Logo displayed in directory",
+      "Dedicated organization profile page",
       "Unlimited job postings",
-      "Featured organization badge",
-      "Priority support",
-      "Talent matching assistance",
-      "Quarterly newsletter feature",
+      "Direct messaging with creatives",
+      "Sponsor 2 creative memberships",
     ],
     highlighted: true,
+    patronage: 2,
   },
   {
-    name: "Steward",
-    price: 3000,
-    period: "year",
-    description: "For established ministries building creative teams",
-    features: [
-      "Everything in Builder, plus:",
-      "Homepage feature rotation",
-      "Sponsored content posts",
-      "Early access to new features",
-      "Dedicated account manager",
-      "Custom job application forms",
-    ],
-    highlighted: false,
-  },
-  {
-    name: "Kingdom Builder",
+    name: "Patron",
     price: 5000,
     period: "year",
-    description: "Strategic partnership for large organizations",
+    description: "For established organizations investing in Kingdom creatives",
     features: [
-      "Everything in Steward, plus:",
-      "Naming rights for events/features",
+      "Everything in Partner, plus:",
+      "Featured organization badge",
+      "Homepage feature rotation",
+      "Priority support & talent matching",
+      "Quarterly newsletter spotlight",
+      "Sponsor 10 creative memberships",
+    ],
+    highlighted: false,
+    patronage: 10,
+  },
+  {
+    name: "Founding Partner",
+    price: 25000,
+    period: "year",
+    description: "Strategic partnership shaping the future of Kingdom creativity",
+    features: [
+      "Everything in Patron, plus:",
+      "Event and feature naming rights",
       "Advisory board participation",
-      "Custom integrations",
-      "Branded talent pipeline",
-      "Co-branded marketing opportunities",
+      "Custom platform integrations",
+      "Co-branded marketing initiatives",
+      "Sponsor 50+ creative memberships",
     ],
     highlighted: false,
     custom: true,
+    patronage: 50,
   },
 ];
 
@@ -109,27 +113,42 @@ const FAQS = [
   {
     question: "What types of organizations can join?",
     answer:
-      "Wonderwall welcomes churches of all sizes, parachurch ministries, Christian non-profits, faith-based media companies, mission organizations, and any organization seeking values-aligned creative talent.",
+      "Wonderwall welcomes any organization seeking values-aligned creative talent. This includes churches, Christian nonprofits, mission organizations, faith-based media companies, as well as secular businesses, startups, agencies, and nonprofits who want to hire creatives known for their integrity, work ethic, and character.",
+  },
+  {
+    question: "I'm not a church or Christian organization. Can I still join?",
+    answer:
+      "Absolutely. Many businesses value working with creatives who bring strong ethics, reliability, and character to their work. Our community includes talented professionals across every creative discipline who happen to share Kingdom values—and that translates into excellent work for any organization.",
+  },
+  {
+    question: "What's the difference between the tiers?",
+    answer:
+      "The free Community tier gets your organization listed in our directory—great for getting started. The Partner tier ($100/month) unlocks job posting and direct messaging. Patron and Founding Partner tiers add premium visibility, dedicated support, and the ability to sponsor creative memberships as a 'patron of the arts.'",
+  },
+  {
+    question: "What does 'sponsor creative memberships' mean?",
+    answer:
+      "Like Renaissance patrons who supported artists, your organization can sponsor memberships for emerging creatives who couldn't otherwise afford to join. Partner tier sponsors 2, Patron sponsors 10, and Founding Partners sponsor 50+ creatives. It's a tangible way to invest in Kingdom creativity while building goodwill with future talent.",
   },
   {
     question: "What creative roles can we hire for?",
     answer:
-      "Our community includes designers, filmmakers, photographers, musicians, writers, developers, marketers, worship leaders, and many more creative disciplines. Whether you need a full-time creative director or a freelancer for a single project, you'll find talented Kingdom creatives here.",
+      "Our community includes designers, filmmakers, photographers, musicians, writers, developers, marketers, worship leaders, and 30+ creative disciplines. Whether you need a full-time creative director, a freelancer for a campaign, or a worship leader, you'll find talented professionals here.",
   },
   {
     question: "How is Wonderwall different from other job boards?",
     answer:
-      "Unlike traditional job boards, Wonderwall is a community first. Creatives here showcase their portfolios, share their journey, and connect based on shared values. When you post a job, you see complete portfolios—not just resumes. You're hiring people whose work and values you can evaluate before reaching out.",
+      "Unlike traditional job boards, Wonderwall is a community first. Creatives showcase portfolios, share their journey, and connect based on shared values. When you post a job, you see complete portfolios—not just resumes. You're hiring people whose work quality and character you can evaluate before reaching out.",
   },
   {
     question: "Can we try before we commit?",
     answer:
-      "Absolutely. Register your interest below and we'll set up a call to discuss your needs, give you a tour of the platform, and help you determine which tier makes sense for your organization.",
+      "Yes—our Community tier is completely free. Get listed, browse portfolios, and see if Wonderwall is right for your organization. When you're ready to post jobs and connect directly with creatives, upgrading is simple.",
   },
   {
-    question: "What if we have custom needs?",
+    question: "What if we have larger partnership needs?",
     answer:
-      "Our Kingdom Builder tier is designed for organizations with unique requirements. We're happy to discuss custom integrations, API access, and tailored solutions. Let's talk.",
+      "Our Founding Partner tier is designed for organizations wanting to make a significant impact—think Life.Church, Compassion International, or values-aligned businesses like Chick-fil-A. We offer custom integrations, naming rights, advisory board participation, and tailored solutions. Let's talk.",
   },
 ];
 
@@ -192,15 +211,15 @@ export default function Organizations() {
             </span>
           </h1>
 
-          <p className="text-xl text-gray-400 max-w-2xl mx-auto mb-4">
-            Churches, nonprofits, ministries, agencies, and mission
+          <p className="text-xl text-gray-300 max-w-2xl mx-auto mb-4">
+            Churches, nonprofits, businesses, and mission-driven
             organizations—connect with talented designers, filmmakers,
-            musicians, writers, and more.
+            musicians, writers, and more who share your values.
           </p>
 
-          <p className="text-lg text-gray-500 max-w-xl mx-auto mb-8">
-            No more searching secular platforms for values-aligned talent. Find
-            creatives whose work and faith speak for themselves.
+          <p className="text-lg text-gray-300 max-w-xl mx-auto mb-8">
+            Whether you're a church, a startup, or a Fortune 500—find creatives
+            whose work ethic and integrity speak for themselves.
           </p>
 
           {/* Inline Registration Form */}
@@ -273,6 +292,70 @@ export default function Organizations() {
               <TierCard key={tier.name} tier={tier} showPricing={showPricing} />
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* Patronage Section */}
+      <section className="px-6 py-16 bg-gradient-to-br from-amber-900/20 via-gray-900 to-gray-900">
+        <div className="max-w-4xl mx-auto">
+          <div className="text-center mb-10">
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded-full text-sm font-medium mb-4">
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+              Patron of the Arts
+            </div>
+            <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
+              Invest in Kingdom Creativity
+            </h2>
+            <p className="text-gray-300 text-lg max-w-2xl mx-auto">
+              Like the Medicis of Florence, your organization can become a patron
+              of Kingdom creatives—sponsoring memberships for talented artists who
+              couldn't otherwise afford to join.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-6">
+            <div className="bg-gray-800/50 rounded-2xl p-6 border border-amber-500/20">
+              <div className="text-3xl font-bold text-amber-400 mb-2">2</div>
+              <div className="text-white font-medium mb-1">Partner Tier</div>
+              <p className="text-gray-400 text-sm">
+                Sponsor 2 creative memberships per year—perfect for small churches
+                and startups wanting to give back.
+              </p>
+            </div>
+            <div className="bg-gray-800/50 rounded-2xl p-6 border border-amber-500/30">
+              <div className="text-3xl font-bold text-amber-400 mb-2">10</div>
+              <div className="text-white font-medium mb-1">Patron Tier</div>
+              <p className="text-gray-400 text-sm">
+                Sponsor 10 creatives annually. Build relationships with emerging
+                talent before you ever need to hire.
+              </p>
+            </div>
+            <div className="bg-gray-800/50 rounded-2xl p-6 border border-amber-500/40">
+              <div className="text-3xl font-bold text-amber-400 mb-2">50+</div>
+              <div className="text-white font-medium mb-1">Founding Partner</div>
+              <p className="text-gray-400 text-sm">
+                Make a generational investment. Your name becomes synonymous with
+                supporting Kingdom creativity.
+              </p>
+            </div>
+          </div>
+
+          <p className="text-center text-gray-500 text-sm mt-8">
+            Sponsored creatives get full platform access. You get the joy of
+            investing in the next generation—and first look at emerging talent.
+          </p>
         </div>
       </section>
 
@@ -359,8 +442,8 @@ export default function Organizations() {
                 Ready to Find Your Next Creative?
               </h2>
               <p className="text-white/90 text-lg mb-8 max-w-xl mx-auto">
-                Join the growing community of churches and ministries
-                discovering Kingdom-minded creative talent.
+                Join the growing community of organizations discovering
+                exceptional creative talent with integrity and purpose.
               </p>
               <div className="max-w-md mx-auto">
                 <UpSightOrgEmbed id="upsight-cta" accentColor="#ffffff" />
@@ -497,17 +580,33 @@ function TierCard({
   tier: (typeof TIERS)[0];
   showPricing: boolean;
 }) {
+  const isFree = "free" in tier && tier.free;
+  const hasPatronage = "patronage" in tier && tier.patronage;
+  const isCustom = "custom" in tier && tier.custom;
+
   return (
     <div
       className={`relative rounded-2xl p-6 transition-all ${
         tier.highlighted
           ? "bg-gradient-to-br from-blue-600/20 to-purple-600/20 border-2 border-blue-500"
-          : "bg-gray-900 border border-gray-800 hover:border-gray-700"
+          : isFree
+            ? "bg-gray-900/50 border border-gray-700 hover:border-gray-600"
+            : "bg-gray-900 border border-gray-800 hover:border-gray-700"
       }`}
     >
       {tier.highlighted && (
         <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-blue-600 text-white text-xs font-medium rounded-full">
           Most Popular
+        </div>
+      )}
+      {isFree && (
+        <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-green-600 text-white text-xs font-medium rounded-full">
+          Free Forever
+        </div>
+      )}
+      {hasPatronage && !tier.highlighted && !isFree && (
+        <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-amber-600 text-white text-xs font-medium rounded-full">
+          Patron of the Arts
         </div>
       )}
 
@@ -517,15 +616,22 @@ function TierCard({
       </div>
 
       <div className="mb-6">
-        {showPricing ? (
+        {isFree ? (
+          <span className="text-4xl font-bold text-green-400">Free</span>
+        ) : showPricing ? (
           <>
+            {isCustom && (
+              <span className="block text-sm text-gray-500 mb-1">
+                Starting at
+              </span>
+            )}
             <span className="text-4xl font-bold text-white">
               ${tier.price.toLocaleString()}
             </span>
             <span className="text-gray-400">/{tier.period}</span>
-            {tier.custom && (
+            {tier.period === "month" && (
               <span className="block text-sm text-gray-500 mt-1">
-                Starting at
+                ${(tier.price * 12).toLocaleString()}/year
               </span>
             )}
           </>
@@ -537,24 +643,38 @@ function TierCard({
       </div>
 
       <ul className="space-y-3 mb-6">
-        {tier.features.map((feature, idx) => (
-          <li key={idx} className="flex items-start gap-2 text-sm">
-            <svg
-              className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M5 13l4 4L19 7"
-              />
-            </svg>
-            <span className="text-gray-300">{feature}</span>
-          </li>
-        ))}
+        {tier.features.map((feature, idx) => {
+          const isPatronageFeature = feature.includes("Sponsor");
+          return (
+            <li key={idx} className="flex items-start gap-2 text-sm">
+              <svg
+                className={`w-5 h-5 flex-shrink-0 mt-0.5 ${isPatronageFeature ? "text-amber-400" : "text-green-400"}`}
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                {isPatronageFeature ? (
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                ) : (
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5 13l4 4L19 7"
+                  />
+                )}
+              </svg>
+              <span className={isPatronageFeature ? "text-amber-200" : "text-gray-300"}>
+                {feature}
+              </span>
+            </li>
+          );
+        })}
       </ul>
 
       <a
@@ -562,10 +682,12 @@ function TierCard({
         className={`block w-full py-3 rounded-xl font-medium text-center transition-all ${
           tier.highlighted
             ? "bg-blue-600 text-white hover:bg-blue-700"
-            : "bg-gray-800 text-white hover:bg-gray-700"
+            : isFree
+              ? "bg-green-600 text-white hover:bg-green-700"
+              : "bg-gray-800 text-white hover:bg-gray-700"
         }`}
       >
-        Get Started
+        {isFree ? "Join Free" : isCustom ? "Contact Us" : "Get Started"}
       </a>
     </div>
   );
