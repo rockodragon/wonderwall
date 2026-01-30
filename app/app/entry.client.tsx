@@ -5,8 +5,8 @@ import { HydratedRouter } from "react-router/dom";
 import posthog from "posthog-js";
 import { PostHogProvider } from "@posthog/react";
 
-// Only initialize PostHog in the browser
-if (typeof window !== "undefined") {
+// Only initialize PostHog in the browser if token is available
+if (typeof window !== "undefined" && import.meta.env.VITE_PUBLIC_POSTHOG_KEY) {
   posthog.init(import.meta.env.VITE_PUBLIC_POSTHOG_KEY, {
     api_host: import.meta.env.VITE_PUBLIC_POSTHOG_HOST,
     person_profiles: "identified_only",

@@ -162,11 +162,11 @@ export default function Home() {
               Kingdom-minded creatives
             </span>
           </h2>
-          <p className="mt-6 text-xl text-gray-400 max-w-2xl mx-auto mb-4">
+          <p className="mt-6 text-xl text-gray-200 max-w-2xl mx-auto mb-4">
             Share your work, find jobs, connect with peers, and spark
             collaborations.
           </p>
-          <p className="text-lg text-gray-500 max-w-xl mx-auto mb-8">
+          <p className="text-lg text-gray-300 max-w-xl mx-auto mb-8">
             Because the world needs a different algorithm and platform.
           </p>
 

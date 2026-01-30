@@ -71,7 +71,7 @@ const TIERS = [
       "Direct messaging with creatives",
       "Sponsor 2 creative memberships",
     ],
-    highlighted: true,
+    highlighted: false,
     patronage: 2,
   },
   {
@@ -94,7 +94,8 @@ const TIERS = [
     name: "Founding Partner",
     price: 25000,
     period: "year",
-    description: "Strategic partnership shaping the future of Kingdom creativity",
+    description:
+      "Strategic partnership shaping the future of Kingdom creativity",
     features: [
       "Everything in Patron, plus:",
       "Event and feature naming rights",
@@ -295,70 +296,6 @@ export default function Organizations() {
         </div>
       </section>
 
-      {/* Patronage Section */}
-      <section className="px-6 py-16 bg-gradient-to-br from-amber-900/20 via-gray-900 to-gray-900">
-        <div className="max-w-4xl mx-auto">
-          <div className="text-center mb-10">
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded-full text-sm font-medium mb-4">
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-              Patron of the Arts
-            </div>
-            <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
-              Invest in Kingdom Creativity
-            </h2>
-            <p className="text-gray-300 text-lg max-w-2xl mx-auto">
-              Like the Medicis of Florence, your organization can become a patron
-              of Kingdom creatives—sponsoring memberships for talented artists who
-              couldn't otherwise afford to join.
-            </p>
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-6">
-            <div className="bg-gray-800/50 rounded-2xl p-6 border border-amber-500/20">
-              <div className="text-3xl font-bold text-amber-400 mb-2">2</div>
-              <div className="text-white font-medium mb-1">Partner Tier</div>
-              <p className="text-gray-400 text-sm">
-                Sponsor 2 creative memberships per year—perfect for small churches
-                and startups wanting to give back.
-              </p>
-            </div>
-            <div className="bg-gray-800/50 rounded-2xl p-6 border border-amber-500/30">
-              <div className="text-3xl font-bold text-amber-400 mb-2">10</div>
-              <div className="text-white font-medium mb-1">Patron Tier</div>
-              <p className="text-gray-400 text-sm">
-                Sponsor 10 creatives annually. Build relationships with emerging
-                talent before you ever need to hire.
-              </p>
-            </div>
-            <div className="bg-gray-800/50 rounded-2xl p-6 border border-amber-500/40">
-              <div className="text-3xl font-bold text-amber-400 mb-2">50+</div>
-              <div className="text-white font-medium mb-1">Founding Partner</div>
-              <p className="text-gray-400 text-sm">
-                Make a generational investment. Your name becomes synonymous with
-                supporting Kingdom creativity.
-              </p>
-            </div>
-          </div>
-
-          <p className="text-center text-gray-500 text-sm mt-8">
-            Sponsored creatives get full platform access. You get the joy of
-            investing in the next generation—and first look at emerging talent.
-          </p>
-        </div>
-      </section>
-
       {/* Social Proof / Stats */}
       <section className="px-6 py-16 bg-gray-900/50">
         <div className="max-w-4xl mx-auto">
@@ -418,22 +355,8 @@ export default function Organizations() {
         </div>
       </section>
 
-      {/* Registration Form */}
-      <section id="register" className="px-6 py-20 bg-gray-900/50">
-        <div className="max-w-xl mx-auto text-center">
-          <h2 className="text-3xl font-bold text-white mb-4">
-            Register Your Interest
-          </h2>
-          <p className="text-gray-400 mb-8">
-            We're onboarding organizations in phases. Register below and we'll
-            reach out to discuss your needs and get you set up.
-          </p>
-          <UpSightOrgEmbed id="upsight-register" accentColor="#60a5fa" />
-        </div>
-      </section>
-
       {/* Final CTA */}
-      <section className="px-6 py-20">
+      <section id="register" className="px-6 py-20">
         <div className="max-w-4xl mx-auto text-center">
           <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-blue-600 via-purple-600 to-pink-600 p-12">
             <div className="absolute inset-0 bg-black/20" />
@@ -669,7 +592,11 @@ function TierCard({
                   />
                 )}
               </svg>
-              <span className={isPatronageFeature ? "text-amber-200" : "text-gray-300"}>
+              <span
+                className={
+                  isPatronageFeature ? "text-amber-200" : "text-gray-300"
+                }
+              >
                 {feature}
               </span>
             </li>
