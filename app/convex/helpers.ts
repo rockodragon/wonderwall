@@ -1,11 +1,9 @@
 import type { Doc, Id } from "./_generated/dataModel";
 import type { QueryCtx, MutationCtx } from "./_generated/server";
 
-// Admin emails - can be extended or moved to env vars later
-const ADMIN_EMAILS = ["rickmoy@gmail.com"];
-
 /**
  * Check if a user is an admin by their user ID
+ * Checks the isAdmin field on their profile
  * @param ctx - Convex query or mutation context
  * @param userId - The user ID to check
  * @returns true if the user is an admin
@@ -14,27 +12,21 @@ export async function isAdmin(
   ctx: QueryCtx | MutationCtx,
   userId: Id<"users">,
 ): Promise<boolean> {
-  const user = await ctx.db.get(userId);
-  if (!user) return false;
+  const profile = await ctx.db
+    .query("profiles")
+    .withIndex("by_userId", (q) => q.eq("userId", userId))
+    .first();
 
-  const email = "email" in user ? user.email : null;
-  if (!email || typeof email !== "string") return false;
-
-  return ADMIN_EMAILS.includes(email);
+  return profile?.isAdmin === true;
 }
 
 /**
- * Check if the current user email is an admin (for use with raw user objects)
- * @param user - The user document
- * @returns true if the user is an admin
+ * Check if a profile is an admin (for use with raw profile objects)
+ * @param profile - The profile document
+ * @returns true if the profile is an admin
  */
-export function isAdminUser(user: Doc<"users"> | null): boolean {
-  if (!user) return false;
-
-  const email = "email" in user ? user.email : null;
-  if (!email || typeof email !== "string") return false;
-
-  return ADMIN_EMAILS.includes(email);
+export function isAdminProfile(profile: Doc<"profiles"> | null): boolean {
+  return profile?.isAdmin === true;
 }
 
 /**
@@ -47,8 +39,8 @@ export async function requireAdmin(
   ctx: QueryCtx | MutationCtx,
   userId: Id<"users">,
 ): Promise<void> {
-  const isUserAdmin = await isAdmin(ctx, userId);
-  if (!isUserAdmin) {
+  const userIsAdmin = await isAdmin(ctx, userId);
+  if (!userIsAdmin) {
     throw new Error("Unauthorized - Admin access only");
   }
 }

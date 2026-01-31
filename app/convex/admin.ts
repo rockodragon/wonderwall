@@ -3,6 +3,55 @@ import { v } from "convex/values";
 import { auth } from "./auth";
 import { requireAdmin } from "./helpers";
 
+// Bootstrap admin - only works if no admins exist yet
+// Run from Convex dashboard: admin:bootstrapAdmin({ email: "rickmoy@gmail.com" })
+export const bootstrapAdmin = mutation({
+  args: {
+    email: v.string(),
+  },
+  handler: async (ctx, args) => {
+    // Check if any admins already exist
+    const existingAdmin = await ctx.db
+      .query("profiles")
+      .filter((q) => q.eq(q.field("isAdmin"), true))
+      .first();
+
+    if (existingAdmin) {
+      throw new Error(
+        "Bootstrap failed: Admin already exists. Use setAdminStatus instead.",
+      );
+    }
+
+    // Find user by email
+    const users = await ctx.db.query("users").collect();
+    const user = users.find((u) => "email" in u && u.email === args.email);
+
+    if (!user) {
+      throw new Error(`User with email ${args.email} not found`);
+    }
+
+    // Get their profile
+    const profile = await ctx.db
+      .query("profiles")
+      .withIndex("by_userId", (q) => q.eq("userId", user._id))
+      .first();
+
+    if (!profile) {
+      throw new Error(`Profile not found for user ${args.email}`);
+    }
+
+    // Set as admin
+    await ctx.db.patch(profile._id, {
+      isAdmin: true,
+    });
+
+    return {
+      success: true,
+      message: `${args.email} is now an admin`,
+    };
+  },
+});
+
 export const getAllUsersWithInvites = query({
   args: {},
   handler: async (ctx) => {
@@ -258,5 +307,40 @@ export const deleteUser = mutation({
     await ctx.db.delete(args.userId);
 
     return { success: true, message: "User deleted successfully" };
+  },
+});
+
+// Set admin status on a user's profile
+export const setAdminStatus = mutation({
+  args: {
+    userId: v.id("users"),
+    isAdmin: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    const adminUserId = await auth.getUserId(ctx);
+    if (!adminUserId) {
+      throw new Error("Not authenticated");
+    }
+
+    await requireAdmin(ctx, adminUserId);
+
+    // Get user's profile
+    const profile = await ctx.db
+      .query("profiles")
+      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+      .first();
+
+    if (!profile) {
+      throw new Error("Profile not found");
+    }
+
+    await ctx.db.patch(profile._id, {
+      isAdmin: args.isAdmin,
+    });
+
+    return {
+      success: true,
+      message: `Admin status ${args.isAdmin ? "granted" : "revoked"} for user`,
+    };
   },
 });
