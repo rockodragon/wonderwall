@@ -54,10 +54,15 @@ export default function Search() {
   const [query, setQuery] = useState("");
   const [activeFilters, setActiveFilters] = useState<string[]>([]);
   const [filterExpanded, setFilterExpanded] = useState(false);
-  const [showWonderTip, setShowWonderTip] = useState(() => {
-    if (typeof window === "undefined") return true;
-    return localStorage.getItem("wonderwall:wonder-tip-dismissed") !== "true";
-  });
+  // Start with true to match server render, then check localStorage in useEffect
+  const [showWonderTip, setShowWonderTip] = useState(true);
+
+  useEffect(() => {
+    // Check localStorage after hydration to avoid mismatch
+    const dismissed =
+      localStorage.getItem("wonderwall:wonder-tip-dismissed") === "true";
+    if (dismissed) setShowWonderTip(false);
+  }, []);
 
   const dismissWonderTip = () => {
     setShowWonderTip(false);
