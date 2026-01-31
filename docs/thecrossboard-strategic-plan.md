@@ -180,6 +180,27 @@ The faith-based employment landscape includes several specialized platforms. Her
 
 ---
 
+### **SALT Community** - Church Creatives & Tech Leaders
+*saltcommunity.com*
+
+**What They Are:** A platform for church creatives and tech leaders to grow together through on-demand training, real community, and tools. They describe themselves as "the community you crave, the skills you seek."
+
+**Key Offerings:**
+* SALT University: 2,000+ training courses across Lighting/Stage, Video, Audio, Worship, Leadership, Creative Process, Film & Design, Communications
+* SALT Conference: Annual "Creative Conference for the Church" for entire creative teams
+* Custom Course Builder: Teams can customize and track learning progress
+* Creative resources and products in their store
+
+**Business Model:** Membership-based with tiered access to training content and community features.
+
+**Key Insight:** They position creativity not as a "marketing tool to attract people" but as "a vehicle for God to communicate powerfully and intimately to His people." This mission-first framing resonates deeply with creatives.
+
+**Overlap with Crossboard:** MEDIUM - They serve church production/tech teams primarily. Crossboard serves individual creatives across all industries (not just church staff). SALT is training-focused; Crossboard is portfolio/networking-focused.
+
+**Differentiation:** Crossboard connects creatives with hiring organizations; SALT equips existing church teams. They're complementary—a creative might use SALT for skills and Crossboard for opportunities.
+
+---
+
 ### **Something More Creative**
 *thereissomethingmore.com*
 
@@ -200,6 +221,7 @@ The faith-based employment landscape includes several specialized platforms. Her
 | ChristianJobs UK | UK faith employment | No | £100/post | LOW - geographic, role difference |
 | Christian Creative Directory | Creative professionals | Directory only | Paid posting | HIGH - closest competitor |
 | Christian Creative Network | Freelance matching | No | Donations/shop | MEDIUM - similar mission |
+| SALT Community | Church creative/tech teams | No | Membership tiers | MEDIUM - training focus, complementary |
 
 ## **What Makes Crossboard Unique**
 
@@ -209,6 +231,132 @@ The faith-based employment landscape includes several specialized platforms. Her
 4. **Integrated hiring:** Organizations see portfolios, not just resumes
 5. **Broader creative scope:** Not limited to church roles—any Kingdom creative work
 6. **Values-aligned matching:** Connecting based on faith alignment and creative fit
+
+## **Alternative Positioning: "Upwork for Christian Creatives"**
+
+An alternative framing positions Crossboard as "Upwork for Christian creatives"—a marketplace where organizations can find and hire vetted, values-aligned freelance talent.
+
+**Upwork Model Parallels:**
+* Talent search and filtering by skills, experience, location
+* Project-based and ongoing work opportunities
+* Portfolio verification and reviews/ratings
+* Direct messaging and proposal system
+
+**Key Differences from Upwork:**
+* Values-alignment as core filter (not just skills/price)
+* Community-first, not transaction-first
+* No race-to-the-bottom pricing—quality over cheapest bid
+* Relationship-building beyond individual gigs
+* Mission-driven creatives, not mercenaries
+
+**When This Positioning Works:**
+* Pitching to organizations with immediate hiring needs
+* Explaining value to non-creative stakeholders
+* Competing against secular freelance platforms
+
+**When Portfolio/Community Positioning Works Better:**
+* Attracting creatives to join (they don't want to be "freelancers on a gig platform")
+* Building long-term engagement and retention
+* Differentiating from transactional job boards
+
+**Recommendation:** Use "Upwork for Christian creatives" in B2B sales conversations, but maintain "LinkedIn + Behance for Kingdom creatives" for member acquisition and community positioning.
+
+---
+
+# **Understanding What Creatives Want**
+
+## **The Creative Sweet Spot: Gifts × Calling × Income**
+
+Kingdom creatives are searching for work that exists at the intersection of three circles:
+
+```
+        ┌─────────────────┐
+        │   USING THEIR   │
+        │     GIFTS       │
+        │ (Skills, talent,│
+        │   craft mastery)│
+        └────────┬────────┘
+                 │
+    ┌────────────┼────────────┐
+    │            │            │
+    │     ╔══════╧══════╗     │
+    │     ║   SWEET     ║     │
+    │     ║   SPOT      ║     │
+    │     ╚══════╤══════╝     │
+    │            │            │
+┌───┴────────┐   │   ┌────────┴───┐
+│ FULFILLING │   │   │  GETTING   │
+│  CALLING   │───┴───│   PAID     │
+│ (Purpose,  │       │ (Sustain-  │
+│  meaning,  │       │  able      │
+│  Kingdom   │       │  income)   │
+│  impact)   │       │            │
+└────────────┘       └────────────┘
+```
+
+**The Pain Points:**
+* **Gifts without calling:** Technically skilled work that feels meaningless
+* **Gifts without pay:** Volunteering forever, can't sustain a living
+* **Calling without gifts:** Heart for ministry but lacking craft mastery
+* **Calling without pay:** Burnout from unpaid Kingdom work
+* **Pay without gifts:** Soul-crushing work that doesn't use their talents
+* **Pay without calling:** Making money but feeling purposeless
+
+**What Crossboard Enables:**
+* **Discovery of opportunities** that align with all three (job board + portfolio)
+* **Community validation** that their creative work IS Kingdom work
+* **Sustainable income** through values-aligned organizations willing to pay fairly
+* **Professional development** through peer connections and feedback
+
+**Messaging Implication:** Speak to all three desires. Don't just be a job board (pay). Don't just be a portfolio site (gifts). Don't just be a ministry (calling). Be the intersection.
+
+---
+
+# **Organization Segments: Lookers, Posters, and Patrons**
+
+Organizations engaging with Crossboard fall into three distinct segments with different needs and engagement levels:
+
+## **1. Lookers (Free Tier)**
+**Profile:** Organizations curious about the talent pool, early-stage exploration
+**Behavior:** Browse portfolios, research the community, assess fit
+**Needs:** No-commitment access to see what's available
+**Conversion Path:** Looker → Poster when they have an active hiring need
+
+**What We Offer:**
+* Free account registration
+* Organization name in directory
+* Browse creative portfolios
+* One free job post (active at a time)
+* Community newsletter
+
+## **2. Posters (Partner Tier)**
+**Profile:** Organizations with active, recurring hiring needs
+**Behavior:** Post jobs, review applicants, message candidates
+**Needs:** Reliable access to qualified talent when they need it
+**Conversion Path:** Poster → Patron when they want deeper investment
+
+**What We Offer:**
+* Unlimited job postings
+* Organization profile page with logo
+* Direct messaging with creatives
+* Featured placement in directory
+* Sponsor 2 creative memberships annually
+
+## **3. Patrons (Patron/Founding Partner Tiers)**
+**Profile:** Organizations committed to investing in Kingdom creativity ecosystem
+**Behavior:** Sponsor memberships, build talent pipelines, partner on initiatives
+**Needs:** Strategic relationship, brand association, talent development
+**Conversion Path:** Long-term partnership and advisory involvement
+
+**What We Offer:**
+* Everything in Poster tier, plus:
+* Sponsor 10-50+ creative memberships
+* Homepage feature rotation
+* Advisory board participation
+* Co-branded marketing
+* Event naming rights (Founding Partner)
+
+**Key Insight:** The free tier with one job post is crucial for pipeline—it lets Lookers experience value before committing to paid tiers.
 
 #
 
