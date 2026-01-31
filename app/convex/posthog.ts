@@ -160,15 +160,32 @@ export const batch = action({
   },
 });
 
-// HTTP proxy for PostHog SDK (fallback for features that need client SDK)
+// HTTP proxy for PostHog SDK - extracts client IP for geolocation
 export const proxy = httpAction(async (ctx, request) => {
   const url = new URL(request.url);
   const posthogPath = url.pathname.replace("/api/ph", "");
   const posthogUrl = `${POSTHOG_HOST}${posthogPath}${url.search}`;
 
+  // Get client IP from headers (Convex/Cloudflare sets these)
+  const clientIp =
+    request.headers.get("CF-Connecting-IP") ||
+    request.headers.get("X-Forwarded-For")?.split(",")[0]?.trim() ||
+    request.headers.get("X-Real-IP");
+
   try {
     const isPost = request.method === "POST";
-    const body = isPost ? await request.text() : undefined;
+    let body = isPost ? await request.text() : undefined;
+
+    // Inject client IP into POST body for geolocation
+    if (isPost && body && clientIp) {
+      try {
+        const parsed = JSON.parse(body);
+        parsed.ip = clientIp;
+        body = JSON.stringify(parsed);
+      } catch {
+        // Not JSON, leave body as-is
+      }
+    }
 
     const headers: Record<string, string> = {
       "User-Agent": request.headers.get("User-Agent") || "",
