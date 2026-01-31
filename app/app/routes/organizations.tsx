@@ -297,9 +297,10 @@ export default function Organizations() {
       {/* Patron of the Arts Explainer */}
       <section className="px-6 py-12">
         <div className="max-w-4xl mx-auto">
-          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-amber-900/30 via-amber-800/20 to-gray-900 border border-amber-500/30 p-8 md:p-10">
-            {/* Badge positioned on top edge */}
-            <div className="absolute -top-3 left-6 inline-flex items-center gap-2 px-3 py-1 bg-amber-600 text-white rounded-full text-sm font-medium shadow-lg">
+          {/* Wrapper for badge positioning */}
+          <div className="relative pt-4">
+            {/* Badge positioned above the card */}
+            <div className="absolute -top-1 left-6 inline-flex items-center gap-2 px-3 py-1 bg-amber-600 text-white rounded-full text-sm font-medium shadow-lg z-10">
               <svg
                 className="w-4 h-4"
                 fill="none"
@@ -315,34 +316,37 @@ export default function Organizations() {
               </svg>
               Become a Patron of the Arts
             </div>
-            <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
-            <div className="relative pt-4">
-              <h2 className="text-2xl md:text-3xl font-bold text-white mb-4">
-                Invest in Kingdom Creativity
-              </h2>
-              <p className="text-gray-300 text-lg mb-4 max-w-2xl">
-                Like the Medicis of Renaissance Florence, your organization can
-                invest in Kingdom creativity by sponsoring memberships for
-                talented artists who couldn't otherwise afford to join.
-              </p>
-              <p className="text-gray-400 mb-6 max-w-2xl">
-                Every paid tier includes creative sponsorships—so you're not
-                just hiring talent, you're building the ecosystem. Sponsored
-                creatives get full platform access, and you get first look at
-                emerging talent while making a tangible Kingdom impact.
-              </p>
-              <div className="flex flex-wrap gap-4 text-sm">
-                <div className="flex items-center gap-2 text-amber-300">
-                  <span className="font-bold">Partner:</span>
-                  <span className="text-gray-400">5 sponsorships</span>
-                </div>
-                <div className="flex items-center gap-2 text-amber-300">
-                  <span className="font-bold">Patron:</span>
-                  <span className="text-gray-400">20 sponsorships</span>
-                </div>
-                <div className="flex items-center gap-2 text-amber-300">
-                  <span className="font-bold">Founding Partner:</span>
-                  <span className="text-gray-400">50+ sponsorships</span>
+            {/* Card with overflow-hidden for blur effect */}
+            <div className="relative rounded-2xl bg-gradient-to-br from-amber-900/30 via-amber-800/20 to-gray-900 border border-amber-500/30 p-8 md:p-10 overflow-hidden">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+              <div className="relative">
+                <h2 className="text-2xl md:text-3xl font-bold text-white mb-4">
+                  Invest in Kingdom Creativity
+                </h2>
+                <p className="text-gray-300 text-lg mb-4 max-w-2xl">
+                  Like the Medicis of Renaissance Florence, your organization
+                  can invest in Kingdom creativity by sponsoring memberships for
+                  talented artists who couldn't otherwise afford to join.
+                </p>
+                <p className="text-gray-400 mb-6 max-w-2xl">
+                  Every paid tier includes creative sponsorships—so you're not
+                  just hiring talent, you're building the ecosystem. Sponsored
+                  creatives get full platform access, and you get first look at
+                  emerging talent while making a tangible Kingdom impact.
+                </p>
+                <div className="flex flex-wrap gap-4 text-sm">
+                  <div className="flex items-center gap-2 text-amber-300">
+                    <span className="font-bold">Partner:</span>
+                    <span className="text-gray-400">5 sponsorships</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-amber-300">
+                    <span className="font-bold">Patron:</span>
+                    <span className="text-gray-400">20 sponsorships</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-amber-300">
+                    <span className="font-bold">Founding Partner:</span>
+                    <span className="text-gray-400">50+ sponsorships</span>
+                  </div>
                 </div>
               </div>
             </div>
