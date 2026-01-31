@@ -19,11 +19,14 @@ function getPostHogApiHost(): string {
 
 // Only initialize PostHog in the browser if token is available
 if (typeof window !== "undefined" && import.meta.env.VITE_PUBLIC_POSTHOG_KEY) {
+  const apiHost = getPostHogApiHost();
+  console.log("[PostHog] Initializing with api_host:", apiHost);
   posthog.init(import.meta.env.VITE_PUBLIC_POSTHOG_KEY, {
-    api_host: getPostHogApiHost(),
+    api_host: apiHost,
     person_profiles: "identified_only",
     capture_pageview: false, // We'll capture manually to avoid double-counting
     disable_session_recording: false,
+    debug: import.meta.env.DEV, // Enable debug mode in development
   });
 }
 
