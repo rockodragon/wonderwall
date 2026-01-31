@@ -214,6 +214,11 @@ export default function Home() {
                       type="text"
                       value={inviteInput}
                       onChange={(e) => setInviteInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          handleInviteSubmit(e);
+                        }
+                      }}
                       placeholder="Paste invite link or code"
                       className="w-full px-4 py-3 border border-gray-700 rounded-xl bg-gray-900/50 backdrop-blur-sm text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                     />
@@ -459,11 +464,10 @@ export default function Home() {
                   creativity over content mills.
                 </p>
                 <p className="text-gray-300 text-lg leading-relaxed">
-                  Here, your work speaks for itself. Jobs are posted by real
-                  community members, not faceless corporations. Conversations
-                  happen between people, not personas. And the algorithm? It's
-                  simple: show people what they're actually looking for, and get
-                  out of the way.
+                  Jobs are posted by real community members, not faceless
+                  corporations. Conversations happen between people, not
+                  personas. And the algorithm? It's simple: show people what
+                  they're actually looking for, and get out of the way.
                 </p>
                 <div className="pt-4">
                   <p className="text-gray-400 text-lg leading-relaxed italic">
