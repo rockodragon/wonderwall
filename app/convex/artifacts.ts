@@ -378,11 +378,77 @@ export const fetchOgImage = action({
 
       let imageUrl: string | null = null;
 
+      // Try meta tag patterns first
       for (const pattern of patterns) {
         const match = html.match(pattern);
         if (match?.[1]) {
           imageUrl = match[1];
           break;
+        }
+      }
+
+      // Fallback: Try to find image in JSON-LD structured data
+      if (!imageUrl) {
+        const jsonLdMatch = html.match(
+          /<script[^>]*type\s*=\s*["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/i,
+        );
+        if (jsonLdMatch?.[1]) {
+          try {
+            const jsonLd = JSON.parse(jsonLdMatch[1]);
+            // Look for image in various JSON-LD structures
+            const ldImage =
+              jsonLd.image ||
+              jsonLd.logo ||
+              jsonLd.thumbnailUrl ||
+              jsonLd.primaryImageOfPage?.url ||
+              (jsonLd["@graph"] &&
+                jsonLd["@graph"].find((item: any) => item.image)?.image);
+            if (typeof ldImage === "string") {
+              imageUrl = ldImage;
+            } else if (ldImage?.url) {
+              imageUrl = ldImage.url;
+            }
+          } catch {
+            // JSON parse failed, continue to next fallback
+          }
+        }
+      }
+
+      // Fallback: Squarespace socialLogoImageUrl
+      if (!imageUrl) {
+        const squarespaceMatch = html.match(
+          /"socialLogoImageUrl"\s*:\s*"([^"]+)"/,
+        );
+        if (squarespaceMatch?.[1]) {
+          imageUrl = squarespaceMatch[1];
+        }
+      }
+
+      // Fallback: First prominent img tag (skip tiny icons)
+      if (!imageUrl) {
+        const imgMatches = html.matchAll(
+          /<img[^>]*src\s*=\s*["']([^"']+)["'][^>]*>/gi,
+        );
+        for (const match of imgMatches) {
+          const src = match[1];
+          // Skip tiny images, icons, tracking pixels, and data URIs
+          if (
+            src &&
+            !src.includes("data:") &&
+            !src.includes("1x1") &&
+            !src.includes("pixel") &&
+            !src.includes("icon") &&
+            !src.includes("favicon") &&
+            !src.includes("logo") &&
+            (src.includes(".jpg") ||
+              src.includes(".jpeg") ||
+              src.includes(".png") ||
+              src.includes(".webp") ||
+              src.includes("format="))
+          ) {
+            imageUrl = src;
+            break;
+          }
         }
       }
 

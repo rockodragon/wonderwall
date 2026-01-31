@@ -87,7 +87,7 @@ const TIERS = [
       "Quarterly newsletter spotlight",
     ],
     highlighted: false,
-    patronage: 10,
+    patronage: 20,
   },
   {
     name: "Founding Partner",
@@ -104,7 +104,7 @@ const TIERS = [
     ],
     highlighted: false,
     custom: true,
-    patronage: 50,
+    patronage: "50+",
   },
 ];
 
@@ -127,7 +127,7 @@ const FAQS = [
   {
     question: "What does 'sponsor creative memberships' mean?",
     answer:
-      "Like Renaissance patrons who supported artists, your organization can sponsor memberships for emerging creatives who couldn't otherwise afford to join. Partner tier sponsors 5, Patron sponsors 10, and Founding Partners sponsor 50 creatives. It's a tangible way to invest in Kingdom creativity while building goodwill with future talent.",
+      "Like Renaissance patrons who supported artists, your organization can sponsor memberships for emerging creatives who couldn't otherwise afford to join. Partner tier sponsors 5, Patron sponsors 20, and Founding Partners sponsor 50+ creatives. It's a tangible way to invest in Kingdom creativity while building goodwill with future talent.",
   },
   {
     question: "What creative roles can we hire for?",
@@ -276,26 +276,27 @@ export default function Organizations() {
       <section className="px-6 py-12">
         <div className="max-w-4xl mx-auto">
           <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-amber-900/30 via-amber-800/20 to-gray-900 border border-amber-500/30 p-8 md:p-10">
+            {/* Badge positioned on top edge */}
+            <div className="absolute -top-3 left-6 inline-flex items-center gap-2 px-3 py-1 bg-amber-600 text-white rounded-full text-sm font-medium shadow-lg">
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+              Become a Patron of the Arts
+            </div>
             <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
-            <div className="relative">
-              <div className="inline-flex items-center gap-2 px-3 py-1 bg-amber-500/20 border border-amber-500/30 text-amber-400 rounded-full text-sm font-medium mb-4">
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-                What Sets Us Apart
-              </div>
+            <div className="relative pt-4">
               <h2 className="text-2xl md:text-3xl font-bold text-white mb-4">
-                Become a Patron of the Arts
+                Invest in Kingdom Creativity
               </h2>
               <p className="text-gray-300 text-lg mb-4 max-w-2xl">
                 Like the Medicis of Renaissance Florence, your organization can
@@ -315,11 +316,11 @@ export default function Organizations() {
                 </div>
                 <div className="flex items-center gap-2 text-amber-300">
                   <span className="font-bold">Patron:</span>
-                  <span className="text-gray-400">10 sponsorships</span>
+                  <span className="text-gray-400">20 sponsorships</span>
                 </div>
                 <div className="flex items-center gap-2 text-amber-300">
                   <span className="font-bold">Founding Partner:</span>
-                  <span className="text-gray-400">50 sponsorships</span>
+                  <span className="text-gray-400">50+ sponsorships</span>
                 </div>
               </div>
             </div>
