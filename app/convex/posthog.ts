@@ -1,23 +1,147 @@
-import { httpAction } from "./_generated/server";
+import { v } from "convex/values";
+import { action, httpAction } from "./_generated/server";
 
 const POSTHOG_HOST = "https://us.i.posthog.com";
+const POSTHOG_API_KEY = process.env.POSTHOG_API_KEY;
 
-// Proxy requests to PostHog (handles /capture, /batch, /decide, /e, /flags)
+// Server-side event capture - frontend calls this action directly
+export const capture = action({
+  args: {
+    event: v.string(),
+    distinctId: v.string(),
+    properties: v.optional(v.any()),
+  },
+  handler: async (ctx, args) => {
+    if (!POSTHOG_API_KEY) {
+      console.warn("[PostHog] No API key configured");
+      return { status: "no_api_key" };
+    }
+
+    try {
+      const response = await fetch(`${POSTHOG_HOST}/capture/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          api_key: POSTHOG_API_KEY,
+          event: args.event,
+          distinct_id: args.distinctId,
+          properties: args.properties || {},
+          timestamp: new Date().toISOString(),
+        }),
+      });
+
+      if (!response.ok) {
+        console.error(`[PostHog] Capture failed: ${response.status}`);
+        return { status: "error", code: response.status };
+      }
+
+      return { status: "ok" };
+    } catch (error) {
+      console.error("[PostHog] Capture error:", error);
+      return { status: "error" };
+    }
+  },
+});
+
+// Server-side identify - links anonymous user to identified user
+export const identify = action({
+  args: {
+    distinctId: v.string(),
+    properties: v.optional(v.any()),
+  },
+  handler: async (ctx, args) => {
+    if (!POSTHOG_API_KEY) {
+      console.warn("[PostHog] No API key configured");
+      return { status: "no_api_key" };
+    }
+
+    try {
+      const response = await fetch(`${POSTHOG_HOST}/capture/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          api_key: POSTHOG_API_KEY,
+          event: "$identify",
+          distinct_id: args.distinctId,
+          properties: {
+            $set: args.properties || {},
+          },
+          timestamp: new Date().toISOString(),
+        }),
+      });
+
+      if (!response.ok) {
+        console.error(`[PostHog] Identify failed: ${response.status}`);
+        return { status: "error", code: response.status };
+      }
+
+      return { status: "ok" };
+    } catch (error) {
+      console.error("[PostHog] Identify error:", error);
+      return { status: "error" };
+    }
+  },
+});
+
+// Batch capture multiple events at once
+export const batch = action({
+  args: {
+    events: v.array(
+      v.object({
+        event: v.string(),
+        distinctId: v.string(),
+        properties: v.optional(v.any()),
+        timestamp: v.optional(v.string()),
+      }),
+    ),
+  },
+  handler: async (ctx, args) => {
+    if (!POSTHOG_API_KEY) {
+      console.warn("[PostHog] No API key configured");
+      return { status: "no_api_key" };
+    }
+
+    try {
+      const batch = args.events.map((e) => ({
+        event: e.event,
+        distinct_id: e.distinctId,
+        properties: e.properties || {},
+        timestamp: e.timestamp || new Date().toISOString(),
+      }));
+
+      const response = await fetch(`${POSTHOG_HOST}/batch/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          api_key: POSTHOG_API_KEY,
+          batch,
+        }),
+      });
+
+      if (!response.ok) {
+        console.error(`[PostHog] Batch failed: ${response.status}`);
+        return { status: "error", code: response.status };
+      }
+
+      return { status: "ok" };
+    } catch (error) {
+      console.error("[PostHog] Batch error:", error);
+      return { status: "error" };
+    }
+  },
+});
+
+// HTTP proxy for PostHog SDK (fallback for features that need client SDK)
 export const proxy = httpAction(async (ctx, request) => {
   const url = new URL(request.url);
-  // Extract the PostHog path after /api/ph/
   const posthogPath = url.pathname.replace("/api/ph", "");
-
-  // Forward to PostHog
   const posthogUrl = `${POSTHOG_HOST}${posthogPath}${url.search}`;
 
   try {
-    // Only read body for POST requests
     const isPost = request.method === "POST";
     const body = isPost ? await request.text() : undefined;
 
     const headers: Record<string, string> = {
-      // Forward user agent for proper device detection
       "User-Agent": request.headers.get("User-Agent") || "",
     };
     if (isPost) {
@@ -46,7 +170,7 @@ export const proxy = httpAction(async (ctx, request) => {
   } catch (error) {
     console.error("PostHog proxy error:", error);
     return new Response(JSON.stringify({ status: 0 }), {
-      status: 200, // Return 200 to not break the client
+      status: 200,
       headers: {
         "Content-Type": "application/json",
         "Access-Control-Allow-Origin": "*",
@@ -55,7 +179,6 @@ export const proxy = httpAction(async (ctx, request) => {
   }
 });
 
-// Handle CORS preflight
 export const proxyPreflight = httpAction(async () => {
   return new Response(null, {
     status: 204,
