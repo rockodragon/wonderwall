@@ -1,11 +1,21 @@
-import { usePostHog } from "@posthog/react";
-import { useMutation, useQuery } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import { useRef, useState } from "react";
 import confetti from "canvas-confetti";
 import { api } from "../../convex/_generated/api";
 
+// Get anonymous ID for analytics
+function getAnonymousId(): string {
+  if (typeof window === "undefined") return "server";
+  let id = localStorage.getItem("analytics_id");
+  if (!id) {
+    id = crypto.randomUUID();
+    localStorage.setItem("analytics_id", id);
+  }
+  return id;
+}
+
 export function CreateWonderingComposer() {
-  const posthog = usePostHog();
+  const captureEvent = useAction(api.posthog.capture);
   const profile = useQuery(api.profiles.getMyProfile);
   const wondering = useQuery(api.wonderings.getMyWondering);
   const createWondering = useMutation(api.wonderings.create);
@@ -99,10 +109,14 @@ export function CreateWonderingComposer() {
       });
 
       // Track wondering created
-      posthog?.capture("wondering_created", {
-        prompt_length: prompt.trim().length,
-        replaced_existing: hasActiveWondering,
-      });
+      captureEvent({
+        event: "wondering_created",
+        distinctId: getAnonymousId(),
+        properties: {
+          prompt_length: prompt.trim().length,
+          replaced_existing: hasActiveWondering,
+        },
+      }).catch(console.error);
 
       // Reset form
       setPrompt("");
@@ -174,7 +188,7 @@ export function CreateWonderingComposer() {
                   You already have an active wondering:
                 </p>
                 <p className="text-sm italic text-gray-600 dark:text-gray-400 pl-4 border-l-2 border-yellow-300 dark:border-yellow-700">
-                  "{wondering.prompt}"
+                  "{wondering?.prompt}"
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
                   It will be archived and no longer accept responses. Your new

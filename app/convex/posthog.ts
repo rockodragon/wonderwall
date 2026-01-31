@@ -31,18 +31,30 @@ export const capture = action({
     }
 
     try {
+      const props = args.properties as Record<string, unknown> | undefined;
+      const transformedProps = transformProperties(props);
+
+      // Extract IP from properties for PostHog's geolocation
+      const ip = props?._ip as string | undefined;
+      delete transformedProps.$ip; // Don't send in properties, use top-level
+
+      const body: Record<string, unknown> = {
+        api_key: POSTHOG_API_KEY,
+        event: args.event,
+        distinct_id: args.distinctId,
+        properties: transformedProps,
+        timestamp: new Date().toISOString(),
+      };
+
+      // Add IP at top level if provided (PostHog uses this for geo)
+      if (ip) {
+        body.ip = ip;
+      }
+
       const response = await fetch(`${POSTHOG_HOST}/capture/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          api_key: POSTHOG_API_KEY,
-          event: args.event,
-          distinct_id: args.distinctId,
-          properties: transformProperties(
-            args.properties as Record<string, unknown>,
-          ),
-          timestamp: new Date().toISOString(),
-        }),
+        body: JSON.stringify(body),
       });
 
       if (!response.ok) {
