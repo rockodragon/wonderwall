@@ -1,5 +1,5 @@
 import { Link } from "react-router";
-import type { Route } from "./+types/organizations.demo";
+import type { Route } from "./+types/organizations_.demo";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -14,12 +14,12 @@ export function meta({}: Route.MetaArgs) {
 
 // Sample data for the demo organization
 const SAMPLE_ORG = {
-  name: "Rhythm Church",
-  tagline: "Creating space for people to encounter God",
+  name: "Salty Light Church",
+  tagline: "Be the salt and light in your community",
   description:
-    "Rhythm Church is a vibrant, multi-site church in Southern California passionate about creative expression in worship. We believe creativity is one of the primary ways we reflect the image of our Creator, and we're committed to investing in artists and creatives who help people encounter God.",
-  location: "San Diego, CA",
-  website: "rhythmchurch.com",
+    "Salty Light Church is a vibrant, multi-site church in Los Angeles passionate about creative expression in worship. We believe creativity is one of the primary ways we reflect the image of our Creator, and we're committed to investing in artists and creatives who help people encounter God.",
+  location: "Los Angeles, CA",
+  website: "saltylightchurch.com",
   type: "Church",
   memberSince: "2024",
   verified: true,
@@ -82,7 +82,7 @@ const SAMPLE_ORG = {
     {
       title: "Graphic Designer",
       type: "Full-time",
-      location: "San Diego, CA",
+      location: "Los Angeles, CA",
       posted: "2 days ago",
     },
     {
@@ -94,7 +94,7 @@ const SAMPLE_ORG = {
     {
       title: "Worship Leader",
       type: "Volunteer",
-      location: "San Diego, CA",
+      location: "Los Angeles, CA",
       posted: "3 days ago",
       volunteer: true,
     },
@@ -102,7 +102,7 @@ const SAMPLE_ORG = {
   testimonials: [
     {
       quote:
-        "Working with Rhythm Church has been incredible. They truly invest in their creatives and give us freedom to create meaningful work.",
+        "Working with Salty Light Church has been incredible. They truly invest in their creatives and give us freedom to create meaningful work.",
       author: "Jake Williams",
       role: "Freelance Videographer",
       image:
@@ -110,7 +110,7 @@ const SAMPLE_ORG = {
     },
     {
       quote:
-        "The sponsorship program changed my career. I couldn't afford a Wonderwall membership, but Rhythm sponsored me and I've since gotten 3 clients through the platform.",
+        "The sponsorship program changed my career. I couldn't afford a Wonderwall membership, but Salty Light sponsored me and I've since gotten 3 clients through the platform.",
       author: "Maria Santos",
       role: "Graphic Designer",
       image:
@@ -171,7 +171,7 @@ export default function OrganizationDemo() {
           <div className="flex flex-col md:flex-row gap-6 items-start">
             {/* Logo */}
             <div className="w-32 h-32 rounded-2xl bg-gradient-to-br from-purple-600 to-blue-600 flex items-center justify-center text-white text-4xl font-bold border-4 border-gray-950 shadow-xl">
-              RC
+              SL
             </div>
 
             {/* Info */}
