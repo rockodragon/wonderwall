@@ -39,7 +39,6 @@ export default function Home() {
     "idle" | "loading" | "success" | "error"
   >("idle");
   const [message, setMessage] = useState("");
-  const [showInviteInput, setShowInviteInput] = useState(false);
   const [inviteInput, setInviteInput] = useState("");
   const [inviteError, setInviteError] = useState("");
   const [inviteSlug, setInviteSlug] = useState<string | null>(null);
@@ -188,15 +187,16 @@ export default function Home() {
             Closed Beta • Invite Only
           </div>
 
-          {/* Waitlist Form or Invite Preview */}
+          {/* Invite Input or Waitlist Form */}
           <div className="max-w-md mx-auto">
             {!inviteSlug ? (
-              // Show waitlist form when no invite is being processed
-              status === "success" ? (
-                <div className="p-8 bg-green-500/10 rounded-2xl border border-green-500/20 backdrop-blur-sm">
-                  <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+              // Primary: Invite code input (prioritized)
+              <div className="space-y-6">
+                {/* Invite Code Section - Primary */}
+                <div className="p-6 bg-gray-900/80 rounded-2xl border border-blue-500/30 backdrop-blur-sm">
+                  <div className="flex items-center gap-2 text-blue-400 text-sm font-medium mb-3">
                     <svg
-                      className="w-8 h-8 text-green-400"
+                      className="w-4 h-4"
                       fill="none"
                       viewBox="0 0 24 24"
                       stroke="currentColor"
@@ -205,95 +205,84 @@ export default function Home() {
                         strokeLinecap="round"
                         strokeLinejoin="round"
                         strokeWidth={2}
-                        d="M5 13l4 4L19 7"
+                        d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"
                       />
                     </svg>
+                    Have an invite?
                   </div>
-                  <h3 className="text-xl font-bold text-green-100 mb-2">
-                    You're on the list!
-                  </h3>
-                  <p className="text-green-300">{message}</p>
-                </div>
-              ) : (
-                <form onSubmit={handleWaitlistSubmit} className="space-y-4">
-                  <div className="flex flex-col sm:flex-row gap-3">
+                  <form onSubmit={handleInviteSubmit} className="space-y-3">
                     <input
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="Enter your email"
-                      className="flex-1 px-5 py-4 border border-gray-700 rounded-xl bg-gray-900/50 backdrop-blur-sm text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                      disabled={status === "loading"}
+                      type="text"
+                      value={inviteInput}
+                      onChange={(e) => setInviteInput(e.target.value)}
+                      placeholder="Paste invite link or code"
+                      className="w-full px-4 py-3 border border-gray-700 rounded-xl bg-gray-900/50 backdrop-blur-sm text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                     />
+                    {inviteError && (
+                      <p className="text-sm text-red-400">{inviteError}</p>
+                    )}
                     <button
                       type="submit"
-                      disabled={status === "loading"}
-                      className="px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-semibold hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                      className="w-full px-4 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-semibold hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg shadow-blue-500/25"
                     >
-                      {status === "loading" ? "Joining..." : "Join Waitlist"}
+                      Enter with Invite
                     </button>
-                  </div>
-                  {status === "error" && (
-                    <p className="text-sm text-red-400">{message}</p>
-                  )}
-                </form>
-              )
-            ) : null}
+                  </form>
+                </div>
 
-            {/* Invite Input Section */}
-            <div
-              className={inviteSlug ? "" : "mt-6 pt-6 border-t border-gray-800"}
-            >
-              {!inviteSlug ? (
-                // Show invite input form
-                !showInviteInput ? (
-                  <button
-                    onClick={() => setShowInviteInput(true)}
-                    className="text-sm text-gray-500 hover:text-gray-300 transition-colors"
-                  >
-                    Have an invite?{" "}
-                    <span className="text-blue-400 hover:text-blue-300 font-medium">
-                      Enter it here
-                    </span>
-                  </button>
-                ) : (
-                  <div>
-                    <div className="flex items-center justify-between mb-3">
-                      <p className="text-sm font-medium text-gray-300">
-                        Enter your invite
-                      </p>
-                      <button
-                        onClick={() => {
-                          setShowInviteInput(false);
-                          setInviteInput("");
-                          setInviteError("");
-                        }}
-                        className="text-sm text-gray-500 hover:text-gray-300 transition-colors"
-                      >
-                        Cancel
-                      </button>
+                {/* Waitlist Section - Secondary */}
+                <div className="text-center">
+                  <p className="text-gray-500 text-sm mb-3">
+                    Don't have an invite yet?
+                  </p>
+                  {status === "success" ? (
+                    <div className="p-6 bg-green-500/10 rounded-xl border border-green-500/20">
+                      <div className="flex items-center justify-center gap-2 text-green-400 mb-2">
+                        <svg
+                          className="w-5 h-5"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M5 13l4 4L19 7"
+                          />
+                        </svg>
+                        <span className="font-medium">You're on the list!</span>
+                      </div>
+                      <p className="text-green-300 text-sm">{message}</p>
                     </div>
-                    <form onSubmit={handleInviteSubmit} className="space-y-3">
+                  ) : (
+                    <form
+                      onSubmit={handleWaitlistSubmit}
+                      className="flex flex-col sm:flex-row gap-2"
+                    >
                       <input
-                        type="text"
-                        value={inviteInput}
-                        onChange={(e) => setInviteInput(e.target.value)}
-                        placeholder="Paste invite link or code"
-                        className="w-full px-4 py-3 border border-gray-700 rounded-xl bg-gray-900/50 backdrop-blur-sm text-white text-sm placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="your@email.com"
+                        className="flex-1 px-4 py-3 border border-gray-700 rounded-xl bg-gray-900/50 backdrop-blur-sm text-white text-sm placeholder-gray-500 focus:ring-2 focus:ring-gray-600 focus:border-transparent transition-all"
+                        disabled={status === "loading"}
                       />
-                      {inviteError && (
-                        <p className="text-sm text-red-400">{inviteError}</p>
-                      )}
                       <button
                         type="submit"
-                        className="w-full px-4 py-3 bg-blue-600 text-white rounded-xl font-medium text-sm hover:bg-blue-700 transition-colors shadow-lg shadow-blue-500/25"
+                        disabled={status === "loading"}
+                        className="px-6 py-3 bg-gray-800 text-white rounded-xl font-medium text-sm hover:bg-gray-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
                       >
-                        Continue
+                        {status === "loading" ? "Joining..." : "Join Waitlist"}
                       </button>
                     </form>
-                  </div>
-                )
-              ) : inviterInfo === undefined ? (
+                  )}
+                  {status === "error" && (
+                    <p className="text-sm text-red-400 mt-2">{message}</p>
+                  )}
+                </div>
+              </div>
+            ) : inviterInfo === undefined ? (
                 // Loading state
                 <div className="flex items-center justify-center py-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
