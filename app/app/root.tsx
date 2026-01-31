@@ -6,10 +6,10 @@ import {
   Scripts,
   ScrollRestoration,
 } from "react-router";
-import { usePostHog } from "@posthog/react";
 
 import type { Route } from "./+types/root";
 import { ConvexClientProvider } from "./providers";
+import { Analytics } from "./components/Analytics";
 import "./app.css";
 
 export const links: Route.LinksFunction = () => [
@@ -46,6 +46,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 export default function App() {
   return (
     <ConvexClientProvider>
+      <Analytics />
       <Outlet />
     </ConvexClientProvider>
   );
@@ -55,17 +56,6 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
   let message = "Oops!";
   let details = "An unexpected error occurred.";
   let stack: string | undefined;
-
-  const posthog = usePostHog();
-
-  // Capture error in PostHog
-  if (posthog && error instanceof Error) {
-    posthog.capture("error_boundary_triggered", {
-      error_message: error.message,
-      error_name: error.name,
-      error_stack: error.stack,
-    });
-  }
 
   if (isRouteErrorResponse(error)) {
     message = error.status === 404 ? "404" : "Error";

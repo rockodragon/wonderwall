@@ -4,6 +4,19 @@ import { action, httpAction } from "./_generated/server";
 const POSTHOG_HOST = "https://us.i.posthog.com";
 const POSTHOG_API_KEY = process.env.POSTHOG_API_KEY;
 
+// Transform property keys: _ prefix -> $ prefix (Convex doesn't allow $ in keys)
+function transformProperties(
+  props: Record<string, unknown> | undefined,
+): Record<string, unknown> {
+  if (!props) return {};
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(props)) {
+    const newKey = key.startsWith("_") ? `$${key.slice(1)}` : key;
+    result[newKey] = value;
+  }
+  return result;
+}
+
 // Server-side event capture - frontend calls this action directly
 export const capture = action({
   args: {
@@ -25,7 +38,9 @@ export const capture = action({
           api_key: POSTHOG_API_KEY,
           event: args.event,
           distinct_id: args.distinctId,
-          properties: args.properties || {},
+          properties: transformProperties(
+            args.properties as Record<string, unknown>,
+          ),
           timestamp: new Date().toISOString(),
         }),
       });
@@ -105,7 +120,9 @@ export const batch = action({
       const batch = args.events.map((e) => ({
         event: e.event,
         distinct_id: e.distinctId,
-        properties: e.properties || {},
+        properties: transformProperties(
+          e.properties as Record<string, unknown>,
+        ),
         timestamp: e.timestamp || new Date().toISOString(),
       }));
 
