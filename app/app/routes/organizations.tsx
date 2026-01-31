@@ -460,11 +460,11 @@ export default function Organizations() {
                 <iframe
                   src="https://getupsight.com/embed/5ky-bxs?layout=inline-email&theme=transparent&accent=%23ffffff&radius=12&branding=false&buttonText=Register&placeholder=you%40organization.com&success=Thanks%21+We%27ll+be+in+touch."
                   width="100%"
-                  height="80"
+                  height="120"
                   frameBorder="0"
                   scrolling="no"
                   allowTransparency={true}
-                  style={{ border: "none", overflow: "hidden" }}
+                  style={{ border: "none", overflow: "visible" }}
                   allow="camera; microphone"
                   title="Register Interest"
                 />
