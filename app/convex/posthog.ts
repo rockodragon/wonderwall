@@ -2,7 +2,7 @@ import { httpAction } from "./_generated/server";
 
 const POSTHOG_HOST = "https://us.i.posthog.com";
 
-// Proxy POST requests to PostHog (handles /capture, /batch, /decide, /e)
+// Proxy requests to PostHog (handles /capture, /batch, /decide, /e, /flags)
 export const proxy = httpAction(async (ctx, request) => {
   const url = new URL(request.url);
   // Extract the PostHog path after /api/ph/
@@ -12,17 +12,23 @@ export const proxy = httpAction(async (ctx, request) => {
   const posthogUrl = `${POSTHOG_HOST}${posthogPath}${url.search}`;
 
   try {
-    const body = await request.text();
+    // Only read body for POST requests
+    const isPost = request.method === "POST";
+    const body = isPost ? await request.text() : undefined;
+
+    const headers: Record<string, string> = {
+      // Forward user agent for proper device detection
+      "User-Agent": request.headers.get("User-Agent") || "",
+    };
+    if (isPost) {
+      headers["Content-Type"] =
+        request.headers.get("Content-Type") || "application/json";
+    }
 
     const response = await fetch(posthogUrl, {
       method: request.method,
-      headers: {
-        "Content-Type":
-          request.headers.get("Content-Type") || "application/json",
-        // Forward user agent for proper device detection
-        "User-Agent": request.headers.get("User-Agent") || "",
-      },
-      body: body || undefined,
+      headers,
+      body,
     });
 
     const responseBody = await response.text();
