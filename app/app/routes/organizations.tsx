@@ -53,6 +53,7 @@ const TIERS = [
       "Website link and contact info",
       "Organization type badge",
       "Browse creative portfolios",
+      "1 free job posting at a time",
       "Community newsletter",
     ],
     highlighted: false,
@@ -69,10 +70,9 @@ const TIERS = [
       "Dedicated organization profile page",
       "Unlimited job postings",
       "Direct messaging with creatives",
-      "Sponsor 2 creative memberships",
     ],
     highlighted: false,
-    patronage: 2,
+    patronage: 5,
   },
   {
     name: "Patron",
@@ -85,7 +85,6 @@ const TIERS = [
       "Homepage feature rotation",
       "Priority support & talent matching",
       "Quarterly newsletter spotlight",
-      "Sponsor 10 creative memberships",
     ],
     highlighted: false,
     patronage: 10,
@@ -102,7 +101,6 @@ const TIERS = [
       "Advisory board participation",
       "Custom platform integrations",
       "Co-branded marketing initiatives",
-      "Sponsor 50+ creative memberships",
     ],
     highlighted: false,
     custom: true,
@@ -129,7 +127,7 @@ const FAQS = [
   {
     question: "What does 'sponsor creative memberships' mean?",
     answer:
-      "Like Renaissance patrons who supported artists, your organization can sponsor memberships for emerging creatives who couldn't otherwise afford to join. Partner tier sponsors 2, Patron sponsors 10, and Founding Partners sponsor 50+ creatives. It's a tangible way to invest in Kingdom creativity while building goodwill with future talent.",
+      "Like Renaissance patrons who supported artists, your organization can sponsor memberships for emerging creatives who couldn't otherwise afford to join. Partner tier sponsors 5, Patron sponsors 10, and Founding Partners sponsor 50 creatives. It's a tangible way to invest in Kingdom creativity while building goodwill with future talent.",
   },
   {
     question: "What creative roles can we hire for?",
@@ -274,6 +272,61 @@ export default function Organizations() {
         </div>
       </section>
 
+      {/* Patron of the Arts Explainer */}
+      <section className="px-6 py-12">
+        <div className="max-w-4xl mx-auto">
+          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-amber-900/30 via-amber-800/20 to-gray-900 border border-amber-500/30 p-8 md:p-10">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+            <div className="relative">
+              <div className="inline-flex items-center gap-2 px-3 py-1 bg-amber-500/20 border border-amber-500/30 text-amber-400 rounded-full text-sm font-medium mb-4">
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+                What Sets Us Apart
+              </div>
+              <h2 className="text-2xl md:text-3xl font-bold text-white mb-4">
+                Become a Patron of the Arts
+              </h2>
+              <p className="text-gray-300 text-lg mb-4 max-w-2xl">
+                Like the Medicis of Renaissance Florence, your organization can
+                invest in Kingdom creativity by sponsoring memberships for
+                talented artists who couldn't otherwise afford to join.
+              </p>
+              <p className="text-gray-400 mb-6 max-w-2xl">
+                Every paid tier includes creative sponsorships—so you're not
+                just hiring talent, you're building the ecosystem. Sponsored
+                creatives get full platform access, and you get first look at
+                emerging talent while making a tangible Kingdom impact.
+              </p>
+              <div className="flex flex-wrap gap-4 text-sm">
+                <div className="flex items-center gap-2 text-amber-300">
+                  <span className="font-bold">Partner:</span>
+                  <span className="text-gray-400">5 sponsorships</span>
+                </div>
+                <div className="flex items-center gap-2 text-amber-300">
+                  <span className="font-bold">Patron:</span>
+                  <span className="text-gray-400">10 sponsorships</span>
+                </div>
+                <div className="flex items-center gap-2 text-amber-300">
+                  <span className="font-bold">Founding Partner:</span>
+                  <span className="text-gray-400">50 sponsorships</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Partnership Tiers */}
       <section className="px-6 py-20">
         <div className="max-w-6xl mx-auto">
@@ -300,8 +353,8 @@ export default function Organizations() {
       <section className="px-6 py-16 bg-gray-900/50">
         <div className="max-w-4xl mx-auto">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
-            <Stat number="32+" label="Creative Disciplines" />
             <Stat number="100%" label="Values-Aligned" />
+            <Stat number="32+" label="Creative Disciplines" />
             <Stat number="Free" label="For Creatives" />
             <Stat number="Direct" label="Connection" />
           </div>
@@ -506,30 +559,19 @@ function TierCard({
   const isFree = "free" in tier && tier.free;
   const hasPatronage = "patronage" in tier && tier.patronage;
   const isCustom = "custom" in tier && tier.custom;
+  const patronageCount = hasPatronage ? tier.patronage : 0;
 
   return (
     <div
       className={`relative rounded-2xl p-6 transition-all ${
-        tier.highlighted
-          ? "bg-gradient-to-br from-blue-600/20 to-purple-600/20 border-2 border-blue-500"
-          : isFree
-            ? "bg-gray-900/50 border border-gray-700 hover:border-gray-600"
-            : "bg-gray-900 border border-gray-800 hover:border-gray-700"
+        isFree
+          ? "bg-gray-900/50 border border-gray-700 hover:border-gray-600"
+          : "bg-gray-900 border border-gray-800 hover:border-gray-700"
       }`}
     >
-      {tier.highlighted && (
-        <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-blue-600 text-white text-xs font-medium rounded-full">
-          Most Popular
-        </div>
-      )}
       {isFree && (
         <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-green-600 text-white text-xs font-medium rounded-full">
           Free Forever
-        </div>
-      )}
-      {hasPatronage && !tier.highlighted && !isFree && (
-        <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-amber-600 text-white text-xs font-medium rounded-full">
-          Patron of the Arts
         </div>
       )}
 
@@ -537,6 +579,31 @@ function TierCard({
         <h3 className="text-xl font-bold text-white">{tier.name}</h3>
         <p className="text-sm text-gray-400 mt-1">{tier.description}</p>
       </div>
+
+      {/* Patronage section - moved up high in the card */}
+      {hasPatronage && (
+        <div className="mb-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl">
+          <div className="flex items-center gap-2 text-amber-400 text-xs font-medium mb-1">
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+            Patron of the Arts
+          </div>
+          <p className="text-amber-200 text-sm font-medium">
+            Sponsor {patronageCount} creative memberships
+          </p>
+        </div>
+      )}
 
       <div className="mb-6">
         {isFree ? (
@@ -558,63 +625,39 @@ function TierCard({
               </span>
             )}
           </>
-        ) : (
-          <span className="text-2xl font-bold text-white">
-            Contact for pricing
-          </span>
-        )}
+        ) : null}
       </div>
 
       <ul className="space-y-3 mb-6">
-        {tier.features.map((feature, idx) => {
-          const isPatronageFeature = feature.includes("Sponsor");
-          return (
-            <li key={idx} className="flex items-start gap-2 text-sm">
-              <svg
-                className={`w-5 h-5 flex-shrink-0 mt-0.5 ${isPatronageFeature ? "text-amber-400" : "text-green-400"}`}
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                {isPatronageFeature ? (
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                ) : (
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M5 13l4 4L19 7"
-                  />
-                )}
-              </svg>
-              <span
-                className={
-                  isPatronageFeature ? "text-amber-200" : "text-gray-300"
-                }
-              >
-                {feature}
-              </span>
-            </li>
-          );
-        })}
+        {tier.features.map((feature, idx) => (
+          <li key={idx} className="flex items-start gap-2 text-sm">
+            <svg
+              className="w-5 h-5 flex-shrink-0 mt-0.5 text-green-400"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M5 13l4 4L19 7"
+              />
+            </svg>
+            <span className="text-gray-300">{feature}</span>
+          </li>
+        ))}
       </ul>
 
       <a
         href="#register"
         className={`block w-full py-3 rounded-xl font-medium text-center transition-all ${
-          tier.highlighted
-            ? "bg-blue-600 text-white hover:bg-blue-700"
-            : isFree
-              ? "bg-green-600 text-white hover:bg-green-700"
-              : "bg-gray-800 text-white hover:bg-gray-700"
+          isFree
+            ? "bg-green-600 text-white hover:bg-green-700"
+            : "bg-gray-800 text-white hover:bg-gray-700"
         }`}
       >
-        {isFree ? "Join Free" : isCustom ? "Contact Us" : "Get Started"}
+        {isFree ? "Join Free" : "Contact Us"}
       </a>
     </div>
   );
