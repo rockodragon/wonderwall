@@ -157,6 +157,9 @@ export default function Organizations() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [showPricing, setShowPricing] = useState(false);
   const [utmParams, setUtmParams] = useState("");
+  const [registerModalPlan, setRegisterModalPlan] = useState<string | null>(
+    null,
+  );
 
   // Capture UTM params on mount
   useEffect(() => {
@@ -374,7 +377,7 @@ export default function Organizations() {
                 key={tier.name}
                 tier={tier}
                 showPricing={showPricing}
-                utmParams={utmParams}
+                onRegister={(planName) => setRegisterModalPlan(planName)}
               />
             ))}
           </div>
@@ -483,6 +486,56 @@ export default function Organizations() {
           </div>
         </div>
       </footer>
+
+      {/* Register Interest Modal */}
+      {registerModalPlan && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70"
+          onClick={() => setRegisterModalPlan(null)}
+        >
+          <div
+            className="relative w-full max-w-md bg-gray-900 rounded-2xl p-6 border border-gray-700"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setRegisterModalPlan(null)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors"
+            >
+              <svg
+                className="w-6 h-6"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+            <h3 className="text-xl font-bold text-white mb-2">
+              Register Interest
+            </h3>
+            <p className="text-gray-400 text-sm mb-4">
+              {registerModalPlan} tier selected. We'll reach out to discuss next
+              steps.
+            </p>
+            <iframe
+              src={`https://getupsight.com/embed/5ky-bxs?layout=inline-email&theme=dark&accent=%2360a5fa&radius=12&branding=false&buttonText=Continue&placeholder=you%40organization.com&success=Thanks%21+We%27ll+be+in+touch.`}
+              width="100%"
+              height="120"
+              frameBorder="0"
+              scrolling="no"
+              allowTransparency={true}
+              style={{ border: "none", overflow: "hidden" }}
+              allow="camera; microphone"
+              title="Register Interest"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -584,23 +637,16 @@ function ValueProp({
 function TierCard({
   tier,
   showPricing,
-  utmParams,
+  onRegister,
 }: {
   tier: (typeof TIERS)[0];
   showPricing: boolean;
-  utmParams: string;
+  onRegister: (planName: string) => void;
 }) {
   const isFree = "free" in tier && tier.free;
   const hasPatronage = "patronage" in tier && tier.patronage;
   const isCustom = "custom" in tier && tier.custom;
   const patronageCount = hasPatronage ? tier.patronage : 0;
-
-  // Build registration URL with plan and UTM params
-  const planSlug = tier.name.toLowerCase().replace(/\s+/g, "-");
-  const registerParams = [`plan=${planSlug}`, utmParams]
-    .filter(Boolean)
-    .join("&");
-  const registerUrl = `#register?${registerParams}`;
 
   return (
     <div
@@ -690,8 +736,8 @@ function TierCard({
         ))}
       </ul>
 
-      <a
-        href={registerUrl}
+      <button
+        onClick={() => onRegister(tier.name)}
         className={`block w-full py-3 rounded-xl font-medium text-center transition-all ${
           isFree
             ? "bg-green-600 text-white hover:bg-green-700"
@@ -699,7 +745,7 @@ function TierCard({
         }`}
       >
         {isFree ? "Join Free" : "Register Interest"}
-      </a>
+      </button>
     </div>
   );
 }
