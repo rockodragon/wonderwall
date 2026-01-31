@@ -59,7 +59,6 @@ export default function Home() {
     const inviteParam = urlParams.get("invite");
     if (inviteParam) {
       setInviteSlug(inviteParam);
-      setShowInviteInput(true);
       // Clean up URL
       window.history.replaceState({}, "", "/");
     }
@@ -283,145 +282,142 @@ export default function Home() {
                 </div>
               </div>
             ) : inviterInfo === undefined ? (
-                // Loading state
-                <div className="flex items-center justify-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
-                </div>
-              ) : inviterInfo === null ? (
-                // Invalid invite
-                <div className="text-center py-4">
-                  <p className="text-sm text-red-400 mb-3">
-                    Invalid invite link
+              // Loading state
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+              </div>
+            ) : inviterInfo === null ? (
+              // Invalid invite
+              <div className="text-center py-4">
+                <p className="text-sm text-red-400 mb-3">Invalid invite link</p>
+                <button
+                  onClick={() => {
+                    setInviteSlug(null);
+                    setInviteInput("");
+                  }}
+                  className="text-sm text-blue-400 hover:text-blue-300 font-medium transition-colors"
+                >
+                  Try again
+                </button>
+              </div>
+            ) : (
+              // Show personalized invite preview
+              <div className="bg-gray-900 rounded-2xl shadow-2xl border border-gray-800 overflow-hidden backdrop-blur-sm">
+                <div className="bg-gradient-to-r from-blue-600 to-purple-600 px-6 py-5">
+                  <p className="text-white/80 text-xs font-medium uppercase tracking-wide mb-1">
+                    You've been invited
                   </p>
-                  <button
-                    onClick={() => {
-                      setInviteSlug(null);
-                      setInviteInput("");
-                    }}
-                    className="text-sm text-blue-400 hover:text-blue-300 font-medium transition-colors"
-                  >
-                    Try again
-                  </button>
+                  <h3 className="text-2xl font-bold text-white">
+                    {inviterInfo.name} invited you to join
+                  </h3>
                 </div>
-              ) : (
-                // Show personalized invite preview
-                <div className="bg-gray-900 rounded-2xl shadow-2xl border border-gray-800 overflow-hidden backdrop-blur-sm">
-                  <div className="bg-gradient-to-r from-blue-600 to-purple-600 px-6 py-5">
-                    <p className="text-white/80 text-xs font-medium uppercase tracking-wide mb-1">
-                      You've been invited
-                    </p>
-                    <h3 className="text-2xl font-bold text-white">
-                      {inviterInfo.name} invited you to join
-                    </h3>
-                  </div>
 
-                  <div className="p-6">
-                    {/* Inviter Info */}
-                    <div className="flex items-center gap-3 mb-4">
-                      {inviterInfo.imageUrl ? (
-                        <img
-                          src={inviterInfo.imageUrl}
-                          alt={inviterInfo.name}
-                          className="w-14 h-14 rounded-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-lg font-bold">
-                          {inviterInfo.name.charAt(0).toUpperCase()}
-                        </div>
-                      )}
-                      <div className="text-left flex-1">
-                        <div className="font-semibold text-white">
-                          {inviterInfo.name}
-                        </div>
-                        {inviterInfo.jobFunctions &&
-                          inviterInfo.jobFunctions.length > 0 && (
-                            <div className="text-sm text-gray-400">
-                              {inviterInfo.jobFunctions.join(", ")}
-                            </div>
-                          )}
-                      </div>
-                    </div>
-
-                    {/* Connected Members - Show who's already here */}
-                    {inviterInfo.recentInvitees &&
-                    inviterInfo.recentInvitees.length > 0 ? (
-                      <div className="mb-4 p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl">
-                        <div className="flex items-center gap-3 mb-2">
-                          <div className="flex -space-x-2">
-                            {/* Show inviter + recent invitees */}
-                            <div
-                              className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-xs font-bold ring-2 ring-gray-900"
-                              title={inviterInfo.name}
-                            >
-                              {inviterInfo.name.charAt(0).toUpperCase()}
-                            </div>
-                            {inviterInfo.recentInvitees.map((invitee, idx) => (
-                              <div
-                                key={idx}
-                                className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-400 to-pink-500 flex items-center justify-center text-white text-xs font-bold ring-2 ring-gray-900"
-                                title={invitee.name}
-                              >
-                                {invitee.name.charAt(0).toUpperCase()}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                        <p className="text-sm text-gray-300">
-                          Join{" "}
-                          <span className="font-semibold">
-                            {inviterInfo.name}
-                          </span>
-                          {inviterInfo.recentInvitees.map((invitee, idx) => (
-                            <span key={idx}>
-                              {idx === 0 && ", "}
-                              <span className="font-semibold">
-                                {invitee.name}
-                              </span>
-                              {idx < inviterInfo.recentInvitees.length - 1 &&
-                                ", "}
-                            </span>
-                          ))}{" "}
-                          and others on Wonderwall
-                        </p>
-                      </div>
+                <div className="p-6">
+                  {/* Inviter Info */}
+                  <div className="flex items-center gap-3 mb-4">
+                    {inviterInfo.imageUrl ? (
+                      <img
+                        src={inviterInfo.imageUrl}
+                        alt={inviterInfo.name}
+                        className="w-14 h-14 rounded-full object-cover"
+                      />
                     ) : (
-                      <div className="mb-4 p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl">
-                        <p className="text-sm text-gray-300">
-                          Be one of the first to join{" "}
-                          <span className="font-semibold text-white">
-                            {inviterInfo.name}
-                          </span>
-                          's network on Wonderwall
-                        </p>
+                      <div className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-lg font-bold">
+                        {inviterInfo.name.charAt(0).toUpperCase()}
                       </div>
                     )}
-
-                    {/* CTA Buttons */}
-                    <div className="space-y-2">
-                      <button
-                        onClick={() => {
-                          // Mark that user accepted invite from home page
-                          sessionStorage.setItem("invite-accepted", inviteSlug);
-                          navigate(`/signup/${inviteSlug}`);
-                        }}
-                        className="w-full px-6 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-semibold hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg shadow-blue-500/25"
-                      >
-                        Accept Invite & Join
-                      </button>
-                      <button
-                        onClick={() => {
-                          setInviteSlug(null);
-                          setInviteInput("");
-                        }}
-                        className="w-full px-4 py-2 text-gray-400 hover:text-white text-sm transition-colors"
-                      >
-                        Cancel
-                      </button>
+                    <div className="text-left flex-1">
+                      <div className="font-semibold text-white">
+                        {inviterInfo.name}
+                      </div>
+                      {inviterInfo.jobFunctions &&
+                        inviterInfo.jobFunctions.length > 0 && (
+                          <div className="text-sm text-gray-400">
+                            {inviterInfo.jobFunctions.join(", ")}
+                          </div>
+                        )}
                     </div>
                   </div>
+
+                  {/* Connected Members - Show who's already here */}
+                  {inviterInfo.recentInvitees &&
+                  inviterInfo.recentInvitees.length > 0 ? (
+                    <div className="mb-4 p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl">
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className="flex -space-x-2">
+                          {/* Show inviter + recent invitees */}
+                          <div
+                            className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-xs font-bold ring-2 ring-gray-900"
+                            title={inviterInfo.name}
+                          >
+                            {inviterInfo.name.charAt(0).toUpperCase()}
+                          </div>
+                          {inviterInfo.recentInvitees.map((invitee, idx) => (
+                            <div
+                              key={idx}
+                              className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-400 to-pink-500 flex items-center justify-center text-white text-xs font-bold ring-2 ring-gray-900"
+                              title={invitee.name}
+                            >
+                              {invitee.name.charAt(0).toUpperCase()}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <p className="text-sm text-gray-300">
+                        Join{" "}
+                        <span className="font-semibold">
+                          {inviterInfo.name}
+                        </span>
+                        {inviterInfo.recentInvitees.map((invitee, idx) => (
+                          <span key={idx}>
+                            {idx === 0 && ", "}
+                            <span className="font-semibold">
+                              {invitee.name}
+                            </span>
+                            {idx < inviterInfo.recentInvitees.length - 1 &&
+                              ", "}
+                          </span>
+                        ))}{" "}
+                        and others on Wonderwall
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="mb-4 p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl">
+                      <p className="text-sm text-gray-300">
+                        Be one of the first to join{" "}
+                        <span className="font-semibold text-white">
+                          {inviterInfo.name}
+                        </span>
+                        's network on Wonderwall
+                      </p>
+                    </div>
+                  )}
+
+                  {/* CTA Buttons */}
+                  <div className="space-y-2">
+                    <button
+                      onClick={() => {
+                        // Mark that user accepted invite from home page
+                        sessionStorage.setItem("invite-accepted", inviteSlug);
+                        navigate(`/signup/${inviteSlug}`);
+                      }}
+                      className="w-full px-6 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-semibold hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg shadow-blue-500/25"
+                    >
+                      Accept Invite & Join
+                    </button>
+                    <button
+                      onClick={() => {
+                        setInviteSlug(null);
+                        setInviteInput("");
+                      }}
+                      className="w-full px-4 py-2 text-gray-400 hover:text-white text-sm transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         </div>
 

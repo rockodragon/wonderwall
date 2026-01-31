@@ -108,155 +108,179 @@ export default function Search() {
     filteredProfiles?.filter((p) => !p.wondering) || [];
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
-      <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-        Discover
-      </h1>
-      <p className="text-gray-500 dark:text-gray-400 mb-6">
-        Find creatives by what they do, think, or create
-      </p>
-
-      {/* Create Wondering Composer */}
-      <div className="mb-6">
-        <CreateWonderingComposer />
-      </div>
-
-      {/* Search input */}
-      <div className="relative mb-6">
-        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-          <svg
-            className="w-5 h-5 text-gray-400"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-            />
-          </svg>
+    <div className="max-w-6xl mx-auto">
+      {/* Hero Banner - About Wonders */}
+      <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500 px-6 py-8 md:py-10">
+        <div className="max-w-3xl">
+          <div className="flex items-center gap-2 text-white/80 text-sm font-medium mb-3">
+            <span className="text-xl">?</span>
+            <span>What's a Wonder?</span>
+          </div>
+          <h1 className="text-2xl md:text-3xl font-bold text-white mb-3">
+            Share what's on your mind—one thought at a time.
+          </h1>
+          <p className="text-white/90 text-base md:text-lg leading-relaxed mb-4">
+            A Wonder is a question you're pondering, something you're curious
+            about, or a thought you want to share. It sticks around until you
+            swap it for something new. Your past Wonders? They're saved on your
+            profile—so others can see what you've been thinking about over time.
+          </p>
+          <p className="text-white/70 text-sm">
+            It's not a feed. It's a conversation starter.
+          </p>
         </div>
-        <input
-          type="text"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search by name, role, wondering, or event..."
-          className="w-full pl-12 pr-4 py-3 border border-gray-300 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
-        />
       </div>
 
-      {/* Filter accordion */}
-      <div className="mb-8">
-        <button
-          onClick={() => setFilterExpanded(!filterExpanded)}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-colors ${
-            activeFilters.length > 0
-              ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
-              : "border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-          }`}
-        >
-          <FilterIcon className="w-4 h-4" />
-          <span className="font-medium">{filterLabel}</span>
-          <ChevronDownIcon
-            className={`w-4 h-4 transition-transform ${filterExpanded ? "rotate-180" : ""}`}
-          />
-        </button>
+      <div className="p-6">
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+          Discover
+        </h2>
+        <p className="text-gray-500 dark:text-gray-400 mb-6">
+          Find creatives by what they do, think, or create
+        </p>
 
-        {/* Accordion content */}
-        {filterExpanded && (
-          <div className="mt-3 p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl">
-            <div className="flex flex-wrap gap-2">
-              {/* Clear all button */}
-              <button
-                onClick={() => setActiveFilters([])}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                  activeFilters.length === 0
-                    ? "bg-blue-600 text-white"
-                    : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
-                }`}
-              >
-                All
-              </button>
-              {FILTERS.filter((f) => f.value).map((filter) => (
+        {/* Create Wondering Composer */}
+        <div className="mb-6">
+          <CreateWonderingComposer />
+        </div>
+
+        {/* Search input */}
+        <div className="relative mb-6">
+          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+            <svg
+              className="w-5 h-5 text-gray-400"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+              />
+            </svg>
+          </div>
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search by name, role, wondering, or event..."
+            className="w-full pl-12 pr-4 py-3 border border-gray-300 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
+          />
+        </div>
+
+        {/* Filter accordion */}
+        <div className="mb-8">
+          <button
+            onClick={() => setFilterExpanded(!filterExpanded)}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-colors ${
+              activeFilters.length > 0
+                ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
+                : "border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+            }`}
+          >
+            <FilterIcon className="w-4 h-4" />
+            <span className="font-medium">{filterLabel}</span>
+            <ChevronDownIcon
+              className={`w-4 h-4 transition-transform ${filterExpanded ? "rotate-180" : ""}`}
+            />
+          </button>
+
+          {/* Accordion content */}
+          {filterExpanded && (
+            <div className="mt-3 p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl">
+              <div className="flex flex-wrap gap-2">
+                {/* Clear all button */}
                 <button
-                  key={filter.label}
-                  onClick={() => toggleFilter(filter.value)}
+                  onClick={() => setActiveFilters([])}
                   className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                    activeFilters.includes(filter.value!)
+                    activeFilters.length === 0
                       ? "bg-blue-600 text-white"
                       : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
                   }`}
                 >
-                  {filter.label}
+                  All
                 </button>
-              ))}
+                {FILTERS.filter((f) => f.value).map((filter) => (
+                  <button
+                    key={filter.label}
+                    onClick={() => toggleFilter(filter.value)}
+                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                      activeFilters.includes(filter.value!)
+                        ? "bg-blue-600 text-white"
+                        : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+                    }`}
+                  >
+                    {filter.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Results */}
+        {loading ? (
+          <div className="text-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto" />
+          </div>
+        ) : filteredProfiles?.length === 0 &&
+          (!events || events.length === 0) ? (
+          <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+            <p>{query ? "No results found" : "No creatives to show yet"}</p>
+          </div>
+        ) : (
+          <div className="space-y-12">
+            {/* Events section - show when searching */}
+            {events && events.length > 0 && (
+              <section>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                  Events
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {events.map((event: any) => (
+                    <EventCard key={event._id} event={event} />
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* Wonder Cards - Primary Section */}
+            {filteredProfilesWithWonderings.length > 0 && (
+              <section>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                  What people are wondering
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {filteredProfilesWithWonderings.map((profile) => (
+                    <WonderCard key={profile._id} profile={profile} />
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* Profiles without wonderings */}
+            {filteredProfilesWithoutWonderings.length > 0 && (
+              <section>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                  {query ? "People" : "More creatives"}
+                </h2>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {filteredProfilesWithoutWonderings.map((profile) => (
+                    <ProfileCard key={profile._id} profile={profile} />
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* Invite CTA */}
+            <div className="mt-8 max-w-md">
+              <InviteCTA variant="discover" />
             </div>
           </div>
         )}
       </div>
-
-      {/* Results */}
-      {loading ? (
-        <div className="text-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto" />
-        </div>
-      ) : filteredProfiles?.length === 0 && (!events || events.length === 0) ? (
-        <div className="text-center py-12 text-gray-500 dark:text-gray-400">
-          <p>{query ? "No results found" : "No creatives to show yet"}</p>
-        </div>
-      ) : (
-        <div className="space-y-12">
-          {/* Events section - show when searching */}
-          {events && events.length > 0 && (
-            <section>
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                Events
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {events.map((event: any) => (
-                  <EventCard key={event._id} event={event} />
-                ))}
-              </div>
-            </section>
-          )}
-
-          {/* Wonder Cards - Primary Section */}
-          {filteredProfilesWithWonderings.length > 0 && (
-            <section>
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                What people are wondering
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                <AboutWonderCard />
-                {filteredProfilesWithWonderings.map((profile) => (
-                  <WonderCard key={profile._id} profile={profile} />
-                ))}
-              </div>
-            </section>
-          )}
-
-          {/* Profiles without wonderings */}
-          {filteredProfilesWithoutWonderings.length > 0 && (
-            <section>
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                {query ? "People" : "More creatives"}
-              </h2>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {filteredProfilesWithoutWonderings.map((profile) => (
-                  <ProfileCard key={profile._id} profile={profile} />
-                ))}
-              </div>
-            </section>
-          )}
-
-          {/* Invite CTA */}
-          <div className="mt-8 max-w-md">
-            <InviteCTA variant="discover" />
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -286,61 +310,6 @@ function getWonderTextStyle(prompt: string): {
   const fontClass = isQuestion ? "font-serif italic" : "font-medium";
 
   return { sizeClass, fontClass };
-}
-
-function AboutWonderCard() {
-  return (
-    <div className="relative overflow-hidden rounded-2xl aspect-[4/5] bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500">
-      {/* Decorative elements */}
-      <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
-      <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full translate-y-1/2 -translate-x-1/2" />
-
-      {/* Content */}
-      <div className="absolute inset-0 flex flex-col justify-between p-6">
-        {/* Header */}
-        <div className="flex items-center gap-2">
-          <span className="text-2xl">?</span>
-          <span className="text-white/80 text-sm font-medium uppercase tracking-wider">
-            About Wondering
-          </span>
-        </div>
-
-        {/* Main content */}
-        <div className="space-y-4">
-          <h3 className="text-white text-xl font-bold leading-tight">
-            One thought at a time.
-          </h3>
-          <p className="text-white/80 text-sm leading-relaxed">
-            Wonderings are thoughtful questions you're pondering. Not a feed of
-            hot takes. Your one current thought is enough to spark connection.
-          </p>
-          <p className="text-white/60 text-xs italic">
-            "Seek and you will find."
-          </p>
-        </div>
-
-        {/* Footer badge */}
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
-            <svg
-              className="w-4 h-4 text-white"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-          </div>
-          <span className="text-white/70 text-sm">Seek, don't scroll</span>
-        </div>
-      </div>
-    </div>
-  );
 }
 
 function WonderCard({ profile }: { profile: ProfileWithWondering }) {
