@@ -253,6 +253,77 @@ export default function Organizations() {
         </div>
       </section>
 
+      {/* Free Volunteer Posting Banner */}
+      <section className="px-6 py-6 bg-gradient-to-r from-green-900/40 to-emerald-900/40 border-y border-green-500/20">
+        <div className="max-w-4xl mx-auto flex flex-col md:flex-row items-center justify-center gap-4 text-center md:text-left">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-green-500/20 rounded-full">
+              <svg
+                className="w-6 h-6 text-green-400"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"
+                />
+              </svg>
+            </div>
+            <div>
+              <p className="text-green-300 font-semibold text-lg">
+                Free Volunteer Postings
+              </p>
+              <p className="text-gray-400 text-sm">
+                Churches and nonprofits can post unlimited volunteer
+                opportunities at no cost
+              </p>
+            </div>
+          </div>
+          <Link
+            to="/jobs/new?type=volunteer"
+            className="px-5 py-2 bg-green-600 hover:bg-green-500 text-white font-medium rounded-lg transition-colors whitespace-nowrap"
+          >
+            Post Volunteer Role
+          </Link>
+        </div>
+      </section>
+
+      {/* See Sample Profile CTA */}
+      <section className="px-6 py-8 border-b border-gray-800">
+        <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div>
+            <p className="text-white font-medium">
+              Want to see what your organization profile could look like?
+            </p>
+            <p className="text-gray-400 text-sm">
+              Check out our sample profile page to preview all the features.
+            </p>
+          </div>
+          <Link
+            to="/organizations/demo"
+            className="px-5 py-2 bg-gray-800 hover:bg-gray-700 text-white font-medium rounded-lg transition-colors whitespace-nowrap flex items-center gap-2"
+          >
+            View Sample Profile
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 5l7 7-7 7"
+              />
+            </svg>
+          </Link>
+        </div>
+      </section>
+
       {/* Value Props */}
       <section className="px-6 py-16 bg-gray-900/50">
         <div className="max-w-6xl mx-auto">
