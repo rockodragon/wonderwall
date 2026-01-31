@@ -1,7 +1,7 @@
 import { Link } from "react-router";
-import type { Route } from "./+types/organizations_.demo";
+import type { MetaFunction } from "react-router";
 
-export function meta({}: Route.MetaArgs) {
+export const meta: MetaFunction = () => {
   return [
     { title: "Sample Organization Profile | Wonderwall" },
     {
@@ -10,7 +10,7 @@ export function meta({}: Route.MetaArgs) {
         "See what your organization profile could look like on Wonderwall. Connect with Kingdom-minded creatives.",
     },
   ];
-}
+};
 
 // Sample data for the demo organization
 const SAMPLE_ORG = {

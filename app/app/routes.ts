@@ -13,6 +13,7 @@ export default [
   route("oauth-callback", "routes/oauth-callback.tsx"),
   route("onboarding", "routes/onboarding.tsx"),
   route("organizations", "routes/organizations.tsx"),
+  route("organizations/demo", "routes/organizations_.demo.tsx"),
 
   // App routes (with nav layout)
   layout("routes/_app.tsx", [

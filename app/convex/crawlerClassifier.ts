@@ -126,14 +126,17 @@ async function fetchAndExtractContent(url: string): Promise<string> {
     return textContent;
   } catch (error) {
     throw new Error(
-      `Failed to fetch ${url}: ${error instanceof Error ? error.message : "Unknown error"}`
+      `Failed to fetch ${url}: ${error instanceof Error ? error.message : "Unknown error"}`,
     );
   }
 }
 
 function extractTextFromHtml(html: string): string {
   // Remove script and style elements
-  let text = html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, " ");
+  let text = html.replace(
+    /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi,
+    " ",
+  );
   text = text.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, " ");
 
   // Remove HTML tags
@@ -162,7 +165,7 @@ function extractTextFromHtml(html: string): string {
 async function classifyWithCloudflareAI(
   content: string,
   accountId: string,
-  apiToken: string
+  apiToken: string,
 ): Promise<ClassificationResult> {
   const prompt = CLASSIFICATION_PROMPT.replace("{CONTENT}", content);
 
@@ -185,7 +188,7 @@ async function classifyWithCloudflareAI(
         ],
         max_tokens: 2000,
       }),
-    }
+    },
   );
 
   if (!response.ok) {
@@ -202,7 +205,7 @@ async function classifyWithCloudflareAI(
 // OpenAI classification (fallback or preferred)
 async function classifyWithOpenAI(
   content: string,
-  apiKey: string
+  apiKey: string,
 ): Promise<ClassificationResult> {
   const prompt = CLASSIFICATION_PROMPT.replace("{CONTENT}", content);
 
@@ -255,29 +258,43 @@ function parseClassificationJson(text: string): ClassificationResult {
     return {
       values_alignment: {
         faith_signals: parsed.values_alignment?.faith_signals || [],
-        conservative_signals: parsed.values_alignment?.conservative_signals || [],
-        alignment_score: Math.min(40, Math.max(0, parsed.values_alignment?.alignment_score || 0)),
+        conservative_signals:
+          parsed.values_alignment?.conservative_signals || [],
+        alignment_score: Math.min(
+          40,
+          Math.max(0, parsed.values_alignment?.alignment_score || 0),
+        ),
       },
       hiring_potential: {
         has_careers_page: Boolean(parsed.hiring_potential?.has_careers_page),
         recent_postings: Boolean(parsed.hiring_potential?.recent_postings),
         growth_indicators: parsed.hiring_potential?.growth_indicators || [],
-        hiring_score: Math.min(30, Math.max(0, parsed.hiring_potential?.hiring_score || 0)),
+        hiring_score: Math.min(
+          30,
+          Math.max(0, parsed.hiring_potential?.hiring_score || 0),
+        ),
       },
       organization_info: {
         name: parsed.organization_info?.name || "Unknown",
         type: parsed.organization_info?.type || "UNKNOWN",
         industry: parsed.organization_info?.industry || "Unknown",
         location: parsed.organization_info?.location || "Unknown",
-        employees_estimate: parsed.organization_info?.employees_estimate || "Unknown",
-        quality_score: Math.min(20, Math.max(0, parsed.organization_info?.quality_score || 0)),
+        employees_estimate:
+          parsed.organization_info?.employees_estimate || "Unknown",
+        quality_score: Math.min(
+          20,
+          Math.max(0, parsed.organization_info?.quality_score || 0),
+        ),
       },
       contact_info: {
         email: parsed.contact_info?.email || null,
         phone: parsed.contact_info?.phone || null,
         contact_form_url: parsed.contact_info?.contact_form_url || null,
         owner_name: parsed.contact_info?.owner_name || null,
-        contact_score: Math.min(10, Math.max(0, parsed.contact_info?.contact_score || 0)),
+        contact_score: Math.min(
+          10,
+          Math.max(0, parsed.contact_info?.contact_score || 0),
+        ),
       },
       persona_tags: parsed.persona_tags || [],
       total_score: Math.min(100, Math.max(0, parsed.total_score || 0)),
@@ -299,7 +316,10 @@ export const classifyUrl = action({
     source: v.string(),
     useOpenAI: v.optional(v.boolean()), // Default to OpenAI (better quality)
   },
-  handler: async (ctx, args): Promise<{ success: boolean; organizationId?: string; error?: string }> => {
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{ success: boolean; organizationId?: string; error?: string }> => {
     try {
       // Fetch and extract content
       const content = await fetchAndExtractContent(args.url);
@@ -318,17 +338,25 @@ export const classifyUrl = action({
       if (args.useOpenAI !== false && openaiKey) {
         classification = await classifyWithOpenAI(content, openaiKey);
       } else if (cfAccountId && cfApiToken) {
-        classification = await classifyWithCloudflareAI(content, cfAccountId, cfApiToken);
+        classification = await classifyWithCloudflareAI(
+          content,
+          cfAccountId,
+          cfApiToken,
+        );
       } else {
         return {
           success: false,
-          error: "No AI provider configured. Set OPENAI_API_KEY or CLOUDFLARE_ACCOUNT_ID + CLOUDFLARE_API_TOKEN",
+          error:
+            "No AI provider configured. Set OPENAI_API_KEY or CLOUDFLARE_ACCOUNT_ID + CLOUDFLARE_API_TOKEN",
         };
       }
 
       // Parse location
-      const locationParts = classification.organization_info.location.split(",").map((s) => s.trim());
-      const city = locationParts[0] !== "Unknown" ? locationParts[0] : undefined;
+      const locationParts = classification.organization_info.location
+        .split(",")
+        .map((s) => s.trim());
+      const city =
+        locationParts[0] !== "Unknown" ? locationParts[0] : undefined;
       const state = locationParts[1] || undefined;
 
       // Save to database
@@ -349,10 +377,12 @@ export const classifyUrl = action({
         qualityScore: classification.organization_info.quality_score,
         contactScore: classification.contact_info.contact_score,
         faithSignals: classification.values_alignment.faith_signals,
-        conservativeSignals: classification.values_alignment.conservative_signals,
+        conservativeSignals:
+          classification.values_alignment.conservative_signals,
         email: classification.contact_info.email || undefined,
         phone: classification.contact_info.phone || undefined,
-        contactFormUrl: classification.contact_info.contact_form_url || undefined,
+        contactFormUrl:
+          classification.contact_info.contact_form_url || undefined,
         ownerName: classification.contact_info.owner_name || undefined,
         rawHtml: content.substring(0, 50000), // Store truncated raw content
         rawClassification: JSON.stringify(classification),
@@ -375,12 +405,13 @@ export const classifyBatch = action({
       v.object({
         url: v.string(),
         source: v.string(),
-      })
+      }),
     ),
     delayMs: v.optional(v.number()), // Delay between requests (rate limiting)
   },
   handler: async (ctx, args) => {
-    const results: Array<{ url: string; success: boolean; error?: string }> = [];
+    const results: Array<{ url: string; success: boolean; error?: string }> =
+      [];
     const delay = args.delayMs ?? 2000; // Default 2 second delay
 
     for (const item of args.urls) {
@@ -423,17 +454,23 @@ export const reclassifyOrganization = action({
   args: {
     organizationId: v.id("crawledOrganizations"),
   },
-  handler: async (ctx, args) => {
-    const org = await ctx.runQuery(api.crawler.getOrganization, { id: args.organizationId });
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{ success: boolean; organizationId?: string; error?: string }> => {
+    const org = await ctx.runQuery(api.crawler.getOrganization, {
+      id: args.organizationId,
+    });
 
     if (!org) {
       return { success: false, error: "Organization not found" };
     }
 
     const url = org.website || org.sourceUrl;
-    return ctx.runAction(api.crawlerClassifier.classifyUrl, {
+    const result = await ctx.runAction(api.crawlerClassifier.classifyUrl, {
       url,
       source: org.source,
     });
+    return result;
   },
 });
