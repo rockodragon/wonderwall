@@ -342,4 +342,150 @@ export default defineSchema({
     .index("by_status", ["status"])
     .index("by_reportedUserId", ["reportedUserId"])
     .index("by_reporterId", ["reporterId"]),
+
+  // ========================================
+  // Job Board Crawler - Partner Discovery
+  // ========================================
+
+  // Crawled organizations (potential job board partners)
+  crawledOrganizations: defineTable({
+    // Discovery info
+    sourceUrl: v.string(), // Original URL where discovered
+    source: v.string(), // "publicsquare" | "directory" | "manual" | "referral" | "church_finder"
+    discoveredAt: v.number(),
+
+    // Organization details
+    name: v.string(),
+    website: v.optional(v.string()), // Main website if different from sourceUrl
+    industry: v.optional(v.string()),
+    description: v.optional(v.string()), // AI-generated summary
+
+    // Location
+    city: v.optional(v.string()),
+    state: v.optional(v.string()),
+    zipCode: v.optional(v.string()),
+    country: v.optional(v.string()),
+
+    // Size and type
+    employeeEstimate: v.optional(v.string()), // "1-5" | "5-20" | "20-50" | "50-100" | "100+"
+    orgType: v.optional(v.string()), // "church" | "business" | "nonprofit" | "ministry"
+
+    // Classification - Persona tags
+    personaTags: v.array(v.string()), // ["CHURCH", "NONPROFIT", "EDUCATION", etc.]
+
+    // Scoring (0-100 scale)
+    valuesScore: v.number(), // 0-40: Faith/values alignment signals
+    hiringScore: v.number(), // 0-30: Hiring potential indicators
+    qualityScore: v.number(), // 0-20: Organization quality/professionalism
+    contactScore: v.number(), // 0-10: Contact info availability
+    totalScore: v.number(), // Sum of above
+
+    // AI analysis results
+    faithSignals: v.array(v.string()), // Detected faith-related phrases
+    conservativeSignals: v.array(v.string()), // Conservative indicators
+
+    // Contact information
+    email: v.optional(v.string()),
+    phone: v.optional(v.string()),
+    contactFormUrl: v.optional(v.string()),
+    ownerName: v.optional(v.string()),
+    linkedinUrl: v.optional(v.string()),
+
+    // Workflow status
+    status: v.string(), // "new" | "contacted" | "responded" | "converted" | "declined" | "nurture"
+    segment: v.string(), // "hot" | "warm" | "nurture" | "research" | "low"
+
+    // CRM integration
+    exportedToCrm: v.boolean(),
+    crmId: v.optional(v.string()), // ID in external CRM (Upsight)
+    lastExportedAt: v.optional(v.number()),
+
+    // Metadata
+    crawledAt: v.number(),
+    lastUpdated: v.number(),
+    notes: v.optional(v.string()), // Admin notes
+
+    // Raw data storage
+    rawHtml: v.optional(v.string()), // Stored for re-analysis (truncated)
+    rawClassification: v.optional(v.string()), // Full AI classification JSON
+  })
+    .index("by_source", ["source"])
+    .index("by_status", ["status"])
+    .index("by_segment", ["segment"])
+    .index("by_totalScore", ["totalScore"])
+    .index("by_state", ["state"])
+    .index("by_personaTag", ["personaTags"])
+    .index("by_exportedToCrm", ["exportedToCrm"])
+    .index("by_website", ["website"]),
+
+  // Crawler run history (for monitoring and debugging)
+  crawlerRuns: defineTable({
+    source: v.string(), // Which source was crawled
+    status: v.string(), // "running" | "completed" | "failed" | "cancelled"
+    config: v.optional(v.string()), // JSON config used for this run
+
+    // Stats
+    urlsProcessed: v.number(),
+    orgsFound: v.number(),
+    orgsCreated: v.number(),
+    orgsUpdated: v.number(),
+    errors: v.array(v.string()), // Error messages
+
+    // Timing
+    startedAt: v.number(),
+    completedAt: v.optional(v.number()),
+
+    // Who triggered it
+    triggeredBy: v.optional(v.id("users")), // null for scheduled runs
+  })
+    .index("by_status", ["status"])
+    .index("by_source", ["source"])
+    .index("by_startedAt", ["startedAt"]),
+
+  // Crawler sources configuration
+  crawlerSources: defineTable({
+    name: v.string(), // "publicsquare" | "church_finder" | etc.
+    displayName: v.string(),
+    baseUrl: v.string(),
+    isActive: v.boolean(),
+
+    // Crawl settings
+    crawlFrequency: v.string(), // "daily" | "weekly" | "manual"
+    lastCrawledAt: v.optional(v.number()),
+    nextCrawlAt: v.optional(v.number()),
+
+    // Rate limiting
+    requestsPerMinute: v.number(),
+    delayBetweenRequests: v.number(), // milliseconds
+
+    // Selector configuration (for scraping)
+    selectors: v.optional(v.string()), // JSON config for CSS selectors
+
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_name", ["name"])
+    .index("by_isActive", ["isActive"]),
+
+  // URL queue for crawling
+  crawlerQueue: defineTable({
+    url: v.string(),
+    source: v.string(),
+    priority: v.number(), // Higher = more urgent
+    status: v.string(), // "pending" | "processing" | "completed" | "failed"
+    retryCount: v.number(),
+    maxRetries: v.number(),
+
+    // Results
+    organizationId: v.optional(v.id("crawledOrganizations")),
+    errorMessage: v.optional(v.string()),
+
+    // Timing
+    addedAt: v.number(),
+    processedAt: v.optional(v.number()),
+  })
+    .index("by_status", ["status"])
+    .index("by_source", ["source"])
+    .index("by_priority", ["priority"])
+    .index("by_url", ["url"]),
 });
