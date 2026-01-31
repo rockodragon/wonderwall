@@ -6,6 +6,7 @@ import { Link, useNavigate, useSearchParams } from "react-router";
 import confetti from "canvas-confetti";
 import { api } from "../../convex/_generated/api";
 import { InviteCTA } from "../components/InviteCTA";
+import { LocationAutocomplete } from "../components/LocationAutocomplete";
 import { JOB_FUNCTIONS } from "../constants/jobFunctions";
 
 // Normalize URL by adding https:// if missing
@@ -460,12 +461,22 @@ function ProfileEditForm({
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Location
           </label>
-          <input
-            type="text"
+          <LocationAutocomplete
             value={location}
-            onChange={(e) => setLocation(e.target.value)}
-            placeholder="City, State"
-            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
+            onChange={setLocation}
+            onSelect={(suggestion) => {
+              // Format location as "City, State" for US or "City, Country" for international
+              const { city, stateCode, country, countryCode } =
+                suggestion.address;
+              let formatted = city || suggestion.displayName;
+              if (countryCode === "US" && stateCode) {
+                formatted = `${city}, ${stateCode}`;
+              } else if (country && city !== country) {
+                formatted = `${city}, ${country}`;
+              }
+              setLocation(formatted);
+            }}
+            placeholder="Search for your city..."
           />
         </div>
 
