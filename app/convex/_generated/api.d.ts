@@ -24,6 +24,7 @@ import type * as links from "../links.js";
 import type * as location from "../location.js";
 import type * as messaging from "../messaging.js";
 import type * as notifications from "../notifications.js";
+import type * as posthog from "../posthog.js";
 import type * as profiles from "../profiles.js";
 import type * as public_ from "../public.js";
 import type * as seed from "../seed.js";
@@ -53,6 +54,7 @@ declare const fullApi: ApiFromModules<{
   location: typeof location;
   messaging: typeof messaging;
   notifications: typeof notifications;
+  posthog: typeof posthog;
   profiles: typeof profiles;
   public: typeof public_;
   seed: typeof seed;
