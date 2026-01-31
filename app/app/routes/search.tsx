@@ -127,22 +127,20 @@ export default function Search() {
 
       {/* What's a Wonder? - Dismissable notification */}
       {showWonderTip && (
-        <div className="mb-6 p-4 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 border border-indigo-200 dark:border-indigo-800/30 rounded-xl">
+        <div className="mb-6 p-5 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500 rounded-xl">
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1">
-              <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 text-sm font-medium mb-1">
-                <span>?</span>
-                <span>What's a Wonder?</span>
-              </div>
-              <p className="text-gray-700 dark:text-gray-300 text-sm leading-relaxed">
-                A Wonder is a question you're pondering or a thought you want to
-                share. It sticks around until you swap it for something new.
-                Your past Wonders are saved on your profile.
+              <h3 className="text-lg font-semibold text-white mb-2">
+                What's a Wonder?
+              </h3>
+              <p className="text-white/90 text-sm leading-relaxed">
+                A Wonder could be a question you're pondering, an activity, or a
+                thought that might cause others to wonder.
               </p>
             </div>
             <button
               onClick={dismissWonderTip}
-              className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors shrink-0"
+              className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-white/70 hover:text-white transition-colors shrink-0"
             >
               <svg
                 className="w-4 h-4"
