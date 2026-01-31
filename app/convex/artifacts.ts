@@ -329,14 +329,22 @@ export const fetchOgImage = action({
   },
   handler: async (ctx, args) => {
     try {
-      // Fetch the page HTML
+      // Fetch the page HTML with browser-like headers
       const response = await fetch(args.url, {
         headers: {
           "User-Agent":
             "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
           Accept:
             "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-          "Accept-Language": "en-US,en;q=0.5",
+          "Accept-Language": "en-US,en;q=0.9",
+          "Accept-Encoding": "gzip, deflate, br",
+          "Cache-Control": "no-cache",
+          Pragma: "no-cache",
+          "Sec-Fetch-Dest": "document",
+          "Sec-Fetch-Mode": "navigate",
+          "Sec-Fetch-Site": "none",
+          "Sec-Fetch-User": "?1",
+          "Upgrade-Insecure-Requests": "1",
         },
         redirect: "follow",
         signal: AbortSignal.timeout(15000), // 15 second timeout
@@ -348,23 +356,24 @@ export const fetchOgImage = action({
       }
 
       const html = await response.text();
+      console.log(`Fetched HTML for ${args.url}, length: ${html.length}`);
 
       // Try multiple patterns to find an image
       const patterns = [
-        // og:image (property before content)
-        /<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["'][^>]*>/i,
+        // og:image (property before content) - handles self-closing tags
+        /<meta[^>]*property\s*=\s*["']og:image["'][^>]*content\s*=\s*["']([^"']+)["'][^>]*\/?>/i,
         // og:image (content before property)
-        /<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:image["'][^>]*>/i,
+        /<meta[^>]*content\s*=\s*["']([^"']+)["'][^>]*property\s*=\s*["']og:image["'][^>]*\/?>/i,
         // twitter:image (property before content)
-        /<meta[^>]*(?:name|property)=["']twitter:image["'][^>]*content=["']([^"']+)["'][^>]*>/i,
+        /<meta[^>]*(?:name|property)\s*=\s*["']twitter:image["'][^>]*content\s*=\s*["']([^"']+)["'][^>]*\/?>/i,
         // twitter:image (content before name/property)
-        /<meta[^>]*content=["']([^"']+)["'][^>]*(?:name|property)=["']twitter:image["'][^>]*>/i,
+        /<meta[^>]*content\s*=\s*["']([^"']+)["'][^>]*(?:name|property)\s*=\s*["']twitter:image["'][^>]*\/?>/i,
         // og:image:url variant
-        /<meta[^>]*property=["']og:image:url["'][^>]*content=["']([^"']+)["'][^>]*>/i,
+        /<meta[^>]*property\s*=\s*["']og:image:url["'][^>]*content\s*=\s*["']([^"']+)["'][^>]*\/?>/i,
         // itemprop image (Schema.org)
-        /<meta[^>]*itemprop=["']image["'][^>]*content=["']([^"']+)["'][^>]*>/i,
+        /<meta[^>]*itemprop\s*=\s*["']image["'][^>]*content\s*=\s*["']([^"']+)["'][^>]*\/?>/i,
         // link rel="image_src"
-        /<link[^>]*rel=["']image_src["'][^>]*href=["']([^"']+)["'][^>]*>/i,
+        /<link[^>]*rel\s*=\s*["']image_src["'][^>]*href\s*=\s*["']([^"']+)["'][^>]*\/?>/i,
       ];
 
       let imageUrl: string | null = null;
