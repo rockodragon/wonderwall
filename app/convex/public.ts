@@ -1,4 +1,5 @@
 import { query } from "./_generated/server";
+import { isAdminUser } from "./helpers";
 
 // Get public wonderings with profile info for landing page
 export const getFeaturedWonderings = query({
@@ -11,11 +12,9 @@ export const getFeaturedWonderings = query({
         const profile = await ctx.db.get(wondering.profileId);
         if (!profile) return null;
 
-        // Get user to check if admin
+        // Skip admin profiles from public display
         const user = await ctx.db.get(profile.userId);
-        const isAdmin =
-          user && "email" in user && user.email === "rickmoy@gmail.com";
-        if (isAdmin) return null;
+        if (isAdminUser(user)) return null;
 
         // Get profile image URL if exists
         let imageUrl = profile.imageUrl;
@@ -69,11 +68,9 @@ export const getFeaturedWorks = query({
         const profile = await ctx.db.get(artifact.profileId);
         if (!profile) return null;
 
-        // Get user to check if admin
+        // Skip admin profiles from public display
         const user = await ctx.db.get(profile.userId);
-        const isAdmin =
-          user && "email" in user && user.email === "rickmoy@gmail.com";
-        if (isAdmin) return null;
+        if (isAdminUser(user)) return null;
 
         // Get profile image URL if exists
         let profileImageUrl = profile.imageUrl;

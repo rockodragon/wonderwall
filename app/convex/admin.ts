@@ -1,6 +1,7 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { auth } from "./auth";
+import { requireAdmin } from "./helpers";
 
 export const getAllUsersWithInvites = query({
   args: {},
@@ -10,13 +11,7 @@ export const getAllUsersWithInvites = query({
       throw new Error("Not authenticated");
     }
 
-    // Get current user's email from the users table
-    const currentUser = await ctx.db.get(userId);
-    const userEmail =
-      currentUser && "email" in currentUser ? currentUser.email : null;
-    if (!userEmail || userEmail !== "rickmoy@gmail.com") {
-      throw new Error("Unauthorized - Admin access only");
-    }
+    await requireAdmin(ctx, userId);
 
     // Get all profiles
     const profiles = await ctx.db.query("profiles").collect();
@@ -84,12 +79,7 @@ export const debugInvites = query({
       throw new Error("Not authenticated");
     }
 
-    const currentUser = await ctx.db.get(userId);
-    const userEmail =
-      currentUser && "email" in currentUser ? currentUser.email : null;
-    if (!userEmail || userEmail !== "rickmoy@gmail.com") {
-      throw new Error("Unauthorized - Admin access only");
-    }
+    await requireAdmin(ctx, userId);
 
     const invites = await ctx.db.query("invites").collect();
 
@@ -120,12 +110,7 @@ export const manuallyLinkInvite = mutation({
       throw new Error("Not authenticated");
     }
 
-    const currentUser = await ctx.db.get(userId);
-    const userEmail =
-      currentUser && "email" in currentUser ? currentUser.email : null;
-    if (!userEmail || userEmail !== "rickmoy@gmail.com") {
-      throw new Error("Unauthorized - Admin access only");
-    }
+    await requireAdmin(ctx, userId);
 
     // Get inviter profile to increment their usage count
     const inviterProfile = await ctx.db
@@ -178,12 +163,7 @@ export const deleteUser = mutation({
       throw new Error("Not authenticated");
     }
 
-    const currentUser = await ctx.db.get(adminUserId);
-    const userEmail =
-      currentUser && "email" in currentUser ? currentUser.email : null;
-    if (!userEmail || userEmail !== "rickmoy@gmail.com") {
-      throw new Error("Unauthorized - Admin access only");
-    }
+    await requireAdmin(ctx, adminUserId);
 
     // Get user's profile
     const profile = await ctx.db
