@@ -54,6 +54,15 @@ export default function Search() {
   const [query, setQuery] = useState("");
   const [activeFilters, setActiveFilters] = useState<string[]>([]);
   const [filterExpanded, setFilterExpanded] = useState(false);
+  const [showWonderTip, setShowWonderTip] = useState(() => {
+    if (typeof window === "undefined") return true;
+    return localStorage.getItem("wonderwall:wonder-tip-dismissed") !== "true";
+  });
+
+  const dismissWonderTip = () => {
+    setShowWonderTip(false);
+    localStorage.setItem("wonderwall:wonder-tip-dismissed", "true");
+  };
 
   const debouncedQuery = useDebounce(query, 300);
 
@@ -108,44 +117,60 @@ export default function Search() {
     filteredProfiles?.filter((p) => !p.wondering) || [];
 
   return (
-    <div className="max-w-6xl mx-auto">
-      {/* Hero Banner - About Wonders */}
-      <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500 px-6 py-8 md:py-10">
-        <div className="max-w-3xl">
-          <div className="flex items-center gap-2 text-white/80 text-sm font-medium mb-3">
-            <span className="text-xl">?</span>
-            <span>What's a Wonder?</span>
+    <div className="max-w-6xl mx-auto p-6">
+      <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+        Discover
+      </h2>
+      <p className="text-gray-500 dark:text-gray-400 mb-4">
+        Find creatives by what they do, think, or create
+      </p>
+
+      {/* What's a Wonder? - Dismissable notification */}
+      {showWonderTip && (
+        <div className="mb-6 p-4 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 border border-indigo-200 dark:border-indigo-800/30 rounded-xl">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1">
+              <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 text-sm font-medium mb-1">
+                <span>?</span>
+                <span>What's a Wonder?</span>
+              </div>
+              <p className="text-gray-700 dark:text-gray-300 text-sm leading-relaxed">
+                A Wonder is a question you're pondering or a thought you want to
+                share. It sticks around until you swap it for something new.
+                Your past Wonders are saved on your profile.
+              </p>
+            </div>
+            <button
+              onClick={dismissWonderTip}
+              className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors shrink-0"
+            >
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+              Got it
+            </button>
           </div>
-          <h1 className="text-2xl md:text-3xl font-bold text-white mb-3">
-            Share what's on your mind—one thought at a time.
-          </h1>
-          <p className="text-white/90 text-base md:text-lg leading-relaxed mb-4">
-            A Wonder is a question you're pondering, something you're curious
-            about, or a thought you want to share. It sticks around until you
-            swap it for something new. Your past Wonders? They're saved on your
-            profile—so others can see what you've been thinking about over time.
-          </p>
-          <p className="text-white/70 text-sm">
-            It's not a feed. It's a conversation starter.
-          </p>
         </div>
+      )}
+
+      {/* Create Wondering Composer */}
+      <div className="mb-6">
+        <CreateWonderingComposer />
       </div>
 
-      <div className="p-6">
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-          Discover
-        </h2>
-        <p className="text-gray-500 dark:text-gray-400 mb-6">
-          Find creatives by what they do, think, or create
-        </p>
-
-        {/* Create Wondering Composer */}
-        <div className="mb-6">
-          <CreateWonderingComposer />
-        </div>
-
-        {/* Search input */}
-        <div className="relative mb-6">
+      {/* Search input + Filter on same line */}
+      <div className="flex gap-3 mb-6">
+        <div className="relative flex-1">
           <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
             <svg
               className="w-5 h-5 text-gray-400"
@@ -169,118 +194,113 @@ export default function Search() {
             className="w-full pl-12 pr-4 py-3 border border-gray-300 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
           />
         </div>
+        <button
+          onClick={() => setFilterExpanded(!filterExpanded)}
+          className={`flex items-center gap-2 px-4 py-3 rounded-xl border transition-colors shrink-0 ${
+            activeFilters.length > 0
+              ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
+              : "border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+          }`}
+        >
+          <FilterIcon className="w-4 h-4" />
+          <span className="font-medium hidden sm:inline">{filterLabel}</span>
+          <ChevronDownIcon
+            className={`w-4 h-4 transition-transform ${filterExpanded ? "rotate-180" : ""}`}
+          />
+        </button>
+      </div>
 
-        {/* Filter accordion */}
-        <div className="mb-8">
-          <button
-            onClick={() => setFilterExpanded(!filterExpanded)}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-colors ${
-              activeFilters.length > 0
-                ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
-                : "border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-            }`}
-          >
-            <FilterIcon className="w-4 h-4" />
-            <span className="font-medium">{filterLabel}</span>
-            <ChevronDownIcon
-              className={`w-4 h-4 transition-transform ${filterExpanded ? "rotate-180" : ""}`}
-            />
-          </button>
+      {/* Filter accordion content */}
+      {filterExpanded && (
+        <div className="mb-6 p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl">
+          <div className="flex flex-wrap gap-2">
+            {/* Clear all button */}
+            <button
+              onClick={() => setActiveFilters([])}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                activeFilters.length === 0
+                  ? "bg-blue-600 text-white"
+                  : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+              }`}
+            >
+              All
+            </button>
+            {FILTERS.filter((f) => f.value).map((filter) => (
+              <button
+                key={filter.label}
+                onClick={() => toggleFilter(filter.value)}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                  activeFilters.includes(filter.value!)
+                    ? "bg-blue-600 text-white"
+                    : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+                }`}
+              >
+                {filter.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
-          {/* Accordion content */}
-          {filterExpanded && (
-            <div className="mt-3 p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl">
-              <div className="flex flex-wrap gap-2">
-                {/* Clear all button */}
-                <button
-                  onClick={() => setActiveFilters([])}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                    activeFilters.length === 0
-                      ? "bg-blue-600 text-white"
-                      : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
-                  }`}
-                >
-                  All
-                </button>
-                {FILTERS.filter((f) => f.value).map((filter) => (
-                  <button
-                    key={filter.label}
-                    onClick={() => toggleFilter(filter.value)}
-                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                      activeFilters.includes(filter.value!)
-                        ? "bg-blue-600 text-white"
-                        : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
-                    }`}
-                  >
-                    {filter.label}
-                  </button>
+      {/* Results */}
+      {loading ? (
+        <div className="text-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto" />
+        </div>
+      ) : filteredProfiles?.length === 0 && (!events || events.length === 0) ? (
+        <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+          <p>{query ? "No results found" : "No creatives to show yet"}</p>
+        </div>
+      ) : (
+        <div className="space-y-12">
+          {/* Events section - show when searching */}
+          {events && events.length > 0 && (
+            <section>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                Events
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {events.map((event: any) => (
+                  <EventCard key={event._id} event={event} />
                 ))}
               </div>
-            </div>
+            </section>
           )}
+
+          {/* Wonder Cards - Primary Section */}
+          {filteredProfilesWithWonderings.length > 0 && (
+            <section>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                What people are wondering
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filteredProfilesWithWonderings.map((profile) => (
+                  <WonderCard key={profile._id} profile={profile} />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* Profiles without wonderings */}
+          {filteredProfilesWithoutWonderings.length > 0 && (
+            <section>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                {query ? "People" : "More creatives"}
+              </h2>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {filteredProfilesWithoutWonderings.map((profile) => (
+                  <ProfileCard key={profile._id} profile={profile} />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* Invite CTA */}
+          <div className="mt-8 max-w-md">
+            <InviteCTA variant="discover" />
+          </div>
         </div>
-
-        {/* Results */}
-        {loading ? (
-          <div className="text-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto" />
-          </div>
-        ) : filteredProfiles?.length === 0 &&
-          (!events || events.length === 0) ? (
-          <div className="text-center py-12 text-gray-500 dark:text-gray-400">
-            <p>{query ? "No results found" : "No creatives to show yet"}</p>
-          </div>
-        ) : (
-          <div className="space-y-12">
-            {/* Events section - show when searching */}
-            {events && events.length > 0 && (
-              <section>
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                  Events
-                </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {events.map((event: any) => (
-                    <EventCard key={event._id} event={event} />
-                  ))}
-                </div>
-              </section>
-            )}
-
-            {/* Wonder Cards - Primary Section */}
-            {filteredProfilesWithWonderings.length > 0 && (
-              <section>
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                  What people are wondering
-                </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {filteredProfilesWithWonderings.map((profile) => (
-                    <WonderCard key={profile._id} profile={profile} />
-                  ))}
-                </div>
-              </section>
-            )}
-
-            {/* Profiles without wonderings */}
-            {filteredProfilesWithoutWonderings.length > 0 && (
-              <section>
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                  {query ? "People" : "More creatives"}
-                </h2>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                  {filteredProfilesWithoutWonderings.map((profile) => (
-                    <ProfileCard key={profile._id} profile={profile} />
-                  ))}
-                </div>
-              </section>
-            )}
-
-            {/* Invite CTA */}
-            <div className="mt-8 max-w-md">
-              <InviteCTA variant="discover" />
-            </div>
-          </div>
-        )}
-      </div>
+      )}
     </div>
   );
 }
