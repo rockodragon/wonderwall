@@ -23,6 +23,12 @@ const mockPostHogClient = {
   },
 } as any;
 
+// Paths that should return 404 without logging errors (browser internals)
+const SILENT_404_PATHS = [
+  "/.well-known/appspecific/com.chrome.devtools.json",
+  "/favicon.ico",
+];
+
 export default async function handleRequest(
   request: Request,
   responseStatusCode: number,
@@ -30,6 +36,13 @@ export default async function handleRequest(
   routerContext: EntryContext,
   _loadContext: AppLoadContext,
 ) {
+  const url = new URL(request.url);
+
+  // Silently return 404 for browser-specific paths
+  if (SILENT_404_PATHS.includes(url.pathname)) {
+    return new Response(null, { status: 404 });
+  }
+
   const userAgent = request.headers.get("user-agent");
   const body = await renderToReadableStream(
     <PostHogProvider client={mockPostHogClient}>
