@@ -457,7 +457,17 @@ export default function Organizations() {
                 exceptional creative talent with integrity and purpose.
               </p>
               <div className="max-w-md mx-auto">
-                <UpSightOrgEmbed id="upsight-cta" accentColor="#ffffff" />
+                <iframe
+                  src="https://getupsight.com/embed/5ky-bxs?layout=inline-email&theme=transparent&accent=%23ffffff&radius=12&branding=false&buttonText=Register&placeholder=you%40organization.com&success=Thanks%21+We%27ll+be+in+touch."
+                  width="100%"
+                  height="80"
+                  frameBorder="0"
+                  scrolling="no"
+                  allowTransparency={true}
+                  style={{ border: "none", overflow: "hidden" }}
+                  allow="camera; microphone"
+                  title="Register Interest"
+                />
               </div>
             </div>
           </div>
