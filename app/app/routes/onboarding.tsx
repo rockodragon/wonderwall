@@ -7,6 +7,26 @@ import { api } from "../../convex/_generated/api";
 
 import { JOB_FUNCTIONS } from "../constants/jobFunctions";
 
+// Example wonders to inspire new users
+const EXAMPLE_WONDERS = [
+  {
+    prompt:
+      "What if we designed church buildings that doubled as community art spaces during the week?",
+    author: "Sarah M.",
+    role: "Architect",
+  },
+  {
+    prompt: "How do you stay creative when you're exhausted from client work?",
+    author: "Marcus T.",
+    role: "Designer",
+  },
+  {
+    prompt: "What's the most meaningful project you've worked on, and why?",
+    author: "Elena K.",
+    role: "Filmmaker",
+  },
+];
+
 export default function Onboarding() {
   const navigate = useNavigate();
   const posthog = usePostHog();
@@ -546,11 +566,34 @@ export default function Onboarding() {
               </p>
             </div>
 
+            {/* Example wonder cards */}
+            <div className="mb-6">
+              <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">
+                Get inspired by others
+              </p>
+              <div className="grid grid-cols-1 gap-3">
+                {EXAMPLE_WONDERS.map((example, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setWonderPrompt(example.prompt)}
+                    className="text-left p-4 bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 border border-indigo-100 dark:border-indigo-800/30 rounded-xl hover:border-indigo-300 dark:hover:border-indigo-600 transition-colors group"
+                  >
+                    <p className="text-gray-800 dark:text-gray-200 text-sm font-medium italic mb-2">
+                      "{example.prompt}"
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      {example.author} · {example.role}
+                    </p>
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div className="mb-6">
               <textarea
                 value={wonderPrompt}
                 onChange={(e) => setWonderPrompt(e.target.value)}
-                placeholder="What if we reimagined worship spaces as interactive art galleries?"
+                placeholder="What's on your mind?"
                 rows={4}
                 maxLength={280}
                 className="w-full px-4 py-3 border border-gray-300 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white resize-none"
