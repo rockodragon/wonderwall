@@ -457,10 +457,10 @@ export default function Home() {
                   <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400 font-semibold">
                     Wonderwall is different by design.
                   </span>{" "}
-                  We're building for depth, not distraction. For connection, not
-                  clout. Our platform prioritizes thoughtful engagement over
-                  infinite scroll, meaningful relationships over follower
-                  counts, and sustainable creativity over content mills.
+                  We're building for depth, not distraction. Our platform
+                  prioritizes thoughtful engagement over infinite scroll,
+                  meaningful relationships over follower counts, and sustainable
+                  creativity over content mills.
                 </p>
                 <p className="text-gray-300 text-lg leading-relaxed">
                   Here, your work speaks for itself. Jobs are posted by real
