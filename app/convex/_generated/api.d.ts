@@ -16,6 +16,7 @@ import type * as embeddings from "../embeddings.js";
 import type * as events from "../events.js";
 import type * as favorites from "../favorites.js";
 import type * as files from "../files.js";
+import type * as helpers from "../helpers.js";
 import type * as http from "../http.js";
 import type * as invites from "../invites.js";
 import type * as jobs from "../jobs.js";
@@ -44,6 +45,7 @@ declare const fullApi: ApiFromModules<{
   events: typeof events;
   favorites: typeof favorites;
   files: typeof files;
+  helpers: typeof helpers;
   http: typeof http;
   invites: typeof invites;
   jobs: typeof jobs;
