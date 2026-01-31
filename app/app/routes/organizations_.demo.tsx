@@ -55,29 +55,6 @@ const SAMPLE_ORG = {
         "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=200&h=200&fit=crop",
     },
   ],
-  projects: [
-    {
-      title: "Easter 2024 Campaign",
-      type: "Video Production",
-      image:
-        "https://images.unsplash.com/photo-1507692049790-de58290a4334?w=600&h=400&fit=crop",
-      description: "Cinematic storytelling for our largest outreach event",
-    },
-    {
-      title: "Worship Album Art",
-      type: "Graphic Design",
-      image:
-        "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=600&h=400&fit=crop",
-      description: "Original artwork for our live worship album release",
-    },
-    {
-      title: "Campus Rebrand",
-      type: "Branding",
-      image:
-        "https://images.unsplash.com/photo-1497366216548-37526070297c?w=600&h=400&fit=crop",
-      description: "Complete visual identity refresh across all locations",
-    },
-  ],
   openings: [
     {
       title: "Graphic Designer",
@@ -309,6 +286,117 @@ export default function OrganizationDemo() {
         <div className="grid lg:grid-cols-3 gap-12">
           {/* Left Column - Main Content */}
           <div className="lg:col-span-2 space-y-12">
+            {/* Current Openings - Featured prominently */}
+            <section>
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold text-white flex items-center gap-3">
+                  <svg
+                    className="w-7 h-7 text-blue-400"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                    />
+                  </svg>
+                  Open Positions
+                </h2>
+                <span className="text-sm text-gray-400">
+                  {SAMPLE_ORG.openings.length} openings
+                </span>
+              </div>
+              <div className="space-y-4">
+                {SAMPLE_ORG.openings.map((job, idx) => (
+                  <div
+                    key={idx}
+                    className="p-5 bg-gray-900 border border-gray-800 rounded-xl hover:border-gray-700 transition-colors cursor-pointer"
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                          <h3 className="text-lg font-semibold text-white">
+                            {job.title}
+                          </h3>
+                          {job.volunteer && (
+                            <span className="px-2.5 py-1 bg-green-500/20 text-green-400 text-xs font-medium rounded-full">
+                              Volunteer
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-4 text-sm text-gray-400">
+                          <span className="flex items-center gap-1">
+                            <svg
+                              className="w-4 h-4"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                              />
+                            </svg>
+                            {job.type}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <svg
+                              className="w-4 h-4"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+                              />
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+                              />
+                            </svg>
+                            {job.location}
+                          </span>
+                          <span className="text-gray-500">{job.posted}</span>
+                        </div>
+                      </div>
+                      <button className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg transition-colors whitespace-nowrap">
+                        View Job
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <Link
+                to="/jobs"
+                className="inline-flex items-center gap-2 mt-6 text-blue-400 hover:text-blue-300 font-medium transition-colors"
+              >
+                View all jobs from this organization
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M17 8l4 4m0 0l-4 4m4-4H3"
+                  />
+                </svg>
+              </Link>
+            </section>
+
             {/* About */}
             <section>
               <h2 className="text-xl font-bold text-white mb-4">About</h2>
@@ -355,39 +443,6 @@ export default function OrganizationDemo() {
               </div>
             </section>
 
-            {/* Project Showcase */}
-            <section>
-              <h2 className="text-xl font-bold text-white mb-4">
-                Project Showcase
-              </h2>
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {SAMPLE_ORG.projects.map((project) => (
-                  <div
-                    key={project.title}
-                    className="group relative rounded-xl overflow-hidden bg-gray-900"
-                  >
-                    <img
-                      src={project.image}
-                      alt={project.title}
-                      className="w-full aspect-[3/2] object-cover group-hover:scale-105 transition-transform duration-300"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-                    <div className="absolute bottom-0 left-0 right-0 p-4">
-                      <div className="text-xs text-blue-400 font-medium mb-1">
-                        {project.type}
-                      </div>
-                      <div className="font-medium text-white">
-                        {project.title}
-                      </div>
-                      <div className="text-xs text-gray-400 mt-1">
-                        {project.description}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
-
             {/* Testimonials */}
             <section>
               <h2 className="text-xl font-bold text-white mb-4">
@@ -425,59 +480,9 @@ export default function OrganizationDemo() {
 
           {/* Right Column - Sidebar */}
           <div className="space-y-6">
-            {/* Current Openings */}
+            {/* Browse Talent Link */}
             <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
-              <h3 className="font-bold text-white mb-4 flex items-center gap-2">
-                <svg
-                  className="w-5 h-5 text-blue-400"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                  />
-                </svg>
-                Current Openings
-              </h3>
-              <div className="space-y-3">
-                {SAMPLE_ORG.openings.map((job, idx) => (
-                  <div
-                    key={idx}
-                    className="p-3 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors cursor-pointer"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <div className="font-medium text-white">
-                          {job.title}
-                        </div>
-                        <div className="text-sm text-gray-400">
-                          {job.type} · {job.location}
-                        </div>
-                      </div>
-                      {job.volunteer && (
-                        <span className="px-2 py-0.5 bg-green-500/20 text-green-400 text-xs rounded-full">
-                          Volunteer
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-xs text-gray-500 mt-1">
-                      {job.posted}
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <button className="w-full mt-4 py-2 text-sm text-blue-400 hover:text-blue-300 font-medium transition-colors">
-                View All Openings →
-              </button>
-            </div>
-
-            {/* Browse Creatives Preview */}
-            <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
-              <h3 className="font-bold text-white mb-4 flex items-center gap-2">
+              <h3 className="font-bold text-white mb-3 flex items-center gap-2">
                 <svg
                   className="w-5 h-5 text-purple-400"
                   fill="none"
@@ -494,23 +499,8 @@ export default function OrganizationDemo() {
                 Browse Talent
               </h3>
               <p className="text-sm text-gray-400 mb-4">
-                Partner organizations can browse and message creatives directly.
+                Search and message creatives directly from your dashboard.
               </p>
-              <div className="grid grid-cols-4 gap-2 mb-4">
-                {[
-                  "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=80&h=80&fit=crop",
-                  "https://images.unsplash.com/photo-1580489944761-15a19d654956?w=80&h=80&fit=crop",
-                  "https://images.unsplash.com/photo-1527980965255-d3b416303d12?w=80&h=80&fit=crop",
-                  "https://images.unsplash.com/photo-1599566150163-29194dcabd36?w=80&h=80&fit=crop",
-                ].map((img, idx) => (
-                  <img
-                    key={idx}
-                    src={img}
-                    alt="Creative"
-                    className="w-full aspect-square rounded-lg object-cover opacity-60"
-                  />
-                ))}
-              </div>
               <Link
                 to="/search"
                 className="block w-full py-2.5 text-center bg-purple-600 hover:bg-purple-500 text-white text-sm font-medium rounded-lg transition-colors"
