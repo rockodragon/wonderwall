@@ -53,8 +53,7 @@ const TIERS = [
       "Website link and contact info",
       "Organization type badge",
       "Browse creative portfolios",
-      "1 free job posting at a time",
-      "Community newsletter",
+      "1 job posting at a time",
     ],
     highlighted: false,
     free: true,
@@ -68,7 +67,7 @@ const TIERS = [
       "Everything in Community, plus:",
       "Logo displayed in directory",
       "Dedicated organization profile page",
-      "Unlimited job postings",
+      "Up to 5 active job postings",
       "Direct messaging with creatives",
     ],
     highlighted: false,
@@ -81,10 +80,11 @@ const TIERS = [
     description: "For established organizations investing in Kingdom creatives",
     features: [
       "Everything in Partner, plus:",
+      "Up to 15 active job postings",
       "Featured organization badge",
+      "Spotlight organizational profile",
       "Homepage feature rotation",
       "Priority support & talent matching",
-      "Quarterly newsletter spotlight",
     ],
     highlighted: false,
     patronage: 20,
@@ -97,10 +97,11 @@ const TIERS = [
       "Strategic partnership shaping the future of Kingdom creativity",
     features: [
       "Everything in Patron, plus:",
+      "Unlimited job postings",
+      "Spotlight organizational profile",
       "Event and feature naming rights",
       "Advisory board participation",
       "Custom platform integrations",
-      "Co-branded marketing initiatives",
     ],
     highlighted: false,
     custom: true,
@@ -155,6 +156,27 @@ export default function Organizations() {
   const posthog = usePostHog();
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [showPricing, setShowPricing] = useState(false);
+  const [utmParams, setUtmParams] = useState("");
+
+  // Capture UTM params on mount
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const utmKeys = [
+        "utm_source",
+        "utm_medium",
+        "utm_campaign",
+        "utm_term",
+        "utm_content",
+      ];
+      const utms = utmKeys
+        .filter((key) => params.has(key))
+        .map((key) => `${key}=${encodeURIComponent(params.get(key) || "")}`);
+      if (utms.length > 0) {
+        setUtmParams(utms.join("&"));
+      }
+    }
+  }, []);
 
   // Check feature flag for org sales details
   useEffect(() => {
@@ -344,7 +366,12 @@ export default function Organizations() {
 
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
             {TIERS.map((tier) => (
-              <TierCard key={tier.name} tier={tier} showPricing={showPricing} />
+              <TierCard
+                key={tier.name}
+                tier={tier}
+                showPricing={showPricing}
+                utmParams={utmParams}
+              />
             ))}
           </div>
         </div>
@@ -553,14 +580,23 @@ function ValueProp({
 function TierCard({
   tier,
   showPricing,
+  utmParams,
 }: {
   tier: (typeof TIERS)[0];
   showPricing: boolean;
+  utmParams: string;
 }) {
   const isFree = "free" in tier && tier.free;
   const hasPatronage = "patronage" in tier && tier.patronage;
   const isCustom = "custom" in tier && tier.custom;
   const patronageCount = hasPatronage ? tier.patronage : 0;
+
+  // Build registration URL with plan and UTM params
+  const planSlug = tier.name.toLowerCase().replace(/\s+/g, "-");
+  const registerParams = [`plan=${planSlug}`, utmParams]
+    .filter(Boolean)
+    .join("&");
+  const registerUrl = `#register?${registerParams}`;
 
   return (
     <div
@@ -651,14 +687,14 @@ function TierCard({
       </ul>
 
       <a
-        href="#register"
+        href={registerUrl}
         className={`block w-full py-3 rounded-xl font-medium text-center transition-all ${
           isFree
             ? "bg-green-600 text-white hover:bg-green-700"
             : "bg-gray-800 text-white hover:bg-gray-700"
         }`}
       >
-        {isFree ? "Join Free" : "Contact Us"}
+        {isFree ? "Join Free" : "Register Interest"}
       </a>
     </div>
   );
