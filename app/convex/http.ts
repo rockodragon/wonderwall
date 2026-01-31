@@ -26,20 +26,23 @@ http.route({
 // PostHog proxy - bypasses ad blockers by routing through first-party domain
 // Each endpoint needs explicit route since Convex doesn't support wildcards
 const posthogPaths = [
-  // Core event ingestion
+  // Core event ingestion (with and without trailing slash)
   "/capture",
+  "/capture/",
   "/batch",
+  "/batch/",
   "/e",
+  "/e/",
   "/s",
+  "/s/",
   // New versioned event ingestion (PostHog v1.335+)
   "/i/v0/e",
   "/i/v0/e/",
   // Feature flags and config
   "/decide",
+  "/decide/",
   "/flags",
   "/flags/",
-  // Session recording
-  "/s/",
 ];
 for (const path of posthogPaths) {
   http.route({
