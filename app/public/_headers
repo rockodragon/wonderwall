@@ -1,0 +1,29 @@
+# Cloudflare Pages headers
+# https://developers.cloudflare.com/pages/configuration/headers/
+
+# Cache static assets with hashed filenames for 1 year (immutable)
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Don't cache HTML - always fetch fresh to get latest JS references
+/
+  Cache-Control: no-cache, must-revalidate
+
+# All routes should not cache HTML
+/search
+  Cache-Control: no-cache, must-revalidate
+
+/jobs
+  Cache-Control: no-cache, must-revalidate
+
+/events
+  Cache-Control: no-cache, must-revalidate
+
+/profile/*
+  Cache-Control: no-cache, must-revalidate
+
+# Security headers for all responses
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
