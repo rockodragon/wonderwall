@@ -172,14 +172,6 @@ export const proxy = httpAction(async (ctx, request) => {
     request.headers.get("X-Forwarded-For")?.split(",")[0]?.trim() ||
     request.headers.get("X-Real-IP");
 
-  // Debug: log available headers
-  console.log("[PostHog Proxy] Headers:", {
-    "CF-Connecting-IP": request.headers.get("CF-Connecting-IP"),
-    "X-Forwarded-For": request.headers.get("X-Forwarded-For"),
-    "X-Real-IP": request.headers.get("X-Real-IP"),
-    clientIp,
-  });
-
   try {
     const isPost = request.method === "POST";
     let body = isPost ? await request.text() : undefined;
