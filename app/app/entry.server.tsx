@@ -3,25 +3,6 @@ import { ServerRouter } from "react-router";
 import { isbot } from "isbot";
 import { renderToReadableStream } from "react-dom/server";
 import { StrictMode } from "react";
-import { PostHogProvider } from "@posthog/react";
-
-// Create a no-op PostHog client for SSR
-const mockPostHogClient = {
-  init: () => {},
-  capture: () => {},
-  identify: () => {},
-  reset: () => {},
-  opt_in_capturing: () => {},
-  opt_out_capturing: () => {},
-  has_opted_in_capturing: () => false,
-  has_opted_out_capturing: () => false,
-  clear_opt_in_out_capturing: () => {},
-  debug: () => {},
-  people: {
-    set: () => {},
-    set_once: () => {},
-  },
-} as any;
 
 // Paths that should return 404 without logging errors (browser internals)
 const SILENT_404_PATHS = [
@@ -45,11 +26,9 @@ export default async function handleRequest(
 
   const userAgent = request.headers.get("user-agent");
   const body = await renderToReadableStream(
-    <PostHogProvider client={mockPostHogClient}>
-      <StrictMode>
-        <ServerRouter context={routerContext} url={request.url} />
-      </StrictMode>
-    </PostHogProvider>,
+    <StrictMode>
+      <ServerRouter context={routerContext} url={request.url} />
+    </StrictMode>,
     {
       signal: request.signal,
       onError(error: unknown) {
