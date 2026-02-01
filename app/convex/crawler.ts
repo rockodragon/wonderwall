@@ -225,6 +225,7 @@ export const upsertOrganization = mutation({
     website: v.optional(v.string()),
     industry: v.optional(v.string()),
     description: v.optional(v.string()),
+    streetAddress: v.optional(v.string()),
     city: v.optional(v.string()),
     state: v.optional(v.string()),
     zipCode: v.optional(v.string()),

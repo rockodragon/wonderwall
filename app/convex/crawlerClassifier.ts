@@ -22,7 +22,10 @@ export interface ClassificationResult {
     name: string;
     type: "CHURCH" | "MINISTRY" | "BUSINESS" | "NONPROFIT" | "UNKNOWN";
     industry: string;
-    location: string;
+    street_address: string | null;
+    city: string | null;
+    state: string | null;
+    zip_code: string | null;
     employees_estimate: string;
     quality_score: number; // 0-20
   };
@@ -69,7 +72,10 @@ Analyze the content and respond with ONLY valid JSON (no markdown, no explanatio
     "name": "<organization name>",
     "type": "<CHURCH|MINISTRY|BUSINESS|NONPROFIT|UNKNOWN>",
     "industry": "<industry/sector>",
-    "location": "<city, state if found, or 'Unknown'>",
+    "street_address": "<street address if found, e.g., '123 Main St', or null>",
+    "city": "<city if found, or null>",
+    "state": "<state/province if found, or null>",
+    "zip_code": "<zip/postal code if found, or null>",
     "employees_estimate": "<1-5|5-20|20-50|50-100|100+|Unknown>",
     "quality_score": <0-20 integer based on website professionalism>
   },
@@ -278,7 +284,10 @@ function parseClassificationJson(text: string): ClassificationResult {
         name: parsed.organization_info?.name || "Unknown",
         type: parsed.organization_info?.type || "UNKNOWN",
         industry: parsed.organization_info?.industry || "Unknown",
-        location: parsed.organization_info?.location || "Unknown",
+        street_address: parsed.organization_info?.street_address || null,
+        city: parsed.organization_info?.city || null,
+        state: parsed.organization_info?.state || null,
+        zip_code: parsed.organization_info?.zip_code || null,
         employees_estimate:
           parsed.organization_info?.employees_estimate || "Unknown",
         quality_score: Math.min(
@@ -351,14 +360,6 @@ export const classifyUrl = action({
         };
       }
 
-      // Parse location
-      const locationParts = classification.organization_info.location
-        .split(",")
-        .map((s) => s.trim());
-      const city =
-        locationParts[0] !== "Unknown" ? locationParts[0] : undefined;
-      const state = locationParts[1] || undefined;
-
       // Save to database
       const result = await ctx.runMutation(api.crawler.upsertOrganization, {
         sourceUrl: args.url,
@@ -367,8 +368,11 @@ export const classifyUrl = action({
         website: args.url,
         industry: classification.organization_info.industry,
         description: classification.summary,
-        city,
-        state,
+        streetAddress:
+          classification.organization_info.street_address || undefined,
+        city: classification.organization_info.city || undefined,
+        state: classification.organization_info.state || undefined,
+        zipCode: classification.organization_info.zip_code || undefined,
         employeeEstimate: classification.organization_info.employees_estimate,
         orgType: classification.organization_info.type.toLowerCase(),
         personaTags: classification.persona_tags,

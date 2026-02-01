@@ -361,6 +361,7 @@ export default defineSchema({
     description: v.optional(v.string()), // AI-generated summary
 
     // Location
+    streetAddress: v.optional(v.string()), // Full street address (e.g., "123 Main St")
     city: v.optional(v.string()),
     state: v.optional(v.string()),
     zipCode: v.optional(v.string()),

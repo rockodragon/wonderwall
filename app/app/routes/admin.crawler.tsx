@@ -72,8 +72,10 @@ type Organization = {
   industry?: string;
   email?: string;
   phone?: string;
+  streetAddress?: string;
   city?: string;
   state?: string;
+  zipCode?: string;
   description?: string;
   contactFormUrl?: string;
   careerPageUrl?: string;
@@ -651,10 +653,12 @@ function ExpandedOrgDetails({ org }: { org: Organization }) {
   return (
     <div className="px-6 py-4 space-y-3">
       {/* Location */}
-      {(org.city || org.state) && (
+      {(org.streetAddress || org.city || org.state || org.zipCode) && (
         <div className="text-sm text-gray-400">
           <span className="text-gray-500">Location:</span>{" "}
+          {org.streetAddress && <span>{org.streetAddress}, </span>}
           {[org.city, org.state].filter(Boolean).join(", ")}
+          {org.zipCode && <span> {org.zipCode}</span>}
         </div>
       )}
 
