@@ -100,67 +100,6 @@ export default function CrawlerAdmin() {
   const [globalFilter, setGlobalFilter] = useState("");
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 
-  // Check admin access
-  if (!profile?.isAdmin) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-950">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-white mb-2">Access Denied</h1>
-          <p className="text-gray-400">
-            You don't have permission to access this page.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  const handleSeedUrls = async () => {
-    setIsSeeding(true);
-    try {
-      const result = await seedTestUrls();
-      setLastResult(result.message);
-    } catch (error) {
-      setLastResult(`Error: ${error}`);
-    }
-    setIsSeeding(false);
-  };
-
-  const handleProcessQueue = async () => {
-    setIsProcessing(true);
-    try {
-      const result = await startProcessor({ batchSize: 5 });
-      setLastResult(
-        `Processed ${result.processed} URLs: ${result.succeeded} succeeded, ${result.failed} failed`,
-      );
-    } catch (error) {
-      setLastResult(`Error: ${error}`);
-    }
-    setIsProcessing(false);
-  };
-
-  const handleAddUrl = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newUrl.trim()) return;
-
-    setIsAddingUrl(true);
-    try {
-      let url = newUrl.trim();
-      if (!url.startsWith("http://") && !url.startsWith("https://")) {
-        url = "https://" + url;
-      }
-      const result = await addToQueue({ url, source: "manual", priority: 5 });
-      if (result.alreadyExists) {
-        setLastResult(`URL already in queue: ${url}`);
-      } else {
-        setLastResult(`Added to queue: ${url}`);
-      }
-      setNewUrl("");
-    } catch (error) {
-      setLastResult(`Error adding URL: ${error}`);
-    }
-    setIsAddingUrl(false);
-  };
-
   const toggleRow = (id: string) => {
     setExpandedRows((prev) => {
       const next = new Set(prev);
@@ -366,6 +305,67 @@ export default function CrawlerAdmin() {
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
   });
+
+  // Check admin access - AFTER all hooks
+  if (!profile?.isAdmin) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-950">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-white mb-2">Access Denied</h1>
+          <p className="text-gray-400">
+            You don't have permission to access this page.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  const handleSeedUrls = async () => {
+    setIsSeeding(true);
+    try {
+      const result = await seedTestUrls();
+      setLastResult(result.message);
+    } catch (error) {
+      setLastResult(`Error: ${error}`);
+    }
+    setIsSeeding(false);
+  };
+
+  const handleProcessQueue = async () => {
+    setIsProcessing(true);
+    try {
+      const result = await startProcessor({ batchSize: 5 });
+      setLastResult(
+        `Processed ${result.processed} URLs: ${result.succeeded} succeeded, ${result.failed} failed`,
+      );
+    } catch (error) {
+      setLastResult(`Error: ${error}`);
+    }
+    setIsProcessing(false);
+  };
+
+  const handleAddUrl = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newUrl.trim()) return;
+
+    setIsAddingUrl(true);
+    try {
+      let url = newUrl.trim();
+      if (!url.startsWith("http://") && !url.startsWith("https://")) {
+        url = "https://" + url;
+      }
+      const result = await addToQueue({ url, source: "manual", priority: 5 });
+      if (result.alreadyExists) {
+        setLastResult(`URL already in queue: ${url}`);
+      } else {
+        setLastResult(`Added to queue: ${url}`);
+      }
+      setNewUrl("");
+    } catch (error) {
+      setLastResult(`Error adding URL: ${error}`);
+    }
+    setIsAddingUrl(false);
+  };
 
   return (
     <div className="min-h-screen bg-gray-950 p-6">
