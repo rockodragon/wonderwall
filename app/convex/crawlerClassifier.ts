@@ -54,55 +54,76 @@ const CLASSIFICATION_PROMPT = `You are analyzing a business/organization website
 
 We're looking for organizations that would want to post jobs targeting faith-driven professionals: churches, ministries, faith-aligned businesses, conservative professional services, trade businesses with family values, etc.
 
+The content below includes the HOMEPAGE plus any CONTACT, ABOUT, TEAM, or LEADERSHIP pages that were found. Look carefully in ALL sections for addresses and people.
+
 Website content to analyze:
 ---
 {CONTENT}
 ---
 
+CRITICAL EXTRACTION REQUIREMENTS:
+
+1. PHYSICAL ADDRESS: Look carefully in the CONTACT page section, footer content, and ABOUT page for:
+   - Street addresses (e.g., "123 Main Street", "456 Oak Ave Suite 200")
+   - City, State, ZIP combinations
+   - Look for patterns like: address followed by city, state zip
+   - Extract the FULL street address, not just city/state
+
+2. LEADERSHIP/NOTABLE PEOPLE: Look in ABOUT, TEAM, LEADERSHIP, and STAFF page sections for:
+   - Founders, CEOs, Presidents, Executive Directors
+   - Pastors, Elders, Board Members (for churches)
+   - Department heads, VPs, Key personnel
+   - Extract their name, title, and any bio snippet available
+
 Analyze the content and respond with ONLY valid JSON (no markdown, no explanation):
 
 {
   "values_alignment": {
-    "faith_signals": ["list of faith-related phrases or indicators found, e.g., 'Christ-centered mission', 'biblical principles', scripture references"],
-    "conservative_signals": ["list of conservative/traditional values indicators, e.g., 'family-owned since 1985', 'closed Sundays', 'veteran-owned'"],
-    "alignment_score": <0-40 integer based on strength of signals>
+    "faith_signals": ["list of faith-related phrases found"],
+    "conservative_signals": ["list of conservative/traditional values indicators"],
+    "alignment_score": <0-40 integer>
   },
   "hiring_potential": {
-    "has_careers_page": <boolean - true if careers/jobs/employment page found>,
-    "recent_postings": <boolean - true if active job listings mentioned>,
-    "growth_indicators": ["list of growth signals, e.g., 'now hiring', 'expanding', 'new location'"],
+    "has_careers_page": <boolean>,
+    "recent_postings": <boolean>,
+    "growth_indicators": ["list of growth signals"],
     "hiring_score": <0-30 integer>
   },
   "organization_info": {
     "name": "<organization name>",
     "type": "<CHURCH|MINISTRY|BUSINESS|NONPROFIT|UNKNOWN>",
     "industry": "<industry/sector>",
-    "street_address": "<street address if found, e.g., '123 Main St', or null>",
-    "city": "<city if found, or null>",
-    "state": "<state/province if found, or null>",
-    "zip_code": "<zip/postal code if found, or null>",
+    "street_address": "<FULL street address like '123 Main Street' or '456 Oak Ave Suite 200' - REQUIRED if found anywhere on site>",
+    "city": "<city>",
+    "state": "<state abbreviation or full name>",
+    "zip_code": "<zip/postal code>",
     "employees_estimate": "<1-5|5-20|20-50|50-100|100+|Unknown>",
-    "quality_score": <0-20 integer based on website professionalism>
+    "quality_score": <0-20 integer>
   },
   "contact_info": {
-    "email": "<email if found, or null>",
-    "phone": "<phone if found, or null>",
-    "contact_form_url": "<contact page URL if found, or null>",
-    "owner_name": "<owner/pastor/leader name if found, or null>",
-    "contact_score": <0-10 integer based on contact info availability>
+    "email": "<email if found>",
+    "phone": "<phone if found>",
+    "contact_form_url": "<contact page URL if found>",
+    "owner_name": "<owner/pastor/leader name if found>",
+    "contact_score": <0-10 integer>
   },
   "persona_tags": ["<applicable tags from: CHURCH, MINISTRY, EDUCATION, HEALTHCARE, LEGAL, FINANCIAL, TRADES, RETAIL, FOOD_SERVICE, MANUFACTURING, PROFESSIONAL, NONPROFIT, SOCIAL_SERVICES, MEDIA, OUTDOOR_LIFESTYLE, PREPAREDNESS>"],
   "total_score": <sum of all scores, 0-100>,
-  "summary": "<2-3 sentence description of the organization and why it would/wouldn't be a good partner>"
+  "summary": "<2-3 sentence description>",
+  "leadership": [
+    {
+      "name": "<person's full name>",
+      "title": "<their title/role>",
+      "bio_snippet": "<brief description if available, max 100 chars>"
+    }
+  ]
 }
 
 Scoring Guidelines:
-- Values alignment (0-40): 15 pts for explicit faith statement, 10 for scripture/biblical refs, 10 for faith business network membership, 5 for "closed Sundays" or similar, 5 for charitable giving to faith causes
+- Values alignment (0-40): 15 pts for explicit faith statement, 10 for scripture/biblical refs, 10 for faith business network membership, 5 for "closed Sundays", 5 for charitable giving
 - Hiring potential (0-30): 10 for careers page, 10 for active postings, 5 for multiple locations, 5 for growth indicators
-- Quality (0-20): 5 for professional website, 5 for active social media, 5 for positive reputation indicators, 5 for established (10+ years)
+- Quality (0-20): 5 for professional website, 5 for active social media, 5 for positive reputation, 5 for established (10+ years)
 - Contact (0-10): 4 for direct email, 2 for phone, 2 for contact form, 2 for owner/decision-maker name
-
-IMPORTANT: Extract any notable people in leadership (pastors, founders, CEOs, board members, etc.) with their name, title, and a brief bio snippet if available. These are people we might want to mention or request to speak with.
 
 If the content appears to be an error page, login page, or unrelated content, return minimal scores and note this in the summary.`;
 
@@ -110,8 +131,41 @@ If the content appears to be an error page, login page, or unrelated content, re
 // Fetch and Extract Content
 // ============================================
 
+// Common pages to check for contact info, addresses, and leadership
+const ADDITIONAL_PAGES = [
+  "/contact",
+  "/contact-us",
+  "/about",
+  "/about-us",
+  "/team",
+  "/leadership",
+  "/our-team",
+  "/staff",
+  "/our-story",
+  "/who-we-are",
+];
+
+async function fetchPage(url: string): Promise<string | null> {
+  try {
+    const response = await fetch(url, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (compatible; WonderwallBot/1.0; +https://wonderwall.app)",
+        Accept: "text/html,application/xhtml+xml",
+      },
+      redirect: "follow",
+    });
+
+    if (!response.ok) return null;
+    return await response.text();
+  } catch {
+    return null;
+  }
+}
+
 async function fetchAndExtractContent(url: string): Promise<string> {
   try {
+    // Fetch homepage
     const response = await fetch(url, {
       headers: {
         "User-Agent":
@@ -125,18 +179,52 @@ async function fetchAndExtractContent(url: string): Promise<string> {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
 
-    const html = await response.text();
+    const homeHtml = await response.text();
+    const sections: string[] = [];
 
-    // Extract text content (basic HTML stripping)
-    const textContent = extractTextFromHtml(html);
+    // Extract homepage content
+    sections.push("=== HOMEPAGE ===");
+    sections.push(extractTextFromHtml(homeHtml));
 
-    // Limit content length for AI processing
-    const maxLength = 8000;
-    if (textContent.length > maxLength) {
-      return textContent.substring(0, maxLength) + "\n[Content truncated...]";
+    // Get base URL for additional pages
+    const baseUrl = new URL(url).origin;
+
+    // Fetch additional pages in parallel for contact/address/leadership info
+    const additionalFetches = ADDITIONAL_PAGES.map(async (path) => {
+      const pageUrl = `${baseUrl}${path}`;
+      const html = await fetchPage(pageUrl);
+      if (html) {
+        const text = extractTextFromHtml(html);
+        // Only include if it has substantial content
+        if (text.length > 200) {
+          return { path, text };
+        }
+      }
+      return null;
+    });
+
+    const additionalResults = await Promise.all(additionalFetches);
+
+    // Add successful page content
+    for (const result of additionalResults) {
+      if (result) {
+        sections.push(
+          `\n=== ${result.path.toUpperCase().replace("/", "")} PAGE ===`,
+        );
+        sections.push(result.text);
+      }
     }
 
-    return textContent;
+    // Combine all content
+    const fullContent = sections.join("\n\n");
+
+    // Limit content length for AI processing
+    const maxLength = 12000; // Increased limit to accommodate multiple pages
+    if (fullContent.length > maxLength) {
+      return fullContent.substring(0, maxLength) + "\n[Content truncated...]";
+    }
+
+    return fullContent;
   } catch (error) {
     throw new Error(
       `Failed to fetch ${url}: ${error instanceof Error ? error.message : "Unknown error"}`,
@@ -202,6 +290,31 @@ const CLASSIFICATION_JSON_SCHEMA = {
     contact_score: { type: "integer" },
     total_score: { type: "integer" },
     summary: { type: "string" },
+    // Persona tags
+    persona_tags: {
+      type: "array",
+      items: {
+        type: "string",
+        enum: [
+          "CHURCH",
+          "MINISTRY",
+          "EDUCATION",
+          "HEALTHCARE",
+          "LEGAL",
+          "FINANCIAL",
+          "TRADES",
+          "RETAIL",
+          "FOOD_SERVICE",
+          "MANUFACTURING",
+          "PROFESSIONAL",
+          "NONPROFIT",
+          "SOCIAL_SERVICES",
+          "MEDIA",
+          "OUTDOOR_LIFESTYLE",
+          "PREPAREDNESS",
+        ],
+      },
+    },
     // Leadership extraction
     leadership: {
       type: "array",
@@ -216,7 +329,7 @@ const CLASSIFICATION_JSON_SCHEMA = {
       },
     },
   },
-  required: ["name", "org_type", "total_score", "summary"],
+  required: ["name", "org_type", "total_score", "summary", "persona_tags"],
 };
 
 // Cloudflare Workers AI classification (Llama 3.3 70B with structured output)
@@ -317,7 +430,7 @@ function convertFlatToClassificationResult(
         Math.max(0, (flat.contact_score as number) || 0),
       ),
     },
-    persona_tags: [],
+    persona_tags: (flat.persona_tags as string[]) || [],
     total_score: Math.min(100, Math.max(0, (flat.total_score as number) || 0)),
     summary: (flat.summary as string) || "Unable to analyze content.",
     leadership:
@@ -619,5 +732,79 @@ export const reclassifyOrganization = action({
       source: org.source,
     });
     return result;
+  },
+});
+
+// Re-classify all existing organizations (batch)
+export const reclassifyAll = action({
+  args: {
+    limit: v.optional(v.number()),
+    delayMs: v.optional(v.number()),
+  },
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{
+    total: number;
+    successful: number;
+    failed: number;
+    results: Array<{ name: string; success: boolean; error?: string }>;
+  }> => {
+    const limit = args.limit ?? 50;
+    const delay = args.delayMs ?? 3000; // 3 second delay between requests
+
+    // Get all organizations
+    const orgsResult = await ctx.runQuery(api.crawler.listOrganizations, {
+      limit,
+    });
+
+    const results: Array<{ name: string; success: boolean; error?: string }> =
+      [];
+
+    for (const org of orgsResult.organizations) {
+      console.log(`[Reclassify] Processing: ${org.name} (${org.website})`);
+
+      try {
+        const result = await ctx.runAction(
+          api.crawlerClassifier.reclassifyOrganization,
+          {
+            organizationId: org._id,
+          },
+        );
+
+        results.push({
+          name: org.name,
+          success: result.success,
+          error: result.error,
+        });
+
+        if (result.success) {
+          console.log(`[Reclassify] ✓ ${org.name}`);
+        } else {
+          console.log(`[Reclassify] ✗ ${org.name}: ${result.error}`);
+        }
+      } catch (error) {
+        const errorMsg =
+          error instanceof Error ? error.message : "Unknown error";
+        results.push({
+          name: org.name,
+          success: false,
+          error: errorMsg,
+        });
+        console.log(`[Reclassify] ✗ ${org.name}: ${errorMsg}`);
+      }
+
+      // Rate limiting delay
+      if (delay > 0) {
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
+    }
+
+    return {
+      total: results.length,
+      successful: results.filter((r) => r.success).length,
+      failed: results.filter((r) => !r.success).length,
+      results,
+    };
   },
 });
