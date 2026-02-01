@@ -167,7 +167,39 @@ function extractTextFromHtml(html: string): string {
 // AI Classification (Multiple Provider Support)
 // ============================================
 
-// Cloudflare Workers AI classification
+// JSON Schema for structured response from Cloudflare AI
+const CLASSIFICATION_JSON_SCHEMA = {
+  type: "object",
+  properties: {
+    name: { type: "string" },
+    org_type: {
+      type: "string",
+      enum: ["CHURCH", "MINISTRY", "BUSINESS", "NONPROFIT", "UNKNOWN"],
+    },
+    industry: { type: "string" },
+    street_address: { type: "string" },
+    city: { type: "string" },
+    state: { type: "string" },
+    zip_code: { type: "string" },
+    email: { type: "string" },
+    phone: { type: "string" },
+    contact_form_url: { type: "string" },
+    owner_name: { type: "string" },
+    faith_signals: { type: "array", items: { type: "string" } },
+    conservative_signals: { type: "array", items: { type: "string" } },
+    has_careers_page: { type: "boolean" },
+    employees_estimate: { type: "string" },
+    values_score: { type: "integer" },
+    hiring_score: { type: "integer" },
+    quality_score: { type: "integer" },
+    contact_score: { type: "integer" },
+    total_score: { type: "integer" },
+    summary: { type: "string" },
+  },
+  required: ["name", "org_type", "total_score", "summary"],
+};
+
+// Cloudflare Workers AI classification (Llama 3.3 70B with structured output)
 async function classifyWithCloudflareAI(
   content: string,
   accountId: string,
@@ -176,7 +208,7 @@ async function classifyWithCloudflareAI(
   const prompt = CLASSIFICATION_PROMPT.replace("{CONTENT}", content);
 
   const response = await fetch(
-    `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/@cf/meta/llama-3.1-8b-instruct`,
+    `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/@cf/meta/llama-3.3-70b-instruct-fp8-fast`,
     {
       method: "POST",
       headers: {
@@ -188,24 +220,87 @@ async function classifyWithCloudflareAI(
           {
             role: "system",
             content:
-              "You are a business analyst. Respond only with valid JSON, no markdown or explanation.",
+              "You are a business analyst extracting structured data from websites for a faith-based job board.",
           },
           { role: "user", content: prompt },
         ],
-        max_tokens: 2000,
+        max_tokens: 2048,
+        response_format: {
+          type: "json_schema",
+          json_schema: CLASSIFICATION_JSON_SCHEMA,
+        },
       }),
     },
   );
 
   if (!response.ok) {
-    throw new Error(`Cloudflare AI error: ${response.status}`);
+    const errorText = await response.text();
+    throw new Error(`Cloudflare AI error: ${response.status} - ${errorText}`);
   }
 
   const data = await response.json();
-  const resultText = data.result?.response || "";
+  const resultData = data.result?.response;
 
-  // Parse JSON from response
-  return parseClassificationJson(resultText);
+  // API returns pre-parsed JSON when using json_schema
+  if (typeof resultData === "object" && resultData !== null) {
+    return convertFlatToClassificationResult(resultData);
+  }
+
+  // Fallback: parse string response
+  return parseClassificationJson(resultData || "");
+}
+
+// Convert flat schema response to nested ClassificationResult
+function convertFlatToClassificationResult(
+  flat: Record<string, unknown>,
+): ClassificationResult {
+  return {
+    values_alignment: {
+      faith_signals: (flat.faith_signals as string[]) || [],
+      conservative_signals: (flat.conservative_signals as string[]) || [],
+      alignment_score: Math.min(
+        40,
+        Math.max(0, (flat.values_score as number) || 0),
+      ),
+    },
+    hiring_potential: {
+      has_careers_page: Boolean(flat.has_careers_page),
+      recent_postings: false,
+      growth_indicators: [],
+      hiring_score: Math.min(
+        30,
+        Math.max(0, (flat.hiring_score as number) || 0),
+      ),
+    },
+    organization_info: {
+      name: (flat.name as string) || "Unknown",
+      type: ((flat.org_type as string) ||
+        "UNKNOWN") as ClassificationResult["organization_info"]["type"],
+      industry: (flat.industry as string) || "Unknown",
+      street_address: (flat.street_address as string) || null,
+      city: (flat.city as string) || null,
+      state: (flat.state as string) || null,
+      zip_code: (flat.zip_code as string) || null,
+      employees_estimate: (flat.employees_estimate as string) || "Unknown",
+      quality_score: Math.min(
+        20,
+        Math.max(0, (flat.quality_score as number) || 0),
+      ),
+    },
+    contact_info: {
+      email: (flat.email as string) || null,
+      phone: (flat.phone as string) || null,
+      contact_form_url: (flat.contact_form_url as string) || null,
+      owner_name: (flat.owner_name as string) || null,
+      contact_score: Math.min(
+        10,
+        Math.max(0, (flat.contact_score as number) || 0),
+      ),
+    },
+    persona_tags: [],
+    total_score: Math.min(100, Math.max(0, (flat.total_score as number) || 0)),
+    summary: (flat.summary as string) || "Unable to analyze content.",
+  };
 }
 
 // OpenAI classification (fallback or preferred)
