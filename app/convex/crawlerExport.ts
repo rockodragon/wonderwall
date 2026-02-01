@@ -29,19 +29,28 @@ export const exportToCSV = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    let orgsQuery = ctx.db.query("crawledOrganizations");
+    const limit = args.limit ?? 1000;
 
+    // Fetch based on the primary filter
+    let orgs: Doc<"crawledOrganizations">[];
     if (args.segment) {
-      orgsQuery = ctx.db
+      orgs = await ctx.db
         .query("crawledOrganizations")
-        .withIndex("by_segment", (q) => q.eq("segment", args.segment!));
+        .withIndex("by_segment", (q) => q.eq("segment", args.segment!))
+        .order("desc")
+        .take(limit);
     } else if (args.status) {
-      orgsQuery = ctx.db
+      orgs = await ctx.db
         .query("crawledOrganizations")
-        .withIndex("by_status", (q) => q.eq("status", args.status!));
+        .withIndex("by_status", (q) => q.eq("status", args.status!))
+        .order("desc")
+        .take(limit);
+    } else {
+      orgs = await ctx.db
+        .query("crawledOrganizations")
+        .order("desc")
+        .take(limit);
     }
-
-    let orgs = await orgsQuery.order("desc").take(args.limit ?? 1000);
 
     // Apply additional filters
     if (args.minScore !== undefined) {
@@ -223,7 +232,7 @@ export const importFromCSV = mutation({
         source: v.optional(v.string()),
         personaTags: v.optional(v.array(v.string())),
         notes: v.optional(v.string()),
-      })
+      }),
     ),
   },
   handler: async (ctx, args) => {
@@ -282,7 +291,7 @@ export const importFromCSV = mutation({
         created++;
       } catch (error) {
         errors.push(
-          `Failed to import ${row.name}: ${error instanceof Error ? error.message : "Unknown error"}`
+          `Failed to import ${row.name}: ${error instanceof Error ? error.message : "Unknown error"}`,
         );
       }
     }
@@ -308,7 +317,7 @@ export const getExportStats = query({
         acc[org.segment] = (acc[org.segment] || 0) + 1;
         return acc;
       },
-      {} as Record<string, number>
+      {} as Record<string, number>,
     );
 
     return {
@@ -335,7 +344,10 @@ export const getOutreachQueue = query({
       .query("crawledOrganizations")
       .withIndex("by_segment", (q) => q.eq("segment", "hot"))
       .filter((q) =>
-        q.and(q.eq(q.field("status"), "new"), q.neq(q.field("email"), undefined))
+        q.and(
+          q.eq(q.field("status"), "new"),
+          q.neq(q.field("email"), undefined),
+        ),
       )
       .take(args.limit ?? 50);
 
@@ -347,7 +359,10 @@ export const getOutreachQueue = query({
         .query("crawledOrganizations")
         .withIndex("by_segment", (q) => q.eq("segment", "warm"))
         .filter((q) =>
-          q.and(q.eq(q.field("status"), "new"), q.neq(q.field("email"), undefined))
+          q.and(
+            q.eq(q.field("status"), "new"),
+            q.neq(q.field("email"), undefined),
+          ),
         )
         .take(remaining);
     }

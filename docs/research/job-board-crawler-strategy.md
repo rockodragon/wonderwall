@@ -199,7 +199,7 @@ This document outlines a comprehensive strategy for identifying, crawling, and c
 |--------|-----|----------------|--------------|
 | PublicSquare | publicsquare.com | Business listings, categories | Scraping required |
 | Christian Business Directory | christiandirectory.com | Name, category, location | Scraping |
-| Kingdom Business Directory | kingdombusiness.network | Business profiles | Scraping |
+| Kingdom Business Directory | https://www.kingdombusinessnetwork.com/kbn-directory/ | Business profiles | Scraping |
 | LocalWorks | localworks.com | Conservative businesses | Scraping |
 
 #### 2. Church & Ministry Directories

@@ -75,28 +75,38 @@ export const listOrganizations = query({
   handler: async (ctx, args) => {
     const limit = args.limit ?? 50;
 
-    let orgsQuery = ctx.db.query("crawledOrganizations");
-
-    // Apply filters based on available indexes
+    // Fetch based on the primary filter
+    let orgs: Doc<"crawledOrganizations">[];
     if (args.status) {
-      orgsQuery = ctx.db
+      orgs = await ctx.db
         .query("crawledOrganizations")
-        .withIndex("by_status", (q) => q.eq("status", args.status!));
+        .withIndex("by_status", (q) => q.eq("status", args.status!))
+        .order("desc")
+        .take(limit + 1);
     } else if (args.segment) {
-      orgsQuery = ctx.db
+      orgs = await ctx.db
         .query("crawledOrganizations")
-        .withIndex("by_segment", (q) => q.eq("segment", args.segment!));
+        .withIndex("by_segment", (q) => q.eq("segment", args.segment!))
+        .order("desc")
+        .take(limit + 1);
     } else if (args.source) {
-      orgsQuery = ctx.db
+      orgs = await ctx.db
         .query("crawledOrganizations")
-        .withIndex("by_source", (q) => q.eq("source", args.source!));
+        .withIndex("by_source", (q) => q.eq("source", args.source!))
+        .order("desc")
+        .take(limit + 1);
     } else if (args.state) {
-      orgsQuery = ctx.db
+      orgs = await ctx.db
         .query("crawledOrganizations")
-        .withIndex("by_state", (q) => q.eq("state", args.state!));
+        .withIndex("by_state", (q) => q.eq("state", args.state!))
+        .order("desc")
+        .take(limit + 1);
+    } else {
+      orgs = await ctx.db
+        .query("crawledOrganizations")
+        .order("desc")
+        .take(limit + 1);
     }
-
-    let orgs = await orgsQuery.order("desc").take(limit + 1);
 
     // Apply additional filters in memory
     if (args.minScore !== undefined) {
@@ -691,7 +701,10 @@ export const processNextBatch = internalAction({
     batchSize: v.optional(v.number()),
     delayMs: v.optional(v.number()),
   },
-  handler: async (ctx, args) => {
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{ processed: number; succeeded: number; failed: number }> => {
     const batchSize = args.batchSize ?? 3;
     const delayMs = args.delayMs ?? 2000;
 
@@ -741,7 +754,10 @@ export const startQueueProcessor = action({
     batchSize: v.optional(v.number()),
     continueProcessing: v.optional(v.boolean()),
   },
-  handler: async (ctx, args) => {
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{ processed: number; succeeded: number; failed: number }> => {
     const batchSize = args.batchSize ?? 5;
 
     // Process first batch
@@ -764,7 +780,9 @@ export const startQueueProcessor = action({
 // Seed queue with test URLs (for POC)
 export const seedTestUrls = action({
   args: {},
-  handler: async (ctx) => {
+  handler: async (
+    ctx,
+  ): Promise<{ message: string; added: number; skipped: number }> => {
     const testUrls = [
       { url: "https://www.northpoint.org", source: "church_finder" },
       { url: "https://www.saddleback.com", source: "church_finder" },
@@ -784,7 +802,8 @@ export const seedTestUrls = action({
 
     return {
       message: `Seeded ${result.added} URLs (${result.skipped} already existed)`,
-      ...result,
+      added: result.added,
+      skipped: result.skipped,
     };
   },
 });
