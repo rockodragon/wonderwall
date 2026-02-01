@@ -31,6 +31,7 @@ export default [
     route("settings", "routes/settings.tsx"),
     route("faq", "routes/faq.tsx"),
     route("admin", "routes/admin.tsx"),
+    route("admin/crawler", "routes/admin.crawler.tsx"),
     route("messages", "routes/messages._index.tsx"),
     route("messages/:conversationId", "routes/messages.$conversationId.tsx"),
   ]),

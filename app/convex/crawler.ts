@@ -1,7 +1,14 @@
 import { v } from "convex/values";
-import { mutation, query, action, internalMutation, internalAction } from "./_generated/server";
-import { internal } from "./_generated/api";
-import { Doc, Id } from "./_generated/dataModel";
+import {
+  mutation,
+  query,
+  action,
+  internalMutation,
+  internalAction,
+  internalQuery,
+} from "./_generated/server";
+import { internal, api } from "./_generated/api";
+import type { Doc, Id } from "./_generated/dataModel";
 
 // ============================================
 // Types
@@ -138,7 +145,7 @@ export const getStats = query({
         acc[org.status] = (acc[org.status] || 0) + 1;
         return acc;
       },
-      {} as Record<string, number>
+      {} as Record<string, number>,
     );
 
     const bySegment = allOrgs.reduce(
@@ -146,7 +153,7 @@ export const getStats = query({
         acc[org.segment] = (acc[org.segment] || 0) + 1;
         return acc;
       },
-      {} as Record<string, number>
+      {} as Record<string, number>,
     );
 
     const bySource = allOrgs.reduce(
@@ -154,7 +161,7 @@ export const getStats = query({
         acc[org.source] = (acc[org.source] || 0) + 1;
         return acc;
       },
-      {} as Record<string, number>
+      {} as Record<string, number>,
     );
 
     const avgScore =
@@ -232,7 +239,10 @@ export const upsertOrganization = mutation({
   handler: async (ctx, args) => {
     const now = Date.now();
     const totalScore =
-      args.valuesScore + args.hiringScore + args.qualityScore + args.contactScore;
+      args.valuesScore +
+      args.hiringScore +
+      args.qualityScore +
+      args.contactScore;
 
     // Determine segment based on score
     let segment: string;
@@ -414,7 +424,7 @@ export const bulkAddToQueue = mutation({
         url: v.string(),
         source: v.string(),
         priority: v.optional(v.number()),
-      })
+      }),
     ),
   },
   handler: async (ctx, args) => {
@@ -561,5 +571,220 @@ export const manualAddOrganization = mutation({
     });
 
     return id;
+  },
+});
+
+// ============================================
+// Queue Processor
+// ============================================
+
+// Get queue status for admin UI
+export const getQueueStatus = query({
+  args: {},
+  handler: async (ctx) => {
+    const allItems = await ctx.db.query("crawlerQueue").collect();
+
+    const byStatus = allItems.reduce(
+      (acc, item) => {
+        acc[item.status] = (acc[item.status] || 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>,
+    );
+
+    const recentCompleted = allItems
+      .filter((i) => i.status === "completed" && i.processedAt)
+      .sort((a, b) => (b.processedAt || 0) - (a.processedAt || 0))
+      .slice(0, 5);
+
+    const recentFailed = allItems
+      .filter((i) => i.status === "failed")
+      .sort((a, b) => (b.processedAt || 0) - (a.processedAt || 0))
+      .slice(0, 5);
+
+    return {
+      total: allItems.length,
+      pending: byStatus["pending"] || 0,
+      processing: byStatus["processing"] || 0,
+      completed: byStatus["completed"] || 0,
+      failed: byStatus["failed"] || 0,
+      recentCompleted,
+      recentFailed,
+    };
+  },
+});
+
+// Internal: Get next pending items to process
+export const getNextPendingItems = internalQuery({
+  args: {
+    limit: v.number(),
+  },
+  handler: async (ctx, args) => {
+    // Get pending items, prioritized by priority (higher first)
+    const items = await ctx.db
+      .query("crawlerQueue")
+      .withIndex("by_status", (q) => q.eq("status", "pending"))
+      .take(args.limit * 2); // Get extra to sort by priority
+
+    // Sort by priority descending and take limit
+    return items.sort((a, b) => b.priority - a.priority).slice(0, args.limit);
+  },
+});
+
+// Internal: Process a single queue item
+export const processQueueItem = internalAction({
+  args: {
+    itemId: v.id("crawlerQueue"),
+    url: v.string(),
+    source: v.string(),
+  },
+  handler: async (ctx, args): Promise<{ success: boolean; error?: string }> => {
+    try {
+      // Mark as processing
+      await ctx.runMutation(internal.crawler.updateQueueItem, {
+        id: args.itemId,
+        status: "processing",
+      });
+
+      // Call the classifier
+      const result = await ctx.runAction(api.crawlerClassifier.classifyUrl, {
+        url: args.url,
+        source: args.source,
+      });
+
+      if (result.success && result.organizationId) {
+        // Mark as completed
+        await ctx.runMutation(internal.crawler.updateQueueItem, {
+          id: args.itemId,
+          status: "completed",
+          organizationId: result.organizationId as Id<"crawledOrganizations">,
+        });
+        return { success: true };
+      } else {
+        // Classification failed
+        await ctx.runMutation(internal.crawler.updateQueueItem, {
+          id: args.itemId,
+          status: "failed",
+          errorMessage: result.error || "Classification failed",
+          incrementRetry: true,
+        });
+        return { success: false, error: result.error };
+      }
+    } catch (error) {
+      // Unexpected error
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
+      await ctx.runMutation(internal.crawler.updateQueueItem, {
+        id: args.itemId,
+        status: "failed",
+        errorMessage,
+        incrementRetry: true,
+      });
+      return { success: false, error: errorMessage };
+    }
+  },
+});
+
+// Process next batch of queue items
+export const processNextBatch = internalAction({
+  args: {
+    batchSize: v.optional(v.number()),
+    delayMs: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const batchSize = args.batchSize ?? 3;
+    const delayMs = args.delayMs ?? 2000;
+
+    // Get pending items
+    const items = await ctx.runQuery(internal.crawler.getNextPendingItems, {
+      limit: batchSize,
+    });
+
+    if (items.length === 0) {
+      console.log("[Crawler] No pending items in queue");
+      return { processed: 0, succeeded: 0, failed: 0 };
+    }
+
+    console.log(`[Crawler] Processing ${items.length} items...`);
+
+    let succeeded = 0;
+    let failed = 0;
+
+    for (const item of items) {
+      const result = await ctx.runAction(internal.crawler.processQueueItem, {
+        itemId: item._id,
+        url: item.url,
+        source: item.source,
+      });
+
+      if (result.success) {
+        succeeded++;
+        console.log(`[Crawler] ✓ Classified: ${item.url}`);
+      } else {
+        failed++;
+        console.log(`[Crawler] ✗ Failed: ${item.url} - ${result.error}`);
+      }
+
+      // Delay between items to respect rate limits
+      if (items.indexOf(item) < items.length - 1) {
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+      }
+    }
+
+    return { processed: items.length, succeeded, failed };
+  },
+});
+
+// Public action to start processing the queue
+export const startQueueProcessor = action({
+  args: {
+    batchSize: v.optional(v.number()),
+    continueProcessing: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const batchSize = args.batchSize ?? 5;
+
+    // Process first batch
+    const result = await ctx.runAction(internal.crawler.processNextBatch, {
+      batchSize,
+    });
+
+    // If continueProcessing and there might be more items, schedule next batch
+    if (args.continueProcessing && result.processed > 0) {
+      // Schedule next batch after a delay
+      await ctx.scheduler.runAfter(5000, internal.crawler.processNextBatch, {
+        batchSize,
+      });
+    }
+
+    return result;
+  },
+});
+
+// Seed queue with test URLs (for POC)
+export const seedTestUrls = action({
+  args: {},
+  handler: async (ctx) => {
+    const testUrls = [
+      { url: "https://www.northpoint.org", source: "church_finder" },
+      { url: "https://www.saddleback.com", source: "church_finder" },
+      { url: "https://www.publicsquare.com", source: "publicsquare" },
+      { url: "https://www.hobby-lobby.com", source: "directory" },
+      { url: "https://www.chick-fil-a.com", source: "directory" },
+      { url: "https://adflegal.org", source: "directory" },
+      { url: "https://www.kingdomadvisors.com", source: "kingdom_advisors" },
+      { url: "https://www.accsedu.org", source: "directory" },
+      { url: "https://www.acsi.org", source: "directory" },
+      { url: "https://samaritanministries.org", source: "directory" },
+    ];
+
+    const result = await ctx.runMutation(api.crawler.bulkAddToQueue, {
+      urls: testUrls,
+    });
+
+    return {
+      message: `Seeded ${result.added} URLs (${result.skipped} already existed)`,
+      ...result,
+    };
   },
 });
