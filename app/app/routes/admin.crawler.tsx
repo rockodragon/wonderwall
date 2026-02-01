@@ -16,7 +16,7 @@ export const meta: MetaFunction = () => {
   return [{ title: "Crawler Admin | Wonderwall" }];
 };
 
-// Tooltip/Popover component
+// Tooltip component
 function Tooltip({
   children,
   content,
@@ -81,6 +81,40 @@ type Organization = {
   personaTags?: string[];
 };
 
+// Segment display names and descriptions
+const SEGMENTS = {
+  hot: {
+    label: "Hot",
+    desc: "Ready to contact",
+    color: "text-red-400",
+    bg: "bg-red-500/20",
+  },
+  warm: {
+    label: "Warm",
+    desc: "Good fit, nurture",
+    color: "text-orange-400",
+    bg: "bg-orange-500/20",
+  },
+  nurture: {
+    label: "Nurture",
+    desc: "Potential, needs outreach",
+    color: "text-yellow-400",
+    bg: "bg-yellow-500/20",
+  },
+  research: {
+    label: "Review",
+    desc: "Needs manual review",
+    color: "text-blue-400",
+    bg: "bg-blue-500/20",
+  },
+  low: {
+    label: "Low Priority",
+    desc: "Poor fit",
+    color: "text-gray-400",
+    bg: "bg-gray-500/20",
+  },
+};
+
 export default function CrawlerAdmin() {
   const profile = useQuery(api.profiles.getMyProfile);
   const stats = useQuery(api.crawler.getStats);
@@ -96,6 +130,7 @@ export default function CrawlerAdmin() {
   const [lastResult, setLastResult] = useState<string | null>(null);
   const [newUrl, setNewUrl] = useState("");
   const [isAddingUrl, setIsAddingUrl] = useState(false);
+  const [showAddForm, setShowAddForm] = useState(false);
   const [sorting, setSorting] = useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = useState("");
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
@@ -148,33 +183,19 @@ export default function CrawlerAdmin() {
       },
       {
         accessorKey: "segment",
-        header: () => (
-          <Tooltip content="Hot (80+): Ready to contact. Warm (60-79): Good fit, needs nurture. Nurture (40-59): Potential, needs more info. Research (20-39): Needs investigation. Low (<20): Poor fit.">
-            <span>
-              Segment
-              <InfoIcon />
-            </span>
-          </Tooltip>
-        ),
+        header: "Status",
         cell: ({ row }) => <SegmentBadge segment={row.original.segment} />,
-        size: 100,
+        size: 120,
       },
       {
         accessorKey: "totalScore",
-        header: () => (
-          <Tooltip content="Combined score (0-100) based on: Values alignment (faith signals), Hiring activity (careers page, job posts), Quality indicators (size, web presence), Contact availability (email, phone).">
-            <span>
-              Score
-              <InfoIcon />
-            </span>
-          </Tooltip>
-        ),
+        header: "Score",
         cell: ({ row }) => (
           <span className="font-mono text-gray-300">
             {row.original.totalScore}
           </span>
         ),
-        size: 80,
+        size: 70,
       },
       {
         accessorKey: "industry",
@@ -194,99 +215,19 @@ export default function CrawlerAdmin() {
               rel="noopener noreferrer"
               className="text-blue-400 hover:text-blue-300 text-sm"
             >
-              {row.original.website.replace(/^https?:\/\/(www\.)?/, "")}
+              {
+                row.original.website
+                  .replace(/^https?:\/\/(www\.)?/, "")
+                  .split("/")[0]
+              }
             </a>
           ) : null,
       },
       {
         id: "contact",
         header: "Contact",
-        cell: ({ row }) => {
-          const org = row.original;
-          const validEmail =
-            org.email &&
-            !org.email.includes("protected") &&
-            org.email.includes("@")
-              ? org.email
-              : null;
-          const hasContact = validEmail || org.phone || org.contactFormUrl;
-
-          return hasContact ? (
-            <div className="flex gap-2">
-              {validEmail && (
-                <Tooltip content={validEmail}>
-                  <a
-                    href={`mailto:${validEmail}`}
-                    className="text-green-400 hover:text-green-300"
-                  >
-                    <svg
-                      className="w-4 h-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                      />
-                    </svg>
-                  </a>
-                </Tooltip>
-              )}
-              {org.phone && (
-                <Tooltip content={org.phone}>
-                  <a
-                    href={`tel:${org.phone}`}
-                    className="text-yellow-400 hover:text-yellow-300"
-                  >
-                    <svg
-                      className="w-4 h-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
-                      />
-                    </svg>
-                  </a>
-                </Tooltip>
-              )}
-              {org.contactFormUrl && (
-                <Tooltip content="Contact form available">
-                  <a
-                    href={org.contactFormUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-purple-400 hover:text-purple-300"
-                  >
-                    <svg
-                      className="w-4 h-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                      />
-                    </svg>
-                  </a>
-                </Tooltip>
-              )}
-            </div>
-          ) : (
-            <span className="text-gray-600">—</span>
-          );
-        },
-        size: 100,
+        cell: ({ row }) => <ContactCell org={row.original} />,
+        size: 150,
       },
     ],
     [expandedRows],
@@ -361,225 +302,216 @@ export default function CrawlerAdmin() {
         setLastResult(`Added to queue: ${url}`);
       }
       setNewUrl("");
+      setShowAddForm(false);
     } catch (error) {
       setLastResult(`Error adding URL: ${error}`);
     }
     setIsAddingUrl(false);
   };
 
+  const pendingCount = queueStatus?.pending ?? 0;
+  const processingCount = queueStatus?.processing ?? 0;
+  const completedCount = queueStatus?.completed ?? 0;
+  const failedCount = queueStatus?.failed ?? 0;
+
   return (
     <div className="min-h-screen bg-gray-950 p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-white mb-2">
-            Crawler Dashboard
-          </h1>
-          <p className="text-gray-400">
-            Manage lead generation crawler and view classified organizations
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-white mb-1">Lead Crawler</h1>
+          <p className="text-gray-500 text-sm">
+            Find and classify faith-aligned organizations
           </p>
         </div>
 
-        {/* Add URL Form */}
+        {/* Queue Status Bar */}
         <div className="bg-gray-900 rounded-xl p-4 border border-gray-800 mb-6">
-          <form onSubmit={handleAddUrl} className="flex gap-3">
-            <div className="flex-1">
-              <input
-                type="text"
-                value={newUrl}
-                onChange={(e) => setNewUrl(e.target.value)}
-                placeholder="Enter organization website URL (e.g., example.org)"
-                className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
-              />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-6">
+              {/* Queue flow: Pending → Processing → Completed / Failed */}
+              <div className="flex items-center gap-2">
+                <span className="text-yellow-400 font-bold text-xl">
+                  {pendingCount}
+                </span>
+                <span className="text-gray-400 text-sm">pending</span>
+              </div>
+              <svg
+                className="w-4 h-4 text-gray-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 5l7 7-7 7"
+                />
+              </svg>
+              <div className="flex items-center gap-2">
+                <span className="text-blue-400 font-bold text-xl">
+                  {processingCount}
+                </span>
+                <span className="text-gray-400 text-sm">processing</span>
+              </div>
+              <svg
+                className="w-4 h-4 text-gray-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 5l7 7-7 7"
+                />
+              </svg>
+              <div className="flex items-center gap-2">
+                <span className="text-green-400 font-bold text-xl">
+                  {completedCount}
+                </span>
+                <span className="text-gray-400 text-sm">done</span>
+              </div>
+              {failedCount > 0 && (
+                <>
+                  <span className="text-gray-600">|</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-red-400 font-bold text-xl">
+                      {failedCount}
+                    </span>
+                    <span className="text-gray-400 text-sm">failed</span>
+                  </div>
+                </>
+              )}
             </div>
-            <button
-              type="submit"
-              disabled={isAddingUrl || !newUrl.trim()}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors"
+
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setShowAddForm(!showAddForm)}
+                className="px-3 py-1.5 text-sm bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg transition-colors"
+              >
+                + Add URL
+              </button>
+              <button
+                onClick={handleProcessQueue}
+                disabled={isProcessing || pendingCount === 0}
+                className="px-4 py-1.5 text-sm bg-green-600 hover:bg-green-500 disabled:bg-gray-700 disabled:text-gray-500 text-white font-medium rounded-lg transition-colors"
+              >
+                {isProcessing ? "Processing..." : `Process (${pendingCount})`}
+              </button>
+            </div>
+          </div>
+
+          {/* Collapsible Add URL Form */}
+          {showAddForm && (
+            <form
+              onSubmit={handleAddUrl}
+              className="mt-4 pt-4 border-t border-gray-800"
             >
-              {isAddingUrl ? "Adding..." : "Add URL"}
-            </button>
-          </form>
-          <p className="text-xs text-gray-500 mt-2">
-            Add any organization website to analyze. The crawler will extract
-            contact info, detect faith signals, and score the lead.
-          </p>
+              <div className="flex gap-3">
+                <input
+                  type="text"
+                  value={newUrl}
+                  onChange={(e) => setNewUrl(e.target.value)}
+                  placeholder="Enter website URL (e.g., example.org)"
+                  className="flex-1 px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                  autoFocus
+                />
+                <button
+                  type="submit"
+                  disabled={isAddingUrl || !newUrl.trim()}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 text-white font-medium rounded-lg transition-colors"
+                >
+                  {isAddingUrl ? "Adding..." : "Add"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowAddForm(false)}
+                  className="px-3 py-2 text-gray-400 hover:text-white"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          )}
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex flex-wrap gap-4 mb-6">
-          <Tooltip content="Add 10 pre-configured test URLs from Christian organizations, churches, and conservative businesses to demo the crawler.">
-            <button
-              onClick={handleSeedUrls}
-              disabled={isSeeding}
-              className="px-4 py-2 bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 text-white font-medium rounded-lg transition-colors"
-            >
-              {isSeeding ? "Seeding..." : "Seed Test URLs"}
-            </button>
-          </Tooltip>
-          <Tooltip content="Process pending URLs in the queue. Uses AI to analyze each website, extract contact info, detect faith/values signals, and assign a lead score.">
-            <button
-              onClick={handleProcessQueue}
-              disabled={isProcessing || (queueStatus?.pending ?? 0) === 0}
-              className="px-4 py-2 bg-green-600 hover:bg-green-500 disabled:bg-green-800 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors"
-            >
-              {isProcessing
-                ? "Processing..."
-                : `Process Queue (${queueStatus?.pending ?? 0})`}
-            </button>
-          </Tooltip>
-        </div>
-
-        {/* Last Result */}
+        {/* Last Result Message */}
         {lastResult && (
-          <div className="mb-6 p-4 bg-gray-800 rounded-lg border border-gray-700">
-            <p className="text-gray-300">{lastResult}</p>
+          <div className="mb-4 p-3 bg-gray-800/50 rounded-lg border border-gray-700 flex items-center justify-between">
+            <p className="text-gray-300 text-sm">{lastResult}</p>
+            <button
+              onClick={() => setLastResult(null)}
+              className="text-gray-500 hover:text-gray-300"
+            >
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
           </div>
         )}
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <Tooltip content="Total number of organizations that have been analyzed and classified.">
-            <StatCard
-              label="Total Organizations"
-              value={stats?.total ?? 0}
-              color="blue"
-            />
-          </Tooltip>
-          <Tooltip content="Score 80+. High values alignment, active hiring, quality contact info. Ready for outreach.">
-            <StatCard
-              label="Hot Leads"
-              value={stats?.hotLeads ?? 0}
-              color="red"
-            />
-          </Tooltip>
-          <Tooltip content="Score 60-79. Good fit with some faith signals and hiring activity. Worth nurturing.">
-            <StatCard
-              label="Warm Leads"
-              value={stats?.warmLeads ?? 0}
-              color="orange"
-            />
-          </Tooltip>
-          <Tooltip content="Average lead score across all organizations. Higher is better (max 100).">
-            <StatCard
-              label="Avg Score"
-              value={Math.round(stats?.avgScore ?? 0)}
-              color="purple"
-            />
-          </Tooltip>
-        </div>
-
-        {/* Queue Status & Segments */}
-        <div className="grid md:grid-cols-2 gap-6 mb-6">
-          <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
-            <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-              Queue Status
-              <Tooltip content="URLs waiting to be processed. Pending = in queue, Processing = currently analyzing, Completed = done, Failed = error (will retry).">
-                <InfoIcon />
-              </Tooltip>
-            </h2>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <div className="text-2xl font-bold text-yellow-400">
-                  {queueStatus?.pending ?? 0}
-                </div>
-                <div className="text-sm text-gray-400">Pending</div>
-              </div>
-              <div>
-                <div className="text-2xl font-bold text-blue-400">
-                  {queueStatus?.processing ?? 0}
-                </div>
-                <div className="text-sm text-gray-400">Processing</div>
-              </div>
-              <div>
-                <div className="text-2xl font-bold text-green-400">
-                  {queueStatus?.completed ?? 0}
-                </div>
-                <div className="text-sm text-gray-400">Completed</div>
-              </div>
-              <div>
-                <div className="text-2xl font-bold text-red-400">
-                  {queueStatus?.failed ?? 0}
-                </div>
-                <div className="text-sm text-gray-400">Failed</div>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
-            <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-              By Segment
-              <Tooltip content="Organizations grouped by lead quality. Hot = best leads, Low = poor fit.">
-                <InfoIcon />
-              </Tooltip>
-            </h2>
-            <div className="space-y-2">
-              {[
-                { key: "hot", label: "Hot", desc: "80+ score" },
-                { key: "warm", label: "Warm", desc: "60-79" },
-                { key: "nurture", label: "Nurture", desc: "40-59" },
-                { key: "research", label: "Research", desc: "20-39" },
-                { key: "low", label: "Low", desc: "<20" },
-              ].map((segment) => (
+        {/* Segment Summary */}
+        <div className="flex flex-wrap gap-3 mb-6">
+          {Object.entries(SEGMENTS).map(([key, seg]) => {
+            const count = stats?.bySegment?.[key] ?? 0;
+            return (
+              <Tooltip key={key} content={seg.desc}>
                 <div
-                  key={segment.key}
-                  className="flex justify-between items-center"
+                  className={`px-3 py-2 rounded-lg ${seg.bg} flex items-center gap-2`}
                 >
-                  <span className="text-gray-300">
-                    {segment.label}{" "}
-                    <span className="text-gray-500 text-xs">
-                      ({segment.desc})
-                    </span>
-                  </span>
-                  <span
-                    className={`font-bold ${
-                      segment.key === "hot"
-                        ? "text-red-400"
-                        : segment.key === "warm"
-                          ? "text-orange-400"
-                          : segment.key === "nurture"
-                            ? "text-yellow-400"
-                            : "text-gray-400"
-                    }`}
-                  >
-                    {stats?.bySegment?.[segment.key] ?? 0}
-                  </span>
+                  <span className={`font-bold ${seg.color}`}>{count}</span>
+                  <span className={`text-sm ${seg.color}`}>{seg.label}</span>
                 </div>
-              ))}
-            </div>
+              </Tooltip>
+            );
+          })}
+          <div className="px-3 py-2 rounded-lg bg-gray-800 flex items-center gap-2 ml-auto">
+            <span className="font-bold text-white">{stats?.total ?? 0}</span>
+            <span className="text-sm text-gray-400">total</span>
           </div>
         </div>
 
         {/* Organizations DataTable */}
         <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-800 flex items-center justify-between">
-            <h2 className="text-xl font-bold text-white">Organizations</h2>
+          <div className="px-4 py-3 border-b border-gray-800 flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-white">Organizations</h2>
             <input
               type="text"
               value={globalFilter}
               onChange={(e) => setGlobalFilter(e.target.value)}
               placeholder="Search..."
-              className="px-3 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 text-sm focus:outline-none focus:border-blue-500"
+              className="px-3 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 text-sm focus:outline-none focus:border-blue-500 w-48"
             />
           </div>
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-gray-800">
+              <thead className="bg-gray-800/50">
                 {table.getHeaderGroups().map((headerGroup) => (
                   <tr key={headerGroup.id}>
                     {headerGroup.headers.map((header) => (
                       <th
                         key={header.id}
-                        className="px-4 py-3 text-left text-sm font-medium text-gray-300"
-                        style={{
-                          width: header.getSize(),
-                        }}
+                        className="px-4 py-2 text-left text-xs font-medium text-gray-400 uppercase tracking-wider"
+                        style={{ width: header.getSize() }}
                       >
                         {header.isPlaceholder ? null : (
                           <div
                             className={
                               header.column.getCanSort()
-                                ? "cursor-pointer select-none flex items-center gap-1"
+                                ? "cursor-pointer select-none flex items-center gap-1 hover:text-gray-200"
                                 : ""
                             }
                             onClick={header.column.getToggleSortingHandler()}
@@ -589,8 +521,8 @@ export default function CrawlerAdmin() {
                               header.getContext(),
                             )}
                             {{
-                              asc: " ^",
-                              desc: " v",
+                              asc: " ↑",
+                              desc: " ↓",
                             }[header.column.getIsSorted() as string] ?? null}
                           </div>
                         )}
@@ -602,9 +534,9 @@ export default function CrawlerAdmin() {
               <tbody className="divide-y divide-gray-800">
                 {table.getRowModel().rows.map((row) => (
                   <>
-                    <tr key={row.id} className="hover:bg-gray-800/50">
+                    <tr key={row.id} className="hover:bg-gray-800/30">
                       {row.getVisibleCells().map((cell) => (
-                        <td key={cell.id} className="px-4 py-3">
+                        <td key={cell.id} className="px-4 py-2.5">
                           {flexRender(
                             cell.column.columnDef.cell,
                             cell.getContext(),
@@ -614,7 +546,7 @@ export default function CrawlerAdmin() {
                     </tr>
                     {expandedRows.has(row.original._id) && (
                       <tr key={`${row.id}-expanded`}>
-                        <td colSpan={columns.length} className="bg-gray-800/50">
+                        <td colSpan={columns.length} className="bg-gray-800/30">
                           <ExpandedOrgDetails org={row.original} />
                         </td>
                       </tr>
@@ -627,20 +559,84 @@ export default function CrawlerAdmin() {
                       colSpan={columns.length}
                       className="px-4 py-8 text-center text-gray-500"
                     >
-                      No organizations yet. Add a URL or click "Seed Test URLs"
-                      then "Process Queue".
+                      No organizations yet. Add a URL and click Process to get
+                      started.
                     </td>
                   </tr>
                 )}
               </tbody>
             </table>
           </div>
-          <div className="px-4 py-3 border-t border-gray-800 text-sm text-gray-400">
-            Showing {table.getRowModel().rows.length} of{" "}
+          <div className="px-4 py-2 border-t border-gray-800 text-xs text-gray-500">
+            {table.getRowModel().rows.length} of{" "}
             {orgs?.organizations?.length ?? 0} organizations
           </div>
         </div>
+
+        {/* Dev tools - hidden in corner */}
+        <div className="mt-8 flex justify-end">
+          <button
+            onClick={handleSeedUrls}
+            disabled={isSeeding}
+            className="text-xs text-gray-600 hover:text-gray-400"
+          >
+            {isSeeding ? "Seeding..." : "Seed test data"}
+          </button>
+        </div>
       </div>
+    </div>
+  );
+}
+
+// Contact cell with actual clickable links
+function ContactCell({ org }: { org: Organization }) {
+  const validEmail =
+    org.email && !org.email.includes("protected") && org.email.includes("@")
+      ? org.email
+      : null;
+
+  const validPhone = org.phone ? org.phone.replace(/[^\d+]/g, "") : null;
+  const validContactForm =
+    org.contactFormUrl && org.contactFormUrl.startsWith("http")
+      ? org.contactFormUrl
+      : null;
+
+  if (!validEmail && !validPhone && !validContactForm) {
+    return <span className="text-gray-600 text-sm">—</span>;
+  }
+
+  return (
+    <div className="flex items-center gap-3 text-sm">
+      {validEmail && (
+        <a
+          href={`mailto:${validEmail}`}
+          className="text-green-400 hover:text-green-300 hover:underline"
+          title={`Email: ${validEmail}`}
+        >
+          {validEmail.length > 20
+            ? validEmail.substring(0, 20) + "..."
+            : validEmail}
+        </a>
+      )}
+      {validPhone && (
+        <a
+          href={`tel:${validPhone}`}
+          className="text-yellow-400 hover:text-yellow-300 hover:underline"
+          title={`Call: ${org.phone}`}
+        >
+          {org.phone}
+        </a>
+      )}
+      {validContactForm && !validEmail && !validPhone && (
+        <a
+          href={validContactForm}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-purple-400 hover:text-purple-300 hover:underline"
+        >
+          Contact form
+        </a>
+      )}
     </div>
   );
 }
@@ -650,32 +646,44 @@ function ExpandedOrgDetails({ org }: { org: Organization }) {
     org.email && !org.email.includes("protected") && org.email.includes("@")
       ? org.email
       : null;
+  const validPhone = org.phone ? org.phone.replace(/[^\d+]/g, "") : null;
 
   return (
     <div className="px-6 py-4 space-y-3">
       {/* Location */}
       {(org.city || org.state) && (
         <div className="text-sm text-gray-400">
-          Location: {[org.city, org.state].filter(Boolean).join(", ")}
+          <span className="text-gray-500">Location:</span>{" "}
+          {[org.city, org.state].filter(Boolean).join(", ")}
         </div>
       )}
 
-      {/* Contact Details */}
+      {/* Full Contact Details */}
       <div className="flex flex-wrap gap-4 text-sm">
         {validEmail && (
           <a
             href={`mailto:${validEmail}`}
-            className="text-green-400 hover:text-green-300"
+            className="text-green-400 hover:text-green-300 hover:underline"
           >
             {validEmail}
           </a>
         )}
-        {org.phone && (
+        {validPhone && (
           <a
-            href={`tel:${org.phone}`}
-            className="text-yellow-400 hover:text-yellow-300"
+            href={`tel:${validPhone}`}
+            className="text-yellow-400 hover:text-yellow-300 hover:underline"
           >
             {org.phone}
+          </a>
+        )}
+        {org.website && (
+          <a
+            href={org.website}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-400 hover:text-blue-300 hover:underline"
+          >
+            {org.website}
           </a>
         )}
         {org.careerPageUrl && (
@@ -683,9 +691,19 @@ function ExpandedOrgDetails({ org }: { org: Organization }) {
             href={org.careerPageUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-orange-400 hover:text-orange-300"
+            className="text-orange-400 hover:text-orange-300 hover:underline"
           >
-            Careers Page
+            Careers page
+          </a>
+        )}
+        {org.contactFormUrl && org.contactFormUrl.startsWith("http") && (
+          <a
+            href={org.contactFormUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-purple-400 hover:text-purple-300 hover:underline"
+          >
+            Contact form
           </a>
         )}
       </div>
@@ -720,45 +738,14 @@ function ExpandedOrgDetails({ org }: { org: Organization }) {
   );
 }
 
-function StatCard({
-  label,
-  value,
-  color,
-}: {
-  label: string;
-  value: number;
-  color: "blue" | "red" | "orange" | "purple" | "green";
-}) {
-  const colorClasses = {
-    blue: "text-blue-400",
-    red: "text-red-400",
-    orange: "text-orange-400",
-    purple: "text-purple-400",
-    green: "text-green-400",
-  };
-
-  return (
-    <div className="bg-gray-900 rounded-xl p-4 border border-gray-800 cursor-help">
-      <div className={`text-3xl font-bold ${colorClasses[color]}`}>{value}</div>
-      <div className="text-sm text-gray-400">{label}</div>
-    </div>
-  );
-}
-
 function SegmentBadge({ segment }: { segment: string }) {
-  const colors: Record<string, string> = {
-    hot: "bg-red-500/20 text-red-400",
-    warm: "bg-orange-500/20 text-orange-400",
-    nurture: "bg-yellow-500/20 text-yellow-400",
-    research: "bg-blue-500/20 text-blue-400",
-    low: "bg-gray-500/20 text-gray-400",
-  };
+  const seg = SEGMENTS[segment as keyof typeof SEGMENTS] || SEGMENTS.low;
 
   return (
     <span
-      className={`px-2 py-1 rounded-full text-xs font-medium ${colors[segment] || colors.low}`}
+      className={`px-2 py-1 rounded-full text-xs font-medium ${seg.bg} ${seg.color}`}
     >
-      {segment}
+      {seg.label}
     </span>
   );
 }
