@@ -34,6 +34,7 @@ import type * as posthog from "../posthog.js";
 import type * as profiles from "../profiles.js";
 import type * as public_ from "../public.js";
 import type * as seed from "../seed.js";
+import type * as sourceParsers from "../sourceParsers.js";
 import type * as waitlist from "../waitlist.js";
 import type * as wonderings from "../wonderings.js";
 
@@ -70,6 +71,7 @@ declare const fullApi: ApiFromModules<{
   profiles: typeof profiles;
   public: typeof public_;
   seed: typeof seed;
+  sourceParsers: typeof sourceParsers;
   waitlist: typeof waitlist;
   wonderings: typeof wonderings;
 }>;
