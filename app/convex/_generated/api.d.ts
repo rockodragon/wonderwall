@@ -24,6 +24,7 @@ import type * as files from "../files.js";
 import type * as helpers from "../helpers.js";
 import type * as http from "../http.js";
 import type * as invites from "../invites.js";
+import type * as jobScraper from "../jobScraper.js";
 import type * as jobs from "../jobs.js";
 import type * as links from "../links.js";
 import type * as location from "../location.js";
@@ -59,6 +60,7 @@ declare const fullApi: ApiFromModules<{
   helpers: typeof helpers;
   http: typeof http;
   invites: typeof invites;
+  jobScraper: typeof jobScraper;
   jobs: typeof jobs;
   links: typeof links;
   location: typeof location;

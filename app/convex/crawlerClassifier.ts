@@ -39,6 +39,11 @@ export interface ClassificationResult {
   persona_tags: string[];
   total_score: number;
   summary: string;
+  leadership: Array<{
+    name: string;
+    title?: string;
+    bio_snippet?: string;
+  }>;
 }
 
 // ============================================
@@ -96,6 +101,8 @@ Scoring Guidelines:
 - Hiring potential (0-30): 10 for careers page, 10 for active postings, 5 for multiple locations, 5 for growth indicators
 - Quality (0-20): 5 for professional website, 5 for active social media, 5 for positive reputation indicators, 5 for established (10+ years)
 - Contact (0-10): 4 for direct email, 2 for phone, 2 for contact form, 2 for owner/decision-maker name
+
+IMPORTANT: Extract any notable people in leadership (pastors, founders, CEOs, board members, etc.) with their name, title, and a brief bio snippet if available. These are people we might want to mention or request to speak with.
 
 If the content appears to be an error page, login page, or unrelated content, return minimal scores and note this in the summary.`;
 
@@ -195,6 +202,19 @@ const CLASSIFICATION_JSON_SCHEMA = {
     contact_score: { type: "integer" },
     total_score: { type: "integer" },
     summary: { type: "string" },
+    // Leadership extraction
+    leadership: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          name: { type: "string" },
+          title: { type: "string" },
+          bio_snippet: { type: "string" },
+        },
+        required: ["name"],
+      },
+    },
   },
   required: ["name", "org_type", "total_score", "summary"],
 };
@@ -300,6 +320,12 @@ function convertFlatToClassificationResult(
     persona_tags: [],
     total_score: Math.min(100, Math.max(0, (flat.total_score as number) || 0)),
     summary: (flat.summary as string) || "Unable to analyze content.",
+    leadership:
+      (flat.leadership as Array<{
+        name: string;
+        title?: string;
+        bio_snippet?: string;
+      }>) || [],
   };
 }
 
@@ -403,11 +429,31 @@ function parseClassificationJson(text: string): ClassificationResult {
       persona_tags: parsed.persona_tags || [],
       total_score: Math.min(100, Math.max(0, parsed.total_score || 0)),
       summary: parsed.summary || "Unable to analyze content.",
+      leadership: parsed.leadership || [],
     };
   } catch (e) {
     console.error("Failed to parse classification JSON:", text);
     throw new Error("Failed to parse AI classification result");
   }
+}
+
+// ============================================
+// Leadership to Markdown
+// ============================================
+
+function leadershipToMarkdown(
+  leadership: Array<{ name: string; title?: string; bio_snippet?: string }>,
+): string | undefined {
+  if (!leadership || leadership.length === 0) return undefined;
+
+  const lines = ["## Leadership\n"];
+  for (const person of leadership) {
+    lines.push(`### ${person.name}`);
+    if (person.title) lines.push(`**${person.title}**\n`);
+    if (person.bio_snippet) lines.push(`${person.bio_snippet}\n`);
+    lines.push("");
+  }
+  return lines.join("\n");
 }
 
 // ============================================
@@ -483,6 +529,8 @@ export const classifyUrl = action({
         contactFormUrl:
           classification.contact_info.contact_form_url || undefined,
         ownerName: classification.contact_info.owner_name || undefined,
+        hasCareerPage: classification.hiring_potential.has_careers_page,
+        leadershipMarkdown: leadershipToMarkdown(classification.leadership),
         rawHtml: content.substring(0, 50000), // Store truncated raw content
         rawClassification: JSON.stringify(classification),
       });

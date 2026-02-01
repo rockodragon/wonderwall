@@ -392,6 +392,14 @@ export default defineSchema({
     ownerName: v.optional(v.string()),
     linkedinUrl: v.optional(v.string()),
 
+    // Career page info
+    hasCareerPage: v.optional(v.boolean()),
+    careerPageUrl: v.optional(v.string()),
+    lastJobsCrawledAt: v.optional(v.number()),
+
+    // Leadership - notable people to contact or mention
+    leadershipMarkdown: v.optional(v.string()), // Markdown formatted leadership info
+
     // Workflow status
     status: v.string(), // "new" | "contacted" | "responded" | "converted" | "declined" | "nurture"
     segment: v.string(), // "hot" | "warm" | "nurture" | "research" | "low"
@@ -489,4 +497,48 @@ export default defineSchema({
     .index("by_source", ["source"])
     .index("by_priority", ["priority"])
     .index("by_url", ["url"]),
+
+  // Jobs scraped from organization career pages
+  crawledJobs: defineTable({
+    // Link to organization
+    organizationId: v.id("crawledOrganizations"),
+
+    // Job details
+    title: v.string(),
+    department: v.optional(v.string()),
+    location: v.optional(v.string()), // "Remote", "New York, NY", etc.
+    locationType: v.optional(v.string()), // "remote" | "onsite" | "hybrid"
+    employmentType: v.optional(v.string()), // "full-time" | "part-time" | "contract" | "internship"
+
+    // Compensation (if disclosed)
+    salaryMin: v.optional(v.number()),
+    salaryMax: v.optional(v.number()),
+    salaryPeriod: v.optional(v.string()), // "yearly" | "hourly"
+
+    // Description
+    description: v.optional(v.string()), // Truncated job description
+    requirements: v.optional(v.array(v.string())),
+
+    // Application
+    applyUrl: v.string(),
+    applicationDeadline: v.optional(v.number()),
+
+    // Source tracking
+    sourceType: v.string(), // "crawled" | "posted" (org posted directly)
+    sourceUrl: v.string(), // Career page URL where found
+
+    // Dates
+    postedDate: v.optional(v.number()), // When job was posted (if found)
+    crawledAt: v.number(),
+    lastSeenAt: v.number(), // Updated each time we see it
+
+    // Status
+    isActive: v.boolean(), // false if job no longer appears on site
+    deactivatedAt: v.optional(v.number()),
+  })
+    .index("by_organization", ["organizationId"])
+    .index("by_isActive", ["isActive"])
+    .index("by_sourceType", ["sourceType"])
+    .index("by_crawledAt", ["crawledAt"])
+    .index("by_applyUrl", ["applyUrl"]),
 });

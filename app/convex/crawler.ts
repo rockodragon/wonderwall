@@ -244,6 +244,8 @@ export const upsertOrganization = mutation({
     contactFormUrl: v.optional(v.string()),
     ownerName: v.optional(v.string()),
     linkedinUrl: v.optional(v.string()),
+    hasCareerPage: v.optional(v.boolean()),
+    leadershipMarkdown: v.optional(v.string()),
     rawHtml: v.optional(v.string()),
     rawClassification: v.optional(v.string()),
   },
