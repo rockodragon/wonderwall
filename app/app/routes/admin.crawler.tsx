@@ -180,80 +180,23 @@ export default function CrawlerAdmin() {
           </div>
         </div>
 
-        {/* Organizations Table */}
+        {/* Organizations List */}
         <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-800">
             <h2 className="text-xl font-bold text-white">
               Recent Organizations
             </h2>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-800">
-                <tr>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">
-                    Name
-                  </th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">
-                    Website
-                  </th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">
-                    Segment
-                  </th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">
-                    Score
-                  </th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">
-                    Industry
-                  </th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">
-                    Location
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-800">
-                {orgs?.organizations?.map((org) => (
-                  <tr key={org._id} className="hover:bg-gray-800/50">
-                    <td className="px-4 py-3 text-white font-medium">
-                      {org.name}
-                    </td>
-                    <td className="px-4 py-3 text-gray-400 text-sm">
-                      <a
-                        href={org.website}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="hover:text-blue-400"
-                      >
-                        {org.website?.replace(/^https?:\/\/(www\.)?/, "")}
-                      </a>
-                    </td>
-                    <td className="px-4 py-3">
-                      <SegmentBadge segment={org.segment} />
-                    </td>
-                    <td className="px-4 py-3 text-white font-mono">
-                      {org.totalScore}
-                    </td>
-                    <td className="px-4 py-3 text-gray-400 text-sm">
-                      {org.industry}
-                    </td>
-                    <td className="px-4 py-3 text-gray-400 text-sm">
-                      {[org.city, org.state].filter(Boolean).join(", ") || "—"}
-                    </td>
-                  </tr>
-                ))}
-                {(!orgs?.organizations || orgs.organizations.length === 0) && (
-                  <tr>
-                    <td
-                      colSpan={6}
-                      className="px-4 py-8 text-center text-gray-500"
-                    >
-                      No organizations yet. Click "Seed Test URLs" then "Process
-                      Queue" to get started.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+          <div className="divide-y divide-gray-800">
+            {orgs?.organizations?.map((org) => (
+              <OrgRow key={org._id} org={org} />
+            ))}
+            {(!orgs?.organizations || orgs.organizations.length === 0) && (
+              <div className="px-4 py-8 text-center text-gray-500">
+                No organizations yet. Click "Seed Test URLs" then "Process
+                Queue" to get started.
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -301,5 +244,155 @@ function SegmentBadge({ segment }: { segment: string }) {
     >
       {segment}
     </span>
+  );
+}
+
+function OrgRow({
+  org,
+}: {
+  org: {
+    _id: string;
+    name: string;
+    website?: string;
+    segment: string;
+    totalScore: number;
+    industry?: string;
+    email?: string;
+    phone?: string;
+    city?: string;
+    state?: string;
+    description?: string;
+    contactFormUrl?: string;
+    careerPageUrl?: string;
+    faithSignals?: string[];
+    personaTags?: string[];
+  };
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  // Filter out invalid emails (like "email protected" artifacts)
+  const validEmail =
+    org.email && !org.email.includes("protected") && org.email.includes("@")
+      ? org.email
+      : null;
+
+  return (
+    <div className="hover:bg-gray-800/30">
+      {/* Summary Row - Always visible */}
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full px-4 py-3 flex items-center gap-4 text-left"
+      >
+        <svg
+          className={`w-4 h-4 text-gray-500 transition-transform ${isOpen ? "rotate-90" : ""}`}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M9 5l7 7-7 7"
+          />
+        </svg>
+        <span className="flex-1 text-white font-medium truncate">
+          {org.name}
+        </span>
+        <SegmentBadge segment={org.segment} />
+        <span className="w-12 text-right font-mono text-gray-400">
+          {org.totalScore}
+        </span>
+        <a
+          href={org.website}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className="text-blue-400 hover:text-blue-300 text-sm truncate max-w-[200px]"
+        >
+          {org.website?.replace(/^https?:\/\/(www\.)?/, "")}
+        </a>
+      </button>
+
+      {/* Expanded Details */}
+      {isOpen && (
+        <div className="px-4 pb-4 pl-12 space-y-3">
+          {/* Industry & Location */}
+          <div className="flex gap-4 text-sm text-gray-400">
+            {org.industry && <span>{org.industry}</span>}
+            {(org.city || org.state) && (
+              <span>{[org.city, org.state].filter(Boolean).join(", ")}</span>
+            )}
+          </div>
+
+          {/* Contact Info */}
+          <div className="flex flex-wrap gap-4 text-sm">
+            {validEmail && (
+              <a
+                href={`mailto:${validEmail}`}
+                className="text-green-400 hover:text-green-300"
+              >
+                {validEmail}
+              </a>
+            )}
+            {org.phone && (
+              <a
+                href={`tel:${org.phone}`}
+                className="text-yellow-400 hover:text-yellow-300"
+              >
+                {org.phone}
+              </a>
+            )}
+            {org.contactFormUrl && (
+              <a
+                href={org.contactFormUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-purple-400 hover:text-purple-300"
+              >
+                Contact Form
+              </a>
+            )}
+            {org.careerPageUrl && (
+              <a
+                href={org.careerPageUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-orange-400 hover:text-orange-300"
+              >
+                Careers Page
+              </a>
+            )}
+          </div>
+
+          {/* Description */}
+          {org.description && (
+            <p className="text-sm text-gray-400">{org.description}</p>
+          )}
+
+          {/* Tags */}
+          {(org.faithSignals?.length || org.personaTags?.length) && (
+            <div className="flex flex-wrap gap-2">
+              {org.faithSignals?.slice(0, 4).map((signal, i) => (
+                <span
+                  key={i}
+                  className="px-2 py-0.5 bg-blue-500/10 text-blue-400 text-xs rounded"
+                >
+                  {signal}
+                </span>
+              ))}
+              {org.personaTags?.map((tag, i) => (
+                <span
+                  key={i}
+                  className="px-2 py-0.5 bg-gray-700 text-gray-300 text-xs rounded"
+                >
+                  {tag}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
