@@ -15,6 +15,7 @@ import type * as auth from "../auth.js";
 import type * as crawler from "../crawler.js";
 import type * as crawlerClassifier from "../crawlerClassifier.js";
 import type * as crawlerExport from "../crawlerExport.js";
+import type * as crawlerModelTest from "../crawlerModelTest.js";
 import type * as crawlerSeeds from "../crawlerSeeds.js";
 import type * as embeddings from "../embeddings.js";
 import type * as events from "../events.js";
@@ -49,6 +50,7 @@ declare const fullApi: ApiFromModules<{
   crawler: typeof crawler;
   crawlerClassifier: typeof crawlerClassifier;
   crawlerExport: typeof crawlerExport;
+  crawlerModelTest: typeof crawlerModelTest;
   crawlerSeeds: typeof crawlerSeeds;
   embeddings: typeof embeddings;
   events: typeof events;
