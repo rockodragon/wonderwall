@@ -124,12 +124,25 @@ export const listOrganizations = query({
       orgs = orgs.slice(0, limit);
     }
 
+    // Get job counts for each org
+    const orgsWithJobCounts = await Promise.all(
+      orgs.map(async (o) => {
+        const jobs = await ctx.db
+          .query("crawledJobs")
+          .withIndex("by_organization", (q) => q.eq("organizationId", o._id))
+          .filter((q) => q.eq(q.field("isActive"), true))
+          .collect();
+        return {
+          ...o,
+          rawHtml: undefined, // Don't send raw HTML to client
+          rawClassification: undefined,
+          jobCount: jobs.length,
+        };
+      }),
+    );
+
     return {
-      organizations: orgs.map((o) => ({
-        ...o,
-        rawHtml: undefined, // Don't send raw HTML to client
-        rawClassification: undefined,
-      })),
+      organizations: orgsWithJobCounts,
       hasMore,
       nextCursor: hasMore ? orgs[orgs.length - 1]._id : undefined,
     };
