@@ -795,17 +795,9 @@ function ExpandedOrgDetails({ org }: { org: Organization }) {
         <p className="text-sm text-gray-300">{org.description}</p>
       )}
 
-      {/* Tags */}
-      {org.faithSignals?.length || org.personaTags?.length ? (
+      {/* Tags - just persona tags, skip faith signals */}
+      {org.personaTags?.length ? (
         <div className="flex flex-wrap gap-2">
-          {org.faithSignals?.map((signal, i) => (
-            <span
-              key={i}
-              className="px-2 py-0.5 bg-blue-500/10 text-blue-400 text-xs rounded"
-            >
-              {signal}
-            </span>
-          ))}
           {org.personaTags?.map((tag, i) => (
             <span
               key={i}

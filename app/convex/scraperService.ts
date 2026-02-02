@@ -118,8 +118,7 @@ async function submitScrapeJob(
       extraction_prompt: extractionPrompt,
       options: {
         timeout: 60000,
-        wait_for: "domcontentloaded",
-        delay: 1000,
+        waitFor: "domcontentloaded",
       },
     }),
   });
