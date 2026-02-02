@@ -310,3 +310,24 @@ export const search = query({
     return profilesWithData;
   },
 });
+
+// Admin: Set isAdmin flag by profile name
+export const setAdminByName = mutation({
+  args: { name: v.string(), isAdmin: v.boolean() },
+  handler: async (ctx, args) => {
+    const profiles = await ctx.db
+      .query("profiles")
+      .withIndex("by_name", (q) => q.eq("name", args.name))
+      .collect();
+
+    if (profiles.length === 0) {
+      throw new Error(`Profile not found: ${args.name}`);
+    }
+
+    for (const profile of profiles) {
+      await ctx.db.patch(profile._id, { isAdmin: args.isAdmin });
+    }
+
+    return { updated: profiles.length };
+  },
+});
