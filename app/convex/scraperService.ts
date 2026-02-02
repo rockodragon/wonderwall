@@ -136,7 +136,10 @@ async function getJobResult(
   apiKey: string,
   jobId: string,
 ): Promise<ScraperJobResult> {
-  const response = await fetch(`${SCRAPER_SERVICE_URL}/api/job/${jobId}`, {
+  // Use query param endpoint (path params have routing issues)
+  const fetchUrl = `${SCRAPER_SERVICE_URL}/api/job-status?id=${jobId}`;
+
+  const response = await fetch(fetchUrl, {
     headers: {
       Authorization: `Bearer ${apiKey}`,
     },
