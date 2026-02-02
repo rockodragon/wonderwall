@@ -35,93 +35,8 @@ const ATS_PATTERNS = [
 ];
 
 // ============================================
-// Job Extraction Schema for AI
-// ============================================
-
-const JOB_EXTRACTION_SCHEMA = {
-  type: "object",
-  properties: {
-    jobs: {
-      type: "array",
-      items: {
-        type: "object",
-        properties: {
-          title: { type: "string" },
-          department: { type: "string" },
-          location: { type: "string" },
-          location_type: { type: "string" },
-          employment_type: { type: "string" },
-          salary_text: { type: "string" },
-          description_snippet: { type: "string" },
-          apply_url: { type: "string" },
-        },
-        required: ["title"],
-      },
-    },
-    career_page_url: { type: "string" },
-    total_jobs_found: { type: "integer" },
-  },
-  required: ["jobs", "total_jobs_found"],
-};
-
-const JOB_EXTRACTION_PROMPT = `Extract job listings from this career page content. For each job, extract available details.
-
-Career page content:
----
-{CONTENT}
----
-
-Base URL for relative links: {BASE_URL}
-
-Return JSON with:
-- jobs: array of job objects with title, department, location, location_type (remote/onsite/hybrid), employment_type (full-time/part-time/contract/internship), salary_text (raw salary text if shown), description_snippet (first 200 chars), apply_url (full URL)
-- career_page_url: the careers page URL
-- total_jobs_found: count of jobs
-
-For apply_url, convert relative paths to absolute URLs using the base URL.
-If no jobs found, return empty jobs array.`;
-
-// ============================================
 // Utility Functions
 // ============================================
-
-async function fetchCareerPage(url: string): Promise<string> {
-  const response = await fetch(url, {
-    headers: {
-      "User-Agent":
-        "Mozilla/5.0 (compatible; WonderwallBot/1.0; +https://wonderwall.app)",
-      Accept: "text/html,application/xhtml+xml",
-    },
-    redirect: "follow",
-  });
-
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status}`);
-  }
-
-  const html = await response.text();
-  return extractTextFromHtml(html);
-}
-
-function extractTextFromHtml(html: string): string {
-  let text = html.replace(
-    /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi,
-    " ",
-  );
-  text = text.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, " ");
-  text = text.replace(/<[^>]+>/g, " ");
-  text = text
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'");
-  text = text.replace(/\s+/g, " ").trim();
-
-  // Limit for AI
-  return text.length > 8000 ? text.substring(0, 8000) + "..." : text;
-}
 
 function detectATS(url: string): { isATS: boolean; atsName?: string } {
   for (const ats of ATS_PATTERNS) {
@@ -161,84 +76,6 @@ async function findCareerPageUrl(
   }
 
   return { url: null, isATS: false };
-}
-
-// ============================================
-// AI Job Extraction
-// ============================================
-
-async function extractJobsWithAI(
-  content: string,
-  baseUrl: string,
-  accountId: string,
-  apiToken: string,
-): Promise<{
-  jobs: Array<{
-    title: string;
-    department?: string;
-    location?: string;
-    location_type?: string;
-    employment_type?: string;
-    salary_text?: string;
-    description_snippet?: string;
-    apply_url?: string;
-  }>;
-  total_jobs_found: number;
-}> {
-  const prompt = JOB_EXTRACTION_PROMPT.replace("{CONTENT}", content).replace(
-    "{BASE_URL}",
-    baseUrl,
-  );
-
-  const response = await fetch(
-    `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/@cf/meta/llama-3.3-70b-instruct-fp8-fast`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        messages: [
-          {
-            role: "system",
-            content: "You extract job listings from career page content.",
-          },
-          { role: "user", content: prompt },
-        ],
-        max_tokens: 2048,
-        response_format: {
-          type: "json_schema",
-          json_schema: JOB_EXTRACTION_SCHEMA,
-        },
-      }),
-    },
-  );
-
-  if (!response.ok) {
-    throw new Error(`AI error: ${response.status}`);
-  }
-
-  const data = await response.json();
-  const result = data.result?.response;
-
-  if (typeof result === "object" && result !== null) {
-    return result as {
-      jobs: Array<{
-        title: string;
-        department?: string;
-        location?: string;
-        location_type?: string;
-        employment_type?: string;
-        salary_text?: string;
-        description_snippet?: string;
-        apply_url?: string;
-      }>;
-      total_jobs_found: number;
-    };
-  }
-
-  return { jobs: [], total_jobs_found: 0 };
 }
 
 // ============================================
@@ -403,20 +240,9 @@ export const scrapeJobsForOrganization = action({
     success: boolean;
     jobsFound: number;
     jobsCreated: number;
+    botProtectionDetected?: boolean;
     error?: string;
   }> => {
-    const cfAccountId = process.env.CLOUDFLARE_ACCOUNT_ID;
-    const cfApiToken = process.env.CLOUDFLARE_API_TOKEN;
-
-    if (!cfAccountId || !cfApiToken) {
-      return {
-        success: false,
-        jobsFound: 0,
-        jobsCreated: 0,
-        error: "Missing CF credentials",
-      };
-    }
-
     // Get organization
     const org = await ctx.runQuery(api.crawler.getOrganization, {
       id: args.organizationId,
@@ -450,22 +276,27 @@ export const scrapeJobsForOrganization = action({
         }
       }
 
-      // Fetch career page content
-      const content = await fetchCareerPage(careerUrl);
-
-      // Extract jobs with AI
-      const extraction = await extractJobsWithAI(
-        content,
-        careerUrl,
-        cfAccountId,
-        cfApiToken,
+      // Use scraper service for JavaScript rendering and bot protection detection
+      const scrapeResult = await ctx.runAction(
+        internal.scraperService.scrapeCareerPage,
+        { url: careerUrl },
       );
+
+      if (!scrapeResult.success) {
+        return {
+          success: false,
+          jobsFound: 0,
+          jobsCreated: 0,
+          botProtectionDetected: scrapeResult.botProtection?.detected,
+          error: scrapeResult.error,
+        };
+      }
 
       // Save jobs
       let created = 0;
       const activeUrls: string[] = [];
 
-      for (const job of extraction.jobs) {
+      for (const job of scrapeResult.jobs) {
         if (!job.title) continue;
 
         const applyUrl = job.apply_url || careerUrl;
@@ -495,8 +326,9 @@ export const scrapeJobsForOrganization = action({
 
       return {
         success: true,
-        jobsFound: extraction.total_jobs_found,
+        jobsFound: scrapeResult.totalJobsFound,
         jobsCreated: created,
+        botProtectionDetected: scrapeResult.botProtection?.detected,
       };
     } catch (error) {
       return {

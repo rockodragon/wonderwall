@@ -35,6 +35,7 @@ import type * as notifications from "../notifications.js";
 import type * as posthog from "../posthog.js";
 import type * as profiles from "../profiles.js";
 import type * as public_ from "../public.js";
+import type * as scraperService from "../scraperService.js";
 import type * as seed from "../seed.js";
 import type * as sourceParsers from "../sourceParsers.js";
 import type * as waitlist from "../waitlist.js";
@@ -74,6 +75,7 @@ declare const fullApi: ApiFromModules<{
   posthog: typeof posthog;
   profiles: typeof profiles;
   public: typeof public_;
+  scraperService: typeof scraperService;
   seed: typeof seed;
   sourceParsers: typeof sourceParsers;
   waitlist: typeof waitlist;
