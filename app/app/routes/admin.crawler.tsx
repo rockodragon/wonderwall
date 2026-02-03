@@ -129,15 +129,19 @@ export default function CrawlerAdmin() {
   const seedTestUrls = useAction(api.crawler.seedTestUrls);
   const startProcessor = useAction(api.crawler.startQueueProcessor);
   const addToQueue = useMutation(api.crawler.addToQueue);
+  const retryFailed = useMutation(api.crawler.retryFailedItems);
+  const failedItems = useQuery(api.crawler.getFailedQueueItems);
   const scrapeJobs = useAction(api.jobScraper.scrapeJobsForOrganization);
 
   const [isSeeding, setIsSeeding] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isRetrying, setIsRetrying] = useState(false);
   const [scrapingOrg, setScrapingOrg] = useState<string | null>(null);
   const [lastResult, setLastResult] = useState<string | null>(null);
   const [newUrl, setNewUrl] = useState("");
   const [isAddingUrl, setIsAddingUrl] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [showFailedItems, setShowFailedItems] = useState(false);
   const [sorting, setSorting] = useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = useState("");
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
@@ -361,6 +365,8 @@ export default function CrawlerAdmin() {
       const result = await addToQueue({ url, source: "manual", priority: 5 });
       if (result.alreadyExists) {
         setLastResult(`URL already in queue: ${url}`);
+      } else if (result.requeued) {
+        setLastResult(`Requeued failed URL: ${url}`);
       } else {
         setLastResult(`Added to queue: ${url}`);
       }
@@ -370,6 +376,18 @@ export default function CrawlerAdmin() {
       setLastResult(`Error adding URL: ${error}`);
     }
     setIsAddingUrl(false);
+  };
+
+  const handleRetryFailed = async () => {
+    setIsRetrying(true);
+    try {
+      const result = await retryFailed({});
+      setLastResult(`Requeued ${result.retriedCount} failed items`);
+      setShowFailedItems(false);
+    } catch (error) {
+      setLastResult(`Error retrying: ${error}`);
+    }
+    setIsRetrying(false);
   };
 
   const pendingCount = queueStatus?.pending ?? 0;
@@ -440,12 +458,28 @@ export default function CrawlerAdmin() {
               {failedCount > 0 && (
                 <>
                   <span className="text-gray-600">|</span>
-                  <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setShowFailedItems(!showFailedItems)}
+                    className="flex items-center gap-2 hover:bg-gray-800 px-2 py-1 rounded transition-colors"
+                  >
                     <span className="text-red-400 font-bold text-xl">
                       {failedCount}
                     </span>
                     <span className="text-gray-400 text-sm">failed</span>
-                  </div>
+                    <svg
+                      className={`w-4 h-4 text-gray-500 transition-transform ${showFailedItems ? "rotate-180" : ""}`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M19 9l-7 7-7-7"
+                      />
+                    </svg>
+                  </button>
                 </>
               )}
             </div>
@@ -498,6 +532,52 @@ export default function CrawlerAdmin() {
                 </button>
               </div>
             </form>
+          )}
+
+          {/* Collapsible Failed Items Panel */}
+          {showFailedItems && failedItems && failedItems.length > 0 && (
+            <div className="mt-4 pt-4 border-t border-gray-800">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-medium text-gray-300">
+                  Failed Items
+                </h3>
+                <button
+                  onClick={handleRetryFailed}
+                  disabled={isRetrying}
+                  className="px-3 py-1 text-sm bg-red-600 hover:bg-red-500 disabled:bg-gray-700 text-white rounded transition-colors"
+                >
+                  {isRetrying
+                    ? "Retrying..."
+                    : `Retry All (${failedItems.length})`}
+                </button>
+              </div>
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                {failedItems.map((item) => (
+                  <div
+                    key={item._id}
+                    className="flex items-center justify-between p-2 bg-gray-800/50 rounded text-sm"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <span className="text-gray-300 truncate block">
+                        {
+                          item.url
+                            .replace(/^https?:\/\/(www\.)?/, "")
+                            .split("/")[0]
+                        }
+                      </span>
+                      {item.errorMessage && (
+                        <span className="text-red-400 text-xs truncate block">
+                          {item.errorMessage}
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-gray-500 text-xs ml-2">
+                      {item.retryCount} retries
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
         </div>
 

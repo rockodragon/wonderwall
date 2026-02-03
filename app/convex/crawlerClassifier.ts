@@ -339,39 +339,49 @@ async function classifyWithCloudflareAI(
   apiToken: string,
 ): Promise<ClassificationResult> {
   const prompt = CLASSIFICATION_PROMPT.replace("{CONTENT}", content);
+  const cfApiUrl = `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/@cf/meta/llama-3.3-70b-instruct-fp8-fast`;
 
-  const response = await fetch(
-    `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/@cf/meta/llama-3.3-70b-instruct-fp8-fast`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        messages: [
-          {
-            role: "system",
-            content:
-              "You are a business analyst extracting structured data from websites for a faith-based job board.",
-          },
-          { role: "user", content: prompt },
-        ],
-        max_tokens: 2048,
-        response_format: {
-          type: "json_schema",
-          json_schema: CLASSIFICATION_JSON_SCHEMA,
-        },
-      }),
+  // First attempt: try with json_schema for structured output
+  const response = await fetch(cfApiUrl, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiToken}`,
+      "Content-Type": "application/json",
     },
-  );
+    body: JSON.stringify({
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are a business analyst extracting structured data from websites for a faith-based job board.",
+        },
+        { role: "user", content: prompt },
+      ],
+      max_tokens: 2048,
+      response_format: {
+        type: "json_schema",
+        json_schema: CLASSIFICATION_JSON_SCHEMA,
+      },
+    }),
+  });
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Cloudflare AI error: ${response.status} - ${errorText}`);
+  const responseText = await response.text();
+
+  // Check if json_schema failed (error 5024 = "JSON Model couldn't be met")
+  if (!response.ok && responseText.includes("5024")) {
+    console.log(
+      "Cloudflare json_schema failed, retrying without strict schema...",
+    );
+    return classifyWithCloudflareAIFallback(content, accountId, apiToken);
   }
 
-  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(
+      `Cloudflare AI error: ${response.status} - ${responseText}`,
+    );
+  }
+
+  const data = JSON.parse(responseText);
   const resultData = data.result?.response;
 
   // API returns pre-parsed JSON when using json_schema
@@ -381,6 +391,77 @@ async function classifyWithCloudflareAI(
 
   // Fallback: parse string response
   return parseClassificationJson(resultData || "");
+}
+
+// Fallback: request JSON without strict schema validation
+async function classifyWithCloudflareAIFallback(
+  content: string,
+  accountId: string,
+  apiToken: string,
+): Promise<ClassificationResult> {
+  const prompt = CLASSIFICATION_PROMPT.replace("{CONTENT}", content);
+  const cfApiUrl = `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/@cf/meta/llama-3.3-70b-instruct-fp8-fast`;
+
+  const response = await fetch(cfApiUrl, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are a business analyst extracting structured data from websites for a faith-based job board. Always respond with valid JSON only, no markdown formatting.",
+        },
+        { role: "user", content: prompt },
+      ],
+      max_tokens: 2048,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(
+      `Cloudflare AI fallback error: ${response.status} - ${errorText}`,
+    );
+  }
+
+  const data = await response.json();
+  const resultData = data.result?.response;
+
+  if (!resultData) {
+    throw new Error("Cloudflare AI returned empty response");
+  }
+
+  // If response is already an object, use it directly
+  if (typeof resultData === "object" && resultData !== null) {
+    // Check if it's flat structure (has 'name' at root) or nested (has 'organization_info')
+    if (resultData.name && !resultData.organization_info) {
+      return convertFlatToClassificationResult(
+        resultData as Record<string, unknown>,
+      );
+    }
+    // Nested structure
+    return parseClassificationJson(JSON.stringify(resultData));
+  }
+
+  // Parse JSON from text response (may include markdown code blocks)
+  let jsonStr = resultData as string;
+  const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (jsonMatch) {
+    jsonStr = jsonMatch[1];
+  }
+
+  const parsed = JSON.parse(jsonStr.trim());
+
+  // Check if it's flat structure (has 'name' at root) or nested (has 'organization_info')
+  if (parsed.name && !parsed.organization_info) {
+    return convertFlatToClassificationResult(parsed);
+  }
+
+  return parseClassificationJson(jsonStr);
 }
 
 // Convert flat schema response to nested ClassificationResult

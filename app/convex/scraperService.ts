@@ -11,7 +11,35 @@ declare const process: { env: Record<string, string | undefined> };
 
 const SCRAPER_SERVICE_URL = "https://successful-mandrill-388.convex.site";
 
-// Job schema for extraction
+// Schema to find job category links on a career hub page
+const LINK_EXTRACTION_SCHEMA = {
+  type: "object",
+  properties: {
+    job_category_links: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          url: { type: "string" },
+          label: { type: "string" },
+        },
+        required: ["url"],
+      },
+    },
+    has_direct_job_listings: { type: "boolean" },
+  },
+  required: ["job_category_links", "has_direct_job_listings"],
+};
+
+const LINK_EXTRACTION_PROMPT = `Analyze this career/jobs page. Look for:
+1. Links to job category pages (e.g., "View Faculty Positions", "Staff Jobs", "See All Openings")
+2. Whether this page directly lists individual job positions
+
+Return JSON with:
+- job_category_links: array of {url, label} for links that lead to more job listings. Convert relative URLs to absolute. Include links like "View Positions", "See Jobs", "Open Roles", category links, department links, etc. Maximum 5 most relevant links.
+- has_direct_job_listings: true if this page shows actual job titles/positions, false if it's just a hub page with category links`;
+
+// Job schema for extraction - OpenAI handles richer schemas reliably
 const JOB_EXTRACTION_SCHEMA = {
   type: "object",
   properties: {
@@ -23,37 +51,25 @@ const JOB_EXTRACTION_SCHEMA = {
           title: { type: "string" },
           department: { type: "string" },
           location: { type: "string" },
-          location_type: { type: "string" },
-          employment_type: { type: "string" },
-          salary_text: { type: "string" },
-          description_snippet: { type: "string" },
           apply_url: { type: "string" },
         },
         required: ["title"],
       },
     },
-    career_page_url: { type: "string" },
-    total_jobs_found: { type: "integer" },
+    total: { type: "integer" },
   },
-  required: ["jobs", "total_jobs_found"],
+  required: ["jobs", "total"],
 };
 
-const JOB_EXTRACTION_PROMPT = `Extract ALL job listings from this career page. Include full-time jobs, part-time jobs, internships, volunteer positions, and any other opportunities.
+const JOB_EXTRACTION_PROMPT = `Extract ALL job listings from this career page.
 
 For each position found, extract:
-- title: The job title
+- title: The job title (required)
 - department: Department or team if mentioned
-- location: City/State or "Remote" if mentioned
-- location_type: "remote", "onsite", or "hybrid" if indicated
-- employment_type: "full-time", "part-time", "contract", "internship", "volunteer" as appropriate
-- salary_text: Raw salary/compensation text if shown
-- description_snippet: First 200 characters of description
-- apply_url: The URL to apply (convert relative URLs to absolute)
+- location: City/State or "Remote" if shown
+- apply_url: The URL to apply or view job details (convert relative URLs to absolute)
 
-Return JSON with:
-- jobs: array of all positions found
-- career_page_url: the URL of the career page
-- total_jobs_found: count of positions`;
+Return JSON with jobs array and total count.`;
 
 // ============================================
 // Types
@@ -66,22 +82,32 @@ interface BotProtection {
   indicators: string[];
 }
 
+interface ExtractedJob {
+  title: string;
+  department?: string;
+  location?: string;
+  location_type?: string;
+  employment_type?: string;
+  salary_text?: string;
+  description_snippet?: string;
+  apply_url?: string;
+}
+
 interface ScraperJobResult {
   job_id: string;
   status: "pending" | "processing" | "completed" | "failed";
   url: string;
   result?: {
-    jobs: Array<{
-      title: string;
-      department?: string;
-      location?: string;
-      location_type?: string;
-      employment_type?: string;
-      salary_text?: string;
-      description_snippet?: string;
-      apply_url?: string;
+    // The scraper service wraps extraction results in an items array
+    items?: Array<{
+      jobs?: ExtractedJob[];
+      total_jobs_found?: number;
+      total?: number;
+      error?: boolean;
     }>;
-    total_jobs_found: number;
+    // Legacy direct format (for backwards compatibility)
+    jobs?: ExtractedJob[];
+    total_jobs_found?: number;
     career_page_url?: string;
     _botProtection?: BotProtection;
   };
@@ -94,6 +120,26 @@ interface ScraperJobResult {
   error?: string;
   created_at: string;
   completed_at?: string;
+}
+
+// Helper to extract jobs from scraper result (handles both formats)
+function extractJobsFromResult(result: ScraperJobResult["result"]): {
+  jobs: ExtractedJob[];
+  totalFound: number;
+} {
+  if (!result) return { jobs: [], totalFound: 0 };
+
+  // Check for items array format (new format from scraper service)
+  if (result.items && result.items.length > 0) {
+    const item = result.items[0];
+    const jobs = item.jobs || [];
+    const total = item.total_jobs_found || item.total || jobs.length;
+    return { jobs, totalFound: total };
+  }
+
+  // Legacy direct format
+  const jobs = result.jobs || [];
+  return { jobs, totalFound: result.total_jobs_found || jobs.length };
 }
 
 // ============================================
@@ -198,6 +244,7 @@ export const scrapeCareerPage = internalAction({
       apply_url?: string;
     }>;
     totalJobsFound: number;
+    pagesScraped: number;
     botProtection?: BotProtection;
     rawMarkdown?: string;
     error?: string;
@@ -210,48 +257,136 @@ export const scrapeCareerPage = internalAction({
         success: false,
         jobs: [],
         totalJobsFound: 0,
+        pagesScraped: 0,
         error: "Missing SCRAPER_SERVICE_API_KEY environment variable",
       };
     }
 
     try {
-      // Submit job
-      const { jobId } = await submitScrapeJob(
+      const allJobs: ExtractedJob[] = [];
+      let totalDurationMs = 0;
+      let pagesScraped = 0;
+      let lastBotProtection: BotProtection | undefined;
+
+      // Phase 1: Check if this is a hub page with category links
+      console.log(`Phase 1: Checking for job category links on ${args.url}`);
+      const { jobId: linkJobId } = await submitScrapeJob(
         apiKey,
         args.url,
-        JOB_EXTRACTION_SCHEMA,
-        JOB_EXTRACTION_PROMPT,
+        LINK_EXTRACTION_SCHEMA,
+        LINK_EXTRACTION_PROMPT,
       );
 
-      // Poll for result
-      const result = await pollForResult(apiKey, jobId);
+      const linkResult = await pollForResult(apiKey, linkJobId);
+      totalDurationMs += linkResult.metadata?.duration_ms || 0;
+      pagesScraped++;
 
-      if (result.status === "failed") {
+      if (linkResult.status === "failed") {
         return {
           success: false,
           jobs: [],
           totalJobsFound: 0,
-          error: result.error || "Scrape job failed",
-          botProtection: result.result?._botProtection,
+          pagesScraped,
+          error: linkResult.error || "Failed to analyze career page",
+          botProtection: linkResult.result?._botProtection,
+          durationMs: totalDurationMs,
         };
       }
 
-      const jobs = result.result?.jobs || [];
-      const botProtection = result.result?._botProtection;
+      // Extract link data from items array (scraper service wraps results)
+      const rawLinkResult = linkResult.result;
+      let linkData: {
+        job_category_links?: Array<{ url: string; label?: string }>;
+        has_direct_job_listings?: boolean;
+      } = {};
+
+      if (rawLinkResult?.items && rawLinkResult.items.length > 0) {
+        linkData = rawLinkResult.items[0] as typeof linkData;
+      }
+
+      lastBotProtection = rawLinkResult?._botProtection;
+      const categoryLinks = linkData?.job_category_links || [];
+      const hasDirectListings = linkData?.has_direct_job_listings || false;
+
+      console.log(
+        `Found ${categoryLinks.length} category links, hasDirectListings: ${hasDirectListings}`,
+      );
+
+      // Phase 2: Scrape pages for jobs
+      const urlsToScrape: string[] = [];
+
+      // Always try the main page first - it often has jobs directly listed
+      urlsToScrape.push(args.url);
+
+      // Also add category links if found (up to 5)
+      const linksToFollow = categoryLinks.slice(0, 5);
+      for (const link of linksToFollow) {
+        if (link.url && !urlsToScrape.includes(link.url)) {
+          urlsToScrape.push(link.url);
+        }
+      }
+
+      console.log(`Phase 2: Scraping ${urlsToScrape.length} pages for jobs`);
+
+      // Scrape each page for jobs
+      for (const pageUrl of urlsToScrape) {
+        try {
+          console.log(`Scraping jobs from: ${pageUrl}`);
+          const { jobId } = await submitScrapeJob(
+            apiKey,
+            pageUrl,
+            JOB_EXTRACTION_SCHEMA,
+            JOB_EXTRACTION_PROMPT,
+          );
+
+          const result = await pollForResult(apiKey, jobId);
+          totalDurationMs += result.metadata?.duration_ms || 0;
+          pagesScraped++;
+
+          if (result.status === "completed") {
+            const { jobs, totalFound } = extractJobsFromResult(result.result);
+            console.log(
+              `Found ${jobs.length} jobs on ${pageUrl} (total: ${totalFound})`,
+            );
+            allJobs.push(...jobs);
+          }
+
+          if (result.result?._botProtection) {
+            lastBotProtection = result.result._botProtection;
+          }
+        } catch (pageError) {
+          console.error(`Error scraping ${pageUrl}:`, pageError);
+          // Continue with other pages
+        }
+      }
+
+      // Deduplicate jobs by title + apply_url
+      const seen = new Set<string>();
+      const uniqueJobs = allJobs.filter((job) => {
+        const key = `${job.title}|${job.apply_url || ""}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+
+      console.log(
+        `Total: ${uniqueJobs.length} unique jobs from ${pagesScraped} pages`,
+      );
 
       return {
         success: true,
-        jobs,
-        totalJobsFound: result.result?.total_jobs_found || jobs.length,
-        botProtection,
-        rawMarkdown: result.raw_markdown,
-        durationMs: result.metadata?.duration_ms,
+        jobs: uniqueJobs,
+        totalJobsFound: uniqueJobs.length,
+        pagesScraped,
+        botProtection: lastBotProtection,
+        durationMs: totalDurationMs,
       };
     } catch (error) {
       return {
         success: false,
         jobs: [],
         totalJobsFound: 0,
+        pagesScraped: 0,
         error: error instanceof Error ? error.message : "Unknown error",
       };
     }
@@ -279,6 +414,7 @@ export const testScrape = action({
       apply_url?: string;
     }>;
     totalJobsFound: number;
+    pagesScraped: number;
     botProtection?: BotProtection;
     rawMarkdown?: string;
     error?: string;

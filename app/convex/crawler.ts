@@ -425,6 +425,16 @@ export const addToQueue = mutation({
       .first();
 
     if (existing) {
+      // If failed, allow resubmission by resetting to pending
+      if (existing.status === "failed") {
+        await ctx.db.patch(existing._id, {
+          status: "pending",
+          retryCount: 0,
+          errorMessage: undefined,
+          processedAt: undefined,
+        });
+        return { id: existing._id, alreadyExists: false, requeued: true };
+      }
       return { id: existing._id, alreadyExists: true };
     }
 
@@ -637,6 +647,47 @@ export const getQueueStatus = query({
       recentCompleted,
       recentFailed,
     };
+  },
+});
+
+// Get failed queue items with details
+export const getFailedQueueItems = query({
+  args: {},
+  handler: async (ctx) => {
+    const items = await ctx.db
+      .query("crawlerQueue")
+      .withIndex("by_status", (q) => q.eq("status", "failed"))
+      .collect();
+
+    return items.map((item) => ({
+      _id: item._id,
+      url: item.url,
+      errorMessage: item.errorMessage,
+      retryCount: item.retryCount,
+      processedAt: item.processedAt,
+    }));
+  },
+});
+
+// Retry all failed queue items
+export const retryFailedItems = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const failedItems = await ctx.db
+      .query("crawlerQueue")
+      .withIndex("by_status", (q) => q.eq("status", "failed"))
+      .collect();
+
+    for (const item of failedItems) {
+      await ctx.db.patch(item._id, {
+        status: "pending",
+        retryCount: 0,
+        errorMessage: undefined,
+        processedAt: undefined,
+      });
+    }
+
+    return { retriedCount: failedItems.length };
   },
 });
 
