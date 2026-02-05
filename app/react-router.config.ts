@@ -1,6 +1,6 @@
 import type { Config } from "@react-router/dev/config";
 
 export default {
-  // SSR enabled for SEO - use ConvexHttpClient for server-side data fetching
-  ssr: true,
+  // SPA mode - all data fetching happens client-side via Convex
+  ssr: false,
 } satisfies Config;

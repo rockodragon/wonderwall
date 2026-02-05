@@ -2,7 +2,7 @@ name = "wonderwall"
 compatibility_date = "2024-12-01"
 compatibility_flags = ["nodejs_compat"]
 
-# For SSR, deploy the full build directory (client + functions)
+# SPA mode - deploy static client build with _redirects for fallback routing
 pages_build_output_dir = "./build/client"
 
 [vars]
