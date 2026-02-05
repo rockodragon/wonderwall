@@ -573,10 +573,9 @@ export default function Onboarding() {
               </p>
               <div className="grid grid-cols-1 gap-3">
                 {EXAMPLE_WONDERS.map((example, idx) => (
-                  <button
+                  <div
                     key={idx}
-                    onClick={() => setWonderPrompt(example.prompt)}
-                    className="text-left p-4 bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 border border-indigo-100 dark:border-indigo-800/30 rounded-xl hover:border-indigo-300 dark:hover:border-indigo-600 transition-colors group"
+                    className="p-4 bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 border border-indigo-100 dark:border-indigo-800/30 rounded-xl"
                   >
                     <p className="text-gray-800 dark:text-gray-200 text-sm font-medium italic mb-2">
                       "{example.prompt}"
@@ -584,7 +583,7 @@ export default function Onboarding() {
                     <p className="text-xs text-gray-500 dark:text-gray-400">
                       {example.author} · {example.role}
                     </p>
-                  </button>
+                  </div>
                 ))}
               </div>
             </div>
