@@ -193,11 +193,44 @@ export default function Organizations() {
     <div className="min-h-screen bg-gray-950">
       {/* Header */}
       <header className="absolute top-0 left-0 right-0 z-50 px-6 py-6 flex items-center justify-between max-w-7xl mx-auto">
-        <Link
-          to="/"
-          className="text-2xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent"
-        >
-          TheCrossBoard
+        <Link to="/" className="flex items-center gap-2.5">
+          <svg viewBox="0 0 48 48" fill="none" className="w-7 h-7 shrink-0">
+            <rect
+              x="2"
+              y="2"
+              width="19"
+              height="19"
+              rx="4"
+              className="fill-blue-500"
+            />
+            <rect
+              x="27"
+              y="2"
+              width="19"
+              height="19"
+              rx="4"
+              className="fill-purple-400"
+            />
+            <rect
+              x="2"
+              y="27"
+              width="19"
+              height="19"
+              rx="4"
+              className="fill-purple-400"
+            />
+            <rect
+              x="27"
+              y="27"
+              width="19"
+              height="19"
+              rx="4"
+              className="fill-blue-500"
+            />
+          </svg>
+          <span className="text-2xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+            TheCrossBoard
+          </span>
         </Link>
         <Link
           to="/login"

@@ -112,11 +112,44 @@ export default function OrganizationDemo() {
       {/* Header */}
       <header className="sticky top-0 z-50 bg-gray-950/80 backdrop-blur-lg border-b border-gray-800 px-6 py-4">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <Link
-            to="/"
-            className="text-xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent"
-          >
-            TheCrossBoard
+          <Link to="/" className="flex items-center gap-2.5">
+            <svg viewBox="0 0 48 48" fill="none" className="w-6 h-6 shrink-0">
+              <rect
+                x="2"
+                y="2"
+                width="19"
+                height="19"
+                rx="4"
+                className="fill-blue-500"
+              />
+              <rect
+                x="27"
+                y="2"
+                width="19"
+                height="19"
+                rx="4"
+                className="fill-purple-400"
+              />
+              <rect
+                x="2"
+                y="27"
+                width="19"
+                height="19"
+                rx="4"
+                className="fill-purple-400"
+              />
+              <rect
+                x="27"
+                y="27"
+                width="19"
+                height="19"
+                rx="4"
+                className="fill-blue-500"
+              />
+            </svg>
+            <span className="text-xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+              TheCrossBoard
+            </span>
           </Link>
           <div className="flex items-center gap-4">
             <Link
