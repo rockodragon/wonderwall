@@ -15,7 +15,10 @@ export function meta() {
         "Frequently asked questions about TheCrossBoard - invites, profiles, events, and account management.",
     },
     { property: "og:type", content: "website" },
-    { property: "og:image", content: "https://wonderwall.app/og-image.png" },
+    {
+      property: "og:image",
+      content: "https://www.thecrossboard.org/og-image.png",
+    },
     { name: "twitter:card", content: "summary_large_image" },
     { name: "twitter:title", content: "FAQ - TheCrossBoard" },
     {
@@ -203,7 +206,7 @@ export default function FAQ() {
           We're here to help. Reach out to us anytime.
         </p>
         <a
-          href="mailto:hello@wonderwall.app"
+          href="mailto:hello@thecrossboard.org"
           className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
         >
           <svg

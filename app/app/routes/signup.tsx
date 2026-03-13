@@ -21,7 +21,10 @@ export function meta() {
         "Join TheCrossBoard, a community of Kingdom-minded creatives. By invitation only.",
     },
     { property: "og:type", content: "website" },
-    { property: "og:image", content: "https://wonderwall.app/og-image.png" },
+    {
+      property: "og:image",
+      content: "https://www.thecrossboard.org/og-image.png",
+    },
     { name: "twitter:card", content: "summary_large_image" },
     { name: "twitter:title", content: "Join TheCrossBoard" },
     {

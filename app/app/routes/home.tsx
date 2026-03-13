@@ -22,7 +22,10 @@ export function meta({}: Route.MetaArgs) {
         "Bringing Kingdom-minded employers, sponsors, and creatives together to exercise our gifts. Jobs, portfolios, collabs, and events — all in one place.",
     },
     { property: "og:type", content: "website" },
-    { property: "og:image", content: "https://wonderwall.app/og-image.png" },
+    {
+      property: "og:image",
+      content: "https://www.thecrossboard.org/og-image.png",
+    },
     { name: "twitter:card", content: "summary_large_image" },
     {
       name: "twitter:title",

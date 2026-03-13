@@ -39,6 +39,11 @@ export function meta({}: Route.MetaArgs) {
         "Connect with talented creatives known for integrity and excellence—for any organization.",
     },
     { property: "og:type", content: "website" },
+    {
+      property: "og:image",
+      content: "https://www.thecrossboard.org/og-image.png",
+    },
+    { name: "twitter:card", content: "summary_large_image" },
   ];
 }
 

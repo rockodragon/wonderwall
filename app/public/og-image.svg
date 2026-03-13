@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" fill="none">
+  <!-- Background -->
+  <rect width="1200" height="630" fill="#030712"/>
+
+  <!-- Decorative gradient orbs -->
+  <circle cx="200" cy="100" r="300" fill="#2563eb" opacity="0.08"/>
+  <circle cx="1000" cy="500" r="300" fill="#a855f7" opacity="0.08"/>
+
+  <!-- Logo icon - centered, larger -->
+  <g transform="translate(490, 160)">
+    <rect x="0" y="0" width="95" height="95" rx="18" fill="#2563eb"/>
+    <rect x="125" y="0" width="95" height="95" rx="18" fill="#a855f7"/>
+    <rect x="0" y="125" width="95" height="95" rx="18" fill="#a855f7"/>
+    <rect x="125" y="125" width="95" height="95" rx="18" fill="#2563eb"/>
+  </g>
+
+  <!-- Brand name -->
+  <text x="600" y="480" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="52" font-weight="700" fill="white">TheCrossBoard</text>
+
+  <!-- Tagline -->
+  <text x="600" y="530" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="22" fill="#9ca3af">Jobs, portfolios &amp; collabs for Kingdom-minded creatives</text>
+</svg>
