@@ -6,10 +6,10 @@ import { api } from "../../convex/_generated/api";
 import { InviteCTA } from "../components/InviteCTA";
 
 const navItems = [
-  { path: "/search", label: "Discover", icon: SearchIcon },
-  { path: "/works", label: "Works", icon: GridIcon },
-  { path: "/events", label: "Events", icon: CalendarIcon },
   { path: "/jobs", label: "Jobs", icon: BriefcaseIcon },
+  { path: "/search", label: "People", icon: SearchIcon },
+  { path: "/works", label: "Portfolio", icon: GridIcon },
+  { path: "/events", label: "Events", icon: CalendarIcon },
   { path: "/favorites", label: "Favorites", icon: HeartIcon },
   { path: "/settings", label: "Profile", icon: UserIcon },
 ];
@@ -113,11 +113,44 @@ export default function AppLayout() {
       {/* Desktop sidebar */}
       <aside className="hidden md:flex md:flex-col md:fixed md:inset-y-0 md:w-64 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800">
         <div className="p-6">
-          <Link
-            to="/"
-            className="text-xl font-bold text-gray-900 dark:text-white"
-          >
-            Wonderwall
+          <Link to="/" className="flex items-center gap-2.5">
+            <svg viewBox="0 0 48 48" fill="none" className="w-7 h-7 shrink-0">
+              <rect
+                x="2"
+                y="2"
+                width="19"
+                height="19"
+                rx="4"
+                className="fill-blue-600"
+              />
+              <rect
+                x="27"
+                y="2"
+                width="19"
+                height="19"
+                rx="4"
+                className="fill-purple-500"
+              />
+              <rect
+                x="2"
+                y="27"
+                width="19"
+                height="19"
+                rx="4"
+                className="fill-purple-500"
+              />
+              <rect
+                x="27"
+                y="27"
+                width="19"
+                height="19"
+                rx="4"
+                className="fill-blue-600"
+              />
+            </svg>
+            <span className="text-lg font-bold text-gray-900 dark:text-white">
+              TheCrossBoard
+            </span>
           </Link>
         </div>
 

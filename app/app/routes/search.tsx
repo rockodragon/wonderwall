@@ -4,7 +4,6 @@ import { Link } from "react-router";
 import { api } from "../../convex/_generated/api";
 import { FavoriteButton } from "../components/FavoriteButton";
 import { InviteCTA } from "../components/InviteCTA";
-import { CreateWonderingComposer } from "../components/CreateWonderingComposer";
 
 // Debounce hook for search
 function useDebounce<T>(value: T, delay: number): T {
@@ -42,7 +41,7 @@ const FILTERS = [
   { label: "Craftsmen", value: "Craftsman" },
 ];
 
-type ProfileWithWondering = {
+type ProfileResult = {
   _id: string;
   name: string;
   imageUrl?: string;
@@ -54,20 +53,6 @@ export default function Search() {
   const [query, setQuery] = useState("");
   const [activeFilters, setActiveFilters] = useState<string[]>([]);
   const [filterExpanded, setFilterExpanded] = useState(false);
-  // Start with true to match server render, then check localStorage in useEffect
-  const [showWonderTip, setShowWonderTip] = useState(true);
-
-  useEffect(() => {
-    // Check localStorage after hydration to avoid mismatch
-    const dismissed =
-      localStorage.getItem("wonderwall:wonder-tip-dismissed") === "true";
-    if (dismissed) setShowWonderTip(false);
-  }, []);
-
-  const dismissWonderTip = () => {
-    setShowWonderTip(false);
-    localStorage.setItem("wonderwall:wonder-tip-dismissed", "true");
-  };
 
   const debouncedQuery = useDebounce(query, 300);
 
@@ -91,12 +76,12 @@ export default function Search() {
         ? FILTERS.find((f) => f.value === activeFilters[0])?.label || "1 filter"
         : `${activeFilters.length} filters`;
 
-  // Text-based search for profiles (includes name, bio, job functions, wonderings)
+  // Text-based search for profiles (includes name, bio, job functions)
   // Pass first filter for now (API would need update to support multiple)
   const profiles = useQuery(api.profiles.search, {
     query: debouncedQuery || undefined,
     jobFunction: activeFilters[0],
-  }) as ProfileWithWondering[] | undefined;
+  }) as ProfileResult[] | undefined;
 
   // Client-side filter for additional filters
   const filteredProfiles = profiles?.filter((profile) => {
@@ -115,61 +100,14 @@ export default function Search() {
 
   const loading = profiles === undefined;
 
-  // Split filtered profiles into with wonderings and without
-  const filteredProfilesWithWonderings =
-    filteredProfiles?.filter((p) => p.wondering) || [];
-  const filteredProfilesWithoutWonderings =
-    filteredProfiles?.filter((p) => !p.wondering) || [];
-
   return (
     <div className="max-w-6xl mx-auto p-6">
       <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-        Discover
+        People
       </h2>
       <p className="text-gray-500 dark:text-gray-400 mb-4">
-        Find creatives by what they do, think, or create
+        Find creatives by what they do
       </p>
-
-      {/* What's a Wonder? - Dismissable notification */}
-      {showWonderTip && (
-        <div className="mb-6 p-5 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500 rounded-xl">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex-1">
-              <h3 className="text-lg font-semibold text-white mb-2">
-                What's a Wonder?
-              </h3>
-              <p className="text-white/90 text-sm leading-relaxed">
-                A Wonder could be a question you're pondering, an activity, or a
-                thought that might cause others to wonder.
-              </p>
-            </div>
-            <button
-              onClick={dismissWonderTip}
-              className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-white/70 hover:text-white transition-colors shrink-0"
-            >
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-              Got it
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Create Wondering Composer */}
-      <div className="mb-6">
-        <CreateWonderingComposer />
-      </div>
 
       {/* Search input + Filter on same line */}
       <div className="flex gap-3 mb-6">
@@ -193,7 +131,7 @@ export default function Search() {
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search by name, role, wondering, or event..."
+            placeholder="Search by name, role, or event..."
             className="w-full pl-12 pr-4 py-3 border border-gray-300 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
           />
         </div>
@@ -270,28 +208,14 @@ export default function Search() {
             </section>
           )}
 
-          {/* Wonder Cards - Primary Section */}
-          {filteredProfilesWithWonderings.length > 0 && (
+          {/* People */}
+          {filteredProfiles && filteredProfiles.length > 0 && (
             <section>
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                What people are wondering
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {filteredProfilesWithWonderings.map((profile) => (
-                  <WonderCard key={profile._id} profile={profile} />
-                ))}
-              </div>
-            </section>
-          )}
-
-          {/* Profiles without wonderings */}
-          {filteredProfilesWithoutWonderings.length > 0 && (
-            <section>
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                {query ? "People" : "More creatives"}
+                {query ? "People" : "Creatives"}
               </h2>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {filteredProfilesWithoutWonderings.map((profile) => (
+                {filteredProfiles.map((profile) => (
                   <ProfileCard key={profile._id} profile={profile} />
                 ))}
               </div>
@@ -308,107 +232,7 @@ export default function Search() {
   );
 }
 
-// Get text size class based on prompt length for optimal readability
-function getWonderTextStyle(prompt: string): {
-  sizeClass: string;
-  fontClass: string;
-} {
-  const len = prompt.length;
-
-  // Size based on length - aim for 40-75% of card space
-  let sizeClass: string;
-  if (len < 40) {
-    sizeClass = "text-2xl md:text-3xl";
-  } else if (len < 80) {
-    sizeClass = "text-xl md:text-2xl";
-  } else if (len < 150) {
-    sizeClass = "text-lg md:text-xl";
-  } else {
-    sizeClass = "text-base md:text-lg";
-  }
-
-  // Alternate font styles based on prompt characteristics
-  // Use serif for questions, italic for reflective prompts
-  const isQuestion = prompt.includes("?");
-  const fontClass = isQuestion ? "font-serif italic" : "font-medium";
-
-  return { sizeClass, fontClass };
-}
-
-function WonderCard({ profile }: { profile: ProfileWithWondering }) {
-  // Safety check - prevents crash during data refetch timing issues
-  if (!profile.wondering) return null;
-  const wondering = profile.wondering;
-  const { sizeClass, fontClass } = getWonderTextStyle(wondering.prompt);
-
-  // Use wondering image, or profile image, or gradient
-  const hasWonderingImage = !!wondering.imageUrl;
-  const hasProfileImage = !!profile.imageUrl;
-
-  return (
-    <Link
-      to={`/profile/${profile._id}`}
-      className="group relative block overflow-hidden rounded-2xl aspect-[4/5] bg-gray-100 dark:bg-gray-800"
-    >
-      {/* Background */}
-      {hasWonderingImage ? (
-        <img
-          src={wondering.imageUrl!}
-          alt=""
-          className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-        />
-      ) : hasProfileImage ? (
-        <img
-          src={profile.imageUrl}
-          alt=""
-          className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-        />
-      ) : (
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500" />
-      )}
-
-      {/* Overlay */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/20" />
-
-      {/* Favorite button */}
-      <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-        <FavoriteButton targetType="profile" targetId={profile._id} size="sm" />
-      </div>
-
-      {/* Content */}
-      <div className="absolute inset-0 flex flex-col justify-between p-5">
-        {/* Wonder prompt - hero text with variable sizing */}
-        <div className="flex-1 flex items-center justify-center">
-          <p
-            className={`text-white ${sizeClass} ${fontClass} text-center leading-relaxed px-2`}
-          >
-            "{wondering.prompt}"
-          </p>
-        </div>
-
-        {/* Profile info - lower left */}
-        <div className="flex items-center gap-2">
-          {hasProfileImage ? (
-            <img
-              src={profile.imageUrl}
-              alt={profile.name}
-              className="w-8 h-8 rounded-full object-cover border border-white/30"
-            />
-          ) : (
-            <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white text-sm font-medium">
-              {profile.name.charAt(0).toUpperCase()}
-            </div>
-          )}
-          <span className="text-white/90 text-sm font-medium">
-            {profile.name}
-          </span>
-        </div>
-      </div>
-    </Link>
-  );
-}
-
-function ProfileCard({ profile }: { profile: ProfileWithWondering }) {
+function ProfileCard({ profile }: { profile: ProfileResult }) {
   const hasImage = !!profile.imageUrl;
 
   return (
@@ -439,29 +263,6 @@ function ProfileCard({ profile }: { profile: ProfileWithWondering }) {
         <FavoriteButton targetType="profile" targetId={profile._id} size="sm" />
       </div>
     </Link>
-  );
-}
-
-function FilterChip({
-  label,
-  active,
-  onClick,
-}: {
-  label: string;
-  active?: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
-        active
-          ? "bg-blue-600 text-white shadow-lg shadow-blue-600/25"
-          : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"
-      }`}
-    >
-      {label}
-    </button>
   );
 }
 

@@ -13,7 +13,7 @@ import {
 } from "@tanstack/react-table";
 
 export const meta: MetaFunction = () => {
-  return [{ title: "Crawler Admin | Wonderwall" }];
+  return [{ title: "Crawler Admin | TheCrossBoard" }];
 };
 
 // Tooltip component

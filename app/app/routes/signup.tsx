@@ -8,26 +8,26 @@ import { api } from "../../convex/_generated/api";
 
 export function meta() {
   return [
-    { title: "Join Wonderwall - Invite Only" },
+    { title: "Join TheCrossBoard - Invite Only" },
     {
       name: "description",
       content:
-        "Join Wonderwall, a community of Kingdom-minded creatives. By invitation only.",
+        "Join TheCrossBoard, a community of Kingdom-minded creatives. By invitation only.",
     },
-    { property: "og:title", content: "Join Wonderwall" },
+    { property: "og:title", content: "Join TheCrossBoard" },
     {
       property: "og:description",
       content:
-        "Join Wonderwall, a community of Kingdom-minded creatives. By invitation only.",
+        "Join TheCrossBoard, a community of Kingdom-minded creatives. By invitation only.",
     },
     { property: "og:type", content: "website" },
     { property: "og:image", content: "https://wonderwall.app/og-image.png" },
     { name: "twitter:card", content: "summary_large_image" },
-    { name: "twitter:title", content: "Join Wonderwall" },
+    { name: "twitter:title", content: "Join TheCrossBoard" },
     {
       name: "twitter:description",
       content:
-        "Join Wonderwall, a community of Kingdom-minded creatives. By invitation only.",
+        "Join TheCrossBoard, a community of Kingdom-minded creatives. By invitation only.",
     },
   ];
 }
@@ -204,7 +204,7 @@ export default function Signup() {
             Invite Required
           </h1>
           <p className="text-gray-600 dark:text-gray-400 mb-6">
-            Wonderwall is invite-only. Please use an invite link from an
+            TheCrossBoard is invite-only. Please use an invite link from an
             existing member to join.
           </p>
           <Link
@@ -240,7 +240,7 @@ export default function Signup() {
             to="/"
             className="text-xl font-bold text-gray-900 dark:text-white"
           >
-            Wonderwall
+            TheCrossBoard
           </Link>
           <Link
             to="/login"

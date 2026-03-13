@@ -3,11 +3,11 @@ import type { MetaFunction } from "react-router";
 
 export const meta: MetaFunction = () => {
   return [
-    { title: "Sample Organization Profile | Wonderwall" },
+    { title: "Sample Organization Profile | TheCrossBoard" },
     {
       name: "description",
       content:
-        "See what your organization profile could look like on Wonderwall. Connect with Kingdom-minded creatives.",
+        "See what your organization profile could look like on TheCrossBoard. Connect with Kingdom-minded creatives.",
     },
   ];
 };
@@ -87,7 +87,7 @@ const SAMPLE_ORG = {
     },
     {
       quote:
-        "The sponsorship program changed my career. I couldn't afford a Wonderwall membership, but Salty Light sponsored me and I've since gotten 3 clients through the platform.",
+        "The sponsorship program changed my career. I couldn't afford a TheCrossBoard membership, but Salty Light sponsored me and I've since gotten 3 clients through the platform.",
       author: "Maria Santos",
       role: "Graphic Designer",
       image:
@@ -116,7 +116,7 @@ export default function OrganizationDemo() {
             to="/"
             className="text-xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent"
           >
-            Wonderwall
+            TheCrossBoard
           </Link>
           <div className="flex items-center gap-4">
             <Link
@@ -563,8 +563,8 @@ export default function OrganizationDemo() {
             Want a profile like this for your organization?
           </h2>
           <p className="text-gray-300 mb-6 max-w-xl mx-auto">
-            Join Wonderwall and connect with Kingdom-minded creatives. Partner
-            tier and above get a dedicated organization profile page.
+            Join TheCrossBoard and connect with Kingdom-minded creatives.
+            Partner tier and above get a dedicated organization profile page.
           </p>
           <Link
             to="/organizations"
@@ -592,7 +592,7 @@ export default function OrganizationDemo() {
       <footer className="px-6 py-8 border-t border-gray-800">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <p className="text-gray-500 text-sm">
-            Wonderwall — A community for Kingdom-minded creatives
+            TheCrossBoard — A community for Kingdom-minded creatives
           </p>
           <div className="flex items-center gap-6">
             <Link

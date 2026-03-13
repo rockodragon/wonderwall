@@ -3,30 +3,35 @@ import { Link, useNavigate } from "react-router";
 import { useEffect, useState } from "react";
 import type { Route } from "./+types/home";
 import { api } from "../../convex/_generated/api";
-import "../styles/marquee.css";
 
 export function meta({}: Route.MetaArgs) {
   return [
-    { title: "Wonderwall - Kingdom-Minded Creatives" },
+    { title: "TheCrossBoard - Jobs, Portfolios & Collabs for Creatives" },
     {
       name: "description",
       content:
-        "Connect with Kingdom-minded creatives. Share your work, discover peers, and spark collaborations.",
+        "Bringing Kingdom-minded employers, sponsors, and creatives together to exercise our gifts. Jobs, portfolios, collabs, and events — all in one place.",
     },
-    { property: "og:title", content: "Wonderwall - Kingdom-Minded Creatives" },
+    {
+      property: "og:title",
+      content: "TheCrossBoard - Jobs, Portfolios & Collabs for Creatives",
+    },
     {
       property: "og:description",
       content:
-        "Connect with Kingdom-minded creatives. Share your work, discover peers, and spark collaborations.",
+        "Bringing Kingdom-minded employers, sponsors, and creatives together to exercise our gifts. Jobs, portfolios, collabs, and events — all in one place.",
     },
     { property: "og:type", content: "website" },
     { property: "og:image", content: "https://wonderwall.app/og-image.png" },
     { name: "twitter:card", content: "summary_large_image" },
-    { name: "twitter:title", content: "Wonderwall - Kingdom-Minded Creatives" },
+    {
+      name: "twitter:title",
+      content: "TheCrossBoard - Jobs, Portfolios & Collabs for Creatives",
+    },
     {
       name: "twitter:description",
       content:
-        "Connect with Kingdom-minded creatives. Share your work, discover peers, and spark collaborations.",
+        "Bringing Kingdom-minded employers, sponsors, and creatives together to exercise our gifts. Jobs, portfolios, collabs, and events — all in one place.",
     },
   ];
 }
@@ -43,9 +48,6 @@ export default function Home() {
   const [inviteError, setInviteError] = useState("");
   const [inviteSlug, setInviteSlug] = useState<string | null>(null);
   const addToWaitlist = useMutation(api.waitlist.addToWaitlist);
-
-  // Fetch featured content for marquee
-  const wonderings = useQuery(api.public.getFeaturedWonderings);
 
   // Fetch inviter info when slug is set
   const inviterInfo = useQuery(
@@ -121,8 +123,44 @@ export default function Home() {
     <div className="min-h-screen bg-gray-950 overflow-hidden">
       {/* Header */}
       <header className="absolute top-0 left-0 right-0 z-50 px-6 py-6 flex items-center justify-between max-w-7xl mx-auto">
-        <h1 className="text-2xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
-          Wonderwall
+        <h1 className="flex items-center gap-2.5">
+          <svg viewBox="0 0 48 48" fill="none" className="w-7 h-7 shrink-0">
+            <rect
+              x="2"
+              y="2"
+              width="19"
+              height="19"
+              rx="4"
+              className="fill-blue-500"
+            />
+            <rect
+              x="27"
+              y="2"
+              width="19"
+              height="19"
+              rx="4"
+              className="fill-purple-400"
+            />
+            <rect
+              x="2"
+              y="27"
+              width="19"
+              height="19"
+              rx="4"
+              className="fill-purple-400"
+            />
+            <rect
+              x="27"
+              y="27"
+              width="19"
+              height="19"
+              rx="4"
+              className="fill-blue-500"
+            />
+          </svg>
+          <span className="text-2xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+            TheCrossBoard
+          </span>
         </h1>
         <div className="flex items-center gap-4">
           <Link
@@ -154,18 +192,20 @@ export default function Home() {
         {/* Hero Content - Centered */}
         <div className="relative z-10 px-6 max-w-5xl mx-auto text-center mb-20">
           <h2 className="text-5xl md:text-7xl font-bold text-white leading-tight mb-6">
-            Connect with
+            Find work.
             <br />
             <span className="bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
-              Kingdom-minded creatives
+              Show your craft.
             </span>
+            <br />
+            Collaborate.
           </h2>
           <p className="mt-6 text-xl text-gray-200 max-w-2xl mx-auto mb-4">
-            Share your work, find jobs, connect with peers, and spark
-            collaborations.
+            Bringing Kingdom-minded employers, sponsors, and creatives together
+            to exercise our gifts.
           </p>
           <p className="text-lg text-gray-300 max-w-xl mx-auto mb-8">
-            Because the world needs a different algorithm and platform.
+            Jobs. Portfolios. Collabs. Events. All in one place.
           </p>
 
           {/* Closed Beta Badge */}
@@ -383,7 +423,7 @@ export default function Home() {
                               ", "}
                           </span>
                         ))}{" "}
-                        and others on Wonderwall
+                        and others on TheCrossBoard
                       </p>
                     </div>
                   ) : (
@@ -393,7 +433,7 @@ export default function Home() {
                         <span className="font-semibold text-white">
                           {inviterInfo.name}
                         </span>
-                        's network on Wonderwall
+                        's network on TheCrossBoard
                       </p>
                     </div>
                   )}
@@ -443,55 +483,38 @@ export default function Home() {
               </div>
 
               <h3 className="text-3xl md:text-4xl font-bold text-white text-center mb-10">
-                A Different Kind of Platform
+                Built for How We Work
               </h3>
 
               <div className="space-y-6 text-center">
                 <p className="text-gray-300 text-lg leading-relaxed">
-                  We believe the creative economy is broken. Algorithms
-                  optimized for engagement have turned social platforms into
-                  attention factories, rewarding outrage over craftsmanship, and
-                  virality over value. The result? Burnout, comparison, and a
-                  race to the bottom.
-                </p>
-                <p className="text-gray-300 text-lg leading-relaxed">
+                  We're building the creative economy we want to be part of. A
+                  place where{" "}
                   <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400 font-semibold">
-                    Wonderwall is different by design.
+                    Kingdom-minded employers, sponsors, and creatives
                   </span>{" "}
-                  We're building for depth, not distraction. Our platform
-                  prioritizes thoughtful engagement over infinite scroll,
-                  meaningful relationships over follower counts, and sustainable
-                  creativity over content mills.
+                  find each other and put their gifts to work — together.
                 </p>
                 <p className="text-gray-300 text-lg leading-relaxed">
-                  Jobs are posted by real community members, not faceless
-                  corporations. Conversations happen between people, not
-                  personas. And the algorithm? It's simple: show people what
-                  they're actually looking for, and get out of the way.
+                  TheCrossBoard connects you with real opportunities from real
+                  people. Values-driven businesses, organizations, and sponsors
+                  post jobs. Creatives showcase portfolios. Collaborations start
+                  through direct conversations, not algorithms.
+                </p>
+                <p className="text-gray-300 text-lg leading-relaxed">
+                  Every gift matters. Whether you're a designer, musician,
+                  filmmaker, writer, or sound engineer — there's a seat at the
+                  table and work worth doing.
                 </p>
                 <div className="pt-4">
                   <p className="text-gray-400 text-lg leading-relaxed italic">
-                    "No hacks. No hustle culture. Just good work, good people,
-                    and good conversations."
+                    "Good work, good people, and a place to exercise our gifts."
                   </p>
                 </div>
               </div>
             </div>
           </div>
         </div>
-
-        {/* Animated Content Marquee */}
-        {wonderings && wonderings.length > 0 && (
-          <div className="marquee-container relative mt-24">
-            <div className="absolute left-0 top-0 bottom-0 w-32 bg-gradient-to-r from-gray-950 to-transparent z-10" />
-            <div className="absolute right-0 top-0 bottom-0 w-32 bg-gradient-to-l from-gray-950 to-transparent z-10" />
-            <div className="flex gap-4 marquee-scroll-left">
-              {[...wonderings, ...wonderings].map((wondering, idx) => (
-                <WonderingCard key={idx} wondering={wondering} />
-              ))}
-            </div>
-          </div>
-        )}
       </main>
 
       {/* Features */}
@@ -522,14 +545,14 @@ export default function Home() {
             }
           />
           <FeatureCard
-            title="Wonder Together"
-            description="Post questions you're pondering and receive thoughtful responses from the community."
+            title="Collaborate"
+            description="Connect directly with other creatives for projects, gigs, and partnerships — no middleman."
             icon={
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 strokeWidth={2}
-                d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
               />
             }
           />
@@ -577,8 +600,8 @@ export default function Home() {
                   Looking to hire?
                 </h3>
                 <p className="text-gray-300 max-w-md">
-                  Churches, nonprofits, and businesses—connect with talented
-                  creatives who bring excellence and integrity to every project.
+                  Connect with talented creatives who bring excellence and
+                  integrity to every project.
                 </p>
               </div>
               <Link
@@ -601,7 +624,8 @@ export default function Home() {
       <footer className="px-6 py-8 border-t border-gray-800">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <p className="text-gray-500 text-sm">
-            Wonderwall — A community for Kingdom-minded creatives
+            TheCrossBoard — Bringing Kingdom-minded employers, sponsors &
+            creatives together
           </p>
           <div className="flex items-center gap-6">
             <Link
@@ -649,89 +673,6 @@ function UpSightEmbed() {
       data-upsight-success="You're on the list!"
     />
   );
-}
-
-// Wondering Card Component
-function WonderingCard({ wondering }: { wondering: any }) {
-  const { sizeClass } = getWonderTextStyle(wondering.prompt);
-  const hasImage = !!wondering.wonderingImageUrl;
-  const hasProfileImage = !!wondering.profile.imageUrl;
-
-  return (
-    <div className="group relative flex-shrink-0 w-80 h-96 rounded-2xl overflow-hidden bg-gray-900 border border-gray-800 hover:border-purple-500 transition-all duration-300 hover:scale-105 cursor-pointer">
-      {/* Background */}
-      {hasImage ? (
-        <img
-          src={wondering.wonderingImageUrl}
-          alt=""
-          className="absolute inset-0 w-full h-full object-cover"
-        />
-      ) : hasProfileImage ? (
-        <img
-          src={wondering.profile.imageUrl}
-          alt=""
-          className="absolute inset-0 w-full h-full object-cover"
-        />
-      ) : (
-        <div className="absolute inset-0 bg-gradient-to-br from-purple-600 via-blue-600 to-pink-600" />
-      )}
-
-      {/* Overlay */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-black/20" />
-
-      {/* Content */}
-      <div className="absolute inset-0 flex flex-col justify-between p-6">
-        <div className="flex-1 flex items-center justify-center">
-          <p
-            className={`text-white ${sizeClass} font-medium text-center leading-relaxed`}
-          >
-            "{wondering.prompt}"
-          </p>
-        </div>
-
-        {/* Profile info */}
-        <div className="flex items-center gap-2">
-          {hasProfileImage ? (
-            <img
-              src={wondering.profile.imageUrl}
-              alt={wondering.profile.name}
-              className="w-8 h-8 rounded-full object-cover border border-white/30"
-            />
-          ) : (
-            <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white text-sm font-medium">
-              {wondering.profile.name.charAt(0).toUpperCase()}
-            </div>
-          )}
-          <div>
-            <span className="text-white/90 text-sm font-medium block">
-              {wondering.profile.name}
-            </span>
-            {wondering.profile.jobFunctions.length > 0 && (
-              <span className="text-white/60 text-xs">
-                {wondering.profile.jobFunctions.join(" • ")}
-              </span>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// Helper function for wondering text sizing
-function getWonderTextStyle(prompt: string): { sizeClass: string } {
-  const len = prompt.length;
-  let sizeClass: string;
-  if (len < 40) {
-    sizeClass = "text-2xl";
-  } else if (len < 80) {
-    sizeClass = "text-xl";
-  } else if (len < 150) {
-    sizeClass = "text-lg";
-  } else {
-    sizeClass = "text-base";
-  }
-  return { sizeClass };
 }
 
 function FeatureCard({

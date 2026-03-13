@@ -7,26 +7,6 @@ import { api } from "../../convex/_generated/api";
 
 import { JOB_FUNCTIONS } from "../constants/jobFunctions";
 
-// Example wonders to inspire new users
-const EXAMPLE_WONDERS = [
-  {
-    prompt:
-      "What if we designed church buildings that doubled as community art spaces during the week?",
-    author: "Sarah M.",
-    role: "Architect",
-  },
-  {
-    prompt: "How do you stay creative when you're exhausted from client work?",
-    author: "Marcus T.",
-    role: "Designer",
-  },
-  {
-    prompt: "What's the most meaningful project you've worked on, and why?",
-    author: "Elena K.",
-    role: "Filmmaker",
-  },
-];
-
 export default function Onboarding() {
   const navigate = useNavigate();
   const posthog = usePostHog();
@@ -48,9 +28,6 @@ export default function Onboarding() {
   const [workUrl, setWorkUrl] = useState("");
   const workImageInputRef = useRef<HTMLInputElement>(null);
 
-  // Wondering creation
-  const [wonderPrompt, setWonderPrompt] = useState("");
-
   const profile = useQuery(api.profiles.getMyProfile);
   const upsertProfile = useMutation(api.profiles.upsertProfile);
   const generateUploadUrl = useMutation(api.files.generateUploadUrl);
@@ -60,7 +37,6 @@ export default function Onboarding() {
     profileImageUrl ? { storageId: profileImageUrl } : "skip",
   );
   const createArtifact = useMutation(api.artifacts.create);
-  const createWondering = useMutation(api.wonderings.create);
   const inviteLink = useQuery(api.invites.getMyInviteLink);
 
   // Step 1: Profile Setup
@@ -206,40 +182,6 @@ export default function Onboarding() {
     }
   }
 
-  // Step 3: Create Wondering
-  async function handleCreateWonder() {
-    if (!wonderPrompt.trim()) {
-      alert("Please enter a wondering");
-      return;
-    }
-
-    setUploading(true);
-    try {
-      await createWondering({
-        prompt: wonderPrompt.trim(),
-      });
-
-      confetti({
-        particleCount: 100,
-        spread: 70,
-        origin: { y: 0.6 },
-      });
-
-      posthog?.capture("onboarding_step_completed", {
-        step_number: 3,
-        step_name: "create_wondering",
-        wondering_length: wonderPrompt.trim().length,
-      });
-
-      setStep(4);
-    } catch (err) {
-      console.error("Failed to create wondering:", err);
-      alert("Failed to create wondering. Please try again.");
-    } finally {
-      setUploading(false);
-    }
-  }
-
   function copyInviteLink() {
     if (!inviteLink?.slug) return;
     const url = `${window.location.origin}/signup/${inviteLink.slug}`;
@@ -260,7 +202,7 @@ export default function Onboarding() {
         {/* Progress indicator */}
         <div className="mb-8">
           <div className="flex items-center justify-center gap-2">
-            {[1, 2, 3, 4].map((i) => (
+            {[1, 2, 3].map((i) => (
               <div
                 key={i}
                 className={`h-2 rounded-full transition-all ${
@@ -274,7 +216,7 @@ export default function Onboarding() {
             ))}
           </div>
           <p className="text-center text-sm text-gray-500 dark:text-gray-400 mt-2">
-            Step {step} of 4
+            Step {step} of 3
           </p>
         </div>
 
@@ -554,75 +496,8 @@ export default function Onboarding() {
           </div>
         )}
 
-        {/* Step 3: Create Wondering */}
+        {/* Step 3: Celebration */}
         {step === 3 && (
-          <div className="bg-white dark:bg-gray-900 rounded-2xl p-8 shadow-xl">
-            <div className="mb-6">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-                What are you wondering about?
-              </h2>
-              <p className="text-gray-600 dark:text-gray-400 text-sm">
-                Share a question or idea you're exploring
-              </p>
-            </div>
-
-            {/* Example wonder cards */}
-            <div className="mb-6">
-              <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">
-                Get inspired by others
-              </p>
-              <div className="grid grid-cols-1 gap-3">
-                {EXAMPLE_WONDERS.map((example, idx) => (
-                  <div
-                    key={idx}
-                    className="p-4 bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 border border-indigo-100 dark:border-indigo-800/30 rounded-xl"
-                  >
-                    <p className="text-gray-800 dark:text-gray-200 text-sm font-medium italic mb-2">
-                      "{example.prompt}"
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {example.author} · {example.role}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="mb-6">
-              <textarea
-                value={wonderPrompt}
-                onChange={(e) => setWonderPrompt(e.target.value)}
-                placeholder="What's on your mind?"
-                rows={4}
-                maxLength={280}
-                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white resize-none"
-                autoFocus
-              />
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                {wonderPrompt.length}/280 characters
-              </p>
-            </div>
-
-            <div className="flex gap-3">
-              <button
-                onClick={() => setStep(2)}
-                className="flex-1 py-3 px-4 border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-xl font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-              >
-                Back
-              </button>
-              <button
-                onClick={handleCreateWonder}
-                disabled={!wonderPrompt.trim() || uploading}
-                className="flex-1 py-3 px-4 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {uploading ? "Creating..." : "Post wondering"}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Step 4: Celebration */}
-        {step === 4 && (
           <div className="bg-white dark:bg-gray-900 rounded-2xl p-8 shadow-xl text-center">
             <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-emerald-400 to-green-500 rounded-full flex items-center justify-center">
               <svg
@@ -655,7 +530,7 @@ export default function Onboarding() {
               }}
               className="w-full py-4 px-6 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition-colors text-lg"
             >
-              Explore Wonderwall
+              Explore TheCrossBoard
             </button>
           </div>
         )}

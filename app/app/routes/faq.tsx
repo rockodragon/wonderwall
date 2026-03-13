@@ -2,26 +2,26 @@ import { useState } from "react";
 
 export function meta() {
   return [
-    { title: "FAQ - Wonderwall" },
+    { title: "FAQ - TheCrossBoard" },
     {
       name: "description",
       content:
-        "Frequently asked questions about Wonderwall - invites, profiles, events, and account management.",
+        "Frequently asked questions about TheCrossBoard - invites, profiles, events, and account management.",
     },
-    { property: "og:title", content: "FAQ - Wonderwall" },
+    { property: "og:title", content: "FAQ - TheCrossBoard" },
     {
       property: "og:description",
       content:
-        "Frequently asked questions about Wonderwall - invites, profiles, events, and account management.",
+        "Frequently asked questions about TheCrossBoard - invites, profiles, events, and account management.",
     },
     { property: "og:type", content: "website" },
     { property: "og:image", content: "https://wonderwall.app/og-image.png" },
     { name: "twitter:card", content: "summary_large_image" },
-    { name: "twitter:title", content: "FAQ - Wonderwall" },
+    { name: "twitter:title", content: "FAQ - TheCrossBoard" },
     {
       name: "twitter:description",
       content:
-        "Frequently asked questions about Wonderwall - invites, profiles, events, and account management.",
+        "Frequently asked questions about TheCrossBoard - invites, profiles, events, and account management.",
     },
   ];
 }
@@ -113,7 +113,7 @@ export default function FAQ() {
         Frequently Asked Questions
       </h1>
       <p className="text-gray-500 dark:text-gray-400 mb-8">
-        Everything you need to know about using Wonderwall
+        Everything you need to know about using TheCrossBoard
       </p>
 
       <div className="space-y-6">

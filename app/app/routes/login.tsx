@@ -6,26 +6,26 @@ import { useConvexAuth } from "convex/react";
 
 export function meta() {
   return [
-    { title: "Sign In - Wonderwall" },
+    { title: "Sign In - TheCrossBoard" },
     {
       name: "description",
       content:
-        "Sign in to Wonderwall to connect with Kingdom-minded creatives.",
+        "Sign in to TheCrossBoard to connect with Kingdom-minded creatives.",
     },
-    { property: "og:title", content: "Sign In - Wonderwall" },
+    { property: "og:title", content: "Sign In - TheCrossBoard" },
     {
       property: "og:description",
       content:
-        "Sign in to Wonderwall to connect with Kingdom-minded creatives.",
+        "Sign in to TheCrossBoard to connect with Kingdom-minded creatives.",
     },
     { property: "og:type", content: "website" },
     { property: "og:image", content: "https://wonderwall.app/og-image.png" },
     { name: "twitter:card", content: "summary_large_image" },
-    { name: "twitter:title", content: "Sign In - Wonderwall" },
+    { name: "twitter:title", content: "Sign In - TheCrossBoard" },
     {
       name: "twitter:description",
       content:
-        "Sign in to Wonderwall to connect with Kingdom-minded creatives.",
+        "Sign in to TheCrossBoard to connect with Kingdom-minded creatives.",
     },
   ];
 }
@@ -94,7 +94,7 @@ export default function Login() {
             Welcome back
           </h1>
           <p className="mt-2 text-gray-600 dark:text-gray-400">
-            Sign in to Wonderwall
+            Sign in to TheCrossBoard
           </p>
         </div>
 
