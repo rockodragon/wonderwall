@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { auth } from "./auth";
+import { scheduleNotificationEmail } from "./emailHelpers";
 
 export const list = query({
   args: {
@@ -305,6 +306,16 @@ export const apply = mutation({
         linkUrl: `/events/${args.eventId}`,
         relatedUserId: userId,
         createdAt: now,
+      });
+
+      await scheduleNotificationEmail(ctx, {
+        userId: event.organizerId,
+        subject: `${applicantName} applied to "${event.title}"`,
+        previewText: `Someone applied to your event`,
+        heading: "New event application",
+        body: `<strong>${applicantName}</strong> applied to your event "<strong>${event.title}</strong>".`,
+        ctaText: "View Application",
+        ctaUrl: `/events/${args.eventId}`,
       });
     }
 

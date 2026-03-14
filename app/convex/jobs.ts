@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import type { QueryCtx } from "./_generated/server";
 import { auth } from "./auth";
+import { scheduleNotificationEmail } from "./emailHelpers";
 import type { Doc } from "./_generated/dataModel";
 
 // Helper to resolve image URL from storage or external URL
@@ -666,6 +667,16 @@ export const expressInterest = mutation({
           linkUrl: `/jobs/${args.jobId}`,
           relatedUserId: userId,
           createdAt: now,
+        });
+
+        await scheduleNotificationEmail(ctx, {
+          userId: job.posterId,
+          subject: `${profile.name} is interested in "${job.title}"`,
+          previewText: `Someone expressed interest in your job posting`,
+          heading: "New job interest",
+          body: `<strong>${profile.name}</strong> expressed interest in your job posting "<strong>${job.title}</strong>".`,
+          ctaText: "View Applicant",
+          ctaUrl: `/jobs/${args.jobId}`,
         });
       }
     }

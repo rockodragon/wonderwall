@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import type { QueryCtx } from "./_generated/server";
 import { auth } from "./auth";
+import { scheduleNotificationEmail } from "./emailHelpers";
 import type { Doc, Id } from "./_generated/dataModel";
 
 // Helper to resolve image URL from storage or external URL
@@ -205,6 +206,17 @@ export const sendMessage = mutation({
       linkUrl: `/messages/${conversationId}`,
       relatedUserId: userId,
       createdAt: now,
+    });
+
+    // Send email notification
+    await scheduleNotificationEmail(ctx, {
+      userId: args.recipientId,
+      subject: `${senderName} sent you a message`,
+      previewText: trimmedContent.slice(0, 80),
+      heading: "New message",
+      body: `<strong>${senderName}</strong> sent you a message: "${trimmedContent.length > 200 ? trimmedContent.slice(0, 200) + "..." : trimmedContent}"`,
+      ctaText: "View Message",
+      ctaUrl: `/messages/${conversationId}`,
     });
 
     return conversationId;

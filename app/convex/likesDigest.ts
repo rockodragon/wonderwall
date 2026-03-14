@@ -1,4 +1,5 @@
 import { internalMutation } from "./_generated/server";
+import { scheduleNotificationEmail } from "./emailHelpers";
 
 /**
  * Cron job: aggregate recent likes and send batched notifications.
@@ -62,6 +63,17 @@ export const sendLikesDigest = internalMutation({
         message: parts.join(" and "),
         linkUrl: `/profile/${profile._id}`,
         createdAt: now,
+      });
+
+      // Send email digest
+      await scheduleNotificationEmail(ctx, {
+        userId: profile.userId,
+        subject: `${totalLikes} new like${totalLikes > 1 ? "s" : ""} on your profile`,
+        previewText: parts.join(" and "),
+        heading: "People are noticing your work",
+        body: `You received ${parts.join(" and ")} since your last update.`,
+        ctaText: "View Your Profile",
+        ctaUrl: `/profile/${profile._id}`,
       });
 
       // Update last notified timestamp
