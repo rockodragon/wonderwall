@@ -3,12 +3,18 @@ import type { Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 
 /**
- * Look up a user's email from their profile attributes.
+ * Look up a user's email — first from the users table (OAuth),
+ * then fall back to profile attributes.
  */
 export async function getUserEmail(
   ctx: QueryCtx | MutationCtx,
   userId: Id<"users">,
 ): Promise<string | null> {
+  // Primary: email from OAuth on users table
+  const user = await ctx.db.get(userId);
+  if (user?.email) return user.email;
+
+  // Fallback: email from profile attributes
   const profile = await ctx.db
     .query("profiles")
     .withIndex("by_userId", (q) => q.eq("userId", userId))
