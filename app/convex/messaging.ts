@@ -188,6 +188,25 @@ export const sendMessage = mutation({
       lastMessageAt: now,
     });
 
+    // Notify the recipient
+    const senderProfile = await ctx.db
+      .query("profiles")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .first();
+    const senderName = senderProfile?.name || "Someone";
+    await ctx.db.insert("notifications", {
+      userId: args.recipientId,
+      type: "new_message",
+      title: `${senderName} sent you a message`,
+      message:
+        trimmedContent.length > 100
+          ? trimmedContent.slice(0, 100) + "..."
+          : trimmedContent,
+      linkUrl: `/messages/${conversationId}`,
+      relatedUserId: userId,
+      createdAt: now,
+    });
+
     return conversationId;
   },
 });

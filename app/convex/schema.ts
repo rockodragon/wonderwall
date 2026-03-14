@@ -20,6 +20,7 @@ export default defineSchema({
     inviteUsageCount: v.optional(v.number()), // track how many times their invite link has been used
     unlimitedInvites: v.optional(v.boolean()), // admin accounts with unlimited invites
     isAdmin: v.optional(v.boolean()), // admin access for platform management
+    lastLikeNotifiedAt: v.optional(v.number()), // last time likes digest was sent
     createdAt: v.number(),
     updatedAt: v.number(),
   })

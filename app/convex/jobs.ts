@@ -655,6 +655,19 @@ export const expressInterest = mutation({
         createdAt: now,
         updatedAt: now,
       });
+
+      // Notify the job poster
+      if (job.posterId !== userId) {
+        await ctx.db.insert("notifications", {
+          userId: job.posterId,
+          type: "job_interest",
+          title: `${profile.name} is interested in your job`,
+          message: job.title,
+          linkUrl: `/jobs/${args.jobId}`,
+          relatedUserId: userId,
+          createdAt: now,
+        });
+      }
     }
   },
 });

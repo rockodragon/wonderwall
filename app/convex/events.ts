@@ -281,7 +281,7 @@ export const apply = mutation({
 
     const now = Date.now();
 
-    return await ctx.db.insert("eventApplications", {
+    const applicationId = await ctx.db.insert("eventApplications", {
       eventId: args.eventId,
       applicantId: userId,
       message: args.message?.trim(),
@@ -289,6 +289,26 @@ export const apply = mutation({
       createdAt: now,
       updatedAt: now,
     });
+
+    // Notify the event organizer
+    if (event.organizerId !== userId) {
+      const applicantProfile = await ctx.db
+        .query("profiles")
+        .withIndex("by_userId", (q) => q.eq("userId", userId))
+        .first();
+      const applicantName = applicantProfile?.name || "Someone";
+      await ctx.db.insert("notifications", {
+        userId: event.organizerId,
+        type: "event_application",
+        title: `${applicantName} applied to your event`,
+        message: event.title,
+        linkUrl: `/events/${args.eventId}`,
+        relatedUserId: userId,
+        createdAt: now,
+      });
+    }
+
+    return applicationId;
   },
 });
 

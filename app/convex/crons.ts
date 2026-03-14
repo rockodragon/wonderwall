@@ -17,4 +17,11 @@ crons.interval(
   internal.crawlerScheduler.processQueueCron,
 );
 
+// Likes digest - 3x daily (8am, 1pm, 6pm PT = 16:00, 21:00, 02:00 UTC)
+crons.cron(
+  "likes-digest",
+  "0 2,16,21 * * *",
+  internal.likesDigest.sendLikesDigest,
+);
+
 export default crons;
