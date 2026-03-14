@@ -8,7 +8,7 @@ import { InviteCTA } from "../components/InviteCTA";
 const navItems = [
   { path: "/jobs", label: "Jobs", icon: BriefcaseIcon },
   { path: "/search", label: "People", icon: SearchIcon },
-  { path: "/works", label: "Portfolio", icon: GridIcon },
+  { path: "/works", label: "Portfolios", icon: GridIcon },
   { path: "/events", label: "Events", icon: CalendarIcon },
   { path: "/favorites", label: "Favorites", icon: HeartIcon },
   { path: "/settings", label: "Profile", icon: UserIcon },
