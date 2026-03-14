@@ -139,18 +139,25 @@ export const sendMessage = mutation({
       throw new Error("You cannot send messages to this user");
     }
 
-    // Rate limit: max 5 messages per day per user
-    const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
-    const recentMessages = await ctx.db
-      .query("messages")
-      .withIndex("by_senderId", (q) => q.eq("senderId", userId))
-      .filter((q) => q.gte(q.field("createdAt"), oneDayAgo))
-      .collect();
+    // Rate limit: max 5 messages per day (skip for admins)
+    const senderProfile = await ctx.db
+      .query("profiles")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .first();
 
-    if (recentMessages.length >= 5) {
-      throw new Error(
-        "Rate limit exceeded. You can only send 5 messages per day.",
-      );
+    if (!senderProfile?.isAdmin) {
+      const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
+      const recentMessages = await ctx.db
+        .query("messages")
+        .withIndex("by_senderId", (q) => q.eq("senderId", userId))
+        .filter((q) => q.gte(q.field("createdAt"), oneDayAgo))
+        .collect();
+
+      if (recentMessages.length >= 5) {
+        throw new Error(
+          "Rate limit exceeded. You can only send 5 messages per day.",
+        );
+      }
     }
 
     // Get or create conversation
@@ -189,11 +196,7 @@ export const sendMessage = mutation({
       lastMessageAt: now,
     });
 
-    // Notify the recipient
-    const senderProfile = await ctx.db
-      .query("profiles")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .first();
+    // Notify the recipient (reuse senderProfile from rate limit check)
     const senderName = senderProfile?.name || "Someone";
     await ctx.db.insert("notifications", {
       userId: args.recipientId,
