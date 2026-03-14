@@ -1,5 +1,5 @@
 import { useQuery } from "convex/react";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Link } from "react-router";
 import { api } from "../../convex/_generated/api";
 import { CreateEventModal } from "../components/CreateEventModal";
@@ -17,10 +17,26 @@ const EVENT_GRADIENTS = [
 type FilterTab = "all" | "favorites";
 
 export default function Events() {
-  const events = useQuery(api.events.list, { upcoming: true });
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const allEvents = useQuery(api.events.list, { upcoming: true });
   const favorites = useQuery(api.favorites.getMyFavorites, {});
   const [showCreate, setShowCreate] = useState(false);
   const [activeTab, setActiveTab] = useState<FilterTab>("all");
+
+  // Client-side search filtering
+  const events = useMemo(() => {
+    if (!allEvents) return undefined;
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return allEvents;
+    return allEvents.filter(
+      (e) =>
+        e.title.toLowerCase().includes(q) ||
+        e.description.toLowerCase().includes(q) ||
+        (e.location && e.location.toLowerCase().includes(q)) ||
+        e.tags.some((t: string) => t.toLowerCase().includes(q)),
+    );
+  }, [allEvents, searchQuery]);
 
   // Get favorited event IDs
   const favoriteEventIds = new Set(
@@ -56,6 +72,32 @@ export default function Events() {
         >
           + Create Event
         </button>
+      </div>
+
+      {/* Search */}
+      <div className="relative mb-4">
+        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+          <svg
+            className="w-5 h-5 text-gray-400"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+            />
+          </svg>
+        </div>
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search events by name, location, or tag..."
+          className="w-full pl-12 pr-4 py-3 border border-gray-300 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
+        />
       </div>
 
       {/* Filter Tabs */}

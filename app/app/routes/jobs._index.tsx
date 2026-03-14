@@ -1,5 +1,5 @@
 import { useQuery } from "convex/react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Link } from "react-router";
 import { usePostHog } from "@posthog/react";
 import { api } from "../../convex/_generated/api";
@@ -28,7 +28,8 @@ export default function JobsIndex() {
   // Tab state
   const [activeTab, setActiveTab] = useState<TabFilter>("all");
 
-  // Filter state
+  // Search & filter state
+  const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("Open");
   const [locationFilter, setLocationFilter] = useState<LocationFilter>("All");
   const [disciplinesFilter, setDisciplinesFilter] = useState<string[]>([]);
@@ -113,6 +114,19 @@ export default function JobsIndex() {
     return "just now";
   };
 
+  // Client-side text search
+  const filteredJobs = useMemo(() => {
+    if (!jobs) return undefined;
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return jobs;
+    return jobs.filter(
+      (job) =>
+        job.title.toLowerCase().includes(q) ||
+        job.description.toLowerCase().includes(q) ||
+        (job.hiringOrg && job.hiringOrg.toLowerCase().includes(q)),
+    );
+  }, [jobs, searchQuery]);
+
   const tabs = [
     { id: "all" as const, label: "All Jobs", shortLabel: "All" },
     { id: "matches" as const, label: "My Matches", shortLabel: "Matches" },
@@ -163,6 +177,32 @@ export default function JobsIndex() {
             + Post a Job
           </Link>
         </div>
+      </div>
+
+      {/* Search */}
+      <div className="relative mb-4">
+        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+          <svg
+            className="w-5 h-5 text-gray-400"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+            />
+          </svg>
+        </div>
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search jobs by title, description, or organization..."
+          className="w-full pl-12 pr-4 py-3 border border-gray-300 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
+        />
       </div>
 
       {/* Tab Navigation */}
@@ -308,11 +348,11 @@ export default function JobsIndex() {
       )}
 
       {/* Loading State */}
-      {jobs === undefined ? (
+      {filteredJobs === undefined ? (
         <div className="flex items-center justify-center py-16">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
         </div>
-      ) : jobs.length === 0 ? (
+      ) : filteredJobs.length === 0 ? (
         /* Empty State */
         <div className="text-center py-16 text-gray-400 dark:text-gray-500">
           <svg
@@ -342,7 +382,7 @@ export default function JobsIndex() {
       ) : (
         /* Job Cards Grid */
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {jobs.map((job) => {
+          {filteredJobs.map((job) => {
             const descriptionPreview =
               job.description.length > 150
                 ? `${job.description.substring(0, 150)}...`

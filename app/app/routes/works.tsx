@@ -1,23 +1,53 @@
 import { useQuery } from "convex/react";
 import { Link } from "react-router";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import { InviteCTA } from "../components/InviteCTA";
 import { CreateWorkComposer } from "../components/CreateWorkComposer";
 
+const TYPE_FILTERS = [
+  { label: "All", value: "" },
+  { label: "Images", value: "image" },
+  { label: "Videos", value: "video" },
+  { label: "Text", value: "text" },
+  { label: "Audio", value: "audio" },
+  { label: "Links", value: "link" },
+];
+
 export default function Works() {
   const artifacts = useQuery(api.artifacts.getAllArtifacts);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [typeFilter, setTypeFilter] = useState("");
 
-  // Shuffle artifacts for random order
-  const shuffledArtifacts = useMemo(() => {
+  // Filter then shuffle
+  const filteredArtifacts = useMemo(() => {
     if (!artifacts) return [];
-    const shuffled = [...artifacts];
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    let filtered = [...artifacts];
+
+    // Text search
+    const q = searchQuery.trim().toLowerCase();
+    if (q) {
+      filtered = filtered.filter(
+        (a) =>
+          (a.title && a.title.toLowerCase().includes(q)) ||
+          (a.content && a.content.toLowerCase().includes(q)) ||
+          (a.profile?.displayName &&
+            a.profile.displayName.toLowerCase().includes(q)),
+      );
     }
-    return shuffled;
-  }, [artifacts]);
+
+    // Type filter
+    if (typeFilter) {
+      filtered = filtered.filter((a) => a.type === typeFilter);
+    }
+
+    // Shuffle
+    for (let i = filtered.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [filtered[i], filtered[j]] = [filtered[j], filtered[i]];
+    }
+    return filtered;
+  }, [artifacts, searchQuery, typeFilter]);
 
   if (!artifacts) {
     return (
@@ -27,11 +57,11 @@ export default function Works() {
     );
   }
 
-  if (shuffledArtifacts.length === 0) {
+  if (filteredArtifacts.length === 0) {
     return (
       <div className="p-6 max-w-6xl mx-auto">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-          Works
+          Portfolios
         </h1>
         <p className="text-gray-500 dark:text-gray-400 mb-6">
           Creative works from the community
@@ -66,20 +96,65 @@ export default function Works() {
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-        Works
+        Portfolios
       </h1>
       <p className="text-gray-500 dark:text-gray-400 mb-6">
         Creative works from the community
       </p>
 
       {/* Create Work Composer */}
-      <div className="mb-8">
+      <div className="mb-6">
         <CreateWorkComposer />
+      </div>
+
+      {/* Search + Type Filter */}
+      <div className="flex gap-3 mb-6">
+        <div className="relative flex-1">
+          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+            <svg
+              className="w-5 h-5 text-gray-400"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+              />
+            </svg>
+          </div>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search by title or creator..."
+            className="w-full pl-12 pr-4 py-3 border border-gray-300 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
+          />
+        </div>
+      </div>
+
+      {/* Type filter pills */}
+      <div className="flex gap-2 mb-6 overflow-x-auto pb-1">
+        {TYPE_FILTERS.map((f) => (
+          <button
+            key={f.value}
+            onClick={() => setTypeFilter(f.value)}
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
+              typeFilter === f.value
+                ? "bg-blue-600 text-white"
+                : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"
+            }`}
+          >
+            {f.label}
+          </button>
+        ))}
       </div>
 
       {/* Bento grid layout */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 auto-rows-[200px]">
-        {shuffledArtifacts.map((artifact, index) => {
+        {filteredArtifacts.map((artifact, index) => {
           // Determine size class for bento effect
           const sizeClass = getBentoSize(index);
 
