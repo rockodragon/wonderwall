@@ -201,6 +201,25 @@
 
     .tile p { font-size: clamp(0.82rem, 1.18vw, 1rem); line-height: 1.28; }
 
+    .status {
+      width: 1.75rem;
+      height: 1.75rem;
+      display: inline-grid;
+      place-items: center;
+      border-radius: 999px;
+      color: var(--night);
+      background: var(--green);
+      font-weight: 900;
+      font-size: 1rem;
+    }
+
+    .feature-name {
+      color: var(--ink);
+      font-family: var(--font-display);
+      font-size: clamp(1.35rem, 2.55vw, 2.35rem);
+      line-height: 1;
+    }
+
     .quote {
       border-left: 0.45rem solid var(--amber);
       padding-left: clamp(1rem, 2vw, 1.8rem);
@@ -357,9 +376,13 @@
       .tile { padding: 0.65rem; }
     }
 
+    @media (max-width: 1000px) {
+      .metric-row { grid-template-columns: repeat(2, 1fr); }
+    }
+
     @media (max-width: 820px) {
       .title-grid, .split, .approval { grid-template-columns: 1fr; }
-      .metric-row, .three, .four, .timeline { grid-template-columns: repeat(2, 1fr); }
+      .three, .four, .timeline { grid-template-columns: repeat(2, 1fr); }
       .matrix { grid-template-columns: 1fr 1fr; }
       .matrix div:nth-child(4n) { border-right: 1px solid rgba(239, 228, 204, 0.1); }
     }
@@ -401,11 +424,11 @@
     </div>
   </section>
 
-  <section class="slide" data-title="Recommendation">
-    <div class="topbar"><span class="brand"><span class="mark"><span></span><span></span><span></span><span></span></span>CrossBoard + Abiding Practice</span><span>Recommendation</span></div>
+  <section class="slide" data-title="What AP Needs">
+    <div class="topbar"><span class="brand"><span class="mark"><span></span><span></span><span></span><span></span></span>CrossBoard + Abiding Practice</span><span>What AP Needs</span></div>
     <div class="slide-content">
-      <div class="quote reveal"><p>Use CrossBoard as the relationship system. Use YouTube and Zoom as distribution tools.</p></div>
-      <p class="sub reveal">Abiding Practice already operates through media, events, retreats, and collaborating communities. CrossBoard gives that work a durable member graph, archive, and opportunity layer.</p>
+      <div class="quote reveal"><p>Abiding Practice needs a path from attention to participation, support, and paid creative work.</p></div>
+      <p class="sub reveal">The platform job is to connect media, events, artists, partners, members, and jobs so the community can gather, sustain artists, and keep momentum after each public moment.</p>
     </div>
   </section>
 
@@ -418,7 +441,7 @@
         <div class="tile"><span class="label">Media</span><span class="value">Tell</span><p>Films, conversations, podcasts, and written reflections.</p></div>
         <div class="tile"><span class="label">Events</span><span class="value">Gather</span><p>Artist showcases, workshops, and formation retreats.</p></div>
         <div class="tile"><span class="label">Community</span><span class="value">Abide</span><p>A spiritual community for artists seeking presence and hope.</p></div>
-        <div class="tile"><span class="label">Partners</span><span class="value">Bridge</span><p>Collaborating churches, artists, ministries, and creative communities.</p></div>
+        <div class="tile"><span class="label">Jobs</span><span class="value">Sustain</span><p>Creative opportunities, commissions, partner needs, sponsorship, and patronage.</p></div>
       </div>
     </div>
   </section>
@@ -430,8 +453,8 @@
       <h2 class="reveal">CrossBoard turns Abiding Practice attention into participation</h2>
       <ul class="list reveal">
         <li><strong>For attendees:</strong> a clear path from public content to member participation.</li>
-        <li><strong>For artists:</strong> a place to be known by work, formation, craft, and community.</li>
-        <li><strong>For partners:</strong> a way to sponsor, hire, host, and support the ecosystem.</li>
+        <li><strong>For artists:</strong> a place to be known by work, formation, craft, and real opportunities.</li>
+        <li><strong>For partners:</strong> a way to sponsor, hire, host, post jobs, and support the ecosystem.</li>
         <li><strong>For Abiding Practice:</strong> an owned destination beyond Substack, YouTube, Instagram, and event pages.</li>
       </ul>
     </div>
@@ -443,10 +466,10 @@
       <div class="kicker reveal">Already built</div>
       <h2 class="reveal">CrossBoard already matches Abiding Practice’s operating model</h2>
       <div class="metric-row reveal">
-        <div class="tile"><span class="label">People</span><span class="value">Live</span><p>Profiles for artists, guests, partners, leaders, and members.</p></div>
-        <div class="tile"><span class="label">Work</span><span class="value">Live</span><p>Portfolio cards for film, music, writing, visual art, and links.</p></div>
-        <div class="tile"><span class="label">Gathering</span><span class="value">Live</span><p>Events for showcases, retreats, workshops, and online sessions.</p></div>
-        <div class="tile"><span class="label">Opportunity</span><span class="value">Live</span><p>Jobs, direct messages, organizations, sponsorship, and patronage.</p></div>
+        <div class="tile"><span class="label">Profiles</span><span class="status">✓</span><h3 class="feature-name">People</h3><p>Artists, guests, partners, leaders, and members.</p></div>
+        <div class="tile"><span class="label">Portfolios</span><span class="status">✓</span><h3 class="feature-name">Work</h3><p>Film, music, writing, visual art, video, audio, and links.</p></div>
+        <div class="tile"><span class="label">Events</span><span class="status">✓</span><h3 class="feature-name">Gathering</h3><p>Showcases, retreats, workshops, and online sessions.</p></div>
+        <div class="tile"><span class="label">Jobs</span><span class="status">✓</span><h3 class="feature-name">Opportunity</h3><p>Post work, message talent, sponsor access, and fund projects.</p></div>
       </div>
     </div>
   </section>
@@ -455,13 +478,13 @@
     <div class="topbar"><span class="brand"><span class="mark"><span></span><span></span><span></span><span></span></span>CrossBoard + Abiding Practice</span><span>Alternatives</span></div>
     <div class="slide-content">
       <div class="kicker reveal">What else could we do?</div>
-      <h2 class="reveal">Each alternative solves part of the problem</h2>
+      <h2 class="reveal">Each alternative solves part of the problem. None carries jobs.</h2>
       <div class="matrix reveal">
         <div class="head">Option</div><div class="head">Best at</div><div class="head">Weakness</div><div class="head">Role</div>
-        <div>YouTube only</div><div class="yes">Public media</div><div>No member graph, paywall, or creative profiles</div><div class="warn">Channel</div>
-        <div>Substack only</div><div class="yes">Writing + podcast audience</div><div>Weak events, profiles, partner network</div><div class="warn">Newsletter</div>
-        <div>Skool / Circle</div><div class="yes">Fast community</div><div>Generic; little Abiding creative context</div><div class="warn">Pilot</div>
-        <div>Zoom only</div><div class="yes">Live meetings</div><div>No formation archive or community memory</div><div class="warn">Utility</div>
+        <div>YouTube only</div><div class="yes">Public media</div><div>No member graph, paywall, creative profiles, or jobs</div><div class="warn">Channel</div>
+        <div>Substack only</div><div class="yes">Writing + podcast audience</div><div>Weak events, profiles, partner network, and jobs</div><div class="warn">Newsletter</div>
+        <div>Skool / Circle</div><div class="yes">Fast community</div><div>Generic community layer; not a creative jobs marketplace</div><div class="warn">Pilot</div>
+        <div>Zoom only</div><div class="yes">Live meetings</div><div>No archive, member memory, portfolios, or jobs</div><div class="warn">Utility</div>
       </div>
     </div>
   </section>
@@ -563,11 +586,11 @@
     <div class="topbar"><span class="brand"><span class="mark"><span></span><span></span><span></span><span></span></span>CrossBoard + Abiding Practice</span><span>MVP Scope</span></div>
     <div class="slide-content">
       <div class="kicker reveal">Limited work to validate</div>
-      <h2 class="reveal">The MVP is access, events, and archive</h2>
+      <h2 class="reveal">The MVP adds access around what already exists</h2>
       <div class="three reveal">
+        <div class="tile"><span class="label">Jobs</span><h3>Already in the MVP</h3><p>Opportunity is an existing asset, not a new build item.</p></div>
         <div class="tile"><span class="label">Access</span><h3>Member + sponsor entitlements</h3><p>Free, paid, sponsored, partner, admin overrides.</p></div>
-        <div class="tile"><span class="label">Events</span><h3>Showcases, retreats, sessions</h3><p>Canonical event pages with Zoom access and replay slots.</p></div>
-        <div class="tile"><span class="label">Archive</span><h3>YouTube public, CrossBoard gated</h3><p>Public embeds for reach; Cloudflare for paid archive.</p></div>
+        <div class="tile"><span class="label">Media</span><h3>Gated events and archive</h3><p>Zoom access, public YouTube, and paid Cloudflare replay.</p></div>
       </div>
     </div>
   </section>
@@ -592,7 +615,7 @@
       <div class="kicker reveal">From approval to learning</div>
       <h2 class="reveal">Build toward proof, then polish</h2>
       <div class="timeline reveal">
-        <div class="step"><h3>1. Platform MVP</h3><p>Entitlements, paid/member events, partner tiers, admin grants.</p></div>
+        <div class="step"><h3>1. Platform MVP</h3><p>Entitlements and paid access around existing jobs, events, profiles, and portfolios.</p></div>
         <div class="step"><h3>2. AP Pilot</h3><p>Run one Abiding Practice live series with Zoom and gated replay.</p></div>
         <div class="step"><h3>3. Paid Tier Launch</h3><p>Offer member access, sponsored artists, and partner benefits.</p></div>
         <div class="step"><h3>4. Native Live</h3><p>Add LiveKit stages after repeated interactive-session demand.</p></div>
