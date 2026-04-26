@@ -11,6 +11,30 @@ This spec is therefore not about building a community platform from zero. The mi
 - Live event workflows for public reach, member participation, and paid insider access.
 - A practical decision on whether "calls" means interactive video rooms, webinar-style broadcasts, audio rooms, or scheduled private conversations.
 
+## Executive Summary
+
+Tentative recommendation: use YouTube deliberately, but do not make YouTube the product.
+
+TheCrossBoard should publish enough public video on YouTube to grow the channel, build search surface, and send qualified people back to [thecrossboard.org](https://www.thecrossboard.org). Public interviews, clips, trailers, artist features, event highlights, and selected full public sessions belong there. Paid/private sessions, member replays, critique rooms, and closed creative conversations should be gated on TheCrossBoard.
+
+For live events, the practical path is:
+
+1. Keep the core marketplace/community custom: profiles, portfolios, jobs, organization tiers, messaging, member graph, recommendations, and paywall entitlements.
+2. Use Zoom links as the fastest near-term hosted option for small live member events where operational simplicity matters more than native UX.
+3. Use Cloudflare Stream for paywalled watch-only broadcasts and replays because it fits TheCrossBoard's Cloudflare stack, supports signed playback, and avoids WebRTC complexity for passive viewers.
+4. Use LiveKit when the event requires native interactive video: panelists, stages, critique sessions, office hours, screen share, host controls, and eventual streaming out to YouTube or HLS.
+5. Treat YouTube as the public distribution layer. It is fine, and likely strategically correct, for only public material to live on YouTube. Not every paid or member-only session needs to be on YouTube.
+
+Opinionated first build:
+
+- Build membership entitlements and event media records first.
+- Add public YouTube event embeds using existing YouTube parsing patterns.
+- Add gated Cloudflare Stream replay/live playback for paid members.
+- Use Zoom manually for early closed sessions while validating formats.
+- Build LiveKit only after there is repeated demand for native interactive sessions inside TheCrossBoard.
+
+The main risk is overbuilding live rooms before proving paid programming demand. The main opportunity is that TheCrossBoard's custom advantage is not video itself; it is connecting video/events to profiles, portfolios, jobs, organizations, sponsored memberships, and direct hiring outcomes.
+
 ## Business Outcome
 
 The goal is to convert existing product surface area into a sustainable membership and programming model.
@@ -69,6 +93,17 @@ When I discover an interview, discussion, music event, or workshop, I want to un
 | Membership/paywall | Partial hint via `profiles.plan` | Billing, entitlements, plan state, server-side media gating |
 | Live interaction/calls | Not built | Decide format: broadcast, webinar, interactive room, audio room, or office-hours scheduling |
 
+## Tentative Roadmap
+
+| Step | Scope | Business Value | Estimate |
+| --- | --- | --- | --- |
+| 1 | Entitlement helper, membership records, locked event/media states | Enables member paywall and paid media | 2-4 days without billing; 1-2 weeks with Stripe/webhooks |
+| 2 | Event media records and public YouTube embeds | Converts public media into TheCrossBoard traffic | 1-2 days |
+| 3 | Gated Zoom link support for early paid sessions | Starts selling/validating live programming immediately | 1-3 days after entitlements |
+| 4 | Cloudflare Stream VOD/live signed playback | Adds real video paywall for replays and broadcasts | 1-2 weeks after entitlements |
+| 5 | LiveKit interactive rooms for repeated high-value formats | Native stage/panelist/member interaction | 2-3 weeks prototype; 4-8 weeks production webinar |
+| 6 | Hybrid LiveKit-to-YouTube/Cloudflare broadcast | Scales public/private live events while keeping native host room | 2-4 weeks after LiveKit baseline |
+
 ## What "Calls" Usually Means
 
 Community platforms use "calls" to mean scheduled live rooms where people can join with audio/video. Depending on the platform, that may be closer to Zoom, a webinar, a livestream, or an audio room.
@@ -84,6 +119,94 @@ For TheCrossBoard, "calls" should be split into clearer product formats:
 | Scheduled private conversation | One-to-one or small-group booking with messaging/reminders | Mentorship, hiring chats, intro sessions | Easier MVP if messaging exists | Less event-like; may need calendar integration |
 
 Recommended language: use "live sessions" publicly, and model the backend as event media plus optional interactive rooms. Avoid promising "calls" until the exact format is selected.
+
+## Zoom As A Practical Near-Term Option
+
+Yes, it is normal for communities to use Zoom links inside a community platform. Many communities treat their platform as the calendar, access-control, discussion, and replay archive layer, while Zoom handles the live meeting itself. Skool communities using Zoom or Zoom-style events are not surprising; hosted community platforms often support native calls, external links, or integrations because Zoom is familiar and reliable.
+
+For TheCrossBoard, Zoom is useful as a bridge:
+
+Pros:
+
+- Fastest way to run interactive video sessions without building room UI.
+- Familiar to members, guests, interviewees, and organizations.
+- Good for early paid workshops, office hours, critique sessions, interviews, and invite-only conversations.
+- Handles device permissions, waiting rooms, host controls, recording, breakout rooms, and screen sharing.
+- Lets the team learn which event formats people will pay for before investing in LiveKit.
+
+Cons:
+
+- The live experience happens outside TheCrossBoard, so the product loses some brand, analytics, and community continuity.
+- Zoom links can be forwarded unless paired with registration, waiting rooms, or per-user links.
+- Recordings still need a gated replay workflow if they become paid content.
+- Chat, Q&A, attendance, and engagement data may live outside the app unless imported.
+- It does not strengthen TheCrossBoard's native network graph unless attendance and follow-up actions are pulled back into profiles, jobs, messages, and event pages.
+
+Recommended Zoom use:
+
+- Use Zoom for the first wave of small paid or member-only live sessions.
+- Keep the event page, RSVP, entitlement, reminder, and replay archive on TheCrossBoard.
+- Store external meeting metadata on `eventMedia` or `eventLiveSessions`.
+- After the session, upload or import the recording into Cloudflare Stream for gated replay.
+- Move to LiveKit only when native interaction becomes a recurring, strategically important part of the product.
+
+Business estimate:
+
+- Basic external Zoom link gated by member entitlement: 1-3 engineering days after entitlement helpers exist.
+- Better Zoom workflow with unique registration links, attendance import, and replay processing: 1-3 weeks depending on API depth.
+
+## YouTube Channel Strategy
+
+Would keeping paid/private sessions off YouTube hurt YouTube channel positioning? It should not be a problem if TheCrossBoard consistently publishes a strong public lane.
+
+YouTube's own visibility model supports this distinction: public videos can appear in search, recommendations, the channel page, and subscriber feeds. Unlisted videos can be shared by link but generally do not appear in search, recommendations, the Videos tab, or subscriber feeds unless added to a public playlist. That means unlisted paid sessions are not a channel-growth strategy anyway.
+
+Recommended YouTube programming mix:
+
+- Public full episodes when the goal is reach.
+- Short clips from paid/member sessions when the clip is approved for public marketing.
+- Trailers and highlight reels for paid events.
+- Guest/artist profile videos that link to TheCrossBoard profiles and event pages.
+- Public livestreams for launches, showcases, broad interviews, and community-facing events.
+
+Do not put on YouTube:
+
+- Paid replays where the business value is access control.
+- Closed critique sessions with member work shown on screen.
+- Private conversations where trust depends on limited attendance.
+- Anything with member privacy, unreleased work, or sensitive hiring/community discussion.
+
+Recommended rule:
+
+- YouTube gets the public artifact.
+- TheCrossBoard gets the canonical event page, member access, replay archive, discussion, profiles, work links, jobs, and conversion path.
+- For paid sessions, publish clips or summaries on YouTube rather than the full protected session.
+
+This preserves channel growth while protecting the reason to become a member.
+
+## Where Custom Is Advantageous
+
+TheCrossBoard should build custom where the product advantage comes from the creative network, not generic community software.
+
+Custom is strategically valuable for:
+
+- Profiles: the core trust object for creatives, organizations, sponsors, and event guests.
+- Portfolios/work cards: the proof layer that makes hiring and collaboration better than generic communities.
+- Jobs and job interest: TheCrossBoard can tie opportunities directly to profiles, work samples, and values-aligned organizations.
+- Organization tiers and patronage: sponsor memberships, job volume, direct messaging, featured org profiles, and ecosystem impact are specific to this business model.
+- Entitlements: individual memberships, sponsored memberships, organization access, event tickets, comped access, and admin overrides should share one rules layer.
+- Event archives: every event can become a durable node connected to speakers, artists, work, jobs, organizations, and follow-up conversations.
+- Discovery/search: semantic matching across profiles, works, jobs, events, and organizations is hard to replicate inside Skool/Zoom/YouTube.
+
+Use vendors for commodities:
+
+- Zoom for early interactive meetings.
+- YouTube for public distribution and channel discovery.
+- Cloudflare Stream for paywalled HLS/VOD.
+- LiveKit for native WebRTC when interaction becomes part of the core product.
+- Stripe or the existing billing provider for payments, invoices, portals, and subscription state.
+
+The implementation principle: own the graph and the paywall; rent the media transport until the user experience demands native control.
 
 ## Recommended Implementation Path
 
@@ -331,3 +454,4 @@ Locked states should not feel punitive. They should make the value clear:
 - [YouTube IFrame Player API](https://developers.google.com/youtube/iframe_api_reference)
 - [YouTube Help: embed videos and playlists](https://support.google.com/youtube/answer/171780)
 - [YouTube Help: create a live stream with an encoder](https://support.google.com/youtube/answer/2907883)
+- [YouTube Help: video privacy settings](https://support.google.com/youtube/answer/157177)
