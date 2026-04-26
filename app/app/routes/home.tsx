@@ -6,20 +6,20 @@ import { api } from "../../convex/_generated/api";
 
 export function meta({}: Route.MetaArgs) {
   return [
-    { title: "TheCrossBoard - Jobs, Portfolios & Collabs for Creatives" },
+    { title: "TheCrossBoard - Show Your Craft, Collaborate & Find Work" },
     {
       name: "description",
       content:
-        "Bringing Kingdom-minded employers, sponsors, and creatives together to exercise our gifts. Jobs, portfolios, collabs, and events — all in one place.",
+        "A creative community for Kingdom-minded creatives to show their work, grow through events and sessions, collaborate, and find paid opportunities.",
     },
     {
       property: "og:title",
-      content: "TheCrossBoard - Jobs, Portfolios & Collabs for Creatives",
+      content: "TheCrossBoard - Show Your Craft, Collaborate & Find Work",
     },
     {
       property: "og:description",
       content:
-        "Bringing Kingdom-minded employers, sponsors, and creatives together to exercise our gifts. Jobs, portfolios, collabs, and events — all in one place.",
+        "A creative community for Kingdom-minded creatives to show their work, grow through events and sessions, collaborate, and find paid opportunities.",
     },
     { property: "og:type", content: "website" },
     {
@@ -29,12 +29,12 @@ export function meta({}: Route.MetaArgs) {
     { name: "twitter:card", content: "summary_large_image" },
     {
       name: "twitter:title",
-      content: "TheCrossBoard - Jobs, Portfolios & Collabs for Creatives",
+      content: "TheCrossBoard - Show Your Craft, Collaborate & Find Work",
     },
     {
       name: "twitter:description",
       content:
-        "Bringing Kingdom-minded employers, sponsors, and creatives together to exercise our gifts. Jobs, portfolios, collabs, and events — all in one place.",
+        "A creative community for Kingdom-minded creatives to show their work, grow through events and sessions, collaborate, and find paid opportunities.",
     },
   ];
 }
@@ -195,20 +195,23 @@ export default function Home() {
         {/* Hero Content - Centered */}
         <div className="relative z-10 px-6 max-w-5xl mx-auto text-center mb-20">
           <h2 className="text-5xl md:text-7xl font-bold text-white leading-tight mb-6">
-            Find work.
+            Show and grow
+            <br />
+            your craft.
             <br />
             <span className="bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
-              Show your craft.
+              Collaborate
             </span>
             <br />
-            Collaborate.
+            & find work.
           </h2>
           <p className="mt-6 text-xl text-gray-200 max-w-2xl mx-auto mb-4">
-            Bringing Kingdom-minded employers, sponsors, and creatives together
-            to exercise our gifts.
+            A creative community for Kingdom-minded artists, makers, employers,
+            sponsors, and collaborators.
           </p>
           <p className="text-lg text-gray-300 max-w-xl mx-auto mb-8">
-            Jobs. Portfolios. Collabs. Events. All in one place.
+            Portfolios, jobs, collaborations, interviews, podcasts, trainings,
+            and events — all connected to the work you are called to make.
           </p>
 
           {/* Closed Beta Badge */}
@@ -486,32 +489,41 @@ export default function Home() {
               </div>
 
               <h3 className="text-3xl md:text-4xl font-bold text-white text-center mb-10">
-                Built for How We Work
+                Built for creative formation and real opportunity
               </h3>
 
               <div className="space-y-6 text-center">
                 <p className="text-gray-300 text-lg leading-relaxed">
-                  We're building the creative economy we want to be part of. A
+                  We're building the creative community we want to be part of. A
                   place where{" "}
                   <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400 font-semibold">
                     Kingdom-minded employers, sponsors, and creatives
                   </span>{" "}
-                  find each other and put their gifts to work — together.
+                  can show their craft, grow together, and put their gifts to
+                  work.
                 </p>
                 <p className="text-gray-300 text-lg leading-relaxed">
-                  TheCrossBoard connects you with real opportunities from real
-                  people. Values-driven businesses, organizations, and sponsors
-                  post jobs. Creatives showcase portfolios. Collaborations start
-                  through direct conversations, not algorithms.
+                  TheCrossBoard connects creative work to real people and real
+                  opportunities. Values-driven businesses, organizations, and
+                  sponsors post jobs. Creatives show portfolios, process, and
+                  availability. Collaborations start through direct
+                  conversations, not algorithms.
+                </p>
+                <p className="text-gray-300 text-lg leading-relaxed">
+                  Events are part of the work, not an afterthought: interviews,
+                  podcasts, video conversations, classes, trainings, critique
+                  rooms, and sessions with Christian creatives across
+                  disciplines.
                 </p>
                 <p className="text-gray-300 text-lg leading-relaxed">
                   Every gift matters. Whether you're a designer, musician,
-                  filmmaker, writer, or sound engineer — there's a seat at the
-                  table and work worth doing.
+                  filmmaker, writer, photographer, producer, or sound engineer —
+                  there's a seat at the table and work worth doing.
                 </p>
                 <div className="pt-4">
                   <p className="text-gray-400 text-lg leading-relaxed italic">
-                    "Good work, good people, and a place to exercise our gifts."
+                    "Show the work. Grow the craft. Find the people and
+                    opportunities that help it serve."
                   </p>
                 </div>
               </div>
@@ -524,8 +536,8 @@ export default function Home() {
       <section className="px-6 py-20 max-w-6xl mx-auto bg-gray-950">
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
           <FeatureCard
-            title="Share Your Work"
-            description="Build a portfolio that showcases your creative journey and connects you with like-minded collaborators."
+            title="Show Your Craft"
+            description="Build a portfolio that shows your work, taste, process, and availability so the right people can find you."
             icon={
               <path
                 strokeLinecap="round"
@@ -537,7 +549,7 @@ export default function Home() {
           />
           <FeatureCard
             title="Find Work"
-            description="Discover job opportunities posted by community members who value creativity and craftsmanship."
+            description="Discover jobs, commissions, and creative opportunities from organizations that value your craft and character."
             icon={
               <path
                 strokeLinecap="round"
@@ -549,7 +561,7 @@ export default function Home() {
           />
           <FeatureCard
             title="Collaborate"
-            description="Connect directly with other creatives for projects, gigs, and partnerships — no middleman."
+            description="Connect directly with other creatives for projects, gigs, partnerships, and shared creative practice."
             icon={
               <path
                 strokeLinecap="round"
@@ -560,8 +572,8 @@ export default function Home() {
             }
           />
           <FeatureCard
-            title="Find Events"
-            description="Discover community gatherings, workshops, and opportunities to connect in person."
+            title="Grow Through Events"
+            description="Join interviews, podcasts, trainings, classes, workshops, and creative sessions with Christian creatives."
             icon={
               <path
                 strokeLinecap="round"
@@ -625,8 +637,8 @@ export default function Home() {
       <footer className="px-6 py-8 border-t border-gray-800">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <p className="text-gray-500 text-sm">
-            TheCrossBoard — Bringing Kingdom-minded employers, sponsors &
-            creatives together
+            TheCrossBoard — Show your craft, grow with others, collaborate, and
+            find work
           </p>
           <div className="flex items-center gap-6">
             <Link

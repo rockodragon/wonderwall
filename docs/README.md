@@ -37,6 +37,15 @@ Start with business outcome and user journey before implementation. Each feature
 
 - [Board review deck: paid membership and live events](decks/thecrossboard-board-review.html)
 
+### Publishing Board Decks
+
+The UpSight deck publisher lives in the separate Insights repo, so run uploads from that directory:
+
+```bash
+cd /Users/richardmoy/Code/ai/Insights
+npx tsx scripts/upload-deck.ts /Users/richardmoy/Code/ai/wonderwall/docs/decks/thecrossboard-board-review.html --title "CrossBoard for Abiding Practice"
+```
+
 ## Proposed Structure
 
 Use this structure for new docs:
