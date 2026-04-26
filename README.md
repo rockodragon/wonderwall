@@ -1,26 +1,28 @@
-# thegrassboard
+# TheCrossBoard
 
-thegrassboard is a creative community where people can show their work, find collaborators, get hired, and gather around live cultural programming. The product is meant to combine the portfolio discovery of Behance or Dribbble, the opportunity marketplace of Upwork, and the community energy of Abiding Practice-style events, interviews, conversations, music, and salons.
+TheCrossBoard, also referred to conversationally as The Cross Board, is a creative community for Kingdom-minded creatives, employers, sponsors, and organizations. The current public destination is [thecrossboard.org](https://www.thecrossboard.org).
+
+The product brings jobs, portfolios, collaborations, events, and direct connection into one place. It already combines much of the portfolio discovery of Behance or Dribbble, the opportunity flow of a creative job marketplace, and the community layer needed for events, interviews, discussions, music, and salons.
 
 ## Business Outcome
 
 The core outcome is to turn creative visibility into real opportunity:
 
 - Creatives build a credible public presence that helps them get discovered for jobs, collaborations, events, and commissions.
-- Hiring teams and organizers find trusted creative talent without sorting through generic marketplaces.
+- Hiring teams and organizers find values-aligned creative talent by seeing real portfolios before they reach out.
 - The community becomes a repeat destination for work, inspiration, relationships, and live programming.
-- Public media creates an audience-growth loop that brings people from YouTube, Instagram, Substack, and search back into thegrassboard.
-- Paid insider access creates a sustainable revenue path without closing off the free community.
+- Public media creates an audience-growth loop that brings people from YouTube, Instagram, Substack, and search back to TheCrossBoard.
+- Individual membership, organization partnerships, and patronage/sponsored memberships create a sustainable revenue path without closing off the free creative community.
 
 ## User Journey
 
 ### 1. Discover
 
-A visitor arrives through a shared work page, a job listing, an event page, a YouTube video, Instagram, Substack, or word of mouth. They should immediately understand what the community is, see real creative work, and have a reason to explore.
+A visitor arrives through the homepage, an organization page, a shared work page, a job listing, an event page, a YouTube video, Instagram, Substack, or word of mouth. They should immediately understand the promise: find work, show your craft, collaborate, and join a Kingdom-minded creative economy.
 
 ### 2. Join
 
-A creative creates a free account, builds a profile, adds links and portfolio work, and chooses the creative disciplines that describe them. The account should be useful even before any paid membership exists.
+A creative creates a free account, builds a profile, adds links and portfolio work, and chooses the creative disciplines that describe them. The account should remain useful even if the member never pays.
 
 ### 3. Show Work
 
@@ -32,13 +34,13 @@ Members browse jobs, gigs, collaborations, events, and open calls. Posters can r
 
 ### 5. Participate
 
-Members attend public events, online interviews, discussions, critique sessions, music programming, and creative gatherings. Event pages become both a live participation surface and a lasting media archive.
+Members attend public events, online interviews, discussions, critique sessions, music programming, and creative gatherings. Event pages should become both a participation surface and a lasting media archive.
 
 ### 6. Go Deeper
 
-Some members upgrade into an insider tier for closed sessions, premium events, private conversations, replays, workshops, and deeper access to people in the community.
+Some members or sponsored creatives unlock paid access for closed sessions, premium events, private conversations, replays, workshops, and deeper access to people in the community.
 
-## Product Pillars
+## Existing Product Pillars
 
 ### Creative Profiles
 
@@ -65,7 +67,7 @@ Expected work features:
 
 ### Jobs and Opportunities
 
-Jobs turn community attention into economic value.
+Jobs turn community attention into economic value. The app already supports job posting, job discovery, job interest, relevant work attachments, and organization-facing hiring positioning.
 
 Expected jobs features:
 
@@ -76,7 +78,7 @@ Expected jobs features:
 
 ### Events and Programming
 
-Events are the bridge between media, community, and membership.
+Events are the bridge between media, community, and membership. The app already has events; the next gap is paid/member-gated event access and live media workflows.
 
 Expected event features:
 
@@ -88,7 +90,7 @@ Expected event features:
 
 ### Community
 
-The community should help members find people, ask for help, and form real creative relationships.
+The community should help members find people, ask for help, and form real creative relationships. The app already includes direct messaging, notifications, blocking, and reporting primitives.
 
 Expected community features:
 
@@ -98,9 +100,9 @@ Expected community features:
 - Moderation, reporting, blocking, and community safety tools
 - Future support for multiple community spaces or chapters
 
-### Paid Insider Access
+### Member And Insider Access
 
-Paid access should deepen the experience without making the free community feel empty.
+Paid access should deepen the experience without making the free community feel empty. This is the major missing capability: a member paywall, video/media paywall, and entitlement model that can support individual members, sponsored members, organization partners, and special events.
 
 Possible insider benefits:
 
@@ -117,7 +119,7 @@ Possible insider benefits:
 | --- | --- | --- | --- |
 | Profiles | View selected public profiles | Create and edit profile | Enhanced visibility or badges |
 | Work | View public work | Post work and save favorites | Private critique or featured drops |
-| Jobs | Browse public listings | Express interest and post limited listings | Priority listings or curated intros |
+| Jobs | Browse public listings | Express interest and post listings | Priority visibility, organization tools, or curated intros |
 | Events | View public event pages and public replays | RSVP to free/member events | Access paid livestreams, closed sessions, and replays |
 | Community | Read selected public conversations | Join member discussions | Join insider spaces and closed sessions |
 
@@ -127,12 +129,11 @@ Possible insider benefits:
 - [Core PRD](docs/prd.md)
 - [Jobs feature PRD](docs/jobs-feature-prd.md)
 - [Event location PRD](docs/prd-event-location.md)
-- [Paid community and YouTube media integration spec](docs/features/paid-community-youtube-media.md)
+- [Member paywall and live media integration spec](docs/features/paid-community-youtube-media.md)
 
 ## Working Assumptions
 
-- thegrassboard may evolve from the current Wonderwall/Crossboard product direction rather than replace it immediately.
-- The free account should remain valuable because broad creative participation is the supply side of the marketplace.
-- Paid access should be attached to scarce experiences, live programming, private rooms, and archives, not only generic content.
-- YouTube should be treated primarily as a discovery and distribution channel, while thegrassboard remains the community and conversion destination.
-
+- TheCrossBoard is the product/brand direction; Wonderwall appears in parts of the codebase as the underlying project name.
+- The free creative account should remain valuable because broad creative participation is the supply side of the marketplace.
+- Paid access should be attached to scarce experiences, live programming, private rooms, archives, and sponsored membership benefits, not only generic content.
+- YouTube should be treated primarily as a discovery and distribution channel, while TheCrossBoard remains the community, profile, hiring, and conversion destination.

@@ -1,6 +1,6 @@
 # Product Documentation
 
-This directory holds product strategy, feature specs, and implementation research for thegrassboard/Wonderwall.
+This directory holds product strategy, feature specs, and implementation research for TheCrossBoard, also referred to as The Cross Board. The public destination is [thecrossboard.org](https://www.thecrossboard.org). Wonderwall appears in parts of the codebase as the underlying project name.
 
 ## How To Use These Docs
 
@@ -14,7 +14,7 @@ Start with business outcome and user journey before implementation. Each feature
 
 ## Core Product
 
-- [Root product README](../README.md): high-level vision for thegrassboard.
+- [Root product README](../README.md): high-level vision for TheCrossBoard.
 - [Core PRD](prd.md): existing Wonderwall product requirements for creative profiles, discovery, events, and invites.
 - [Strategic plan](thecrossboard-strategic-plan.md): monetization and competitive positioning for The Crossboard direction.
 - [Priority brief](priority-brief.md): current delivery priorities.
@@ -24,7 +24,7 @@ Start with business outcome and user journey before implementation. Each feature
 - [Jobs feature PRD](jobs-feature-prd.md)
 - [Messaging feature PRD](messaging-feature-prd.md)
 - [Event location PRD](prd-event-location.md)
-- [Paid community and YouTube media integration](features/paid-community-youtube-media.md)
+- [Member paywall and live media integration](features/paid-community-youtube-media.md)
 
 ## Research
 

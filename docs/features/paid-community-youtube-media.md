@@ -1,338 +1,333 @@
-# Paid Community and YouTube Media Integration
+# Member Paywall and Live Media Integration
+
+## Product Context
+
+TheCrossBoard, also referred to as The Cross Board, is currently positioned at [thecrossboard.org](https://www.thecrossboard.org) as a community for Kingdom-minded employers, sponsors, and creatives. The homepage promise is: find work, show your craft, collaborate. The product already includes jobs, portfolios/work posts, events, direct messaging, invitations, search, notifications, blocking/reporting, and organization-facing hiring/patronage positioning.
+
+This spec is therefore not about building a community platform from zero. The missing business capability is paid access:
+
+- Member paywall for individual creative memberships, sponsored memberships, and organization benefits.
+- Video/media paywall for private replays, paid live sessions, closed conversations, workshops, and archives.
+- Live event workflows for public reach, member participation, and paid insider access.
+- A practical decision on whether "calls" means interactive video rooms, webinar-style broadcasts, audio rooms, or scheduled private conversations.
 
 ## Business Outcome
 
-This feature should create a growth loop where public programming attracts new people and insider programming converts the most engaged people into paying members.
+The goal is to convert existing product surface area into a sustainable membership and programming model.
 
-The desired outcomes are:
+- Free creatives keep the supply side strong by creating profiles, portfolios, job interest, and community activity.
+- Organizations pay because they can see creative work, message talent, post jobs, and sponsor memberships as patrons of the arts.
+- Public video attracts new visitors from YouTube, Instagram, Substack, search, and partner sharing.
+- Member-gated and paid media create a reason to join, return, and stay.
+- Live programming strengthens relationships in the community instead of becoming isolated content on another platform.
 
-- Grow qualified awareness through public video, search, and shareable event pages.
-- Convert visitors into free accounts through profile, job, and event participation.
-- Convert free members into paid insiders through access to scarce live experiences, closed conversations, replays, and deeper community rooms.
-- Keep thegrassboard as the relationship and opportunity hub while using YouTube, Substack, and Instagram as distribution surfaces.
-- Avoid operating too many content homes before the audience and membership model are proven.
+## What Was Scanned
+
+This document was updated after scanning the local homepage and organizations page:
+
+- [Homepage route](../../app/app/routes/home.tsx): "TheCrossBoard - Jobs, Portfolios & Collabs for Creatives", "Bringing Kingdom-minded employers, sponsors, and creatives together to exercise our gifts", "Jobs. Portfolios. Collabs. Events. All in one place", invite-only beta, portfolios, jobs, collaborations, events, and organization CTA.
+- [Organizations route](../../app/app/routes/organizations.tsx): "Hire Kingdom Creatives", values-aligned talent, see portfolios before reaching out, direct connection, free volunteer postings, organization tiers, patronage/sponsored memberships, and paid organization partnership positioning.
+- Existing app functionality: portfolio artifacts support video/audio/link/image/text, YouTube/Vimeo embed URL parsing exists for profile/settings/work surfaces, events exist, jobs exist, direct messaging exists, and `profiles.plan` already hints at free vs paid.
 
 ## JTBD
 
 ### Creative Member
 
-When I want to be seen, hired, and connected with other serious creatives, I want one place where my profile, work, events, and opportunities reinforce each other, so that visibility turns into relationships and paid work.
+When I want my work to lead to opportunity, I want my profile, work, events, conversations, and jobs in one trusted place, so that people can evaluate my craft and reach out with real opportunities.
+
+### Organization
+
+When I need values-aligned creative talent, I want to see portfolios and start direct conversations, so that I can hire with more confidence than a resume-only job board.
+
+### Patron/Sponsor
+
+When I fund creative memberships or partner with the platform, I want clear visibility, impact, and access to emerging talent, so that sponsorship feels like real patronage rather than a generic donation.
 
 ### Event Attendee
 
-When I discover an interview, performance, or discussion, I want to quickly understand who it is for, what I can access for free, and what I get by joining or paying, so that I can participate without platform confusion.
+When I discover an interview, discussion, music event, or workshop, I want to understand what is public, what requires membership, and what requires payment, so that I know whether to watch, join, or upgrade.
 
-### Insider Member
+## Recommended Access Model
 
-When I pay for access, I want meaningful proximity to people, conversations, replays, and private rooms, so that the membership feels like access to a living creative circle rather than another content subscription.
-
-### Community Operator
-
-When we publish media, I want one workflow that supports public reach and private monetization, so that every event can become audience growth, community engagement, and reusable content.
-
-## Recommended Product Shape
-
-Use a three-layer access model:
-
-| Layer | Audience | Purpose | Example Access |
+| Layer | Audience | Product Job | Example Access |
 | --- | --- | --- | --- |
-| Public | Anyone | Discovery and trust | Public event pages, selected YouTube embeds, public work, public profiles |
-| Free Member | Logged-in members | Community participation | RSVP, comments/discussions, member-only events, job interest, profile creation |
-| Paid Insider | Paying members | Monetization and deeper belonging | Closed sessions, private livestreams, replays, workshops, critique rooms, insider discussions |
+| Public | Anyone | Discovery and trust | Homepage, public profiles/work, public jobs, public event pages, selected YouTube embeds |
+| Free Creative | Logged-in creatives | Supply, participation, and network density | Profile, portfolio, job interest, messaging, RSVPs, member-visible events |
+| Paid Creative | Paying or sponsored creatives | Retention and deeper access | Paid replays, closed sessions, workshops, critique rooms, permanent/expanded profile benefits |
+| Organization Partner | Paying organizations | Hiring and patronage | Org profile, job volume, direct messaging, sponsored memberships, talent matching |
+| Admin/Host | Operators and event producers | Programming and monetization | Event setup, gated media, live room controls, replay publishing, entitlement overrides |
 
-This keeps the public surface valuable enough to grow, the free account valuable enough to join, and the paid tier valuable enough to retain.
+## Current Capability Versus Gap
 
-## MVP User Journey
+| Area | Current State | Gap |
+| --- | --- | --- |
+| Profiles/portfolios | Built; artifacts support image, text, video, audio, links; YouTube/Vimeo embed parsing exists | Paid profile/member benefits and gated media permissions |
+| Jobs | Built; jobs and job interest workflows exist | Organization entitlement limits, paid posting limits, sponsored access |
+| Events | Built as community events | Event access levels, livestream/replay fields, check-in/attendance, paid event logic |
+| Messaging | Built | Paid or org-only messaging policies if desired |
+| YouTube embed | Built for portfolio/profile/work surfaces | Event-specific livestream/replay workflow, admin UX, canonical event archive |
+| Membership/paywall | Partial hint via `profiles.plan` | Billing, entitlements, plan state, server-side media gating |
+| Live interaction/calls | Not built | Decide format: broadcast, webinar, interactive room, audio room, or office-hours scheduling |
 
-1. A public video clip, YouTube premiere, Instagram post, Substack post, or shared event URL brings someone to an event page.
-2. The event page shows the title, guests, topic, date/time, access level, and a clear call to join or RSVP.
-3. If the event is public, the page embeds a YouTube video or livestream and prompts visitors to create a free account for discussion, reminders, or related opportunities.
-4. If the event is insider-only, the page shows a preview, speaker information, and a membership call to action. The stream or replay is only visible after entitlement checks.
-5. After the event, the page becomes an archive with replay, transcript/notes, related profiles, related work, and follow-up discussion.
+## What "Calls" Usually Means
 
-## YouTube Strategy
+Community platforms use "calls" to mean scheduled live rooms where people can join with audio/video. Depending on the platform, that may be closer to Zoom, a webinar, a livestream, or an audio room.
 
-YouTube should be used for reach, search, recommendations, clips, public premieres, and social proof. It should not be the only source of member value.
+For TheCrossBoard, "calls" should be split into clearer product formats:
 
-Best uses:
+| Format | Audience Experience | Best Use | Pros | Cons |
+| --- | --- | --- | --- | --- |
+| Broadcast livestream | One or a few hosts stream to many viewers with chat/discussion elsewhere | Public interviews, performances, announcements | Scales well, simple mental model, easy to record | Low audience participation |
+| Webinar | Hosts/panelists on video; audience watches, asks questions, may be promoted | Interviews, panels, workshops | Good balance of control and interaction | Needs roles, moderation, Q&A |
+| Interactive room | Many members can join audio/video | Closed conversations, critique sessions, office hours | Highest intimacy and member value | Harder moderation, expensive at scale, needs WebRTC |
+| Audio room | Live voice conversation, optional stage/audience roles | Discussions, prayer/conversation, casual salons | Lower production friction than video | Less visual/media value; still needs realtime infra |
+| Scheduled private conversation | One-to-one or small-group booking with messaging/reminders | Mentorship, hiring chats, intro sessions | Easier MVP if messaging exists | Less event-like; may need calendar integration |
 
-- Public interviews, clips, trailers, music sessions, and excerpts.
-- Search-optimized titles and descriptions that point back to thegrassboard event pages.
-- Playlists by series, discipline, guest, or event type.
-- Embedded public videos on event pages.
-- Public livestreams when the goal is audience growth.
+Recommended language: use "live sessions" publicly, and model the backend as event media plus optional interactive rooms. Avoid promising "calls" until the exact format is selected.
 
-Risky uses:
+## Recommended Implementation Path
 
-- Treating unlisted YouTube links as secure paid access. Unlisted links can be shared.
-- Hosting all insider value on YouTube, which trains users to stay on YouTube instead of joining the community.
-- Fragmenting comments between YouTube, Substack, Instagram, and thegrassboard without a clear source of truth.
+### Phase 1: Entitlements And Event Media
 
-Recommended rule:
+Build the paywall foundation first. This unlocks video paywalls, member-only events, sponsored memberships, and organization benefits.
 
-- Public content can live on YouTube and embed on thegrassboard.
-- Paid insider content should be gated by thegrassboard entitlements. If YouTube is used for delivery, assume it is convenience gating, not strong DRM.
-- The public YouTube description should always link to the canonical event/archive page on thegrassboard.
-
-## Technical Integration
-
-### Event Media Model
-
-Add media fields to events or create a related `eventMedia` entity:
+Core entities:
 
 ```typescript
-{
+memberships: {
+  userId: Id<"users">,
+  status: "active" | "trialing" | "past_due" | "canceled" | "comped",
+  plan: "free" | "paid_creative" | "sponsored_creative" | "org_partner" | "org_patron" | "founding_partner",
+  source: "stripe" | "sponsored" | "admin" | "legacy",
+  organizationId?: Id<"organizations">,
+  sponsorId?: Id<"users">,
+  currentPeriodEnd?: number,
+  createdAt: number,
+  updatedAt: number,
+}
+
+eventMedia: {
   eventId: Id<"events">,
-  accessLevel: "public" | "member" | "insider",
-  mediaType: "youtube_video" | "youtube_live" | "youtube_playlist" | "external_embed" | "native_upload",
-  provider: "youtube" | "vimeo" | "mux" | "substack" | "other",
+  accessLevel: "public" | "member" | "paid" | "org_partner" | "admin",
+  mediaKind: "youtube_video" | "youtube_live" | "cloudflare_stream_live" | "cloudflare_stream_vod" | "livekit_room" | "external_url",
   providerId?: string,
   embedUrl?: string,
-  canonicalUrl?: string,
+  playbackUrl?: string,
   thumbnailUrl?: string,
   startsAt?: number,
-  endsAt?: number,
   replayAvailableAt?: number,
-  title?: string,
-  description?: string,
+  isReplay: boolean,
+  createdAt: number,
 }
 ```
 
-### Rendering Rules
+Server rules:
 
-- Public event pages can show public YouTube embeds to anyone.
-- Member-only media requires a logged-in user.
-- Insider media requires an active paid membership entitlement.
-- Locked states should show a preview image, short event description, and the upgrade/join action.
-- Replays should be attached to the original event page instead of becoming disconnected posts.
+- Anonymous users can fetch public event metadata and public media.
+- Logged-in users can fetch member media.
+- Paid/sponsored users can fetch paid media.
+- Organization partner access should be separate from creative member access because org value is hiring/patronage, not necessarily insider creative programming.
+- Media playback tokens should be generated server-side only after entitlement checks.
 
-### YouTube Embed Options
+Business estimate:
 
-YouTube supports iframe embeds and the IFrame Player API for richer control. The simple embed path is enough for MVP:
+- 2-4 engineering days for membership schema, entitlement helper, and basic locked state if billing status is manually/admin assigned.
+- 1-2 weeks if Stripe checkout, webhooks, customer portal, sponsored memberships, and organization-tier limits are included.
 
-```html
-<iframe
-  src="https://www.youtube.com/embed/VIDEO_ID"
-  title="Event video"
-  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-  allowfullscreen
-></iframe>
-```
+### Phase 2: YouTube For Public Discovery
 
-Use the IFrame Player API when the product needs playback events, custom controls, or analytics hooks. Google documents a minimum embedded player viewport of 200px by 200px and recommends including an `origin` parameter when using JavaScript API control.
+YouTube should stay in the acquisition role:
 
-### Access Control
+- Public interviews, clips, trailers, and selected replays live on YouTube.
+- YouTube descriptions link back to canonical TheCrossBoard event/archive pages.
+- Event pages embed public YouTube videos when public discovery is the goal.
+- YouTube comments can stay enabled for discovery, but the primary community discussion should be linked back to TheCrossBoard.
 
-Recommended entitlement checks:
+Technical note:
 
-- `anonymous`: can view public metadata and public media.
-- `member`: can view public and member media.
-- `insider`: can view public, member, and insider media.
-- `admin`: can create, preview, and manage all media.
+- Existing YouTube URL parsing already handles `watch`, `youtu.be`, `embed`, `shorts`, and `/live/` URL shapes in profile/settings contexts.
+- The event implementation should reuse that parsing logic instead of creating a separate ad hoc parser.
 
-Do not rely on hidden frontend routes for access control. Media visibility should be enforced server-side when returning event media records.
+Business estimate:
 
-### Streaming Options
+- 1-2 engineering days to add event media fields, admin paste-URL flow, event embed rendering, and locked state placeholders if the existing event UI is straightforward.
+- Additional 1-2 days for attribution fields and analytics events.
 
-| Option | Pros | Cons | Best Use |
-| --- | --- | --- | --- |
-| YouTube public livestream | Strong discovery, familiar UX, easy embeds, low direct cost | Limited gating, sends attention back to YouTube, comments can fragment | Public interviews, launches, music sessions, trailers |
-| YouTube unlisted livestream | Easy to embed and share with members | Link can leak; not a true paywall | Low-risk member sessions where leakage is acceptable |
-| YouTube members-only | Native YouTube monetization and gating | Moves membership relationship to YouTube | Not recommended as primary model |
-| Substack live video | Already part of current content footprint; can notify subscribers and gate by subscriber type | Another community destination; less tied to profiles/jobs | Audience testing and newsletter-led live sessions |
-| Skool native calls | Built-in events, calls, tiers, payments, and community | Community lives on Skool, not thegrassboard; less marketplace/profile control | Fast validation of insider community before building |
-| Circle or Mighty Networks | Mature paid community, events, live streams, mobile apps | Separate platform, monthly cost, integration tradeoffs | Validation or hosted community if custom build is delayed |
-| Mux/Vimeo/custom | Stronger control, cleaner gating, branded UX | More implementation and operating cost | Long-term insider archive and premium VOD |
+### Phase 3: Cloudflare Stream For Paywalled Broadcast And Replay
 
-## Platform Comparison
+Cloudflare Stream is the strongest practical fit for paid video playback and replay because the app already runs on Cloudflare-oriented infrastructure and Stream supports live/on-demand video, HLS/DASH playback, automatic encoding, analytics, and signed URLs.
 
-### Build thegrassboard Natively
+Use Cloudflare Stream when:
+
+- The audience watches, but does not need to appear on camera.
+- The value is a paid livestream, replay, workshop archive, or music/interview broadcast.
+- You need real paywall protection stronger than unlisted YouTube.
+- You want low operational complexity.
 
 Pros:
 
-- Own the profiles, work graph, jobs, events, and membership relationship.
-- Can connect media directly to creative profiles and hiring outcomes.
-- Strongest long-term differentiation versus generic communities.
-- Can design the public-to-free-to-paid journey around the actual marketplace.
+- Built for live and VOD delivery without running media servers.
+- Signed URLs support authenticated/paid viewing.
+- HLS/DASH playback works across devices.
+- Live recordings can become replays.
+- Pricing is simple: storage minutes plus delivered minutes; Cloudflare currently lists $5 per 1,000 minutes stored and $1 per 1,000 minutes delivered, with encoding and bandwidth included in the delivered-minute model.
 
 Cons:
 
-- Requires product, billing, access control, moderation, and event operations work.
-- Slower to validate paid programming than a hosted community tool.
-- Requires clearer content operations and admin workflows.
+- Not an interactive video room. Viewers cannot join as participants.
+- Live ingest still requires a production tool or broadcaster, such as OBS, Restream, or a custom ingest flow.
+- Chat/Q&A/discussion must be built separately or attached through existing event discussion/messaging patterns.
 
-Best when:
+Technical route:
 
-- The goal is a durable creative network, not just a paid content group.
+1. Admin creates event media with `mediaKind: "cloudflare_stream_live"`.
+2. Server creates or stores a Cloudflare Stream live input.
+3. Host streams RTMP/SRT from OBS or production software into Cloudflare.
+4. Event page requests a signed playback token after entitlement check.
+5. Viewer watches via Cloudflare Stream player or HLS URL.
+6. Recording is attached back to the event as `cloudflare_stream_vod`.
 
-### Skool
+Business estimate:
 
-Skool offers community, classroom/content, calendar/events, native calls, payments, freemium, tiers, and event permissions. Its help docs currently describe free groups, subscriptions, freemium plans, tiered pricing, and one-time payments; event access can be restricted by member level, tier, or course access. Skool also supports native video uploads plus YouTube, Vimeo, Loom, and Wistia embeds.
+- MVP paywalled broadcast/replay: 1-2 weeks after entitlement foundation.
+- Production-quality event ops tooling: 2-4 additional weeks for admin controls, replay states, thumbnails, captions/transcripts, analytics, and support workflows.
+
+### Phase 4: LiveKit For Interactive Sessions
+
+LiveKit is the best fit if TheCrossBoard wants members to join live rooms with audio/video, not just watch. It provides WebRTC rooms, participant roles, server-issued access tokens, recording/egress, and livestream/recording output paths. LiveKit Egress can record rooms to MP4/HLS and stream to YouTube Live, Twitch, Facebook, or RTMP endpoints.
+
+Use LiveKit when:
+
+- Participants need to speak, appear on camera, screenshare, or be promoted to the stage.
+- The event is a paid closed conversation, office hours, critique room, or panel with audience participation.
+- You need role-based room access: host, panelist, attendee, moderator.
 
 Pros:
 
-- Fastest way to test paid insider programming.
-- Built-in payments, tiers, event permissions, calls, video, and member engagement loops.
-- Low implementation burden.
+- Real interactive audio/video with lower latency than HLS.
+- Strong fit for paid salons, critique sessions, and interactive conversations.
+- Server-generated room tokens map cleanly to TheCrossBoard entitlements.
+- Egress can record and output HLS/MP4 or restream to YouTube/RTMP.
 
 Cons:
 
-- The community, member graph, payments, and engagement live primarily inside Skool.
-- Weaker fit for creative portfolios, jobs, marketplace matching, and public SEO pages.
-- Less control over brand, data model, and custom user journey.
+- More complex than Cloudflare Stream.
+- Costs scale with participant minutes, bandwidth, and egress/transcoding.
+- Requires room UI, device permissions, moderation controls, host controls, reconnect handling, and support expectations.
+- Large public broadcasts should not put every viewer in WebRTC; use HLS/broadcast for viewers and WebRTC only for hosts/panelists.
 
-Best when:
+Technical route:
 
-- The team wants to validate paid insider programming before building it into thegrassboard.
+1. Add `liveRooms` connected to events.
+2. Server creates LiveKit room and issues short-lived tokens after entitlement checks.
+3. Roles:
+   - host: publish audio/video/screen, mute/remove others, start/stop egress.
+   - panelist: publish audio/video/screen.
+   - attendee: join muted or view-only depending on event format.
+   - moderator: manage chat/Q&A/participants.
+4. Use LiveKit React components or SDK for the room UI.
+5. Use Egress to record room composite to storage and optionally send RTMP to YouTube or Cloudflare/Mux.
+6. Attach replay back to event media.
 
-### Circle
+Business estimate:
 
-Circle offers discussions, courses, events, live streams, paid memberships, member directory, profiles, custom domain, analytics, and APIs on higher plans. Pricing currently starts around $89/month for Professional and $199/month for Business, with live stream limits and transaction fees by plan.
+- Prototype closed room for 2-20 participants: 2-3 weeks.
+- Moderated webinar with host/panelist/attendee roles, recording, replay, and admin controls: 4-8 weeks.
+- Production-grade event platform with robust backstage, Q&A, captions, analytics, and support tooling: 8-12+ weeks.
 
-Pros:
+## Practical Architecture Recommendation
 
-- Mature community and paid membership stack.
-- Better customization/API posture than simpler community tools.
-- Useful for courses, events, and private spaces.
+Use both Cloudflare Stream and LiveKit, but for different jobs:
 
-Cons:
+| Need | Recommended Tech | Why |
+| --- | --- | --- |
+| Public YouTube discovery | YouTube embed | Already useful for reach and search |
+| Paid livestream where audience watches | Cloudflare Stream Live | Simpler, scalable, paywall-friendly |
+| Paid replay/archive | Cloudflare Stream VOD with signed URLs | Stronger gating than unlisted YouTube |
+| Closed interactive conversation | LiveKit | WebRTC participation and room roles |
+| Public broadcast from interactive room | LiveKit Egress to YouTube and/or Cloudflare | Hosts interact in LiveKit; audience watches scalable stream |
+| Audio-only salon | LiveKit audio room | Same entitlement/token model; lower production friction |
 
-- Still a separate community destination.
-- Less purpose-built for creative work portfolios and jobs.
-- Live streaming limits may matter as programming scales.
+Default recommendation:
 
-Best when:
+1. Build member/paid entitlement checks first.
+2. Add event media records and public YouTube embeds.
+3. Add Cloudflare Stream signed playback for paid replays and non-interactive paid broadcasts.
+4. Add LiveKit only for interactive sessions where members need to participate live.
 
-- The team wants hosted community infrastructure with more business/customization controls than Skool.
+This keeps the near-term implementation tied to business value: paid media access and membership conversion before a full event-room product.
 
-### Mighty Networks
+## Cost Model Examples
 
-Mighty Networks offers community, courses, events, paid memberships, branded apps on higher plans, livestreaming, member discovery, and automations. Current plans list Launch, Scale, Growth, and Mighty Pro tiers, with streaming hours, viewer caps, storage, and transaction fees varying by plan.
+These are planning estimates, not vendor quotes.
 
-Pros:
+### Cloudflare Stream Example
 
-- Strong paid community and mobile app experience.
-- Good fit for membership programs, cohorts, events, and courses.
-- More robust community business tooling than a basic forum.
+Scenario: 90-minute paid replay, 500 paid viewers, average watch time 60 minutes.
 
-Cons:
+- Storage: 90 stored minutes, rounded into purchased storage blocks.
+- Delivery: 500 viewers x 60 minutes = 30,000 delivered minutes.
+- At Cloudflare's currently listed $1 per 1,000 delivered minutes, playback delivery would be about $30, plus storage allocation.
 
-- Higher cost as needs grow.
-- Separate destination from thegrassboard marketplace.
-- Native app value is useful but may not solve portfolio/jobs differentiation.
+Business implication:
 
-Best when:
+- Cloudflare Stream economics are friendly for paid replays and broadcasts. The bigger work is entitlement, event ops, content production, and conversion, not raw delivery cost.
 
-- The membership/community program is the primary product and a branded mobile experience matters.
+### LiveKit Interactive Example
 
-### Substack
+Scenario: 60-minute closed critique session, 12 participants on audio/video, recorded.
 
-Substack is already part of the current content footprint. It now supports video posts and live video, including access choices for everyone, subscribers, or paid subscribers.
+- Connection minutes: 12 x 60 = 720 participant minutes.
+- Bandwidth depends on video quality, number of published tracks, and subscriptions.
+- Recording/egress adds transcoding/egress usage.
 
-Pros:
+Business implication:
 
-- Existing audience and publishing workflow.
-- Strong email notifications and paid subscriber model.
-- Useful for essays, announcements, interviews, and live tests.
+- LiveKit is appropriate for high-value interactive events with limited seats. It should be priced like access, not like commodity content.
 
-Cons:
+### Hybrid Event Example
 
-- Subscription relationship and discussion are anchored outside thegrassboard.
-- Weak fit for creative profiles, jobs, work discovery, and marketplace behavior.
-- Adds another place where community conversation can fragment.
+Scenario: 4 speakers in LiveKit, 1 moderator, 1,000 public viewers.
 
-Best when:
+- Put 5 active participants in LiveKit.
+- Egress the program feed to YouTube and/or Cloudflare Stream.
+- Public viewers watch YouTube/Cloudflare HLS, not WebRTC.
 
-- Testing demand through the existing audience before moving the highest-value experiences into thegrassboard.
+Business implication:
 
-## Recommendation
+- This avoids paying WebRTC costs for passive viewers while still giving hosts a flexible interactive production environment.
 
-Do not replace thegrassboard with Skool, Circle, Mighty, or Substack. Use them only as validation or distribution tools.
+## Paywall UX
 
-Recommended path:
+Locked states should not feel punitive. They should make the value clear:
 
-1. Build public event/archive pages in thegrassboard with YouTube embeds.
-2. Add simple access levels to events: public, member, insider.
-3. Use Stripe or the existing billing direction for insider entitlement checks when ready.
-4. Keep using YouTube for public discovery and clips.
-5. Use Substack for announcements and audience testing while linking back to canonical event pages.
-6. Consider Skool only as a temporary pilot for paid insider programming if custom membership work would delay learning by more than a few weeks.
+- Public preview: title, guest/speaker/artist, date, short description, clip/trailer if available.
+- Clear badge: Public, Members, Paid Members, Organization Partner, Sponsored.
+- Primary CTA: join, upgrade, RSVP, or register interest.
+- For sponsored members: explain who sponsored access when appropriate.
+- For organizations: connect paid tiers to hiring, direct messaging, job volume, and sponsored memberships rather than only content.
 
-## MVP Scope
+## Open Product Decisions
 
-### Phase 1: Public Media Pages
-
-- Event detail pages support public YouTube embeds.
-- Event pages include speaker/artist profiles, description, date/time, and related links.
-- YouTube descriptions link back to event pages.
-- Admin can paste a YouTube URL or video ID.
-
-### Phase 2: Membership Gate
-
-- Add `accessLevel` to events and event media.
-- Add locked state UI for member and insider content.
-- Add entitlement checks before returning gated media.
-- Add RSVP/reminder capture for free members.
-
-### Phase 3: Insider Programming
-
-- Add paid membership state.
-- Add insider-only livestream or replay media.
-- Add insider event discussions.
-- Add replay archive and post-event notes.
-
-### Phase 4: Media Growth Loop
-
-- Add clips and related content modules.
-- Track source attribution from YouTube, Substack, Instagram, and direct links.
-- Add conversion reporting by content source: visitor to signup, signup to RSVP, RSVP to paid insider.
-
-## Key Product Decisions
-
-- Are insider sessions paid by recurring membership, one-time event ticket, or both?
-- Should free members be able to attend live public sessions but only insiders get replays?
-- Should YouTube comments be enabled, or should discussion be directed back to thegrassboard?
-- Should paid media use YouTube unlisted at first, or should premium replays use a more controllable provider?
-- Is Skool a pilot platform, a competitor, or a non-goal?
-
-## Success Metrics
-
-| Metric | Why It Matters |
-| --- | --- |
-| YouTube viewer to event-page click-through | Validates YouTube as acquisition channel |
-| Event-page visitor to free signup | Validates public page conversion |
-| Free signup to RSVP | Validates programming demand |
-| RSVP to attendance | Validates event value and reminders |
-| Free member to paid insider | Validates monetization |
-| Paid insider retention | Validates recurring membership |
-| Replay views per event | Validates archive value |
-| Profile/job actions after event | Validates that programming strengthens the creative network |
-
-## Risks
-
-- Content fragmentation across YouTube, Substack, Instagram, and thegrassboard.
-- Paid value feels like content access instead of meaningful community access.
-- YouTube drives awareness but keeps attention away from thegrassboard.
-- Unlisted YouTube links leak and weaken perceived exclusivity.
-- Hosted community tools validate engagement but trap the highest-value relationships off-platform.
+- Is individual paid membership annual, monthly, or both?
+- Are paid events included in membership, sold as one-off tickets, or both?
+- Do organization tiers grant content access, or only hiring/patronage benefits?
+- Are sponsored creative memberships full paid memberships or limited access grants?
+- Should public YouTube streams be live, or should YouTube receive edited clips after TheCrossBoard-hosted events?
+- Do we want event chat/discussion inside TheCrossBoard, or do we rely on YouTube/Substack comments for public events?
+- Which first paid format is most likely to sell: replay archive, live workshop, closed interview, critique room, or office hours?
 
 ## Sources Checked
 
+- [Cloudflare Stream overview](https://developers.cloudflare.com/stream/)
+- [Cloudflare Stream live video](https://developers.cloudflare.com/stream/stream-live/)
+- [Cloudflare Stream pricing](https://developers.cloudflare.com/stream/pricing/)
+- [Cloudflare Stream signed URLs](https://developers.cloudflare.com/stream/viewing-videos/securing-your-stream/)
+- [LiveKit Egress overview](https://docs.livekit.io/home/egress/overview)
+- [LiveKit Egress output types](https://docs.livekit.io/home/egress/outputs)
+- [LiveKit Egress examples](https://docs.livekit.io/home/egress/examples)
+- [LiveKit Cloud billing](https://docs.livekit.io/home/cloud/billing)
 - [YouTube embedded players and parameters](https://developers.google.com/youtube/player_parameters)
 - [YouTube IFrame Player API](https://developers.google.com/youtube/iframe_api_reference)
 - [YouTube Help: embed videos and playlists](https://support.google.com/youtube/answer/171780)
 - [YouTube Help: create a live stream with an encoder](https://support.google.com/youtube/answer/2907883)
-- [Skool Help: pricing setup](https://help.skool.com/article/215-how-to-setup-pricing-for-the-group)
-- [Skool Help: payments FAQ](https://help.skool.com/article/86-subscriptions-faq)
-- [Skool Help: event/call permissions](https://help.skool.com/article/149-how-to-set-permissions-for-an-event)
-- [Skool Help: go live on Skool](https://help.skool.com/article/210-how-to-go-live-on-skool)
-- [Skool Help: add videos](https://help.skool.com/article/58-video-link-tips)
-- [Circle pricing](https://circle.so/pricing)
-- [Mighty Networks pricing](https://www.mightynetworks.com/pricing)
-- [Substack Help: live video](https://support.substack.com/hc/en-us/articles/30316077882516-Getting-started-with-Live-Video-on-Substack)
-- [Substack Help: desktop live video](https://support.substack.com/hc/en-us/articles/43904564079892)
-- [Substack Help: video embeds](https://support.substack.com/hc/en-us/articles/15659757294228-How-do-I-embed-a-video-in-a-Substack-post)
-- [Upwork client pricing](https://www.upwork.com/pricing/client)
-- [Upwork freelancer service fee](https://support.upwork.com/hc/en-us/articles/211062538-Learn-about-the-Freelancer-Service-Fee)
-- [Dribbble hiring](https://dribbble.com/hiring)
-- [Behance fees FAQ](https://help.behance.net/hc/en-us/articles/10770324288923-FAQ-What-are-the-fees)
