@@ -129,6 +129,7 @@ Possible insider benefits:
 - [Core PRD](docs/prd.md)
 - [Jobs feature PRD](docs/jobs-feature-prd.md)
 - [Event location PRD](docs/prd-event-location.md)
+- [Entitlements and paywall foundation](docs/features/entitlements-paywall-foundation.md)
 - [Member paywall and live media integration spec](docs/features/paid-community-youtube-media.md)
 
 ## Working Assumptions

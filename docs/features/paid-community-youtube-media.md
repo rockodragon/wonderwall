@@ -19,7 +19,7 @@ TheCrossBoard should publish enough public video on YouTube to grow the channel,
 
 For live events, the practical path is:
 
-1. Keep the core marketplace/community custom: profiles, portfolios, jobs, organization tiers, messaging, member graph, recommendations, and paywall entitlements.
+1. Keep the core marketplace/community custom: profiles, portfolios, jobs, organization tiers, messaging, member graph, recommendations, and [paywall entitlements](entitlements-paywall-foundation.md).
 2. Use Zoom links as the fastest near-term hosted option for small live member events where operational simplicity matters more than native UX.
 3. Use Cloudflare Stream for paywalled watch-only broadcasts and replays because it fits TheCrossBoard's Cloudflare stack, supports signed playback, and avoids WebRTC complexity for passive viewers.
 4. Use LiveKit when the event requires native interactive video: panelists, stages, critique sessions, office hours, screen share, host controls, and eventual streaming out to YouTube or HLS.
@@ -27,7 +27,7 @@ For live events, the practical path is:
 
 Opinionated first build:
 
-- Build membership entitlements and event media records first.
+- Build [membership entitlements](entitlements-paywall-foundation.md) and event media records first.
 - Add public YouTube event embeds using existing YouTube parsing patterns.
 - Add gated Cloudflare Stream replay/live playback for paid members.
 - Use Zoom manually for early closed sessions while validating formats.
@@ -209,6 +209,8 @@ Use vendors for commodities:
 The implementation principle: own the graph and the paywall; rent the media transport until the user experience demands native control.
 
 ## Recommended Implementation Path
+
+Use [Entitlements and Paywall Foundation](entitlements-paywall-foundation.md) as the implementation source of truth for plan tables, capability checks, organization subscriptions, sponsored seats, and admin overrides.
 
 ### Phase 1: Entitlements And Event Media
 

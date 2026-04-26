@@ -24,6 +24,7 @@ Start with business outcome and user journey before implementation. Each feature
 - [Jobs feature PRD](jobs-feature-prd.md)
 - [Messaging feature PRD](messaging-feature-prd.md)
 - [Event location PRD](prd-event-location.md)
+- [Entitlements and paywall foundation](features/entitlements-paywall-foundation.md)
 - [Member paywall and live media integration](features/paid-community-youtube-media.md)
 
 ## Research
