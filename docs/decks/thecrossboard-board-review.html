@@ -789,10 +789,11 @@
     }
 
     function go(delta) {
-      goTo(indexFromScroll() + delta);
+      goTo(currentIndex + delta);
     }
 
     document.body.focus({ preventScroll: true });
+    window.addEventListener('load', () => document.body.focus({ preventScroll: true }));
     window.addEventListener('scroll', setProgress, { passive: true });
     window.addEventListener('resize', setProgress);
     document.addEventListener('keydown', (event) => {
