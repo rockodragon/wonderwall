@@ -33,6 +33,10 @@ Start with business outcome and user journey before implementation. Each feature
 - [Job board crawler strategy](research/job-board-crawler-strategy.md)
 - [Crawler implementation](research/crawler-implementation.md)
 
+## Board Materials
+
+- [Board review deck: paid membership and live events](decks/thecrossboard-board-review.html)
+
 ## Proposed Structure
 
 Use this structure for new docs:
