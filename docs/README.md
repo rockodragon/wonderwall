@@ -43,7 +43,7 @@ The UpSight deck publisher lives in the separate Insights repo, so run uploads f
 
 ```bash
 cd /Users/richardmoy/Code/ai/Insights
-npx tsx scripts/upload-deck.ts /Users/richardmoy/Code/ai/wonderwall/docs/decks/thecrossboard-board-review.html --title "CrossBoard for Abiding Practice"
+npx tsx scripts/upload-deck.ts /Users/richardmoy/Code/ai/wonderwall/docs/decks/thecrossboard-board-review.html /Users/richardmoy/Code/ai/wonderwall/docs/decks/assets --title "CrossBoard for Abiding Practice"
 ```
 
 ## Proposed Structure

@@ -127,6 +127,15 @@
       color: var(--ink);
     }
 
+    .brand::before {
+      content: "";
+      width: 1.75rem;
+      height: 1.75rem;
+      display: inline-block;
+      border: 1px solid rgba(239, 228, 204, 0.72);
+      background: #000 url("./assets/ap-logo-thickbox-white-black.jpg") center / cover no-repeat;
+    }
+
     .mark {
       display: grid;
       grid-template-columns: repeat(2, 0.55rem);
@@ -141,6 +150,41 @@
       grid-template-columns: minmax(0, 1.05fr) minmax(300px, 0.95fr);
       gap: clamp(1rem, 4vw, 4rem);
       align-items: center;
+    }
+
+    .ap-title-lockup {
+      width: fit-content;
+      display: inline-flex;
+      align-items: center;
+      gap: clamp(0.8rem, 2vw, 1.25rem);
+      padding: clamp(0.55rem, 1.2vw, 0.9rem) clamp(0.75rem, 1.5vw, 1.2rem);
+      margin-bottom: clamp(1rem, 2vw, 1.6rem);
+      border: 1px solid rgba(239, 228, 204, 0.18);
+      border-radius: var(--radius);
+      background: rgba(0, 0, 0, 0.42);
+    }
+
+    .ap-title-lockup img {
+      width: clamp(3.4rem, 7vw, 5.5rem);
+      height: clamp(3.4rem, 7vw, 5.5rem);
+      object-fit: cover;
+      border: 1px solid rgba(239, 228, 204, 0.72);
+    }
+
+    .ap-title-lockup span {
+      display: block;
+      color: var(--ink);
+      font-weight: 900;
+      font-size: clamp(1rem, 1.8vw, 1.45rem);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .ap-title-lockup small {
+      color: var(--muted);
+      font-size: var(--small-size);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
     }
 
     .statement {
@@ -423,6 +467,13 @@
     <div class="topbar"><span class="brand"><span class="mark"><span></span><span></span><span></span><span></span></span>CrossBoard + Abiding Practice</span><span></span></div>
     <div class="slide-content title-grid">
       <div>
+        <div class="ap-title-lockup reveal">
+          <img src="./assets/ap-logo-thickbox-white-black.jpg" alt="Abiding Practice logo" />
+          <div>
+            <span>Abiding Practice</span>
+            <small>CrossBoard platform review</small>
+          </div>
+        </div>
         <div class="kicker reveal">Platform Strategy</div>
         <h1 class="reveal">A home base for the Abiding Practice community</h1>
       </div>
