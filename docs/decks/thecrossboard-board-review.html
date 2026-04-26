@@ -331,8 +331,9 @@
       border-radius: 999px;
     }
 
-    .reveal { opacity: 0; transform: translateY(20px); transition: opacity 0.55s ease, transform 0.55s ease; }
-    .visible .reveal { opacity: 1; transform: translateY(0); }
+    .reveal { opacity: 1; transform: none; transition: opacity 0.55s ease, transform 0.55s ease; }
+    .slide:not(.visible) .reveal { opacity: 0.98; }
+    .visible .reveal { opacity: 1; transform: none; }
     .visible .reveal:nth-child(2) { transition-delay: 0.08s; }
     .visible .reveal:nth-child(3) { transition-delay: 0.16s; }
     .visible .reveal:nth-child(4) { transition-delay: 0.24s; }
@@ -651,9 +652,15 @@
 
     function setProgress() {
       let index = 0;
-      const mid = window.scrollY + window.innerHeight / 2;
+      const mid = window.innerHeight / 2;
+      let bestDistance = Infinity;
       slides.forEach((slide, i) => {
-        if (slide.offsetTop <= mid) index = i;
+        const rect = slide.getBoundingClientRect();
+        const distance = Math.abs((rect.top + rect.bottom) / 2 - mid);
+        if (distance < bestDistance) {
+          bestDistance = distance;
+          index = i;
+        }
       });
       progress.textContent = `${index + 1} / ${slides.length}`;
       slides.forEach((slide, i) => slide.classList.toggle('visible', Math.abs(i - index) <= 1));
