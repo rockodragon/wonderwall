@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CrossBoard for Abiding Practice: Platform Strategy</title>
+  <title>CrossBoard for Abiding Practice: Team Review</title>
   <style>
     :root {
       --ink: #f7f3e8;
@@ -83,6 +83,26 @@
       gap: var(--content-gap);
     }
 
+    .slide-content > .kicker + h2,
+    .slide-content > h2 + .sub,
+    .slide-content > h2 + .list,
+    .slide-content > h2 + .matrix,
+    .slide-content > h2 + .three,
+    .slide-content > h2 + .metric-row,
+    .slide-content > h2 + .timeline,
+    .slide-content > h2 + .split,
+    .slide-content > .quote + .sub {
+      margin-top: clamp(0.45rem, 1.3vw, 1.1rem);
+    }
+
+    .slide-content > .sub + .linkline,
+    .slide-content > .sub + .list,
+    .slide-content > .sub + .matrix,
+    .slide-content > .sub + .three,
+    .slide-content > .sub + .split {
+      margin-top: clamp(0.75rem, 1.8vw, 1.4rem);
+    }
+
     .kicker {
       color: var(--amber);
       font-size: var(--small-size);
@@ -122,7 +142,7 @@
 
     .brand {
       display: inline-flex;
-      gap: 0.55rem;
+      gap: 0.5rem;
       align-items: center;
       color: var(--ink);
     }
@@ -134,6 +154,11 @@
       display: inline-block;
       border: 1px solid rgba(239, 228, 204, 0.72);
       background: #000 url("./assets/ap-logo-thickbox-white-black.jpg") center / cover no-repeat;
+    }
+
+    .brand-plus {
+      color: var(--muted);
+      margin: 0 0.08rem;
     }
 
     .mark {
@@ -376,6 +401,14 @@
       align-items: center;
     }
 
+    .approval .sub {
+      margin-top: clamp(0.65rem, 1.4vw, 1rem);
+    }
+
+    .approval .linkline {
+      margin-top: clamp(0.85rem, 1.8vw, 1.4rem);
+    }
+
     .decision {
       border: 1px solid var(--amber);
       border-radius: var(--radius);
@@ -464,7 +497,7 @@
   <div class="progress" id="progress">1 / 16</div>
 
   <section class="slide visible" data-title="Title">
-    <div class="topbar"><span class="brand"><span class="mark"><span></span><span></span><span></span><span></span></span>CrossBoard + Abiding Practice</span><span></span></div>
+    <div class="topbar"><span class="brand">Abiding Practice <span class="brand-plus">+</span> <span class="mark"><span></span><span></span><span></span><span></span></span>The CrossBoard</span><span>Team Review</span></div>
     <div class="slide-content title-grid">
       <div>
         <div class="ap-title-lockup reveal">
@@ -474,7 +507,7 @@
             <small>CrossBoard platform review</small>
           </div>
         </div>
-        <div class="kicker reveal">Platform Strategy</div>
+        <div class="kicker reveal">Team Review</div>
         <h1 class="reveal">A home base for the Abiding Practice community</h1>
       </div>
       <div class="band reveal">
@@ -484,7 +517,7 @@
   </section>
 
   <section class="slide" data-title="What AP Needs">
-    <div class="topbar"><span class="brand"><span class="mark"><span></span><span></span><span></span><span></span></span>CrossBoard + Abiding Practice</span><span>What AP Needs</span></div>
+    <div class="topbar"><span class="brand">Abiding Practice <span class="brand-plus">+</span> <span class="mark"><span></span><span></span><span></span><span></span></span>The CrossBoard</span><span>What AP Needs</span></div>
     <div class="slide-content">
       <div class="quote reveal"><p>Abiding Practice needs a path from attention to participation, support, and paid creative work.</p></div>
       <p class="sub reveal">The platform job is to connect media, events, artists, partners, members, and jobs so the community can gather, sustain artists, and keep momentum after each public moment.</p>
@@ -492,7 +525,7 @@
   </section>
 
   <section class="slide" data-title="Abiding Practice">
-    <div class="topbar"><span class="brand"><span class="mark"><span></span><span></span><span></span><span></span></span>CrossBoard + Abiding Practice</span><span>Abiding Practice Today</span></div>
+    <div class="topbar"><span class="brand">Abiding Practice <span class="brand-plus">+</span> <span class="mark"><span></span><span></span><span></span><span></span></span>The CrossBoard</span><span>Abiding Practice Today</span></div>
     <div class="slide-content">
       <div class="kicker reveal">Current shape</div>
       <h2 class="reveal">A creative formation movement needs a home base</h2>
@@ -506,7 +539,7 @@
   </section>
 
   <section class="slide" data-title="Why CrossBoard">
-    <div class="topbar"><span class="brand"><span class="mark"><span></span><span></span><span></span><span></span></span>CrossBoard + Abiding Practice</span><span>Why This Makes Sense</span></div>
+    <div class="topbar"><span class="brand">Abiding Practice <span class="brand-plus">+</span> <span class="mark"><span></span><span></span><span></span><span></span></span>The CrossBoard</span><span>Why This Makes Sense</span></div>
     <div class="slide-content">
       <div class="kicker reveal">Business outcome first</div>
       <h2 class="reveal">CrossBoard turns Abiding Practice attention into participation</h2>
@@ -520,7 +553,7 @@
   </section>
 
   <section class="slide" data-title="Current Advantage">
-    <div class="topbar"><span class="brand"><span class="mark"><span></span><span></span><span></span><span></span></span>CrossBoard + Abiding Practice</span><span>Current Advantage</span></div>
+    <div class="topbar"><span class="brand">Abiding Practice <span class="brand-plus">+</span> <span class="mark"><span></span><span></span><span></span><span></span></span>The CrossBoard</span><span>Current Advantage</span></div>
     <div class="slide-content">
       <div class="kicker reveal">Already built</div>
       <h2 class="reveal">CrossBoard already matches Abiding Practice’s operating model</h2>
@@ -534,7 +567,7 @@
   </section>
 
   <section class="slide" data-title="Alternatives">
-    <div class="topbar"><span class="brand"><span class="mark"><span></span><span></span><span></span><span></span></span>CrossBoard + Abiding Practice</span><span>Alternatives</span></div>
+    <div class="topbar"><span class="brand">Abiding Practice <span class="brand-plus">+</span> <span class="mark"><span></span><span></span><span></span><span></span></span>The CrossBoard</span><span>Alternatives</span></div>
     <div class="slide-content">
       <div class="kicker reveal">What else could we do?</div>
       <h2 class="reveal">Each alternative solves part of the problem. None carries jobs.</h2>
@@ -549,7 +582,7 @@
   </section>
 
   <section class="slide" data-title="YouTube">
-    <div class="topbar"><span class="brand"><span class="mark"><span></span><span></span><span></span><span></span></span>CrossBoard + Abiding Practice</span><span>YouTube</span></div>
+    <div class="topbar"><span class="brand">Abiding Practice <span class="brand-plus">+</span> <span class="mark"><span></span><span></span><span></span><span></span></span>The CrossBoard</span><span>YouTube</span></div>
     <div class="slide-content">
       <div class="kicker reveal">Public channel strategy</div>
       <h2 class="reveal">Use YouTube to carry the public witness</h2>
@@ -575,7 +608,7 @@
   </section>
 
   <section class="slide" data-title="Hosted Communities">
-    <div class="topbar"><span class="brand"><span class="mark"><span></span><span></span><span></span><span></span></span>CrossBoard + Abiding Practice</span><span>Hosted Communities</span></div>
+    <div class="topbar"><span class="brand">Abiding Practice <span class="brand-plus">+</span> <span class="mark"><span></span><span></span><span></span><span></span></span>The CrossBoard</span><span>Hosted Communities</span></div>
     <div class="slide-content">
       <div class="kicker reveal">Skool / Circle / Mighty</div>
       <h2 class="reveal">Fast to start, weak as Abiding Practice’s identity layer</h2>
@@ -601,7 +634,7 @@
   </section>
 
   <section class="slide" data-title="CrossBoard Pros Cons">
-    <div class="topbar"><span class="brand"><span class="mark"><span></span><span></span><span></span><span></span></span>CrossBoard + Abiding Practice</span><span>CrossBoard Option</span></div>
+    <div class="topbar"><span class="brand">Abiding Practice <span class="brand-plus">+</span> <span class="mark"><span></span><span></span><span></span><span></span></span>The CrossBoard</span><span>CrossBoard Option</span></div>
     <div class="slide-content">
       <div class="kicker reveal">Owned platform</div>
       <h2 class="reveal">More control, less generic community drift</h2>
@@ -627,7 +660,7 @@
   </section>
 
   <section class="slide" data-title="Operating Model">
-    <div class="topbar"><span class="brand"><span class="mark"><span></span><span></span><span></span><span></span></span>CrossBoard + Abiding Practice</span><span>Operating Model</span></div>
+    <div class="topbar"><span class="brand">Abiding Practice <span class="brand-plus">+</span> <span class="mark"><span></span><span></span><span></span><span></span></span>The CrossBoard</span><span>Operating Model</span></div>
     <div class="slide-content">
       <div class="kicker reveal">Recommended stack</div>
       <h2 class="reveal">One owned home, multiple specialized tools</h2>
@@ -642,7 +675,7 @@
   </section>
 
   <section class="slide" data-title="MVP">
-    <div class="topbar"><span class="brand"><span class="mark"><span></span><span></span><span></span><span></span></span>CrossBoard + Abiding Practice</span><span>MVP Scope</span></div>
+    <div class="topbar"><span class="brand">Abiding Practice <span class="brand-plus">+</span> <span class="mark"><span></span><span></span><span></span><span></span></span>The CrossBoard</span><span>MVP Scope</span></div>
     <div class="slide-content">
       <div class="kicker reveal">Limited work to validate</div>
       <h2 class="reveal">The MVP adds access around what already exists</h2>
@@ -655,7 +688,7 @@
   </section>
 
   <section class="slide" data-title="Paid Tiers">
-    <div class="topbar"><span class="brand"><span class="mark"><span></span><span></span><span></span><span></span></span>CrossBoard + Abiding Practice</span><span>Paid Tiers</span></div>
+    <div class="topbar"><span class="brand">Abiding Practice <span class="brand-plus">+</span> <span class="mark"><span></span><span></span><span></span><span></span></span>The CrossBoard</span><span>Paid Tiers</span></div>
     <div class="slide-content">
       <div class="kicker reveal">Monetization paths</div>
       <h2 class="reveal">Paid value should match actual commitment</h2>
@@ -669,7 +702,7 @@
   </section>
 
   <section class="slide" data-title="Milestones">
-    <div class="topbar"><span class="brand"><span class="mark"><span></span><span></span><span></span><span></span></span>CrossBoard + Abiding Practice</span><span>Milestones</span></div>
+    <div class="topbar"><span class="brand">Abiding Practice <span class="brand-plus">+</span> <span class="mark"><span></span><span></span><span></span><span></span></span>The CrossBoard</span><span>Milestones</span></div>
     <div class="slide-content">
       <div class="kicker reveal">From approval to learning</div>
       <h2 class="reveal">Build toward proof, then polish</h2>
@@ -683,7 +716,7 @@
   </section>
 
   <section class="slide" data-title="Risks">
-    <div class="topbar"><span class="brand"><span class="mark"><span></span><span></span><span></span><span></span></span>CrossBoard + Abiding Practice</span><span>Risks</span></div>
+    <div class="topbar"><span class="brand">Abiding Practice <span class="brand-plus">+</span> <span class="mark"><span></span><span></span><span></span><span></span></span>The CrossBoard</span><span>Risks</span></div>
     <div class="slide-content">
       <div class="kicker reveal">What we must manage</div>
       <h2 class="reveal">The risk is not choosing CrossBoard. It is scattering the movement.</h2>
@@ -695,29 +728,29 @@
     </div>
   </section>
 
-  <section class="slide" data-title="Board Ask">
-    <div class="topbar"><span class="brand"><span class="mark"><span></span><span></span><span></span><span></span></span>CrossBoard + Abiding Practice</span><span>Approval Ask</span></div>
+  <section class="slide" data-title="Team Review">
+    <div class="topbar"><span class="brand">Abiding Practice <span class="brand-plus">+</span> <span class="mark"><span></span><span></span><span></span><span></span></span>The CrossBoard</span><span>Team Review</span></div>
     <div class="slide-content approval">
       <div>
-        <div class="kicker reveal">For board review</div>
-        <h2 class="reveal">Approve CrossBoard as the Abiding Practice platform layer</h2>
-        <p class="sub reveal">Proceed with the owned platform approach while continuing to use YouTube, Zoom, and Cloudflare where they are strongest.</p>
+        <div class="kicker reveal">Team Review</div>
+        <h2 class="reveal">Use CrossBoard as Abiding Practice’s community home</h2>
+        <p class="sub reveal">Review the direction, try the live site, and decide whether this is the right home for Abiding Practice programming, members, artists, and partners.</p>
         <a class="linkline reveal" href="https://www.thecrossboard.org/signup/rick-moy">Try TheCrossBoard: thecrossboard.org/signup/rick-moy</a>
       </div>
       <div class="decision reveal">
-        <h3 class="accent-amber">Decision package</h3>
+        <h3 class="accent-amber">What we are reviewing</h3>
         <ul class="list">
-          <li>Approve CrossBoard as the canonical home for members and events.</li>
-          <li>Approve MVP entitlements, paid access, and organization tiers.</li>
-          <li>Approve YouTube public distribution and Zoom pilot sessions.</li>
-          <li>Approve Cloudflare gated replays; defer LiveKit until needed.</li>
+          <li>Does CrossBoard feel like the right home for Abiding Practice’s creative community?</li>
+          <li>Does the public-to-member journey make sense for events, sessions, and replays?</li>
+          <li>Do jobs, portfolios, and partner profiles support the way AP wants to serve artists?</li>
+          <li>What should be tested first with a small Abiding Practice pilot?</li>
         </ul>
       </div>
     </div>
   </section>
 
   <section class="slide" data-title="Appendix">
-    <div class="topbar"><span class="brand"><span class="mark"><span></span><span></span><span></span><span></span></span>CrossBoard + Abiding Practice</span><span>Source Docs</span></div>
+    <div class="topbar"><span class="brand">Abiding Practice <span class="brand-plus">+</span> <span class="mark"><span></span><span></span><span></span><span></span></span>The CrossBoard</span><span>Source Docs</span></div>
     <div class="slide-content">
       <div class="kicker reveal">Reference</div>
       <h2 class="reveal">Analysis behind this recommendation</h2>
