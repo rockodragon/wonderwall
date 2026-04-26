@@ -488,7 +488,7 @@
     }
   </style>
 </head>
-<body>
+<body tabindex="-1">
   <div class="progress" id="progress">1 / 16</div>
 
   <section class="slide visible" data-title="Title">
@@ -765,57 +765,46 @@
   <script>
     const slides = Array.from(document.querySelectorAll('.slide'));
     const progress = document.getElementById('progress');
-    let activeIndex = 0;
-    let programmaticScrollTimer;
+    let currentIndex = 0;
 
     function syncProgress(index) {
       progress.textContent = `${index + 1} / ${slides.length}`;
       slides.forEach((slide, i) => slide.classList.toggle('visible', Math.abs(i - index) <= 1));
     }
 
+    function indexFromScroll() {
+      const index = Math.round(window.scrollY / window.innerHeight);
+      return Math.max(0, Math.min(slides.length - 1, index));
+    }
+
     function setProgress() {
-      let index = 0;
-      const mid = window.innerHeight / 2;
-      let bestDistance = Infinity;
-      slides.forEach((slide, i) => {
-        const rect = slide.getBoundingClientRect();
-        const distance = Math.abs((rect.top + rect.bottom) / 2 - mid);
-        if (distance < bestDistance) {
-          bestDistance = distance;
-          index = i;
-        }
-      });
-      if (programmaticScrollTimer) {
-        syncProgress(activeIndex);
-        return;
-      }
-      activeIndex = index;
-      syncProgress(index);
+      currentIndex = indexFromScroll();
+      syncProgress(currentIndex);
     }
 
     function goTo(index) {
-      window.clearTimeout(programmaticScrollTimer);
-      activeIndex = Math.max(0, Math.min(slides.length - 1, index));
-      syncProgress(activeIndex);
-      programmaticScrollTimer = window.setTimeout(() => {
-        programmaticScrollTimer = undefined;
-        setProgress();
-      }, 650);
-      window.scrollTo({ top: slides[activeIndex].offsetTop, behavior: 'smooth' });
+      currentIndex = Math.max(0, Math.min(slides.length - 1, index));
+      syncProgress(currentIndex);
+      slides[currentIndex].scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
     function go(delta) {
-      goTo(activeIndex + delta);
+      goTo(indexFromScroll() + delta);
     }
 
+    document.body.focus({ preventScroll: true });
     window.addEventListener('scroll', setProgress, { passive: true });
     window.addEventListener('resize', setProgress);
-    window.addEventListener('keydown', (event) => {
-      if (['ArrowDown', 'PageDown', ' '].includes(event.key)) { event.preventDefault(); go(1); }
-      if (['ArrowUp', 'PageUp'].includes(event.key)) { event.preventDefault(); go(-1); }
-      if (event.key === 'Home') { event.preventDefault(); goTo(0); }
-      if (event.key === 'End') { event.preventDefault(); goTo(slides.length - 1); }
-    });
+    document.addEventListener('keydown', (event) => {
+      const keys = ['ArrowDown', 'ArrowRight', 'PageDown', ' ', 'ArrowUp', 'ArrowLeft', 'PageUp', 'Home', 'End'];
+      if (!keys.includes(event.key)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (['ArrowDown', 'ArrowRight', 'PageDown', ' '].includes(event.key)) go(1);
+      if (['ArrowUp', 'ArrowLeft', 'PageUp'].includes(event.key)) go(-1);
+      if (event.key === 'Home') goTo(0);
+      if (event.key === 'End') goTo(slides.length - 1);
+    }, true);
     setProgress();
   </script>
 </body>
