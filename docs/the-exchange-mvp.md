@@ -39,7 +39,7 @@ If we hit renew + ≥1 inbound + ≥3 updates, we ship the rest of the vision. I
 ## MVP scope (visual)
 
 ```mermaid
-flowchart LR
+flowchart TD
     classDef artist fill:#E8F4FD,stroke:#1E88E5,color:#000
     classDef sponsor fill:#FFF3E0,stroke:#FB8C00,color:#000
     classDef tableop fill:#E8F5E9,stroke:#43A047,color:#000
@@ -403,7 +403,7 @@ flowchart TB
         direction TB
         P1[Onboard Table operators] --> P2[Identity, billing, media infra]
         P2 --> P3[Cross-Table showcase]
-        P3 --> P4[SaaS fee / %]
+        P3 --> P4["SaaS fee + transaction %"]
         P4 --> PO[✨ Recurring revenue<br/>+ network effect]
     end
 
