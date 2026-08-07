@@ -1,14 +1,16 @@
 # The Exchange — MVP: Single-Fellowship Validation
 
+> **Status — superseded as the current validation plan (2026-06-22).** Do not implement this scope unchanged. The current direction must also test paid membership, sponsored membership, and a Project Award funded by the membership grant-pool contribution plus direct patron funding. Use the [discernment brief](the-exchange-discernment-brief.md) and [vision v0.9](the-exchange-vision.md) for the next decision; revise this MVP after those tests are chosen.
+
 *Companion to [the-exchange-vision.md](the-exchange-vision.md)*
 
-*Version 0.1 — 2026-06-19*
+*Version 0.2 — 2026-06-22 — terminology aligned with vision v0.8+ (Creative, Space); Founding Patron signal check added. Scope itself still awaiting revision per the status note above.*
 
 ---
 
 ## What this doc is
 
-The smallest possible build of The Exchange that produces real evidence — by October — about whether the **Artist Fellowship + public story page** is the marketing engine we believe it to be.
+The smallest possible build of The Exchange that produces real evidence — by October — about whether the **Creative Fellowship + public story page** is the marketing engine we believe it to be.
 
 If this MVP works, everything else in the [full vision](the-exchange-vision.md) earns its build cost. If it doesn't, the full vision is over-investment and we re-scope.
 
@@ -16,7 +18,7 @@ If this MVP works, everything else in the [full vision](the-exchange-vision.md) 
 
 ## The hypothesis
 
-> **A publicly-visible, ongoing story of one sponsored artist doing creative work in the community — credited to a named patron — will (a) deepen the patron's commitment enough to renew, and (b) attract at least one new inbound patron inquiry.**
+> **A publicly-visible, ongoing story of one sponsored creative doing creative work in the community — credited to a named patron — will (a) deepen the patron's commitment enough to renew, and (b) attract at least one new inbound patron inquiry.**
 
 This is the single thing the MVP tests. Everything else is supporting infrastructure for that test.
 
@@ -27,8 +29,8 @@ This is the single thing the MVP tests. Everything else is supporting infrastruc
 | Metric | Target | Why it matters |
 |---|---|---|
 | **Patron renews at month 3** | Yes | Validates the model from the sponsor side — they got enough value to keep paying |
-| **Inbound patron inquiries attributable to the story** | ≥1 | Validates the content loop — the public story actually drives new patrons, not just retains existing ones |
-| **Story updates published in 3 months** | ≥3 | Validates the artist's willingness/ability to feed the loop |
+| **Inbound patron inquiries attribuspace to the story** | ≥1 | Validates the content loop — the public story actually drives new patrons, not just retains existing ones |
+| **Story updates published in 3 months** | ≥3 | Validates the creative's willingness/ability to feed the loop |
 | **Story page visitors** | ≥200 unique | Baseline reach signal; tells us if distribution mechanics work at all |
 | **At least one secondary "I want this for my church" or "I want to be a Fellow" conversation** | Yes | Soft signal that the model is contagious |
 
@@ -46,13 +48,13 @@ flowchart TD
     classDef public fill:#FCE4EC,stroke:#D81B60,color:#000
 
     PATRON[💖 Patron church or org<br/>named, real]:::sponsor
-    ARTIST[🎨 Named artist<br/>David's pick]:::artist
+    ARTIST[🎨 Named creative<br/>David's pick]:::artist
     OP[🪑 AP / David provisions<br/>Fellowship manually]:::tableop
 
     PATRON --> OP
     ARTIST --> OP
-    OP --> F[📜 Fellowship record<br/>sponsor + artist + cadence + amount]
-    F --> STORY[Artist posts story updates<br/>text, photo, video, audio]
+    OP --> F[📜 Fellowship record<br/>sponsor + creative + cadence + amount]
+    F --> STORY[Creative posts story updates<br/>text, photo, video, audio]
     STORY --> PUB[🌐 Public Fellowship<br/>story page]:::public
     PUB --> INBOUND[New patron inquiry]
     PUB --> RENEW{Month 3:<br/>patron renews?}
@@ -60,7 +62,7 @@ flowchart TD
     PATRON -. "$ recurring stipend<br/>off-platform" .-> ARTIST
 ```
 
-Notice what's missing on purpose: no Sponsored Seats UI, no grant pool, no jury, no projects rename, no Groups, no Practice, no Pathfinding, no sub-Tables, no Stripe, no TAS, no second Fellowship. All of that is in the full vision; none of it is in MVP.
+Notice what's missing on purpose: no Sponsored Seats UI, no grant pool, no jury, no projects rename, no Tables, no Events, no Pathfinding, no sub-Spaces, no Stripe, no TAS, no second Fellowship. All of that is in the full vision; none of it is in MVP.
 
 ---
 
@@ -70,13 +72,13 @@ Notice what's missing on purpose: no Sponsored Seats UI, no grant pool, no jury,
 
 | Surface | Build state | Notes |
 |---|---|---|
-| `tables` entity with **AP provisioned** | Schema + seed | Single Table only; multi-tenant abstraction proves itself by being honestly used once |
-| **Profile** (existing Wonderwall profile, lightly extended) | Reuse current | Add a per-Table "intro" overlay field — minimum viable identity polish |
-| **Fellowship** entity | New | sponsor, artist, cadence, amount, start date, status, public slug |
+| `spaces` entity with **AP provisioned** | Schema + seed | Single Space only; multi-tenant abstraction proves itself by being honestly used once |
+| **Profile** (existing Wonderwall profile, lightly extended) | Reuse current | Add a per-Space "intro" overlay field — minimum viable identity polish |
+| **Fellowship** entity | New | sponsor, creative, cadence, amount, start date, status, public slug |
 | **Fellowship story** entity | New | Author, body, mixed media URLs, published timestamp |
-| **Story update composer** (artist-facing) | New, simple | Text + image upload + YouTube/Vimeo URL + audio URL; publish toggles public |
+| **Story update composer** (creative-facing) | New, simple | Text + image upload + YouTube/Vimeo URL + audio URL; publish toggles public |
 | **Public Fellowship story page** | New | The marketing surface; URL like `/ap/fellowships/[slug]`; public-by-default |
-| **Patron dashboard view** (minimal) | New, simple | "Your Fellowship: [artist]. Latest updates. Link to public page." That's it. |
+| **Patron dashboard view** (minimal) | New, simple | "Your Fellowship: [creative]. Latest updates. Link to public page." That's it. |
 | **Manual operator workflow** (David/us) | Convex dashboard | No operator UI built — David tells us, we run mutations |
 | **Cross-link from Wonderwall/Crossboard** | Reuse | Existing audience finds Fellowship via existing channels |
 
@@ -85,16 +87,16 @@ Notice what's missing on purpose: no Sponsored Seats UI, no grant pool, no jury,
 - Sponsored Seats UI and self-serve allocation
 - Grant pool, project applications, jury, voting
 - Projects rename (Jobs stays "Jobs" in code for now)
-- Groups (niche forums) within a Table
-- Practice (working meetings, feedback loops)
+- Tables (small groups & cohorts) within a Space
+- Events (working meetings, feedback loops, formation)
 - Pathfinding (guides directory)
-- TAS Table provisioning
-- Sub-Tables for cities
-- Cross-Table platform-wide showcase
+- TAS Space provisioning
+- Sub-Spaces for cities
+- Cross-Space platform-wide showcase
 - Stripe / Cloudflare Stream / LiveKit / Zoom integration
 - Multiple Fellowships in parallel
-- Per-Table billing configuration
-- Self-serve Table operator dashboard
+- Per-Space billing configuration
+- Self-serve Space operator dashboard
 - Pay-to-participate gates
 - Native messaging on Fellowship pages (use existing messaging)
 
@@ -104,7 +106,7 @@ If David or Haley pushes for any of the above before October, we explicitly trad
 
 ## User journeys (MVP)
 
-### 1. Artist (the Fellow)
+### 1. Creative (the Fellow)
 
 **Outcome:** Funded creative work + a public body of work that demonstrates what patronage produces.
 
@@ -124,7 +126,7 @@ flowchart TB
 **Key UX requirements:**
 - **One-screen onboarding** for an invited Fellow. Skip anything that isn't profile-essential.
 - **Story composer is dead-simple** — single page, no rich-text gymnastics. Title + body + up to 5 media items (image upload, YouTube/Vimeo URL, audio URL, link). Publish or save draft.
-- **Frictionless re-entry**: an artist who posts once should be able to post again in under 90 seconds from cold email.
+- **Frictionless re-entry**: an creative who posts once should be able to post again in under 90 seconds from cold email.
 - **Public preview before publish** — they always see what the patron and public will see.
 - **No private/public confusion** — every update is published to the public page by default; a "keep this one private" toggle exists but defaults off.
 
@@ -137,7 +139,7 @@ flowchart TB
     classDef sponsor fill:#FFF3E0,stroke:#FB8C00,color:#000
     S1[Receive patron invitation<br/>email from David]:::sponsor
     S1 --> S2[Sign in / create patron account<br/>minimal: name, email, org name]:::sponsor
-    S2 --> S3[Patron dashboard:<br/>your Fellowship + artist + amount + cadence]:::sponsor
+    S2 --> S3[Patron dashboard:<br/>your Fellowship + creative + amount + cadence]:::sponsor
     S3 --> S4[See latest story updates inline]:::sponsor
     S3 --> S5[Click to public Fellowship page]:::sponsor
     S5 --> S6[Share public page<br/>with board / congregation]:::sponsor
@@ -152,20 +154,20 @@ flowchart TB
 - **Patron credit is prominent but tasteful** — opt-in default-on for visible credit; opt-in for logo placement. Style with the Anthropic-brand-quality care you'd give a real publication.
 - **No checkout flow in MVP** — money moves off-platform (check, ACH, whatever David and the patron already do). We just record the commitment.
 
-### 3. Table Operator (David / us, manually)
+### 3. Space Operator (David / us, manually)
 
-**Outcome:** Run the Fellowship cleanly enough that the artist and patron both feel taken care of, and capture enough story output to make the case for the next Fellowship.
+**Outcome:** Run the Fellowship cleanly enough that the creative and patron both feel taken care of, and capture enough story output to make the case for the next Fellowship.
 
 ```mermaid
 flowchart TB
     classDef tableop fill:#E8F5E9,stroke:#43A047,color:#000
-    T1[David identifies sponsor<br/>+ artist pair offline]:::tableop
+    T1[David identifies sponsor<br/>+ creative pair offline]:::tableop
     T1 --> T2[Tell us: provision Fellowship<br/>via Slack / email]:::tableop
     T2 --> T3[We run mutation to create:<br/>Fellowship record + invite emails]:::tableop
-    T3 --> T4[Artist and patron onboarded]:::tableop
+    T3 --> T4[Creative and patron onboarded]:::tableop
     T4 --> T5[Monitor: are updates being posted?<br/>Is patron engaging?]:::tableop
-    T5 --> T6[Nudge artist if no update in 3 weeks]:::tableop
-    T5 --> T7[Light-touch curation:<br/>feature best update on AP Table page]:::tableop
+    T5 --> T6[Nudge creative if no update in 3 weeks]:::tableop
+    T5 --> T7[Light-touch curation:<br/>feature best update on AP Space page]:::tableop
     T7 --> T8[Month 3: David has renewal<br/>conversation with patron]:::tableop
     T8 --> T9[Capture renewal outcome<br/>+ inbound inquiry count]:::tableop
 ```
@@ -175,6 +177,7 @@ flowchart TB
 - **Internal runbook**: a short checklist for provisioning a Fellowship — schema fields needed, invite email template, monitoring cadence.
 - **Engagement telemetry on us**: we set up basic page-view analytics, story-update counts, and a weekly "Fellowship health" check so David doesn't have to ask.
 - **Nudge ourselves to nudge David** — calendar-driven, not vibe-driven. Week 4, week 8, week 12 check-ins.
+- **Founding Patron signal check** — at week 6 and week 12, explicitly ask David whether the patron is showing institutional-scale interest (a $10k+/yr Founding Patron relationship). If yes, the MVP is also prototyping the platform's most important Year-1 revenue line.
 
 ---
 
@@ -190,7 +193,7 @@ flowchart LR
     classDef plat fill:#F3E5F5,stroke:#8E24AA,color:#000
 
     PATRON[💖 Patron org<br/>e.g. Dan's church]:::src
-    ARTIST[🎨 Fellow artist]:::sink
+    ARTIST[🎨 Fellow creative]:::sink
     PLATFORM[⚙️ The Exchange<br/>$0 platform fee in MVP]:::plat
 
     PATRON -. "$ recurring stipend<br/>off-platform — check / ACH" .-> ARTIST
@@ -198,7 +201,7 @@ flowchart LR
 ```
 
 **MVP financial design choices:**
-- **Money moves off-platform.** We're not handling payments in MVP. Patron pays artist directly (check, ACH, Venmo, however they prefer). We record the commitment in the Fellowship record but don't process the transaction.
+- **Money moves off-platform.** We're not handling payments in MVP. Patron pays creative directly (check, ACH, Venmo, however they prefer). We record the commitment in the Fellowship record but don't process the transaction.
 - **No platform fee in MVP.** We forgo revenue to remove all friction. The validation question is whether the *model* works, not whether the *platform can take a cut*. We add the platform cut after the model is validated.
 - **Cadence and amount are configurable per Fellowship.** Whatever David and the patron agree to — monthly, quarterly, lump sum + monthly check-ins. Schema supports any of these.
 - **Fulfillment tracking is optional in MVP.** We can record "paid in month 1" as a manual checkbox if it's useful, but we don't enforce it.
@@ -211,7 +214,7 @@ For the full set of financial mechanisms the platform will eventually support, s
 
 ```typescript
 // New
-tables: {
+spaces: {
   slug: string,                // "ap"
   name: string,                // "Abiding Practice"
   brand: { logoUrl?, primaryColor?, intro? },
@@ -220,17 +223,17 @@ tables: {
   createdAt: number,
 }
 
-tableMemberships: {
-  tableId: Id<"tables">,
+spaceMemberships: {
+  spaceId: Id<"spaces">,
   userId: Id<"users">,
   role: "member" | "fellow" | "patron" | "operator",
-  introOverlay?: string,       // Table-specific intro emphasis
+  introOverlay?: string,       // Space-specific intro emphasis
   joinedAt: number,
 }
 
 fellowships: {
-  tableId: Id<"tables">,
-  artistUserId: Id<"users">,
+  spaceId: Id<"spaces">,
+  creativeUserId: Id<"users">,
   patronUserId: Id<"users">,   // the contact at the patron org
   patronOrgName: string,       // displayed publicly
   patronOrgLogoUrl?: string,
@@ -259,9 +262,9 @@ fellowshipStories: {
 ```
 
 **Notes:**
-- We're reusing existing `users` and `profiles` tables — no changes needed.
-- `tableMemberships.role: "fellow" | "patron"` is the entitlement signal in MVP; full capability-based entitlements ([entitlements-paywall-foundation.md](features/entitlements-paywall-foundation.md)) come later.
-- No `organizations` table — `patronOrgName` is a string in MVP. We promote to a real org record when we have more than one Fellowship from the same patron.
+- We're reusing existing `users` and `profiles` spaces — no changes needed.
+- `spaceMemberships.role: "fellow" | "patron"` is the entitlement signal in MVP; full capability-based entitlements ([entitlements-paywall-foundation.md](features/entitlements-paywall-foundation.md)) come later.
+- No `organizations` space — `patronOrgName` is a string in MVP. We promote to a real org record when we have more than one Fellowship from the same patron.
 
 ---
 
@@ -269,9 +272,9 @@ fellowshipStories: {
 
 | Route | Audience | Purpose |
 |---|---|---|
-| `/ap` | Public | AP Table landing — describes the Table, lists Fellowships, has "Become a patron" CTA |
-| `/ap/fellowships/[slug]` | Public | The Fellowship story page — patron credit, artist intro, reverse-chronological story updates |
-| `/dashboard/fellow` | Fellow (artist) | Story composer + list of past updates |
+| `/ap` | Public | AP Space landing — describes the Space, lists Fellowships, has "Become a patron" CTA |
+| `/ap/fellowships/[slug]` | Public | The Fellowship story page — patron credit, creative intro, reverse-chronological story updates |
+| `/dashboard/fellow` | Fellow (creative) | Story composer + list of past updates |
 | `/dashboard/patron` | Patron | Fellowship summary + latest updates + share button |
 | `/dashboard/operator` *(deferred)* | David | Not built — David uses Slack to talk to us |
 
@@ -288,7 +291,7 @@ fellowshipStories: {
 | Task | Built | Manual (us + David) |
 |---|---|---|
 | Provision Fellowship | mutation exists | David tells us via Slack; we run it |
-| Invite artist and patron | invite email template | We send the email manually |
+| Invite creative and patron | invite email template | We send the email manually |
 | Money transfer | – | Entirely off-platform |
 | Renewal conversation | – | David handles, tells us outcome |
 | Featuring a story update on AP landing | "featured" boolean on story | David tells us which one; we toggle |
@@ -305,15 +308,15 @@ Assuming a typical 1–2 dev capacity and that October showcase is the deadline:
 
 | When | Milestone |
 |---|---|
-| Now → +2 weeks | Schema + mutations for Tables, TableMemberships, Fellowships, FellowshipStories. Seed AP Table. |
-| +2 → +4 weeks | Public Fellowship story page (the design centerpiece). Public AP Table landing page. |
-| +4 → +5 weeks | Fellow dashboard + story composer. Onboarding flow for invited artists. |
+| Now → +2 weeks | Schema + mutations for Spaces, SpaceMemberships, Fellowships, FellowshipStories. Seed AP Space. |
+| +2 → +4 weeks | Public Fellowship story page (the design centerpiece). Public AP Space landing page. |
+| +4 → +5 weeks | Fellow dashboard + story composer. Onboarding flow for invited creatives. |
 | +5 → +6 weeks | Patron dashboard (minimal). Patron onboarding flow. Share-card metadata. |
-| +6 weeks | Provision the real first Fellowship. David + the named patron + the named artist. Go live. |
+| +6 weeks | Provision the real first Fellowship. David + the named patron + the named creative. Go live. |
 | +6 → October | Story updates accrue; we monitor; David has renewal conversation; we measure metrics. |
 | October | Showcase uses the live Fellowship as its centerpiece. |
 
-Risk if any phase slips: cut the patron dashboard first (patron can use the public page + email). Cut Table landing page second (Fellowship page can stand alone). Don't cut the public Fellowship page or the story composer — those are the test.
+Risk if any phase slips: cut the patron dashboard first (patron can use the public page + email). Cut Space landing page second (Fellowship page can stand alone). Don't cut the public Fellowship page or the story composer — those are the test.
 
 ---
 
@@ -321,10 +324,10 @@ Risk if any phase slips: cut the patron dashboard first (patron can use the publ
 
 | Outcome | What we do next |
 |---|---|
-| **Win** (renew + ≥1 inbound + ≥3 updates) | Ship the rest of the vision: Sponsored Seats, Grant Pool, second Fellowship, TAS Table, Stripe |
+| **Win** (renew + ≥1 inbound + ≥3 updates) | Ship the rest of the vision: Sponsored Seats, Grant Pool, second Fellowship, TAS Space, Stripe |
 | **Partial** (renew but no inbound) | Story page works for retention but not for acquisition. Investigate distribution: is the showcase visible enough? Are share mechanics good enough? Iterate on the public page before expanding |
-| **Partial** (inbound but no renew) | Story page works for acquisition but patron value isn't strong enough. Investigate: was the artist's output what the patron expected? Was the patron getting enough proof? Iterate on patron experience |
-| **Miss** (no renew, no inbound) | The Fellowship-with-public-story is not the engine. Reconsider before building more. Could mean: wrong artist/patron pair, wrong story format, wrong audience, wrong model. Talk to David before re-scoping |
+| **Partial** (inbound but no renew) | Story page works for acquisition but patron value isn't strong enough. Investigate: was the creative's output what the patron expected? Was the patron getting enough proof? Iterate on patron experience |
+| **Miss** (no renew, no inbound) | The Fellowship-with-public-story is not the engine. Reconsider before building more. Could mean: wrong creative/patron pair, wrong story format, wrong audience, wrong model. Talk to David before re-scoping |
 
 ---
 
@@ -332,7 +335,7 @@ Risk if any phase slips: cut the patron dashboard first (patron can use the publ
 
 These need answers before Phase 1:
 
-1. **Who's the first Fellow?** A specific named artist David is ready to commit to.
+1. **Who's the first Fellow?** A specific named creative David is ready to commit to.
 2. **Who's the first patron?** A specific named org/individual ready to commit funds for 3+ months. (Dan's church sounds like the candidate.)
 3. **What's the stipend amount and cadence?** Drives the Fellowship record and the renewal math.
 4. **How prominent should patron credit be?** Default-prominent in MVP, but confirm tone with David and the patron.
@@ -357,7 +360,7 @@ flowchart TB
 
     subgraph ARTIST["🎨 ARTIST — outcome: funded work + visibility"]
         direction TB
-        A1[Sign up + global profile] --> A2[Join a Table<br/>free OR pay-to-participate]
+        A1[Sign up + global profile] --> A2[Join a Space<br/>free OR pay-to-participate]
         A2 --> A3{Path}
         A3 -->|Apply to existing| A4[Apply to sponsor-posted project<br/>or grant pool opportunity]
         A3 -->|Propose own| A5[Propose passion project<br/>+ invite collaborators]
@@ -373,12 +376,12 @@ flowchart TB
 
     subgraph SPONSOR["💖 SPONSOR / DONOR — outcome: visible mission impact"]
         direction TB
-        S1[Sign up + donor dashboard] --> S2[Discover Tables]
+        S1[Sign up + donor dashboard] --> S2[Discover Spaces]
         S2 --> S3{Choose path}
         S3 -->|Post new project| S4[Define project + commit funds]
         S3 -->|Back existing| S5[Browse + pledge]
-        S3 -->|Sponsor seats| S6[Buy N seats at Table]
-        S3 -->|Sponsor an artist| S7[Fellowship: recurring stipend]
+        S3 -->|Sponsor seats| S6[Buy N seats at Space]
+        S3 -->|Sponsor an creative| S7[Fellowship: recurring stipend]
         S4 --> S12[Reports + story updates]
         S5 --> S12
         S6 --> S12
@@ -386,11 +389,11 @@ flowchart TB
         S12 --> SO[✨ Mission impact<br/>+ visible patronage]
     end
 
-    subgraph TABLEOP["🪑 TABLE OPERATOR — outcome: thriving community"]
+    subgraph TABLEOP["🪑 SPACE OPERATOR — outcome: thriving community"]
         direction TB
-        T1[Provision Table] --> T2[Configure entitlements]
+        T1[Provision Space] --> T2[Configure entitlements]
         T2 --> T3[Recurring grant pool]
-        T3 --> T4[Curate Groups]
+        T3 --> T4[Curate Tables]
         T4 --> T5[Review applications]
         T5 --> T6[Jury + community signal]
         T6 --> T7[Allocate grants]
@@ -401,8 +404,8 @@ flowchart TB
 
     subgraph PLATOP["⚙️ THE EXCHANGE — outcome: sustainable network"]
         direction TB
-        P1[Onboard Table operators] --> P2[Identity, billing, media infra]
-        P2 --> P3[Cross-Table showcase]
+        P1[Onboard Space operators] --> P2[Identity, billing, media infra]
+        P2 --> P3[Cross-Space showcase]
         P3 --> P4["SaaS fee + transaction %"]
         P4 --> PO[✨ Recurring revenue<br/>+ network effect]
     end
@@ -426,7 +429,7 @@ flowchart TB
     class AO,SO,TO,PO outcome
 ```
 
-In MVP terms: we are building **only** the right-hand "Sponsor an artist" branch (S7), the artist's "post story update" leg (A9 → A10), the Table operator's "publish stories" step (T8), and the public showcase surface. Everything else is in the diagram so we don't forget it exists.
+In MVP terms: we are building **only** the right-hand "Sponsor an creative" branch (S7), the creative's "post story update" leg (A9 → A10), the Space operator's "publish stories" step (T8), and the public showcase surface. Everything else is in the diagram so we don't forget it exists.
 
 ### Full vision money flow (for reference)
 
@@ -443,15 +446,15 @@ flowchart LR
     SP4[External grant]:::src
 
     SEATS[Sponsored Seat Pool]:::pool
-    GRANT[Table Grant Pool]:::pool
-    FELLOW[Artist Fellowship]:::pool
+    GRANT[Space Grant Pool]:::pool
+    FELLOW[Creative Fellowship]:::pool
     PROJ[Project Pledge]:::pool
 
-    ART[Artist payout]:::sink
+    ART[Creative payout]:::sink
     MEM[Subsidized seat]:::sink
 
     EXCH[The Exchange platform fee]:::platform
-    TABLEOP[Table Operator retained]:::platform
+    TABLEOP[Space Operator retained]:::platform
 
     SP1 -- "buy seats" --> SEATS
     SP1 -- "fund Fellowship" --> FELLOW

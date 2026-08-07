@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Garden — For Creatives</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Marcellus&family=Spectral:ital,wght@0,200;0,300;0,400;1,300&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: oklch(1 0 0);
+    --surface: oklch(0.97 0.004 160);
+    --ink: oklch(0.21 0.006 260);
+    --muted: oklch(0.44 0.012 260);
+    --iris: oklch(0.36 0.075 160);
+    --iris-deep: oklch(0.27 0.06 160);
+    --leaf: oklch(0.47 0.065 150);
+    --hairline: oklch(0.86 0.006 260);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body {
+    background: oklch(0.94 0.004 260);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+  }
+  .page {
+    width: 8.5in;
+    min-height: 11in;
+    margin: 1.5rem auto;
+    background: var(--bg);
+    padding: 0.62in 0.9in 0.52in;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 2px 24px oklch(0.2 0.01 260 / 0.09);
+  }
+  @media print {
+    body { background: var(--bg); }
+    .page { margin: 0; box-shadow: none; min-height: auto; }
+  }
+  @page { size: letter; margin: 0; }
+
+  /* Masthead */
+  .masthead {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 0.2in;
+  }
+  .wordmark {
+    font-family: "Marcellus", serif;
+    font-size: 17px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--iris-deep);
+  }
+  .masthead-role {
+    font-size: 11px;
+    letter-spacing: 0.02em;
+    color: var(--muted);
+  }
+
+  /* Hero */
+  .hero { padding: 0.06in 0 0.2in; }
+  .hero h1 {
+    font-family: "Spectral", serif;
+    font-weight: 300;
+    font-size: 32px;
+    line-height: 1.1;
+    letter-spacing: -0.015em;
+    text-wrap: balance;
+    max-width: none;
+  }
+  .hero h1 em {
+    font-style: normal;
+    font-weight: 500;
+    color: var(--iris);
+  }
+  .hero-flex { display: flex; gap: 0.4in; align-items: flex-start; }
+  .hero-copy { flex: 1; }
+  .hero-art { flex: 0 0 1.25in; padding-top: 8px; }
+  .lede {
+    font-size: 12.5px;
+    line-height: 1.55;
+    color: var(--muted);
+    max-width: 58ch;
+    margin-top: 0.14in;
+  }
+  .lede strong { color: var(--ink); font-weight: 600; }
+
+  /* Sections */
+  .rule { border: none; border-top: 1px solid var(--hairline); }
+  section { padding: 0.17in 0; }
+  h2 {
+    font-family: "Spectral", serif;
+    font-weight: 500;
+    font-size: 13px;
+    letter-spacing: 0.02em;
+    color: var(--iris-deep);
+    margin-bottom: 0.12in;
+  }
+
+  /* Membership ledger */
+  .ways { display: flex; flex-direction: column; }
+  .way { display: flex; align-items: baseline; gap: 0.25in; padding: 0.075in 0; }
+  .way + .way { border-top: 1px solid var(--hairline); }
+  .way-name { flex: 0 0 1.6in; font-family: "Spectral", serif; font-weight: 400; font-size: 15px; }
+  .way-desc { flex: 1; font-size: 12.5px; line-height: 1.5; color: var(--muted); }
+  .way-desc strong { color: var(--ink); font-weight: 600; }
+  .way-amt { flex: 0 0 0.9in; text-align: right; font-size: 12px; font-weight: 600; color: var(--iris); font-variant-numeric: tabular-nums; }
+
+  /* Give / get columns */
+  .givegets { display: grid; grid-template-columns: 1fr 1fr; gap: 0.14in 0.45in; }
+  .gg h3 { font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--iris-deep); margin-bottom: 6px; }
+  .gg ul { list-style: none; }
+  .gg li { font-size: 12px; line-height: 1.5; color: var(--muted); padding-left: 14px; position: relative; margin-bottom: 5px; }
+  .gg li::before { content: ""; position: absolute; left: 0; top: 7px; width: 5px; height: 5px; border-radius: 50%; background: var(--leaf); }
+  .gg li strong { color: var(--ink); font-weight: 600; }
+
+  /* Vignette */
+  .vignette {
+    background: var(--surface);
+    border: 1px solid var(--hairline);
+    border-radius: 10px;
+    padding: 0.18in 0.26in;
+    display: flex;
+    gap: 0.3in;
+    align-items: center;
+  }
+  .vignette blockquote {
+    font-family: "Spectral", serif;
+    font-weight: 300;
+    font-style: italic;
+    font-size: 14px;
+    line-height: 1.5;
+    text-wrap: pretty;
+  }
+  .vignette figcaption {
+    margin-top: 0.1in;
+    font-size: 11px;
+    color: var(--muted);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+    font-style: normal;
+  }
+  .vignette figcaption strong { color: var(--leaf); font-weight: 600; }
+
+  /* Cost */
+  .cost-line {
+    font-family: "Spectral", serif;
+    font-weight: 300;
+    font-size: 15px;
+    line-height: 1.45;
+    max-width: 60ch;
+    text-wrap: pretty;
+  }
+  .cost-line strong { font-weight: 400; color: var(--iris); }
+  .cost-note { margin-top: 0.1in; font-size: 11.5px; color: var(--muted); }
+
+  /* CTA */
+  .cta-row { display: flex; align-items: center; gap: 0.28in; padding-top: 0.04in; }
+  .btn {
+    display: inline-block;
+    background: var(--iris);
+    color: oklch(0.99 0 0);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    padding: 12px 26px;
+    border-radius: 8px;
+    text-decoration: none;
+  }
+  .cta-alt { font-size: 12px; color: var(--muted); }
+  .cta-alt a { color: var(--iris); text-decoration: none; font-weight: 600; }
+
+  /* Footer */
+  .footer {
+    margin-top: auto;
+    padding-top: 0.14in;
+    border-top: 1px solid var(--hairline);
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-size: 10.5px;
+    color: var(--muted);
+  }
+  .footer .site { font-family: "Marcellus", serif; letter-spacing: 0.08em; color: var(--iris-deep); }
+
+  /* Mobile */
+  @media screen and (max-width: 720px) {
+    body { background: var(--bg); }
+    .page { width: 100%; min-height: auto; margin: 0; padding: 1.5rem 1.25rem 1.25rem; box-shadow: none; }
+    .hero-flex { flex-direction: column; gap: 12px; }
+    .hero-art { flex: none; width: 84px; align-self: flex-end; margin-top: -6px; padding-top: 0; }
+    .hero h1 { font-size: clamp(24px, 7.5vw, 32px); }
+    .lede, .holds, .cost-line, .cost-note { max-width: none; }
+    .way, .cost-row, .value { flex-wrap: wrap; row-gap: 2px; }
+    .way-name, .cost-term, .value-term { flex: 1 1 auto; }
+    .way-amt, .cost-amt { flex: 0 0 auto; margin-left: auto; }
+    .way-desc, .cost-desc, .value-desc { flex: 1 1 100%; }
+    .givegets, .founding { grid-template-columns: 1fr; }
+    .cta-row { flex-wrap: wrap; gap: 12px; }
+    .footer { flex-direction: column; align-items: flex-start; gap: 4px; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header class="masthead">
+    <div class="wordmark">The Garden</div>
+    <div class="masthead-role">For creatives</div>
+  </header>
+  <hr class="rule">
+
+  <div class="hero">
+    <div class="hero-flex">
+      <div class="hero-copy">
+        <h1>Community and resources<br>to live out your <em>gifts.</em></h1>
+        <p class="lede">The Garden is a community of Kingdom-minded creatives — writers, musicians, designers, filmmakers, photographers — <strong>backed by patrons and by each other</strong>, making real work in the community.</p>
+      </div>
+      <div class="hero-art" aria-hidden="true">
+        <!-- Seedling: two leaves unfolding from a stem -->
+        <svg viewBox="0 0 120 150" width="100%" fill="none">
+          <path d="M60 138 C 60 110, 60 84, 60 62" stroke="var(--leaf)" stroke-width="1.6" stroke-linecap="round"/>
+          <path d="M60 62 C 60 40, 44 26, 24 24 C 26 46, 40 60, 60 62 Z" stroke="var(--leaf)" stroke-width="1.6" stroke-linejoin="round"/>
+          <path d="M60 78 C 60 58, 76 44, 96 42 C 94 64, 80 78, 60 78 Z" stroke="var(--iris)" stroke-width="1.6" stroke-linejoin="round"/>
+          <path d="M60 62 C 50 48, 38 38, 30 32" stroke="var(--leaf)" stroke-width="1" stroke-linecap="round"/>
+          <path d="M60 78 C 70 64, 82 54, 90 48" stroke="var(--iris)" stroke-width="1" stroke-linecap="round"/>
+          <path d="M28 142 C 44 136, 76 136, 92 142" stroke="var(--hairline)" stroke-width="1.4" stroke-linecap="round"/>
+        </svg>
+      </div>
+    </div>
+  </div>
+  <hr class="rule">
+
+  <section>
+    <h2>Ways to grow here</h2>
+    <div class="ways">
+      <div class="way">
+        <div class="way-name">Host a project</div>
+        <div class="way-desc"><strong>Post a passion project</strong> and let the community and its patrons back it. One active project at a time.</div>
+        <div class="way-amt">$10/mo</div>
+      </div>
+      <div class="way">
+        <div class="way-name">Host up to five</div>
+        <div class="way-desc"><strong>For the prolific</strong> — run several projects at once, invite collaborators, keep momentum.</div>
+        <div class="way-amt">$25/mo</div>
+      </div>
+      <div class="way">
+        <div class="way-name">Become a Guide</div>
+        <div class="way-desc"><strong>Host tables, curate your own project spaces,</strong> and walk with other artists as a pathfinder, director, or coach.</div>
+        <div class="way-amt">$50/mo</div>
+      </div>
+    </div>
+  </section>
+
+  <section style="padding-top: 0.08in;">
+    <figure class="vignette">
+      <blockquote>
+        “Shua is a musician embedded in the San&nbsp;Diego music scene. His patron funds his ongoing work — he's free to play bars, festivals, wherever the music belongs.”
+        <figcaption><strong>A living Fellowship</strong> · sponsored by a neighborhood church</figcaption>
+      </blockquote>
+    </figure>
+  </section>
+
+  <section>
+    <p class="cost-line"><strong>50% of all membership dues</strong> support other creative projects on the platform. From day one, your money is backing other artists — <strong>instead of hoping to hear back.</strong></p>
+    <div class="givegets" style="margin-top: 0.14in;">
+      <div class="gg">
+        <h3>What you get to give</h3>
+        <ul>
+          <li><strong>Support for local artists</strong> and their passion projects</li>
+          <li><strong>Your time and expertise</strong> — collaborating, mentoring</li>
+        </ul>
+      </div>
+      <div class="gg">
+        <h3>What you get</h3>
+        <ul>
+          <li><strong>A network of collaborators</strong> and real support</li>
+          <li><strong>Projects to join and propose</strong> from day one</li>
+          <li><strong>A public story page</strong> that shows what your work produces</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <div class="cta-row">
+    <a class="btn" href="https://thegarden.app">Reserve your seat at the table</a>
+    <span class="cta-alt">or <a href="https://thegarden.app">see open Fellowships</a></span>
+  </div>
+
+  <footer class="footer">
+    <span class="site">thegarden.app</span>
+    <span>A home for Kingdom-minded creatives.</span>
+  </footer>
+
+</div>
+</body>
+</html>

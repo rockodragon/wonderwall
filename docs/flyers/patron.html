@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Garden — For Patrons</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Marcellus&family=Spectral:ital,wght@0,200;0,300;0,400;1,300&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: oklch(1 0 0);
+    --surface: oklch(0.97 0.004 160);
+    --ink: oklch(0.21 0.006 260);
+    --muted: oklch(0.44 0.012 260);
+    --iris: oklch(0.36 0.075 160);
+    --iris-deep: oklch(0.27 0.06 160);
+    --leaf: oklch(0.47 0.065 150);
+    --hairline: oklch(0.86 0.006 260);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body {
+    background: oklch(0.94 0.004 260);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+  }
+  .page {
+    width: 8.5in;
+    min-height: 11in;
+    margin: 1.5rem auto;
+    background: var(--bg);
+    padding: 0.62in 0.9in 0.52in;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 2px 24px oklch(0.2 0.01 260 / 0.09);
+  }
+  @media print {
+    body { background: var(--bg); }
+    .page { margin: 0; box-shadow: none; min-height: auto; }
+  }
+  @page { size: letter; margin: 0; }
+
+  .masthead {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 0.2in;
+  }
+  .wordmark {
+    font-family: "Marcellus", serif;
+    font-size: 17px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--iris-deep);
+  }
+  .masthead-role { font-size: 11px; letter-spacing: 0.02em; color: var(--muted); }
+
+  .hero { padding: 0.06in 0 0.2in; }
+  .hero h1 {
+    font-family: "Spectral", serif;
+    font-weight: 300;
+    font-size: 32px;
+    line-height: 1.1;
+    letter-spacing: -0.015em;
+    text-wrap: balance;
+    max-width: none;
+  }
+  .hero h1 em { font-style: normal; font-weight: 500; color: var(--iris); }
+  .hero-flex { display: flex; gap: 0.4in; align-items: flex-start; }
+  .hero-copy { flex: 1; }
+  .hero-art { flex: 0 0 1.25in; padding-top: 8px; }
+  .lede {
+    font-size: 12.5px;
+    line-height: 1.55;
+    color: var(--muted);
+    max-width: 58ch;
+    margin-top: 0.14in;
+  }
+  .lede strong { color: var(--ink); font-weight: 600; }
+
+  .rule { border: none; border-top: 1px solid var(--hairline); }
+  section { padding: 0.14in 0; }
+  h2 {
+    font-family: "Spectral", serif;
+    font-weight: 500;
+    font-size: 13px;
+    letter-spacing: 0.02em;
+    color: var(--iris-deep);
+    margin-bottom: 0.12in;
+  }
+
+  /* Ways to give — ledger rows, not cards */
+  .ways { display: flex; flex-direction: column; }
+  .way {
+    display: flex;
+    align-items: baseline;
+    gap: 0.25in;
+    padding: 0.075in 0;
+  }
+  .way + .way { border-top: 1px solid var(--hairline); }
+  .way-name {
+    flex: 0 0 1.7in;
+    font-family: "Spectral", serif;
+    font-weight: 400;
+    font-size: 15px;
+  }
+  .way-desc { flex: 1; font-size: 12.5px; line-height: 1.5; color: var(--muted); }
+  .way-desc strong { color: var(--ink); font-weight: 600; }
+  .way-amt {
+    flex: 0 0 1.15in;
+    text-align: right;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--iris);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* What you see back */
+  .seeback {
+    background: var(--surface);
+    border: 1px solid var(--hairline);
+    border-radius: 10px;
+    padding: 0.18in 0.26in;
+  }
+  .seeback p {
+    font-family: "Spectral", serif;
+    font-weight: 300;
+    font-style: italic;
+    font-size: 13.5px;
+    line-height: 1.5;
+    text-wrap: pretty;
+  }
+  .seeback .cap {
+    margin-top: 0.09in;
+    font-size: 11px;
+    color: var(--muted);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+    font-style: normal;
+  }
+  .seeback .cap strong { color: var(--leaf); font-weight: 600; }
+
+  .cost-line {
+    font-family: "Spectral", serif;
+    font-weight: 300;
+    font-size: 15px;
+    line-height: 1.45;
+    max-width: 52ch;
+    text-wrap: pretty;
+  }
+  .cost-line strong { font-weight: 400; color: var(--iris); }
+  .cost-note { margin-top: 0.09in; font-size: 11.5px; color: var(--muted); max-width: 72ch; }
+
+  .cta-row { display: flex; align-items: center; gap: 0.28in; padding-top: 0.04in; }
+  .btn {
+    display: inline-block;
+    background: var(--iris);
+    color: oklch(0.99 0 0);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    padding: 12px 26px;
+    border-radius: 8px;
+    text-decoration: none;
+  }
+  .cta-alt { font-size: 12px; color: var(--muted); }
+  .cta-alt a { color: var(--iris); text-decoration: none; font-weight: 600; }
+
+  .footer {
+    margin-top: auto;
+    padding-top: 0.14in;
+    border-top: 1px solid var(--hairline);
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-size: 10.5px;
+    color: var(--muted);
+  }
+  .footer .site { font-family: "Marcellus", serif; letter-spacing: 0.08em; color: var(--iris-deep); }
+
+  /* Mobile */
+  @media screen and (max-width: 720px) {
+    body { background: var(--bg); }
+    .page { width: 100%; min-height: auto; margin: 0; padding: 1.5rem 1.25rem 1.25rem; box-shadow: none; }
+    .hero-flex { flex-direction: column; gap: 12px; }
+    .hero-art { flex: none; width: 84px; align-self: flex-end; margin-top: -6px; padding-top: 0; }
+    .hero h1 { font-size: clamp(24px, 7.5vw, 32px); }
+    .lede, .holds, .cost-line, .cost-note { max-width: none; }
+    .way, .cost-row, .value { flex-wrap: wrap; row-gap: 2px; }
+    .way-name, .cost-term, .value-term { flex: 1 1 auto; }
+    .way-amt, .cost-amt { flex: 0 0 auto; margin-left: auto; }
+    .way-desc, .cost-desc, .value-desc { flex: 1 1 100%; }
+    .givegets, .founding { grid-template-columns: 1fr; }
+    .cta-row { flex-wrap: wrap; gap: 12px; }
+    .footer { flex-direction: column; align-items: flex-start; gap: 4px; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header class="masthead">
+    <div class="wordmark">The Garden</div>
+    <div class="masthead-role">For patrons</div>
+  </header>
+  <hr class="rule">
+
+  <div class="hero">
+    <div class="hero-flex">
+      <div class="hero-copy">
+        <h1>Shape the <em>creative economy</em><br>of your community.</h1>
+        <p class="lede">The Garden connects you with Kingdom-minded creatives — musicians, filmmakers, designers, writers — and gives you real ways to bring their work to life. <strong>Commission the mural. Fund the album. Host the event. Sponsor the seat.</strong> Then watch the work flourish in your community.</p>
+      </div>
+      <div class="hero-art" aria-hidden="true">
+        <!-- Fruiting branch: S-curve, everything sprouting from the stem -->
+        <svg viewBox="0 0 120 150" width="100%" fill="none">
+          <path d="M14 134 C 36 118, 52 100, 64 80 C 76 60, 88 44, 104 24" stroke="var(--leaf)" stroke-width="1.8" stroke-linecap="round"/>
+          <path d="M104 24 C 108 20, 113 18, 118 17" stroke="var(--leaf)" stroke-width="1.2" stroke-linecap="round"/>
+          <path d="M24 127 C 18 124, 14 118, 13 111 C 19 114, 23 120, 24 127 Z" stroke="var(--leaf)" stroke-width="1.3" stroke-linejoin="round"/>
+          <path d="M58 89 C 46 86, 37 78, 33 67 C 44 70, 53 78, 58 89 Z" stroke="var(--leaf)" stroke-width="1.4" stroke-linejoin="round"/>
+          <path d="M93 38 C 100 31, 108 27, 115 26 C 111 34, 103 39, 93 38 Z" stroke="var(--leaf)" stroke-width="1.4" stroke-linejoin="round"/>
+          <path d="M40 111 C 39 116, 38.5 120, 38 124" stroke="var(--iris)" stroke-width="1.4" stroke-linecap="round"/>
+          <circle cx="38" cy="131" r="7" stroke="var(--iris)" stroke-width="1.6"/>
+          <path d="M34 128 C 34.5 126, 36 124.6, 37.5 124.4" stroke="var(--iris)" stroke-width="1" stroke-linecap="round"/>
+          <path d="M79 57 C 79 62, 78.5 66, 78 70" stroke="var(--iris)" stroke-width="1.4" stroke-linecap="round"/>
+          <circle cx="78" cy="77" r="6.5" stroke="var(--iris)" stroke-width="1.6"/>
+          <path d="M74.5 74.5 C 75 72.6, 76.3 71.4, 77.6 71.2" stroke="var(--iris)" stroke-width="1" stroke-linecap="round"/>
+          <path d="M8 142 C 40 136, 80 136, 112 142" stroke="var(--hairline)" stroke-width="1.4" stroke-linecap="round"/>
+        </svg>
+      </div>
+    </div>
+  </div>
+  <hr class="rule">
+
+  <section>
+    <h2>Ways to build</h2>
+    <div class="ways">
+      <div class="way">
+        <div class="way-name">A Fellowship</div>
+        <div class="way-desc"><strong>Ongoing stipend to a named creative</strong> doing outward-facing work. Your name stands on their public story page.</div>
+        <div class="way-amt">$500+/mo</div>
+      </div>
+      <div class="way">
+        <div class="way-name">A Project</div>
+        <div class="way-desc"><strong>One-time backing for a specific work</strong> — a mural, an album, a film, an event — proposed by a creative or commissioned by you.</div>
+        <div class="way-amt">$25–$5,000</div>
+      </div>
+      <div class="way">
+        <div class="way-name">Seats at the Table</div>
+        <div class="way-desc"><strong>Cover participation for creatives</strong> in a community your church or organization cares about.</div>
+        <div class="way-amt">10 or 25 seats</div>
+      </div>
+      <div class="way">
+        <div class="way-name">Your whole church</div>
+        <div class="way-desc"><strong>Up to 100 seats</strong> — every creative in your congregation, covered.</div>
+        <div class="way-amt">Contact us</div>
+      </div>
+    </div>
+  </section>
+
+  <section style="padding-top: 0.06in;">
+    <h2>Watch it grow</h2>
+    <div class="seeback">
+      <p>Ongoing story updates as the work happens — photos, places, people reached. A page you can forward to your board without writing a report first.</p>
+      <div class="cap"><strong>Every gift becomes a story</strong> · public, shareable, credited to you</div>
+    </div>
+  </section>
+
+  <div class="cta-row">
+    <a class="btn" href="https://thegarden.app">Water the garden</a>
+    <span class="cta-alt">or <a href="https://thegarden.app">help set the table</a> — sponsor seats for creatives in your community</span>
+  </div>
+
+  <footer class="footer">
+    <span class="site">thegarden.app</span>
+    <span>For the flourishing of the arts.</span>
+  </footer>
+
+</div>
+</body>
+</html>

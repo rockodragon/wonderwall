@@ -2,15 +2,15 @@
 
 *A platform for mission-aligned creative communities. Draft for review by David Russo (Abiding Practice) and Haley (Table Art Society).*
 
-*Version 0.8 — 2026-06-20 — revenue model radically simplified to "10% of everything" headline + setup investment + Founding Patron partnerships (no tiered subscriptions, no Bronze/Silver/Gold packages); added explicit "why we charge what we charge" framing for faith-aligned audiences; removed Monday-as-deadline framing from Part 9 conversations*
+*Version 0.10 — 2026-06-22 — membership allocation reconciled to 40/50/10 (Space operations / creative projects / platform and processing) to match the creator-facing promise that half of all dues fund other creatives' projects; added pilot membership tiers ($10 host / $25 up-to-five / $50 Guide / whole-church by quote)*
 
 ---
 
 ## TL;DR
 
-The Exchange is a platform that lets mission-aligned organizations run their own creative communities — called **Spaces**. Inside a Space, creatives do work, patrons fund work, the community surrounds it, and the Space operator (the host org) shapes the discernment that turns proposals into funded projects.
+The Exchange is a platform that lets mission-aligned organizations run their own creative communities — called **Spaces**. Creatives join through paid or sponsored membership, gather in Tables, propose work, and help fund a shared grant pool through their dues. Patrons can sponsor membership, contribute directly to the pool, or fund particular Projects. The Space operator shapes the discernment that turns proposals into funded work.
 
-Two things make it specific: **creatives are treated as missionaries, not employees** (sponsorship frees them to do work in the community, not for the sponsor); and **funding decisions are layered** — community signal informs, the Space operator discerns, and the primary sponsor (when there is one) has the deciding voice.
+Two things make it specific. First, **participation helps fund the work**: the proposed pilot split for every $100 of paid or sponsored membership is $60 to Space operations, $30 reserved for that Space's grant pool, and $10 to the platform and payment processing. Second, **funding decisions are layered**: contributing members have a voice, but the Space operator remains accountable for discernment. A faith-oriented Space may describe its members as creative missionaries; the platform does not require that framing.
 
 We launch with Kingdom-minded Spaces (Abiding Practice, Table Art Society). The platform itself is mission-neutral so it can host other aligned communities later. The October 2026 showcase is the forcing function.
 
@@ -22,16 +22,17 @@ For David's quick read — the questions you raised on v0.2 are addressed here:
 
 | Your question / comment | What changed |
 |---|---|
+| Is paid membership merely access, or does it participate in the mission? | **Membership now funds both community and creative work.** Pilot assumption: 60% Space operations, 30% grant pool, 10% platform + processing. Sponsored memberships use the same split. |
 | "Artist" sounds like painter/musician only — use "Creative" | Renamed throughout. "Creative" = any maker (designer, writer, musician, filmmaker, photographer, etc.) |
 | Patron framing was too binary ("back a person, not a cause") | Reframed as additive optionality — patrons get to choose person *or* initiative *or* the community itself |
 | Terminology confusion: Tables = community? Or smaller group inside? | **New taxonomy** (see Part 3): Exchange → Spaces (org tenancy) → Tables (smaller intimate groups) → Themes (cross-Space hashtags). "Seat at the table" stays intact at the Tables level |
-| Fellowship vs micro-grant — same thing? | **Split into four patronage shapes** (see Part 2): Sustaining Member, Project Pledge / Micro-grant, Sponsored Seat, Fellowship. Fellowship is the substantial ongoing one; micro-grants are the small accessible ones |
+| Fellowship vs Project Award — same thing? | **A Project is the work; an Award is the funding; a Fellowship is a longer or recurring form of Award.** Membership and patron contributions are the economic paths that fund access or work. |
 | Fellowship — curated or self-directed? | **Both.** Curated Fellowship (operator-matched) and Direct Fellowship (patron-initiated, GoFundMe-style) are both supported |
 | Kingdom-minded vs broader? | Platform is mission-neutral; launch Spaces are Kingdom-minded. AP and TAS define their own faith framing inside their Spaces. Future Spaces could be a secular arts council without forcing the platform to change |
 | "Medieval patronage" analogy too vague | Grounded better — closer to modern artist residencies, NPR/KLOVE sustaining membership, and Patreon ongoing support than to Medici specifically |
 | Crossboard's fate? | **Sunsetting into AP's Space at launch.** The Exchange is the platform; Crossboard's audience becomes one of AP's first member cohorts |
 | 5 hours/week operator load is arbitrary | Acknowledged. We'll measure David's actual time over the first Fellowship and let that calibrate, not assume |
-| October showcase format? | In-person at La Paloma (or larger), ticketed to support the arts, free livestream. Pre-event targets: >$10k secured sponsorships, >50 patrons committed. Impact moment: "real money + real people — worth $5–$20/mo to join" |
+| October showcase format? | In-person at La Paloma (or larger), ticketed to support the arts, free livestream. Pre-event evidence should distinguish paid members, sponsored members, and direct Project/pool patrons rather than combining them into one vanity count. |
 | Need pricing study on willingness-to-pay | Added as a research item — compare to KLOVE/AIR1/KPBS sustaining members, World Vision/Compassion International ($39–$43/mo), Patreon tiers ($5/$10/$20) |
 | Need market validation for the platform model | Added as a research item — outreach to community organizers on Substack, Skool, and physical church/arts communities |
 
@@ -49,17 +50,18 @@ Anyone who makes — designer, writer, musician, filmmaker, photographer, illust
 
 **What they want:**
 - A community of peers and heroes who take their craft seriously
+- A paid membership whose value is clear, including a visible contribution to a shared pool that funds peers' work
 - A way to propose work they care about and see if others want to back it
 - Patronage that frees them, not patronage that owns them
 - Visible proof that their work is producing something — so they keep getting backed
 - A path from small project funding to ongoing support as their work matures
 
-**Moment of value:** Posting a story update about real creative-missionary work in the world, knowing both their patron and a public audience will see it.
+**Moment of value:** Posting a story update about meaningful creative work in the world, knowing their community and supporters will see it.
 
 **What we're assuming (needs validation):**
 - That creatives want ongoing patronage in addition to (not instead of) one-off gigs
 - That creatives are willing to share publicly — even when the work is personal or formative
-- That a small fee to participate in a Space feels like commitment, not a tax — and that they value some of their fee supporting other creatives' grants
+- That creatives will pay for recurring community value and see 30% of their dues funding peers' grants as participation, not as a tax or pay-to-play scheme
 - That creatives will keep posting story updates over months without heavy prompting
 
 ### The Patron
@@ -68,6 +70,7 @@ Anyone who makes — designer, writer, musician, filmmaker, photographer, illust
 
 **What they want:**
 - Support specific creative people **and** specific initiatives **and** the community itself — the platform offers all three, not a forced binary
+- Sponsor a creative's membership when widening access is more appropriate than directing the creative's work
 - See ongoing, visible proof of impact (stories, photos, places, encounters)
 - Be credited as a patron — tastefully, in the open — so other patrons see the model
 - Avoid putting the creative on payroll; the goal is freedom, not employment
@@ -79,6 +82,7 @@ Anyone who makes — designer, writer, musician, filmmaker, photographer, illust
 - That patrons want public credit by default (we've defaulted to public — confirm with the first patron; allow private as an opt-in)
 - That patrons will renew based on story output (vs. expecting attendance numbers, conversion metrics, ROI)
 - That patrons want both recurring and one-time options (different moments call for different commitments)
+- That churches and other patrons will sponsor memberships when the value of participation is concrete and the membership allocation is transparent
 - That patrons trust a Space operator to vet creatives by default — while preserving the option for the patron to do their own diligence and direct the relationship themselves
 
 ### The Space Operator (David, Haley)
@@ -87,7 +91,8 @@ Anyone who makes — designer, writer, musician, filmmaker, photographer, illust
 
 **What they want:**
 - Gather the right people around a shared mission
-- Run a small recurring patronage pool that funds genuinely resonant work
+- Sustain community operations through paid and sponsored membership while reserving a meaningful share of every membership for creative grants
+- Run a recurring grant pool that combines membership contributions with direct patron funding
 - Weigh community input without abdicating final discernment
 - Match the right sponsor to the right creative for Fellowships
 - Public stories that draw the next round of patrons and creatives in
@@ -108,15 +113,17 @@ Anyone who makes — designer, writer, musician, filmmaker, photographer, illust
 
 **What they want:**
 - See what fellow members are proposing and doing
+- Know that a defined portion of their membership helps fund work inside the community
 - Have a voice in what their community funds
 - Find collaborators for their own work
 - Belong to a place that feels coherent and not noisy
 
-**Moment of value:** Seeing a project they championed actually get funded — feeling that their voice mattered.
+**Moment of value:** Seeing a project they championed get funded partly by the pool they helped create — feeling that both their contribution and their voice mattered.
 
 **What we're assuming (needs validation):**
 - That members will participate in signal/voting at meaningful rates
 - That members want to back peers (vs. just consume content)
+- That members understand contribution does not guarantee their own Project will be funded
 - That cross-Space participation works — a member of AP can comfortably also be a member of TAS without confusion
 
 ### The Platform Operator (Rick)
@@ -139,9 +146,9 @@ Anyone who makes — designer, writer, musician, filmmaker, photographer, illust
 **What we're assuming (needs validation):**
 - That Rick can build a platform that runs without him at the center
 - That MVP ships in time for October 2026 — narrow scope, real launch
-- That Space operator communities can generate enough membership + patron revenue to fund operations (target TBD — pricing study needed)
+- That enough creatives will pay and enough patrons will sponsor membership for the 60/30/10 split to sustain both Space operations and a meaningful grant pool
 - That some patrons will back multiple creatives or projects (driving lifetime value)
-- That some creatives will pay more than the base tier (Pro/Patron/Founding contributions to the grant pool)
+- That transparent participation is more compelling than tier games: every paid or sponsored membership contributes to the pool by the same published rule
 - That the Fellowship pattern works both with operator matching AND through direct patron-initiated funding
 - That the platform can carry multiple funding paths and relationships while staying simple enough for patrons to understand
 
@@ -151,23 +158,31 @@ Anyone who makes — designer, writer, musician, filmmaker, photographer, illust
 
 How these humans interact. Four dynamics shape the platform.
 
-### Dynamic 1: Patronage takes four shapes, not one
+### Dynamic 1: Membership and patronage reinforce each other
 
-A patron doesn't buy services. Depending on the giver's commitment, intent, and relationship, patronage shows up in one of four shapes. The platform supports all four; each Space can enable any subset.
+The model begins with paid participation, not only outside giving. A creative pays for a community worth belonging to, and a meaningful portion of that membership helps fund work inside the community. Patrons can widen access by sponsoring membership or add funding directly to the pool and its Projects.
 
-| Shape | Commitment | Recipient | Relationship | Comparable to |
-|---|---|---|---|---|
-| **Sustaining Member** | Small recurring (e.g., $5–$25/mo) | The Space itself (operator decides allocation) | Light, fan-like | KLOVE / AIR1 / KPBS sustaining members |
-| **Project Pledge / Micro-grant** | Small one-time ($25–$500) | A specific project | Episodic, self-directed | Kickstarter / GoFundMe with a mission filter |
-| **Sponsored Seat** | One-time gift ($50–$500) | Another creative's access to the Space | Indirect, generous | Buying a conference ticket for someone |
-| **Fellowship** | Substantial recurring ($500+/mo over months) | A specific named creative for outward-facing work | Deep, ongoing, public | Modern artist residencies, ongoing Patreon support, NPR-style major-donor sustaining |
+| Relationship | Who pays | What it supports | Working pilot allocation |
+|---|---|---|---|
+| **Paid Membership** | The creative | Access to a Space or Table, Space operations, and the shared grant pool | 60% Space / 30% pool / 10% platform + processing |
+| **Sponsored Membership** | A church, organization, or individual patron | The same membership for a creative who is invited or cannot pay | Same 60/30/10 split |
+| **Pool or Project Contribution** | A patron or partner | The Space's general grant pool or a particular approved Project | 90% to pool/Project / 10% platform + processing |
+| **Fellowship** | A patron, organization, or grant pool | Longer-term or recurring support for a creative and body of work | A form of funded Project; 90% award / 10% platform + processing |
+
+**The proposed membership split is deliberately concrete for the pilot.** For every $100 in gross paid or sponsored membership:
+
+- **$60 supports the Space** — leadership, gatherings, formation, curation, and member care.
+- **$30 is reserved for that Space's grant pool** — it cannot quietly become general operating revenue.
+- **$10 supports the platform and payment processing.**
+
+This is not a promise that every member will receive funding. Membership purchases participation; it also makes members contributors to a shared pool whose awards are discerned transparently. If a patron wants nearly all of a contribution to fund work rather than access, they should use a Pool or Project Contribution rather than a Sponsored Membership.
 
 **Two flavors of Fellowship:**
 
 - **Curated Fellowship** — Space operator identifies a creative worth backing, matches with a patron who shares the vision. Higher trust, higher commitment, more discernment. AP's first Fellowship should be this kind.
 - **Direct Fellowship** — A patron finds a creative they want to back and initiates ongoing support directly. Operator doesn't need to be in the loop. The platform becomes the publishing surface for the creative's story; the patron gets credit and updates. Closer to Patreon-with-mission.
 
-**Why both:** Curated Fellowships build the platform's credibility (real matching, real discernment). Direct Fellowships create reach (any creative on the platform can be supported by anyone, lower friction). Both feed the same public story surface.
+**Why keep Fellowship:** It is a useful name for substantial recurring support, including the existing church-musician example. It is not assumed to be the primary product. A Fellowship is one expression of funded creative work alongside shorter Project Awards.
 
 ### Dynamic 2: Layered discernment for funding
 
@@ -175,7 +190,7 @@ Where the money decides what gets funded — and the layered authority that keep
 
 **Three paths to funding a project:**
 
-1. **Space Grant Pool path** (Space-funded; e.g., AP's $500/month recurring pool):
+1. **Space Grant Pool path** (funded by 30% of paid and sponsored membership, plus direct contributions such as AP's $500/month commitment):
    - Creative proposes → community signals support (upvotes, comments, "count me in") → Space operator + optional jury discerns (weighing signal + mission fit + craft quality) → Award or decline with feedback
    - **Community informs; operator decides.** Not pure vote; not pure curation.
 
@@ -198,8 +213,8 @@ Where the money decides what gets funded — and the layered authority that keep
 
 Spaces aren't general-purpose chat communities. They're built around making things together. The supporting structure operates at three scales:
 
-- **Space-wide** — the whole community of AP, TAS, etc. Where the brand, mission, grant pool, and showcase live.
-- **Tables** — smaller intimate groups inside a Space. Can be **Open Tables** (ongoing niche groups: Photographers, Worship Leaders) or **Cohort Tables** (fixed-membership, time-bound — like TAS's 9-month cohorts of 10 people). This is where "seat at the table" stays literal — closer relationships, shared craft, smaller scale.
+- **Space-wide** — the whole community of AP, TAS, etc. Where membership, the brand, mission, grant pool, and showcase live.
+- **Tables** — smaller intimate groups inside a Space. Can be **Open Tables** (ongoing niche groups: Photographers, Worship Leaders) or **Cohort Tables** (fixed-membership, time-bound — like TAS's 9-month cohorts of 10 people). Paid or sponsored membership creates the seat; the Table makes that seat worth sustaining.
 - **Themes** — cross-Space hashtags (#photography, #worship, #ministry, #filmmaking). Discovery layer that lets a creative in AP see what a creative in TAS is making, without forcing them into the same Space.
 
 Plus two supporting structures:
@@ -270,7 +285,7 @@ flowchart TB
 
 **Human-readable observations:**
 
-- **Each Space is a configurable mix of the same building blocks.** AP emphasizes Fellowships, Projects, and the grant pool. TAS emphasizes Cohort Tables and project collaboration. Operators turn on what fits their community.
+- **Each Space is a configurable mix of the same building blocks.** AP may emphasize paid membership, Project Awards, and its grant pool. TAS may emphasize paid Cohort Tables, sponsored access, and project collaboration. Operators configure the experience, but the pilot tests the same transparent membership allocation in both.
 - **Tables live inside Spaces; Themes cross all Spaces.** A creative could be in the Photographers Table inside AP, and their work could be tagged #photography so a TAS creative or a non-member visitor can discover it.
 - **Cities are sub-Spaces.** AP Nashville is a Space inside AP, inheriting brand and policy with its own local people and stories.
 - **People are members of Spaces, not the platform.** A person can be a member of multiple Spaces; their identity follows them; their membership and roles live at the Space.
@@ -355,27 +370,33 @@ flowchart TB
 ```mermaid
 flowchart LR
     classDef creative fill:#E8F4FD,stroke:#1E88E5,color:#000
+    classDef member fill:#E1F5FE,stroke:#0288D1,color:#000
     classDef sponsor fill:#FFF3E0,stroke:#FB8C00,color:#000
     classDef public fill:#FCE4EC,stroke:#D81B60,color:#000
     classDef new fill:#E8F5E9,stroke:#43A047,color:#000
 
-    PATRON[💖 Patron commits<br/>recurring or one-time]:::sponsor
+    MEMBER[👥 Members join<br/>paid or sponsored]:::member
+    POOL[💰 Space grant pool<br/>30% of membership + patron funds]:::sponsor
+    PATRON[💖 Patron sponsors access<br/>or contributes to work]:::sponsor
     CREATIVE[🎨 Creative does the work<br/>in the community]:::creative
     STORY[📖 Public story page<br/>updates accrue over time]:::public
     SHARE[👀 Patron shares story<br/>board · congregation · donors]:::new
     INBOUND[💖 New patron drawn in]:::sponsor
     NEWCREATIVE[🎨 New creative sees<br/>'this is possible for me too']:::creative
 
-    PATRON --> CREATIVE
+    MEMBER --> POOL
+    PATRON --> MEMBER
+    PATRON --> POOL
+    POOL --> CREATIVE
     CREATIVE --> STORY
     STORY --> SHARE
     SHARE --> INBOUND
     STORY --> NEWCREATIVE
-    INBOUND -. fuels next patronage .-> PATRON
-    NEWCREATIVE -. enters a Space .-> CREATIVE
+    INBOUND -. funds access or work .-> PATRON
+    NEWCREATIVE -. joins paid or sponsored .-> MEMBER
 ```
 
-The story is the marketing engine. It's also the patron's renewal artifact and the next creative's invitation. If this loop closes — even once, with one Fellowship — the whole model has evidence. That's exactly what the MVP tests.
+The story is the marketing engine, but membership is the recurring economic base. The full loop closes only when creatives join and contribute, patrons sponsor access or add funds, a real Project is awarded, and the resulting story helps renew both kinds of commitment. One Fellowship can illustrate the model; it cannot validate the whole loop by itself.
 
 ---
 
@@ -385,12 +406,14 @@ The story is the marketing engine. It's also the patron's renewal artifact and t
 
 | Assumption | If wrong, what changes |
 |---|---|
-| Creatives want ongoing patronage in addition to one-off gigs | Fellowship model isn't the centerpiece; lean more on Project Pledges and Sponsored Seats |
+| Creatives want funded Projects or ongoing patronage in addition to community | If not, Tables and paid membership may still stand, but the grant-pool story weakens |
 | Patrons want public credit by default | Allow default-private as opt-in; story loop weakens but doesn't break |
 | Patrons will renew based on story output alone | Need impact metrics / dashboards / attendance data for patron value |
 | Community members will actually signal on proposals | Voting/signal becomes a ghost feature; pure jury allocation is fallback |
 | Operators want participatory model (not pure curation) | Simplify, skip community signal infra, lean operator-curated |
-| A small fee to participate feels like commitment, not exclusion | Pay-to-participate gate is wrong; rethink supply-side economics |
+| Creatives will pay for membership because the recurring community experience is valuable | If they will not pay, paid membership is not the economic base; test sponsored access or a different customer |
+| Members welcome 30% of dues going to peer grants | If it feels like a tax or lottery ticket, reduce or redesign the split rather than disguising it |
+| Patrons will sponsor membership as well as Projects | If not, sponsored access is a weak offer and patron acquisition must focus on direct Project Awards |
 | Cross-Space identity gets used | Members rebuild per Space; simplify identity model |
 | $500/month is meaningful as a grant pool starting size | Try smaller-more-frequent ($100/wk) or larger-less-frequent ($2k/qtr) |
 | **Market exists beyond AP and TAS** | We don't scale; AP/TAS becomes the project, not the platform. **Validation via outreach research is required, not optional.** |
@@ -407,11 +430,13 @@ The story is the marketing engine. It's also the patron's renewal artifact and t
 7. **Patron credit prominence** — default-prominent, default-subtle, or per-Fellowship choice
 8. **Cadence of Grant Pool cycles** — monthly, quarterly, rolling
 9. **Fellowship-from-Project graduation path** — can a great Grant Pool project lead to a Fellowship offer?
-10. **Pay-to-participate amount + cadence** — operator-set; what's a sensible default to recommend?
-11. **Cross-Space showcase curation** — editorial (curated by us) vs. algorithmic (by signal/engagement)?
-12. **Fellowship endings** — time-bound, 1-to-1 vs. multi-1, graceful graduation vs. quiet wind-down?
-13. **Direct Fellowship operator visibility** — does the Space operator need to approve, or is patron-creative direct?
-14. **Micro-grant threshold mechanics** — all-or-nothing (Kickstarter) vs. partial-fund-released (GoFundMe) vs. operator escrow?
+10. **Paid membership amount + cadence** — what real pilot price makes the recurring value credible?
+11. **Membership allocation** — validate the proposed 60% Space / 30% grant pool / 10% platform split before making it permanent
+12. **Sponsored-member selection** — named recipient, operator-selected pool, or member scholarship application?
+13. **Cross-Space showcase curation** — editorial (curated by us) vs. algorithmic (by signal/engagement)?
+14. **Fellowship endings** — time-bound, 1-to-1 vs. multi-1, graceful graduation vs. quiet wind-down?
+15. **Direct Fellowship operator visibility** — does the Space operator need to approve, or is patron-creative direct?
+16. **Micro-grant threshold mechanics** — all-or-nothing (Kickstarter) vs. partial-fund-released (GoFundMe) vs. operator escrow?
 
 ### Gaps we still need to address
 
@@ -421,16 +446,19 @@ The story is the marketing engine. It's also the patron's renewal artifact and t
 - **Money flow integrity.** With money moving off-platform in MVP, what's the trust mechanism if a patron stops paying? Operator visibility on actual fulfillment?
 - **Privacy + minors.** Fellowship stories may involve community members (e.g., kids at a youth event). Consent and image-rights policy isn't designed.
 - **Theology + denomination boundaries.** Spaces are responsible for their own framing; the platform doesn't enforce. But do we need a "values statement" requirement per Space for clarity?
-- **Payment rails for patrons backing orgs (not individuals).** A church wanting to back AP as an entity (versus a specific creative) needs a real payments mechanism — this is the Sustaining Member shape and it's not yet specified at the platform level.
+- **Membership and nonprofit accounting.** Paid access, sponsored access, charitable contributions, restricted grant-pool funds, and platform fees must be represented distinctly even when they share one checkout surface.
 
 ### Outcomes we're betting on, and how we'd know
 
 | Flow | Outcome we're assuming | How we'd know |
 |---|---|---|
+| **Creative → Paid Membership** | The Table or Space provides enough recurring value that creatives willingly contribute financially | Real checkout conversion + three-month retention; interviews cite the community experience, not only grant eligibility |
+| **Patron → Sponsored Membership** | Churches and patrons value giving creatives access without directing their work | At least one real sponsored membership commitment and renewal conversation |
+| **Membership → Grant Pool** | A transparent 30% contribution makes membership feel participatory and produces meaningful awards | Members understand the split; the pool funds a completed Project; no evidence members view payment as buying selection |
 | **Creative → Fellowship** | Funded creative does better, more visible work *because* of the relationship (not just the money) | Story output volume + qualitative reflection from creative at month 3 |
 | **Patron → Fellowship** | Patron renews because the public story changed how they think about giving | Renewal at month 3 + at least one shared-externally moment |
 | **Creative → Grant Pool project** | Community-signal-informed funding feels more legitimate than top-down picks | Funded creative reports feeling supported by the community, not just the operator |
-| **Patron → Micro-grant** | Lower-friction giving brings in patrons who wouldn't commit to Fellowship | ≥3 Micro-grant patrons who later upgrade to Sustaining Member or Fellowship |
+| **Patron → Project contribution** | Lower-friction giving brings in patrons who would not begin with a Fellowship | Patrons contribute to a Project or pool and later sponsor membership, renew support, or fund a larger Award |
 | **Member → Voting/signal** | Members participate meaningfully (not ghost feature) | ≥30% of active members signal on at least one proposal per cycle |
 | **Operator → Sustainable load** | Running a Space is sustainable for David | Measured time log + qualitative "is this sustainable?" |
 | **Story → New patron** | Public stories generate inbound patron interest | ≥1 attributable inbound inquiry per active Fellowship per 3 months |
@@ -440,7 +468,8 @@ The story is the marketing engine. It's also the patron's renewal artifact and t
 
 ### Research items (need work before / alongside MVP)
 
-- **Pricing willingness-to-pay** — comparable to KLOVE/AIR1/KPBS sustaining members (~$20/mo), World Vision child sponsorship ($39/mo), Compassion International ($43/mo), Patreon tiers ($5/$10/$20). Are we the local creative version? What's the right ask?
+- **Membership willingness-to-pay** — what will creatives actually pay for the recurring Table experience when 30% visibly funds peer Projects? Test with real checkout, not only interviews.
+- **Sponsored-membership demand** — will churches and patrons pay for access and belonging without controlling the recipient's creative output?
 - **Market discovery outreach** — community organizers on Substack, Skool, and physical church/arts communities. Do they want this model? What would make them switch?
 - **Patron behavior research** — what makes a patron renew vs. churn? Especially in faith-aligned giving contexts.
 - **Fellowship economics** — what stipend amount actually frees a creative without crowding out market work? Probably varies by city + cost of living.
@@ -455,21 +484,21 @@ Before David reads further, the model deserves a pressure test. These are the qu
 
 1. **Multi-tenant is a graveyard at VC scale — but we're not playing that game.** Mighty Networks, Circle, Skool needed millions of users to justify their burn. The Garden's bet is fundamentally different: 10–50 mission-aligned Spaces, low burn, sustainable unit economics. That's a winnable game. *But* the architecture still has to earn its keep — if it's only ever AP and TAS, multi-tenancy adds complexity without payoff. We need to reach **4 aligned Spaces inside 12 months** (with at least one not in our personal network) to validate the platform thesis. Otherwise we're a single-customer shop with extra abstraction layers.
 
-2. **Patron acquisition is the actual product; the platform doesn't solve it.** Patrons don't appear because a platform exists. They require deep relationship and institutional fundraising muscle that lives outside software. AP's patronage volume is capped by David's existing relational reach. If those relationships aren't already there, the platform is amplification of nothing.
+2. **The model needs willingness to pay on both sides.** Creatives must value the Table or Space enough to pay even when they never receive an award. Patrons must value sponsored access or funded Projects enough to add money beyond member dues. If either side declines, the participatory economics collapse. The platform does not create either demand; operators still need a compelling member experience and real patron relationships.
 
 3. **The story-as-marketing loop assumes patrons share things they typically don't.** Nonprofit giving is mostly private. Boards meet privately. People who give don't usually forward donor receipts as endorsements. The growth loop requires a behavior change — patrons becoming evangelists — that most donor research shows doesn't happen by default. If the loop doesn't close, the acquisition story collapses to "Rick does outreach forever."
 
 4. **The "creative-as-missionary" framing may describe the exception, not the median.** Most Christian creatives don't self-identify as missionaries. The Dan/Shua story is beautiful — but if it describes <10% of the target audience, we've alienated the 90% we need for liquidity. Test whether the framing welcomes or filters.
 
-5. **Community signal will probably be a ghost feature.** Online communities with optional participation typically see <5% of members ever upvote or comment. The "layered discernment" model assumes participatory ethos that almost nothing on the internet has produced. We may build voting UI, ship it, watch nobody use it, and end up with operator-curated allocation anyway — which is what we'd do if we skipped the voting layer entirely.
+5. **A member-funded pool can become pay-to-play in members' minds.** Contributing 30% of dues makes community input more legitimate, but it may also create an expectation that every payer deserves funding. The product and operator must say clearly: membership buys participation, not an award. Community signal will probably remain light; the operator is accountable for final decisions.
 
-6. **$500/month is symbolic, not structural patronage.** $500/mo is one micro-grant. It's not economic patronage at the scale that frees a creative from market work. If real money has to come from Sustaining Members and institutional gifts at scale, that's a fundamentally different go-to-market than "AP runs a grant pool." Be honest about which one we're building.
+6. **The grant pool is only meaningful when membership reaches density.** The committed $500/month is useful pilot capital, not structural patronage. At a $20 membership, 100 paid or sponsored members add $600/month to the pool at the proposed 30% allocation. Until a Space approaches that density, awards should be accumulated into fewer meaningful cycles rather than spread into symbolic monthly amounts.
 
 7. **Direct Fellowship has regulatory exposure.** Recurring patron-to-creative money flow through a platform may trigger state-by-state charitable solicitation registration, money transmission rules, or look enough like employment to attract IRS attention. "Money off-platform in MVP" buys time but doesn't solve it. A 30-minute call with a nonprofit attorney is cheap insurance.
 
 8. **Cohort Tables (TAS-style) need a clear scope decision, not full product duplication.** A 9-month cohort of 10 people *can* run on The Garden's primitives (a Table with fixed membership + scheduled Events + shared Stories + patron-funded creatives). But cohort-specific software — curriculum builder, assignment grading, attendance tracking, mid-cohort assessments — is Maven/Disco/Cohort.live territory and we should not try to compete there. Recommended posture: **The Garden is the community + patronage + storytelling layer for TAS; let Maven (or Haley's preferred tool) handle cohort curriculum and assignments if she needs that.** Clean separation, no product creep.
 
-9. **Rick can't actually step back for 18+ months.** The model is structurally founder-dependent — early Fellowships need matchmaking, discernment requires founder taste, the Sustaining Member pitch requires founder credibility. "Operable by others" is a v3 outcome, not a v1 design constraint.
+9. **Rick can't actually step back for 18+ months.** The model is structurally founder-dependent — early membership offers need shaping, discernment requires trusted leadership, and patron cultivation requires credibility. "Operable by others" is a v3 outcome, not a v1 design constraint.
 
 10. **The October deadline forces optimism, not focus.** Event-driven deadlines reliably produce demo-quality work that fails post-event because the team built for the demo, not for sustained operation. The showcase is a milestone, not a market-fit test. "One beautiful Fellowship story by October" is achievable; "we have a platform by October" is a different claim.
 
@@ -477,18 +506,17 @@ Before David reads further, the model deserves a pressure test. These are the qu
 
 Each costs ~zero engineering and tells us if we're building the right thing.
 
-**1. Validate patron demand with 5–10 real conversations — this week.** Get David in 5–10 conversations with potential patrons (churches, foundations, individual donors). The question: *"Would you commit $500/mo for 6 months to back a named creative doing creative-missionary work in the community, with public credit and a public story page?"*
-- **5+ strong yes** → patronage demand exists; build the platform
-- **2–4 yes** → real but harder; rescope to fewer Fellowships, longer ramp, smaller stipends
-- **<2 yes** → the model is wrong; no software fixes that; pivot or shelve
+**1. Run the paid-membership test with real money.** Invite a small first cohort at one clear price and disclose the 60/30/10 split before checkout. Track who pays, who needs sponsorship, why they join, and whether they remain after three months. Interest without payment does not validate this side of the model.
 
-**2. Run the first Fellowship with zero new software.** Notion + Squarespace + Stripe + email = the prototype. Pick the first creative, pick the first patron, run a 3-month Fellowship off-the-shelf. Produce one beautiful public story page. If it works without software, the software amplifies a real thing. If it doesn't work without software, software was never the missing piece. Either way you learn the truth in 4 weeks.
+**2. Test patron demand in two distinct forms.** Ask churches and patrons to make a real choice: sponsor one or more memberships, or contribute directly to the first Project Award pool. These are different value propositions. Record commitments, not compliments.
 
-**3. Talk to 10 community organizers who are *not* David or Haley.** Substack writers running communities, Skool operators, physical church/arts network leaders. Same question: *"Tell me about how you currently fund and run your creative community. What hurts?"*
+**3. Fund and complete one Project from combined sources.** Combine the existing $500/month commitment with the grant-pool share of membership. Run a transparent selection process, complete the work, and show members and patrons exactly where the money went and what it produced.
+
+**Alongside those tests, talk to 10 community organizers who are *not* David or Haley.** Substack writers running communities, Skool operators, physical church/arts network leaders. Same question: *"Tell me about how you currently fund and run your creative community. What hurts?"*
 - **3+ deeply interested** → multi-tenant platform thesis holds
 - **<3 interested** → AP/TAS is a single-customer project pretending to be a platform; build it that way and ship faster, with much less generic abstraction
 
-All three can run in parallel and finish before the MVP build window closes.
+The three product tests and the organizer outreach can run in parallel.
 
 ### What The Garden does (and doesn't do) for TAS expansion
 
@@ -526,10 +554,11 @@ The forcing function. What it looks like to "win" in October.
 
 ### Pre-event targets
 
-- **>$10,000 in secured sponsorships** (combination of Fellowships, Sponsored Seats, and Sustaining Members)
-- **>50 patrons committed** across all four shapes
-- **Multiple Fellowships, multiple sponsors, multiple patrons, multiple community members** featured in the showcase narrative
-- **At least one live story** of a Fellowship being announced or extended at the event
+- **>$10,000 in secured support** across paid memberships, sponsored memberships, direct Project/pool contributions, and any Fellowships
+- **A real base of paid creative members**, reported separately from sponsored members
+- **At least one church or patron funding sponsored memberships** and at least one contributing directly to Projects or the pool
+- **At least one completed or active Project Award partly funded by the membership grant-pool contribution**
+- **At least one live story** showing the path from membership and patron support to funded creative work
 
 ### The impact moment
 
@@ -541,8 +570,8 @@ The moment a future Space operator (a community organizer we've invited to obser
 
 ### What we need to test before the showcase
 
-- The single live Fellowship in the MVP (see [the-exchange-mvp.md](the-exchange-mvp.md)) is the prototype story
-- A successful first Fellowship → first renewal → first inbound inquiry validates the loop before we ask 50 patrons to join
+- The existing Fellowship is one prototype story, not the whole validation plan
+- Paid membership, sponsored membership, and the first combined-source Project Award must be measured separately
 
 ---
 
@@ -550,7 +579,7 @@ The moment a future Space operator (a community organizer we've invited to obser
 
 The implementation details, schema, entitlements, billing, and sequencing are intentionally **not in this doc**. They live in:
 
-- **[the-exchange-mvp.md](the-exchange-mvp.md)** — the single-Fellowship validation build, scoped to October. Has data models, routes, manual ops, timeline. *(Needs revision to align with v0.3 terminology — Creative, Space, Fellowship variants.)*
+- **[the-exchange-mvp.md](the-exchange-mvp.md)** — the earlier single-Fellowship validation plan. It now needs revision before implementation: the validation scope must include paid membership, sponsored membership, and a Project Award funded from combined membership and patron sources. The current [discernment brief](the-exchange-discernment-brief.md) governs the next conversation.
 - **[features/entitlements-paywall-foundation.md](features/entitlements-paywall-foundation.md)** — capability-based access model. Needs a Space dimension added.
 - **[features/paid-community-youtube-media.md](features/paid-community-youtube-media.md)** — live media, replays, paywall. Applies once Events and live Fellowship updates need it.
 - **[jobs-feature-prd.md](jobs-feature-prd.md)** — renamed to Projects in the rebuild; current schema mostly transferable.
@@ -567,14 +596,16 @@ The platform needs a sustainability plan, not just a vision. This part sets year
 | Metric | Foundation | Stretch |
 |---|---|---|
 | Active Spaces | 4 (AP, TAS, +2) | 6 |
-| Paid creative members across all Spaces | ~160 | ~420 |
+| Paid and sponsored creative memberships across all Spaces | ~160 | ~420 |
 | Active patrons across all Spaces | ~60 | ~150 |
 | Active Fellowships at year-end | 5–7 | 12–14 |
 | Founding Patron partnerships | 1–2 | 3–4 |
 | Total $ flowing through platform / year | ~$80,000 | ~$220,000 |
-| Combined grant pool spending | ~$11,000 | ~$27,000 |
+| Combined grant pool spending | ~$18,000 | ~$45,000 |
 | Combined Fellowship stipend flow | ~$22,000 | ~$58,000 |
-| Combined membership dues + sustaining giving + project pledges | ~$47,000 | ~$135,000 |
+| Combined paid/sponsored membership + direct pool/Project contributions | ~$47,000 | ~$135,000 |
+
+The grant-pool targets now explicitly include the proposed **50% of gross paid and sponsored membership dues**, supplemented by direct patron contributions. They should be recalculated after the pilot establishes the real membership price, sponsored-member share, retention, and active months.
 
 Per-Space rough breakdowns (Foundation case):
 
@@ -587,11 +618,29 @@ Per-Space rough breakdowns (Foundation case):
 
 **The headline: We keep 10% of everything that flows through The Garden. That's it.**
 
-One rate. Includes payment processing. Same whether it's a $5 micro-pledge, a $25 monthly membership, a $500 Fellowship stipend, or a $5,000 patron commitment. Same whether it's a Space operator collecting member dues or a church sponsoring an artist.
+One rate. Includes payment processing. Same whether it is a monthly membership, a church-sponsored membership, a Project contribution, a Fellowship award, or a larger patron commitment.
 
-Of every $100 a patron gives, **~$90 reaches the creative**. We pay Stripe out of our 10%, netting roughly 7% to fund the platform.
+What happens to the other 90% depends on what the payment is:
 
-The pricing page is one sentence: *"We keep 10% of every dollar that flows through The Garden. The other 90% reaches the people doing the work."*
+| Every $100 of gross flow | Space operations | Space grant pool or funded work | Platform + processing |
+|---|---:|---:|---:|
+| **Paid or sponsored membership** | $40 | $50 | $10 |
+| **Direct pool, Project, or Fellowship contribution** | $0 | $90 | $10 |
+
+We pay payment processing out of our 10%, netting roughly 7% before other platform costs. For membership, the 50% grant-pool allocation is restricted to funded creative work inside that Space; the operator cannot silently absorb it into operations.
+
+#### Pilot membership tiers
+
+| Tier | Price | What it unlocks |
+|---|---|---|
+| **Host a project** | $10/mo | Post one passion project; community and patrons can back it |
+| **Host up to five** | $25/mo | Run several projects at once; invite collaborators |
+| **Guide** | $50/mo | Host multiple tables, curate your own project spaces, serve other creatives as a pathfinder, director, or coach |
+| **Whole church / organization** | by quote (~$500/mo) | Up to 100 seats for every creative in a congregation or org — publicly framed as "contact us" |
+
+Half of every dues dollar at every tier flows to the Space's creative-project pool. From day one, a member's money is backing other artists — instead of hoping to hear back.
+
+The public explanation should be equally plain: *"We keep 10% of every dollar for the platform and payment processing. For membership, 50% funds other creatives' projects and 40% sustains the community running the Space. Direct Project and grant-pool contributions send the other 90% to the work."*
 
 #### Where 10% sits in the market
 
@@ -611,7 +660,7 @@ We land **below Patreon, below TheCause**, and above the pure-donation-only plat
 
 To grant a faith-aligned audience permission for the 10%, the pricing page includes this explicit framing:
 
-> *"The Garden is built and maintained by a small mission-aligned team. We keep 10% of every dollar that flows through the platform — lower than Patreon (11–15% all-in) and lower than nonprofit donation platforms like TheCause (15%) — because we believe more of every patron's gift should reach the creative. Our 10% pays honest salaries to the people building this and keeps the platform running. There are no other fees, no hidden charges, no tiers, no upcharges. Just 10%."*
+> *"The Garden is built and maintained by a small mission-aligned team. We keep 10% of every dollar that flows through the platform, including payment processing. With membership, half of every dollar is reserved for other creatives' projects and 40% sustains the Space providing the community. With direct Project or grant-pool support, the remaining 90% goes to the work. There are no hidden tiers or allocation changes."*
 
 That paragraph does the heavy lifting. It names the motive, sets the comparison favorably, and closes the door on hidden-cost suspicion.
 
@@ -691,56 +740,59 @@ In Year 1, **Founding Patron relationships and setup investments carry the platf
 ### Honest read
 
 - **The simplicity is the strategic move.** "10% of everything" reads as fair, honest, and mission-aligned in a way that tiered SaaS pricing never will. Faith-aligned audiences grant permission for fair commercial pricing when the motive is named explicitly.
-- **Year 1 viability depends on landing 1–2 Founding Patron relationships.** This is the actual product-market risk. If those relationships don't materialize, the platform generates ~$25k/yr from setup + 10% volume — covers infrastructure but not your salary. **The Founding Patron sales motion is the single most important commercial activity in Year 1.**
+- **The 50% grant-pool allocation is a product hypothesis, not decorative generosity.** "Half of your dues fund other creatives' projects — from day one, instead of hoping to hear back" is the strongest membership pitch we have. But it halves what operators keep for running the Space. Test the whole 40/50/10 system at one real price before promising it permanently — if 40% can't sustain the Space, the honest fallback is 50/40/10 or 60/30/10, decided before launch, not quietly after.
+- **There are two equal product-market risks.** Will creatives join and continue paying when funding is not guaranteed? Will patrons sponsor membership or add Project money when members already contribute? Neither side can be inferred from verbal enthusiasm.
+- **Year 1 viability still depends on landing 1–2 Founding Patron relationships.** If those relationships don't materialize, the platform generates roughly $25k/year from setup + 10% volume — enough for infrastructure, not a full salary.
 - **Setup investments are the meaningful Year 1–2 revenue line.** Don't undervalue them — they fund the founder period and reflect real shepherding work that faith-creative communities specifically need.
 - **The 10% line is patient money.** It compounds as Fellowships mature and grant pools grow. By Year 3 it's a meaningful line; in Year 1 it's modest.
-- **No separate fundraising effort needed.** Every dollar comes through how customers consume the platform — setup investment, 10% on patronage flow, Founding Patron relationships. Your time stays focused on building and shepherding, not on running a "support The Garden" donation drive.
-- **The platform doesn't need to be Skool to thrive.** 12 mature Spaces + 3 Founding Patners + $700k flowing = ~$162k revenue. That's sustainable for a small mission-aligned team. We don't need viral scale.
+- **Membership creates baseline grant funding; it does not eliminate fundraising.** Patron cultivation remains necessary if the pool is meant to provide more than symbolic awards.
+- **The platform doesn't need to be Skool to thrive.** 12 mature Spaces + 3 Founding Patrons + $700k flowing = ~$162k revenue. That's sustainable for a small mission-aligned team. We don't need viral scale.
 
 ### Open pricing decisions for David and Haley
 
-1. **Defend the 10% with your network.** Will your patron contacts feel it's fair? Or do they have allergic reactions to anything above "Stripe processing only"? Real conversations with 3–5 patrons will tell us.
-2. **Setup investment range ($2,500–$5,000)** — does that read as honest pastoral/onboarding work to your contacts, or as a barrier?
-3. **AP/TAS founding-Space treatment** — should AP and TAS get a permanently-discounted setup ($1,500) and a permanent 8% rate (vs. 10%) as launch partners? Builds loyalty, acknowledges the risk you're taking being early.
-4. **Founding Patron channel** — can you each identify 2–3 churches/foundations within your network that might seriously consider a Founding Patron relationship in the next 6 months? This is the sales pipeline that makes the math work.
-5. **Tax-deductibility for Founding Patrons** — does this require us to stand up a 501(c)(3) foundation arm (per the original strategic plan)? If yes, what's the timing? Some church donors will require deductibility before committing.
-6. **Free tier framing** — do we offer a free Space tier (limited features, capped membership) so a tiny new operator can experiment without setup investment? Or is paid setup the right floor for quality control?
+1. **Pilot membership price:** Do the pilot tiers hold — $10/mo to host a project, $25/mo for up to five, $50/mo as a Guide — knowing $50 of every $100 funds peer projects?
+2. **Validate 40/50/10:** Does 40% leave enough for the Space to deliver real value? Is the 50%-to-projects promise as compelling to joiners as we believe?
+3. **Sponsored membership:** Will churches and patrons pay the same membership price for someone else? Should they sponsor named people or contribute to an operator-selected access pool?
+4. **Defend the 10% with your network:** Will members and patrons understand that it includes payment processing and platform operations?
+5. **Setup investment range ($2,500–$5,000):** Does that read as honest onboarding work or as a barrier?
+6. **Founding Patron channel:** Can each operator identify 2–3 churches or foundations that might fund sponsored memberships, Projects, or a broader Founding Patron relationship?
+7. **Tax and accounting treatment:** Confirm with nonprofit counsel and a CPA how paid access, sponsored access, restricted pool contributions, direct awards, and platform fees are recorded and receipted.
+8. **No free tier during the test:** Sponsored membership is the access path for a creative who cannot pay. A free tier would blur willingness-to-pay evidence.
 
 ---
 
 ## Part 9 — Conversations with David and Haley
 
-Things to align on with David and Haley as we move from vision to building. No date pressure — these are the conversations that shape the next phase.
+The concise agenda for the current conversation lives in the [discernment brief](the-exchange-discernment-brief.md). These questions preserve the longer-term context without requiring the group to review the full document in the meeting.
 
 ### Shared questions (both)
 
-1. **Platform name:** The Exchange vs. **The Garden** (Haley's suggestion — Eden, Gethsemane, fruit, gardener, seeds, seasons). Vote and discuss why.
-2. **Confirm taxonomy:** Platform → Spaces → Tables → Themes. Good with "Space" as the org tenancy name? Good with "Table" meaning the smaller intimate group inside a Space, rather than the whole community?
-3. **Confirm patronage shapes:** Sustaining Member, Project Pledge / Micro-grant, Sponsored Seat, Fellowship (Curated + Direct). Does this cover what you've been imagining? What's missing?
-4. **Showcase planning:** La Paloma vs. **North Coast Calvary** vs. another venue; ticketing model; sponsorship targets; patron/creative pairs we want to feature.
-5. **Pricing instinct:** Defend the 10% with your patron contacts. Will it land as fair? Or do they have allergic reactions to anything above Stripe processing? Real conversations with 3–5 patrons will tell us.
-6. **Faith framing:** Comfortable with platform-mission-neutral + Space-defines-faith? Or do we want the platform itself explicitly Kingdom-minded at launch?
-7. **Market validation work:** Each of you — who do you know in other mission-aligned creative communities (Substack writers, Skool operators, church/arts network leaders, regional arts councils)? Help us build a 10-name outreach list.
-8. **501(c)(3) timing:** Should we stand up a foundation arm now (per the original strategic plan) to enable tax-deductible Founding Patron giving? Some church donors will require it before committing.
+1. **Membership value:** What recurring experience is valuable enough for a creative to pay for?
+2. **Participatory allocation:** Does the proposed 60% Space / 30% pool / 10% platform split feel honest, sustainable, and meaningful?
+3. **Sponsored access:** Why would a church sponsor membership, and how should recipients be invited or selected?
+4. **Funded work:** Should the first pool fund smaller Project Awards, accumulate into fewer larger awards, or support a Fellowship?
+5. **Discernment:** What voice should contributing members have, and where must the operator retain responsibility?
+6. **Two-sided evidence:** What real payments and renewals would convince us that both creatives and patrons value the model?
+7. **Faith framing:** Can the platform remain broad while each Space defines language such as creative missionary, artist fellow, or community-serving creative?
 
 ### For David (Abiding Practice)
 
-1. **Pick the first Fellowship pair:** Specific named creative + specific named patron for the MVP. Three months of recurring stipend. This is the showcase story.
+1. **Define the first membership offer:** price, recurring value, first invited cohort, and the 60/30/10 allocation.
 2. **Crossboard sunset:** Confirm the existing TheCrossboard audience folds into AP's Space at launch — and what the messaging looks like to current Crossboard users.
-3. **AP's grant pool cadence:** $500/month monthly cycle confirmed, or different? Roll-forward of unspent funds?
+3. **AP's grant pool cadence:** Combine the committed $500/month with 30% of membership; award monthly, quarterly, or after a meaningful threshold?
 4. **Discernment jury:** Operator-only, operator + 1–2 members, or rotating?
-5. **Founding Patron channel:** Can you identify 2–3 churches/foundations in your network who might seriously consider a $10k+/yr Founding Patron commitment in the next 6 months? This is the most important sales motion in Year 1.
+5. **Patron test:** Identify churches willing to choose between sponsored memberships and direct Project funding; measure actual commitments.
 
 ### For Haley (Table Art Society)
 
-1. **TAS Space scope:** Do you want a working TAS Space alongside the AP MVP, or is your involvement advisory while AP runs the first Fellowship? Either is fine — what fits your existing cohort calendar?
+1. **TAS paid-membership promise:** What recurring Table experience are members paying for, at what pilot price, and what should a sponsored member receive identically?
 2. **Cohort vs. open-Table needs:** What cohort-specific features (curriculum, assignments, attendance, mid-cohort assessments) does TAS actually use today? If they're meaningful, plan is to integrate with Maven/Disco for that, while The Garden handles community + patronage + storytelling. Does that division feel right?
 3. **TAS current ops stack:** What tools do you stitch together today (Notion, Zoom, Stripe, Mailchimp, etc.) and what costs the most pain? This is how we figure out where The Garden adds immediate value.
 4. **TAS expansion timeline:** SD → LA → NY — what's the realistic pace? Do you have networks/leads in LA or NY yet, or is each new city a cold start?
-5. **TAS patron base:** Are TAS patrons mostly local SD donors, or do you have any geographically distributed givers already? Geography of the donor base affects how the platform can help cross-city.
-6. **TAS Founding Patron channel:** Same question as David — 2–3 orgs in your network who might consider a Founding Patron commitment?
+5. **TAS patron base:** Would existing patrons sponsor memberships, contribute to TAS's grant pool, or fund particular Projects? Which offer is most natural?
+6. **TAS grant-pool connection:** Should TAS membership use the same 30% allocation, and should awards emerge from cohort work?
 7. **TAS impact moment:** What would you want a first-time visitor to your TAS Space to see that makes them say "this is the kind of thing The Garden was built for"?
 
 ---
 
-*Companion: [the-exchange-mvp.md](the-exchange-mvp.md) — the smallest build that produces evidence. (To be revised next to align with v0.3 terminology.)*
+*Companions: [the-exchange-discernment-brief.md](the-exchange-discernment-brief.md) for the current conversation; [the-exchange-mvp.md](the-exchange-mvp.md) is an earlier single-Fellowship plan and must be revised after the membership and Project Award tests are chosen.*
