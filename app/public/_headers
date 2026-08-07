@@ -22,6 +22,13 @@
 /profile/*
   Cache-Control: no-cache, must-revalidate
 
+# About pages - HTML revalidates, fonts immutable
+/about/*
+  Cache-Control: no-cache, must-revalidate
+
+/about/fonts/*
+  Cache-Control: public, max-age=31536000, immutable
+
 # Security headers for all responses
 /*
   X-Content-Type-Options: nosniff
