@@ -647,6 +647,12 @@ export default function Home() {
             find work
           </p>
           <div className="flex items-center gap-6">
+            <a
+              href="/about/"
+              className="text-gray-500 hover:text-white text-sm transition-colors"
+            >
+              About
+            </a>
             <Link
               to="/organizations"
               className="text-gray-500 hover:text-white text-sm transition-colors"
