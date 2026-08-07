@@ -4,130 +4,50 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>The Garden — About</title>
-<meta name="description" content="The Garden — a home for Kingdom-minded creatives. Community, patronage, and the resources to live out your gifts.">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Marcellus&family=Spectral:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet">
-<style>
-  :root {
-    --bg: oklch(1 0 0);
-    --surface: oklch(0.97 0.004 160);
-    --ink: oklch(0.21 0.006 260);
-    --muted: oklch(0.44 0.012 260);
-    --iris: oklch(0.36 0.075 160);
-    --iris-deep: oklch(0.27 0.06 160);
-    --leaf: oklch(0.47 0.065 150);
-    --hairline: oklch(0.86 0.006 260);
-  }
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    background: var(--bg);
-    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
-    color: var(--ink);
-    -webkit-font-smoothing: antialiased;
-    min-height: 100vh;
-    display: flex;
-    justify-content: center;
-  }
-  .wrap {
-    width: 100%;
-    max-width: 640px;
-    padding: clamp(2rem, 6vw, 4rem) 1.5rem 3rem;
-    display: flex;
-    flex-direction: column;
-  }
-  .wordmark {
-    font-family: "Marcellus", serif;
-    font-size: 18px;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--iris-deep);
-  }
-  .rule { border: none; border-top: 1px solid var(--hairline); margin: 1.2rem 0 2rem; }
-  h1 {
-    font-family: "Spectral", serif;
-    font-weight: 300;
-    font-size: clamp(26px, 6vw, 34px);
-    line-height: 1.15;
-    letter-spacing: -0.015em;
-    text-wrap: balance;
-  }
-  h1 em { font-style: normal; font-weight: 500; color: var(--iris); }
-  .lede {
-    margin-top: 0.9rem;
-    font-size: 14px;
-    line-height: 1.6;
-    color: var(--muted);
-    max-width: 52ch;
-  }
-  .cards { margin-top: 2.2rem; display: flex; flex-direction: column; }
-  .card {
-    display: flex;
-    align-items: baseline;
-    gap: 1rem;
-    padding: 1.1rem 0.25rem;
-    text-decoration: none;
-    border-top: 1px solid var(--hairline);
-    transition: background 0.15s ease;
-  }
-  .card:last-child { border-bottom: 1px solid var(--hairline); }
-  .card:hover { background: var(--surface); }
-  .card-name {
-    flex: 0 0 11rem;
-    font-family: "Spectral", serif;
-    font-size: 17px;
-    color: var(--iris-deep);
-  }
-  .card-desc { flex: 1; font-size: 13px; line-height: 1.5; color: var(--muted); }
-  .card-arrow { color: var(--iris); font-size: 14px; }
-  .footer {
-    margin-top: 3rem;
-    padding-top: 1rem;
-    border-top: 1px solid var(--hairline);
-    display: flex;
-    justify-content: space-between;
-    font-size: 11px;
-    color: var(--muted);
-  }
-  .footer .site { font-family: "Marcellus", serif; letter-spacing: 0.08em; color: var(--iris-deep); }
-  .footer a { color: var(--muted); text-decoration: none; }
-  @media (max-width: 560px) {
-    .card { flex-wrap: wrap; row-gap: 4px; }
-    .card-name { flex: 1 1 auto; }
-    .card-desc { flex: 1 1 100%; }
-  }
-</style>
+<meta name="description" content="Where Kingdom-minded creatives find the people who support their work — with funding, with collaboration, with a seat at a table.">
+<meta property="og:title" content="The Garden">
+<meta property="og:description" content="Where Kingdom-minded creatives find the people who support their work.">
+<link rel="stylesheet" href="/about/fonts/fonts.css">
+<link rel="stylesheet" href="/about/brand.css">
 </head>
-<body>
+<body class="on-ink">
 <div class="wrap">
-  <div class="wordmark">The Garden</div>
-  <hr class="rule">
 
-  <h1>A home for Kingdom-minded creatives — and the people who <em>back them.</em></h1>
-  <p class="lede">The Garden brings creative community, patronage, and public storytelling into one place. Communities gather around tables, members fund each other's projects, and patrons help shape the creative economy of their cities. Start where you fit:</p>
+  <header class="masthead">
+    <span class="wordmark">The Garden</span>
+    <span class="masthead-role">About</span>
+  </header>
+  <hr class="rule-heavy">
+
+  <h1>Nobody makes anything <span class="accent">alone.</span></h1>
+
+  <p class="lede">The Garden is where Kingdom-minded creatives find the people who support their work — with funding, with collaboration, with a seat at a table. Sit down with people who make things. Propose the work you're called to. Get it made.</p>
 
   <nav class="cards">
     <a class="card" href="/about/creatives/">
       <span class="card-name">For creatives</span>
-      <span class="card-desc">Community and resources to live out your gifts — host projects, find patrons, grow with peers.</span>
-      <span class="card-arrow">→</span>
+      <span class="card-desc">A seat, a project, and people who'll help you make it — from $10/mo, with half of every membership funding another creative's work.</span>
+      <span class="card-go">Take a seat →</span>
     </a>
     <a class="card" href="/about/patrons/">
       <span class="card-name">For patrons</span>
-      <span class="card-desc">Shape the creative economy of your community — fund fellowships, projects, events, and seats.</span>
-      <span class="card-arrow">→</span>
+      <span class="card-desc">Shape the creative economy of your community — cover a seat from $10/mo, fund a Fellowship, commission a project.</span>
+      <span class="card-go">Support a creative →</span>
     </a>
-    <a class="card" href="/about/leaders/">
-      <span class="card-name">For community leaders</span>
-      <span class="card-desc">Cultivate a flourishing creative community — gather your people, fund the work, tell the story.</span>
-      <span class="card-arrow">→</span>
+    <a class="card" href="/about/hosts/">
+      <span class="card-name">For hosts</span>
+      <span class="card-desc">You're a creative who leads a community. Get paid to gather the people you already gather.</span>
+      <span class="card-go">Host a table →</span>
     </a>
   </nav>
 
-  <div class="footer">
-    <span class="site">thegarden.app</span>
-    <a href="/">← Back to TheCrossBoard</a>
-  </div>
+  <p class="statement" style="color: var(--paper);">There is no algorithm here. You seek and you find — <span class="accent">and everyone else came for the same reason you did.</span></p>
+
+  <footer class="footer">
+    <span>Where Kingdom-minded creatives find the people who support their work.</span>
+    <a href="/">← TheCrossBoard</a>
+  </footer>
+
 </div>
 </body>
 </html>
