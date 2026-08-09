@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mocks — This week's buzz</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;600&family=Archivo:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink:#121212; --paper:#F7F7F4; --hairline:#2A2A28; --dim:#6F6F69;
+    --muted:#8B8B85; --body:#A8A8A0; --citron:#D7F25A;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:#0C0C0C; color:var(--body); font-family:"Archivo",sans-serif; font-size:17px; line-height:1.6; -webkit-font-smoothing:antialiased; }
+  .doc { max-width:760px; margin:0 auto; padding:56px 24px 96px; }
+  .doc-head { padding-bottom:20px; border-bottom:2px solid var(--paper); }
+  .doc-kicker { font-family:"JetBrains Mono",monospace; font-size:11px; letter-spacing:0.28em; text-transform:uppercase; color:var(--paper); }
+  .doc-kicker b { color:var(--citron); font-weight:500; }
+  h1 { font-family:"Bricolage Grotesque",sans-serif; font-weight:600; font-size:40px; letter-spacing:-0.03em; line-height:1.05; color:var(--paper); margin-top:14px; }
+  .doc-meta { font-family:"JetBrains Mono",monospace; font-size:10.5px; letter-spacing:0.12em; text-transform:uppercase; color:var(--dim); margin-top:14px; }
+  .doc-intro { color:var(--body); max-width:60ch; margin-top:22px; }
+
+  .screen { margin-top:64px; }
+  .anno { display:flex; align-items:baseline; gap:14px; margin-bottom:8px; }
+  .anno-id { font-family:"JetBrains Mono",monospace; font-size:11px; letter-spacing:0.14em; color:var(--citron); white-space:nowrap; }
+  .anno-title { font-family:"Bricolage Grotesque",sans-serif; font-weight:600; font-size:20px; letter-spacing:-0.02em; color:var(--paper); }
+  .anno-note { font-size:14.5px; line-height:1.55; color:var(--muted); max-width:66ch; margin-bottom:18px; }
+  .anno-note code { font-family:"JetBrains Mono",monospace; font-size:12px; color:var(--body); }
+  .anno-note b { color:var(--paper); }
+
+  /* The buzz panel — near-spec from handoff Task 6 */
+  .buzz {
+    background:var(--ink);
+    border:1px solid var(--hairline);
+    border-radius:10px;
+    padding:30px 36px 34px;
+    display:flex; flex-direction:column; gap:22px;
+  }
+  .buzz-head { display:flex; justify-content:space-between; align-items:baseline; gap:16px; flex-wrap:wrap; }
+  .buzz-title { font-family:"JetBrains Mono",monospace; font-size:11px; letter-spacing:0.18em; text-transform:uppercase; color:var(--paper); }
+  .buzz-sort { font-family:"JetBrains Mono",monospace; font-size:10.5px; letter-spacing:0.1em; text-transform:uppercase; color:var(--dim); }
+  .rule { height:1px; background:var(--hairline); border:none; }
+
+  .stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:18px; }
+  .stat b { display:block; font-family:"Bricolage Grotesque",sans-serif; font-weight:600; font-size:34px; letter-spacing:-0.03em; color:var(--paper); line-height:1; }
+  .stat.first b { color:var(--citron); }
+  .stat span { display:block; font-family:"JetBrains Mono",monospace; font-size:11px; letter-spacing:0.1em; text-transform:uppercase; color:var(--muted); margin-top:7px; }
+
+  .items { display:flex; flex-direction:column; gap:16px; }
+  .item { display:flex; align-items:baseline; gap:18px; flex-wrap:wrap; }
+  .item-time { font-family:"JetBrains Mono",monospace; font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:var(--dim); min-width:76px; }
+  .item-title { font-family:"Bricolage Grotesque",sans-serif; font-weight:500; font-size:17px; color:var(--paper); }
+  .item-ctx { font-family:"JetBrains Mono",monospace; font-size:11px; letter-spacing:0.06em; text-transform:uppercase; color:var(--muted); }
+  .item-ctx.fund { color:var(--citron); }
+
+  .buzz-foot { font-family:"JetBrains Mono",monospace; font-size:11px; letter-spacing:0.1em; text-transform:uppercase; color:var(--dim); line-height:2; }
+
+  /* Just posted rail */
+  .rail { display:flex; gap:14px; overflow:hidden; }
+  .rail-card { border:1px solid var(--hairline); border-radius:10px; padding:16px 18px; min-width:200px; flex:1; }
+  .rail-kind { font-family:"JetBrains Mono",monospace; font-size:9.5px; letter-spacing:0.1em; text-transform:uppercase; color:var(--dim); }
+  .rail-title { font-family:"Bricolage Grotesque",sans-serif; font-weight:500; font-size:15.5px; color:var(--paper); margin-top:6px; line-height:1.25; }
+  .rail-by { font-family:"JetBrains Mono",monospace; font-size:9.5px; letter-spacing:0.08em; text-transform:uppercase; color:var(--muted); margin-top:8px; }
+</style>
+</head>
+<body>
+<div class="doc">
+
+  <header class="doc-head">
+    <div class="doc-kicker">The Garden · <b>UI mocks</b></div>
+    <h1>This week's buzz</h1>
+    <div class="doc-meta">v1 · 2026-08-09 · spec: handoff Task 6 near-spec, rendered faithfully · city threshold decision pending (#3)</div>
+    <p class="doc-intro">Abundance without judgement: events have a time and a place, so sorting by soonest and nearest needs no algorithm. Aggregate is atmosphere; individual is scoreboard — city totals are published generously, per-person counts never exist. The panel states its own position in the UI, and a person signs the featured picks by name.</p>
+  </header>
+
+  <!-- B1 -->
+  <section class="screen">
+    <div class="anno"><span class="anno-id">B1</span><span class="anno-title">The panel — near-spec, San Diego</span></div>
+    <p class="anno-note">Rendered to the handoff's measurements: mono 11/0.18em header with the position label kept verbatim; four <code>CityStats</code> (first citron); items sorted <code>startsAt ASC, distance ASC</code> — both facts, no third term; funding percentages citron because money progress is a deed. Footer bylines the curator and states the position. Nav label: <b>This week</b>.</p>
+    <div class="buzz">
+      <div class="buzz-head">
+        <span class="buzz-title">This week's buzz · San Diego</span>
+        <span class="buzz-sort">Sorted by soonest · no ranking</span>
+      </div>
+      <hr class="rule">
+      <div class="stats">
+        <div class="stat first"><b>14</b><span>shows this week</span></div>
+        <div class="stat"><b>6</b><span>projects funded this month</span></div>
+        <div class="stat"><b>23</b><span>seats covered this month</span></div>
+        <div class="stat"><b>4</b><span>tables set this month</span></div>
+      </div>
+      <hr class="rule">
+      <div class="items">
+        <div class="item"><span class="item-time">Tue 7 PM</span><span class="item-title">Songwriters' night at Grounds &amp; Common</span><span class="item-ctx">Partner venue · walk in</span></div>
+        <div class="item"><span class="item-time">Thu 7 PM</span><span class="item-title">Thursday Night Open Table</span><span class="item-ctx">3 from your tables are going</span></div>
+        <div class="item"><span class="item-time">Fri</span><span class="item-title">“Hymns for the 5 AM shift” closes</span><span class="item-ctx fund">82% funded</span></div>
+        <div class="item"><span class="item-time">Sat 6 PM</span><span class="item-title">Mural unveiling — the 12 South wall</span><span class="item-ctx">Bring people</span></div>
+        <div class="item"><span class="item-time">Sep 4</span><span class="item-title">A table for the ones making things</span><span class="item-ctx">40 seats · 18 coming</span></div>
+      </div>
+      <hr class="rule">
+      <div class="buzz-foot">
+        Featured this week chosen by Sarah R., host at Table Art Society<br>
+        Not by popularity. There is no algorithm here.
+      </div>
+    </div>
+  </section>
+
+  <!-- B2 -->
+  <section class="screen">
+    <div class="anno"><span class="anno-id">B2</span><span class="anno-title">Just posted — the visibility floor</span></div>
+    <p class="anno-note">Rule 4: every new project and member gets a turn, by rotation, not merit — <code>ORDER BY createdAt DESC</code> with <b>round-robin across creators</b> so one prolific person can't fill the rail. Every new project appears within a minute of creation. This is the anti-cold-shoulder machine: nobody's first thing lands in silence.</p>
+    <div class="rail">
+      <div class="rail-card"><span class="rail-kind">New project</span><div class="rail-title">A zine about the 78 corridor</div><div class="rail-by">Priya S. · just now</div></div>
+      <div class="rail-card"><span class="rail-kind">New member</span><div class="rail-title">Dev T. — photographer, Chula Vista</div><div class="rail-by">First post pending</div></div>
+      <div class="rail-card"><span class="rail-kind">New project</span><div class="rail-title">Short doc: the last tortilleria</div><div class="rail-by">Jon K. · 20 min</div></div>
+    </div>
+  </section>
+
+  <!-- B3 -->
+  <section class="screen">
+    <div class="anno"><span class="anno-id">B3</span><span class="anno-title">The quiet-city state — decision #3 made visible</span></div>
+    <p class="anno-note">The pending decision (city threshold) has a UI consequence either way, so it's drawn: below the minimum-activity floor, the city panel is <b>hidden, not shown empty</b> — an empty local surface is evidence that nothing is happening. The fallback view is honest about scope and points at the two real doors: the virtual open table and starting the city's first table.</p>
+    <div class="buzz">
+      <div class="buzz-head">
+        <span class="buzz-title">This week's buzz · everywhere</span>
+        <span class="buzz-sort">Your city is quiet — for now</span>
+      </div>
+      <hr class="rule">
+      <div class="items">
+        <div class="item"><span class="item-time">Thu 7 PM</span><span class="item-title">Thursday Night Open Table</span><span class="item-ctx">Virtual · anyone · walk in</span></div>
+        <div class="item"><span class="item-time">Fri</span><span class="item-title">“Hymns for the 5 AM shift” closes</span><span class="item-ctx fund">82% funded</span></div>
+      </div>
+      <hr class="rule">
+      <div class="buzz-foot">
+        Nothing in your city yet? Somebody sets the first table.<br>
+        <span style="color:var(--citron);">Host a table where you are →</span>
+      </div>
+    </div>
+  </section>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mocks — The public story page</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;600&family=Archivo:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink:#121212; --paper:#F7F7F4; --hairline:#2A2A28; --dim:#6F6F69;
+    --muted:#8B8B85; --body:#A8A8A0; --citron:#D7F25A;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:#0C0C0C; color:var(--body); font-family:"Archivo",sans-serif; font-size:17px; line-height:1.6; -webkit-font-smoothing:antialiased; }
+  .doc { max-width:760px; margin:0 auto; padding:56px 24px 96px; }
+  .doc-head { padding-bottom:20px; border-bottom:2px solid var(--paper); }
+  .doc-kicker { font-family:"JetBrains Mono",monospace; font-size:11px; letter-spacing:0.28em; text-transform:uppercase; color:var(--paper); }
+  .doc-kicker b { color:var(--citron); font-weight:500; }
+  h1 { font-family:"Bricolage Grotesque",sans-serif; font-weight:600; font-size:40px; letter-spacing:-0.03em; line-height:1.05; color:var(--paper); margin-top:14px; }
+  .doc-meta { font-family:"JetBrains Mono",monospace; font-size:10.5px; letter-spacing:0.12em; text-transform:uppercase; color:var(--dim); margin-top:14px; }
+  .doc-intro { color:var(--body); max-width:60ch; margin-top:22px; }
+
+  .screen { margin-top:64px; }
+  .anno { display:flex; align-items:baseline; gap:14px; margin-bottom:8px; }
+  .anno-id { font-family:"JetBrains Mono",monospace; font-size:11px; letter-spacing:0.14em; color:var(--citron); white-space:nowrap; }
+  .anno-title { font-family:"Bricolage Grotesque",sans-serif; font-weight:600; font-size:20px; letter-spacing:-0.02em; color:var(--paper); }
+  .anno-note { font-size:14.5px; line-height:1.55; color:var(--muted); max-width:66ch; margin-bottom:18px; }
+  .anno-note code { font-family:"JetBrains Mono",monospace; font-size:12px; color:var(--body); }
+  .anno-note b { color:var(--paper); }
+
+  .frame { background:var(--ink); border:1px solid var(--hairline); border-radius:10px; overflow:hidden; }
+  .chrome { display:flex; align-items:center; justify-content:space-between; padding:14px 22px; border-bottom:1px solid var(--hairline); }
+  .chrome .wm { font-family:"JetBrains Mono",monospace; font-size:10.5px; letter-spacing:0.28em; text-transform:uppercase; color:var(--paper); }
+  .chrome .auth { font-family:"JetBrains Mono",monospace; font-size:10px; letter-spacing:0.1em; text-transform:uppercase; color:var(--body); border:1px solid var(--hairline); border-radius:3px; padding:6px 12px; }
+  .stage { padding:30px 26px 34px; }
+
+  .m-label { font-family:"JetBrains Mono",monospace; font-size:10.5px; letter-spacing:0.16em; text-transform:uppercase; color:var(--dim); }
+  .m-h { font-family:"Bricolage Grotesque",sans-serif; font-weight:600; color:var(--paper); letter-spacing:-0.02em; }
+  .btn { display:inline-block; font-family:"JetBrains Mono",monospace; font-size:11.5px; letter-spacing:0.08em; text-transform:uppercase; padding:13px 22px; border-radius:3px; }
+  .btn-citron { background:var(--citron); color:var(--ink); }
+  .btn-ghost { border:1px solid var(--hairline); color:var(--body); }
+  .link-citron { font-family:"JetBrains Mono",monospace; font-size:11px; letter-spacing:0.1em; text-transform:uppercase; color:var(--citron); }
+  .rule { height:1px; background:var(--hairline); border:none; }
+  .badge-n { font-family:"JetBrains Mono",monospace; font-size:10px; letter-spacing:0.08em; text-transform:uppercase; color:var(--body); border:1px solid var(--hairline); border-radius:3px; padding:4px 8px; }
+  .credit { font-family:"JetBrains Mono",monospace; font-size:10.5px; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted); }
+  .credit b { color:var(--citron); font-weight:500; }
+  .hint { font-size:13px; color:var(--dim); margin-top:6px; }
+  .field { margin-top:18px; }
+  .field label { display:block; font-family:"JetBrains Mono",monospace; font-size:10.5px; letter-spacing:0.14em; text-transform:uppercase; color:var(--dim); margin-bottom:7px; }
+  .input { width:100%; background:transparent; border:1px solid var(--hairline); border-radius:3px; color:var(--paper); font-family:"Archivo",sans-serif; font-size:16px; padding:12px 14px; }
+
+  .media { border:1px dashed var(--hairline); border-radius:3px; display:grid; place-items:center; color:var(--dim); font-size:13px; text-align:center; padding:20px; }
+
+  /* Story update entries */
+  .upd { display:flex; gap:18px; padding:20px 0; border-top:1px solid var(--hairline); }
+  .upd-date { font-family:"JetBrains Mono",monospace; font-size:10.5px; letter-spacing:0.1em; text-transform:uppercase; color:var(--dim); min-width:74px; padding-top:4px; }
+  .upd-body { flex:1; }
+  .upd-body p { color:var(--paper); font-size:15.5px; }
+</style>
+</head>
+<body>
+<div class="doc">
+
+  <header class="doc-head">
+    <div class="doc-kicker">The Garden · <b>UI mocks</b></div>
+    <h1>The public story page</h1>
+    <div class="doc-meta">v1 · 2026-08-09 · spec: product-plan §7 phase 0 · the page every other surface points at</div>
+    <p class="doc-intro">The artifact of the whole system. Patrons forward it instead of writing reports; partners point at their credit on it; the cover module lives on it; the showcase quotes it. Work-led, credit-styled, public, and built to unfurl in a text message. One rule above all: <b style="color:var(--paper)">the work leads — never the ask.</b></p>
+  </header>
+
+  <!-- ST1 -->
+  <section class="screen">
+    <div class="anno"><span class="anno-id">ST1</span><span class="anno-title">The story page — a body of work with credits</span></div>
+    <p class="anno-note">Outsider view, no account. Hero is the newest work, full-bleed. Updates read as a reverse-chronological credit sheet: date · what happened · who made it possible. No counts anywhere (no views, no likes) — the deeds are the numbers. The cover module docks after the work has spoken, not before.</p>
+    <div class="frame">
+      <div class="chrome"><span class="wm">The Garden</span><span class="auth">Sign in</span></div>
+      <div class="stage">
+        <div class="media" style="height:180px;">[ hero — latest work: “Prodigal” live at the Casbah, 40 sec ]</div>
+        <div style="display:flex; align-items:baseline; gap:14px; margin-top:20px; flex-wrap:wrap;">
+          <span class="m-h" style="font-size:30px;">Shua</span>
+          <span class="credit">musician · San Diego</span>
+        </div>
+        <p style="font-size:15.5px; color:var(--body); margin-top:8px; max-width:56ch;">Songs for the people who open the kitchens and drive the first buses. Playing wherever the music belongs.</p>
+        <div class="credit" style="margin-top:14px;">seat covered by <b>St. Mark's Church</b> · venue partner <b>The Casbah</b></div>
+
+        <div style="margin-top:26px;">
+          <div class="upd">
+            <span class="upd-date">Aug 5</span>
+            <div class="upd-body">
+              <p>“Three people stayed after to talk. One runs a wedding venue and wants the whole set in October.”</p>
+              <div class="media" style="height:64px; margin-top:10px; max-width:340px;">[ photo — the room, after ]</div>
+            </div>
+          </div>
+          <div class="upd">
+            <span class="upd-date">Jul 22</span>
+            <div class="upd-body"><p>First rehearsal with a cellist — found her through the Thursday open table. “Prodigal” finally sounds like it did in my head.</p></div>
+          </div>
+          <div class="upd">
+            <span class="upd-date">Jul 8</span>
+            <div class="upd-body"><p>Seat covered. Booked two open mics the same week. This page is where I'll show what comes of it.</p></div>
+          </div>
+        </div>
+
+        <hr class="rule" style="margin:8px 0 20px;">
+        <div style="display:flex; gap:14px; align-items:center; flex-wrap:wrap;">
+          <span class="btn btn-citron">Cover Shua's seat · $10/mo</span>
+          <span class="link-citron">Forward this page →</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ST2 -->
+  <section class="screen">
+    <div class="anno"><span class="anno-id">ST2</span><span class="anno-title">The update composer — 90 seconds from cold</span></div>
+    <p class="anno-note">The loop only works if updates keep coming, so composing one must be nearly effortless: drop media, say one true thing, publish. The credit line attaches itself. A quiet nudge shows who's waiting — the patron relationship stated as warmth, not obligation.</p>
+    <div class="frame">
+      <div class="chrome"><span class="wm">The Garden</span><span class="m-label">New story update</span></div>
+      <div class="stage" style="max-width:500px;">
+        <div class="media" style="height:96px;">Drop a photo, a clip, a track — or just write</div>
+        <div class="field"><label>What happened</label><div class="input" style="color:var(--paper);">Three people stayed after to talk. One runs a wedding venue…</div></div>
+        <div style="margin-top:18px; display:flex; gap:12px; align-items:center;">
+          <span class="btn btn-citron">Publish to your page</span>
+          <span class="hint" style="margin-top:0;">St. Mark's gets this in their patron feed</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ST3 -->
+  <section class="screen">
+    <div class="anno"><span class="anno-id">ST3</span><span class="anno-title">The unfurl — how it lands in a text message</span></div>
+    <p class="anno-note">Task 1's acceptance test, drawn: a patron forwards the page to their board chair; the preview card has to carry the whole story alone. OG image = latest work media with the wordmark corner; title = name + discipline; description = the newest update line. If this card looks good, the loop runs without us.</p>
+    <div class="frame">
+      <div class="stage" style="display:flex; justify-content:center;">
+        <div style="max-width:340px; width:100%;">
+          <p style="font-size:14px; color:var(--body); margin-bottom:10px; text-align:right;">worth 2 min — this is the guy our church covers 👇</p>
+          <div style="border:1px solid var(--hairline); border-radius:10px; overflow:hidden;">
+            <div class="media" style="height:120px; border:none; border-radius:0;">[ og image — “Prodigal” live, wordmark corner ]</div>
+            <div style="padding:12px 14px; border-top:1px solid var(--hairline);">
+              <div style="color:var(--paper); font-size:14px; font-weight:600;">Shua — musician, San Diego</div>
+              <div style="color:var(--muted); font-size:12.5px; margin-top:3px;">“Three people stayed after to talk…” · seat covered by St. Mark's Church</div>
+              <div class="m-label" style="font-size:9px; margin-top:6px;">thegarden · story</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+</body>
+</html>
