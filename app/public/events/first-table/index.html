@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A table for the ones making things — The Garden</title>
+<meta name="description" content="An evening for San Diego creatives and the people who support them — a real conversation about funding each other's work, hosted around an actual table. Free. Bring something you made, or just bring your questions.">
+<meta property="og:title" content="A table for the ones making things">
+<meta property="og:description" content="An evening for San Diego creatives and the people who support them. Free — save your chair.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="https://www.thecrossboard.org/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="/about/fonts/fonts.css">
+<style>
+  :root {
+    --ink:#121212; --paper:#F7F7F4; --hairline:#2A2A28; --dim:#6F6F69;
+    --muted:#8B8B85; --body:#A8A8A0; --citron:#D7F25A;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background:var(--ink);
+    color:var(--body);
+    font-family:"Archivo",-apple-system,sans-serif;
+    font-size:17px; line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+    min-height:100vh;
+  }
+  .wrap { max-width:680px; margin:0 auto; padding:clamp(28px,6vw,64px) clamp(20px,4.5vw,40px) 64px; }
+  .masthead { display:flex; align-items:baseline; justify-content:space-between; gap:16px; padding-bottom:18px; }
+  .wordmark { font-family:"JetBrains Mono",monospace; font-weight:500; font-size:12px; letter-spacing:0.28em; text-transform:uppercase; color:var(--paper); text-decoration:none; }
+  .role { font-family:"JetBrains Mono",monospace; font-size:10.5px; letter-spacing:0.14em; text-transform:uppercase; color:var(--dim); }
+  .rule-heavy { height:2px; background:var(--paper); border:none; }
+  .rule { height:1px; background:var(--hairline); border:none; }
+
+  .badges { display:flex; gap:10px; margin-top:clamp(24px,4vw,36px); flex-wrap:wrap; }
+  .badge-u { font-family:"JetBrains Mono",monospace; font-size:10px; letter-spacing:0.08em; text-transform:uppercase; color:var(--ink); background:var(--citron); border-radius:3px; padding:5px 9px; }
+  .badge-n { font-family:"JetBrains Mono",monospace; font-size:10px; letter-spacing:0.08em; text-transform:uppercase; color:var(--body); border:1px solid var(--hairline); border-radius:3px; padding:5px 9px; }
+
+  h1 { font-family:"Bricolage Grotesque",sans-serif; font-weight:600; font-size:clamp(34px,7vw,52px); line-height:1.02; letter-spacing:-0.03em; color:var(--paper); margin-top:18px; text-wrap:balance; }
+  h1 .accent { color:var(--citron); }
+  .lede { font-size:18px; line-height:1.6; color:var(--body); max-width:56ch; margin-top:18px; }
+
+  dl { display:flex; flex-direction:column; gap:10px; font-family:"JetBrains Mono",monospace; font-size:12px; max-width:400px; margin-top:26px; }
+  dl div { display:flex; justify-content:space-between; gap:16px; }
+  dt { color:var(--dim); letter-spacing:0.1em; }
+  dd { color:var(--body); text-align:right; }
+
+  .cta { display:flex; gap:14px; align-items:center; margin-top:30px; flex-wrap:wrap; }
+  .btn { display:inline-block; font-family:"JetBrains Mono",monospace; font-size:12px; letter-spacing:0.08em; text-transform:uppercase; padding:15px 26px; border-radius:3px; text-decoration:none; }
+  .btn-citron { background:var(--citron); color:var(--ink); }
+  .btn-ghost { border:1px solid var(--hairline); color:var(--body); }
+
+  .credit { font-family:"JetBrains Mono",monospace; font-size:10.5px; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted); margin-top:26px; }
+  .credit b { color:var(--citron); font-weight:500; }
+
+  .whatis { border:1px solid var(--hairline); border-radius:10px; padding:20px 24px; margin-top:32px; }
+  .whatis .k { font-family:"JetBrains Mono",monospace; font-weight:500; font-size:10.5px; letter-spacing:0.16em; text-transform:uppercase; color:var(--citron); }
+  .whatis p { font-size:15px; color:var(--body); margin-top:8px; }
+  .whatis a { color:var(--citron); text-decoration:none; font-family:"JetBrains Mono",monospace; font-size:10.5px; letter-spacing:0.1em; text-transform:uppercase; }
+
+  .footer { margin-top:48px; padding-top:16px; border-top:1px solid var(--hairline); font-family:"JetBrains Mono",monospace; font-size:10.5px; letter-spacing:0.1em; text-transform:uppercase; color:var(--dim); display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+  .footer a { color:inherit; text-decoration:none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="masthead">
+    <a class="wordmark" href="/about/">The Garden</a>
+    <span class="role">First gathering</span>
+  </header>
+  <hr class="rule-heavy">
+
+  <div class="badges">
+    <span class="badge-u">Event · Free</span>
+    <span class="badge-n">In person · San Diego</span>
+  </div>
+
+  <h1>A table for the ones <span class="accent">making things.</span></h1>
+
+  <p class="lede">An evening for San Diego creatives and the people who support them — a real conversation about funding each other's work, hosted around an actual table. Bring something you made, or just bring your questions. Nobody performs; everybody shows.</p>
+
+  <dl>
+    <div><dt>WHEN</dt><dd>A Thursday this September — date landing soon</dd></div>
+    <div><dt>WHERE</dt><dd>San Diego — venue being set</dd></div>
+    <div><dt>COST</dt><dd>Free — bring nothing</dd></div>
+    <div><dt>SEATS</dt><dd>Limited — say you're in and we'll hold one</dd></div>
+  </dl>
+
+  <div class="cta">
+    <a class="btn btn-citron" href="mailto:rickmoy@gmail.com?subject=Save%20me%20a%20chair%20%E2%80%94%20A%20table%20for%20the%20ones%20making%20things&body=Name%3A%0AWhat%20I%20make%20(or%20fund%2C%20or%20host)%3A%0A">Save me a chair</a>
+    <a class="btn btn-ghost" href="mailto:?subject=worth%20a%20look%20%E2%80%94%20a%20table%20for%20SD%20creatives&body=https%3A%2F%2Fwww.thecrossboard.org%2Fevents%2Ffirst-table%2F">Bring someone</a>
+  </div>
+
+  <div class="credit">Hosted by <b>Rick · David · Haley · Joseph</b></div>
+
+  <div class="whatis">
+    <span class="k">What is The Garden?</span>
+    <p>A home for Kingdom-minded creatives and the people who support their work — with funding, with collaboration, with a seat at a table. This evening is what it looks like in person. <a href="/about/">Learn more →</a></p>
+  </div>
+
+  <footer class="footer">
+    <a href="/about/">The Garden</a>
+    <span>Nobody makes anything alone.</span>
+  </footer>
+
+</div>
+</body>
+</html>
