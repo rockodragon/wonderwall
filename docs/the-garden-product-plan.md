@@ -44,9 +44,9 @@ Four personas. One account can hold several roles — roles are additive, never 
 |---|---|---|---|
 | **Visitor** (no account) | $0 | Everyone | Browse public pages, public tables/events, public story pages, /about |
 | **Free account** | $0 | Anyone who signs up | Profile + portfolio, join open tables, RSVP public events, follow projects, register patron/partner role |
-| **A seat** | $10/mo | Creative | Everything free, plus: **create 1 active passion project**, **post paid projects** (budget declared), apply to paid projects, join member tables, propose to grant pool |
+| **A seat** | $10/mo | Creative | Everything free, plus: **create 1 active passion project**, **post paid projects** (budget declared), **put on events**, apply to paid projects, join member tables, propose to grant pool |
 | **Five seats** | $25/mo | Prolific creative | As seat, but **up to 5 active passion projects**, invite collaborators onto them |
-| **Host** | $50/mo *(pricing model under review — §2.4)* | Creative who leads | As seat, plus: **create tables** (any mode), spawn closed tables from open ones, curate a project space, receive patron routing |
+| **Host** | $50/mo, waived for charging hosts — §2.4 | Creative who leads | As five seats (10 active passion projects), plus: **create tables** (any mode), spawn closed tables from open ones, curate a project space, receive patron routing, earn on paid tables |
 | **Covered seat** | $10/mo paid by a patron | Sponsored creative | Identical to *A seat*. Sponsor is credited on the creative's story updates. Never a lesser tier. |
 | **Church / org bundle** | ~$500/mo, sold as "contact us" | Church or organization | Up to 100 covered seats + org credited as patron on all covered creatives' work |
 | **Patron role** | $0 to hold; pays per act | Anyone | Cover a seat $10/mo · fund a Fellowship $500+/mo · pledge to a project $25–$5,000 · **post a paid project** |
@@ -83,10 +83,11 @@ can(user, capability, context) →
 
 | Capability | Free | Seat | Five | Host | Patron role | Partner role |
 |---|---|---|---|---|---|---|
-| `project.create.passion` | — | 1 active | 5 active | 5 active | — | — |
+| `project.create.passion` | — | 1 active | 5 active | 10 active | — | — |
 | `project.create.paid` | — | ✓ | ✓ | ✓ | ✓ | ✓ |
 | `project.applyPaid` | — | ✓ | ✓ | ✓ | — | — |
 | `pool.propose` | — | ✓ | ✓ | ✓ | — | — |
+| `event.create` | — | ✓ | ✓ | ✓ | — | ✓ |
 | `table.join.open` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | `table.join.member` | — | ✓ | ✓ | ✓ | — | — |
 | `table.create` | — | — | — | ✓ | — | — |
@@ -99,16 +100,17 @@ can(user, capability, context) →
 - `project.applyPaid` — apply to someone else's paid project
 - `pool.propose` — put your passion project forward for a **grant-pool** award (the pot 50% of dues feeds). Seat-gated because the pool is members' dues money reserved for members' work; patrons/partners direct their own money instead
 - `table.join.open` / `table.join.member` — sit in on an open table / join a members-only table
-- `table.create` — create a **Table** (a gathering: open night, cohort, weekly virtual). Not a tenant — host *organizations* are provisioned by us, not self-serve
+- `event.create` — put on a **one-off happening with attendees** (a show, an open mic, a gallery night). Seat-level on purpose: creatives gathering people is the community working, not a premium feature. Partners can post their own venue nights.
+- `table.create` — create a **Table**: a *continuing* gathering with a roster — people belong, it has a term, it can spawn a cohort, it gets a curated project space and patron routing. The event/table line: attendees show up; a roster belongs. Not a tenant — host *organizations* are provisioned by us, not self-serve
 - `seat.cover` / `fellowship.fund` / `project.pledge` — the patron money-in acts
 
 `project.create.paid` requires a **declared budget** in every case — the guardrail on paid projects is that the money is real, not which persona posts it (a creative with a grant hiring a composer is exactly the money-in we want). Passion-project caps (1/5) exist because passion projects consume community attention and pool funds; paid projects bring money in and are uncapped in v1.
 
 Denials always return the upgrade path ("Take a seat — $10/mo") — the paywall UX rules in the entitlements doc apply unchanged.
 
-### 2.4 Host earnings — the open pricing decision
+### 2.4 Host earnings — DECIDED: Model A (2026-08-09)
 
-Hosts will be able to charge for tables. Three candidate models, decision pending (handoff DECISIONS_REQUIRED #2):
+**The decision:** a host who charges for tables pays **~10% of what they collect and no monthly base**; a host who doesn't charge pays **$50/mo** for the hosting tools; free/open tables are always free to run. The Skool-style buy-down tier (Model B) gets added when any host's collections make the 10% take consistently exceed ~$100/mo (≈ $1k/mo collected). The three models considered, for the record:
 
 | Model | Shape | Precedent | Read |
 |---|---|---|---|
@@ -116,11 +118,23 @@ Hosts will be able to charge for tables. Three candidate models, decision pendin
 | **B — Skool-style two-tier** | Low sub + high take: $9/mo + 10% + 30¢ · High sub + low take: $100/mo ($80 annual) + 2.9% + 30¢ | Skool (David's reference) | Lets serious hosts buy down the take rate. More to explain. |
 | **C — Status quo** | $50/mo flat, no commission | Current flyer | Simple, but taxes hosts before they earn and gives us no upside in their growth. |
 
-**Recommendation: A now, add B's buy-down tier only when a host's volume justifies it** — concretely, when a host's collections make the 10% take consistently exceed ~$100/mo (≈ $1k/mo collected), offer the Skool-style buy-down. Building two pricing tiers before any host can collect anything is premature.
-
 **Why %-only is not in tension with platform revenue — hosts are the channel, not the customer.** The platform's stack doesn't depend on host fees: (1) 10% of every membership a host's community generates, plus processing margin; (2) the 40% operator share of dues, which accrues to the platform itself while The Garden is the default host org (§6); (3) 10% of all patronage flows; (4) 10% of paid-table collections once payouts ship; (5) **$50/mo from hosts who don't charge** — Model A waives the base only for monetizing hosts. A host who gathers 100 members at $10 generates $1,000/mo in dues before charging for anything. Renting the tools *and* taking commission is how the channel leaves for a group chat.
 
 Whatever is chosen: state whether host fees feed the 50% pool (recommendation: they don't — dues do), and don't put paid tables on any pricing page before the payout path (Stripe Connect Express) exists.
+
+### 2.5 What drives upgrades
+
+Every upgrade fires at a **denial moment with intent** — someone tries to do a thing and meets the gate with a clear path through it (the paywall UX rules in the entitlements doc). The ladder:
+
+| Upgrade | The moment | Strongest driver | Weakest link / lever |
+|---|---|---|---|
+| **Free → Seat** | Tries to apply to a paid project, start a passion project, put on an event, or join a members-only table | **Access to paid work** — "get my work seen and funded" is the JTBD verbatim. Second: belonging + "half your dues fund another creative" | If there are no paid projects to apply to, the top driver is dead. **Supply of paid projects is the seat-conversion lever** — recruit patrons/partners posting gigs before pushing seat upgrades |
+| **Seat → Five** | Hits the 1-active cap mid-momentum on a second work | Prolific output + **collaborator invites** (five's distinctive perk) | Narrow audience by design — a convenience tier, not a pillar |
+| **Five → Host** | Already gathers people; wants a roster, the open→cohort spawn, the credit on funded works | Today: identity + tools ("I want to be the one who makes that room"). **After payouts ship: earnings** — "get paid to gather the people you already gather" becomes the #1 driver | Until payouts exist, $50 buys tools only; expect slow host conversion until Phase 3 |
+| **Free → Patron acts** | A *specific person* they want behind — cover Shua's seat, not "support the arts" | The name in the ask, then the **story update with their credit line** (the retention loop) | Generic asks convert poorly; never lead with the $500 door — the $10 covered seat is the funnel mouth |
+| **Coverage codes** | A church removes the price objection entirely | $0 seat + sponsor credit | Idle unredeemed seats — surface them to the sponsor, whose announcement is the distribution |
+
+Two portfolio-level conclusions: (1) **paid-project supply drives seat conversion** more than any pricing tweak — patron/partner recruitment is growth work for the creative funnel; (2) **host payouts are the host tier's real engine** — before Phase 3, sell hosting on identity and tools, honestly.
 
 ---
 
