@@ -92,6 +92,16 @@ can(user, capability, context) →
 | `table.create` | — | — | — | ✓ | — | — |
 | `seat.cover` / `fellowship.fund` / `project.pledge` | — | — | — | — | ✓ | ✓ |
 
+**Capability legend:**
+
+- `project.create.passion` — start your own creative work seeking community support
+- `project.create.paid` — post work with a declared budget attached (a commission, a gig)
+- `project.applyPaid` — apply to someone else's paid project
+- `pool.propose` — put your passion project forward for a **grant-pool** award (the pot 50% of dues feeds). Seat-gated because the pool is members' dues money reserved for members' work; patrons/partners direct their own money instead
+- `table.join.open` / `table.join.member` — sit in on an open table / join a members-only table
+- `table.create` — create a **Table** (a gathering: open night, cohort, weekly virtual). Not a tenant — host *organizations* are provisioned by us, not self-serve
+- `seat.cover` / `fellowship.fund` / `project.pledge` — the patron money-in acts
+
 `project.create.paid` requires a **declared budget** in every case — the guardrail on paid projects is that the money is real, not which persona posts it (a creative with a grant hiring a composer is exactly the money-in we want). Passion-project caps (1/5) exist because passion projects consume community attention and pool funds; paid projects bring money in and are uncapped in v1.
 
 Denials always return the upgrade path ("Take a seat — $10/mo") — the paywall UX rules in the entitlements doc apply unchanged.
