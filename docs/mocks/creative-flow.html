@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mocks — Creative flow</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;600&family=Archivo:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink:#121212; --paper:#F7F7F4; --hairline:#2A2A28; --dim:#6F6F69;
+    --muted:#8B8B85; --body:#A8A8A0; --citron:#D7F25A;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background:#0C0C0C;
+    color:var(--body);
+    font-family:"Archivo",sans-serif;
+    font-size:17px; line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+  }
+  .doc { max-width:760px; margin:0 auto; padding:56px 24px 96px; }
+  .doc-head { padding-bottom:20px; border-bottom:2px solid var(--paper); }
+  .doc-kicker { font-family:"JetBrains Mono",monospace; font-size:11px; letter-spacing:0.28em; text-transform:uppercase; color:var(--paper); }
+  .doc-kicker b { color:var(--citron); font-weight:500; }
+  h1 { font-family:"Bricolage Grotesque",sans-serif; font-weight:600; font-size:40px; letter-spacing:-0.03em; line-height:1.05; color:var(--paper); margin-top:14px; }
+  .doc-meta { font-family:"JetBrains Mono",monospace; font-size:10.5px; letter-spacing:0.12em; text-transform:uppercase; color:var(--dim); margin-top:14px; }
+  .doc-intro { color:var(--body); max-width:60ch; margin-top:22px; }
+
+  /* Annotation + frame per screen */
+  .screen { margin-top:64px; }
+  .anno { display:flex; align-items:baseline; gap:14px; margin-bottom:8px; }
+  .anno-id { font-family:"JetBrains Mono",monospace; font-size:11px; letter-spacing:0.14em; color:var(--citron); white-space:nowrap; }
+  .anno-title { font-family:"Bricolage Grotesque",sans-serif; font-weight:600; font-size:20px; letter-spacing:-0.02em; color:var(--paper); }
+  .anno-note { font-size:14.5px; line-height:1.55; color:var(--muted); max-width:66ch; margin-bottom:18px; }
+  .anno-note code { font-family:"JetBrains Mono",monospace; font-size:12px; color:var(--body); }
+
+  .frame {
+    background:var(--ink);
+    border:1px solid var(--hairline);
+    border-radius:10px;
+    overflow:hidden;
+  }
+  /* App chrome */
+  .chrome {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px 22px; border-bottom:1px solid var(--hairline);
+  }
+  .chrome .wm { font-family:"JetBrains Mono",monospace; font-size:10.5px; letter-spacing:0.28em; text-transform:uppercase; color:var(--paper); }
+  .chrome nav { display:flex; gap:18px; font-family:"JetBrains Mono",monospace; font-size:10px; letter-spacing:0.12em; text-transform:uppercase; color:var(--dim); }
+  .chrome nav .on { color:var(--paper); }
+  .chrome .auth { font-family:"JetBrains Mono",monospace; font-size:10px; letter-spacing:0.1em; text-transform:uppercase; color:var(--body); border:1px solid var(--hairline); border-radius:3px; padding:6px 12px; }
+  .stage { padding:30px 26px 34px; }
+
+  /* Shared mock atoms */
+  .m-label { font-family:"JetBrains Mono",monospace; font-size:10.5px; letter-spacing:0.16em; text-transform:uppercase; color:var(--dim); }
+  .m-h { font-family:"Bricolage Grotesque",sans-serif; font-weight:600; color:var(--paper); letter-spacing:-0.02em; }
+  .btn { display:inline-block; font-family:"JetBrains Mono",monospace; font-size:11.5px; letter-spacing:0.08em; text-transform:uppercase; padding:13px 22px; border-radius:3px; }
+  .btn-citron { background:var(--citron); color:var(--ink); }
+  .btn-ghost { border:1px solid var(--hairline); color:var(--body); }
+  .link-citron { font-family:"JetBrains Mono",monospace; font-size:11px; letter-spacing:0.1em; text-transform:uppercase; color:var(--citron); }
+  .rule { height:1px; background:var(--hairline); border:none; }
+
+  /* Table card (near-spec) */
+  .tcard { background:var(--ink); border:1px solid var(--hairline); border-radius:10px; padding:26px; display:flex; flex-direction:column; gap:16px; max-width:420px; }
+  .tcard-top { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+  .tcard-org { font-family:"JetBrains Mono",monospace; font-size:10.5px; letter-spacing:0.13em; text-transform:uppercase; color:var(--muted); }
+  .badge-n { font-family:"JetBrains Mono",monospace; font-size:10px; letter-spacing:0.08em; text-transform:uppercase; color:var(--body); border:1px solid var(--hairline); border-radius:3px; padding:4px 8px; }
+  .badge-u { font-family:"JetBrains Mono",monospace; font-size:10px; letter-spacing:0.08em; text-transform:uppercase; color:var(--ink); background:var(--citron); border-radius:3px; padding:4px 8px; }
+  .tcard-title { font-family:"Bricolage Grotesque",sans-serif; font-weight:600; font-size:26px; letter-spacing:-0.025em; color:var(--paper); }
+  .tcard-dl { display:flex; flex-direction:column; gap:9px; font-family:"JetBrains Mono",monospace; font-size:11.5px; }
+  .tcard-dl div { display:flex; justify-content:space-between; gap:16px; }
+  .tcard-dl dt { color:var(--dim); letter-spacing:0.1em; }
+  .tcard-dl dd { color:var(--body); text-align:right; }
+
+  /* Forms */
+  .field { margin-top:18px; }
+  .field label { display:block; font-family:"JetBrains Mono",monospace; font-size:10.5px; letter-spacing:0.14em; text-transform:uppercase; color:var(--dim); margin-bottom:7px; }
+  .input, .textarea {
+    width:100%; background:transparent; border:1px solid var(--hairline); border-radius:3px;
+    color:var(--paper); font-family:"Archivo",sans-serif; font-size:16px; padding:12px 14px;
+  }
+  .input::placeholder, .textarea::placeholder { color:var(--dim); }
+  .textarea { min-height:84px; resize:none; }
+  .hint { font-size:13px; color:var(--dim); margin-top:6px; }
+
+  /* Choice rows */
+  .choice { display:flex; align-items:baseline; gap:16px; padding:16px 4px; border-top:1px solid var(--hairline); }
+  .choice:last-of-type { border-bottom:1px solid var(--hairline); }
+  .choice .c-name { font-family:"Bricolage Grotesque",sans-serif; font-weight:500; font-size:19px; color:var(--paper); letter-spacing:-0.02em; flex:0 0 46%; }
+  .choice .c-desc { flex:1; font-size:14px; color:var(--muted); line-height:1.5; }
+
+  /* Modal */
+  .modal-wrap { background:rgba(10,10,10,0.6); padding:40px 28px; }
+  .modal { background:var(--ink); border:1px solid var(--hairline); border-radius:10px; padding:30px 30px 26px; max-width:430px; margin:0 auto; }
+
+  /* Split strip */
+  .split { display:flex; border:1px solid var(--hairline); border-radius:3px; overflow:hidden; margin-top:16px; font-family:"JetBrains Mono",monospace; font-size:10px; letter-spacing:0.06em; text-transform:uppercase; text-align:center; }
+  .split div { padding:10px 6px; }
+  .split .s1 { flex:4; color:var(--body); border-right:1px solid var(--hairline); }
+  .split .s2 { flex:5; color:var(--ink); background:var(--citron); }
+  .split .s3 { flex:1.5; color:var(--dim); border-left:1px solid var(--hairline); }
+  .split b { display:block; font-size:13px; letter-spacing:0; font-weight:500; }
+
+  /* Notification card */
+  .notif { border:1px solid var(--hairline); border-radius:10px; padding:20px 22px; max-width:460px; }
+
+  /* Project page bits */
+  .pp-meta { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+  .pp-title { font-family:"Bricolage Grotesque",sans-serif; font-weight:600; font-size:30px; letter-spacing:-0.025em; color:var(--paper); margin-top:12px; }
+  .credit { font-family:"JetBrains Mono",monospace; font-size:10.5px; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted); }
+  .credit b { color:var(--citron); font-weight:500; }
+
+  @media (max-width:560px){ .choice{flex-direction:column;gap:4px} .choice .c-name{flex:auto} }
+</style>
+</head>
+<body>
+<div class="doc">
+
+  <header class="doc-head">
+    <div class="doc-kicker">The Garden · <b>UI mocks</b></div>
+    <h1>The creative flow</h1>
+    <div class="doc-meta">v1 · 2026-08-09 · spec: the-garden-product-plan.md §2–4 · tokens: rebrand handoff</div>
+    <p class="doc-intro">Eight screens, one persona, one arc: sit in without an account → belong → post → get a response → hit the seat gate at a moment of intent → pay $10 → start the work → apply to paid work. Every gate names the locked value, says why now, shows the path, and leaves an exit.</p>
+  </header>
+
+  <!-- S1 -->
+  <section class="screen">
+    <div class="anno"><span class="anno-id">S1</span><span class="anno-title">An open table, public — no account</span></div>
+    <p class="anno-note">The handoff's highest-leverage onramp: browsable without signup. Table card is the near-spec component (handoff Task 3). Capability: <code>table.join.open</code> — visitor ✓. The Garden is the default host org, so the org line says THE GARDEN, not Abiding Practice (§6).</p>
+    <div class="frame">
+      <div class="chrome">
+        <span class="wm">The Garden</span>
+        <nav><span>This week</span><span class="on">Tables</span><span>Projects</span></nav>
+        <span class="auth">Sign in</span>
+      </div>
+      <div class="stage">
+        <div class="tcard">
+          <div class="tcard-top">
+            <span class="tcard-org">The Garden</span>
+            <span class="badge-n">Virtual · Open</span>
+          </div>
+          <div class="tcard-title">Thursday Night Open Table</div>
+          <hr class="rule">
+          <dl class="tcard-dl">
+            <div><dt>WHERE</dt><dd>Virtual · link on RSVP</dd></div>
+            <div><dt>SEATS</dt><dd>No cap · 34 seated</dd></div>
+            <div><dt>TERM</dt><dd>Ongoing · Thursdays</dd></div>
+            <div><dt>JOIN</dt><dd>Open — walk in</dd></div>
+          </dl>
+          <span class="link-citron">Pull up a chair →</span>
+        </div>
+        <p class="hint" style="margin-top:16px; max-width:420px;">No account needed to sit in. Come once. See if it's your room.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- S2 -->
+  <section class="screen">
+    <div class="anno"><span class="anno-id">S2</span><span class="anno-title">Signup — “What brings you?”</span></div>
+    <p class="anno-note">Persona-aware signup (§4.4-2). The pick shapes the first screen only — roles are additive and every role stays addable in settings. Nobody is locked into a lane.</p>
+    <div class="frame">
+      <div class="chrome"><span class="wm">The Garden</span><nav></nav><span class="m-label">1 of 2</span></div>
+      <div class="stage">
+        <div class="m-label">Welcome</div>
+        <div class="m-h" style="font-size:28px; margin-top:8px;">What brings you?</div>
+        <p class="hint" style="margin-bottom:10px;">Pick the closest. You can be more than one — most people are.</p>
+        <div class="choice"><span class="c-name">I make things</span><span class="c-desc">Writer, musician, filmmaker, designer — or you've made one thing and you're scared to show it.</span></div>
+        <div class="choice"><span class="c-name">I gather people</span><span class="c-desc">You already lead something — a group, a night, a cohort held together with texts.</span></div>
+        <div class="choice"><span class="c-name">I fund work</span><span class="c-desc">You want to put money behind a person, by name.</span></div>
+        <div class="choice"><span class="c-name">I have a place or resources</span><span class="c-desc">A room, a stage, a channel, materials — something the scene needs.</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- S3 -->
+  <section class="screen">
+    <div class="anno"><span class="anno-id">S3</span><span class="anno-title">First post — one thing you already made</span></div>
+    <p class="anno-note">First action finishes in one sitting (onramp rule). Free-tier capability — no seat required to show work. The ask is deliberately tiny: one existing thing, not a portfolio.</p>
+    <div class="frame">
+      <div class="chrome"><span class="wm">The Garden</span><nav><span>This week</span><span>Tables</span><span class="on">Post</span></nav><span class="m-label">Free</span></div>
+      <div class="stage" style="max-width:520px;">
+        <div class="m-h" style="font-size:26px;">Post one thing you already made.</div>
+        <div class="field"><label>The work</label><div class="input" style="color:var(--dim);">Drop a link, a file, a track, a photo…</div></div>
+        <div class="field"><label>One line about it</label><div class="input" style="color:var(--dim);">What is it, and where did it come from?</div></div>
+        <div style="margin-top:22px; display:flex; gap:12px; align-items:center;">
+          <span class="btn btn-citron">Post it</span>
+          <span class="hint">Visible to the tables you've sat in.</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- S4 -->
+  <section class="screen">
+    <div class="anno"><span class="anno-id">S4</span><span class="anno-title">First proof — a person, not a like</span></div>
+    <p class="anno-note">The onramp promise: a real response within a week. No like counts anywhere (no-algorithm position). Instrumentation behind this screen: if a first post has zero responses at day 5, alert the table's host — silence in week one is a product failure, not a user failure.</p>
+    <div class="frame">
+      <div class="chrome"><span class="wm">The Garden</span><nav></nav><span class="m-label">Notification</span></div>
+      <div class="stage">
+        <div class="notif">
+          <div class="credit"><b>Maya R.</b> · Thursday Night Open Table</div>
+          <p style="color:var(--paper); margin-top:10px; font-size:16px;">“The bridge at 2:14 is gorgeous. I've been looking for exactly this feel for a short I'm cutting — want to talk?”</p>
+          <div style="margin-top:14px;"><span class="link-citron">Reply →</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- S5 -->
+  <section class="screen">
+    <div class="anno"><span class="anno-id">S5</span><span class="anno-title">The seat gate — denial at a moment of intent</span></div>
+    <p class="anno-note">User clicks “Start a project” with no seat. <code>can(user,'project.create.passion')</code> → denied, reason <code>no_membership</code>. Anatomy per the paywall rules: name the locked value · why now · the path · an exit. The 50% line is the pitch, not fine print.</p>
+    <div class="frame">
+      <div class="modal-wrap">
+        <div class="modal">
+          <div class="m-label">Take a seat</div>
+          <div class="m-h" style="font-size:26px; margin-top:8px;">Start your first project — $10/mo</div>
+          <p style="font-size:15px; color:var(--body); margin-top:12px;">A seat lets you run one active passion project, apply to paid work, and join member tables.</p>
+          <div class="split">
+            <div class="s1"><b>$4</b>your host</div>
+            <div class="s2"><b>$5</b>another creative's project</div>
+            <div class="s3"><b>$1</b>us</div>
+          </div>
+          <p style="font-size:14px; color:var(--muted); margin-top:12px;">Half of every membership funds another creative's project. From day one your money is supporting someone — instead of hoping to hear back.</p>
+          <div style="margin-top:20px; display:flex; gap:12px; align-items:center;">
+            <span class="btn btn-citron">Take a seat · $10/mo</span>
+            <span class="m-label" style="color:var(--dim);">Not now</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- S6 -->
+  <section class="screen">
+    <div class="anno"><span class="anno-id">S6</span><span class="anno-title">Checkout — the split is the receipt</span></div>
+    <p class="anno-note">No plan-name jargon, no upsell noise. The where-your-money-goes strip is the same component as S5 — the claim and the receipt are one thing. Coverage codes enter here too (§4.2): the same seat, someone else pays.</p>
+    <div class="frame">
+      <div class="chrome"><span class="wm">The Garden</span><nav></nav><span class="m-label">Checkout</span></div>
+      <div class="stage" style="max-width:460px;">
+        <div class="pp-meta"><span class="m-h" style="font-size:24px;">A seat</span><span class="badge-u">$10/mo</span></div>
+        <div class="split">
+          <div class="s1"><b>$4</b>your host</div>
+          <div class="s2"><b>$5</b>another creative's project</div>
+          <div class="s3"><b>$1</b>us</div>
+        </div>
+        <div class="field"><label>Card</label><div class="input" style="color:var(--dim);">•••• •••• •••• 4242</div></div>
+        <div style="margin-top:20px;"><span class="btn btn-citron">Take your seat</span></div>
+        <p class="hint" style="margin-top:16px;">Covered by your church or a patron? <span class="link-citron" style="font-size:10px;">Enter coverage code</span></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- S7 -->
+  <section class="screen">
+    <div class="anno"><span class="anno-id">S7</span><span class="anno-title">Create a passion project</span></div>
+    <p class="anno-note"><code>project.create.passion</code> now allowed (1 active). Support is asked for in kind, not just cash — collaboration and materials are support (§3). Partner venue field links the project to a place (Task 4 light).</p>
+    <div class="frame">
+      <div class="chrome"><span class="wm">The Garden</span><nav><span>Tables</span><span class="on">Projects</span></nav><span class="m-label">Seat · 0 of 1 active</span></div>
+      <div class="stage" style="max-width:520px;">
+        <div class="pp-meta"><span class="badge-n">Passion · seeking support</span></div>
+        <div class="field"><label>Title</label><div class="input" style="color:var(--paper);">Hymns for the 5 AM shift — an EP</div></div>
+        <div class="field"><label>What you're making</label><div class="textarea" style="color:var(--dim);">Four songs for the people who open the kitchens and drive the first buses…</div></div>
+        <div class="field"><label>What support looks like</label><div class="input" style="color:var(--dim);">A cellist · $400 for studio time · honest ears</div></div>
+        <div class="field"><label>Funding target (optional)</label><div class="input" style="color:var(--dim);">$400</div></div>
+        <div class="field"><label>Partner venue (optional)</label><div class="input" style="color:var(--dim);">Search partners — cafés, galleries, studios…</div></div>
+        <div style="margin-top:22px;"><span class="btn btn-citron">Post project</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- S8 -->
+  <section class="screen">
+    <div class="anno"><span class="anno-id">S8</span><span class="anno-title">Apply to a paid project</span></div>
+    <p class="anno-note">The other half of the seat's value: money-in work. Budget is on the badge, always (say the number on the page). <code>project.applyPaid</code> — seat ✓. The partner venue renders as a credit, which is the partner's payback loop.</p>
+    <div class="frame">
+      <div class="chrome"><span class="wm">The Garden</span><nav><span>Tables</span><span class="on">Projects</span></nav><span class="m-label">Seat</span></div>
+      <div class="stage" style="max-width:560px;">
+        <div class="pp-meta">
+          <span class="badge-u">Paid · $400</span>
+          <span class="badge-n">Mural</span>
+        </div>
+        <div class="pp-title">A wall that says who this neighborhood is</div>
+        <div class="credit" style="margin-top:10px;">Posted by <b>Grounds &amp; Common</b> · partner · North Park</div>
+        <p style="color:var(--body); font-size:15.5px; margin-top:14px; max-width:56ch;">Exterior wall, 12×9. We want a muralist who'll spend a Saturday here first, listening before painting. Paint covered separately.</p>
+        <hr class="rule" style="margin:18px 0;">
+        <div style="display:flex; gap:14px; align-items:center;">
+          <span class="btn btn-citron">Apply →</span>
+          <span class="hint">3 creatives from your tables have applied</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+</body>
+</html>

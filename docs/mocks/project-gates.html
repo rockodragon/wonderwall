@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mocks — Project chooser & gate states</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;600&family=Archivo:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink:#121212; --paper:#F7F7F4; --hairline:#2A2A28; --dim:#6F6F69;
+    --muted:#8B8B85; --body:#A8A8A0; --citron:#D7F25A;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:#0C0C0C; color:var(--body); font-family:"Archivo",sans-serif; font-size:17px; line-height:1.6; -webkit-font-smoothing:antialiased; }
+  .doc { max-width:760px; margin:0 auto; padding:56px 24px 96px; }
+  .doc-head { padding-bottom:20px; border-bottom:2px solid var(--paper); }
+  .doc-kicker { font-family:"JetBrains Mono",monospace; font-size:11px; letter-spacing:0.28em; text-transform:uppercase; color:var(--paper); }
+  .doc-kicker b { color:var(--citron); font-weight:500; }
+  h1 { font-family:"Bricolage Grotesque",sans-serif; font-weight:600; font-size:40px; letter-spacing:-0.03em; line-height:1.05; color:var(--paper); margin-top:14px; }
+  .doc-meta { font-family:"JetBrains Mono",monospace; font-size:10.5px; letter-spacing:0.12em; text-transform:uppercase; color:var(--dim); margin-top:14px; }
+  .doc-intro { color:var(--body); max-width:60ch; margin-top:22px; }
+
+  .screen { margin-top:64px; }
+  .anno { display:flex; align-items:baseline; gap:14px; margin-bottom:8px; }
+  .anno-id { font-family:"JetBrains Mono",monospace; font-size:11px; letter-spacing:0.14em; color:var(--citron); white-space:nowrap; }
+  .anno-title { font-family:"Bricolage Grotesque",sans-serif; font-weight:600; font-size:20px; letter-spacing:-0.02em; color:var(--paper); }
+  .anno-note { font-size:14.5px; line-height:1.55; color:var(--muted); max-width:66ch; margin-bottom:18px; }
+  .anno-note code { font-family:"JetBrains Mono",monospace; font-size:12px; color:var(--body); }
+
+  .frame { background:var(--ink); border:1px solid var(--hairline); border-radius:10px; overflow:hidden; }
+  .chrome { display:flex; align-items:center; justify-content:space-between; padding:14px 22px; border-bottom:1px solid var(--hairline); }
+  .chrome .wm { font-family:"JetBrains Mono",monospace; font-size:10.5px; letter-spacing:0.28em; text-transform:uppercase; color:var(--paper); }
+  .chrome .m-label { margin-left:auto; }
+  .stage { padding:30px 26px 34px; }
+
+  .m-label { font-family:"JetBrains Mono",monospace; font-size:10.5px; letter-spacing:0.16em; text-transform:uppercase; color:var(--dim); }
+  .m-h { font-family:"Bricolage Grotesque",sans-serif; font-weight:600; color:var(--paper); letter-spacing:-0.02em; }
+  .btn { display:inline-block; font-family:"JetBrains Mono",monospace; font-size:11.5px; letter-spacing:0.08em; text-transform:uppercase; padding:13px 22px; border-radius:3px; }
+  .btn-citron { background:var(--citron); color:var(--ink); }
+  .btn-ghost { border:1px solid var(--hairline); color:var(--body); }
+  .link-citron { font-family:"JetBrains Mono",monospace; font-size:11px; letter-spacing:0.1em; text-transform:uppercase; color:var(--citron); }
+  .rule { height:1px; background:var(--hairline); border:none; }
+  .badge-n { font-family:"JetBrains Mono",monospace; font-size:10px; letter-spacing:0.08em; text-transform:uppercase; color:var(--body); border:1px solid var(--hairline); border-radius:3px; padding:4px 8px; }
+  .badge-u { font-family:"JetBrains Mono",monospace; font-size:10px; letter-spacing:0.08em; text-transform:uppercase; color:var(--ink); background:var(--citron); border-radius:3px; padding:4px 8px; }
+
+  /* Chooser cards */
+  .fork { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  .fork-card { border:1px solid var(--hairline); border-radius:10px; padding:24px; display:flex; flex-direction:column; gap:12px; }
+  .fork-card:hover { background:rgba(247,247,244,0.03); }
+  .fork-kind { font-family:"JetBrains Mono",monospace; font-size:10px; letter-spacing:0.14em; text-transform:uppercase; color:var(--dim); }
+  .fork-name { font-family:"Bricolage Grotesque",sans-serif; font-weight:600; font-size:21px; letter-spacing:-0.02em; color:var(--paper); line-height:1.15; }
+  .fork-desc { font-size:14px; color:var(--muted); line-height:1.5; flex:1; }
+
+  .modal-wrap { background:rgba(10,10,10,0.6); padding:40px 28px; }
+  .modal { background:var(--ink); border:1px solid var(--hairline); border-radius:10px; padding:30px 30px 26px; max-width:430px; margin:0 auto; }
+
+  .split { display:flex; border:1px solid var(--hairline); border-radius:3px; overflow:hidden; margin-top:16px; font-family:"JetBrains Mono",monospace; font-size:10px; letter-spacing:0.06em; text-transform:uppercase; text-align:center; }
+  .split div { padding:10px 6px; }
+  .split .s1 { flex:4; color:var(--body); border-right:1px solid var(--hairline); }
+  .split .s2 { flex:5; color:var(--ink); background:var(--citron); }
+  .split .s3 { flex:1.5; color:var(--dim); border-left:1px solid var(--hairline); }
+  .split b { display:block; font-size:13px; letter-spacing:0; font-weight:500; }
+
+  .field { margin-top:18px; }
+  .field label { display:block; font-family:"JetBrains Mono",monospace; font-size:10.5px; letter-spacing:0.14em; text-transform:uppercase; color:var(--dim); margin-bottom:7px; }
+  .input, .textarea { width:100%; background:transparent; border:1px solid var(--hairline); border-radius:3px; color:var(--paper); font-family:"Archivo",sans-serif; font-size:16px; padding:12px 14px; }
+  .textarea { min-height:84px; }
+  .hint { font-size:13px; color:var(--dim); margin-top:6px; }
+  .req { color:var(--citron); }
+
+  /* Anatomy spec */
+  .spec { border:1px solid var(--hairline); border-radius:10px; padding:24px 26px; }
+  .spec ol { list-style:none; counter-reset:n; display:flex; flex-direction:column; gap:12px; }
+  .spec li { counter-increment:n; display:flex; gap:14px; align-items:baseline; font-size:15px; color:var(--body); }
+  .spec li::before { content:counter(n,decimal-leading-zero); font-family:"JetBrains Mono",monospace; font-size:11px; color:var(--citron); }
+  .spec li b { color:var(--paper); font-weight:600; }
+
+  @media (max-width:560px){ .fork{grid-template-columns:1fr} }
+</style>
+</head>
+<body>
+<div class="doc">
+
+  <header class="doc-head">
+    <div class="doc-kicker">The Garden · <b>UI mocks</b></div>
+    <h1>The project chooser &amp; its gates</h1>
+    <div class="doc-meta">v1 · 2026-08-09 · spec: the-garden-product-plan.md §2.3, §3 · tokens: rebrand handoff</div>
+    <p class="doc-intro">One fork, four gate states, two badges. The fork asks who brings the money — nothing else. Every denial is an honest sales moment: it names the locked value, says why now, shows the path, and leaves an exit. These gate screens carry the entire monetization model; they are where the product feels either honest or gross.</p>
+  </header>
+
+  <!-- G0 -->
+  <section class="screen">
+    <div class="anno"><span class="anno-id">G0</span><span class="anno-title">The fork — who brings the money?</span></div>
+    <p class="anno-note">Entry from “Start a project” anywhere. Two doors, no third. The distinction is stated in the user's own situation, never in taxonomy (“passion/paid” are our words; the cards speak theirs).</p>
+    <div class="frame">
+      <div class="chrome"><span class="wm">The Garden</span><span class="m-label">Start a project</span></div>
+      <div class="stage">
+        <div class="m-h" style="font-size:26px; margin-bottom:18px;">What are we starting?</div>
+        <div class="fork">
+          <div class="fork-card">
+            <span class="fork-kind">Passion · seeking support</span>
+            <span class="fork-name">I'm making something and want support</span>
+            <span class="fork-desc">Your work. The community and its patrons get behind it — money, hands, honest ears.</span>
+            <span class="link-citron">Start →</span>
+          </div>
+          <div class="fork-card">
+            <span class="fork-kind">Paid · budget declared</span>
+            <span class="fork-name">I have a budget and need a creative</span>
+            <span class="fork-desc">A commission, a gig, a hire. You say the number; creatives apply.</span>
+            <span class="link-citron">Start →</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- G1 -->
+  <section class="screen">
+    <div class="anno"><span class="anno-id">G1</span><span class="anno-title">Gate: passion, no seat</span></div>
+    <p class="anno-note"><code>project.create.passion</code> → denied · <code>no_membership</code> · upgradePath <code>seat</code>. The primary seat-conversion moment (§2.5) — the 40/50/10 strip is the pitch. Exits are real: “Not now” closes with no nag.</p>
+    <div class="frame">
+      <div class="modal-wrap">
+        <div class="modal">
+          <div class="m-label">Take a seat</div>
+          <div class="m-h" style="font-size:26px; margin-top:8px;">Start your first project — $10/mo</div>
+          <p style="font-size:15px; color:var(--body); margin-top:12px;">A seat lets you run one active passion project, apply to paid work, and join member tables.</p>
+          <div class="split">
+            <div class="s1"><b>$4</b>your host</div>
+            <div class="s2"><b>$5</b>another creative's project</div>
+            <div class="s3"><b>$1</b>us</div>
+          </div>
+          <div style="margin-top:20px; display:flex; gap:12px; align-items:center;">
+            <span class="btn btn-citron">Take a seat · $10/mo</span>
+            <span class="m-label" style="color:var(--dim);">Not now</span>
+          </div>
+          <p class="hint" style="margin-top:14px;">Covered by a church or patron? <span class="link-citron" style="font-size:10px;">Enter coverage code</span></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- G2 -->
+  <section class="screen">
+    <div class="anno"><span class="anno-id">G2</span><span class="anno-title">Gate: passion, at the cap</span></div>
+    <p class="anno-note"><code>project.create.passion</code> → denied · <code>limit_reached (1 of 1)</code> · upgradePath <code>five</code>. The cap exists for pool and attention integrity, so the copy says that — the limit has a reason, not just a price. Finishing or archiving the active project is an equal, honest exit.</p>
+    <div class="frame">
+      <div class="modal-wrap">
+        <div class="modal">
+          <div class="m-label">One at a time — or five</div>
+          <div class="m-h" style="font-size:24px; margin-top:8px;">“Hymns for the 5 AM shift” is still open</div>
+          <p style="font-size:15px; color:var(--body); margin-top:12px;">A seat runs one active project so every open project gets real attention. Running more than one thing at once? Five seats is built for that — five active projects, and you can invite collaborators onto them.</p>
+          <div style="margin-top:20px; display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+            <span class="btn btn-citron">Five seats · $25/mo</span>
+            <span class="btn btn-ghost">Finish or archive current</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- G3 -->
+  <section class="screen">
+    <div class="anno"><span class="anno-id">G3</span><span class="anno-title">Gate: paid, no seat and no role</span></div>
+    <p class="anno-note"><code>project.create.paid</code> → denied · <code>no_role</code>. Not a paywall — a 60-second, free registration (§3 step 3). Money-in stays low-friction on purpose; the guardrail is the declared budget on the next screen, not this one.</p>
+    <div class="frame">
+      <div class="chrome"><span class="wm">The Garden</span><span class="m-label">Paid project · step 1 of 2</span></div>
+      <div class="stage" style="max-width:480px;">
+        <div class="m-h" style="font-size:24px;">Who's funding this?</div>
+        <p class="hint" style="margin-top:6px;">Free, one minute. This puts your name in the credit line on the work.</p>
+        <div class="field"><label>You are</label><div class="input" style="color:var(--paper);">A business or organization ▾</div></div>
+        <div class="field"><label>Name <span class="req">*</span></label><div class="input" style="color:var(--paper);">Grounds &amp; Common</div></div>
+        <div class="field"><label>Contact <span class="req">*</span></label><div class="input" style="color:var(--dim);">you@groundsandcommon.com — we verify this</div></div>
+        <div style="margin-top:22px;"><span class="btn btn-citron">Continue →</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- G4 -->
+  <section class="screen">
+    <div class="anno"><span class="anno-id">G4</span><span class="anno-title">Paid project form — the budget is the gate</span></div>
+    <p class="anno-note">Budget is a required number — never “negotiable,” never “starting at” (say the number on the page). v1: payment settles off-platform; the ledger records the commitment as <code>project_contribution</code>. The form says that plainly.</p>
+    <div class="frame">
+      <div class="chrome"><span class="wm">The Garden</span><span class="m-label">Paid project · step 2 of 2</span></div>
+      <div class="stage" style="max-width:520px;">
+        <div style="display:flex; gap:10px;"><span class="badge-u">Paid</span><span class="badge-n">Posting as Grounds &amp; Common</span></div>
+        <div class="field"><label>Title <span class="req">*</span></label><div class="input" style="color:var(--paper);">A wall that says who this neighborhood is</div></div>
+        <div class="field"><label>Budget <span class="req">*</span></label><div class="input" style="color:var(--paper);">$ 400</div><p class="hint">A number, not a range. It goes on the badge.</p></div>
+        <div class="field"><label>Scope</label><div class="textarea" style="color:var(--dim);">What's being made, where, by when…</div></div>
+        <div class="field"><label>Timeline</label><div class="input" style="color:var(--dim);">e.g. done by end of September</div></div>
+        <div style="margin-top:22px;"><span class="btn btn-citron">Post project</span></div>
+        <p class="hint" style="margin-top:14px;">You pay the creative directly when the work's agreed. The Garden records the commitment and credits everyone involved.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- G5 badges -->
+  <section class="screen">
+    <div class="anno"><span class="anno-id">G5</span><span class="anno-title">The two badges — visible everywhere a project appears</span></div>
+    <p class="anno-note">The kind is never inferred from context. Paid always carries the amount. Passion never fakes urgency — support state, plainly.</p>
+    <div class="frame">
+      <div class="stage" style="display:flex; flex-direction:column; gap:22px;">
+        <div style="display:flex; align-items:center; gap:16px; flex-wrap:wrap;">
+          <span class="badge-n">Passion · seeking support</span>
+          <span class="hint">ghost badge · hairline · body text</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:16px; flex-wrap:wrap;">
+          <span class="badge-u">Paid · $400</span>
+          <span class="hint">citron fill · ink text · always the amount</span>
+        </div>
+        <hr class="rule">
+        <div style="display:flex; align-items:center; gap:16px; flex-wrap:wrap;">
+          <span class="badge-n">Passion · 60% funded</span>
+          <span class="hint">funding progress is a fact, so it may appear — percentages are deeds, not applause</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- G6 anatomy -->
+  <section class="screen">
+    <div class="anno"><span class="anno-id">G6</span><span class="anno-title">Denial anatomy — the contract every gate obeys</span></div>
+    <p class="anno-note">From the entitlements doc's paywall rules; G1–G3 are instances. Any new gate that can't fill all four lines shouldn't ship.</p>
+    <div class="spec">
+      <ol>
+        <li><span><b>Name the locked value.</b> “Start your first project” — never “Upgrade required.”</span></li>
+        <li><span><b>Say why now.</b> “A seat runs one active project so every open project gets real attention.”</span></li>
+        <li><span><b>Show the path.</b> One citron button with the price on it. No “starting at,” no tiers table.</span></li>
+        <li><span><b>Leave an exit.</b> “Not now” / “Finish or archive current” — real alternatives, no nag, no shame.</span></li>
+      </ol>
+    </div>
+  </section>
+
+</div>
+</body>
+</html>
