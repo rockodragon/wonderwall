@@ -52,6 +52,12 @@
   .input { width:100%; background:transparent; border:1px solid var(--hairline); border-radius:3px; color:var(--paper); font-family:"Archivo",sans-serif; font-size:16px; padding:12px 14px; }
 
   .media { border:1px dashed var(--hairline); border-radius:3px; display:grid; place-items:center; color:var(--dim); font-size:13px; text-align:center; padding:20px; }
+  .photo { width:100%; display:block; border-radius:3px; object-fit:cover; }
+  .hero { position:relative; margin:-30px -26px 0; }
+  .hero img { width:100%; height:300px; object-fit:cover; display:block; }
+  .hero-band { position:absolute; left:0; right:0; bottom:0; background:rgba(18,18,18,0.82); padding:16px 26px 14px; display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; }
+  .wave { display:flex; align-items:flex-end; gap:3px; height:44px; padding:12px 14px; border:1px solid var(--hairline); border-radius:3px; max-width:340px; margin-top:10px; }
+  .wave i { width:4px; background:var(--citron); display:block; }
 
   /* Story update entries */
   .upd { display:flex; gap:18px; padding:20px 0; border-top:1px solid var(--hairline); }
@@ -77,10 +83,13 @@
     <div class="frame">
       <div class="chrome"><span class="wm">The Garden</span><span class="auth">Sign in</span></div>
       <div class="stage">
-        <div class="media" style="height:180px;">[ hero — latest work: “Prodigal” live at the Casbah, 40 sec ]</div>
-        <div style="display:flex; align-items:baseline; gap:14px; margin-top:20px; flex-wrap:wrap;">
-          <span class="m-h" style="font-size:30px;">Shua</span>
-          <span class="credit">musician · San Diego</span>
+        <div class="hero">
+          <img src="https://images.unsplash.com/photo-1521337581100-8ca9a73a5f79?auto=format&fit=crop&w=1200&q=70" alt="Shua live at the Casbah — warm stage light, small room">
+          <div class="hero-band">
+            <span class="m-h" style="font-size:30px;">Shua</span>
+            <span class="credit">musician · San Diego</span>
+            <span class="badge-n" style="margin-left:auto;">▶ “Prodigal” live · 0:40</span>
+          </div>
         </div>
         <p style="font-size:15.5px; color:var(--body); margin-top:8px; max-width:56ch;">Songs for the people who open the kitchens and drive the first buses. Playing wherever the music belongs.</p>
         <div class="credit" style="margin-top:14px;">seat covered by <b>St. Mark's Church</b> · venue partner <b>The Casbah</b></div>
@@ -90,12 +99,16 @@
             <span class="upd-date">Aug 5</span>
             <div class="upd-body">
               <p>“Three people stayed after to talk. One runs a wedding venue and wants the whole set in October.”</p>
-              <div class="media" style="height:64px; margin-top:10px; max-width:340px;">[ photo — the room, after ]</div>
+              <img class="photo" style="height:150px; margin-top:10px; max-width:360px;" src="https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=700&q=70" alt="The room after the set — shoulders and stage light">
             </div>
           </div>
           <div class="upd">
             <span class="upd-date">Jul 22</span>
-            <div class="upd-body"><p>First rehearsal with a cellist — found her through the Thursday open table. “Prodigal” finally sounds like it did in my head.</p></div>
+            <div class="upd-body"><p>First rehearsal with a cellist — found her through the Thursday open table. “Prodigal” finally sounds like it did in my head.</p>
+              <div style="display:flex; gap:10px; margin-top:10px; flex-wrap:wrap; align-items:flex-start;">
+                <img class="photo" style="height:96px; width:150px;" src="https://images.unsplash.com/photo-1465847899084-d164df4dedc6?auto=format&fit=crop&w=400&q=70" alt="Strings in rehearsal">
+                <div class="wave"><i style="height:30%"></i><i style="height:55%"></i><i style="height:80%"></i><i style="height:60%"></i><i style="height:95%"></i><i style="height:70%"></i><i style="height:40%"></i><i style="height:85%"></i><i style="height:65%"></i><i style="height:90%"></i><i style="height:50%"></i><i style="height:75%"></i><i style="height:35%"></i><i style="height:60%"></i><i style="height:80%"></i><i style="height:45%"></i><i style="height:22%"></i></div>
+              </div></div>
           </div>
           <div class="upd">
             <span class="upd-date">Jul 8</span>
@@ -119,7 +132,10 @@
     <div class="frame">
       <div class="chrome"><span class="wm">The Garden</span><span class="m-label">New story update</span></div>
       <div class="stage" style="max-width:500px;">
-        <div class="media" style="height:96px;">Drop a photo, a clip, a track — or just write</div>
+        <div style="display:flex; gap:10px; align-items:stretch;">
+          <img class="photo" style="height:96px; width:150px;" src="https://images.unsplash.com/photo-1514320291840-2e0a9bf2a9ae?auto=format&fit=crop&w=400&q=70" alt="Dropped: rehearsal room">
+          <div class="media" style="flex:1; height:96px;">+ add another, or a track</div>
+        </div>
         <div class="field"><label>What happened</label><div class="input" style="color:var(--paper);">Three people stayed after to talk. One runs a wedding venue…</div></div>
         <div style="margin-top:18px; display:flex; gap:12px; align-items:center;">
           <span class="btn btn-citron">Publish to your page</span>
@@ -138,7 +154,10 @@
         <div style="max-width:340px; width:100%;">
           <p style="font-size:14px; color:var(--body); margin-bottom:10px; text-align:right;">worth 2 min — this is the guy our church covers 👇</p>
           <div style="border:1px solid var(--hairline); border-radius:10px; overflow:hidden;">
-            <div class="media" style="height:120px; border:none; border-radius:0;">[ og image — “Prodigal” live, wordmark corner ]</div>
+            <div style="position:relative;">
+              <img src="https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=700&q=70" alt="Prodigal live — performer in haze" style="width:100%; height:130px; object-fit:cover; display:block;">
+              <span style="position:absolute; top:8px; right:10px; font-family:'JetBrains Mono',monospace; font-size:8px; letter-spacing:0.24em; color:var(--paper); background:rgba(18,18,18,0.7); padding:3px 7px;">THE GARDEN</span>
+            </div>
             <div style="padding:12px 14px; border-top:1px solid var(--hairline);">
               <div style="color:var(--paper); font-size:14px; font-weight:600;">Shua — musician, San Diego</div>
               <div style="color:var(--muted); font-size:12.5px; margin-top:3px;">“Three people stayed after to talk…” · seat covered by St. Mark's Church</div>

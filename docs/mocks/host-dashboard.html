@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mocks — Host dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;600&family=Archivo:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink:#121212; --paper:#F7F7F4; --hairline:#2A2A28; --dim:#6F6F69;
+    --muted:#8B8B85; --body:#A8A8A0; --citron:#D7F25A;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:#0C0C0C; color:var(--body); font-family:"Archivo",sans-serif; font-size:17px; line-height:1.6; -webkit-font-smoothing:antialiased; }
+  .doc { max-width:760px; margin:0 auto; padding:56px 24px 96px; }
+  .doc-head { padding-bottom:20px; border-bottom:2px solid var(--paper); }
+  .doc-kicker { font-family:"JetBrains Mono",monospace; font-size:11px; letter-spacing:0.28em; text-transform:uppercase; color:var(--paper); }
+  .doc-kicker b { color:var(--citron); font-weight:500; }
+  h1 { font-family:"Bricolage Grotesque",sans-serif; font-weight:600; font-size:40px; letter-spacing:-0.03em; line-height:1.05; color:var(--paper); margin-top:14px; }
+  .doc-meta { font-family:"JetBrains Mono",monospace; font-size:10.5px; letter-spacing:0.12em; text-transform:uppercase; color:var(--dim); margin-top:14px; }
+  .doc-intro { color:var(--body); max-width:60ch; margin-top:22px; }
+
+  .screen { margin-top:64px; }
+  .anno { display:flex; align-items:baseline; gap:14px; margin-bottom:8px; }
+  .anno-id { font-family:"JetBrains Mono",monospace; font-size:11px; letter-spacing:0.14em; color:var(--citron); white-space:nowrap; }
+  .anno-title { font-family:"Bricolage Grotesque",sans-serif; font-weight:600; font-size:20px; letter-spacing:-0.02em; color:var(--paper); }
+  .anno-note { font-size:14.5px; line-height:1.55; color:var(--muted); max-width:66ch; margin-bottom:18px; }
+  .anno-note code { font-family:"JetBrains Mono",monospace; font-size:12px; color:var(--body); }
+  .anno-note b { color:var(--paper); }
+
+  .frame { background:var(--ink); border:1px solid var(--hairline); border-radius:10px; overflow:hidden; }
+  .chrome { display:flex; align-items:center; justify-content:space-between; padding:14px 22px; border-bottom:1px solid var(--hairline); }
+  .chrome .wm { font-family:"JetBrains Mono",monospace; font-size:10.5px; letter-spacing:0.28em; text-transform:uppercase; color:var(--paper); }
+  .chrome nav { display:flex; gap:16px; font-family:"JetBrains Mono",monospace; font-size:10px; letter-spacing:0.12em; text-transform:uppercase; color:var(--dim); }
+  .chrome nav .on { color:var(--paper); }
+  .stage { padding:26px 26px 32px; }
+
+  .m-label { font-family:"JetBrains Mono",monospace; font-size:10.5px; letter-spacing:0.16em; text-transform:uppercase; color:var(--dim); }
+  .m-h { font-family:"Bricolage Grotesque",sans-serif; font-weight:600; color:var(--paper); letter-spacing:-0.02em; }
+  .btn { display:inline-block; font-family:"JetBrains Mono",monospace; font-size:11px; letter-spacing:0.08em; text-transform:uppercase; padding:11px 18px; border-radius:3px; }
+  .btn-citron { background:var(--citron); color:var(--ink); }
+  .btn-ghost { border:1px solid var(--hairline); color:var(--body); }
+  .link-citron { font-family:"JetBrains Mono",monospace; font-size:10.5px; letter-spacing:0.1em; text-transform:uppercase; color:var(--citron); }
+  .rule { height:1px; background:var(--hairline); border:none; }
+  .badge-n { font-family:"JetBrains Mono",monospace; font-size:10px; letter-spacing:0.08em; text-transform:uppercase; color:var(--body); border:1px solid var(--hairline); border-radius:3px; padding:4px 8px; }
+  .badge-u { font-family:"JetBrains Mono",monospace; font-size:10px; letter-spacing:0.08em; text-transform:uppercase; color:var(--ink); background:var(--citron); border-radius:3px; padding:4px 8px; }
+  .hint { font-size:13px; color:var(--dim); margin-top:6px; }
+
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  .panel { border:1px solid var(--hairline); border-radius:10px; padding:18px 20px; }
+  .stat b { display:block; font-family:"Bricolage Grotesque",sans-serif; font-weight:600; font-size:30px; letter-spacing:-0.03em; color:var(--paper); line-height:1; }
+  .stat.cit b { color:var(--citron); }
+  .stat span { display:block; font-family:"JetBrains Mono",monospace; font-size:10px; letter-spacing:0.1em; text-transform:uppercase; color:var(--muted); margin-top:6px; }
+
+  .row { display:flex; align-items:baseline; gap:14px; padding:12px 2px; border-top:1px solid var(--hairline); flex-wrap:wrap; }
+  .row:last-of-type { border-bottom:1px solid var(--hairline); }
+  .row-name { color:var(--paper); font-size:15px; font-weight:500; }
+  .row-meta { font-family:"JetBrains Mono",monospace; font-size:10px; letter-spacing:0.08em; text-transform:uppercase; color:var(--dim); }
+  .row-end { margin-left:auto; display:flex; gap:10px; align-items:baseline; }
+
+  /* attendance bars */
+  .bars { display:flex; align-items:flex-end; gap:10px; height:80px; padding-top:8px; }
+  .bar { flex:1; display:flex; flex-direction:column; align-items:center; gap:6px; }
+  .bar i { width:100%; background:var(--paper); display:block; border-radius:2px 2px 0 0; }
+  .bar.now i { background:var(--citron); }
+  .bar span { font-family:"JetBrains Mono",monospace; font-size:9px; letter-spacing:0.06em; color:var(--dim); text-transform:uppercase; }
+
+  /* money table */
+  .ledger { font-family:"JetBrains Mono",monospace; font-size:11.5px; }
+  .ledger div { display:flex; justify-content:space-between; gap:14px; padding:9px 0; border-top:1px solid var(--hairline); }
+  .ledger dt { color:var(--body); letter-spacing:0.04em; }
+  .ledger dd { color:var(--paper); }
+  .ledger .total dt, .ledger .total dd { color:var(--citron); }
+
+  .seats { display:flex; gap:5px; flex-wrap:wrap; }
+  .seat-dot { width:13px; height:13px; border-radius:3px; }
+  .seat-on { background:var(--citron); }
+  .seat-off { border:1px solid var(--hairline); }
+
+  @media (max-width:560px){ .grid2{grid-template-columns:1fr} }
+</style>
+</head>
+<body>
+<div class="doc">
+
+  <header class="doc-head">
+    <div class="doc-kicker">The Garden · <b>UI mocks</b></div>
+    <h1>The host dashboard</h1>
+    <div class="doc-meta">v1 · 2026-08-09 · phase 3 · designed against the question: what does a host need at 7 AM on gathering day?</div>
+    <p class="doc-intro">Four jobs, four panels: who's new (greet them by name), who's coming (set the right number of chairs), what moved (money they can trust at a glance), and who's missing (the pastoral affordance no other tool has). Operational counts live here legitimately — they're deeds the host acts on, never public scoreboard. Nothing on this page ranks a person.</p>
+  </header>
+
+  <!-- D1 -->
+  <section class="screen">
+    <div class="anno"><span class="anno-id">D1</span><span class="anno-title">Today — the glanceable morning</span></div>
+    <p class="anno-note"><b>Self-critique applied:</b> a first draft led with vanity totals (members all-time, projects launched). Cut — a host acts on <i>this week</i>: tonight's count, this week's new people, money that moved, and the one thing needing a decision (an application). Anything that can't change a host's next hour doesn't belong on screen one.</p>
+    <div class="frame">
+      <div class="chrome"><span class="wm">The Garden</span><nav><span class="on">Host</span><span>Tables</span><span>Projects</span></nav><span class="m-label">Thursday</span></div>
+      <div class="stage">
+        <div class="grid2">
+          <div class="panel stat cit"><b>18</b><span>coming tonight · open table</span></div>
+          <div class="panel stat"><b>4</b><span>new this week — greet them</span></div>
+        </div>
+        <div class="panel" style="margin-top:16px;">
+          <div style="display:flex; align-items:baseline; gap:12px; flex-wrap:wrap;">
+            <span class="m-h" style="font-size:18px;">1 application waiting</span>
+            <span class="row-meta">Nine months at the same table · apply to join</span>
+            <span class="row-end"><span class="link-citron">Review →</span></span>
+          </div>
+        </div>
+        <div class="panel" style="margin-top:16px;">
+          <div class="m-label" style="margin-bottom:10px;">Your tables</div>
+          <div class="row"><span class="row-name">Thursday Night Open Table</span><span class="row-meta">Open · no cap</span><span class="row-end"><span class="row-meta">18 coming</span><span class="link-citron">Tonight →</span></span></div>
+          <div class="row"><span class="row-name">Nine months at the same table</span><span class="row-meta">Cohort · $40/mo</span><span class="row-end"><span class="row-meta">9 of 10 seated</span><span class="badge-u">1 seat left</span></span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- D2 -->
+  <section class="screen">
+    <div class="anno"><span class="anno-id">D2</span><span class="anno-title">People — arrivals with provenance</span></div>
+    <p class="anno-note">Every signup shows <b>how they arrived</b> — invite, QR, coverage code, walked into an open table — because provenance tells the host who to thank and which channel is working. Coverage-code state lives here too. <b>Self-critique:</b> an early draft showed "engagement" per member; deleted — that's a scoreboard. The host sees arrivals and absences, both deeds.</p>
+    <div class="frame">
+      <div class="chrome"><span class="wm">The Garden</span><nav><span class="on">People</span></nav><span class="m-label">This week</span></div>
+      <div class="stage">
+        <div class="row"><span class="row-name">Dev T.</span><span class="row-meta">Photographer</span><span class="row-end"><span class="badge-n">Via QR · Thursday night</span><span class="link-citron">Say hi →</span></span></div>
+        <div class="row"><span class="row-name">Rosa M.</span><span class="row-meta">Writer</span><span class="row-end"><span class="badge-n">Code · GARDEN-STMARKS</span><span class="link-citron">Say hi →</span></span></div>
+        <div class="row"><span class="row-name">Caleb J.</span><span class="row-meta">Filmmaker</span><span class="row-end"><span class="badge-n">Invited by Maya R.</span><span class="link-citron">Say hi →</span></span></div>
+        <div class="panel" style="margin-top:18px;">
+          <div style="display:flex; justify-content:space-between; align-items:baseline; gap:12px; flex-wrap:wrap;">
+            <span class="m-label">St. Mark's coverage · 6 of 10 seats taken</span>
+            <span class="link-citron">Nudge the announcement →</span>
+          </div>
+          <div class="seats" style="margin-top:10px;">
+            <span class="seat-dot seat-on"></span><span class="seat-dot seat-on"></span><span class="seat-dot seat-on"></span><span class="seat-dot seat-on"></span><span class="seat-dot seat-on"></span><span class="seat-dot seat-on"></span><span class="seat-dot seat-off"></span><span class="seat-dot seat-off"></span><span class="seat-dot seat-off"></span><span class="seat-dot seat-off"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- D3 -->
+  <section class="screen">
+    <div class="anno"><span class="anno-id">D3</span><span class="anno-title">Attendance — the room over time, and who's gone quiet</span></div>
+    <p class="anno-note">Bars are rooms, not scores. Check-in is one tap at the door (or after, from memory). The second panel is the affordance no community tool ships: <b>who hasn't been back</b> — surfaced privately to the host as care, not churn metrics. "Check in on them" writes a personal message, never an automated one.</p>
+    <div class="frame">
+      <div class="chrome"><span class="wm">The Garden</span><nav><span class="on">Attendance</span></nav><span class="m-label">Open table · 6 weeks</span></div>
+      <div class="stage">
+        <div class="panel">
+          <div class="bars">
+            <div class="bar"><i style="height:44px"></i><span>J26</span></div>
+            <div class="bar"><i style="height:52px"></i><span>J3</span></div>
+            <div class="bar"><i style="height:38px"></i><span>J10</span></div>
+            <div class="bar"><i style="height:58px"></i><span>J17</span></div>
+            <div class="bar"><i style="height:50px"></i><span>J24</span></div>
+            <div class="bar now"><i style="height:64px"></i><span>Tonight</span></div>
+          </div>
+          <p class="hint" style="margin-top:10px;">Tonight's bar is RSVPs; it becomes attendance at check-in. Averages 14 · best 21.</p>
+        </div>
+        <div class="panel" style="margin-top:16px;">
+          <div class="m-label" style="margin-bottom:8px;">Gone quiet</div>
+          <div class="row"><span class="row-name">Priya S.</span><span class="row-meta">7 nights, then 3 weeks away</span><span class="row-end"><span class="link-citron">Check in on her →</span></span></div>
+          <div class="row"><span class="row-name">Sam A.</span><span class="row-meta">Came once · never posted</span><span class="row-end"><span class="link-citron">Check in →</span></span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- D4 -->
+  <section class="screen">
+    <div class="anno"><span class="anno-id">D4</span><span class="anno-title">Money — a ledger the host can read aloud</span></div>
+    <p class="anno-note">The whole month in one column: what the community's dues generated (with the 40/50/10 receipt), what the host's paid table collected, the garden's 10%, the payout. Ledger kinds match the accounting spec (<code>membership_dues, host_fee, project_contribution, seat_sponsorship</code>). <b>Self-critique:</b> no charts here on purpose — a host needs numbers they can repeat to their board from memory, not a dashboard to interpret.</p>
+    <div class="frame">
+      <div class="chrome"><span class="wm">The Garden</span><nav><span class="on">Money</span></nav><span class="m-label">August</span></div>
+      <div class="stage">
+        <div class="grid2">
+          <div class="panel stat"><b>$360</b><span>your paid table collected</span></div>
+          <div class="panel stat cit"><b>$324</b><span>your payout · Sep 1</span></div>
+        </div>
+        <div class="panel" style="margin-top:16px;">
+          <dl class="ledger">
+            <div><dt>Community dues (23 seats × $10)</dt><dd>$230</dd></div>
+            <div><dt>→ to creatives' projects (50%)</dt><dd>$115</dd></div>
+            <div><dt>→ to operations (40%)</dt><dd>$92</dd></div>
+            <div><dt>Nine-months table (9 × $40)</dt><dd>$360</dd></div>
+            <div><dt>→ the garden (10%)</dt><dd>−$36</dd></div>
+            <div><dt>Seat coverage · St. Mark's (6 active)</dt><dd>$60</dd></div>
+            <div class="total"><dt>Your September payout</dt><dd>$324</dd></div>
+          </dl>
+          <p class="hint" style="margin-top:10px;">Your open Thursday table is free to run, and keeps you inside the free-door rule.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- D5 -->
+  <section class="screen">
+    <div class="anno"><span class="anno-id">D5</span><span class="anno-title">Grow — every expansion affordance in one place</span></div>
+    <p class="anno-note">The user asked for it plainly: affordances to expand invitations. All four channels together — the table link + QR, personal invitations, idle coverage seats, and the spawn action for when the open night is ready to become a cohort. Each one is a door the host opens, not a growth hack that runs itself.</p>
+    <div class="frame">
+      <div class="chrome"><span class="wm">The Garden</span><nav><span class="on">Grow</span></nav><span class="m-label">Your reach</span></div>
+      <div class="stage">
+        <div class="grid2">
+          <div class="panel">
+            <div class="m-label">Table link + QR</div>
+            <div style="font-family:'JetBrains Mono',monospace; font-size:13px; color:var(--citron); margin-top:8px;">garden.app/t/thursday</div>
+            <p class="hint">Bulletin, bio, group chat. 11 arrivals this month.</p>
+          </div>
+          <div class="panel">
+            <div class="m-label">Personal invitations</div>
+            <p class="hint" style="margin-top:8px;">Sent in your name, one line from you.</p>
+            <span class="btn btn-citron" style="margin-top:10px;">Invite someone</span>
+          </div>
+          <div class="panel">
+            <div class="m-label">4 covered seats idle</div>
+            <p class="hint" style="margin-top:8px;">St. Mark's paid for them. Who should have one?</p>
+            <span class="btn btn-ghost" style="margin-top:10px;">Offer a seat by name</span>
+          </div>
+          <div class="panel">
+            <div class="m-label">Ready to commit?</div>
+            <p class="hint" style="margin-top:8px;">Your open night has 6 regulars. Spawn a committed table and carry them over.</p>
+            <span class="btn btn-ghost" style="margin-top:10px;">Set a table from Thursday</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+</body>
+</html>

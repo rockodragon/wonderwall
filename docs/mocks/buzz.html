@@ -56,6 +56,15 @@
   .item-ctx.fund { color:var(--citron); }
 
   .buzz-foot { font-family:"JetBrains Mono",monospace; font-size:11px; letter-spacing:0.1em; text-transform:uppercase; color:var(--dim); line-height:2; }
+  .feat { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:14px; }
+  .feat-card { border:1px solid var(--hairline); border-radius:10px; overflow:hidden; }
+  .feat-card img { width:100%; height:110px; object-fit:cover; display:block; }
+  .feat-pad { padding:12px 14px 14px; }
+  .feat-time { font-family:"JetBrains Mono",monospace; font-size:9.5px; letter-spacing:0.1em; text-transform:uppercase; color:var(--dim); }
+  .feat-title { font-family:"Bricolage Grotesque",sans-serif; font-weight:500; font-size:15.5px; color:var(--paper); margin-top:5px; line-height:1.25; }
+  .feat-ctx { font-family:"JetBrains Mono",monospace; font-size:9.5px; letter-spacing:0.08em; text-transform:uppercase; color:var(--muted); margin-top:7px; }
+  .feat-ctx.fund { color:var(--citron); }
+  .rail-card img { width:calc(100% + 36px); margin:-16px -18px 10px; height:84px; object-fit:cover; display:block; }
 
   /* Just posted rail */
   .rail { display:flex; gap:14px; overflow:hidden; }
@@ -92,6 +101,16 @@
         <div class="stat"><b>4</b><span>tables set this month</span></div>
       </div>
       <hr class="rule">
+      <div>
+        <div class="buzz-foot" style="margin-bottom:12px;">Featured this week · chosen by Sarah R., host at Table Art Society</div>
+        <div class="feat">
+          <div class="feat-card"><img src="https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&w=500&q=70" alt="Grounds & Common, midweek"><div class="feat-pad"><div class="feat-time">Tue 7 PM</div><div class="feat-title">Songwriters' night at Grounds &amp; Common</div><div class="feat-ctx">Partner venue · walk in</div></div></div>
+          <div class="feat-card"><img src="https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?auto=format&fit=crop&w=500&q=70" alt="Hymns for the 5 AM shift — live"><div class="feat-pad"><div class="feat-time">Fri</div><div class="feat-title">“Hymns for the 5 AM shift” closes</div><div class="feat-ctx fund">82% funded</div></div></div>
+          <div class="feat-card"><img src="https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?auto=format&fit=crop&w=500&q=70" alt="The record wall at Folded Note"><div class="feat-pad"><div class="feat-time">New partner</div><div class="feat-title">Folded Note Records offers its back room</div><div class="feat-ctx">Third Thursdays · no fee</div></div></div>
+        </div>
+      </div>
+      <hr class="rule">
+      <div class="buzz-foot" style="margin:-8px 0 -8px;">The week, by the clock</div>
       <div class="items">
         <div class="item"><span class="item-time">Tue 7 PM</span><span class="item-title">Songwriters' night at Grounds &amp; Common</span><span class="item-ctx">Partner venue · walk in</span></div>
         <div class="item"><span class="item-time">Thu 7 PM</span><span class="item-title">Thursday Night Open Table</span><span class="item-ctx">3 from your tables are going</span></div>
@@ -101,7 +120,6 @@
       </div>
       <hr class="rule">
       <div class="buzz-foot">
-        Featured this week chosen by Sarah R., host at Table Art Society<br>
         Not by popularity. There is no algorithm here.
       </div>
     </div>
@@ -112,9 +130,9 @@
     <div class="anno"><span class="anno-id">B2</span><span class="anno-title">Just posted — the visibility floor</span></div>
     <p class="anno-note">Rule 4: every new project and member gets a turn, by rotation, not merit — <code>ORDER BY createdAt DESC</code> with <b>round-robin across creators</b> so one prolific person can't fill the rail. Every new project appears within a minute of creation. This is the anti-cold-shoulder machine: nobody's first thing lands in silence.</p>
     <div class="rail">
-      <div class="rail-card"><span class="rail-kind">New project</span><div class="rail-title">A zine about the 78 corridor</div><div class="rail-by">Priya S. · just now</div></div>
+      <div class="rail-card"><img src="https://images.unsplash.com/photo-1455390582262-044cdead277a?auto=format&fit=crop&w=400&q=70" alt="Zine draft, fountain pen"><span class="rail-kind">New project</span><div class="rail-title">A zine about the 78 corridor</div><div class="rail-by">Priya S. · just now</div></div>
       <div class="rail-card"><span class="rail-kind">New member</span><div class="rail-title">Dev T. — photographer, Chula Vista</div><div class="rail-by">First post pending</div></div>
-      <div class="rail-card"><span class="rail-kind">New project</span><div class="rail-title">Short doc: the last tortilleria</div><div class="rail-by">Jon K. · 20 min</div></div>
+      <div class="rail-card"><img src="https://images.unsplash.com/photo-1514320291840-2e0a9bf2a9ae?auto=format&fit=crop&w=400&q=70" alt="Rehearsal room, Barrio Logan"><span class="rail-kind">New project</span><div class="rail-title">Short doc: rehearsal rooms of Barrio Logan</div><div class="rail-by">Jon K. · 20 min</div></div>
     </div>
   </section>
 

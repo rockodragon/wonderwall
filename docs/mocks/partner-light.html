@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mocks — Partners, light version</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;600&family=Archivo:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink:#121212; --paper:#F7F7F4; --hairline:#2A2A28; --dim:#6F6F69;
+    --muted:#8B8B85; --body:#A8A8A0; --citron:#D7F25A;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:#0C0C0C; color:var(--body); font-family:"Archivo",sans-serif; font-size:17px; line-height:1.6; -webkit-font-smoothing:antialiased; }
+  .doc { max-width:760px; margin:0 auto; padding:56px 24px 96px; }
+  .doc-head { padding-bottom:20px; border-bottom:2px solid var(--paper); }
+  .doc-kicker { font-family:"JetBrains Mono",monospace; font-size:11px; letter-spacing:0.28em; text-transform:uppercase; color:var(--paper); }
+  .doc-kicker b { color:var(--citron); font-weight:500; }
+  h1 { font-family:"Bricolage Grotesque",sans-serif; font-weight:600; font-size:40px; letter-spacing:-0.03em; line-height:1.05; color:var(--paper); margin-top:14px; }
+  .doc-meta { font-family:"JetBrains Mono",monospace; font-size:10.5px; letter-spacing:0.12em; text-transform:uppercase; color:var(--dim); margin-top:14px; }
+  .doc-intro { color:var(--body); max-width:60ch; margin-top:22px; }
+
+  .screen { margin-top:64px; }
+  .anno { display:flex; align-items:baseline; gap:14px; margin-bottom:8px; }
+  .anno-id { font-family:"JetBrains Mono",monospace; font-size:11px; letter-spacing:0.14em; color:var(--citron); white-space:nowrap; }
+  .anno-title { font-family:"Bricolage Grotesque",sans-serif; font-weight:600; font-size:20px; letter-spacing:-0.02em; color:var(--paper); }
+  .anno-note { font-size:14.5px; line-height:1.55; color:var(--muted); max-width:66ch; margin-bottom:18px; }
+  .anno-note code { font-family:"JetBrains Mono",monospace; font-size:12px; color:var(--body); }
+  .anno-note b { color:var(--paper); }
+
+  .frame { background:var(--ink); border:1px solid var(--hairline); border-radius:10px; overflow:hidden; }
+  .chrome { display:flex; align-items:center; justify-content:space-between; padding:14px 22px; border-bottom:1px solid var(--hairline); }
+  .chrome .wm { font-family:"JetBrains Mono",monospace; font-size:10.5px; letter-spacing:0.28em; text-transform:uppercase; color:var(--paper); }
+  .stage { padding:26px 26px 32px; }
+
+  .m-label { font-family:"JetBrains Mono",monospace; font-size:10.5px; letter-spacing:0.16em; text-transform:uppercase; color:var(--dim); }
+  .m-h { font-family:"Bricolage Grotesque",sans-serif; font-weight:600; color:var(--paper); letter-spacing:-0.02em; }
+  .btn { display:inline-block; font-family:"JetBrains Mono",monospace; font-size:11px; letter-spacing:0.08em; text-transform:uppercase; padding:11px 18px; border-radius:3px; }
+  .btn-citron { background:var(--citron); color:var(--ink); }
+  .btn-ghost { border:1px solid var(--hairline); color:var(--body); }
+  .link-citron { font-family:"JetBrains Mono",monospace; font-size:10.5px; letter-spacing:0.1em; text-transform:uppercase; color:var(--citron); }
+  .rule { height:1px; background:var(--hairline); border:none; }
+  .badge-n { font-family:"JetBrains Mono",monospace; font-size:10px; letter-spacing:0.08em; text-transform:uppercase; color:var(--body); border:1px solid var(--hairline); border-radius:3px; padding:4px 8px; }
+  .badge-u { font-family:"JetBrains Mono",monospace; font-size:10px; letter-spacing:0.08em; text-transform:uppercase; color:var(--ink); background:var(--citron); border-radius:3px; padding:4px 8px; }
+  .credit { font-family:"JetBrains Mono",monospace; font-size:10.5px; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted); }
+  .credit b { color:var(--citron); font-weight:500; }
+  .hint { font-size:13px; color:var(--dim); margin-top:6px; }
+  .field { margin-top:16px; }
+  .field label { display:block; font-family:"JetBrains Mono",monospace; font-size:10.5px; letter-spacing:0.14em; text-transform:uppercase; color:var(--dim); margin-bottom:7px; }
+  .input { width:100%; background:transparent; border:1px solid var(--hairline); border-radius:3px; color:var(--paper); font-family:"Archivo",sans-serif; font-size:16px; padding:12px 14px; }
+
+  .pcard { border:1px solid var(--hairline); border-radius:10px; overflow:hidden; }
+  .pcard img { width:100%; height:120px; object-fit:cover; display:block; }
+  .pcard-pad { padding:14px 16px 16px; }
+  .pgrid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:14px; }
+  .offer { display:flex; align-items:baseline; gap:12px; padding:10px 0; border-top:1px solid var(--hairline); flex-wrap:wrap; }
+  .offer-kind { font-family:"JetBrains Mono",monospace; font-size:9.5px; letter-spacing:0.1em; text-transform:uppercase; color:var(--citron); min-width:64px; }
+  .offer-desc { flex:1; font-size:14px; color:var(--body); }
+  .offer-cad { font-family:"JetBrains Mono",monospace; font-size:9.5px; letter-spacing:0.08em; text-transform:uppercase; color:var(--dim); }
+</style>
+</head>
+<body>
+<div class="doc">
+
+  <header class="doc-head">
+    <div class="doc-kicker">The Garden · <b>UI mocks</b></div>
+    <h1>Partners — the light version</h1>
+    <div class="doc-meta">v1 · 2026-08-09 · spec: handoff Task 4, light build · a host lists the place; the place claims itself later</div>
+    <p class="doc-intro">The map creatives actually want, without a second onboarding funnel. A host lists a partner in ninety seconds from their own table flow; the partner claims the listing whenever they're ready via a link the host texts them. Offers are the unit — a place is just the most common thing offered.</p>
+  </header>
+
+  <!-- PL1 -->
+  <section class="screen">
+    <div class="anno"><span class="anno-id">PL1</span><span class="anno-title">Host lists a partner — from inside the table flow</span></div>
+    <p class="anno-note"><code>claimed: false</code> — no partner account exists and none is required. The host fills what they know; the offer is the required part. Relationship first, listing second — this form documents a conversation that already happened over the counter.</p>
+    <div class="frame">
+      <div class="chrome"><span class="wm">The Garden</span><span class="m-label">Add a partner</span></div>
+      <div class="stage" style="max-width:500px;">
+        <div class="field"><label>The place</label><div class="input" style="color:var(--paper);">Folded Note Records</div></div>
+        <div class="field"><label>What kind</label><div class="input" style="color:var(--paper);">Shop ▾</div></div>
+        <div class="field"><label>Where</label><div class="input" style="color:var(--paper);">30th &amp; Juniper, South Park</div></div>
+        <div class="field"><label>What they offered</label><div class="input" style="color:var(--paper);">The back room, third Thursdays</div></div>
+        <div class="field"><label>Kind of offer</label><div class="input" style="color:var(--paper);">Space ▾ &nbsp;·&nbsp; recurring</div></div>
+        <div style="margin-top:20px; display:flex; gap:12px; align-items:center;">
+          <span class="btn btn-citron">List them</span>
+          <span class="hint" style="margin-top:0;">We'll give you a claim link to text them.</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PL2 -->
+  <section class="screen">
+    <div class="anno"><span class="anno-id">PL2</span><span class="anno-title">The claim link — sent by the host, not the platform</span></div>
+    <p class="anno-note">Never a sales call: the claim arrives from someone the partner already said yes to. One tap to claim, and the only immediate power it grants is editing their listing and offers. The unclaimed listing keeps working either way — claiming is optional, forever.</p>
+    <div class="frame">
+      <div class="chrome"><span class="wm">The Garden</span><span class="m-label">Claim your listing</span></div>
+      <div class="stage" style="max-width:480px;">
+        <div class="credit">via text from <b>Marcus (your Thursday guy)</b></div>
+        <div class="m-h" style="font-size:24px; margin-top:12px;">Folded Note Records is on the map.</div>
+        <p style="font-size:15px; color:var(--body); margin-top:10px;">Marcus listed your back room — third Thursdays. Claim the listing to edit it, add offers, and get a credit on everything made in your space.</p>
+        <div style="margin-top:18px; display:flex; gap:12px;">
+          <span class="btn btn-citron">Claim it</span>
+          <span class="btn btn-ghost">Looks right — leave it</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PL3 -->
+  <section class="screen">
+    <div class="anno"><span class="anno-id">PL3</span><span class="anno-title">The directory — a map of open doors</span></div>
+    <p class="anno-note">City-scoped, offer-first. Every card answers the creative's actual question: <b>what can I get, and when?</b> Directory visibility (public vs. logged-in) is decision #4 — the layout survives either answer. Partner photos make it a place, not a database.</p>
+    <div class="frame">
+      <div class="chrome"><span class="wm">The Garden</span><span class="m-label">Partners · San Diego</span></div>
+      <div class="stage">
+        <div class="pgrid">
+          <div class="pcard">
+            <img src="https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?auto=format&fit=crop&w=500&q=70" alt="Folded Note Records — the neon wall">
+            <div class="pcard-pad">
+              <div class="m-h" style="font-size:17px;">Folded Note Records</div>
+              <div class="credit" style="margin-top:4px;">Shop · South Park</div>
+              <div class="offer"><span class="offer-kind">Space</span><span class="offer-desc">The back room</span><span class="offer-cad">3rd Thursdays</span></div>
+            </div>
+          </div>
+          <div class="pcard">
+            <img src="https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&w=500&q=70" alt="Grounds & Common, midweek">
+            <div class="pcard-pad">
+              <div class="m-h" style="font-size:17px;">Grounds &amp; Common</div>
+              <div class="credit" style="margin-top:4px;">Café · North Park</div>
+              <div class="offer"><span class="offer-kind">Space</span><span class="offer-desc">Songwriters' night</span><span class="offer-cad">Tuesdays</span></div>
+              <div class="offer"><span class="offer-kind">Audience</span><span class="offer-desc">2,400-person mailing list</span><span class="offer-cad">Monthly</span></div>
+            </div>
+          </div>
+          <div class="pcard">
+            <div class="pcard-pad" style="padding-top:18px;">
+              <div class="m-h" style="font-size:17px;">Ranch &amp; Roll Print Co.</div>
+              <div class="credit" style="margin-top:4px;">Print shop · Barrio Logan · unclaimed</div>
+              <div class="offer"><span class="offer-kind">Goods</span><span class="offer-desc">10 free prints a month</span><span class="offer-cad">Recurring</span></div>
+              <div class="offer"><span class="offer-kind">Goods</span><span class="offer-desc">Zine binding at cost</span><span class="offer-cad">One-off</span></div>
+            </div>
+          </div>
+        </div>
+        <p class="hint" style="margin-top:16px;">Listed by hosts · unclaimed listings marked · every offer is a conversation someone already had</p>
+      </div>
+    </div>
+  </section>
+
+</div>
+</body>
+</html>
