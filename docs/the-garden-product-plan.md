@@ -168,6 +168,8 @@ Migration note: existing `jobs` become paid projects; existing behavior is prese
 - **The split strip is the receipt.** While The Garden is the default host org it shows two cells ("$5 another creative's project / $5 the garden — the place itself"); a named host org gets the three-cell "$4 your host · $5 · $1 us" variant. The default-host share flowing to the platform is true and unstated.
 - **Every checkout ends in an invitation** ("Save a seat for someone") — a personal introduction, not a referral link; skippable in one tap.
 - **The anti-ad line appears at the seat gate:** "No ads. No algorithm. You're not the product — your seat is what keeps this place alive."
+- **Patronage has two doors, one copy rule.** Warm patrons (the launch channel — they arrive knowing a creative) get the named cover module. Cold patrons get "Cover a seat — we'll seat a creative": host discernment matches them to one opted-in person within a week, then updates + credit line follow. The copy rule stands — name the person, never the abstract cause — but matching solves the cold start. Guardrails: creatives opt in to being coverable, every surface leads with work not need, and $10 is literally one seat (no pooling).
+- **Hosts distribute invitations both ways:** platform-sent personal introductions, or a self-serve table link + QR (`garden.app/t/<slug>`) for the group chat, bio, or bulletin.
 - Mocks live in `docs/mocks/` and are the design source for these flows.
 
 ## 4 · Onboarding flows

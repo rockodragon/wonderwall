@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mocks — The first Garden event</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;600&family=Archivo:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink:#121212; --paper:#F7F7F4; --hairline:#2A2A28; --dim:#6F6F69;
+    --muted:#8B8B85; --body:#A8A8A0; --citron:#D7F25A;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:#0C0C0C; color:var(--body); font-family:"Archivo",sans-serif; font-size:17px; line-height:1.6; -webkit-font-smoothing:antialiased; }
+  .doc { max-width:760px; margin:0 auto; padding:56px 24px 96px; }
+  .doc-head { padding-bottom:20px; border-bottom:2px solid var(--paper); }
+  .doc-kicker { font-family:"JetBrains Mono",monospace; font-size:11px; letter-spacing:0.28em; text-transform:uppercase; color:var(--paper); }
+  .doc-kicker b { color:var(--citron); font-weight:500; }
+  h1 { font-family:"Bricolage Grotesque",sans-serif; font-weight:600; font-size:40px; letter-spacing:-0.03em; line-height:1.05; color:var(--paper); margin-top:14px; }
+  .doc-meta { font-family:"JetBrains Mono",monospace; font-size:10.5px; letter-spacing:0.12em; text-transform:uppercase; color:var(--dim); margin-top:14px; }
+  .doc-intro { color:var(--body); max-width:60ch; margin-top:22px; }
+
+  .screen { margin-top:64px; }
+  .anno { display:flex; align-items:baseline; gap:14px; margin-bottom:8px; }
+  .anno-id { font-family:"JetBrains Mono",monospace; font-size:11px; letter-spacing:0.14em; color:var(--citron); white-space:nowrap; }
+  .anno-title { font-family:"Bricolage Grotesque",sans-serif; font-weight:600; font-size:20px; letter-spacing:-0.02em; color:var(--paper); }
+  .anno-note { font-size:14.5px; line-height:1.55; color:var(--muted); max-width:66ch; margin-bottom:18px; }
+  .anno-note code { font-family:"JetBrains Mono",monospace; font-size:12px; color:var(--body); }
+  .anno-note b { color:var(--paper); }
+
+  .frame { background:var(--ink); border:1px solid var(--hairline); border-radius:10px; overflow:hidden; }
+  .chrome { display:flex; align-items:center; justify-content:space-between; padding:14px 22px; border-bottom:1px solid var(--hairline); }
+  .chrome .wm { font-family:"JetBrains Mono",monospace; font-size:10.5px; letter-spacing:0.28em; text-transform:uppercase; color:var(--paper); }
+  .chrome .auth { font-family:"JetBrains Mono",monospace; font-size:10px; letter-spacing:0.1em; text-transform:uppercase; color:var(--body); border:1px solid var(--hairline); border-radius:3px; padding:6px 12px; }
+  .stage { padding:30px 26px 34px; }
+
+  .m-label { font-family:"JetBrains Mono",monospace; font-size:10.5px; letter-spacing:0.16em; text-transform:uppercase; color:var(--dim); }
+  .m-h { font-family:"Bricolage Grotesque",sans-serif; font-weight:600; color:var(--paper); letter-spacing:-0.02em; }
+  .btn { display:inline-block; font-family:"JetBrains Mono",monospace; font-size:11.5px; letter-spacing:0.08em; text-transform:uppercase; padding:13px 22px; border-radius:3px; }
+  .btn-citron { background:var(--citron); color:var(--ink); }
+  .btn-ghost { border:1px solid var(--hairline); color:var(--body); }
+  .link-citron { font-family:"JetBrains Mono",monospace; font-size:11px; letter-spacing:0.1em; text-transform:uppercase; color:var(--citron); }
+  .rule { height:1px; background:var(--hairline); border:none; }
+  .badge-n { font-family:"JetBrains Mono",monospace; font-size:10px; letter-spacing:0.08em; text-transform:uppercase; color:var(--body); border:1px solid var(--hairline); border-radius:3px; padding:4px 8px; }
+  .badge-u { font-family:"JetBrains Mono",monospace; font-size:10px; letter-spacing:0.08em; text-transform:uppercase; color:var(--ink); background:var(--citron); border-radius:3px; padding:4px 8px; }
+  .credit { font-family:"JetBrains Mono",monospace; font-size:10.5px; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted); }
+  .credit b { color:var(--citron); font-weight:500; }
+
+  .field { margin-top:18px; }
+  .field label { display:block; font-family:"JetBrains Mono",monospace; font-size:10.5px; letter-spacing:0.14em; text-transform:uppercase; color:var(--dim); margin-bottom:7px; }
+  .input { width:100%; background:transparent; border:1px solid var(--hairline); border-radius:3px; color:var(--paper); font-family:"Archivo",sans-serif; font-size:16px; padding:12px 14px; }
+  .hint { font-size:13px; color:var(--dim); margin-top:6px; }
+
+  /* Event settings block (like the table card's) */
+  .edl { display:flex; flex-direction:column; gap:9px; font-family:"JetBrains Mono",monospace; font-size:11.5px; max-width:380px; }
+  .edl div { display:flex; justify-content:space-between; gap:16px; }
+  .edl dt { color:var(--dim); letter-spacing:0.1em; }
+  .edl dd { color:var(--body); text-align:right; }
+
+  .ev-title { font-family:"Bricolage Grotesque",sans-serif; font-weight:600; font-size:34px; letter-spacing:-0.03em; line-height:1.05; color:var(--paper); }
+  .ev-title .accent { color:var(--citron); }
+
+  .whatis { border:1px solid var(--hairline); border-radius:10px; padding:20px 24px; margin-top:24px; max-width:560px; }
+</style>
+</head>
+<body>
+<div class="doc">
+
+  <header class="doc-head">
+    <div class="doc-kicker">The Garden · <b>UI mocks</b></div>
+    <h1>The first Garden event</h1>
+    <div class="doc-meta">v1 · 2026-08-09 · spec: product-plan §7 phase 0 · the outside-visitor view is the acceptance test</div>
+    <p class="doc-intro">The event that widens the tent: a real conversation, posted publicly in the platform, sent beyond Rick, David, Haley, and Joseph. Designed outsider-first — no account to see it, one field to say you're coming, and the page itself quietly explains what this place is. If a stranger can land here from a text message and feel invited rather than marketed to, Phase 0 passes.</p>
+  </header>
+
+  <!-- E1 -->
+  <section class="screen">
+    <div class="anno"><span class="anno-id">E1</span><span class="anno-title">The public event page — a stranger's first screen</span></div>
+    <p class="anno-note">Fully public, server-rendered, OG-tagged — it must unfurl beautifully in a text message (Task 1). The settings block reuses the table card's credit idiom. Capacity honest, attendance framed as deeds ("18 coming"), never hype. The <b>what-is-this-place</b> module is where curiosity converts — one paragraph, one link, no pitch.</p>
+    <div class="frame">
+      <div class="chrome"><span class="wm">The Garden</span><span class="auth">Sign in</span></div>
+      <div class="stage">
+        <div style="display:flex; gap:10px;"><span class="badge-u">Event · Free</span><span class="badge-n">In person · San Diego</span></div>
+        <div class="ev-title" style="margin-top:16px;">A table for the ones <span class="accent">making things.</span></div>
+        <p style="font-size:16.5px; color:var(--body); margin-top:14px; max-width:56ch;">An evening for San Diego creatives and the people who support them — a real conversation about funding each other's work, hosted around an actual table. Bring something you made, or just bring your questions.</p>
+        <hr class="rule" style="margin:22px 0;">
+        <dl class="edl">
+          <div><dt>WHEN</dt><dd>Thu Sep 4 · 7:00 PM</dd></div>
+          <div><dt>WHERE</dt><dd>Bread &amp; Salt · Logan Heights</dd></div>
+          <div><dt>SEATS</dt><dd>40 · 18 coming</dd></div>
+          <div><dt>COST</dt><dd>Free — bring nothing</dd></div>
+        </dl>
+        <div style="margin-top:24px; display:flex; gap:14px; align-items:center;">
+          <span class="btn btn-citron">I'm coming</span>
+          <span class="link-citron">Bring someone →</span>
+        </div>
+        <div class="credit" style="margin-top:20px;">Hosted by <b>Rick · David · Haley · Joseph</b> · at partner venue <b>Bread &amp; Salt</b></div>
+        <div class="whatis">
+          <span class="m-label" style="color:var(--citron);">What is The Garden?</span>
+          <p style="font-size:14.5px; color:var(--body); margin-top:8px;">A home for Kingdom-minded creatives and the people who support their work — with funding, with collaboration, with a seat at a table. This event is what it looks like in person. <span class="link-citron" style="font-size:10px;">Learn more →</span></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- E2 -->
+  <section class="screen">
+    <div class="anno"><span class="anno-id">E2</span><span class="anno-title">RSVP — one field, no account</span></div>
+    <p class="anno-note">The onramp rule at its purest: the first action finishes in one breath. Name + email, done. No password, no persona quiz, no newsletter checkbox. The account materializes later if they want one — the RSVP is theirs either way.</p>
+    <div class="frame">
+      <div class="chrome"><span class="wm">The Garden</span><span class="m-label">I'm coming</span></div>
+      <div class="stage" style="max-width:440px;">
+        <div class="m-h" style="font-size:24px;">Good. We'll save you a chair.</div>
+        <div class="field"><label>Name</label><div class="input" style="color:var(--paper);">Sam Alvarez</div></div>
+        <div class="field"><label>Email</label><div class="input" style="color:var(--dim);">For the reminder and the address — nothing else</div></div>
+        <div style="margin-top:20px;"><span class="btn btn-citron">Save my chair</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- E3 -->
+  <section class="screen">
+    <div class="anno"><span class="anno-id">E3</span><span class="anno-title">Confirmed — and the tent widens</span></div>
+    <p class="anno-note">Same loop-closing pattern as checkout (S6B): every confirmation ends in an invitation. "Bring someone" is the whole growth model of an event that exists to widen the tent — stated as hospitality, not referral mechanics. Calendar file, one line of what to expect, no drip campaign.</p>
+    <div class="frame">
+      <div class="chrome"><span class="wm">The Garden</span><span class="m-label">Confirmed</span></div>
+      <div class="stage" style="max-width:480px;">
+        <div class="badge-u">Chair saved</div>
+        <div class="m-h" style="font-size:26px; margin-top:12px;">See you September 4th, Sam.</div>
+        <p style="font-size:15px; color:var(--body); margin-top:10px;">Bread &amp; Salt, 7 PM. Bring something you made if you have it — a track, a print, a page. Nobody performs; everybody shows.</p>
+        <div style="margin-top:18px; display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+          <span class="btn btn-ghost">Add to calendar</span>
+          <span class="btn btn-citron">Bring someone</span>
+        </div>
+        <p class="hint" style="margin-top:16px;">A table's only as good as who's at it. Send this page to one person who makes things.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- E4 -->
+  <section class="screen">
+    <div class="anno"><span class="anno-id">E4</span><span class="anno-title">The morning after — the only follow-up</span></div>
+    <p class="anno-note">One email, the day after, from the hosts by name — not a sequence. It does three things: thanks, shows one real thing that happened (a photo, a connection made), and opens exactly one door matched to what the person is (the persona question, asked <b>now</b>, when it's earned). This is where an attendee becomes a member.</p>
+    <div class="frame">
+      <div class="chrome"><span class="wm">The Garden</span><span class="m-label">Email · next morning</span></div>
+      <div class="stage" style="max-width:520px;">
+        <div class="credit"><b>Rick, David, Haley &amp; Joseph</b> · to Sam</div>
+        <p style="color:var(--paper); font-size:16px; margin-top:14px;">Thanks for pulling up a chair last night. Forty people, eleven of them showed something they'd made — and two of them left planning a mural together.</p>
+        <p style="color:var(--body); font-size:15px; margin-top:12px;">The table keeps going. Which part of it is yours?</p>
+        <div style="margin-top:16px; display:flex; flex-direction:column; gap:10px;">
+          <span class="btn btn-ghost" style="text-align:left;">I make things → sit in on an open table</span>
+          <span class="btn btn-ghost" style="text-align:left;">I fund work → cover a creative's seat, $10/mo</span>
+          <span class="btn btn-ghost" style="text-align:left;">I have a place or resources → offer a night</span>
+          <span class="btn btn-ghost" style="text-align:left;">I gather people → set your own table</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+</body>
+</html>
