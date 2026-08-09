@@ -44,7 +44,7 @@ Four personas. One account can hold several roles — roles are additive, never 
 |---|---|---|---|
 | **Visitor** (no account) | $0 | Everyone | Browse public pages, public tables/events, public story pages, /about |
 | **Free account** | $0 | Anyone who signs up | Profile + portfolio, join open tables, RSVP public events, follow projects, register patron/partner role |
-| **A seat** | $10/mo | Creative | Everything free, plus: **create 1 active passion project**, apply to paid projects, join member tables, propose to grant pool |
+| **A seat** | $10/mo | Creative | Everything free, plus: **create 1 active passion project**, **post paid projects** (budget declared), apply to paid projects, join member tables, propose to grant pool |
 | **Five seats** | $25/mo | Prolific creative | As seat, but **up to 5 active passion projects**, invite collaborators onto them |
 | **Host** | $50/mo *(pricing model under review — §2.4)* | Creative who leads | As seat, plus: **create tables** (any mode), spawn closed tables from open ones, curate a project space, receive patron routing |
 | **Covered seat** | $10/mo paid by a patron | Sponsored creative | Identical to *A seat*. Sponsor is credited on the creative's story updates. Never a lesser tier. |
@@ -84,13 +84,15 @@ can(user, capability, context) →
 | Capability | Free | Seat | Five | Host | Patron role | Partner role |
 |---|---|---|---|---|---|---|
 | `project.create.passion` | — | 1 active | 5 active | 5 active | — | — |
-| `project.create.paid` | — | — | — | ✓ | ✓ (budget declared) | ✓ (budget declared) |
+| `project.create.paid` | — | ✓ | ✓ | ✓ | ✓ | ✓ |
 | `project.applyPaid` | — | ✓ | ✓ | ✓ | — | — |
 | `pool.propose` | — | ✓ | ✓ | ✓ | — | — |
 | `table.join.open` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | `table.join.member` | — | ✓ | ✓ | ✓ | — | — |
 | `table.create` | — | — | — | ✓ | — | — |
 | `seat.cover` / `fellowship.fund` / `project.pledge` | — | — | — | — | ✓ | ✓ |
+
+`project.create.paid` requires a **declared budget** in every case — the guardrail on paid projects is that the money is real, not which persona posts it (a creative with a grant hiring a composer is exactly the money-in we want). Passion-project caps (1/5) exist because passion projects consume community attention and pool funds; paid projects bring money in and are uncapped in v1.
 
 Denials always return the upgrade path ("Take a seat — $10/mo") — the paywall UX rules in the entitlements doc apply unchanged.
 
@@ -104,7 +106,11 @@ Hosts will be able to charge for tables. Three candidate models, decision pendin
 | **B — Skool-style two-tier** | Low sub + high take: $9/mo + 10% + 30¢ · High sub + low take: $100/mo ($80 annual) + 2.9% + 30¢ | Skool (David's reference) | Lets serious hosts buy down the take rate. More to explain. |
 | **C — Status quo** | $50/mo flat, no commission | Current flyer | Simple, but taxes hosts before they earn and gives us no upside in their growth. |
 
-**Recommendation: A now, add B's buy-down tier only when a host's volume justifies it.** Whatever is chosen: state whether host fees feed the 50% pool (recommendation: they don't — dues do), and don't put paid tables on any pricing page before the payout path (Stripe Connect Express) exists.
+**Recommendation: A now, add B's buy-down tier only when a host's volume justifies it** — concretely, when a host's collections make the 10% take consistently exceed ~$100/mo (≈ $1k/mo collected), offer the Skool-style buy-down. Building two pricing tiers before any host can collect anything is premature.
+
+**Why %-only is not in tension with platform revenue — hosts are the channel, not the customer.** The platform's stack doesn't depend on host fees: (1) 10% of every membership a host's community generates, plus processing margin; (2) the 40% operator share of dues, which accrues to the platform itself while The Garden is the default host org (§6); (3) 10% of all patronage flows; (4) 10% of paid-table collections once payouts ship; (5) **$50/mo from hosts who don't charge** — Model A waives the base only for monetizing hosts. A host who gathers 100 members at $10 generates $1,000/mo in dues before charging for anything. Renting the tools *and* taking commission is how the channel leaves for a group chat.
+
+Whatever is chosen: state whether host fees feed the 50% pool (recommendation: they don't — dues do), and don't put paid tables on any pricing page before the payout path (Stripe Connect Express) exists.
 
 ---
 
@@ -125,7 +131,7 @@ One `projects` collection, two kinds. The distinction is **who brings the money*
 
 1. **"Start a project"** → chooser, two cards: *"I'm making something and want support"* (passion) / *"I have a budget and need a creative"* (paid).
 2. **Passion path** → `can(user,'project.create.passion')`. No seat → inline upsell: "Take a seat — $10/mo. One active project, and half your dues fund someone else's." At limit → "You have 1 active project. Five seats — $25/mo." Allowed → form (title, discipline, description, what support looks like, optional funding target, optional partner venue).
-3. **Paid path** → `can(user,'project.create.paid')`. No patron/partner role → 60-second role registration (org name, contact verification), free. Form requires **budget** (number, not "negotiable"), scope, timeline. Payment settles off-platform in v1; the ledger records the commitment (`project_contribution`).
+3. **Paid path** → `can(user,'project.create.paid')`. Any seat holder qualifies; an account with neither seat nor role gets a 60-second patron/partner role registration (org name, contact verification — free). Form requires **budget** (a number, not "negotiable"), scope, timeline. Payment settles off-platform in v1; the ledger records the commitment (`project_contribution`).
 4. Both land on a project page with the kind badge, and enter the "just posted" rotation (Buzz rule: every new project surfaces within a minute, by rotation not merit).
 
 Migration note: existing `jobs` become paid projects; existing behavior is preserved under the new badge. "Jobs" disappears from nav (→ "Projects").
