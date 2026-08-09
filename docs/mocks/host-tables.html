@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mocks — Host: set a table</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;600&family=Archivo:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink:#121212; --paper:#F7F7F4; --hairline:#2A2A28; --dim:#6F6F69;
+    --muted:#8B8B85; --body:#A8A8A0; --citron:#D7F25A;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:#0C0C0C; color:var(--body); font-family:"Archivo",sans-serif; font-size:17px; line-height:1.6; -webkit-font-smoothing:antialiased; }
+  .doc { max-width:760px; margin:0 auto; padding:56px 24px 96px; }
+  .doc-head { padding-bottom:20px; border-bottom:2px solid var(--paper); }
+  .doc-kicker { font-family:"JetBrains Mono",monospace; font-size:11px; letter-spacing:0.28em; text-transform:uppercase; color:var(--paper); }
+  .doc-kicker b { color:var(--citron); font-weight:500; }
+  h1 { font-family:"Bricolage Grotesque",sans-serif; font-weight:600; font-size:40px; letter-spacing:-0.03em; line-height:1.05; color:var(--paper); margin-top:14px; }
+  .doc-meta { font-family:"JetBrains Mono",monospace; font-size:10.5px; letter-spacing:0.12em; text-transform:uppercase; color:var(--dim); margin-top:14px; }
+  .doc-intro { color:var(--body); max-width:60ch; margin-top:22px; }
+
+  .screen { margin-top:64px; }
+  .anno { display:flex; align-items:baseline; gap:14px; margin-bottom:8px; }
+  .anno-id { font-family:"JetBrains Mono",monospace; font-size:11px; letter-spacing:0.14em; color:var(--citron); white-space:nowrap; }
+  .anno-title { font-family:"Bricolage Grotesque",sans-serif; font-weight:600; font-size:20px; letter-spacing:-0.02em; color:var(--paper); }
+  .anno-note { font-size:14.5px; line-height:1.55; color:var(--muted); max-width:66ch; margin-bottom:18px; }
+  .anno-note code { font-family:"JetBrains Mono",monospace; font-size:12px; color:var(--body); }
+  .anno-note b { color:var(--paper); }
+
+  .frame { background:var(--ink); border:1px solid var(--hairline); border-radius:10px; overflow:hidden; }
+  .chrome { display:flex; align-items:center; justify-content:space-between; padding:14px 22px; border-bottom:1px solid var(--hairline); }
+  .chrome .wm { font-family:"JetBrains Mono",monospace; font-size:10.5px; letter-spacing:0.28em; text-transform:uppercase; color:var(--paper); }
+  .stage { padding:30px 26px 34px; }
+
+  .m-label { font-family:"JetBrains Mono",monospace; font-size:10.5px; letter-spacing:0.16em; text-transform:uppercase; color:var(--dim); }
+  .m-h { font-family:"Bricolage Grotesque",sans-serif; font-weight:600; color:var(--paper); letter-spacing:-0.02em; }
+  .btn { display:inline-block; font-family:"JetBrains Mono",monospace; font-size:11.5px; letter-spacing:0.08em; text-transform:uppercase; padding:13px 22px; border-radius:3px; }
+  .btn-citron { background:var(--citron); color:var(--ink); }
+  .btn-ghost { border:1px solid var(--hairline); color:var(--body); }
+  .link-citron { font-family:"JetBrains Mono",monospace; font-size:11px; letter-spacing:0.1em; text-transform:uppercase; color:var(--citron); }
+  .rule { height:1px; background:var(--hairline); border:none; }
+  .badge-n { font-family:"JetBrains Mono",monospace; font-size:10px; letter-spacing:0.08em; text-transform:uppercase; color:var(--body); border:1px solid var(--hairline); border-radius:3px; padding:4px 8px; }
+  .badge-u { font-family:"JetBrains Mono",monospace; font-size:10px; letter-spacing:0.08em; text-transform:uppercase; color:var(--ink); background:var(--citron); border-radius:3px; padding:4px 8px; }
+
+  .field { margin-top:18px; }
+  .field label { display:block; font-family:"JetBrains Mono",monospace; font-size:10.5px; letter-spacing:0.14em; text-transform:uppercase; color:var(--dim); margin-bottom:7px; }
+  .input { width:100%; background:transparent; border:1px solid var(--hairline); border-radius:3px; color:var(--paper); font-family:"Archivo",sans-serif; font-size:16px; padding:12px 14px; }
+  .hint { font-size:13px; color:var(--dim); margin-top:6px; }
+
+  /* Setting picker rows */
+  .pick { display:flex; gap:10px; flex-wrap:wrap; margin-top:8px; }
+  .pick span { font-family:"JetBrains Mono",monospace; font-size:11px; letter-spacing:0.08em; text-transform:uppercase; padding:9px 14px; border-radius:3px; border:1px solid var(--hairline); color:var(--body); }
+  .pick .on { background:var(--paper); color:var(--ink); border-color:var(--paper); }
+
+  /* Table card */
+  .tcard { background:var(--ink); border:1px solid var(--hairline); border-radius:10px; padding:26px; display:flex; flex-direction:column; gap:16px; max-width:400px; }
+  .tcard-top { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+  .tcard-org { font-family:"JetBrains Mono",monospace; font-size:10.5px; letter-spacing:0.13em; text-transform:uppercase; color:var(--muted); }
+  .tcard-title { font-family:"Bricolage Grotesque",sans-serif; font-weight:600; font-size:26px; letter-spacing:-0.025em; color:var(--paper); }
+  .tcard-dl { display:flex; flex-direction:column; gap:9px; font-family:"JetBrains Mono",monospace; font-size:11.5px; }
+  .tcard-dl div { display:flex; justify-content:space-between; gap:16px; }
+  .tcard-dl dt { color:var(--dim); letter-spacing:0.1em; }
+  .tcard-dl dd { color:var(--body); text-align:right; }
+
+  /* People list */
+  .person { display:flex; align-items:center; gap:12px; padding:10px 2px; border-top:1px solid var(--hairline); }
+  .person:last-of-type { border-bottom:1px solid var(--hairline); }
+  .pcheck { width:16px; height:16px; border-radius:3px; border:1px solid var(--hairline); }
+  .pcheck.on { background:var(--citron); border-color:var(--citron); }
+  .pname { color:var(--paper); font-size:15px; }
+  .pmeta { font-family:"JetBrains Mono",monospace; font-size:10px; letter-spacing:0.08em; text-transform:uppercase; color:var(--dim); margin-left:auto; }
+
+  .wizsteps { display:flex; gap:8px; margin-bottom:22px; }
+  .wizsteps span { font-family:"JetBrains Mono",monospace; font-size:10px; letter-spacing:0.1em; color:var(--dim); padding:5px 10px; border:1px solid var(--hairline); border-radius:3px; }
+  .wizsteps .on { color:var(--ink); background:var(--citron); border-color:var(--citron); }
+</style>
+</head>
+<body>
+<div class="doc">
+
+  <header class="doc-head">
+    <div class="doc-kicker">The Garden · <b>UI mocks</b></div>
+    <h1>Host: set a table</h1>
+    <div class="doc-meta">v1 · 2026-08-09 · spec: handoff Task 3 + product-plan §2 · tokens: rebrand handoff</div>
+    <p class="doc-intro">One object, four settings — no table types. The wizard asks four questions and the card builds itself live on the right of every step. Then the two flows that make hosting real: migrate the ten people you already have, and spawn a committed table out of an open one without rebuilding the group by hand.</p>
+  </header>
+
+  <!-- H1 -->
+  <section class="screen">
+    <div class="anno"><span class="anno-id">H1</span><span class="anno-title">The wizard — four questions, card builds live</span></div>
+    <p class="anno-note">Capability <code>table.create</code> — Host ✓. The four settings are the data model verbatim: mode, capacity, term, join policy (handoff Task 3). Answers shown here produce Table Art Society's shape; Abiding Practice's (virtual · no cap · ongoing · open) is the same wizard with different taps. <b>No branching, ever.</b></p>
+    <div class="frame">
+      <div class="chrome"><span class="wm">The Garden</span><span class="m-label">Set a table · host</span></div>
+      <div class="stage">
+        <div class="wizsteps"><span class="on">Where</span><span>Seats</span><span>Term</span><span>Join</span></div>
+        <div style="display:flex; gap:28px; flex-wrap:wrap;">
+          <div style="flex:1; min-width:260px;">
+            <div class="m-h" style="font-size:22px;">Where does it meet?</div>
+            <div class="pick"><span class="on">In person</span><span>Virtual</span><span>Hybrid</span></div>
+            <div class="field"><label>Where</label><div class="input" style="color:var(--paper);">San Diego — Bread &amp; Salt gallery</div></div>
+            <p class="hint">A partner venue? It gets a credit on everything this table makes.</p>
+          </div>
+          <div class="tcard" style="flex:0 1 300px; align-self:flex-start;">
+            <div class="tcard-top"><span class="tcard-org">The Garden</span><span class="badge-n">Draft</span></div>
+            <div class="tcard-title">Nine months at the same table</div>
+            <hr class="rule">
+            <dl class="tcard-dl">
+              <div><dt>WHERE</dt><dd>San Diego · Bread &amp; Salt</dd></div>
+              <div><dt>SEATS</dt><dd>—</dd></div>
+              <div><dt>TERM</dt><dd>—</dd></div>
+              <div><dt>JOIN</dt><dd>—</dd></div>
+            </dl>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- H2 -->
+  <section class="screen">
+    <div class="anno"><span class="anno-id">H2</span><span class="anno-title">Seats &amp; money — the free-door rule, enforced</span></div>
+    <p class="anno-note">Capacity: a number or <b>No cap</b> — never "unlimited," never 0-means-infinite. Charging (§2.4, decided): 10% of what the host collects, no monthly base. The validation is product-enforced, not policy prose: <b>a host cannot set every table to paid</b> — money is never the only door in.</p>
+    <div class="frame">
+      <div class="chrome"><span class="wm">The Garden</span><span class="m-label">Set a table · seats</span></div>
+      <div class="stage" style="max-width:520px;">
+        <div class="wizsteps"><span>Where</span><span class="on">Seats</span><span>Term</span><span>Join</span></div>
+        <div class="m-h" style="font-size:22px;">How many chairs?</div>
+        <div class="pick"><span class="on">Capped · 10</span><span>No cap</span></div>
+        <div class="field"><label>Price per seat (optional)</label><div class="input" style="color:var(--paper);">$40/mo</div>
+          <p class="hint">You keep 90% — the garden takes 10%, and your $50/mo goes away while you charge.</p>
+        </div>
+        <div style="border:1px solid var(--hairline); border-radius:3px; padding:14px 16px; margin-top:18px;">
+          <span class="m-label" style="color:var(--citron);">House rule</span>
+          <p style="font-size:14px; color:var(--body); margin-top:6px;">Every host keeps at least one free or open table. Your open Thursday night covers this — money is never the only door in.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- H3 -->
+  <section class="screen">
+    <div class="anno"><span class="anno-id">H3</span><span class="anno-title">Migration, not recruitment — invite the ten you have</span></div>
+    <p class="anno-note">The host onramp (§4.4): first action is moving the group they already lead out of the group chat. Bulk entry, personal note, each invite lands as an introduction from the host by name — not a platform email.</p>
+    <div class="frame">
+      <div class="chrome"><span class="wm">The Garden</span><span class="m-label">Table set · invite</span></div>
+      <div class="stage" style="max-width:520px;">
+        <div class="m-h" style="font-size:24px;">Now — the people you already gather.</div>
+        <p style="font-size:15px; color:var(--body); margin-top:8px;">Paste the group chat. We'll send each one a personal invitation in your name, to your table.</p>
+        <div class="field"><label>Names &amp; emails</label><div class="input" style="color:var(--dim); min-height:72px;">Maya R. maya@…, Jon K. jon@…, Priya S. priya@…</div></div>
+        <div class="field"><label>A line from you</label><div class="input" style="color:var(--paper);">We're moving the Thursday thing somewhere it can grow. Sit with us.</div></div>
+        <div style="margin-top:20px;"><span class="btn btn-citron">Send 10 invitations</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- H4 -->
+  <section class="screen">
+    <div class="anno"><span class="anno-id">H4</span><span class="anno-title">Spawn — an open table becomes a committed one</span></div>
+    <p class="anno-note">The healthiest onboarding path in the product, built as a first-class action (handoff Task 3): host selects who to carry over; each gets an <b>invitation, never a silent move</b>; the open table stays open and running; <code>parentTableId</code> links the lineage. Nobody rebuilds a group by hand.</p>
+    <div class="frame">
+      <div class="chrome"><span class="wm">The Garden</span><span class="m-label">Thursday open night · host tools</span></div>
+      <div class="stage" style="max-width:520px;">
+        <div class="m-h" style="font-size:22px;">Set a committed table from this one</div>
+        <p class="hint" style="margin-top:6px;">Pick who to invite. The open night keeps running — this grows out of it, it doesn't replace it.</p>
+        <div style="margin-top:16px;">
+          <div class="person"><span class="pcheck on"></span><span class="pname">Maya R.</span><span class="pmeta">11 nights</span></div>
+          <div class="person"><span class="pcheck on"></span><span class="pname">Jon K.</span><span class="pmeta">9 nights</span></div>
+          <div class="person"><span class="pcheck on"></span><span class="pname">Priya S.</span><span class="pmeta">7 nights</span></div>
+          <div class="person"><span class="pcheck"></span><span class="pname">Dev T.</span><span class="pmeta">2 nights</span></div>
+        </div>
+        <div style="margin-top:20px; display:flex; gap:12px; align-items:center;">
+          <span class="btn btn-citron">Invite 3 to the new table</span>
+          <span class="m-label" style="color:var(--dim);">They can decline — the open night is still theirs</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+</body>
+</html>

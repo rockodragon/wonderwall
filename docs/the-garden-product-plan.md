@@ -154,13 +154,21 @@ One `projects` collection, two kinds. The distinction is **who brings the money*
 ### Create flow (the entitlement guardrail)
 
 1. **"Start a project"** → chooser, two cards: *"I'm making something and want support"* (passion) / *"I have a budget and need a creative"* (paid).
-2. **Passion path** → `can(user,'project.create.passion')`. No seat → inline upsell: "Take a seat — $10/mo. One active project, and half your dues fund someone else's." At limit → "You have 1 active project. Five seats — $25/mo." Allowed → form (title, discipline, description, what support looks like, optional funding target, optional partner venue).
-3. **Paid path** → `can(user,'project.create.paid')`. Any seat holder qualifies; an account with neither seat nor role gets a 60-second patron/partner role registration (org name, contact verification — free). Form requires **budget** (a number, not "negotiable"), scope, timeline. Payment settles off-platform in v1; the ledger records the commitment (`project_contribution`).
+2. **Passion path** → `can(user,'project.create.passion')`. No seat → inline upsell: "Take a seat — $10/mo. One active project, and half your dues fund someone else's." At limit → "You have 1 active project. Five seats — $25/mo." Allowed → form, **media-first**: a cover image or video leads ("let the work speak first"); title and one-liner are **auto-drafted from the upload and description** for the creative to edit — never auto-published. Then: discipline, what support looks like, optional funding target, optional partner venue.
+3. **Paid path** → `can(user,'project.create.paid')`. Any seat holder qualifies; an account with neither seat nor role gets a 60-second patron/partner role registration (org name, contact verification — free). Registration includes an optional **logo upload** — the funder's mark goes in the credit line on the work. Form requires **budget** (a number, not "negotiable"), scope, timeline, and optionally a photo/sketch of the space or vision — creatives apply to what they can see. **No applicant counts are shown on paid projects** — a competition scoreboard discourages the exact person we want to apply; time facts only ("posted this week · reviewed Fridays"). Payment settles off-platform in v1; the ledger records the commitment (`project_contribution`).
 4. Both land on a project page with the kind badge, and enter the "just posted" rotation (Buzz rule: every new project surfaces within a minute, by rotation not merit).
 
 Migration note: existing `jobs` become paid projects; existing behavior is preserved under the new badge. "Jobs" disappears from nav (→ "Projects").
 
 ---
+
+### 3.1 UI decisions locked by the mocks (2026-08-09)
+
+- **Signup order:** I make things → I fund work → I have a place or resources → I gather people. Funders second because paid-project supply drives seat conversion (§2.5); hosts last because hosts arrive already knowing they're hosts.
+- **The split strip is the receipt.** While The Garden is the default host org it shows two cells ("$5 another creative's project / $5 the garden — the place itself"); a named host org gets the three-cell "$4 your host · $5 · $1 us" variant. The default-host share flowing to the platform is true and unstated.
+- **Every checkout ends in an invitation** ("Save a seat for someone") — a personal introduction, not a referral link; skippable in one tap.
+- **The anti-ad line appears at the seat gate:** "No ads. No algorithm. You're not the product — your seat is what keeps this place alive."
+- Mocks live in `docs/mocks/` and are the design source for these flows.
 
 ## 4 · Onboarding flows
 
@@ -241,7 +249,7 @@ Content first (per direction), then membership + projects, then tables, then the
 
 | Phase | Theme | Ships | Depends on |
 |---|---|---|---|
-| **0 — Onramp** (now) | Be findable, shareable, watchable | Task 1 SSR (home + public pages, OG cards) · YouTube channel linked from site + profiles · public story pages · open tables/events browsable without account · app vocabulary pass (Jobs→Projects, Guide→Host…) | Nothing — all unblocked |
+| **0 — Onramp** (now) | Be findable, shareable, watchable | Task 1 SSR (home + public pages, OG cards) · YouTube channel linked from site + profiles · public story pages · open tables/events browsable without account · app vocabulary pass (Jobs→Projects, Guide→Host…) · **the first Garden event, posted publicly in the platform** — the conversation that widens the tent beyond Rick, David, Haley, Joseph; the outside-visitor view of that event page is the acceptance test for public events | Nothing — all unblocked |
 | **1 — Membership & projects** | Money in, guardrails on | Stripe checkout for $10/$25/$50 · capability lookup service · passion/paid project split + create flows (§3) · persona-aware signup · seat-coverage codes + QR + sponsor dashboard | Phase 0 vocabulary |
 | **2 — Tables** | The gathering primitive | Table object (4 settings) · Table card UI (handoff near-spec) · open→spawn→closed flow · per-table join policies · AP's gatherings migrated onto it | Phase 1 (member join policy needs entitlements) |
 | **3 — The scene** | The economy around the work | Partners light (host-listed + claim link + directory) · "This week's buzz" (city decision pending) · host earnings (decision §2.4) + Stripe Connect · gated media (CF Stream) + Zoom-gated live sessions | Phases 1–2; decisions #2–#4 |

@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mocks — Patron small door & coverage codes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;600&family=Archivo:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink:#121212; --paper:#F7F7F4; --hairline:#2A2A28; --dim:#6F6F69;
+    --muted:#8B8B85; --body:#A8A8A0; --citron:#D7F25A;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:#0C0C0C; color:var(--body); font-family:"Archivo",sans-serif; font-size:17px; line-height:1.6; -webkit-font-smoothing:antialiased; }
+  .doc { max-width:760px; margin:0 auto; padding:56px 24px 96px; }
+  .doc-head { padding-bottom:20px; border-bottom:2px solid var(--paper); }
+  .doc-kicker { font-family:"JetBrains Mono",monospace; font-size:11px; letter-spacing:0.28em; text-transform:uppercase; color:var(--paper); }
+  .doc-kicker b { color:var(--citron); font-weight:500; }
+  h1 { font-family:"Bricolage Grotesque",sans-serif; font-weight:600; font-size:40px; letter-spacing:-0.03em; line-height:1.05; color:var(--paper); margin-top:14px; }
+  .doc-meta { font-family:"JetBrains Mono",monospace; font-size:10.5px; letter-spacing:0.12em; text-transform:uppercase; color:var(--dim); margin-top:14px; }
+  .doc-intro { color:var(--body); max-width:60ch; margin-top:22px; }
+
+  .screen { margin-top:64px; }
+  .anno { display:flex; align-items:baseline; gap:14px; margin-bottom:8px; }
+  .anno-id { font-family:"JetBrains Mono",monospace; font-size:11px; letter-spacing:0.14em; color:var(--citron); white-space:nowrap; }
+  .anno-title { font-family:"Bricolage Grotesque",sans-serif; font-weight:600; font-size:20px; letter-spacing:-0.02em; color:var(--paper); }
+  .anno-note { font-size:14.5px; line-height:1.55; color:var(--muted); max-width:66ch; margin-bottom:18px; }
+  .anno-note code { font-family:"JetBrains Mono",monospace; font-size:12px; color:var(--body); }
+  .anno-note b { color:var(--paper); }
+
+  .frame { background:var(--ink); border:1px solid var(--hairline); border-radius:10px; overflow:hidden; }
+  .chrome { display:flex; align-items:center; justify-content:space-between; padding:14px 22px; border-bottom:1px solid var(--hairline); }
+  .chrome .wm { font-family:"JetBrains Mono",monospace; font-size:10.5px; letter-spacing:0.28em; text-transform:uppercase; color:var(--paper); }
+  .stage { padding:30px 26px 34px; }
+
+  .m-label { font-family:"JetBrains Mono",monospace; font-size:10.5px; letter-spacing:0.16em; text-transform:uppercase; color:var(--dim); }
+  .m-h { font-family:"Bricolage Grotesque",sans-serif; font-weight:600; color:var(--paper); letter-spacing:-0.02em; }
+  .btn { display:inline-block; font-family:"JetBrains Mono",monospace; font-size:11.5px; letter-spacing:0.08em; text-transform:uppercase; padding:13px 22px; border-radius:3px; }
+  .btn-citron { background:var(--citron); color:var(--ink); }
+  .btn-ghost { border:1px solid var(--hairline); color:var(--body); }
+  .link-citron { font-family:"JetBrains Mono",monospace; font-size:11px; letter-spacing:0.1em; text-transform:uppercase; color:var(--citron); }
+  .rule { height:1px; background:var(--hairline); border:none; }
+  .badge-n { font-family:"JetBrains Mono",monospace; font-size:10px; letter-spacing:0.08em; text-transform:uppercase; color:var(--body); border:1px solid var(--hairline); border-radius:3px; padding:4px 8px; }
+  .badge-u { font-family:"JetBrains Mono",monospace; font-size:10px; letter-spacing:0.08em; text-transform:uppercase; color:var(--ink); background:var(--citron); border-radius:3px; padding:4px 8px; }
+  .credit { font-family:"JetBrains Mono",monospace; font-size:10.5px; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted); }
+  .credit b { color:var(--citron); font-weight:500; }
+
+  .field { margin-top:18px; }
+  .field label { display:block; font-family:"JetBrains Mono",monospace; font-size:10.5px; letter-spacing:0.14em; text-transform:uppercase; color:var(--dim); margin-bottom:7px; }
+  .input { width:100%; background:transparent; border:1px solid var(--hairline); border-radius:3px; color:var(--paper); font-family:"Archivo",sans-serif; font-size:16px; padding:12px 14px; }
+  .hint { font-size:13px; color:var(--dim); margin-top:6px; }
+
+  .card { border:1px solid var(--hairline); border-radius:10px; padding:22px 24px; }
+  .notif { border:1px solid var(--hairline); border-radius:10px; padding:20px 22px; max-width:480px; }
+
+  /* Cover module */
+  .cover { border:1px solid var(--hairline); border-radius:10px; padding:24px; max-width:420px; display:flex; flex-direction:column; gap:14px; }
+
+  /* QR block */
+  .qr { width:104px; height:104px; border:1px solid var(--hairline); border-radius:3px; display:grid; place-items:center; font-family:"JetBrains Mono",monospace; font-size:9px; letter-spacing:0.1em; color:var(--dim); text-align:center; }
+  .code { font-family:"JetBrains Mono",monospace; font-size:20px; letter-spacing:0.14em; color:var(--citron); }
+
+  /* Seat dots */
+  .seats { display:flex; gap:6px; flex-wrap:wrap; }
+  .seat-dot { width:16px; height:16px; border-radius:3px; }
+  .seat-on { background:var(--citron); }
+  .seat-off { border:1px solid var(--hairline); }
+
+  .split { display:flex; border:1px solid var(--hairline); border-radius:3px; overflow:hidden; margin-top:16px; font-family:"JetBrains Mono",monospace; font-size:10px; letter-spacing:0.06em; text-transform:uppercase; text-align:center; }
+  .split div { padding:10px 6px; }
+  .split .s1 { flex:5; color:var(--body); border-left:1px solid var(--hairline); }
+  .split .s2 { flex:5; color:var(--ink); background:var(--citron); }
+  .split b { display:block; font-size:13px; letter-spacing:0; font-weight:500; }
+</style>
+</head>
+<body>
+<div class="doc">
+
+  <header class="doc-head">
+    <div class="doc-kicker">The Garden · <b>UI mocks</b></div>
+    <h1>The patron small door &amp; coverage codes</h1>
+    <div class="doc-meta">v1 · 2026-08-09 · spec: the-garden-product-plan.md §2.5, §4.2 · tokens: rebrand handoff</div>
+    <p class="doc-intro">Nobody's first patron action should be $500. The $10 covered seat is the funnel mouth, the story update with a credit line is the retention loop, and coverage codes are how a church covers ten people with one decision. Names everywhere: cover <em>Shua's</em> seat, never "support the arts."</p>
+  </header>
+
+  <!-- P1 -->
+  <section class="screen">
+    <div class="anno"><span class="anno-id">P1</span><span class="anno-title">The cover module — on every creative's public page</span></div>
+    <p class="anno-note">The ask lives where the person is, on their story page and profile — with their name in the button. Visitor-visible: paying doesn't require an existing account; the account materializes with the payment (§4.2). Capability: <code>seat.cover</code>.</p>
+    <div class="frame">
+      <div class="chrome"><span class="wm">The Garden</span><span class="m-label">shua · story page</span></div>
+      <div class="stage">
+        <div class="cover">
+          <div class="credit"><b>Shua</b> · musician · San Diego</div>
+          <div class="m-h" style="font-size:22px;">Cover Shua's seat — $10/mo</div>
+          <p style="font-size:14.5px; color:var(--body);">His place at the table, paid for. You'll get his story updates as the work happens — with your name in the credit line.</p>
+          <div style="display:flex; gap:12px; align-items:center;">
+            <span class="btn btn-citron">Cover his seat</span>
+            <span class="m-label" style="color:var(--dim);">$10/mo · cancel anytime</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- P2 -->
+  <section class="screen">
+    <div class="anno"><span class="anno-id">P2</span><span class="anno-title">Patron checkout — the name is the product</span></div>
+    <p class="anno-note">Minimal: name as it will appear in the credit line, email, card. The split shows what coverage does — the seat itself, and the half that flows onward to other projects. The credit-line preview is the moment of ownership.</p>
+    <div class="frame">
+      <div class="chrome"><span class="wm">The Garden</span><span class="m-label">Cover a seat</span></div>
+      <div class="stage" style="max-width:460px;">
+        <div style="display:flex; gap:10px; align-items:baseline;"><span class="m-h" style="font-size:24px;">Shua's seat</span><span class="badge-u">$10/mo</span></div>
+        <div class="split">
+          <div class="s2"><b>$5</b>other creatives' projects</div>
+          <div class="s1"><b>$5</b>the garden — his place in it</div>
+        </div>
+        <div class="field"><label>Your name, as it will appear</label><div class="input" style="color:var(--paper);">St. Mark's Church</div></div>
+        <p class="hint" style="margin-top:8px;">Credit preview: <span class="credit" style="font-size:10px;">seat covered by <b>St. Mark's Church</b></span></p>
+        <div class="field"><label>Email</label><div class="input" style="color:var(--dim);">giving@stmarks.org</div></div>
+        <div class="field"><label>Card</label><div class="input" style="color:var(--dim);">•••• •••• •••• 4242</div></div>
+        <div style="margin-top:20px;"><span class="btn btn-citron">Cover his seat</span></div>
+        <p class="hint" style="margin-top:14px;">Prefer to stay unnamed? <span class="link-citron" style="font-size:10px;">Cover quietly</span> — Shua will know, the public won't.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- P3 -->
+  <section class="screen">
+    <div class="anno"><span class="anno-id">P3</span><span class="anno-title">The retention loop — a story update lands</span></div>
+    <p class="anno-note">The patron's proof, delivered — not an annual report, a moment from the work with their name already on it. One-tap forward: this exact card is what gets shown to a board or a congregation. This loop is why patrons renew (§2.5).</p>
+    <div class="frame">
+      <div class="chrome"><span class="wm">The Garden</span><span class="m-label">Your patronage</span></div>
+      <div class="stage">
+        <div class="notif">
+          <div class="credit"><b>Shua</b> · story update · Tuesday</div>
+          <div style="border:1px dashed var(--hairline); border-radius:3px; padding:26px 20px; text-align:center; color:var(--dim); font-size:13px; margin-top:12px;">[ 40 sec — “Prodigal” live at the Casbah, first time in front of a room ]</div>
+          <p style="color:var(--paper); margin-top:12px; font-size:15.5px;">“Three people stayed after to talk. One of them runs a wedding venue and wants the whole set in October.”</p>
+          <div class="credit" style="margin-top:12px;">seat covered by <b>St. Mark's Church</b></div>
+          <div style="margin-top:14px; display:flex; gap:14px;"><span class="link-citron">Forward this →</span><span class="m-label" style="color:var(--dim);">Reply</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- P4 -->
+  <section class="screen">
+    <div class="anno"><span class="anno-id">P4</span><span class="anno-title">Coverage codes — ten seats, one decision</span></div>
+    <p class="anno-note">The church bundle (§4.2): buy N seats, get a code and a QR made for a bulletin, a slide, a lobby table. The code is the distribution — the sponsor's own announcement does the onboarding. <code>GARDEN-STMARKS</code> claims one covered seat per person, sponsor-capped.</p>
+    <div class="frame">
+      <div class="chrome"><span class="wm">The Garden</span><span class="m-label">St. Mark's · sponsor dashboard</span></div>
+      <div class="stage">
+        <div class="card" style="max-width:520px;">
+          <div style="display:flex; gap:22px; align-items:center; flex-wrap:wrap;">
+            <div class="qr">QR<br>print · slide<br>bulletin</div>
+            <div style="flex:1; min-width:220px;">
+              <div class="m-label">Your coverage code</div>
+              <div class="code" style="margin-top:6px;">GARDEN-STMARKS</div>
+              <p class="hint" style="margin-top:8px;">Anyone with this code takes a covered seat — your name in their credit line from day one.</p>
+            </div>
+          </div>
+          <hr class="rule" style="margin:18px 0;">
+          <div class="m-label" style="margin-bottom:8px;">10 seats · 6 taken</div>
+          <div class="seats">
+            <span class="seat-dot seat-on"></span><span class="seat-dot seat-on"></span><span class="seat-dot seat-on"></span><span class="seat-dot seat-on"></span><span class="seat-dot seat-on"></span><span class="seat-dot seat-on"></span><span class="seat-dot seat-off"></span><span class="seat-dot seat-off"></span><span class="seat-dot seat-off"></span><span class="seat-dot seat-off"></span>
+          </div>
+          <p class="hint" style="margin-top:12px;">4 seats are waiting. <span class="link-citron" style="font-size:10px;">Announce them again →</span></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- P5 -->
+  <section class="screen">
+    <div class="anno"><span class="anno-id">P5</span><span class="anno-title">Redemption — a covered seat is a full seat</span></div>
+    <p class="anno-note">Scan or code at signup → the checkout simply disappears. The rule from §2.1, visible: coverage changes who pays, never what the creative can do. The sponsor's name appears as a warm fact, not a debt.</p>
+    <div class="frame">
+      <div class="chrome"><span class="wm">The Garden</span><span class="m-label">Join · code applied</span></div>
+      <div class="stage" style="max-width:460px;">
+        <div class="badge-u">Covered · GARDEN-STMARKS</div>
+        <div class="m-h" style="font-size:26px; margin-top:12px;">Your seat is covered.</div>
+        <p style="font-size:15px; color:var(--body); margin-top:10px;">St. Mark's Church has paid for your place at the table — a full seat, nothing less. Run a project, apply to paid work, join member tables.</p>
+        <div class="field"><label>Your name</label><div class="input" style="color:var(--dim);">What should we call you?</div></div>
+        <div style="margin-top:20px;"><span class="btn btn-citron">Take your seat</span></div>
+        <p class="hint" style="margin-top:14px;">Your story updates will carry a small credit: <span class="credit" style="font-size:10px;">seat covered by <b>St. Mark's Church</b></span></p>
+      </div>
+    </div>
+  </section>
+
+</div>
+</body>
+</html>
