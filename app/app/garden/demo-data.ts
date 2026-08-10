@@ -80,11 +80,30 @@ export interface DemoProject {
   goal?: number; // passion only
   raised?: number;
   backers?: string[]; // names, never counts-as-metrics
+  photo?: string; // verified Unsplash IDs only (reused from docs/mocks)
 }
+
+const u = (id: string, w = 640) =>
+  `https://images.unsplash.com/${id}?auto=format&fit=crop&w=${w}&q=70`;
+
+/** Verified imagery, all previously curl-checked for the mock set. */
+export const PHOTOS = {
+  recordShop: u("photo-1508700115892-45ecd05ae2ad"),
+  cafe: u("photo-1554118811-1e0d58224f24"),
+  mic: u("photo-1521337581100-8ca9a73a5f79"),
+  guitar: u("photo-1510915361894-db8b60106cb1"),
+  vinyl: u("photo-1514320291840-2e0a9bf2a9ae"),
+  stage: u("photo-1470229722913-7c0e2dbbafd3"),
+  crowd: u("photo-1529156069898-49953e39b3ac"),
+  writing: u("photo-1455390582262-044cdead277a"),
+  concert: u("photo-1465847899084-d164df4dedc6"),
+  songwriters: u("photo-1493225457124-a3eb161ffa5f"),
+} as const;
 
 export const PROJECTS: DemoProject[] = [
   {
     id: "psalms",
+    photo: PHOTOS.mic,
     kind: "passion",
     title: "Psalms for the 2AM",
     byId: "shua",
@@ -97,6 +116,7 @@ export const PROJECTS: DemoProject[] = [
   },
   {
     id: "hillcrest-zine",
+    photo: PHOTOS.writing,
     kind: "passion",
     title: "Hillcrest, Drawn Slow",
     byId: "tessa",
@@ -108,6 +128,7 @@ export const PROJECTS: DemoProject[] = [
   },
   {
     id: "mural",
+    photo: PHOTOS.recordShop,
     kind: "paid",
     title: "Back-room mural",
     byId: "foldednote",
@@ -117,6 +138,7 @@ export const PROJECTS: DemoProject[] = [
   },
   {
     id: "wedding-films",
+    photo: PHOTOS.crowd,
     kind: "paid",
     title: "Two wedding films, spring",
     byId: "diane",
@@ -126,6 +148,7 @@ export const PROJECTS: DemoProject[] = [
   },
   {
     id: "ap-fellowship",
+    photo: PHOTOS.stage,
     kind: "paid",
     title: "Abiding Practice Fellowship",
     byId: "ap",

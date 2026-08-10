@@ -4,31 +4,37 @@
 // Client-only; transient useState, never mutates demo-data.
 
 import { useEffect, useState } from "react";
+import type { ComponentType } from "react";
 import { Link } from "react-router";
 import { can } from "../garden/capabilities";
 import type { CanResult } from "../garden/capabilities";
 import { useDemo } from "../garden/demo-context";
-import { TABLES } from "../garden/demo-data";
+import { PHOTOS, TABLES } from "../garden/demo-data";
+import { IconGrow, IconPeople, IconQr, IconTable } from "../garden/icons";
 
 type Mode = "open" | "member" | "cohort";
+type GardenIcon = ComponentType<{ size?: number; className?: string }>;
 
 // ————— Local copy (mock H1–H4 voice; plan §2.3 "attendees show up; a roster belongs") —————
 
-const MODES: { id: Mode; label: string; line: string }[] = [
+const MODES: { id: Mode; label: string; line: string; Icon: GardenIcon }[] = [
   {
     id: "open",
     label: "Open",
     line: "Anyone sits in, account or not. Your front porch — and your funnel.",
+    Icon: IconTable,
   },
   {
     id: "member",
     label: "Members",
     line: "A seat gets a place at it. Attendees show up; a roster belongs.",
+    Icon: IconPeople,
   },
   {
     id: "cohort",
     label: "Cohort",
     line: "A fixed group for a fixed term. The one shape that can carry a price.",
+    Icon: IconGrow,
   },
 ];
 
@@ -41,9 +47,9 @@ const MODE_CARD_LABEL: Record<Mode, string> = {
 const CADENCES = ["Weekly", "Every other week", "3rd Thursdays", "8-week term"];
 
 const VENUES = [
-  { name: "Folded Note Records", note: "back room · South Park", partner: true },
+  { name: "Folded Note Records", note: "back room · South Park", partner: true, photo: PHOTOS.recordShop },
   { name: "Bread & Salt", note: "gallery · Barrio Logan", partner: true },
-  { name: "Communal Coffee", note: "patio · North Park", partner: true },
+  { name: "Communal Coffee", note: "patio · North Park", partner: true, photo: PHOTOS.cafe },
   { name: "My own place", note: "home, studio, church hall", partner: false },
 ];
 
@@ -127,7 +133,6 @@ function CardRow({ k, v }: { k: string; v: string }) {
 function QRBox({ size = 88 }: { size?: number }) {
   return (
     <div
-      className="g-mono"
       aria-label="QR code"
       style={{
         width: size,
@@ -136,13 +141,10 @@ function QRBox({ size = 88 }: { size?: number }) {
         borderRadius: 3,
         display: "grid",
         placeItems: "center",
-        fontSize: 9,
-        letterSpacing: "0.1em",
-        color: "var(--g-dim)",
         flexShrink: 0,
       }}
     >
-      QR
+      <IconQr size={30} className="g-ic-paper" />
     </div>
   );
 }
@@ -258,6 +260,9 @@ export default function DemoHost() {
         minWidth: 260,
       }}
     >
+      {step === 4 ? (
+        <img src={PHOTOS.songwriters} alt="" className="g-photo-strip" />
+      ) : null}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
         <span className="g-credit">The Garden</span>
         {step === 4 ? (
@@ -428,7 +433,8 @@ export default function DemoHost() {
                 padding: "16px 20px",
               }}
             >
-              <div style={{ display: "flex", gap: 12, alignItems: "baseline", flexWrap: "wrap" }}>
+              <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+                <m.Icon size={22} className={mode === m.id ? "g-ic g-ic-citron" : "g-ic"} />
                 <span className="g-h" style={{ fontSize: 17 }}>
                   {m.label}
                 </span>
@@ -475,19 +481,29 @@ export default function DemoHost() {
                   background: venue === v.name ? "#1a1a18" : "transparent",
                   borderColor: venue === v.name ? "var(--g-paper)" : undefined,
                   cursor: "pointer",
-                  padding: "12px 16px",
+                  padding: v.photo ? 0 : "12px 16px",
+                  overflow: "hidden",
                   display: "flex",
-                  gap: 12,
-                  alignItems: "baseline",
-                  flexWrap: "wrap",
+                  flexDirection: "column",
                 }}
               >
-                <span style={{ color: "var(--g-paper)", fontSize: 15, fontWeight: 500 }}>
-                  {v.name}
-                </span>
-                <span className="g-credit" style={{ marginLeft: "auto" }}>
-                  {v.partner ? <b>partner</b> : null} {v.note}
-                </span>
+                {v.photo ? <img src={v.photo} alt="" className="g-photo-strip" /> : null}
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 12,
+                    alignItems: "baseline",
+                    flexWrap: "wrap",
+                    padding: v.photo ? "12px 16px" : 0,
+                  }}
+                >
+                  <span style={{ color: "var(--g-paper)", fontSize: 15, fontWeight: 500 }}>
+                    {v.name}
+                  </span>
+                  <span className="g-credit" style={{ marginLeft: "auto" }}>
+                    {v.partner ? <b>partner</b> : null} {v.note}
+                  </span>
+                </div>
               </button>
             ))}
           </div>

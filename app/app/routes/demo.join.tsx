@@ -6,33 +6,48 @@ import { useState } from "react";
 import { Link } from "react-router";
 import { useDemo } from "../garden/demo-context";
 import { SPLITS, type Level } from "../garden/capabilities";
-import { TABLES } from "../garden/demo-data";
+import { TABLES, PHOTOS } from "../garden/demo-data";
+import {
+  IconMake,
+  IconFund,
+  IconPlace,
+  IconGather,
+  IconPeople,
+  IconSeat,
+  IconSpark,
+  IconTable,
+  IconCheck,
+} from "../garden/icons";
 
 // ————— Local constants (this file only) —————
 
 type Door = "make" | "fund" | "place" | "gather";
 type Step = "doors" | "pointer" | "profile" | "tier" | "checkout" | "seated";
 
-const DOORS: { id: Door; name: string; desc: string }[] = [
+const DOORS: { id: Door; name: string; desc: string; Icon: React.ComponentType<{ size?: number; className?: string }> }[] = [
   {
     id: "make",
     name: "I make things",
     desc: "Writer, musician, filmmaker, designer — or you've made one thing and you're scared to show it.",
+    Icon: IconMake,
   },
   {
     id: "fund",
     name: "I fund work",
     desc: "You want to put money behind a person, by name.",
+    Icon: IconFund,
   },
   {
     id: "place",
     name: "I have a place or resources",
     desc: "A room, a stage, a channel, materials — something the scene needs.",
+    Icon: IconPlace,
   },
   {
     id: "gather",
     name: "I gather people",
     desc: "You already lead something — a group, a night, a cohort held together with texts.",
+    Icon: IconGather,
   },
 ];
 
@@ -42,6 +57,7 @@ const TIERS: {
   price: string;
   monthly: number;
   perks: string[];
+  Icon: React.ComponentType<{ size?: number; className?: string }>;
 }[] = [
   {
     level: "free",
@@ -54,6 +70,7 @@ const TIERS: {
       "RSVP public events",
       "Follow projects",
     ],
+    Icon: IconPeople,
   },
   {
     level: "seat",
@@ -67,6 +84,7 @@ const TIERS: {
       "Join member tables",
       "Propose to the grant pool",
     ],
+    Icon: IconSeat,
   },
   {
     level: "five",
@@ -78,6 +96,7 @@ const TIERS: {
       "Invite collaborators onto them",
       "Everything a seat gets",
     ],
+    Icon: IconSpark,
   },
   {
     level: "host",
@@ -90,6 +109,7 @@ const TIERS: {
       "10 active passion projects",
       "Patron routing to your community",
     ],
+    Icon: IconTable,
   },
 ];
 
@@ -130,49 +150,26 @@ function StepDots({ current }: { current: Step }) {
   );
 }
 
-/** The two-cell split strip — the claim and the receipt are one component. */
+/** The two-cell split strip — the claim and the receipt are one component.
+    Emphasis without buttonhood: the funded-creative cell is the "hot" data
+    cell (raised ink + citron rule), never a citron fill. */
 function SplitStrip({ monthly }: { monthly: number }) {
   const pool = monthly * SPLITS.dues.pool;
   const garden = monthly - pool; // host share + platform — The Garden is the default host
   const money = (n: number) => (Number.isInteger(n) ? `$${n}` : `$${n.toFixed(2)}`);
-  const cell: React.CSSProperties = {
-    flex: 1,
-    padding: "10px 6px",
-    textAlign: "center",
-    fontFamily: "'JetBrains Mono', monospace",
-    fontSize: 10,
-    letterSpacing: "0.06em",
-    textTransform: "uppercase",
-  };
-  const amount: React.CSSProperties = {
-    display: "block",
-    fontSize: 13,
-    letterSpacing: 0,
-    fontWeight: 500,
-  };
   return (
-    <div
-      style={{
-        display: "flex",
-        border: "1px solid var(--g-hairline)",
-        borderRadius: 3,
-        overflow: "hidden",
-        marginTop: 16,
-      }}
-    >
-      <div style={{ ...cell, background: "var(--g-citron)", color: "var(--g-ink)" }}>
-        <b style={amount}>{money(pool)}</b>
-        another creative's project
+    <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
+      <div className="g-cell g-cell-hot" style={{ flex: 1 }}>
+        <span className="g-cell-v">{money(pool)}</span>
+        <div className="g-label" style={{ marginTop: 6 }}>
+          another creative's project
+        </div>
       </div>
-      <div
-        style={{
-          ...cell,
-          color: "var(--g-body)",
-          borderLeft: "1px solid var(--g-hairline)",
-        }}
-      >
-        <b style={amount}>{money(garden)}</b>
-        the garden — the place itself
+      <div className="g-cell" style={{ flex: 1 }}>
+        <span className="g-cell-v">{money(garden)}</span>
+        <div className="g-label" style={{ marginTop: 6 }}>
+          the garden — the place itself
+        </div>
       </div>
     </div>
   );
@@ -181,17 +178,27 @@ function SplitStrip({ monthly }: { monthly: number }) {
 function ChoiceRow({
   name,
   desc,
+  icon,
+  hot,
   onPick,
+  onHover,
   last,
 }: {
   name: string;
   desc: string;
+  icon: React.ReactNode;
+  hot: boolean;
   onPick: () => void;
+  onHover: (hovering: boolean) => void;
   last?: boolean;
 }) {
   return (
     <button
       onClick={onPick}
+      onMouseEnter={() => onHover(true)}
+      onMouseLeave={() => onHover(false)}
+      onFocus={() => onHover(true)}
+      onBlur={() => onHover(false)}
       style={{
         display: "flex",
         alignItems: "baseline",
@@ -209,8 +216,13 @@ function ChoiceRow({
         color: "inherit",
       }}
     >
-      <span className="g-h" style={{ fontSize: 19, flex: "0 0 44%" }}>
-        {name}
+      <span style={{ display: "flex", alignItems: "center", gap: 12, flex: "0 0 44%" }}>
+        <span className={hot ? "g-ic g-ic-citron" : "g-ic"} style={{ display: "inline-flex" }}>
+          {icon}
+        </span>
+        <span className="g-h" style={{ fontSize: 19 }}>
+          {name}
+        </span>
       </span>
       <span style={{ flex: 1, fontSize: 14, color: "var(--g-muted)", lineHeight: 1.5 }}>
         {desc}
@@ -239,6 +251,7 @@ export default function DemoJoin() {
   const { persona } = useDemo();
   const [step, setStep] = useState<Step>("doors");
   const [door, setDoor] = useState<Door>("make");
+  const [hoverDoor, setHoverDoor] = useState<Door | null>(null);
   const [name, setName] = useState("");
   const [craft, setCraft] = useState("");
   const [city, setCity] = useState("");
@@ -274,6 +287,9 @@ export default function DemoJoin() {
                 key={d.id}
                 name={d.name}
                 desc={d.desc}
+                icon={<d.Icon size={20} />}
+                hot={hoverDoor === d.id}
+                onHover={(hovering) => setHoverDoor(hovering ? d.id : null)}
                 onPick={() => pickDoor(d.id)}
                 last={i === DOORS.length - 1}
               />
@@ -424,8 +440,11 @@ export default function DemoJoin() {
                   }}
                 >
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10 }}>
-                    <span className="g-h" style={{ fontSize: 19 }}>
-                      {t.name}
+                    <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <t.Icon size={18} className="g-ic" />
+                      <span className="g-h" style={{ fontSize: 19 }}>
+                        {t.name}
+                      </span>
                     </span>
                     <span className={t.level === recommended ? "g-badge g-badge-citron" : "g-badge g-badge-line"}>
                       {t.price}
@@ -438,7 +457,18 @@ export default function DemoJoin() {
                   )}
                   <ul style={{ margin: "12px 0 0", padding: 0, listStyle: "none" }}>
                     {t.perks.map((p) => (
-                      <li key={p} style={{ fontSize: 14, color: "var(--g-muted)", padding: "3px 0" }}>
+                      <li
+                        key={p}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                          fontSize: 14,
+                          color: "var(--g-muted)",
+                          padding: "3px 0",
+                        }}
+                      >
+                        <IconCheck size={14} className="g-ic" />
                         {p}
                       </li>
                     ))}
@@ -522,6 +552,12 @@ export default function DemoJoin() {
             </p>
           )}
           <div className="g-card" style={{ marginTop: 18 }}>
+            <img
+              src={PHOTOS.songwriters}
+              alt=""
+              className="g-photo-strip"
+              style={{ marginBottom: 14 }}
+            />
             <div className="g-label">First table</div>
             <div className="g-h" style={{ fontSize: 22, marginTop: 8 }}>
               {FIRST_TABLE.name}

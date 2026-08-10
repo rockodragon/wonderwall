@@ -4,19 +4,29 @@
 // Client-only; transient useState, reads DASHBOARD/TABLES/COVERAGE verbatim.
 
 import { useEffect, useState } from "react";
+import type { ComponentType } from "react";
 import { Link } from "react-router";
 import { can, SPLITS } from "../garden/capabilities";
 import { useDemo } from "../garden/demo-context";
-import { COVERAGE, DASHBOARD, TABLES } from "../garden/demo-data";
+import { COVERAGE, DASHBOARD, PHOTOS, TABLES } from "../garden/demo-data";
+import {
+  IconCheck,
+  IconEvent,
+  IconGrow,
+  IconLedger,
+  IconPeople,
+  IconQr,
+} from "../garden/icons";
 
 type Tab = "today" | "people" | "attendance" | "money" | "grow";
+type GardenIcon = ComponentType<{ size?: number; className?: string }>;
 
-const TABS: { id: Tab; label: string }[] = [
-  { id: "today", label: "Today" },
-  { id: "people", label: "People" },
-  { id: "attendance", label: "Attendance" },
-  { id: "money", label: "Money" },
-  { id: "grow", label: "Grow" },
+const TABS: { id: Tab; label: string; Icon: GardenIcon }[] = [
+  { id: "today", label: "Today", Icon: IconEvent },
+  { id: "people", label: "People", Icon: IconPeople },
+  { id: "attendance", label: "Attendance", Icon: IconCheck },
+  { id: "money", label: "Money", Icon: IconLedger },
+  { id: "grow", label: "Grow", Icon: IconGrow },
 ];
 
 const COHORT_CAP = 10;
@@ -26,18 +36,10 @@ const usd = (n: number) => `$${n.toLocaleString("en-US", { maximumFractionDigits
 
 // ————— Small pieces —————
 
-function Stat({ n, label, citron }: { n: string; label: string; citron?: boolean }) {
+function Stat({ n, label, hot }: { n: string; label: string; hot?: boolean }) {
   return (
-    <div className="g-card" style={{ padding: "18px 20px" }}>
-      <b
-        className="g-h"
-        style={{
-          display: "block",
-          fontSize: 30,
-          lineHeight: 1,
-          color: citron ? "var(--g-citron)" : undefined,
-        }}
-      >
+    <div className={hot ? "g-cell g-cell-hot" : "g-cell"} style={{ padding: "18px 20px" }}>
+      <b className="g-cell-v" style={{ display: "block", fontSize: 30, lineHeight: 1 }}>
         {n}
       </b>
       <span className="g-label" style={{ display: "block", marginTop: 8 }}>
@@ -110,7 +112,6 @@ function Bar({
 function QRBox({ size = 72 }: { size?: number }) {
   return (
     <div
-      className="g-mono"
       aria-label="QR code"
       style={{
         width: size,
@@ -119,13 +120,10 @@ function QRBox({ size = 72 }: { size?: number }) {
         borderRadius: 3,
         display: "grid",
         placeItems: "center",
-        fontSize: 9,
-        letterSpacing: "0.1em",
-        color: "var(--g-dim)",
         flexShrink: 0,
       }}
     >
-      QR
+      <IconQr size={30} className="g-ic-paper" />
     </div>
   );
 }
@@ -225,7 +223,8 @@ export default function DemoHostDashboard() {
         {DASHBOARD.today.nextEvent}
       </h1>
 
-      {/* Tabs */}
+      {/* Tabs — active state borrows the .g-cell-hot recipe (raised ink + citron
+          underline) rather than a solid citron fill, which reads as a button. */}
       <div style={{ display: "flex", gap: 8, marginTop: 20, flexWrap: "wrap" }}>
         {TABS.map((t) => (
           <button
@@ -233,17 +232,22 @@ export default function DemoHostDashboard() {
             onClick={() => setTab(t.id)}
             className="g-mono"
             style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 7,
               fontSize: 10.5,
               letterSpacing: "0.12em",
               textTransform: "uppercase",
               padding: "7px 13px",
               borderRadius: 3,
-              border: `1px solid ${tab === t.id ? "var(--g-citron)" : "var(--g-hairline)"}`,
-              background: tab === t.id ? "var(--g-citron)" : "transparent",
-              color: tab === t.id ? "var(--g-ink)" : "var(--g-body)",
+              border: `1px solid ${tab === t.id ? "#3a3a36" : "var(--g-hairline)"}`,
+              borderBottom: `2px solid ${tab === t.id ? "var(--g-citron)" : "var(--g-hairline)"}`,
+              background: tab === t.id ? "#1c1c19" : "transparent",
+              color: tab === t.id ? "var(--g-citron)" : "var(--g-body)",
               cursor: "pointer",
             }}
           >
+            <t.Icon size={16} />
             {t.label}
           </button>
         ))}
@@ -259,25 +263,28 @@ export default function DemoHostDashboard() {
               gap: 14,
             }}
           >
-            <Stat n={String(DASHBOARD.today.rsvps)} label="coming · open table" citron />
+            <Stat n={String(DASHBOARD.today.rsvps)} label="coming · open table" hot />
             <Stat n={String(DASHBOARD.today.newThisWeek)} label="new this week — greet them" />
             <Stat n={String(DASHBOARD.today.unread)} label="unread — from your people" />
           </div>
 
-          <div className="g-card" style={{ marginTop: 14, padding: "16px 20px" }}>
-            <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
-              <span className="g-h" style={{ fontSize: 17 }}>
-                {DASHBOARD.today.nextEvent}
-              </span>
-              <span className="g-credit">Folded Note back room</span>
-              <span style={{ marginLeft: "auto" }}>
-                <CitronLink onClick={() => setTab("attendance")}>Set the chairs →</CitronLink>
-              </span>
+          <div className="g-card" style={{ marginTop: 14, padding: 0, overflow: "hidden" }}>
+            <img src={PHOTOS.recordShop} alt="" className="g-photo-strip" />
+            <div style={{ padding: "16px 20px" }}>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
+                <span className="g-h" style={{ fontSize: 17 }}>
+                  {DASHBOARD.today.nextEvent}
+                </span>
+                <span className="g-credit">Folded Note back room</span>
+                <span style={{ marginLeft: "auto" }}>
+                  <CitronLink onClick={() => setTab("attendance")}>Set the chairs →</CitronLink>
+                </span>
+              </div>
+              <p className="g-hint" style={{ marginTop: 6 }}>
+                {DASHBOARD.today.rsvps} said they're coming — set the room for{" "}
+                {DASHBOARD.today.rsvps + 1}; someone always brings someone.
+              </p>
             </div>
-            <p className="g-hint" style={{ marginTop: 6 }}>
-              {DASHBOARD.today.rsvps} said they're coming — set the room for{" "}
-              {DASHBOARD.today.rsvps + 1}; someone always brings someone.
-            </p>
           </div>
 
           <div className="g-card" style={{ marginTop: 14, padding: "16px 20px" }}>
@@ -450,7 +457,7 @@ export default function DemoHostDashboard() {
             }}
           >
             <Stat n={usd(cohortCollected)} label="your paid table collected" />
-            <Stat n={usd(DASHBOARD.payout)} label="your payout · Sep 1" citron />
+            <Stat n={usd(DASHBOARD.payout)} label="your payout · Sep 1" hot />
           </div>
 
           <div className="g-card" style={{ marginTop: 14, padding: "18px 20px" }}>

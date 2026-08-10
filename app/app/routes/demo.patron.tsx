@@ -7,6 +7,13 @@ import { can, SPLITS } from "../garden/capabilities";
 import type { GardenUser } from "../garden/capabilities";
 import { COVERAGE, PROJECTS } from "../garden/demo-data";
 import { useDemo } from "../garden/demo-context";
+import {
+  IconCheck,
+  IconCredit,
+  IconPeople,
+  IconQr,
+  IconSeat,
+} from "../garden/icons";
 
 // ————— Local constants (extra data stays in this file) —————
 
@@ -37,6 +44,12 @@ const INTENSITIES: { id: Intensity; title: string; note: string }[] = [
   },
 ];
 
+const INTENSITY_ICON: Record<Intensity, typeof IconCheck> = {
+  instant: IconCheck,
+  note: IconCredit,
+  meet: IconPeople,
+};
+
 const INTENSITY_CONFIRM: Record<Intensity, string> = {
   instant:
     "A host is matching you now. Within the week: one name, their story updates, your credit line on the work.",
@@ -52,9 +65,7 @@ function SplitBar({ who }: { who: string }) {
       className="g-mono"
       style={{
         display: "flex",
-        border: "1px solid var(--g-hairline)",
-        borderRadius: 3,
-        overflow: "hidden",
+        gap: 8,
         marginTop: 16,
         fontSize: 10,
         letterSpacing: "0.06em",
@@ -62,12 +73,16 @@ function SplitBar({ who }: { who: string }) {
         textAlign: "center",
       }}
     >
-      <div style={{ flex: 9, background: "var(--g-citron)", color: "var(--g-ink)", padding: "10px 6px" }}>
-        <b style={{ display: "block", fontSize: 13, fontWeight: 500 }}>${WORK_SHARE}</b>
+      <div className="g-cell g-cell-hot" style={{ flex: 9, padding: "10px 6px" }}>
+        <b className="g-cell-v" style={{ display: "block", fontSize: 15 }}>
+          ${WORK_SHARE}
+        </b>
         the work — {who}
       </div>
-      <div style={{ flex: 1, minWidth: 86, color: "var(--g-body)", padding: "10px 6px" }}>
-        <b style={{ display: "block", fontSize: 13, fontWeight: 500 }}>${PLATFORM_SHARE}</b>
+      <div className="g-cell" style={{ flex: 1, minWidth: 86, color: "var(--g-body)", padding: "10px 6px" }}>
+        <b style={{ display: "block", fontSize: 13, fontWeight: 500, color: "var(--g-body)" }}>
+          ${PLATFORM_SHARE}
+        </b>
         the garden
       </div>
     </div>
@@ -209,9 +224,24 @@ export default function PatronFlow() {
         }}
       >
         {/* Warm — the named door */}
-        <div className="g-card" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <div className="g-credit">
-            <b>Shua</b> · songwriter · San Diego
+        <div
+          className="g-card"
+          style={{ display: "flex", flexDirection: "column", gap: 0, padding: 0, overflow: "hidden" }}
+        >
+          {SHUA_STORY.photo && (
+            <img
+              src={SHUA_STORY.photo}
+              alt={SHUA_STORY.title}
+              className="g-photo"
+              style={{ borderRadius: "9px 9px 0 0" }}
+            />
+          )}
+          <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: "20px 24px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <IconCredit size={22} className="g-ic" />
+            <div className="g-credit">
+              <b>Shua</b> · songwriter · San Diego
+            </div>
           </div>
           <div className="g-h" style={{ fontSize: 22 }}>
             Cover Shua's seat — ${SEAT_PRICE}/mo
@@ -235,12 +265,16 @@ export default function PatronFlow() {
             </button>
             <span className="g-label">${SEAT_PRICE}/mo · cancel anytime</span>
           </div>
+          </div>
         </div>
 
         {/* Cold — we'll seat a creative */}
         <div className="g-card" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <div className="g-credit">
-            <b>Don't know anyone yet?</b>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <IconSeat size={22} className="g-ic" />
+            <div className="g-credit">
+              <b>Don't know anyone yet?</b>
+            </div>
           </div>
           <div className="g-h" style={{ fontSize: 22 }}>
             Cover a seat — we'll seat a creative
@@ -251,28 +285,34 @@ export default function PatronFlow() {
             updates and your credit line follow.
           </p>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {INTENSITIES.map((i) => (
-              <button
-                key={i.id}
-                onClick={() => setIntensity(i.id)}
-                style={{
-                  textAlign: "left",
-                  background: intensity === i.id ? "#1a1a18" : "transparent",
-                  border: `1px solid ${intensity === i.id ? "var(--g-citron)" : "var(--g-hairline)"}`,
-                  borderRadius: 3,
-                  padding: "10px 12px",
-                  cursor: "pointer",
-                  color: "inherit",
-                }}
-              >
-                <span className="g-h" style={{ fontSize: 15, display: "block" }}>
-                  {i.title}
-                </span>
-                <span className="g-hint" style={{ display: "block", marginTop: 3 }}>
-                  {i.note}
-                </span>
-              </button>
-            ))}
+            {INTENSITIES.map((i) => {
+              const Icon = INTENSITY_ICON[i.id];
+              return (
+                <button
+                  key={i.id}
+                  onClick={() => setIntensity(i.id)}
+                  style={{
+                    textAlign: "left",
+                    background: intensity === i.id ? "#1a1a18" : "transparent",
+                    border: `1px solid ${intensity === i.id ? "var(--g-citron)" : "var(--g-hairline)"}`,
+                    borderRadius: 3,
+                    padding: "10px 12px",
+                    cursor: "pointer",
+                    color: "inherit",
+                  }}
+                >
+                  <span style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                    <Icon size={17} className="g-ic" />
+                    <span className="g-h" style={{ fontSize: 15 }}>
+                      {i.title}
+                    </span>
+                  </span>
+                  <span className="g-hint" style={{ display: "block", marginTop: 3 }}>
+                    {i.note}
+                  </span>
+                </button>
+              );
+            })}
           </div>
           <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
             <button
@@ -377,19 +417,20 @@ export default function PatronFlow() {
                   <div className="g-credit">
                     <b>Shua</b> · story update · Tuesday
                   </div>
-                  <div
-                    style={{
-                      border: "1px dashed var(--g-hairline)",
-                      borderRadius: 3,
-                      padding: "26px 20px",
-                      textAlign: "center",
-                      color: "var(--g-dim)",
-                      fontSize: 13,
-                      marginTop: 12,
-                    }}
+                  {SHUA_STORY.photo && (
+                    <img
+                      src={SHUA_STORY.photo}
+                      alt={SHUA_STORY.title}
+                      className="g-photo-strip"
+                      style={{ marginTop: 12 }}
+                    />
+                  )}
+                  <p
+                    className="g-hint"
+                    style={{ textAlign: "center", marginTop: 8 }}
                   >
                     [ 40 sec — "Prodigal" live at the Casbah, first time in front of a room ]
-                  </div>
+                  </p>
                   <p style={{ color: "var(--g-paper)", marginTop: 12, fontSize: 15.5 }}>
                     "Three people stayed after to talk. One of them runs a
                     wedding venue and wants the whole set in October."
@@ -427,8 +468,11 @@ export default function PatronFlow() {
               height: 104,
               border: "1px solid var(--g-hairline)",
               borderRadius: 3,
-              display: "grid",
-              placeItems: "center",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 6,
               fontSize: 9,
               letterSpacing: "0.1em",
               color: "var(--g-dim)",
@@ -436,8 +480,7 @@ export default function PatronFlow() {
               textTransform: "uppercase",
             }}
           >
-            QR
-            <br />
+            <IconQr size={28} className="g-ic" />
             print · slide
             <br />
             bulletin
@@ -499,8 +542,11 @@ export default function PatronFlow() {
       </p>
       <div className="g-card" style={{ marginTop: 14, maxWidth: 480 }}>
         <span className="g-badge g-badge-citron">Covered · {COVERAGE.code}</span>
-        <div className="g-h" style={{ fontSize: 26, marginTop: 12 }}>
-          Your seat is covered.
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 12 }}>
+          <IconSeat size={20} className="g-ic g-ic-citron" />
+          <div className="g-h" style={{ fontSize: 26 }}>
+            Your seat is covered.
+          </div>
         </div>
         <p style={{ fontSize: 15, marginTop: 10 }}>
           {COVERAGE.sponsor} has paid for your place at the table — a full seat,

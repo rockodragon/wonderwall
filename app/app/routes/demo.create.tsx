@@ -8,6 +8,7 @@ import { can, SPLITS } from "../garden/capabilities";
 import type { CanResult, Capability } from "../garden/capabilities";
 import { useDemo } from "../garden/demo-context";
 import { PROJECTS } from "../garden/demo-data";
+import { IconSpark, IconTag, IconSeat, IconMake, IconCheck } from "../garden/icons";
 
 type Path = "chooser" | "passion" | "paid";
 
@@ -19,12 +20,14 @@ const FORK = [
     kind: "Passion · seeking support",
     name: "I'm making something and want support",
     desc: "Your work. The community and its patrons get behind it — money, hands, honest ears.",
+    Icon: IconSpark,
   },
   {
     path: "paid" as Path,
     kind: "Paid · budget declared",
     name: "I have a budget and need a creative",
     desc: "A commission, a gig, a hire. You say the number; creatives apply.",
+    Icon: IconTag,
   },
 ];
 
@@ -96,47 +99,65 @@ function Field({
   );
 }
 
-function DropZone({ text }: { text: string }) {
+function DropZone({
+  text,
+  Icon,
+}: {
+  text: string;
+  Icon?: (p: { size?: number; className?: string }) => React.ReactElement;
+}) {
   return (
     <div
       style={{
         border: "1px dashed var(--g-hairline)",
         borderRadius: 3,
-        padding: "22px 20px",
+        padding: Icon ? "28px 20px" : "22px 20px",
         textAlign: "center",
         color: "var(--g-dim)",
         fontSize: 13.5,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: Icon ? 10 : 0,
       }}
     >
-      {text}
+      {Icon ? <Icon size={28} className="g-ic" /> : null}
+      <span>{text}</span>
     </div>
   );
 }
 
-/** Two-cell dues split — The Garden as default host org (plan §3.1). */
+/** Two-cell dues split — The Garden as default host org (plan §3.1). Data
+    cells, not buttons: citron stays a bottom-rule accent, never a fill. */
 function SplitStrip() {
   return (
-    <div
-      className="g-mono"
-      style={{
-        display: "flex",
-        border: "1px solid var(--g-hairline)",
-        borderRadius: 3,
-        overflow: "hidden",
-        marginTop: 16,
-        fontSize: 10,
-        letterSpacing: "0.06em",
-        textTransform: "uppercase",
-        textAlign: "center",
-      }}
-    >
-      <div style={{ flex: 1, padding: "10px 6px", background: "var(--g-citron)", color: "var(--g-ink)" }}>
-        <b style={{ display: "block", fontSize: 13, fontWeight: 500 }}>$5</b>
-        another creative's project
+    <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
+      <div className="g-cell g-cell-hot" style={{ flex: 1, textAlign: "center", padding: "10px 6px" }}>
+        <span className="g-cell-v" style={{ fontSize: 18 }}>$5</span>
+        <div className="g-mono" style={{ fontSize: 10, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--g-muted)", marginTop: 4 }}>
+          another creative's project
+        </div>
       </div>
-      <div style={{ flex: 1, padding: "10px 6px", borderLeft: "1px solid var(--g-hairline)", color: "var(--g-body)" }}>
-        <b style={{ display: "block", fontSize: 13, fontWeight: 500 }}>$5</b>
-        the garden — the place itself
+      <div className="g-cell" style={{ flex: 1, textAlign: "center", padding: "10px 6px" }}>
+        <span className="g-cell-v" style={{ fontSize: 18 }}>$5</span>
+        <div className="g-mono" style={{ fontSize: 10, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--g-muted)", marginTop: 4 }}>
+          the garden — the place itself
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Small photo card for an example project — .g-photo-strip per the
+    "make it come alive" rule, kept credit-sheet sized. */
+function ProjectStrip({ title, byLine, photo }: { title: string; byLine: string; photo?: string }) {
+  if (!photo) return null;
+  return (
+    <div className="g-cell" style={{ marginTop: 14, padding: 8, display: "flex", gap: 10, alignItems: "center" }}>
+      <img src={photo} alt="" className="g-photo-strip" style={{ width: 64, height: 64, flexShrink: 0 }} />
+      <div>
+        <div style={{ fontSize: 13.5, color: "var(--g-paper)", fontWeight: 500 }}>“{title}”</div>
+        <div className="g-hint" style={{ marginTop: 2 }}>{byLine}</div>
       </div>
     </div>
   );
@@ -166,6 +187,7 @@ export default function DemoCreate() {
   const [posted, setPosted] = useState(false);
 
   const [upgradeNote, setUpgradeNote] = useState(false);
+  const [hoveredFork, setHoveredFork] = useState<Path | null>(null);
 
   // The flow reacts live to the persona bar: gates recompute on render, and
   // anything the old persona "did" (planted, posted, registered) resets.
@@ -215,6 +237,8 @@ export default function DemoCreate() {
               key={f.path}
               className="g-card"
               onClick={() => setPath(f.path)}
+              onMouseEnter={() => setHoveredFork(f.path)}
+              onMouseLeave={() => setHoveredFork((h) => (h === f.path ? null : h))}
               style={{
                 textAlign: "left",
                 background: "transparent",
@@ -225,7 +249,10 @@ export default function DemoCreate() {
                 padding: 24,
               }}
             >
-              <span className="g-label">{f.kind}</span>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span className="g-label">{f.kind}</span>
+                <f.Icon size={22} className={hoveredFork === f.path ? "g-ic g-ic-citron" : "g-ic"} />
+              </div>
               <span className="g-h" style={{ fontSize: 21 }}>
                 {f.name}
               </span>
@@ -251,7 +278,8 @@ export default function DemoCreate() {
       const nowUsed = (gate.used ?? 0) + 1;
       return (
         <main style={{ marginTop: 28, maxWidth: 520 }}>
-          <div className="g-label" style={{ color: "var(--g-citron)" }}>
+          <div className="g-label" style={{ color: "var(--g-citron)", display: "flex", alignItems: "center", gap: 7 }}>
+            <IconCheck size={18} className="g-ic-citron" />
             Planted
           </div>
           <h1 className="g-h" style={{ marginTop: 10, fontSize: "clamp(24px,4.5vw,32px)" }}>
@@ -286,9 +314,10 @@ export default function DemoCreate() {
     // Denial anatomy — G1 (no seat) / G2 (at the cap)
     if (!gate.allowed) {
       const atCap = (gate.limit ?? 0) > 0;
-      const openTitles = PROJECTS.filter(
+      const openProjects = PROJECTS.filter(
         (pr) => pr.kind === "passion" && pr.byId === persona.id
-      ).map((pr) => pr.title);
+      );
+      const openTitles = openProjects.map((pr) => pr.title);
       const others = (gate.used ?? 0) - 1;
       const capHeadline =
         openTitles.length > 0
@@ -313,9 +342,18 @@ export default function DemoCreate() {
             <p style={{ fontSize: 15, color: "var(--g-body)", marginTop: 12 }}>{gate.reason}</p>
 
             {/* … limit and used … */}
-            <p className="g-credit" style={{ marginTop: 12 }}>
+            <p className="g-credit" style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 7 }}>
+              <IconSeat size={16} className="g-ic" />
               active passion projects · <b>{gate.used} of {gate.limit}</b>
             </p>
+
+            {atCap && openProjects[0]?.photo ? (
+              <ProjectStrip
+                title={openProjects[0].title}
+                byLine={openProjects[0].byLine}
+                photo={openProjects[0].photo}
+              />
+            ) : null}
 
             {!atCap ? (
               <>
@@ -375,7 +413,10 @@ export default function DemoCreate() {
           Let the work speak first
         </h1>
         <div style={{ marginTop: 18 }}>
-          <DropZone text="Drop a cover image or video — the work leads, the words follow" />
+          <DropZone
+            text="Drop a cover image or video — the work leads, the words follow"
+            Icon={IconMake}
+          />
           <p className="g-hint" style={{ marginTop: 6 }}>
             Title and one-liner draft themselves from what you upload — yours to
             edit, never auto-published.
@@ -439,7 +480,8 @@ export default function DemoCreate() {
     const amount = Number(bBudget) || 0;
     return (
       <main style={{ marginTop: 28, maxWidth: 520 }}>
-        <div className="g-label" style={{ color: "var(--g-citron)" }}>
+        <div className="g-label" style={{ color: "var(--g-citron)", display: "flex", alignItems: "center", gap: 7 }}>
+          <IconCheck size={18} className="g-ic-citron" />
           Posted
         </div>
         <h1 className="g-h" style={{ marginTop: 10, fontSize: "clamp(24px,4.5vw,32px)" }}>
