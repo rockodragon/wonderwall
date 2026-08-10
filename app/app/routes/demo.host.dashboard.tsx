@@ -177,7 +177,7 @@ export default function DemoHostDashboard() {
         <div className="g-card" style={{ maxWidth: 470, padding: "30px 30px 26px" }}>
           <div className="g-label">Host dashboard</div>
           <div className="g-h" style={{ fontSize: 26, marginTop: 8 }}>
-            This is a host's morning view
+            This is where hosts manage their tables
           </div>
           <p style={{ fontSize: 15, color: "var(--g-body)", marginTop: 12 }}>{gate.reason}</p>
           <div style={{ marginTop: 20, display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
@@ -277,12 +277,12 @@ export default function DemoHostDashboard() {
                 </span>
                 <span className="g-credit">Folded Note back room</span>
                 <span style={{ marginLeft: "auto" }}>
-                  <CitronLink onClick={() => setTab("attendance")}>Set the chairs →</CitronLink>
+                  <CitronLink onClick={() => setTab("attendance")}>Prep for tomorrow →</CitronLink>
                 </span>
               </div>
               <p className="g-hint" style={{ marginTop: 6 }}>
-                {DASHBOARD.today.rsvps} said they're coming — set the room for{" "}
-                {DASHBOARD.today.rsvps + 1}; someone always brings someone.
+                {DASHBOARD.today.rsvps} RSVPs. Rooms usually run one or two
+                over — plan for {DASHBOARD.today.rsvps + 1}.
               </p>
             </div>
           </div>
@@ -406,8 +406,8 @@ export default function DemoHostDashboard() {
             </div>
             <p className="g-hint" style={{ marginTop: 10 }}>
               Tomorrow's bar is RSVPs; it becomes attendance at check-in — one
-              tap at the door, or after, from memory. Averages {avgCame} · best{" "}
-              {bestCame}. Bars are rooms, not scores.
+              tap at the door, or after, from memory. Average {avgCame}, best{" "}
+              {bestCame}. These are headcounts, not scores.
             </p>
           </div>
 
@@ -426,13 +426,13 @@ export default function DemoHostDashboard() {
                 <span style={{ marginLeft: "auto" }}>
                   {reinvited[p.name] ? (
                     <span className="g-credit">
-                      <b>a place is set — sent in your name</b>
+                      <b>invite sent — from you</b>
                     </span>
                   ) : (
                     <CitronLink
                       onClick={() => setReinvited((r) => ({ ...r, [p.name]: true }))}
                     >
-                      Set another place for them →
+                      Send them an invite for Thursday →
                     </CitronLink>
                   )}
                 </span>
@@ -594,7 +594,7 @@ export default function DemoHostDashboard() {
                 them over — the open night keeps running.
               </p>
               <Link to="/demo/host" className="g-btn g-btn-ghost" style={{ marginTop: 12 }}>
-                Set a table from Thursday
+                Create a Table from Thursday
               </Link>
             </div>
           </div>

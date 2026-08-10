@@ -34,13 +34,13 @@ const INTENSITIES: { id: Intensity; title: string; note: string }[] = [
   },
   {
     id: "note",
-    title: "A note with it",
-    note: "Same match — and your note travels with the introduction.",
+    title: "Add a note",
+    note: "Same match — your note goes with the introduction.",
   },
   {
     id: "meet",
     title: "Meet them",
-    note: "A host sits down with you first and matches by hand. The right door for churches and larger patrons.",
+    note: "A host talks with you first and makes the match personally. Good for churches and larger patrons.",
   },
 ];
 
@@ -188,17 +188,16 @@ export default function PatronFlow() {
   return (
     <main>
       <h1 className="g-h" style={{ marginTop: 28 }}>
-        Name the person, <span className="g-accent">never the cause.</span>
+        Back a <span className="g-accent">specific person.</span>
       </h1>
       <p style={{ marginTop: 14, maxWidth: "58ch" }}>
-        Nobody's first patron act should be $500. The $10 covered seat is the
-        funnel mouth — and there are two doors in, because warm patrons arrive
-        knowing Shua and cold patrons don't know anyone yet.
+        Most patrons start at $10, not $500. Cover a specific creative's
+        seat — or cover a seat and we'll match you with someone.
       </p>
 
       {/* ————— 01 · The two doors ————— */}
       <div className="g-label" style={{ marginTop: 40 }}>
-        01 · The two doors
+        01 · Two ways in
       </div>
 
       {!verdict.allowed && (
@@ -247,7 +246,7 @@ export default function PatronFlow() {
             Cover Shua's seat — ${SEAT_PRICE}/mo
           </div>
           <p style={{ fontSize: 14.5 }}>
-            His place at the table, paid for. Right now: <i>{SHUA_STORY.title}</i> —{" "}
+            His seat, paid for. Right now: <i>{SHUA_STORY.title}</i> —{" "}
             {SHUA_STORY.blurb} You'll get his story updates as the work happens,
             with your name in the credit line.
           </p>
@@ -277,7 +276,7 @@ export default function PatronFlow() {
             </div>
           </div>
           <div className="g-h" style={{ fontSize: 22 }}>
-            Cover a seat — we'll seat a creative
+            Cover a seat — we'll match you with a creative
           </div>
           <p style={{ fontSize: 14.5 }}>
             ${SEAT_PRICE}/mo is literally one seat — no pooling. A host matches
@@ -326,23 +325,23 @@ export default function PatronFlow() {
             <span className="g-label">Matched within a week</span>
           </div>
           <p className="g-hint">
-            Only creatives who've opted in are matched — and every introduction
-            leads with their work, never their need.
+            Only creatives who've opted in are matched, and introductions lead
+            with their work, not their need.
           </p>
         </div>
       </div>
 
       <p className="g-hint" style={{ marginTop: 14, maxWidth: "62ch" }}>
         Covering ten seats at once, or a season of one person's work? Coverage
-        codes are below — and hosts can tell you about Fellowships ($500/mo,
-        sold as a conversation, never as the first ask).
+        codes are below. Ask a host about Fellowships too ($500/mo) — that
+        one's better discussed in person.
       </p>
 
       {/* ————— 02 · Checkout ————— */}
       {door && (
         <>
           <div className="g-label" style={{ marginTop: 44 }}>
-            02 · Checkout — the name is the product
+            02 · Checkout — your name in the credit line
           </div>
           <div className="g-card" style={{ marginTop: 14, maxWidth: 480 }}>
             <div style={{ display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap" }}>
@@ -351,7 +350,7 @@ export default function PatronFlow() {
               </span>
               <span className="g-badge g-badge-citron">${SEAT_PRICE}/mo</span>
             </div>
-            <SplitBar who={door === "named" ? "his place at the table" : "one person's place"} />
+            <SplitBar who={door === "named" ? "his seat" : "one person's seat"} />
             <p className="g-hint" style={{ marginTop: 8 }}>
               Patronage splits {SPLITS.patronage.work * 100}/
               {SPLITS.patronage.platform * 100}, published — ninety cents of
@@ -390,7 +389,7 @@ export default function PatronFlow() {
               </div>
             )}
             <p className="g-hint" style={{ marginTop: 14 }}>
-              Prefer to stay unnamed? <span style={{ color: "var(--g-citron)" }}>Cover quietly</span> —{" "}
+              Prefer to stay unnamed? <span style={{ color: "var(--g-citron)" }}>Give anonymously</span> —{" "}
               {door === "named" ? "Shua" : "your match"} will know, the public won't.
             </p>
           </div>
@@ -456,8 +455,9 @@ export default function PatronFlow() {
         03 · Coverage codes — ten seats, one decision
       </div>
       <p className="g-hint" style={{ marginTop: 8, maxWidth: "62ch" }}>
-        The church door: buy N seats, get a code and a QR made for a bulletin, a
-        slide, a lobby table. This is {COVERAGE.sponsor}'s sponsor view.
+        For churches and other groups: buy N seats, get a code and a QR made
+        for a bulletin, a slide, a lobby table. This is {COVERAGE.sponsor}'s
+        sponsor view.
       </p>
       <div className="g-card" style={{ marginTop: 14, maxWidth: 560 }}>
         <div style={{ display: "flex", gap: 22, alignItems: "center", flexWrap: "wrap" }}>
@@ -525,7 +525,8 @@ export default function PatronFlow() {
           Taken by {COVERAGE.redeemedBy.join(", ")}.
         </p>
         <p className="g-hint" style={{ marginTop: 10 }}>
-          {idle} seats are waiting — the announcement is the distribution.{" "}
+          {idle} seats are unclaimed — announcing the code from the front is
+          what fills them.{" "}
           <span className="g-credit" style={{ color: "var(--g-citron)", fontSize: 10 }}>
             Announce them again →
           </span>
@@ -538,7 +539,7 @@ export default function PatronFlow() {
       </div>
       <p className="g-hint" style={{ marginTop: 8, maxWidth: "62ch" }}>
         What a creative sees landing on {COVERAGE.qrUrl}. Coverage changes who
-        pays, never what the creative can do.
+        pays, not what the creative can do.
       </p>
       <div className="g-card" style={{ marginTop: 14, maxWidth: 480 }}>
         <span className="g-badge g-badge-citron">Covered · {COVERAGE.code}</span>
@@ -549,8 +550,9 @@ export default function PatronFlow() {
           </div>
         </div>
         <p style={{ fontSize: 15, marginTop: 10 }}>
-          {COVERAGE.sponsor} has paid for your place at the table — a full seat,
-          nothing less. Run a project, apply to paid work, join member tables.
+          {COVERAGE.sponsor} paid for your seat — same capabilities as anyone
+          paying their own way. Run a project, apply to paid work, join member
+          tables.
         </p>
         <Field label="Your name">
           <DeadInput value="What should we call you?" />
@@ -561,7 +563,7 @@ export default function PatronFlow() {
             style={{ marginTop: 20 }}
             onClick={() => setSeatTaken(true)}
           >
-            Take your seat
+            Claim your seat
           </button>
         ) : (
           <p style={{ fontSize: 15, marginTop: 20, color: "var(--g-paper)" }}>

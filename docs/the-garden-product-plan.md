@@ -164,6 +164,8 @@ Migration note: existing `jobs` become paid projects; existing behavior is prese
 
 ### 3.1 UI decisions locked by the mocks (2026-08-09)
 
+**Copy voice (locked 2026-08-09, Rick):** down-to-earth and real, not folksy. The six nouns are vocabulary, not a metaphor to extend — no chairs/doors/planting riffs. Headlines state the action or fact; numbers and specifics persuade; warmth is directness. Canon sentences (the §2.2 dues sentence, "money is never the only door", "get paid to gather the people you already gather") stay verbatim. Test for any line: would a competent adult explaining a real product to a friend say it?
+
 - **Signup order:** I make things → I fund work → I have a place or resources → I gather people. Funders second because paid-project supply drives seat conversion (§2.5); hosts last because hosts arrive already knowing they're hosts.
 - **The split strip is the receipt.** While The Garden is the default host org it shows two cells ("$5 another creative's project / $5 the garden — the place itself"); a named host org gets the three-cell "$4 your host · $5 · $1 us" variant. The default-host share flowing to the platform is true and unstated.
 - **Every checkout ends in an invitation** ("Save a seat for someone") — a personal introduction, not a referral link; skippable in one tap.

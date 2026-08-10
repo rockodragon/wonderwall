@@ -21,13 +21,13 @@ const MODES: { id: Mode; label: string; line: string; Icon: GardenIcon }[] = [
   {
     id: "open",
     label: "Open",
-    line: "Anyone sits in, account or not. Your front porch — and your funnel.",
+    line: "Anyone can join, account or not — this is where new people find you.",
     Icon: IconTable,
   },
   {
     id: "member",
     label: "Members",
-    line: "A seat gets a place at it. Attendees show up; a roster belongs.",
+    line: "A seat gets a place at it. Only people with a seat can attend — no walk-ins.",
     Icon: IconPeople,
   },
   {
@@ -57,7 +57,7 @@ const PRICES = [0, 25, 40, 60];
 
 const STEPS = ["Name", "Mode", "Cadence", "Price"];
 
-const INVITE_LINE = "We're moving the Thursday thing somewhere it can grow. Sit with us —";
+const INVITE_LINE = "We're moving the Thursday thing to a new spot — here's the link:";
 
 // ————— Small pieces —————
 
@@ -184,9 +184,9 @@ export default function DemoHost() {
     return (
       <main style={{ marginTop: 28 }}>
         <div className="g-card" style={{ maxWidth: 470, padding: "30px 30px 26px" }}>
-          <div className="g-label">Set a table</div>
+          <div className="g-label">Create a Table</div>
           <div className="g-h" style={{ fontSize: 26, marginTop: 8 }}>
-            Hosting is its own craft
+            This is host-only
           </div>
           <p style={{ fontSize: 15, color: "var(--g-body)", marginTop: 12 }}>{gate.reason}</p>
           <p style={{ fontSize: 15, color: "var(--g-body)", marginTop: 12 }}>
@@ -211,7 +211,7 @@ export default function DemoHost() {
           {upgradeNote ? (
             <p className="g-hint" style={{ marginTop: 12 }}>
               Demo — checkout lives in the Join flow. Or walk as Marcus on the
-              bar below and set his table.
+              bar below and create his table.
             </p>
           ) : null}
         </div>
@@ -291,10 +291,10 @@ export default function DemoHost() {
     return (
       <main style={{ marginTop: 28 }}>
         <div className="g-label" style={{ color: "var(--g-citron)" }}>
-          Table set
+          Table created
         </div>
         <h1 className="g-h" style={{ marginTop: 10, fontSize: "clamp(24px,4.5vw,32px)" }}>
-          Now — the people you already gather.
+          Now invite the people you already gather.
         </h1>
         <p style={{ fontSize: 15, marginTop: 10, maxWidth: "54ch" }}>
           Hosts send their own invitations — every one lands as an introduction
@@ -315,7 +315,7 @@ export default function DemoHost() {
                 </div>
                 <p className="g-hint" style={{ marginTop: 6 }}>
                   Drop it in the group chat, the bio, the bulletin. Anyone with
-                  the link lands on your table's card and asks for a chair.
+                  the link lands on your table's card and can ask to join.
                 </p>
               </div>
             </div>
@@ -344,7 +344,7 @@ export default function DemoHost() {
               </Link>
             </div>
             <p className="g-hint" style={{ marginTop: 12 }}>
-              Migration, not recruitment — first job is moving the ten people
+              You're not recruiting — the first job is moving the ten people
               you already have out of the group chat.
             </p>
           </div>
@@ -399,7 +399,7 @@ export default function DemoHost() {
             placeholder="Third Thursday Songwriters"
           />
           <p className="g-hint" style={{ marginTop: 6 }}>
-            Name it like a night people already talk about, not a program.
+            Use the name your group already calls it, not a program title.
           </p>
         </div>
       </>
@@ -411,7 +411,7 @@ export default function DemoHost() {
     stepBody = (
       <>
         <div className="g-h" style={{ fontSize: 22 }}>
-          What kind of door?
+          What kind of Table?
         </div>
         <p className="g-hint" style={{ marginTop: 8 }}>
           One object, one setting — no table types, no branching.
@@ -520,27 +520,27 @@ export default function DemoHost() {
     stepBody = (
       <>
         <div className="g-h" style={{ fontSize: 22 }}>
-          What does a chair cost?
+          What's the price?
         </div>
 
         {mode === "open" ? (
           <p style={{ fontSize: 15, marginTop: 12, maxWidth: "50ch" }}>
             Nothing — open tables are always free to run and free to sit at. No
-            platform fee, ever. This one is your front porch.
+            platform fee, ever. This is your open door to new people.
           </p>
         ) : null}
 
         {mode === "member" ? (
           <p style={{ fontSize: 15, marginTop: 12, maxWidth: "50ch" }}>
-            Nothing at the door — a members table rides on seats people already
-            hold. Belonging is what a seat buys; this table is where it happens.
+            Nothing at the door — a members table is for people who already
+            hold a seat. This is where they gather.
           </p>
         ) : null}
 
         {mode === "cohort" ? (
           <>
             <p className="g-hint" style={{ marginTop: 8 }}>
-              Cohorts can carry a price — deeper commitment is what costs.
+              Cohorts can charge because they ask for real commitment.
             </p>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 16 }}>
               {PRICES.map((p) => (
@@ -570,12 +570,12 @@ export default function DemoHost() {
             }}
           >
             <span className="g-label" style={{ color: "var(--g-citron)" }}>
-              House rule — one door stays open
+              The free-table rule
             </span>
             <p style={{ fontSize: 14, color: "var(--g-body)", marginTop: 6 }}>
-              Belonging is free — keep one door open. Every host keeps at least
-              one free or open table, and right now this priced cohort would be
-              your only one. Set an open table first, or let this one be free.
+              Every host keeps at least one free, open Table. It's built into
+              the product, not a policy. Right now this priced cohort would be
+              your only one — set an open table first, or make this one free.
             </p>
             <div style={{ marginTop: 12, display: "flex", gap: 10, flexWrap: "wrap" }}>
               <button className="g-btn g-btn-ghost" onClick={() => setPrice(0)}>
@@ -601,13 +601,13 @@ export default function DemoHost() {
             }}
           >
             <span className="g-label" style={{ color: "var(--g-citron)" }}>
-              House rule
+              The free-table rule
             </span>
             <p style={{ fontSize: 14, color: "var(--g-body)", marginTop: 6 }}>
-              Every host keeps at least one free or open table.{" "}
+              Every host keeps at least one free, open table.{" "}
               {openDoors.length > 0
-                ? `Your open ${openDoors[0].name} covers this — money is never the only door in.`
-                : "This table is a free door itself — money is never the only door in."}
+                ? `Your open ${openDoors[0].name} covers it — money is never the only door in.`
+                : "This table would be your free, open one — money is never the only door in."}
             </p>
             {openDoors.length > 0 && mode === "cohort" ? (
               <button
@@ -634,7 +634,7 @@ export default function DemoHost() {
 
   return (
     <main style={{ marginTop: 28 }}>
-      <div className="g-label">Set a table · host</div>
+      <div className="g-label">Create a Table · host</div>
       <h1 className="g-h" style={{ marginTop: 10, fontSize: "clamp(24px,4.5vw,32px)" }}>
         Four questions. The card builds itself.
       </h1>
@@ -655,7 +655,7 @@ export default function DemoHost() {
               onClick={() => canContinue && setStep(step + 1)}
               style={!canContinue ? { opacity: 0.35, cursor: "not-allowed" } : undefined}
             >
-              {step === 3 ? "Set the table" : "Continue"}
+              {step === 3 ? "Create the table" : "Continue"}
             </button>
           </div>
         </div>

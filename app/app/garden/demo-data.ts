@@ -133,7 +133,7 @@ export const PROJECTS: DemoProject[] = [
     title: "Back-room mural",
     byId: "foldednote",
     byLine: "Folded Note Records · partner",
-    blurb: "One wall, 14 feet, your take on 'the neon wall'. Paint on us.",
+    blurb: "One wall, 14 feet, in the back room. We cover materials; you keep creative control.",
     budget: 1200,
   },
   {
@@ -143,7 +143,7 @@ export const PROJECTS: DemoProject[] = [
     title: "Two wedding films, spring",
     byId: "diane",
     byLine: "Diane Okafor · patron",
-    blurb: "My niece's and one more. Looking for a filmmaker who shoots like memory feels.",
+    blurb: "My niece's wedding and one other. Looking for a filmmaker with a documentary style — real moments over posed shots.",
     budget: 800,
   },
   {

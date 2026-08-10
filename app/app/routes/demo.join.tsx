@@ -118,7 +118,7 @@ const STEP_LABELS: { id: Step; label: string }[] = [
   { id: "profile", label: "You" },
   { id: "tier", label: "Your seat" },
   { id: "checkout", label: "Checkout" },
-  { id: "seated", label: "Seated" },
+  { id: "seated", label: "Done" },
 ];
 
 const FIRST_TABLE = TABLES[0]; // Third Thursday Songwriters
@@ -168,7 +168,7 @@ function SplitStrip({ monthly }: { monthly: number }) {
       <div className="g-cell" style={{ flex: 1 }}>
         <span className="g-cell-v">{money(garden)}</span>
         <div className="g-label" style={{ marginTop: 6 }}>
-          the garden — the place itself
+          the garden — running the platform
         </div>
       </div>
     </div>
@@ -314,7 +314,7 @@ export default function DemoJoin() {
                 </p>
                 <div style={{ marginTop: 20, display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
                   <Link to="/demo/patron" className="g-btn g-btn-citron">
-                    Walk the patron door →
+                    See the patron flow →
                   </Link>
                   <button className="g-btn g-btn-ghost" onClick={() => setStep("profile")}>
                     I also make things
@@ -325,7 +325,7 @@ export default function DemoJoin() {
               <>
                 <div className="g-label">Partner</div>
                 <h1 className="g-h" style={{ fontSize: 26, marginTop: 8 }}>
-                  Partners come in through a relationship.
+                  Partners join through a host's listing, not a signup form.
                 </h1>
                 <p style={{ fontSize: 15, marginTop: 12 }}>
                   A creative or host who knows your room lists you — no account
@@ -357,7 +357,7 @@ export default function DemoJoin() {
         <section style={{ marginTop: 32, maxWidth: 480 }}>
           <div className="g-label">2 of 4</div>
           <h1 className="g-h" style={{ fontSize: 28, marginTop: 8 }}>
-            Enough to introduce you.
+            Tell us the basics.
           </h1>
           <p className="g-hint" style={{ marginTop: 10 }}>
             Three fields. A portfolio is not required — one thing you already
@@ -407,7 +407,7 @@ export default function DemoJoin() {
         <section style={{ marginTop: 32 }}>
           <div className="g-label">3 of 4</div>
           <h1 className="g-h" style={{ fontSize: 28, marginTop: 8 }}>
-            Take a seat — or just come in.
+            Choose your membership. Free is a real option.
           </h1>
           <p style={{ fontSize: 15, marginTop: 12, maxWidth: "56ch" }}>
             {SPLITS.duesSentence}
@@ -452,7 +452,7 @@ export default function DemoJoin() {
                   </div>
                   {t.level === recommended && (
                     <div className="g-credit" style={{ marginTop: 8 }}>
-                      <b>{door === "gather" ? "For the one who makes the room" : "Most people start here"}</b>
+                      <b>{door === "gather" ? "For people already running a group" : "Most people start here"}</b>
                     </div>
                   )}
                   <ul style={{ margin: "12px 0 0", padding: 0, listStyle: "none" }}>
@@ -482,7 +482,7 @@ export default function DemoJoin() {
               className="g-btn g-btn-citron"
               onClick={() => setStep(tier === "free" ? "seated" : "checkout")}
             >
-              {tier === "free" ? "Come on in — free" : `Continue · ${chosen.price}`}
+              {tier === "free" ? "Continue · Free" : `Continue · ${chosen.price}`}
             </button>
             <button className="g-btn g-btn-ghost" onClick={() => setStep("profile")}>
               Back
@@ -520,12 +520,12 @@ export default function DemoJoin() {
               marginTop: 16,
             }}
           >
-            No ads. No algorithm. You're not the product — your seat is what
-            keeps this place alive.
+            No ads. No algorithm. You're not the product — your membership
+            pays for this directly.
           </p>
           <div style={{ marginTop: 20, display: "flex", gap: 12, alignItems: "center" }}>
             <button className="g-btn g-btn-citron" onClick={() => setStep("seated")}>
-              Take your seat
+              Confirm membership
             </button>
             <button className="g-btn g-btn-ghost" onClick={() => setStep("tier")}>
               Back
@@ -542,9 +542,9 @@ export default function DemoJoin() {
 
       {step === "seated" && (
         <section style={{ marginTop: 32, maxWidth: 480 }}>
-          <div className="g-label">Seated</div>
+          <div className="g-label">Done</div>
           <h1 className="g-h" style={{ fontSize: 28, marginTop: 8 }}>
-            {tier === "free" ? "You're in." : "Your seat is held."}
+            You're in.
           </h1>
           {tier !== "free" && (
             <p style={{ fontSize: 15, marginTop: 10 }}>
@@ -563,25 +563,22 @@ export default function DemoJoin() {
               {FIRST_TABLE.name}
             </div>
             <div className="g-credit" style={{ marginTop: 10 }}>
-              {FIRST_TABLE.cadence} · <b>open — walk in</b>
+              {FIRST_TABLE.cadence} · <b>open — no RSVP needed</b>
             </div>
           </div>
           <p style={{ fontSize: 15, marginTop: 18 }}>
-            One more thing makes this real:{" "}
-            <b style={{ color: "var(--g-paper)", fontWeight: 600 }}>
-              a table's only as good as who's at it.
-            </b>
+            You can also invite someone directly.
           </p>
           {inviteSent ? (
             <div className="g-credit" style={{ marginTop: 18 }}>
-              Seat saved for <b>{inviteName || "your someone"}</b> — the invite
-              carries your name, not a referral link.
+              Invite sent to <b>{inviteName || "them"}</b> — it carries your
+              name, not a referral link.
             </div>
           ) : (
             <>
               <div style={{ marginTop: 18 }}>
                 <div className="g-label" style={{ marginBottom: 7 }}>
-                  Save a seat for someone
+                  Know someone who should see this? Send them the link.
                 </div>
                 <input
                   className="g-input"

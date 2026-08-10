@@ -22,15 +22,15 @@ const FLOWS = [
   },
   {
     to: "/demo/patron",
-    title: "Patron — two doors, coverage codes, QR",
-    note: "Cover Shua by name, or cover a seat and we'll seat a creative.",
+    title: "Patron — two ways in, coverage codes, QR",
+    note: "Cover Shua by name, or cover a seat and we'll match a creative to it.",
     as: "Walk as Diane (patron)",
     Icon: IconCredit,
   },
   {
     to: "/demo/host",
     title: "Host — the table wizard",
-    note: "Free-door rule enforced; the QR link that spawns a table.",
+    note: "Free-table rule enforced; the QR link that spawns a table.",
     as: "Walk as Marcus (host)",
     Icon: IconTable,
   },

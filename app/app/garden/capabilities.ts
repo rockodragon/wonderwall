@@ -71,7 +71,7 @@ export function can(user: GardenUser, capability: Capability): CanResult {
       if (user.activePassionProjects >= limit)
         return {
           allowed: false,
-          reason: `You're at ${limit} active passion ${limit === 1 ? "project" : "projects"} — finish one, or make room for more.`,
+          reason: `You're at ${limit} active passion ${limit === 1 ? "project" : "projects"} — finish or archive one to start another.`,
           limit,
           used: user.activePassionProjects,
           upgradePath: level === "seat" ? FIVE_PATH : level === "five" ? HOST_PATH : undefined,
@@ -94,7 +94,7 @@ export function can(user: GardenUser, capability: Capability): CanResult {
       if (isPaidLevel(level)) return { allowed: true };
       return {
         allowed: false,
-        reason: "Applying to paid work is a member thing — take a seat first.",
+        reason: "Applying to paid work requires a seat.",
         upgradePath: SEAT_PATH,
       };
 
@@ -131,7 +131,7 @@ export function can(user: GardenUser, capability: Capability): CanResult {
       return {
         allowed: false,
         reason:
-          "A Table is a roster that belongs to someone — hosting is its own craft.",
+          "Tables are ongoing rosters run by hosts. Creating one requires the host tier.",
         upgradePath: HOST_PATH,
       };
 

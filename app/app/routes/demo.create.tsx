@@ -19,7 +19,7 @@ const FORK = [
     path: "passion" as Path,
     kind: "Passion · seeking support",
     name: "I'm making something and want support",
-    desc: "Your work. The community and its patrons get behind it — money, hands, honest ears.",
+    desc: "Your own work. The community and its patrons back it with funding, collaborators, and feedback.",
     Icon: IconSpark,
   },
   {
@@ -208,8 +208,8 @@ export default function DemoCreate() {
 
   const upgradeHint = upgradeNote ? (
     <p className="g-hint" style={{ marginTop: 12 }}>
-      Demo — checkout lives in the Join flow. Or walk as another persona on the
-      bar below and watch this gate change its mind.
+      Demo — checkout lives in the Join flow. Switch personas on the bar
+      below and this result will change.
     </p>
   ) : null;
 
@@ -222,7 +222,7 @@ export default function DemoCreate() {
           What are we starting?
         </h1>
         <p className="g-hint" style={{ marginTop: 10, maxWidth: "58ch" }}>
-          Two doors, no third. The fork asks who brings the money — nothing else.
+          Two kinds of project. The only difference is who brings the money.
         </p>
         <div
           style={{
@@ -280,7 +280,7 @@ export default function DemoCreate() {
         <main style={{ marginTop: 28, maxWidth: 520 }}>
           <div className="g-label" style={{ color: "var(--g-citron)", display: "flex", alignItems: "center", gap: 7 }}>
             <IconCheck size={18} className="g-ic-citron" />
-            Planted
+            Live
           </div>
           <h1 className="g-h" style={{ marginTop: 10, fontSize: "clamp(24px,4.5vw,32px)" }}>
             “{pTitle.trim() || "Untitled"}” is live
@@ -292,9 +292,9 @@ export default function DemoCreate() {
             </span>
           </div>
           <p style={{ fontSize: 15, marginTop: 16, maxWidth: "52ch" }}>
-            It surfaces in the “just posted” rotation within the minute — rotation,
-            not merit. Support can be money, hands, or honest ears; whoever shows
-            up lands in the credits on the story page.
+            It appears in the “just posted” rotation within a minute — that's
+            rotation, not merit. Support can be funding, collaborators, or
+            feedback; whoever contributes lands in the credits on the story page.
           </p>
           {pGoal.trim() ? (
             <p className="g-hint" style={{ marginTop: 10 }}>
@@ -332,7 +332,7 @@ export default function DemoCreate() {
                 ? gate.upgradePath?.startsWith("Host")
                   ? "Five at once — or host"
                   : "One at a time — or five"
-                : "Take a seat"}
+                : "Get a seat"}
             </div>
             <div className="g-h" style={{ fontSize: atCap ? 24 : 26, marginTop: 8 }}>
               {atCap ? capHeadline : "Start your first project"}
@@ -410,15 +410,15 @@ export default function DemoCreate() {
           </span>
         </div>
         <h1 className="g-h" style={{ marginTop: 16, fontSize: "clamp(24px,4.5vw,32px)" }}>
-          Let the work speak first
+          Show the work first
         </h1>
         <div style={{ marginTop: 18 }}>
           <DropZone
-            text="Drop a cover image or video — the work leads, the words follow"
+            text="Drop a cover image or video — add the title and details after"
             Icon={IconMake}
           />
           <p className="g-hint" style={{ marginTop: 6 }}>
-            Title and one-liner draft themselves from what you upload — yours to
+            Title and one-liner are drafted from what you upload — yours to
             edit, never auto-published.
           </p>
         </div>
@@ -430,7 +430,7 @@ export default function DemoCreate() {
             placeholder="What are you making?"
           />
         </Field>
-        <Field label="The ask (one line)" hint="Money, hands, or honest ears — say which.">
+        <Field label="The ask (one line)" hint="Funding, collaborators, or feedback — say which.">
           <input
             className="g-input"
             value={pAsk}
@@ -455,7 +455,7 @@ export default function DemoCreate() {
             style={{ opacity: pTitle.trim() ? 1 : 0.4 }}
             onClick={() => setPlanted(true)}
           >
-            Plant it
+            Post it
           </button>
           <button
             className="g-label"
@@ -494,7 +494,7 @@ export default function DemoCreate() {
         <p style={{ fontSize: 15, marginTop: 16, maxWidth: "52ch" }}>
           Creatives apply to the number on the badge. When money moves through The
           Garden, {Math.round(SPLITS.patronage.work * 100)}% goes to the work and{" "}
-          {Math.round(SPLITS.patronage.platform * 100)}% keeps the place on — in
+          {Math.round(SPLITS.patronage.platform * 100)}% funds the platform — in
           v1 you pay the creative directly when the work's agreed, and the ledger
           records the commitment.
         </p>
