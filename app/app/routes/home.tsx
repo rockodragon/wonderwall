@@ -216,7 +216,7 @@ export default function Home() {
             sponsors, and collaborators.
           </p>
           <p className="text-lg text-gray-300 max-w-xl mx-auto mb-8">
-            Portfolios, jobs, collaborations, interviews, podcasts, trainings,
+            Portfolios, projects, collaborations, interviews, podcasts, trainings,
             and events — all connected to the work you are called to make.
           </p>
 
@@ -511,7 +511,7 @@ export default function Home() {
                 <p className="text-gray-300 text-lg leading-relaxed">
                   TheCrossBoard connects creative work to real people and real
                   opportunities. Values-driven businesses, organizations, and
-                  sponsors post jobs. Creatives show portfolios, process, and
+                  sponsors post projects. Creatives show portfolios, process, and
                   availability. Collaborations start through direct
                   conversations, not algorithms.
                 </p>
@@ -555,7 +555,7 @@ export default function Home() {
           />
           <FeatureCard
             title="Find Work"
-            description="Discover jobs, commissions, and creative opportunities from organizations that value your craft and character."
+            description="Discover projects, commissions, and creative opportunities from organizations that value your craft and character."
             icon={
               <path
                 strokeLinecap="round"

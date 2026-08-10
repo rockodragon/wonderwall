@@ -1,0 +1,181 @@
+/* The Garden — credit-sheet design system (rebrand handoff).
+   Scoped under .garden-root so it never leaks into the legacy app shell. */
+
+.garden-root {
+  --g-ink: #121212;
+  --g-paper: #f7f7f4;
+  --g-hairline: #2a2a28;
+  --g-dim: #6f6f69;
+  --g-muted: #8b8b85;
+  --g-body: #a8a8a0;
+  --g-citron: #d7f25a;
+
+  background: var(--g-ink);
+  color: var(--g-body);
+  font-family: "Archivo", -apple-system, sans-serif;
+  font-size: 17px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+
+.garden-root .g-wrap {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: clamp(24px, 5vw, 48px) clamp(20px, 4.5vw, 40px) 96px;
+}
+.garden-root .g-wrap-wide {
+  max-width: 980px;
+}
+
+.garden-root .g-mono {
+  font-family: "JetBrains Mono", monospace;
+}
+.garden-root .g-wordmark {
+  font-family: "JetBrains Mono", monospace;
+  font-weight: 500;
+  font-size: 12px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--g-paper);
+  text-decoration: none;
+}
+.garden-root .g-label {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--g-dim);
+}
+.garden-root .g-h {
+  font-family: "Bricolage Grotesque", sans-serif;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--g-paper);
+  line-height: 1.05;
+}
+.garden-root h1.g-h {
+  font-size: clamp(30px, 6vw, 44px);
+  letter-spacing: -0.03em;
+  text-wrap: balance;
+}
+.garden-root .g-accent {
+  color: var(--g-citron);
+}
+
+.garden-root .g-rule-heavy {
+  height: 2px;
+  background: var(--g-paper);
+  border: none;
+}
+.garden-root .g-rule {
+  height: 1px;
+  background: var(--g-hairline);
+  border: none;
+}
+
+.garden-root .g-btn {
+  display: inline-block;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 13px 22px;
+  border-radius: 3px;
+  text-decoration: none;
+  border: none;
+  cursor: pointer;
+}
+.garden-root .g-btn-citron {
+  background: var(--g-citron);
+  color: var(--g-ink);
+}
+.garden-root .g-btn-ghost {
+  border: 1px solid var(--g-hairline);
+  color: var(--g-body);
+  background: transparent;
+}
+
+.garden-root .g-badge {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-radius: 3px;
+  padding: 4px 8px;
+}
+.garden-root .g-badge-citron {
+  background: var(--g-citron);
+  color: var(--g-ink);
+}
+.garden-root .g-badge-line {
+  border: 1px solid var(--g-hairline);
+  color: var(--g-body);
+}
+
+.garden-root .g-card {
+  border: 1px solid var(--g-hairline);
+  border-radius: 10px;
+  padding: 20px 24px;
+}
+.garden-root .g-credit {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--g-muted);
+}
+.garden-root .g-credit b {
+  color: var(--g-citron);
+  font-weight: 500;
+}
+.garden-root .g-hint {
+  font-size: 13px;
+  color: var(--g-dim);
+}
+.garden-root .g-input {
+  width: 100%;
+  background: transparent;
+  border: 1px solid var(--g-hairline);
+  border-radius: 3px;
+  color: var(--g-paper);
+  font-family: "Archivo", sans-serif;
+  font-size: 16px;
+  padding: 12px 14px;
+}
+.garden-root .g-input::placeholder {
+  color: var(--g-dim);
+}
+
+/* Persona switcher bar (demo chrome, not product) */
+.garden-root .g-demo-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #0c0c0c;
+  border-top: 1px solid var(--g-hairline);
+  padding: 10px clamp(16px, 4vw, 32px);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  z-index: 50;
+}
+.garden-root .g-demo-chip {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border: 1px solid var(--g-hairline);
+  border-radius: 3px;
+  padding: 5px 9px;
+  color: var(--g-body);
+  background: transparent;
+  cursor: pointer;
+}
+.garden-root .g-demo-chip[data-active="true"] {
+  background: var(--g-citron);
+  color: var(--g-ink);
+  border-color: var(--g-citron);
+}

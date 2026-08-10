@@ -30,7 +30,7 @@ export function meta({}: Route.MetaArgs) {
     {
       name: "description",
       content:
-        "Connect with talented creatives known for integrity and excellence. Post jobs, build your team, and find values-aligned talent—whether you're a church, nonprofit, startup, or enterprise.",
+        "Connect with talented creatives known for integrity and excellence. Post projects, build your team, and find values-aligned talent—whether you're a church, nonprofit, startup, or enterprise.",
     },
     { property: "og:title", content: "Hire Kingdom Creatives | TheCrossBoard" },
     {
@@ -64,7 +64,7 @@ const TIERS = [
       "Website link and contact info",
       "Organization type badge",
       "Browse creative portfolios",
-      "1 job posting at a time",
+      "1 project posting at a time",
     ],
     highlighted: false,
     free: true,
@@ -78,7 +78,7 @@ const TIERS = [
       "Everything in Community, plus:",
       "Logo displayed in directory",
       "Dedicated organization profile page",
-      "Up to 5 active job postings",
+      "Up to 5 active project postings",
       "Direct messaging with creatives",
     ],
     highlighted: false,
@@ -91,7 +91,7 @@ const TIERS = [
     description: "For established organizations investing in Kingdom creatives",
     features: [
       "Everything in Partner, plus:",
-      "Up to 15 active job postings",
+      "Up to 15 active project postings",
       "Featured organization badge",
       "Spotlight organizational profile",
       "Homepage feature rotation",
@@ -108,7 +108,7 @@ const TIERS = [
       "Strategic partnership shaping the future of Kingdom creativity",
     features: [
       "Everything in Patron, plus:",
-      "Unlimited job postings",
+      "Unlimited project postings",
       "Spotlight organizational profile",
       "Event and feature naming rights",
       "Advisory board participation",
@@ -134,7 +134,7 @@ const FAQS = [
   {
     question: "What's the difference between the tiers?",
     answer:
-      "The free Community tier gets your organization listed in our directory—great for getting started. The Partner tier ($100/month) unlocks job posting and direct messaging. Patron and Founding Partner tiers add premium visibility, dedicated support, and the ability to sponsor creative memberships as a 'patron of the arts.'",
+      "The free Community tier gets your organization listed in our directory—great for getting started. The Partner tier ($100/month) unlocks project posting and direct messaging. Patron and Founding Partner tiers add premium visibility, dedicated support, and the ability to sponsor creative memberships as a 'patron of the arts.'",
   },
   {
     question: "What does 'sponsor creative memberships' mean?",
@@ -149,12 +149,12 @@ const FAQS = [
   {
     question: "How is TheCrossBoard different from other job boards?",
     answer:
-      "Unlike traditional job boards, TheCrossBoard is a community first. Creatives showcase portfolios, share their journey, and connect based on shared values. When you post a job, you see complete portfolios—not just resumes. You're hiring people whose work quality and character you can evaluate before reaching out.",
+      "Unlike traditional job boards, TheCrossBoard is a community first. Creatives showcase portfolios, share their journey, and connect based on shared values. When you post a project, you see complete portfolios—not just resumes. You're hiring people whose work quality and character you can evaluate before reaching out.",
   },
   {
     question: "Can we try before we commit?",
     answer:
-      "Yes—our Community tier is completely free. Get listed, browse portfolios, and see if TheCrossBoard is right for your organization. When you're ready to post jobs and connect directly with creatives, upgrading is simple.",
+      "Yes—our Community tier is completely free. Get listed, browse portfolios, and see if TheCrossBoard is right for your organization. When you're ready to post projects and connect directly with creatives, upgrading is simple.",
   },
   {
     question: "What if we have larger partnership needs?",

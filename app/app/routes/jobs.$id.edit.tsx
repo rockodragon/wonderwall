@@ -167,7 +167,7 @@ export default function JobsEdit() {
     } catch (err) {
       console.error("Failed to update job:", err);
       setError(
-        err instanceof Error ? err.message : "Failed to update job posting",
+        err instanceof Error ? err.message : "Failed to update project posting",
       );
     } finally {
       setSaving(false);
@@ -188,7 +188,7 @@ export default function JobsEdit() {
       <div className="max-w-3xl mx-auto px-4 py-8">
         <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 p-6">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
-            Edit Job
+            Edit Project
           </h1>
 
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -201,7 +201,7 @@ export default function JobsEdit() {
             {/* Title */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Job Title <span className="text-red-500">*</span>
+                Project Title <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
@@ -219,7 +219,7 @@ export default function JobsEdit() {
             {/* Description */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Job Description <span className="text-red-500">*</span>
+                Project Description <span className="text-red-500">*</span>
               </label>
               <textarea
                 value={description}
@@ -311,7 +311,7 @@ export default function JobsEdit() {
             {/* Job Type */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Job Type <span className="text-red-500">*</span>
+                Project Type <span className="text-red-500">*</span>
               </label>
               <select
                 value={jobType}
@@ -432,7 +432,7 @@ export default function JobsEdit() {
                 className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
               />
               <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                Link to external job posting or application form
+                Link to external project posting or application form
               </div>
             </div>
 
@@ -493,7 +493,7 @@ export default function JobsEdit() {
                 disabled={saving}
                 className="flex-1 py-2.5 px-4 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                {saving ? "Updating..." : "Update Job"}
+                {saving ? "Updating..." : "Update Project"}
               </button>
             </div>
           </form>

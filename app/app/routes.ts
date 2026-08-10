@@ -36,6 +36,16 @@ export default [
     route("messages/:conversationId", "routes/messages.$conversationId.tsx"),
   ]),
 
+  // The Garden demo world (client-only, Convex-free — see beads wonderwall-qej)
+  route("demo", "routes/demo.tsx", [
+    index("routes/demo._index.tsx"),
+    route("join", "routes/demo.join.tsx"),
+    route("create", "routes/demo.create.tsx"),
+    route("patron", "routes/demo.patron.tsx"),
+    route("host", "routes/demo.host.tsx"),
+    route("host/dashboard", "routes/demo.host.dashboard.tsx"),
+  ]),
+
   // 404 catch-all
   route("*", "routes/404.tsx"),
 ] satisfies RouteConfig;

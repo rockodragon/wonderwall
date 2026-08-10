@@ -6,7 +6,7 @@ import { api } from "../../convex/_generated/api";
 import { InviteCTA } from "../components/InviteCTA";
 
 const navItems = [
-  { path: "/jobs", label: "Jobs", icon: BriefcaseIcon },
+  { path: "/jobs", label: "Projects", icon: BriefcaseIcon },
   { path: "/search", label: "People", icon: SearchIcon },
   { path: "/works", label: "Portfolios", icon: GridIcon },
   { path: "/events", label: "Events", icon: CalendarIcon },

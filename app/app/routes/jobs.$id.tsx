@@ -44,14 +44,14 @@ export default function JobDetail() {
 
   async function handleCloseJob() {
     if (!jobId) return;
-    if (!confirm("Are you sure you want to mark this job as closed?")) return;
+    if (!confirm("Are you sure you want to mark this project as closed?")) return;
 
     setClosing(true);
     try {
       await closeJob({ jobId });
     } catch (err) {
       console.error("Failed to close job:", err);
-      alert("Failed to close job. Please try again.");
+      alert("Failed to close project. Please try again.");
     } finally {
       setClosing(false);
     }
@@ -59,14 +59,14 @@ export default function JobDetail() {
 
   async function handleReopenJob() {
     if (!jobId) return;
-    if (!confirm("Are you sure you want to reopen this job?")) return;
+    if (!confirm("Are you sure you want to reopen this project?")) return;
 
     setReopening(true);
     try {
       await reopenJob({ jobId });
     } catch (err) {
       console.error("Failed to reopen job:", err);
-      alert("Failed to reopen job. Please try again.");
+      alert("Failed to reopen project. Please try again.");
     } finally {
       setReopening(false);
     }
@@ -83,12 +83,12 @@ export default function JobDetail() {
   if (!job) {
     return (
       <div className="p-6 max-w-4xl mx-auto text-center py-12">
-        <p className="text-gray-500 dark:text-gray-400">Job not found</p>
+        <p className="text-gray-500 dark:text-gray-400">Project not found</p>
         <Link
           to="/jobs"
           className="text-blue-600 hover:underline mt-4 inline-block"
         >
-          Back to Jobs
+          Back to Projects
         </Link>
       </div>
     );
@@ -131,7 +131,7 @@ export default function JobDetail() {
             d="M15 19l-7-7 7-7"
           />
         </svg>
-        Back to Jobs
+        Back to Projects
       </Link>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -368,7 +368,7 @@ export default function JobDetail() {
                         d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
                       />
                     </svg>
-                    Edit Job
+                    Edit Project
                   </Link>
 
                   {job.status === "Open" ? (
@@ -419,7 +419,7 @@ export default function JobDetail() {
                           />
                         </svg>
                       )}
-                      Reopen Job
+                      Reopen Project
                     </button>
                   )}
                 </div>

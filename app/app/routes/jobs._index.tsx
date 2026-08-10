@@ -128,14 +128,14 @@ export default function JobsIndex() {
   }, [jobs, searchQuery]);
 
   const tabs = [
-    { id: "all" as const, label: "All Jobs", shortLabel: "All" },
+    { id: "all" as const, label: "All Projects", shortLabel: "All" },
     { id: "matches" as const, label: "My Matches", shortLabel: "Matches" },
     {
       id: "interested" as const,
-      label: "Interested Jobs",
+      label: "Interested Projects",
       shortLabel: "Interested",
     },
-    { id: "posts" as const, label: "My Job Posts", shortLabel: "My Posts" },
+    { id: "posts" as const, label: "My Project Posts", shortLabel: "My Posts" },
   ];
 
   return (
@@ -144,7 +144,7 @@ export default function JobsIndex() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-            Jobs
+            Projects
           </h1>
           <p className="text-gray-500 dark:text-gray-400 mt-1">
             Discover opportunities in the creative community
@@ -174,7 +174,7 @@ export default function JobsIndex() {
             to="/jobs/new"
             className="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 transition-colors"
           >
-            + Post a Job
+            + Post a Project
           </Link>
         </div>
       </div>
@@ -200,7 +200,7 @@ export default function JobsIndex() {
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search jobs by title, description, or organization..."
+          placeholder="Search projects by title, description, or organization..."
           className="w-full pl-12 pr-4 py-3 border border-gray-300 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
         />
       </div>
@@ -368,15 +368,15 @@ export default function JobsIndex() {
               d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
             />
           </svg>
-          <p className="text-lg font-medium mb-1">No jobs found</p>
+          <p className="text-lg font-medium mb-1">No projects found</p>
           <p className="text-sm">
             {activeTab === "matches"
-              ? "No jobs match your profile disciplines yet"
+              ? "No projects match your profile disciplines yet"
               : activeTab === "interested"
-                ? "You haven't expressed interest in any jobs yet"
+                ? "You haven't expressed interest in any projects yet"
                 : activeTab === "posts"
-                  ? "You haven't posted any jobs yet"
-                  : "Try adjusting your filters or be the first to post a job"}
+                  ? "You haven't posted any projects yet"
+                  : "Try adjusting your filters or be the first to post a project"}
           </p>
         </div>
       ) : (

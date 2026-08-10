@@ -296,7 +296,7 @@ export default function OrganizationDemo() {
               <div className="text-2xl font-bold text-white">
                 {SAMPLE_ORG.stats.jobsPosted}
               </div>
-              <div className="text-sm text-gray-400">Jobs Posted</div>
+              <div className="text-sm text-gray-400">Projects Posted</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-white">
@@ -403,7 +403,7 @@ export default function OrganizationDemo() {
                         </div>
                       </div>
                       <button className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg transition-colors whitespace-nowrap">
-                        View Job
+                        View Project
                       </button>
                     </div>
                   </div>
@@ -413,7 +413,7 @@ export default function OrganizationDemo() {
                 to="/jobs"
                 className="inline-flex items-center gap-2 mt-6 text-blue-400 hover:text-blue-300 font-medium transition-colors"
               >
-                View all jobs from this organization
+                View all projects from this organization
                 <svg
                   className="w-4 h-4"
                   fill="none"

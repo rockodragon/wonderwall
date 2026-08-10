@@ -1,0 +1,20 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "pages-preview",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["wrangler", "pages", "dev", "./app/build/client", "--port", "8788"],
+      "port": 8788
+    },
+    {
+      "name": "app-dev",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "-lc",
+        "cd app && VITE_CONVEX_URL=https://courteous-rabbit-750.convex.cloud npx react-router dev --port 5173"
+      ],
+      "port": 5173
+    }
+  ]
+}
