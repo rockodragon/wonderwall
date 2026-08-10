@@ -249,6 +249,8 @@ Membership is to The Garden (via a host org); tables are joined individually. On
 
 Content first (per direction), then membership + projects, then tables, then the economy around them.
 
+**Status 2026-08-09:** Phase 0 largely shipped — `/` prerendered (title, meta, OG, hero without JS), `/about/*` rebranded to the credit-sheet system with all four personas + partners, `/about/leaders` 301s to `/about/hosts`, and the first Garden event is live (unlinked) at `/events/first-table/` with safe placeholders. Full mock set for Phases 0–3 lives in `docs/mocks/` (creative flow, project gates, patron doors, host tables, host dashboard, partners light, story page, Buzz, first event). Still open in Phase 0: YouTube channel link, app-UI vocabulary pass, public story pages. Follow-ups tracked in beads.
+
 | Phase | Theme | Ships | Depends on |
 |---|---|---|---|
 | **0 — Onramp** (now) | Be findable, shareable, watchable | Task 1 SSR (home + public pages, OG cards) · YouTube channel linked from site + profiles · public story pages · open tables/events browsable without account · app vocabulary pass (Jobs→Projects, Guide→Host…) · **the first Garden event, posted publicly in the platform** — the conversation that widens the tent beyond Rick, David, Haley, Joseph; the outside-visitor view of that event page is the acceptance test for public events | Nothing — all unblocked |
