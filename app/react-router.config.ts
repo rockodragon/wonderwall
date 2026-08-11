@@ -16,5 +16,6 @@ export default {
     "/demo/patron",
     "/demo/host",
     "/demo/host/dashboard",
+    "/demo/offers",
   ],
 } satisfies Config;

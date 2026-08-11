@@ -165,6 +165,11 @@ export interface DemoTable {
   name: string;
   hostId: string;
   mode: "open" | "member" | "cohort";
+  /** Format tag — the human label on the card (decided 2026-08-10).
+      Machinery follows mode; visitors read this. */
+  format?: "Workshop" | "Class" | "Mentorship" | "Critique" | "Show" | "Open mic";
+  /** Program byline for tenant brands, e.g. "Pathfinding · Abiding Practice". */
+  program?: string;
   cadence: string;
   roster: number;
   spawnUrl?: string;
@@ -176,6 +181,7 @@ export const TABLES: DemoTable[] = [
     name: "Third Thursday Songwriters",
     hostId: "marcus",
     mode: "open",
+    format: "Open mic",
     cadence: "3rd Thursdays · Folded Note back room",
     roster: 24,
     spawnUrl: "garden.app/t/third-thursday/spawn",
@@ -185,6 +191,7 @@ export const TABLES: DemoTable[] = [
     name: "Winter Songwriting Cohort",
     hostId: "marcus",
     mode: "cohort",
+    format: "Class",
     cadence: "8 weeks · $40 · starts Jan",
     roster: 9,
   },
@@ -193,8 +200,84 @@ export const TABLES: DemoTable[] = [
     name: "Illustrators' Critique Table",
     hostId: "marcus",
     mode: "member",
+    format: "Critique",
     cadence: "2nd Tuesdays · members only",
     roster: 12,
+  },
+  {
+    id: "pathfinding-fall",
+    name: "Pathfinding — Fall Cohort",
+    hostId: "ap",
+    mode: "cohort",
+    format: "Class",
+    program: "Pathfinding · Abiding Practice",
+    cadence: "8 weeks · $120 · starts Oct · ends at the showcase",
+    roster: 12,
+  },
+];
+
+// ————— Offers (partner-light, extended to people 2026-08-10) —————
+// One shape for "a standing thing you can take someone up on": a shop's back
+// room, a mailing list, or a person's coaching. Same directory, same card.
+
+export interface DemoOffer {
+  id: string;
+  by: string; // person or place
+  byKind: "person" | "place";
+  where: string;
+  kind: "Space" | "Goods" | "Audience" | "Coaching" | "Mentorship";
+  desc: string;
+  cadence: string;
+  price?: string; // absent = free / relationship-priced
+  program?: string; // tenant byline
+  photo?: string;
+  claimed: boolean;
+}
+
+export const OFFERS: DemoOffer[] = [
+  {
+    id: "foldednote-backroom",
+    by: "Folded Note Records",
+    byKind: "place",
+    where: "Shop · South Park",
+    kind: "Space",
+    desc: "The back room",
+    cadence: "3rd Thursdays",
+    photo: PHOTOS.recordShop,
+    claimed: true,
+  },
+  {
+    id: "grounds-audience",
+    by: "Grounds & Common",
+    byKind: "place",
+    where: "Café · North Park",
+    kind: "Audience",
+    desc: "2,400-person mailing list, one feature a month",
+    cadence: "Monthly",
+    photo: PHOTOS.cafe,
+    claimed: true,
+  },
+  {
+    id: "david-coaching",
+    by: "David Russo",
+    byKind: "person",
+    where: "Host · Abiding Practice",
+    kind: "Coaching",
+    desc: "1:1 spiritual creative coaching — a season of sessions around your work",
+    cadence: "Weekly or biweekly",
+    price: "$60/session",
+    program: "Pathfinding · Abiding Practice",
+    claimed: true,
+  },
+  {
+    id: "ranchroll-prints",
+    by: "Ranch & Roll Print Co.",
+    byKind: "place",
+    where: "Print shop · Barrio Logan",
+    kind: "Goods",
+    desc: "10 free prints a month · zine binding at cost",
+    cadence: "Recurring",
+    claimed: false,
   },
 ];
 

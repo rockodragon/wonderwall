@@ -13,6 +13,7 @@ const NAV = [
   { to: "/demo/patron", label: "Patron" },
   { to: "/demo/host", label: "Host" },
   { to: "/demo/host/dashboard", label: "Dashboard" },
+  { to: "/demo/offers", label: "Offers" },
 ];
 
 function Masthead() {
