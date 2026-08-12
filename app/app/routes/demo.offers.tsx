@@ -12,6 +12,20 @@ const FORMAT_TABLES = TABLES.filter((t) => FORMAT_TABLE_IDS.includes(t.id));
 
 // ————— Small pieces —————
 
+/** Every offer states free or priced — a price badge when there's a price,
+    a "Free" badge when there isn't. */
+function PriceBadge({ price }: { price?: string }) {
+  return price ? (
+    <span className="g-badge g-badge-line" style={{ color: "var(--g-paper)" }}>
+      {price}
+    </span>
+  ) : (
+    <span className="g-badge g-badge-line" style={{ color: "var(--g-body)" }}>
+      Free
+    </span>
+  );
+}
+
 function OfferCard({ offer }: { offer: (typeof OFFERS)[number] }) {
   const ByIcon = offer.byKind === "person" ? IconPeople : IconPlace;
   return (
@@ -50,11 +64,7 @@ function OfferCard({ offer }: { offer: (typeof OFFERS)[number] }) {
             >
               {offer.kind}
             </span>
-            {offer.price && (
-              <span className="g-badge g-badge-line" style={{ color: "var(--g-paper)" }}>
-                {offer.price}
-              </span>
-            )}
+            <PriceBadge price={offer.price} />
           </div>
           <p style={{ fontSize: 14.5, lineHeight: 1.55, color: "var(--g-body)", marginTop: 10 }}>
             {offer.desc}

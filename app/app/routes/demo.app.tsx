@@ -84,6 +84,15 @@ const MODE_LINE: Record<DemoTable["mode"], string> = {
   cohort: "A fixed group for a fixed term.",
 };
 
+/** Cost-aware RSVP/Register button copy — free events say "RSVP — free",
+    priced events say "Register — $N" with the actual price. */
+function eventCta(cost: string): { label: string; note: string } {
+  const isFree = cost.trim().toLowerCase() === "free";
+  return isFree
+    ? { label: "RSVP — free", note: "You're RSVP'd — free." }
+    : { label: `Register — ${cost}`, note: `You're registered — ${cost}.` };
+}
+
 /** Cap per cohort table — not tracked in demo-data.ts, so it lives here next
     to the label logic that reads it. */
 const COHORT_CAP: Record<string, number> = {
@@ -119,7 +128,43 @@ interface ViewState {
 
 const TABLE_FILTERS = ["All", "Class", "Critique", "Open mic"] as const;
 
+/** One descriptor sentence per section, verbatim — Events/Tables deliberately
+    cross-reference each other. */
+const SECTION_DESCRIPTOR: Record<NavItem, string> = {
+  Buzz: "The week at a glance — what's coming up, and what just got posted.",
+  Projects: "Creative work seeking support, and paid work seeking creatives.",
+  Events:
+    "One-off happenings you attend — a show, a workshop, an open mic. Ongoing classes live under Tables.",
+  Tables:
+    "Ongoing gatherings you belong to — a roster, not a guest list. One-off workshops live under Events.",
+  Offers:
+    "Standing things you can take someone up on — space, gear, an audience, coaching. Some are free, some are priced — every card says which.",
+};
+
 // ————— Small shared pieces —————
+
+/** Section title + one descriptor line — the same intro treatment for all
+    five sections. */
+function SectionIntro({ section }: { section: NavItem }) {
+  return (
+    <div style={{ marginBottom: 24 }}>
+      <h2 className="g-h" style={{ fontSize: 20 }}>
+        {section}
+      </h2>
+      <p
+        style={{
+          marginTop: 6,
+          fontSize: 15,
+          lineHeight: 1.5,
+          color: "var(--g-body)",
+          maxWidth: "58ch",
+        }}
+      >
+        {SECTION_DESCRIPTOR[section]}
+      </p>
+    </div>
+  );
+}
 
 function KindBadge({ project }: { project: DemoProject }) {
   return project.kind === "passion" ? (
@@ -131,6 +176,18 @@ function KindBadge({ project }: { project: DemoProject }) {
 
 function FormatBadge({ children }: { children: string }) {
   return <span className="g-badge g-badge-line">{children}</span>;
+}
+
+/** Every offer states free or priced — a price badge when there's a price,
+    a "Free" badge when there isn't. */
+function PriceBadge({ price }: { price?: string }) {
+  return price ? (
+    <span className="g-badge g-badge-line">{price}</span>
+  ) : (
+    <span className="g-badge g-badge-line" style={{ color: "var(--g-body)" }}>
+      Free
+    </span>
+  );
 }
 
 function MetaLine({ children }: { children: ReactNode }) {
@@ -237,8 +294,6 @@ function BuzzSection({
   const justPosted = PROJECTS.slice(0, 3);
   return (
     <div>
-      <div className="g-label">This week in San Diego</div>
-
       <Clickable
         onClick={() => onOpenDetail("event", firstEvent.id)}
         ariaLabel={firstEvent.title}
@@ -429,10 +484,7 @@ function TablesSection({
 
   return (
     <div>
-      <p style={{ maxWidth: "58ch" }}>
-        Ongoing gatherings with a roster — classes, critique nights, mentorship groups.
-      </p>
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 16 }}>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
         {TABLE_FILTERS.map((f) => (
           <button
             key={f}
@@ -491,7 +543,7 @@ function CompactOfferCard({
           <span className="g-badge g-badge-line" style={{ color: "var(--g-citron)", borderColor: "#3a3a36" }}>
             {offer.kind}
           </span>
-          {offer.price && <span className="g-badge g-badge-line">{offer.price}</span>}
+          <PriceBadge price={offer.price} />
         </div>
         <p style={{ fontSize: 13.5, lineHeight: 1.5, marginTop: 8 }}>{offer.desc}</p>
         <MetaLine>{offer.cadence}</MetaLine>
@@ -724,6 +776,7 @@ function EventDetail({
   onNote: (n: string) => void;
 }) {
   const isHostOwner = !!event.hostId && persona.id === event.hostId;
+  const cta = eventCta(event.cost);
 
   return (
     <div>
@@ -758,8 +811,8 @@ function EventDetail({
           </button>
         ) : (
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-            <button className="g-btn g-btn-citron" onClick={() => onNote("You're RSVP'd — free.")}>
-              RSVP — free
+            <button className="g-btn g-btn-citron" onClick={() => onNote(cta.note)}>
+              {cta.label}
             </button>
             <button className="g-btn g-btn-ghost" onClick={() => onNote("Noted — bring someone.")}>
               Bring someone
@@ -898,7 +951,7 @@ function OfferDetail({
         <span className="g-badge g-badge-line" style={{ color: "var(--g-citron)", borderColor: "#3a3a36" }}>
           {offer.kind}
         </span>
-        {offer.price && <span className="g-badge g-badge-line">{offer.price}</span>}
+        <PriceBadge price={offer.price} />
       </div>
 
       <p style={{ marginTop: 16, fontSize: 15, lineHeight: 1.6, maxWidth: "62ch" }}>{offer.desc}</p>
@@ -1090,6 +1143,7 @@ function AppShell() {
           <DetailView detail={view.detail} persona={persona} note={note} onNote={setNote} onBack={closeDetail} />
         ) : (
           <>
+            <SectionIntro section={view.section} />
             {view.section === "Buzz" && <BuzzSection onOpenDetail={openDetail} />}
             {view.section === "Projects" && <ProjectsSection onOpenDetail={openDetail} />}
             {view.section === "Events" && <EventsSection onOpenDetail={openDetail} />}
