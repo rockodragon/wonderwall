@@ -45,6 +45,7 @@ export default [
     route("host", "routes/demo.host.tsx"),
     route("host/dashboard", "routes/demo.host.dashboard.tsx"),
     route("offers", "routes/demo.offers.tsx"),
+    route("app", "routes/demo.app.tsx"),
   ]),
 
   // 404 catch-all

@@ -14,6 +14,7 @@ const NAV = [
   { to: "/demo/host", label: "Host" },
   { to: "/demo/host/dashboard", label: "Dashboard" },
   { to: "/demo/offers", label: "Offers" },
+  { to: "/demo/app", label: "App" },
 ];
 
 function Masthead() {

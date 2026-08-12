@@ -38,44 +38,39 @@ function OfferCard({ offer }: { offer: (typeof OFFERS)[number] }) {
         )}
         <div
           style={{
-            display: "flex",
-            alignItems: "baseline",
-            gap: 10,
             marginTop: 8,
-            paddingTop: 10,
+            paddingTop: 12,
             borderTop: "1px solid var(--g-hairline)",
-            flexWrap: "wrap",
           }}
         >
-          <span
-            className="g-mono"
-            style={{
-              fontSize: 9.5,
-              letterSpacing: "0.1em",
-              textTransform: "uppercase",
-              color: "var(--g-citron)",
-              minWidth: 70,
-            }}
-          >
-            {offer.kind}
-          </span>
-          <span style={{ flex: 1, fontSize: 14, color: "var(--g-body)" }}>{offer.desc}</span>
-          {offer.price && (
-            <span className="g-mono" style={{ fontSize: 11, color: "var(--g-paper)" }}>
-              {offer.price}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <span
+              className="g-badge g-badge-line"
+              style={{ color: "var(--g-citron)", borderColor: "#3a3a36" }}
+            >
+              {offer.kind}
             </span>
-          )}
-          <span
+            {offer.price && (
+              <span className="g-badge g-badge-line" style={{ color: "var(--g-paper)" }}>
+                {offer.price}
+              </span>
+            )}
+          </div>
+          <p style={{ fontSize: 14.5, lineHeight: 1.55, color: "var(--g-body)", marginTop: 10 }}>
+            {offer.desc}
+          </p>
+          <div
             className="g-mono"
             style={{
               fontSize: 9.5,
               letterSpacing: "0.08em",
               textTransform: "uppercase",
               color: "var(--g-dim)",
+              marginTop: 8,
             }}
           >
             {offer.cadence}
-          </span>
+          </div>
         </div>
       </div>
     </div>

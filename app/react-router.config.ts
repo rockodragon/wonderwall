@@ -17,5 +17,6 @@ export default {
     "/demo/host",
     "/demo/host/dashboard",
     "/demo/offers",
+    "/demo/app",
   ],
 } satisfies Config;
