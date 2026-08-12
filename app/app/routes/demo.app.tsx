@@ -127,18 +127,19 @@ interface ViewState {
 }
 
 const TABLE_FILTERS = ["All", "Class", "Critique", "Open mic"] as const;
+const PROJECT_FILTERS = ["All", "Passion", "Paid"] as const;
+const EVENT_FILTERS = ["All", "Gathering", "Workshop", "Open mic"] as const;
+const OFFER_FILTERS = ["All", "Space", "Goods", "Audience", "Coaching"] as const;
 
-/** One descriptor sentence per section, verbatim — Events/Tables deliberately
-    cross-reference each other. */
+/** One descriptor sentence per section, verbatim — founder-approved copy. */
 const SECTION_DESCRIPTOR: Record<NavItem, string> = {
   Buzz: "The week at a glance — what's coming up, and what just got posted.",
   Projects: "Creative work seeking support, and paid work seeking creatives.",
-  Events:
-    "One-off happenings you attend — a show, a workshop, an open mic. Ongoing classes live under Tables.",
+  Events: "Shows, workshops, open mics — pick a night and show up.",
   Tables:
-    "Ongoing gatherings you belong to — a roster, not a guest list. One-off workshops live under Events.",
+    "Groups you join and keep coming back to — classes, cohorts, critique nights. A roster with your name on it.",
   Offers:
-    "Standing things you can take someone up on — space, gear, an audience, coaching. Some are free, some are priced — every card says which.",
+    "Space to work, gear to borrow, audiences to reach, coaching to book — offered by the community.",
 };
 
 // ————— Small shared pieces —————
@@ -283,6 +284,79 @@ function Clickable({
   );
 }
 
+/** A row of pressable chips — one active at a time. Powers every browse
+    filter (Projects/Events/Tables/Offers) and doubles as the kind-choice
+    control inside AddAction create panels. Same chip styling everywhere. */
+function FilterChips<T extends string>({
+  options,
+  active,
+  onSelect,
+}: {
+  options: readonly T[];
+  active: T;
+  onSelect: (value: T) => void;
+}) {
+  return (
+    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+      {options.map((opt) => (
+        <button
+          key={opt}
+          type="button"
+          className="g-demo-chip"
+          data-active={active === opt}
+          aria-pressed={active === opt}
+          onClick={() => onSelect(opt)}
+        >
+          {opt}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** The "+" affordance every browse section gets: a toggle that expands into
+    either a compact create panel (capability allows it) or a warm inline
+    denial (it doesn't) — never "X-only" wording. `children` is a render prop
+    so the create panel can close itself after posting. */
+function AddAction({
+  label,
+  allowed,
+  deniedContent,
+  children,
+}: {
+  label: string;
+  allowed: boolean;
+  deniedContent: ReactNode;
+  children: (close: () => void) => ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div style={{ marginBottom: 20 }}>
+      <button
+        type="button"
+        className="g-btn g-btn-ghost"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+      >
+        {label}
+      </button>
+      {open && (
+        <div
+          style={{
+            marginTop: 14,
+            padding: 16,
+            border: "1px solid var(--g-hairline)",
+            borderRadius: 8,
+            maxWidth: 440,
+          }}
+        >
+          {allowed ? children(() => setOpen(false)) : deniedContent}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ————— Browse: Buzz —————
 
 function BuzzSection({
@@ -351,43 +425,124 @@ function BuzzSection({
 
 // ————— Browse: Projects —————
 
+const PROJECT_KIND_LABEL: Record<DemoProject["kind"], "Passion" | "Paid"> = {
+  passion: "Passion",
+  paid: "Paid",
+};
+
 function ProjectsSection({
+  persona,
   onOpenDetail,
 }: {
+  persona: GardenUser;
   onOpenDetail: (kind: DetailKind, id: string) => void;
 }) {
+  const [filter, setFilter] = useState<(typeof PROJECT_FILTERS)[number]>("All");
+  const [added, setAdded] = useState<DemoProject[]>([]);
+  const [title, setTitle] = useState("");
+  const [kind, setKind] = useState<DemoProject["kind"]>("passion");
+
+  useEffect(() => {
+    setAdded([]);
+    setTitle("");
+    setKind("passion");
+  }, [persona.id]);
+
+  const passionGate = can(persona, "project.create.passion");
+  const paidGate = can(persona, "project.create.paid");
+  const allowedKinds: DemoProject["kind"][] = [
+    ...(passionGate.allowed ? (["passion"] as const) : []),
+    ...(paidGate.allowed ? (["paid"] as const) : []),
+  ];
+  const canAdd = allowedKinds.length > 0;
+  const chosenKind: DemoProject["kind"] = allowedKinds.includes(kind) ? kind : allowedKinds[0] ?? "passion";
+
+  const post = (close: () => void) => {
+    if (!title.trim()) return;
+    const id = `local-project-${Date.now()}`;
+    const base = {
+      id,
+      title: title.trim(),
+      byId: persona.id,
+      byLine: `${persona.name} · new`,
+      blurb: "",
+    };
+    const newProject: DemoProject =
+      chosenKind === "passion" ? { ...base, kind: "passion" } : { ...base, kind: "paid", budget: 0 };
+    setAdded((a) => [newProject, ...a]);
+    setTitle("");
+    close();
+  };
+
+  const all = [...added, ...PROJECTS];
+  const shown = filter === "All" ? all : all.filter((p) => PROJECT_KIND_LABEL[p.kind] === filter);
+
   return (
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))",
-        gap: 14,
-      }}
-    >
-      {PROJECTS.map((p) => (
-        <Clickable
-          key={p.id}
-          onClick={() => onOpenDetail("project", p.id)}
-          ariaLabel={p.title}
-          className="g-card"
-          style={{ padding: 0, overflow: "hidden" }}
-        >
-          {p.photo && <img src={p.photo} alt={p.title} className="g-photo" />}
-          <div style={{ padding: "16px 18px 18px" }}>
-            <KindBadge project={p} />
-            <div className="g-h" style={{ fontSize: 17, marginTop: 10 }}>
-              {p.title}
-            </div>
-            <div className="g-credit" style={{ marginTop: 6 }}>
-              {p.byLine}
-            </div>
-            <p style={{ fontSize: 14, lineHeight: 1.5, marginTop: 10 }}>{p.blurb}</p>
-            {p.kind === "passion" && p.backers && (
-              <Small style={{ marginTop: 10 }}>Behind it: {p.backers.join(", ")}</Small>
+    <div>
+      <AddAction label="+ Start a project" allowed={canAdd} deniedContent={<GateHint result={passionGate} />}>
+        {(close) => (
+          <div>
+            <input
+              className="g-input"
+              placeholder="Project title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+            />
+            {allowedKinds.length > 1 && (
+              <div style={{ marginTop: 10 }}>
+                <FilterChips
+                  options={allowedKinds.map((k) => PROJECT_KIND_LABEL[k])}
+                  active={PROJECT_KIND_LABEL[chosenKind]}
+                  onSelect={(label) => setKind(label === "Passion" ? "passion" : "paid")}
+                />
+              </div>
             )}
+            <button className="g-btn g-btn-citron" style={{ marginTop: 12 }} onClick={() => post(close)}>
+              Post it
+            </button>
           </div>
-        </Clickable>
-      ))}
+        )}
+      </AddAction>
+
+      <div style={{ marginBottom: 16 }}>
+        <FilterChips options={PROJECT_FILTERS} active={filter} onSelect={(v) => setFilter(v)} />
+      </div>
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))",
+          gap: 14,
+        }}
+      >
+        {shown.map((p) => {
+          const isNew = added.includes(p);
+          return (
+            <Clickable
+              key={p.id}
+              onClick={isNew ? () => {} : () => onOpenDetail("project", p.id)}
+              ariaLabel={p.title}
+              className="g-card"
+              style={{ padding: 0, overflow: "hidden" }}
+            >
+              {p.photo && <img src={p.photo} alt={p.title} className="g-photo" />}
+              <div style={{ padding: "16px 18px 18px" }}>
+                <KindBadge project={p} />
+                <div className="g-h" style={{ fontSize: 17, marginTop: 10 }}>
+                  {p.title}
+                </div>
+                <div className="g-credit" style={{ marginTop: 6 }}>
+                  {p.byLine}
+                </div>
+                <p style={{ fontSize: 14, lineHeight: 1.5, marginTop: 10 }}>{p.blurb}</p>
+                {p.kind === "passion" && p.backers && (
+                  <Small style={{ marginTop: 10 }}>Behind it: {p.backers.join(", ")}</Small>
+                )}
+              </div>
+            </Clickable>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -395,49 +550,113 @@ function ProjectsSection({
 // ————— Browse: Events —————
 
 function EventsSection({
+  persona,
   onOpenDetail,
 }: {
+  persona: GardenUser;
   onOpenDetail: (kind: DetailKind, id: string) => void;
 }) {
+  const [filter, setFilter] = useState<(typeof EVENT_FILTERS)[number]>("All");
+  const [added, setAdded] = useState<DemoEvent[]>([]);
+  const [title, setTitle] = useState("");
+
+  useEffect(() => {
+    setAdded([]);
+    setTitle("");
+  }, [persona.id]);
+
+  const gate = can(persona, "event.create");
+
+  const post = (close: () => void) => {
+    if (!title.trim()) return;
+    const id = `local-event-${Date.now()}`;
+    setAdded((a) => [
+      {
+        id,
+        title: title.trim(),
+        format: "Gathering",
+        when: "Date TBA",
+        where: "",
+        cost: "Free",
+        hostByLine: `Hosted by ${persona.name}`,
+        desc: "",
+      },
+      ...a,
+    ]);
+    setTitle("");
+    close();
+  };
+
+  const all = [...added, ...EVENTS];
+  const shown = filter === "All" ? all : all.filter((e) => e.format === filter);
+
   return (
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))",
-        gap: 14,
-      }}
-    >
-      {EVENTS.map((e) => (
-        <Clickable
-          key={e.id}
-          onClick={() => onOpenDetail("event", e.id)}
-          ariaLabel={e.title}
-          className="g-card"
-        >
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "baseline",
-              gap: 10,
-              flexWrap: "wrap",
-            }}
-          >
-            <div className="g-h" style={{ fontSize: 16.5 }}>
-              {e.title}
-            </div>
-            <FormatBadge>{e.format}</FormatBadge>
+    <div>
+      <AddAction label="+ Add an event" allowed={gate.allowed} deniedContent={<GateHint result={gate} />}>
+        {(close) => (
+          <div>
+            <input
+              className="g-input"
+              placeholder="Event title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+            />
+            <p style={{ marginTop: 10, fontSize: 13, color: "var(--g-dim)" }}>
+              Date TBA — you can set the date later.
+            </p>
+            <button className="g-btn g-btn-citron" style={{ marginTop: 12 }} onClick={() => post(close)}>
+              Post it
+            </button>
           </div>
-          {e.program && (
-            <div className="g-credit" style={{ marginTop: 6 }}>
-              <b>{e.program}</b>
-            </div>
-          )}
-          <MetaLine>
-            {e.when} · {e.cost}
-          </MetaLine>
-        </Clickable>
-      ))}
+        )}
+      </AddAction>
+
+      <div style={{ marginBottom: 16 }}>
+        <FilterChips options={EVENT_FILTERS} active={filter} onSelect={(v) => setFilter(v)} />
+      </div>
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))",
+          gap: 14,
+        }}
+      >
+        {shown.map((e) => {
+          const isNew = added.includes(e);
+          return (
+            <Clickable
+              key={e.id}
+              onClick={isNew ? () => {} : () => onOpenDetail("event", e.id)}
+              ariaLabel={e.title}
+              className="g-card"
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "baseline",
+                  gap: 10,
+                  flexWrap: "wrap",
+                }}
+              >
+                <div className="g-h" style={{ fontSize: 16.5 }}>
+                  {e.title}
+                </div>
+                <FormatBadge>{e.format}</FormatBadge>
+              </div>
+              {e.program && (
+                <div className="g-credit" style={{ marginTop: 6 }}>
+                  <b>{e.program}</b>
+                </div>
+              )}
+              <MetaLine>
+                {e.when} · {e.cost}
+              </MetaLine>
+            </Clickable>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -447,13 +666,17 @@ function EventsSection({
 function TableCard({
   table,
   onOpenDetail,
+  noop,
 }: {
   table: DemoTable;
   onOpenDetail: (kind: DetailKind, id: string) => void;
+  noop?: boolean;
 }) {
   return (
     <Clickable
-      onClick={() => onOpenDetail("table", table.id)}
+      onClick={() => {
+        if (!noop) onOpenDetail("table", table.id);
+      }}
       ariaLabel={table.name}
       className="g-card"
     >
@@ -475,28 +698,68 @@ function TableCard({
 }
 
 function TablesSection({
+  persona,
   onOpenDetail,
 }: {
+  persona: GardenUser;
   onOpenDetail: (kind: DetailKind, id: string) => void;
 }) {
   const [filter, setFilter] = useState<(typeof TABLE_FILTERS)[number]>("All");
-  const shown = filter === "All" ? TABLES : TABLES.filter((t) => t.format === filter);
+  const [added, setAdded] = useState<DemoTable[]>([]);
+  const [title, setTitle] = useState("");
+
+  useEffect(() => {
+    setAdded([]);
+    setTitle("");
+  }, [persona.id]);
+
+  const gate = can(persona, "table.create");
+
+  const post = (close: () => void) => {
+    if (!title.trim()) return;
+    const id = `local-table-${Date.now()}`;
+    setAdded((a) => [
+      {
+        id,
+        name: title.trim(),
+        hostId: persona.id,
+        mode: "open",
+        format: "Open mic",
+        cadence: "Ongoing",
+        roster: 0,
+      },
+      ...a,
+    ]);
+    setTitle("");
+    close();
+  };
+
+  const all = [...added, ...TABLES];
+  const shown = filter === "All" ? all : all.filter((t) => t.format === filter);
 
   return (
     <div>
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-        {TABLE_FILTERS.map((f) => (
-          <button
-            key={f}
-            className="g-demo-chip"
-            data-active={filter === f}
-            aria-pressed={filter === f}
-            onClick={() => setFilter(f)}
-          >
-            {f}
-          </button>
-        ))}
-      </div>
+      <AddAction label="+ Create a table" allowed={gate.allowed} deniedContent={<GateHint result={gate} />}>
+        {(close) => (
+          <div>
+            <input
+              className="g-input"
+              placeholder="Table name"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+            />
+            <p style={{ marginTop: 10, fontSize: 13, color: "var(--g-dim)" }}>
+              Open to anyone · Open mic format.
+            </p>
+            <button className="g-btn g-btn-citron" style={{ marginTop: 12 }} onClick={() => post(close)}>
+              Post it
+            </button>
+          </div>
+        )}
+      </AddAction>
+
+      <FilterChips options={TABLE_FILTERS} active={filter} onSelect={(v) => setFilter(v)} />
+
       <div
         style={{
           display: "grid",
@@ -506,7 +769,7 @@ function TablesSection({
         }}
       >
         {shown.map((t) => (
-          <TableCard key={t.id} table={t} onOpenDetail={onOpenDetail} />
+          <TableCard key={t.id} table={t} onOpenDetail={onOpenDetail} noop={added.includes(t)} />
         ))}
       </div>
     </div>
@@ -518,14 +781,18 @@ function TablesSection({
 function CompactOfferCard({
   offer,
   onOpenDetail,
+  noop,
 }: {
   offer: DemoOffer;
   onOpenDetail: (kind: DetailKind, id: string) => void;
+  noop?: boolean;
 }) {
   const ByIcon = offer.byKind === "person" ? IconPeople : IconPlace;
   return (
     <Clickable
-      onClick={() => onOpenDetail("offer", offer.id)}
+      onClick={() => {
+        if (!noop) onOpenDetail("offer", offer.id);
+      }}
       ariaLabel={offer.by}
       className="g-card"
     >
@@ -552,22 +819,92 @@ function CompactOfferCard({
   );
 }
 
+const OFFER_KIND_OPTIONS = ["Space", "Goods", "Audience", "Coaching"] as const;
+
 function OffersSection({
+  persona,
   onOpenDetail,
 }: {
+  persona: GardenUser;
   onOpenDetail: (kind: DetailKind, id: string) => void;
 }) {
+  const [filter, setFilter] = useState<(typeof OFFER_FILTERS)[number]>("All");
+  const [added, setAdded] = useState<DemoOffer[]>([]);
+  const [title, setTitle] = useState("");
+  const [kind, setKind] = useState<(typeof OFFER_KIND_OPTIONS)[number]>("Space");
+
+  useEffect(() => {
+    setAdded([]);
+    setTitle("");
+    setKind("Space");
+  }, [persona.id]);
+
+  // No capability exists for offer-listing yet — the simple check the plan calls for.
+  const canList = persona.partnerRole || persona.level === "host";
+
+  const post = (close: () => void) => {
+    if (!title.trim()) return;
+    const id = `local-offer-${Date.now()}`;
+    setAdded((a) => [
+      {
+        id,
+        by: title.trim(),
+        byKind: "place",
+        where: `Listed by ${persona.name}`,
+        kind,
+        desc: "",
+        cadence: "",
+        claimed: true,
+      },
+      ...a,
+    ]);
+    setTitle("");
+    close();
+  };
+
+  const all = [...added, ...OFFERS];
+  const shown = filter === "All" ? all : all.filter((o) => o.kind === filter);
+
   return (
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))",
-        gap: 12,
-      }}
-    >
-      {OFFERS.map((o) => (
-        <CompactOfferCard key={o.id} offer={o} onOpenDetail={onOpenDetail} />
-      ))}
+    <div>
+      <AddAction
+        label="+ List an offer"
+        allowed={canList}
+        deniedContent={<Small>Hosts and partners can list offers.</Small>}
+      >
+        {(close) => (
+          <div>
+            <input
+              className="g-input"
+              placeholder="What are you offering?"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+            />
+            <div style={{ marginTop: 10 }}>
+              <FilterChips options={OFFER_KIND_OPTIONS} active={kind} onSelect={(v) => setKind(v)} />
+            </div>
+            <button className="g-btn g-btn-citron" style={{ marginTop: 12 }} onClick={() => post(close)}>
+              Post it
+            </button>
+          </div>
+        )}
+      </AddAction>
+
+      <div style={{ marginBottom: 16 }}>
+        <FilterChips options={OFFER_FILTERS} active={filter} onSelect={(v) => setFilter(v)} />
+      </div>
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))",
+          gap: 12,
+        }}
+      >
+        {shown.map((o) => (
+          <CompactOfferCard key={o.id} offer={o} onOpenDetail={onOpenDetail} noop={added.includes(o)} />
+        ))}
+      </div>
     </div>
   );
 }
@@ -1145,10 +1482,10 @@ function AppShell() {
           <>
             <SectionIntro section={view.section} />
             {view.section === "Buzz" && <BuzzSection onOpenDetail={openDetail} />}
-            {view.section === "Projects" && <ProjectsSection onOpenDetail={openDetail} />}
-            {view.section === "Events" && <EventsSection onOpenDetail={openDetail} />}
-            {view.section === "Tables" && <TablesSection onOpenDetail={openDetail} />}
-            {view.section === "Offers" && <OffersSection onOpenDetail={openDetail} />}
+            {view.section === "Projects" && <ProjectsSection persona={persona} onOpenDetail={openDetail} />}
+            {view.section === "Events" && <EventsSection persona={persona} onOpenDetail={openDetail} />}
+            {view.section === "Tables" && <TablesSection persona={persona} onOpenDetail={openDetail} />}
+            {view.section === "Offers" && <OffersSection persona={persona} onOpenDetail={openDetail} />}
           </>
         )}
       </div>
