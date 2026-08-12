@@ -205,6 +205,16 @@ export const TABLES: DemoTable[] = [
     roster: 12,
   },
   {
+    id: "mentorship-circle",
+    name: "Working Artists Mentorship Circle",
+    hostId: "ap",
+    mode: "member",
+    format: "Mentorship",
+    program: "Pathfinding · Abiding Practice",
+    cadence: "Monthly · members",
+    roster: 8,
+  },
+  {
     id: "pathfinding-fall",
     name: "Pathfinding — Fall Cohort",
     hostId: "ap",

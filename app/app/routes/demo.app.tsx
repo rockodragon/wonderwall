@@ -126,7 +126,7 @@ interface ViewState {
   detail?: { kind: DetailKind; id: string };
 }
 
-const TABLE_FILTERS = ["All", "Class", "Critique", "Open mic"] as const;
+const TABLE_FILTERS = ["All", "Class", "Mentorship", "Critique", "Open mic"] as const;
 const PROJECT_FILTERS = ["All", "Passion", "Paid"] as const;
 const EVENT_FILTERS = ["All", "Gathering", "Workshop", "Open mic"] as const;
 const OFFER_FILTERS = ["All", "Space", "Goods", "Audience", "Coaching"] as const;
