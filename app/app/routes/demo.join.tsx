@@ -513,7 +513,7 @@ export default function DemoJoin() {
           <p
             className="g-mono"
             style={{
-              fontSize: 10,
+              fontSize: 10.5,
               letterSpacing: "0.08em",
               textTransform: "uppercase",
               color: "var(--g-dim)",
@@ -533,7 +533,7 @@ export default function DemoJoin() {
           </div>
           <p className="g-hint" style={{ marginTop: 16 }}>
             Covered by your church or a patron?{" "}
-            <span className="g-mono" style={{ fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--g-citron)" }}>
+            <span className="g-mono" style={{ fontSize: 10.5, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--g-citron)" }}>
               Enter coverage code
             </span>
           </p>

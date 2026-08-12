@@ -5,9 +5,9 @@
   --ink: #121212;
   --paper: #F7F7F4;
   --hairline: #2A2A28;      /* borders on ink */
-  --dim: #6F6F69;
-  --muted: #8B8B85;
-  --body: #A8A8A0;          /* body copy on ink */
+  --dim: #94948C;
+  --muted: #ACACA4;
+  --body: #C6C6BE;          /* body copy on ink */
   --citron: #D7F25A;
   --rule-light: rgba(18, 18, 18, 0.16);  /* hairline on paper */
   --dim-light: #5C5C57;     /* metadata on paper — AA at 11px+ */

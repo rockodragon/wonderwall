@@ -184,11 +184,14 @@ export default function DemoHost() {
     return (
       <main style={{ marginTop: 28 }}>
         <div className="g-card" style={{ maxWidth: 470, padding: "30px 30px 26px" }}>
-          <div className="g-label">Create a Table</div>
-          <div className="g-h" style={{ fontSize: 26, marginTop: 8 }}>
-            This is host-only
+          <div className="g-h" style={{ fontSize: 26 }}>
+            Want to run a Table?
           </div>
-          <p style={{ fontSize: 15, color: "var(--g-body)", marginTop: 12 }}>{gate.reason}</p>
+          <p style={{ fontSize: 15, color: "var(--g-body)", marginTop: 12 }}>
+            A Table is an ongoing gathering with a roster — a class, a critique
+            night, a songwriters' circle. Hosting is its own tier because hosts
+            get real tools: a roster, payouts, patron routing.
+          </p>
           <p style={{ fontSize: 15, color: "var(--g-body)", marginTop: 12 }}>
             A host runs tables in any mode, spawns committed tables out of open
             ones, and — once they charge — pays 10% of what they collect and no
@@ -362,7 +365,7 @@ export default function DemoHost() {
           key={s}
           className="g-mono"
           style={{
-            fontSize: 10,
+            fontSize: 10.5,
             letterSpacing: "0.1em",
             textTransform: "uppercase",
             padding: "5px 10px",

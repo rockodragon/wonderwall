@@ -1,39 +1,121 @@
-// /demo/app — the app-shell navigation mock. Not a flow: this is the frame
-// itself, primary nav + a browse screen per nav item. The open question this
-// page exists to test: does "Tables" work as the home for classes, or is it
-// confusing next to Events (which also carries one-off workshops)?
+// /demo/app — The Garden, as an app. No explainer chrome: a sticky top bar,
+// five sections, and a detail layer one click below every card. Affordances
+// are computed live from can(persona, …) — switch personas on the bar below
+// and the same cards offer different things.
 // Client-only, read-only against demo-data — no loaders, no mutation.
 
-import { useState, type ReactNode } from "react";
-import { useDemo } from "../garden/demo-context";
-import { PROJECTS, TABLES, OFFERS, type DemoProject, type DemoTable } from "../garden/demo-data";
+import { useEffect, useState, type ReactNode } from "react";
+import { DemoProvider, PersonaBar, useDemo } from "../garden/demo-context";
+import { can } from "../garden/capabilities";
+import type { CanResult, GardenUser } from "../garden/capabilities";
+import {
+  DASHBOARD,
+  OFFERS,
+  PROJECTS,
+  TABLES,
+  type DemoOffer,
+  type DemoProject,
+  type DemoTable,
+} from "../garden/demo-data";
 import { IconEvent, IconPeople, IconPlace } from "../garden/icons";
+import "../garden/garden.css";
 
-// ————— Glue data: two small items not in demo-data.ts, kept local and
-// named so they're easy to spot. Everything else below is PROJECTS / TABLES
-// / OFFERS as-is. —————
+export function meta() {
+  return [
+    { title: "The Garden — app" },
+    { name: "robots", content: "noindex" },
+  ];
+}
 
-const FIRST_EVENT = {
-  title: "A table for the ones making things",
-  date: "Thu Sep",
-  price: "Free",
+// ————— Glue data: events aren't in demo-data.ts yet, so they're kept here,
+// named and shaped the same way (id, when/where/cost facts, a host). —————
+
+interface DemoEvent {
+  id: string;
+  title: string;
+  format: string;
+  when: string;
+  where: string;
+  cost: string;
+  hostByLine: string;
+  hostId?: string;
+  program?: string;
+  desc: string;
+}
+
+const EVENTS: DemoEvent[] = [
+  {
+    id: "gathering",
+    title: "A table for the ones making things",
+    format: "Gathering",
+    when: "Thu Sep 18 · 7:00pm",
+    where: "Folded Note Records · South Park",
+    cost: "Free",
+    hostByLine: "Hosted by The Garden",
+    desc: "An open table for anyone making something right now — no pitch, no sign-up, just a room and the people already in it.",
+  },
+  {
+    id: "workshop",
+    title: "Hearing God in the Edit",
+    format: "Workshop",
+    when: "One evening · date TBA",
+    where: "Abiding Practice",
+    cost: "$15",
+    hostByLine: "Hosted by Abiding Practice",
+    program: "Pathfinding · Abiding Practice",
+    desc: "A one-evening workshop on editing as a spiritual practice — for anyone in the middle of a piece of work and stuck on what to cut.",
+  },
+  {
+    id: "openmic",
+    title: "Songwriters' night at Grounds & Common",
+    format: "Open mic",
+    when: "Monthly · date TBA",
+    where: "Grounds & Common · North Park · partner venue",
+    cost: "Free",
+    hostByLine: "Hosted by Marcus Reyes",
+    hostId: "marcus",
+    desc: "Walk in, sign up, play two songs. Grounds & Common opens their floor once a month for whoever's in the room.",
+  },
+];
+
+const MODE_LINE: Record<DemoTable["mode"], string> = {
+  open: "Anyone can join, account or not.",
+  member: "A seat gets you a place at it — no walk-ins.",
+  cohort: "A fixed group for a fixed term.",
 };
 
-const WORKSHOP_EVENT = {
-  title: "Hearing God in the Edit",
-  sub: "One-evening workshop · Abiding Practice",
-  program: "Pathfinding · Abiding Practice",
-  price: "$15",
+/** Cap per cohort table — not tracked in demo-data.ts, so it lives here next
+    to the label logic that reads it. */
+const COHORT_CAP: Record<string, number> = {
+  "winter-cohort": 10,
+  "pathfinding-fall": 12,
 };
 
-const OPEN_MIC_EVENT = {
-  title: "Songwriters' night at Grounds & Common",
-  venue: "Partner venue · walk in",
-  price: "Free",
+function cohortJoinLabel(table: DemoTable): string {
+  const price = table.cadence.match(/\$(\d+)/)?.[1] ?? "";
+  const cap = COHORT_CAP[table.id] ?? table.roster;
+  const seatsLeft = cap - table.roster;
+  if (seatsLeft > 0 && seatsLeft <= 2) {
+    const seatWord = seatsLeft === 1 ? "the last seat" : `the last ${seatsLeft} seats`;
+    return `$${price} · ${table.roster} of ${cap} seated — take ${seatWord}`;
+  }
+  const start = table.cadence.match(/starts (\w+)/)?.[1];
+  return start ? `$${price} · starts ${start}` : `$${price}`;
+}
+
+/** The one offer with a walkable owner in this cast. */
+const OFFER_OWNER_ID: Record<string, string | undefined> = {
+  "foldednote-backroom": "foldednote",
 };
 
 const NAV_ITEMS = ["Buzz", "Projects", "Events", "Tables", "Offers"] as const;
 type NavItem = (typeof NAV_ITEMS)[number];
+
+type DetailKind = "project" | "event" | "table" | "offer";
+interface ViewState {
+  section: NavItem;
+  detail?: { kind: DetailKind; id: string };
+}
 
 const TABLE_FILTERS = ["All", "Class", "Critique", "Open mic"] as const;
 
@@ -67,15 +149,92 @@ function MetaLine({ children }: { children: ReactNode }) {
   );
 }
 
-// ————— Sections —————
+/** Secondary text under 14px — muted, never dim; the readable floor. */
+function Small({ children, style }: { children: ReactNode; style?: React.CSSProperties }) {
+  return (
+    <p style={{ fontSize: 13.5, lineHeight: 1.5, color: "var(--g-muted)", ...style }}>
+      {children}
+    </p>
+  );
+}
 
-function BuzzSection() {
+function FactRow({ k, v }: { k: string; v: string }) {
+  return (
+    <div style={{ display: "flex", gap: 14, alignItems: "baseline" }}>
+      <span className="g-label" style={{ minWidth: 66, flexShrink: 0 }}>
+        {k}
+      </span>
+      <span style={{ fontSize: 14.5, color: "var(--g-paper)" }}>{v}</span>
+    </div>
+  );
+}
+
+/** A CanResult, rendered as an invitation: what it is, then the path in. */
+function GateHint({ result }: { result: CanResult }) {
+  return (
+    <div style={{ marginTop: 4, maxWidth: "50ch" }}>
+      <p style={{ fontSize: 14, lineHeight: 1.55 }}>{result.reason}</p>
+      {result.upgradePath ? (
+        <button className="g-btn g-btn-citron" style={{ marginTop: 12 }}>
+          {result.upgradePath}
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+function ActionNote({ children }: { children: ReactNode }) {
+  return (
+    <p style={{ marginTop: 14, fontSize: 13.5, color: "var(--g-citron)" }}>{children}</p>
+  );
+}
+
+/** Card content that opens a detail view — div-as-button, keyboard reachable. */
+function Clickable({
+  onClick,
+  children,
+  style,
+  className,
+}: {
+  onClick: () => void;
+  children: ReactNode;
+  style?: React.CSSProperties;
+  className?: string;
+}) {
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onClick}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onClick();
+        }
+      }}
+      className={className}
+      style={{ cursor: "pointer", ...style }}
+    >
+      {children}
+    </div>
+  );
+}
+
+// ————— Browse: Buzz —————
+
+function BuzzSection({
+  onOpenDetail,
+}: {
+  onOpenDetail: (kind: DetailKind, id: string) => void;
+}) {
+  const firstEvent = EVENTS[0];
   const justPosted = PROJECTS.slice(0, 3);
   return (
     <div>
       <div className="g-label">This week in San Diego</div>
 
-      <div
+      <Clickable
+        onClick={() => onOpenDetail("event", firstEvent.id)}
         style={{
           marginTop: 14,
           display: "flex",
@@ -89,12 +248,12 @@ function BuzzSection() {
       >
         <IconEvent size={16} className="g-ic" />
         <span className="g-h" style={{ fontSize: 15.5 }}>
-          {FIRST_EVENT.title}
+          {firstEvent.title}
         </span>
         <MetaLine>
-          {FIRST_EVENT.date} · {FIRST_EVENT.price}
+          {firstEvent.when.split(" · ")[0]} · {firstEvent.cost}
         </MetaLine>
-      </div>
+      </Clickable>
 
       <div className="g-label" style={{ marginTop: 28 }}>
         Just posted
@@ -108,7 +267,11 @@ function BuzzSection() {
         }}
       >
         {justPosted.map((p) => (
-          <div key={p.id} style={{ border: "1px solid var(--g-hairline)", borderRadius: 8, padding: 12 }}>
+          <Clickable
+            key={p.id}
+            onClick={() => onOpenDetail("project", p.id)}
+            style={{ border: "1px solid var(--g-hairline)", borderRadius: 8, padding: 12 }}
+          >
             {p.photo && <img src={p.photo} alt={p.title} className="g-photo-strip" />}
             <div className="g-h" style={{ fontSize: 15, marginTop: 10 }}>
               {p.title}
@@ -116,14 +279,20 @@ function BuzzSection() {
             <div className="g-credit" style={{ marginTop: 6 }}>
               {p.byLine}
             </div>
-          </div>
+          </Clickable>
         ))}
       </div>
     </div>
   );
 }
 
-function ProjectsSection() {
+// ————— Browse: Projects —————
+
+function ProjectsSection({
+  onOpenDetail,
+}: {
+  onOpenDetail: (kind: DetailKind, id: string) => void;
+}) {
   return (
     <div
       style={{
@@ -133,7 +302,12 @@ function ProjectsSection() {
       }}
     >
       {PROJECTS.map((p) => (
-        <div key={p.id} className="g-card" style={{ padding: 0, overflow: "hidden" }}>
+        <Clickable
+          key={p.id}
+          onClick={() => onOpenDetail("project", p.id)}
+          className="g-card"
+          style={{ padding: 0, overflow: "hidden" }}
+        >
           {p.photo && <img src={p.photo} alt={p.title} className="g-photo" />}
           <div style={{ padding: "16px 18px 18px" }}>
             <KindBadge project={p} />
@@ -145,18 +319,22 @@ function ProjectsSection() {
             </div>
             <p style={{ fontSize: 14, lineHeight: 1.5, marginTop: 10 }}>{p.blurb}</p>
             {p.kind === "passion" && p.backers && (
-              <div className="g-hint" style={{ marginTop: 10 }}>
-                Behind it: {p.backers.join(", ")}
-              </div>
+              <Small style={{ marginTop: 10 }}>Behind it: {p.backers.join(", ")}</Small>
             )}
           </div>
-        </div>
+        </Clickable>
       ))}
     </div>
   );
 }
 
-function EventsSection() {
+// ————— Browse: Events —————
+
+function EventsSection({
+  onOpenDetail,
+}: {
+  onOpenDetail: (kind: DetailKind, id: string) => void;
+}) {
   return (
     <div
       style={{
@@ -165,53 +343,47 @@ function EventsSection() {
         gap: 14,
       }}
     >
-      <div className="g-card">
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
-          <div className="g-h" style={{ fontSize: 16.5 }}>
-            {FIRST_EVENT.title}
+      {EVENTS.map((e) => (
+        <Clickable key={e.id} onClick={() => onOpenDetail("event", e.id)} className="g-card">
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "baseline",
+              gap: 10,
+              flexWrap: "wrap",
+            }}
+          >
+            <div className="g-h" style={{ fontSize: 16.5 }}>
+              {e.title}
+            </div>
+            <FormatBadge>{e.format}</FormatBadge>
           </div>
-          <FormatBadge>Gathering</FormatBadge>
-        </div>
-        <MetaLine>
-          {FIRST_EVENT.date} · {FIRST_EVENT.price}
-        </MetaLine>
-      </div>
-
-      <div className="g-card">
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
-          <div className="g-h" style={{ fontSize: 16.5 }}>
-            {WORKSHOP_EVENT.title}
-          </div>
-          <FormatBadge>Workshop</FormatBadge>
-        </div>
-        <div className="g-credit" style={{ marginTop: 6 }}>
-          {WORKSHOP_EVENT.sub}
-        </div>
-        <div className="g-credit" style={{ marginTop: 4 }}>
-          <b>{WORKSHOP_EVENT.program}</b>
-        </div>
-        <MetaLine>{WORKSHOP_EVENT.price}</MetaLine>
-      </div>
-
-      <div className="g-card">
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
-          <div className="g-h" style={{ fontSize: 16.5 }}>
-            {OPEN_MIC_EVENT.title}
-          </div>
-          <FormatBadge>Open mic</FormatBadge>
-        </div>
-        <div className="g-credit" style={{ marginTop: 6 }}>
-          {OPEN_MIC_EVENT.venue}
-        </div>
-        <MetaLine>{OPEN_MIC_EVENT.price}</MetaLine>
-      </div>
+          {e.program && (
+            <div className="g-credit" style={{ marginTop: 6 }}>
+              <b>{e.program}</b>
+            </div>
+          )}
+          <MetaLine>
+            {e.when} · {e.cost}
+          </MetaLine>
+        </Clickable>
+      ))}
     </div>
   );
 }
 
-function TableCard({ table }: { table: DemoTable }) {
+// ————— Browse: Tables —————
+
+function TableCard({
+  table,
+  onOpenDetail,
+}: {
+  table: DemoTable;
+  onOpenDetail: (kind: DetailKind, id: string) => void;
+}) {
   return (
-    <div className="g-card">
+    <Clickable onClick={() => onOpenDetail("table", table.id)} className="g-card">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
         {table.format && <FormatBadge>{table.format}</FormatBadge>}
       </div>
@@ -224,15 +396,16 @@ function TableCard({ table }: { table: DemoTable }) {
         </div>
       )}
       <MetaLine>{table.cadence}</MetaLine>
-      <div className="g-hint" style={{ marginTop: 8 }}>
-        {table.roster} on the roster
-      </div>
-      <MetaLine>{table.mode}</MetaLine>
-    </div>
+      <Small style={{ marginTop: 8 }}>{table.roster} on the roster</Small>
+    </Clickable>
   );
 }
 
-function TablesSection() {
+function TablesSection({
+  onOpenDetail,
+}: {
+  onOpenDetail: (kind: DetailKind, id: string) => void;
+}) {
   const [filter, setFilter] = useState<(typeof TABLE_FILTERS)[number]>("All");
   const shown = filter === "All" ? TABLES : TABLES.filter((t) => t.format === filter);
 
@@ -262,17 +435,25 @@ function TablesSection() {
         }}
       >
         {shown.map((t) => (
-          <TableCard key={t.id} table={t} />
+          <TableCard key={t.id} table={t} onOpenDetail={onOpenDetail} />
         ))}
       </div>
     </div>
   );
 }
 
-function CompactOfferCard({ offer }: { offer: (typeof OFFERS)[number] }) {
+// ————— Browse: Offers —————
+
+function CompactOfferCard({
+  offer,
+  onOpenDetail,
+}: {
+  offer: DemoOffer;
+  onOpenDetail: (kind: DetailKind, id: string) => void;
+}) {
   const ByIcon = offer.byKind === "person" ? IconPeople : IconPlace;
   return (
-    <div className="g-card">
+    <Clickable onClick={() => onOpenDetail("offer", offer.id)} className="g-card">
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <ByIcon size={16} className="g-ic" />
         <div className="g-h" style={{ fontSize: 15 }}>
@@ -282,18 +463,9 @@ function CompactOfferCard({ offer }: { offer: (typeof OFFERS)[number] }) {
       <div className="g-credit" style={{ marginTop: 6 }}>
         {offer.where}
       </div>
-      <div
-        style={{
-          marginTop: 10,
-          paddingTop: 10,
-          borderTop: "1px solid var(--g-hairline)",
-        }}
-      >
+      <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--g-hairline)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          <span
-            className="g-badge g-badge-line"
-            style={{ color: "var(--g-citron)", borderColor: "#3a3a36" }}
-          >
+          <span className="g-badge g-badge-line" style={{ color: "var(--g-citron)", borderColor: "#3a3a36" }}>
             {offer.kind}
           </span>
           {offer.price && <span className="g-badge g-badge-line">{offer.price}</span>}
@@ -301,11 +473,15 @@ function CompactOfferCard({ offer }: { offer: (typeof OFFERS)[number] }) {
         <p style={{ fontSize: 13.5, lineHeight: 1.5, marginTop: 8 }}>{offer.desc}</p>
         <MetaLine>{offer.cadence}</MetaLine>
       </div>
-    </div>
+    </Clickable>
   );
 }
 
-function OffersSection() {
+function OffersSection({
+  onOpenDetail,
+}: {
+  onOpenDetail: (kind: DetailKind, id: string) => void;
+}) {
   return (
     <div
       style={{
@@ -315,19 +491,484 @@ function OffersSection() {
       }}
     >
       {OFFERS.map((o) => (
-        <CompactOfferCard key={o.id} offer={o} />
+        <CompactOfferCard key={o.id} offer={o} onOpenDetail={onOpenDetail} />
       ))}
     </div>
   );
 }
 
-// ————— App top bar —————
+// ————— Detail: shared frame —————
 
-function TopBar({ active, onSelect }: { active: NavItem; onSelect: (n: NavItem) => void }) {
-  const { persona } = useDemo();
+function DetailFrame({
+  backLabel,
+  onBack,
+  children,
+}: {
+  backLabel: string;
+  onBack: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <div>
+      <button
+        onClick={onBack}
+        className="g-mono"
+        style={{
+          background: "none",
+          border: "none",
+          cursor: "pointer",
+          padding: 0,
+          fontSize: 11,
+          letterSpacing: "0.08em",
+          textTransform: "uppercase",
+          color: "var(--g-muted)",
+        }}
+      >
+        ← Back to {backLabel}
+      </button>
+      <div style={{ marginTop: 20, maxWidth: 640 }}>{children}</div>
+    </div>
+  );
+}
+
+// ————— Detail: Project —————
+
+function ProjectDetail({
+  project,
+  persona,
+  note,
+  onNote,
+}: {
+  project: DemoProject;
+  persona: GardenUser;
+  note: string | null;
+  onNote: (n: string) => void;
+}) {
+  const isOwner = persona.id === project.byId;
+
+  return (
+    <div>
+      {project.photo && (
+        <img
+          src={project.photo}
+          alt={project.title}
+          style={{ width: "100%", height: 280, objectFit: "cover", borderRadius: 8, display: "block", filter: "saturate(0.85)" }}
+        />
+      )}
+      <div style={{ marginTop: 16 }}>
+        <KindBadge project={project} />
+      </div>
+      <h1 className="g-h" style={{ marginTop: 12, fontSize: "clamp(26px,4.5vw,36px)" }}>
+        {project.title}
+      </h1>
+      <div className="g-credit" style={{ marginTop: 8 }}>
+        {project.byLine}
+      </div>
+      <p style={{ marginTop: 16, fontSize: 15, lineHeight: 1.6, maxWidth: "62ch" }}>
+        {project.blurb}
+      </p>
+
+      {project.kind === "passion" && project.goal !== undefined && (
+        <div style={{ marginTop: 22, maxWidth: 360 }}>
+          <div className="g-label">Goal</div>
+          <div
+            style={{
+              marginTop: 8,
+              height: 6,
+              borderRadius: 3,
+              background: "var(--g-hairline)",
+              overflow: "hidden",
+              position: "relative",
+            }}
+          >
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                width: `${Math.min(100, ((project.raised ?? 0) / project.goal) * 100)}%`,
+                background: "var(--g-paper)",
+                borderRight: "2px solid var(--g-citron)",
+              }}
+            />
+          </div>
+          <p style={{ marginTop: 8, fontSize: 14, color: "var(--g-paper)" }}>
+            ${project.raised ?? 0} of ${project.goal}
+          </p>
+        </div>
+      )}
+
+      {project.kind === "passion" && project.backers && project.backers.length > 0 && (
+        <div style={{ marginTop: 20 }}>
+          <div className="g-label">Backers</div>
+          <p style={{ marginTop: 8, fontSize: 14.5 }}>{project.backers.join(", ")}</p>
+        </div>
+      )}
+
+      {project.kind === "passion" && (
+        <div style={{ marginTop: 20 }}>
+          <div className="g-label">Updates</div>
+          <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 4 }}>
+            <div style={{ display: "flex", gap: 10, alignItems: "baseline" }}>
+              <span className="g-label" style={{ minWidth: 48, flexShrink: 0 }}>
+                Day 1
+              </span>
+              <span style={{ fontSize: 14 }}>Tracking day one — the back room at Folded Note.</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div style={{ marginTop: 24 }}>
+        {project.kind === "passion" ? (
+          isOwner ? (
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+              <button
+                className="g-btn g-btn-citron"
+                onClick={() => onNote("Update posted — it lands on this page.")}
+              >
+                Post an update
+              </button>
+              <button className="g-btn g-btn-ghost" onClick={() => onNote("Marked finished.")}>
+                Mark finished
+              </button>
+            </div>
+          ) : can(persona, "project.pledge").allowed ? (
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+              <button className="g-btn g-btn-citron" onClick={() => onNote("Pledge noted — thank you.")}>
+                Pledge to this project
+              </button>
+              <button className="g-btn g-btn-ghost" onClick={() => onNote("Following.")}>
+                Follow
+              </button>
+            </div>
+          ) : persona.level === "seat" || persona.level === "five" || persona.level === "host" ? (
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+              <button className="g-btn g-btn-citron" onClick={() => onNote("Offer sent.")}>
+                Offer to help
+              </button>
+              <button className="g-btn g-btn-ghost" onClick={() => onNote("Following.")}>
+                Follow
+              </button>
+            </div>
+          ) : (
+            <div>
+              <button className="g-btn g-btn-ghost" onClick={() => onNote("Following.")}>
+                Follow
+              </button>
+              <p style={{ marginTop: 12, fontSize: 14, maxWidth: "50ch" }}>
+                Pledging is a patron act — add the patron role, free.
+              </p>
+            </div>
+          )
+        ) : isOwner ? (
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+            <button className="g-btn g-btn-citron" onClick={() => onNote("Edit — demo, no editor wired yet.")}>
+              Edit
+            </button>
+            <button className="g-btn g-btn-ghost" onClick={() => onNote("Listing closed.")}>
+              Close listing
+            </button>
+          </div>
+        ) : can(persona, "project.applyPaid").allowed ? (
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+            <button className="g-btn g-btn-citron" onClick={() => onNote("Application sent.")}>
+              Apply
+            </button>
+            <button className="g-btn g-btn-ghost" onClick={() => onNote("Question sent.")}>
+              Ask a question
+            </button>
+          </div>
+        ) : (
+          <GateHint result={can(persona, "project.applyPaid")} />
+        )}
+      </div>
+      {note && <ActionNote>{note}</ActionNote>}
+    </div>
+  );
+}
+
+// ————— Detail: Event —————
+
+function EventDetail({
+  event,
+  persona,
+  note,
+  onNote,
+}: {
+  event: DemoEvent;
+  persona: GardenUser;
+  note: string | null;
+  onNote: (n: string) => void;
+}) {
+  const isHostOwner = !!event.hostId && persona.id === event.hostId;
+
+  return (
+    <div>
+      <FormatBadge>{event.format}</FormatBadge>
+      <h1 className="g-h" style={{ marginTop: 12, fontSize: "clamp(26px,4.5vw,36px)" }}>
+        {event.title}
+      </h1>
+      <div className="g-credit" style={{ marginTop: 8 }}>
+        {event.hostByLine}
+      </div>
+      {event.program && (
+        <div className="g-credit" style={{ marginTop: 4 }}>
+          <b>{event.program}</b>
+        </div>
+      )}
+
+      <div style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 10, maxWidth: 420 }}>
+        <FactRow k="When" v={event.when} />
+        <FactRow k="Where" v={event.where} />
+        <FactRow k="Cost" v={event.cost} />
+      </div>
+
+      <p style={{ marginTop: 18, fontSize: 15, lineHeight: 1.6, maxWidth: "62ch" }}>{event.desc}</p>
+
+      <div style={{ marginTop: 24 }}>
+        {isHostOwner ? (
+          <button
+            className="g-btn g-btn-ghost"
+            onClick={() => onNote("Manage event — demo, no dashboard wired yet.")}
+          >
+            Manage event
+          </button>
+        ) : (
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+            <button className="g-btn g-btn-citron" onClick={() => onNote("You're RSVP'd — free.")}>
+              RSVP — free
+            </button>
+            <button className="g-btn g-btn-ghost" onClick={() => onNote("Noted — bring someone.")}>
+              Bring someone
+            </button>
+          </div>
+        )}
+      </div>
+      {note && <ActionNote>{note}</ActionNote>}
+    </div>
+  );
+}
+
+// ————— Detail: Table —————
+
+function TableDetail({
+  table,
+  persona,
+  note,
+  onNote,
+}: {
+  table: DemoTable;
+  persona: GardenUser;
+  note: string | null;
+  onNote: (n: string) => void;
+}) {
+  const isHostOwner = persona.id === table.hostId;
+  const rosterNames = table.id === "third-thursday" ? DASHBOARD.people.map((p) => p.name) : null;
+  const rosterExtra = rosterNames ? table.roster - rosterNames.length : 0;
+  const memberGate = can(persona, "table.join.member");
+
+  return (
+    <div>
+      {table.format && <FormatBadge>{table.format}</FormatBadge>}
+      <h1 className="g-h" style={{ marginTop: 12, fontSize: "clamp(26px,4.5vw,36px)" }}>
+        {table.name}
+      </h1>
+      {table.program && (
+        <div className="g-credit" style={{ marginTop: 8 }}>
+          <b>{table.program}</b>
+        </div>
+      )}
+
+      <div style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 10, maxWidth: 460 }}>
+        <FactRow k="Cadence" v={table.cadence} />
+        <FactRow k="Mode" v={MODE_LINE[table.mode]} />
+      </div>
+
+      <div style={{ marginTop: 20 }}>
+        <div className="g-label">Roster</div>
+        <p style={{ marginTop: 8, fontSize: 14.5 }}>
+          {rosterNames
+            ? `${rosterNames.join(", ")}${rosterExtra > 0 ? ` — and ${rosterExtra} more` : ""}.`
+            : `${table.roster} on the roster.`}
+        </p>
+      </div>
+
+      <div style={{ marginTop: 24 }}>
+        {isHostOwner ? (
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+            <button
+              className="g-btn g-btn-citron"
+              onClick={() => onNote("Manage table — demo, no dashboard wired yet.")}
+            >
+              Manage table
+            </button>
+            <button className="g-btn g-btn-ghost" onClick={() => onNote("Invite kit ready — link + QR.")}>
+              Invite kit (link + QR)
+            </button>
+          </div>
+        ) : table.mode === "open" ? (
+          <button className="g-btn g-btn-citron" onClick={() => onNote("Joined — free.")}>
+            Join — free
+          </button>
+        ) : table.mode === "member" ? (
+          memberGate.allowed ? (
+            <button className="g-btn g-btn-citron" onClick={() => onNote("Joined.")}>
+              Join
+            </button>
+          ) : (
+            <GateHint result={memberGate} />
+          )
+        ) : (
+          <button className="g-btn g-btn-citron" onClick={() => onNote("Seat held — check your messages.")}>
+            {cohortJoinLabel(table)}
+          </button>
+        )}
+      </div>
+      {note && <ActionNote>{note}</ActionNote>}
+    </div>
+  );
+}
+
+// ————— Detail: Offer —————
+
+function OfferDetail({
+  offer,
+  persona,
+  note,
+  onNote,
+}: {
+  offer: DemoOffer;
+  persona: GardenUser;
+  note: string | null;
+  onNote: (n: string) => void;
+}) {
+  const isOwner = OFFER_OWNER_ID[offer.id] === persona.id;
+  const ByIcon = offer.byKind === "person" ? IconPeople : IconPlace;
+  const messageTarget = offer.byKind === "person" ? offer.by.split(" ")[0] : offer.by;
+
+  return (
+    <div>
+      {offer.photo && (
+        <img
+          src={offer.photo}
+          alt={offer.by}
+          style={{ width: "100%", height: 220, objectFit: "cover", borderRadius: 8, display: "block", filter: "saturate(0.85)" }}
+        />
+      )}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 16 }}>
+        <ByIcon size={18} className="g-ic" />
+        <h1 className="g-h" style={{ fontSize: "clamp(24px,4.5vw,32px)" }}>
+          {offer.by}
+        </h1>
+      </div>
+      <div className="g-credit" style={{ marginTop: 8 }}>
+        {offer.where}
+        {!offer.claimed && " · unclaimed"}
+      </div>
+      {offer.program && (
+        <div className="g-credit" style={{ marginTop: 4 }}>
+          <b>{offer.program}</b>
+        </div>
+      )}
+
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 16 }}>
+        <span className="g-badge g-badge-line" style={{ color: "var(--g-citron)", borderColor: "#3a3a36" }}>
+          {offer.kind}
+        </span>
+        {offer.price && <span className="g-badge g-badge-line">{offer.price}</span>}
+      </div>
+
+      <p style={{ marginTop: 16, fontSize: 15, lineHeight: 1.6, maxWidth: "62ch" }}>{offer.desc}</p>
+
+      <div style={{ marginTop: 18, maxWidth: 420 }}>
+        <FactRow k="Cadence" v={offer.price ? `${offer.cadence} · ${offer.price}` : offer.cadence} />
+      </div>
+
+      <div style={{ marginTop: 24 }}>
+        {isOwner ? (
+          <button className="g-btn g-btn-ghost" onClick={() => onNote("Edit listing — demo, no editor wired yet.")}>
+            Edit listing
+          </button>
+        ) : (
+          <button className="g-btn g-btn-citron" onClick={() => onNote(`Message sent to ${messageTarget}.`)}>
+            Message {messageTarget}
+          </button>
+        )}
+      </div>
+      {note && <ActionNote>{note}</ActionNote>}
+    </div>
+  );
+}
+
+// ————— Detail router —————
+
+function DetailView({
+  detail,
+  persona,
+  note,
+  onNote,
+  onBack,
+}: {
+  detail: { kind: DetailKind; id: string };
+  persona: GardenUser;
+  note: string | null;
+  onNote: (n: string) => void;
+  onBack: () => void;
+}) {
+  if (detail.kind === "project") {
+    const project = PROJECTS.find((p) => p.id === detail.id);
+    if (!project) return null;
+    return (
+      <DetailFrame backLabel="Projects" onBack={onBack}>
+        <ProjectDetail project={project} persona={persona} note={note} onNote={onNote} />
+      </DetailFrame>
+    );
+  }
+  if (detail.kind === "event") {
+    const event = EVENTS.find((e) => e.id === detail.id);
+    if (!event) return null;
+    return (
+      <DetailFrame backLabel="Events" onBack={onBack}>
+        <EventDetail event={event} persona={persona} note={note} onNote={onNote} />
+      </DetailFrame>
+    );
+  }
+  if (detail.kind === "table") {
+    const table = TABLES.find((t) => t.id === detail.id);
+    if (!table) return null;
+    return (
+      <DetailFrame backLabel="Tables" onBack={onBack}>
+        <TableDetail table={table} persona={persona} note={note} onNote={onNote} />
+      </DetailFrame>
+    );
+  }
+  const offer = OFFERS.find((o) => o.id === detail.id);
+  if (!offer) return null;
+  return (
+    <DetailFrame backLabel="Offers" onBack={onBack}>
+      <OfferDetail offer={offer} persona={persona} note={note} onNote={onNote} />
+    </DetailFrame>
+  );
+}
+
+// ————— Top bar —————
+
+function TopBar({
+  active,
+  onSelect,
+  persona,
+}: {
+  active: NavItem;
+  onSelect: (n: NavItem) => void;
+  persona: GardenUser;
+}) {
   return (
     <div
       style={{
+        position: "sticky",
+        top: 0,
+        zIndex: 40,
+        background: "var(--g-ink)",
         display: "flex",
         alignItems: "center",
         gap: 20,
@@ -377,7 +1018,7 @@ function TopBar({ active, onSelect }: { active: NavItem; onSelect: (n: NavItem) 
             color: "var(--g-body)",
           }}
         >
-          2
+          {DASHBOARD.today.unread}
         </span>
         <span
           className="g-mono"
@@ -401,43 +1042,50 @@ function TopBar({ active, onSelect }: { active: NavItem; onSelect: (n: NavItem) 
   );
 }
 
-// ————— The page —————
+// ————— The app —————
 
-export default function AppShellMock() {
-  const [active, setActive] = useState<NavItem>("Buzz");
+function AppShell() {
+  const { persona } = useDemo();
+  const [view, setView] = useState<ViewState>({ section: "Buzz" });
+  const [note, setNote] = useState<string | null>(null);
+
+  useEffect(() => {
+    setNote(null);
+  }, [view.section, view.detail?.id, persona.id]);
+
+  const goSection = (section: NavItem) => setView({ section });
+  const openDetail = (kind: DetailKind, id: string) =>
+    setView((v) => ({ ...v, detail: { kind, id } }));
+  const closeDetail = () => setView((v) => ({ section: v.section }));
 
   return (
-    <main>
-      <div className="g-label" style={{ marginTop: 28 }}>
-        App shell · navigation mock
+    <>
+      <TopBar active={view.section} onSelect={goSection} persona={persona} />
+      <div className="g-wrap g-wrap-wide">
+        {view.detail ? (
+          <DetailView detail={view.detail} persona={persona} note={note} onNote={setNote} onBack={closeDetail} />
+        ) : (
+          <>
+            {view.section === "Buzz" && <BuzzSection onOpenDetail={openDetail} />}
+            {view.section === "Projects" && <ProjectsSection onOpenDetail={openDetail} />}
+            {view.section === "Events" && <EventsSection onOpenDetail={openDetail} />}
+            {view.section === "Tables" && <TablesSection onOpenDetail={openDetail} />}
+            {view.section === "Offers" && <OffersSection onOpenDetail={openDetail} />}
+          </>
+        )}
       </div>
-      <p style={{ marginTop: 10, maxWidth: "62ch" }}>
-        This is the app frame — switch sections with the nav; walk as different personas on the bar below.
-      </p>
+    </>
+  );
+}
 
-      <div
-        style={{
-          marginTop: 24,
-          border: "1px solid var(--g-hairline)",
-          borderRadius: 10,
-          overflow: "hidden",
-          background: "var(--g-ink)",
-        }}
-      >
-        <TopBar active={active} onSelect={setActive} />
-        <div style={{ padding: "22px 20px 26px" }}>
-          {active === "Buzz" && <BuzzSection />}
-          {active === "Projects" && <ProjectsSection />}
-          {active === "Events" && <EventsSection />}
-          {active === "Tables" && <TablesSection />}
-          {active === "Offers" && <OffersSection />}
-        </div>
-      </div>
-
-      <p className="g-hint" style={{ marginTop: 16, maxWidth: "62ch" }}>
-        Classes live under Tables and Events, labeled by format tags; coaching lives under Offers.
-        Search, Messages, and Profile are omitted from this mock on purpose.
-      </p>
-    </main>
+export default function GardenApp() {
+  return (
+    <div className="garden-root">
+      <link rel="stylesheet" href="/about/fonts/fonts.css" />
+      <DemoProvider>
+        <AppShell />
+        <PersonaBar />
+      </DemoProvider>
+    </div>
   );
 }

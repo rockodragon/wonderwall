@@ -134,14 +134,14 @@ function SplitStrip() {
     <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
       <div className="g-cell g-cell-hot" style={{ flex: 1, textAlign: "center", padding: "10px 6px" }}>
         <span className="g-cell-v" style={{ fontSize: 18 }}>$5</span>
-        <div className="g-mono" style={{ fontSize: 10, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--g-muted)", marginTop: 4 }}>
+        <div className="g-mono" style={{ fontSize: 10.5, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--g-muted)", marginTop: 4 }}>
           another creative's project
         </div>
       </div>
       <div className="g-cell" style={{ flex: 1, textAlign: "center", padding: "10px 6px" }}>
         <span className="g-cell-v" style={{ fontSize: 18 }}>$5</span>
-        <div className="g-mono" style={{ fontSize: 10, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--g-muted)", marginTop: 4 }}>
-          the garden — the place itself
+        <div className="g-mono" style={{ fontSize: 10.5, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--g-muted)", marginTop: 4 }}>
+          the garden — running the platform
         </div>
       </div>
     </div>
@@ -217,7 +217,6 @@ export default function DemoCreate() {
   if (path === "chooser") {
     return (
       <main style={{ marginTop: 28 }}>
-        <div className="g-label">Start a project</div>
         <h1 className="g-h" style={{ marginTop: 10, fontSize: "clamp(26px,4.5vw,34px)" }}>
           What are we starting?
         </h1>
@@ -389,7 +388,7 @@ export default function DemoCreate() {
             {!atCap ? (
               <p className="g-hint" style={{ marginTop: 14 }}>
                 Covered by a church or patron?{" "}
-                <span className="g-mono" style={{ color: "var(--g-citron)", fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase" }}>
+                <span className="g-mono" style={{ color: "var(--g-citron)", fontSize: 10.5, letterSpacing: "0.1em", textTransform: "uppercase" }}>
                   Enter coverage code
                 </span>
               </p>

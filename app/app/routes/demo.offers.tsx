@@ -62,7 +62,7 @@ function OfferCard({ offer }: { offer: (typeof OFFERS)[number] }) {
           <div
             className="g-mono"
             style={{
-              fontSize: 9.5,
+              fontSize: 10.5,
               letterSpacing: "0.08em",
               textTransform: "uppercase",
               color: "var(--g-dim)",

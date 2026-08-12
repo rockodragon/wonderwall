@@ -5,9 +5,9 @@
   --g-ink: #121212;
   --g-paper: #f7f7f4;
   --g-hairline: #2a2a28;
-  --g-dim: #6f6f69;
-  --g-muted: #8b8b85;
-  --g-body: #a8a8a0;
+  --g-dim: #94948c;
+  --g-muted: #acaca4;
+  --g-body: #c6c6be;
   --g-citron: #d7f25a;
 
   background: var(--g-ink);

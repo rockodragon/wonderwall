@@ -67,7 +67,7 @@ function SplitBar({ who }: { who: string }) {
         display: "flex",
         gap: 8,
         marginTop: 16,
-        fontSize: 10,
+        fontSize: 10.5,
         letterSpacing: "0.06em",
         textTransform: "uppercase",
         textAlign: "center",
@@ -117,7 +117,7 @@ function DeadInput({ value, dim = true }: { value: string; dim?: boolean }) {
 
 function CreditLine({ by }: { by: string }) {
   return (
-    <span className="g-credit" style={{ fontSize: 10 }}>
+    <span className="g-credit" style={{ fontSize: 10.5 }}>
       seat covered by <b>{by}</b>
     </span>
   );
@@ -188,7 +188,7 @@ export default function PatronFlow() {
   return (
     <main>
       <h1 className="g-h" style={{ marginTop: 28 }}>
-        Back a <span className="g-accent">specific person.</span>
+        Back a <span className="g-accent">project or a creative.</span>
       </h1>
       <p style={{ marginTop: 14, maxWidth: "58ch" }}>
         Most patrons start at $10, not $500. Cover a specific creative's
@@ -473,7 +473,7 @@ export default function PatronFlow() {
               alignItems: "center",
               justifyContent: "center",
               gap: 6,
-              fontSize: 9,
+              fontSize: 10.5,
               letterSpacing: "0.1em",
               color: "var(--g-dim)",
               textAlign: "center",
@@ -527,7 +527,7 @@ export default function PatronFlow() {
         <p className="g-hint" style={{ marginTop: 10 }}>
           {idle} seats are unclaimed — announcing the code from the front is
           what fills them.{" "}
-          <span className="g-credit" style={{ color: "var(--g-citron)", fontSize: 10 }}>
+          <span className="g-credit" style={{ color: "var(--g-citron)", fontSize: 10.5 }}>
             Announce them again →
           </span>
         </p>

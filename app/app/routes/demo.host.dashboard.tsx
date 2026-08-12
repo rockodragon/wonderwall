@@ -81,7 +81,7 @@ function Bar({
     <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
       <span
         className="g-mono"
-        style={{ fontSize: 10, color: citron ? "var(--g-citron)" : "var(--g-dim)" }}
+        style={{ fontSize: 10.5, color: citron ? "var(--g-citron)" : "var(--g-dim)" }}
       >
         {value}
       </span>
@@ -97,7 +97,7 @@ function Bar({
       <span
         className="g-mono"
         style={{
-          fontSize: 9,
+          fontSize: 10.5,
           letterSpacing: "0.06em",
           textTransform: "uppercase",
           color: "var(--g-dim)",
@@ -175,9 +175,8 @@ export default function DemoHostDashboard() {
     return (
       <main style={{ marginTop: 28 }}>
         <div className="g-card" style={{ maxWidth: 470, padding: "30px 30px 26px" }}>
-          <div className="g-label">Host dashboard</div>
-          <div className="g-h" style={{ fontSize: 26, marginTop: 8 }}>
-            This is where hosts manage their tables
+          <div className="g-h" style={{ fontSize: 26 }}>
+            The dashboard comes with hosting
           </div>
           <p style={{ fontSize: 15, color: "var(--g-body)", marginTop: 12 }}>{gate.reason}</p>
           <div style={{ marginTop: 20, display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
