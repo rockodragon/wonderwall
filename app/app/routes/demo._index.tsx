@@ -65,6 +65,7 @@ export default function DemoIndex() {
             key={p.id}
             className="g-card"
             onClick={() => setPersonaId(p.id)}
+            aria-label={p.name}
             style={{
               textAlign: "left",
               background: p.id === persona.id ? "#1a1a18" : "transparent",
@@ -90,6 +91,7 @@ export default function DemoIndex() {
             key={f.to}
             to={f.to}
             className="g-card"
+            aria-label={f.title}
             style={{ textDecoration: "none", display: "block" }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>

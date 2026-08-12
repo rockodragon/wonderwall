@@ -56,6 +56,8 @@ export function PersonaBar() {
           data-active={p.id === persona.id}
           onClick={() => setPersonaId(p.id)}
           title={PERSONA_TAGLINE[p.id]}
+          aria-label={`Walk as ${p.name}`}
+          aria-pressed={p.id === persona.id}
         >
           {p.name.split(" ")[0]}
         </button>

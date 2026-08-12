@@ -154,7 +154,7 @@ function ProjectStrip({ title, byLine, photo }: { title: string; byLine: string;
   if (!photo) return null;
   return (
     <div className="g-cell" style={{ marginTop: 14, padding: 8, display: "flex", gap: 10, alignItems: "center" }}>
-      <img src={photo} alt="" className="g-photo-strip" style={{ width: 64, height: 64, flexShrink: 0 }} />
+      <img src={photo} alt={title} className="g-photo-strip" style={{ width: 64, height: 64, flexShrink: 0 }} />
       <div>
         <div style={{ fontSize: 13.5, color: "var(--g-paper)", fontWeight: 500 }}>“{title}”</div>
         <div className="g-hint" style={{ marginTop: 2 }}>{byLine}</div>
@@ -236,6 +236,7 @@ export default function DemoCreate() {
               key={f.path}
               className="g-card"
               onClick={() => setPath(f.path)}
+              aria-label={f.name}
               onMouseEnter={() => setHoveredFork(f.path)}
               onMouseLeave={() => setHoveredFork((h) => (h === f.path ? null : h))}
               style={{

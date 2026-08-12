@@ -48,6 +48,7 @@ function Masthead() {
             key={n.to}
             to={n.to}
             className="g-label"
+            aria-pressed={pathname === n.to}
             style={{
               textDecoration: "none",
               color: pathname === n.to ? "var(--g-citron)" : undefined,

@@ -189,34 +189,40 @@ function ActionNote({ children }: { children: ReactNode }) {
   );
 }
 
-/** Card content that opens a detail view — div-as-button, keyboard reachable. */
+/** Card content that opens a detail view — a real button, keyboard reachable. */
 function Clickable({
   onClick,
   children,
   style,
   className,
+  ariaLabel,
 }: {
   onClick: () => void;
   children: ReactNode;
   style?: React.CSSProperties;
   className?: string;
+  ariaLabel?: string;
 }) {
   return (
-    <div
-      role="button"
-      tabIndex={0}
+    <button
+      type="button"
       onClick={onClick}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          onClick();
-        }
-      }}
       className={className}
-      style={{ cursor: "pointer", ...style }}
+      aria-label={ariaLabel}
+      style={{
+        all: "unset",
+        boxSizing: "border-box",
+        display: "block",
+        width: "100%",
+        textAlign: "left",
+        font: "inherit",
+        color: "inherit",
+        cursor: "pointer",
+        ...style,
+      }}
     >
       {children}
-    </div>
+    </button>
   );
 }
 
@@ -235,6 +241,7 @@ function BuzzSection({
 
       <Clickable
         onClick={() => onOpenDetail("event", firstEvent.id)}
+        ariaLabel={firstEvent.title}
         style={{
           marginTop: 14,
           display: "flex",
@@ -270,6 +277,7 @@ function BuzzSection({
           <Clickable
             key={p.id}
             onClick={() => onOpenDetail("project", p.id)}
+            ariaLabel={p.title}
             style={{ border: "1px solid var(--g-hairline)", borderRadius: 8, padding: 12 }}
           >
             {p.photo && <img src={p.photo} alt={p.title} className="g-photo-strip" />}
@@ -305,6 +313,7 @@ function ProjectsSection({
         <Clickable
           key={p.id}
           onClick={() => onOpenDetail("project", p.id)}
+          ariaLabel={p.title}
           className="g-card"
           style={{ padding: 0, overflow: "hidden" }}
         >
@@ -344,7 +353,12 @@ function EventsSection({
       }}
     >
       {EVENTS.map((e) => (
-        <Clickable key={e.id} onClick={() => onOpenDetail("event", e.id)} className="g-card">
+        <Clickable
+          key={e.id}
+          onClick={() => onOpenDetail("event", e.id)}
+          ariaLabel={e.title}
+          className="g-card"
+        >
           <div
             style={{
               display: "flex",
@@ -383,7 +397,11 @@ function TableCard({
   onOpenDetail: (kind: DetailKind, id: string) => void;
 }) {
   return (
-    <Clickable onClick={() => onOpenDetail("table", table.id)} className="g-card">
+    <Clickable
+      onClick={() => onOpenDetail("table", table.id)}
+      ariaLabel={table.name}
+      className="g-card"
+    >
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
         {table.format && <FormatBadge>{table.format}</FormatBadge>}
       </div>
@@ -420,6 +438,7 @@ function TablesSection({
             key={f}
             className="g-demo-chip"
             data-active={filter === f}
+            aria-pressed={filter === f}
             onClick={() => setFilter(f)}
           >
             {f}
@@ -453,7 +472,11 @@ function CompactOfferCard({
 }) {
   const ByIcon = offer.byKind === "person" ? IconPeople : IconPlace;
   return (
-    <Clickable onClick={() => onOpenDetail("offer", offer.id)} className="g-card">
+    <Clickable
+      onClick={() => onOpenDetail("offer", offer.id)}
+      ariaLabel={offer.by}
+      className="g-card"
+    >
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <ByIcon size={16} className="g-ic" />
         <div className="g-h" style={{ fontSize: 15 }}>
@@ -986,6 +1009,7 @@ function TopBar({
             key={n}
             onClick={() => onSelect(n)}
             className="g-mono"
+            aria-pressed={active === n}
             style={{
               background: "none",
               border: "none",

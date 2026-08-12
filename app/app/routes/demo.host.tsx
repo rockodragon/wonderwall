@@ -264,7 +264,7 @@ export default function DemoHost() {
       }}
     >
       {step === 4 ? (
-        <img src={PHOTOS.songwriters} alt="" className="g-photo-strip" />
+        <img src={PHOTOS.songwriters} alt={name.trim() || "Untitled table"} className="g-photo-strip" />
       ) : null}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
         <span className="g-credit">The Garden</span>
@@ -428,6 +428,7 @@ export default function DemoHost() {
                 setMode(m.id);
                 if (m.id !== "cohort") setPrice(0);
               }}
+              aria-label={m.label}
               style={{
                 textAlign: "left",
                 background: mode === m.id ? "#1a1a18" : "transparent",
@@ -479,6 +480,7 @@ export default function DemoHost() {
                 key={v.name}
                 onClick={() => setVenue(v.name)}
                 className="g-card"
+                aria-label={v.name}
                 style={{
                   textAlign: "left",
                   background: venue === v.name ? "#1a1a18" : "transparent",
@@ -490,7 +492,7 @@ export default function DemoHost() {
                   flexDirection: "column",
                 }}
               >
-                {v.photo ? <img src={v.photo} alt="" className="g-photo-strip" /> : null}
+                {v.photo ? <img src={v.photo} alt={v.name} className="g-photo-strip" /> : null}
                 <div
                   style={{
                     display: "flex",

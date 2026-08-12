@@ -199,6 +199,7 @@ function ChoiceRow({
       onMouseLeave={() => onHover(false)}
       onFocus={() => onHover(true)}
       onBlur={() => onHover(false)}
+      aria-label={name}
       style={{
         display: "flex",
         alignItems: "baseline",
@@ -430,6 +431,7 @@ export default function DemoJoin() {
                   key={t.level}
                   className="g-card"
                   onClick={() => setTier(t.level)}
+                  aria-label={t.name}
                   style={{
                     textAlign: "left",
                     cursor: "pointer",
@@ -554,7 +556,7 @@ export default function DemoJoin() {
           <div className="g-card" style={{ marginTop: 18 }}>
             <img
               src={PHOTOS.songwriters}
-              alt=""
+              alt={FIRST_TABLE.name}
               className="g-photo-strip"
               style={{ marginBottom: 14 }}
             />

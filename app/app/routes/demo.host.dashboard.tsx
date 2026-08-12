@@ -230,6 +230,7 @@ export default function DemoHostDashboard() {
             key={t.id}
             onClick={() => setTab(t.id)}
             className="g-mono"
+            aria-pressed={tab === t.id}
             style={{
               display: "flex",
               alignItems: "center",
@@ -268,7 +269,7 @@ export default function DemoHostDashboard() {
           </div>
 
           <div className="g-card" style={{ marginTop: 14, padding: 0, overflow: "hidden" }}>
-            <img src={PHOTOS.recordShop} alt="" className="g-photo-strip" />
+            <img src={PHOTOS.recordShop} alt="Folded Note back room" className="g-photo-strip" />
             <div style={{ padding: "16px 20px" }}>
               <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
                 <span className="g-h" style={{ fontSize: 17 }}>
