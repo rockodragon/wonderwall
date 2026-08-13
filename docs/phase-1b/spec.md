@@ -90,9 +90,24 @@ Each item: what ships, what it must do (acceptance), and what it explicitly does
 
 Self-serve tables · host payouts (Stripe Connect) · owned video/Stream · media-first auto-drafting · Buzz backend · offers directory backend (static demo stands) · SMS auth · legacy-jobs rename beyond vocabulary pass (wonderwall-77w).
 
-## 5 · Integration architecture
+## 5 · Integration architecture (synthesis — details in `architect-gap-analysis.md` + `dev-gap-inventory.md`)
 
-→ `architect-gap-analysis.md` (current-state map, target architecture, seams, risk register, build sequence) and `dev-gap-inventory.md` (file-level reuse, effort grades, blow-up risks) — both incorporated here once landed; the build plan in beads derives from their sequence.
+**Decisions taken from the gap analyses (2026-08-12):**
+
+- **Payouts: manual transfers for October.** Stripe Connect Express is 1–2 weeks of KYC friction that two customers don't justify. The platform is merchant of record until Phase 3 (1099/bookkeeping exposure flagged to AP's accountant before W3); Connect adopted in Phase 3. This collapses the dev inventory's largest risk (backing was graded L on the Connect assumption).
+- **Public story/event pages: keep `ssr:false`.** A small CF Pages Function serves story/event routes via `ConvexHttpClient` (plain fetch — sidesteps the known Convex-WebSocket-vs-Workers incompatibility entirely). Acceptance: `curl` returns per-story OG tags. Fallback: build-time prerender. W2 spike with an explicit regression test on signup deep links (this pattern near the SPA fallback is where we got burned before).
+- **Server-side `can()` by construction, not by copy:** the pure module moves to `app/convex/garden/capabilities.ts`; the client re-exports it. One source file means the 86-assertion suite tests the server implementation automatically. `getGardenUser` + `assertCan` gate every mutation, throwing the denial anatomy (`reason/limit/used/upgradePath`) as `ConvexError` for the standard UI.
+- **Stripe topology:** Convex `"use node"` actions create Checkout Sessions; webhooks land on a Convex `httpAction` (`constructEventAsync`); membership state via idempotent upserts keyed by subscription id; **nightly reconcile cron as the backstop** (webhook races are a named top risk). Success pages use Convex reactivity — no polling.
+- **Coverage codes:** one church subscription, `quantity = seats`, bound to a `coverageCodes` row; redemption mutation enforces the seat count; card failure suspends with grace — never silently strips a covered creative's seat.
+- **Legacy jobs → projects:** freeze `jobs`, one-shot copy into `projects {kind:"paid", legacyJobId}`, 301 the old URLs. `jobInterests` maps to project applications. (Dev: `jobs.ts`'s 711-line CRUD is the skeleton; needs numeric `budget`.)
+- **Schema additions:** `hostOrgs, memberships, billingCustomers, coverageCodes, coverageRedemptions, projects, projectApplications, backings, payouts, tables, tableMemberships, tableSessions, sessionRsvps, allocations, storyUpdates`; `patronRole/partnerRole/level` fields on `profiles` (the first domino — capabilities reads them).
+- **Demo stays the showroom;** `FilterChips`/`SectionIntro`/denial panel extract to `app/app/garden/ui/` shared with production routes.
+- **AP Fund:** zero payment surface — `hostOrgs.givingUrl` outbound button + `allocations` ledger + credit blocks on project pages.
+
+**Build sequence (exit criteria in the architect doc):**
+W1 money foundation + server entitlements → W2 coverage codes + projects + jobs migration (+ public-page spike) → W3 backing + story pages → W4 tables/sessions + real event RSVPs → W5 AP Fund + hardening. W6 real-world dry run (AP creatives, real codes, small dollars). W7 buffer.
+
+**Effort honesty:** dev graded 21–30 days against ~25 available *before* the architect resolved both blowups downward (manual payouts; no-SSR story pages) — realistic landing zone is the low 20s, still tight. **If it slips, cut:** dashboard polish, `.ics` styling. **Never cut:** the reconcile cron, server-side `can()`, the payout ledger.
 
 ## 6 · Test bar
 
