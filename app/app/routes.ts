@@ -32,6 +32,7 @@ export default [
     route("faq", "routes/faq.tsx"),
     route("admin", "routes/admin.tsx"),
     route("admin/crawler", "routes/admin.crawler.tsx"),
+    route("admin/garden", "routes/admin.garden.tsx"),
     route("messages", "routes/messages._index.tsx"),
     route("messages/:conversationId", "routes/messages.$conversationId.tsx"),
   ]),
@@ -54,6 +55,7 @@ export default [
   route("story/:slug", "routes/story.$slug.tsx"),
   route("tables", "routes/tables._index.tsx"),
   route("tables/:slug", "routes/tables.$slug.tsx"),
+  route("c/:code", "routes/c.$code.tsx"),
 
   // 404 catch-all
   route("*", "routes/404.tsx"),

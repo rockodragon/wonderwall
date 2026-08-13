@@ -33,6 +33,7 @@ import type * as garden_entitlements from "../garden/entitlements.js";
 import type * as garden_eventRsvps from "../garden/eventRsvps.js";
 import type * as garden_jobsMigration from "../garden/jobsMigration.js";
 import type * as garden_memberships from "../garden/memberships.js";
+import type * as garden_operator from "../garden/operator.js";
 import type * as garden_projects from "../garden/projects.js";
 import type * as garden_stories from "../garden/stories.js";
 import type * as garden_stripe from "../garden/stripe.js";
@@ -89,6 +90,7 @@ declare const fullApi: ApiFromModules<{
   "garden/eventRsvps": typeof garden_eventRsvps;
   "garden/jobsMigration": typeof garden_jobsMigration;
   "garden/memberships": typeof garden_memberships;
+  "garden/operator": typeof garden_operator;
   "garden/projects": typeof garden_projects;
   "garden/stories": typeof garden_stories;
   "garden/stripe": typeof garden_stripe;

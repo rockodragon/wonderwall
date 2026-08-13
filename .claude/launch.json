@@ -15,6 +15,15 @@
         "cd app && VITE_CONVEX_URL=https://courteous-rabbit-750.convex.cloud npx react-router dev --port 5173"
       ],
       "port": 5173
+    },
+    {
+      "name": "app-dev-seeded",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "-lc",
+        "cd app && npx react-router dev --port 5175"
+      ],
+      "port": 5175
     }
   ]
 }

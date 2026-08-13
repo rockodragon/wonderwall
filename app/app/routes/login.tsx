@@ -50,10 +50,14 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
 
-  // Redirect when authenticated (handles both password login and OAuth return)
+  // Redirect when authenticated (handles both password login and OAuth return).
+  // ?redirect=/some/path returns the user where they started (e.g. a coverage
+  // code at /c/CODE) — same-origin paths only, never external URLs.
   useEffect(() => {
     if (!authLoading && isAuthenticated) {
-      navigate("/search");
+      const redirect = new URLSearchParams(window.location.search).get("redirect");
+      const safe = redirect && redirect.startsWith("/") && !redirect.startsWith("//");
+      navigate(safe ? redirect : "/search");
     }
   }, [isAuthenticated, authLoading, navigate]);
 

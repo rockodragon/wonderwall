@@ -99,6 +99,24 @@ export default function AdminPage() {
           )}
         </div>
 
+        <div className="mb-8 bg-white shadow-md rounded-lg p-6 flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">
+              Garden Operator Console
+            </h2>
+            <p className="mt-1 text-sm text-gray-600">
+              Create tables, sessions, coverage codes, and record AP fund
+              allocations.
+            </p>
+          </div>
+          <Link
+            to="/admin/garden"
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 whitespace-nowrap"
+          >
+            Open Console
+          </Link>
+        </div>
+
         <div className="bg-white shadow-md rounded-lg overflow-hidden">
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
