@@ -252,3 +252,58 @@ export const seedApOrg = internalMutation({
     return { ok: true, existed: false };
   },
 });
+
+// Prod-safe: the two REAL launch tables (actual partner programs, honest
+// TBDs, zero roster). Run: npx convex run garden/devSeed:seedLaunchTables --prod
+export const seedLaunchTables = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const garden = await ctx.db
+      .query("hostOrgs")
+      .withIndex("by_slug", (q) => q.eq("slug", "the-garden"))
+      .unique();
+    const ap = await ctx.db
+      .query("hostOrgs")
+      .withIndex("by_slug", (q) => q.eq("slug", "abiding-practice"))
+      .unique();
+    if (!garden || !ap) throw new Error("Seed hostOrgs first.");
+    const now = Date.now();
+    const results: string[] = [];
+    for (const t of [
+      {
+        name: "Pathfinding — Fall Cohort",
+        slug: "pathfinding-fall",
+        hostOrgId: ap._id,
+        mode: "cohort",
+        format: "Class",
+        program: "Pathfinding · Abiding Practice",
+        cadence: "8 weeks · starts this fall · dates landing soon",
+        blurb:
+          "A season of spiritual creative formation with Abiding Practice — ending at the October showcase.",
+        status: "active",
+        createdAt: now,
+      },
+      {
+        name: "Table Art Society",
+        slug: "table-art-society",
+        hostOrgId: garden._id,
+        mode: "open",
+        format: "Critique",
+        cadence: "Monthly · San Diego · next date landing soon",
+        blurb: "Working artists around an actual table — bring a piece, leave with direction.",
+        status: "active",
+        createdAt: now,
+      },
+    ]) {
+      const existing = await ctx.db
+        .query("gardenTables")
+        .withIndex("by_slug", (q) => q.eq("slug", t.slug))
+        .unique();
+      if (!existing) {
+        await ctx.db.insert("gardenTables", t);
+        results.push(t.slug);
+      }
+    }
+    return { created: results };
+  },
+});

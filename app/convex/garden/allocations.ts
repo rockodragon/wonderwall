@@ -273,7 +273,7 @@ export const getFundPage = query({
     }
 
     return {
-      org: { name: hostOrg.name, givingUrl: hostOrg.givingUrl },
+      org: { name: hostOrg.name, givingUrl: hostOrg.givingUrl, paymentLinkUrl: hostOrg.paymentLinkUrl },
       totals: computeFundTotals(allocations),
       ledger: shapeLedger(allocations, projectsById),
     };

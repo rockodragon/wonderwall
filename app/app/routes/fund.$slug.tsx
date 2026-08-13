@@ -9,7 +9,7 @@
 // unknown slug or an undeployed backend (both read as "isn't live yet").
 
 import { useQuery } from "convex/react";
-import { Link, useParams, useRouteError } from "react-router";
+import { Link, useParams, useRouteError, useSearchParams } from "react-router";
 import { api } from "../../convex/_generated/api";
 import {
   GardenErrorState,
@@ -71,6 +71,11 @@ export default function FundPage() {
   }
 
   const { org, totals, ledger } = data;
+  const [searchParams] = useSearchParams();
+  const gaveThanks = searchParams.get("gave") === "1";
+  // Prefer the org's own Stripe Payment Link (in-site round trip); fall back
+  // to their giving page until the link exists.
+  const givingHref = org.paymentLinkUrl ?? org.givingUrl;
 
   return (
     <GardenPage wide>
@@ -85,19 +90,31 @@ export default function FundPage() {
           here, in the open.
         </p>
 
-        {org.givingUrl && (
+        {gaveThanks && (
+          <div className="g-card" style={{ marginTop: 18, borderColor: "var(--g-citron)", maxWidth: "50ch" }}>
+            <div className="g-label" style={{ color: "var(--g-citron)" }}>Received</div>
+            <p style={{ marginTop: 8, fontSize: 15 }}>
+              Thank you. Your gift goes to {org.name}, and your receipt comes
+              from them. Allocations from the fund are published on this page.
+            </p>
+          </div>
+        )}
+
+        {/* Giving stays on our site: the org's own Stripe Payment Link opens,
+            takes the gift in THEIR account, and returns the giver right here
+            (after_completion redirect → ?gave=1). We process nothing (D3). */}
+        {givingHref && !gaveThanks && (
           <a
-            href={org.givingUrl}
-            target="_blank"
-            rel="noopener noreferrer"
+            href={givingHref}
             className="g-btn g-btn-citron"
             style={{ marginTop: 18, display: "inline-block" }}
           >
-            Give through {org.name} →
+            Give to the {org.name} Fund
           </a>
         )}
         <p className="g-hint" style={{ marginTop: 10 }}>
-          Giving happens off-platform — we process nothing here.
+          Gifts go to {org.name}, a nonprofit — your receipt comes from them.
+          Payment runs on their secure Stripe page and returns you right here.
         </p>
       </div>
 

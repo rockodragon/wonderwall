@@ -561,7 +561,11 @@ export default defineSchema({
     name: v.string(),
     slug: v.string(),
     kind: v.string(), // "platform" | "church" | "org"
-    givingUrl: v.optional(v.string()), // outbound donate link (AP lane — we process nothing)
+    givingUrl: v.optional(v.string()), // fallback outbound giving page
+    // Stripe Payment Link from the ORG'S OWN Stripe account (they create it,
+    // we embed it). Giving starts and ends on our site via after_completion
+    // redirect back to /fund/:slug — org stays merchant of record (D3).
+    paymentLinkUrl: v.optional(v.string()),
     stripeCustomerId: v.optional(v.string()), // set for orgs that buy coverage
     createdAt: v.number(),
   })
