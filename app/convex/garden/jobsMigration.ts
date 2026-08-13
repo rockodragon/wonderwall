@@ -8,12 +8,13 @@
 // budget (projects.ts); migrated ones are exempt by construction.
 
 import { internalMutation } from "../_generated/server";
+import type { Id } from "../_generated/dataModel";
 
 // ——— Pure core ———
 
 export interface LegacyJob {
-  _id: unknown;
-  posterId: unknown;
+  _id: Id<"jobs">;
+  posterId: Id<"users">;
   title: string;
   description: string;
   compensationRange?: string;
@@ -54,14 +55,14 @@ export function mapJobToProject(job: LegacyJob) {
 
 export const migrateJobsToProjects = internalMutation({
   args: {},
-  handler: async (ctx: any) => {
+  handler: async (ctx) => {
     const jobs = await ctx.db.query("jobs").collect();
     let migrated = 0;
     let skipped = 0;
     for (const job of jobs) {
       const existing = await ctx.db
         .query("projects")
-        .withIndex("by_legacyJobId", (q: any) => q.eq("legacyJobId", job._id))
+        .withIndex("by_legacyJobId", (q) => q.eq("legacyJobId", job._id))
         .unique();
       if (existing) {
         skipped++;

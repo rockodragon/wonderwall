@@ -639,4 +639,86 @@ export default defineSchema({
     .index("by_kind_status", ["kind", "status"])
     .index("by_storySlug", ["storySlug"])
     .index("by_legacyJobId", ["legacyJobId"]),
+
+  // Tables — ongoing gatherings with a roster (W4; operator-created in v1).
+  gardenTables: defineTable({
+    name: v.string(),
+    slug: v.string(),
+    hostOrgId: v.id("hostOrgs"),
+    hostUserId: v.optional(v.id("users")),
+    mode: v.string(), // "open" | "member" | "cohort"
+    format: v.optional(v.string()), // "Class" | "Mentorship" | "Critique" | "Open mic" | "Workshop" | "Show"
+    program: v.optional(v.string()), // e.g. "Pathfinding · Abiding Practice"
+    cadence: v.optional(v.string()),
+    blurb: v.optional(v.string()),
+    photoUrl: v.optional(v.string()),
+    priceCents: v.optional(v.number()), // cohorts only; free-table rule enforced in mutations
+    meetingUrl: v.optional(v.string()), // default link; sessions can override (D8: Daily.co)
+    status: v.string(), // "active" | "archived"
+    createdAt: v.number(),
+  })
+    .index("by_slug", ["slug"])
+    .index("by_hostOrgId", ["hostOrgId"])
+    .index("by_status", ["status"]),
+
+  tableMemberships: defineTable({
+    tableId: v.id("gardenTables"),
+    userId: v.id("users"),
+    joinedAt: v.number(),
+  })
+    .index("by_tableId", ["tableId"])
+    .index("by_userId", ["userId"])
+    .index("by_tableId_userId", ["tableId", "userId"]),
+
+  tableSessions: defineTable({
+    tableId: v.id("gardenTables"),
+    title: v.optional(v.string()),
+    startsAt: v.number(),
+    durationMins: v.optional(v.number()),
+    meetingUrl: v.optional(v.string()), // overrides table default when set
+    createdAt: v.number(),
+  }).index("by_tableId_startsAt", ["tableId", "startsAt"]),
+
+  sessionRsvps: defineTable({
+    sessionId: v.id("tableSessions"),
+    userId: v.id("users"),
+    status: v.string(), // "going" | "out"
+    createdAt: v.number(),
+  })
+    .index("by_sessionId", ["sessionId"])
+    .index("by_sessionId_userId", ["sessionId", "userId"]),
+
+  // Event RSVPs with a guest path (W4 — the first-table page's mailto dies here).
+  eventRsvps: defineTable({
+    eventId: v.id("events"),
+    userId: v.optional(v.id("users")), // absent for guests
+    name: v.string(),
+    email: v.string(),
+    invitedBy: v.optional(v.string()), // "bring someone" provenance
+    createdAt: v.number(),
+  })
+    .index("by_eventId", ["eventId"])
+    .index("by_eventId_email", ["eventId", "email"]),
+
+  // AP Fund public allocations ledger (W5; operator-entered, display-only lane).
+  allocations: defineTable({
+    hostOrgId: v.id("hostOrgs"), // the fund (e.g. Abiding Practice)
+    projectId: v.optional(v.id("projects")),
+    recipientName: v.string(), // denormalized so the ledger survives project edits
+    amountCents: v.number(),
+    period: v.string(), // "2026-08" or "2026-08 · monthly"
+    note: v.optional(v.string()),
+    createdAt: v.number(),
+  })
+    .index("by_hostOrgId", ["hostOrgId"])
+    .index("by_projectId", ["projectId"]),
+
+  // Story updates (W3) — the credit-carrying timeline on public story pages.
+  storyUpdates: defineTable({
+    projectId: v.id("projects"),
+    authorUserId: v.id("users"),
+    body: v.string(),
+    mediaUrl: v.optional(v.string()),
+    createdAt: v.number(),
+  }).index("by_projectId", ["projectId"]),
 });

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { mapJobToProject, parseBudget } from "./jobsMigration";
+import type { Id } from "../_generated/dataModel";
 
 describe("parseBudget — free text to declared number", () => {
   it("clean amounts parse", () => {
@@ -17,8 +18,8 @@ describe("parseBudget — free text to declared number", () => {
 
 describe("mapJobToProject", () => {
   const job = {
-    _id: "j1",
-    posterId: "u1",
+    _id: "j1" as Id<"jobs">,
+    posterId: "u1" as Id<"users">,
     title: "Mural artist",
     description: "One wall.",
     status: "Open",

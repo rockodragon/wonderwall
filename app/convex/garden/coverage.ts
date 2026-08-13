@@ -3,22 +3,23 @@
 // IDENTICAL to a self-paid seat (plan §2.1 hard rule) — only the payer differs.
 //
 // Pure core + thin Convex wrapper, same shape as entitlements.ts / the
-// Stripe handlers. ctx typed loosely until first codegen.
+// Stripe handlers. Typed against the generated data model.
 
 import { v } from "convex/values";
 import { ConvexError } from "convex/values";
 import { mutation, query } from "../_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import type { Id } from "../_generated/dataModel";
 
 // ——— Pure core ———
 
 export interface CodeRow {
-  _id: unknown;
+  _id: Id<"coverageCodes">;
   code: string;
   seats: number;
   status: string; // "active" | "suspended" | "canceled"
   stripeSubscriptionId: string;
-  hostOrgId: unknown;
+  hostOrgId: Id<"hostOrgs">;
 }
 
 export interface RedemptionCheck {
@@ -64,15 +65,15 @@ export function checkRedemption(args: {
 /** Public: what a creative sees landing on garden.app/c/CODE. */
 export const getCodePublic = query({
   args: { code: v.string() },
-  handler: async (ctx: any, args: any) => {
+  handler: async (ctx, args) => {
     const code = await ctx.db
       .query("coverageCodes")
-      .withIndex("by_code", (q: any) => q.eq("code", args.code.toUpperCase()))
+      .withIndex("by_code", (q) => q.eq("code", args.code.toUpperCase()))
       .unique();
     if (!code) return null;
     const redemptions = await ctx.db
       .query("coverageRedemptions")
-      .withIndex("by_codeId", (q: any) => q.eq("codeId", code._id))
+      .withIndex("by_codeId", (q) => q.eq("codeId", code._id))
       .collect();
     const sponsor = await ctx.db.get(code.hostOrgId);
     return {
@@ -87,29 +88,29 @@ export const getCodePublic = query({
 
 export const redeem = mutation({
   args: { code: v.string() },
-  handler: async (ctx: any, args: any) => {
+  handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new ConvexError({ code: "unauthenticated" });
 
     const code = await ctx.db
       .query("coverageCodes")
-      .withIndex("by_code", (q: any) => q.eq("code", args.code.toUpperCase()))
+      .withIndex("by_code", (q) => q.eq("code", args.code.toUpperCase()))
       .unique();
 
     const [redemptions, myRedemptions, myMemberships] = await Promise.all([
       code
         ? ctx.db
             .query("coverageRedemptions")
-            .withIndex("by_codeId", (q: any) => q.eq("codeId", code._id))
+            .withIndex("by_codeId", (q) => q.eq("codeId", code._id))
             .collect()
         : Promise.resolve([]),
       ctx.db
         .query("coverageRedemptions")
-        .withIndex("by_userId", (q: any) => q.eq("userId", userId))
+        .withIndex("by_userId", (q) => q.eq("userId", userId))
         .collect(),
       ctx.db
         .query("memberships")
-        .withIndex("by_userId", (q: any) => q.eq("userId", userId))
+        .withIndex("by_userId", (q) => q.eq("userId", userId))
         .collect(),
     ]);
 
@@ -117,10 +118,10 @@ export const redeem = mutation({
       code,
       redemptionCount: redemptions.length,
       alreadyRedeemedByUser: code
-        ? myRedemptions.some((r: any) => r.codeId === code._id)
+        ? myRedemptions.some((r) => r.codeId === code._id)
         : false,
       userHasEntitledMembership: myMemberships.some(
-        (m: any) => m.status === "active" || m.status === "past_due",
+        (m) => m.status === "active" || m.status === "past_due",
       ),
     });
     if (!verdict.ok || !code) {

@@ -17,7 +17,7 @@ export const createPassionProject = mutation({
     goal: v.optional(v.number()),
     photoUrl: v.optional(v.string()),
   },
-  handler: async (ctx: any, args: any) => {
+  handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new ConvexError({ code: "unauthenticated" });
 
@@ -51,7 +51,7 @@ export const createPaidProject = mutation({
     budget: v.number(),
     photoUrl: v.optional(v.string()),
   },
-  handler: async (ctx: any, args: any) => {
+  handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new ConvexError({ code: "unauthenticated" });
 

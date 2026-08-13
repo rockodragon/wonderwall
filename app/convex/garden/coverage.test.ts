@@ -4,14 +4,15 @@
 import { describe, expect, it } from "vitest";
 import { checkRedemption } from "./coverage";
 import type { CodeRow } from "./coverage";
+import type { Id } from "../_generated/dataModel";
 
 const code = (over: Partial<CodeRow> = {}): CodeRow => ({
-  _id: "c1",
+  _id: "c1" as Id<"coverageCodes">,
   code: "GRACE-FALL",
   seats: 10,
   status: "active",
   stripeSubscriptionId: "sub_1",
-  hostOrgId: "org1",
+  hostOrgId: "org1" as Id<"hostOrgs">,
   ...over,
 });
 

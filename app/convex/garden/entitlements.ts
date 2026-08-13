@@ -79,25 +79,30 @@ export function assertCanPure(user: GardenUser, capability: Capability): CanResu
   return result;
 }
 
-// ——— Convex wrapper (requires codegen'd types; keep thin) ———
+// ——— Convex wrapper (typed against the generated data model; keep thin) ———
 // Usage in a mutation:
 //   const gardenUser = await getGardenUser(ctx, userId);
 //   assertCanPure(gardenUser, "project.create.passion");
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function getGardenUser(ctx: any, userId: any): Promise<GardenUser> {
+import type { QueryCtx } from "../_generated/server";
+import type { Id } from "../_generated/dataModel";
+
+export async function getGardenUser(
+  ctx: QueryCtx,
+  userId: Id<"users">,
+): Promise<GardenUser> {
   const [profile, memberships, activePassion] = await Promise.all([
     ctx.db
       .query("profiles")
-      .withIndex("by_userId", (q: any) => q.eq("userId", userId))
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
       .unique(),
     ctx.db
       .query("memberships")
-      .withIndex("by_userId", (q: any) => q.eq("userId", userId))
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
       .collect(),
     ctx.db
       .query("projects")
-      .withIndex("by_userId_kind_status", (q: any) =>
+      .withIndex("by_userId_kind_status", (q) =>
         q.eq("userId", userId).eq("kind", "passion").eq("status", "active"),
       )
       .collect(),
