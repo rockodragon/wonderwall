@@ -43,6 +43,8 @@ export function ErrorBoundary() {
 
 export default function FundPage() {
   const { slug } = useParams();
+  // Hooks stay above every early return (React rules-of-hooks).
+  const [searchParams] = useSearchParams();
   const data = useQuery(
     api.garden.allocations.getFundPage,
     slug ? { hostOrgSlug: slug } : "skip",
@@ -71,7 +73,6 @@ export default function FundPage() {
   }
 
   const { org, totals, ledger } = data;
-  const [searchParams] = useSearchParams();
   const gaveThanks = searchParams.get("gave") === "1";
   // Prefer the org's own Stripe Payment Link (in-site round trip); fall back
   // to their giving page until the link exists.

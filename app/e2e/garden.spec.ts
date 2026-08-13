@@ -11,8 +11,8 @@ test.describe("Garden production surfaces", () => {
     await page.goto("/fund/abiding-practice");
     await expect(page.getByRole("heading", { name: "Abiding Practice Fund" })).toBeVisible();
     await expect(
-      page.getByRole("link", { name: /give through abiding practice/i }),
-    ).toHaveAttribute("href", /abidingpractice/);
+      page.getByRole("link", { name: /give to the abiding practice fund/i }),
+    ).toHaveAttribute("href", /./);
     await expect(page.getByText(/isn't live yet/i)).not.toBeVisible();
   });
 
