@@ -6,6 +6,7 @@ import { api } from "../../convex/_generated/api";
 import { InviteCTA } from "../components/InviteCTA";
 
 const navItems = [
+  { path: "/garden", label: "The Garden", icon: GardenIcon },
   { path: "/jobs", label: "Projects", icon: BriefcaseIcon },
   { path: "/search", label: "People", icon: SearchIcon },
   { path: "/works", label: "Portfolios", icon: GridIcon },
@@ -519,6 +520,23 @@ function CrawlerIcon({ className }: { className?: string }) {
         strokeWidth={2}
         d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"
       />
+    </svg>
+  );
+}
+
+function GardenIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth={1.5}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M12 21v-8" />
+      <path d="M12 13c0-3.5-2.5-6-6-6 0 3.5 2.5 6 6 6zM12 10c0-3 2.2-5 5.5-5 0 3-2.2 5-5.5 5z" />
     </svg>
   );
 }

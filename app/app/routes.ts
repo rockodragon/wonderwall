@@ -51,11 +51,19 @@ export default [
   route("demo/app", "routes/demo.app.tsx"),
 
   // The Garden's first production surfaces (real Convex data, not demo-data)
+  route("garden", "routes/garden._index.tsx"),
   route("fund/:slug", "routes/fund.$slug.tsx"),
   route("story/:slug", "routes/story.$slug.tsx"),
   route("tables", "routes/tables._index.tsx"),
   route("tables/:slug", "routes/tables.$slug.tsx"),
+  route("projects", "routes/projects._index.tsx"),
+  route("projects/:id", "routes/projects.$id.tsx"),
   route("c/:code", "routes/c.$code.tsx"),
+  // Guest-RSVP events browse/detail — deliberately NOT at /events or
+  // /events/:eventId, which are already the legacy app-shell routes above.
+  // Promoting these to /events is a follow-up decision.
+  route("garden/events", "routes/events_.garden._index.tsx"),
+  route("garden/events/:id", "routes/events_.garden.$id.tsx"),
 
   // 404 catch-all
   route("*", "routes/404.tsx"),

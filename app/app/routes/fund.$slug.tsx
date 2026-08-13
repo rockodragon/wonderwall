@@ -15,7 +15,7 @@ import {
   GardenErrorState,
   GardenLoading,
   GardenPage,
-  GardenWordmark,
+  GardenNav,
   SectionLabel,
   formatMoney,
   formatPeriod,
@@ -33,7 +33,7 @@ export function ErrorBoundary() {
   useRouteError(); // logged by the framework; the page just degrades warmly
   return (
     <GardenPage>
-      <GardenWordmark />
+      <GardenNav active="Fund" />
       <div style={{ marginTop: 28 }}>
         <GardenErrorState message="This fund's ledger isn't live yet — check back soon." />
       </div>
@@ -53,7 +53,7 @@ export default function FundPage() {
   if (data === undefined) {
     return (
       <GardenPage>
-        <GardenWordmark />
+        <GardenNav active="Fund" />
         <div style={{ marginTop: 28 }}>
           <GardenLoading />
         </div>
@@ -64,7 +64,7 @@ export default function FundPage() {
   if (data === null) {
     return (
       <GardenPage>
-        <GardenWordmark />
+        <GardenNav active="Fund" />
         <div style={{ marginTop: 28 }}>
           <GardenErrorState message="Check the link — this fund isn't set up here." />
         </div>
@@ -80,7 +80,7 @@ export default function FundPage() {
 
   return (
     <GardenPage wide>
-      <GardenWordmark />
+      <GardenNav active="Fund" />
 
       <div style={{ marginTop: 28 }}>
         <h1 className="g-h" style={{ fontSize: "clamp(28px,5vw,40px)" }}>

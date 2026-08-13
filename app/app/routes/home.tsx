@@ -220,6 +220,22 @@ export default function Home() {
             and events — all connected to the work you are called to make.
           </p>
 
+          {/* The Garden — the platform's next chapter. Real surfaces, live
+              data; the entry point until the full brand rollout. */}
+          <div className="mb-8">
+            <Link
+              to="/garden"
+              className="inline-flex items-center gap-3 px-5 py-3 rounded-lg border border-[#D7F25A]/40 bg-[#D7F25A]/10 text-[#D7F25A] hover:bg-[#D7F25A]/20 transition"
+            >
+              <span className="font-mono text-xs tracking-[0.2em] uppercase">
+                New — The Garden
+              </span>
+              <span className="text-sm text-gray-200">
+                Tables, projects, and funding in the open →
+              </span>
+            </Link>
+          </div>
+
           {/* Closed Beta Badge */}
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-500/10 border border-blue-500/20 text-blue-400 rounded-full text-sm font-medium mb-6">
             <svg

@@ -13,7 +13,7 @@ import {
   GardenErrorState,
   GardenLoading,
   GardenPage,
-  GardenWordmark,
+  GardenNav,
   SectionLabel,
   formatDate,
   formatPeriod,
@@ -31,7 +31,7 @@ export function ErrorBoundary() {
   useRouteError();
   return (
     <GardenPage>
-      <GardenWordmark />
+      <GardenNav active="Projects" />
       <div style={{ marginTop: 28 }}>
         <GardenErrorState message="This story isn't live yet — check back soon." />
       </div>
@@ -64,7 +64,7 @@ export default function StoryPage() {
   if (data === undefined) {
     return (
       <GardenPage>
-        <GardenWordmark />
+        <GardenNav active="Projects" />
         <div style={{ marginTop: 28 }}>
           <GardenLoading />
         </div>
@@ -75,7 +75,7 @@ export default function StoryPage() {
   if (data === null) {
     return (
       <GardenPage>
-        <GardenWordmark />
+        <GardenNav active="Projects" />
         <div style={{ marginTop: 28 }}>
           <GardenErrorState message="Check the link — this story isn't set up here." />
         </div>
@@ -90,7 +90,7 @@ export default function StoryPage() {
 
   return (
     <GardenPage>
-      <GardenWordmark />
+      <GardenNav active="Projects" />
 
       {project.photoUrl && (
         <img

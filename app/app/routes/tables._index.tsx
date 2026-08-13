@@ -10,7 +10,7 @@ import {
   GardenErrorState,
   GardenLoading,
   GardenPage,
-  GardenWordmark,
+  GardenNav,
   formatMoney,
 } from "../garden/ui";
 import "../garden/garden.css";
@@ -26,7 +26,7 @@ export function ErrorBoundary() {
   useRouteError();
   return (
     <GardenPage>
-      <GardenWordmark />
+      <GardenNav active="Tables" />
       <div style={{ marginTop: 28 }}>
         <GardenErrorState message="Tables isn't live yet — check back soon." />
       </div>
@@ -128,7 +128,7 @@ export default function TablesIndex() {
   if (tables === undefined) {
     return (
       <GardenPage wide>
-        <GardenWordmark />
+        <GardenNav active="Tables" />
         <div style={{ marginTop: 28 }}>
           <GardenLoading />
         </div>
@@ -139,7 +139,7 @@ export default function TablesIndex() {
   if (tables.length === 0) {
     return (
       <GardenPage wide>
-        <GardenWordmark />
+        <GardenNav active="Tables" />
         <div style={{ marginTop: 28, maxWidth: "50ch" }}>
           <h1 className="g-h" style={{ fontSize: "clamp(28px,5vw,40px)" }}>
             Tables
@@ -156,7 +156,7 @@ export default function TablesIndex() {
 
   return (
     <GardenPage wide>
-      <GardenWordmark />
+      <GardenNav active="Tables" />
       <div style={{ marginTop: 28, marginBottom: 24 }}>
         <h1 className="g-h" style={{ fontSize: "clamp(28px,5vw,40px)" }}>
           Tables

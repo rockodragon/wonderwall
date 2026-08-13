@@ -36,9 +36,73 @@ export function SectionLabel({ children }: { children: ReactNode }) {
     production page gets, since these routes live outside the app shell/nav. */
 export function GardenWordmark() {
   return (
-    <Link to="/" className="g-wordmark">
+    <Link to="/garden" className="g-wordmark">
       The Garden
     </Link>
+  );
+}
+
+/** THE shared nav for every Garden surface. Without this the pages are
+    orphans reachable only by typed URL — which is exactly what happened.
+    Keep the item list identical everywhere; the active item gets the
+    citron underline (never a fill — citron is for actions). */
+const NAV_ITEMS = [
+  { to: "/garden", label: "Garden" },
+  { to: "/projects", label: "Projects" },
+  { to: "/garden/events", label: "Events" }, // NOT /events — that's the legacy auth-gated route
+  { to: "/tables", label: "Tables" },
+  { to: "/fund/abiding-practice", label: "Fund" },
+] as const;
+
+export function GardenNav({ active }: { active?: string }) {
+  return (
+    <header style={{ paddingBottom: 14 }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "baseline",
+          justifyContent: "space-between",
+          gap: 16,
+          flexWrap: "wrap",
+        }}
+      >
+        <GardenWordmark />
+        <Link
+          to="/login"
+          className="g-label"
+          style={{ textDecoration: "none", color: "var(--g-muted)" }}
+        >
+          Sign in
+        </Link>
+      </div>
+      <hr className="g-rule-heavy" style={{ marginTop: 12 }} />
+      <nav
+        aria-label="Garden"
+        style={{ display: "flex", gap: 16, marginTop: 12, flexWrap: "wrap" }}
+      >
+        {NAV_ITEMS.map((item) => {
+          const isActive = active === item.label;
+          return (
+            <Link
+              key={item.to}
+              to={item.to}
+              className="g-label"
+              aria-current={isActive ? "page" : undefined}
+              style={{
+                textDecoration: "none",
+                color: isActive ? "var(--g-citron)" : "var(--g-dim)",
+                borderBottom: isActive
+                  ? "2px solid var(--g-citron)"
+                  : "2px solid transparent",
+                paddingBottom: 4,
+              }}
+            >
+              {item.label}
+            </Link>
+          );
+        })}
+      </nav>
+    </header>
   );
 }
 
