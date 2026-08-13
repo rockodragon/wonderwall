@@ -18,6 +18,15 @@ The seven things the October showcase requires, and nothing else. Decisions belo
 
 Tax note (both lanes): recipients owe income tax on funds received; payers issue 1099s above IRS thresholds. AP's accountant confirms their grant paperwork. Product copy never implies deductibility on the direct lane.
 
+Additions (Rick, 2026-08-12 evening):
+
+| # | Decision | Final call |
+|---|---|---|
+| D6 | Payments provider | **Stripe, confirmed.** MoR alternatives (Paddle/Lemon Squeezy) can't do Phase 3 marketplace payouts; Stripe covers subscriptions + quantity codes + backings + future Connect on one integration. |
+| D7 | Auth | **SMS-first (Twilio Verify via @convex-dev/auth custom OTP), email OTP + social as fallback.** Verify uses Twilio's own senders — no A2P 10DLC registration delay. Lands in W2. Closes wonderwall-cwb + wonderwall-a27. |
+| D8 | Session video | **October ships meeting links; provider chosen by research** (Zoom vs Meet vs LiveKit Cloud vs Daily/Whereby — cost, embed path, recording). LiveKit Cloud is the candidate to beat if hosted cost fits, since it's also the Phase 3 embedded-video path (media doc). Research due before W4. |
+| — | Confirmed | CF Pages Function public-page pattern (no SSR); manual payouts for October. |
+
 ---
 
 ## 1 · The October seven
