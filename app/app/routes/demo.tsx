@@ -73,6 +73,7 @@ export default function DemoLayout() {
   return (
     <DemoProvider>
       <div className="garden-root">
+        <link rel="stylesheet" href="/tokens.css" />
         <link rel="stylesheet" href="/about/fonts/fonts.css" />
         <div className="g-wrap g-wrap-wide">
           <Masthead />

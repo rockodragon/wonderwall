@@ -1,14 +1,16 @@
 /* The Garden — credit-sheet design system (rebrand handoff).
    Scoped under .garden-root so it never leaks into the legacy app shell. */
 
+/* Token values come from /tokens.css (the single source of truth — load it
+   via <link>); literal fallbacks below keep pages working if it's absent. */
 .garden-root {
-  --g-ink: #121212;
-  --g-paper: #f7f7f4;
-  --g-hairline: #2a2a28;
-  --g-dim: #94948c;
-  --g-muted: #acaca4;
-  --g-body: #c6c6be;
-  --g-citron: #d7f25a;
+  --g-ink: var(--garden-ink, #121212);
+  --g-paper: var(--garden-paper, #f7f7f4);
+  --g-hairline: var(--garden-hairline, #2a2a28);
+  --g-dim: var(--garden-dim, #94948c);
+  --g-muted: var(--garden-muted, #acaca4);
+  --g-body: var(--garden-body, #c6c6be);
+  --g-citron: var(--garden-citron, #d7f25a);
 
   background: var(--g-ink);
   color: var(--g-body);

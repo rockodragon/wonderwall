@@ -1496,6 +1496,7 @@ function AppShell() {
 export default function GardenApp() {
   return (
     <div className="garden-root">
+      <link rel="stylesheet" href="/tokens.css" />
       <link rel="stylesheet" href="/about/fonts/fonts.css" />
       <DemoProvider>
         <AppShell />

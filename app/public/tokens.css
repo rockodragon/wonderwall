@@ -1,0 +1,38 @@
+/* The Garden — design tokens. THE single source of truth (decided 2026-08-12).
+   Rebrand/rename/palette swap = edit THIS file only.
+   Consumers: app/app/garden/garden.css (bundled app + demo) and
+   app/public/about/brand.css (static marketing pages) — both reference
+   var(--garden-*) with literal fallbacks, so they degrade safely.
+
+   Rules that travel with these tokens (locked, see plan §3.1 + memory):
+   - citron is RESERVED for real actions and chip-scale badges — never large fills
+   - contrast minimums on ink: metadata ≥ 6:1 (dim), body ≥ 9:1 — do not darken
+   - no text below 10.5px */
+
+:root {
+  /* Surfaces */
+  --garden-ink: #121212;
+  --garden-ink-raised: #1c1c19;
+  --garden-paper: #f7f7f4;
+
+  /* Lines */
+  --garden-hairline: #2a2a28;
+  --garden-hairline-raised: #3a3a36;
+
+  /* Text on ink (contrast-corrected 2026-08-12) */
+  --garden-dim: #94948c;    /* metadata, mono labels — ~6:1 */
+  --garden-muted: #acaca4;  /* credits, secondary — ~8:1 */
+  --garden-body: #c6c6be;   /* body text — ~11:1 */
+
+  /* Accent */
+  --garden-citron: #d7f25a;
+
+  /* Type */
+  --garden-font-display: "Bricolage Grotesque", sans-serif;
+  --garden-font-body: "Archivo", -apple-system, sans-serif;
+  --garden-font-mono: "JetBrains Mono", monospace;
+
+  /* Shape */
+  --garden-radius-tight: 3px;
+  --garden-radius-card: 10px;
+}

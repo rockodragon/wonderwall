@@ -1,14 +1,16 @@
 /* The Garden — about pages · credit-sheet system
-   Tokens per design_handoff_garden_rebrand/README.md */
+   Token values come from /tokens.css (single source of truth) with literal
+   fallbacks; light-surface tokens below are about-pages-only. */
+@import url("/tokens.css");
 
 :root {
-  --ink: #121212;
-  --paper: #F7F7F4;
-  --hairline: #2A2A28;      /* borders on ink */
-  --dim: #94948C;
-  --muted: #ACACA4;
-  --body: #C6C6BE;          /* body copy on ink */
-  --citron: #D7F25A;
+  --ink: var(--garden-ink, #121212);
+  --paper: var(--garden-paper, #F7F7F4);
+  --hairline: var(--garden-hairline, #2A2A28);      /* borders on ink */
+  --dim: var(--garden-dim, #94948C);
+  --muted: var(--garden-muted, #ACACA4);
+  --body: var(--garden-body, #C6C6BE);          /* body copy on ink */
+  --citron: var(--garden-citron, #D7F25A);
   --rule-light: rgba(18, 18, 18, 0.16);  /* hairline on paper */
   --dim-light: #5C5C57;     /* metadata on paper — AA at 11px+ */
 }
