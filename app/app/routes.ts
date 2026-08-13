@@ -49,6 +49,12 @@ export default [
   // The app-shell mock renders as the app itself — no demo chrome around it
   route("demo/app", "routes/demo.app.tsx"),
 
+  // The Garden's first production surfaces (real Convex data, not demo-data)
+  route("fund/:slug", "routes/fund.$slug.tsx"),
+  route("story/:slug", "routes/story.$slug.tsx"),
+  route("tables", "routes/tables._index.tsx"),
+  route("tables/:slug", "routes/tables.$slug.tsx"),
+
   // 404 catch-all
   route("*", "routes/404.tsx"),
 ] satisfies RouteConfig;
