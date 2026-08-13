@@ -637,5 +637,6 @@ export default defineSchema({
     .index("by_userId", ["userId"])
     .index("by_userId_kind_status", ["userId", "kind", "status"])
     .index("by_kind_status", ["kind", "status"])
-    .index("by_storySlug", ["storySlug"]),
+    .index("by_storySlug", ["storySlug"])
+    .index("by_legacyJobId", ["legacyJobId"]),
 });
