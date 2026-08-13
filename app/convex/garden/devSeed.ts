@@ -231,3 +231,24 @@ export const seedDevWorld = internalMutation({
     return out;
   },
 });
+
+// Prod-safe: real org config only (no fake users/projects). Run on any
+// deployment: npx convex run garden/devSeed:seedApOrg [--prod]
+export const seedApOrg = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const existing = await ctx.db
+      .query("hostOrgs")
+      .withIndex("by_slug", (q) => q.eq("slug", "abiding-practice"))
+      .unique();
+    if (existing) return { ok: true, existed: true };
+    await ctx.db.insert("hostOrgs", {
+      name: "Abiding Practice",
+      slug: "abiding-practice",
+      kind: "org",
+      givingUrl: "https://abidingpractice.org/give",
+      createdAt: Date.now(),
+    });
+    return { ok: true, existed: false };
+  },
+});
