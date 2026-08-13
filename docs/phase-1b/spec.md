@@ -24,7 +24,7 @@ Additions (Rick, 2026-08-12 evening):
 |---|---|---|
 | D6 | Payments provider | **Stripe, confirmed.** MoR alternatives (Paddle/Lemon Squeezy) can't do Phase 3 marketplace payouts; Stripe covers subscriptions + quantity codes + backings + future Connect on one integration. |
 | D7 | Auth | **SMS-first (Twilio Verify via @convex-dev/auth custom OTP), email OTP + social as fallback.** Verify uses Twilio's own senders — no A2P 10DLC registration delay. Lands in W2. Closes wonderwall-cwb + wonderwall-a27. |
-| D8 | Session video | **October ships meeting links; provider chosen by research** (Zoom vs Meet vs LiveKit Cloud vs Daily/Whereby — cost, embed path, recording). LiveKit Cloud is the candidate to beat if hosted cost fits, since it's also the Phase 3 embedded-video path (media doc). Research due before W4. |
+| D8 | Session video | **RESOLVED (research 2026-08-13, see video-provider-research.md): Daily.co room links for October** (~$22/mo at launch scale, REST-minted per session, hosted join page, zero build) → **LiveKit Cloud for the Phase 3 in-app embed** (flat ~$50/mo covers even Year-1 scale incl. HLS livestream; no hosted join page, so wrong for link-only October). Rick's LiveKit bet is right for Phase 3 — LiveKit beats per-seat products past ~3–4 concurrent hosts. W4 stores a per-session `meetingUrl`; the Daily-vs-LiveKit swap later is a URL-source change, not a schema change. |
 | — | Confirmed | CF Pages Function public-page pattern (no SSR); manual payouts for October. |
 
 ---
