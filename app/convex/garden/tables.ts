@@ -14,7 +14,7 @@ import { mutation, query } from "../_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { can } from "./capabilities";
 import type { GardenUser } from "./capabilities";
-import { getGardenUser } from "./entitlements";
+import { getGardenUser, throwDenial } from "./entitlements";
 
 // ——— Pure core ———
 
@@ -226,12 +226,7 @@ export const joinTable = mutation({
     if (!decision.allowed) {
       // Same denial anatomy assertCanPure would throw for table.join.member —
       // see resolveTableJoin's doc comment for why this is safe to mirror.
-      throw new ConvexError({
-        code: "entitlement_denied",
-        capability: "table.join.member",
-        reason: decision.reason,
-        upgradePath: decision.upgradePath,
-      });
+      throwDenial("table.join.member", decision);
     }
 
     await ctx.db.insert("tableMemberships", {

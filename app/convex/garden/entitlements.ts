@@ -63,19 +63,26 @@ export function deriveGardenUser(args: {
   };
 }
 
+/** The single denial-throw shape — every entitlement denial in the system
+ * goes through here so the client can rely on one anatomy. */
+export function throwDenial(
+  capability: Capability,
+  result: Pick<CanResult, "reason" | "limit" | "used" | "upgradePath">,
+): never {
+  throw new ConvexError({
+    code: "entitlement_denied",
+    capability,
+    reason: result.reason,
+    limit: result.limit,
+    used: result.used,
+    upgradePath: result.upgradePath,
+  });
+}
+
 /** The one gate. Throws ConvexError carrying the denial anatomy. */
 export function assertCanPure(user: GardenUser, capability: Capability): CanResult {
   const result = can(user, capability);
-  if (!result.allowed) {
-    throw new ConvexError({
-      code: "entitlement_denied",
-      capability,
-      reason: result.reason,
-      limit: result.limit,
-      used: result.used,
-      upgradePath: result.upgradePath,
-    });
-  }
+  if (!result.allowed) throwDenial(capability, result);
   return result;
 }
 
