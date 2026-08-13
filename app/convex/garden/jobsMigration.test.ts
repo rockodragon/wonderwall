@@ -14,6 +14,25 @@ describe("parseBudget — free text to declared number", () => {
     expect(parseBudget("DOE")).toBeUndefined();
     expect(parseBudget(undefined)).toBeUndefined();
   });
+
+  // Regression: a real production row read "1.5 Burritos/day" and the first
+  // parser published it as a $1.50 budget on the public Projects page.
+  it("refuses non-monetary units instead of inventing a budget", () => {
+    expect(parseBudget("1.5 Burritos/day")).toBeUndefined();
+    expect(parseBudget("20 hours/week")).toBeUndefined();
+    expect(parseBudget("2 tacos")).toBeUndefined();
+  });
+
+  it("refuses implausibly tiny bare numbers, accepts explicit small amounts", () => {
+    expect(parseBudget("1.5")).toBeUndefined();
+    expect(parseBudget("$25")).toBe(25);
+    expect(parseBudget("800")).toBe(800);
+  });
+
+  it("still accepts plain money phrasings", () => {
+    expect(parseBudget("$2,500 total")).toBe(2500);
+    expect(parseBudget("1200 USD")).toBe(1200);
+  });
 });
 
 describe("mapJobToProject", () => {

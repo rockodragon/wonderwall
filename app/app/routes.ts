@@ -52,6 +52,7 @@ export default [
 
   // The Garden's first production surfaces (real Convex data, not demo-data)
   route("garden", "routes/garden._index.tsx"),
+  route("join", "routes/join.tsx"),
   route("fund/:slug", "routes/fund.$slug.tsx"),
   route("story/:slug", "routes/story.$slug.tsx"),
   route("tables", "routes/tables._index.tsx"),
