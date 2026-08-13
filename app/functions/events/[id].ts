@@ -4,7 +4,7 @@
 // the whole point; sidesteps the Workers incompatibility), swaps the head
 // tags, returns hydratable HTML. Client router takes over on load.
 //
-// LIVES IN functions-spike/ so it does NOT auto-deploy. To activate locally:
+// PROMOTED to functions/ (2026-08-13) — deploys with the site. Local test:
 //   cp -R functions-spike functions && npx wrangler pages dev ./build/client
 // Promotion to production = rename to functions/ in a reviewed commit (W2),
 // with the signup-deep-link regression test alongside (the SPA-fallback
