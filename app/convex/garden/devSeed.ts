@@ -1,4 +1,5 @@
 // Operator seeding (idempotent). Run: npx convex run garden/devSeed:seedHostOrg
+import { v } from "convex/values";
 import { internalMutation } from "../_generated/server";
 
 export const seedHostOrg = internalMutation({
@@ -305,5 +306,44 @@ export const seedLaunchTables = internalMutation({
       }
     }
     return { created: results };
+  },
+});
+
+/** Publishes the first-table event as a REAL event row so the guest-RSVP
+ * form replaces the mailto on the static /events/first-table page.
+ * Details are intentionally the honest TBDs already published there; edit
+ * them in the app once the date and venue are set (beads wonderwall-dne).
+ * Idempotent by title. Run:
+ *   npx convex run garden/devSeed:seedFirstTableEvent '{"organizerUserId":"..."}' --prod
+ */
+export const seedFirstTableEvent = internalMutation({
+  args: { organizerUserId: v.id("users") },
+  handler: async (ctx, args) => {
+    const title = "A table for the ones making things";
+    const existing = await ctx.db
+      .query("events")
+      .withIndex("by_status", (q) => q.eq("status", "published"))
+      .collect();
+    const already = existing.find((e) => e.title === title);
+    if (already) return { ok: true, existed: true, eventId: already._id };
+
+    const now = Date.now();
+    // A Thursday this September — placeholder until the real date lands.
+    const september = new Date("2026-09-24T19:00:00-07:00").getTime();
+    const eventId = await ctx.db.insert("events", {
+      organizerId: args.organizerUserId,
+      title,
+      description:
+        "An evening for San Diego creatives and the people who support them — a real conversation about funding each other's work, hosted around an actual table. Bring something you made, or just bring your questions. Nobody performs; everybody shows.",
+      datetime: september,
+      location: "San Diego — venue being set",
+      locationType: "city",
+      tags: ["Garden"],
+      requiresApproval: false,
+      status: "published",
+      createdAt: now,
+      updatedAt: now,
+    });
+    return { ok: true, existed: false, eventId };
   },
 });
