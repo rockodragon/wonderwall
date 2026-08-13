@@ -20,6 +20,10 @@ export default defineSchema({
     inviteUsageCount: v.optional(v.number()), // track how many times their invite link has been used
     unlimitedInvites: v.optional(v.boolean()), // admin accounts with unlimited invites
     isAdmin: v.optional(v.boolean()), // admin access for platform management
+    // Garden roles — free to hold, pay per act (plan §2.1). Levels are NOT
+    // stored here; they derive from memberships (garden/entitlements.ts).
+    patronRole: v.optional(v.boolean()),
+    partnerRole: v.optional(v.boolean()),
     lastLikeNotifiedAt: v.optional(v.number()), // last time likes digest was sent
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -542,4 +546,96 @@ export default defineSchema({
     .index("by_sourceType", ["sourceType"])
     .index("by_crawledAt", ["crawledAt"])
     .index("by_applyUrl", ["applyUrl"]),
+
+  // ————————————————————————————————————————————————————————————————
+  // The Garden — Phase 1B (docs/phase-1b/spec.md). W1: money foundation.
+  // Entitlement inputs live here; server-side can() reads them via
+  // garden/entitlements.getGardenUser. Levels derive from memberships,
+  // never stored on profiles (profiles carries only the free-to-hold roles).
+  // ————————————————————————————————————————————————————————————————
+
+  // Host organizations (provisioned by operators, not self-serve).
+  // The Garden itself is the default host org; churches/sponsors are also
+  // hostOrgs (kind "church") so coverage + allocations share one shape.
+  hostOrgs: defineTable({
+    name: v.string(),
+    slug: v.string(),
+    kind: v.string(), // "platform" | "church" | "org"
+    givingUrl: v.optional(v.string()), // outbound donate link (AP lane — we process nothing)
+    stripeCustomerId: v.optional(v.string()), // set for orgs that buy coverage
+    createdAt: v.number(),
+  })
+    .index("by_slug", ["slug"])
+    .index("by_stripeCustomerId", ["stripeCustomerId"]),
+
+  // Stripe customer linkage (1:1 with user once they ever check out).
+  billingCustomers: defineTable({
+    userId: v.id("users"),
+    stripeCustomerId: v.string(),
+    email: v.optional(v.string()),
+    createdAt: v.number(),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_stripeCustomerId", ["stripeCustomerId"]),
+
+  // Membership state — driven exclusively by Stripe webhooks + the nightly
+  // reconcile cron (idempotent upserts keyed by stripeSubscriptionId).
+  memberships: defineTable({
+    userId: v.id("users"),
+    level: v.string(), // "seat" | "five" | "host"
+    status: v.string(), // "active" | "past_due" | "canceled" | "incomplete"
+    hostOrgId: v.id("hostOrgs"), // whose community the 40% dues share accrues to
+    stripeSubscriptionId: v.string(),
+    stripePriceId: v.optional(v.string()),
+    currentPeriodEnd: v.optional(v.number()),
+    coveredByCodeId: v.optional(v.id("coverageCodes")), // set for covered seats
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_stripeSubscriptionId", ["stripeSubscriptionId"])
+    .index("by_coveredByCodeId", ["coveredByCodeId"]),
+
+  // Coverage codes: ONE church subscription (quantity = seats) per code (D2).
+  coverageCodes: defineTable({
+    hostOrgId: v.id("hostOrgs"), // the sponsoring org
+    code: v.string(), // e.g. "GRACE-FALL"
+    seats: v.number(), // mirrors subscription quantity via webhook
+    stripeSubscriptionId: v.string(),
+    status: v.string(), // "active" | "suspended" | "canceled" — card failure suspends with grace, never silently strips seats
+    createdAt: v.number(),
+  })
+    .index("by_code", ["code"])
+    .index("by_stripeSubscriptionId", ["stripeSubscriptionId"]),
+
+  coverageRedemptions: defineTable({
+    codeId: v.id("coverageCodes"),
+    userId: v.id("users"),
+    membershipId: v.optional(v.id("memberships")),
+    redeemedAt: v.number(),
+  })
+    .index("by_codeId", ["codeId"])
+    .index("by_userId", ["userId"]),
+
+  // Projects (passion + paid). Legacy jobs freeze and copy in via
+  // legacyJobId (W2). Active-passion count is an entitlement input.
+  projects: defineTable({
+    userId: v.id("users"), // the creator (passion) or poster (paid)
+    kind: v.string(), // "passion" | "paid"
+    title: v.string(),
+    blurb: v.optional(v.string()),
+    budget: v.optional(v.number()), // paid: declared budget — the guardrail (required by mutation)
+    goal: v.optional(v.number()), // passion: optional target
+    raisedCents: v.optional(v.number()), // passion: keep-what-you-raise running total
+    status: v.string(), // "active" | "finished" | "archived"
+    photoUrl: v.optional(v.string()),
+    storySlug: v.optional(v.string()), // public story page (W3)
+    legacyJobId: v.optional(v.id("jobs")),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_userId_kind_status", ["userId", "kind", "status"])
+    .index("by_kind_status", ["kind", "status"])
+    .index("by_storySlug", ["storySlug"]),
 });
