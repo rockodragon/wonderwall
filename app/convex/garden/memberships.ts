@@ -6,12 +6,14 @@
 // NOTE (codegen): the generated DataModel in `_generated/` predates the
 // Garden tables (memberships, billingCustomers, coverageCodes, hostOrgs) —
 // `npx convex dev` hasn't run against this schema yet. Every ctx here is
-// typed `any` and every index callback is `(q: any)`, exactly like
+// typed `any` and every index callback is `(q)`, exactly like
 // garden/entitlements.ts, so this file doesn't fight the stale generated
 // types. Once codegen catches up this can tighten to the generated types.
 
 import { v } from "convex/values";
 import { query, internalMutation, internalQuery } from "../_generated/server";
+import type { MutationCtx } from "../_generated/server";
+import type { Id } from "../_generated/dataModel";
 import { auth } from "../auth";
 import { handleStripeEvent, type Db, type StripeWebhookEvent } from "./stripeHandlers";
 
@@ -24,13 +26,14 @@ const LEVEL_RANK: Record<string, number> = { seat: 1, five: 2, host: 3 };
 
 // ——— ctx.db adapter for the pure stripeHandlers.Db interface ———
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function makeConvexDb(ctx: any): Db {
+// Boundary adapter: the pure Db speaks plain strings; Convex speaks branded
+// Ids. Casts live HERE and only here (the type seam).
+function makeConvexDb(ctx: MutationCtx): Db {
   return {
     async getBillingCustomerByStripeId(stripeCustomerId: string) {
       const row = await ctx.db
         .query("billingCustomers")
-        .withIndex("by_stripeCustomerId", (q: any) => q.eq("stripeCustomerId", stripeCustomerId))
+        .withIndex("by_stripeCustomerId", (q) => q.eq("stripeCustomerId", stripeCustomerId))
         .unique();
       return row
         ? { userId: String(row.userId), stripeCustomerId: row.stripeCustomerId, email: row.email }
@@ -40,7 +43,7 @@ function makeConvexDb(ctx: any): Db {
     async upsertBillingCustomer(row) {
       const existing = await ctx.db
         .query("billingCustomers")
-        .withIndex("by_userId", (q: any) => q.eq("userId", row.userId))
+        .withIndex("by_userId", (q) => q.eq("userId", row.userId as Id<"users">))
         .unique();
       if (existing) {
         await ctx.db.patch(existing._id, {
@@ -49,7 +52,7 @@ function makeConvexDb(ctx: any): Db {
         });
       } else {
         await ctx.db.insert("billingCustomers", {
-          userId: row.userId,
+          userId: row.userId as Id<"users">,
           stripeCustomerId: row.stripeCustomerId,
           email: row.email,
           createdAt: Date.now(),
@@ -60,7 +63,7 @@ function makeConvexDb(ctx: any): Db {
     async getMembershipBySubscription(stripeSubscriptionId: string) {
       const row = await ctx.db
         .query("memberships")
-        .withIndex("by_stripeSubscriptionId", (q: any) =>
+        .withIndex("by_stripeSubscriptionId", (q) =>
           q.eq("stripeSubscriptionId", stripeSubscriptionId),
         )
         .unique();
@@ -80,19 +83,19 @@ function makeConvexDb(ctx: any): Db {
     async upsertMembership(row) {
       const existing = await ctx.db
         .query("memberships")
-        .withIndex("by_stripeSubscriptionId", (q: any) =>
+        .withIndex("by_stripeSubscriptionId", (q) =>
           q.eq("stripeSubscriptionId", row.stripeSubscriptionId),
         )
         .unique();
       const patch = {
-        userId: row.userId,
+        userId: row.userId as Id<"users">,
         level: row.level,
         status: row.status,
-        hostOrgId: row.hostOrgId,
+        hostOrgId: row.hostOrgId as Id<"hostOrgs">,
         stripeSubscriptionId: row.stripeSubscriptionId,
         stripePriceId: row.stripePriceId,
         currentPeriodEnd: row.currentPeriodEnd,
-        coveredByCodeId: row.coveredByCodeId,
+        coveredByCodeId: row.coveredByCodeId as Id<"coverageCodes"> | undefined,
         updatedAt: Date.now(),
       };
       if (existing) {
@@ -105,7 +108,7 @@ function makeConvexDb(ctx: any): Db {
     async getCodeBySubscription(stripeSubscriptionId: string) {
       const row = await ctx.db
         .query("coverageCodes")
-        .withIndex("by_stripeSubscriptionId", (q: any) =>
+        .withIndex("by_stripeSubscriptionId", (q) =>
           q.eq("stripeSubscriptionId", stripeSubscriptionId),
         )
         .unique();
@@ -122,7 +125,7 @@ function makeConvexDb(ctx: any): Db {
     async updateCode(stripeSubscriptionId: string, patch) {
       const existing = await ctx.db
         .query("coverageCodes")
-        .withIndex("by_stripeSubscriptionId", (q: any) =>
+        .withIndex("by_stripeSubscriptionId", (q) =>
           q.eq("stripeSubscriptionId", stripeSubscriptionId),
         )
         .unique();
@@ -136,9 +139,10 @@ function makeConvexDb(ctx: any): Db {
 
 export const applyStripeEvent = internalMutation({
   args: { event: v.any() },
-  handler: async (ctx: any, args: { event: StripeWebhookEvent }) => {
+  handler: async (ctx, args) => {
+    const event = args.event as StripeWebhookEvent; // v.any() boundary — cast once here
     const db = makeConvexDb(ctx);
-    await handleStripeEvent(args.event, db);
+    await handleStripeEvent(event, db);
   },
 });
 
@@ -146,18 +150,18 @@ export const applyStripeEvent = internalMutation({
 //      (actions have no ctx.db — they call these via ctx.runQuery/runMutation) ———
 
 export const getBillingCustomerForUser = internalQuery({
-  args: { userId: v.string() },
-  handler: async (ctx: any, args: { userId: string }) => {
+  args: { userId: v.id("users") },
+  handler: async (ctx, args) => {
     return ctx.db
       .query("billingCustomers")
-      .withIndex("by_userId", (q: any) => q.eq("userId", args.userId))
+      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
       .unique();
   },
 });
 
 export const saveBillingCustomer = internalMutation({
-  args: { userId: v.string(), stripeCustomerId: v.string(), email: v.optional(v.string()) },
-  handler: async (ctx: any, args: { userId: string; stripeCustomerId: string; email?: string }) => {
+  args: { userId: v.id("users"), stripeCustomerId: v.string(), email: v.optional(v.string()) },
+  handler: async (ctx, args) => {
     const db = makeConvexDb(ctx);
     await db.upsertBillingCustomer(args);
   },
@@ -165,11 +169,11 @@ export const saveBillingCustomer = internalMutation({
 
 export const getHostOrgForCheckout = internalQuery({
   args: { slug: v.optional(v.string()) },
-  handler: async (ctx: any, args: { slug?: string }) => {
+  handler: async (ctx, args) => {
     const slug = args.slug ?? DEFAULT_HOST_ORG_SLUG;
     return ctx.db
       .query("hostOrgs")
-      .withIndex("by_slug", (q: any) => q.eq("slug", slug))
+      .withIndex("by_slug", (q) => q.eq("slug", slug))
       .unique();
   },
 });
@@ -178,13 +182,13 @@ export const getHostOrgForCheckout = internalQuery({
 
 export const getMyMembership = query({
   args: {},
-  handler: async (ctx: any) => {
+  handler: async (ctx) => {
     const userId = await auth.getUserId(ctx);
     if (!userId) return null;
 
     const rows = await ctx.db
       .query("memberships")
-      .withIndex("by_userId", (q: any) => q.eq("userId", userId))
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
       .collect();
 
     let best: any = null;

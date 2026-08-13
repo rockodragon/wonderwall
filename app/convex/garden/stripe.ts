@@ -47,8 +47,7 @@ export const createMembershipCheckout = action({
     level: v.union(v.literal("seat"), v.literal("five"), v.literal("host")),
     hostOrgSlug: v.optional(v.string()),
   },
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  handler: async (ctx: any, args: { level: "seat" | "five" | "host"; hostOrgSlug?: string }) => {
+  handler: async (ctx, args) => {
     const userId = await auth.getUserId(ctx);
     if (!userId) {
       throw new ConvexError("Sign in to become a member.");
@@ -139,7 +138,7 @@ export const createMembershipCheckout = action({
 export const reconcileMemberships = internalAction({
   args: {},
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  handler: async (ctx: any) => {
+  handler: async (ctx) => {
     const secretKey = process.env.STRIPE_SECRET_KEY;
     if (!secretKey) {
       console.warn("[stripe] reconcile skipped — STRIPE_SECRET_KEY not set");

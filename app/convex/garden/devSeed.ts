@@ -207,6 +207,26 @@ export const seedDevWorld = internalMutation({
       });
     }
 
+    // The first platform event (guest-RSVP target)
+    const existingEvent = await ctx.db
+      .query("events")
+      .withIndex("by_organizerId", (q) => q.eq("organizerId", marcus.userId))
+      .first();
+    if (!existingEvent) {
+      await ctx.db.insert("events", {
+        organizerId: marcus.userId,
+        title: "A table for the ones making things (dev)",
+        description: "An evening for San Diego creatives and the people who back them.",
+        datetime: now + 30 * 24 * 3600 * 1000,
+        location: "San Diego",
+        tags: [],
+        requiresApproval: false,
+        status: "published",
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+
     out.ok = true;
     return out;
   },

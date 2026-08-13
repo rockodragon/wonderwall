@@ -80,10 +80,10 @@ export function visibleMeetingUrl(
 
 export const listTables = query({
   args: {},
-  handler: async (ctx: any) => {
+  handler: async (ctx) => {
     const tables = await ctx.db
       .query("gardenTables")
-      .withIndex("by_status", (q: any) => q.eq("status", "active"))
+      .withIndex("by_status", (q) => q.eq("status", "active"))
       .collect();
 
     // A roster count is a fact about the table, not a person — fine to
@@ -92,7 +92,7 @@ export const listTables = query({
       tables.map(async (t: any) => {
         const roster = await ctx.db
           .query("tableMemberships")
-          .withIndex("by_tableId", (q: any) => q.eq("tableId", t._id))
+          .withIndex("by_tableId", (q) => q.eq("tableId", t._id))
           .collect();
         return {
           _id: t._id,
@@ -114,10 +114,10 @@ export const listTables = query({
 
 export const getTable = query({
   args: { slug: v.string() },
-  handler: async (ctx: any, args: any) => {
+  handler: async (ctx, args) => {
     const table = await ctx.db
       .query("gardenTables")
-      .withIndex("by_slug", (q: any) => q.eq("slug", args.slug))
+      .withIndex("by_slug", (q) => q.eq("slug", args.slug))
       .unique();
     if (!table) return null;
 
@@ -126,13 +126,13 @@ export const getTable = query({
     const [sessions, memberships] = await Promise.all([
       ctx.db
         .query("tableSessions")
-        .withIndex("by_tableId_startsAt", (q: any) =>
+        .withIndex("by_tableId_startsAt", (q) =>
           q.eq("tableId", table._id).gte("startsAt", Date.now()),
         )
         .collect(),
       ctx.db
         .query("tableMemberships")
-        .withIndex("by_tableId", (q: any) => q.eq("tableId", table._id))
+        .withIndex("by_tableId", (q) => q.eq("tableId", table._id))
         .collect(),
     ]);
     sessions.sort((a: any, b: any) => a.startsAt - b.startsAt);
@@ -146,7 +146,7 @@ export const getTable = query({
       memberships.map((m: any) =>
         ctx.db
           .query("profiles")
-          .withIndex("by_userId", (q: any) => q.eq("userId", m.userId))
+          .withIndex("by_userId", (q) => q.eq("userId", m.userId))
           .unique(),
       ),
     );
@@ -196,7 +196,7 @@ export const getTable = query({
 
 export const joinTable = mutation({
   args: { tableId: v.id("gardenTables") },
-  handler: async (ctx: any, args: any) => {
+  handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new ConvexError({ code: "unauthenticated" });
 
@@ -210,7 +210,7 @@ export const joinTable = mutation({
 
     const existing = await ctx.db
       .query("tableMemberships")
-      .withIndex("by_tableId_userId", (q: any) => q.eq("tableId", args.tableId).eq("userId", userId))
+      .withIndex("by_tableId_userId", (q) => q.eq("tableId", args.tableId).eq("userId", userId))
       .unique();
 
     const gardenUser = await getGardenUser(ctx, userId);
@@ -256,13 +256,13 @@ export const joinTable = mutation({
 
 export const leaveTable = mutation({
   args: { tableId: v.id("gardenTables") },
-  handler: async (ctx: any, args: any) => {
+  handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new ConvexError({ code: "unauthenticated" });
 
     const existing = await ctx.db
       .query("tableMemberships")
-      .withIndex("by_tableId_userId", (q: any) => q.eq("tableId", args.tableId).eq("userId", userId))
+      .withIndex("by_tableId_userId", (q) => q.eq("tableId", args.tableId).eq("userId", userId))
       .unique();
     if (existing) await ctx.db.delete(existing._id);
     return { ok: true };
@@ -274,7 +274,7 @@ export const rsvpSession = mutation({
     sessionId: v.id("tableSessions"),
     status: v.union(v.literal("going"), v.literal("out")),
   },
-  handler: async (ctx: any, args: any) => {
+  handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new ConvexError({ code: "unauthenticated" });
 
@@ -288,7 +288,7 @@ export const rsvpSession = mutation({
 
     const membership = await ctx.db
       .query("tableMemberships")
-      .withIndex("by_tableId_userId", (q: any) =>
+      .withIndex("by_tableId_userId", (q) =>
         q.eq("tableId", session.tableId).eq("userId", userId),
       )
       .unique();
@@ -301,7 +301,7 @@ export const rsvpSession = mutation({
 
     const existingRsvp = await ctx.db
       .query("sessionRsvps")
-      .withIndex("by_sessionId_userId", (q: any) =>
+      .withIndex("by_sessionId_userId", (q) =>
         q.eq("sessionId", args.sessionId).eq("userId", userId),
       )
       .unique();
