@@ -117,7 +117,7 @@ function ProjectCardView({ project }: { project: ProjectCard }) {
           <p
             style={{
               marginTop: 8,
-              fontSize: 13.5,
+              fontSize: 14.5,
               lineHeight: 1.5,
               color: "var(--g-muted)",
               display: "-webkit-box",
@@ -129,7 +129,7 @@ function ProjectCardView({ project }: { project: ProjectCard }) {
             {project.blurb}
           </p>
         )}
-        <p style={{ marginTop: 10, fontSize: 13.5, color: "var(--g-paper)" }}>
+        <p style={{ marginTop: 10, fontSize: 14.5, color: "var(--g-paper)" }}>
           {project.moneyLine}
         </p>
       </div>
@@ -179,7 +179,7 @@ export default function ProjectsIndex() {
             style={{
               display: "inline-block",
               marginTop: 16,
-              fontSize: 11,
+              fontSize: 12.5,
               letterSpacing: "0.08em",
               textTransform: "uppercase",
               color: "var(--g-muted)",

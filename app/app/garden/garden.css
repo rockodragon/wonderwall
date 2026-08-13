@@ -36,7 +36,7 @@
 .garden-root .g-wordmark {
   font-family: "JetBrains Mono", monospace;
   font-weight: 500;
-  font-size: 12px;
+  font-size: 15px;
   letter-spacing: 0.28em;
   text-transform: uppercase;
   color: var(--g-paper);
@@ -44,8 +44,8 @@
 }
 .garden-root .g-label {
   font-family: "JetBrains Mono", monospace;
-  font-size: 10.5px;
-  letter-spacing: 0.16em;
+  font-size: 12.5px;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--g-dim);
 }
@@ -79,7 +79,7 @@
 .garden-root .g-btn {
   display: inline-block;
   font-family: "JetBrains Mono", monospace;
-  font-size: 11px;
+  font-size: 13.5px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   padding: 13px 22px;
@@ -100,7 +100,7 @@
 
 .garden-root .g-badge {
   font-family: "JetBrains Mono", monospace;
-  font-size: 10px;
+  font-size: 12px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   border-radius: 3px;
@@ -122,8 +122,8 @@
 }
 .garden-root .g-credit {
   font-family: "JetBrains Mono", monospace;
-  font-size: 10.5px;
-  letter-spacing: 0.12em;
+  font-size: 12.5px;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--g-muted);
 }
@@ -132,7 +132,7 @@
   font-weight: 500;
 }
 .garden-root .g-hint {
-  font-size: 13px;
+  font-size: 14.5px;
   color: var(--g-dim);
 }
 .garden-root .g-input {
@@ -147,6 +147,25 @@
 }
 .garden-root .g-input::placeholder {
   color: var(--g-dim);
+}
+
+/* Primary navigation. Sized as a control people have to read at a glance,
+   NOT as credit-sheet metadata (that mistake shipped 10.5px nav links). */
+.garden-root .g-nav {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 15px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-decoration: none;
+  padding-bottom: 5px;
+  color: var(--g-dim);
+}
+.garden-root .g-nav:hover {
+  color: var(--g-paper);
+}
+.garden-root .g-nav[aria-current="page"] {
+  color: var(--g-citron);
+  border-bottom: 2px solid var(--g-citron);
 }
 
 /* Highlight without buttonhood: citron is RESERVED for actions and tiny
@@ -221,7 +240,7 @@
 }
 .garden-root .g-demo-chip {
   font-family: "JetBrains Mono", monospace;
-  font-size: 10px;
+  font-size: 12px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   border: 1px solid var(--g-hairline);

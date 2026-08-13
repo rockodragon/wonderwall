@@ -80,7 +80,7 @@ function EventCard({ event }: { event: EventRow }) {
         className="g-mono"
         style={{
           marginTop: 8,
-          fontSize: 10.5,
+          fontSize: 12.5,
           letterSpacing: "0.06em",
           textTransform: "uppercase",
           color: "var(--g-dim)",
@@ -88,7 +88,7 @@ function EventCard({ event }: { event: EventRow }) {
       >
         {formatDateTime(event.datetime)}
       </div>
-      <p style={{ marginTop: 8, fontSize: 13.5, lineHeight: 1.5, color: "var(--g-muted)" }}>
+      <p style={{ marginTop: 8, fontSize: 14.5, lineHeight: 1.5, color: "var(--g-muted)" }}>
         {event.location ?? "Location TBA"} · {costLine(event)}
       </p>
     </Link>

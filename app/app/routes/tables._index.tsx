@@ -97,7 +97,7 @@ function TableCard({ table }: { table: TableRow }) {
           className="g-mono"
           style={{
             marginTop: 8,
-            fontSize: 10.5,
+            fontSize: 12.5,
             letterSpacing: "0.06em",
             textTransform: "uppercase",
             color: "var(--g-dim)",
@@ -106,7 +106,7 @@ function TableCard({ table }: { table: TableRow }) {
           {table.cadence}
         </div>
       )}
-      <p style={{ marginTop: 8, fontSize: 13.5, lineHeight: 1.5, color: "var(--g-muted)" }}>
+      <p style={{ marginTop: 8, fontSize: 14.5, lineHeight: 1.5, color: "var(--g-muted)" }}>
         {table.memberCount} on the roster
         {table.priceCents ? ` · ${formatMoney(table.priceCents)}` : ""}
       </p>

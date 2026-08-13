@@ -166,7 +166,7 @@ export default function FundPage() {
                   borderBottom: "1px solid var(--g-hairline)",
                 }}
               >
-                <span className="g-mono" style={{ fontSize: 11, color: "var(--g-dim)", minWidth: 68 }}>
+                <span className="g-mono" style={{ fontSize: 12.5, color: "var(--g-dim)", minWidth: 68 }}>
                   {formatPeriod(entry.period)}
                 </span>
                 <span className="g-h" style={{ fontSize: 15 }}>
@@ -179,18 +179,18 @@ export default function FundPage() {
                   entry.projectSlug ? (
                     <Link
                       to={`/story/${entry.projectSlug}`}
-                      style={{ fontSize: 13.5, color: "var(--g-citron)" }}
+                      style={{ fontSize: 14.5, color: "var(--g-citron)" }}
                     >
                       {entry.projectTitle}
                     </Link>
                   ) : (
-                    <span style={{ fontSize: 13.5, color: "var(--g-muted)" }}>
+                    <span style={{ fontSize: 14.5, color: "var(--g-muted)" }}>
                       {entry.projectTitle}
                     </span>
                   )
                 )}
                 {entry.note && (
-                  <span style={{ fontSize: 13.5, color: "var(--g-muted)", flexBasis: "100%" }}>
+                  <span style={{ fontSize: 14.5, color: "var(--g-muted)", flexBasis: "100%" }}>
                     {entry.note}
                   </span>
                 )}

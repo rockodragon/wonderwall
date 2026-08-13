@@ -82,7 +82,7 @@ function StatusLine({ status }: { status: Status }) {
     <p
       style={{
         marginTop: 12,
-        fontSize: 13.5,
+        fontSize: 14.5,
         color: status.kind === "ok" ? "var(--g-citron)" : "var(--g-body)",
       }}
     >
@@ -490,7 +490,7 @@ function CoverageSection({
             {coverageCodes.map((c) => (
               <div key={c._id} className="g-cell" style={{ padding: "12px 14px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
-                  <span className="g-mono" style={{ color: "var(--g-paper)", fontSize: 14 }}>{c.code}</span>
+                  <span className="g-mono" style={{ color: "var(--g-paper)", fontSize: 15 }}>{c.code}</span>
                   <span className="g-badge g-badge-line">{c.status}</span>
                 </div>
                 <div className="g-hint" style={{ marginTop: 6 }}>
@@ -664,7 +664,7 @@ export default function AdminGardenPage() {
             Operator console
           </h1>
         </div>
-        <Link to="/admin" className="g-mono" style={{ fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--g-muted)" }}>
+        <Link to="/admin" className="g-mono" style={{ fontSize: 12.5, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--g-muted)" }}>
           ← Back to admin
         </Link>
       </div>

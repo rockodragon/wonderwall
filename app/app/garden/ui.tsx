@@ -69,8 +69,8 @@ export function GardenNav({ active }: { active?: string }) {
         <GardenWordmark />
         <Link
           to="/login"
-          className="g-label"
-          style={{ textDecoration: "none", color: "var(--g-muted)" }}
+          className="g-nav"
+          style={{ color: "var(--g-muted)" }}
         >
           Sign in
         </Link>
@@ -78,7 +78,7 @@ export function GardenNav({ active }: { active?: string }) {
       <hr className="g-rule-heavy" style={{ marginTop: 12 }} />
       <nav
         aria-label="Garden"
-        style={{ display: "flex", gap: 16, marginTop: 12, flexWrap: "wrap" }}
+        style={{ display: "flex", gap: 22, marginTop: 14, flexWrap: "wrap" }}
       >
         {NAV_ITEMS.map((item) => {
           const isActive = active === item.label;
@@ -86,16 +86,11 @@ export function GardenNav({ active }: { active?: string }) {
             <Link
               key={item.to}
               to={item.to}
-              className="g-label"
+              className="g-nav"
               aria-current={isActive ? "page" : undefined}
-              style={{
-                textDecoration: "none",
-                color: isActive ? "var(--g-citron)" : "var(--g-dim)",
-                borderBottom: isActive
-                  ? "2px solid var(--g-citron)"
-                  : "2px solid transparent",
-                paddingBottom: 4,
-              }}
+              style={
+                isActive ? undefined : { borderBottom: "2px solid transparent" }
+              }
             >
               {item.label}
             </Link>

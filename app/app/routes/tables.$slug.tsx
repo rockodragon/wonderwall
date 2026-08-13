@@ -95,12 +95,12 @@ function SessionRow({
           {formatDateTime(session.startsAt)}
         </span>
         {duration && (
-          <span className="g-mono" style={{ fontSize: 10.5, color: "var(--g-dim)" }}>
+          <span className="g-mono" style={{ fontSize: 12.5, color: "var(--g-dim)" }}>
             {duration}
           </span>
         )}
         {session.title && (
-          <span style={{ fontSize: 13.5, color: "var(--g-muted)" }}>{session.title}</span>
+          <span style={{ fontSize: 14.5, color: "var(--g-muted)" }}>{session.title}</span>
         )}
       </div>
 
@@ -213,7 +213,7 @@ function JoinPanel({
       <button className="g-btn g-btn-citron" onClick={handleJoin} disabled={joining}>
         {joining ? "Joining…" : label}
       </button>
-      {note && <p style={{ marginTop: 12, fontSize: 13.5, color: "var(--g-citron)" }}>{note}</p>}
+      {note && <p style={{ marginTop: 12, fontSize: 14.5, color: "var(--g-citron)" }}>{note}</p>}
     </div>
   );
 }

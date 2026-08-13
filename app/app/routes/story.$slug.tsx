@@ -147,7 +147,7 @@ export default function StoryPage() {
               }}
             />
           </div>
-          <p style={{ marginTop: 8, fontSize: 14, color: "var(--g-paper)" }}>
+          <p style={{ marginTop: 8, fontSize: 15, color: "var(--g-paper)" }}>
             ${(raisedCents / 100).toLocaleString()} of ${(goalCents / 100).toLocaleString()}
           </p>
         </div>
@@ -169,7 +169,7 @@ export default function StoryPage() {
                   borderBottom: "1px solid var(--g-hairline)",
                 }}
               >
-                <span className="g-mono" style={{ fontSize: 11, color: "var(--g-dim)" }}>
+                <span className="g-mono" style={{ fontSize: 12.5, color: "var(--g-dim)" }}>
                   {formatDate(u.createdAt)}
                 </span>
                 <p style={{ marginTop: 6, fontSize: 14.5, lineHeight: 1.55 }}>{u.body}</p>
@@ -178,7 +178,7 @@ export default function StoryPage() {
                     href={u.mediaUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    style={{ fontSize: 13, color: "var(--g-citron)", marginTop: 6, display: "inline-block" }}
+                    style={{ fontSize: 14.5, color: "var(--g-citron)", marginTop: 6, display: "inline-block" }}
                   >
                     View media →
                   </a>

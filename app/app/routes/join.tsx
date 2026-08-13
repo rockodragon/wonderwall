@@ -133,7 +133,7 @@ export default function JoinPage() {
           <div
             className="g-mono"
             style={{
-              fontSize: 10.5,
+              fontSize: 12.5,
               letterSpacing: "0.06em",
               textTransform: "uppercase",
               color: "var(--g-muted)",
@@ -148,7 +148,7 @@ export default function JoinPage() {
           <div
             className="g-mono"
             style={{
-              fontSize: 10.5,
+              fontSize: 12.5,
               letterSpacing: "0.06em",
               textTransform: "uppercase",
               color: "var(--g-muted)",
@@ -206,7 +206,7 @@ export default function JoinPage() {
                 <div
                   className="g-mono"
                   style={{
-                    fontSize: 10.5,
+                    fontSize: 12.5,
                     letterSpacing: "0.08em",
                     textTransform: "uppercase",
                     color: "var(--g-citron)",
@@ -229,7 +229,7 @@ export default function JoinPage() {
                 {level.perks.map((perk) => (
                   <li
                     key={perk}
-                    style={{ fontSize: 14, color: "var(--g-body)", lineHeight: 1.45 }}
+                    style={{ fontSize: 15, color: "var(--g-body)", lineHeight: 1.45 }}
                   >
                     {perk}
                   </li>

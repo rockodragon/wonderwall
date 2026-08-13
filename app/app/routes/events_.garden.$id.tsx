@@ -119,13 +119,13 @@ function AttendanceLine({
   if (data === undefined) return null;
 
   if (data.count === 0) {
-    return <p style={{ fontSize: 14, color: "var(--g-muted)" }}>Be the first to say you're in.</p>;
+    return <p style={{ fontSize: 15, color: "var(--g-muted)" }}>Be the first to say you're in.</p>;
   }
 
   const names = "names" in data ? data.names : data.rsvps.map((r) => r.name.trim().split(/\s+/)[0] || "A guest");
 
   return (
-    <p style={{ fontSize: 14, color: "var(--g-muted)" }}>
+    <p style={{ fontSize: 15, color: "var(--g-muted)" }}>
       {data.count} coming: {names.join(", ")}
     </p>
   );
@@ -310,7 +310,7 @@ export default function GardenEventDetail() {
       </div>
 
       <div style={{ marginTop: 32 }}>
-        <Link to="/garden/events" className="g-mono" style={{ fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--g-muted)" }}>
+        <Link to="/garden/events" className="g-mono" style={{ fontSize: 12.5, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--g-muted)" }}>
           ← All events
         </Link>
       </div>

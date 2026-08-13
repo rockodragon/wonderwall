@@ -93,7 +93,7 @@ function GoalBar({ goal, raisedCents }: { goal: number; raisedCents?: number }) 
           }}
         />
       </div>
-      <p style={{ marginTop: 8, fontSize: 14, color: "var(--g-paper)" }}>
+      <p style={{ marginTop: 8, fontSize: 15, color: "var(--g-paper)" }}>
         ${raisedDollars.toLocaleString()} of ${goal.toLocaleString()}
       </p>
     </div>
@@ -156,7 +156,7 @@ export default function ProjectDetailPage() {
         style={{
           display: "inline-block",
           marginTop: 20,
-          fontSize: 11,
+          fontSize: 12.5,
           letterSpacing: "0.08em",
           textTransform: "uppercase",
           color: "var(--g-muted)",
