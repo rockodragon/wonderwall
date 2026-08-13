@@ -313,12 +313,12 @@ async function handleSubscriptionDeleted(sub: StripeSubscriptionLike, db: Db): P
 export async function handleStripeEvent(event: StripeWebhookEvent, db: Db): Promise<void> {
   switch (event.type) {
     case "checkout.session.completed":
-      return handleCheckoutSessionCompleted(event.data.object, db);
+      return handleCheckoutSessionCompleted(event.data.object as StripeCheckoutSessionLike, db);
     case "customer.subscription.created":
     case "customer.subscription.updated":
-      return handleSubscriptionUpdated(event.data.object, db);
+      return handleSubscriptionUpdated(event.data.object as StripeSubscriptionLike, db);
     case "customer.subscription.deleted":
-      return handleSubscriptionDeleted(event.data.object, db);
+      return handleSubscriptionDeleted(event.data.object as StripeSubscriptionLike, db);
     default:
       return; // every other event type is intentionally ignored (W1 scope)
   }

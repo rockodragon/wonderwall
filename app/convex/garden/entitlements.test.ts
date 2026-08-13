@@ -96,7 +96,7 @@ describe("assertCanPure", () => {
       expect.unreachable("should have thrown");
     } catch (e) {
       expect(e).toBeInstanceOf(ConvexError);
-      const data = (e as ConvexError<Record<string, unknown>>).data;
+      const data = (e as ConvexError<{ code: string; capability: string; reason?: string; upgradePath?: string }>).data;
       expect(data.code).toBe("entitlement_denied");
       expect(data.capability).toBe("project.create.passion");
       expect(data.reason).toBeTruthy();

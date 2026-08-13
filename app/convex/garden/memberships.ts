@@ -11,8 +11,8 @@
 // types. Once codegen catches up this can tighten to the generated types.
 
 import { v } from "convex/values";
-import { query, internalMutation, internalQuery } from "./_generated/server";
-import { auth } from "./auth";
+import { query, internalMutation, internalQuery } from "../_generated/server";
+import { auth } from "../auth";
 import { handleStripeEvent, type Db, type StripeWebhookEvent } from "./stripeHandlers";
 
 // The Garden is the default host org; coverage/membership checkout that

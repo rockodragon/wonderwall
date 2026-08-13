@@ -14,9 +14,9 @@
 import { v } from "convex/values";
 import { ConvexError } from "convex/values";
 import Stripe from "stripe";
-import { action, internalAction } from "./_generated/server";
-import { internal } from "./_generated/api";
-import { auth } from "./auth";
+import { action, internalAction } from "../_generated/server";
+import { internal } from "../_generated/api";
+import { auth } from "../auth";
 
 // Matches the `stripe` package's pinned default (node_modules/stripe's
 // apiVersion.js) at install time — keep these in lockstep on upgrade.
