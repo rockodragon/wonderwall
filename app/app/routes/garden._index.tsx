@@ -125,7 +125,7 @@ export default function GardenIndex() {
           Nobody makes anything alone.
         </h1>
         <p style={{ marginTop: 16, fontSize: 16, lineHeight: 1.6, maxWidth: "58ch" }}>
-          The Garden is where Kingdom-minded creatives get their work funded,
+          creatives.exchange is where Kingdom-minded creatives get their work funded,
           find collaborators, and gather around real tables — in San Diego
           and wherever the next table opens.
         </p>

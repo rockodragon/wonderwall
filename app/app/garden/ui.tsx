@@ -34,10 +34,14 @@ export function SectionLabel({ children }: { children: ReactNode }) {
 
 /** A back-to-home wordmark link — the quiet top-left anchor every standalone
     production page gets, since these routes live outside the app shell/nav. */
+/** Platform wordmark. "The Garden" is now one COMMUNITY among several
+    (Abiding Practice, Table Art Society, The Rabbit Room); the platform these
+    pages belong to is creatives.exchange. Community names appear on the
+    community's own surfaces, not here. */
 export function GardenWordmark() {
   return (
     <Link to="/garden" className="g-wordmark">
-      The Garden
+      creatives.exchange
     </Link>
   );
 }
