@@ -11,6 +11,8 @@ import type { CanResult, GardenUser } from "../garden/capabilities";
 import {
   DASHBOARD,
   OFFERS,
+  PERSONAS,
+  PERSONA_TAGLINE,
   PROJECTS,
   TABLES,
   type DemoOffer,
@@ -117,8 +119,19 @@ const OFFER_OWNER_ID: Record<string, string | undefined> = {
   "foldednote-backroom": "foldednote",
 };
 
-const NAV_ITEMS = ["Buzz", "Projects", "Events", "Tables", "Offers"] as const;
+const NAV_ITEMS = ["Buzz", "People", "Projects", "Events", "Tables", "Offers"] as const;
 type NavItem = (typeof NAV_ITEMS)[number];
+
+/** creatives.exchange hosts communities; each keeps its own name and its own
+    word for a gathering. Switching here changes the vocabulary on screen —
+    that's the open question in the discussion brief (§5.1) made visible. */
+const COMMUNITIES = [
+  { id: "garden", name: "The Garden", tableWord: "Tables", blurb: "San Diego · the founding community" },
+  { id: "ap", name: "Abiding Practice", tableWord: "Cohorts", blurb: "Spiritual creative formation" },
+  { id: "tas", name: "Table Art Society", tableWord: "Studios", blurb: "Working artists, around a table" },
+  { id: "rabbit", name: "The Rabbit Room", tableWord: "Chapters", blurb: "Story, music, and craft" },
+] as const;
+type Community = (typeof COMMUNITIES)[number];
 
 type DetailKind = "project" | "event" | "table" | "offer";
 interface ViewState {
@@ -134,6 +147,7 @@ const OFFER_FILTERS = ["All", "Space", "Goods", "Audience", "Coaching"] as const
 /** One descriptor sentence per section, verbatim — founder-approved copy. */
 const SECTION_DESCRIPTOR: Record<NavItem, string> = {
   Buzz: "The week at a glance — what's coming up, and what just got posted.",
+  People: "Who's here and what they've made — portfolios, and a way to reach them.",
   Projects: "Creative work seeking support, and paid work seeking creatives.",
   Events: "Shows, workshops, open mics — pick a night and show up.",
   Tables:
@@ -1366,14 +1380,126 @@ function DetailView({
 
 // ————— Top bar —————
 
+/** The community strip — creatives.exchange hosts many communities and a
+    creative moves between them. Switching changes the community's name and
+    its vocabulary; membership and portfolio travel with the person. */
+function CommunityBar({
+  community,
+  onSelect,
+}: {
+  community: Community;
+  onSelect: (c: Community) => void;
+}) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        flexWrap: "wrap",
+        padding: "10px 20px",
+        borderBottom: "1px solid var(--g-hairline)",
+        background: "#0f0f0e",
+      }}
+    >
+      <span className="g-label" style={{ color: "var(--g-muted)" }}>
+        Community
+      </span>
+      {COMMUNITIES.map((c) => {
+        const on = c.id === community.id;
+        return (
+          <button
+            key={c.id}
+            onClick={() => onSelect(c)}
+            className="g-mono"
+            aria-pressed={on}
+            title={c.blurb}
+            style={{
+              fontSize: 13,
+              letterSpacing: "0.06em",
+              padding: "6px 12px",
+              borderRadius: 3,
+              cursor: "pointer",
+              border: `1px solid ${on ? "var(--g-citron)" : "var(--g-hairline)"}`,
+              background: on ? "var(--g-citron)" : "transparent",
+              color: on ? "var(--g-ink)" : "var(--g-body)",
+            }}
+          >
+            {c.name}
+          </button>
+        );
+      })}
+      <span className="g-hint" style={{ flexBasis: "100%", marginTop: 2 }}>
+        One account, one portfolio — you move between communities, and each
+        keeps its own name and language.
+      </span>
+    </div>
+  );
+}
+
+/** People — portfolios and reach-out. NOTE: profiles, portfolios, search and
+    messaging are already built in the core app (/works, /search,
+    /profile/:id, /messages); this section is the Garden-side entry to them,
+    which the earlier IA omitted. */
+function PeopleSection({ community }: { community: Community }) {
+  const cast = PERSONAS.filter((p) => p.id !== "foldednote");
+  return (
+    <>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit,minmax(230px,1fr))",
+          gap: 14,
+        }}
+      >
+        {cast.map((p) => {
+          const work = PROJECTS.find((w) => w.byId === p.id);
+          return (
+            <div key={p.id} className="g-card" style={{ padding: 0, overflow: "hidden" }}>
+              {work?.photo && (
+                <img src={work.photo} alt={`Work by ${p.name}`} className="g-photo" />
+              )}
+              <div style={{ padding: "16px 18px 18px" }}>
+                <div className="g-h" style={{ fontSize: 17 }}>
+                  {p.name}
+                </div>
+                <div className="g-credit" style={{ marginTop: 4 }}>
+                  {PERSONA_TAGLINE[p.id]?.split("·")[0]?.trim()}
+                </div>
+                {work && (
+                  <p style={{ fontSize: 14.5, color: "var(--g-body)", marginTop: 10 }}>
+                    Latest: {work.title}
+                  </p>
+                )}
+                <div style={{ marginTop: 14, display: "flex", gap: 10, flexWrap: "wrap" }}>
+                  <span className="g-btn g-btn-ghost">View portfolio</span>
+                  <span className="g-btn g-btn-ghost">Message</span>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <p className="g-hint" style={{ marginTop: 16 }}>
+        Portfolios, search, and messaging already exist in the core app — this
+        is the {community.name} entry point to them.
+      </p>
+    </>
+  );
+}
+
 function TopBar({
   active,
   onSelect,
   persona,
+  community,
+  onCommunity,
 }: {
   active: NavItem;
   onSelect: (n: NavItem) => void;
   persona: GardenUser;
+  community: Community;
+  onCommunity: (c: Community) => void;
 }) {
   return (
     <div
@@ -1390,9 +1516,22 @@ function TopBar({
         borderBottom: "1px solid var(--g-hairline)",
       }}
     >
-      <span className="g-wordmark" style={{ fontSize: 11 }}>
-        The Garden
-      </span>
+      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+        <span
+          className="g-mono"
+          style={{
+            fontSize: 12,
+            letterSpacing: "0.16em",
+            textTransform: "uppercase",
+            color: "var(--g-dim)",
+          }}
+        >
+          creatives.exchange
+        </span>
+        <span className="g-wordmark" style={{ fontSize: 15 }}>
+          {community.name}
+        </span>
+      </div>
       <nav style={{ display: "flex", gap: 16, flexWrap: "wrap", flex: 1 }}>
         {NAV_ITEMS.map((n) => (
           <button
@@ -1404,15 +1543,15 @@ function TopBar({
               background: "none",
               border: "none",
               cursor: "pointer",
-              fontSize: 11,
-              letterSpacing: "0.1em",
+              fontSize: 15,
+              letterSpacing: "0.08em",
               textTransform: "uppercase",
               padding: "4px 0",
               color: active === n ? "var(--g-citron)" : "var(--g-body)",
               borderBottom: active === n ? "2px solid var(--g-citron)" : "2px solid transparent",
             }}
           >
-            {n}
+            {n === "Tables" ? community.tableWord : n}
           </button>
         ))}
       </nav>
@@ -1462,6 +1601,7 @@ function AppShell() {
   const { persona } = useDemo();
   const [view, setView] = useState<ViewState>({ section: "Buzz" });
   const [note, setNote] = useState<string | null>(null);
+  const [community, setCommunity] = useState<Community>(COMMUNITIES[0]);
 
   useEffect(() => {
     setNote(null);
@@ -1474,7 +1614,14 @@ function AppShell() {
 
   return (
     <>
-      <TopBar active={view.section} onSelect={goSection} persona={persona} />
+      <TopBar
+        active={view.section}
+        onSelect={goSection}
+        persona={persona}
+        community={community}
+        onCommunity={setCommunity}
+      />
+      <CommunityBar community={community} onSelect={setCommunity} />
       <div className="g-wrap g-wrap-wide">
         {view.detail ? (
           <DetailView detail={view.detail} persona={persona} note={note} onNote={setNote} onBack={closeDetail} />
@@ -1482,6 +1629,7 @@ function AppShell() {
           <>
             <SectionIntro section={view.section} />
             {view.section === "Buzz" && <BuzzSection onOpenDetail={openDetail} />}
+            {view.section === "People" && <PeopleSection community={community} />}
             {view.section === "Projects" && <ProjectsSection persona={persona} onOpenDetail={openDetail} />}
             {view.section === "Events" && <EventsSection persona={persona} onOpenDetail={openDetail} />}
             {view.section === "Tables" && <TablesSection persona={persona} onOpenDetail={openDetail} />}

@@ -66,6 +66,8 @@ export default [
   route("garden/events", "routes/events_.garden._index.tsx"),
   route("garden/events/:id", "routes/events_.garden.$id.tsx"),
 
+  route("ia", "routes/ia.tsx"),
+
   // 404 catch-all
   route("*", "routes/404.tsx"),
 ] satisfies RouteConfig;

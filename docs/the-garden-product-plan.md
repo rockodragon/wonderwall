@@ -1,5 +1,16 @@
 # The Garden — Product Plan & Spec
 
+> **⚠ UNDER REVISION (2026-08-13) — the creatives.exchange pivot.**
+> The platform is being renamed **creatives.exchange**, with communities
+> (Abiding Practice, Table Art Society, The Rabbit Room, The Garden) sitting
+> visibly on top of it rather than hidden behind one brand. Sections affected:
+> **§0** (fixed vocabulary — communities may get their own gathering words),
+> **§2.2** (whether the 50% pool is per-community or platform-wide),
+> **§6** (Garden-as-default-host is superseded), and the "Kingdom-minded"
+> positioning throughout. Everything else below — levels, entitlements,
+> capability model, project model, onboarding — still stands.
+> See **`creatives-exchange-discussion-brief.md`** for the open questions.
+
 *Canonical for: personas, membership levels, entitlements, pricing, revenue split, onboarding flows, and the passion/paid project model. Supersedes the corresponding sections of `the-exchange-vision.md` and `the-exchange-stakeholder-one-pager.md`. Where this doc and an older doc disagree, this doc wins.*
 
 *v1.0 — 2026-08-09*
@@ -236,6 +247,8 @@ The pattern in one line: **public artifacts go where discovery lives; the canoni
 ---
 
 ## 6 · Tables, seats, and the Garden-as-host question
+
+> **SUPERSEDED 2026-08-13:** the Garden-as-default-host launch decision below is replaced by visible multi-community tenancy. The seat-vs-seat-at-a-table disambiguation still holds.
 
 **Model (from the handoff, confirmed):** a Table is one object with four settings — mode (in-person/virtual/hybrid), capacity (number or no-cap), term (fixed/ongoing + cadence), join policy (open/apply/invite). Open tables can **spawn** closed ones, carrying selected people. No table subtypes, ever.
 
