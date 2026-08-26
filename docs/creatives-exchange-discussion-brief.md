@@ -92,7 +92,27 @@ Today one word covers what people make available: a back room, a print shop's sp
 
 **Recommendation: none yet — worth arguing.** The instinct that "Offers" covers only half the exchange is right, and the platform is literally named for exchange. The cost to weigh: an Ask is low-commitment, expiring, and often urgent, which is a different shape from an Offer (standing, recurring). They may belong on the same page without belonging in the same list.
 
-### 5.6 The name
+### 5.6 What community are you in when you haven't picked one?
+Three linked questions, and they turn out to be one question.
+
+**Is there a default community?** Options: no default (the platform is the commons — you browse everything and join open tables anywhere, and joining a community is an explicit act); or a house community everyone lands in. **Recommendation: no default.** Making The Garden the landing spot gives one community unearned primacy over its peers and confuses a newcomer who never chose it.
+
+**Then who gets the 40% host share when someone has no community?** Options: the platform keeps it (honest, but reads as self-dealing); it goes to the pool; or **the member names their home community and the share follows that choice, defaulting to the pool when they haven't picked one.**
+
+**Recommendation: the member picks, and can change it.** This is the answer that makes the whole model cohere:
+- No participation-surveillance metric is needed — the member simply says who their dues support, which is exactly the transparency the product already promises.
+- It turns the 40% into a **recurring earned share instead of a finder's fee.** A community keeps that share by being worth being in, not by having recruited someone once.
+- Unaffiliated members become the strongest version of the pitch: *if you haven't picked a community yet, 90% of your dues fund other creatives' work.*
+
+**Can a community be free?** Yes — and this distinction needs to be said out loud, because it's the thing most likely to be misunderstood:
+
+> **A seat is platform membership, not community membership.** A community can be entirely free to join. The $10/mo seat is what unlocks starting projects, applying to paid work, and joining members-tables — anywhere on the platform.
+
+So a free community's people can stay free-account users indefinitely, and "money is never the only door" survives intact. What a community actually sells is its **cohorts and classes** (their price, they keep ~90%) plus the **dues share from members who name them home**.
+
+**The honest catch:** a free community whose members never buy seats earns nothing, and so does the platform. That's acceptable — free communities are the top of the funnel — but somebody in the room will spot it, so we should say it before they do.
+
+### 5.7 The name
 **creatives.exchange** is neutral, describes the function, and works as infrastructure under other people's brands.
 
 Two cautions, for the record rather than as objections:
@@ -101,7 +121,7 @@ Two cautions, for the record rather than as objections:
 
 **Also to settle: does a member think they joined creatives.exchange, or their community?** Skool is invisible plumbing; Substack is semi-visible. That answer determines whether we're a consumer brand or infrastructure — and it changes what we build next.
 
-### 5.7 How someone actually gets into a table
+### 5.8 How someone actually gets into a table
 
 Worth walking through live, because this is where the model either feels real or doesn't:
 

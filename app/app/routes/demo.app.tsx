@@ -1380,59 +1380,101 @@ function DetailView({
 
 // ————— Top bar —————
 
-/** The community strip — creatives.exchange hosts many communities and a
-    creative moves between them. Switching changes the community's name and
-    its vocabulary; membership and portfolio travel with the person. */
-function CommunityBar({
+/** Community picker. You're in ONE community at a time; the others live
+    behind a dropdown rather than a strip under the nav (that read as
+    clutter). Membership and portfolio travel with the person. */
+function CommunityPicker({
   community,
   onSelect,
 }: {
   community: Community;
   onSelect: (c: Community) => void;
 }) {
+  const [open, setOpen] = useState(false);
   return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 10,
-        flexWrap: "wrap",
-        padding: "10px 20px",
-        borderBottom: "1px solid var(--g-hairline)",
-        background: "#0f0f0e",
-      }}
-    >
-      <span className="g-label" style={{ color: "var(--g-muted)" }}>
-        Community
-      </span>
-      {COMMUNITIES.map((c) => {
-        const on = c.id === community.id;
-        return (
-          <button
-            key={c.id}
-            onClick={() => onSelect(c)}
-            className="g-mono"
-            aria-pressed={on}
-            title={c.blurb}
-            style={{
-              fontSize: 13,
-              letterSpacing: "0.06em",
-              padding: "6px 12px",
-              borderRadius: 3,
-              cursor: "pointer",
-              border: `1px solid ${on ? "var(--g-citron)" : "var(--g-hairline)"}`,
-              background: on ? "var(--g-citron)" : "transparent",
-              color: on ? "var(--g-ink)" : "var(--g-body)",
-            }}
-          >
-            {c.name}
-          </button>
-        );
-      })}
-      <span className="g-hint" style={{ flexBasis: "100%", marginTop: 2 }}>
-        One account, one portfolio — you move between communities, and each
-        keeps its own name and language.
-      </span>
+    <div style={{ position: "relative" }}>
+      <button
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        aria-haspopup="listbox"
+        className="g-mono"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          background: "none",
+          border: "1px solid var(--g-hairline)",
+          borderRadius: 3,
+          padding: "6px 10px",
+          cursor: "pointer",
+          color: "var(--g-paper)",
+          fontSize: 13,
+          letterSpacing: "0.06em",
+        }}
+      >
+        {community.name}
+        <span aria-hidden="true" style={{ color: "var(--g-dim)" }}>
+          {open ? "\u25B4" : "\u25BE"}
+        </span>
+      </button>
+      {open && (
+        <div
+          role="listbox"
+          style={{
+            position: "absolute",
+            top: "calc(100% + 6px)",
+            left: 0,
+            zIndex: 60,
+            minWidth: 230,
+            background: "#0f0f0e",
+            border: "1px solid var(--g-hairline)",
+            borderRadius: 6,
+            padding: 6,
+            display: "flex",
+            flexDirection: "column",
+            gap: 2,
+          }}
+        >
+          {COMMUNITIES.map((c) => {
+            const on = c.id === community.id;
+            return (
+              <button
+                key={c.id}
+                role="option"
+                aria-selected={on}
+                onClick={() => {
+                  onSelect(c);
+                  setOpen(false);
+                }}
+                style={{
+                  textAlign: "left",
+                  background: on ? "#1c1c19" : "transparent",
+                  border: "none",
+                  borderLeft: `2px solid ${on ? "var(--g-citron)" : "transparent"}`,
+                  borderRadius: 3,
+                  padding: "9px 12px",
+                  cursor: "pointer",
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 14.5,
+                    color: on ? "var(--g-citron)" : "var(--g-paper)",
+                  }}
+                >
+                  {c.name}
+                </div>
+                <div className="g-hint" style={{ marginTop: 2 }}>
+                  {c.blurb}
+                </div>
+              </button>
+            );
+          })}
+          <div className="g-hint" style={{ padding: "8px 12px 4px", borderTop: "1px solid var(--g-hairline)", marginTop: 4 }}>
+            One account, one portfolio — you move between communities.
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1528,10 +1570,8 @@ function TopBar({
         >
           creatives.exchange
         </span>
-        <span className="g-wordmark" style={{ fontSize: 15 }}>
-          {community.name}
-        </span>
       </div>
+      <CommunityPicker community={community} onSelect={onCommunity} />
       <nav style={{ display: "flex", gap: 16, flexWrap: "wrap", flex: 1 }}>
         {NAV_ITEMS.map((n) => (
           <button
@@ -1621,7 +1661,6 @@ function AppShell() {
         community={community}
         onCommunity={setCommunity}
       />
-      <CommunityBar community={community} onSelect={setCommunity} />
       <div className="g-wrap g-wrap-wide">
         {view.detail ? (
           <DetailView detail={view.detail} persona={persona} note={note} onNote={setNote} onBack={closeDetail} />
