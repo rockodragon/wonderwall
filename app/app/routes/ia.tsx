@@ -343,6 +343,76 @@ export default function IAPage() {
         </div>
       </div>
 
+      {/* ————— 4b. How the money works (brief §5.6) ————— */}
+      <div style={{ marginTop: 44 }}>
+        <SectionLabel>How the money works</SectionLabel>
+
+        <div className="g-card" style={{ marginTop: 12, borderColor: "var(--g-citron)" }}>
+          <p style={{ fontSize: 16, lineHeight: 1.6, color: "var(--g-paper)" }}>
+            A seat is <strong>platform membership, not community membership</strong>.
+          </p>
+          <p style={{ fontSize: 15, lineHeight: 1.6, marginTop: 10 }}>
+            A community can be entirely free to join. The $10/mo seat is what
+            unlocks starting projects, applying to paid work, and joining
+            members-tables — anywhere on the platform.
+          </p>
+        </div>
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))",
+            gap: 14,
+            marginTop: 14,
+          }}
+        >
+          <div className="g-card">
+            <div className="g-h" style={{ fontSize: 17 }}>
+              There is no default community
+            </div>
+            <p style={{ fontSize: 14.5, lineHeight: 1.55, marginTop: 8 }}>
+              You sign up to the platform, browse everything, and join open
+              tables anywhere. Joining a community is a deliberate act — no
+              one is dropped into a room they didn't choose.
+            </p>
+          </div>
+          <div className="g-card">
+            <div className="g-h" style={{ fontSize: 17 }}>
+              You name your home community
+            </div>
+            <p style={{ fontSize: 14.5, lineHeight: 1.55, marginTop: 8 }}>
+              The community share of your dues follows that choice, and you
+              can change it. It stays an earned share rather than a finder's
+              fee — a community keeps it by being worth being in.
+            </p>
+          </div>
+          <div className="g-card">
+            <div className="g-h" style={{ fontSize: 17 }}>
+              Haven't picked one yet?
+            </div>
+            <p style={{ fontSize: 14.5, lineHeight: 1.55, marginTop: 8 }}>
+              Then 90% of your dues fund other creatives' work, and 10% runs
+              the platform. Nothing sits idle while you decide.
+            </p>
+          </div>
+          <div className="g-card">
+            <div className="g-h" style={{ fontSize: 17 }}>
+              What a community sells
+            </div>
+            <p style={{ fontSize: 14.5, lineHeight: 1.55, marginTop: 8 }}>
+              Its cohorts and classes — their price, they keep about 90% —
+              plus the dues share from the people who call it home.
+            </p>
+          </div>
+        </div>
+
+        <p className="g-hint" style={{ marginTop: 14, maxWidth: "62ch" }}>
+          Said plainly, because someone will ask: a free community whose
+          members never buy seats earns nothing, and neither do we. That's the
+          top of the funnel working as intended, not a hole in the model.
+        </p>
+      </div>
+
       {/* ————— 5. The open questions ————— */}
       <div style={{ marginTop: 44 }}>
         <SectionLabel>The open questions</SectionLabel>
