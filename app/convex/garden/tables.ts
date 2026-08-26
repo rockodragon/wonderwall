@@ -314,3 +314,37 @@ export const rsvpSession = mutation({
     return { ok: true, status: args.status };
   },
 });
+
+/** The tables a given person sits at — the missing profile→table link.
+ * Public: anyone viewing a profile can see which rooms that person is part
+ * of and follow them in. Member/cohort tables are LISTED (belonging is not a
+ * secret) but joining still runs the normal gate on the table page. */
+export const listTablesForUser = query({
+  args: { userId: v.id("users") },
+  handler: async (ctx, args) => {
+    const memberships = await ctx.db
+      .query("tableMemberships")
+      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+      .collect();
+    const rows = await Promise.all(
+      memberships.map(async (m) => {
+        const table = await ctx.db.get(m.tableId);
+        if (!table || table.status !== "active") return null;
+        const roster = await ctx.db
+          .query("tableMemberships")
+          .withIndex("by_tableId", (q) => q.eq("tableId", table._id))
+          .collect();
+        return {
+          slug: table.slug,
+          name: table.name,
+          mode: table.mode,
+          format: table.format,
+          program: table.program,
+          cadence: table.cadence,
+          roster: roster.length,
+        };
+      }),
+    );
+    return rows.filter((r): r is NonNullable<typeof r> => r !== null);
+  },
+});
