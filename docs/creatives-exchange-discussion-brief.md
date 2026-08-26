@@ -112,7 +112,28 @@ So a free community's people can stay free-account users indefinitely, and "mone
 
 **The honest catch:** a free community whose members never buy seats earns nothing, and so does the platform. That's acceptable — free communities are the top of the funnel — but somebody in the room will spot it, so we should say it before they do.
 
-### 5.7 The name
+### 5.7 Who actually pays us — and why anyone pays at all
+
+Three questions that turn out to be one: why the free-table rule, whether we're charging hosts *and* members for the same thing, and what makes a $10 seat worth buying.
+
+**The free table.** The recorded rule is *"money is never the only door — every host keeps at least one free/open table, product-enforced."* Under the old model that was mostly a values statement. Under the new one it does concrete work: since a community is already free to join, the free table is what keeps "free to join" from being **free in name only**. Without it you can join a community and discover there is no room you're allowed to walk into. With it, there is always one.
+Worth deciding out loud, though: this is one of the very few places the platform **overrides community autonomy**. If communities define their own goals, mandating a free room is us imposing a value. Keep it as a hard rule, or make it a strong default a community can turn off?
+
+**Are we double-charging?** The existing decision (Model A) already says no for hosts who charge: *~10% of what they collect, no monthly base* — because "renting the tools *and* taking commission is how the channel leaves for a group chat." The leftover is **$50/mo from hosts who don't charge**, and the pivot has made that indefensible: a free community with a non-charging host would pay us $50/mo while generating almost nothing — we'd be taxing precisely the top-of-funnel communities we most want.
+
+**Recommendation: drop the host base fee entirely.** Hosting costs nothing. We earn only from money in motion: 10% of dues, 10% of patronage, 10% of what a host charges for cohorts. The pitch to a Rabbit Room becomes one sentence: *it costs you nothing to host here.*
+
+**⚠ But this decision lost us a revenue line, and the room should know.** Model A's math leaned on *"the 40% operator share of dues, which accrues to the platform while The Garden is the default host org."* There is no default host org any more — that share now follows the member's chosen home community, or goes to the pool. Combined with dropping the host fee, platform revenue is now **only**: 10% of dues · 10% of patronage · 10% of cohort collections.
+
+What that means numerically: 100 members at $10 is $100/mo to us. Thin. But one $500/mo fellowship is $50, and a 12-person cohort at $120 is $144. **Platform revenue is driven by money moving, not by headcount** — which is the incentive we want, and a clean thing to say: *we earn only when money reaches creatives.*
+
+**So why would anyone pay $10?** Free gets you belonging: a profile and portfolio, open tables, public events, browsing everything. A seat gets you **access to the money**: post a passion project (be fundable at all), apply to paid work, join members-tables, propose to the grant pool.
+
+> **You can always show up. A seat is for when you want your work funded.**
+
+**The honest weakness:** that line is only true if real money is flowing. If there's little paid work posted and the pool is small, a seat is a weak buy at any price. Which means the growth order is **patrons and partners first, members second** — recruit the money supply before pushing seat conversion. (This was already §2.5's conclusion; the pivot makes it more true, not less.)
+
+### 5.8 The name
 **creatives.exchange** is neutral, describes the function, and works as infrastructure under other people's brands.
 
 Two cautions, for the record rather than as objections:
@@ -121,7 +142,7 @@ Two cautions, for the record rather than as objections:
 
 **Also to settle: does a member think they joined creatives.exchange, or their community?** Skool is invisible plumbing; Substack is semi-visible. That answer determines whether we're a consumer brand or infrastructure — and it changes what we build next.
 
-### 5.8 How someone actually gets into a table
+### 5.9 How someone actually gets into a table
 
 Worth walking through live, because this is where the model either feels real or doesn't:
 
