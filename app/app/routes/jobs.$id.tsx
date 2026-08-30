@@ -6,8 +6,10 @@ import { usePostHog } from "@posthog/react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { InterestModal } from "../components/InterestModal";
+import { FF_JOBS, useFeatureGate } from "../lib/featureFlags";
 
 export default function JobDetail() {
+  const enabled = useFeatureGate(FF_JOBS, "/projects");
   const { id } = useParams();
   const posthog = usePostHog();
   const jobId = id as Id<"jobs">;
@@ -110,6 +112,8 @@ export default function JobDetail() {
       year: "numeric",
     });
   };
+
+  if (!enabled) return null;
 
   return (
     <div className="p-4 sm:p-6 max-w-6xl mx-auto">

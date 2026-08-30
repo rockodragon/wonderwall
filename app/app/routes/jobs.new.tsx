@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { api } from "../../convex/_generated/api";
 import { JOB_FUNCTIONS } from "../constants/jobFunctions";
+import { FF_JOBS, useFeatureGate } from "../lib/featureFlags";
 
 type LocationType = "Remote" | "Hybrid" | "On-site";
 type JobType = "Full-time" | "Part-time" | "Contract" | "Freelance";
@@ -11,6 +12,7 @@ type VisibilityType = "Private" | "Members";
 type ExperienceLevelType = "Entry" | "Mid" | "Senior" | "Any";
 
 export default function JobsNew() {
+  const enabled = useFeatureGate(FF_JOBS, "/projects");
   const navigate = useNavigate();
   const posthog = usePostHog();
   const createJob = useMutation(api.jobs.createJob);
@@ -139,6 +141,8 @@ export default function JobsNew() {
       setSaving(false);
     }
   }
+
+  if (!enabled) return null;
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
