@@ -214,7 +214,7 @@ export default function Search() {
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
                 {query ? "People" : "Creatives"}
               </h2>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 {filteredProfiles.map((profile) => (
                   <ProfileCard key={profile._id} profile={profile} />
                 ))}

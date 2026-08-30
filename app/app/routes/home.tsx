@@ -133,9 +133,9 @@ export default function Home() {
       <link rel="stylesheet" href="/tokens.css" />
       <link rel="stylesheet" href="/about/fonts/fonts.css" />
       {/* Header */}
-      <header className="absolute top-0 left-0 right-0 z-50 px-6 py-6 flex items-center justify-between max-w-7xl mx-auto">
-        <h1 className="flex items-center gap-3.5">
-          <svg viewBox="0 0 48 48" fill="none" className="w-10 h-10 shrink-0">
+      <header className="absolute top-0 left-0 right-0 z-50 px-4 sm:px-6 py-4 sm:py-6 flex items-center justify-between gap-3 max-w-7xl mx-auto">
+        <h1 className="flex items-center gap-2 sm:gap-3.5 min-w-0">
+          <svg viewBox="0 0 48 48" fill="none" className="w-7 h-7 sm:w-10 sm:h-10 shrink-0">
             <rect
               x="20"
               y="3"
@@ -143,7 +143,7 @@ export default function Home() {
               height="42"
               rx="4"
               fill="var(--garden-paper)"
-              transform="rotate(-22 24 24)"
+              transform="rotate(-18 24 24)"
             />
             <rect
               x="20"
@@ -152,12 +152,12 @@ export default function Home() {
               height="42"
               rx="4"
               fill="var(--garden-citron)"
-              transform="rotate(22 24 24)"
+              transform="rotate(18 24 24)"
             />
           </svg>
-          <span className="flex flex-col leading-none">
+          <span className="flex flex-col leading-none min-w-0">
             <span
-              className="text-[20px] font-medium uppercase tracking-[0.24em] text-[var(--garden-paper)]"
+              className="text-[13px] sm:text-[20px] font-medium uppercase tracking-[0.1em] sm:tracking-[0.24em] text-[var(--garden-paper)] truncate"
               style={{ fontFamily: "var(--garden-font-mono)" }}
             >
               creatives.exchange
@@ -172,18 +172,18 @@ export default function Home() {
             </span>
           </span>
         </h1>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 shrink-0">
           {isAuthenticated ? (
             <Link
               to="/search"
-              className="px-6 py-2.5 bg-[var(--garden-citron)] text-[var(--garden-ink)] rounded-xl font-semibold hover:opacity-90 transition-all"
+              className="px-4 py-2 sm:px-6 sm:py-2.5 text-[14px] sm:text-base whitespace-nowrap bg-[var(--garden-citron)] text-[var(--garden-ink)] rounded-xl font-semibold hover:opacity-90 transition-all"
             >
               Go to App
             </Link>
           ) : (
             <Link
               to="/login"
-              className="px-4 py-2 text-[15px] text-[var(--garden-body)] hover:text-[var(--garden-paper)] font-medium transition-colors"
+              className="px-4 py-2 text-[14px] sm:text-[15px] whitespace-nowrap text-[var(--garden-body)] hover:text-[var(--garden-paper)] font-medium transition-colors"
             >
               Sign in
             </Link>
@@ -207,13 +207,9 @@ export default function Home() {
             <br />
             & find work.
           </h2>
-          <p className="mt-6 text-xl text-[var(--garden-body)] max-w-2xl mx-auto mb-4">
-            A creative community for artists, makers, employers, sponsors, and
-            collaborators.
-          </p>
-          <p className="text-lg text-[var(--garden-muted)] max-w-xl mx-auto mb-8">
-            Portfolios, projects, collaborations, interviews, podcasts, trainings,
-            and events — all connected to the work you are called to make.
+          <p className="mt-6 text-xl text-[var(--garden-body)] max-w-2xl mx-auto mb-8">
+            A community for creatives and the people who support them — post
+            projects, find collaborators, and grow through events and paid work.
           </p>
 
           {/* Closed Beta Badge */}

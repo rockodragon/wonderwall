@@ -123,7 +123,7 @@ export default function AppLayout() {
                 height="42"
                 rx="4"
                 className="fill-gray-900 dark:fill-white"
-                transform="rotate(-22 24 24)"
+                transform="rotate(-18 24 24)"
               />
               <rect
                 x="20"
@@ -132,7 +132,7 @@ export default function AppLayout() {
                 height="42"
                 rx="4"
                 className="fill-[#d7f25a]"
-                transform="rotate(22 24 24)"
+                transform="rotate(18 24 24)"
               />
             </svg>
             <span className="text-lg font-bold text-gray-900 dark:text-white">
