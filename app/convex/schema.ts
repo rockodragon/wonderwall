@@ -49,7 +49,11 @@ export default defineSchema({
     order: v.number(),
   }).index("by_profileId", ["profileId"]),
 
-  // Portfolio artifacts
+  // Portfolio artifacts. The Exchange V1 pivot (docs/the-exchange-v1-prd.md
+  // §7) retires "Portfolio" as its own concept: each artifact becomes the
+  // media attached to its own new passion project via projectId (set by
+  // garden/artifactsMigration.ts, idempotent). profileId stays for the
+  // legacy /works reader and as the artifact's original-author link.
   artifacts: defineTable({
     profileId: v.id("profiles"),
     type: v.string(), // "text" | "image" | "video" | "audio" | "link"
@@ -60,7 +64,10 @@ export default defineSchema({
     title: v.optional(v.string()), // optional title for the artifact
     order: v.number(),
     createdAt: v.number(),
-  }).index("by_profileId", ["profileId"]),
+    projectId: v.optional(v.id("projects")), // set once migrated (V1 pivot)
+  })
+    .index("by_profileId", ["profileId"])
+    .index("by_projectId", ["projectId"]),
 
   // Wondering prompts
   wonderings: defineTable({
