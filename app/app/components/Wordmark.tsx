@@ -6,7 +6,11 @@
 // ae47cf2, 10d7b6d, and the current 22°/8px settled version below.
 
 const SIZES = {
-  sm: { icon: 20, text: 12, tagline: 9, gap: "gap-1.5", trackingText: "0.2em", trackingTag: "0.14em" },
+  // Compact horizontal lockup — for tight fixed-width spaces (the app
+  // sidebar, w-64 minus padding is ~208px). Minimal tracking is the load-
+  // bearing choice here: at md/lg's 0.24em, "creatives.exchange" alone runs
+  // ~240px and overflows straight into the page content next to it.
+  sm: { icon: 18, text: 11, tagline: 8.5, gap: "gap-1.5", trackingText: "0.02em", trackingTag: "0.08em" },
   md: { icon: 28, text: 15, tagline: 10.5, gap: "gap-2.5", trackingText: "0.24em", trackingTag: "0.18em" },
   lg: { icon: 40, text: 20, tagline: 13, gap: "gap-3.5", trackingText: "0.24em", trackingTag: "0.18em" },
 } as const;

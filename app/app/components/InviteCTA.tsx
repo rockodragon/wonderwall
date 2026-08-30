@@ -11,51 +11,35 @@ type InviteCTAVariant =
   | "favorites"
   | "sidebar";
 
-const VARIANTS: Record<
-  InviteCTAVariant,
-  { headline: string; subtitle: string; gradient: string; pattern: string }
-> = {
+// V1 (2026-08-30): dropped the per-page rainbow gradients — citron is
+// reserved for real actions, not decoration (public/tokens.css header
+// rule), and five different saturated gradients across one app read as
+// noisy, not distinctive. One consistent minimal treatment now; copy still
+// varies by placement.
+const VARIANTS: Record<InviteCTAVariant, { headline: string; subtitle: string }> = {
   profile: {
     headline: "Invite someone",
     subtitle: "Share your personal invite link with people you know.",
-    gradient: "from-violet-500 via-purple-500 to-fuchsia-500",
-    pattern:
-      "radial-gradient(circle at 20% 80%, rgba(255,255,255,0.1) 0%, transparent 50%)",
   },
   works: {
     headline: "Share the inspiration",
     subtitle: "Invite someone to share what they're working on.",
-    gradient: "from-amber-500 via-orange-500 to-red-500",
-    pattern:
-      "radial-gradient(circle at 80% 20%, rgba(255,255,255,0.15) 0%, transparent 50%)",
   },
   discover: {
     headline: "Expand the community",
     subtitle: "Know someone who's wondering? Invite them.",
-    gradient: "from-cyan-500 via-blue-500 to-indigo-500",
-    pattern:
-      "radial-gradient(circle at 30% 70%, rgba(255,255,255,0.12) 0%, transparent 50%)",
   },
   events: {
     headline: "Bring more voices",
     subtitle: "Invite someone to share their event or opportunity here.",
-    gradient: "from-emerald-500 via-teal-500 to-cyan-500",
-    pattern:
-      "radial-gradient(circle at 70% 30%, rgba(255,255,255,0.1) 0%, transparent 50%)",
   },
   favorites: {
     headline: "Invite more of what you love",
     subtitle: "Know someone who'd add to your favorites?",
-    gradient: "from-pink-500 via-rose-500 to-red-500",
-    pattern:
-      "radial-gradient(circle at 50% 50%, rgba(255,255,255,0.12) 0%, transparent 50%)",
   },
   sidebar: {
     headline: "Invite someone",
     subtitle: "Grow the community with people you know.",
-    gradient: "from-indigo-500 via-purple-500 to-pink-500",
-    pattern:
-      "radial-gradient(circle at 40% 60%, rgba(255,255,255,0.1) 0%, transparent 50%)",
   },
 };
 
@@ -102,39 +86,23 @@ export function InviteCTA({ variant }: { variant: InviteCTAVariant }) {
 
   return (
     <div
-      className={`group relative overflow-hidden rounded-2xl bg-gradient-to-br ${config.gradient} transition-all duration-300 ${
-        isExpanded ? "" : "hover:scale-[1.02] hover:shadow-xl cursor-pointer"
+      className={`group relative overflow-hidden rounded-2xl border transition-colors duration-200 ${
+        isExpanded ? "" : "cursor-pointer"
       }`}
+      style={{ backgroundColor: "var(--garden-ink-raised)", borderColor: "var(--garden-hairline)" }}
       onClick={() => !isExpanded && setIsExpanded(true)}
     >
-      {/* Texture overlay */}
-      <div
-        className="absolute inset-0 opacity-60"
-        style={{
-          backgroundImage: config.pattern,
-        }}
-      />
-
-      {/* Noise texture */}
-      <div
-        className="absolute inset-0 opacity-[0.03]"
-        style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")`,
-        }}
-      />
-
-      {/* Shine effect on hover (only when collapsed) */}
-      {!isExpanded && (
-        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
-      )}
-
       {/* Content */}
-      <div className="relative z-10 p-6">
+      <div className="relative z-10 p-5">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+            <div
+              className="w-9 h-9 rounded-lg flex items-center justify-center"
+              style={{ backgroundColor: "rgba(215,242,90,0.14)" }}
+            >
               <svg
-                className="w-5 h-5 text-white"
+                className="w-4.5 h-4.5"
+                style={{ color: "var(--garden-citron)" }}
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -147,7 +115,7 @@ export function InviteCTA({ variant }: { variant: InviteCTAVariant }) {
                 />
               </svg>
             </div>
-            <h3 className="text-lg font-semibold text-white">
+            <h3 className="text-[15px] font-semibold" style={{ color: "var(--garden-paper)" }}>
               {config.headline}
             </h3>
           </div>
@@ -157,7 +125,8 @@ export function InviteCTA({ variant }: { variant: InviteCTAVariant }) {
                 e.stopPropagation();
                 setIsExpanded(false);
               }}
-              className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white hover:bg-white/30 transition-colors"
+              className="w-7 h-7 rounded-full flex items-center justify-center transition-colors"
+              style={{ backgroundColor: "var(--garden-hairline)", color: "var(--garden-paper)" }}
             >
               <svg
                 className="w-4 h-4"
@@ -176,12 +145,15 @@ export function InviteCTA({ variant }: { variant: InviteCTAVariant }) {
           )}
         </div>
 
-        <p className="text-white/90 text-sm leading-relaxed mb-4">
+        <p className="text-sm leading-relaxed mb-4" style={{ color: "var(--garden-dim)" }}>
           {config.subtitle}
         </p>
 
         {!isExpanded ? (
-          <div className="inline-flex items-center gap-2 text-white font-medium text-sm group-hover:gap-3 transition-all">
+          <div
+            className="inline-flex items-center gap-2 font-medium text-sm group-hover:gap-3 transition-all"
+            style={{ color: "var(--garden-citron)" }}
+          >
             <span>Share your link</span>
             <svg
               className="w-4 h-4 transition-transform group-hover:translate-x-1"
@@ -201,16 +173,19 @@ export function InviteCTA({ variant }: { variant: InviteCTAVariant }) {
           <div className="space-y-3" onClick={(e) => e.stopPropagation()}>
             {generating ? (
               <div className="flex items-center justify-center py-4">
-                <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                <div
+                  className="w-6 h-6 border-2 rounded-full animate-spin"
+                  style={{ borderColor: "var(--garden-hairline-raised)", borderTopColor: "var(--garden-citron)" }}
+                />
               </div>
             ) : !inviteLink?.slug ? (
-              <p className="text-white/80 text-sm">Loading invite link...</p>
+              <p className="text-sm" style={{ color: "var(--garden-dim)" }}>Loading invite link...</p>
             ) : !hasUsesLeft ? (
-              <div className="p-4 bg-white/10 backdrop-blur-sm rounded-xl">
-                <p className="text-white text-sm font-medium mb-2">
-                  🎉 You've invited {inviteLink.usageCount} people!
+              <div className="p-4 rounded-xl" style={{ backgroundColor: "var(--garden-ink)" }}>
+                <p className="text-sm font-medium mb-2" style={{ color: "var(--garden-paper)" }}>
+                  You've invited {inviteLink.usageCount} people!
                 </p>
-                <p className="text-white/70 text-xs">
+                <p className="text-xs" style={{ color: "var(--garden-dim)" }}>
                   {inviteLink.currentLimit === 3
                     ? "You'll unlock 5 more invites when your invitees start joining!"
                     : inviteLink.currentLimit === 8
@@ -221,15 +196,22 @@ export function InviteCTA({ variant }: { variant: InviteCTAVariant }) {
             ) : (
               <>
                 {/* Invite link */}
-                <div className="p-3 bg-white/10 backdrop-blur-sm rounded-xl">
-                  <p className="text-white/70 text-xs mb-2">Your invite link</p>
+                <div className="p-3 rounded-xl" style={{ backgroundColor: "var(--garden-ink)" }}>
+                  <p className="text-xs mb-2" style={{ color: "var(--garden-dim)" }}>Your invite link</p>
                   <div className="flex items-center gap-2">
-                    <code className="flex-1 text-sm font-mono text-white/90 truncate">
+                    <code
+                      className="flex-1 text-sm truncate"
+                      style={{ fontFamily: "var(--garden-font-mono)", color: "var(--garden-muted)" }}
+                    >
                       {inviteUrl}
                     </code>
                     <button
                       onClick={copyToClipboard}
-                      className="px-3 py-1.5 bg-white/20 hover:bg-white/30 text-white text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5"
+                      className="px-3 py-1.5 text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5"
+                      style={{
+                        backgroundColor: copied ? "var(--garden-citron)" : "var(--garden-hairline)",
+                        color: copied ? "var(--garden-ink)" : "var(--garden-paper)",
+                      }}
                     >
                       {copied ? (
                         <>
@@ -271,21 +253,24 @@ export function InviteCTA({ variant }: { variant: InviteCTAVariant }) {
                 </div>
 
                 {/* Usage stats */}
-                <div className="flex items-center justify-between text-white/70 text-xs">
+                <div className="flex items-center justify-between text-xs" style={{ color: "var(--garden-dim)" }}>
                   <span>
                     {inviteLink.remainingUses} of {inviteLink.currentLimit}{" "}
                     invites remaining
                   </span>
                   {inviteLink.usageCount >= 3 &&
                     inviteLink.currentLimit > 3 && (
-                      <span className="px-2 py-0.5 bg-yellow-400/20 text-yellow-200 rounded-full text-[10px] font-medium">
+                      <span
+                        className="px-2 py-0.5 rounded-full text-[10px] font-medium"
+                        style={{ backgroundColor: "rgba(215,242,90,0.14)", color: "var(--garden-citron)" }}
+                      >
                         Unlocked +{inviteLink.currentLimit - 3}!
                       </span>
                     )}
                 </div>
 
                 {/* Info */}
-                <p className="text-white/60 text-xs pt-2">
+                <p className="text-xs pt-2" style={{ color: "var(--garden-dim)" }}>
                   Share thoughtfully. As people join and grow the network,
                   you'll unlock more invites!
                 </p>

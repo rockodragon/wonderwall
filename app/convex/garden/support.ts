@@ -1,7 +1,9 @@
-// Support widget (docs/the-exchange-v1-prd.md §9). Four types in one
-// record: financial one-time/recurring, encouragement, resource. No webhook
-// listener in V1 — financial support is operator-confirmed by hand, same
-// manual pattern as /fund and the Fellowship pilot.
+// Support widget (docs/the-exchange-v1-prd.md §9, revised 2026-08-30). Four
+// types in one record: financial one-time/recurring, encouragement,
+// resource. Financial support is UX-only for now, on purpose — no Stripe,
+// no payment link required, no money actually moves. It records a pledge
+// (status "pledged") the same way a real gift will later; the only thing
+// that changes when real checkout lands is what happens after submit.
 
 import { v } from "convex/values";
 import { mutation, query } from "../_generated/server";
@@ -32,12 +34,6 @@ export const supportProject = mutation({
     if (!project) throw new ConvexError({ code: "not_found", reason: "No such project." });
 
     if (FINANCIAL_TYPES.has(args.type)) {
-      if (!project.supportPaymentLinkUrl) {
-        throw new ConvexError({
-          code: "no_payment_link",
-          reason: "This project hasn't set up financial support yet — try encouragement or a resource instead.",
-        });
-      }
       if (!args.amountCents || args.amountCents <= 0) {
         throw new ConvexError({ code: "invalid_amount", reason: "Needs a real amount." });
       }
@@ -63,18 +59,18 @@ export const supportProject = mutation({
       message: args.message?.trim() || undefined,
       resourceDescription: args.resourceDescription?.trim() || undefined,
       visible: args.visible,
-      // No money to confirm for encouragement/resource — they're real the
-      // moment they're posted. Financial types wait for an operator.
-      status: FINANCIAL_TYPES.has(args.type) ? "pending" : "confirmed",
+      // Encouragement/resource are real the moment they're posted. Financial
+      // pledges are real intent, not received money — "pledged" until a
+      // future real-checkout pass changes what happens after submit.
+      status: FINANCIAL_TYPES.has(args.type) ? "pledged" : "confirmed",
       createdAt: Date.now(),
     });
 
-    return {
-      supportId,
-      paymentLinkUrl: FINANCIAL_TYPES.has(args.type) ? project.supportPaymentLinkUrl : undefined,
-    };
+    return { supportId };
   },
 });
+
+const VISIBLE_STATUSES = new Set(["confirmed", "pledged"]);
 
 export const listSupportForProject = query({
   args: { projectId: v.id("projects") },
@@ -82,10 +78,9 @@ export const listSupportForProject = query({
     const entries = await ctx.db
       .query("projectSupport")
       .withIndex("by_projectId", (q) => q.eq("projectId", args.projectId))
-      .filter((q) => q.eq(q.field("status"), "confirmed"))
       .collect();
-
     return entries
+      .filter((e) => VISIBLE_STATUSES.has(e.status))
       .sort((a, b) => b.createdAt - a.createdAt)
       .map((e) => ({
         ...e,

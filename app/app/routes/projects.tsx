@@ -9,6 +9,19 @@ const KIND_FILTERS = [
   { label: "Paid", value: "paid" },
 ];
 
+// Convex surfaces a thrown ConvexError's payload on err.data, not
+// err.message (that's a generic "Server Error" in production, by design —
+// only ConvexError.data is meant to reach the client). Caught via testing:
+// a real validation error ("Needs a real amount.") was showing as an opaque
+// server error instead of its actual reason.
+function errorMessage(err: unknown): string {
+  const data = (err as { data?: unknown })?.data;
+  if (data && typeof data === "object" && "reason" in data) {
+    return String((data as { reason: unknown }).reason);
+  }
+  return "Something went wrong — try again.";
+}
+
 export default function Projects() {
   const projects = useQuery(api.garden.projects.listProjects);
   const [kindFilter, setKindFilter] = useState("");
@@ -272,7 +285,7 @@ function PaidProjectForm({ onClose }: { onClose: () => void }) {
       await createPaidProject({ title: title.trim(), blurb: blurb.trim() || undefined, budget: budgetNum });
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong.");
+      setError(errorMessage(err));
       setSubmitting(false);
     }
   }
@@ -392,14 +405,13 @@ function SupportModal({ project, onClose }: { project: any; onClose: () => void 
   const [done, setDone] = useState(false);
 
   const isFinancial = type === "financial_one_time" || type === "financial_recurring";
-  const hasPaymentLink = !!project.supportPaymentLinkUrl;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
     setSubmitting(true);
     try {
-      const result = await supportProject({
+      await supportProject({
         projectId: project._id,
         type,
         amountCents: isFinancial ? Math.round(Number(amount) * 100) : undefined,
@@ -407,12 +419,9 @@ function SupportModal({ project, onClose }: { project: any; onClose: () => void 
         resourceDescription: type === "resource" ? resourceDescription.trim() : undefined,
         visible,
       });
-      if (result.paymentLinkUrl) {
-        window.open(result.paymentLinkUrl, "_blank", "noopener,noreferrer");
-      }
       setDone(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message.replace(/^\[.*?\]\s*/, "") : "Something went wrong.");
+      setError(errorMessage(err));
     } finally {
       setSubmitting(false);
     }
@@ -441,10 +450,10 @@ function SupportModal({ project, onClose }: { project: any; onClose: () => void 
                 <li key={e._id} className="text-sm" style={{ color: "var(--garden-body)" }}>
                   <span style={{ color: "var(--garden-paper)" }}>{e.supporterName}</span>
                   {e.type === "financial_one_time" && e.amountCents && (
-                    <span style={{ color: "var(--garden-citron)" }}> · ${(e.amountCents / 100).toLocaleString()}</span>
+                    <span style={{ color: "var(--garden-citron)" }}> · ${(e.amountCents / 100).toLocaleString()} pledged</span>
                   )}
                   {e.type === "financial_recurring" && e.amountCents && (
-                    <span style={{ color: "var(--garden-citron)" }}> · ${(e.amountCents / 100).toLocaleString()}/mo</span>
+                    <span style={{ color: "var(--garden-citron)" }}> · ${(e.amountCents / 100).toLocaleString()}/mo pledged</span>
                   )}
                   {e.message && <span style={{ color: "var(--garden-dim)" }}> — "{e.message}"</span>}
                   {e.resourceDescription && (
@@ -460,7 +469,7 @@ function SupportModal({ project, onClose }: { project: any; onClose: () => void 
           <div className="py-4">
             <p className="text-sm mb-4" style={{ color: "var(--garden-body)" }}>
               {isFinancial
-                ? "Thanks — we'll confirm once it's received."
+                ? "Pledge recorded — thank you. We'll follow up when real checkout is live."
                 : "Thanks for showing up for this."}
             </p>
             <button
@@ -491,12 +500,7 @@ function SupportModal({ project, onClose }: { project: any; onClose: () => void 
               ))}
             </div>
 
-            {isFinancial && !hasPaymentLink && (
-              <p className="text-sm" style={{ color: "var(--garden-dim)" }}>
-                This project hasn't set up financial support yet — try encouragement or offering a resource instead.
-              </p>
-            )}
-            {isFinancial && hasPaymentLink && (
+            {isFinancial && (
               <div>
                 <label className="block text-xs uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
                   Amount (USD{type === "financial_recurring" ? "/mo" : ""})
@@ -515,8 +519,11 @@ function SupportModal({ project, onClose }: { project: any; onClose: () => void 
                     color: "var(--garden-paper)",
                   }}
                 />
-                <p className="text-xs mt-1.5" style={{ color: "var(--garden-dim)" }}>
-                  Opens the payment link in a new tab — we record the pledge and confirm once it's received.
+                <p
+                  className="text-xs mt-1.5 px-2.5 py-1.5 rounded-md"
+                  style={{ color: "var(--garden-citron)", backgroundColor: "rgba(215,242,90,0.1)" }}
+                >
+                  This is a pledge — no checkout, no charge. Nothing is collected at this point.
                 </p>
               </div>
             )}
@@ -578,11 +585,11 @@ function SupportModal({ project, onClose }: { project: any; onClose: () => void 
               </button>
               <button
                 type="submit"
-                disabled={submitting || (isFinancial && !hasPaymentLink)}
+                disabled={submitting}
                 className="px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-50"
                 style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
               >
-                {submitting ? "Sending…" : isFinancial ? "Give" : "Send"}
+                {submitting ? "Sending…" : isFinancial ? "Pledge" : "Send"}
               </button>
             </div>
           </form>
