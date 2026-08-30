@@ -8,7 +8,14 @@ import { v } from "convex/values";
 import { mutation } from "../_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { ConvexError } from "convex/values";
-import { assertCanPure, getGardenUser } from "./entitlements";
+
+// V1 (docs/the-exchange-v1-prd.md §6, §15): posting is free and voluntary,
+// never gated behind paid membership — "money is never the only door" is a
+// stated V1 principle, not just old Garden-era decoration. The capability
+// matrix these used to call through (assertCanPure/getGardenUser, still in
+// entitlements.ts + capabilities.ts) is real, tested infrastructure for the
+// deferred Host/Table tier system (PRD §16) — intentionally not deleted,
+// just not enforced at these two call sites until that system is back.
 
 export const createPassionProject = mutation({
   args: {
@@ -20,10 +27,6 @@ export const createPassionProject = mutation({
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new ConvexError({ code: "unauthenticated" });
-
-    // THE gate — server-side, always (spec §2).
-    const gardenUser = await getGardenUser(ctx, userId);
-    assertCanPure(gardenUser, "project.create.passion");
 
     const now = Date.now();
     const id = await ctx.db.insert("projects", {
@@ -54,9 +57,6 @@ export const createPaidProject = mutation({
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new ConvexError({ code: "unauthenticated" });
-
-    const gardenUser = await getGardenUser(ctx, userId);
-    assertCanPure(gardenUser, "project.create.paid");
 
     if (!Number.isFinite(args.budget) || args.budget <= 0) {
       throw new ConvexError({

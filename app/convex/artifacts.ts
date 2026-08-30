@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { action, internalMutation, mutation, query } from "./_generated/server";
 import { api, internal } from "./_generated/api";
 import { auth } from "./auth";
+import { deriveProjectTitle } from "./garden/artifactsMigration";
 
 export const getMyArtifacts = query({
   args: {},
@@ -147,6 +148,7 @@ export const create = mutation({
     const maxOrder =
       existing.length > 0 ? Math.max(...existing.map((a) => a.order)) : -1;
 
+    const createdAt = Date.now();
     const artifactId = await ctx.db.insert("artifacts", {
       profileId: profile._id,
       type: args.type,
@@ -155,8 +157,23 @@ export const create = mutation({
       mediaUrl: args.mediaUrl,
       mediaStorageId: args.mediaStorageId,
       order: maxOrder + 1,
-      createdAt: Date.now(),
+      createdAt,
     });
+
+    // V1 (docs/the-exchange-v1-prd.md §7): every new artifact is a passion
+    // project, not just a portfolio piece — this is what makes "post to your
+    // portfolio" the same action as "post a project" without a separate flow.
+    const projectId = await ctx.db.insert("projects", {
+      userId,
+      kind: "passion",
+      title: deriveProjectTitle({ type: args.type, title: args.title, content: args.content }),
+      blurb: args.type === "text" ? args.content : undefined,
+      status: "active",
+      photoUrl: args.type === "image" ? args.mediaUrl : undefined,
+      createdAt,
+      updatedAt: createdAt,
+    });
+    await ctx.db.patch(artifactId, { projectId });
 
     // Schedule embedding generation for text-based artifacts
     if (args.title || args.content) {
