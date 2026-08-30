@@ -54,30 +54,7 @@ export default function Projects() {
               </button>
             ))}
           </div>
-          <div className="flex gap-2">
-            <Link
-              to="/works"
-              className="px-4 py-2 rounded-lg text-[13px] font-semibold whitespace-nowrap transition-opacity hover:opacity-90"
-              style={{
-                fontFamily: "var(--garden-font-body)",
-                backgroundColor: "var(--garden-citron)",
-                color: "var(--garden-ink)",
-              }}
-            >
-              + Share a passion project
-            </Link>
-            <button
-              onClick={() => setShowPaidForm(true)}
-              className="px-4 py-2 rounded-lg text-[13px] font-semibold whitespace-nowrap border transition-colors"
-              style={{
-                fontFamily: "var(--garden-font-body)",
-                borderColor: "var(--garden-hairline-raised)",
-                color: "var(--garden-paper)",
-              }}
-            >
-              + Post paid work
-            </button>
-          </div>
+          <PostProjectMenu onPaid={() => setShowPaidForm(true)} />
         </div>
 
         {!projects ? (
@@ -106,6 +83,54 @@ export default function Projects() {
       {showPaidForm && <PaidProjectForm onClose={() => setShowPaidForm(false)} />}
       {supportingProject && (
         <SupportModal project={supportingProject} onClose={() => setSupportingProject(null)} />
+      )}
+    </div>
+  );
+}
+
+function PostProjectMenu({ onPaid }: { onPaid: () => void }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="px-4 py-2 rounded-lg text-[13px] font-semibold whitespace-nowrap transition-opacity hover:opacity-90"
+        style={{ fontFamily: "var(--garden-font-body)", backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
+      >
+        + Post a project
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div
+            className="absolute right-0 mt-2 w-56 rounded-xl border overflow-hidden z-50"
+            style={{ backgroundColor: "var(--garden-ink-raised)", borderColor: "var(--garden-hairline)" }}
+          >
+            <Link
+              to="/works"
+              className="block px-4 py-3 text-sm transition-colors hover:opacity-80"
+              style={{ color: "var(--garden-paper)", borderBottom: "1px solid var(--garden-hairline)" }}
+            >
+              <span className="block font-medium">Passion project</span>
+              <span className="block text-xs mt-0.5" style={{ color: "var(--garden-dim)" }}>
+                Something you made — no budget
+              </span>
+            </Link>
+            <button
+              onClick={() => {
+                setOpen(false);
+                onPaid();
+              }}
+              className="block w-full text-left px-4 py-3 text-sm transition-colors hover:opacity-80"
+              style={{ color: "var(--garden-paper)" }}
+            >
+              <span className="block font-medium">Paid work</span>
+              <span className="block text-xs mt-0.5" style={{ color: "var(--garden-dim)" }}>
+                A bounded commission with a budget
+              </span>
+            </button>
+          </div>
+        </>
       )}
     </div>
   );

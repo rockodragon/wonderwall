@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { usePostHog } from "@posthog/react";
 import { api } from "../../convex/_generated/api";
 import { InviteCTA } from "../components/InviteCTA";
+import { Wordmark } from "../components/Wordmark";
 
 // V1 (docs/the-exchange-v1-prd.md §5): Projects / People / Events, full
 // stop. "The Garden" retires as a nav destination (superseded); "Portfolios"
@@ -117,30 +118,8 @@ export default function AppLayout() {
       {/* Desktop sidebar */}
       <aside className="hidden md:flex md:flex-col md:fixed md:inset-y-0 md:w-64 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800">
         <div className="p-6">
-          <Link to="/" className="flex items-center gap-2.5">
-            <svg viewBox="0 0 48 48" fill="none" className="w-7 h-7 shrink-0">
-              <rect
-                x="20"
-                y="3"
-                width="8"
-                height="42"
-                rx="4"
-                className="fill-gray-900 dark:fill-white"
-                transform="rotate(-18 24 24)"
-              />
-              <rect
-                x="20"
-                y="3"
-                width="8"
-                height="42"
-                rx="4"
-                className="fill-[#d7f25a]"
-                transform="rotate(18 24 24)"
-              />
-            </svg>
-            <span className="text-lg font-bold text-gray-900 dark:text-white">
-              creatives.exchange
-            </span>
+          <Link to="/">
+            <Wordmark size="md" tone="adaptive" />
           </Link>
         </div>
 

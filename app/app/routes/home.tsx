@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router";
 import { useEffect, useState } from "react";
 import type { Route } from "./+types/home";
 import { api } from "../../convex/_generated/api";
+import { Wordmark } from "../components/Wordmark";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -134,43 +135,13 @@ export default function Home() {
       <link rel="stylesheet" href="/about/fonts/fonts.css" />
       {/* Header */}
       <header className="absolute top-0 left-0 right-0 z-50 px-4 sm:px-6 py-4 sm:py-6 flex items-center justify-between gap-3 max-w-7xl mx-auto">
-        <h1 className="flex items-center gap-2 sm:gap-3.5 min-w-0">
-          <svg viewBox="0 0 48 48" fill="none" className="w-7 h-7 sm:w-10 sm:h-10 shrink-0">
-            <rect
-              x="20"
-              y="3"
-              width="8"
-              height="42"
-              rx="4"
-              fill="var(--garden-paper)"
-              transform="rotate(-18 24 24)"
-            />
-            <rect
-              x="20"
-              y="3"
-              width="8"
-              height="42"
-              rx="4"
-              fill="var(--garden-citron)"
-              transform="rotate(18 24 24)"
-            />
-          </svg>
-          <span className="flex flex-col leading-none min-w-0">
-            <span
-              className="text-[13px] sm:text-[20px] font-medium uppercase tracking-[0.1em] sm:tracking-[0.24em] text-[var(--garden-paper)] truncate"
-              style={{ fontFamily: "var(--garden-font-mono)" }}
-            >
-              creatives.exchange
-            </span>
-            <span
-              className="hidden sm:block mt-1.5 text-[13px] font-medium uppercase tracking-[0.18em] text-[var(--garden-dim)]"
-              style={{ fontFamily: "var(--garden-font-mono)" }}
-            >
-              Give<span className="text-[var(--garden-citron)]">.</span> Receive
-              <span className="text-[var(--garden-citron)]">.</span> Grow
-              <span className="text-[var(--garden-citron)]">.</span>
-            </span>
-          </span>
+        <h1 className="min-w-0">
+          <div className="sm:hidden">
+            <Wordmark size="sm" />
+          </div>
+          <div className="hidden sm:flex">
+            <Wordmark size="lg" tagline />
+          </div>
         </h1>
         <div className="flex items-center gap-4 shrink-0">
           {isAuthenticated ? (
