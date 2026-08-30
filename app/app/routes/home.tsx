@@ -137,22 +137,22 @@ export default function Home() {
         <h1 className="flex items-center gap-2.5">
           <svg viewBox="0 0 48 48" fill="none" className="w-7 h-7 shrink-0">
             <rect
-              x="17.5"
-              y="3"
-              width="13"
-              height="42"
-              rx="6.5"
+              x="17"
+              y="4"
+              width="14"
+              height="40"
+              rx="7"
               fill="var(--garden-paper)"
-              transform="translate(-3,0) rotate(-18 24 24)"
+              transform="rotate(-32 24 24)"
             />
             <rect
-              x="17.5"
-              y="3"
-              width="13"
-              height="42"
-              rx="6.5"
+              x="17"
+              y="4"
+              width="14"
+              height="40"
+              rx="7"
               fill="var(--garden-citron)"
-              transform="translate(3,0) rotate(18 24 24)"
+              transform="rotate(32 24 24)"
             />
           </svg>
           <span className="flex flex-col leading-none">

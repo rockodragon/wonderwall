@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none">
   <!-- The Exchange mark, monochrome — inherits currentColor for inline/nav use on either theme. -->
-  <rect x="17.5" y="3" width="13" height="42" rx="6.5" fill="currentColor" opacity="0.85" transform="translate(-3,0) rotate(-18 24 24)"/>
-  <rect x="17.5" y="3" width="13" height="42" rx="6.5" fill="currentColor" transform="translate(3,0) rotate(18 24 24)"/>
+  <rect x="17" y="4" width="14" height="40" rx="7" fill="currentColor" opacity="0.85" transform="rotate(-32 24 24)"/>
+  <rect x="17" y="4" width="14" height="40" rx="7" fill="currentColor" transform="rotate(32 24 24)"/>
 </svg>
