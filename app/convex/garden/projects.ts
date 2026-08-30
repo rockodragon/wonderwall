@@ -60,7 +60,7 @@ export const listProjects = query({
 
     const withDetails = await Promise.all(
       projects.map(async (project) => {
-        const [user, media] = await Promise.all([
+        const [user, media, support] = await Promise.all([
           ctx.db
             .query("profiles")
             .withIndex("by_userId", (q) => q.eq("userId", project.userId))
@@ -68,6 +68,11 @@ export const listProjects = query({
           ctx.db
             .query("artifacts")
             .withIndex("by_projectId", (q) => q.eq("projectId", project._id))
+            .collect(),
+          ctx.db
+            .query("projectSupport")
+            .withIndex("by_projectId", (q) => q.eq("projectId", project._id))
+            .filter((q) => q.eq(q.field("status"), "confirmed"))
             .collect(),
         ]);
 
@@ -86,6 +91,7 @@ export const listProjects = query({
             ? { _id: user._id, name: user.name, imageUrl: user.imageUrl }
             : null,
           media: resolvedMedia,
+          supportCount: support.length,
         };
       }),
     );

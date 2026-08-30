@@ -13,6 +13,7 @@ export default function Projects() {
   const projects = useQuery(api.garden.projects.listProjects);
   const [kindFilter, setKindFilter] = useState("");
   const [showPaidForm, setShowPaidForm] = useState(false);
+  const [supportingProject, setSupportingProject] = useState<any>(null);
 
   const filtered = useMemo(() => {
     if (!projects) return [];
@@ -96,18 +97,21 @@ export default function Projects() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {filtered.map((project) => (
-              <ProjectCard key={project._id} project={project} />
+              <ProjectCard key={project._id} project={project} onSupport={setSupportingProject} />
             ))}
           </div>
         )}
       </div>
 
       {showPaidForm && <PaidProjectForm onClose={() => setShowPaidForm(false)} />}
+      {supportingProject && (
+        <SupportModal project={supportingProject} onClose={() => setSupportingProject(null)} />
+      )}
     </div>
   );
 }
 
-function ProjectCard({ project }: { project: any }) {
+function ProjectCard({ project, onSupport }: { project: any; onSupport: (project: any) => void }) {
   const thumb = project.media.find((m: any) => m.resolvedMediaUrl)?.resolvedMediaUrl;
   const detailArtifact = project.media[0];
 
@@ -189,6 +193,24 @@ function ProjectCard({ project }: { project: any }) {
             </span>
           </div>
         )}
+        <div className="flex items-center justify-between gap-2 mt-3 pt-3" style={{ borderTop: "1px solid var(--garden-hairline)" }}>
+          <span className="text-xs" style={{ color: "var(--garden-dim)" }}>
+            {project.supportCount > 0
+              ? `${project.supportCount} ${project.supportCount === 1 ? "supporter" : "supporters"}`
+              : "Be the first to support"}
+          </span>
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onSupport(project);
+            }}
+            className="px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-opacity hover:opacity-90"
+            style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
+          >
+            Support
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -319,6 +341,227 @@ function PaidProjectForm({ onClose }: { onClose: () => void }) {
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  );
+}
+
+const SUPPORT_TYPES = [
+  { value: "financial_one_time", label: "Give once" },
+  { value: "financial_recurring", label: "Give monthly" },
+  { value: "encouragement", label: "Encouragement" },
+  { value: "resource", label: "Offer a resource" },
+];
+
+function SupportModal({ project, onClose }: { project: any; onClose: () => void }) {
+  const existing = useQuery(api.garden.support.listSupportForProject, { projectId: project._id });
+  const supportProject = useMutation(api.garden.support.supportProject);
+
+  const [type, setType] = useState("encouragement");
+  const [amount, setAmount] = useState("");
+  const [message, setMessage] = useState("");
+  const [resourceDescription, setResourceDescription] = useState("");
+  const [visible, setVisible] = useState(true);
+  const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [done, setDone] = useState(false);
+
+  const isFinancial = type === "financial_one_time" || type === "financial_recurring";
+  const hasPaymentLink = !!project.supportPaymentLinkUrl;
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    setSubmitting(true);
+    try {
+      const result = await supportProject({
+        projectId: project._id,
+        type,
+        amountCents: isFinancial ? Math.round(Number(amount) * 100) : undefined,
+        message: type === "encouragement" ? message.trim() : undefined,
+        resourceDescription: type === "resource" ? resourceDescription.trim() : undefined,
+        visible,
+      });
+      if (result.paymentLinkUrl) {
+        window.open(result.paymentLinkUrl, "_blank", "noopener,noreferrer");
+      }
+      setDone(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message.replace(/^\[.*?\]\s*/, "") : "Something went wrong.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto" style={{ backgroundColor: "rgba(0,0,0,0.6)" }}>
+      <div
+        className="w-full max-w-md rounded-2xl border p-6 my-8"
+        style={{ backgroundColor: "var(--garden-ink-raised)", borderColor: "var(--garden-hairline)" }}
+      >
+        <h2
+          className="text-xl font-semibold mb-1"
+          style={{ color: "var(--garden-paper)", fontFamily: "var(--garden-font-display)" }}
+        >
+          Support "{project.title}"
+        </h2>
+
+        {existing && existing.length > 0 && (
+          <div className="mb-5 pb-5" style={{ borderBottom: "1px solid var(--garden-hairline)" }}>
+            <p className="text-xs uppercase tracking-[0.06em] mb-2" style={{ color: "var(--garden-dim)" }}>
+              Supported by
+            </p>
+            <ul className="flex flex-col gap-2 max-h-32 overflow-y-auto">
+              {existing.map((e) => (
+                <li key={e._id} className="text-sm" style={{ color: "var(--garden-body)" }}>
+                  <span style={{ color: "var(--garden-paper)" }}>{e.supporterName}</span>
+                  {e.type === "financial_one_time" && e.amountCents && (
+                    <span style={{ color: "var(--garden-citron)" }}> · ${(e.amountCents / 100).toLocaleString()}</span>
+                  )}
+                  {e.type === "financial_recurring" && e.amountCents && (
+                    <span style={{ color: "var(--garden-citron)" }}> · ${(e.amountCents / 100).toLocaleString()}/mo</span>
+                  )}
+                  {e.message && <span style={{ color: "var(--garden-dim)" }}> — "{e.message}"</span>}
+                  {e.resourceDescription && (
+                    <span style={{ color: "var(--garden-dim)" }}> — offered {e.resourceDescription}</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {done ? (
+          <div className="py-4">
+            <p className="text-sm mb-4" style={{ color: "var(--garden-body)" }}>
+              {isFinancial
+                ? "Thanks — we'll confirm once it's received."
+                : "Thanks for showing up for this."}
+            </p>
+            <button
+              onClick={onClose}
+              className="px-4 py-2 rounded-lg text-sm font-semibold"
+              style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
+            >
+              Done
+            </button>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            <div className="flex flex-wrap gap-2">
+              {SUPPORT_TYPES.map((t) => (
+                <button
+                  key={t.value}
+                  type="button"
+                  onClick={() => setType(t.value)}
+                  className="px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors"
+                  style={{
+                    fontFamily: "var(--garden-font-body)",
+                    backgroundColor: type === t.value ? "var(--garden-citron)" : "var(--garden-ink)",
+                    color: type === t.value ? "var(--garden-ink)" : "var(--garden-muted)",
+                  }}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+
+            {isFinancial && !hasPaymentLink && (
+              <p className="text-sm" style={{ color: "var(--garden-dim)" }}>
+                This project hasn't set up financial support yet — try encouragement or offering a resource instead.
+              </p>
+            )}
+            {isFinancial && hasPaymentLink && (
+              <div>
+                <label className="block text-xs uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
+                  Amount (USD{type === "financial_recurring" ? "/mo" : ""})
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  placeholder="25"
+                  className="w-full px-3 py-2 rounded-lg border text-sm outline-none"
+                  style={{
+                    fontFamily: "var(--garden-font-mono)",
+                    backgroundColor: "var(--garden-ink)",
+                    borderColor: "var(--garden-hairline-raised)",
+                    color: "var(--garden-paper)",
+                  }}
+                />
+                <p className="text-xs mt-1.5" style={{ color: "var(--garden-dim)" }}>
+                  Opens the payment link in a new tab — we record the pledge and confirm once it's received.
+                </p>
+              </div>
+            )}
+
+            {type === "encouragement" && (
+              <div>
+                <label className="block text-xs uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
+                  Your message
+                </label>
+                <textarea
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  rows={3}
+                  placeholder="This is great — keep going."
+                  className="w-full px-3 py-2 rounded-lg border text-sm outline-none resize-none"
+                  style={{
+                    backgroundColor: "var(--garden-ink)",
+                    borderColor: "var(--garden-hairline-raised)",
+                    color: "var(--garden-paper)",
+                  }}
+                />
+              </div>
+            )}
+
+            {type === "resource" && (
+              <div>
+                <label className="block text-xs uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
+                  What are you offering
+                </label>
+                <textarea
+                  value={resourceDescription}
+                  onChange={(e) => setResourceDescription(e.target.value)}
+                  rows={2}
+                  placeholder="A spare camera lens, an afternoon of color grading…"
+                  className="w-full px-3 py-2 rounded-lg border text-sm outline-none resize-none"
+                  style={{
+                    backgroundColor: "var(--garden-ink)",
+                    borderColor: "var(--garden-hairline-raised)",
+                    color: "var(--garden-paper)",
+                  }}
+                />
+              </div>
+            )}
+
+            <label className="flex items-center gap-2 text-sm" style={{ color: "var(--garden-body)" }}>
+              <input
+                type="checkbox"
+                checked={visible}
+                onChange={(e) => setVisible(e.target.checked)}
+              />
+              Show me as a supporter
+            </label>
+
+            {error && <p className="text-sm text-red-400">{error}</p>}
+
+            <div className="flex gap-2 justify-end pt-2">
+              <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg text-sm font-medium" style={{ color: "var(--garden-dim)" }}>
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={submitting || (isFinancial && !hasPaymentLink)}
+                className="px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-50"
+                style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
+              >
+                {submitting ? "Sending…" : isFinancial ? "Give" : "Send"}
+              </button>
+            </div>
+          </form>
+        )}
       </div>
     </div>
   );

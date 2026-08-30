@@ -642,6 +642,10 @@ export default defineSchema({
     photoUrl: v.optional(v.string()),
     storySlug: v.optional(v.string()), // public story page (W3)
     legacyJobId: v.optional(v.id("jobs")),
+    // V1 support widget (docs/the-exchange-v1-prd.md §9): set once by the
+    // poster/an operator, mirrors hostOrgs.paymentLinkUrl. Financial support
+    // is off until this exists — no in-house payment processing in V1.
+    supportPaymentLinkUrl: v.optional(v.string()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
@@ -650,6 +654,25 @@ export default defineSchema({
     .index("by_kind_status", ["kind", "status"])
     .index("by_storySlug", ["storySlug"])
     .index("by_legacyJobId", ["legacyJobId"]),
+
+  // Support widget (docs/the-exchange-v1-prd.md §9): one record per act of
+  // support on a project. Financial types start "pending" until an operator
+  // confirms the money actually moved (no webhook listener in V1 — see PRD
+  // §9); encouragement/resource need no money and are confirmed on creation.
+  projectSupport: defineTable({
+    projectId: v.id("projects"),
+    supporterUserId: v.optional(v.id("users")),
+    supporterName: v.string(),
+    type: v.string(), // "financial_one_time" | "financial_recurring" | "encouragement" | "resource"
+    amountCents: v.optional(v.number()),
+    message: v.optional(v.string()),
+    resourceDescription: v.optional(v.string()),
+    visible: v.boolean(), // show supporter name publicly (default true)
+    status: v.string(), // "pending" | "confirmed"
+    createdAt: v.number(),
+  })
+    .index("by_projectId", ["projectId"])
+    .index("by_supporterUserId", ["supporterUserId"]),
 
   // Tables — ongoing gatherings with a roster (W4; operator-created in v1).
   gardenTables: defineTable({
