@@ -5,11 +5,14 @@ import { usePostHog } from "@posthog/react";
 import { api } from "../../convex/_generated/api";
 import { InviteCTA } from "../components/InviteCTA";
 
+// V1 (docs/the-exchange-v1-prd.md §5): Projects / People / Events, full
+// stop. "The Garden" retires as a nav destination (superseded); "Portfolios"
+// (/works) drops from nav - the page itself stays live, un-linked rather
+// than deleted, same pattern as /organizations. Favorites/Profile stay as
+// secondary, not part of the three-item pitch.
 const navItems = [
-  { path: "/garden", label: "The Garden", icon: GardenIcon },
-  { path: "/jobs", label: "Projects", icon: BriefcaseIcon },
+  { path: "/projects", label: "Projects", icon: BriefcaseIcon },
   { path: "/search", label: "People", icon: SearchIcon },
-  { path: "/works", label: "Portfolios", icon: GridIcon },
   { path: "/events", label: "Events", icon: CalendarIcon },
   { path: "/favorites", label: "Favorites", icon: HeartIcon },
   { path: "/settings", label: "Profile", icon: UserIcon },
