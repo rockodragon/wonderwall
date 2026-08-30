@@ -23,6 +23,7 @@ export default [
   // App routes (with nav layout)
   layout("routes/_app.tsx", [
     route("search", "routes/search.tsx"),
+    route("projects", "routes/projects.tsx"),
     route("works", "routes/works.tsx"),
     route("works/:artifactId", "routes/work.tsx"),
     route("events", "routes/events.tsx"),

@@ -5,7 +5,7 @@
 // ctx typed loosely until first `npx convex dev` codegen — see entitlements.ts.
 
 import { v } from "convex/values";
-import { mutation } from "../_generated/server";
+import { mutation, query } from "../_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { ConvexError } from "convex/values";
 
@@ -42,6 +42,55 @@ export const createPassionProject = mutation({
       updatedAt: now,
     });
     return { projectId: id };
+  },
+});
+
+// V1 (docs/the-exchange-v1-prd.md §7): the public Projects browse surface.
+// Joins each project to its creator profile and, if it was created through
+// the artifacts.create path, its attached media — passion and paid projects
+// mixed together, newest first. Small-scale by design (a handful of V1
+// users): a full table scan is simpler and fast enough, no index tuning yet.
+export const listProjects = query({
+  args: {},
+  handler: async (ctx) => {
+    const projects = await ctx.db
+      .query("projects")
+      .filter((q) => q.eq(q.field("status"), "active"))
+      .collect();
+
+    const withDetails = await Promise.all(
+      projects.map(async (project) => {
+        const [user, media] = await Promise.all([
+          ctx.db
+            .query("profiles")
+            .withIndex("by_userId", (q) => q.eq("userId", project.userId))
+            .unique(),
+          ctx.db
+            .query("artifacts")
+            .withIndex("by_projectId", (q) => q.eq("projectId", project._id))
+            .collect(),
+        ]);
+
+        const resolvedMedia = await Promise.all(
+          media.map(async (artifact) => ({
+            ...artifact,
+            resolvedMediaUrl: artifact.mediaStorageId
+              ? await ctx.storage.getUrl(artifact.mediaStorageId)
+              : artifact.mediaUrl || null,
+          })),
+        );
+
+        return {
+          ...project,
+          creator: user
+            ? { _id: user._id, name: user.name, imageUrl: user.imageUrl }
+            : null,
+          media: resolvedMedia,
+        };
+      }),
+    );
+
+    return withDetails.sort((a, b) => b.createdAt - a.createdAt);
   },
 });
 
