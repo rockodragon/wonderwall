@@ -117,40 +117,26 @@ export default function AppLayout() {
           <Link to="/" className="flex items-center gap-2.5">
             <svg viewBox="0 0 48 48" fill="none" className="w-7 h-7 shrink-0">
               <rect
-                x="2"
-                y="2"
-                width="19"
-                height="19"
-                rx="4"
-                className="fill-blue-600"
+                x="17.5"
+                y="3"
+                width="13"
+                height="42"
+                rx="6.5"
+                className="fill-gray-900 dark:fill-white"
+                transform="translate(-3,0) rotate(-18 24 24)"
               />
               <rect
-                x="27"
-                y="2"
-                width="19"
-                height="19"
-                rx="4"
-                className="fill-purple-500"
-              />
-              <rect
-                x="2"
-                y="27"
-                width="19"
-                height="19"
-                rx="4"
-                className="fill-purple-500"
-              />
-              <rect
-                x="27"
-                y="27"
-                width="19"
-                height="19"
-                rx="4"
-                className="fill-blue-600"
+                x="17.5"
+                y="3"
+                width="13"
+                height="42"
+                rx="6.5"
+                className="fill-[#d7f25a]"
+                transform="translate(3,0) rotate(18 24 24)"
               />
             </svg>
             <span className="text-lg font-bold text-gray-900 dark:text-white">
-              TheCrossBoard
+              creatives.exchange
             </span>
           </Link>
         </div>

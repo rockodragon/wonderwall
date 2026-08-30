@@ -2,35 +2,35 @@ import { useState } from "react";
 
 export function meta() {
   return [
-    { title: "FAQ - TheCrossBoard" },
+    { title: "FAQ - creatives.exchange" },
     {
       name: "description",
       content:
-        "Frequently asked questions about TheCrossBoard - invites, profiles, events, and account management.",
+        "Frequently asked questions about The Exchange - invites, profiles, events, and account management.",
     },
-    { property: "og:title", content: "FAQ - TheCrossBoard" },
+    { property: "og:title", content: "FAQ - creatives.exchange" },
     {
       property: "og:description",
       content:
-        "Frequently asked questions about TheCrossBoard - invites, profiles, events, and account management.",
+        "Frequently asked questions about The Exchange - invites, profiles, events, and account management.",
     },
     { property: "og:type", content: "website" },
     {
       property: "og:image",
-      content: "https://www.thecrossboard.org/og-image.png",
+      content: "https://creatives.exchange/og-image.png",
     },
     { property: "og:image:width", content: "1200" },
     { property: "og:image:height", content: "630" },
     {
       name: "twitter:image",
-      content: "https://www.thecrossboard.org/og-image.png",
+      content: "https://creatives.exchange/og-image.png",
     },
     { name: "twitter:card", content: "summary_large_image" },
-    { name: "twitter:title", content: "FAQ - TheCrossBoard" },
+    { name: "twitter:title", content: "FAQ - creatives.exchange" },
     {
       name: "twitter:description",
       content:
-        "Frequently asked questions about TheCrossBoard - invites, profiles, events, and account management.",
+        "Frequently asked questions about The Exchange - invites, profiles, events, and account management.",
     },
   ];
 }
@@ -122,7 +122,7 @@ export default function FAQ() {
         Frequently Asked Questions
       </h1>
       <p className="text-gray-500 dark:text-gray-400 mb-8">
-        Everything you need to know about using TheCrossBoard
+        Everything you need to know about using The Exchange
       </p>
 
       <div className="space-y-6">

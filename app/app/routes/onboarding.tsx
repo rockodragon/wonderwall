@@ -530,7 +530,7 @@ export default function Onboarding() {
               }}
               className="w-full py-4 px-6 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition-colors text-lg"
             >
-              Explore TheCrossBoard
+              Explore The Exchange
             </button>
           </div>
         )}

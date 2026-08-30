@@ -6,41 +6,41 @@ import { api } from "../../convex/_generated/api";
 
 export function meta({}: Route.MetaArgs) {
   return [
-    { title: "TheCrossBoard - Show Your Craft, Collaborate & Find Work" },
+    { title: "creatives.exchange - Show Your Craft, Collaborate & Find Work" },
     {
       name: "description",
       content:
-        "A creative community for Kingdom-minded creatives to show their work, grow through events and sessions, collaborate, and find paid opportunities.",
+        "A creative community to show your work, grow through events and sessions, collaborate, and find paid opportunities.",
     },
     {
       property: "og:title",
-      content: "TheCrossBoard - Show Your Craft, Collaborate & Find Work",
+      content: "creatives.exchange - Show Your Craft, Collaborate & Find Work",
     },
     {
       property: "og:description",
       content:
-        "A creative community for Kingdom-minded creatives to show their work, grow through events and sessions, collaborate, and find paid opportunities.",
+        "A creative community to show your work, grow through events and sessions, collaborate, and find paid opportunities.",
     },
     { property: "og:type", content: "website" },
     {
       property: "og:image",
-      content: "https://www.thecrossboard.org/og-image.png",
+      content: "https://creatives.exchange/og-image.png",
     },
     { property: "og:image:width", content: "1200" },
     { property: "og:image:height", content: "630" },
     {
       name: "twitter:image",
-      content: "https://www.thecrossboard.org/og-image.png",
+      content: "https://creatives.exchange/og-image.png",
     },
     { name: "twitter:card", content: "summary_large_image" },
     {
       name: "twitter:title",
-      content: "TheCrossBoard - Show Your Craft, Collaborate & Find Work",
+      content: "creatives.exchange - Show Your Craft, Collaborate & Find Work",
     },
     {
       name: "twitter:description",
       content:
-        "A creative community for Kingdom-minded creatives to show their work, grow through events and sessions, collaborate, and find paid opportunities.",
+        "A creative community to show your work, grow through events and sessions, collaborate, and find paid opportunities.",
     },
   ];
 }
@@ -129,66 +129,61 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 overflow-hidden">
+    <div className="min-h-screen bg-[var(--garden-ink)] overflow-hidden">
+      <link rel="stylesheet" href="/tokens.css" />
+      <link rel="stylesheet" href="/about/fonts/fonts.css" />
       {/* Header */}
       <header className="absolute top-0 left-0 right-0 z-50 px-6 py-6 flex items-center justify-between max-w-7xl mx-auto">
         <h1 className="flex items-center gap-2.5">
           <svg viewBox="0 0 48 48" fill="none" className="w-7 h-7 shrink-0">
             <rect
-              x="2"
-              y="2"
-              width="19"
-              height="19"
-              rx="4"
-              className="fill-blue-500"
+              x="17.5"
+              y="3"
+              width="13"
+              height="42"
+              rx="6.5"
+              fill="var(--garden-paper)"
+              transform="translate(-3,0) rotate(-18 24 24)"
             />
             <rect
-              x="27"
-              y="2"
-              width="19"
-              height="19"
-              rx="4"
-              className="fill-purple-400"
-            />
-            <rect
-              x="2"
-              y="27"
-              width="19"
-              height="19"
-              rx="4"
-              className="fill-purple-400"
-            />
-            <rect
-              x="27"
-              y="27"
-              width="19"
-              height="19"
-              rx="4"
-              className="fill-blue-500"
+              x="17.5"
+              y="3"
+              width="13"
+              height="42"
+              rx="6.5"
+              fill="var(--garden-citron)"
+              transform="translate(3,0) rotate(18 24 24)"
             />
           </svg>
-          <span className="text-2xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
-            TheCrossBoard
+          <span className="flex flex-col leading-none">
+            <span
+              className="text-[15px] font-medium uppercase tracking-[0.28em] text-[var(--garden-paper)]"
+              style={{ fontFamily: "var(--garden-font-mono)" }}
+            >
+              creatives.exchange
+            </span>
+            <span
+              className="hidden sm:block mt-1 text-[10.5px] font-medium uppercase tracking-[0.2em] text-[var(--garden-dim)]"
+              style={{ fontFamily: "var(--garden-font-mono)" }}
+            >
+              Give<span className="text-[var(--garden-citron)]">.</span> Receive
+              <span className="text-[var(--garden-citron)]">.</span> Grow
+              <span className="text-[var(--garden-citron)]">.</span>
+            </span>
           </span>
         </h1>
         <div className="flex items-center gap-4">
-          <Link
-            to="/organizations"
-            className="px-4 py-2 text-white/70 hover:text-white font-medium transition-colors hidden sm:block"
-          >
-            For Organizations
-          </Link>
           {isAuthenticated ? (
             <Link
               to="/search"
-              className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-semibold hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg shadow-blue-500/25"
+              className="px-6 py-2.5 bg-[var(--garden-citron)] text-[var(--garden-ink)] rounded-xl font-semibold hover:opacity-90 transition-all"
             >
               Go to App
             </Link>
           ) : (
             <Link
               to="/login"
-              className="px-4 py-2 text-white/80 hover:text-white font-medium transition-colors"
+              className="px-4 py-2 text-[15px] text-[var(--garden-body)] hover:text-[var(--garden-paper)] font-medium transition-colors"
             >
               Sign in
             </Link>
@@ -200,44 +195,29 @@ export default function Home() {
       <main className="relative pt-32 pb-20">
         {/* Hero Content - Centered */}
         <div className="relative z-10 px-6 max-w-5xl mx-auto text-center mb-20">
-          <h2 className="text-5xl md:text-7xl font-bold text-white leading-tight mb-6">
+          <h2
+            className="text-5xl md:text-7xl font-bold text-[var(--garden-paper)] leading-tight mb-6"
+            style={{ fontFamily: "var(--garden-font-display)" }}
+          >
             Show and grow
             <br />
             your craft.
             <br />
-            <span className="bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
-              Collaborate
-            </span>
+            <span className="text-[var(--garden-citron)]">Collaborate</span>
             <br />
             & find work.
           </h2>
-          <p className="mt-6 text-xl text-gray-200 max-w-2xl mx-auto mb-4">
-            A creative community for Kingdom-minded artists, makers, employers,
-            sponsors, and collaborators.
+          <p className="mt-6 text-xl text-[var(--garden-body)] max-w-2xl mx-auto mb-4">
+            A creative community for artists, makers, employers, sponsors, and
+            collaborators.
           </p>
-          <p className="text-lg text-gray-300 max-w-xl mx-auto mb-8">
+          <p className="text-lg text-[var(--garden-muted)] max-w-xl mx-auto mb-8">
             Portfolios, projects, collaborations, interviews, podcasts, trainings,
             and events — all connected to the work you are called to make.
           </p>
 
-          {/* The Garden — the platform's next chapter. Real surfaces, live
-              data; the entry point until the full brand rollout. */}
-          <div className="mb-8">
-            <Link
-              to="/garden"
-              className="inline-flex items-center gap-3 px-5 py-3 rounded-lg border border-[#D7F25A]/40 bg-[#D7F25A]/10 text-[#D7F25A] hover:bg-[#D7F25A]/20 transition"
-            >
-              <span className="font-mono text-xs tracking-[0.2em] uppercase">
-                New — The Garden
-              </span>
-              <span className="text-sm text-gray-200">
-                Tables, projects, and funding in the open →
-              </span>
-            </Link>
-          </div>
-
           {/* Closed Beta Badge */}
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-500/10 border border-blue-500/20 text-blue-400 rounded-full text-sm font-medium mb-6">
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--garden-ink)] border border-[var(--garden-hairline)] text-[var(--garden-dim)] rounded-full text-sm font-medium mb-6">
             <svg
               className="w-4 h-4"
               fill="none"
@@ -260,8 +240,8 @@ export default function Home() {
               // Primary: Invite code input (prioritized)
               <div className="space-y-6">
                 {/* Invite Code Section - Primary */}
-                <div className="p-6 bg-gray-900/80 rounded-2xl border border-blue-500/30 backdrop-blur-sm">
-                  <div className="flex items-center gap-2 text-blue-400 text-sm font-medium mb-3">
+                <div className="p-6 bg-[var(--garden-ink-raised)]/80 rounded-2xl border border-[var(--garden-hairline-raised)] backdrop-blur-sm">
+                  <div className="flex items-center gap-2 text-[var(--garden-body)] text-sm font-medium mb-3">
                     <svg
                       className="w-4 h-4"
                       fill="none"
@@ -288,14 +268,14 @@ export default function Home() {
                         }
                       }}
                       placeholder="Paste invite link or code"
-                      className="w-full px-4 py-3 border border-gray-700 rounded-xl bg-gray-900/50 backdrop-blur-sm text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                      className="w-full px-4 py-3 border border-[var(--garden-hairline)] rounded-xl bg-[var(--garden-ink-raised)]/50 backdrop-blur-sm text-[var(--garden-paper)] placeholder-[var(--garden-muted)] focus:ring-2 focus:ring-[var(--garden-citron)] focus:border-transparent transition-all"
                     />
                     {inviteError && (
                       <p className="text-sm text-red-400">{inviteError}</p>
                     )}
                     <button
                       type="submit"
-                      className="w-full px-4 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-semibold hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg shadow-blue-500/25"
+                      className="w-full px-4 py-3 bg-[var(--garden-citron)] text-[var(--garden-ink)] rounded-xl font-semibold hover:opacity-90 transition-all"
                     >
                       Enter with Invite
                     </button>
@@ -304,7 +284,7 @@ export default function Home() {
 
                 {/* Waitlist Section - Secondary */}
                 <div className="text-center">
-                  <p className="text-gray-500 text-sm mb-3">
+                  <p className="text-[var(--garden-dim)] text-sm mb-3">
                     Don't have an invite yet?
                   </p>
                   {status === "success" ? (
@@ -337,13 +317,13 @@ export default function Home() {
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         placeholder="your@email.com"
-                        className="flex-1 px-4 py-3 border border-gray-700 rounded-xl bg-gray-900/50 backdrop-blur-sm text-white text-sm placeholder-gray-500 focus:ring-2 focus:ring-gray-600 focus:border-transparent transition-all"
+                        className="flex-1 px-4 py-3 border border-[var(--garden-hairline)] rounded-xl bg-[var(--garden-ink-raised)]/50 backdrop-blur-sm text-[var(--garden-paper)] text-sm placeholder-[var(--garden-muted)] focus:ring-2 focus:ring-[var(--garden-hairline-raised)] focus:border-transparent transition-all"
                         disabled={status === "loading"}
                       />
                       <button
                         type="submit"
                         disabled={status === "loading"}
-                        className="px-6 py-3 bg-gray-800 text-white rounded-xl font-medium text-sm hover:bg-gray-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                        className="px-6 py-3 bg-transparent border border-[var(--garden-hairline-raised)] text-[var(--garden-paper)] rounded-xl font-medium text-sm hover:bg-[var(--garden-ink-raised)] transition-all disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
                       >
                         {status === "loading" ? "Joining..." : "Join Waitlist"}
                       </button>
@@ -357,7 +337,7 @@ export default function Home() {
             ) : inviterInfo === undefined ? (
               // Loading state
               <div className="flex items-center justify-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--garden-citron)]" />
               </div>
             ) : inviterInfo === null ? (
               // Invalid invite
@@ -368,19 +348,19 @@ export default function Home() {
                     setInviteSlug(null);
                     setInviteInput("");
                   }}
-                  className="text-sm text-blue-400 hover:text-blue-300 font-medium transition-colors"
+                  className="text-sm text-[var(--garden-citron)] hover:opacity-80 font-medium transition-colors"
                 >
                   Try again
                 </button>
               </div>
             ) : (
               // Show personalized invite preview
-              <div className="bg-gray-900 rounded-2xl shadow-2xl border border-gray-800 overflow-hidden backdrop-blur-sm">
-                <div className="bg-gradient-to-r from-blue-600 to-purple-600 px-6 py-5">
-                  <p className="text-white/80 text-xs font-medium uppercase tracking-wide mb-1">
+              <div className="bg-[var(--garden-ink-raised)] rounded-2xl shadow-2xl border border-[var(--garden-hairline)] overflow-hidden backdrop-blur-sm">
+                <div className="bg-[var(--garden-ink)] border-b border-[var(--garden-hairline)] px-6 py-5">
+                  <p className="text-[var(--garden-citron)] text-xs font-medium uppercase tracking-wide mb-1">
                     You've been invited
                   </p>
-                  <h3 className="text-2xl font-bold text-white">
+                  <h3 className="text-2xl font-bold text-[var(--garden-paper)]">
                     {inviterInfo.name} invited you to join
                   </h3>
                 </div>
@@ -395,17 +375,17 @@ export default function Home() {
                         className="w-14 h-14 rounded-full object-cover"
                       />
                     ) : (
-                      <div className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-lg font-bold">
+                      <div className="w-14 h-14 rounded-full bg-[var(--garden-hairline-raised)] flex items-center justify-center text-[var(--garden-paper)] text-lg font-bold">
                         {inviterInfo.name.charAt(0).toUpperCase()}
                       </div>
                     )}
                     <div className="text-left flex-1">
-                      <div className="font-semibold text-white">
+                      <div className="font-semibold text-[var(--garden-paper)]">
                         {inviterInfo.name}
                       </div>
                       {inviterInfo.jobFunctions &&
                         inviterInfo.jobFunctions.length > 0 && (
-                          <div className="text-sm text-gray-400">
+                          <div className="text-sm text-[var(--garden-muted)]">
                             {inviterInfo.jobFunctions.join(", ")}
                           </div>
                         )}
@@ -415,12 +395,12 @@ export default function Home() {
                   {/* Connected Members - Show who's already here */}
                   {inviterInfo.recentInvitees &&
                   inviterInfo.recentInvitees.length > 0 ? (
-                    <div className="mb-4 p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl">
+                    <div className="mb-4 p-4 bg-[var(--garden-ink)] border border-[var(--garden-hairline)] rounded-xl">
                       <div className="flex items-center gap-3 mb-2">
                         <div className="flex -space-x-2">
                           {/* Show inviter + recent invitees */}
                           <div
-                            className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-xs font-bold ring-2 ring-gray-900"
+                            className="w-8 h-8 rounded-full bg-[var(--garden-hairline-raised)] flex items-center justify-center text-[var(--garden-paper)] text-xs font-bold ring-2 ring-[var(--garden-ink-raised)]"
                             title={inviterInfo.name}
                           >
                             {inviterInfo.name.charAt(0).toUpperCase()}
@@ -428,7 +408,7 @@ export default function Home() {
                           {inviterInfo.recentInvitees.map((invitee, idx) => (
                             <div
                               key={idx}
-                              className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-400 to-pink-500 flex items-center justify-center text-white text-xs font-bold ring-2 ring-gray-900"
+                              className="w-8 h-8 rounded-full bg-[var(--garden-hairline-raised)] flex items-center justify-center text-[var(--garden-paper)] text-xs font-bold ring-2 ring-[var(--garden-ink-raised)]"
                               title={invitee.name}
                             >
                               {invitee.name.charAt(0).toUpperCase()}
@@ -436,7 +416,7 @@ export default function Home() {
                           ))}
                         </div>
                       </div>
-                      <p className="text-sm text-gray-300">
+                      <p className="text-sm text-[var(--garden-body)]">
                         Join{" "}
                         <span className="font-semibold">
                           {inviterInfo.name}
@@ -451,17 +431,17 @@ export default function Home() {
                               ", "}
                           </span>
                         ))}{" "}
-                        and others on TheCrossBoard
+                        and others on The Exchange
                       </p>
                     </div>
                   ) : (
-                    <div className="mb-4 p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl">
-                      <p className="text-sm text-gray-300">
+                    <div className="mb-4 p-4 bg-[var(--garden-ink)] border border-[var(--garden-hairline)] rounded-xl">
+                      <p className="text-sm text-[var(--garden-body)]">
                         Be one of the first to join{" "}
-                        <span className="font-semibold text-white">
+                        <span className="font-semibold text-[var(--garden-paper)]">
                           {inviterInfo.name}
                         </span>
-                        's network on TheCrossBoard
+                        's network on The Exchange
                       </p>
                     </div>
                   )}
@@ -474,7 +454,7 @@ export default function Home() {
                         sessionStorage.setItem("invite-accepted", inviteSlug);
                         navigate(`/signup/${inviteSlug}`);
                       }}
-                      className="w-full px-6 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-semibold hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg shadow-blue-500/25"
+                      className="w-full px-6 py-4 bg-[var(--garden-citron)] text-[var(--garden-ink)] rounded-xl font-semibold hover:opacity-90 transition-all"
                     >
                       Accept Invite & Join
                     </button>
@@ -483,7 +463,7 @@ export default function Home() {
                         setInviteSlug(null);
                         setInviteInput("");
                       }}
-                      className="w-full px-4 py-2 text-gray-400 hover:text-white text-sm transition-colors"
+                      className="w-full px-4 py-2 text-[var(--garden-muted)] hover:text-[var(--garden-paper)] text-sm transition-colors"
                     >
                       Cancel
                     </button>
@@ -493,69 +473,10 @@ export default function Home() {
             )}
           </div>
         </div>
-
-        {/* Manifesto */}
-        <div className="px-6 mt-20 max-w-4xl mx-auto">
-          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 border border-gray-700/50 shadow-2xl">
-            {/* Decorative gradient orbs */}
-            <div className="absolute -top-24 -right-24 w-64 h-64 bg-blue-500/20 rounded-full blur-3xl" />
-            <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-purple-500/20 rounded-full blur-3xl" />
-
-            <div className="relative p-8 md:p-12 lg:p-16">
-              <div className="flex items-center justify-center gap-2 mb-6">
-                <div className="h-px w-8 bg-gradient-to-r from-transparent to-blue-400" />
-                <span className="text-blue-400 text-sm font-medium uppercase tracking-widest">
-                  Our Manifesto
-                </span>
-                <div className="h-px w-8 bg-gradient-to-l from-transparent to-blue-400" />
-              </div>
-
-              <h3 className="text-3xl md:text-4xl font-bold text-white text-center mb-10">
-                Built for creative formation and real opportunity
-              </h3>
-
-              <div className="space-y-6 text-center">
-                <p className="text-gray-300 text-lg leading-relaxed">
-                  We're building the creative community we want to be part of. A
-                  place where{" "}
-                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400 font-semibold">
-                    Kingdom-minded employers, sponsors, and creatives
-                  </span>{" "}
-                  can show their craft, grow together, and put their gifts to
-                  work.
-                </p>
-                <p className="text-gray-300 text-lg leading-relaxed">
-                  TheCrossBoard connects creative work to real people and real
-                  opportunities. Values-driven businesses, organizations, and
-                  sponsors post projects. Creatives show portfolios, process, and
-                  availability. Collaborations start through direct
-                  conversations, not algorithms.
-                </p>
-                <p className="text-gray-300 text-lg leading-relaxed">
-                  Events are part of the work, not an afterthought: interviews,
-                  podcasts, video conversations, classes, trainings, critique
-                  rooms, and sessions with Christian creatives across
-                  disciplines.
-                </p>
-                <p className="text-gray-300 text-lg leading-relaxed">
-                  Every gift matters. Whether you're a designer, musician,
-                  filmmaker, writer, photographer, producer, or sound engineer —
-                  there's a seat at the table and work worth doing.
-                </p>
-                <div className="pt-4">
-                  <p className="text-gray-400 text-lg leading-relaxed italic">
-                    "Show the work. Grow the craft. Find the people and
-                    opportunities that help it serve."
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
       </main>
 
       {/* Features */}
-      <section className="px-6 py-20 max-w-6xl mx-auto bg-gray-950">
+      <section className="px-6 py-20 max-w-6xl mx-auto bg-[var(--garden-ink)]">
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
           <FeatureCard
             title="Show Your Craft"
@@ -608,76 +529,28 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Organizations CTA */}
-      <section className="px-6 py-16 max-w-4xl mx-auto">
-        <div className="relative">
-          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-amber-600/20 via-orange-600/20 to-red-600/20 border border-amber-500/30 p-8 md:p-12">
-            <div className="absolute -top-24 -right-24 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl" />
-            <div className="relative flex flex-col md:flex-row items-center justify-between gap-6">
-              <div className="text-center md:text-left">
-                <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-amber-500/20 border border-amber-500/30 text-amber-400 rounded-full text-xs font-medium mb-4">
-                  <svg
-                    className="w-3.5 h-3.5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-                    />
-                  </svg>
-                  For Organizations
-                </div>
-                <h3 className="text-2xl md:text-3xl font-bold text-white mb-2">
-                  Looking to hire?
-                </h3>
-                <p className="text-gray-300 max-w-md">
-                  Connect with talented creatives who bring excellence and
-                  integrity to every project.
-                </p>
-              </div>
-              <Link
-                to="/organizations"
-                className="px-8 py-4 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-xl font-semibold hover:from-amber-600 hover:to-orange-600 transition-all shadow-lg shadow-amber-500/25 whitespace-nowrap"
-              >
-                Learn More
-              </Link>
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* UpSight Embed - Test */}
       <section className="px-6 py-12 max-w-md mx-auto">
         <UpSightEmbed />
       </section>
 
       {/* Footer */}
-      <footer className="px-6 py-8 border-t border-gray-800">
+      <footer className="px-6 py-8 border-t border-[var(--garden-hairline)]">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-          <p className="text-gray-500 text-sm">
-            TheCrossBoard — Show your craft, grow with others, collaborate, and
-            find work
+          <p className="text-[var(--garden-dim)] text-sm">
+            creatives.exchange — Show your craft, grow with others,
+            collaborate, and find work
           </p>
           <div className="flex items-center gap-6">
             <a
               href="/about/"
-              className="text-gray-500 hover:text-white text-sm transition-colors"
+              className="text-[var(--garden-dim)] hover:text-[var(--garden-paper)] text-sm transition-colors"
             >
               About
             </a>
             <Link
-              to="/organizations"
-              className="text-gray-500 hover:text-white text-sm transition-colors"
-            >
-              For Organizations
-            </Link>
-            <Link
               to="/login"
-              className="text-gray-500 hover:text-white text-sm transition-colors"
+              className="text-[var(--garden-dim)] hover:text-[var(--garden-paper)] text-sm transition-colors"
             >
               Sign In
             </Link>
@@ -726,10 +599,10 @@ function FeatureCard({
   icon: React.ReactNode;
 }) {
   return (
-    <div className="group p-8 bg-gray-900 rounded-2xl border border-gray-800 hover:border-blue-500 transition-all duration-300">
-      <div className="w-14 h-14 bg-blue-500/10 rounded-xl flex items-center justify-center mb-4 group-hover:bg-blue-500/20 transition-colors">
+    <div className="group p-8 bg-[var(--garden-ink-raised)] rounded-2xl border border-[var(--garden-hairline)] hover:border-[var(--garden-citron)] transition-all duration-300">
+      <div className="w-14 h-14 bg-[var(--garden-ink)] rounded-xl flex items-center justify-center mb-4 border border-[var(--garden-hairline)] transition-colors">
         <svg
-          className="w-7 h-7 text-blue-400"
+          className="w-7 h-7 text-[var(--garden-body)]"
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -737,8 +610,10 @@ function FeatureCard({
           {icon}
         </svg>
       </div>
-      <h3 className="text-xl font-bold text-white mb-3">{title}</h3>
-      <p className="text-gray-400 leading-relaxed">{description}</p>
+      <h3 className="text-xl font-bold text-[var(--garden-paper)] mb-3">
+        {title}
+      </h3>
+      <p className="text-[var(--garden-muted)] leading-relaxed">{description}</p>
     </div>
   );
 }
