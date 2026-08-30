@@ -117,22 +117,22 @@ export default function AppLayout() {
           <Link to="/" className="flex items-center gap-2.5">
             <svg viewBox="0 0 48 48" fill="none" className="w-7 h-7 shrink-0">
               <rect
-                x="17"
-                y="4"
-                width="14"
-                height="40"
-                rx="7"
+                x="18"
+                y="3"
+                width="12"
+                height="42"
+                rx="6"
                 className="fill-gray-900 dark:fill-white"
-                transform="rotate(-32 24 24)"
+                transform="rotate(-22 24 24)"
               />
               <rect
-                x="17"
-                y="4"
-                width="14"
-                height="40"
-                rx="7"
+                x="18"
+                y="3"
+                width="12"
+                height="42"
+                rx="6"
                 className="fill-[#d7f25a]"
-                transform="rotate(32 24 24)"
+                transform="rotate(22 24 24)"
               />
             </svg>
             <span className="text-lg font-bold text-gray-900 dark:text-white">

@@ -134,36 +134,36 @@ export default function Home() {
       <link rel="stylesheet" href="/about/fonts/fonts.css" />
       {/* Header */}
       <header className="absolute top-0 left-0 right-0 z-50 px-6 py-6 flex items-center justify-between max-w-7xl mx-auto">
-        <h1 className="flex items-center gap-2.5">
-          <svg viewBox="0 0 48 48" fill="none" className="w-7 h-7 shrink-0">
+        <h1 className="flex items-center gap-3.5">
+          <svg viewBox="0 0 48 48" fill="none" className="w-10 h-10 shrink-0">
             <rect
-              x="17"
-              y="4"
-              width="14"
-              height="40"
-              rx="7"
+              x="18"
+              y="3"
+              width="12"
+              height="42"
+              rx="6"
               fill="var(--garden-paper)"
-              transform="rotate(-32 24 24)"
+              transform="rotate(-22 24 24)"
             />
             <rect
-              x="17"
-              y="4"
-              width="14"
-              height="40"
-              rx="7"
+              x="18"
+              y="3"
+              width="12"
+              height="42"
+              rx="6"
               fill="var(--garden-citron)"
-              transform="rotate(32 24 24)"
+              transform="rotate(22 24 24)"
             />
           </svg>
           <span className="flex flex-col leading-none">
             <span
-              className="text-[15px] font-medium uppercase tracking-[0.28em] text-[var(--garden-paper)]"
+              className="text-[20px] font-medium uppercase tracking-[0.24em] text-[var(--garden-paper)]"
               style={{ fontFamily: "var(--garden-font-mono)" }}
             >
               creatives.exchange
             </span>
             <span
-              className="hidden sm:block mt-1 text-[10.5px] font-medium uppercase tracking-[0.2em] text-[var(--garden-dim)]"
+              className="hidden sm:block mt-1.5 text-[13px] font-medium uppercase tracking-[0.18em] text-[var(--garden-dim)]"
               style={{ fontFamily: "var(--garden-font-mono)" }}
             >
               Give<span className="text-[var(--garden-citron)]">.</span> Receive
