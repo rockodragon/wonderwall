@@ -137,20 +137,20 @@ export default function Home() {
         <h1 className="flex items-center gap-3.5">
           <svg viewBox="0 0 48 48" fill="none" className="w-10 h-10 shrink-0">
             <rect
-              x="18"
+              x="20"
               y="3"
-              width="12"
+              width="8"
               height="42"
-              rx="6"
+              rx="4"
               fill="var(--garden-paper)"
               transform="rotate(-22 24 24)"
             />
             <rect
-              x="18"
+              x="20"
               y="3"
-              width="12"
+              width="8"
               height="42"
-              rx="6"
+              rx="4"
               fill="var(--garden-citron)"
               transform="rotate(22 24 24)"
             />

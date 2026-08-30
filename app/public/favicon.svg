@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none">
   <!-- The Exchange mark: two bars crossing — give (paper) meets receive (citron). -->
   <rect x="0" y="0" width="48" height="48" fill="#121212"/>
-  <rect x="18" y="3" width="12" height="42" rx="6" fill="#f7f7f4" transform="rotate(-22 24 24)"/>
-  <rect x="18" y="3" width="12" height="42" rx="6" fill="#d7f25a" transform="rotate(22 24 24)"/>
+  <rect x="20" y="3" width="8" height="42" rx="4" fill="#f7f7f4" transform="rotate(-22 24 24)"/>
+  <rect x="20" y="3" width="8" height="42" rx="4" fill="#d7f25a" transform="rotate(22 24 24)"/>
 </svg>
