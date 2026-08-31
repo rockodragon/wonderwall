@@ -30,6 +30,7 @@ import { type FormEvent, useRef, useState } from "react";
 import { Link, useParams } from "react-router";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
+import { YOUTUBE_LIVE_LABEL, YOUTUBE_LIVE_URL } from "../constants/broadcast";
 import { FavoriteButton } from "../components/FavoriteButton";
 import { Wordmark } from "../components/Wordmark";
 import {
@@ -1099,6 +1100,14 @@ function OrganizerVideoManager({
         initialValue={meetingUrl ?? ""}
         savedLabel="Join link saved"
         onSave={(value) => setEventVideo({ eventId, meetingUrl: value })}
+        suggestion={{
+          label: YOUTUBE_LIVE_LABEL,
+          value: YOUTUBE_LIVE_URL,
+          // The channel's /live URL always resolves to whatever is streaming
+          // right now, so it can be set weeks ahead and never needs repasting
+          // when a broadcast is rescheduled or recreated.
+          hint: "Always points at whatever the channel is streaming — set it now, it won't go stale.",
+        }}
       />
 
       <div className="mt-4">
@@ -1125,12 +1134,16 @@ function VideoLinkField({
   initialValue,
   savedLabel,
   onSave,
+  suggestion,
 }: {
   label: string;
   placeholder: string;
   initialValue: string;
   savedLabel: string;
   onSave: (value: string) => Promise<unknown>;
+  /** One-click default. Fills the field but does not save — the organizer
+   * still reviews and hits Save, same as a pasted link. */
+  suggestion?: { label: string; value: string; hint?: string };
 }) {
   const [value, setValue] = useState(initialValue);
   const [saving, setSaving] = useState(false);
@@ -1186,6 +1199,23 @@ function VideoLinkField({
           {saving ? "Saving…" : "Save"}
         </button>
       </div>
+      {suggestion && value.trim() !== suggestion.value && (
+        <div className="mt-2">
+          <button
+            type="button"
+            onClick={() => setValue(suggestion.value)}
+            className="text-xs font-medium underline underline-offset-2"
+            style={{ color: "var(--garden-citron)" }}
+          >
+            {suggestion.label}
+          </button>
+          {suggestion.hint && (
+            <span className="ml-2 text-xs" style={{ color: "var(--garden-dim)" }}>
+              {suggestion.hint}
+            </span>
+          )}
+        </div>
+      )}
       {error && (
         <p className="mt-1.5 text-sm text-red-600 dark:text-red-400">{error}</p>
       )}
