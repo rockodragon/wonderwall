@@ -9,6 +9,7 @@ import { useMemo, useState } from "react";
 import { useQuery } from "convex/react";
 import { Link, useRouteError } from "react-router";
 import { api } from "../../convex/_generated/api";
+import { budgetKindLabel, budgetLabel } from "../lib/budgetLabel";
 import {
   GardenErrorState,
   GardenLoading,
@@ -43,7 +44,9 @@ type ProjectCard = {
   blurb?: string;
   byName: string;
   photoUrl?: string;
+  budgetType?: string;
   budget?: number;
+  budgetMax?: number;
   goal?: number;
   raisedCents?: number;
   storySlug?: string;
@@ -79,11 +82,15 @@ function FilterChips({
 }
 
 function KindBadge({ project }: { project: ProjectCard }) {
-  return project.kind === "passion" ? (
-    <span className="g-badge g-badge-line">Passion</span>
-  ) : (
-    <span className="g-badge g-badge-citron">
-      Paid{project.budget !== undefined ? ` · $${project.budget.toLocaleString()}` : ""}
+  if (project.kind === "passion") {
+    return <span className="g-badge g-badge-line">Passion</span>;
+  }
+  // A volunteer posting gets the plain badge, not the citron one — citron
+  // reads as "there's money here", and on a volunteer post there isn't.
+  const isVolunteer = budgetKindLabel(project) === "Volunteer";
+  return (
+    <span className={isVolunteer ? "g-badge g-badge-line" : "g-badge g-badge-citron"}>
+      {budgetLabel(project)}
     </span>
   );
 }

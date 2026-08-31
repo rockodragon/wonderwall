@@ -727,7 +727,18 @@ export default defineSchema({
     kind: v.string(), // "passion" | "paid"
     title: v.string(),
     blurb: v.optional(v.string()),
-    budget: v.optional(v.number()), // paid: declared budget — the guardrail (required by mutation)
+    // Paid projects declare a money STATE, not necessarily a number (the
+    // guardrail, plan §2.3 — see convex/garden/projects.ts). All three fields
+    // are optional so rows written before budgetType existed keep working:
+    // for display, a legacy row with a `budget` and no `budgetType` reads as
+    // "amount", and one with neither reads as "proposals".
+    budgetType: v.optional(v.string()),
+    //   "amount"     — a set number: `budget` is it, `budgetMax` unset
+    //   "range"      — `budget` is the low end, `budgetMax` the high end
+    //   "proposals"  — open to proposals; neither number is set
+    //   "volunteer"  — explicitly unpaid; neither number is set
+    budget: v.optional(v.number()), // paid: the amount, or a range's low end
+    budgetMax: v.optional(v.number()), // paid: a range's high end
     goal: v.optional(v.number()), // passion: optional target
     raisedCents: v.optional(v.number()), // passion: keep-what-you-raise running total
     status: v.string(), // "pending" | "active" | "in_progress" | "completed" | "archived"

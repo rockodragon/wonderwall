@@ -6,6 +6,7 @@ import { INTERESTS } from "../constants/interests";
 import { LocationAutocomplete } from "../components/LocationAutocomplete";
 import { useLocationField } from "../lib/useLocationField";
 import { AnnouncementComposer } from "../components/AnnouncementComposer";
+import { budgetAmountLabel, budgetKindLabel } from "../lib/budgetLabel";
 
 const KIND_FILTERS = [
   { label: "All", value: "" },
@@ -36,6 +37,19 @@ const STATUS_OPTIONS_BY_KIND: Record<string, { value: string; label: string }[]>
     { value: "archived", label: "Archived" },
   ],
 };
+
+// The four money states a paid posting can declare (convex/garden/
+// projects.ts's validateBudgetDeclaration is the authority — this is the
+// picker for them). A set amount is first and selected by default: it's the
+// encouraged default, and it's what gets answered. The other three exist so
+// an honest posting with a small, unknown, or absent budget can still be
+// made — and so an unpaid ask has to say "Volunteer" out loud.
+const BUDGET_TYPE_OPTIONS = [
+  { value: "amount", label: "Set amount" },
+  { value: "range", label: "Range" },
+  { value: "proposals", label: "Open to proposals" },
+  { value: "volunteer", label: "Volunteer" },
+] as const;
 
 // Convex surfaces a thrown ConvexError's payload on err.data, not
 // err.message (that's a generic "Server Error" in production, by design —
@@ -310,7 +324,7 @@ function PostProjectMenu({
             >
               <span className="block font-medium">Paid work</span>
               <span className="block text-xs mt-0.5" style={{ color: "var(--garden-dim)" }}>
-                You're hiring someone — a bounded commission with a budget you'll pay them.
+                You're hiring someone — a bounded commission, with what it pays stated up front.
               </span>
             </button>
           </div>
@@ -340,6 +354,16 @@ function ProjectCard({
     project.kind === "passion" && project.raiseByDate && project.raiseByDate > Date.now()
       ? Math.max(1, Math.ceil((project.raiseByDate - Date.now()) / 86400000))
       : null;
+
+  // The paid badge is split across the card: the pill carries the kind word
+  // ("Paid" or, on an explicitly unpaid posting, "Volunteer" — never "Paid",
+  // which is the dishonesty the four money states exist to prevent), and the
+  // mono line at the foot carries the money half ("$400", "$300–600", "Open
+  // to proposals", or nothing at all for a volunteer ask). Both come from the
+  // same helper as the full one-string badge on /projects and /projects/:id.
+  const kindWord = project.kind === "paid" ? budgetKindLabel(project) : "Passion";
+  const moneyWord = project.kind === "paid" ? budgetAmountLabel(project) : null;
+  const hasMoney = project.kind === "paid" && kindWord === "Paid";
 
   const card = (
     <div
@@ -385,11 +409,11 @@ function ProjectCard({
             className="shrink-0 px-2 py-0.5 rounded-full text-[11px] font-medium uppercase tracking-[0.06em]"
             style={{
               fontFamily: "var(--garden-font-mono)",
-              backgroundColor: project.kind === "paid" ? "rgba(215,242,90,0.14)" : "rgba(198,198,190,0.1)",
-              color: project.kind === "paid" ? "var(--garden-citron)" : "var(--garden-muted)",
+              backgroundColor: hasMoney ? "rgba(215,242,90,0.14)" : "rgba(198,198,190,0.1)",
+              color: hasMoney ? "var(--garden-citron)" : "var(--garden-muted)",
             }}
           >
-            {project.kind === "paid" ? "Paid" : "Passion"}
+            {kindWord}
           </span>
         </div>
         <div className="flex flex-wrap items-center gap-1.5 mb-2">
@@ -489,12 +513,12 @@ function ProjectCard({
               </span>
             </div>
           )}
-          {project.kind === "paid" && project.budget && (
+          {project.kind === "paid" && moneyWord && (
             <span
               className="shrink-0 text-sm font-semibold"
               style={{ fontFamily: "var(--garden-font-mono)", color: "var(--garden-citron)" }}
             >
-              ${project.budget.toLocaleString()}
+              {moneyWord}
             </span>
           )}
         </div>
@@ -605,7 +629,9 @@ function PaidProjectForm({
   const createPaidProject = useMutation(api.garden.projects.createPaidProject);
   const [title, setTitle] = useState("");
   const [blurb, setBlurb] = useState("");
+  const [budgetType, setBudgetType] = useState<string>("amount");
   const [budget, setBudget] = useState("");
+  const [budgetMax, setBudgetMax] = useState("");
   const location = useLocationField();
   const [remote, setRemote] = useState(true);
   const [interests, setInterests] = useState<string[]>([]);
@@ -619,14 +645,36 @@ function PaidProjectForm({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
-    const budgetNum = Number(budget);
     if (!title.trim()) {
       setError("Give it a title.");
       return;
     }
-    if (!Number.isFinite(budgetNum) || budgetNum <= 0) {
-      setError("Budget needs to be a real number — a declared amount, not a range.");
+    // Mirrors validateBudgetDeclaration on the server (convex/garden/
+    // projects.ts), which is the authority — this only saves a round trip.
+    const budgetNum = Number(budget);
+    const budgetMaxNum = Number(budgetMax);
+    if (budgetType === "amount" && (!budget.trim() || !Number.isFinite(budgetNum) || budgetNum <= 0)) {
+      setError("A set amount needs a real number bigger than zero.");
       return;
+    }
+    if (budgetType === "range") {
+      if (!budget.trim() || !budgetMax.trim()) {
+        setError("A range needs both a low and a high number.");
+        return;
+      }
+      if (
+        !Number.isFinite(budgetNum) ||
+        budgetNum <= 0 ||
+        !Number.isFinite(budgetMaxNum) ||
+        budgetMaxNum <= 0
+      ) {
+        setError("A range needs real numbers bigger than zero.");
+        return;
+      }
+      if (budgetMaxNum <= budgetNum) {
+        setError("A range needs a high number bigger than the low one.");
+        return;
+      }
     }
     if (!remote && !location.value.trim()) {
       setError("Pick a location, or check \"This can be done remotely.\"");
@@ -637,7 +685,12 @@ function PaidProjectForm({
       await createPaidProject({
         title: title.trim(),
         blurb: blurb.trim() || undefined,
-        budget: budgetNum,
+        // "proposals" and "volunteer" carry no numbers at all — the server
+        // rejects a stray one rather than dropping it silently, so anything
+        // typed before switching states is left behind here on purpose.
+        budgetType,
+        budget: budgetType === "amount" || budgetType === "range" ? budgetNum : undefined,
+        budgetMax: budgetType === "range" ? budgetMaxNum : undefined,
         ...location.toArgs(),
         remote,
         interests: interests.length > 0 ? interests : undefined,
@@ -662,7 +715,7 @@ function PaidProjectForm({
           Post paid work
         </h2>
         <p className="text-sm mb-3" style={{ color: "var(--garden-dim)" }}>
-          A bounded commission with a real budget — not an ongoing role.
+          A bounded commission, not an ongoing role. Say what it pays — a number, a range, or plainly that it doesn't.
         </p>
         <button
           type="button"
@@ -709,22 +762,89 @@ function PaidProjectForm({
           </div>
           <div>
             <label className="block text-xs uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
-              Budget (USD)
+              What it pays
             </label>
-            <input
-              type="number"
-              min="1"
-              value={budget}
-              onChange={(e) => setBudget(e.target.value)}
-              placeholder="500"
-              className="w-full px-3 py-2 rounded-lg border text-sm outline-none"
-              style={{
-                fontFamily: "var(--garden-font-mono)",
-                backgroundColor: "var(--garden-ink)",
-                borderColor: "var(--garden-hairline-raised)",
-                color: "var(--garden-paper)",
-              }}
-            />
+            <div role="radiogroup" aria-label="What it pays" className="flex flex-wrap gap-1.5">
+              {BUDGET_TYPE_OPTIONS.map((opt) => {
+                const active = budgetType === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    role="radio"
+                    aria-checked={active}
+                    onClick={() => setBudgetType(opt.value)}
+                    className="px-2.5 py-1 rounded-full text-xs font-medium transition-colors"
+                    style={{
+                      fontFamily: "var(--garden-font-body)",
+                      backgroundColor: active ? "var(--garden-citron)" : "var(--garden-ink)",
+                      color: active ? "var(--garden-ink)" : "var(--garden-muted)",
+                      border: `1px solid ${active ? "var(--garden-citron)" : "var(--garden-hairline-raised)"}`,
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-xs mt-1.5" style={{ color: "var(--garden-dim)" }}>
+              Posting a number gets more responses. If you don't have one yet, say so — just
+              don't leave people guessing.
+            </p>
+            {budgetType === "amount" && (
+              <input
+                type="number"
+                min="1"
+                value={budget}
+                onChange={(e) => setBudget(e.target.value)}
+                placeholder="500"
+                aria-label="Amount in US dollars"
+                className="w-full mt-2.5 px-3 py-2 rounded-lg border text-sm outline-none"
+                style={{
+                  fontFamily: "var(--garden-font-mono)",
+                  backgroundColor: "var(--garden-ink)",
+                  borderColor: "var(--garden-hairline-raised)",
+                  color: "var(--garden-paper)",
+                }}
+              />
+            )}
+            {budgetType === "range" && (
+              <div className="flex items-center gap-2 mt-2.5">
+                <input
+                  type="number"
+                  min="1"
+                  value={budget}
+                  onChange={(e) => setBudget(e.target.value)}
+                  placeholder="300"
+                  aria-label="Low end, in US dollars"
+                  className="w-full px-3 py-2 rounded-lg border text-sm outline-none"
+                  style={{
+                    fontFamily: "var(--garden-font-mono)",
+                    backgroundColor: "var(--garden-ink)",
+                    borderColor: "var(--garden-hairline-raised)",
+                    color: "var(--garden-paper)",
+                  }}
+                />
+                <span className="text-sm" style={{ color: "var(--garden-dim)" }}>
+                  to
+                </span>
+                <input
+                  type="number"
+                  min="1"
+                  value={budgetMax}
+                  onChange={(e) => setBudgetMax(e.target.value)}
+                  placeholder="600"
+                  aria-label="High end, in US dollars"
+                  className="w-full px-3 py-2 rounded-lg border text-sm outline-none"
+                  style={{
+                    fontFamily: "var(--garden-font-mono)",
+                    backgroundColor: "var(--garden-ink)",
+                    borderColor: "var(--garden-hairline-raised)",
+                    color: "var(--garden-paper)",
+                  }}
+                />
+              </div>
+            )}
           </div>
           <div>
             <label className="block text-xs uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>

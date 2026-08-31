@@ -27,7 +27,9 @@ export interface ProjectLike {
   title: string;
   blurb?: string;
   photoUrl?: string;
+  budgetType?: string;
   budget?: number;
+  budgetMax?: number;
   goal?: number;
   raisedCents?: number;
   storySlug?: string;
@@ -42,7 +44,9 @@ export interface ProjectCard {
   blurb?: string;
   byName: string;
   photoUrl?: string;
+  budgetType?: string;
   budget?: number;
+  budgetMax?: number;
   goal?: number;
   raisedCents?: number;
   storySlug?: string;
@@ -63,21 +67,40 @@ function formatDollars(amount: number): string {
 }
 
 /**
- * The money line for a project card/detail: paid → declared budget; passion
- * with a real (>0) goal → "$340 of $500"; passion with no goal set → "Seeking
- * support" rather than a bare/undefined line. raisedCents defaults to 0 so a
- * fresh passion project with a goal still renders "$0 of $500", not a blank.
+ * The money line for a project card/detail: paid → whichever of the four
+ * declared money states this posting is in (see garden/projects.ts's
+ * validateBudgetDeclaration); passion with a real (>0) goal → "$340 of $500";
+ * passion with no goal set → "Seeking support" rather than a bare/undefined
+ * line. raisedCents defaults to 0 so a fresh passion project with a goal
+ * still renders "$0 of $500", not a blank.
+ *
+ * Legacy paid rows (written before budgetType existed) read the same way the
+ * badge reads them — a `budget` and no type is an "amount", neither is
+ * "proposals". "Budget not set" is gone: a posting whose money was never
+ * stated is open to proposals, which is a fact rather than a blank.
+ *
+ * Client-side twin: app/app/lib/budgetLabel.ts, which writes the shorter
+ * badge on the same cards. Convex functions don't import from app/, so the
+ * two are kept aligned by hand and by their tests.
  */
 export function resolveMoneyLine(project: {
   kind: string;
+  budgetType?: string;
   budget?: number;
-  goal?: number;
+  budgetMax?: number;
   raisedCents?: number;
+  goal?: number;
 }): string {
   if (project.kind === "paid") {
-    return project.budget !== undefined
-      ? `Budget ${formatDollars(project.budget)}`
-      : "Budget not set";
+    const hasLow = project.budget !== undefined && project.budget > 0;
+    const hasHigh = project.budgetMax !== undefined && project.budgetMax > 0;
+    if (project.budgetType === "volunteer") return "Unpaid";
+    if (project.budgetType === "range" && hasLow && hasHigh) {
+      // En dash, no second "$" — one span of money, not two numbers.
+      return `Budget ${formatDollars(project.budget!)}–${project.budgetMax!.toLocaleString("en-US")}`;
+    }
+    if (project.budgetType === "proposals" || !hasLow) return "Open to proposals";
+    return `Budget ${formatDollars(project.budget!)}`;
   }
   if (project.goal !== undefined && project.goal > 0) {
     const raised = (project.raisedCents ?? 0) / 100;
@@ -102,12 +125,21 @@ export function shapeProjectCard(project: ProjectLike, ownerName: string): Proje
     blurb: project.blurb,
     byName: ownerName,
     photoUrl: project.photoUrl,
+    budgetType: project.budgetType,
     budget: project.budget,
+    budgetMax: project.budgetMax,
     goal: project.goal,
     raisedCents: project.raisedCents,
     storySlug: project.storySlug,
     status: project.status,
-    moneyLine: resolveMoneyLine({ kind, budget: project.budget, goal: project.goal, raisedCents: project.raisedCents }),
+    moneyLine: resolveMoneyLine({
+      kind,
+      budgetType: project.budgetType,
+      budget: project.budget,
+      budgetMax: project.budgetMax,
+      goal: project.goal,
+      raisedCents: project.raisedCents,
+    }),
   };
 }
 

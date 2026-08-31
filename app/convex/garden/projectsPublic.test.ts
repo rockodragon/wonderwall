@@ -5,12 +5,34 @@ import { describe, expect, it } from "vitest";
 import { resolveMoneyLine, shapeProjectCard, type ProjectLike } from "./projectsPublic";
 
 describe("resolveMoneyLine", () => {
-  it("paid with a declared budget reads as a whole-dollar budget line", () => {
+  it("paid with a set amount reads as a whole-dollar budget line", () => {
+    expect(resolveMoneyLine({ kind: "paid", budgetType: "amount", budget: 1200 })).toBe(
+      "Budget $1,200",
+    );
+  });
+
+  it("paid open to proposals says so", () => {
+    expect(resolveMoneyLine({ kind: "paid", budgetType: "proposals" })).toBe(
+      "Open to proposals",
+    );
+  });
+
+  it("paid with a declared range reads as one span of money", () => {
+    expect(
+      resolveMoneyLine({ kind: "paid", budgetType: "range", budget: 300, budgetMax: 600 }),
+    ).toBe("Budget $300\u2013600");
+  });
+
+  it("a volunteer posting reads 'Unpaid' — never a budget line", () => {
+    expect(resolveMoneyLine({ kind: "paid", budgetType: "volunteer" })).toBe("Unpaid");
+  });
+
+  it("a legacy paid row with a budget and no type still reads as that amount", () => {
     expect(resolveMoneyLine({ kind: "paid", budget: 1200 })).toBe("Budget $1,200");
   });
 
-  it("paid without a budget falls back rather than printing 'Budget $undefined'", () => {
-    expect(resolveMoneyLine({ kind: "paid" })).toBe("Budget not set");
+  it("a legacy paid row with no budget at all reads as open to proposals, not 'Budget $undefined'", () => {
+    expect(resolveMoneyLine({ kind: "paid" })).toBe("Open to proposals");
   });
 
   it("passion with a goal and partial raise reads '$340 of $500' (raisedCents -> dollars)", () => {
@@ -59,7 +81,9 @@ describe("shapeProjectCard", () => {
       blurb: "A record made in the back room.",
       byName: "Shua",
       photoUrl: "https://example.com/p.jpg",
+      budgetType: undefined,
       budget: undefined,
+      budgetMax: undefined,
       goal: 500,
       raisedCents: 34000,
       storySlug: "psalms-for-the-2am",
@@ -81,7 +105,9 @@ describe("shapeProjectCard", () => {
       blurb: undefined,
       byName: "Table Art Society",
       photoUrl: undefined,
+      budgetType: undefined,
       budget: 1200,
+      budgetMax: undefined,
       goal: undefined,
       raisedCents: undefined,
       storySlug: undefined,
