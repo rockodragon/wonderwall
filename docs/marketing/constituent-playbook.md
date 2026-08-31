@@ -46,27 +46,27 @@ Subject: **Your work, funded in the open**
 
 > Hi {name} — I saw {specific piece} and wanted to reach out directly.
 >
-> I'm building creatives.exchange: a place where creative work gets funded and every dollar is published on a public ledger. Joining is free — profile, portfolio, any community, open tables. Money is never the only door. When you want your work funded, a seat is $10/mo: start projects, apply to paid work, propose to the Grant Fund. When someone backs your project, 90% goes to you, immediately.
+> I'm building creatives.exchange: a place where creative work actually gets funded. Joining is free — profile, portfolio, any community, open tables. Money is never the only door. When you want your work funded, a seat is $10/mo: start projects, apply to paid work, propose to the Grant Fund. When someone backs your project, 90% goes to you, immediately — no waiting on a goal, no chasing checks.
 >
 > On November 6 we're showcasing funded work live at Lightchurch in Encinitas.
 >
-> Could I get 20 minutes this week to show you how it works and hear what you're making? No pitch deck — just the ledger and your questions.
+> Could I get 20 minutes this week to show you how it works and hear what you're making? No pitch deck — I'll just show you.
 >
 > — Rick
 
-**Text/DM.** "Hey {name} — loved {piece}. I'm building creatives.exchange: free to join, and when your work gets backed, 90% goes to you, on a public ledger. Got 20 min this week? Would love to show you before our Nov 6 showcase."
+**Text/DM.** "Hey {name} — loved {piece}. I'm building creatives.exchange: free to join, and when your work gets backed, 90% goes to you, immediately. Got 20 min this week? Would love to show you before our Nov 6 showcase."
 
 **Flyer**
 
-- Headline: **Get your work funded. Watch every dollar move.**
-- Subhead: Free to join. A seat is $10/mo when you want your work funded.
+- Headline: **Get your work funded.**
+- Subhead: Free to join. A seat is $10/mo when you're ready to be backed.
 - Bullets:
   - When someone backs your project, 90% goes to you, immediately.
-  - Every allocation is public — a ledger anyone can read, no account needed.
+  - Your backers are credited on the work — people invested in your story, not passing likes.
   - Your $10 receipt: $5 funds other creatives' projects, $5 runs the place.
 - CTA: creatives.exchange — join free today.
 
-**Don't say.** Never promise their project will get funded or win a grant — promise the mechanism. Never frame the free account as a trial or the seat as the "real" membership.
+**Don't say.** Never promise their project will get funded or win a grant — promise the mechanism. Never frame the free account as a trial or the seat as the "real" membership. **Don't lead with the public ledger to creatives** — transparency is the *backer's* selling point; to a creative it sounds like their income is on display. To creatives, the line is "90%, immediately."
 
 ## 2 · Hosts and community leaders (free host → $50 Leader tier)
 
