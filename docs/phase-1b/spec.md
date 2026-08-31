@@ -2,7 +2,9 @@
 
 v0.9 · 2026-08-12 · owner: Rick · status: product sections final; integration sections pending architect/dev gap reports (same directory)
 
-The seven things the October showcase requires, and nothing else. Decisions below are final (Rick, 2026-08-12); changing one is a scope conversation, not a drive-by.
+The seven things the showcase requires, and nothing else. Decisions below are final (Rick, 2026-08-12); changing one is a scope conversation, not a drive-by.
+
+> **Showcase date/venue update (Rick, 2026-08-31): the showcase is November 6, 2026 at Lightchurch, Encinitas** — five extra build weeks vs. the October assumption baked into this spec. "October" below reads as the original build-deadline shorthand; the ship-by date is now early November.
 
 ---
 

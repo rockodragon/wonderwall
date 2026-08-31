@@ -1,7 +1,90 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { internalQuery, mutation, query } from "./_generated/server";
 import { auth } from "./auth";
 import { scheduleNotificationEmail } from "./emailHelpers";
+
+// ——— Pure validation helpers (unit-tested in events.test.ts) ———
+
+/** Optional end time must land strictly after the start. Returns null when
+ * valid, otherwise the user-facing error message. */
+export function validateEndTime(
+  datetime: number,
+  endTime: number | undefined,
+): string | null {
+  if (endTime === undefined) return null;
+  if (endTime <= datetime) return "End time must be after the start time";
+  return null;
+}
+
+export interface TicketTierInput {
+  name: string;
+  priceCents: number;
+  description?: string;
+  quantity?: number;
+}
+
+export const MAX_TICKET_TIERS = 10;
+
+/** Validates + normalizes a ticket tier list (trims strings, drops empty
+ * descriptions). Returns { tiers } on success or { error } with a
+ * user-facing message. An empty array normalizes to undefined — an event
+ * with no tiers stores no field at all. */
+export function normalizeTicketTiers(
+  tiers: TicketTierInput[] | undefined,
+): { tiers?: TicketTierInput[]; error?: string } {
+  if (!tiers || tiers.length === 0) return { tiers: undefined };
+  if (tiers.length > MAX_TICKET_TIERS) {
+    return { error: `At most ${MAX_TICKET_TIERS} ticket tiers are allowed` };
+  }
+
+  const normalized: TicketTierInput[] = [];
+  const seenNames = new Set<string>();
+  for (const tier of tiers) {
+    const name = tier.name.trim();
+    if (!name) return { error: "Every ticket tier needs a name" };
+    const nameKey = name.toLowerCase();
+    if (seenNames.has(nameKey)) {
+      return { error: `Duplicate ticket tier name "${name}"` };
+    }
+    seenNames.add(nameKey);
+
+    // Stripe's minimum charge is $0.50 — enforce it here so checkout can't
+    // fail later on a tier that was always unchargeable.
+    if (!Number.isInteger(tier.priceCents) || tier.priceCents < 50) {
+      return {
+        error: `Ticket tier "${name}" needs a price of at least $0.50`,
+      };
+    }
+    if (
+      tier.quantity !== undefined &&
+      (!Number.isInteger(tier.quantity) || tier.quantity < 1)
+    ) {
+      return {
+        error: `Ticket tier "${name}" has an invalid quantity cap`,
+      };
+    }
+
+    const description = tier.description?.trim();
+    normalized.push({
+      name,
+      priceCents: tier.priceCents,
+      description: description || undefined,
+      quantity: tier.quantity,
+    });
+  }
+  return { tiers: normalized };
+}
+
+const ticketTiersValidator = v.optional(
+  v.array(
+    v.object({
+      name: v.string(),
+      priceCents: v.number(),
+      description: v.optional(v.string()),
+      quantity: v.optional(v.number()),
+    }),
+  ),
+);
 
 export const list = query({
   args: {
@@ -116,8 +199,24 @@ export const get = query({
       ? applications.find((a) => a.applicantId === userId)
       : null;
 
+    // Paid tickets sold per tier (only fetched when the event has tiers) —
+    // lets the client disable a capped tier's buy button when sold out.
+    const ticketsSoldByTier: Record<string, number> = {};
+    if (event.ticketTiers && event.ticketTiers.length > 0) {
+      const purchases = await ctx.db
+        .query("ticketPurchases")
+        .withIndex("by_eventId", (q) => q.eq("eventId", args.eventId))
+        .collect();
+      for (const purchase of purchases) {
+        if (purchase.status !== "paid") continue;
+        ticketsSoldByTier[purchase.tierName] =
+          (ticketsSoldByTier[purchase.tierName] ?? 0) + 1;
+      }
+    }
+
     return {
       ...event,
+      ticketsSoldByTier,
       coverImageUrl,
       galleryImageUrls: galleryImageUrls.filter(Boolean) as string[],
       organizer: profile
@@ -139,7 +238,10 @@ export const create = mutation({
     title: v.string(),
     description: v.string(),
     datetime: v.number(),
+    endTime: v.optional(v.number()),
+    ticketTiers: ticketTiersValidator,
     location: v.optional(v.string()),
+    venueAddress: v.optional(v.string()),
     locationType: v.optional(v.string()),
     address: v.optional(
       v.object({
@@ -166,6 +268,12 @@ export const create = mutation({
     const userId = await auth.getUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
 
+    const endTimeError = validateEndTime(args.datetime, args.endTime);
+    if (endTimeError) throw new Error(endTimeError);
+
+    const { tiers, error: tiersError } = normalizeTicketTiers(args.ticketTiers);
+    if (tiersError) throw new Error(tiersError);
+
     const now = Date.now();
 
     return await ctx.db.insert("events", {
@@ -173,7 +281,10 @@ export const create = mutation({
       title: args.title.trim(),
       description: args.description.trim(),
       datetime: args.datetime,
+      endTime: args.endTime,
+      ticketTiers: tiers,
       location: args.location?.trim(),
+      venueAddress: args.venueAddress?.trim() || undefined,
       locationType: args.locationType,
       address: args.address,
       coordinates: args.coordinates,
@@ -193,7 +304,10 @@ export const update = mutation({
     title: v.string(),
     description: v.string(),
     datetime: v.number(),
+    endTime: v.optional(v.number()),
+    ticketTiers: ticketTiersValidator,
     location: v.optional(v.string()),
+    venueAddress: v.optional(v.string()),
     locationType: v.optional(v.string()),
     address: v.optional(
       v.object({
@@ -224,11 +338,20 @@ export const update = mutation({
     if (!event) throw new Error("Event not found");
     if (event.organizerId !== userId) throw new Error("Not authorized");
 
+    const endTimeError = validateEndTime(args.datetime, args.endTime);
+    if (endTimeError) throw new Error(endTimeError);
+
+    const { tiers, error: tiersError } = normalizeTicketTiers(args.ticketTiers);
+    if (tiersError) throw new Error(tiersError);
+
     await ctx.db.patch(args.eventId, {
       title: args.title.trim(),
       description: args.description.trim(),
       datetime: args.datetime,
+      endTime: args.endTime,
+      ticketTiers: tiers,
       location: args.location?.trim(),
+      venueAddress: args.venueAddress?.trim() || undefined,
       locationType: args.locationType,
       address: args.address,
       coordinates: args.coordinates,
@@ -470,5 +593,41 @@ export const search = query({
     );
 
     return eventsWithImages;
+  },
+});
+
+// ——— Ticket checkout support ———
+
+// Read by garden/stripe.ts's createTicketCheckout action ("use node" —
+// actions have no ctx.db, so they call this via ctx.runQuery). Returns
+// everything the action needs to validate + price the Checkout Session.
+export const getEventForTicketCheckout = internalQuery({
+  args: { eventId: v.id("events"), tierName: v.string() },
+  handler: async (ctx, args) => {
+    const event = await ctx.db.get(args.eventId);
+    if (!event) return null;
+
+    const tier =
+      event.ticketTiers?.find((t) => t.name === args.tierName) ?? null;
+
+    // Sold count only matters for capped tiers.
+    let sold = 0;
+    if (tier?.quantity !== undefined) {
+      const purchases = await ctx.db
+        .query("ticketPurchases")
+        .withIndex("by_eventId", (q) => q.eq("eventId", args.eventId))
+        .collect();
+      sold = purchases.filter(
+        (p) => p.status === "paid" && p.tierName === args.tierName,
+      ).length;
+    }
+
+    return {
+      title: event.title,
+      status: event.status,
+      datetime: event.datetime,
+      tier,
+      sold,
+    };
   },
 });

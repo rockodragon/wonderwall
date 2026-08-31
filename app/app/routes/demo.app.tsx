@@ -128,7 +128,7 @@ type NavItem = (typeof NAV_ITEMS)[number];
 const COMMUNITIES = [
   { id: "garden", name: "The Garden", tableWord: "Tables", blurb: "San Diego · the founding community" },
   { id: "ap", name: "Abiding Practice", tableWord: "Cohorts", blurb: "Spiritual creative formation" },
-  { id: "tas", name: "Table Art Society", tableWord: "Studios", blurb: "Working artists, around a table" },
+  { id: "tas", name: "Table Art Society", tableWord: "Studios", blurb: "Working creatives, around a table" },
   { id: "rabbit", name: "The Rabbit Room", tableWord: "Chapters", blurb: "Story, music, and craft" },
 ] as const;
 type Community = (typeof COMMUNITIES)[number];

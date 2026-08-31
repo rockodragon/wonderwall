@@ -2,8 +2,11 @@ name = "wonderwall"
 compatibility_date = "2024-12-01"
 compatibility_flags = ["nodejs_compat"]
 
-# SPA mode - deploy static client build with _redirects for fallback routing
-pages_build_output_dir = "./build/client"
+# Static SPA: the client build is served as assets, with the SPA fallback
+# handling client-side routes.
+[assets]
+directory = "./build/client"
+not_found_handling = "single-page-application"
 
 [vars]
 VITE_CONVEX_URL = "https://courteous-rabbit-750.convex.cloud"

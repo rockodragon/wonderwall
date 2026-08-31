@@ -132,6 +132,29 @@ function makeConvexDb(ctx: MutationCtx): Db {
       if (!existing) return;
       await ctx.db.patch(existing._id, patch);
     },
+
+    async upsertTicketPurchase(row) {
+      const existing = await ctx.db
+        .query("ticketPurchases")
+        .withIndex("by_stripeSessionId", (q) =>
+          q.eq("stripeSessionId", row.stripeSessionId),
+        )
+        .unique();
+      const patch = {
+        eventId: row.eventId as Id<"events">,
+        tierName: row.tierName,
+        amountCents: row.amountCents,
+        buyerEmail: row.buyerEmail,
+        userId: row.userId as Id<"users"> | undefined,
+        stripeSessionId: row.stripeSessionId,
+        status: row.status,
+      };
+      if (existing) {
+        await ctx.db.patch(existing._id, patch);
+      } else {
+        await ctx.db.insert("ticketPurchases", { ...patch, createdAt: Date.now() });
+      }
+    },
   };
 }
 

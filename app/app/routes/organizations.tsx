@@ -146,7 +146,7 @@ const FAQS = [
   {
     question: "What does 'sponsor creative memberships' mean?",
     answer:
-      "Like Renaissance patrons who supported artists, your organization can sponsor memberships for emerging creatives who couldn't otherwise afford to join. Partner tier sponsors 5, Patron sponsors 20, and Founding Partners sponsor 50+ creatives. It's a tangible way to invest in Kingdom creativity while building goodwill with future talent.",
+      "Like Renaissance patrons who supported creatives, your organization can sponsor memberships for emerging creatives who couldn't otherwise afford to join. Partner tier sponsors 5, Patron sponsors 20, and Founding Partners sponsor 50+ creatives. It's a tangible way to invest in Kingdom creativity while building goodwill with future talent.",
   },
   {
     question: "What creative roles can we hire for?",
@@ -451,7 +451,7 @@ export default function Organizations() {
                 <p className="text-gray-300 text-lg mb-4 max-w-2xl">
                   Like the Medicis of Renaissance Florence, your organization
                   can invest in Kingdom creativity by sponsoring memberships for
-                  talented artists who couldn't otherwise afford to join.
+                  talented creatives who couldn't otherwise afford to join.
                 </p>
                 <p className="text-gray-400 mb-6 max-w-2xl">
                   Every paid tier includes creative sponsorships—so you're not

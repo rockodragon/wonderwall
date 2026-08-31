@@ -55,6 +55,9 @@ export interface StripeCheckoutSessionLike {
   subscription: string | StripeSubscriptionLike | null;
   customer_details?: { email?: string | null } | null;
   metadata?: Record<string, string> | null;
+  /** Total charged in the smallest currency unit — present on one-time
+   * payment sessions (event tickets). */
+  amount_total?: number | null;
 }
 
 export type StripeWebhookEvent =
@@ -104,6 +107,16 @@ export interface CoverageCodeRow {
   status: string; // "active" | "suspended" | "canceled"
 }
 
+export interface TicketPurchaseRow {
+  eventId: string;
+  tierName: string;
+  amountCents: number;
+  buyerEmail?: string;
+  userId?: string;
+  stripeSessionId: string;
+  status: string; // "paid"
+}
+
 export interface Db {
   getBillingCustomerByStripeId(stripeCustomerId: string): Promise<BillingCustomerRow | null>;
   upsertBillingCustomer(row: BillingCustomerRow): Promise<void>;
@@ -116,6 +129,10 @@ export interface Db {
     stripeSubscriptionId: string,
     patch: Partial<Pick<CoverageCodeRow, "seats" | "status">>,
   ): Promise<void>;
+
+  /** Keyed by stripeSessionId — replaying the same checkout.session.completed
+   * event must converge to one row (idempotency, same as memberships). */
+  upsertTicketPurchase(row: TicketPurchaseRow): Promise<void>;
 }
 
 // ——— Pure helpers ———
@@ -161,16 +178,51 @@ function expandedSubscription(session: StripeCheckoutSessionLike): StripeSubscri
     : session.subscription;
 }
 
-// ——— checkout.session.completed (membership only — coverage checkout +
-// issuance is W2; other kinds/modes are ignored defensively) ———
+// ——— checkout.session.completed (membership + event tickets — coverage
+// checkout + issuance is W2; other kinds/modes are ignored defensively) ———
+
+/** One-time payment session for an event ticket (mode "payment",
+ * kind "event_ticket" — created by garden/stripe.ts's createTicketCheckout).
+ * Records the completed purchase, keyed by session id for idempotency. */
+async function handleTicketCheckoutCompleted(
+  session: StripeCheckoutSessionLike,
+  db: Db,
+): Promise<void> {
+  const metadata = session.metadata ?? {};
+  const { eventId, tierName, userId } = metadata;
+  if (!eventId || !tierName) {
+    console.warn("[stripe] event_ticket checkout.session.completed missing metadata", {
+      sessionId: session.id,
+    });
+    return;
+  }
+
+  await db.upsertTicketPurchase({
+    eventId,
+    tierName,
+    amountCents: session.amount_total ?? 0,
+    buyerEmail: session.customer_details?.email ?? undefined,
+    userId: userId || undefined,
+    stripeSessionId: session.id,
+    status: "paid",
+  });
+}
 
 async function handleCheckoutSessionCompleted(
   session: StripeCheckoutSessionLike,
   db: Db,
 ): Promise<void> {
+  const metadata = session.metadata ?? {};
+
+  if (session.mode === "payment") {
+    if (metadata.kind === "event_ticket") {
+      return handleTicketCheckoutCompleted(session, db);
+    }
+    return; // unknown one-time payment kind — ignore defensively
+  }
+
   if (session.mode !== "subscription") return;
 
-  const metadata = session.metadata ?? {};
   if (metadata.kind !== "membership") return;
 
   const { userId, level, hostOrgId } = metadata;
