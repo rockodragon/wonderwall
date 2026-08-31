@@ -20,7 +20,7 @@ import { auth } from "../auth";
 
 // Matches the `stripe` package's pinned default (node_modules/stripe's
 // apiVersion.js) at install time — keep these in lockstep on upgrade.
-const STRIPE_API_VERSION = "2026-07-29.dahlia" as const;
+const STRIPE_API_VERSION = "2026-08-26.dahlia" as const;
 
 function getStripeClient(): Stripe {
   const secretKey = process.env.STRIPE_SECRET_KEY;
