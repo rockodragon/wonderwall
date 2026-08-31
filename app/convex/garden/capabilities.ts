@@ -49,7 +49,7 @@ const PASSION_CAPS: Record<Level, number> = {
 
 const SEAT_PATH = "Take a seat — $10/mo";
 const FIVE_PATH = "Five seats — $25/mo";
-const HOST_PATH = "Host — $50/mo";
+const HOST_PATH = "Lead — $50/mo";
 
 const isPaidLevel = (l: Level) => l === "seat" || l === "five" || l === "host";
 
@@ -131,7 +131,7 @@ export function can(user: GardenUser, capability: Capability): CanResult {
       return {
         allowed: false,
         reason:
-          "Tables are ongoing rosters run by hosts. Creating one requires the host tier.",
+          "Tables are ongoing rosters run by hosts. Creating one requires the Leader tier.",
         upgradePath: HOST_PATH,
       };
 
@@ -152,13 +152,17 @@ export const LEVEL_LABEL: Record<Level, string> = {
   free: "Free account",
   seat: "A seat · $10/mo",
   five: "Five seats · $25/mo",
-  host: "Host · $50/mo",
+  host: "Leader · $50/mo",
 };
 
-/** Published splits (plan §2.2) — render these wherever money appears. */
+/** Published splits — render these wherever money appears.
+    Dues split two ways, in the open: half funds other creatives' projects,
+    half runs the place. Anything a host sells (classes, cohorts, premium
+    tiers) splits like patronage: 90% theirs, 10% platform. */
 export const SPLITS = {
-  dues: { hostOrg: 0.4, pool: 0.5, platform: 0.1 },
+  dues: { pool: 0.5, platform: 0.5 },
   patronage: { work: 0.9, platform: 0.1 },
+  sales: { host: 0.9, platform: 0.1 },
   duesSentence:
     "Half of every membership funds another creative's project. From day one your money is supporting someone — instead of hoping to hear back.",
 } as const;

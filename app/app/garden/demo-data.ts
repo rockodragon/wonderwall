@@ -62,7 +62,7 @@ export const PERSONA_TAGLINE: Record<string, string> = {
   maya: "Illustrator · free account · hits every gate",
   shua: "Songwriter · covered seat (Grace Fellowship) · 1 passion project",
   tessa: "Zine maker · five seats · at her cap",
-  marcus: "Host · Third Thursday Songwriters · charging host, $0 base",
+  marcus: "Host · Third Thursday Songwriters · keeps 90% of what he sells",
   diane: "Patron · covers Shua's seat",
   foldednote: "Partner · record shop, South Park",
 };
@@ -206,7 +206,7 @@ export const TABLES: DemoTable[] = [
   },
   {
     id: "mentorship-circle",
-    name: "Working Artists Mentorship Circle",
+    name: "Working Creatives Mentorship Circle",
     hostId: "ap",
     mode: "member",
     format: "Mentorship",
@@ -328,13 +328,12 @@ export const DASHBOARD = {
   ],
   // Money — the ledger that lands at the $324 payout
   ledger: [
-    { item: "Dues share · 24 members × $10 × 40%", amount: 96.0 },
     { item: "Winter cohort · 9 × $40, minus 10% platform", amount: 324.0 },
     { item: "Open tables · always free", amount: 0 },
   ],
   payout: 324.0,
-  duesShareNote:
-    "Dues shares accrue to your host org monthly; cohort collections pay out per term.",
+  payoutNote:
+    "Hosting is free — you keep 90% of what your paid tables collect; cohort collections pay out per term.",
 };
 
 export function getPersona(id: string): GardenUser {

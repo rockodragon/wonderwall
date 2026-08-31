@@ -194,8 +194,8 @@ export default function DemoHost() {
           </p>
           <p style={{ fontSize: 15, color: "var(--g-body)", marginTop: 12 }}>
             A host runs tables in any mode, spawns committed tables out of open
-            ones, and — once they charge — pays 10% of what they collect and no
-            base at all.
+            ones, and hosting itself is free — when a table charges, you keep
+            90% of what it collects.
           </p>
           <div style={{ marginTop: 20, display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
             {gate.upgradePath ? (
@@ -556,9 +556,8 @@ export default function DemoHost() {
             </div>
             {price > 0 ? (
               <p className="g-hint" style={{ marginTop: 10 }}>
-                You keep 90% — the garden takes 10% of what you collect, and
-                your $50/mo goes away while you charge. Cohort collections pay
-                out after each term.
+                You keep 90% — the garden takes 10% of what you collect,
+                nothing more. Cohort collections pay out after each term.
               </p>
             ) : null}
           </>

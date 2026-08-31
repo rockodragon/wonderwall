@@ -63,7 +63,7 @@ const LEVELS = [
       "Apply to paid work",
       "Put on events",
       "Join member tables",
-      "Propose to the grant pool",
+      "Propose to the Grant Fund",
     ],
   },
   {
@@ -77,14 +77,15 @@ const LEVELS = [
     ],
   },
   {
-    name: "Host",
+    name: "Leader",
     price: "$50/mo",
     recommended: false,
     perks: [
-      "Create tables — your roster, your format",
+      "Host tables — your roster, your format",
+      "Curate project spaces",
+      "Run community grant programs (coming)",
       "Ten active projects",
-      "Patron routing to your community",
-      "Waived once your tables charge",
+      "Keep 90% of anything you sell",
     ],
   },
 ];
@@ -125,8 +126,8 @@ export default function JoinPage() {
         </p>
       </div>
 
-      {/* The published dues split — two cells while The Garden is the default
-          host org (plan §3.1). Data cells, never buttons. */}
+      {/* The published dues split — always two cells: $5 funds other
+          creatives' projects, $5 runs the place. Data cells, never buttons. */}
       <div style={{ display: "flex", gap: 10, marginTop: 22, maxWidth: 460 }}>
         <div className="g-cell g-cell-hot" style={{ flex: 1, textAlign: "center" }}>
           <span className="g-cell-v" style={{ fontSize: 18 }}>$5</span>
@@ -140,7 +141,7 @@ export default function JoinPage() {
               marginTop: 4,
             }}
           >
-            another creative's project
+            funds other creatives' projects
           </div>
         </div>
         <div className="g-cell" style={{ flex: 1, textAlign: "center" }}>
@@ -155,7 +156,7 @@ export default function JoinPage() {
               marginTop: 4,
             }}
           >
-            the garden — running the platform
+            runs the place
           </div>
         </div>
       </div>

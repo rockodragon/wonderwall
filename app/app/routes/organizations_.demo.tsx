@@ -17,7 +17,7 @@ const SAMPLE_ORG = {
   name: "Salty Light Church",
   tagline: "Be the salt and light in your community",
   description:
-    "Salty Light Church is a vibrant, multi-site church in Los Angeles passionate about creative expression in worship. We believe creativity is one of the primary ways we reflect the image of our Creator, and we're committed to investing in artists and creatives who help people encounter God.",
+    "Salty Light Church is a vibrant, multi-site church in Los Angeles passionate about creative expression in worship. We believe creativity is one of the primary ways we reflect the image of our Creator, and we're committed to investing in the creatives who help people encounter God.",
   location: "Los Angeles, CA",
   website: "saltylightchurch.com",
   type: "Church",
@@ -33,7 +33,7 @@ const SAMPLE_ORG = {
     "Excellence in Creativity",
     "Authentic Worship",
     "Community Investment",
-    "Emerging Artist Development",
+    "Emerging Creative Development",
   ],
   team: [
     {
@@ -308,7 +308,7 @@ export default function OrganizationDemo() {
               <div className="text-2xl font-bold text-amber-400">
                 {SAMPLE_ORG.stats.sponsorships}
               </div>
-              <div className="text-sm text-gray-400">Artists Sponsored</div>
+              <div className="text-sm text-gray-400">Creatives Sponsored</div>
             </div>
           </div>
         </div>
@@ -571,7 +571,7 @@ export default function OrganizationDemo() {
               </div>
               <p className="text-sm text-gray-400">
                 This organization invests in Kingdom creativity by sponsoring
-                memberships for emerging artists.
+                memberships for emerging creatives.
               </p>
             </div>
 

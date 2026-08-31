@@ -378,21 +378,22 @@ export default function IAPage() {
           </div>
           <div className="g-card">
             <div className="g-h" style={{ fontSize: 17 }}>
-              You name your home community
+              Where your dues go
             </div>
             <p style={{ fontSize: 14.5, lineHeight: 1.55, marginTop: 8 }}>
-              The community share of your dues follows that choice, and you
-              can change it. It stays an earned share rather than a finder's
-              fee — a community keeps it by being worth being in.
+              Every $10 seat splits two ways, published: $5 funds other
+              creatives' projects, $5 runs the place. From day one your money
+              is backing someone's work.
             </p>
           </div>
           <div className="g-card">
             <div className="g-h" style={{ fontSize: 17 }}>
-              Haven't picked one yet?
+              Hosting is free
             </div>
             <p style={{ fontSize: 14.5, lineHeight: 1.55, marginTop: 8 }}>
-              Then 90% of your dues fund other creatives' work, and 10% runs
-              the platform. Nothing sits idle while you decide.
+              There is no fee to host, and no cut of a free table — ever. The
+              $50/mo Leader tier is for the tools: host tables, curate project
+              spaces, run grant programs.
             </p>
           </div>
           <div className="g-card">
@@ -400,16 +401,17 @@ export default function IAPage() {
               What a community sells
             </div>
             <p style={{ fontSize: 14.5, lineHeight: 1.55, marginTop: 8 }}>
-              Its cohorts and classes — their price, they keep about 90% —
-              plus the dues share from the people who call it home.
+              Its classes, cohorts, and premium tiers — their price, and they
+              keep 90%. The platform keeps 10% of what actually sells, nothing
+              else.
             </p>
           </div>
         </div>
 
         <p className="g-hint" style={{ marginTop: 14, maxWidth: "62ch" }}>
-          Said plainly, because someone will ask: a free community whose
-          members never buy seats earns nothing, and neither do we. That's the
-          top of the funnel working as intended, not a hole in the model.
+          Said plainly, because someone will ask: a free community that never
+          sells anything earns nothing, and neither do we. That's the top of
+          the funnel working as intended, not a hole in the model.
         </p>
       </div>
 

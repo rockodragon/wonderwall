@@ -212,7 +212,7 @@ export default function Home() {
             & find work.
           </h2>
           <p className="mt-6 text-xl text-gray-200 max-w-2xl mx-auto mb-4">
-            A creative community for Kingdom-minded artists, makers, employers,
+            A creative community for Kingdom-minded creatives, makers, employers,
             sponsors, and collaborators.
           </p>
           <p className="text-lg text-gray-300 max-w-xl mx-auto mb-8">

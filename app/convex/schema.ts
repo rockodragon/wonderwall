@@ -588,7 +588,7 @@ export default defineSchema({
     userId: v.id("users"),
     level: v.string(), // "seat" | "five" | "host"
     status: v.string(), // "active" | "past_due" | "canceled" | "incomplete"
-    hostOrgId: v.id("hostOrgs"), // whose community the 40% dues share accrues to
+    hostOrgId: v.id("hostOrgs"), // the community this membership belongs to
     stripeSubscriptionId: v.string(),
     stripePriceId: v.optional(v.string()),
     currentPeriodEnd: v.optional(v.number()),
