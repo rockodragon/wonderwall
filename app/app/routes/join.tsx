@@ -11,6 +11,7 @@ import { useState } from "react";
 import { useMutation } from "convex/react";
 import { Link, useRouteError } from "react-router";
 import { api } from "../../convex/_generated/api";
+import { WaitlistFollowUp } from "../components/WaitlistFollowUp";
 import {
   GardenErrorState,
   GardenNav,
@@ -94,6 +95,7 @@ export default function JoinPage() {
   const [email, setEmail] = useState("");
   const [state, setState] = useState<"idle" | "sending" | "done" | "error">("idle");
   const [message, setMessage] = useState("");
+  const [position, setPosition] = useState<number | null>(null);
 
   const valid = /.+@.+\..+/.test(email.trim());
 
@@ -102,7 +104,8 @@ export default function JoinPage() {
     if (!valid || state === "sending") return;
     setState("sending");
     try {
-      await addToWaitlist({ email: email.trim() });
+      const result = await addToWaitlist({ email: email.trim() });
+      setPosition(result.position ?? null);
       setState("done");
     } catch {
       setState("error");
@@ -260,6 +263,8 @@ export default function JoinPage() {
                 See what people are making
               </Link>
             </div>
+
+            <WaitlistFollowUp email={email.trim()} initialPosition={position} />
           </div>
         ) : (
           <>

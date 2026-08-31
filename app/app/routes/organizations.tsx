@@ -1,3 +1,10 @@
+// TODO: delete or repurpose. Unpublished for V1 (see routes.ts) — an org
+// that wants in today signs up as a Patron through the regular waitlist
+// instead, so this page's "hire creatives" lead-gen framing and its three
+// UpSight embeds (getupsight.com, disconnected from our own data) are
+// redundant. Worth reviving if we ever do a dedicated jobs-outreach push
+// targeting organizations rather than individual creatives — otherwise
+// delete this file and organizations_.demo.tsx.
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { usePostHog } from "@posthog/react";

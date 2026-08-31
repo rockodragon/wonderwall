@@ -265,10 +265,10 @@ export default defineSchema({
     // runs a Table) below. Kept separate to not overload that word.
     hasLaunchProject: v.optional(v.boolean()),
     portfolioUrl: v.optional(v.string()),
-    // Prospective Host signal — an org saying they'd want to run a Table
-    // (copy says "community": "Table" is internal branding external people
-    // won't know yet). Host onboarding itself is out of V1 scope; this is
-    // just a lead to follow up on manually.
+    // Prospective Host signal — copy says "Community Host" (parallel to the
+    // existing Community Partner persona), since "Table" is internal
+    // branding external people won't know yet. Host onboarding itself is
+    // out of V1 scope; this is just a lead to follow up on manually.
     interestedInHosting: v.optional(v.boolean()),
     hearAboutUs: v.optional(v.string()),
     hearAboutUsOther: v.optional(v.string()),
