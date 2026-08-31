@@ -35,22 +35,37 @@ Danny runs a citywide gathering: an open panel anyone curious can drop into, and
 
 ## Data model
 
+**The URLs do not go on the `events` table.** They go in a separate table that no existing query reads:
+
 ```typescript
-// events additions
-accessType: v.optional(v.string()),      // "public" | "paid" — absent = public (back-compatible)
-priceCents: v.optional(v.number()),      // paid only, display + email copy
-paymentLinkUrl: v.optional(v.string()),  // off-platform, mirrors offerings.externalPaymentLinkUrl
-meetingUrl: v.optional(v.string()),      // the live join link — NEVER returned to ineligible callers
-recordingUrl: v.optional(v.string()),    // the replay link — same gating as meetingUrl
-recordingPostedAt: v.optional(v.number()),
+// NEW table — the only home for secret URLs.
+eventVideo: defineTable({
+  eventId: v.id("events"),
+  meetingUrl: v.optional(v.string()),      // the live join link
+  recordingUrl: v.optional(v.string()),    // the replay link, posted after
+  recordingPostedAt: v.optional(v.number()),
+  updatedAt: v.number(),
+}).index("by_eventId", ["eventId"]),
+
+// events additions — all of these are PUBLIC by design, safe to spread.
+accessType: v.optional(v.string()),      // "public" | "paid" — absent = public
+priceCents: v.optional(v.number()),      // shown on the public page; that's the point of a price
+paymentLinkUrl: v.optional(v.string()),  // public by design — you must see it to pay
+hasVideo: v.optional(v.boolean()),       // "this event has a room" — public, carries no secret
 
 // eventRsvps addition
 paymentStatus: v.optional(v.string()),   // "pending" | "confirmed" — absent on free events
 ```
 
-No new tables. No file storage — we store other people's URLs, not video bytes (Criticism #5).
+Why the separate table rather than stripping fields in three queries (this reverses the first draft — see Criticism #1):
 
-## Gating rule — one function, three callers
+- `{ ...event }` **cannot** leak a URL that was never on the event document. The three existing spread sites need no changes at all, and neither does the fourth one someone writes next quarter.
+- Leaking now requires an act of commission — writing new code that explicitly queries `eventVideo` and returns it to the wrong caller — rather than an act of omission. It fails closed by default, permanently.
+- The cost I originally cited against this ("adds a join to every read path") was wrong on inspection: `list` and `search` never need the URL, so they do zero extra work. Only the event detail page does one extra indexed read, and only for an entitled viewer. That is not a real cost.
+
+No file storage — we store other people's URLs, not video bytes (Criticism #5).
+
+## Gating rule
 
 ```typescript
 // convex/eventAccess.ts
@@ -58,19 +73,46 @@ export type EventVideoRole = "organizer" | "entitled" | "none";
 
 export async function resolveVideoRole(ctx, event, userId): Promise<EventVideoRole>
 // organizer  → event.organizerId === userId
-// entitled   → public event: any signed-in user, or any RSVP/accepted-application row
+// entitled   → public event: anyone (see Criticism #3 — this is not a gate, and the UI must not imply one)
 //              paid event:   an eventRsvps row with paymentStatus === "confirmed",
-//                            OR an accepted eventApplications row (approval path)
+//                            OR an accepted eventApplications row (the requiresApproval path)
 // none       → everyone else
 ```
 
-Applied at exactly three call sites, and the field is **deleted from the payload** for `"none"`:
+Exactly one query may return a URL: `events.getVideo(eventId)`, which resolves the role and returns `{ meetingUrl, recordingUrl }` or `null`. It is the single chokepoint. `events.get`/`list`/`search` are untouched by this feature and continue to spread the event doc harmlessly.
 
-1. `events.get` — strip `meetingUrl`/`recordingUrl`/`paymentLinkUrl` unless role ≠ `"none"`.
-2. `events.list` — strip unconditionally. A browse listing never needs a join link.
-3. `events.search` — strip unconditionally. Same reason.
+## The join proxy — stable link for calendar invites
 
-Write these as an explicit allowlist (`const { meetingUrl, recordingUrl, ...safe } = event`), not a denylist, so the next field added to `events` fails closed instead of leaking.
+A calendar invite is written once and lives in someone's calendar for weeks. The real meeting URL is not stable: the organizer often pastes it the day before, changes it, or (later) it becomes a per-user LiveKit token that cannot exist ahead of time. Putting a raw URL in an invite is therefore wrong on day one.
+
+Instead the invite carries a **permanent proxy URL**:
+
+```
+https://creatives.exchange/j/{eventId}
+```
+
+Implemented as a Cloudflare Pages Function at `functions/j/[id].ts`, following the pattern already proven in `functions/events/[id].ts` (fetches Convex over plain HTTP, no WebSocket, no SSR — that file is the working precedent for this exact shape). It resolves the current `meetingUrl` and issues a real `302`.
+
+Behavior:
+
+| Case | Response |
+|---|---|
+| Free event, `meetingUrl` set | `302` to the meeting URL |
+| No `meetingUrl` yet | `302` to `/events/{id}` — the event page explains it isn't posted yet. Never a 404. |
+| Event cancelled | `302` to `/events/{id}` |
+| Paid event (later) | `302` to `/events/{id}`, which does the entitlement check client-side and shows Join or the payment link |
+
+**This is the piece that makes the LiveKit migration non-breaking, and it is the main reason to build it now rather than later.** Every calendar invite already sitting in an attendee's calendar keeps working when the target changes from a YouTube URL to a token-minting route, because only the server-side redirect target changes. Without the proxy, pulling LiveKit forward means every previously-sent invite points at a dead YouTube link.
+
+Note the proxy is a *stable* link, not a *secret* one — `/j/{eventId}` is guessable from the public event ID, so for free events it grants exactly what the event page already grants. It becomes a real gate only when the paid path lands and the redirect starts checking entitlement. Do not describe it as security in the meantime.
+
+## Calendar invite
+
+**None of this exists yet** — verified: no `.ics`, no `VCALENDAR`, no calendar code anywhere in `app/` or `convex/`. This is net-new, not a modification.
+
+On RSVP, the confirmation email gains an "Add to calendar" link. Simplest shape that works everywhere and requires no new infrastructure: a Google Calendar template URL for the common case plus a downloadable `.ics` for everyone else, both generated client-side from event fields already available. `DESCRIPTION` contains the `/j/{eventId}` proxy link.
+
+The `.ics` needs a stable `UID` (`event-{eventId}@creatives.exchange`) so that a re-sent invite updates the existing calendar entry rather than creating a duplicate.
 
 ## Mutations
 
@@ -91,13 +133,20 @@ On confirm, and on `postEventRecording`, send the entitled person the link by em
 - **Event page, paid + unconfirmed**: the price, the payment link, and plain copy — "Once your payment is confirmed, the join link appears here." No silent empty state.
 - **Event page, nobody**: no trace that a video exists beyond what the organizer wrote in the description.
 
+## Build order (decided 2026-08-31)
+
+**Ship now — free/public events only.** Organizer pastes a YouTube Live (or any) link, attendees join through the `/j/{eventId}` proxy, recording link posted after. The paid path's schema fields (`accessType`, `priceCents`, `paymentLinkUrl`, `paymentStatus`) go in now because they're cheap and back-compatible, but **no paid gating UI ships in this pass** and `resolveVideoRole` returns `"entitled"` for everyone on a public event.
+
+**When the first genuinely paid event appears, pull LiveKit forward** rather than shipping honor-system paid gating on a forwardable link. Criticism #2 is the reason: for a free event, a leaked link costs nothing; for a paid one it's the whole product. The proxy is what makes that switch cheap — invites already in calendars keep working.
+
 ## Explicit scope cuts
 
-1. **No in-app video.** That's `docs/events-video-hosting-prd.md`, Phase 2, unblocked once this proves demand.
-2. **No file upload / hosted recording.** We store a URL.
-3. **No refunds, no charge verification, no ticketing.** Blocked on `wonderwall-sxi`.
-4. **No completion automation.** The organizer posts the recording when they have it.
-5. **No expiring or per-viewer links.** Structurally impossible with link-out — see Criticism #2.
+1. **No in-app video.** That's `docs/events-video-hosting-prd.md`, Phase 2 — now explicitly triggered by the first paid event rather than by a date.
+2. **No paid gating UI this pass.** Fields land; the flow doesn't.
+3. **No file upload / hosted recording.** We store a URL.
+4. **No refunds, no charge verification, no ticketing.** Blocked on `wonderwall-sxi`.
+5. **No completion automation.** The organizer posts the recording when they have it (Criticism #4).
+6. **No expiring or per-viewer links.** Structurally impossible with link-out — see Criticism #2.
 
 ---
 
@@ -105,7 +154,11 @@ On confirm, and on `postEventRecording`, send the entitled person the link by em
 
 Written against this doc deliberately. Items 1–3 are build blockers; 4–8 are accepted limitations that must not be discovered later as surprises.
 
-**1. The `...event` spread is a live leak waiting to happen — highest severity.** Three query sites (`events.ts:53`, `:120`, `:466`) return the raw document, two of them unauthenticated public browse surfaces. Adding `meetingUrl` to the table without touching those three sites publishes every paid event's join link on the public events listing. The mitigation (explicit destructure, allowlist not denylist) is in the spec above, but note what this really says: **the schema is not the security boundary here — three hand-maintained query sites are.** Any future query that spreads an event re-opens this. A stronger design would keep the URLs in a separate `eventVideo` table that no existing query touches, so leaking requires writing new code rather than forgetting to strip. I did not spec that, because it adds a join to every read path for a one-week build — but it is the more defensible shape and should be revisited if this survives past V1.
+**1. RESOLVED — the `...event` spread leak, and why the first fix was inadequate.** Three query sites (`events.ts:53`, `:120`, `:466`) `return { ...event }` — the spread copies every field of the row into the client response. Two of them (`list`, `search`) are unauthenticated public browse surfaces. Putting `meetingUrl` on the `events` table would therefore publish every event's join link in a public API payload, silently, with no error — just a field sitting in a network response nobody inspects.
+
+The first draft's fix was to destructure the field out at each of the three sites. That was inadequate and I should not have specced it: it makes correctness depend on every future author remembering, forever, that this table has a field that must not be returned. The security boundary would have been three hand-maintained call sites rather than the schema.
+
+**The spec above now uses a separate `eventVideo` table.** A spread cannot leak a field that isn't on the document. The three existing sites need no changes, and a fourth written later is safe by construction — exposing a URL requires deliberately querying `eventVideo` and returning it, which is an act of commission that shows up plainly in review. My stated objection (an extra join on every read) was also simply wrong: browse and search never need the URL, so only the detail page pays one indexed read, only for an entitled viewer.
 
 **2. An unlisted link is not access control — this is the deepest flaw and it is unfixable within this approach.** Once one paying attendee forwards the URL, gating is over: no revocation, no expiry, no per-viewer identity, no way to even detect it happened. We gate the *display* of a string. LiveKit's per-user tokens with short TTLs are materially stronger, and that difference is the actual thing being traded away for a week of schedule. For a free/cheap community event this is a fine trade. **For a genuinely paid event with real money and real scarcity, it is weak**, and the spec should not be read as claiming otherwise. If the first paid event has meaningful revenue attached, that changes the calculus and Phase 2 should be pulled forward.
 
