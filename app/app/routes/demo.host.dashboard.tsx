@@ -493,10 +493,11 @@ export default function DemoHostDashboard() {
               </div>
             </dl>
             <p className="g-hint" style={{ marginTop: 12 }}>
-              {SPLITS.dues.hostOrg * 100}% of every member's dues accrues to
-              your host org — {SPLITS.dues.pool * 100}% funds the creative
-              project pool, {SPLITS.dues.platform * 100}% keeps the garden.{" "}
-              {DASHBOARD.duesShareNote}
+              Member dues split in the open — $5 funds other creatives'
+              projects, $5 runs the place. What you sell is yours:{" "}
+              {SPLITS.sales.host * 100}% to you,{" "}
+              {SPLITS.sales.platform * 100}% to the platform.{" "}
+              {DASHBOARD.payoutNote}
             </p>
             <p className="g-hint" style={{ marginTop: 8 }}>
               Your open Thursday table is free to run — and keeps you inside the

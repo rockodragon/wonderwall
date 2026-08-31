@@ -291,7 +291,7 @@ export const seedLaunchTables = internalMutation({
         mode: "open",
         format: "Critique",
         cadence: "Monthly · San Diego · next date landing soon",
-        blurb: "Working artists around an actual table — bring a piece, leave with direction.",
+        blurb: "Working creatives around an actual table — bring a piece, leave with direction.",
         status: "active",
         createdAt: now,
       },

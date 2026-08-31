@@ -82,7 +82,7 @@ const TIERS: {
       "Apply to paid work",
       "Put on events",
       "Join member tables",
-      "Propose to the grant pool",
+      "Propose to the Grant Fund",
     ],
     Icon: IconSeat,
   },
@@ -100,14 +100,14 @@ const TIERS: {
   },
   {
     level: "host",
-    name: "Host",
+    name: "Leader",
     price: "$50/mo",
     monthly: 50,
     perks: [
-      "Create tables — your roster, your room",
-      "Spawn closed tables from open ones",
+      "Host tables — your roster, your room",
+      "Curate project spaces",
+      "Run community grant programs (coming)",
       "10 active passion projects",
-      "Patron routing to your community",
     ],
     Icon: IconTable,
   },
@@ -155,20 +155,20 @@ function StepDots({ current }: { current: Step }) {
     cell (raised ink + citron rule), never a citron fill. */
 function SplitStrip({ monthly }: { monthly: number }) {
   const pool = monthly * SPLITS.dues.pool;
-  const garden = monthly - pool; // host share + platform — The Garden is the default host
+  const garden = monthly - pool; // the other half runs the place
   const money = (n: number) => (Number.isInteger(n) ? `$${n}` : `$${n.toFixed(2)}`);
   return (
     <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
       <div className="g-cell g-cell-hot" style={{ flex: 1 }}>
         <span className="g-cell-v">{money(pool)}</span>
         <div className="g-label" style={{ marginTop: 6 }}>
-          another creative's project
+          funds other creatives' projects
         </div>
       </div>
       <div className="g-cell" style={{ flex: 1 }}>
         <span className="g-cell-v">{money(garden)}</span>
         <div className="g-label" style={{ marginTop: 6 }}>
-          the garden — running the platform
+          runs the place
         </div>
       </div>
     </div>

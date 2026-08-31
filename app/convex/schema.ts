@@ -133,8 +133,22 @@ export default defineSchema({
     title: v.string(),
     description: v.string(),
     datetime: v.number(),
+    endTime: v.optional(v.number()), // optional end timestamp (ms) — must be > datetime (enforced in mutations)
+    // Optional paid ticket tiers (e.g. General $25 · Patron $100). Absent =
+    // free/RSVP-only event; RSVPs keep working alongside tiers.
+    ticketTiers: v.optional(
+      v.array(
+        v.object({
+          name: v.string(),
+          priceCents: v.number(),
+          description: v.optional(v.string()),
+          quantity: v.optional(v.number()), // optional cap; absent = uncapped
+        }),
+      ),
+    ),
     // Location fields
-    location: v.optional(v.string()), // Display string: "Tamarack State Beach, Carlsbad, CA"
+    location: v.optional(v.string()), // Venue name / display string: "Tamarack State Beach"
+    venueAddress: v.optional(v.string()), // Free-text street address ("123 Main St, Carlsbad, CA") — preferred for maps links when present. (`address` below is the structured autocomplete object, so this plain-string field gets its own name.)
     locationType: v.optional(v.string()), // "venue" | "city" | "zip" | "online" | "tbd"
     address: v.optional(
       v.object({
@@ -673,7 +687,7 @@ export default defineSchema({
     userId: v.id("users"),
     level: v.string(), // "seat" | "five" | "host"
     status: v.string(), // "active" | "past_due" | "canceled" | "incomplete"
-    hostOrgId: v.id("hostOrgs"), // whose community the 40% dues share accrues to
+    hostOrgId: v.id("hostOrgs"), // the community this membership belongs to
     stripeSubscriptionId: v.string(),
     stripePriceId: v.optional(v.string()),
     currentPeriodEnd: v.optional(v.number()),
@@ -944,6 +958,24 @@ export default defineSchema({
   })
     .index("by_eventId", ["eventId"])
     .index("by_eventId_email", ["eventId", "email"]),
+
+  // Completed event-ticket purchases — written exclusively by the Stripe
+  // webhook (checkout.session.completed, mode "payment", kind "event_ticket";
+  // see garden/stripeHandlers.ts). Idempotent upsert keyed by
+  // stripeSessionId. No refunds/self-serve management — operator-handled.
+  ticketPurchases: defineTable({
+    eventId: v.id("events"),
+    tierName: v.string(), // denormalized tier name at purchase time
+    amountCents: v.number(),
+    buyerEmail: v.optional(v.string()),
+    userId: v.optional(v.id("users")), // absent for guest checkout
+    stripeSessionId: v.string(),
+    status: v.string(), // "paid" | "refunded" (refunds are operator bookkeeping)
+    createdAt: v.number(),
+  })
+    .index("by_eventId", ["eventId"])
+    .index("by_stripeSessionId", ["stripeSessionId"])
+    .index("by_userId", ["userId"]),
 
   // AP Fund public allocations ledger (W5; operator-entered, display-only lane).
   allocations: defineTable({

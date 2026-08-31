@@ -188,9 +188,9 @@ export default function GardenIndex() {
             price="Free to hold, pay per act"
           />
           <HowItWorksCell
-            role="Hosts"
-            line="Gather people; get paid to run tables."
-            price="$50/mo, waived once a table charges"
+            role="Leaders"
+            line="Lead: host tables, curate project spaces, run grant programs. Hosting is free — you keep 90% of anything you sell."
+            price="$50/mo"
           />
         </div>
       </div>

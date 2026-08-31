@@ -15,6 +15,7 @@ import {
   type StripeCheckoutSessionLike,
   type StripeSubscriptionLike,
   type StripeWebhookEvent,
+  type TicketPurchaseRow,
 } from "./stripeHandlers";
 import { deriveGardenUser } from "./entitlements";
 
@@ -24,6 +25,7 @@ function createFakeDb() {
   const memberships = new Map<string, MembershipRow>(); // keyed by stripeSubscriptionId
   const codes = new Map<string, CoverageCodeRow>(); // keyed by stripeSubscriptionId
   const billingCustomers = new Map<string, BillingCustomerRow>(); // keyed by userId
+  const ticketPurchases = new Map<string, TicketPurchaseRow>(); // keyed by stripeSessionId
 
   const db: Db = {
     async getBillingCustomerByStripeId(stripeCustomerId) {
@@ -49,9 +51,12 @@ function createFakeDb() {
       if (!existing) return;
       codes.set(id, { ...existing, ...patch });
     },
+    async upsertTicketPurchase(row) {
+      ticketPurchases.set(row.stripeSessionId, row);
+    },
   };
 
-  return { db, memberships, codes, billingCustomers };
+  return { db, memberships, codes, billingCustomers, ticketPurchases };
 }
 
 // ——— Fixtures (hand-written, shaped like real Stripe objects) ———
@@ -171,6 +176,101 @@ describe("checkout.session.completed", () => {
       db,
     );
     expect(memberships.get("sub_123")?.status).toBe("incomplete");
+  });
+});
+
+// ——— checkout.session.completed (event tickets — mode "payment") ———
+
+function ticketSessionFixture(
+  overrides: Partial<StripeCheckoutSessionLike> = {},
+): StripeCheckoutSessionLike {
+  return {
+    id: "cs_ticket_1",
+    mode: "payment",
+    customer: null,
+    subscription: null,
+    customer_details: { email: "diane@example.com" },
+    amount_total: 2500,
+    metadata: {
+      kind: "event_ticket",
+      eventId: "event_showcase",
+      tierName: "General",
+      userId: "user_diane",
+    },
+    ...overrides,
+  };
+}
+
+describe("checkout.session.completed (event tickets)", () => {
+  it("records a paid ticket purchase keyed by session id", async () => {
+    const { db, ticketPurchases } = createFakeDb();
+    await handleStripeEvent(
+      event("checkout.session.completed", ticketSessionFixture()),
+      db,
+    );
+    expect(ticketPurchases.get("cs_ticket_1")).toEqual({
+      eventId: "event_showcase",
+      tierName: "General",
+      amountCents: 2500,
+      buyerEmail: "diane@example.com",
+      userId: "user_diane",
+      stripeSessionId: "cs_ticket_1",
+      status: "paid",
+    });
+  });
+
+  it("guest checkout (no userId in metadata) still records with buyer email", async () => {
+    const { db, ticketPurchases } = createFakeDb();
+    await handleStripeEvent(
+      event(
+        "checkout.session.completed",
+        ticketSessionFixture({
+          metadata: {
+            kind: "event_ticket",
+            eventId: "event_showcase",
+            tierName: "Patron",
+          },
+        }),
+      ),
+      db,
+    );
+    const purchase = ticketPurchases.get("cs_ticket_1")!;
+    expect(purchase.userId).toBeUndefined();
+    expect(purchase.buyerEmail).toBe("diane@example.com");
+    expect(purchase.tierName).toBe("Patron");
+  });
+
+  it("idempotent replay: same session event twice yields one row", async () => {
+    const { db, ticketPurchases } = createFakeDb();
+    const evt = event("checkout.session.completed", ticketSessionFixture());
+    await handleStripeEvent(evt, db);
+    await handleStripeEvent(evt, db);
+    expect(ticketPurchases.size).toBe(1);
+  });
+
+  it("missing eventId/tierName metadata is a safe no-op", async () => {
+    const { db, ticketPurchases } = createFakeDb();
+    await handleStripeEvent(
+      event(
+        "checkout.session.completed",
+        ticketSessionFixture({ metadata: { kind: "event_ticket" } }),
+      ),
+      db,
+    );
+    expect(ticketPurchases.size).toBe(0);
+  });
+
+  it("payment sessions of unknown kind never touch tickets or memberships", async () => {
+    const { db, ticketPurchases, memberships } = createFakeDb();
+    await handleStripeEvent(
+      event(
+        "checkout.session.completed",
+        ticketSessionFixture({ metadata: { kind: "something_else" } }),
+      ),
+      db,
+    );
+    expect(ticketPurchases.size).toBe(0);
+    expect(memberships.size).toBe(0);
   });
 });
 
