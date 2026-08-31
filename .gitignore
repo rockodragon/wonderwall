@@ -1,3 +1,24 @@
 # bv (beads viewer) local config and caches
 .bv/
 .DS_Store
+
+# Dependencies. The app's own node_modules is covered by app/.gitignore;
+# this catches the stray root one (a .vite cache dir, not a real install).
+node_modules/
+
+# Cloudflare Wrangler local state — regenerated on every dev/deploy run.
+.wrangler/
+
+# Editor / vault config, personal to whoever has the repo checked out.
+.obsidian/
+.vscode/
+.idea/
+
+# Binary drops. Design and audit material belongs in a shared drive, not in
+# git history where it can never be removed.
+*.zip
+
+# Local environment
+.env
+.env.local
+.env.production
