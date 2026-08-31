@@ -8,6 +8,7 @@ import {
   LocationAutocomplete,
   type LocationSuggestion,
 } from "../components/LocationAutocomplete";
+import { useLocationField } from "../lib/useLocationField";
 import { ShareButton } from "../components/ShareButton";
 import {
   TicketTierEditor,
@@ -16,6 +17,7 @@ import {
   type TicketTier,
   type TicketTierDraft,
 } from "../components/TicketTierEditor";
+import { AnnouncementComposer } from "../components/AnnouncementComposer";
 
 const COVER_COLORS = [
   { name: "Blue", value: "blue", gradient: "from-blue-500 to-blue-600" },
@@ -302,6 +304,13 @@ export default function EventDetail() {
 
   return (
     <div className="max-w-4xl mx-auto">
+      {/* Garden design tokens — this file is otherwise plain Tailwind, but
+          the shared AnnouncementComposer (see "Organizer: message
+          attendees" below) is styled with --garden-* tokens to match
+          routes/projects.tsx and routes/offerings.tsx, so it needs the
+          same stylesheet those files load. */}
+      <link rel="stylesheet" href="/tokens.css" />
+      <link rel="stylesheet" href="/about/fonts/fonts.css" />
       {/* Cover Image */}
       <div className="relative h-56 md:h-72 overflow-hidden">
         {bannerImageUrl ? (
@@ -806,6 +815,17 @@ export default function EventDetail() {
           <EventImageManager eventId={event._id} event={event} />
         )}
 
+        {/* Organizer: message attendees */}
+        {event.isOrganizer && (
+          <div className="mt-6">
+            <AnnouncementComposer
+              targetType="event"
+              targetId={event._id}
+              heading="Message attendees"
+            />
+          </div>
+        )}
+
         {/* Back link */}
         <div className="mt-8">
           <Link
@@ -829,6 +849,10 @@ export default function EventDetail() {
             location: event.location,
             venueAddress: event.venueAddress,
             ticketTiers: event.ticketTiers,
+            locationType: event.locationType,
+            address: event.address,
+            coordinates: event.coordinates,
+            placeId: event.placeId,
             tags: event.tags,
             requiresApproval: event.requiresApproval,
           }}
@@ -1201,6 +1225,10 @@ function EditEventModal({
     location?: string;
     venueAddress?: string;
     ticketTiers?: TicketTier[];
+    locationType?: string;
+    address?: LocationSuggestion["address"];
+    coordinates?: LocationSuggestion["coordinates"];
+    placeId?: string;
     tags: string[];
     requiresApproval: boolean;
   };
@@ -1221,37 +1249,24 @@ function EditEventModal({
   const [date, setDate] = useState(dateStr);
   const [time, setTime] = useState(timeStr);
   const [endTimeStr, setEndTimeStr] = useState(endTimeInit);
-  const [location, setLocation] = useState(initialValues.location || "");
   const [venueAddress, setVenueAddress] = useState(
     initialValues.venueAddress || "",
   );
   const [ticketTiers, setTicketTiers] = useState<TicketTierDraft[]>(
     tiersToDrafts(initialValues.ticketTiers),
   );
-  const [selectedLocation, setSelectedLocation] =
-    useState<LocationSuggestion | null>(null);
+  // Seeded from the event being edited (including its structured fields) so
+  // saving without re-picking a location doesn't wipe locationType/address/
+  // coordinates/placeId — previously this started at null unconditionally,
+  // and events.update patches those fields unconditionally from whatever
+  // `selected` currently is, so an untouched save silently erased them.
+  const location = useLocationField(initialValues);
   const [tags, setTags] = useState<string[]>(initialValues.tags);
   const [requiresApproval, setRequiresApproval] = useState(
     initialValues.requiresApproval,
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-
-  // Handle location selection from autocomplete
-  function handleLocationSelect(suggestion: LocationSuggestion) {
-    setSelectedLocation(suggestion);
-  }
-
-  // Clear selected location if user manually edits
-  function handleLocationChange(value: string) {
-    setLocation(value);
-    if (
-      !value ||
-      (selectedLocation && !value.includes(selectedLocation.displayName))
-    ) {
-      setSelectedLocation(null);
-    }
-  }
 
   function toggleTag(tag: string) {
     setTags((prev) =>
@@ -1295,12 +1310,8 @@ function EditEventModal({
         datetime,
         endTime,
         ticketTiers: tiers,
-        location: location || undefined,
+        ...location.toArgs(),
         venueAddress: venueAddress.trim() || undefined,
-        locationType: selectedLocation?.locationType,
-        address: selectedLocation?.address,
-        coordinates: selectedLocation?.coordinates,
-        placeId: selectedLocation?.placeId,
         tags,
         requiresApproval,
       });
@@ -1414,12 +1425,12 @@ function EditEventModal({
                 Venue name
               </label>
               <LocationAutocomplete
-                value={location}
-                onChange={handleLocationChange}
-                onSelect={handleLocationSelect}
+                value={location.value}
+                onChange={location.onChange}
+                onSelect={location.onSelect}
                 placeholder="Search for a venue, type 'Online', or 'TBD'"
               />
-              {selectedLocation && (
+              {location.selected && (
                 <p className="mt-1 text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
                   <svg
                     className="w-3 h-3"
@@ -1435,7 +1446,7 @@ function EditEventModal({
                     />
                   </svg>
                   Location verified
-                  {selectedLocation.coordinates && " with coordinates"}
+                  {location.selected.coordinates && " with coordinates"}
                 </p>
               )}
             </div>

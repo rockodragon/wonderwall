@@ -2,7 +2,6 @@ import { useQuery } from "convex/react";
 import { Link } from "react-router";
 import { api } from "../../convex/_generated/api";
 import { FavoriteButton } from "../components/FavoriteButton";
-import { InviteCTA } from "../components/InviteCTA";
 
 const EVENT_GRADIENTS = [
   "from-blue-500 to-indigo-600",
@@ -19,7 +18,7 @@ type FavoriteProfileItem = {
     _id: string;
     name: string;
     imageUrl?: string | null;
-    jobFunctions: string[];
+    interests: string[];
   };
   wondering: {
     _id: string;
@@ -165,10 +164,6 @@ export default function Favorites() {
             </section>
           )}
 
-          {/* Invite CTA */}
-          <div className="mt-12 max-w-md">
-            <InviteCTA variant="favorites" />
-          </div>
         </div>
       )}
     </div>
@@ -282,7 +277,7 @@ function FavoriteProfileCard({ item }: { item: FavoriteProfileItem }) {
           className="w-12 h-12 rounded-full object-cover shrink-0"
         />
       ) : (
-        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white font-bold shrink-0">
+        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-gray-400 to-gray-500 dark:from-gray-600 dark:to-gray-700 flex items-center justify-center text-white font-bold shrink-0">
           {item.profile.name.charAt(0).toUpperCase()}
         </div>
       )}
@@ -291,7 +286,7 @@ function FavoriteProfileCard({ item }: { item: FavoriteProfileItem }) {
           {item.profile.name}
         </h3>
         <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-          {item.profile.jobFunctions.slice(0, 2).join(" • ")}
+          {item.profile.interests.slice(0, 2).join(" • ")}
         </p>
       </div>
       <div className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0">

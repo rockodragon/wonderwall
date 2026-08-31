@@ -1,8 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none">
-  <!-- Concept A: Four rounded squares with cross-shaped negative space (gap) between them -->
-  <!-- The cross emerges from the whitespace — subtle, structural -->
-  <rect x="2" y="2" width="19" height="19" rx="4" fill="currentColor"/>
-  <rect x="27" y="2" width="19" height="19" rx="4" fill="currentColor"/>
-  <rect x="2" y="27" width="19" height="19" rx="4" fill="currentColor"/>
-  <rect x="27" y="27" width="19" height="19" rx="4" fill="currentColor"/>
+  <!-- The Exchange mark, monochrome — inherits currentColor for inline/nav use on either theme. -->
+  <rect x="20" y="3" width="8" height="42" rx="4" fill="currentColor" opacity="0.85" transform="rotate(-18 24 24)"/>
+  <rect x="20" y="3" width="8" height="42" rx="4" fill="currentColor" transform="rotate(18 24 24)"/>
 </svg>

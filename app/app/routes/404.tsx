@@ -2,12 +2,12 @@ import { Link } from "react-router";
 
 export function meta() {
   return [
-    { title: "Page Not Found - TheCrossBoard" },
+    { title: "Page Not Found - creatives.exchange" },
     {
       name: "description",
       content: "The page you're looking for doesn't exist.",
     },
-    { property: "og:title", content: "Page Not Found - TheCrossBoard" },
+    { property: "og:title", content: "Page Not Found - creatives.exchange" },
     {
       property: "og:description",
       content: "The page you're looking for doesn't exist.",

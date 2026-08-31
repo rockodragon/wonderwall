@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import type { ObjectType } from "convex/values";
 import {
   mutation,
   query,
@@ -9,6 +10,9 @@ import {
 } from "./_generated/server";
 import { internal, api } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
+import type { MutationCtx } from "./_generated/server";
+import { auth } from "./auth";
+import { requireAdminCtx } from "./helpers";
 
 // ============================================
 // Types
@@ -73,6 +77,8 @@ export const listOrganizations = query({
     cursor: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    await requireAdminCtx(ctx);
+
     const limit = args.limit ?? 50;
 
     // Fetch based on the primary filter
@@ -153,6 +159,8 @@ export const listOrganizations = query({
 export const getOrganization = query({
   args: { id: v.id("crawledOrganizations") },
   handler: async (ctx, args) => {
+    await requireAdminCtx(ctx);
+
     return ctx.db.get(args.id);
   },
 });
@@ -161,6 +169,8 @@ export const getOrganization = query({
 export const getStats = query({
   args: {},
   handler: async (ctx) => {
+    await requireAdminCtx(ctx);
+
     const allOrgs = await ctx.db.query("crawledOrganizations").collect();
 
     const byStatus = allOrgs.reduce(
@@ -209,6 +219,8 @@ export const getStats = query({
 export const getCrawlerRuns = query({
   args: { limit: v.optional(v.number()) },
   handler: async (ctx, args) => {
+    await requireAdminCtx(ctx);
+
     return ctx.db
       .query("crawlerRuns")
       .withIndex("by_startedAt")
@@ -221,6 +233,8 @@ export const getCrawlerRuns = query({
 export const getSources = query({
   args: {},
   handler: async (ctx) => {
+    await requireAdminCtx(ctx);
+
     return ctx.db.query("crawlerSources").collect();
   },
 });
@@ -230,87 +244,107 @@ export const getSources = query({
 // ============================================
 
 // Create or update organization (upsert by website)
-export const upsertOrganization = mutation({
-  args: {
-    sourceUrl: v.string(),
-    source: v.string(),
-    name: v.string(),
-    website: v.optional(v.string()),
-    industry: v.optional(v.string()),
-    description: v.optional(v.string()),
-    streetAddress: v.optional(v.string()),
-    city: v.optional(v.string()),
-    state: v.optional(v.string()),
-    zipCode: v.optional(v.string()),
-    country: v.optional(v.string()),
-    employeeEstimate: v.optional(v.string()),
-    orgType: v.optional(v.string()),
-    personaTags: v.array(v.string()),
-    valuesScore: v.number(),
-    hiringScore: v.number(),
-    qualityScore: v.number(),
-    contactScore: v.number(),
-    faithSignals: v.array(v.string()),
-    conservativeSignals: v.array(v.string()),
-    email: v.optional(v.string()),
-    phone: v.optional(v.string()),
-    contactFormUrl: v.optional(v.string()),
-    ownerName: v.optional(v.string()),
-    linkedinUrl: v.optional(v.string()),
-    hasCareerPage: v.optional(v.boolean()),
-    leadershipMarkdown: v.optional(v.string()),
-    rawHtml: v.optional(v.string()),
-    rawClassification: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
-    const now = Date.now();
-    const totalScore =
-      args.valuesScore +
-      args.hiringScore +
-      args.qualityScore +
-      args.contactScore;
+const upsertOrganizationArgs = {
+  sourceUrl: v.string(),
+  source: v.string(),
+  name: v.string(),
+  website: v.optional(v.string()),
+  industry: v.optional(v.string()),
+  description: v.optional(v.string()),
+  streetAddress: v.optional(v.string()),
+  city: v.optional(v.string()),
+  state: v.optional(v.string()),
+  zipCode: v.optional(v.string()),
+  country: v.optional(v.string()),
+  employeeEstimate: v.optional(v.string()),
+  orgType: v.optional(v.string()),
+  personaTags: v.array(v.string()),
+  valuesScore: v.number(),
+  hiringScore: v.number(),
+  qualityScore: v.number(),
+  contactScore: v.number(),
+  faithSignals: v.array(v.string()),
+  conservativeSignals: v.array(v.string()),
+  email: v.optional(v.string()),
+  phone: v.optional(v.string()),
+  contactFormUrl: v.optional(v.string()),
+  ownerName: v.optional(v.string()),
+  linkedinUrl: v.optional(v.string()),
+  hasCareerPage: v.optional(v.boolean()),
+  leadershipMarkdown: v.optional(v.string()),
+  rawHtml: v.optional(v.string()),
+  rawClassification: v.optional(v.string()),
+};
+type UpsertOrganizationArgs = ObjectType<typeof upsertOrganizationArgs>;
 
-    // Determine segment based on score
-    let segment: string;
-    if (totalScore >= 80) segment = "hot";
-    else if (totalScore >= 60) segment = "warm";
-    else if (totalScore >= 40) segment = "nurture";
-    else if (totalScore >= 20) segment = "research";
-    else segment = "low";
+// Shared implementation, called from both the admin-gated public mutation and
+// the internal-pipeline mutation (crons run with no caller identity, so the
+// crawler pipeline calls the internal version directly instead of going
+// through the requireAdminCtx-gated public wrapper).
+async function upsertOrganizationHandler(
+  ctx: MutationCtx,
+  args: UpsertOrganizationArgs,
+) {
+  const now = Date.now();
+  const totalScore =
+    args.valuesScore + args.hiringScore + args.qualityScore + args.contactScore;
 
-    // Check if organization already exists by website
-    const websiteToCheck = args.website || args.sourceUrl;
-    const existing = await ctx.db
-      .query("crawledOrganizations")
-      .withIndex("by_website", (q) => q.eq("website", websiteToCheck))
-      .first();
+  // Determine segment based on score
+  let segment: string;
+  if (totalScore >= 80) segment = "hot";
+  else if (totalScore >= 60) segment = "warm";
+  else if (totalScore >= 40) segment = "nurture";
+  else if (totalScore >= 20) segment = "research";
+  else segment = "low";
 
-    if (existing) {
-      // Update existing
-      await ctx.db.patch(existing._id, {
-        ...args,
-        totalScore,
-        segment,
-        lastUpdated: now,
-      });
-      return { id: existing._id, created: false };
-    }
+  // Check if organization already exists by website
+  const websiteToCheck = args.website || args.sourceUrl;
+  const existing = await ctx.db
+    .query("crawledOrganizations")
+    .withIndex("by_website", (q) => q.eq("website", websiteToCheck))
+    .first();
 
-    // Create new
-    const id = await ctx.db.insert("crawledOrganizations", {
+  if (existing) {
+    // Update existing
+    await ctx.db.patch(existing._id, {
       ...args,
-      website: websiteToCheck,
       totalScore,
       segment,
-      status: "new",
-      exportedToCrm: false,
-      discoveredAt: now,
-      crawledAt: now,
       lastUpdated: now,
     });
+    return { id: existing._id, created: false };
+  }
 
-    return { id, created: true };
+  // Create new
+  const id = await ctx.db.insert("crawledOrganizations", {
+    ...args,
+    website: websiteToCheck,
+    totalScore,
+    segment,
+    status: "new",
+    exportedToCrm: false,
+    discoveredAt: now,
+    crawledAt: now,
+    lastUpdated: now,
+  });
+
+  return { id, created: true };
+}
+
+export const upsertOrganization = mutation({
+  args: upsertOrganizationArgs,
+  handler: async (ctx, args) => {
+    await requireAdminCtx(ctx);
+    return upsertOrganizationHandler(ctx, args);
   },
+});
+
+// Internal: same upsert logic, callable from the crawler pipeline (crons /
+// internal actions) which runs with no caller identity and can't pass the
+// requireAdminCtx gate on the public mutation above.
+export const upsertOrganizationInternal = internalMutation({
+  args: upsertOrganizationArgs,
+  handler: async (ctx, args) => upsertOrganizationHandler(ctx, args),
 });
 
 // Update organization status
@@ -321,6 +355,8 @@ export const updateStatus = mutation({
     notes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    await requireAdminCtx(ctx);
+
     await ctx.db.patch(args.id, {
       status: args.status,
       notes: args.notes,
@@ -336,6 +372,8 @@ export const bulkUpdateSegment = mutation({
     segment: v.string(),
   },
   handler: async (ctx, args) => {
+    await requireAdminCtx(ctx);
+
     const now = Date.now();
     for (const id of args.ids) {
       await ctx.db.patch(id, {
@@ -354,6 +392,8 @@ export const markExported = mutation({
     crmId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    await requireAdminCtx(ctx);
+
     const now = Date.now();
     for (const id of args.ids) {
       await ctx.db.patch(id, {
@@ -370,6 +410,8 @@ export const markExported = mutation({
 export const deleteOrganization = mutation({
   args: { id: v.id("crawledOrganizations") },
   handler: async (ctx, args) => {
+    await requireAdminCtx(ctx);
+
     await ctx.db.delete(args.id);
   },
 });
@@ -386,6 +428,8 @@ export const createSource = mutation({
     selectors: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    await requireAdminCtx(ctx);
+
     const now = Date.now();
     return ctx.db.insert("crawlerSources", {
       ...args,
@@ -403,6 +447,8 @@ export const toggleSource = mutation({
     isActive: v.boolean(),
   },
   handler: async (ctx, args) => {
+    await requireAdminCtx(ctx);
+
     await ctx.db.patch(args.id, {
       isActive: args.isActive,
       updatedAt: Date.now(),
@@ -418,6 +464,8 @@ export const addToQueue = mutation({
     priority: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    await requireAdminCtx(ctx);
+
     // Check if URL already in queue
     const existing = await ctx.db
       .query("crawlerQueue")
@@ -453,45 +501,67 @@ export const addToQueue = mutation({
 });
 
 // Bulk add URLs to queue
-export const bulkAddToQueue = mutation({
-  args: {
-    urls: v.array(
-      v.object({
-        url: v.string(),
-        source: v.string(),
-        priority: v.optional(v.number()),
-      }),
-    ),
-  },
-  handler: async (ctx, args) => {
-    const now = Date.now();
-    let added = 0;
-    let skipped = 0;
+const bulkAddToQueueArgs = {
+  urls: v.array(
+    v.object({
+      url: v.string(),
+      source: v.string(),
+      priority: v.optional(v.number()),
+    }),
+  ),
+};
+type BulkAddToQueueArgs = ObjectType<typeof bulkAddToQueueArgs>;
 
-    for (const item of args.urls) {
-      const existing = await ctx.db
-        .query("crawlerQueue")
-        .withIndex("by_url", (q) => q.eq("url", item.url))
-        .first();
+// Shared implementation, called from both the admin-gated public mutation and
+// the internal-pipeline mutation (the hourly scheduled-crawl cron chain runs
+// with no caller identity, so sourceParsers.ts calls the internal version
+// directly instead of going through the requireAdminCtx-gated public wrapper).
+async function bulkAddToQueueHandler(
+  ctx: MutationCtx,
+  args: BulkAddToQueueArgs,
+) {
+  const now = Date.now();
+  let added = 0;
+  let skipped = 0;
 
-      if (!existing) {
-        await ctx.db.insert("crawlerQueue", {
-          url: item.url,
-          source: item.source,
-          priority: item.priority ?? 5,
-          status: "pending",
-          retryCount: 0,
-          maxRetries: 3,
-          addedAt: now,
-        });
-        added++;
-      } else {
-        skipped++;
-      }
+  for (const item of args.urls) {
+    const existing = await ctx.db
+      .query("crawlerQueue")
+      .withIndex("by_url", (q) => q.eq("url", item.url))
+      .first();
+
+    if (!existing) {
+      await ctx.db.insert("crawlerQueue", {
+        url: item.url,
+        source: item.source,
+        priority: item.priority ?? 5,
+        status: "pending",
+        retryCount: 0,
+        maxRetries: 3,
+        addedAt: now,
+      });
+      added++;
+    } else {
+      skipped++;
     }
+  }
 
-    return { added, skipped };
+  return { added, skipped };
+}
+
+export const bulkAddToQueue = mutation({
+  args: bulkAddToQueueArgs,
+  handler: async (ctx, args) => {
+    await requireAdminCtx(ctx);
+    return bulkAddToQueueHandler(ctx, args);
   },
+});
+
+// Internal: same bulk-add logic, callable from the crawler pipeline (crons /
+// internal actions) which runs with no caller identity.
+export const bulkAddToQueueInternal = internalMutation({
+  args: bulkAddToQueueArgs,
+  handler: async (ctx, args) => bulkAddToQueueHandler(ctx, args),
 });
 
 // Record crawler run
@@ -510,6 +580,8 @@ export const recordCrawlerRun = mutation({
     triggeredBy: v.optional(v.id("users")),
   },
   handler: async (ctx, args) => {
+    await requireAdminCtx(ctx);
+
     return ctx.db.insert("crawlerRuns", args);
   },
 });
@@ -565,6 +637,8 @@ export const manualAddOrganization = mutation({
     notes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    await requireAdminCtx(ctx);
+
     const now = Date.now();
 
     // Check for existing
@@ -618,6 +692,8 @@ export const manualAddOrganization = mutation({
 export const getQueueStatus = query({
   args: {},
   handler: async (ctx) => {
+    await requireAdminCtx(ctx);
+
     const allItems = await ctx.db.query("crawlerQueue").collect();
 
     const byStatus = allItems.reduce(
@@ -654,6 +730,8 @@ export const getQueueStatus = query({
 export const getFailedQueueItems = query({
   args: {},
   handler: async (ctx) => {
+    await requireAdminCtx(ctx);
+
     const items = await ctx.db
       .query("crawlerQueue")
       .withIndex("by_status", (q) => q.eq("status", "failed"))
@@ -673,6 +751,8 @@ export const getFailedQueueItems = query({
 export const retryFailedItems = mutation({
   args: {},
   handler: async (ctx) => {
+    await requireAdminCtx(ctx);
+
     const failedItems = await ctx.db
       .query("crawlerQueue")
       .withIndex("by_status", (q) => q.eq("status", "failed"))
@@ -825,6 +905,10 @@ export const startQueueProcessor = action({
     ctx,
     args,
   ): Promise<{ processed: number; succeeded: number; failed: number }> => {
+    const userId = await auth.getUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+    await ctx.runQuery(internal.helpers.requireAdminForAction, { userId });
+
     const batchSize = args.batchSize ?? 5;
 
     // Process first batch
@@ -850,6 +934,10 @@ export const seedTestUrls = action({
   handler: async (
     ctx,
   ): Promise<{ message: string; added: number; skipped: number }> => {
+    const userId = await auth.getUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+    await ctx.runQuery(internal.helpers.requireAdminForAction, { userId });
+
     const testUrls = [
       { url: "https://www.northpoint.org", source: "church_finder" },
       { url: "https://www.saddleback.com", source: "church_finder" },

@@ -2,6 +2,8 @@ import { v } from "convex/values";
 import { action, mutation, query, internalAction } from "./_generated/server";
 import { internal, api } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
+import { auth } from "./auth";
+import { requireAdminCtx } from "./helpers";
 
 // ============================================
 // Career Page Detection
@@ -85,6 +87,8 @@ async function findCareerPageUrl(
 export const getJobsByOrganization = query({
   args: { organizationId: v.id("crawledOrganizations") },
   handler: async (ctx, args) => {
+    await requireAdminCtx(ctx);
+
     return ctx.db
       .query("crawledJobs")
       .withIndex("by_organization", (q) =>
@@ -98,6 +102,8 @@ export const getJobsByOrganization = query({
 export const getRecentCrawledJobs = query({
   args: { limit: v.optional(v.number()) },
   handler: async (ctx, args) => {
+    await requireAdminCtx(ctx);
+
     const limit = args.limit ?? 50;
     return ctx.db
       .query("crawledJobs")
@@ -110,6 +116,8 @@ export const getRecentCrawledJobs = query({
 export const getJobStats = query({
   args: {},
   handler: async (ctx) => {
+    await requireAdminCtx(ctx);
+
     const allJobs = await ctx.db.query("crawledJobs").collect();
 
     return {
@@ -145,6 +153,8 @@ export const upsertJob = mutation({
     postedDate: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    await requireAdminCtx(ctx);
+
     const now = Date.now();
 
     // Check if job already exists by applyUrl
@@ -189,6 +199,8 @@ export const updateOrganizationCareerInfo = mutation({
     careerPageUrl: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    await requireAdminCtx(ctx);
+
     await ctx.db.patch(args.id, {
       hasCareerPage: args.hasCareerPage,
       careerPageUrl: args.careerPageUrl,
@@ -203,6 +215,8 @@ export const deactivateMissingJobs = mutation({
     activeApplyUrls: v.array(v.string()),
   },
   handler: async (ctx, args) => {
+    await requireAdminCtx(ctx);
+
     const now = Date.now();
     const existingJobs = await ctx.db
       .query("crawledJobs")
@@ -243,6 +257,10 @@ export const scrapeJobsForOrganization = action({
     botProtectionDetected?: boolean;
     error?: string;
   }> => {
+    const userId = await auth.getUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+    await ctx.runQuery(internal.helpers.requireAdminForAction, { userId });
+
     // Get organization
     const org = await ctx.runQuery(api.crawler.getOrganization, {
       id: args.organizationId,
@@ -362,6 +380,10 @@ export const scrapeJobsBatch = action({
       error?: string;
     }>;
   }> => {
+    const userId = await auth.getUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+    await ctx.runQuery(internal.helpers.requireAdminForAction, { userId });
+
     const limit = args.limit ?? 10;
 
     // Get organizations to scrape

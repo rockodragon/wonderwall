@@ -116,7 +116,7 @@ export const getMyFavorites = query({
             _id: profile._id,
             name: profile.name,
             imageUrl,
-            jobFunctions: profile.jobFunctions,
+            interests: profile.interests,
           },
           wondering: wondering
             ? {

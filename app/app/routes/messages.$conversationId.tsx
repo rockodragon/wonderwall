@@ -28,6 +28,13 @@ export default function ConversationView() {
   );
 
   const sendMessage = useMutation(api.messaging.sendMessage);
+
+  // See messages._index.tsx — a direct conversation link should also clear
+  // the merged Messages+Notifications badge, not just the inbox list view.
+  const markAllNotificationsRead = useMutation(api.notifications.markAllAsRead);
+  useEffect(() => {
+    markAllNotificationsRead({});
+  }, []);
   const markRead = useMutation(api.messaging.markConversationRead);
 
   // Mark messages as read when viewing
@@ -209,7 +216,7 @@ export default function ConversationView() {
               className="w-10 h-10 rounded-full object-cover"
             />
           ) : (
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white font-bold">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-400 to-gray-500 dark:from-gray-600 dark:to-gray-700 flex items-center justify-center text-white font-bold">
               {conversation.participant.name.charAt(0).toUpperCase()}
             </div>
           )}

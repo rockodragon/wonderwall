@@ -695,39 +695,46 @@ export const classifyUrl = action({
         };
       }
 
-      // Save to database
-      const result = await ctx.runMutation(api.crawler.upsertOrganization, {
-        sourceUrl: args.url,
-        source: args.source,
-        name: classification.organization_info.name,
-        website: args.url,
-        industry: classification.organization_info.industry,
-        description: classification.summary,
-        streetAddress:
-          classification.organization_info.street_address || undefined,
-        city: classification.organization_info.city || undefined,
-        state: classification.organization_info.state || undefined,
-        zipCode: classification.organization_info.zip_code || undefined,
-        employeeEstimate: classification.organization_info.employees_estimate,
-        orgType: classification.organization_info.type.toLowerCase(),
-        personaTags: classification.persona_tags,
-        valuesScore: classification.values_alignment.alignment_score,
-        hiringScore: classification.hiring_potential.hiring_score,
-        qualityScore: classification.organization_info.quality_score,
-        contactScore: classification.contact_info.contact_score,
-        faithSignals: classification.values_alignment.faith_signals,
-        conservativeSignals:
-          classification.values_alignment.conservative_signals,
-        email: classification.contact_info.email || undefined,
-        phone: classification.contact_info.phone || undefined,
-        contactFormUrl:
-          classification.contact_info.contact_form_url || undefined,
-        ownerName: classification.contact_info.owner_name || undefined,
-        hasCareerPage: classification.hiring_potential.has_careers_page,
-        leadershipMarkdown: leadershipToMarkdown(classification.leadership),
-        rawHtml: content.substring(0, 50000), // Store truncated raw content
-        rawClassification: JSON.stringify(classification),
-      });
+      // Save to database. classifyUrl is invoked from the queue-processing
+      // cron pipeline (processQueueItem), which runs with no caller identity,
+      // so it must go through the internal (unguarded) mutation rather than
+      // the admin-gated public one.
+      const result = await ctx.runMutation(
+        internal.crawler.upsertOrganizationInternal,
+        {
+          sourceUrl: args.url,
+          source: args.source,
+          name: classification.organization_info.name,
+          website: args.url,
+          industry: classification.organization_info.industry,
+          description: classification.summary,
+          streetAddress:
+            classification.organization_info.street_address || undefined,
+          city: classification.organization_info.city || undefined,
+          state: classification.organization_info.state || undefined,
+          zipCode: classification.organization_info.zip_code || undefined,
+          employeeEstimate:
+            classification.organization_info.employees_estimate,
+          orgType: classification.organization_info.type.toLowerCase(),
+          personaTags: classification.persona_tags,
+          valuesScore: classification.values_alignment.alignment_score,
+          hiringScore: classification.hiring_potential.hiring_score,
+          qualityScore: classification.organization_info.quality_score,
+          contactScore: classification.contact_info.contact_score,
+          faithSignals: classification.values_alignment.faith_signals,
+          conservativeSignals:
+            classification.values_alignment.conservative_signals,
+          email: classification.contact_info.email || undefined,
+          phone: classification.contact_info.phone || undefined,
+          contactFormUrl:
+            classification.contact_info.contact_form_url || undefined,
+          ownerName: classification.contact_info.owner_name || undefined,
+          hasCareerPage: classification.hiring_potential.has_careers_page,
+          leadershipMarkdown: leadershipToMarkdown(classification.leadership),
+          rawHtml: content.substring(0, 50000), // Store truncated raw content
+          rawClassification: JSON.stringify(classification),
+        },
+      );
 
       return { success: true, organizationId: result.id };
     } catch (error) {

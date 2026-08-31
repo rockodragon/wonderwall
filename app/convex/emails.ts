@@ -27,9 +27,9 @@ export const sendNotificationEmail = internalAction({
 
     const resend = new Resend(apiKey);
 
-    const baseUrl = process.env.SITE_URL || "https://www.thecrossboard.org";
+    const baseUrl = process.env.SITE_URL || "https://creatives.exchange";
     const ctaHtml = args.ctaUrl
-      ? `<a href="${baseUrl}${args.ctaUrl}" style="display:inline-block;padding:12px 24px;background:#2563eb;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;margin-top:16px">${args.ctaText || "View on TheCrossBoard"}</a>`
+      ? `<a href="${baseUrl}${args.ctaUrl}" style="display:inline-block;padding:12px 24px;background:#2563eb;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;margin-top:16px">${args.ctaText || "View on The Exchange"}</a>`
       : "";
 
     const html = `
@@ -40,7 +40,7 @@ export const sendNotificationEmail = internalAction({
   <div style="max-width:480px;margin:0 auto;padding:32px 16px">
     <!-- Header -->
     <div style="text-align:center;margin-bottom:24px">
-      <span style="font-size:20px;font-weight:700;color:#111">TheCrossBoard</span>
+      <span style="font-size:20px;font-weight:700;color:#111">creatives.exchange</span>
     </div>
     <!-- Card -->
     <div style="background:#fff;border-radius:12px;padding:32px;border:1px solid #e5e7eb">
@@ -50,7 +50,7 @@ export const sendNotificationEmail = internalAction({
     </div>
     <!-- Footer -->
     <p style="text-align:center;font-size:12px;color:#9ca3af;margin-top:24px">
-      TheCrossBoard — Jobs, portfolios & collabs for Kingdom-minded creatives
+      creatives.exchange — Jobs, portfolios & collabs for creatives
     </p>
   </div>
   <span style="display:none">${args.previewText}</span>
@@ -58,7 +58,7 @@ export const sendNotificationEmail = internalAction({
 </html>`.trim();
 
     const { error } = await resend.emails.send({
-      from: "TheCrossBoard <hello@thecrossboard.org>",
+      from: "The Exchange <hello@thecrossboard.org>",
       to: [args.to],
       subject: args.subject,
       html,

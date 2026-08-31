@@ -149,7 +149,7 @@ export default function CoveragePage() {
               <Link to="/tables" className="g-btn g-btn-citron">
                 Find a table
               </Link>
-              <Link to="/jobs" className="g-btn g-btn-ghost">
+              <Link to="/projects" className="g-btn g-btn-ghost">
                 See paid work
               </Link>
             </div>

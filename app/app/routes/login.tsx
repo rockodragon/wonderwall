@@ -6,35 +6,35 @@ import { useConvexAuth } from "convex/react";
 
 export function meta() {
   return [
-    { title: "Sign In - TheCrossBoard" },
+    { title: "Sign In - creatives.exchange" },
     {
       name: "description",
       content:
-        "Sign in to TheCrossBoard to connect with Kingdom-minded creatives.",
+        "Sign in to The Exchange to connect with creatives.",
     },
-    { property: "og:title", content: "Sign In - TheCrossBoard" },
+    { property: "og:title", content: "Sign In - creatives.exchange" },
     {
       property: "og:description",
       content:
-        "Sign in to TheCrossBoard to connect with Kingdom-minded creatives.",
+        "Sign in to The Exchange to connect with creatives.",
     },
     { property: "og:type", content: "website" },
     {
       property: "og:image",
-      content: "https://www.thecrossboard.org/og-image.png",
+      content: "https://creatives.exchange/og-image.png",
     },
     { property: "og:image:width", content: "1200" },
     { property: "og:image:height", content: "630" },
     {
       name: "twitter:image",
-      content: "https://www.thecrossboard.org/og-image.png",
+      content: "https://creatives.exchange/og-image.png",
     },
     { name: "twitter:card", content: "summary_large_image" },
-    { name: "twitter:title", content: "Sign In - TheCrossBoard" },
+    { name: "twitter:title", content: "Sign In - creatives.exchange" },
     {
       name: "twitter:description",
       content:
-        "Sign in to TheCrossBoard to connect with Kingdom-minded creatives.",
+        "Sign in to The Exchange to connect with creatives.",
     },
   ];
 }
@@ -107,7 +107,7 @@ export default function Login() {
             Welcome back
           </h1>
           <p className="mt-2 text-gray-600 dark:text-gray-400">
-            Sign in to TheCrossBoard
+            Sign in to The Exchange
           </p>
         </div>
 

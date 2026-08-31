@@ -12,12 +12,21 @@ export default [
   route("signup/:inviteSlug", "routes/signup.tsx"),
   route("oauth-callback", "routes/oauth-callback.tsx"),
   route("onboarding", "routes/onboarding.tsx"),
-  route("organizations", "routes/organizations.tsx"),
-  route("organizations/demo", "routes/organizations_.demo.tsx"),
+  // Organizations (Host-tier pricing/lead-gen page) un-published for V1 —
+  // not wired to the real Host/Table data model, see PRD §10
+  // (docs/the-exchange-v1-prd.md). An org that wants in today signs up as a
+  // Patron through the regular waitlist/onboarding flow instead.
+  // TODO: delete routes/organizations.tsx and routes/organizations_.demo.tsx,
+  // or repurpose for a future jobs-outreach push targeting organizations —
+  // see the TODO at the top of organizations.tsx.
+  // route("organizations", "routes/organizations.tsx"),
+  // route("organizations/demo", "routes/organizations_.demo.tsx"),
 
   // App routes (with nav layout)
   layout("routes/_app.tsx", [
     route("search", "routes/search.tsx"),
+    route("projects", "routes/projects.tsx"),
+    route("offerings", "routes/offerings.tsx"),
     route("works", "routes/works.tsx"),
     route("works/:artifactId", "routes/work.tsx"),
     route("events", "routes/events.tsx"),

@@ -3,26 +3,15 @@ import { useState, useEffect, useMemo } from "react";
 import { Link } from "react-router";
 import { usePostHog } from "@posthog/react";
 import { api } from "../../convex/_generated/api";
-
-const JOB_FUNCTIONS = [
-  "Designer",
-  "Writer",
-  "Musician",
-  "Developer",
-  "Filmmaker",
-  "Photographer",
-  "Artist",
-  "Entrepreneur",
-  "Marketer",
-  "Product Manager",
-  "Other",
-];
+import { FF_JOBS, useFeatureGate } from "../lib/featureFlags";
+import { INTERESTS } from "../constants/interests";
 
 type StatusFilter = "All" | "Open" | "Closed";
 type LocationFilter = "All" | "Remote" | "Hybrid" | "On-site";
 type TabFilter = "all" | "matches" | "interested" | "posts";
 
 export default function JobsIndex() {
+  const enabled = useFeatureGate(FF_JOBS, "/projects");
   const posthog = usePostHog();
 
   // Tab state
@@ -137,6 +126,8 @@ export default function JobsIndex() {
     },
     { id: "posts" as const, label: "My Project Posts", shortLabel: "My Posts" },
   ];
+
+  if (!enabled) return null;
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -314,7 +305,7 @@ export default function JobsIndex() {
                 Disciplines
               </label>
               <div className="flex flex-wrap gap-2">
-                {JOB_FUNCTIONS.map((discipline) => (
+                {INTERESTS.map((discipline) => (
                   <button
                     key={discipline}
                     onClick={() => toggleDiscipline(discipline)}

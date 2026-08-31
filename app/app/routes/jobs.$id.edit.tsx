@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
-import { JOB_FUNCTIONS } from "../constants/jobFunctions";
+import { INTERESTS } from "../constants/interests";
+import { FF_JOBS, useFeatureGate } from "../lib/featureFlags";
 
 type LocationType = "Remote" | "Hybrid" | "On-site";
 type JobType = "Full-time" | "Part-time" | "Contract" | "Freelance";
@@ -12,6 +13,7 @@ type VisibilityType = "Private" | "Members";
 type ExperienceLevelType = "Entry" | "Mid" | "Senior" | "Any";
 
 export default function JobsEdit() {
+  const enabled = useFeatureGate(FF_JOBS, "/projects");
   const navigate = useNavigate();
   const posthog = usePostHog();
   const { id } = useParams();
@@ -182,6 +184,8 @@ export default function JobsEdit() {
       </div>
     );
   }
+
+  if (!enabled) return null;
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
@@ -442,7 +446,7 @@ export default function JobsEdit() {
                 Disciplines
               </label>
               <div className="flex flex-wrap gap-2">
-                {JOB_FUNCTIONS.map((discipline) => (
+                {INTERESTS.map((discipline) => (
                   <button
                     key={discipline}
                     type="button"

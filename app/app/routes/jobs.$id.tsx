@@ -6,8 +6,10 @@ import { usePostHog } from "@posthog/react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { InterestModal } from "../components/InterestModal";
+import { FF_JOBS, useFeatureGate } from "../lib/featureFlags";
 
 export default function JobDetail() {
+  const enabled = useFeatureGate(FF_JOBS, "/projects");
   const { id } = useParams();
   const posthog = usePostHog();
   const jobId = id as Id<"jobs">;
@@ -110,6 +112,8 @@ export default function JobDetail() {
       year: "numeric",
     });
   };
+
+  if (!enabled) return null;
 
   return (
     <div className="p-4 sm:p-6 max-w-6xl mx-auto">
@@ -455,7 +459,7 @@ export default function JobDetail() {
                               className="w-12 h-12 rounded-full object-cover"
                             />
                           ) : (
-                            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-lg font-bold">
+                            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-gray-400 to-gray-500 dark:from-gray-600 dark:to-gray-700 flex items-center justify-center text-white text-lg font-bold">
                               {interest.profile?.name.charAt(0).toUpperCase()}
                             </div>
                           )}
@@ -468,10 +472,10 @@ export default function JobDetail() {
                           >
                             {interest.profile?.name}
                           </Link>
-                          {interest.profile?.jobFunctions &&
-                            interest.profile.jobFunctions.length > 0 && (
+                          {interest.profile?.interests &&
+                            interest.profile.interests.length > 0 && (
                               <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-                                {interest.profile.jobFunctions
+                                {interest.profile.interests
                                   .slice(0, 3)
                                   .join(" · ")}
                               </p>
@@ -568,7 +572,7 @@ export default function JobDetail() {
                       className="w-12 h-12 rounded-full object-cover"
                     />
                   ) : (
-                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-lg font-bold">
+                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-gray-400 to-gray-500 dark:from-gray-600 dark:to-gray-700 flex items-center justify-center text-white text-lg font-bold">
                       {job.poster.name.charAt(0).toUpperCase()}
                     </div>
                   )}
@@ -593,12 +597,12 @@ export default function JobDetail() {
                 </div>
               </Link>
 
-              {/* Job Functions */}
-              {job.poster.jobFunctions &&
-                job.poster.jobFunctions.length > 0 && (
+              {/* Interests */}
+              {job.poster.interests &&
+                job.poster.interests.length > 0 && (
                   <div className="mb-3">
                     <p className="text-sm text-gray-600 dark:text-gray-400">
-                      {job.poster.jobFunctions.slice(0, 3).join(" · ")}
+                      {job.poster.interests.slice(0, 3).join(" · ")}
                     </p>
                   </div>
                 )}

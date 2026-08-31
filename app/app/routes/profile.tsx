@@ -4,7 +4,6 @@ import { Link, useNavigate, useParams } from "react-router";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { FavoriteButton } from "../components/FavoriteButton";
-import { InviteCTA } from "../components/InviteCTA";
 import { ShareButton } from "../components/ShareButton";
 import { usePostHog } from "@posthog/react";
 
@@ -38,7 +37,7 @@ export default function Profile() {
   const profileNeedsSetup =
     isOwnProfile &&
     !profile?.bio?.trim() &&
-    (!profile?.jobFunctions || profile.jobFunctions.length === 0) &&
+    (!profile?.interests || profile.interests.length === 0) &&
     (!profile?.artifacts || profile.artifacts.length === 0);
 
   // Record profile view on mount
@@ -119,10 +118,16 @@ export default function Profile() {
             <FavoriteButton targetType="profile" targetId={profile._id} />
             <ShareButton type="profile" title={profile.name} size="sm" />
           </div>
-          <p className="text-gray-600 dark:text-gray-400 mt-1 text-sm sm:text-base">
-            {profile.jobFunctions.join(" • ")}
-            {profile.location && ` • ${profile.location}`}
-          </p>
+          {profile.interests.length > 0 && (
+            <p className="text-gray-600 dark:text-gray-400 mt-1 text-sm sm:text-base">
+              {profile.interests.join(" • ")}
+            </p>
+          )}
+          {profile.location && (
+            <p className="text-gray-500 dark:text-gray-500 mt-0.5 text-sm sm:text-base">
+              {profile.location}
+            </p>
+          )}
           {profile.bio && (
             <p className="text-gray-700 dark:text-gray-300 mt-3 text-sm sm:text-base">
               {profile.bio}
@@ -298,7 +303,7 @@ export default function Profile() {
       {profile.artifacts && profile.artifacts.length > 0 && (
         <>
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-            Work
+            Portfolio
           </h2>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             {profile.artifacts.map((artifact) => {
@@ -460,12 +465,6 @@ export default function Profile() {
           </div>
         )}
 
-      {/* Invite CTA - only show on own profile */}
-      {isOwnProfile && (
-        <div className="mt-8">
-          <InviteCTA variant="profile" />
-        </div>
-      )}
     </div>
   );
 }

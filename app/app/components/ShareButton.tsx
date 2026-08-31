@@ -31,7 +31,7 @@ export function ShareButton({
   async function handleShare() {
     const shareData = {
       title,
-      text: text || `Check out this ${type} on TheCrossBoard`,
+      text: text || `Check out this ${type} on The Exchange`,
       url: shareUrl,
     };
 

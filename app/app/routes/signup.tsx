@@ -8,35 +8,32 @@ import { api } from "../../convex/_generated/api";
 
 export function meta() {
   return [
-    { title: "Join TheCrossBoard - Invite Only" },
+    { title: "Join creatives.exchange - Invite Only" },
     {
       name: "description",
-      content:
-        "Join TheCrossBoard, a community of Kingdom-minded creatives. By invitation only.",
+      content: "Join The Exchange, a community of creatives. By invitation only.",
     },
-    { property: "og:title", content: "Join TheCrossBoard" },
+    { property: "og:title", content: "Join creatives.exchange" },
     {
       property: "og:description",
-      content:
-        "Join TheCrossBoard, a community of Kingdom-minded creatives. By invitation only.",
+      content: "Join The Exchange, a community of creatives. By invitation only.",
     },
     { property: "og:type", content: "website" },
     {
       property: "og:image",
-      content: "https://www.thecrossboard.org/og-image.png",
+      content: "https://creatives.exchange/og-image.png",
     },
     { property: "og:image:width", content: "1200" },
     { property: "og:image:height", content: "630" },
     {
       name: "twitter:image",
-      content: "https://www.thecrossboard.org/og-image.png",
+      content: "https://creatives.exchange/og-image.png",
     },
     { name: "twitter:card", content: "summary_large_image" },
-    { name: "twitter:title", content: "Join TheCrossBoard" },
+    { name: "twitter:title", content: "Join creatives.exchange" },
     {
       name: "twitter:description",
-      content:
-        "Join TheCrossBoard, a community of Kingdom-minded creatives. By invitation only.",
+      content: "Join The Exchange, a community of creatives. By invitation only.",
     },
   ];
 }
@@ -213,7 +210,7 @@ export default function Signup() {
             Invite Required
           </h1>
           <p className="text-gray-600 dark:text-gray-400 mb-6">
-            TheCrossBoard is invite-only. Please use an invite link from an
+            The Exchange is invite-only. Please use an invite link from an
             existing member to join.
           </p>
           <Link
@@ -249,7 +246,7 @@ export default function Signup() {
             to="/"
             className="text-xl font-bold text-gray-900 dark:text-white"
           >
-            TheCrossBoard
+            creatives.exchange
           </Link>
           <Link
             to="/login"
@@ -270,7 +267,7 @@ export default function Signup() {
                   className="w-16 h-16 rounded-full object-cover"
                 />
               ) : (
-                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-xl font-bold">
+                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-gray-400 to-gray-500 dark:from-gray-600 dark:to-gray-700 flex items-center justify-center text-white text-xl font-bold">
                   {inviterInfo.name.charAt(0).toUpperCase()}
                 </div>
               )}
@@ -281,10 +278,10 @@ export default function Signup() {
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-white truncate">
                   {inviterInfo.name}
                 </h2>
-                {inviterInfo.jobFunctions &&
-                  inviterInfo.jobFunctions.length > 0 && (
+                {inviterInfo.interests &&
+                  inviterInfo.interests.length > 0 && (
                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {inviterInfo.jobFunctions.join(", ")}
+                      {inviterInfo.interests.join(", ")}
                     </p>
                   )}
               </div>
@@ -314,10 +311,10 @@ export default function Signup() {
                         <div className="text-sm font-medium text-gray-900 dark:text-white truncate">
                           {invitee.name}
                         </div>
-                        {invitee.jobFunctions &&
-                          invitee.jobFunctions.length > 0 && (
+                        {invitee.interests &&
+                          invitee.interests.length > 0 && (
                             <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                              {invitee.jobFunctions.join(", ")}
+                              {invitee.interests.join(", ")}
                             </div>
                           )}
                       </div>
@@ -526,7 +523,7 @@ function WelcomeModal({ onContinue }: { onContinue: () => void }) {
         <p className="text-xl text-gray-700 dark:text-gray-300 mb-6 font-medium">
           You're joining a community of{" "}
           <span className="text-blue-600 dark:text-blue-400">
-            kingdom-minded creatives
+            makers, dreamers, and doers
           </span>
         </p>
 

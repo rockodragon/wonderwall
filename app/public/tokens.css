@@ -1,4 +1,6 @@
-/* The Garden — design tokens. THE single source of truth (decided 2026-08-12).
+/* The Exchange — design tokens. THE single source of truth (decided 2026-08-12,
+   renamed from The Garden 2026-08-30 — same palette, --garden-* names kept for
+   now; full rename to --exchange-* tracked under wonderwall-8o1.10).
    Rebrand/rename/palette swap = edit THIS file only.
    Consumers: app/app/garden/garden.css (bundled app + demo) and
    app/public/about/brand.css (static marketing pages) — both reference

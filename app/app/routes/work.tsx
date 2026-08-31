@@ -454,7 +454,7 @@ export default function WorkDetail() {
                 className="w-14 h-14 rounded-full object-cover"
               />
             ) : (
-              <div className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-xl font-bold">
+              <div className="w-14 h-14 rounded-full bg-gradient-to-br from-gray-400 to-gray-500 dark:from-gray-600 dark:to-gray-700 flex items-center justify-center text-white text-xl font-bold">
                 {artifact.profile.name.charAt(0).toUpperCase()}
               </div>
             )}
@@ -465,9 +465,9 @@ export default function WorkDetail() {
               <h3 className="font-semibold text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                 {artifact.profile.name}
               </h3>
-              {artifact.profile.jobFunctions.length > 0 && (
+              {artifact.profile.interests.length > 0 && (
                 <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
-                  {artifact.profile.jobFunctions.slice(0, 3).join(" · ")}
+                  {artifact.profile.interests.slice(0, 3).join(" · ")}
                 </p>
               )}
             </div>

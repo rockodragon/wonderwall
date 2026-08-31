@@ -3,32 +3,14 @@ import { useMutation } from "convex/react";
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import { api } from "../../convex/_generated/api";
-import {
-  LocationAutocomplete,
-  type LocationSuggestion,
-} from "./LocationAutocomplete";
+import { LocationAutocomplete } from "./LocationAutocomplete";
+import { useLocationField } from "../lib/useLocationField";
+import { EVENT_TAGS } from "../constants/eventTags";
 import {
   TicketTierEditor,
   draftsToTiers,
   type TicketTierDraft,
 } from "./TicketTierEditor";
-
-const EVENT_TAGS = [
-  "Workshop",
-  "Meetup",
-  "Conference",
-  "Networking",
-  "Creative",
-  "Music",
-  "Film",
-  "Art",
-  "Writing",
-  "Tech",
-  "Worship",
-  "Bible Study",
-  "Fellowship",
-  "Reading",
-];
 
 export function CreateEventModal({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate();
@@ -40,32 +22,13 @@ export function CreateEventModal({ onClose }: { onClose: () => void }) {
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
   const [endTimeStr, setEndTimeStr] = useState("");
-  const [location, setLocation] = useState("");
   const [venueAddress, setVenueAddress] = useState("");
   const [ticketTiers, setTicketTiers] = useState<TicketTierDraft[]>([]);
-  const [selectedLocation, setSelectedLocation] =
-    useState<LocationSuggestion | null>(null);
+  const location = useLocationField();
   const [tags, setTags] = useState<string[]>([]);
   const [requiresApproval, setRequiresApproval] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-
-  // Handle location selection from autocomplete
-  function handleLocationSelect(suggestion: LocationSuggestion) {
-    setSelectedLocation(suggestion);
-  }
-
-  // Clear selected location if user manually edits
-  function handleLocationChange(value: string) {
-    setLocation(value);
-    // If user clears the input or significantly changes it, clear the selection
-    if (
-      !value ||
-      (selectedLocation && !value.includes(selectedLocation.displayName))
-    ) {
-      setSelectedLocation(null);
-    }
-  }
 
   function toggleTag(tag: string) {
     setTags((prev) =>
@@ -112,21 +75,17 @@ export function CreateEventModal({ onClose }: { onClose: () => void }) {
         datetime,
         endTime,
         ticketTiers: tiers,
-        location: location || undefined,
+        ...location.toArgs(),
         venueAddress: venueAddress.trim() || undefined,
-        locationType: selectedLocation?.locationType,
-        address: selectedLocation?.address,
-        coordinates: selectedLocation?.coordinates,
-        placeId: selectedLocation?.placeId,
         tags,
         requiresApproval,
       });
 
       // Track event created
       posthog?.capture("event_created", {
-        has_location: !!location,
-        location_type: selectedLocation?.locationType || "manual",
-        has_coordinates: !!selectedLocation?.coordinates,
+        has_location: !!location.value,
+        location_type: location.selected?.locationType || "manual",
+        has_coordinates: !!location.selected?.coordinates,
         tags_count: tags.length,
         requires_approval: requiresApproval,
       });
@@ -241,12 +200,12 @@ export function CreateEventModal({ onClose }: { onClose: () => void }) {
                 Venue name
               </label>
               <LocationAutocomplete
-                value={location}
-                onChange={handleLocationChange}
-                onSelect={handleLocationSelect}
+                value={location.value}
+                onChange={location.onChange}
+                onSelect={location.onSelect}
                 placeholder="Search for a venue, type 'Online', or 'TBD'"
               />
-              {selectedLocation && (
+              {location.selected && (
                 <p className="mt-1 text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
                   <svg
                     className="w-3 h-3"
@@ -262,7 +221,7 @@ export function CreateEventModal({ onClose }: { onClose: () => void }) {
                     />
                   </svg>
                   Location verified
-                  {selectedLocation.coordinates && " with coordinates"}
+                  {location.selected.coordinates && " with coordinates"}
                 </p>
               )}
             </div>

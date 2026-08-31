@@ -63,7 +63,7 @@ export const seedDevWorld = internalMutation({
       const profileId = await ctx.db.insert("profiles", {
         userId,
         name,
-        jobFunctions: ["Musician"],
+        interests: ["Musician"],
         createdAt: now,
         updatedAt: now,
         ...extra,

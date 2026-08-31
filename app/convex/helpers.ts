@@ -1,5 +1,8 @@
+import { v } from "convex/values";
+import { internalQuery } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { QueryCtx, MutationCtx } from "./_generated/server";
+import { auth } from "./auth";
 
 /**
  * Check if a user is an admin by their user ID
@@ -43,4 +46,38 @@ export async function requireAdmin(
   if (!userIsAdmin) {
     throw new Error("Unauthorized - Admin access only");
   }
+}
+
+/**
+ * Internal query wrapper around requireAdmin, for use inside `action` handlers.
+ *
+ * Actions don't have `ctx.db` (their ctx is not a QueryCtx | MutationCtx), so
+ * requireAdmin can't be called directly from an action. Actions do have
+ * `ctx.auth`, so the caller should resolve the userId there (e.g. via
+ * `auth.getUserId(ctx)`) and then run this through `ctx.runQuery` to perform
+ * the actual admin check against the database.
+ */
+export const requireAdminForAction = internalQuery({
+  args: { userId: v.id("users") },
+  handler: async (ctx, args): Promise<void> => {
+    await requireAdmin(ctx, args.userId);
+  },
+});
+
+/**
+ * One-liner for query/mutation handlers: resolve the caller's userId from
+ * ctx.auth and require admin access. Replaces the repeated
+ *   const userId = await auth.getUserId(ctx);
+ *   if (!userId) throw new Error("Not authenticated");
+ *   await requireAdmin(ctx, userId);
+ * preamble. Returns the userId in case a handler needs it.
+ * @throws Error if there's no caller identity, or if the caller isn't an admin
+ */
+export async function requireAdminCtx(
+  ctx: QueryCtx | MutationCtx,
+): Promise<Id<"users">> {
+  const userId = await auth.getUserId(ctx);
+  if (!userId) throw new Error("Not authenticated");
+  await requireAdmin(ctx, userId);
+  return userId;
 }

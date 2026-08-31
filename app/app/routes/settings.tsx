@@ -5,9 +5,9 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import confetti from "canvas-confetti";
 import { api } from "../../convex/_generated/api";
-import { InviteCTA } from "../components/InviteCTA";
 import { LocationAutocomplete } from "../components/LocationAutocomplete";
-import { JOB_FUNCTIONS } from "../constants/jobFunctions";
+import { useLocationField } from "../lib/useLocationField";
+import { INTERESTS } from "../constants/interests";
 
 // Normalize URL by adding https:// if missing
 function normalizeUrl(url: string): string {
@@ -50,7 +50,7 @@ export default function Settings() {
   const hasProfile = Boolean(profile?.name?.trim());
   const profileNeedsSetup =
     !hasProfile ||
-    (!profile?.jobFunctions?.length &&
+    (!profile?.interests?.length &&
       !profile?.bio?.trim() &&
       !profile?.location?.trim());
   const isEditingProfile = showProfileEdit || profileNeedsSetup;
@@ -120,7 +120,6 @@ export default function Settings() {
             )}
           </div>
         )}
-        <InviteCTA variant="profile" />
       </div>
 
       {/* Artifacts section */}
@@ -163,7 +162,7 @@ function ProfileSummary({
             className="w-16 h-16 rounded-full object-cover"
           />
         ) : (
-          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-2xl font-bold">
+          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-gray-400 to-gray-500 dark:from-gray-600 dark:to-gray-700 flex items-center justify-center text-white text-2xl font-bold">
             {profile.name.charAt(0).toUpperCase()}
           </div>
         )}
@@ -172,7 +171,7 @@ function ProfileSummary({
             {profile.name}
           </h3>
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            {profile.jobFunctions?.join(", ") || "No roles set"}
+            {profile.interests?.join(", ") || "No roles set"}
           </p>
         </div>
       </div>
@@ -204,10 +203,10 @@ function ProfileEditForm({
 
   const [name, setName] = useState("");
   const [bio, setBio] = useState("");
-  const [location, setLocation] = useState("");
+  const location = useLocationField();
   const [imageUrl, setImageUrl] = useState("");
   const [imageUrlInput, setImageUrlInput] = useState("");
-  const [jobFunctions, setJobFunctions] = useState<string[]>([]);
+  const [interests, setInterests] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [initialized, setInitialized] = useState(false);
@@ -217,15 +216,19 @@ function ProfileEditForm({
     if (profile && !initialized) {
       setName(profile.name || "");
       setBio(profile.bio || "");
-      setLocation(profile.location || "");
+      location.hydrate(profile);
       setImageUrl(profile.imageUrl || "");
-      setJobFunctions(profile.jobFunctions || []);
+      setInterests(profile.interests || []);
       setInitialized(true);
     }
+    // location.hydrate is stable (useCallback with no deps) — omitting it
+    // from deps matches the existing initialize-once-on-profile-load pattern
+    // and avoids re-running this effect on every location edit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile, initialized]);
 
-  function toggleJobFunction(fn: string) {
-    setJobFunctions((prev) =>
+  function toggleInterest(fn: string) {
+    setInterests((prev) =>
       prev.includes(fn) ? prev.filter((f) => f !== fn) : [...prev, fn],
     );
   }
@@ -287,14 +290,14 @@ function ProfileEditForm({
       await upsertProfile({
         name: name.trim(),
         bio: bio.trim() || undefined,
-        location: location.trim() || undefined,
-        jobFunctions,
+        ...location.toArgs(),
+        interests,
       });
 
       posthog?.capture("profile_updated", {
         has_bio: !!bio.trim(),
-        has_location: !!location.trim(),
-        job_functions_count: jobFunctions.length,
+        has_location: !!location.value.trim(),
+        interests_count: interests.length,
         is_new_profile: isNewProfile,
       });
 
@@ -333,7 +336,7 @@ function ProfileEditForm({
                 className="w-24 h-24 rounded-full object-cover border-2 border-gray-200 dark:border-gray-700"
               />
             ) : (
-              <div className="w-24 h-24 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-3xl font-bold">
+              <div className="w-24 h-24 rounded-full bg-gradient-to-br from-gray-400 to-gray-500 dark:from-gray-600 dark:to-gray-700 flex items-center justify-center text-white text-3xl font-bold">
                 {name.charAt(0).toUpperCase() || "?"}
               </div>
             )}
@@ -457,8 +460,8 @@ function ProfileEditForm({
             Location
           </label>
           <LocationAutocomplete
-            value={location}
-            onChange={setLocation}
+            value={location.value}
+            onChange={location.onChange}
             onSelect={(suggestion) => {
               // Format location as "City, State" for US or "City, Country" for international
               const { city, stateCode, country, countryCode } =
@@ -469,25 +472,30 @@ function ProfileEditForm({
               } else if (country && city !== country) {
                 formatted = `${city}, ${country}`;
               }
-              setLocation(formatted);
+              // Pass the formatted display through as the hook's guard
+              // baseline too, so a later edit is compared against what's
+              // actually shown ("Nashville, TN") rather than the raw
+              // suggestion.displayName ("Nashville, TN, USA") it would
+              // never re-match against.
+              location.onSelect(suggestion, formatted);
             }}
             placeholder="Search for your city..."
           />
         </div>
 
-        {/* Job Functions */}
+        {/* Interests */}
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             What do you do?
           </label>
           <div className="flex flex-wrap gap-2">
-            {JOB_FUNCTIONS.map((fn) => (
+            {INTERESTS.map((fn) => (
               <button
                 key={fn}
                 type="button"
-                onClick={() => toggleJobFunction(fn)}
+                onClick={() => toggleInterest(fn)}
                 className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                  jobFunctions.includes(fn)
+                  interests.includes(fn)
                     ? "bg-blue-600 text-white"
                     : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"
                 }`}

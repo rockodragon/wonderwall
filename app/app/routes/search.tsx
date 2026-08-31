@@ -1,72 +1,38 @@
 import { useQuery } from "convex/react";
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router";
 import { api } from "../../convex/_generated/api";
+import { INTERESTS } from "../constants/interests";
 import { FavoriteButton } from "../components/FavoriteButton";
-import { InviteCTA } from "../components/InviteCTA";
+import { SearchInput } from "../components/SearchInput";
+import { TagFilterPills } from "../components/TagFilterPills";
+import { useFilterState } from "../lib/useFilterState";
 
-// Debounce hook for search
-function useDebounce<T>(value: T, delay: number): T {
-  const [debouncedValue, setDebouncedValue] = useState<T>(value);
-
-  useEffect(() => {
-    const timer = setTimeout(() => setDebouncedValue(value), delay);
-    return () => clearTimeout(timer);
-  }, [value, delay]);
-
-  return debouncedValue;
-}
-
-const FILTERS = [
-  { label: "All", value: undefined },
-  { label: "Designers", value: "Designer" },
-  { label: "Writers", value: "Writer" },
-  { label: "Musicians", value: "Musician" },
-  { label: "Filmmakers", value: "Filmmaker" },
-  { label: "Developers", value: "Developer" },
-  { label: "Photographers", value: "Photographer" },
-  { label: "Illustrators", value: "Illustrator" },
-  { label: "Animators", value: "Animator" },
-  { label: "Producers", value: "Producer" },
-  { label: "Pastors", value: "Pastor" },
-  { label: "Leaders", value: "Leader" },
-  { label: "Roadies", value: "Roadie" },
-  { label: "Teachers", value: "Teacher" },
-  { label: "Speakers", value: "Speaker" },
-  { label: "Worship Leaders", value: "Worship Leader" },
-  { label: "Sound Engineers", value: "Sound Engineer" },
-  { label: "Dancers", value: "Dancer" },
-  { label: "Actors", value: "Actor" },
-  { label: "Poets", value: "Poet" },
-  { label: "Craftsmen", value: "Craftsman" },
-];
+// Derived directly from the canonical INTERESTS list so this can never
+// drift from it again (it previously did — see git history). Label and
+// value are the same singular string, matching how Projects' `#Tag` pills
+// already render these values.
+const FILTERS = INTERESTS.map((fn) => ({ label: fn, value: fn }));
 
 type ProfileResult = {
   _id: string;
   name: string;
   imageUrl?: string;
-  jobFunctions: string[];
+  interests: string[];
   wondering: { prompt: string; _id: string; imageUrl: string | null } | null;
 };
 
 export default function Search() {
-  const [query, setQuery] = useState("");
-  const [activeFilters, setActiveFilters] = useState<string[]>([]);
   const [filterExpanded, setFilterExpanded] = useState(false);
 
-  const debouncedQuery = useDebounce(query, 300);
-
-  // Toggle a filter on/off
-  function toggleFilter(value: string | undefined) {
-    if (!value) {
-      // "All" clears all filters
-      setActiveFilters([]);
-      return;
-    }
-    setActiveFilters((prev) =>
-      prev.includes(value) ? prev.filter((f) => f !== value) : [...prev, value],
-    );
-  }
+  const {
+    query,
+    debouncedQuery,
+    setQuery,
+    tags: activeFilters,
+    toggleTag,
+    clearTags,
+  } = useFilterState({ tagsParam: "interests" });
 
   // Get filter label for button
   const filterLabel =
@@ -76,21 +42,20 @@ export default function Search() {
         ? FILTERS.find((f) => f.value === activeFilters[0])?.label || "1 filter"
         : `${activeFilters.length} filters`;
 
-  // Text-based search for profiles (includes name, bio, job functions)
-  // Pass first filter for now (API would need update to support multiple)
+  // Text-based search for profiles (includes name, bio, interests).
+  // No interest is passed server-side — at friend-group scale the whole
+  // multi-select filter runs client-side below, same as Events/Projects.
   const profiles = useQuery(api.profiles.search, {
     query: debouncedQuery || undefined,
-    jobFunction: activeFilters[0],
   }) as ProfileResult[] | undefined;
 
-  // Client-side filter for additional filters
-  const filteredProfiles = profiles?.filter((profile) => {
-    if (activeFilters.length <= 1) return true;
-    // Check if profile has ANY of the selected job functions
-    return activeFilters.some((filter) =>
-      profile.jobFunctions.includes(filter),
+  const filteredProfiles = useMemo(() => {
+    if (!profiles) return profiles;
+    if (activeFilters.length === 0) return profiles;
+    return profiles.filter((profile) =>
+      activeFilters.some((filter) => profile.interests.includes(filter)),
     );
-  });
+  }, [profiles, activeFilters]);
 
   // Search events when there's a query
   const events = useQuery(
@@ -111,30 +76,12 @@ export default function Search() {
 
       {/* Search input + Filter on same line */}
       <div className="flex gap-3 mb-6">
-        <div className="relative flex-1">
-          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-            <svg
-              className="w-5 h-5 text-gray-400"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-              />
-            </svg>
-          </div>
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search by name, role, or event..."
-            className="w-full pl-12 pr-4 py-3 border border-gray-300 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
-          />
-        </div>
+        <SearchInput
+          value={query}
+          onChange={setQuery}
+          placeholder="Search by name, role, or event..."
+          className="flex-1"
+        />
         <button
           onClick={() => setFilterExpanded(!filterExpanded)}
           className={`flex items-center gap-2 px-4 py-3 rounded-xl border transition-colors shrink-0 ${
@@ -154,32 +101,12 @@ export default function Search() {
       {/* Filter accordion content */}
       {filterExpanded && (
         <div className="mb-6 p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl">
-          <div className="flex flex-wrap gap-2">
-            {/* Clear all button */}
-            <button
-              onClick={() => setActiveFilters([])}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                activeFilters.length === 0
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
-              }`}
-            >
-              All
-            </button>
-            {FILTERS.filter((f) => f.value).map((filter) => (
-              <button
-                key={filter.label}
-                onClick={() => toggleFilter(filter.value)}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                  activeFilters.includes(filter.value!)
-                    ? "bg-blue-600 text-white"
-                    : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
-                }`}
-              >
-                {filter.label}
-              </button>
-            ))}
-          </div>
+          <TagFilterPills
+            options={FILTERS}
+            active={activeFilters}
+            onToggle={toggleTag}
+            onClear={clearTags}
+          />
         </div>
       )}
 
@@ -214,7 +141,7 @@ export default function Search() {
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
                 {query ? "People" : "Creatives"}
               </h2>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 {filteredProfiles.map((profile) => (
                   <ProfileCard key={profile._id} profile={profile} />
                 ))}
@@ -222,10 +149,6 @@ export default function Search() {
             </section>
           )}
 
-          {/* Invite CTA */}
-          <div className="mt-8 max-w-md">
-            <InviteCTA variant="discover" />
-          </div>
         </div>
       )}
     </div>
@@ -247,7 +170,7 @@ function ProfileCard({ profile }: { profile: ProfileResult }) {
           className="w-12 h-12 rounded-full object-cover shrink-0"
         />
       ) : (
-        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white font-bold shrink-0">
+        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-gray-400 to-gray-500 dark:from-gray-600 dark:to-gray-700 flex items-center justify-center text-white font-bold shrink-0">
           {profile.name.charAt(0).toUpperCase()}
         </div>
       )}
@@ -256,7 +179,7 @@ function ProfileCard({ profile }: { profile: ProfileResult }) {
           {profile.name}
         </h3>
         <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-          {profile.jobFunctions.slice(0, 2).join(" • ")}
+          {profile.interests.slice(0, 2).join(" • ")}
         </p>
       </div>
       <div className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
