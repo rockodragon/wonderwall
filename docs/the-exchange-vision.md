@@ -32,7 +32,7 @@ For David's quick read — the questions you raised on v0.2 are addressed here:
 | "Medieval patronage" analogy too vague | Grounded better — closer to modern artist residencies, NPR/KLOVE sustaining membership, and Patreon ongoing support than to Medici specifically |
 | Crossboard's fate? | **Sunsetting into AP's Space at launch.** The Exchange is the platform; Crossboard's audience becomes one of AP's first member cohorts |
 | 5 hours/week operator load is arbitrary | Acknowledged. We'll measure David's actual time over the first Fellowship and let that calibrate, not assume |
-| October showcase format? | In-person at La Paloma (or larger), ticketed to support the arts, free livestream. Pre-event evidence should distinguish paid members, sponsored members, and direct Project/pool patrons rather than combining them into one vanity count. |
+| October showcase format? | **Decided (2026-08-31): November 6, 2026 at Lightchurch, Encinitas.** Ticketed fundraiser for the arts, free livestream. Pre-event evidence should distinguish paid members, sponsored members, and direct Project/pool patrons rather than combining them into one vanity count. |
 | Need pricing study on willingness-to-pay | Added as a research item — compare to KLOVE/AIR1/KPBS sustaining members, World Vision/Compassion International ($39–$43/mo), Patreon tiers ($5/$10/$20) |
 | Need market validation for the platform model | Added as a research item — outreach to community organizers on Substack, Skool, and physical church/arts communities |
 
@@ -539,17 +539,16 @@ Haley's stated ambition: expand TAS from San Diego to LA, NY, and beyond. The ho
 
 ---
 
-## Part 6 — The October showcase (north star)
+## Part 6 — The showcase (north star) — November 6, 2026 · Lightchurch, Encinitas
 
-The forcing function. What it looks like to "win" in October.
+The forcing function. What it looks like to "win" on November 6.
+
+> **Date and venue decided (2026-08-31): Thursday, November 6, 2026 at Lightchurch in Encinitas.** (Supersedes the earlier October target and the La Paloma / North Coast Calvary venue scoping below-referenced elsewhere in this doc.)
 
 ### Format
 
-- **In-person venue, free livestream.** Venue candidates:
-  - **La Paloma** — beautiful, on-brand, but ~400 capacity may be tight if we hit our patron/community targets
-  - **North Coast Calvary** — much larger capacity, faith-aligned, could host a serious showcase + livestream production. Worth scoping.
-  - Decision driver: how many patrons + creatives + their networks do we want in the room? If we expect 300+ committed attendees plus drop-ins, La Paloma is too small.
-- **Ticketed admission** at the door — proceeds support the arts (Space Grant Pool top-up, transparently)
+- **In-person at Lightchurch (Encinitas), free livestream.**
+- **Run as a fundraiser.** Ticketed admission — ticket proceeds flow to the Grant Fund via AP (tax receipts must state the deductible portion above the ticket's fair value); event sponsors buy business sponsorships (deductible to them as marketing)
 - **Hybrid showcase** — not "creatives on stage" performing, but **creatives embedded in the community** being honored, with their patrons and stories visible
 
 ### Pre-event targets
