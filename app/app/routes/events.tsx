@@ -11,7 +11,7 @@ import { EVENT_TAGS } from "../constants/eventTags";
 // The card itself lives in components/EventCard.tsx — /favorites renders the
 // same component, so the treatment can only be changed in one place.
 
-type FilterTab = "all" | "favorites";
+type FilterTab = "all" | "favorites" | "past";
 
 export default function Events() {
   const {
@@ -25,19 +25,32 @@ export default function Events() {
     setSearchParams,
   } = useFilterState({ tagsParam: "tags" });
 
+  const tabParam = searchParams.get("tab");
   const activeTab: FilterTab =
-    searchParams.get("tab") === "favorites" ? "favorites" : "all";
+    tabParam === "favorites" || tabParam === "past" ? tabParam : "all";
 
   function setActiveTab(tab: FilterTab) {
     setSearchParams((prev) => {
       const params = new URLSearchParams(prev);
-      if (tab === "favorites") params.set("tab", tab);
-      else params.delete("tab");
+      if (tab === "all") params.delete("tab");
+      else params.set("tab", tab);
       return params;
     });
   }
 
-  const allEvents = useQuery(api.events.list, { upcoming: true });
+  // Two lists, one at a time. Favorites filters the upcoming list the way it
+  // always has; Past is its own server query because "everything that already
+  // happened, newest first" is a different sort as well as a different slice.
+  // Neither payload carries a video URL — the event document never had one
+  // (docs/gated-event-video-prd.md); events.hasVideo, a public boolean, is
+  // all the archive knows about video.
+  const isPastTab = activeTab === "past";
+  const upcomingEvents = useQuery(
+    api.events.list,
+    isPastTab ? "skip" : { upcoming: true },
+  );
+  const pastEvents = useQuery(api.events.list, isPastTab ? { past: true } : "skip");
+  const allEvents = isPastTab ? pastEvents : upcomingEvents;
   const favorites = useQuery(api.favorites.getMyFavorites, {});
   const [showCreate, setShowCreate] = useState(false);
 
@@ -140,6 +153,20 @@ export default function Events() {
               Favorites
               {favoriteEventIds.size > 0 && <span>({favoriteEventIds.size})</span>}
             </button>
+            <button
+              onClick={() => setActiveTab("past")}
+              className="px-3 py-1.5 rounded-lg text-[13px] font-medium uppercase tracking-[0.06em] whitespace-nowrap transition-colors"
+              style={{
+                fontFamily: "var(--garden-font-body)",
+                backgroundColor:
+                  activeTab === "past"
+                    ? "var(--garden-citron)"
+                    : "var(--garden-ink-raised)",
+                color: activeTab === "past" ? "var(--garden-ink)" : "var(--garden-muted)",
+              }}
+            >
+              Past
+            </button>
           </div>
           <button
             onClick={() => setShowCreate(true)}
@@ -179,18 +206,30 @@ export default function Events() {
             <p className="text-lg font-medium mb-1" style={{ color: "var(--garden-body)" }}>
               {activeTab === "favorites"
                 ? "No favorited events"
-                : "No upcoming events"}
+                : activeTab === "past"
+                  ? "Nothing in the archive yet"
+                  : "No upcoming events"}
             </p>
             <p className="text-sm">
               {activeTab === "favorites"
                 ? "Heart an event to save it here"
-                : "Be the first to create an event for the community"}
+                : activeTab === "past"
+                  ? "Events show up here once they've happened"
+                  : "Be the first to create an event for the community"}
             </p>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredEvents.map((event) => (
-              <EventCard key={event._id} event={event} />
+              <EventCard
+                key={event._id}
+                event={event}
+                // Past events read as a quieter archive than the live list,
+                // and the Video chip is only worth showing there — on an
+                // upcoming event it says nothing you can act on yet.
+                dimmed={isPastTab}
+                videoBadge={isPastTab}
+              />
             ))}
           </div>
         )}

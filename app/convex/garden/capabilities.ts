@@ -80,13 +80,16 @@ export function can(user: GardenUser, capability: Capability): CanResult {
     }
 
     case "project.create.paid":
-      // Guardrail is the declared budget, not the persona (plan §2.3).
+      // Guardrail is the declared money state, not the persona (plan §2.3) —
+      // see garden/projects.ts's validateBudgetDeclaration. What a paid
+      // posting must do is say plainly what it pays; a number is encouraged,
+      // not required.
       if (isPaidLevel(level) || user.patronRole || user.partnerRole)
         return { allowed: true };
       return {
         allowed: false,
         reason:
-          "Paid projects need a declared budget and a seat, or a patron/partner role.",
+          "Posting paid work needs a seat, or a patron/partner role.",
         upgradePath: SEAT_PATH,
       };
 

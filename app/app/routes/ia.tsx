@@ -78,7 +78,7 @@ const VOCAB: { word: string; meaning: string; controlledBy: string }[] = [
   {
     word: "Project",
     meaning:
-      "A piece of work: passion = seeking support, paid = has a declared budget.",
+      "A piece of work: passion = seeking support, paid = states what it pays.",
     controlledBy: "The creative",
   },
   {

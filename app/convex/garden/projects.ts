@@ -231,13 +231,120 @@ export const listProjects = query({
   },
 });
 
+// The guardrail on paid projects (plan §2.3) is that a creative always knows
+// what they're walking into. This used to be enforced as a required number:
+// `budget: v.number()`, anything else rejected with "Paid projects need a
+// declared budget — a number, not a range." That kept unfunded "exposure"
+// gigs off the board, but it also blocked honest postings — a church with a
+// small budget, a poster who genuinely doesn't know the number yet, a real
+// volunteer ask.
+//
+// So what's required is CLARITY, not a number. Every paid posting declares
+// one of four money states, and a required state carries the original intent
+// better than the required number did: an unpaid ask can no longer masquerade
+// as paid work, because it has to label itself "volunteer", and a poster with
+// a small or unknown budget is no longer blocked from posting at all.
+//
+//   "amount"    — a set number, e.g. $400 (the encouraged default)
+//   "range"     — a low and a high number, e.g. $300–600
+//   "proposals" — open to proposals: the poster wants to hear what it costs
+//   "volunteer" — explicitly unpaid, said plainly
+//
+// Display side: app/app/lib/budgetLabel.ts (badge) and
+// convex/garden/projectsPublic.ts's resolveMoneyLine (money line).
+const BUDGET_TYPES = new Set(["amount", "range", "proposals", "volunteer"]);
+
+function isRealAmount(n: number | undefined): n is number {
+  return typeof n === "number" && Number.isFinite(n) && n > 0;
+}
+
+/**
+ * Validates a paid posting's declared money state. Returns the ConvexError
+ * payload to throw, or null when the declaration is coherent. Pure, so it's
+ * unit-tested without Convex (projects.test.ts) — same pure-core split as
+ * projectsPublic.ts and stories.ts.
+ *
+ * The states that take no numbers REJECT stray ones rather than dropping them
+ * silently: someone who typed an amount and then picked "open to proposals"
+ * meant one of the two, and quietly discarding their number is how a posting
+ * ends up saying something its poster didn't.
+ */
+export function validateBudgetDeclaration(args: {
+  budgetType: string;
+  budget?: number;
+  budgetMax?: number;
+}): { code: string; reason: string } | null {
+  const { budgetType, budget, budgetMax } = args;
+
+  if (!BUDGET_TYPES.has(budgetType)) {
+    return {
+      code: "invalid_budget_type",
+      reason:
+        "Say how this one pays: a set amount, a range, open to proposals, or volunteer.",
+    };
+  }
+
+  if (budgetType === "amount") {
+    if (!isRealAmount(budget)) {
+      return {
+        code: "invalid_budget",
+        reason: "A set amount needs a real number bigger than zero.",
+      };
+    }
+    if (budgetMax !== undefined) {
+      return {
+        code: "invalid_budget",
+        reason: "A set amount is one number. Pick a range if you want a low and a high.",
+      };
+    }
+    return null;
+  }
+
+  if (budgetType === "range") {
+    if (budget === undefined || budgetMax === undefined) {
+      return {
+        code: "invalid_budget",
+        reason: "A range needs both a low and a high number.",
+      };
+    }
+    if (!isRealAmount(budget) || !isRealAmount(budgetMax)) {
+      return {
+        code: "invalid_budget",
+        reason: "A range needs real numbers bigger than zero.",
+      };
+    }
+    if (budgetMax <= budget) {
+      return {
+        code: "invalid_budget",
+        reason: "A range needs a high number bigger than the low one.",
+      };
+    }
+    return null;
+  }
+
+  // "proposals" and "volunteer" — no numbers attached, by definition.
+  if (budget !== undefined || budgetMax !== undefined) {
+    return {
+      code: "invalid_budget",
+      reason:
+        budgetType === "volunteer"
+          ? "Volunteer work has no budget attached. Clear the number, or say what it pays."
+          : "Open to proposals means no number attached. Clear it, or post the amount instead.",
+    };
+  }
+  return null;
+}
+
 export const createPaidProject = mutation({
   args: {
     title: v.string(),
     blurb: v.optional(v.string()),
-    // The guardrail on paid projects is a REAL declared budget (plan §2.3) —
-    // required here, not optional.
-    budget: v.number(),
+    // What's required is the declared money state, not a number — see
+    // validateBudgetDeclaration above. `budget` is the amount for "amount"
+    // and the low end for "range"; `budgetMax` is a range's high end.
+    budgetType: v.string(),
+    budget: v.optional(v.number()),
+    budgetMax: v.optional(v.number()),
     photoUrl: v.optional(v.string()),
     // The project's own declared topics (canonical INTERESTS list) —
     // independent of the creator's profile interests. See the schema
@@ -249,12 +356,8 @@ export const createPaidProject = mutation({
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new ConvexError({ code: "unauthenticated" });
 
-    if (!Number.isFinite(args.budget) || args.budget <= 0) {
-      throw new ConvexError({
-        code: "invalid_budget",
-        reason: "Paid projects need a declared budget — a number, not a range.",
-      });
-    }
+    const budgetError = validateBudgetDeclaration(args);
+    if (budgetError) throw new ConvexError(budgetError);
 
     const now = Date.now();
     const storySlug = await generateStorySlug(ctx, args.title);
@@ -264,7 +367,9 @@ export const createPaidProject = mutation({
       origin: "posted",
       title: args.title,
       blurb: args.blurb,
+      budgetType: args.budgetType,
       budget: args.budget,
+      budgetMax: args.budgetMax,
       status: "active",
       photoUrl: args.photoUrl,
       storySlug,

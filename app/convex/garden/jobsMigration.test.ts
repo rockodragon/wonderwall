@@ -41,6 +41,7 @@ describe("mapJobToProject", () => {
     posterId: "u1" as Id<"users">,
     title: "Mural artist",
     description: "One wall.",
+    compensationRange: "$500",
     status: "Open",
     createdAt: 111,
     _creationTime: 222,
@@ -55,6 +56,14 @@ describe("mapJobToProject", () => {
       legacyJobId: "j1",
       createdAt: 111,
     });
+  });
+
+  it("a job with no parseable budget archives rather than publishing", () => {
+    const { compensationRange: _omitted, ...noComp } = job;
+    expect(mapJobToProject(noComp).status).toBe("archived");
+    expect(mapJobToProject({ ...job, compensationRange: "DOE" }).status).toBe(
+      "archived",
+    );
   });
 
   it("closed jobs archive", () => {
