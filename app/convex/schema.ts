@@ -936,4 +936,56 @@ export default defineSchema({
     mediaUrl: v.optional(v.string()),
     createdAt: v.number(),
   }).index("by_projectId", ["projectId"]),
+
+  // Announcements (docs/announcements-prd.md). One row per send (manual
+  // broadcast or system reminder). Cross-table target reference follows the
+  // `favorites` idiom (targetType + string id), tightened to a literal
+  // union — `favorites.targetType` is a bare v.string().
+  announcements: defineTable({
+    targetType: v.union(
+      v.literal("project"),
+      v.literal("event"),
+      v.literal("offering"),
+    ),
+    targetId: v.string(), // Id of the projects/events/offerings row
+    senderUserId: v.optional(v.id("users")), // absent = system reminder
+    kind: v.union(v.literal("broadcast"), v.literal("reminder")),
+    // Reminder idempotency: "reminder24h:{targetType}:{targetId}:{startsAt}".
+    // Absent on broadcasts. Uniqueness enforced in the mutation via
+    // by_reminderKey lookup-before-insert (transactional in Convex).
+    reminderKey: v.optional(v.string()),
+    body: v.string(), // max 2000 chars (enforced in mutation)
+    // Denormalized audit counts. recipientCount/unreachableCount are final at
+    // send time; emailedCount starts at 0 and each delivery batch adds to it.
+    recipientCount: v.number(), // rows in announcementRecipients
+    emailedCount: v.number(), // unique addresses emails were scheduled for
+    unreachableCount: v.number(), // resolved audience members with no channel
+    createdAt: v.number(),
+  })
+    // createdAt in the index so the rate-limit window check and the
+    // newest-first history list are both index scans, not filters.
+    .index("by_target_createdAt", ["targetType", "targetId", "createdAt"])
+    .index("by_reminderKey", ["reminderKey"]),
+
+  // One row per resolved recipient of one announcement. Doubles as the
+  // delivery worklist: deliveredAt is absent until the batch job processes
+  // the row. Delivery fields record what was QUEUED, not what landed —
+  // emails.sendNotificationEmail is fire-and-forget (no Resend webhook in
+  // V1), so "delivered" would be a lie. Exactly one of userId/email may be
+  // absent, never both.
+  announcementRecipients: defineTable({
+    announcementId: v.id("announcements"),
+    userId: v.optional(v.id("users")), // absent for guest (email-only) recipients
+    email: v.optional(v.string()), // normalized; set for guests at resolve time,
+                                   // and for account recipients at delivery time
+    notificationId: v.optional(v.id("notifications")), // absent for guests
+    emailQueuedAt: v.optional(v.number()), // absent if no address on file
+    deliveredAt: v.optional(v.number()), // absent = still pending
+    createdAt: v.number(),
+  })
+    // eq(announcementId).eq(deliveredAt, undefined) is the batch cursor —
+    // same undefined-in-index pattern as notifications.by_userId_readAt.
+    .index("by_announcementId_deliveredAt", ["announcementId", "deliveredAt"])
+    // Cross-batch email dedupe (see Recipient resolution).
+    .index("by_announcementId_email", ["announcementId", "email"]),
 });

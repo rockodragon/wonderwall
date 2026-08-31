@@ -10,6 +10,7 @@
 
 import type * as admin from "../admin.js";
 import type * as analytics from "../analytics.js";
+import type * as announcements from "../announcements.js";
 import type * as artifacts from "../artifacts.js";
 import type * as auth from "../auth.js";
 import type * as crawler from "../crawler.js";
@@ -74,6 +75,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   admin: typeof admin;
   analytics: typeof analytics;
+  announcements: typeof announcements;
   artifacts: typeof artifacts;
   auth: typeof auth;
   crawler: typeof crawler;

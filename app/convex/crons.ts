@@ -37,4 +37,13 @@ crons.daily(
   (internal as any).garden.stripe.reconcileMemberships,
 );
 
+// Announcements (docs/announcements-prd.md): day-before reminders for
+// events/offerings. reminderKey makes this safe at any cadence — a target
+// already reminded on a prior tick is a no-op lookup, not a re-send.
+crons.interval(
+  "announcement-reminders",
+  { minutes: 15 },
+  internal.announcements.sendDueReminders,
+);
+
 export default crons;
