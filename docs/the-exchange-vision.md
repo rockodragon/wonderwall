@@ -543,7 +543,7 @@ Haley's stated ambition: expand TAS from San Diego to LA, NY, and beyond. The ho
 
 The forcing function. What it looks like to "win" on November 6.
 
-> **Date and venue decided (2026-08-31): Thursday, November 6, 2026 at Lightchurch in Encinitas.** (Supersedes the earlier October target and the La Paloma / North Coast Calvary venue scoping below-referenced elsewhere in this doc.)
+> **Date and venue decided (2026-08-31): Friday, November 6, 2026 at Lightchurch in Encinitas.** (Supersedes the earlier October target and the La Paloma / North Coast Calvary venue scoping below-referenced elsewhere in this doc.)
 
 ### Format
 
