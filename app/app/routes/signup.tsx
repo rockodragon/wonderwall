@@ -278,10 +278,10 @@ export default function Signup() {
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-white truncate">
                   {inviterInfo.name}
                 </h2>
-                {inviterInfo.jobFunctions &&
-                  inviterInfo.jobFunctions.length > 0 && (
+                {inviterInfo.interests &&
+                  inviterInfo.interests.length > 0 && (
                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {inviterInfo.jobFunctions.join(", ")}
+                      {inviterInfo.interests.join(", ")}
                     </p>
                   )}
               </div>
@@ -311,10 +311,10 @@ export default function Signup() {
                         <div className="text-sm font-medium text-gray-900 dark:text-white truncate">
                           {invitee.name}
                         </div>
-                        {invitee.jobFunctions &&
-                          invitee.jobFunctions.length > 0 && (
+                        {invitee.interests &&
+                          invitee.interests.length > 0 && (
                             <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                              {invitee.jobFunctions.join(", ")}
+                              {invitee.interests.join(", ")}
                             </div>
                           )}
                       </div>

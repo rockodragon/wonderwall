@@ -43,19 +43,19 @@ export const getJobs = query({
     // Get all jobs
     let jobs = await ctx.db.query("jobs").collect();
 
-    // Filter by "For Me" - jobs matching user's job functions
+    // Filter by "For Me" - jobs matching user's interests
     if (args.forMe && userId) {
       const userProfile = await ctx.db
         .query("profiles")
         .withIndex("by_userId", (q) => q.eq("userId", userId))
         .first();
 
-      if (userProfile && userProfile.jobFunctions.length > 0) {
-        const userJobFunctions = new Set(userProfile.jobFunctions);
+      if (userProfile && userProfile.interests.length > 0) {
+        const userInterests = new Set(userProfile.interests);
         jobs = jobs.filter((j) => {
           if (!j.disciplines || j.disciplines.length === 0) return false;
-          // Check if any of the job's disciplines match user's job functions
-          return j.disciplines.some((d) => userJobFunctions.has(d));
+          // Check if any of the job's disciplines match user's interests
+          return j.disciplines.some((d) => userInterests.has(d));
         });
       }
     }
@@ -127,7 +127,7 @@ export const getJobs = query({
             ? {
                 name: posterProfile.name,
                 imageUrl: posterImageUrl,
-                jobFunctions: posterProfile.jobFunctions,
+                interests: posterProfile.interests,
                 profileId: posterProfile._id,
               }
             : null,
@@ -177,7 +177,7 @@ export const getJob = query({
         ? {
             name: posterProfile.name,
             imageUrl: posterImageUrl,
-            jobFunctions: posterProfile.jobFunctions,
+            interests: posterProfile.interests,
             profileId: posterProfile._id,
           }
         : null,
@@ -256,7 +256,7 @@ export const getJobInterests = query({
                 name: profile.name,
                 imageUrl,
                 bio: profile.bio,
-                jobFunctions: profile.jobFunctions,
+                interests: profile.interests,
               }
             : null,
           workLinkArtifacts: workLinkArtifacts.filter(Boolean),

@@ -37,7 +37,7 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
         await (ctx.db as any).insert("profiles", {
           userId,
           name,
-          jobFunctions: [],
+          interests: [],
           createdAt: now,
           updatedAt: now,
         });

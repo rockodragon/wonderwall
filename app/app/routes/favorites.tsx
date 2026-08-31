@@ -18,7 +18,7 @@ type FavoriteProfileItem = {
     _id: string;
     name: string;
     imageUrl?: string | null;
-    jobFunctions: string[];
+    interests: string[];
   };
   wondering: {
     _id: string;
@@ -286,7 +286,7 @@ function FavoriteProfileCard({ item }: { item: FavoriteProfileItem }) {
           {item.profile.name}
         </h3>
         <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-          {item.profile.jobFunctions.slice(0, 2).join(" • ")}
+          {item.profile.interests.slice(0, 2).join(" • ")}
         </p>
       </div>
       <div className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0">

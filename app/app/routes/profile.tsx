@@ -37,7 +37,7 @@ export default function Profile() {
   const profileNeedsSetup =
     isOwnProfile &&
     !profile?.bio?.trim() &&
-    (!profile?.jobFunctions || profile.jobFunctions.length === 0) &&
+    (!profile?.interests || profile.interests.length === 0) &&
     (!profile?.artifacts || profile.artifacts.length === 0);
 
   // Record profile view on mount
@@ -118,9 +118,9 @@ export default function Profile() {
             <FavoriteButton targetType="profile" targetId={profile._id} />
             <ShareButton type="profile" title={profile.name} size="sm" />
           </div>
-          {profile.jobFunctions.length > 0 && (
+          {profile.interests.length > 0 && (
             <p className="text-gray-600 dark:text-gray-400 mt-1 text-sm sm:text-base">
-              {profile.jobFunctions.join(" • ")}
+              {profile.interests.join(" • ")}
             </p>
           )}
           {profile.location && (

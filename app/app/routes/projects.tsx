@@ -89,7 +89,7 @@ export default function Projects() {
   // this field existed) falls back to its creator's interests so existing/
   // untagged projects don't just vanish from every filter.
   function projectTopics(p: any): string[] {
-    return p.interests?.length ? p.interests : (p.creator?.jobFunctions ?? []);
+    return p.interests?.length ? p.interests : (p.creator?.interests ?? []);
   }
 
   // Interests/location are a soft signal, not a hard filter — with a small

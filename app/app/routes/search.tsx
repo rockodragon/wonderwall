@@ -18,7 +18,7 @@ type ProfileResult = {
   _id: string;
   name: string;
   imageUrl?: string;
-  jobFunctions: string[];
+  interests: string[];
   wondering: { prompt: string; _id: string; imageUrl: string | null } | null;
 };
 
@@ -32,7 +32,7 @@ export default function Search() {
     tags: activeFilters,
     toggleTag,
     clearTags,
-  } = useFilterState({ tagsParam: "jobFunctions" });
+  } = useFilterState({ tagsParam: "interests" });
 
   // Get filter label for button
   const filterLabel =
@@ -42,8 +42,8 @@ export default function Search() {
         ? FILTERS.find((f) => f.value === activeFilters[0])?.label || "1 filter"
         : `${activeFilters.length} filters`;
 
-  // Text-based search for profiles (includes name, bio, job functions).
-  // No jobFunction is passed server-side — at friend-group scale the whole
+  // Text-based search for profiles (includes name, bio, interests).
+  // No interest is passed server-side — at friend-group scale the whole
   // multi-select filter runs client-side below, same as Events/Projects.
   const profiles = useQuery(api.profiles.search, {
     query: debouncedQuery || undefined,
@@ -53,7 +53,7 @@ export default function Search() {
     if (!profiles) return profiles;
     if (activeFilters.length === 0) return profiles;
     return profiles.filter((profile) =>
-      activeFilters.some((filter) => profile.jobFunctions.includes(filter)),
+      activeFilters.some((filter) => profile.interests.includes(filter)),
     );
   }, [profiles, activeFilters]);
 
@@ -179,7 +179,7 @@ function ProfileCard({ profile }: { profile: ProfileResult }) {
           {profile.name}
         </h3>
         <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-          {profile.jobFunctions.slice(0, 2).join(" • ")}
+          {profile.interests.slice(0, 2).join(" • ")}
         </p>
       </div>
       <div className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0">

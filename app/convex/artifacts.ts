@@ -77,7 +77,7 @@ export const get = query({
             _id: profile._id,
             name: profile.name,
             imageUrl: profileImageUrl,
-            jobFunctions: profile.jobFunctions,
+            interests: profile.interests,
           }
         : null,
       likeCount: likes.length,

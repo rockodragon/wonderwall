@@ -36,7 +36,7 @@ export const getFeaturedWonderings = query({
             _id: profile._id,
             name: profile.name,
             imageUrl,
-            jobFunctions: profile.jobFunctions?.slice(0, 2) || [],
+            interests: profile.interests?.slice(0, 2) || [],
           },
         };
       }),
@@ -94,7 +94,7 @@ export const getFeaturedWorks = query({
             _id: profile._id,
             name: profile.name,
             imageUrl: profileImageUrl,
-            jobFunctions: profile.jobFunctions?.slice(0, 2) || [],
+            interests: profile.interests?.slice(0, 2) || [],
           },
         };
       }),

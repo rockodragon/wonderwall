@@ -129,11 +129,11 @@ export const upsertProfile = mutation({
   args: {
     name: v.string(),
     bio: v.optional(v.string()),
-    // Optional, not required: Patron/Partner onboarding never shows a job-
-    // functions picker at all, so it must be able to omit this entirely
+    // Optional, not required: Patron/Partner onboarding never shows an
+    // interests picker at all, so it must be able to omit this entirely
     // rather than being forced to send [] and blank out a Creative's
     // previously-set list when they add a second role.
-    jobFunctions: v.optional(v.array(v.string())),
+    interests: v.optional(v.array(v.string())),
     location: v.optional(v.string()),
     locationType: v.optional(v.string()),
     address: v.optional(
@@ -177,7 +177,7 @@ export const upsertProfile = mutation({
       await ctx.db.patch(existing._id, {
         name: args.name,
         bio: args.bio,
-        jobFunctions: args.jobFunctions ?? existing.jobFunctions,
+        interests: args.interests ?? existing.interests,
         location: args.location,
         locationType: args.locationType,
         address: args.address,
@@ -200,7 +200,7 @@ export const upsertProfile = mutation({
         userId,
         name: args.name,
         bio: args.bio,
-        jobFunctions: args.jobFunctions ?? [],
+        interests: args.interests ?? [],
         location: args.location,
         locationType: args.locationType,
         address: args.address,
@@ -265,7 +265,7 @@ export const updateAttribute = mutation({
 export const search = query({
   args: {
     query: v.optional(v.string()),
-    jobFunction: v.optional(v.string()),
+    interest: v.optional(v.string()),
     location: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -287,9 +287,9 @@ export const search = query({
     // Filter profiles
     let filteredProfiles = profiles;
 
-    if (args.jobFunction) {
+    if (args.interest) {
       filteredProfiles = filteredProfiles.filter((p) =>
-        p.jobFunctions.includes(args.jobFunction!),
+        p.interests.includes(args.interest!),
       );
     }
 
@@ -306,7 +306,7 @@ export const search = query({
         return (
           p.name.toLowerCase().includes(q) ||
           p.bio?.toLowerCase().includes(q) ||
-          p.jobFunctions.some((jf) => jf.toLowerCase().includes(q)) ||
+          p.interests.some((jf) => jf.toLowerCase().includes(q)) ||
           p.location?.toLowerCase().includes(q) ||
           wondering?.prompt.toLowerCase().includes(q)
         );
