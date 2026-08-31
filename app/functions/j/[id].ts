@@ -68,7 +68,7 @@ async function fetchJoinTarget(
   return /^https?:\/\//i.test(url) ? url : null;
 }
 
-export const onRequestGet = async (context: {
+const handle = async (context: {
   request: Request;
   params: { id: string | string[] };
   env: Env;
@@ -96,3 +96,10 @@ export const onRequestGet = async (context: {
   // failure above. All four land here.
   return redirect(fallback);
 };
+
+export const onRequestGet = handle;
+// Link scanners, calendar clients and unfurlers HEAD this URL before anyone
+// clicks it. Without this, Pages falls through to the SPA fallback and a HEAD
+// returns 200 text/html — which looks, to anything checking, like the redirect
+// doesn't exist. A body-less 302 is the correct HEAD response anyway.
+export const onRequestHead = handle;

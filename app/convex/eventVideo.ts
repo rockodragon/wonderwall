@@ -56,6 +56,25 @@ export function normalizeVideoUrl(raw: string | undefined): string | undefined {
   return parsed.toString();
 }
 
+/**
+ * What /j/{eventId} may redirect to, given an event and its video row.
+ * Pure so both refusal branches are testable — the proxy is sessionless and
+ * these two rules are the only thing standing between it and a link it has
+ * no business resolving.
+ */
+export function publicJoinTarget(
+  event: { status: string; accessType?: string } | null,
+  row: { meetingUrl?: string } | null,
+): string | null {
+  if (!event) return null;
+  if (event.status === "cancelled") return null;
+  // A sessionless caller can never establish entitlement, so it never gets
+  // an answer for a paid event — it falls through to the event page, which
+  // does the check with a real viewer.
+  if (eventAccessType(event) === "paid") return null;
+  return row?.meetingUrl ?? null;
+}
+
 // ——— Shared internals ———
 
 async function readVideoRow(
@@ -177,14 +196,10 @@ export const getPublicJoinTarget = query({
     if (!eventId) return null;
 
     const event = await ctx.db.get(eventId);
-    if (!event) return null;
-    if (event.status === "cancelled") return null;
-    // Never resolve a link for a paid event from an unauthenticated path.
-    if (eventAccessType(event) === "paid") return null;
+    const row = event ? await readVideoRow(ctx, eventId) : null;
 
-    const row = await readVideoRow(ctx, eventId);
-    if (!row?.meetingUrl) return null;
-    return { meetingUrl: row.meetingUrl };
+    const meetingUrl = publicJoinTarget(event, row);
+    return meetingUrl ? { meetingUrl } : null;
   },
 });
 
