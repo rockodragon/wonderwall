@@ -176,11 +176,11 @@ Subject: **Cover a creative's seat — and show your congregation the ledger**
 
 **Email**
 
-Subject: **November 6 — an evening of funded creative work, Encinitas**
+Subject: **The Creative Economy We All Need — November 6, Encinitas**
 
 > Hi {name} — I'd like to invite you to something specific.
 >
-> On November 6, creatives.exchange is putting funded creative work on stage at Lightchurch in Encinitas — a ticketed fundraiser for our General Grant Fund. The fund is tax-deductible, administered by Abiding Practice, a 501(c)(3); roughly 87% of every dollar is granted to creatives, and every grant is published on a ledger anyone can read.
+> On November 6 we're hosting **The Creative Economy We All Need** at Lightchurch in Encinitas — an evening about the engine that funds creative work, and a ticketed benefit for our General Grant Fund. The fund is tax-deductible, administered by Abiding Practice, a 501(c)(3); roughly 87% of every dollar is granted to creatives, and every grant is published on a ledger anyone can read.
 >
 > For institutions considering something larger, we run a small number of partnerships starting at $10,000/year, by invitation. The evening is the right place to see what the money actually produces.
 >
@@ -192,8 +192,8 @@ Subject: **November 6 — an evening of funded creative work, Encinitas**
 
 **Flyer**
 
-- Headline: **November 6: an evening of funded creative work.**
-- Subhead: Lightchurch, Encinitas. Ticketed fundraiser for the General Grant Fund. Free livestream.
+- Headline: **The Creative Economy We All Need**
+- Subhead: November 6 · Lightchurch, Encinitas · A benefit for the General Grant Fund · Free livestream.
 - Bullets:
   - Donations are tax-deductible — administered by Abiding Practice, a 501(c)(3).
   - About 87% of every dollar is granted; every grant published on a public ledger.
