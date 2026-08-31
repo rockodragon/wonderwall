@@ -32,6 +32,7 @@ export interface ProjectLike {
   raisedCents?: number;
   storySlug?: string;
   status?: string;
+  origin?: string;
 }
 
 export interface ProjectCard {
@@ -122,6 +123,16 @@ const FALLBACK_OWNER_NAME = "A Garden creative";
 // VISIBLE_STATUSES (two listProjects implementations, see file header).
 const VISIBLE_STATUSES = new Set(["active", "in_progress", "completed"]);
 
+// Portfolio-origin rows (artifacts.create's companion-project side effect —
+// a quick single-artifact share, not a deliberate post) don't belong on the
+// browse grid; they already have a home at /works. Only an EXPLICIT
+// "portfolio" excludes — a row with no origin at all (predates the field,
+// migration hasn't run) reads as "posted" so real projects never vanish
+// defensively. Kept in sync with garden/projects.ts's listProjects.
+function isPosted(p: { origin?: string }): boolean {
+  return p.origin !== "portfolio";
+}
+
 /** Public, unauthenticated — the /projects browse grid. Visible (non-hidden)
  * projects, newest first, capped at 50. `kind` queries a single indexed
  * range by kind only, then filters status in JS (status is no longer a
@@ -149,7 +160,7 @@ export const listProjects = query({
           )
         ).flat();
 
-    const visible = rows.filter((p) => VISIBLE_STATUSES.has(p.status));
+    const visible = rows.filter((p) => VISIBLE_STATUSES.has(p.status) && isPosted(p));
     const newestFirst = [...visible].sort((a, b) => b.createdAt - a.createdAt).slice(0, 50);
     if (newestFirst.length === 0) return [];
 

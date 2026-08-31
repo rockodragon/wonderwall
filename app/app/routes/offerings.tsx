@@ -286,16 +286,24 @@ function OfferingCard({ offering, isOwner }: { offering: any; isOwner: boolean }
         )}
       </div>
       <div className="p-4 flex-1 flex flex-col min-w-0">
-        <span
-          className="self-start px-2 py-0.5 rounded-full text-[11px] font-medium uppercase tracking-[0.06em] mb-2"
-          style={{
-            fontFamily: "var(--garden-font-mono)",
-            backgroundColor: "rgba(215,242,90,0.14)",
-            color: "var(--garden-citron)",
-          }}
-        >
-          {FORMAT_LABELS[offering.format] ?? offering.format}
-        </span>
+        <div className="flex items-start justify-between gap-2 mb-1">
+          <h3
+            className="font-semibold line-clamp-2"
+            style={{ color: "var(--garden-paper)", fontFamily: "var(--garden-font-display)" }}
+          >
+            {offering.title}
+          </h3>
+          <span
+            className="shrink-0 px-2 py-0.5 rounded-full text-[11px] font-medium uppercase tracking-[0.06em]"
+            style={{
+              fontFamily: "var(--garden-font-mono)",
+              backgroundColor: "rgba(215,242,90,0.14)",
+              color: "var(--garden-citron)",
+            }}
+          >
+            {FORMAT_LABELS[offering.format] ?? offering.format}
+          </span>
+        </div>
         {offering.interests && offering.interests.length > 0 && (
           <div className="flex flex-wrap gap-1 mb-2">
             {offering.interests.map((tag: string) => (
@@ -313,12 +321,6 @@ function OfferingCard({ offering, isOwner }: { offering: any; isOwner: boolean }
             ))}
           </div>
         )}
-        <h3
-          className="font-semibold mb-1 line-clamp-2"
-          style={{ color: "var(--garden-paper)", fontFamily: "var(--garden-font-display)" }}
-        >
-          {offering.title}
-        </h3>
         {offering.description && (
           <p className="text-sm line-clamp-2 mb-2" style={{ color: "var(--garden-dim)" }}>
             {offering.description}

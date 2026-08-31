@@ -260,8 +260,16 @@ export default defineSchema({
     ),
     projectDescription: v.optional(v.string()),
     projectUrl: v.optional(v.string()),
-    wantsToHost: v.optional(v.boolean()),
+    // Has a project they want to bring/showcase at launch — "host" here
+    // means bringing a project, distinct from the Host role (an org that
+    // runs a Table) below. Kept separate to not overload that word.
+    hasLaunchProject: v.optional(v.boolean()),
     portfolioUrl: v.optional(v.string()),
+    // Prospective Host signal — an org saying they'd want to run a Table
+    // (copy says "community": "Table" is internal branding external people
+    // won't know yet). Host onboarding itself is out of V1 scope; this is
+    // just a lead to follow up on manually.
+    interestedInHosting: v.optional(v.boolean()),
     hearAboutUs: v.optional(v.string()),
     hearAboutUsOther: v.optional(v.string()),
   }).index("by_email", ["email"]),
@@ -730,6 +738,16 @@ export default defineSchema({
     // selected at creation, has none — callers fall back to the creator's
     // own interests in that case rather than treating it as untagged.
     interests: v.optional(v.array(v.string())),
+    // Which creation path produced this row (review follow-up — a quick
+    // portfolio share and a deliberately-posted project both insert here,
+    // and were indistinguishable on the public /projects browse grid).
+    // "posted" = createPassionProject/createPaidProject (convex/garden/
+    // projects.ts) — a deliberate project post. "portfolio" = the companion
+    // project artifacts.create (convex/artifacts.ts) inserts as a side
+    // effect of a quick single-artifact share. Optional and defensive:
+    // existing rows predate this field until garden/projectOriginMigration.ts
+    // backfills them; treat an absent value as "posted" everywhere it's read.
+    origin: v.optional(v.string()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })

@@ -206,6 +206,7 @@ export const create = mutation({
     const projectId = await ctx.db.insert("projects", {
       userId,
       kind: "passion",
+      origin: "portfolio",
       title: projectTitle,
       blurb: args.type === "text" ? args.content : undefined,
       status: "active",

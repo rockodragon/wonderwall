@@ -373,19 +373,25 @@ function ProjectCard({
         )}
       </div>
       <div className="p-4 flex-1 flex flex-col min-w-0">
-        <div className="flex flex-wrap items-center gap-1.5 mb-2">
+        <div className="flex items-start justify-between gap-2 mb-1">
+          <h3
+            className="font-semibold line-clamp-2"
+            style={{ color: "var(--garden-paper)", fontFamily: "var(--garden-font-display)" }}
+          >
+            {project.title}
+          </h3>
           <span
-            className="self-start px-2 py-0.5 rounded-full text-[11px] font-medium uppercase tracking-[0.06em]"
+            className="shrink-0 px-2 py-0.5 rounded-full text-[11px] font-medium uppercase tracking-[0.06em]"
             style={{
               fontFamily: "var(--garden-font-mono)",
               backgroundColor: project.kind === "paid" ? "rgba(215,242,90,0.14)" : "rgba(198,198,190,0.1)",
               color: project.kind === "paid" ? "var(--garden-citron)" : "var(--garden-muted)",
             }}
           >
-            {project.kind === "paid"
-              ? `Paid${project.budget ? ` · $${project.budget.toLocaleString()}` : ""}`
-              : "Passion"}
+            {project.kind === "paid" ? "Paid" : "Passion"}
           </span>
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5 mb-2">
           {daysLeft !== null && (
             <span
               className="self-start px-2 py-0.5 rounded-full text-[11px] font-medium uppercase tracking-[0.06em]"
@@ -454,39 +460,43 @@ function ProjectCard({
             ))}
           </div>
         )}
-        <h3
-          className="font-semibold mb-1 line-clamp-2"
-          style={{ color: "var(--garden-paper)", fontFamily: "var(--garden-font-display)" }}
-        >
-          {project.title}
-        </h3>
         {project.blurb && (
           <p className="text-sm line-clamp-2 mb-3" style={{ color: "var(--garden-dim)" }}>
             {project.blurb}
           </p>
         )}
-        {project.creator && (
-          <div className="mt-auto flex items-center gap-2 pt-2 min-w-0">
-            {project.creator.imageUrl ? (
-              <img
-                src={project.creator.imageUrl}
-                alt={project.creator.name}
-                className="w-5 h-5 rounded-full object-cover shrink-0"
-              />
-            ) : (
-              <div
-                className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
-                style={{ backgroundColor: "var(--garden-hairline-raised)", color: "var(--garden-paper)" }}
-              >
-                {project.creator.name.charAt(0).toUpperCase()}
-              </div>
-            )}
-            {/* Names are never truncated — the card wraps to fit instead */}
-            <span className="text-xs break-words" style={{ color: "var(--garden-muted)" }}>
-              {project.creator.name}
+        <div className="mt-auto flex items-center justify-between gap-2 pt-2 min-w-0">
+          {project.creator && (
+            <div className="flex items-center gap-2 min-w-0">
+              {project.creator.imageUrl ? (
+                <img
+                  src={project.creator.imageUrl}
+                  alt={project.creator.name}
+                  className="w-5 h-5 rounded-full object-cover shrink-0"
+                />
+              ) : (
+                <div
+                  className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
+                  style={{ backgroundColor: "var(--garden-hairline-raised)", color: "var(--garden-paper)" }}
+                >
+                  {project.creator.name.charAt(0).toUpperCase()}
+                </div>
+              )}
+              {/* Names are never truncated — the card wraps to fit instead */}
+              <span className="text-xs break-words" style={{ color: "var(--garden-muted)" }}>
+                {project.creator.name}
+              </span>
+            </div>
+          )}
+          {project.kind === "paid" && project.budget && (
+            <span
+              className="shrink-0 text-sm font-semibold"
+              style={{ fontFamily: "var(--garden-font-mono)", color: "var(--garden-citron)" }}
+            >
+              ${project.budget.toLocaleString()}
             </span>
-          </div>
-        )}
+          )}
+        </div>
         {isOwn && (
           <div
             className="flex items-center gap-2 mt-3"

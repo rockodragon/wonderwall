@@ -94,6 +94,7 @@ export const createPassionProject = mutation({
     const id = await ctx.db.insert("projects", {
       userId,
       kind: "passion",
+      origin: "posted",
       title: args.title,
       blurb: args.blurb,
       goal: args.goal,
@@ -172,7 +173,15 @@ export const listProjects = query({
   args: {},
   handler: async (ctx) => {
     const allProjects = await ctx.db.query("projects").collect();
-    const projects = allProjects.filter((p) => VISIBLE_STATUSES.has(p.status));
+    const projects = allProjects.filter(
+      // Portfolio-origin rows (artifacts.create's companion-project side
+      // effect — a quick single-artifact share, not a deliberate post) don't
+      // belong on the main browse grid; they already have a home at /works.
+      // Only an EXPLICIT "portfolio" excludes — a project with no origin at
+      // all (predates this field, migration hasn't run) is treated as
+      // "posted" so real projects never vanish defensively.
+      (p) => VISIBLE_STATUSES.has(p.status) && p.origin !== "portfolio",
+    );
 
     const withDetails = await Promise.all(
       projects.map(async (project) => {
@@ -252,6 +261,7 @@ export const createPaidProject = mutation({
     const id = await ctx.db.insert("projects", {
       userId,
       kind: "paid",
+      origin: "posted",
       title: args.title,
       blurb: args.blurb,
       budget: args.budget,
