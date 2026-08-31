@@ -40,13 +40,13 @@ async function generateEmbedding(text: string): Promise<number[]> {
 function buildProfileContent(profile: {
   name: string;
   bio?: string;
-  jobFunctions: string[];
+  interests: string[];
   location?: string;
 }): string {
   const parts = [
     profile.name,
     profile.bio,
-    profile.jobFunctions.join(", "),
+    profile.interests.join(", "),
     profile.location,
   ].filter(Boolean);
   return parts.join(" | ");
@@ -255,7 +255,7 @@ export const getSearchResultDetails = query({
               _id: profile._id,
               name: profile.name,
               bio: profile.bio,
-              jobFunctions: profile.jobFunctions,
+              interests: profile.interests,
               location: profile.location,
               imageUrl,
             };

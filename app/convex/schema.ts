@@ -13,7 +13,7 @@ export default defineSchema({
     bio: v.optional(v.string()),
     imageUrl: v.optional(v.string()), // external URL (legacy)
     imageStorageId: v.optional(v.id("_storage")), // Convex file storage
-    jobFunctions: v.array(v.string()), // curated list + "other:custom"
+    interests: v.array(v.string()), // canonical INTERESTS vocabulary + "other:custom"
     // Location: `location` stays the plain display string everything already
     // reads/matches on. The rest is structured data from the same Google
     // Places pipeline `events` already uses (convex/location.ts +

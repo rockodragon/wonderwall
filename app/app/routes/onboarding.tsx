@@ -64,7 +64,7 @@ export default function Onboarding() {
 
   // Re-entering onboarding (a second role, back button, a bookmark — nothing
   // guards against it, and re-adding roles is an intended flow) must not
-  // start these fields blank: bio/location/jobFunctions previously saved
+  // start these fields blank: bio/location/interests previously saved
   // would otherwise get overwritten with blanks on the next submit, since
   // this form doesn't know what wasn't touched. Prefill once, like
   // settings.tsx already does.
@@ -73,7 +73,7 @@ export default function Onboarding() {
     if (profile && !prefilled) {
       setBio(profile.bio || "");
       location.hydrate(profile);
-      setSelectedJobFunctions(profile.jobFunctions || []);
+      setSelectedJobFunctions(profile.interests || []);
       setPrefilled(true);
     }
     // location.hydrate is stable (useCallback with no deps) — omitting it
@@ -113,7 +113,7 @@ export default function Onboarding() {
     try {
       await upsertProfile({
         name: profile.name,
-        jobFunctions: primaryRole === "creative" ? selectedJobFunctions : undefined,
+        interests: primaryRole === "creative" ? selectedJobFunctions : undefined,
         bio: bio.trim() || undefined,
         ...location.toArgs(),
         primaryRole,

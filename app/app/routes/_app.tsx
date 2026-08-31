@@ -51,7 +51,7 @@ export default function AppLayout() {
         email: profile.attributes?.email,
         name: profile.name,
         plan: profile.plan,
-        jobFunctions: profile.jobFunctions,
+        interests: profile.interests,
       });
     }
   }, [isAuthenticated, profile, posthog]);

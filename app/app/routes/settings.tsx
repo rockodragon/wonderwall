@@ -50,7 +50,7 @@ export default function Settings() {
   const hasProfile = Boolean(profile?.name?.trim());
   const profileNeedsSetup =
     !hasProfile ||
-    (!profile?.jobFunctions?.length &&
+    (!profile?.interests?.length &&
       !profile?.bio?.trim() &&
       !profile?.location?.trim());
   const isEditingProfile = showProfileEdit || profileNeedsSetup;
@@ -171,7 +171,7 @@ function ProfileSummary({
             {profile.name}
           </h3>
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            {profile.jobFunctions?.join(", ") || "No roles set"}
+            {profile.interests?.join(", ") || "No roles set"}
           </p>
         </div>
       </div>
@@ -206,7 +206,7 @@ function ProfileEditForm({
   const location = useLocationField();
   const [imageUrl, setImageUrl] = useState("");
   const [imageUrlInput, setImageUrlInput] = useState("");
-  const [jobFunctions, setJobFunctions] = useState<string[]>([]);
+  const [interests, setInterests] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [initialized, setInitialized] = useState(false);
@@ -218,7 +218,7 @@ function ProfileEditForm({
       setBio(profile.bio || "");
       location.hydrate(profile);
       setImageUrl(profile.imageUrl || "");
-      setJobFunctions(profile.jobFunctions || []);
+      setInterests(profile.interests || []);
       setInitialized(true);
     }
     // location.hydrate is stable (useCallback with no deps) — omitting it
@@ -227,8 +227,8 @@ function ProfileEditForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile, initialized]);
 
-  function toggleJobFunction(fn: string) {
-    setJobFunctions((prev) =>
+  function toggleInterest(fn: string) {
+    setInterests((prev) =>
       prev.includes(fn) ? prev.filter((f) => f !== fn) : [...prev, fn],
     );
   }
@@ -291,13 +291,13 @@ function ProfileEditForm({
         name: name.trim(),
         bio: bio.trim() || undefined,
         ...location.toArgs(),
-        jobFunctions,
+        interests,
       });
 
       posthog?.capture("profile_updated", {
         has_bio: !!bio.trim(),
         has_location: !!location.value.trim(),
-        job_functions_count: jobFunctions.length,
+        interests_count: interests.length,
         is_new_profile: isNewProfile,
       });
 
@@ -483,7 +483,7 @@ function ProfileEditForm({
           />
         </div>
 
-        {/* Job Functions */}
+        {/* Interests */}
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             What do you do?
@@ -493,9 +493,9 @@ function ProfileEditForm({
               <button
                 key={fn}
                 type="button"
-                onClick={() => toggleJobFunction(fn)}
+                onClick={() => toggleInterest(fn)}
                 className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                  jobFunctions.includes(fn)
+                  interests.includes(fn)
                     ? "bg-blue-600 text-white"
                     : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"
                 }`}

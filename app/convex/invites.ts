@@ -318,7 +318,7 @@ export const getInviterInfo = query({
         recentInvitees.push({
           name: inviteeProfile.name,
           imageUrl: inviteeProfile.imageUrl,
-          jobFunctions: inviteeProfile.jobFunctions,
+          interests: inviteeProfile.interests,
         });
       }
     }
@@ -326,7 +326,7 @@ export const getInviterInfo = query({
     return {
       name: profile.name,
       imageUrl: profile.imageUrl,
-      jobFunctions: profile.jobFunctions,
+      interests: profile.interests,
       usageCount,
       remainingUses,
       canAcceptMore: remainingUses > 0,

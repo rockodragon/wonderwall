@@ -208,7 +208,7 @@ export const listProjects = query({
                 _id: user._id,
                 name: user.name,
                 imageUrl: user.imageUrl,
-                jobFunctions: user.jobFunctions,
+                interests: user.interests,
                 location: user.location,
               }
             : null,

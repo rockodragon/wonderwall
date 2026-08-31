@@ -95,7 +95,7 @@ export const bootstrap = internalMutation({
     const profileId = await ctx.db.insert("profiles", {
       userId,
       name,
-      jobFunctions: [],
+      interests: [],
       plan: "paid", // Admin gets paid plan
       createdAt: now,
       updatedAt: now,

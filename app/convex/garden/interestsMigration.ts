@@ -2,7 +2,7 @@
 // values (docs/the-exchange-v1-prd.md-adjacent product decision — "is a
 // Photographer" reframed as "interested in Photography" so the same word
 // works for a person, a project, and a class). Walks every `profiles` row
-// and remaps both `jobFunctions` and `supportInterests` — the two fields
+// and remaps both `interests` and `supportInterests` — the two fields
 // that drew their picker options from the old JOB_FUNCTIONS list (see
 // app/constants/jobFunctions.ts for the full old list, app/constants/
 // interests.ts for the new one). Idempotent by construction: a value not
@@ -96,24 +96,24 @@ export const migrateInterests = internalMutation({
     // "Before" counts — profiles still carrying at least one old-vocabulary
     // value, computed ahead of any patching so a re-run's report is honest
     // about how much (if anything) was actually left to do.
-    let profilesWithOldJobFunctions = 0;
+    let profilesWithOldInterests = 0;
     let profilesWithOldSupportInterests = 0;
     for (const profile of profiles) {
-      if (hasOldInterests(profile.jobFunctions)) profilesWithOldJobFunctions++;
+      if (hasOldInterests(profile.interests)) profilesWithOldInterests++;
       if (hasOldInterests(profile.supportInterests)) profilesWithOldSupportInterests++;
     }
 
-    let jobFunctionsUpdated = 0;
+    let interestsUpdated = 0;
     let supportInterestsUpdated = 0;
     let profilesTouched = 0;
 
     for (const profile of profiles) {
       const patch: Record<string, unknown> = {};
 
-      const newJobFunctions = remapInterests(profile.jobFunctions);
-      if (!sameList(newJobFunctions, profile.jobFunctions)) {
-        patch.jobFunctions = newJobFunctions;
-        jobFunctionsUpdated++;
+      const newInterests = remapInterests(profile.interests);
+      if (!sameList(newInterests, profile.interests)) {
+        patch.interests = newInterests;
+        interestsUpdated++;
       }
 
       const newSupportInterests = remapInterests(profile.supportInterests);
@@ -131,11 +131,11 @@ export const migrateInterests = internalMutation({
     return {
       totalProfiles: profiles.length,
       before: {
-        profilesWithOldJobFunctions,
+        profilesWithOldInterests,
         profilesWithOldSupportInterests,
       },
       after: {
-        jobFunctionsUpdated,
+        interestsUpdated,
         supportInterestsUpdated,
         profilesTouched,
         profilesUnchanged: profiles.length - profilesTouched,

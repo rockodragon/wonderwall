@@ -472,10 +472,10 @@ export default function JobDetail() {
                           >
                             {interest.profile?.name}
                           </Link>
-                          {interest.profile?.jobFunctions &&
-                            interest.profile.jobFunctions.length > 0 && (
+                          {interest.profile?.interests &&
+                            interest.profile.interests.length > 0 && (
                               <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-                                {interest.profile.jobFunctions
+                                {interest.profile.interests
                                   .slice(0, 3)
                                   .join(" · ")}
                               </p>
@@ -597,12 +597,12 @@ export default function JobDetail() {
                 </div>
               </Link>
 
-              {/* Job Functions */}
-              {job.poster.jobFunctions &&
-                job.poster.jobFunctions.length > 0 && (
+              {/* Interests */}
+              {job.poster.interests &&
+                job.poster.interests.length > 0 && (
                   <div className="mb-3">
                     <p className="text-sm text-gray-600 dark:text-gray-400">
-                      {job.poster.jobFunctions.slice(0, 3).join(" · ")}
+                      {job.poster.interests.slice(0, 3).join(" · ")}
                     </p>
                   </div>
                 )}

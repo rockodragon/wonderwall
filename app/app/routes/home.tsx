@@ -359,10 +359,10 @@ export default function Home() {
                       <div className="font-semibold text-[var(--garden-paper)]">
                         {inviterInfo.name}
                       </div>
-                      {inviterInfo.jobFunctions &&
-                        inviterInfo.jobFunctions.length > 0 && (
+                      {inviterInfo.interests &&
+                        inviterInfo.interests.length > 0 && (
                           <div className="text-sm text-[var(--garden-muted)]">
-                            {inviterInfo.jobFunctions.join(", ")}
+                            {inviterInfo.interests.join(", ")}
                           </div>
                         )}
                     </div>
