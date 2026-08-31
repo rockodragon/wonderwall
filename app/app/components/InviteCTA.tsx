@@ -3,48 +3,10 @@ import { useMutation, useQuery } from "convex/react";
 import { useState, useEffect } from "react";
 import { api } from "../../convex/_generated/api";
 
-type InviteCTAVariant =
-  | "profile"
-  | "works"
-  | "discover"
-  | "events"
-  | "favorites"
-  | "sidebar";
-
-// V1 (2026-08-30): dropped the per-page rainbow gradients — citron is
-// reserved for real actions, not decoration (public/tokens.css header
-// rule), and five different saturated gradients across one app read as
-// noisy, not distinctive. One consistent minimal treatment now; copy still
-// varies by placement.
-const VARIANTS: Record<InviteCTAVariant, { headline: string; subtitle: string }> = {
-  profile: {
-    headline: "Invite someone",
-    subtitle: "Share your personal invite link with people you know.",
-  },
-  works: {
-    headline: "Share the inspiration",
-    subtitle: "Invite someone to share what they're working on.",
-  },
-  discover: {
-    headline: "Expand the community",
-    subtitle: "Know someone who's wondering? Invite them.",
-  },
-  events: {
-    headline: "Bring more voices",
-    subtitle: "Invite someone to share their event or opportunity here.",
-  },
-  favorites: {
-    headline: "Invite more of what you love",
-    subtitle: "Know someone who'd add to your favorites?",
-  },
-  sidebar: {
-    headline: "Invite someone",
-    subtitle: "Grow the community with people you know.",
-  },
-};
-
-export function InviteCTA({ variant }: { variant: InviteCTAVariant }) {
-  const config = VARIANTS[variant];
+// Lives in exactly one place — the sidebar (docs/the-exchange-v1-prd.md
+// §5 nav note) — so it can be a distinct, textured moment there instead of
+// competing with itself across six pages in an identical flat card.
+export function InviteCTA() {
   const posthog = usePostHog();
   const [isExpanded, setIsExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -71,7 +33,7 @@ export function InviteCTA({ variant }: { variant: InviteCTAVariant }) {
 
     // Track invite link copied
     posthog?.capture("invite_link_copied", {
-      variant,
+      variant: "sidebar",
       invites_used: inviteLink.usageCount,
       invites_remaining: inviteLink.remainingUses,
     });
@@ -89,7 +51,11 @@ export function InviteCTA({ variant }: { variant: InviteCTAVariant }) {
       className={`group relative overflow-hidden rounded-2xl border transition-colors duration-200 ${
         isExpanded ? "" : "cursor-pointer"
       }`}
-      style={{ backgroundColor: "var(--garden-ink-raised)", borderColor: "var(--garden-hairline)" }}
+      style={{
+        background:
+          "radial-gradient(120% 100% at 0% 0%, rgba(215,242,90,0.12) 0%, var(--garden-ink-raised) 60%)",
+        borderColor: "rgba(215,242,90,0.24)",
+      }}
       onClick={() => !isExpanded && setIsExpanded(true)}
     >
       {/* Content */}
@@ -116,7 +82,7 @@ export function InviteCTA({ variant }: { variant: InviteCTAVariant }) {
               </svg>
             </div>
             <h3 className="text-[15px] font-semibold" style={{ color: "var(--garden-paper)" }}>
-              {config.headline}
+              Invite someone
             </h3>
           </div>
           {isExpanded && (
@@ -146,7 +112,7 @@ export function InviteCTA({ variant }: { variant: InviteCTAVariant }) {
         </div>
 
         <p className="text-sm leading-relaxed mb-4" style={{ color: "var(--garden-dim)" }}>
-          {config.subtitle}
+          Grow the community with people you know.
         </p>
 
         {!isExpanded ? (

@@ -68,7 +68,14 @@ export function mapJobToProject(job: LegacyJob) {
     title: job.title,
     blurb: `${job.description}${compNote}`,
     budget,
-    status: job.status === "Closed" ? "archived" : "active",
+    // A migrated row with no real budget doesn't meet the same contract
+    // createPaidProject enforces (a real numeric budget, required) — it
+    // shouldn't sit on the public /projects page looking like a proper
+    // bounded commission next to ones that do. Land it archived instead;
+    // a real prod case ("Videographer" / "1.5 Burritos/day") is exactly
+    // why — someone has to add a real number (or decide not to) before
+    // it's visible, not have it silently published as-is.
+    status: job.status === "Closed" || budget === undefined ? "archived" : "active",
     legacyJobId: job._id,
     createdAt: job.createdAt ?? job._creationTime,
     updatedAt: Date.now(),
@@ -116,12 +123,18 @@ export const repairMigratedProjects = internalMutation({
       const job = await ctx.db.get(project.legacyJobId);
       if (!job) continue;
       const mapped = mapJobToProject(job);
-      if (mapped.budget !== project.budget || mapped.blurb !== project.blurb) {
-        await ctx.db.patch(project._id, {
-          budget: mapped.budget,
-          blurb: mapped.blurb,
-          updatedAt: Date.now(),
-        });
+      const patch: Record<string, unknown> = {};
+      if (mapped.budget !== project.budget) patch.budget = mapped.budget;
+      if (mapped.blurb !== project.blurb) patch.blurb = mapped.blurb;
+      // Only pulls a still-"active" no-budget row into "archived" — never
+      // overrides a status a creator/operator has since moved on purpose
+      // (in_progress/completed/an intentional re-activation with a real
+      // budget already patched above).
+      if (mapped.budget === undefined && project.status === "active") {
+        patch.status = "archived";
+      }
+      if (Object.keys(patch).length > 0) {
+        await ctx.db.patch(project._id, { ...patch, updatedAt: Date.now() });
         repaired++;
       }
     }

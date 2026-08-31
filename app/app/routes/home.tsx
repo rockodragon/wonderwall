@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { Route } from "./+types/home";
 import { api } from "../../convex/_generated/api";
 import { Wordmark } from "../components/Wordmark";
+import { WaitlistFollowUpDark } from "../components/WaitlistFollowUpDark";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -54,6 +55,8 @@ export default function Home() {
     "idle" | "loading" | "success" | "error"
   >("idle");
   const [message, setMessage] = useState("");
+  const [submittedEmail, setSubmittedEmail] = useState("");
+  const [waitlistPosition, setWaitlistPosition] = useState<number | null>(null);
   const [inviteInput, setInviteInput] = useState("");
   const [inviteError, setInviteError] = useState("");
   const [inviteSlug, setInviteSlug] = useState<string | null>(null);
@@ -91,6 +94,8 @@ export default function Home() {
       const result = await addToWaitlist({ email });
       setStatus("success");
       setMessage(result.message);
+      setWaitlistPosition(result.position ?? null);
+      setSubmittedEmail(email);
       setEmail("");
     } catch (err) {
       setStatus("error");
@@ -273,6 +278,10 @@ export default function Home() {
                         <span className="font-medium">You're on the list!</span>
                       </div>
                       <p className="text-green-300 text-sm">{message}</p>
+                      <WaitlistFollowUpDark
+                        email={submittedEmail}
+                        initialPosition={waitlistPosition}
+                      />
                     </div>
                   ) : (
                     <form
@@ -496,11 +505,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* UpSight Embed - Test */}
-      <section className="px-6 py-12 max-w-md mx-auto">
-        <UpSightEmbed />
-      </section>
-
       {/* Footer */}
       <footer className="px-6 py-8 border-t border-[var(--garden-hairline)]">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
@@ -525,34 +529,6 @@ export default function Home() {
         </div>
       </footer>
     </div>
-  );
-}
-
-function UpSightEmbed() {
-  useEffect(() => {
-    const script = document.createElement("script");
-    script.src = "https://getupsight.com/embed.js";
-    script.async = true;
-    document.body.appendChild(script);
-
-    return () => {
-      document.body.removeChild(script);
-    };
-  }, []);
-
-  return (
-    <div
-      id="upsight-form"
-      data-upsight-slug="wonderwall"
-      data-upsight-layout="inline-email"
-      data-upsight-theme="transparent"
-      data-upsight-accent="#ffffff"
-      data-upsight-radius="12"
-      data-upsight-branding="true"
-      data-upsight-button-text="Join"
-      data-upsight-placeholder="you@company.com"
-      data-upsight-success="You're on the list!"
-    />
   );
 }
 

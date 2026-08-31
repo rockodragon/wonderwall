@@ -5,9 +5,9 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import confetti from "canvas-confetti";
 import { api } from "../../convex/_generated/api";
-import { InviteCTA } from "../components/InviteCTA";
 import { LocationAutocomplete } from "../components/LocationAutocomplete";
-import { JOB_FUNCTIONS } from "../constants/jobFunctions";
+import { useLocationField } from "../lib/useLocationField";
+import { INTERESTS } from "../constants/interests";
 
 // Normalize URL by adding https:// if missing
 function normalizeUrl(url: string): string {
@@ -120,7 +120,6 @@ export default function Settings() {
             )}
           </div>
         )}
-        <InviteCTA variant="profile" />
       </div>
 
       {/* Artifacts section */}
@@ -163,7 +162,7 @@ function ProfileSummary({
             className="w-16 h-16 rounded-full object-cover"
           />
         ) : (
-          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-2xl font-bold">
+          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-gray-400 to-gray-500 dark:from-gray-600 dark:to-gray-700 flex items-center justify-center text-white text-2xl font-bold">
             {profile.name.charAt(0).toUpperCase()}
           </div>
         )}
@@ -204,7 +203,7 @@ function ProfileEditForm({
 
   const [name, setName] = useState("");
   const [bio, setBio] = useState("");
-  const [location, setLocation] = useState("");
+  const location = useLocationField();
   const [imageUrl, setImageUrl] = useState("");
   const [imageUrlInput, setImageUrlInput] = useState("");
   const [jobFunctions, setJobFunctions] = useState<string[]>([]);
@@ -217,11 +216,15 @@ function ProfileEditForm({
     if (profile && !initialized) {
       setName(profile.name || "");
       setBio(profile.bio || "");
-      setLocation(profile.location || "");
+      location.hydrate(profile);
       setImageUrl(profile.imageUrl || "");
       setJobFunctions(profile.jobFunctions || []);
       setInitialized(true);
     }
+    // location.hydrate is stable (useCallback with no deps) — omitting it
+    // from deps matches the existing initialize-once-on-profile-load pattern
+    // and avoids re-running this effect on every location edit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile, initialized]);
 
   function toggleJobFunction(fn: string) {
@@ -287,13 +290,13 @@ function ProfileEditForm({
       await upsertProfile({
         name: name.trim(),
         bio: bio.trim() || undefined,
-        location: location.trim() || undefined,
+        ...location.toArgs(),
         jobFunctions,
       });
 
       posthog?.capture("profile_updated", {
         has_bio: !!bio.trim(),
-        has_location: !!location.trim(),
+        has_location: !!location.value.trim(),
         job_functions_count: jobFunctions.length,
         is_new_profile: isNewProfile,
       });
@@ -333,7 +336,7 @@ function ProfileEditForm({
                 className="w-24 h-24 rounded-full object-cover border-2 border-gray-200 dark:border-gray-700"
               />
             ) : (
-              <div className="w-24 h-24 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-3xl font-bold">
+              <div className="w-24 h-24 rounded-full bg-gradient-to-br from-gray-400 to-gray-500 dark:from-gray-600 dark:to-gray-700 flex items-center justify-center text-white text-3xl font-bold">
                 {name.charAt(0).toUpperCase() || "?"}
               </div>
             )}
@@ -457,8 +460,8 @@ function ProfileEditForm({
             Location
           </label>
           <LocationAutocomplete
-            value={location}
-            onChange={setLocation}
+            value={location.value}
+            onChange={location.onChange}
             onSelect={(suggestion) => {
               // Format location as "City, State" for US or "City, Country" for international
               const { city, stateCode, country, countryCode } =
@@ -469,7 +472,12 @@ function ProfileEditForm({
               } else if (country && city !== country) {
                 formatted = `${city}, ${country}`;
               }
-              setLocation(formatted);
+              // Pass the formatted display through as the hook's guard
+              // baseline too, so a later edit is compared against what's
+              // actually shown ("Nashville, TN") rather than the raw
+              // suggestion.displayName ("Nashville, TN, USA") it would
+              // never re-match against.
+              location.onSelect(suggestion, formatted);
             }}
             placeholder="Search for your city..."
           />
@@ -481,7 +489,7 @@ function ProfileEditForm({
             What do you do?
           </label>
           <div className="flex flex-wrap gap-2">
-            {JOB_FUNCTIONS.map((fn) => (
+            {INTERESTS.map((fn) => (
               <button
                 key={fn}
                 type="button"

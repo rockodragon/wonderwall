@@ -1,10 +1,19 @@
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
+import { useEffect } from "react";
 import { Link, useNavigate } from "react-router";
 import { api } from "../../convex/_generated/api";
 
 export default function MessagesIndex() {
   const navigate = useNavigate();
   const conversations = useQuery(api.messaging.getConversations);
+
+  // The sidebar's unread badge is now Messages + Notifications combined,
+  // with no separate notifications page to clear the latter — visiting
+  // Messages is the closest thing to "checked in," so it clears both.
+  const markAllNotificationsRead = useMutation(api.notifications.markAllAsRead);
+  useEffect(() => {
+    markAllNotificationsRead({});
+  }, []);
 
   // Helper to format relative time
   const getRelativeTime = (timestamp: number): string => {

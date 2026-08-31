@@ -14,7 +14,31 @@ export default defineSchema({
     imageUrl: v.optional(v.string()), // external URL (legacy)
     imageStorageId: v.optional(v.id("_storage")), // Convex file storage
     jobFunctions: v.array(v.string()), // curated list + "other:custom"
+    // Location: `location` stays the plain display string everything already
+    // reads/matches on. The rest is structured data from the same Google
+    // Places pipeline `events` already uses (convex/location.ts +
+    // LocationAutocomplete) — collected once, alongside the string, instead
+    // of thrown away after the autocomplete resolves.
     location: v.optional(v.string()),
+    locationType: v.optional(v.string()), // "venue" | "city" | "zip" | "address" | "online" | "tbd"
+    address: v.optional(
+      v.object({
+        street: v.optional(v.string()),
+        city: v.optional(v.string()),
+        state: v.optional(v.string()),
+        stateCode: v.optional(v.string()),
+        zip: v.optional(v.string()),
+        country: v.optional(v.string()),
+        countryCode: v.optional(v.string()),
+      }),
+    ),
+    coordinates: v.optional(
+      v.object({
+        lat: v.number(),
+        lng: v.number(),
+      }),
+    ),
+    placeId: v.optional(v.string()), // Google Places ID for enrichment
     plan: v.optional(v.string()), // "free" | "paid" - defaults to free
     inviteSlug: v.optional(v.string()), // unique slug for invite links (e.g., "rick-moy")
     inviteUsageCount: v.optional(v.number()), // track how many times their invite link has been used
@@ -24,6 +48,14 @@ export default defineSchema({
     // stored here; they derive from memberships (garden/entitlements.ts).
     patronRole: v.optional(v.boolean()),
     partnerRole: v.optional(v.boolean()),
+    // V1 onboarding (docs/the-exchange-v1-prd.md §6, §13.1): the role
+    // someone chose at signup — "creative" | "patron" | "partner". Roles
+    // stay additive (patronRole/partnerRole above still govern capability),
+    // this is just which onramp they took, for UX (default view, copy).
+    primaryRole: v.optional(v.string()),
+    orgName: v.optional(v.string()), // patron/partner: their org, if any
+    supportInterests: v.optional(v.array(v.string())), // patron: categories they want to fund
+    partnerOfferings: v.optional(v.array(v.string())), // partner: what they can offer
     lastLikeNotifiedAt: v.optional(v.number()), // last time likes digest was sent
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -219,6 +251,19 @@ export default defineSchema({
   waitlist: defineTable({
     email: v.string(),
     createdAt: v.number(),
+    // Follow-up questions answered after joining — each one bumps
+    // priorityScore, which is what "move up the list" is ranked on.
+    priorityScore: v.optional(v.number()),
+    answeredAt: v.optional(v.number()),
+    role: v.optional(
+      v.union(v.literal("creative"), v.literal("patron"), v.literal("partner")),
+    ),
+    projectDescription: v.optional(v.string()),
+    projectUrl: v.optional(v.string()),
+    wantsToHost: v.optional(v.boolean()),
+    portfolioUrl: v.optional(v.string()),
+    hearAboutUs: v.optional(v.string()),
+    hearAboutUsOther: v.optional(v.string()),
   }).index("by_email", ["email"]),
 
   // Jobs board
@@ -638,7 +683,7 @@ export default defineSchema({
     budget: v.optional(v.number()), // paid: declared budget — the guardrail (required by mutation)
     goal: v.optional(v.number()), // passion: optional target
     raisedCents: v.optional(v.number()), // passion: keep-what-you-raise running total
-    status: v.string(), // "active" | "finished" | "archived"
+    status: v.string(), // "pending" | "active" | "in_progress" | "completed" | "archived"
     photoUrl: v.optional(v.string()),
     storySlug: v.optional(v.string()), // public story page (W3)
     legacyJobId: v.optional(v.id("jobs")),
@@ -646,6 +691,45 @@ export default defineSchema({
     // poster/an operator, mirrors hostOrgs.paymentLinkUrl. Financial support
     // is off until this exists — no in-house payment processing in V1.
     supportPaymentLinkUrl: v.optional(v.string()),
+    // Location: same structured shape as `events`/`profiles` — `location`
+    // stays the plain display string everything reads/matches on, the rest
+    // is structured data from the same Google Places pipeline (convex/
+    // location.ts + LocationAutocomplete).
+    location: v.optional(v.string()),
+    locationType: v.optional(v.string()), // "venue" | "city" | "zip" | "address" | "online" | "tbd"
+    address: v.optional(
+      v.object({
+        street: v.optional(v.string()),
+        city: v.optional(v.string()),
+        state: v.optional(v.string()),
+        stateCode: v.optional(v.string()),
+        zip: v.optional(v.string()),
+        country: v.optional(v.string()),
+        countryCode: v.optional(v.string()),
+      }),
+    ),
+    coordinates: v.optional(
+      v.object({
+        lat: v.number(),
+        lng: v.number(),
+      }),
+    ),
+    placeId: v.optional(v.string()), // Google Places ID for enrichment
+    remote: v.optional(v.boolean()), // true (default when unset) = anywhere/remote-friendly; false = must be local to `location`
+    // Passion-only campaign deadline (docs/the-exchange-v1-prd.md §7 review
+    // follow-up). Not on paid projects — a hiring post has no equivalent
+    // "campaign" concept.
+    raiseByDate: v.optional(v.number()), // epoch ms
+    // Self-declared, unverified nonprofit disclosure (review follow-up) — no
+    // EIN/verification field for V1, that's a deliberate scope cut.
+    benefitsNonprofit: v.optional(v.boolean()),
+    nonprofitName: v.optional(v.string()),
+    // A project's own declared topics (the canonical INTERESTS list) —
+    // separate from anything on the creator's profile. Optional: an older
+    // project from before this field existed, or one where nothing was
+    // selected at creation, has none — callers fall back to the creator's
+    // own interests in that case rather than treating it as untagged.
+    interests: v.optional(v.array(v.string())),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
@@ -673,6 +757,85 @@ export default defineSchema({
   })
     .index("by_projectId", ["projectId"])
     .index("by_supporterUserId", ["supporterUserId"]),
+
+  // Classes & Coaching — recurring offerings (a weekly class, a mentorship
+  // slot, a workshop series) that don't fit Projects (one-off) or Events
+  // (single datetime, RSVP-based). Tied directly to the creator (userId),
+  // not a Host org — deliberately NOT built on the deferred gardenTables/
+  // hostOrgs system below (that requires a Host org; V1 is single-tenant).
+  offerings: defineTable({
+    userId: v.id("users"), // creator
+    title: v.string(),
+    description: v.optional(v.string()),
+    format: v.string(), // "class" | "coaching" | "workshop" | "mentorship" | "other"
+    cadence: v.optional(v.string()), // free text, e.g. "Tuesdays 6pm" — no recurrence engine
+    // Structured date, mirroring events.datetime's naming/type convention —
+    // `cadence` above stays the free-text display string (no recurrence
+    // engine here), this is the actual first/next session time.
+    startDate: v.optional(v.number()), // epoch ms — first/next session
+    isRecurring: v.optional(v.boolean()),
+    endDate: v.optional(v.number()), // epoch ms — "until when" for a recurring series, or the workshop's end date
+    priceCents: v.optional(v.number()), // undefined/0 = free
+    location: v.optional(v.string()),
+    locationType: v.optional(v.string()),
+    address: v.optional(
+      v.object({
+        street: v.optional(v.string()),
+        city: v.optional(v.string()),
+        state: v.optional(v.string()),
+        stateCode: v.optional(v.string()),
+        zip: v.optional(v.string()),
+        country: v.optional(v.string()),
+        countryCode: v.optional(v.string()),
+      }),
+    ),
+    coordinates: v.optional(v.object({ lat: v.number(), lng: v.number() })),
+    placeId: v.optional(v.string()),
+    remote: v.optional(v.boolean()), // true (default) = online/anywhere, false = must be local
+    photoUrl: v.optional(v.string()), // external URL — secondary fallback, see photoStorageId
+    photoStorageId: v.optional(v.id("_storage")), // Convex file storage — primary upload path
+    // Discipline tags (e.g. "Photography") — a separate axis from `format`
+    // above: format is what kind of session this is (class/coaching/
+    // workshop), tags are what discipline it's for. Drawn from the same
+    // canonical INTERESTS list used by People and Projects.
+    tags: v.optional(v.array(v.string())),
+    // "Jenna's case" — some instructors already run sign-ups/payment through
+    // an outside tool. Mirrors projects.supportPaymentLinkUrl's convention
+    // (an optional external link, off-platform money, no in-house payment
+    // processing) — see that field's comment. Unlike supportPaymentLinkUrl,
+    // this one IS wired into a UI/mutation flow: clicking through still
+    // calls signUpForOffering so the sign-up is recorded here regardless of
+    // what happens on the external site.
+    externalPaymentLinkUrl: v.optional(v.string()),
+    status: v.string(), // "active" | "archived"
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_status", ["status"]),
+
+  // Offering sign-ups (fix for offerings.ts: previously no way to record
+  // "someone joined this class," even when payment happened externally).
+  // Two payment paths, one record shape — mirrors garden/support.ts's
+  // projectSupport in spirit (pledge-only, no real charge, off-platform
+  // money leaves no direct signal so it's status-tracked by hand/by pattern
+  // rather than a webhook):
+  //   "pledged"   — a paid offering, no external link: real intent, no money
+  //                 actually moved (same "pledge, not charge" semantics as
+  //                 projectSupport's financial types).
+  //   "confirmed" — free offering (nothing to charge), OR a paid offering
+  //                 with externalPaymentLinkUrl set (payment happens off-
+  //                 platform; clicking the external link still records this
+  //                 row so the creator has one place to see who's coming).
+  offeringSignups: defineTable({
+    offeringId: v.id("offerings"),
+    userId: v.id("users"),
+    name: v.string(), // denormalized for display
+    status: v.string(), // "pledged" | "confirmed"
+    createdAt: v.number(),
+  })
+    .index("by_offeringId", ["offeringId"])
+    .index("by_offeringId_userId", ["offeringId", "userId"]),
 
   // Tables — ongoing gatherings with a roster (W4; operator-created in v1).
   gardenTables: defineTable({

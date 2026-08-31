@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { internalMutation, mutation, query } from "./_generated/server";
 import type { QueryCtx } from "./_generated/server";
 import { api } from "./_generated/api";
 import { auth } from "./auth";
@@ -129,8 +129,30 @@ export const upsertProfile = mutation({
   args: {
     name: v.string(),
     bio: v.optional(v.string()),
-    jobFunctions: v.array(v.string()),
+    // Optional, not required: Patron/Partner onboarding never shows a job-
+    // functions picker at all, so it must be able to omit this entirely
+    // rather than being forced to send [] and blank out a Creative's
+    // previously-set list when they add a second role.
+    jobFunctions: v.optional(v.array(v.string())),
     location: v.optional(v.string()),
+    locationType: v.optional(v.string()),
+    address: v.optional(
+      v.object({
+        street: v.optional(v.string()),
+        city: v.optional(v.string()),
+        state: v.optional(v.string()),
+        stateCode: v.optional(v.string()),
+        zip: v.optional(v.string()),
+        country: v.optional(v.string()),
+        countryCode: v.optional(v.string()),
+      }),
+    ),
+    coordinates: v.optional(v.object({ lat: v.number(), lng: v.number() })),
+    placeId: v.optional(v.string()),
+    primaryRole: v.optional(v.string()),
+    orgName: v.optional(v.string()),
+    supportInterests: v.optional(v.array(v.string())),
+    partnerOfferings: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
     const userId = await auth.getUserId(ctx);
@@ -142,14 +164,34 @@ export const upsertProfile = mutation({
       .first();
 
     const now = Date.now();
+    // Roles stay additive (PRD §2, "money is never the only door" territory
+    // for capability, but role flags themselves are just true/true-or-unset,
+    // never revoked here) — picking "patron" or "partner" as your primary
+    // onramp sets that flag; it never clears one you already held.
+    const roleFlags: { patronRole?: boolean; partnerRole?: boolean } = {};
+    if (args.primaryRole === "patron") roleFlags.patronRole = true;
+    if (args.primaryRole === "partner") roleFlags.partnerRole = true;
 
     let profileId;
     if (existing) {
       await ctx.db.patch(existing._id, {
         name: args.name,
         bio: args.bio,
-        jobFunctions: args.jobFunctions,
+        jobFunctions: args.jobFunctions ?? existing.jobFunctions,
         location: args.location,
+        locationType: args.locationType,
+        address: args.address,
+        coordinates: args.coordinates,
+        placeId: args.placeId,
+        primaryRole: args.primaryRole ?? existing.primaryRole,
+        // These are role-specific (Patron's orgName/supportInterests vs.
+        // Partner's orgName/partnerOfferings), and a person can hold more
+        // than one role — onboarding into a second role must not blank out
+        // data captured for the first one.
+        orgName: args.orgName ?? existing.orgName,
+        supportInterests: args.supportInterests ?? existing.supportInterests,
+        partnerOfferings: args.partnerOfferings ?? existing.partnerOfferings,
+        ...roleFlags,
         updatedAt: now,
       });
       profileId = existing._id;
@@ -158,8 +200,17 @@ export const upsertProfile = mutation({
         userId,
         name: args.name,
         bio: args.bio,
-        jobFunctions: args.jobFunctions,
+        jobFunctions: args.jobFunctions ?? [],
         location: args.location,
+        locationType: args.locationType,
+        address: args.address,
+        coordinates: args.coordinates,
+        placeId: args.placeId,
+        primaryRole: args.primaryRole,
+        orgName: args.orgName,
+        supportInterests: args.supportInterests,
+        partnerOfferings: args.partnerOfferings,
+        ...roleFlags,
         createdAt: now,
         updatedAt: now,
       });
@@ -311,8 +362,11 @@ export const search = query({
   },
 });
 
-// Admin: Set isAdmin flag by profile name
-export const setAdminByName = mutation({
+// Operator CLI only (`npx convex run profiles:setAdminByName '{...}' --prod`)
+// — internalMutation, not reachable from the client API. This was a plain
+// public `mutation` with no auth check at all, which let anyone self-grant
+// admin by calling it from the browser console. Fixed 2026-08-30.
+export const setAdminByName = internalMutation({
   args: { name: v.string(), isAdmin: v.boolean() },
   handler: async (ctx, args) => {
     const profiles = await ctx.db

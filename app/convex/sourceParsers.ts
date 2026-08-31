@@ -355,7 +355,7 @@ export const crawlPublicSquare = action({
 
         if (result.urls.length > 0) {
           const queueResult = await ctx.runMutation(
-            api.crawler.bulkAddToQueue,
+            internal.crawler.bulkAddToQueueInternal,
             {
               urls: result.urls.map((u: ParsedOrganization) => ({
                 url: u.url,
@@ -412,7 +412,7 @@ export const crawlChurches = action({
 
         if (result.urls.length > 0) {
           const queueResult = await ctx.runMutation(
-            api.crawler.bulkAddToQueue,
+            internal.crawler.bulkAddToQueueInternal,
             {
               urls: result.urls.map((u: ParsedOrganization) => ({
                 url: u.url,
@@ -467,13 +467,16 @@ export const crawlKingdomAdvisors = action({
       );
 
       if (result.urls.length > 0) {
-        const queueResult = await ctx.runMutation(api.crawler.bulkAddToQueue, {
-          urls: result.urls.map((u: ParsedOrganization) => ({
-            url: u.url,
-            source: "kingdom_advisors",
-            priority: 7, // High priority for financial advisors
-          })),
-        });
+        const queueResult = await ctx.runMutation(
+          internal.crawler.bulkAddToQueueInternal,
+          {
+            urls: result.urls.map((u: ParsedOrganization) => ({
+              url: u.url,
+              source: "kingdom_advisors",
+              priority: 7, // High priority for financial advisors
+            })),
+          },
+        );
 
         totalAdded += queueResult.added;
         totalSkipped += queueResult.skipped;

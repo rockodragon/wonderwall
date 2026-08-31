@@ -83,8 +83,20 @@ export const listSupportForProject = query({
       .filter((e) => VISIBLE_STATUSES.has(e.status))
       .sort((a, b) => b.createdAt - a.createdAt)
       .map((e) => ({
-        ...e,
+        _id: e._id,
+        projectId: e.projectId,
+        type: e.type,
+        amountCents: e.amountCents,
+        message: e.message,
+        resourceDescription: e.resourceDescription,
+        status: e.status,
+        createdAt: e.createdAt,
+        // Explicit allowlist, not a spread: someone who asked to give
+        // anonymously (visible: false) must not have their identity
+        // reach the client at all — a masked name alone still leaked
+        // supporterUserId to anyone who opened the Support modal.
         supporterName: e.visible ? e.supporterName : "Anonymous",
+        ...(e.visible ? { supporterUserId: e.supporterUserId } : {}),
       }));
   },
 });

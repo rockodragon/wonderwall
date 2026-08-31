@@ -8,6 +8,7 @@ import {
   LocationAutocomplete,
   type LocationSuggestion,
 } from "../components/LocationAutocomplete";
+import { useLocationField } from "../lib/useLocationField";
 import { ShareButton } from "../components/ShareButton";
 
 const COVER_COLORS = [
@@ -698,6 +699,10 @@ export default function EventDetail() {
             description: event.description,
             datetime: event.datetime,
             location: event.location,
+            locationType: event.locationType,
+            address: event.address,
+            coordinates: event.coordinates,
+            placeId: event.placeId,
             tags: event.tags,
             requiresApproval: event.requiresApproval,
           }}
@@ -976,6 +981,10 @@ function EditEventModal({
     description: string;
     datetime: number;
     location?: string;
+    locationType?: string;
+    address?: LocationSuggestion["address"];
+    coordinates?: LocationSuggestion["coordinates"];
+    placeId?: string;
     tags: string[];
     requiresApproval: boolean;
   };
@@ -992,31 +1001,18 @@ function EditEventModal({
   const [description, setDescription] = useState(initialValues.description);
   const [date, setDate] = useState(dateStr);
   const [time, setTime] = useState(timeStr);
-  const [location, setLocation] = useState(initialValues.location || "");
-  const [selectedLocation, setSelectedLocation] =
-    useState<LocationSuggestion | null>(null);
+  // Seeded from the event being edited (including its structured fields) so
+  // saving without re-picking a location doesn't wipe locationType/address/
+  // coordinates/placeId — previously this started at null unconditionally,
+  // and events.update patches those fields unconditionally from whatever
+  // `selected` currently is, so an untouched save silently erased them.
+  const location = useLocationField(initialValues);
   const [tags, setTags] = useState<string[]>(initialValues.tags);
   const [requiresApproval, setRequiresApproval] = useState(
     initialValues.requiresApproval,
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-
-  // Handle location selection from autocomplete
-  function handleLocationSelect(suggestion: LocationSuggestion) {
-    setSelectedLocation(suggestion);
-  }
-
-  // Clear selected location if user manually edits
-  function handleLocationChange(value: string) {
-    setLocation(value);
-    if (
-      !value ||
-      (selectedLocation && !value.includes(selectedLocation.displayName))
-    ) {
-      setSelectedLocation(null);
-    }
-  }
 
   function toggleTag(tag: string) {
     setTags((prev) =>
@@ -1042,11 +1038,7 @@ function EditEventModal({
         title,
         description,
         datetime,
-        location: location || undefined,
-        locationType: selectedLocation?.locationType,
-        address: selectedLocation?.address,
-        coordinates: selectedLocation?.coordinates,
-        placeId: selectedLocation?.placeId,
+        ...location.toArgs(),
         tags,
         requiresApproval,
       });
@@ -1149,12 +1141,12 @@ function EditEventModal({
                 Location
               </label>
               <LocationAutocomplete
-                value={location}
-                onChange={handleLocationChange}
-                onSelect={handleLocationSelect}
+                value={location.value}
+                onChange={location.onChange}
+                onSelect={location.onSelect}
                 placeholder="Search for a location, type 'Online', or 'TBD'"
               />
-              {selectedLocation && (
+              {location.selected && (
                 <p className="mt-1 text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
                   <svg
                     className="w-3 h-3"
@@ -1170,7 +1162,7 @@ function EditEventModal({
                     />
                   </svg>
                   Location verified
-                  {selectedLocation.coordinates && " with coordinates"}
+                  {location.selected.coordinates && " with coordinates"}
                 </p>
               )}
             </div>

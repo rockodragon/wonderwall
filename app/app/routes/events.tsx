@@ -1,10 +1,13 @@
 import { useQuery } from "convex/react";
-import { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router";
 import { api } from "../../convex/_generated/api";
 import { CreateEventModal } from "../components/CreateEventModal";
 import { FavoriteButton } from "../components/FavoriteButton";
-import { InviteCTA } from "../components/InviteCTA";
+import { SearchInput } from "../components/SearchInput";
+import { TagFilterPills } from "../components/TagFilterPills";
+import { useFilterState } from "../lib/useFilterState";
+import { EVENT_TAGS } from "../constants/eventTags";
 
 const EVENT_GRADIENTS = [
   "from-blue-500 to-indigo-600",
@@ -17,26 +20,60 @@ const EVENT_GRADIENTS = [
 type FilterTab = "all" | "favorites";
 
 export default function Events() {
-  const [searchQuery, setSearchQuery] = useState("");
+  const {
+    query: searchQuery,
+    debouncedQuery,
+    setQuery: setSearchQuery,
+    tags: tagFilters,
+    toggleTag,
+    clearTags,
+    searchParams,
+    setSearchParams,
+  } = useFilterState({ tagsParam: "tags" });
+
+  const activeTab: FilterTab =
+    searchParams.get("tab") === "favorites" ? "favorites" : "all";
+
+  function setActiveTab(tab: FilterTab) {
+    setSearchParams((prev) => {
+      const params = new URLSearchParams(prev);
+      if (tab === "favorites") params.set("tab", tab);
+      else params.delete("tab");
+      return params;
+    });
+  }
 
   const allEvents = useQuery(api.events.list, { upcoming: true });
   const favorites = useQuery(api.favorites.getMyFavorites, {});
   const [showCreate, setShowCreate] = useState(false);
-  const [activeTab, setActiveTab] = useState<FilterTab>("all");
+
+  // Fixed canonical list (same one the create form offers), not derived from
+  // which events currently happen to be tagged — a dynamic list disappears
+  // entirely whenever nothing's been tagged yet, hiding the filter row.
+  const tagOptions = useMemo(
+    () => EVENT_TAGS.map((tag) => ({ label: tag, value: tag })),
+    [],
+  );
 
   // Client-side search filtering
   const events = useMemo(() => {
     if (!allEvents) return undefined;
-    const q = searchQuery.trim().toLowerCase();
-    if (!q) return allEvents;
-    return allEvents.filter(
-      (e) =>
-        e.title.toLowerCase().includes(q) ||
-        e.description.toLowerCase().includes(q) ||
-        (e.location && e.location.toLowerCase().includes(q)) ||
-        e.tags.some((t: string) => t.toLowerCase().includes(q)),
-    );
-  }, [allEvents, searchQuery]);
+    const q = debouncedQuery.trim().toLowerCase();
+    let list = allEvents;
+    if (q) {
+      list = list.filter(
+        (e) =>
+          e.title.toLowerCase().includes(q) ||
+          e.description.toLowerCase().includes(q) ||
+          (e.location && e.location.toLowerCase().includes(q)) ||
+          e.tags.some((t: string) => t.toLowerCase().includes(q)),
+      );
+    }
+    if (tagFilters.length > 0) {
+      list = list.filter((e) => e.tags.some((t: string) => tagFilters.includes(t)));
+    }
+    return list;
+  }, [allEvents, debouncedQuery, tagFilters]);
 
   // Get favorited event IDs
   const favoriteEventIds = new Set(
@@ -75,30 +112,12 @@ export default function Events() {
       </div>
 
       {/* Search */}
-      <div className="relative mb-4">
-        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-          <svg
-            className="w-5 h-5 text-gray-400"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-            />
-          </svg>
-        </div>
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search events by name, location, or tag..."
-          className="w-full pl-12 pr-4 py-3 border border-gray-300 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
-        />
-      </div>
+      <SearchInput
+        value={searchQuery}
+        onChange={setSearchQuery}
+        placeholder="Search events by name, location, or tag..."
+        className="mb-4"
+      />
 
       {/* Filter Tabs */}
       <div className="flex gap-2 mb-6">
@@ -129,6 +148,17 @@ export default function Events() {
           )}
         </button>
       </div>
+
+      {/* Tag filters */}
+      {tagOptions.length > 0 && (
+        <TagFilterPills
+          options={tagOptions}
+          active={tagFilters}
+          onToggle={toggleTag}
+          onClear={clearTags}
+          className="mb-6"
+        />
+      )}
 
       {filteredEvents === undefined ? (
         <div className="text-center py-12">
@@ -300,11 +330,6 @@ export default function Events() {
           })}
         </div>
       )}
-
-      {/* Invite CTA */}
-      <div className="mt-12 max-w-md">
-        <InviteCTA variant="events" />
-      </div>
 
       {showCreate && <CreateEventModal onClose={() => setShowCreate(false)} />}
     </div>

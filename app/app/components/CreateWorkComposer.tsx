@@ -186,7 +186,7 @@ export function CreateWorkComposer({ onCreated }: { onCreated?: () => void }) {
               className="w-11 h-11 rounded-full object-cover ring-2 ring-gray-100 dark:ring-gray-700"
             />
           ) : (
-            <div className="w-11 h-11 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center text-white font-semibold text-lg ring-2 ring-gray-100 dark:ring-gray-700">
+            <div className="w-11 h-11 rounded-full bg-gradient-to-br from-gray-400 to-gray-500 dark:from-gray-600 dark:to-gray-700 flex items-center justify-center text-white font-semibold text-lg ring-2 ring-gray-100 dark:ring-gray-700">
               {profile.name.charAt(0).toUpperCase()}
             </div>
           )}
@@ -207,7 +207,7 @@ export function CreateWorkComposer({ onCreated }: { onCreated?: () => void }) {
                   className="w-10 h-10 rounded-full object-cover"
                 />
               ) : (
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center text-white font-semibold">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-400 to-gray-500 dark:from-gray-600 dark:to-gray-700 flex items-center justify-center text-white font-semibold">
                   {profile.name.charAt(0).toUpperCase()}
                 </div>
               )}
@@ -415,6 +415,17 @@ export function CreateWorkComposer({ onCreated }: { onCreated?: () => void }) {
           )}
 
           {/* Footer */}
+          {!canSubmit && !saving && (title.trim() || content.trim() || hasMedia) && (
+            <p className="text-xs text-amber-600 dark:text-amber-400 mt-3">
+              {type === "link" && !hasTitle
+                ? "Add a title to post this link."
+                : type === "link" && !hasMedia
+                  ? "Paste a link to post."
+                  : type !== "text" && !hasMedia
+                    ? "Upload a file or paste a link to post."
+                    : "Add some content to post."}
+            </p>
+          )}
           <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
             <div className="flex items-center gap-1">
               <button

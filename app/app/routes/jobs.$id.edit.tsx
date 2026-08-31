@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
-import { JOB_FUNCTIONS } from "../constants/jobFunctions";
+import { INTERESTS } from "../constants/interests";
 import { FF_JOBS, useFeatureGate } from "../lib/featureFlags";
 
 type LocationType = "Remote" | "Hybrid" | "On-site";
@@ -446,7 +446,7 @@ export default function JobsEdit() {
                 Disciplines
               </label>
               <div className="flex flex-wrap gap-2">
-                {JOB_FUNCTIONS.map((discipline) => (
+                {INTERESTS.map((discipline) => (
                   <button
                     key={discipline}
                     type="button"

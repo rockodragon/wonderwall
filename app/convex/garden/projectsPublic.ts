@@ -31,6 +31,7 @@ export interface ProjectLike {
   goal?: number;
   raisedCents?: number;
   storySlug?: string;
+  status?: string;
 }
 
 export interface ProjectCard {
@@ -45,6 +46,7 @@ export interface ProjectCard {
   raisedCents?: number;
   storySlug?: string;
   moneyLine: string;
+  status?: string;
 }
 
 /** Dollar formatting for this file's own money lines — a display-only
@@ -103,6 +105,7 @@ export function shapeProjectCard(project: ProjectLike, ownerName: string): Proje
     goal: project.goal,
     raisedCents: project.raisedCents,
     storySlug: project.storySlug,
+    status: project.status,
     moneyLine: resolveMoneyLine({ kind, budget: project.budget, goal: project.goal, raisedCents: project.raisedCents }),
   };
 }
@@ -113,10 +116,18 @@ export function shapeProjectCard(project: ProjectLike, ownerName: string): Proje
 
 const FALLBACK_OWNER_NAME = "A Garden creative";
 
-/** Public, unauthenticated — the /projects browse grid. Active projects,
- * newest first, capped at 50. `kind` queries a single indexed range;
- * omitting it merges both kind buckets (there's no bare by_status index) so
- * "All" still reads off by_kind_status rather than a table scan. */
+// Statuses a browsing user should ever see. "pending" isn't used yet;
+// "archived" is a deliberate hide — a creator/operator took it out of the
+// default browse view on purpose. Kept in sync with garden/projects.ts's
+// VISIBLE_STATUSES (two listProjects implementations, see file header).
+const VISIBLE_STATUSES = new Set(["active", "in_progress", "completed"]);
+
+/** Public, unauthenticated — the /projects browse grid. Visible (non-hidden)
+ * projects, newest first, capped at 50. `kind` queries a single indexed
+ * range by kind only, then filters status in JS (status is no longer a
+ * single fixed value, so the index range can't do this alone); omitting
+ * `kind` merges both kind buckets so "All" still reads off by_kind_status
+ * rather than a table scan. */
 export const listProjects = query({
   args: {
     kind: v.optional(v.union(v.literal("passion"), v.literal("paid"))),
@@ -125,20 +136,21 @@ export const listProjects = query({
     const rows = args.kind
       ? await ctx.db
           .query("projects")
-          .withIndex("by_kind_status", (q) => q.eq("kind", args.kind!).eq("status", "active"))
+          .withIndex("by_kind_status", (q) => q.eq("kind", args.kind!))
           .collect()
       : (
           await Promise.all(
             (["passion", "paid"] as const).map((kind) =>
               ctx.db
                 .query("projects")
-                .withIndex("by_kind_status", (q) => q.eq("kind", kind).eq("status", "active"))
+                .withIndex("by_kind_status", (q) => q.eq("kind", kind))
                 .collect(),
             ),
           )
         ).flat();
 
-    const newestFirst = [...rows].sort((a, b) => b.createdAt - a.createdAt).slice(0, 50);
+    const visible = rows.filter((p) => VISIBLE_STATUSES.has(p.status));
+    const newestFirst = [...visible].sort((a, b) => b.createdAt - a.createdAt).slice(0, 50);
     if (newestFirst.length === 0) return [];
 
     const userIds = [...new Set(newestFirst.map((p) => p.userId))];

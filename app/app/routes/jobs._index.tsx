@@ -4,20 +4,7 @@ import { Link } from "react-router";
 import { usePostHog } from "@posthog/react";
 import { api } from "../../convex/_generated/api";
 import { FF_JOBS, useFeatureGate } from "../lib/featureFlags";
-
-const JOB_FUNCTIONS = [
-  "Designer",
-  "Writer",
-  "Musician",
-  "Developer",
-  "Filmmaker",
-  "Photographer",
-  "Artist",
-  "Entrepreneur",
-  "Marketer",
-  "Product Manager",
-  "Other",
-];
+import { INTERESTS } from "../constants/interests";
 
 type StatusFilter = "All" | "Open" | "Closed";
 type LocationFilter = "All" | "Remote" | "Hybrid" | "On-site";
@@ -318,7 +305,7 @@ export default function JobsIndex() {
                 Disciplines
               </label>
               <div className="flex flex-wrap gap-2">
-                {JOB_FUNCTIONS.map((discipline) => (
+                {INTERESTS.map((discipline) => (
                   <button
                     key={discipline}
                     onClick={() => toggleDiscipline(discipline)}

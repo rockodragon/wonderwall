@@ -3,6 +3,7 @@ import { action, internalMutation, mutation, query } from "./_generated/server";
 import { api, internal } from "./_generated/api";
 import { auth } from "./auth";
 import { deriveProjectTitle } from "./garden/artifactsMigration";
+import { slugifyTitle, resolveAvailableSlug } from "./garden/stories";
 
 export const getMyArtifacts = query({
   args: {},
@@ -121,6 +122,33 @@ export const create = mutation({
     content: v.optional(v.string()),
     mediaUrl: v.optional(v.string()),
     mediaStorageId: v.optional(v.id("_storage")),
+    // Location for the companion passion project this mutation creates as a
+    // side effect (docs/the-exchange-v1-prd.md §7). Optional and unused by
+    // CreateWorkComposer.tsx / onboarding.tsx today — those composers stay
+    // low-friction; a location picker there is a follow-on UI decision, not
+    // this one. Same shape as convex/schema.ts's `events`/`profiles` tables.
+    location: v.optional(v.string()),
+    locationType: v.optional(v.string()), // "venue" | "city" | "zip" | "address" | "online" | "tbd"
+    address: v.optional(
+      v.object({
+        street: v.optional(v.string()),
+        city: v.optional(v.string()),
+        state: v.optional(v.string()),
+        stateCode: v.optional(v.string()),
+        zip: v.optional(v.string()),
+        country: v.optional(v.string()),
+        countryCode: v.optional(v.string()),
+      }),
+    ),
+    coordinates: v.optional(v.object({ lat: v.number(), lng: v.number() })),
+    placeId: v.optional(v.string()),
+    remote: v.optional(v.boolean()), // true (default when unset) = anywhere/remote-friendly; false = must be local to `location`
+    // Interests for the companion passion project this mutation creates as a
+    // side effect (docs/the-exchange-v1-prd.md §7) — same precedent as the
+    // location args above: optional and unused by CreateWorkComposer.tsx /
+    // onboarding.tsx today, an interests picker there is a follow-on UI
+    // decision, not this one. See the schema comment on `projects.interests`.
+    interests: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
     const userId = await auth.getUserId(ctx);
@@ -163,13 +191,33 @@ export const create = mutation({
     // V1 (docs/the-exchange-v1-prd.md §7): every new artifact is a passion
     // project, not just a portfolio piece — this is what makes "post to your
     // portfolio" the same action as "post a project" without a separate flow.
+    const projectTitle = deriveProjectTitle({ type: args.type, title: args.title, content: args.content });
+    // Slug generation (review follow-up, same reasoning as garden/projects.ts:
+    // Convex's MutationCtx has no runMutation — a mutation can't call another
+    // mutation like stories.ts's ensureStorySlug mid-transaction — so this
+    // inlines the same pure logic from stories.ts against this ctx.db instead).
+    const storySlug = await resolveAvailableSlug(slugifyTitle(projectTitle), async (candidate) => {
+      const hit = await ctx.db
+        .query("projects")
+        .withIndex("by_storySlug", (q) => q.eq("storySlug", candidate))
+        .unique();
+      return hit !== null;
+    });
     const projectId = await ctx.db.insert("projects", {
       userId,
       kind: "passion",
-      title: deriveProjectTitle({ type: args.type, title: args.title, content: args.content }),
+      title: projectTitle,
       blurb: args.type === "text" ? args.content : undefined,
       status: "active",
       photoUrl: args.type === "image" ? args.mediaUrl : undefined,
+      storySlug,
+      interests: args.interests,
+      location: args.location,
+      locationType: args.locationType,
+      address: args.address,
+      coordinates: args.coordinates,
+      placeId: args.placeId,
+      remote: args.remote ?? true,
       createdAt,
       updatedAt: createdAt,
     });

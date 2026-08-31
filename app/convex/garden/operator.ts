@@ -397,13 +397,18 @@ export const listOperatorData = query({
 /** Small, standalone from listOperatorData so the allocations form's
  * project select can populate without paying for the whole panel's read
  * (tables/coverage/allocations) on every keystroke re-render. */
+// Same non-archived/non-pending visible set as garden/projects.ts's
+// listProjects — a completed project may still have pending allocations to
+// pay out, so "active"-only would hide it from the operator too early.
+const VISIBLE_STATUSES = new Set(["active", "in_progress", "completed"]);
+
 export const listProjectsForAllocation = query({
   args: {},
   handler: async (ctx) => {
     await requireOperator(ctx);
     const projects = await ctx.db.query("projects").collect();
     return projects
-      .filter((p) => p.status === "active")
+      .filter((p) => VISIBLE_STATUSES.has(p.status))
       .map((p) => ({ _id: p._id, title: p.title, kind: p.kind }))
       .sort((a, b) => a.title.localeCompare(b.title));
   },

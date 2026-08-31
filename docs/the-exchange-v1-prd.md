@@ -6,6 +6,8 @@
 
 > **Brand direction approved (provisional), 2026-08-30:** mark, wordmark, color/type tokens, and the "Give. Receive. Grow." tagline — [artifact](https://claude.ai/code/artifact/560679aa-a2ad-4583-9fdf-f8213cca04de). Asset cutting tracked as wonderwall-8o1.10, blocking nav collapse (§5) and the homepage rewrite (§11).
 
+> **Onboarding built out to 3 roles, 2026-08-30:** Partner joined Creative/Patron as a full onboarding branch (not in the original v0.1 scope below — added from a live persona gap-analysis). §6 rewritten to match what's actually shipped, including the Patron/Partner interest-and-location matching on `/projects` and the Partner calendar-link CTA.
+
 ---
 
 ## 1. The call being made
@@ -78,14 +80,18 @@ Profile, Messages, and admin tools stay as account-level nav (avatar menu), not 
 
 ## 6. Onboarding — what it does today vs. what V1 needs
 
-**Today** (`onboarding.tsx`): three steps, no role branching — "what do you do" (job functions), an optional first-work upload, done. Signup itself (`signup.tsx`) collects name/email/password with no role question anywhere in the flow.
+**Built** (`onboarding.tsx`): role-branched, three roles, additive flags. Signup itself (`signup.tsx`) still just collects name/email/password with no role question — role selection happens at the start of onboarding, not signup.
 
-**V1 onboarding:**
+**Role** *(the biggest gap this closed)*: step 1 asks "How do you want to show up?" — Creative, Patron, or Partner. Roles are additive at the data layer (`profiles.patronRole` / `partnerRole` booleans only ever get set, never cleared; `primaryRole` just tracks which flow to start in next time), but role-*specific* fields (`orgName`, `supportInterests`, `partnerOfferings`) are last-write-wins per role — see the implementation note below.
 
-1. **Role** *(new — the biggest gap)*: "Join as a Creative or a Patron?" Additive later (a Creative can add Patron capability and vice versa), but V1 asks for a primary role up front because the next two questions branch on it.
-2. **Creative branch**: what do you do (keep existing `JOB_FUNCTIONS` multi-select) → "Post your first project" (replaces "share your first work" — same upload mechanics, but it creates a `projects` row, not an `artifacts` row; see §7).
-3. **Patron branch**: *(new question, direct from your ask)* "What kinds of projects or causes do you want to support?" — a multi-select of project categories/topics, stored as interest tags. No "post a project" step for a pure Patron; instead route them straight into browsing tagged projects.
-4. **Done screen**: drop "Explore TheCrossBoard" copy; route Creatives to their new project, Patrons to a filtered `/projects` view matching their interests.
+1. **Creative branch** (4 steps): what do you do (`JOB_FUNCTIONS` multi-select) → "Share your first work," which creates an `artifacts` row that auto-creates a companion `projects` row (`kind="passion"`) via `artifacts.create`'s side effect — see §7. This is the one branch with a real "first action," so it gets its own step and its own confetti.
+2. **Patron branch** (3 steps): individual-or-organization toggle (org name captured when "Organization" is picked), "What kinds of projects or causes do you want to support?" (multi-select from the same `JOB_FUNCTIONS` list, stored as `supportInterests`), plus optional location and bio. Finish screen deep-links into `/projects?interests=...&location=...`.
+3. **Partner branch** (3 steps): org/business name, "What can you offer the community?" (venue, gear, funding, mentorship, promotion — `partnerOfferings`), plus optional location and bio. Finish screen's primary CTA is **"Schedule a conversation"**, linking to the operator's calendar (`cal.com/rickmoy`) — real anchor tag with `target="_blank"`, not a `window.open()` call, since some browsers block the latter even from a direct click handler. Secondary link: "Browse Projects."
+4. **Done screen**: role-specific copy, no more generic "Explore TheCrossBoard."
+
+**How the Patron/Partner data actually gets used (closed 2026-08-30):** `supportInterests` and `partnerOfferings` were captured at onboarding for a while with nothing downstream reading them — a real gap, caught in a live audit. Fixed as a **soft match, not a hard filter**: `/projects` reads `interests`/`location` from the query string, and projects whose creator's `jobFunctions`/`location` overlap are sorted first and marked with a "Matches you" badge — never excluded. A hard filter was considered and rejected: at friend-group scale (~30 launch users), an AND-filter on both interest and location would too easily return zero results. Partner's `partnerOfferings` doesn't have an equivalent surface yet — no page anywhere lets a Creative browse Partners or their offerings; the calendar-link CTA is Partner's whole "what happens next" for V1. A Partner directory is a plausible post-V1 addition, not scoped here.
+
+**Known rough edge, not yet fixed:** `profiles.upsertProfile` treats `orgName`/`supportInterests`/`partnerOfferings` as one field each, shared across roles. A person who completes Patron onboarding (as an org) and later completes Partner onboarding will have their Partner `orgName` silently overwrite the Patron one (the mutation preserves fields the *current* submission doesn't touch, but a field both roles touch just takes the latest write). Low-risk for V1's additive-but-rare multi-role case; worth a real fix (split into `patronOrgName`/`partnerOrgName`) if multi-role adoption turns out to be common.
 
 ---
 
