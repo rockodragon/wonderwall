@@ -69,11 +69,18 @@ export type EventCardEvent = {
   description?: string | null;
   accessType?: string;
   priceCents?: number;
+  /** Public "this event has an online room" flag (convex/schema.ts). It is a
+   * boolean by design and carries no URL — the join and recording links live
+   * in the separate eventVideo table and never reach a list payload
+   * (docs/gated-event-video-prd.md). Absent from the favorites projection,
+   * same as description/accessType/priceCents above. */
+  hasVideo?: boolean;
 };
 
 export function EventCard({
   event,
   dimmed = false,
+  videoBadge = false,
 }: {
   event: EventCardEvent;
   /**
@@ -85,6 +92,16 @@ export function EventCard({
    * shared render path.
    */
   dimmed?: boolean;
+  /**
+   * Show the "Video" chip when the event has an online room. Off by default
+   * and turned on only by the Past tab, where it is the thing a browser is
+   * actually looking for — a session that happened online may have a
+   * recording waiting on the event page. It cannot promise one: hasVideo
+   * tracks the join link, and nothing forces an organizer to post a replay
+   * (PRD Criticism #4). The chip says a room existed; the event page is
+   * where you find out whether the recording did.
+   */
+  videoBadge?: boolean;
 }) {
   const priceCents =
     event.accessType === "paid" && (event.priceCents ?? 0) > 0
@@ -249,17 +266,44 @@ export function EventCard({
                 ? `${event.attendeeCount} going`
                 : "Be the first to join"}
             </span>
-            {priceCents !== null && (
-              <span
-                className="shrink-0 text-sm font-semibold"
-                style={{
-                  fontFamily: "var(--garden-font-mono)",
-                  color: "var(--garden-citron)",
-                }}
-              >
-                ${(priceCents / 100).toLocaleString()}
-              </span>
-            )}
+            <div className="flex items-center gap-2 shrink-0">
+              {videoBadge && event.hasVideo && (
+                <span
+                  className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium"
+                  style={{
+                    fontFamily: "var(--garden-font-body)",
+                    ...CHIP_NEUTRAL,
+                  }}
+                  title="This session ran online — check the event page for a recording"
+                >
+                  <svg
+                    className="w-3.5 h-3.5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+                    />
+                  </svg>
+                  Video
+                </span>
+              )}
+              {priceCents !== null && (
+                <span
+                  className="shrink-0 text-sm font-semibold"
+                  style={{
+                    fontFamily: "var(--garden-font-mono)",
+                    color: "var(--garden-citron)",
+                  }}
+                >
+                  ${(priceCents / 100).toLocaleString()}
+                </span>
+              )}
+            </div>
           </div>
         </div>
       </div>

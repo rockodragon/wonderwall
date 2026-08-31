@@ -49,6 +49,7 @@ import {
 import { AnnouncementComposer } from "../components/AnnouncementComposer";
 import { AddToCalendar } from "../components/AddToCalendar";
 import { joinProxyUrl } from "../lib/eventCalendar";
+import { toEmbedUrl } from "../lib/videoEmbed";
 
 const COVER_COLORS = [
   { name: "Blue", value: "blue", gradient: "from-blue-500 to-blue-600" },
@@ -663,6 +664,7 @@ export default function EventDetail() {
             are never on the event document this page already has. */}
         <EventVideoSection
           eventId={event._id}
+          title={event.title}
           datetime={event.datetime}
           cancelled={cancelled}
         />
@@ -1122,12 +1124,65 @@ function GuestRsvpCard({ rsvp }: { rsvp: GuestRsvpState }) {
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+// A YouTube or Vimeo link plays inline; everything else keeps the link-out
+// button. That split is not a preference — Zoom and Meet send frame-ancestors
+// headers, so framing them renders a silent empty box. app/lib/videoEmbed.ts
+// makes the call and fails closed to "not embeddable".
+//
+// Embedding changes nothing about WHO holds a URL. The string handed to the
+// iframe is the same one api.eventVideo.get already decided this viewer may
+// have; a viewer who resolves to "none" never reaches this code with a URL in
+// hand, because there is no URL in the payload to reach it with.
+const EMBED_ALLOW =
+  "accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share";
+
+function VideoPlayer({ embedUrl, title }: { embedUrl: string; title: string }) {
+  return (
+    <div className="relative w-full aspect-video overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800 bg-black">
+      <iframe
+        src={embedUrl}
+        title={title}
+        className="absolute inset-0 h-full w-full"
+        allow={EMBED_ALLOW}
+        allowFullScreen
+        referrerPolicy="strict-origin-when-cross-origin"
+      />
+    </div>
+  );
+}
+
+/** Secondary escape hatch under an embed — some people want the provider's
+ * own tab (chat, quality controls, casting), and the embed shouldn't be the
+ * only way in. */
+function OpenInNewTab({ href, children }: { href: string; children: string }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="mt-2 inline-flex items-center gap-1 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:underline"
+    >
+      {children}
+      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+        />
+      </svg>
+    </a>
+  );
+}
+
 function EventVideoSection({
   eventId,
+  title,
   datetime,
   cancelled,
 }: {
   eventId: Id<"events">;
+  title: string;
   datetime: number;
   cancelled: boolean;
 }) {
@@ -1151,18 +1206,53 @@ function EventVideoSection({
   const roomIsLive = !cancelled && Date.now() < datetime + DAY_MS;
   const showJoin = roomIsLive && !!video.meetingUrl;
 
+  // The live room wins the frame while it's live; the recording only takes it
+  // once the room is done, which is also the only time the heading says
+  // "Recording". A link that can't be framed leaves its branch null and the
+  // original button renders instead.
+  const liveEmbed = showJoin ? toEmbedUrl(video.meetingUrl) : null;
+  const recordingEmbed = showJoin ? null : toEmbedUrl(video.recordingUrl);
+
   if (!showJoin && !video.recordingUrl) return null;
 
   return (
     <div className="mb-8">
-      <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
-        {showJoin ? "Join online" : "Recording"}
-      </h3>
+      <div className="flex items-center gap-2 mb-3">
+        <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+          {showJoin ? "Join online" : "Recording"}
+        </h3>
+        {liveEmbed && (
+          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-red-600 text-white text-[11px] font-semibold uppercase tracking-[0.08em]">
+            <span className="w-1.5 h-1.5 rounded-full bg-white" />
+            Live
+          </span>
+        )}
+      </div>
+
+      {liveEmbed ? (
+        <div>
+          <VideoPlayer embedUrl={liveEmbed.embedUrl} title={`${title} — live`} />
+          {/* The proxy, never the raw URL — the redirect target can change
+              without invalidating anything already handed out. */}
+          <OpenInNewTab href={`/j/${eventId}`}>Open the room in a new tab</OpenInNewTab>
+        </div>
+      ) : recordingEmbed && video.recordingUrl ? (
+        <div>
+          <VideoPlayer
+            embedUrl={recordingEmbed.embedUrl}
+            title={`${title} — recording`}
+          />
+          <OpenInNewTab href={video.recordingUrl}>
+            Open the recording in a new tab
+          </OpenInNewTab>
+        </div>
+      ) : null}
+
+      {/* Buttons for whatever didn't get framed: a Zoom/Meet room, and the
+          recording whenever the live room is holding the frame. */}
       <div className="flex flex-wrap gap-2">
-        {showJoin && (
+        {showJoin && !liveEmbed && (
           <a
-            // The proxy, never the raw URL — the redirect target can change
-            // without invalidating anything already handed out.
             href={`/j/${eventId}`}
             target="_blank"
             rel="noopener noreferrer"
@@ -1171,7 +1261,7 @@ function EventVideoSection({
             Join the room
           </a>
         )}
-        {video.recordingUrl && (
+        {video.recordingUrl && !recordingEmbed && (
           <a
             href={video.recordingUrl}
             target="_blank"
@@ -1223,6 +1313,10 @@ function OrganizerVideoManager({
         </code>
         , so you can repaste the link any time without breaking calendar
         invites.
+      </p>
+      <p className="text-sm mb-4" style={{ color: "var(--garden-dim)" }}>
+        A YouTube or Vimeo link plays right here on the event page. Zoom, Meet
+        and anything else open in a new tab — they refuse to be embedded.
       </p>
 
       <VideoLinkField

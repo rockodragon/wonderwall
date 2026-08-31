@@ -90,6 +90,13 @@ export const list = query({
   args: {
     status: v.optional(v.string()),
     upcoming: v.optional(v.boolean()),
+    // The archive: events whose start time has passed, newest first. Off by
+    // default, so every existing caller keeps the chronological upcoming
+    // list it already gets. Still a public browse surface spreading the
+    // event doc — which stays safe because the join and recording URLs were
+    // never on that document (docs/gated-event-video-prd.md, Criticism #1).
+    // The only video fact here is events.hasVideo, a public boolean.
+    past: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     let events = await ctx.db.query("events").collect();
@@ -108,8 +115,14 @@ export const list = query({
       events = events.filter((e) => e.datetime > now);
     }
 
-    // Sort by date
-    events.sort((a, b) => a.datetime - b.datetime);
+    if (args.past) {
+      const now = Date.now();
+      events = events.filter((e) => e.datetime <= now);
+    }
+
+    // Sort by date — the archive reads newest-first, everything else reads
+    // next-up-first.
+    events.sort((a, b) => (args.past ? b.datetime - a.datetime : a.datetime - b.datetime));
 
     // Resolve cover images
     const eventsWithImages = await Promise.all(
