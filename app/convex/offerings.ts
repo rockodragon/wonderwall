@@ -54,7 +54,7 @@ const offeringFields = {
   photoUrl: v.optional(v.string()),
   photoStorageId: v.optional(v.id("_storage")),
   externalPaymentLinkUrl: v.optional(v.string()),
-  tags: v.optional(v.array(v.string())),
+  interests: v.optional(v.array(v.string())),
 };
 
 export const createOffering = mutation({
@@ -90,7 +90,7 @@ export const createOffering = mutation({
       photoUrl: args.photoUrl,
       photoStorageId: args.photoStorageId,
       externalPaymentLinkUrl: args.externalPaymentLinkUrl,
-      tags: args.tags,
+      interests: args.interests,
       status: "active",
       createdAt: now,
       updatedAt: now,
@@ -243,7 +243,7 @@ export const updateOffering = mutation({
       photoUrl: args.photoUrl,
       photoStorageId: args.photoStorageId,
       externalPaymentLinkUrl: args.externalPaymentLinkUrl,
-      tags: args.tags,
+      interests: args.interests,
       updatedAt: Date.now(),
     });
     return { ok: true };

@@ -116,7 +116,7 @@ export default function Offerings() {
     if (!offerings) return [];
     let list = formatFilter ? offerings.filter((o) => o.format === formatFilter) : offerings;
     if (tagFilter.length > 0) {
-      list = list.filter((o) => o.tags?.some((tag) => tagFilter.includes(tag)));
+      list = list.filter((o) => o.interests?.some((tag) => tagFilter.includes(tag)));
     }
     return list;
   }, [offerings, formatFilter, tagFilter]);
@@ -296,9 +296,9 @@ function OfferingCard({ offering, isOwner }: { offering: any; isOwner: boolean }
         >
           {FORMAT_LABELS[offering.format] ?? offering.format}
         </span>
-        {offering.tags && offering.tags.length > 0 && (
+        {offering.interests && offering.interests.length > 0 && (
           <div className="flex flex-wrap gap-1 mb-2">
-            {offering.tags.map((tag: string) => (
+            {offering.interests.map((tag: string) => (
               <span
                 key={tag}
                 className="px-2 py-0.5 rounded-full text-[11px] font-medium"
@@ -588,7 +588,7 @@ function PostOfferingForm({
   );
   const [remote, setRemote] = useState(offering?.remote ?? true);
   const location = useLocationField(offering);
-  const [selectedTags, setSelectedTags] = useState<string[]>(offering?.tags ?? []);
+  const [selectedTags, setSelectedTags] = useState<string[]>(offering?.interests ?? []);
   const [externalPaymentLinkUrl, setExternalPaymentLinkUrl] = useState(
     offering?.externalPaymentLinkUrl ?? "",
   );
@@ -717,7 +717,7 @@ function PostOfferingForm({
         remote,
         photoStorageId: (photoStorageId as any) ?? undefined,
         externalPaymentLinkUrl: trimmedLink || undefined,
-        tags: selectedTags.length > 0 ? selectedTags : undefined,
+        interests: selectedTags.length > 0 ? selectedTags : undefined,
       };
       if (isEdit) {
         await updateOffering({ offeringId: offering._id, ...payload });

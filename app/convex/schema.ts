@@ -796,9 +796,9 @@ export default defineSchema({
     photoStorageId: v.optional(v.id("_storage")), // Convex file storage — primary upload path
     // Discipline tags (e.g. "Photography") — a separate axis from `format`
     // above: format is what kind of session this is (class/coaching/
-    // workshop), tags are what discipline it's for. Drawn from the same
-    // canonical INTERESTS list used by People and Projects.
-    tags: v.optional(v.array(v.string())),
+    // workshop), interests are what discipline it's for. Same field name as
+    // projects.interests — both draw from the canonical INTERESTS list.
+    interests: v.optional(v.array(v.string())),
     // "Jenna's case" — some instructors already run sign-ups/payment through
     // an outside tool. Mirrors projects.supportPaymentLinkUrl's convention
     // (an optional external link, off-platform money, no in-house payment
