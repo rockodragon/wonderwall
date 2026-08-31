@@ -11,6 +11,8 @@ import {
 import { useLocationField } from "../lib/useLocationField";
 import { ShareButton } from "../components/ShareButton";
 import { AnnouncementComposer } from "../components/AnnouncementComposer";
+import { AddToCalendar } from "../components/AddToCalendar";
+import { joinProxyUrl } from "../lib/eventCalendar";
 
 const COVER_COLORS = [
   { name: "Blue", value: "blue", gradient: "from-blue-500 to-blue-600" },
@@ -434,6 +436,31 @@ export default function EventDetail() {
           </div>
         </div>
 
+        {/* Video: join link + recording (docs/gated-event-video-prd.md).
+            The URLs live in the separate eventVideo table and arrive only
+            through api.eventVideo.get, which resolves a role first — they
+            are never on the event document this page already has. */}
+        <EventVideoSection
+          eventId={event._id}
+          datetime={event.datetime}
+          cancelled={event.status === "cancelled"}
+        />
+
+        {/* Add to calendar — the invite carries /j/{eventId}, not the room */}
+        {!isPast && event.status !== "cancelled" && (
+          <AddToCalendar
+            className="mb-8"
+            event={{
+              eventId: event._id,
+              title: event.title,
+              description: event.description,
+              datetime: event.datetime,
+              location: event.location,
+              updatedAt: event.updatedAt,
+            }}
+          />
+        )}
+
         {/* Gallery Images - show first for visual appeal */}
         {!event.isOrganizer &&
           event.galleryImageUrls &&
@@ -730,6 +757,239 @@ export default function EventDetail() {
       )}
     </div>
   );
+}
+
+// ——————————————————————————————————————————————————————————————
+// Video section — docs/gated-event-video-prd.md.
+//
+// api.eventVideo.get is the single query in the codebase that may return a
+// meeting or recording URL, and it resolves the viewer's role before it
+// does. This component renders whatever came back; it makes no access
+// decision of its own, and there is nothing to strip here because a role
+// that isn't allowed to see a URL never receives one.
+//
+// Free/public events only this pass (PRD "Build order"): every viewer of a
+// public event resolves to "entitled", so the Join button below is shown to
+// everyone. That is not a gate and the copy must not imply one (Criticism
+// #3). The "none" branch exists only for the paid path, which no UI drives.
+// ——————————————————————————————————————————————————————————————
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function EventVideoSection({
+  eventId,
+  datetime,
+  cancelled,
+}: {
+  eventId: Id<"events">;
+  datetime: number;
+  cancelled: boolean;
+}) {
+  const video = useQuery(api.eventVideo.get, { eventId });
+
+  if (!video) return null;
+  if (video.role === "organizer") {
+    return (
+      <OrganizerVideoManager
+        eventId={eventId}
+        meetingUrl={video.meetingUrl}
+        recordingUrl={video.recordingUrl}
+      />
+    );
+  }
+  if (video.role !== "entitled") return null;
+
+  // The room stays reachable through the end of the day after the event —
+  // sessions run long, and nothing in the codebase ever marks an event
+  // "completed" to tell us otherwise (PRD Criticism #4).
+  const roomIsLive = !cancelled && Date.now() < datetime + DAY_MS;
+  const showJoin = roomIsLive && !!video.meetingUrl;
+
+  if (!showJoin && !video.recordingUrl) return null;
+
+  return (
+    <div className="mb-8">
+      <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
+        {showJoin ? "Join online" : "Recording"}
+      </h3>
+      <div className="flex flex-wrap gap-2">
+        {showJoin && (
+          <a
+            // The proxy, never the raw URL — the redirect target can change
+            // without invalidating anything already handed out.
+            href={`/j/${eventId}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors"
+          >
+            Join the room
+          </a>
+        )}
+        {video.recordingUrl && (
+          <a
+            href={video.recordingUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-gray-300 dark:border-gray-700 font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+          >
+            Watch the recording
+          </a>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function OrganizerVideoManager({
+  eventId,
+  meetingUrl,
+  recordingUrl,
+}: {
+  eventId: Id<"events">;
+  meetingUrl?: string;
+  recordingUrl?: string;
+}) {
+  const setEventVideo = useMutation(api.eventVideo.setEventVideo);
+  const postEventRecording = useMutation(api.eventVideo.postEventRecording);
+
+  return (
+    <div
+      className="mb-8 rounded-2xl border p-4"
+      style={{
+        borderColor: "var(--garden-hairline)",
+        backgroundColor: "var(--garden-ink-raised)",
+      }}
+    >
+      <h3
+        className="font-semibold mb-1"
+        style={{
+          color: "var(--garden-paper)",
+          fontFamily: "var(--garden-font-display)",
+        }}
+      >
+        Video
+      </h3>
+      <p className="text-sm mb-4" style={{ color: "var(--garden-dim)" }}>
+        Run the session wherever you already do — YouTube Live, Zoom, Meet.
+        Attendees see a Join button that points at{" "}
+        <code className="text-xs">
+          {joinProxyUrl(eventId).replace(/^https?:\/\//, "")}
+        </code>
+        , so you can repaste the link any time without breaking calendar
+        invites.
+      </p>
+
+      <VideoLinkField
+        label="Join link"
+        placeholder="https://zoom.us/j/… or https://youtube.com/live/…"
+        initialValue={meetingUrl ?? ""}
+        savedLabel="Join link saved"
+        onSave={(value) => setEventVideo({ eventId, meetingUrl: value })}
+      />
+
+      <div className="mt-4">
+        <VideoLinkField
+          label="Recording link"
+          placeholder="Paste the replay link after the session"
+          initialValue={recordingUrl ?? ""}
+          savedLabel="Recording posted"
+          onSave={(value) => postEventRecording({ eventId, recordingUrl: value })}
+        />
+      </div>
+
+      <p className="mt-4 text-xs" style={{ color: "var(--garden-dim)" }}>
+        This is a public event, so anyone on the event page can open the link.
+        It is a convenience, not a gate.
+      </p>
+    </div>
+  );
+}
+
+function VideoLinkField({
+  label,
+  placeholder,
+  initialValue,
+  savedLabel,
+  onSave,
+}: {
+  label: string;
+  placeholder: string;
+  initialValue: string;
+  savedLabel: string;
+  onSave: (value: string) => Promise<unknown>;
+}) {
+  const [value, setValue] = useState(initialValue);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+  // Reset when the server value changes underneath an untouched field.
+  const [lastInitial, setLastInitial] = useState(initialValue);
+  if (lastInitial !== initialValue) {
+    setLastInitial(initialValue);
+    setValue(initialValue);
+  }
+
+  const dirty = value.trim() !== initialValue.trim();
+
+  async function handleSave() {
+    if (saving) return;
+    setSaving(true);
+    setError(null);
+    setSaved(false);
+    try {
+      await onSave(value.trim());
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    } catch (err) {
+      setError(videoErrorMessage(err));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div>
+      <label
+        className="block text-sm font-medium mb-1.5"
+        style={{ color: "var(--garden-paper)" }}
+      >
+        {label}
+      </label>
+      <div className="flex flex-col sm:flex-row gap-2">
+        <input
+          type="url"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          placeholder={placeholder}
+          className="flex-1 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm"
+        />
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={saving || !dirty}
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium text-sm hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {saving ? "Saving…" : "Save"}
+        </button>
+      </div>
+      {error && (
+        <p className="mt-1.5 text-sm text-red-600 dark:text-red-400">{error}</p>
+      )}
+      {saved && !error && (
+        <p className="mt-1.5 text-sm text-green-700 dark:text-green-300">
+          {savedLabel}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function videoErrorMessage(err: unknown): string {
+  const data = (err as { data?: unknown })?.data;
+  if (data && typeof data === "object" && "reason" in data) {
+    return String((data as { reason: unknown }).reason);
+  }
+  return "Something went wrong — try again.";
 }
 
 function EventImageManager({
