@@ -10,6 +10,7 @@ import {
 } from "../components/LocationAutocomplete";
 import { useLocationField } from "../lib/useLocationField";
 import { ShareButton } from "../components/ShareButton";
+import { AnnouncementComposer } from "../components/AnnouncementComposer";
 
 const COVER_COLORS = [
   { name: "Blue", value: "blue", gradient: "from-blue-500 to-blue-600" },
@@ -147,6 +148,13 @@ export default function EventDetail() {
 
   return (
     <div className="max-w-4xl mx-auto">
+      {/* Garden design tokens — this file is otherwise plain Tailwind, but
+          the shared AnnouncementComposer (see "Organizer: message
+          attendees" below) is styled with --garden-* tokens to match
+          routes/projects.tsx and routes/offerings.tsx, so it needs the
+          same stylesheet those files load. */}
+      <link rel="stylesheet" href="/tokens.css" />
+      <link rel="stylesheet" href="/about/fonts/fonts.css" />
       {/* Cover Image */}
       <div className="relative h-56 md:h-72 overflow-hidden">
         {bannerImageUrl ? (
@@ -677,6 +685,17 @@ export default function EventDetail() {
         {/* Organizer image management */}
         {event.isOrganizer && (
           <EventImageManager eventId={event._id} event={event} />
+        )}
+
+        {/* Organizer: message attendees */}
+        {event.isOrganizer && (
+          <div className="mt-6">
+            <AnnouncementComposer
+              targetType="event"
+              targetId={event._id}
+              heading="Message attendees"
+            />
+          </div>
         )}
 
         {/* Back link */}

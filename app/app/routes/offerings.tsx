@@ -4,6 +4,7 @@ import { api } from "../../convex/_generated/api";
 import { INTERESTS } from "../constants/interests";
 import { LocationAutocomplete } from "../components/LocationAutocomplete";
 import { useLocationField } from "../lib/useLocationField";
+import { AnnouncementComposer } from "../components/AnnouncementComposer";
 
 // Discipline tags share the canonical INTERESTS list with People
 // (search.tsx) and Projects (projects.tsx) — same values, same order.
@@ -421,6 +422,15 @@ function OfferingCard({ offering, isOwner }: { offering: any; isOwner: boolean }
                 Delete
               </button>
             </div>
+          </div>
+        )}
+        {isOwner && (
+          <div className="mt-3">
+            <AnnouncementComposer
+              targetType="offering"
+              targetId={offering._id}
+              heading="Message participants"
+            />
           </div>
         )}
       </div>

@@ -5,6 +5,7 @@ import { api } from "../../convex/_generated/api";
 import { INTERESTS } from "../constants/interests";
 import { LocationAutocomplete } from "../components/LocationAutocomplete";
 import { useLocationField } from "../lib/useLocationField";
+import { AnnouncementComposer } from "../components/AnnouncementComposer";
 
 const KIND_FILTERS = [
   { label: "All", value: "" },
@@ -499,19 +500,28 @@ function ProjectCard({
         </div>
         {isOwn && (
           <div
-            className="flex items-center gap-2 mt-3"
+            className="mt-3"
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
             }}
           >
-            <label
-              className="text-[11px] uppercase tracking-[0.06em]"
-              style={{ color: "var(--garden-dim)" }}
-            >
-              Status
-            </label>
-            <StatusSelect project={project} />
+            <div className="flex items-center gap-2">
+              <label
+                className="text-[11px] uppercase tracking-[0.06em]"
+                style={{ color: "var(--garden-dim)" }}
+              >
+                Status
+              </label>
+              <StatusSelect project={project} />
+            </div>
+            <div className="mt-3">
+              <AnnouncementComposer
+                targetType="project"
+                targetId={project._id}
+                heading="Message supporters"
+              />
+            </div>
           </div>
         )}
         <div className="flex items-center justify-between gap-2 mt-3 pt-3" style={{ borderTop: "1px solid var(--garden-hairline)" }}>
