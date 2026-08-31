@@ -77,8 +77,13 @@ const handle = async (context: {
 
   const rawId = Array.isArray(params.id) ? params.id[0] : params.id;
   const eventId = rawId ?? "";
+  // /garden/events/:id, not /events/:id — the latter sits inside the
+  // _app.tsx layout, which navigates unauthenticated visitors to /login
+  // (routes/_app.tsx:42). Calendar invites go to guests who have no
+  // account by design (eventRsvps.userId is optional), so falling back
+  // there would dead-end exactly the person holding the invite.
   const fallback = new URL(
-    `/events/${encodeURIComponent(eventId)}`,
+    `/garden/events/${encodeURIComponent(eventId)}`,
     request.url,
   ).toString();
 

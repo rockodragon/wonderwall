@@ -41,7 +41,12 @@ export function joinProxyUrl(eventId: string): string {
 }
 
 export function eventPageUrl(eventId: string): string {
-  return `${SITE_ORIGIN}/events/${eventId}`;
+  // /garden/events/:id is the guest-facing event page. /events/:id lives
+  // inside the _app.tsx layout, which sends unauthenticated visitors to
+  // /login (routes/_app.tsx:42) — and a calendar invite is precisely the
+  // thing a guest with no account receives (eventRsvps.userId is
+  // optional). Keep this in sync with functions/j/[id].ts's fallback.
+  return `${SITE_ORIGIN}/garden/events/${eventId}`;
 }
 
 /** `20260906T183000Z` — the only date form every calendar client agrees on. */
