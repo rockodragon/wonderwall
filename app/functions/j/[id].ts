@@ -77,13 +77,15 @@ const handle = async (context: {
 
   const rawId = Array.isArray(params.id) ? params.id[0] : params.id;
   const eventId = rawId ?? "";
-  // /garden/events/:id, not /events/:id — the latter sits inside the
-  // _app.tsx layout, which navigates unauthenticated visitors to /login
-  // (routes/_app.tsx:42). Calendar invites go to guests who have no
-  // account by design (eventRsvps.userId is optional), so falling back
-  // there would dead-end exactly the person holding the invite.
+  // /events/:id — the canonical event page, and public: routes.ts registers
+  // it outside the _app.tsx layout so an unauthenticated visitor lands on
+  // the page instead of /login. That matters most here, because everyone
+  // arriving through this proxy came from a calendar invite and may well
+  // have no account (eventRsvps.userId is optional by design). The page
+  // explains whatever the actual situation is — no link yet, cancelled,
+  // paid, unknown id — and offers the guest RSVP.
   const fallback = new URL(
-    `/garden/events/${encodeURIComponent(eventId)}`,
+    `/events/${encodeURIComponent(eventId)}`,
     request.url,
   ).toString();
 

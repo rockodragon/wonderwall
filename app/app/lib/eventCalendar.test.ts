@@ -66,6 +66,15 @@ describe("buildIcs", () => {
     expect(ics).not.toContain("youtube.com");
   });
 
+  it("points at the public /events/:id page, never the /garden/ one", () => {
+    // /events/:id is registered outside the auth-gated _app.tsx layout
+    // (routes.ts) precisely so the guest holding this invite can open it.
+    expect(unfold(ics)).toContain(
+      `URL:https://creatives.exchange/events/${base.eventId}`,
+    );
+    expect(ics).not.toContain("/garden/events/");
+  });
+
   it("defaults to a one-hour block", () => {
     expect(ics).toContain("DTSTART:20260906T183000Z");
     expect(ics).toContain("DTEND:20260906T193000Z");

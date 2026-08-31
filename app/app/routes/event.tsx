@@ -1,9 +1,37 @@
-import { useMutation, useQuery } from "convex/react";
-import { useRef, useState } from "react";
+// /events/:eventId — the canonical event page, and PUBLIC.
+//
+// routes.ts registers this outside the _app.tsx layout on purpose: the join
+// link, the recording, "add to calendar" and the RSVP all live here, and a
+// calendar invite is precisely the thing a guest with no account receives
+// (eventRsvps.userId is optional by design). Gating it dead-ended exactly
+// the person holding the invite — docs/gated-event-video-prd.md.
+//
+// So this file has two audiences. The rule for the logged-out one:
+//
+//   • Every Convex query it calls is already anonymous-safe and returns a
+//     sensible empty answer rather than throwing — events.get (isOrganizer
+//     false, userApplication null), events.getAttendees (fully public),
+//     eventVideo.get (resolveVideoRole returns "entitled" for a public
+//     event, so the Join button and recording DO render for a guest).
+//   • Every organizer control hangs off event.isOrganizer, which the server
+//     derives — a guest can never see one.
+//   • Anything whose mutation requires auth is hidden, never rendered dead:
+//     Apply/Join (events.apply throws "Not authenticated") is replaced by
+//     the guest RSVP, and the favorite button is dropped.
+//   • Links into auth-gated routes (/profile/:id, /events) are rendered as
+//     plain text or repointed, so a guest never gets bounced to /login.
+//
+// Nothing below changes what an authenticated user sees; every new branch
+// is strictly !isAuthenticated.
+
+import { useConvexAuth, useMutation, useQuery } from "convex/react";
+import { ConvexError } from "convex/values";
+import { type FormEvent, useRef, useState } from "react";
 import { Link, useParams } from "react-router";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { FavoriteButton } from "../components/FavoriteButton";
+import { Wordmark } from "../components/Wordmark";
 import {
   LocationAutocomplete,
   type LocationSuggestion,
@@ -32,6 +60,11 @@ const COVER_COLORS = [
 
 export default function EventDetail() {
   const { eventId } = useParams();
+  // isLoading is true only while Convex resolves the stored token. Treating
+  // that window as "logged out" would flash the guest RSVP at a signed-in
+  // user, so both flags are read and the guest UI waits for a settled answer.
+  const { isAuthenticated, isLoading: authLoading } = useConvexAuth();
+  const isGuest = !authLoading && !isAuthenticated;
   const event = useQuery(
     api.events.get,
     eventId ? { eventId: eventId as Id<"events"> } : "skip",
@@ -57,6 +90,10 @@ export default function EventDetail() {
   const [joining, setJoining] = useState(false);
   const [showEditForm, setShowEditForm] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  // Held here rather than inside the card so the desktop and mobile render
+  // sites stay in sync — the same reason `message`/`showApplyForm` above are
+  // parent state and not local to each button.
+  const rsvp = useGuestRsvp(eventId as Id<"events"> | undefined);
 
   async function handleCancelEvent() {
     if (!eventId) return;
@@ -136,7 +173,13 @@ export default function EventDetail() {
   }
 
   const isPast = event.datetime < Date.now();
-  const canApply = !isPast && !event.userApplication && !event.isOrganizer;
+  const cancelled = event.status === "cancelled";
+  // events.apply throws "Not authenticated", so the Apply/Join buttons are
+  // for signed-in visitors only. A guest gets showGuestRsvp instead — never
+  // a button that would reject on click.
+  const canApply =
+    !isPast && !event.userApplication && !event.isOrganizer && isAuthenticated;
+  const showGuestRsvp = isGuest && !isPast && !cancelled;
 
   // Get gradient class for cover color
   const coverGradient =
@@ -157,6 +200,23 @@ export default function EventDetail() {
           same stylesheet those files load. */}
       <link rel="stylesheet" href="/tokens.css" />
       <link rel="stylesheet" href="/about/fonts/fonts.css" />
+
+      {/* Guests get no app shell — this page renders outside the _app.tsx
+          layout — so give them the one bar they need to not be stranded. */}
+      {isGuest && (
+        <div className="flex items-center justify-between px-6 py-4">
+          <Link to="/" aria-label="The Exchange — home">
+            <Wordmark size="sm" tone="adaptive" />
+          </Link>
+          <Link
+            to="/login"
+            className="text-sm font-medium text-gray-700 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400"
+          >
+            Sign in
+          </Link>
+        </div>
+      )}
+
       {/* Cover Image */}
       <div className="relative h-56 md:h-72 overflow-hidden">
         {bannerImageUrl ? (
@@ -259,7 +319,12 @@ export default function EventDetail() {
             ))}
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
-            <FavoriteButton targetType="event" targetId={event._id} />
+            {/* favorites.toggle throws "Not authenticated" — a guest gets no
+                button rather than one that rejects on click. Share is pure
+                client-side (navigator.share / clipboard), so it stays. */}
+            {!isGuest && (
+              <FavoriteButton targetType="event" targetId={event._id} />
+            )}
             <ShareButton type="event" title={event.title} size="sm" />
           </div>
         </div>
@@ -272,7 +337,10 @@ export default function EventDetail() {
             {event.organizer && (
               <div className="mb-4 text-sm text-gray-500 dark:text-gray-400">
                 <span>Organized by </span>
-                {event.organizer.profileId ? (
+                {/* /profile/:id is inside the auth-gated layout, so for a
+                    guest the name renders as plain text (the branch below)
+                    rather than as a link that bounces them to /login. */}
+                {event.organizer.profileId && !isGuest ? (
                   <Link
                     to={`/profile/${event.organizer.profileId}`}
                     className="inline-flex items-center gap-2 font-medium text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400"
@@ -432,6 +500,8 @@ export default function EventDetail() {
                   Join Event
                 </button>
               )
+            ) : showGuestRsvp ? (
+              <GuestRsvpCard rsvp={rsvp} />
             ) : null}
           </div>
         </div>
@@ -443,11 +513,11 @@ export default function EventDetail() {
         <EventVideoSection
           eventId={event._id}
           datetime={event.datetime}
-          cancelled={event.status === "cancelled"}
+          cancelled={cancelled}
         />
 
         {/* Add to calendar — the invite carries /j/{eventId}, not the room */}
-        {!isPast && event.status !== "cancelled" && (
+        {!isPast && !cancelled && (
           <AddToCalendar
             className="mb-8"
             event={{
@@ -597,6 +667,8 @@ export default function EventDetail() {
                 Join Event
               </button>
             )
+          ) : showGuestRsvp ? (
+            <GuestRsvpCard rsvp={rsvp} />
           ) : null}
         </div>
 
@@ -658,7 +730,9 @@ export default function EventDetail() {
                   key={attendee.applicationId}
                   className="flex items-center gap-2.5 p-2.5 bg-gray-50 dark:bg-gray-800/50 rounded-xl"
                 >
-                  {attendee.profileId ? (
+                  {/* Same reason as the organizer above: no /profile links
+                      for a guest, who can't reach that route. */}
+                  {attendee.profileId && !isGuest ? (
                     <Link
                       to={`/profile/${attendee.profileId}`}
                       className="flex-shrink-0"
@@ -685,7 +759,7 @@ export default function EventDetail() {
                     </div>
                   )}
                   <div className="flex-1 min-w-0">
-                    {attendee.profileId ? (
+                    {attendee.profileId && !isGuest ? (
                       <Link
                         to={`/profile/${attendee.profileId}`}
                         className="block text-sm font-medium text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 truncate"
@@ -725,10 +799,12 @@ export default function EventDetail() {
           </div>
         )}
 
-        {/* Back link */}
+        {/* Back link. /events is still inside the auth-gated layout, so a
+            guest goes to the public browse page instead of being bounced to
+            /login by the one link offering them a way out. */}
         <div className="mt-8">
           <Link
-            to="/events"
+            to={isGuest ? "/garden/events" : "/events"}
             className="text-blue-600 hover:text-blue-500 text-sm font-medium"
           >
             ← Back to events
@@ -756,6 +832,144 @@ export default function EventDetail() {
         />
       )}
     </div>
+  );
+}
+
+// ——————————————————————————————————————————————————————————————
+// Guest RSVP — the logged-out counterpart to Apply/Join above.
+//
+// Wired to garden/eventRsvps.ts's rsvpToEvent, which is deliberately
+// unauthenticated (name + email, dedupes on normalized email). This is the
+// same mutation /garden/events/:id has always used; the flow is not new,
+// it just wasn't reachable from this page while this page required a login.
+// ——————————————————————————————————————————————————————————————
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function rsvpErrorMessage(err: unknown): string {
+  if (err instanceof ConvexError) {
+    const data = err.data as { reason?: string } | undefined;
+    if (data?.reason) return data.reason;
+  }
+  return "Something went wrong — try again.";
+}
+
+function useGuestRsvp(eventId: Id<"events"> | undefined) {
+  const rsvpToEvent = useMutation(api.garden.eventRsvps.rsvpToEvent);
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [done, setDone] = useState<{ alreadyRsvpd: boolean } | null>(null);
+
+  const trimmedName = name.trim();
+  const trimmedEmail = email.trim();
+  const valid = trimmedName.length > 0 && EMAIL_RE.test(trimmedEmail);
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    if (!valid || !eventId || submitting) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const res = await rsvpToEvent({
+        eventId,
+        name: trimmedName,
+        email: trimmedEmail,
+      });
+      setDone({ alreadyRsvpd: res.alreadyRsvpd });
+    } catch (err) {
+      // ConvexError carries a human reason; anything else gets the generic
+      // line. Either way the guest is told, never left with a dead button.
+      setError(rsvpErrorMessage(err));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return {
+    name,
+    setName,
+    email,
+    setEmail,
+    submitting,
+    error,
+    done,
+    valid,
+    submit,
+  };
+}
+
+type GuestRsvpState = ReturnType<typeof useGuestRsvp>;
+
+const GUEST_INPUT_CLASS =
+  "w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg " +
+  "focus:ring-2 focus:ring-green-500 focus:border-transparent " +
+  "bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm";
+
+/** Rendered twice (desktop rail + mobile block), same as the Join button it
+ *  stands in for. State lives in the parent so the two stay in sync. */
+function GuestRsvpCard({ rsvp }: { rsvp: GuestRsvpState }) {
+  if (rsvp.done) {
+    return (
+      <div className="p-4 rounded-xl bg-green-50 dark:bg-green-900/20">
+        <p className="font-medium text-green-800 dark:text-green-200">
+          {rsvp.done.alreadyRsvpd
+            ? "You're already on the list."
+            : "You're on the list."}
+        </p>
+        <p className="mt-1 text-sm text-green-800 dark:text-green-200">
+          {rsvp.done.alreadyRsvpd
+            ? "We have your spot saved."
+            : "We'll email you the details."}
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <form
+      onSubmit={rsvp.submit}
+      className="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl"
+    >
+      <h3 className="font-medium text-gray-900 dark:text-white text-sm">
+        RSVP
+      </h3>
+      <p className="mt-1 mb-3 text-xs text-gray-600 dark:text-gray-300">
+        No account needed.
+      </p>
+      <input
+        className={GUEST_INPUT_CLASS}
+        value={rsvp.name}
+        onChange={(e) => rsvp.setName(e.target.value)}
+        placeholder="Your name"
+        aria-label="Your name"
+        autoComplete="name"
+      />
+      <div className="mt-2">
+        <input
+          className={GUEST_INPUT_CLASS}
+          type="email"
+          value={rsvp.email}
+          onChange={(e) => rsvp.setEmail(e.target.value)}
+          placeholder="you@example.com"
+          aria-label="Your email"
+          autoComplete="email"
+        />
+      </div>
+      <button
+        type="submit"
+        disabled={!rsvp.valid || rsvp.submitting}
+        className="mt-3 w-full py-2.5 bg-green-600 text-white rounded-xl font-medium hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        {rsvp.submitting ? "Saving…" : "Save me a spot"}
+      </button>
+      {rsvp.error && (
+        <p className="mt-2 text-sm text-red-700 dark:text-red-300">
+          {rsvp.error}
+        </p>
+      )}
+    </form>
   );
 }
 

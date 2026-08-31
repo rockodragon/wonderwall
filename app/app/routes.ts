@@ -22,6 +22,22 @@ export default [
   // route("organizations", "routes/organizations.tsx"),
   // route("organizations/demo", "routes/organizations_.demo.tsx"),
 
+  // Event detail is PUBLIC — deliberately outside the _app.tsx layout below,
+  // which navigates unauthenticated visitors to /login (routes/_app.tsx:42).
+  // A calendar invite goes to a guest with no account by design
+  // (eventRsvps.userId is optional), and the join link, the recording and
+  // "add to calendar" all live on this page — gating it dead-ended exactly
+  // the person holding the invite (docs/gated-event-video-prd.md).
+  //
+  // routes/event.tsx is the component, not the /garden/events/:id one: this
+  // path is what functions/events/[id].ts injects real OG tags for, so link
+  // unfurling depends on it staying put. The page degrades for logged-out
+  // visitors on its own (guest RSVP, no organizer tools) — see event.tsx.
+  //
+  // The browse list at /events stays inside the layout for now; promoting it
+  // is a separate decision.
+  route("events/:eventId", "routes/event.tsx"),
+
   // App routes (with nav layout)
   layout("routes/_app.tsx", [
     route("search", "routes/search.tsx"),
@@ -30,7 +46,6 @@ export default [
     route("works", "routes/works.tsx"),
     route("works/:artifactId", "routes/work.tsx"),
     route("events", "routes/events.tsx"),
-    route("events/:eventId", "routes/event.tsx"),
     route("jobs", "routes/jobs._index.tsx"),
     route("jobs/new", "routes/jobs.new.tsx"),
     route("jobs/:id", "routes/jobs.$id.tsx"),
