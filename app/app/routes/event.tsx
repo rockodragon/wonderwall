@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import { useRef, useState } from "react";
 import { Link, useParams } from "react-router";
 import { api } from "../../convex/_generated/api";
@@ -9,6 +9,13 @@ import {
   type LocationSuggestion,
 } from "../components/LocationAutocomplete";
 import { ShareButton } from "../components/ShareButton";
+import {
+  TicketTierEditor,
+  draftsToTiers,
+  tiersToDrafts,
+  type TicketTier,
+  type TicketTierDraft,
+} from "../components/TicketTierEditor";
 
 const COVER_COLORS = [
   { name: "Blue", value: "blue", gradient: "from-blue-500 to-blue-600" },
@@ -26,32 +33,81 @@ const COVER_COLORS = [
   },
 ];
 
+/** Header date/time. Without an end time this matches the original
+    single-timestamp rendering; with one it collapses to a range like
+    "Fri, Nov 6 · 6:00–9:00 PM" (start's meridiem dropped when it matches
+    the end's), or spells out both sides when the event crosses midnight. */
+function formatEventDateTime(start: number, end?: number): string {
+  const startDate = new Date(start);
+  if (!end) {
+    return startDate.toLocaleDateString("en-US", {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  }
+
+  const endDate = new Date(end);
+  const dayOpts = {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  } as const;
+  const timeOpts = { hour: "numeric", minute: "2-digit" } as const;
+  const startDay = startDate.toLocaleDateString("en-US", dayOpts);
+  const startTime = startDate.toLocaleTimeString("en-US", timeOpts);
+  const endTime = endDate.toLocaleTimeString("en-US", timeOpts);
+
+  if (startDate.toDateString() !== endDate.toDateString()) {
+    const endDay = endDate.toLocaleDateString("en-US", dayOpts);
+    return `${startDay}, ${startTime} – ${endDay}, ${endTime}`;
+  }
+
+  // "6:00 PM" / "9:00 PM" → "6:00–9:00 PM"; mixed meridiems keep both.
+  const sameMeridiem = startTime.slice(-2) === endTime.slice(-2);
+  const startShort = sameMeridiem ? startTime.slice(0, -3) : startTime;
+  return `${startDay} · ${startShort}–${endTime}`;
+}
+
+function formatTierPrice(priceCents: number): string {
+  const dollars = priceCents / 100;
+  return `$${priceCents % 100 === 0 ? dollars.toFixed(0) : dollars.toFixed(2)}`;
+}
+
 /** Location card for the event page. The static-map image needs a Google
     Maps API key; when the key is missing (or the image fails to load —
     e.g. a free-text venue Google can't geocode) we render a clean map-pin
     placeholder instead of a broken <img>. The "Open in Maps" link is always
-    built from the venue text query, so it works for free-text venues too. */
+    built from a text query — the street address when the organizer provided
+    one (a geocode Google can actually resolve), otherwise the venue name —
+    so it works for free-text venues too. */
 function LocationMapCard({
   location,
+  address,
   coordinates,
 }: {
   location: string;
+  address?: string;
   coordinates?: { lat: number; lng: number };
 }) {
   const [imgFailed, setImgFailed] = useState(false);
   const mapsKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as
     | string
     | undefined;
+  // Prefer the street address for geocoding/search; fall back to venue name.
+  const mapsQuery = address || location;
   const mapSrc =
     mapsKey && !imgFailed
       ? coordinates
         ? `https://maps.googleapis.com/maps/api/staticmap?center=${coordinates.lat},${coordinates.lng}&zoom=15&size=400x400&scale=2&markers=color:red%7C${coordinates.lat},${coordinates.lng}&key=${mapsKey}`
-        : `https://maps.googleapis.com/maps/api/staticmap?center=${encodeURIComponent(location)}&zoom=15&size=400x400&scale=2&markers=color:red%7C${encodeURIComponent(location)}&key=${mapsKey}`
+        : `https://maps.googleapis.com/maps/api/staticmap?center=${encodeURIComponent(mapsQuery)}&zoom=15&size=400x400&scale=2&markers=color:red%7C${encodeURIComponent(mapsQuery)}&key=${mapsKey}`
       : null;
 
   return (
     <a
-      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`}
+      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapsQuery)}`}
       target="_blank"
       rel="noopener noreferrer"
       className="block rounded-xl overflow-hidden hover:opacity-90 transition-opacity max-w-[300px]"
@@ -87,12 +143,24 @@ function LocationMapCard({
           <p className="text-sm font-medium text-gray-600 dark:text-gray-300">
             {location}
           </p>
+          {address && (
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              {address}
+            </p>
+          )}
         </div>
       )}
       <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800">
-        <p className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate mr-2">
-          {location}
-        </p>
+        <div className="min-w-0 mr-2">
+          <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
+            {location}
+          </p>
+          {address && (
+            <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+              {address}
+            </p>
+          )}
+        </div>
         <span className="text-xs text-blue-600 dark:text-blue-400 flex items-center gap-1 flex-shrink-0">
           Open in Maps
           <svg
@@ -286,13 +354,7 @@ export default function EventDetail() {
                   d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
                 />
               </svg>
-              {new Date(event.datetime).toLocaleDateString("en-US", {
-                weekday: "short",
-                month: "short",
-                day: "numeric",
-                hour: "numeric",
-                minute: "2-digit",
-              })}
+              {formatEventDateTime(event.datetime, event.endTime)}
             </span>
             {event.location && (
               <span className="flex items-center gap-1">
@@ -652,6 +714,16 @@ export default function EventDetail() {
           ) : null}
         </div>
 
+        {/* Tickets */}
+        {event.ticketTiers && event.ticketTiers.length > 0 && (
+          <TicketsCard
+            eventId={event._id}
+            tiers={event.ticketTiers}
+            soldByTier={event.ticketsSoldByTier}
+            isPast={isPast}
+          />
+        )}
+
         {/* Location Map */}
         {event.location && event.locationType !== "online" && (
           <div className="mb-8">
@@ -660,6 +732,7 @@ export default function EventDetail() {
             </h3>
             <LocationMapCard
               location={event.location}
+              address={event.venueAddress ?? undefined}
               coordinates={event.coordinates ?? undefined}
             />
           </div>
@@ -752,13 +825,107 @@ export default function EventDetail() {
             title: event.title,
             description: event.description,
             datetime: event.datetime,
+            endTime: event.endTime,
             location: event.location,
+            venueAddress: event.venueAddress,
+            ticketTiers: event.ticketTiers,
             tags: event.tags,
             requiresApproval: event.requiresApproval,
           }}
           onClose={() => setShowEditForm(false)}
         />
       )}
+    </div>
+  );
+}
+
+/** "Tickets" card — one row per paid tier, each with its own Stripe Checkout
+    buy button (one-time payment; recorded by the webhook into
+    ticketPurchases). Free RSVPs/applications work unchanged alongside. */
+function TicketsCard({
+  eventId,
+  tiers,
+  soldByTier,
+  isPast,
+}: {
+  eventId: Id<"events">;
+  tiers: TicketTier[];
+  soldByTier?: Record<string, number>;
+  isPast: boolean;
+}) {
+  const createTicketCheckout = useAction(api.garden.stripe.createTicketCheckout);
+  const [buyingTier, setBuyingTier] = useState<string | null>(null);
+  const [error, setError] = useState("");
+
+  async function handleBuy(tierName: string) {
+    setError("");
+    setBuyingTier(tierName);
+    try {
+      const { url } = await createTicketCheckout({ eventId, tierName });
+      window.location.href = url;
+    } catch (err) {
+      console.error("Ticket checkout failed:", err);
+      setError("Couldn't start checkout. Please try again.");
+      setBuyingTier(null);
+    }
+  }
+
+  return (
+    <div className="mb-8">
+      <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
+        Tickets
+      </h3>
+      {error && (
+        <div className="mb-3 p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg text-sm">
+          {error}
+        </div>
+      )}
+      <div className="space-y-2">
+        {tiers.map((tier) => {
+          const sold = soldByTier?.[tier.name] ?? 0;
+          const soldOut = tier.quantity !== undefined && sold >= tier.quantity;
+          return (
+            <div
+              key={tier.name}
+              className="flex items-center justify-between gap-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl"
+            >
+              <div className="min-w-0">
+                <p className="font-medium text-gray-900 dark:text-white">
+                  {tier.name}{" "}
+                  <span className="text-gray-500 dark:text-gray-400 font-normal">
+                    · {formatTierPrice(tier.priceCents)}
+                  </span>
+                </p>
+                {tier.description && (
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    {tier.description}
+                  </p>
+                )}
+                {tier.quantity !== undefined && !soldOut && (
+                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                    {tier.quantity - sold} left
+                  </p>
+                )}
+              </div>
+              {isPast ? null : soldOut ? (
+                <span className="flex-shrink-0 px-4 py-2 bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 rounded-lg text-sm font-medium">
+                  Sold out
+                </span>
+              ) : (
+                <button
+                  onClick={() => handleBuy(tier.name)}
+                  disabled={buyingTier !== null}
+                  className="flex-shrink-0 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                >
+                  {buyingTier === tier.name
+                    ? "Redirecting..."
+                    : `Buy ${formatTierPrice(tier.priceCents)}`}
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -1030,7 +1197,10 @@ function EditEventModal({
     title: string;
     description: string;
     datetime: number;
+    endTime?: number;
     location?: string;
+    venueAddress?: string;
+    ticketTiers?: TicketTier[];
     tags: string[];
     requiresApproval: boolean;
   };
@@ -1042,12 +1212,22 @@ function EditEventModal({
   const initialDate = new Date(initialValues.datetime);
   const dateStr = initialDate.toISOString().split("T")[0];
   const timeStr = initialDate.toTimeString().slice(0, 5);
+  const endTimeInit = initialValues.endTime
+    ? new Date(initialValues.endTime).toTimeString().slice(0, 5)
+    : "";
 
   const [title, setTitle] = useState(initialValues.title);
   const [description, setDescription] = useState(initialValues.description);
   const [date, setDate] = useState(dateStr);
   const [time, setTime] = useState(timeStr);
+  const [endTimeStr, setEndTimeStr] = useState(endTimeInit);
   const [location, setLocation] = useState(initialValues.location || "");
+  const [venueAddress, setVenueAddress] = useState(
+    initialValues.venueAddress || "",
+  );
+  const [ticketTiers, setTicketTiers] = useState<TicketTierDraft[]>(
+    tiersToDrafts(initialValues.ticketTiers),
+  );
   const [selectedLocation, setSelectedLocation] =
     useState<LocationSuggestion | null>(null);
   const [tags, setTags] = useState<string[]>(initialValues.tags);
@@ -1090,6 +1270,22 @@ function EditEventModal({
 
     const datetime = new Date(`${date}T${time}`).getTime();
 
+    // Optional end time — same day as the start; must be after it.
+    let endTime: number | undefined;
+    if (endTimeStr) {
+      endTime = new Date(`${date}T${endTimeStr}`).getTime();
+      if (endTime <= datetime) {
+        setError("End time must be after the start time");
+        return;
+      }
+    }
+
+    const { tiers, error: tiersError } = draftsToTiers(ticketTiers);
+    if (tiersError) {
+      setError(tiersError);
+      return;
+    }
+
     setSaving(true);
     try {
       await updateEvent({
@@ -1097,7 +1293,10 @@ function EditEventModal({
         title,
         description,
         datetime,
+        endTime,
+        ticketTiers: tiers,
         location: location || undefined,
+        venueAddress: venueAddress.trim() || undefined,
         locationType: selectedLocation?.locationType,
         address: selectedLocation?.address,
         coordinates: selectedLocation?.coordinates,
@@ -1174,7 +1373,7 @@ function EditEventModal({
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Date *
@@ -1188,7 +1387,7 @@ function EditEventModal({
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Time *
+                  Start time *
                 </label>
                 <input
                   type="time"
@@ -1197,17 +1396,28 @@ function EditEventModal({
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
                 />
               </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  End time
+                </label>
+                <input
+                  type="time"
+                  value={endTimeStr}
+                  onChange={(e) => setEndTimeStr(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
+                />
+              </div>
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Location
+                Venue name
               </label>
               <LocationAutocomplete
                 value={location}
                 onChange={handleLocationChange}
                 onSelect={handleLocationSelect}
-                placeholder="Search for a location, type 'Online', or 'TBD'"
+                placeholder="Search for a venue, type 'Online', or 'TBD'"
               />
               {selectedLocation && (
                 <p className="mt-1 text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
@@ -1228,6 +1438,26 @@ function EditEventModal({
                   {selectedLocation.coordinates && " with coordinates"}
                 </p>
               )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Address
+              </label>
+              <input
+                type="text"
+                value={venueAddress}
+                onChange={(e) => setVenueAddress(e.target.value)}
+                placeholder="Street address (optional)"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Ticket tiers
+              </label>
+              <TicketTierEditor tiers={ticketTiers} onChange={setTicketTiers} />
             </div>
 
             <div>

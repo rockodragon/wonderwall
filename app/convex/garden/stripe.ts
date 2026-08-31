@@ -122,6 +122,85 @@ export const createMembershipCheckout = action({
   },
 });
 
+// ——— createTicketCheckout — one-time payment for an event ticket tier ———
+//
+// Same shape as createMembershipCheckout but mode="payment" with inline
+// price_data (tiers are per-event, so there's no pre-provisioned Stripe
+// price). Metadata {kind: "event_ticket", eventId, tierName, userId?} rides
+// on the session; checkout.session.completed records the purchase into
+// ticketPurchases via the existing webhook path (stripeHandlers.ts →
+// memberships.makeConvexDb). Guests can buy — auth is optional, Stripe
+// collects the buyer's email either way.
+
+export const createTicketCheckout = action({
+  args: {
+    eventId: v.id("events"),
+    tierName: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const info = await ctx.runQuery(
+      (internal as any).events.getEventForTicketCheckout,
+      { eventId: args.eventId, tierName: args.tierName },
+    );
+    if (!info) {
+      throw new ConvexError("That event isn't there anymore.");
+    }
+    if (info.status !== "published") {
+      throw new ConvexError("This event isn't selling tickets right now.");
+    }
+    if (info.datetime < Date.now()) {
+      throw new ConvexError("This event has already happened.");
+    }
+    const tier = info.tier;
+    if (!tier) {
+      throw new ConvexError("That ticket tier no longer exists — refresh and try again.");
+    }
+    if (tier.quantity !== undefined && info.sold >= tier.quantity) {
+      throw new ConvexError(`"${tier.name}" tickets are sold out.`);
+    }
+
+    const userId = await auth.getUserId(ctx);
+    const identity = await ctx.auth.getUserIdentity();
+
+    const stripe = getStripeClient();
+
+    const metadata: Record<string, string> = {
+      kind: "event_ticket",
+      eventId: String(args.eventId),
+      tierName: tier.name,
+      ...(userId ? { userId: String(userId) } : {}),
+    };
+
+    const session = await stripe.checkout.sessions.create({
+      mode: "payment",
+      customer_email: identity?.email ?? undefined,
+      line_items: [
+        {
+          quantity: 1,
+          price_data: {
+            currency: "usd",
+            unit_amount: tier.priceCents,
+            product_data: {
+              name: `${info.title} — ${tier.name}`,
+              ...(tier.description ? { description: tier.description } : {}),
+            },
+          },
+        },
+      ],
+      metadata,
+      success_url: `${siteUrl()}/events/${args.eventId}?ticket=success`,
+      cancel_url: `${siteUrl()}/events/${args.eventId}`,
+      allow_promotion_codes: false,
+    });
+
+    if (!session.url) {
+      throw new ConvexError("Stripe did not return a checkout URL.");
+    }
+
+    return { url: session.url };
+  },
+});
+
 // ——— createCoverageCheckout — W2 (church coverage codes). Stub only. ———
 //
 // TODO(W2): mirrors createMembershipCheckout but mode="subscription" with

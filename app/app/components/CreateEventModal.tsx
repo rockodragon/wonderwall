@@ -7,6 +7,11 @@ import {
   LocationAutocomplete,
   type LocationSuggestion,
 } from "./LocationAutocomplete";
+import {
+  TicketTierEditor,
+  draftsToTiers,
+  type TicketTierDraft,
+} from "./TicketTierEditor";
 
 const EVENT_TAGS = [
   "Workshop",
@@ -34,7 +39,10 @@ export function CreateEventModal({ onClose }: { onClose: () => void }) {
   const [description, setDescription] = useState("");
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
+  const [endTimeStr, setEndTimeStr] = useState("");
   const [location, setLocation] = useState("");
+  const [venueAddress, setVenueAddress] = useState("");
+  const [ticketTiers, setTicketTiers] = useState<TicketTierDraft[]>([]);
   const [selectedLocation, setSelectedLocation] =
     useState<LocationSuggestion | null>(null);
   const [tags, setTags] = useState<string[]>([]);
@@ -80,13 +88,32 @@ export function CreateEventModal({ onClose }: { onClose: () => void }) {
       return;
     }
 
+    // Optional end time — same day as the start; must be after it.
+    let endTime: number | undefined;
+    if (endTimeStr) {
+      endTime = new Date(`${date}T${endTimeStr}`).getTime();
+      if (endTime <= datetime) {
+        setError("End time must be after the start time");
+        return;
+      }
+    }
+
+    const { tiers, error: tiersError } = draftsToTiers(ticketTiers);
+    if (tiersError) {
+      setError(tiersError);
+      return;
+    }
+
     setSaving(true);
     try {
       const eventId = await createEvent({
         title,
         description,
         datetime,
+        endTime,
+        ticketTiers: tiers,
         location: location || undefined,
+        venueAddress: venueAddress.trim() || undefined,
         locationType: selectedLocation?.locationType,
         address: selectedLocation?.address,
         coordinates: selectedLocation?.coordinates,
@@ -173,7 +200,7 @@ export function CreateEventModal({ onClose }: { onClose: () => void }) {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Date *
@@ -187,7 +214,7 @@ export function CreateEventModal({ onClose }: { onClose: () => void }) {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Time *
+                  Start time *
                 </label>
                 <input
                   type="time"
@@ -196,17 +223,28 @@ export function CreateEventModal({ onClose }: { onClose: () => void }) {
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
                 />
               </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  End time
+                </label>
+                <input
+                  type="time"
+                  value={endTimeStr}
+                  onChange={(e) => setEndTimeStr(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
+                />
+              </div>
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Location
+                Venue name
               </label>
               <LocationAutocomplete
                 value={location}
                 onChange={handleLocationChange}
                 onSelect={handleLocationSelect}
-                placeholder="Search for a location, type 'Online', or 'TBD'"
+                placeholder="Search for a venue, type 'Online', or 'TBD'"
               />
               {selectedLocation && (
                 <p className="mt-1 text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
@@ -227,6 +265,26 @@ export function CreateEventModal({ onClose }: { onClose: () => void }) {
                   {selectedLocation.coordinates && " with coordinates"}
                 </p>
               )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Address
+              </label>
+              <input
+                type="text"
+                value={venueAddress}
+                onChange={(e) => setVenueAddress(e.target.value)}
+                placeholder="Street address (optional)"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Ticket tiers
+              </label>
+              <TicketTierEditor tiers={ticketTiers} onChange={setTicketTiers} />
             </div>
 
             <div>
