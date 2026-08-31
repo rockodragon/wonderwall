@@ -160,12 +160,37 @@ export default defineSchema({
     coverImageStorageId: v.optional(v.id("_storage")), // cover/background image
     coverColor: v.optional(v.string()), // fallback gradient color (e.g. "blue", "purple")
     imageStorageIds: v.optional(v.array(v.id("_storage"))), // up to 3 gallery images
+    // ——— Gated event video (docs/gated-event-video-prd.md) ———
+    // Every field below is PUBLIC BY DESIGN. events.list / events.get /
+    // events.search all `return { ...event }` and two of them are
+    // unauthenticated browse surfaces, so anything on this table is published
+    // to the world. That is fine for these four and NOT fine for a join link:
+    // meetingUrl/recordingUrl live in the separate `eventVideo` table below
+    // (PRD Criticism #1). Do not add a secret field to this table.
+    accessType: v.optional(v.string()), // "public" | "paid" — absent = public
+    priceCents: v.optional(v.number()), // shown on the public page; that's the point of a price
+    paymentLinkUrl: v.optional(v.string()), // public by design — you must see it to pay
+    hasVideo: v.optional(v.boolean()), // "this event has a room" — carries no secret
     createdAt: v.number(),
     updatedAt: v.number(),
   })
     .index("by_organizerId", ["organizerId"])
     .index("by_datetime", ["datetime"])
     .index("by_status", ["status"]),
+
+  // The ONLY home for secret event URLs (docs/gated-event-video-prd.md,
+  // "Data model"). Nothing spreads this document into a public response:
+  // exactly one query (convex/eventVideo.ts) may ever return these fields,
+  // and it resolves a role first. A `{ ...event }` spread cannot leak a
+  // field that isn't on the event document — that's the whole point of the
+  // separate table, and it fails closed for code nobody has written yet.
+  eventVideo: defineTable({
+    eventId: v.id("events"),
+    meetingUrl: v.optional(v.string()), // the live join link
+    recordingUrl: v.optional(v.string()), // the replay link, posted after
+    recordingPostedAt: v.optional(v.number()),
+    updatedAt: v.number(),
+  }).index("by_eventId", ["eventId"]),
 
   // Event applications
   eventApplications: defineTable({
@@ -910,6 +935,11 @@ export default defineSchema({
     name: v.string(),
     email: v.string(),
     invitedBy: v.optional(v.string()), // "bring someone" provenance
+    // "pending" | "confirmed" — absent on free events. Organizer-set only:
+    // rsvpToEvent is unauthenticated, so the existence of an RSVP row is
+    // never a credential (docs/gated-event-video-prd.md, Criticism #3).
+    // No UI writes this yet — the paid path is deferred (PRD "Build order").
+    paymentStatus: v.optional(v.string()),
     createdAt: v.number(),
   })
     .index("by_eventId", ["eventId"])

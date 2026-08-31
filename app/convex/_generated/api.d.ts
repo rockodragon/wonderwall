@@ -23,6 +23,8 @@ import type * as crons from "../crons.js";
 import type * as emailHelpers from "../emailHelpers.js";
 import type * as emails from "../emails.js";
 import type * as embeddings from "../embeddings.js";
+import type * as eventAccess from "../eventAccess.js";
+import type * as eventVideo from "../eventVideo.js";
 import type * as events from "../events.js";
 import type * as favorites from "../favorites.js";
 import type * as files from "../files.js";
@@ -88,6 +90,8 @@ declare const fullApi: ApiFromModules<{
   emailHelpers: typeof emailHelpers;
   emails: typeof emails;
   embeddings: typeof embeddings;
+  eventAccess: typeof eventAccess;
+  eventVideo: typeof eventVideo;
   events: typeof events;
   favorites: typeof favorites;
   files: typeof files;
