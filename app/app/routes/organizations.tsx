@@ -33,13 +33,13 @@ declare global {
 
 export function meta({}: Route.MetaArgs) {
   return [
-    { title: "Hire Kingdom Creatives | TheCrossBoard" },
+    { title: "Hire Creatives | creatives.exchange" },
     {
       name: "description",
       content:
         "Connect with talented creatives known for integrity and excellence. Post projects, build your team, and find values-aligned talent—whether you're a church, nonprofit, startup, or enterprise.",
     },
-    { property: "og:title", content: "Hire Kingdom Creatives | TheCrossBoard" },
+    { property: "og:title", content: "Hire Creatives | creatives.exchange" },
     {
       property: "og:description",
       content:
@@ -48,13 +48,13 @@ export function meta({}: Route.MetaArgs) {
     { property: "og:type", content: "website" },
     {
       property: "og:image",
-      content: "https://www.thecrossboard.org/og-image.png",
+      content: "https://creatives.exchange/og-image.png",
     },
     { property: "og:image:width", content: "1200" },
     { property: "og:image:height", content: "630" },
     {
       name: "twitter:image",
-      content: "https://www.thecrossboard.org/og-image.png",
+      content: "https://creatives.exchange/og-image.png",
     },
     { name: "twitter:card", content: "summary_large_image" },
   ];
@@ -131,7 +131,7 @@ const FAQS = [
   {
     question: "What types of organizations can join?",
     answer:
-      "TheCrossBoard welcomes any organization seeking values-aligned creative talent. This includes churches, Christian nonprofits, mission organizations, faith-based media companies, as well as secular businesses, startups, agencies, and nonprofits who want to hire creatives known for their integrity, work ethic, and character.",
+      "creatives.exchange welcomes any organization seeking values-aligned creative talent. This includes churches, Christian nonprofits, mission organizations, faith-based media companies, as well as secular businesses, startups, agencies, and nonprofits who want to hire creatives known for their integrity, work ethic, and character.",
   },
   {
     question: "I'm not a church or Christian organization. Can I still join?",
@@ -154,14 +154,14 @@ const FAQS = [
       "Our community includes designers, filmmakers, photographers, musicians, writers, developers, marketers, worship leaders, and 30+ creative disciplines. Whether you need a full-time creative director, a freelancer for a campaign, or a worship leader, you'll find talented professionals here.",
   },
   {
-    question: "How is TheCrossBoard different from other job boards?",
+    question: "How is creatives.exchange different from other job boards?",
     answer:
-      "Unlike traditional job boards, TheCrossBoard is a community first. Creatives showcase portfolios, share their journey, and connect based on shared values. When you post a project, you see complete portfolios—not just resumes. You're hiring people whose work quality and character you can evaluate before reaching out.",
+      "Unlike traditional job boards, creatives.exchange is a community first. Creatives showcase portfolios, share their journey, and connect based on shared values. When you post a project, you see complete portfolios—not just resumes. You're hiring people whose work quality and character you can evaluate before reaching out.",
   },
   {
     question: "Can we try before we commit?",
     answer:
-      "Yes—our Community tier is completely free. Get listed, browse portfolios, and see if TheCrossBoard is right for your organization. When you're ready to post projects and connect directly with creatives, upgrading is simple.",
+      "Yes—our Community tier is completely free. Get listed, browse portfolios, and see if creatives.exchange is right for your organization. When you're ready to post projects and connect directly with creatives, upgrading is simple.",
   },
   {
     question: "What if we have larger partnership needs?",
@@ -247,7 +247,7 @@ export default function Organizations() {
             />
           </svg>
           <span className="text-2xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
-            TheCrossBoard
+            creatives.exchange
           </span>
         </Link>
         <Link
@@ -401,7 +401,7 @@ export default function Organizations() {
                 />
               }
               title="Values-Aligned Talent"
-              description="Every creative on TheCrossBoard is part of a Kingdom-minded community. Hire with confidence knowing you share the same foundation."
+              description="Every creative on creatives.exchange is part of a Kingdom-minded community. Hire with confidence knowing you share the same foundation."
             />
             <ValueProp
               icon={
@@ -600,7 +600,7 @@ export default function Organizations() {
       <footer className="px-6 py-8 border-t border-gray-800">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <p className="text-gray-500 text-sm">
-            TheCrossBoard — A community for Kingdom-minded creatives
+            creatives.exchange — A community for Kingdom-minded creatives
           </p>
           <div className="flex items-center gap-6">
             <Link
