@@ -16,13 +16,12 @@
  *   - The Contact section there lists an email address and no postal address,
  *     so this one does the same rather than inventing a notice address.
  *
- * DeepLight is a trade name, not the registered entity: the company is
- * Reveal Brand, Inc., a California corporation doing business as DeepLight.
- * The documents name Reveal Brand, Inc. where the contracting party or the
- * data controller has to be identified, and use DeepLight everywhere else,
- * which is the name members actually see. Governing law is California —
- * confirmed by the company, and NOT the Delaware that UpSight's own Terms
- * §14.2–14.3 specify, so do not "correct" this back by copying that page.
+ * The documents name DeepLight throughout, by the company's decision — the
+ * registered entity behind it (Reveal Brand, Inc., a California corporation
+ * doing business as DeepLight) is deliberately not printed on these pages.
+ * Governing law is California — confirmed by the company, and NOT the
+ * Delaware that UpSight's own Terms §14.2–14.3 specify, so do not "correct"
+ * this back by copying that page.
  *
  * See docs/entity-structure-research.md: as of 2026-08-30 the entity shape
  * (for-profit vs. foundation, and DeepLight's relationship to the grant pool)
@@ -35,11 +34,6 @@
 export const LEGAL_ENTITY = {
   /** The company's own spelling — capital L. A trademark, per UpSight ToS §8.2. */
   company: "DeepLight",
-  /** The registered entity. DeepLight is its trade name. */
-  legalName: "Reveal Brand, Inc.",
-  /** Full identification, for the first mention in each document. */
-  legalEntity:
-    "Reveal Brand, Inc., a California corporation doing business as DeepLight",
 
   /** The product. Lowercase everywhere in the UI — see routes/faq.tsx. */
   product: "creatives.exchange",

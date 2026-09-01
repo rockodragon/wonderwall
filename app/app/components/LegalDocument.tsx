@@ -22,10 +22,11 @@ export type LegalSection = {
  * Section numbers derive from array order and are never written into the
  * heading text, so inserting a clause renumbers the document for free.
  *
- * The "Last updated" / "Effective" pair follows the layout DeepLight already
- * uses on its published legal pages for UpSight. There is deliberately no
- * footer: ownership is stated inside each document (Terms §1, Privacy §1, and
- * both Contact sections), so repeating it as page chrome was noise.
+ * The "Last updated" / "Effective" pair sits at the END of the document,
+ * below a rule, not under the heading — the reader wants the terms, and the
+ * dates are what they check afterwards. There is deliberately no footer:
+ * ownership is stated inside each document (Terms §1, Privacy §1, and both
+ * Contact sections), so repeating it as page chrome was noise.
  */
 function Paragraphs({ items }: { items: string[] }) {
   return (
@@ -88,13 +89,8 @@ export function LegalDocument({
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
             {title}
           </h1>
-          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-            Last updated: {lastUpdated}
-            <br />
-            Effective date: {effectiveDate}
-          </p>
 
-          <div className="mt-10 space-y-10">
+          <div className="mt-8 space-y-10">
             {sections.map((section, i) => (
               <section key={section.heading}>
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -109,6 +105,12 @@ export function LegalDocument({
               </section>
             ))}
           </div>
+
+          <p className="mt-12 pt-6 border-t border-gray-200 dark:border-gray-700 text-sm text-gray-500 dark:text-gray-400">
+            Last updated: {lastUpdated}
+            <br />
+            Effective date: {effectiveDate}
+          </p>
         </article>
       </div>
     </div>
