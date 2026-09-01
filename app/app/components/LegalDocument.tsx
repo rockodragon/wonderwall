@@ -1,5 +1,5 @@
 import { Link } from "react-router";
-import { LEGAL_ENTITY, OWNERSHIP_LINE } from "../legal/entity";
+import { LEGAL_ENTITY } from "../legal/entity";
 
 export type LegalSection = {
   heading: string;
@@ -22,9 +22,10 @@ export type LegalSection = {
  * Section numbers derive from array order and are never written into the
  * heading text, so inserting a clause renumbers the document for free.
  *
- * The "Last updated" / "Effective" pair and the copyright line follow the
- * layout DeepLight already uses on its published legal pages for UpSight, so
- * the two products' documents read as coming from the same company.
+ * The "Last updated" / "Effective" pair follows the layout DeepLight already
+ * uses on its published legal pages for UpSight. There is deliberately no
+ * footer: ownership is stated inside each document (Terms §1, Privacy §1, and
+ * both Contact sections), so repeating it as page chrome was noise.
  */
 function Paragraphs({ items }: { items: string[] }) {
   return (
@@ -109,12 +110,6 @@ export function LegalDocument({
             ))}
           </div>
         </article>
-
-        <p className="text-center text-sm text-gray-500 dark:text-gray-400">
-          {OWNERSHIP_LINE}
-          <br />© {LEGAL_ENTITY.copyrightYear} {LEGAL_ENTITY.legalName} All
-          rights reserved.
-        </p>
       </div>
     </div>
   );

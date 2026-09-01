@@ -60,8 +60,6 @@ export const LEGAL_ENTITY = {
   privacyUpdated: "September 2026",
   privacyEffective: "September 1, 2026",
 
-  /** Footer year. The notice names the registered entity, not the trade name. */
-  copyrightYear: "2026",
 } as const;
 
 /** The ownership line. One string, so it reads identically everywhere. */
