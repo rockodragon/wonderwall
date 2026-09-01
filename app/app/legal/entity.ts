@@ -10,12 +10,19 @@
  * products state the same company, the same governing law, and the same
  * contact convention:
  *
- *   - "DeepLight" is the company's own spelling, capital L. Its Terms §8.2
- *     names "DeepLight" and its logos as trademarks, so this is the mark,
- *     not a stylization to normalize away.
- *   - Delaware is the governing law and venue in UpSight's Terms §14.2–14.3.
+ *   - "DeepLight" is the company's own spelling, capital L. UpSight's Terms
+ *     §8.2 names "DeepLight" and its logos as trademarks, so this is the
+ *     mark, not a stylization to normalize away.
  *   - The Contact section there lists an email address and no postal address,
  *     so this one does the same rather than inventing a notice address.
+ *
+ * DeepLight is a trade name, not the registered entity: the company is
+ * Reveal Brand, Inc., a California corporation doing business as DeepLight.
+ * The documents name Reveal Brand, Inc. where the contracting party or the
+ * data controller has to be identified, and use DeepLight everywhere else,
+ * which is the name members actually see. Governing law is California —
+ * confirmed by the company, and NOT the Delaware that UpSight's own Terms
+ * §14.2–14.3 specify, so do not "correct" this back by copying that page.
  *
  * See docs/entity-structure-research.md: as of 2026-08-30 the entity shape
  * (for-profit vs. foundation, and DeepLight's relationship to the grant pool)
@@ -28,15 +35,20 @@
 export const LEGAL_ENTITY = {
   /** The company's own spelling — capital L. A trademark, per UpSight ToS §8.2. */
   company: "DeepLight",
+  /** The registered entity. DeepLight is its trade name. */
+  legalName: "Reveal Brand, Inc.",
+  /** Full identification, for the first mention in each document. */
+  legalEntity:
+    "Reveal Brand, Inc., a California corporation doing business as DeepLight",
 
   /** The product. Lowercase everywhere in the UI — see routes/faq.tsx. */
   product: "creatives.exchange",
   /** What members call it conversationally, used after first mention. */
   shortName: "The Exchange",
 
-  /** Governing law and venue, matching DeepLight's other product. */
-  jurisdiction: "the State of Delaware, United States",
-  courts: "the federal or state courts located in Delaware",
+  /** Governing law and venue. California — the company's home state. */
+  jurisdiction: "the State of California, United States",
+  courts: "the state or federal courts located in the State of California",
 
   /** Matches the contact address the FAQ already publishes (routes/faq.tsx). */
   contactEmail: "hello@creatives.exchange",
@@ -48,7 +60,7 @@ export const LEGAL_ENTITY = {
   privacyUpdated: "September 2026",
   privacyEffective: "September 1, 2026",
 
-  /** Footer line, matching "© 2025 DeepLight. All rights reserved." on UpSight. */
+  /** Footer year. The notice names the registered entity, not the trade name. */
   copyrightYear: "2026",
 } as const;
 

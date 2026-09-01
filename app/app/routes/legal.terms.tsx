@@ -1,8 +1,16 @@
 import { LegalDocument, type LegalSection } from "../components/LegalDocument";
 import { LEGAL_ENTITY } from "../legal/entity";
 
-const { company, product, shortName, contactEmail, jurisdiction, courts } =
-  LEGAL_ENTITY;
+const {
+  company,
+  legalName,
+  legalEntity,
+  product,
+  shortName,
+  contactEmail,
+  jurisdiction,
+  courts,
+} = LEGAL_ENTITY;
 
 export function meta() {
   const title = `Terms of Service - ${product}`;
@@ -33,7 +41,7 @@ const SECTIONS: LegalSection[] = [
   {
     heading: "Agreement to Terms",
     paragraphs: [
-      `These Terms of Service ("Terms") are a legally binding agreement between you ("you" or "Member") and ${company} ("we," "us," or "Company") governing your access to and use of ${product} — also called The Exchange — including the website, the application, and related services (collectively, the "Service").`,
+      `These Terms of Service ("Terms") are a legally binding agreement between you ("you" or "Member") and ${legalEntity} ("${company}," "we," "us," or "Company") governing your access to and use of ${product} — also called The Exchange — including the website, the application, and related services (collectively, the "Service").`,
       "By creating an account, or by continuing to use the Service after these Terms change, you agree to be bound by these Terms and our Privacy Policy. If you do not agree, do not create an account and do not use the Service.",
       `${product} is owned and operated by ${company}.`,
     ],
@@ -151,7 +159,7 @@ const SECTIONS: LegalSection[] = [
     heading: "Our intellectual property",
     paragraphs: [
       `The Service — its software, design, features, and documentation — is owned by ${company} and protected by intellectual property law. Apart from the limited right to use the Service granted here, we retain all right, title, and interest in it.`,
-      `"${company}" and "${product}", and our logos, are trademarks. You may not use them without our prior written consent.`,
+      `"${company}" and "${product}", and our logos, are trademarks of ${legalName}. You may not use them without our prior written consent.`,
       'If you send us suggestions, ideas, or feedback about the Service ("Feedback"), you grant us an unrestricted, perpetual, irrevocable licence to use that Feedback for any purpose without compensation or attribution. This covers Feedback about the Service — never the creative work you post, which stays yours under "Your content" above.',
     ],
   },
@@ -218,7 +226,7 @@ const SECTIONS: LegalSection[] = [
     heading: "Contact",
     paragraphs: [
       `Questions about these Terms go to ${contactEmail}.`,
-      `${company} — ${product} is owned and operated by ${company}, and ${company} is the party you are contracting with under this agreement.`,
+      `${legalEntity}. ${product} is owned and operated by ${company}, and ${legalName} is the party you are contracting with under this agreement.`,
     ],
   },
 ];

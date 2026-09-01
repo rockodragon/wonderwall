@@ -112,7 +112,7 @@ export function LegalDocument({
 
         <p className="text-center text-sm text-gray-500 dark:text-gray-400">
           {OWNERSHIP_LINE}
-          <br />© {LEGAL_ENTITY.copyrightYear} {LEGAL_ENTITY.company}. All
+          <br />© {LEGAL_ENTITY.copyrightYear} {LEGAL_ENTITY.legalName} All
           rights reserved.
         </p>
       </div>

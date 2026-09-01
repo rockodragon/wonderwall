@@ -1,7 +1,8 @@
 import { LegalDocument, type LegalSection } from "../components/LegalDocument";
 import { LEGAL_ENTITY } from "../legal/entity";
 
-const { company, product, shortName, privacyEmail } = LEGAL_ENTITY;
+const { company, legalName, legalEntity, product, shortName, privacyEmail } =
+  LEGAL_ENTITY;
 
 export function meta() {
   const title = `Privacy Policy - ${product}`;
@@ -32,7 +33,7 @@ const SECTIONS: LegalSection[] = [
   {
     heading: "Introduction",
     paragraphs: [
-      `${company} ("we," "our," or "us") operates the ${product} platform — also called The Exchange. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use the platform and related services (collectively, the "Service").`,
+      `${legalEntity} ("${company}," "we," "our," or "us") operates the ${product} platform — also called The Exchange. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use the platform and related services (collectively, the "Service").`,
       "By using the Service you consent to the practices described here. If you do not agree with them, please do not use the Service.",
       "This policy is written to be read, not to be survived, so it says what we actually hold rather than every category we could conceivably imagine.",
     ],
@@ -241,7 +242,7 @@ const SECTIONS: LegalSection[] = [
     heading: "Contact us",
     paragraphs: [
       `Questions about this Privacy Policy or our data practices go to ${privacyEmail}. For data subject requests, please use the same address with the subject line "Data Subject Request."`,
-      `${company} — ${product} is owned and operated by ${company}.`,
+      `${legalEntity}. ${product} is owned and operated by ${company}. ${legalName} is the entity accountable for the personal information described in this policy.`,
     ],
   },
 ];
