@@ -211,8 +211,9 @@ export default function FAQ() {
         <p className="text-gray-600 dark:text-gray-400 mb-4">
           We're here to help. Reach out to us anytime.
         </p>
+        <div className="flex flex-wrap items-center justify-center gap-3">
         <a
-          href="mailto:hello@thecrossboard.org"
+          href="mailto:hello@creatives.exchange"
           className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
         >
           <svg
@@ -228,8 +229,30 @@ export default function FAQ() {
               d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
             />
           </svg>
-          Contact Us
+          Email us
         </a>
+        <a
+          href="https://cal.com/rickmoy"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+        >
+          <svg
+            className="w-4 h-4"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+            />
+          </svg>
+          Book a time
+        </a>
+        </div>
       </div>
     </div>
   );
