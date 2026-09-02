@@ -3,6 +3,7 @@ import { usePostHog } from "@posthog/react";
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router";
 import { useConvexAuth } from "convex/react";
+import { OWNERSHIP_LINE } from "../legal/entity";
 
 export function meta() {
   return [
@@ -217,6 +218,23 @@ export default function Login() {
           >
             ← Back to home
           </Link>
+        </p>
+
+        {/* Public entry points all carry these — see routes/home.tsx (footer)
+            and routes/signup.tsx (both branches). */}
+        <p className="text-center text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+          <Link to="/legal/terms" className="text-blue-600 hover:text-blue-500">
+            Terms of Service
+          </Link>{" "}
+          &middot;{" "}
+          <Link
+            to="/legal/privacy"
+            className="text-blue-600 hover:text-blue-500"
+          >
+            Privacy Policy
+          </Link>
+          <br />
+          {OWNERSHIP_LINE}
         </p>
       </div>
     </div>
