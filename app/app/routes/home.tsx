@@ -206,135 +206,94 @@ export default function Home() {
             Closed Beta • Invite Only
           </div>
 
-          {/* Invite Input or Waitlist Form.
-              With no invite in hand the two entry paths sit side by side on
-              desktop — equal cards, equal weight — so neither is buried below
-              the fold. Once an invite resolves, the preview takes over on its
-              own and the column narrows back to a single card. */}
+          {/* The two ways in, side by side on desktop. No card chrome and no
+              "Have an invite?" / "No invite yet?" labels — the placeholder and
+              the button already say which is which, and the boxes were just
+              nesting: the waitlist success state renders its own card
+              (WaitlistFollowUpDark), so a card around it made three borders
+              deep. items-start, not items-stretch, so the invite column keeps
+              its own height when the waitlist grows into the follow-up form. */}
           <div
             className={
-              inviteSlug ? "max-w-md mx-auto" : "max-w-3xl mx-auto"
+              inviteSlug ? "max-w-md mx-auto" : "max-w-4xl mx-auto"
             }
           >
             {!inviteSlug ? (
-              // Two doors: paste an invite, or ask for one.
-              <div className="grid gap-4 md:grid-cols-2 md:items-stretch text-left">
-                {/* Have an invite */}
-                <div className="h-full flex flex-col p-6 bg-[var(--garden-ink-raised)]/80 rounded-2xl border border-[var(--garden-hairline-raised)] backdrop-blur-sm">
-                  <div className="flex items-center gap-2 text-[var(--garden-body)] text-sm font-medium mb-3">
-                    <svg
-                      className="w-4 h-4 shrink-0"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"
-                      />
-                    </svg>
-                    Have an invite?
-                  </div>
-                  <form
-                    onSubmit={handleInviteSubmit}
-                    className="space-y-3 mt-auto"
+              <div className="grid gap-4 md:gap-6 md:grid-cols-2 md:items-start text-left">
+                {/* Paste an invite */}
+                <form onSubmit={handleInviteSubmit} className="space-y-3">
+                  <input
+                    type="text"
+                    value={inviteInput}
+                    onChange={(e) => setInviteInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        handleInviteSubmit(e);
+                      }
+                    }}
+                    placeholder="Paste your invite code"
+                    className="w-full px-5 py-4 text-base border border-[var(--garden-hairline-raised)] rounded-xl bg-[var(--garden-ink-raised)]/60 backdrop-blur-sm text-[var(--garden-paper)] placeholder-[var(--garden-muted)] focus:ring-2 focus:ring-[var(--garden-citron)] focus:border-transparent transition-all"
+                  />
+                  {inviteError && (
+                    <p className="text-sm text-red-400">{inviteError}</p>
+                  )}
+                  <button
+                    type="submit"
+                    className="w-full px-5 py-4 text-base bg-[var(--garden-citron)] text-[var(--garden-ink)] rounded-xl font-semibold hover:opacity-90 transition-all"
                   >
-                    <input
-                      type="text"
-                      value={inviteInput}
-                      onChange={(e) => setInviteInput(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          handleInviteSubmit(e);
-                        }
-                      }}
-                      placeholder="Paste invite link or code"
-                      className="w-full px-4 py-3 border border-[var(--garden-hairline)] rounded-xl bg-[var(--garden-ink-raised)]/50 backdrop-blur-sm text-[var(--garden-paper)] placeholder-[var(--garden-muted)] focus:ring-2 focus:ring-[var(--garden-citron)] focus:border-transparent transition-all"
+                    Enter with Invite
+                  </button>
+                </form>
+
+                {/* Or ask for one */}
+                {status === "success" ? (
+                  <div>
+                    <div className="flex items-center gap-2 text-green-400">
+                      <svg
+                        className="w-5 h-5 shrink-0"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M5 13l4 4L19 7"
+                        />
+                      </svg>
+                      <span className="font-semibold">You're on the list</span>
+                    </div>
+                    <p className="mt-1 text-sm text-[var(--garden-dim)]">
+                      {message}
+                    </p>
+                    <WaitlistFollowUpDark
+                      email={submittedEmail}
+                      initialPosition={waitlistPosition}
                     />
-                    {inviteError && (
-                      <p className="text-sm text-red-400">{inviteError}</p>
+                  </div>
+                ) : (
+                  <form onSubmit={handleWaitlistSubmit} className="space-y-3">
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="your@email.com"
+                      className="w-full px-5 py-4 text-base border border-[var(--garden-hairline-raised)] rounded-xl bg-[var(--garden-ink-raised)]/60 backdrop-blur-sm text-[var(--garden-paper)] placeholder-[var(--garden-muted)] focus:ring-2 focus:ring-[var(--garden-hairline-raised)] focus:border-transparent transition-all"
+                      disabled={status === "loading"}
+                    />
+                    {status === "error" && (
+                      <p className="text-sm text-red-400">{message}</p>
                     )}
                     <button
                       type="submit"
-                      className="w-full px-4 py-3 bg-[var(--garden-citron)] text-[var(--garden-ink)] rounded-xl font-semibold hover:opacity-90 transition-all"
+                      disabled={status === "loading"}
+                      className="w-full px-5 py-4 text-base bg-transparent border border-[var(--garden-hairline-raised)] text-[var(--garden-paper)] rounded-xl font-semibold hover:bg-[var(--garden-ink-raised)] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      Enter with Invite
+                      {status === "loading" ? "Joining..." : "Join the Waitlist"}
                     </button>
                   </form>
-                </div>
-
-                {/* No invite yet — join the waitlist. Same card, same
-                    padding, same header shape, so the pair reads as balanced
-                    rather than one being an afterthought. */}
-                <div className="h-full flex flex-col p-6 bg-[var(--garden-ink-raised)]/80 rounded-2xl border border-[var(--garden-hairline-raised)] backdrop-blur-sm">
-                  <div className="flex items-center gap-2 text-[var(--garden-body)] text-sm font-medium mb-3">
-                    <svg
-                      className="w-4 h-4 shrink-0"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                      />
-                    </svg>
-                    No invite yet?
-                  </div>
-                  {status === "success" ? (
-                    <div className="mt-auto p-4 bg-green-500/10 rounded-xl border border-green-500/20 text-center">
-                      <div className="flex items-center justify-center gap-2 text-green-400 mb-2">
-                        <svg
-                          className="w-5 h-5"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M5 13l4 4L19 7"
-                          />
-                        </svg>
-                        <span className="font-medium">You're on the list!</span>
-                      </div>
-                      <p className="text-green-300 text-sm">{message}</p>
-                      <WaitlistFollowUpDark
-                        email={submittedEmail}
-                        initialPosition={waitlistPosition}
-                      />
-                    </div>
-                  ) : (
-                    <form
-                      onSubmit={handleWaitlistSubmit}
-                      className="space-y-3 mt-auto"
-                    >
-                      <input
-                        type="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        placeholder="your@email.com"
-                        className="w-full px-4 py-3 border border-[var(--garden-hairline)] rounded-xl bg-[var(--garden-ink-raised)]/50 backdrop-blur-sm text-[var(--garden-paper)] placeholder-[var(--garden-muted)] focus:ring-2 focus:ring-[var(--garden-hairline-raised)] focus:border-transparent transition-all"
-                        disabled={status === "loading"}
-                      />
-                      {status === "error" && (
-                        <p className="text-sm text-red-400">{message}</p>
-                      )}
-                      <button
-                        type="submit"
-                        disabled={status === "loading"}
-                        className="w-full px-4 py-3 bg-transparent border border-[var(--garden-hairline-raised)] text-[var(--garden-paper)] rounded-xl font-semibold hover:bg-[var(--garden-ink-raised)] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {status === "loading" ? "Joining..." : "Join Waitlist"}
-                      </button>
-                    </form>
-                  )}
-                </div>
+                )}
               </div>
             ) : inviterInfo === undefined ? (
               // Loading state
