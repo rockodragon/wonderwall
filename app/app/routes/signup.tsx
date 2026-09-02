@@ -5,7 +5,6 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import confetti from "canvas-confetti";
 import { api } from "../../convex/_generated/api";
-import { OWNERSHIP_LINE } from "../legal/entity";
 
 export function meta() {
   return [
@@ -231,8 +230,6 @@ export default function Signup() {
             <Link to="/legal/privacy" className="text-blue-600 hover:text-blue-500">
               Privacy Policy
             </Link>
-            <br />
-            {OWNERSHIP_LINE}
           </p>
         </div>
       </div>
@@ -475,7 +472,7 @@ export default function Signup() {
             <Link to="/legal/privacy" className="text-blue-600 hover:text-blue-500">
               Privacy Policy
             </Link>
-            . {OWNERSHIP_LINE}
+            .
           </p>
 
           <p className="mt-4 text-center text-sm text-gray-600 dark:text-gray-400">

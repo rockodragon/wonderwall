@@ -10,12 +10,39 @@ export default function AdminPage() {
   const debugData = useQuery(api.admin.debugInvites);
   const manuallyLinkInvite = useMutation(api.admin.manuallyLinkInvite);
   const deleteUser = useMutation(api.admin.deleteUser);
+  const syncAdminGroup = useMutation(api.admin.syncAdminGroup);
 
   const [linkingUser, setLinkingUser] = useState<string | null>(null);
   const [selectedInviter, setSelectedInviter] = useState<string>("");
   const [linkStatus, setLinkStatus] = useState<string>("");
   const [deletingUser, setDeletingUser] = useState<string | null>(null);
   const [deleteStatus, setDeleteStatus] = useState<string>("");
+  const [syncingAdmins, setSyncingAdmins] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<string>("");
+
+  const handleSyncAdminGroup = async () => {
+    setSyncingAdmins(true);
+    setSyncStatus("");
+    try {
+      const result = await syncAdminGroup({});
+      const parts = [
+        `${result.grantedAdmin} granted admin`,
+        `${result.codesGenerated} approval codes generated`,
+      ];
+      if (result.notFound.length > 0) {
+        parts.push(
+          `${result.notFound.length} not signed up yet (${result.notFound.join(", ")})`,
+        );
+      }
+      setSyncStatus(parts.join(" · "));
+    } catch (err) {
+      setSyncStatus(
+        err instanceof Error ? err.message : "Failed to sync admin group",
+      );
+    } finally {
+      setSyncingAdmins(false);
+    }
+  };
 
   const handleLinkInvite = async (inviteeUserId: string) => {
     if (!selectedInviter) {
@@ -115,6 +142,53 @@ export default function AdminPage() {
           >
             Open Console
           </Link>
+        </div>
+
+        <div className="mb-8 bg-white shadow-md rounded-lg p-6 flex items-center justify-between flex-wrap gap-4">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">Waitlist</h2>
+            <p className="mt-1 text-sm text-gray-600">
+              Review answers and approve people off the waitlist.
+            </p>
+          </div>
+          <Link
+            to="/admin/waitlist"
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 whitespace-nowrap"
+          >
+            Open Waitlist
+          </Link>
+        </div>
+
+        <div className="mb-8 bg-white shadow-md rounded-lg p-6">
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">
+                Admin Group
+              </h2>
+              <p className="mt-1 text-sm text-gray-600 max-w-2xl">
+                The standing admin list lives in{" "}
+                <code className="text-xs bg-gray-100 px-1 py-0.5 rounded">
+                  convex/adminEmails.ts
+                </code>
+                . New signups from those emails get admin access
+                automatically; this backfills anyone who already had an
+                account before their email was added, and generates each
+                admin's fixed waitlist-approval code.
+              </p>
+            </div>
+            <button
+              onClick={handleSyncAdminGroup}
+              disabled={syncingAdmins}
+              className="px-4 py-2 bg-gray-800 text-white rounded-lg text-sm hover:bg-gray-900 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {syncingAdmins ? "Syncing…" : "Sync Admin Group"}
+            </button>
+          </div>
+          {syncStatus && (
+            <div className="mt-4 p-3 bg-blue-50 text-blue-700 rounded-lg text-sm">
+              {syncStatus}
+            </div>
+          )}
         </div>
 
         <div className="bg-white shadow-md rounded-lg overflow-hidden">

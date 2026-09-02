@@ -55,6 +55,3 @@ export const LEGAL_ENTITY = {
   privacyEffective: "September 1, 2026",
 
 } as const;
-
-/** The ownership line. One string, so it reads identically everywhere. */
-export const OWNERSHIP_LINE = `${LEGAL_ENTITY.product} is owned and operated by ${LEGAL_ENTITY.company}.`;

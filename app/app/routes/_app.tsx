@@ -215,6 +215,20 @@ export default function AppLayout() {
               Crawler
             </Link>
           )}
+          {/* Admin-only: Waitlist link */}
+          {profile?.isAdmin && (
+            <Link
+              to="/admin/waitlist"
+              className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm transition-colors ${
+                location.pathname.startsWith("/admin/waitlist")
+                  ? "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
+                  : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-300"
+              }`}
+            >
+              <WaitlistIcon className="w-4.5 h-4.5" />
+              Waitlist
+            </Link>
+          )}
         </nav>
 
         <div className="p-4">
@@ -382,6 +396,24 @@ function CrawlerIcon({ className }: { className?: string }) {
         strokeLinejoin="round"
         strokeWidth={2}
         d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"
+      />
+    </svg>
+  );
+}
+
+function WaitlistIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
       />
     </svg>
   );

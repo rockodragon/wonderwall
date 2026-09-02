@@ -2,6 +2,7 @@ import { convexAuth } from "@convex-dev/auth/server";
 import { Password } from "@convex-dev/auth/providers/Password";
 import Google from "@auth/core/providers/google";
 import type { DataModel } from "./_generated/dataModel";
+import { isAdminEmail } from "./adminEmails";
 
 export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
   providers: [
@@ -25,6 +26,7 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
       // Get the user to extract name
       const user = await ctx.db.get(userId);
       const name = (user as { name?: string })?.name || "New User";
+      const email = (user as { email?: string })?.email;
 
       // Check if profile already exists
       const existingProfile = await (ctx.db as any)
@@ -38,6 +40,10 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
           userId,
           name,
           interests: [],
+          // Auto-grants the standing admin group (adminEmails.ts) on first
+          // signup. Accounts that predate a given email's addition to that
+          // list are backfilled instead by admin.ts's syncAdminGroup.
+          ...(isAdminEmail(email) ? { isAdmin: true } : {}),
           createdAt: now,
           updatedAt: now,
         });
