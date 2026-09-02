@@ -15,3 +15,5 @@ Disallow: /settings
 Disallow: /admin
 Disallow: /messages
 Disallow: /onboarding
+
+Sitemap: https://creatives.exchange/sitemap.xml

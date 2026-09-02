@@ -520,6 +520,18 @@ export default function Home() {
               About
             </a>
             <Link
+              to="/legal/terms"
+              className="text-[var(--garden-dim)] hover:text-[var(--garden-paper)] text-sm transition-colors"
+            >
+              Terms
+            </Link>
+            <Link
+              to="/legal/privacy"
+              className="text-[var(--garden-dim)] hover:text-[var(--garden-paper)] text-sm transition-colors"
+            >
+              Privacy
+            </Link>
+            <Link
               to="/login"
               className="text-[var(--garden-dim)] hover:text-[var(--garden-paper)] text-sm transition-colors"
             >
