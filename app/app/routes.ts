@@ -38,6 +38,14 @@ export default [
   // is a separate decision.
   route("events/:eventId", "routes/event.tsx"),
 
+  // Legal pages are PUBLIC and deliberately outside the _app.tsx layout
+  // below, for the same reason the event page is: that layout sends
+  // unauthenticated visitors to /login (routes/_app.tsx:42), and the signup
+  // form links here before an account exists. Gating the terms behind the
+  // account they govern would be a circle.
+  route("legal/terms", "routes/legal.terms.tsx"),
+  route("legal/privacy", "routes/legal.privacy.tsx"),
+
   // App routes (with nav layout)
   layout("routes/_app.tsx", [
     route("search", "routes/search.tsx"),

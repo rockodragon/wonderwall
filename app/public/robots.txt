@@ -3,6 +3,7 @@ Allow: /
 Allow: /login
 Allow: /faq
 Allow: /signup/
+Allow: /legal/
 
 Disallow: /search
 Disallow: /works
@@ -14,5 +15,3 @@ Disallow: /settings
 Disallow: /admin
 Disallow: /messages
 Disallow: /onboarding
-
-Sitemap: https://wonderwall.app/sitemap.xml
