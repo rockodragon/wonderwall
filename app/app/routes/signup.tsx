@@ -220,6 +220,20 @@ export default function Signup() {
           >
             Already have an account? Sign in
           </Link>
+
+          {/* This branch is what /signup renders without an invite slug, so it
+              is a signup surface too — it needs the same links as the form. */}
+          <p className="mt-8 text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+            <Link to="/legal/terms" className="text-blue-600 hover:text-blue-500">
+              Terms of Service
+            </Link>{" "}
+            &middot;{" "}
+            <Link to="/legal/privacy" className="text-blue-600 hover:text-blue-500">
+              Privacy Policy
+            </Link>
+            <br />
+            {OWNERSHIP_LINE}
+          </p>
         </div>
       </div>
     );

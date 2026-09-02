@@ -9,7 +9,12 @@ export default [
   // Public routes
   index("routes/home.tsx"),
   route("login", "routes/login.tsx"),
-  route("signup/:inviteSlug", "routes/signup.tsx"),
+  // Bare /signup is a URL people type and land on; without this route it fell
+  // through to the 404 catch-all, so the "Invite Required" branch inside
+  // signup.tsx (which handles a missing slug, and carries the Terms/Privacy
+  // links) was unreachable. Both paths render the same module.
+  route("signup", "routes/signup.tsx"),
+  route("signup/:inviteSlug", "routes/signup.tsx", { id: "signup-invite" }),
   route("oauth-callback", "routes/oauth-callback.tsx"),
   route("onboarding", "routes/onboarding.tsx"),
   // Organizations (Host-tier pricing/lead-gen page) un-published for V1 —
