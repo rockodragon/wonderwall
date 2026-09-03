@@ -45,7 +45,6 @@ const PRICE_ENV_BY_LEVEL: Record<string, string | undefined> = {
 export const createMembershipCheckout = action({
   args: {
     level: v.union(v.literal("seat"), v.literal("five"), v.literal("host")),
-    hostOrgSlug: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const userId = await auth.getUserId(ctx);
@@ -58,14 +57,6 @@ export const createMembershipCheckout = action({
       throw new ConvexError(
         `Stripe price env var for level "${args.level}" is not set (STRIPE_PRICE_${args.level.toUpperCase()}).`,
       );
-    }
-
-    const hostOrg = await ctx.runQuery(
-      (internal as any).garden.memberships.getHostOrgForCheckout,
-      { slug: args.hostOrgSlug },
-    );
-    if (!hostOrg) {
-      throw new ConvexError("Host org not found — has the default 'the-garden' row been seeded?");
     }
 
     const stripe = getStripeClient();
@@ -96,10 +87,11 @@ export const createMembershipCheckout = action({
     // every customer.subscription.* webhook is self-sufficient even if it
     // arrives before checkout.session.completed — see stripeHandlers.ts's
     // header comment for why this matters for idempotent convergence.
+    // No hostOrgId: a seat is platform membership, not community membership
+    // (community-groups.md §0).
     const metadata: Record<string, string> = {
       kind: "membership",
       level: args.level,
-      hostOrgId: String(hostOrg._id),
       userId: String(userId),
     };
 
@@ -212,7 +204,275 @@ export const createTicketCheckout = action({
 //
 // export const createCoverageCheckout = action({ ... });
 
+// ——— createPoolContributionCheckout — one-time "fund the pool" payment ———
+//
+// Money words: this is NEVER "donate"/"gift"/tax-deductible copy — money
+// through the platform's own Stripe account is fund/back/"add to the
+// project pool" language only (see fund.$slug.tsx and community-groups.md
+// §3). "Donate" stays reserved for the AP out-link lane the fund page
+// already renders when an org has givingUrl/paymentLinkUrl.
+//
+// Same shape as createTicketCheckout (mode "payment", inline price_data —
+// there's no pre-provisioned Stripe price for an arbitrary contribution
+// amount). checkout.session.completed records the inflow into
+// grantContributions (type "contribution_in") via the existing webhook path
+// (stripeHandlers.ts's handlePoolContributionCompleted → memberships.
+// makeConvexDb). Guests can pay — auth is optional, same as ticket
+// checkout; Stripe collects the buyer's email either way.
+
+const MIN_POOL_CONTRIBUTION_CENTS = 500; // $5
+const MAX_POOL_CONTRIBUTION_CENTS = 500_000; // $5,000 — bigger asks go through Rick directly
+
+// hostOrgs.slug for the single platform row (mirrors garden/communities.ts's
+// PLATFORM_ORG_SLUG). Kept as a literal rather than imported so this "use
+// node" action file doesn't pull communities.ts's query/mutation-defining
+// module into its bundle for one constant.
+const PLATFORM_HOST_ORG_SLUG = "creatives-exchange";
+
+export const createPoolContributionCheckout = action({
+  args: {
+    amountCents: v.number(),
+    hostOrgSlug: v.optional(v.string()),
+    payerName: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    if (!Number.isInteger(args.amountCents)) {
+      throw new ConvexError({ reason: "Give a whole number of cents." });
+    }
+    if (args.amountCents < MIN_POOL_CONTRIBUTION_CENTS) {
+      throw new ConvexError({
+        reason: `Contributions start at $${(MIN_POOL_CONTRIBUTION_CENTS / 100).toFixed(0)}.`,
+      });
+    }
+    if (args.amountCents > MAX_POOL_CONTRIBUTION_CENTS) {
+      throw new ConvexError({
+        reason: `Contributions top out at $${(MAX_POOL_CONTRIBUTION_CENTS / 100).toLocaleString()} here — for anything bigger, reach out directly.`,
+      });
+    }
+
+    const slug = args.hostOrgSlug ?? PLATFORM_HOST_ORG_SLUG;
+    const hostOrg = await ctx.runQuery(
+      (internal as any).garden.memberships.getHostOrgBySlug,
+      { slug },
+    );
+    if (!hostOrg) {
+      throw new ConvexError({ reason: "That project pool isn't set up yet — check back soon." });
+    }
+    if (hostOrg.kind !== "platform" && hostOrg.kind !== "community") {
+      throw new ConvexError({
+        reason:
+          "This organization's fund runs through its own giving link, not the project pool — look for the Give button on their page.",
+      });
+    }
+
+    const userId = await auth.getUserId(ctx);
+    const identity = await ctx.auth.getUserIdentity();
+
+    const stripe = getStripeClient();
+
+    const productName =
+      hostOrg.kind === "platform"
+        ? "Project pool — creatives.exchange"
+        : `Project pool — ${hostOrg.name}`;
+
+    const metadata: Record<string, string> = {
+      kind: "pool_contribution",
+      hostOrgId: String(hostOrg._id),
+      ...(userId ? { userId: String(userId) } : {}),
+      ...(args.payerName ? { payerName: args.payerName } : {}),
+    };
+
+    const session = await stripe.checkout.sessions.create({
+      mode: "payment",
+      customer_email: identity?.email ?? undefined,
+      line_items: [
+        {
+          quantity: 1,
+          price_data: {
+            currency: "usd",
+            unit_amount: args.amountCents,
+            product_data: { name: productName },
+          },
+        },
+      ],
+      metadata,
+      success_url: `${siteUrl()}/fund/${hostOrg.slug}?contributed=1`,
+      cancel_url: `${siteUrl()}/fund/${hostOrg.slug}`,
+      allow_promotion_codes: false,
+    });
+
+    if (!session.url) {
+      throw new ConvexError("Stripe did not return a checkout URL.");
+    }
+
+    return { url: session.url };
+  },
+});
+
+// ——— createProductCheckout — one-time or monthly community product ———
+//
+// Same shape as createTicketCheckout/createPoolContributionCheckout (mode
+// varies by billing, inline price_data — communityProducts has no
+// pre-provisioned Stripe price) but reuses createMembershipCheckout's
+// billing-customer pattern for signed-in buyers, because a monthly product
+// needs a Stripe customer to attach the subscription to and a one-time
+// buyer benefits from it too (one customer per user across every checkout +
+// the billing portal). Guests may buy a one-time product; monthly requires
+// sign-in so the subscription has a user to tie back to (productPurchases.
+// userId is how customer.subscription.* webhooks find their rows via
+// stripeSubscriptionId, but hasProductAccess — garden/products.ts — reads
+// by userId, so a guest subscription could never be recognized as owned).
+// Metadata mirrors onto subscription_data for monthly, same reasoning as
+// createMembershipCheckout: every customer.subscription.* / invoice.paid
+// webhook must be self-sufficient (kind/productId/hostOrgId/billing) even
+// if it arrives before checkout.session.completed does — see
+// stripeHandlers.ts's header comment.
+
+export const createProductCheckout = action({
+  args: {
+    productId: v.id("communityProducts"),
+  },
+  handler: async (ctx, args) => {
+    const info = await ctx.runQuery(
+      (internal as any).garden.memberships.getProductForCheckout,
+      { productId: args.productId },
+    );
+    if (!info) {
+      throw new ConvexError("That product isn't there anymore.");
+    }
+    const { product, org } = info;
+
+    if (product.status !== "active") {
+      throw new ConvexError("This product isn't for sale right now.");
+    }
+    if (org.kind !== "community" || (org.status ?? "active") !== "active") {
+      throw new ConvexError("This community isn't set up to sell right now.");
+    }
+
+    const userId = await auth.getUserId(ctx);
+    if (product.billing === "monthly" && !userId) {
+      throw new ConvexError("Sign in to subscribe — we tie a subscription to your account.");
+    }
+
+    const stripe = getStripeClient();
+
+    // Reuse one Stripe customer per user across checkouts + the billing
+    // portal (architect §3.4) — same pattern as createMembershipCheckout.
+    let stripeCustomerId: string | undefined;
+    if (userId) {
+      const existing = await ctx.runQuery(
+        (internal as any).garden.memberships.getBillingCustomerForUser,
+        { userId: String(userId) },
+      );
+      stripeCustomerId = existing?.stripeCustomerId;
+      if (!stripeCustomerId) {
+        const identity = await ctx.auth.getUserIdentity();
+        const customer = await stripe.customers.create({
+          email: identity?.email ?? undefined,
+          metadata: { userId: String(userId) },
+        });
+        stripeCustomerId = customer.id;
+        await ctx.runMutation((internal as any).garden.memberships.saveBillingCustomer, {
+          userId: String(userId),
+          stripeCustomerId,
+          email: identity?.email ?? undefined,
+        });
+      }
+    }
+
+    const metadata: Record<string, string> = {
+      kind: "community_product",
+      productId: String(args.productId),
+      hostOrgId: String(product.hostOrgId),
+      ...(userId ? { userId: String(userId) } : {}),
+      billing: product.billing,
+    };
+
+    const isMonthly = product.billing === "monthly";
+    const successUrl = `${siteUrl()}/communities/${org.slug}?purchased=1`;
+    const cancelUrl = `${siteUrl()}/communities/${org.slug}`;
+
+    const session = await stripe.checkout.sessions.create({
+      mode: isMonthly ? "subscription" : "payment",
+      ...(stripeCustomerId ? { customer: stripeCustomerId } : {}),
+      line_items: [
+        {
+          quantity: 1,
+          price_data: {
+            currency: "usd",
+            unit_amount: product.priceCents,
+            product_data: { name: `${product.name} — ${org.name}` },
+            ...(isMonthly ? { recurring: { interval: "month" as const } } : {}),
+          },
+        },
+      ],
+      metadata,
+      ...(isMonthly ? { subscription_data: { metadata } } : {}),
+      success_url: successUrl,
+      cancel_url: cancelUrl,
+      allow_promotion_codes: false,
+    });
+
+    if (!session.url) {
+      throw new ConvexError("Stripe did not return a checkout URL.");
+    }
+
+    return { url: session.url };
+  },
+});
+
+// ——— createBillingPortalSession — self-serve card update / cancel ———
+//
+// Points a signed-in user at their existing Stripe customer's Billing
+// Portal — the only self-serve lane for cancelling a seat/product
+// subscription or updating a card (there's no in-app cancel/update flow).
+// Reuses the same billingCustomers row createMembershipCheckout and
+// createProductCheckout write on first checkout (architect §3.4): one
+// Stripe customer per user across every checkout *and* the portal, so this
+// works for a seat, a Five/Leader membership, or a monthly community
+// product alike.
+//
+// NOTE: the portal's available actions (cancel, update payment method,
+// view invoices, switch plan, etc.) are configured in the Stripe dashboard
+// under Settings → Billing → Customer portal, not here. Whatever a member
+// does in the portal — including cancellation — flows back through the
+// existing `customer.subscription.updated`/`customer.subscription.deleted`
+// webhooks (stripeHandlers.ts, already implemented/tested), so nothing
+// else on the Convex side needs to change to reflect it.
+
+export const createBillingPortalSession = action({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await auth.getUserId(ctx);
+    if (!userId) {
+      throw new ConvexError("Sign in to manage billing.");
+    }
+
+    const existing = await ctx.runQuery(
+      (internal as any).garden.memberships.getBillingCustomerForUser,
+      { userId: String(userId) },
+    );
+    if (!existing?.stripeCustomerId) {
+      throw new ConvexError("No billing on file yet — a seat or a purchase sets this up.");
+    }
+
+    const stripe = getStripeClient();
+
+    const session = await stripe.billingPortal.sessions.create({
+      customer: existing.stripeCustomerId,
+      return_url: `${siteUrl()}/settings`,
+    });
+
+    return { url: session.url };
+  },
+});
+
 // ——— Nightly reconcile — the backstop (architect §2.3, "never cut") ———
+//
+// Note: this sweep only replays `customer.subscription.*` state (see the
+// loop below) — it never reconciles invoices, so a missed invoice.paid
+// delivery for a dues share has no backstop today; that gap is tracked
+// alongside the rest of the money-model follow-ups, not solved here.
 
 export const reconcileMemberships = internalAction({
   args: {},

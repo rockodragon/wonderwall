@@ -26,6 +26,12 @@ Start with business outcome and user journey before implementation. Each feature
 - [Event location PRD](prd-event-location.md)
 - [Entitlements and paywall foundation](features/entitlements-paywall-foundation.md)
 - [Member paywall and live media integration](features/paid-community-youtube-media.md)
+- [Community groups: architecture review and build plan](features/community-groups.md)
+- [Community grant pools (Leader tier)](features/community-grant-pools.md)
+
+## Runbooks
+
+- [Step 0: go live in Stripe test mode](runbooks/step-0-go-live.md)
 
 ## Research
 

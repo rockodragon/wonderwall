@@ -1,7 +1,23 @@
-// Operator seeding (idempotent). Run: npx convex run garden/devSeed:seedHostOrg
+// Operator seeding (idempotent). Run any of:
+//   npx convex run garden/devSeed:seedHostOrg
+//   npx convex run garden/devSeed:seedDevWorld
+//   npx convex run garden/devSeed:seedApOrg [--prod]
+//   npx convex run garden/devSeed:seedLaunchTables [--prod]
+//   npx convex run garden/devSeed:seedFirstTableEvent '{"organizerUserId":"..."}' [--prod]
+//   npx convex run garden/devSeed:seedCommunityLaunch [--prod]
+// seedCommunityLaunch is the step-0 exit seed (docs/runbooks/step-0-go-live.md):
+// it ensures the creatives.exchange platform row, re-kinds/patches
+// "the-garden" to a community, and ensures "abiding-practice", all in one
+// idempotent call — prefer it over seedHostOrg on a fresh deployment.
 import { v } from "convex/values";
 import { internalMutation } from "../_generated/server";
+import type { Id } from "../_generated/dataModel";
+import { COMMUNITY_KIND, PLATFORM_ORG_SLUG } from "./communities";
 
+// Kept working for existing callers/scripts, but now creates "the-garden"
+// as a community (not the platform default) with the same defaults
+// seedCommunityLaunch uses — so a fresh deployment never gets a platform-
+// kinded "the-garden" row, however it's seeded.
 export const seedHostOrg = internalMutation({
   args: {},
   handler: async (ctx) => {
@@ -13,7 +29,11 @@ export const seedHostOrg = internalMutation({
     const id = await ctx.db.insert("hostOrgs", {
       name: "The Garden",
       slug: "the-garden",
-      kind: "platform",
+      kind: COMMUNITY_KIND,
+      tagline: "Kingdom creatives",
+      status: "active",
+      visibility: "public",
+      joinPolicy: "open",
       createdAt: Date.now(),
     });
     return { ok: true, existed: false, id };
@@ -345,5 +365,150 @@ export const seedFirstTableEvent = internalMutation({
       updatedAt: now,
     });
     return { ok: true, existed: false, eventId };
+  },
+});
+
+// Step 0 exit seed (docs/runbooks/step-0-go-live.md, §4): the platform row,
+// The Garden as the first community (not the platform default), and the
+// Abiding Practice org — the three `hostOrgs` rows every deployment needs
+// before checkout and the community routes work. Idempotent; safe on any
+// deployment. Run:
+//   npx convex run garden/devSeed:seedCommunityLaunch
+//   npx convex run garden/devSeed:seedCommunityLaunch --prod
+export const seedCommunityLaunch = internalMutation({
+  // hostEmails: who runs The Garden. Defaults to every admin profile, so
+  // the operator's own account becomes the first host with no extra step.
+  //   npx convex run garden/devSeed:seedCommunityLaunch '{"hostEmails":["rick@example.com"]}'
+  args: { hostEmails: v.optional(v.array(v.string())) },
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    const created: string[] = [];
+    const found: string[] = [];
+
+    // The platform row — never listed as a community (communities.ts).
+    const platform = await ctx.db
+      .query("hostOrgs")
+      .withIndex("by_slug", (q) => q.eq("slug", PLATFORM_ORG_SLUG))
+      .unique();
+    if (!platform) {
+      await ctx.db.insert("hostOrgs", {
+        name: "creatives.exchange",
+        slug: PLATFORM_ORG_SLUG,
+        kind: "platform",
+        visibility: "unlisted",
+        status: "active",
+        createdAt: now,
+      });
+      created.push(`hostOrgs:${PLATFORM_ORG_SLUG}`);
+    } else {
+      found.push(`hostOrgs:${PLATFORM_ORG_SLUG}`);
+    }
+
+    // The Garden — re-kind/patch in place if it already exists (e.g. from
+    // an older seed that made it kind "platform"); only these fields move.
+    const garden = await ctx.db
+      .query("hostOrgs")
+      .withIndex("by_slug", (q) => q.eq("slug", "the-garden"))
+      .unique();
+    const gardenPatch = {
+      name: "The Garden",
+      kind: COMMUNITY_KIND,
+      tagline: "Kingdom-minded creatives, funded in the open.",
+      description:
+        "The Garden is creatives.exchange's first community — Kingdom-minded creatives who get their work funded, find collaborators, and gather around real tables, in San Diego and wherever the next table opens. Join free: browse projects, sit in on open tables, show your portfolio. Money is never the only door. When you want your work funded, a seat is $10 a month, and half of every membership funds another creative's project.",
+      locationLabel: "San Diego · online",
+      status: "active",
+      visibility: "public",
+      joinPolicy: "open",
+    } as const;
+    let gardenId;
+    if (!garden) {
+      gardenId = await ctx.db.insert("hostOrgs", { ...gardenPatch, slug: "the-garden", createdAt: now });
+      created.push("hostOrgs:the-garden");
+    } else {
+      gardenId = garden._id;
+      // Copy the community fields only where the row has none — a host who
+      // has edited the page keeps their words; the structural fields
+      // (kind/status/visibility/joinPolicy) always converge.
+      await ctx.db.patch(garden._id, {
+        name: garden.name || gardenPatch.name,
+        kind: gardenPatch.kind,
+        status: gardenPatch.status,
+        visibility: gardenPatch.visibility,
+        joinPolicy: garden.joinPolicy ?? gardenPatch.joinPolicy,
+        tagline:
+          garden.tagline && garden.tagline !== "Kingdom creatives" && !garden.tagline.startsWith("Kingdom creatives —")
+            ? garden.tagline
+            : gardenPatch.tagline,
+        description:
+          garden.description && !garden.description.startsWith("A community of Kingdom-minded creatives")
+            ? garden.description
+            : gardenPatch.description,
+        locationLabel: garden.locationLabel ?? gardenPatch.locationLabel,
+      });
+      found.push("hostOrgs:the-garden");
+    }
+
+    // The Garden's hosts: the given emails, else every admin. Idempotent —
+    // an existing member row is promoted to host, never duplicated.
+    let hostUserIds: Id<"users">[] = [];
+    if (args.hostEmails && args.hostEmails.length > 0) {
+      for (const email of args.hostEmails) {
+        const user = await ctx.db
+          .query("users")
+          .withIndex("email", (q) => q.eq("email", email.trim().toLowerCase()))
+          .first();
+        if (user) hostUserIds.push(user._id);
+        else found.push(`no user for ${email}`);
+      }
+    } else {
+      const admins = (await ctx.db.query("profiles").collect()).filter((p) => p.isAdmin === true);
+      hostUserIds = admins.map((p) => p.userId);
+    }
+    for (const userId of hostUserIds) {
+      const existing = await ctx.db
+        .query("communityMembers")
+        .withIndex("by_hostOrgId_userId", (q) => q.eq("hostOrgId", gardenId).eq("userId", userId))
+        .unique();
+      if (existing) {
+        if (existing.role !== "host" || existing.status !== "active") {
+          await ctx.db.patch(existing._id, { role: "host", status: "active" });
+        }
+        found.push(`host:${String(userId)}`);
+      } else {
+        await ctx.db.insert("communityMembers", {
+          hostOrgId: gardenId,
+          userId,
+          role: "host",
+          status: "active",
+          joinedAt: now,
+        });
+        created.push(`host:${String(userId)}`);
+      }
+    }
+    const gardenOrg = await ctx.db.get(gardenId);
+    if (gardenOrg && !gardenOrg.ownerUserId && hostUserIds[0]) {
+      await ctx.db.patch(gardenId, { ownerUserId: hostUserIds[0] });
+    }
+
+    // Abiding Practice — the one real org partner today.
+    const ap = await ctx.db
+      .query("hostOrgs")
+      .withIndex("by_slug", (q) => q.eq("slug", "abiding-practice"))
+      .unique();
+    if (!ap) {
+      await ctx.db.insert("hostOrgs", {
+        name: "Abiding Practice",
+        slug: "abiding-practice",
+        kind: "org",
+        givingUrl: "https://abidingpractice.org/give",
+        createdAt: now,
+      });
+      created.push("hostOrgs:abiding-practice");
+    } else {
+      found.push("hostOrgs:abiding-practice");
+    }
+
+    return { ok: true, created, found };
   },
 });

@@ -5,6 +5,12 @@ import { INTERESTS } from "../constants/interests";
 import { LocationAutocomplete } from "../components/LocationAutocomplete";
 import { useLocationField } from "../lib/useLocationField";
 import { AnnouncementComposer } from "../components/AnnouncementComposer";
+import { CommunityPicker } from "../components/CommunityPicker";
+import {
+  CommunityContextLine,
+  communityNameFor,
+  useCommunityContext,
+} from "../components/CommunityFilter";
 
 // Discipline tags share the canonical INTERESTS list with People
 // (search.tsx) and Projects (projects.tsx) — same values, same order.
@@ -105,6 +111,11 @@ export default function Offerings() {
   const myProfile = useQuery(api.profiles.getMyProfile);
   const [formatFilter, setFormatFilter] = useState("");
   const [showForm, setShowForm] = useState(false);
+  const {
+    selected: communitySlug,
+    setSelected: setCommunitySlug,
+    communities,
+  } = useCommunityContext();
 
   // Discipline-tag pills, a hard filter alongside the format-pill row —
   // same semantics as Projects' tag pills: click to require, not just sort.
@@ -116,11 +127,14 @@ export default function Offerings() {
   const filtered = useMemo(() => {
     if (!offerings) return [];
     let list = formatFilter ? offerings.filter((o) => o.format === formatFilter) : offerings;
+    if (communitySlug !== "all") {
+      list = list.filter((o) => o.community?.slug === communitySlug);
+    }
     if (tagFilter.length > 0) {
       list = list.filter((o) => o.interests?.some((tag) => tagFilter.includes(tag)));
     }
     return list;
-  }, [offerings, formatFilter, tagFilter]);
+  }, [offerings, formatFilter, communitySlug, tagFilter]);
 
   return (
     <div className="min-h-screen bg-[var(--garden-ink)]">
@@ -137,7 +151,15 @@ export default function Offerings() {
           Recurring classes, coaching, and workshop series — find a seat, or offer one.
         </p>
 
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+        <CommunityContextLine
+          variant="app"
+          selected={communitySlug}
+          setSelected={setCommunitySlug}
+          communities={communities}
+          rows={offerings}
+        />
+
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-6 mt-3">
           <div className="flex flex-wrap gap-2">
             {FORMAT_FILTERS.map((f) => (
               <button
@@ -199,6 +221,20 @@ export default function Offerings() {
               className="h-8 w-8 rounded-full border-2 border-t-transparent animate-spin"
               style={{ borderColor: "var(--garden-citron)", borderTopColor: "transparent" }}
             />
+          </div>
+        ) : filtered.length === 0 && communitySlug !== "all" ? (
+          <div className="text-center py-16" style={{ color: "var(--garden-dim)" }}>
+            <p className="text-lg font-medium mb-1" style={{ color: "var(--garden-body)" }}>
+              Nothing in {communityNameFor(communitySlug, communities, offerings)} yet — see
+              everything
+            </p>
+            <button
+              onClick={() => setCommunitySlug("all")}
+              className="text-sm underline underline-offset-2 hover:opacity-80"
+              style={{ color: "var(--garden-citron)" }}
+            >
+              Show all communities
+            </button>
           </div>
         ) : filtered.length === 0 ? (
           <div className="text-center py-16" style={{ color: "var(--garden-dim)" }}>
@@ -358,6 +394,9 @@ function OfferingCard({ offering, isOwner }: { offering: any; isOwner: boolean }
             )}
             <span className="text-xs break-words" style={{ color: "var(--garden-muted)" }}>
               {offering.creator.name}
+              {offering.community && (
+                <span style={{ color: "var(--garden-dim)" }}> · in {offering.community.name}</span>
+              )}
             </span>
           </div>
         )}
@@ -604,6 +643,7 @@ function PostOfferingForm({
   const [externalPaymentLinkUrl, setExternalPaymentLinkUrl] = useState(
     offering?.externalPaymentLinkUrl ?? "",
   );
+  const [hostOrgId, setHostOrgId] = useState(offering?.hostOrgId ?? "");
   // photoUrl from the query is already resolved (a real storage URL when
   // photoStorageId is set) — fine to preview, but never re-submitted as-is:
   // the only thing this form writes back is photoStorageId.
@@ -615,6 +655,13 @@ function PostOfferingForm({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  // Pre-fill from the sidebar switcher's current context, create mode only
+  // (community-ux.md §2/§6) — an edit form keeps the offering's own
+  // community, it doesn't get silently reassigned to whatever's selected now.
+  const { selected: switcherCommunitySlug, communities: myCommunities } = useCommunityContext();
+  const defaultHostOrgId = isEdit
+    ? undefined
+    : myCommunities.find((c) => c.slug === switcherCommunitySlug)?._id;
 
   function toggleTag(tag: string) {
     setSelectedTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
@@ -730,9 +777,15 @@ function PostOfferingForm({
         photoStorageId: (photoStorageId as any) ?? undefined,
         externalPaymentLinkUrl: trimmedLink || undefined,
         interests: selectedTags.length > 0 ? selectedTags : undefined,
+        hostOrgId: hostOrgId ? (hostOrgId as any) : undefined,
       };
       if (isEdit) {
-        await updateOffering({ offeringId: offering._id, ...payload });
+        // Choosing the empty option on an offering that already had a
+        // community clears it — Convex validators don't accept `null`
+        // through v.optional, so this is a separate flag (see
+        // convex/offerings.ts's updateOffering).
+        const clearCommunity = !hostOrgId && !!offering.hostOrgId;
+        await updateOffering({ offeringId: offering._id, ...payload, clearCommunity });
       } else {
         await createOffering(payload);
       }
@@ -1033,6 +1086,8 @@ function PostOfferingForm({
               </>
             )}
           </div>
+
+          <CommunityPicker value={hostOrgId} onChange={setHostOrgId} defaultHostOrgId={defaultHostOrgId} />
 
           {error && <p className="text-sm text-red-400">{error}</p>}
           <div className="flex gap-2 justify-end pt-2">

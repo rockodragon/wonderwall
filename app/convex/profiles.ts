@@ -267,10 +267,31 @@ export const search = query({
     query: v.optional(v.string()),
     interest: v.optional(v.string()),
     location: v.optional(v.string()),
+    // Community context (docs/features/community-ux.md §2): when set, only
+    // ACTIVE members of that community are people here. An unknown slug
+    // matches nobody rather than everybody — a wrong filter must fail
+    // closed, never leak the whole directory under a community's name.
+    communitySlug: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     // Get all profiles with their wonderings pre-fetched
-    const profiles = await ctx.db.query("profiles").collect();
+    let profiles = await ctx.db.query("profiles").collect();
+
+    if (args.communitySlug) {
+      const org = await ctx.db
+        .query("hostOrgs")
+        .withIndex("by_slug", (q) => q.eq("slug", args.communitySlug!))
+        .unique();
+      if (!org) return [];
+      const members = await ctx.db
+        .query("communityMembers")
+        .withIndex("by_hostOrgId", (q) => q.eq("hostOrgId", org._id))
+        .collect();
+      const memberIds = new Set(
+        members.filter((m) => m.status === "active").map((m) => String(m.userId)),
+      );
+      profiles = profiles.filter((p) => memberIds.has(String(p.userId)));
+    }
 
     // Fetch all active wonderings to search
     const wonderings = await ctx.db

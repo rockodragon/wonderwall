@@ -5,6 +5,13 @@ import { usePostHog } from "@posthog/react";
 import { api } from "../../convex/_generated/api";
 import { InviteCTA } from "../components/InviteCTA";
 import { Wordmark } from "../components/Wordmark";
+import { CommunitySwitcher } from "../components/CommunitySwitcher";
+
+// Public paths (community-ux.md §2/§6): a signed-out visitor may browse
+// these without being redirected to /login — the directory, the apply page,
+// and individual community pages all do their own signed-out handling
+// (Sign in CTAs, no partial forms) rather than being gated at the shell.
+const PUBLIC_PATHS = ["/communities"];
 
 // V1 (docs/the-exchange-v1-prd.md §5): Projects / People / Events, full
 // stop. "The Garden" retires as a nav destination (superseded); "Portfolios"
@@ -38,11 +45,13 @@ export default function AppLayout() {
   // Messages badge instead (2026-08-30, on request).
   const sidebarBadgeCount = unreadCount + notificationCount;
 
+  const isPublicPath = PUBLIC_PATHS.some((p) => location.pathname.startsWith(p));
+
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
+    if (!isLoading && !isAuthenticated && !isPublicPath) {
       navigate("/login");
     }
-  }, [isAuthenticated, isLoading, navigate]);
+  }, [isAuthenticated, isLoading, isPublicPath, navigate]);
 
   // Identify user in PostHog when authenticated and profile loaded
   useEffect(() => {
@@ -64,7 +73,7 @@ export default function AppLayout() {
     );
   }
 
-  if (!isAuthenticated) {
+  if (!isAuthenticated && !isPublicPath) {
     return null;
   }
 
@@ -127,10 +136,11 @@ export default function AppLayout() {
 
       {/* Desktop sidebar */}
       <aside className="hidden md:flex md:flex-col md:fixed md:inset-y-0 md:w-64 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800">
-        <div className="p-6">
+        <div className="p-6 space-y-4">
           <Link to="/">
             <Wordmark size="sm" tone="adaptive" />
           </Link>
+          <CommunitySwitcher />
         </div>
 
         <nav className="px-4 space-y-1">
@@ -155,7 +165,10 @@ export default function AppLayout() {
 
         {/* Secondary — real destinations, just not the three-item pitch.
             Pushed to the bottom of the rail (mt-auto), not just below a
-            divider, so they read as genuinely lower-priority. */}
+            divider, so they read as genuinely lower-priority. Hidden for a
+            signed-out visitor on a public path (community-ux.md §6): every
+            item here needs an account, so there's nothing useful behind it. */}
+        {isAuthenticated && (
         <nav className="mt-auto px-4 py-3 space-y-1 border-t border-gray-100 dark:border-gray-800">
           {secondaryNavItems.map((item) => {
             const isActive = location.pathname.startsWith(item.path);
@@ -230,10 +243,13 @@ export default function AppLayout() {
             </Link>
           )}
         </nav>
+        )}
 
+        {isAuthenticated && (
         <div className="p-4">
           <InviteCTA />
         </div>
+        )}
       </aside>
     </div>
   );
@@ -292,6 +308,7 @@ function ClassesIcon({ className }: { className?: string }) {
     </svg>
   );
 }
+
 
 function UserIcon({ className }: { className?: string }) {
   return (

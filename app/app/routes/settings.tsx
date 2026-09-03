@@ -1,6 +1,7 @@
 import { useAuthActions } from "@convex-dev/auth/react";
 import { usePostHog } from "@posthog/react";
-import { useMutation, useQuery } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
+import { ConvexError } from "convex/values";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import confetti from "canvas-confetti";
@@ -8,6 +9,7 @@ import { api } from "../../convex/_generated/api";
 import { LocationAutocomplete } from "../components/LocationAutocomplete";
 import { useLocationField } from "../lib/useLocationField";
 import { INTERESTS } from "../constants/interests";
+import { LEVEL_LABEL } from "../garden/capabilities";
 
 // Normalize URL by adding https:// if missing
 function normalizeUrl(url: string): string {
@@ -122,6 +124,16 @@ export default function Settings() {
         )}
       </div>
 
+      {/* Billing */}
+      <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-800">
+        <BillingSection />
+      </div>
+
+      {/* Your purchases */}
+      <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-800">
+        <PurchasesSection />
+      </div>
+
       {/* Artifacts section */}
       <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-800">
         <ArtifactsSection
@@ -138,6 +150,173 @@ export default function Settings() {
         >
           Sign out
         </button>
+      </div>
+    </div>
+  );
+}
+
+function formatMoneyCents(cents: number): string {
+  const dollars = cents / 100;
+  const isWhole = Number.isInteger(dollars);
+  return `$${dollars.toLocaleString("en-US", {
+    minimumFractionDigits: isWhole ? 0 : 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
+// Convex surfaces a thrown ConvexError's payload on err.data — for a plain
+// `new ConvexError("message")` (what createBillingPortalSession throws)
+// that's the message string itself, not an object; handle both shapes so a
+// real ConvexError from any billing action still reads as a warm line
+// instead of the generic fallback.
+function billingErrorMessage(err: unknown): string {
+  if (err instanceof ConvexError) {
+    const data = err.data as unknown;
+    if (typeof data === "string") return data;
+    if (data && typeof data === "object" && "reason" in data) {
+      const reason = (data as { reason?: unknown }).reason;
+      if (reason) return String(reason);
+    }
+  }
+  return "Couldn't open billing — try again.";
+}
+
+function BillingSection() {
+  const membership = useQuery(api.garden.memberships.getMyMembership);
+  const purchases = useQuery(api.garden.products.listMyPurchases);
+  const openBillingPortal = useAction(api.garden.stripe.createBillingPortalSession);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Still loading either query — render nothing rather than flash "No
+  // billing on file" before we actually know.
+  if (membership === undefined || purchases === undefined) return null;
+
+  const hasPurchases = purchases.length > 0;
+  const isCovered = Boolean(membership?.coveredByCodeId);
+
+  async function handleManage() {
+    setError(null);
+    setPending(true);
+    try {
+      const { url } = await openBillingPortal();
+      window.location.assign(url);
+    } catch (err) {
+      setError(billingErrorMessage(err));
+      setPending(false);
+    }
+  }
+
+  if (!membership && !hasPurchases) {
+    return (
+      <div>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+          Billing
+        </h2>
+        <p className="text-sm text-gray-500 dark:text-gray-400">
+          No billing on file.{" "}
+          <Link
+            to="/join"
+            className="text-blue-600 dark:text-blue-400 hover:underline"
+          >
+            Take a seat
+          </Link>
+        </p>
+      </div>
+    );
+  }
+
+  const levelLabel = membership
+    ? (LEVEL_LABEL as Record<string, string>)[membership.level] ?? membership.level
+    : null;
+  const renewalDate =
+    membership?.currentPeriodEnd != null
+      ? new Date(membership.currentPeriodEnd * 1000).toLocaleDateString()
+      : null;
+
+  return (
+    <div>
+      <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+        Billing
+      </h2>
+
+      {membership && (
+        <p className="text-sm text-gray-700 dark:text-gray-300 mb-3">
+          <span className="font-medium">{levelLabel}</span>
+          {" · "}
+          {membership.status}
+          {renewalDate ? ` · renews ${renewalDate}` : ""}
+        </p>
+      )}
+
+      {isCovered ? (
+        <p className="text-sm text-gray-500 dark:text-gray-400">
+          Covered by a sponsor — nothing to bill
+        </p>
+      ) : (
+        <button
+          onClick={handleManage}
+          disabled={pending}
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
+        >
+          {pending ? "Opening…" : "Manage billing"}
+        </button>
+      )}
+
+      {error && (
+        <p className="mt-2 text-sm text-red-600 dark:text-red-400">{error}</p>
+      )}
+
+      <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
+        Update your card, download receipts, or cancel. Changes take effect
+        at the end of the billing period.
+        {hasPurchases
+          ? " Seats and monthly community products are managed here."
+          : ""}
+      </p>
+    </div>
+  );
+}
+
+function PurchasesSection() {
+  const purchases = useQuery(api.garden.products.listMyPurchases);
+
+  if (!purchases || purchases.length === 0) return null;
+
+  return (
+    <div>
+      <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+        Your purchases
+      </h2>
+      <div className="space-y-2">
+        {purchases.map((p) => (
+          <div
+            key={p.purchaseId}
+            className="flex items-center justify-between gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-xl"
+          >
+            <div className="min-w-0">
+              <p className="font-medium text-gray-900 dark:text-white text-sm truncate">
+                {p.productName}
+              </p>
+              <Link
+                to={`/communities/${p.communitySlug}`}
+                className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+              >
+                {p.communityName}
+              </Link>
+              <span className="text-xs text-gray-400 dark:text-gray-500 ml-2">
+                {p.status}
+                {p.billing === "monthly" && p.currentPeriodEnd
+                  ? ` · renews ${new Date(p.currentPeriodEnd).toLocaleDateString()}`
+                  : ""}
+              </span>
+            </div>
+            <div className="text-sm font-semibold text-gray-900 dark:text-white whitespace-nowrap">
+              {formatMoneyCents(p.grossCents)}
+              {p.billing === "monthly" ? "/mo" : ""}
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );

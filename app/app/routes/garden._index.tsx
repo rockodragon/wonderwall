@@ -136,7 +136,29 @@ export default function GardenIndex() {
           <Link to="/garden/events" className="g-btn g-btn-ghost">
             See what's happening
           </Link>
+          <Link to="/communities" className="g-btn g-btn-ghost">
+            Browse communities
+          </Link>
         </div>
+      </div>
+
+      {/* The first community */}
+      <div style={{ marginTop: 44 }}>
+        <SectionLabel>The first community</SectionLabel>
+        <Link
+          to="/communities/the-garden"
+          className="g-card"
+          style={{ display: "block", marginTop: 12, textDecoration: "none", color: "inherit", maxWidth: "62ch" }}
+        >
+          <div className="g-h" style={{ fontSize: 20 }}>The Garden</div>
+          <p style={{ marginTop: 6, fontSize: 14.5, lineHeight: 1.55, color: "var(--g-muted)" }}>
+            Kingdom creatives in San Diego and online. Free to join — tables,
+            events, projects, and classes all in one place.
+          </p>
+          <span className="g-mono" style={{ display: "inline-block", marginTop: 10, fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--g-citron)" }}>
+            Join The Garden →
+          </span>
+        </Link>
       </div>
 
       {/* What's happening */}

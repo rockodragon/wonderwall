@@ -7,6 +7,7 @@ import { FavoriteButton } from "../components/FavoriteButton";
 import { SearchInput } from "../components/SearchInput";
 import { TagFilterPills } from "../components/TagFilterPills";
 import { useFilterState } from "../lib/useFilterState";
+import { CommunityContextLine, useCommunityContext } from "../components/CommunityFilter";
 
 // Derived directly from the canonical INTERESTS list so this can never
 // drift from it again (it previously did — see git history). Label and
@@ -45,8 +46,14 @@ export default function Search() {
   // Text-based search for profiles (includes name, bio, interests).
   // No interest is passed server-side — at friend-group scale the whole
   // multi-select filter runs client-side below, same as Events/Projects.
+  // Community context (community-ux.md §2): People is segmented like every
+  // other browse page — the switcher's community scopes who shows up here.
+  const community = useCommunityContext();
+  const communitySlug = community.selected === "all" ? undefined : community.selected;
+
   const profiles = useQuery(api.profiles.search, {
     query: debouncedQuery || undefined,
+    communitySlug,
   }) as ProfileResult[] | undefined;
 
   const filteredProfiles = useMemo(() => {
@@ -60,7 +67,7 @@ export default function Search() {
   // Search events when there's a query
   const events = useQuery(
     api.events.search,
-    debouncedQuery ? { query: debouncedQuery } : "skip",
+    debouncedQuery ? { query: debouncedQuery, communitySlug } : "skip",
   );
 
   const loading = profiles === undefined;
@@ -73,6 +80,12 @@ export default function Search() {
       <p className="text-gray-500 dark:text-gray-400 mb-4">
         Find creatives by what they do
       </p>
+      <CommunityContextLine
+        selected={community.selected}
+        setSelected={community.setSelected}
+        communities={community.communities}
+        variant="app"
+      />
 
       {/* Search input + Filter on same line */}
       <div className="flex gap-3 mb-6">
