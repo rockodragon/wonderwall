@@ -14,7 +14,7 @@ import {
   formatMoney,
 } from "../garden/ui";
 import {
-  CommunityFilterChips,
+  CommunityContextLine,
   communityNameFor,
   useCommunityContext,
 } from "../components/CommunityFilter";
@@ -184,13 +184,15 @@ export default function TablesIndex() {
         </p>
       </div>
 
+      <CommunityContextLine
+        variant="garden"
+        selected={communitySlug}
+        setSelected={setCommunitySlug}
+        communities={communities}
+        rows={tables}
+      />
+
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        <CommunityFilterChips
-          variant="garden"
-          selected={communitySlug}
-          onSelect={setCommunitySlug}
-          communities={communities}
-        />
         <FilterChips options={filterOptions} active={filter} onSelect={setFilter} />
       </div>
 

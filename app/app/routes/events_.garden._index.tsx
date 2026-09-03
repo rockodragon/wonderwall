@@ -22,7 +22,7 @@ import {
   formatDateTime,
 } from "../garden/ui";
 import {
-  CommunityFilterChips,
+  CommunityContextLine,
   communityNameFor,
   useCommunityContext,
 } from "../components/CommunityFilter";
@@ -164,11 +164,12 @@ export default function GardenEventsIndex() {
         </p>
       </div>
 
-      <CommunityFilterChips
+      <CommunityContextLine
         variant="garden"
         selected={communitySlug}
-        onSelect={setCommunitySlug}
+        setSelected={setCommunitySlug}
         communities={communities}
+        rows={events}
       />
 
       {shown.length === 0 ? (

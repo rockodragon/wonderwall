@@ -1,26 +1,19 @@
-// /communities/:slug — one community's public page (docs/features/
-// community-groups.md §0, §5 step 1): who runs it, who's in it, and
-// everything tagged to it — tables, events, projects, classes, fund. Same
-// three-state discipline as tables.$slug.tsx, plus a "Host tools" card for
-// viewer.canManage and a review banner while the community is pending.
+// /communities/:slug — one community's public page, inside the app shell
+// (docs/features/community-groups.md §0, docs/features/community-ux.md §3).
+// Section order: header -> join/leave/home -> tables -> upcoming events ->
+// projects -> classes & coaching -> for members (products) -> fund link ->
+// host tools, collapsed by default. Re-skinned to the app shell's
+// --garden-* token system; every mutation/query/action call below is
+// unchanged from the previous GardenNav-wrapped version.
 
 import { useEffect, useState } from "react";
-import type { FormEvent } from "react";
+import type { FormEvent, ReactNode } from "react";
 import { useAction, useConvexAuth, useMutation, useQuery } from "convex/react";
 import { ConvexError } from "convex/values";
 import { Link, useParams, useRouteError, useSearchParams } from "react-router";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
-import {
-  GardenErrorState,
-  GardenLoading,
-  GardenNav,
-  GardenPage,
-  SectionLabel,
-  formatDateTime,
-  formatMoney,
-} from "../garden/ui";
-import "../garden/garden.css";
+import { formatDateTime, formatMoney } from "../garden/ui";
 
 export function meta() {
   return [
@@ -32,12 +25,11 @@ export function meta() {
 export function ErrorBoundary() {
   useRouteError();
   return (
-    <GardenPage>
-      <GardenNav active="Communities" />
-      <div style={{ marginTop: 28 }}>
-        <GardenErrorState message="This community isn't live yet — check back soon." />
-      </div>
-    </GardenPage>
+    <PageShell>
+      <p className="text-sm" style={{ color: "var(--garden-dim)" }}>
+        This community isn't live yet — check back soon.
+      </p>
+    </PageShell>
   );
 }
 
@@ -47,6 +39,53 @@ function reasonFor(err: unknown, fallback: string): string {
     if (data?.reason) return data.reason;
   }
   return fallback;
+}
+
+// ————— Shared shell + style bits (garden tokens, app-shell conventions —
+// same values as projects.tsx/offerings.tsx) —————
+
+function PageShell({ children }: { children: ReactNode }) {
+  return (
+    <div className="min-h-screen bg-[var(--garden-ink)]">
+      <link rel="stylesheet" href="/tokens.css" />
+      <link rel="stylesheet" href="/about/fonts/fonts.css" />
+      <div className="p-4 sm:p-6 max-w-4xl mx-auto">{children}</div>
+    </div>
+  );
+}
+
+const cardStyle = { borderColor: "var(--garden-hairline)", backgroundColor: "var(--garden-ink-raised)" };
+const cellClass = "rounded-xl border px-4 py-3";
+const inputClass = "w-full px-3 py-2 rounded-lg border text-sm outline-none";
+const inputStyle = { backgroundColor: "var(--garden-ink)", borderColor: "var(--garden-hairline-raised)", color: "var(--garden-paper)" };
+const labelClass = "block text-xs uppercase tracking-[0.06em] mb-1.5";
+const labelStyle = { color: "var(--garden-dim)" };
+const btnPrimaryClass = "px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-50 transition-opacity hover:opacity-90";
+const btnPrimaryStyle = { backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" };
+const btnGhostClass = "px-3.5 py-2 rounded-lg text-sm font-medium border disabled:opacity-50 transition-colors";
+const btnGhostStyle = { borderColor: "var(--garden-hairline-raised)", color: "var(--garden-muted)" };
+
+function SectionLabel({ children }: { children: ReactNode }) {
+  return (
+    <div
+      className="text-[11px] font-semibold uppercase tracking-[0.08em]"
+      style={{ color: "var(--garden-dim)", fontFamily: "var(--garden-font-mono)" }}
+    >
+      {children}
+    </div>
+  );
+}
+
+function Hint({ children }: { children: ReactNode }) {
+  return (
+    <p className="text-xs" style={{ color: "var(--garden-dim)" }}>
+      {children}
+    </p>
+  );
+}
+
+function Loading({ label = "Loading…" }: { label?: string }) {
+  return <Hint>{label}</Hint>;
 }
 
 // ————— Types (shaped from getCommunity's return) —————
@@ -115,7 +154,8 @@ function JoinControl({ community }: { community: Community }) {
     return (
       <Link
         to={`/login?redirect=/communities/${community.slug}`}
-        className="g-btn g-btn-ghost"
+        className={btnGhostClass}
+        style={btnGhostStyle}
       >
         Sign in to join
       </Link>
@@ -125,7 +165,11 @@ function JoinControl({ community }: { community: Community }) {
   const membership = community.viewer.membership;
 
   if (membership && membership.status === "pending") {
-    return <p style={{ fontSize: 14.5, color: "var(--g-muted)" }}>Request sent — a host will confirm.</p>;
+    return (
+      <p className="text-sm" style={{ color: "var(--garden-muted)" }}>
+        Request sent — a host will confirm.
+      </p>
+    );
   }
 
   if (membership && membership.status === "active") {
@@ -153,28 +197,22 @@ function JoinControl({ community }: { community: Community }) {
     }
     return (
       <div>
-        <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
-          <span style={{ fontSize: 14.5, color: "var(--g-paper)" }}>You're in.</span>
-          <button className="g-btn g-btn-ghost" disabled={busy} onClick={handleLeave}>
+        <div className="flex items-center gap-4 flex-wrap">
+          <span className="text-sm" style={{ color: "var(--garden-paper)" }}>You're in.</span>
+          <button className={btnGhostClass} style={btnGhostStyle} disabled={busy} onClick={handleLeave}>
             Leave
           </button>
         </div>
         <label
-          style={{
-            marginTop: 12,
-            display: "flex",
-            alignItems: "flex-start",
-            gap: 8,
-            fontSize: 13.5,
-            color: "var(--g-muted)",
-          }}
+          className="mt-3 flex items-start gap-2 text-[13.5px]"
+          style={{ color: "var(--garden-muted)" }}
         >
           <input
             type="checkbox"
             checked={membership.isHome}
             disabled={busy}
             onChange={(e) => handleHomeToggle(e.target.checked)}
-            style={{ marginTop: 3 }}
+            className="mt-1"
           />
           <span>
             Make this my home community.
@@ -182,7 +220,7 @@ function JoinControl({ community }: { community: Community }) {
             Your dues support your home community's project pool.
           </span>
         </label>
-        {note && <p className="g-hint" style={{ marginTop: 8 }}>{note}</p>}
+        {note && <p className="mt-2 text-sm" style={{ color: "var(--garden-body)" }}>{note}</p>}
       </div>
     );
   }
@@ -192,7 +230,7 @@ function JoinControl({ community }: { community: Community }) {
 
   if (!canJoin.allowed) {
     return (
-      <p style={{ fontSize: 14.5, color: "var(--g-muted)" }}>
+      <p className="text-sm" style={{ color: "var(--garden-muted)" }}>
         {canJoin.reason ?? "Joining isn't open right now."}
       </p>
     );
@@ -212,10 +250,10 @@ function JoinControl({ community }: { community: Community }) {
 
   return (
     <div>
-      <button className="g-btn g-btn-citron" disabled={busy} onClick={handleJoin}>
+      <button className={btnPrimaryClass} style={btnPrimaryStyle} disabled={busy} onClick={handleJoin}>
         {busy ? "Joining…" : joinWouldBePending ? "Ask to join" : "Join — free"}
       </button>
-      {note && <p style={{ marginTop: 10, fontSize: 14.5, color: "var(--g-body)" }}>{note}</p>}
+      {note && <p className="mt-2.5 text-sm" style={{ color: "var(--garden-body)" }}>{note}</p>}
     </div>
   );
 }
@@ -266,83 +304,49 @@ function EditCommunityForm({ community }: { community: Community }) {
 
   return (
     <form onSubmit={onSubmit}>
-      <div style={{ marginTop: 6 }}>
-        <label className="g-label" style={{ display: "block", marginBottom: 6 }}>
-          Tagline
-        </label>
-        <input className="g-input" value={tagline} onChange={(e) => setTagline(e.target.value)} />
+      <div>
+        <label className={labelClass} style={labelStyle}>Tagline</label>
+        <input className={inputClass} style={inputStyle} value={tagline} onChange={(e) => setTagline(e.target.value)} />
       </div>
-      <div style={{ marginTop: 14 }}>
-        <label className="g-label" style={{ display: "block", marginBottom: 6 }}>
-          Description
-        </label>
+      <div className="mt-3.5">
+        <label className={labelClass} style={labelStyle}>Description</label>
         <textarea
-          className="g-input"
+          className={`${inputClass} resize-y`}
+          style={inputStyle}
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           rows={4}
-          style={{ resize: "vertical" }}
         />
       </div>
-      <div style={{ marginTop: 14 }}>
-        <label className="g-label" style={{ display: "block", marginBottom: 6 }}>
-          Location
-        </label>
-        <input
-          className="g-input"
-          value={locationLabel}
-          onChange={(e) => setLocationLabel(e.target.value)}
-        />
+      <div className="mt-3.5">
+        <label className={labelClass} style={labelStyle}>Location</label>
+        <input className={inputClass} style={inputStyle} value={locationLabel} onChange={(e) => setLocationLabel(e.target.value)} />
       </div>
-      <div style={{ marginTop: 14 }}>
-        <label className="g-label" style={{ display: "block", marginBottom: 6 }}>
-          Website
-        </label>
-        <input
-          className="g-input"
-          value={websiteUrl}
-          onChange={(e) => setWebsiteUrl(e.target.value)}
-        />
+      <div className="mt-3.5">
+        <label className={labelClass} style={labelStyle}>Website</label>
+        <input className={inputClass} style={inputStyle} value={websiteUrl} onChange={(e) => setWebsiteUrl(e.target.value)} />
       </div>
-      <div style={{ marginTop: 14 }}>
-        <label className="g-label" style={{ display: "block", marginBottom: 6 }}>
-          Join policy
-        </label>
-        <select
-          className="g-input"
-          value={joinPolicy}
-          onChange={(e) => setJoinPolicy(e.target.value)}
-          style={{ appearance: "none" }}
-        >
+      <div className="mt-3.5">
+        <label className={labelClass} style={labelStyle}>Join policy</label>
+        <select className={inputClass} style={inputStyle} value={joinPolicy} onChange={(e) => setJoinPolicy(e.target.value)}>
           {JOIN_POLICIES.map((p) => (
-            <option key={p.value} value={p.value}>
-              {p.label}
-            </option>
+            <option key={p.value} value={p.value}>{p.label}</option>
           ))}
         </select>
       </div>
-      <div style={{ marginTop: 14 }}>
-        <label className="g-label" style={{ display: "block", marginBottom: 6 }}>
-          Visibility
-        </label>
-        <select
-          className="g-input"
-          value={visibility}
-          onChange={(e) => setVisibility(e.target.value)}
-          style={{ appearance: "none" }}
-        >
+      <div className="mt-3.5">
+        <label className={labelClass} style={labelStyle}>Visibility</label>
+        <select className={inputClass} style={inputStyle} value={visibility} onChange={(e) => setVisibility(e.target.value)}>
           {VISIBILITIES.map((v) => (
-            <option key={v.value} value={v.value}>
-              {v.label}
-            </option>
+            <option key={v.value} value={v.value}>{v.label}</option>
           ))}
         </select>
       </div>
-      <button className="g-btn g-btn-citron" type="submit" disabled={busy} style={{ marginTop: 16 }}>
+      <button className={btnPrimaryClass} style={{ ...btnPrimaryStyle, marginTop: 16 }} type="submit" disabled={busy}>
         {busy ? "Saving…" : "Save changes"}
       </button>
       {status && (
-        <p style={{ marginTop: 10, fontSize: 14, color: status.kind === "ok" ? "var(--g-citron)" : "var(--g-body)" }}>
+        <p className="mt-2.5 text-sm" style={{ color: status.kind === "ok" ? "var(--garden-citron)" : "var(--garden-body)" }}>
           {status.kind === "ok" ? "✓ " : ""}
           {status.text}
         </p>
@@ -370,81 +374,42 @@ function MemberRoster({ hostOrgId }: { hostOrgId: Id<"hostOrgs"> }) {
   }
 
   if (members === undefined) {
-    return <GardenLoading label="Loading members…" />;
+    return <Loading label="Loading members…" />;
   }
   if (members === null || members.length === 0) {
-    return <p className="g-hint">No members yet.</p>;
+    return <Hint>No members yet.</Hint>;
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+    <div className="flex flex-col gap-2">
       {members.map((m) => (
         <div
           key={m.userId}
-          className="g-cell"
-          style={{ padding: "10px 12px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}
+          className={cellClass}
+          style={{ ...cardStyle, padding: "10px 12px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}
         >
           <div>
-            <span style={{ color: "var(--g-paper)", fontWeight: 600, fontSize: 14 }}>{m.name}</span>
-            <span className="g-hint" style={{ marginLeft: 8 }}>
+            <span className="text-sm font-semibold" style={{ color: "var(--garden-paper)" }}>{m.name}</span>
+            <span className="text-xs ml-2" style={{ color: "var(--garden-dim)" }}>
               {m.role}
               {m.status === "pending" ? " · pending" : ""}
             </span>
           </div>
           {m.role !== "host" && (
-            <div style={{ display: "flex", gap: 8 }}>
+            <div className="flex gap-2">
               {m.status === "pending" && (
-                <button
-                  className="g-btn g-btn-ghost"
-                  disabled={busyId === m.userId}
-                  onClick={() => act(m.userId, "active")}
-                >
+                <button className={btnGhostClass} style={btnGhostStyle} disabled={busyId === m.userId} onClick={() => act(m.userId, "active")}>
                   Approve
                 </button>
               )}
-              <button
-                className="g-btn g-btn-ghost"
-                disabled={busyId === m.userId}
-                onClick={() => act(m.userId, "removed")}
-              >
+              <button className={btnGhostClass} style={btnGhostStyle} disabled={busyId === m.userId} onClick={() => act(m.userId, "removed")}>
                 Remove
               </button>
             </div>
           )}
         </div>
       ))}
-      {error && <p className="g-hint" style={{ color: "var(--g-body)" }}>{error}</p>}
-    </div>
-  );
-}
-
-function HostTools({ community }: { community: Community }) {
-  return (
-    <div className="g-card" style={{ marginTop: 28 }}>
-      <SectionLabel>Host tools</SectionLabel>
-      <div
-        style={{
-          marginTop: 16,
-          display: "grid",
-          gridTemplateColumns: "minmax(260px, 1fr) minmax(260px, 1.2fr)",
-          gap: 24,
-          alignItems: "start",
-        }}
-        className="g-op-grid"
-      >
-        <EditCommunityForm community={community} />
-        <div>
-          <div className="g-label" style={{ marginBottom: 10 }}>
-            Members {community.pendingCount > 0 ? `(${community.pendingCount} pending)` : ""}
-          </div>
-          <MemberRoster hostOrgId={community._id} />
-        </div>
-      </div>
-      <style>{`
-        @media (max-width: 720px) {
-          .g-op-grid { grid-template-columns: 1fr !important; }
-        }
-      `}</style>
+      {error && <p className="text-xs" style={{ color: "var(--garden-body)" }}>{error}</p>}
     </div>
   );
 }
@@ -453,21 +418,16 @@ function HostTools({ community }: { community: Community }) {
 
 function TablesSection({ tables }: { tables: Community["tables"] }) {
   return (
-    <div style={{ marginTop: 28 }}>
+    <div className="mt-7">
       <SectionLabel>Tables</SectionLabel>
       {tables.length === 0 ? (
-        <p className="g-hint" style={{ marginTop: 10 }}>No tables here yet.</p>
+        <div className="mt-2.5"><Hint>No tables here yet.</Hint></div>
       ) : (
-        <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+        <div className="mt-3 flex flex-col gap-2">
           {tables.map((t) => (
-            <Link
-              key={t._id}
-              to={`/tables/${t.slug}`}
-              className="g-cell"
-              style={{ display: "block", padding: "12px 14px", textDecoration: "none" }}
-            >
-              <span style={{ color: "var(--g-paper)", fontWeight: 600, fontSize: 14.5 }}>{t.name}</span>
-              <span className="g-hint" style={{ marginLeft: 10 }}>
+            <Link key={t._id} to={`/tables/${t.slug}`} className={cellClass} style={{ ...cardStyle, display: "block", textDecoration: "none" }}>
+              <span className="text-sm font-semibold" style={{ color: "var(--garden-paper)" }}>{t.name}</span>
+              <span className="text-xs ml-2.5" style={{ color: "var(--garden-dim)" }}>
                 {t.format ?? t.mode}
                 {t.cadence ? ` · ${t.cadence}` : ""}
               </span>
@@ -481,21 +441,16 @@ function TablesSection({ tables }: { tables: Community["tables"] }) {
 
 function EventsSection({ events }: { events: Community["events"] }) {
   return (
-    <div style={{ marginTop: 28 }}>
+    <div className="mt-7">
       <SectionLabel>Upcoming events</SectionLabel>
       {events.length === 0 ? (
-        <p className="g-hint" style={{ marginTop: 10 }}>Nothing scheduled yet.</p>
+        <div className="mt-2.5"><Hint>Nothing scheduled yet.</Hint></div>
       ) : (
-        <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+        <div className="mt-3 flex flex-col gap-2">
           {events.map((e) => (
-            <Link
-              key={e._id}
-              to={`/events/${e._id}`}
-              className="g-cell"
-              style={{ display: "block", padding: "12px 14px", textDecoration: "none" }}
-            >
-              <span style={{ color: "var(--g-paper)", fontWeight: 600, fontSize: 14.5 }}>{e.title}</span>
-              <div className="g-hint" style={{ marginTop: 4 }}>
+            <Link key={e._id} to={`/events/${e._id}`} className={cellClass} style={{ ...cardStyle, display: "block", textDecoration: "none" }}>
+              <span className="text-sm font-semibold" style={{ color: "var(--garden-paper)" }}>{e.title}</span>
+              <div className="text-xs mt-1" style={{ color: "var(--garden-dim)" }}>
                 {formatDateTime(e.datetime)}
                 {e.location ? ` · ${e.location}` : ""}
               </div>
@@ -509,22 +464,17 @@ function EventsSection({ events }: { events: Community["events"] }) {
 
 function ProjectsSection({ projects }: { projects: Community["projects"] }) {
   return (
-    <div style={{ marginTop: 28 }}>
+    <div className="mt-7">
       <SectionLabel>Projects</SectionLabel>
       {projects.length === 0 ? (
-        <p className="g-hint" style={{ marginTop: 10 }}>No projects posted here yet.</p>
+        <div className="mt-2.5"><Hint>No projects posted here yet.</Hint></div>
       ) : (
-        <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+        <div className="mt-3 flex flex-col gap-2">
           {projects.map((p) => (
-            <Link
-              key={p._id}
-              to={`/projects/${p._id}`}
-              className="g-cell"
-              style={{ display: "block", padding: "12px 14px", textDecoration: "none" }}
-            >
-              <span style={{ color: "var(--g-paper)", fontWeight: 600, fontSize: 14.5 }}>{p.title}</span>
-              <span className="g-hint" style={{ marginLeft: 10 }}>by {p.byName}</span>
-              {p.blurb && <p className="g-hint" style={{ marginTop: 4 }}>{p.blurb}</p>}
+            <Link key={p._id} to={`/projects/${p._id}`} className={cellClass} style={{ ...cardStyle, display: "block", textDecoration: "none" }}>
+              <span className="text-sm font-semibold" style={{ color: "var(--garden-paper)" }}>{p.title}</span>
+              <span className="text-xs ml-2.5" style={{ color: "var(--garden-dim)" }}>by {p.byName}</span>
+              {p.blurb && <p className="text-xs mt-1" style={{ color: "var(--garden-dim)" }}>{p.blurb}</p>}
             </Link>
           ))}
         </div>
@@ -535,21 +485,16 @@ function ProjectsSection({ projects }: { projects: Community["projects"] }) {
 
 function OfferingsSection({ offerings }: { offerings: Community["offerings"] }) {
   return (
-    <div style={{ marginTop: 28 }}>
-      <SectionLabel>Classes & coaching</SectionLabel>
+    <div className="mt-7">
+      <SectionLabel>Classes &amp; coaching</SectionLabel>
       {offerings.length === 0 ? (
-        <p className="g-hint" style={{ marginTop: 10 }}>Nothing offered here yet.</p>
+        <div className="mt-2.5"><Hint>Nothing offered here yet.</Hint></div>
       ) : (
-        <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+        <div className="mt-3 flex flex-col gap-2">
           {offerings.map((o) => (
-            <Link
-              key={o._id}
-              to="/offerings"
-              className="g-cell"
-              style={{ display: "block", padding: "12px 14px", textDecoration: "none" }}
-            >
-              <span style={{ color: "var(--g-paper)", fontWeight: 600, fontSize: 14.5 }}>{o.title}</span>
-              <span className="g-hint" style={{ marginLeft: 10 }}>
+            <Link key={o._id} to="/offerings" className={cellClass} style={{ ...cardStyle, display: "block", textDecoration: "none" }}>
+              <span className="text-sm font-semibold" style={{ color: "var(--garden-paper)" }}>{o.title}</span>
+              <span className="text-xs ml-2.5" style={{ color: "var(--garden-dim)" }}>
                 {o.format ?? "Offering"}
                 {o.cadence ? ` · ${o.cadence}` : ""}
                 {o.priceCents ? ` · ${formatMoney(o.priceCents)}` : ""}
@@ -566,22 +511,16 @@ function ProductResources({ productId }: { productId: Id<"communityProducts"> })
   const access = useQuery(api.garden.products.getProductAccess, { productId });
 
   if (access === undefined) {
-    return <GardenLoading label="Loading resources…" />;
+    return <Loading label="Loading resources…" />;
   }
   if (!access || !access.hasAccess) return null;
   if (access.resources.length === 0) {
-    return <p className="g-hint" style={{ marginTop: 10 }}>No resources listed yet.</p>;
+    return <div className="mt-2.5"><Hint>No resources listed yet.</Hint></div>;
   }
   return (
-    <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>
+    <div className="mt-2.5 flex flex-col gap-1.5">
       {access.resources.map((r, i) => (
-        <a
-          key={i}
-          href={r.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{ fontSize: 14.5, color: "var(--g-citron)" }}
-        >
+        <a key={i} href={r.url} target="_blank" rel="noopener noreferrer" className="text-sm" style={{ color: "var(--garden-citron)" }}>
           {r.label} →
         </a>
       ))}
@@ -611,20 +550,27 @@ function ProductCard({ product, slug }: { product: Product; slug: string }) {
   const actionWord = product.billing === "monthly" ? "Join" : "Buy";
 
   return (
-    <div className="g-card">
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
-        <span className="g-h" style={{ fontSize: 18 }}>{product.name}</span>
-        {product.viewer.hasAccess && <span className="g-badge g-badge-citron">You're in</span>}
+    <div className="rounded-2xl border p-4" style={cardStyle}>
+      <div className="flex justify-between gap-2.5 flex-wrap">
+        <span className="font-semibold text-base" style={{ color: "var(--garden-paper)", fontFamily: "var(--garden-font-display)" }}>
+          {product.name}
+        </span>
+        {product.viewer.hasAccess && (
+          <span
+            className="inline-block px-2 py-0.5 rounded-full text-[11px] font-medium uppercase tracking-[0.06em] h-fit"
+            style={{ backgroundColor: "rgba(215,242,90,0.14)", color: "var(--garden-citron)", fontFamily: "var(--garden-font-mono)" }}
+          >
+            You're in
+          </span>
+        )}
       </div>
       {product.description && (
-        <p style={{ marginTop: 8, fontSize: 14.5, lineHeight: 1.5 }}>{product.description}</p>
+        <p className="mt-2 text-sm leading-relaxed" style={{ color: "var(--garden-body)" }}>{product.description}</p>
       )}
       {product.benefits && (
-        <p style={{ marginTop: 8, fontSize: 14.5, color: "var(--g-muted)", lineHeight: 1.5 }}>
-          {product.benefits}
-        </p>
+        <p className="mt-2 text-sm leading-relaxed" style={{ color: "var(--garden-muted)" }}>{product.benefits}</p>
       )}
-      <div className="g-hint" style={{ marginTop: 10 }}>
+      <div className="mt-2.5 text-xs" style={{ color: "var(--garden-dim)" }}>
         {priceLabel(product.priceCents, product.billing)}
         {product.resourceCount > 0
           ? ` · ${product.resourceCount} private resource${product.resourceCount === 1 ? "" : "s"}`
@@ -633,29 +579,21 @@ function ProductCard({ product, slug }: { product: Product; slug: string }) {
 
       {product.viewer.hasAccess ? (
         <>
-          <button
-            className="g-btn g-btn-ghost"
-            style={{ marginTop: 14 }}
-            onClick={() => setShowResources((s) => !s)}
-          >
+          <button className={btnGhostClass} style={{ ...btnGhostStyle, marginTop: 14 }} onClick={() => setShowResources((s) => !s)}>
             {showResources ? "Hide resources" : "Show resources"}
           </button>
           {showResources && <ProductResources productId={product._id} />}
         </>
       ) : isLoading ? null : !isAuthenticated ? (
-        <Link
-          to={`/login?redirect=/communities/${slug}`}
-          className="g-btn g-btn-ghost"
-          style={{ marginTop: 14, display: "inline-block" }}
-        >
+        <Link to={`/login?redirect=/communities/${slug}`} className={`${btnGhostClass} inline-block`} style={{ ...btnGhostStyle, marginTop: 14 }}>
           Sign in to {actionWord.toLowerCase()}
         </Link>
       ) : (
         <>
-          <button className="g-btn g-btn-citron" style={{ marginTop: 14 }} disabled={busy} onClick={handleBuy}>
+          <button className={btnPrimaryClass} style={{ ...btnPrimaryStyle, marginTop: 14 }} disabled={busy} onClick={handleBuy}>
             {busy ? "Starting checkout…" : `${actionWord} — ${formatMoney(product.priceCents)}`}
           </button>
-          {error && <p style={{ marginTop: 8, fontSize: 14, color: "var(--g-body)" }}>{error}</p>}
+          {error && <p className="mt-2 text-sm" style={{ color: "var(--garden-body)" }}>{error}</p>}
         </>
       )}
     </div>
@@ -677,11 +615,9 @@ function ProductsSection({
 
   if (products === undefined) {
     return (
-      <div style={{ marginTop: 28 }}>
+      <div className="mt-7">
         <SectionLabel>For members</SectionLabel>
-        <div style={{ marginTop: 10 }}>
-          <GardenLoading />
-        </div>
+        <div className="mt-2.5"><Loading /></div>
       </div>
     );
   }
@@ -689,25 +625,20 @@ function ProductsSection({
   if (products.length === 0 && !canManage) return null;
 
   return (
-    <div style={{ marginTop: 28 }}>
+    <div className="mt-7">
       <SectionLabel>For members</SectionLabel>
       {purchased && (
-        <div className="g-card" style={{ marginTop: 12, borderColor: "var(--g-citron)", maxWidth: "50ch" }}>
-          <div className="g-label" style={{ color: "var(--g-citron)" }}>You're in</div>
-          <p style={{ marginTop: 8, fontSize: 15 }}>You're in. Your resources are below.</p>
+        <div className="rounded-2xl border p-4 mt-3 max-w-[50ch]" style={{ ...cardStyle, borderColor: "var(--garden-citron)" }}>
+          <div className="text-[11px] font-semibold uppercase tracking-[0.08em]" style={{ color: "var(--garden-citron)", fontFamily: "var(--garden-font-mono)" }}>
+            You're in
+          </div>
+          <p className="mt-2 text-sm">You're in. Your resources are below.</p>
         </div>
       )}
       {products.length === 0 ? (
-        <p className="g-hint" style={{ marginTop: 10 }}>Nothing for sale here yet.</p>
+        <div className="mt-2.5"><Hint>Nothing for sale here yet.</Hint></div>
       ) : (
-        <div
-          style={{
-            marginTop: 12,
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))",
-            gap: 14,
-          }}
-        >
+        <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3.5">
           {products.map((p) => (
             <ProductCard key={p._id} product={p} slug={slug} />
           ))}
@@ -746,27 +677,15 @@ function ResourceRows({
   return (
     <div>
       {resources.map((r, i) => (
-        <div key={i} style={{ display: "flex", gap: 8, marginTop: 8 }}>
-          <input
-            className="g-input"
-            placeholder="Label"
-            value={r.label}
-            onChange={(e) => update(i, "label", e.target.value)}
-            style={{ flex: 1 }}
-          />
-          <input
-            className="g-input"
-            placeholder="https://…"
-            value={r.url}
-            onChange={(e) => update(i, "url", e.target.value)}
-            style={{ flex: 2 }}
-          />
-          <button type="button" className="g-btn g-btn-ghost" onClick={() => remove(i)}>
+        <div key={i} className="flex gap-2 mt-2">
+          <input className={inputClass} style={{ ...inputStyle, flex: 1 }} placeholder="Label" value={r.label} onChange={(e) => update(i, "label", e.target.value)} />
+          <input className={inputClass} style={{ ...inputStyle, flex: 2 }} placeholder="https://…" value={r.url} onChange={(e) => update(i, "url", e.target.value)} />
+          <button type="button" className={btnGhostClass} style={btnGhostStyle} onClick={() => remove(i)}>
             Remove
           </button>
         </div>
       ))}
-      <button type="button" className="g-btn g-btn-ghost" style={{ marginTop: 8 }} onClick={add}>
+      <button type="button" className={btnGhostClass} style={{ ...btnGhostStyle, marginTop: 8 }} onClick={add}>
         + Add resource
       </button>
     </div>
@@ -814,52 +733,47 @@ function CreateProductForm({ hostOrgId }: { hostOrgId: Id<"hostOrgs"> }) {
 
   return (
     <form onSubmit={onSubmit}>
-      <label className="g-label" style={{ display: "block", marginBottom: 6 }}>Name</label>
-      <input className="g-input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Premium membership" />
+      <label className={labelClass} style={labelStyle}>Name</label>
+      <input className={inputClass} style={inputStyle} value={name} onChange={(e) => setName(e.target.value)} placeholder="Premium membership" />
 
-      <label className="g-label" style={{ display: "block", marginTop: 14, marginBottom: 6 }}>Price (dollars)</label>
+      <label className={labelClass} style={{ ...labelStyle, marginTop: 14 }}>Price (dollars)</label>
       <input
-        className="g-input"
+        className={inputClass}
+        style={{ ...inputStyle, maxWidth: 160 }}
         value={priceDollars}
         onChange={(e) => setPriceDollars(e.target.value)}
         inputMode="decimal"
         placeholder="25"
-        style={{ maxWidth: 160 }}
       />
 
-      <div style={{ marginTop: 14 }}>
-        <label className="g-label" style={{ display: "block", marginBottom: 6 }}>Billing</label>
-        <div style={{ display: "flex", gap: 16 }}>
+      <div className="mt-3.5">
+        <label className={labelClass} style={labelStyle}>Billing</label>
+        <div className="flex gap-4">
           {PRODUCT_BILLINGS.map((b) => (
-            <label key={b.value} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 14.5 }}>
-              <input
-                type="radio"
-                name="billing"
-                checked={billing === b.value}
-                onChange={() => setBilling(b.value)}
-              />
+            <label key={b.value} className="flex items-center gap-1.5 text-sm" style={{ color: "var(--garden-body)" }}>
+              <input type="radio" name="billing" checked={billing === b.value} onChange={() => setBilling(b.value)} />
               {b.label}
             </label>
           ))}
         </div>
       </div>
 
-      <label className="g-label" style={{ display: "block", marginTop: 14, marginBottom: 6 }}>Benefits</label>
-      <textarea className="g-input" value={benefits} onChange={(e) => setBenefits(e.target.value)} rows={2} style={{ resize: "vertical" }} />
+      <label className={labelClass} style={{ ...labelStyle, marginTop: 14 }}>Benefits</label>
+      <textarea className={`${inputClass} resize-y`} style={inputStyle} value={benefits} onChange={(e) => setBenefits(e.target.value)} rows={2} />
 
-      <label className="g-label" style={{ display: "block", marginTop: 14, marginBottom: 6 }}>Description</label>
-      <textarea className="g-input" value={description} onChange={(e) => setDescription(e.target.value)} rows={3} style={{ resize: "vertical" }} />
+      <label className={labelClass} style={{ ...labelStyle, marginTop: 14 }}>Description</label>
+      <textarea className={`${inputClass} resize-y`} style={inputStyle} value={description} onChange={(e) => setDescription(e.target.value)} rows={3} />
 
-      <div style={{ marginTop: 14 }}>
-        <label className="g-label" style={{ display: "block", marginBottom: 6 }}>Resources</label>
+      <div className="mt-3.5">
+        <label className={labelClass} style={labelStyle}>Resources</label>
         <ResourceRows resources={resources} onChange={setResources} />
       </div>
 
-      <button className="g-btn g-btn-citron" type="submit" disabled={busy || !name.trim() || !priceDollars.trim()} style={{ marginTop: 16 }}>
+      <button className={btnPrimaryClass} style={{ ...btnPrimaryStyle, marginTop: 16 }} type="submit" disabled={busy || !name.trim() || !priceDollars.trim()}>
         {busy ? "Creating…" : "Create product"}
       </button>
       {status && (
-        <p style={{ marginTop: 10, fontSize: 14, color: status.kind === "ok" ? "var(--g-citron)" : "var(--g-body)" }}>
+        <p className="mt-2.5 text-sm" style={{ color: status.kind === "ok" ? "var(--garden-citron)" : "var(--garden-body)" }}>
           {status.kind === "ok" ? "✓ " : ""}
           {status.text}
         </p>
@@ -921,48 +835,53 @@ function EditProductRow({ product }: { product: Product }) {
   }
 
   return (
-    <div className="g-cell" style={{ padding: "12px 14px" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
-        <span style={{ color: "var(--g-paper)", fontWeight: 600, fontSize: 14.5 }}>{product.name}</span>
-        <span className="g-badge g-badge-line">{product.status}</span>
+    <div className={cellClass} style={cardStyle}>
+      <div className="flex justify-between gap-2.5 flex-wrap">
+        <span className="text-sm font-semibold" style={{ color: "var(--garden-paper)" }}>{product.name}</span>
+        <span
+          className="inline-block px-2 py-0.5 rounded-full text-[11px] font-medium uppercase tracking-[0.06em] h-fit"
+          style={{ backgroundColor: "rgba(198,198,190,0.1)", color: "var(--garden-muted)", fontFamily: "var(--garden-font-mono)" }}
+        >
+          {product.status}
+        </span>
       </div>
-      <div className="g-hint" style={{ marginTop: 6 }}>
+      <div className="text-xs mt-1.5" style={{ color: "var(--garden-dim)" }}>
         {priceLabel(product.priceCents, product.billing)} · {product.resourceCount} resource
         {product.resourceCount === 1 ? "" : "s"}
       </div>
-      <div style={{ marginTop: 10, display: "flex", gap: 8 }}>
-        <button className="g-btn g-btn-ghost" disabled={busy} onClick={toggleStatus}>
+      <div className="mt-2.5 flex gap-2">
+        <button className={btnGhostClass} style={btnGhostStyle} disabled={busy} onClick={toggleStatus}>
           {product.status === "active" ? "Archive" : "Unarchive"}
         </button>
-        <button className="g-btn g-btn-ghost" disabled={busy} onClick={() => setEditing((e) => !e)}>
+        <button className={btnGhostClass} style={btnGhostStyle} disabled={busy} onClick={() => setEditing((e) => !e)}>
           {editing ? "Cancel" : "Edit"}
         </button>
       </div>
       {editing && (
-        <div style={{ marginTop: 12 }}>
-          <label className="g-label" style={{ display: "block", marginBottom: 6 }}>Price (dollars)</label>
+        <div className="mt-3">
+          <label className={labelClass} style={labelStyle}>Price (dollars)</label>
           <input
-            className="g-input"
+            className={inputClass}
+            style={{ ...inputStyle, maxWidth: 160 }}
             value={priceDollars}
             onChange={(e) => setPriceDollars(e.target.value)}
             inputMode="decimal"
-            style={{ maxWidth: 160 }}
           />
-          <div style={{ marginTop: 12 }}>
-            <label className="g-label" style={{ display: "block", marginBottom: 6 }}>Resources</label>
+          <div className="mt-3">
+            <label className={labelClass} style={labelStyle}>Resources</label>
             {access === undefined && !resourcesLoaded ? (
-              <GardenLoading label="Loading resources…" />
+              <Loading label="Loading resources…" />
             ) : (
               <ResourceRows resources={resources} onChange={setResources} />
             )}
           </div>
-          <button className="g-btn g-btn-citron" disabled={busy} onClick={saveEdit} style={{ marginTop: 12 }}>
+          <button className={btnPrimaryClass} style={{ ...btnPrimaryStyle, marginTop: 12 }} disabled={busy} onClick={saveEdit}>
             {busy ? "Saving…" : "Save"}
           </button>
         </div>
       )}
       {status && (
-        <p style={{ marginTop: 8, fontSize: 14, color: status.kind === "ok" ? "var(--g-citron)" : "var(--g-body)" }}>
+        <p className="mt-2 text-sm" style={{ color: status.kind === "ok" ? "var(--garden-citron)" : "var(--garden-body)" }}>
           {status.kind === "ok" ? "✓ " : ""}
           {status.text}
         </p>
@@ -971,154 +890,140 @@ function EditProductRow({ product }: { product: Product }) {
   );
 }
 
-function HostProductsCard({ hostOrgId }: { hostOrgId: Id<"hostOrgs"> }) {
+function HostProductsList({ hostOrgId }: { hostOrgId: Id<"hostOrgs"> }) {
   const products = useQuery(api.garden.products.listProducts, { hostOrgId }) as Product[] | undefined;
 
+  if (products === undefined) return <Loading />;
+  if (products.length === 0) return <Hint>No products yet.</Hint>;
+
   return (
-    <div className="g-card" style={{ marginTop: 20 }}>
-      <SectionLabel>Products</SectionLabel>
-      <div
-        style={{
-          marginTop: 16,
-          display: "grid",
-          gridTemplateColumns: "minmax(260px, 1fr) minmax(260px, 1.2fr)",
-          gap: 24,
-          alignItems: "start",
-        }}
-        className="g-op-grid"
-      >
-        <CreateProductForm hostOrgId={hostOrgId} />
-        <div>
-          <div className="g-label" style={{ marginBottom: 10 }}>
-            Current products {products ? `(${products.length})` : ""}
-          </div>
-          {products === undefined ? (
-            <GardenLoading />
-          ) : products.length === 0 ? (
-            <p className="g-hint">No products yet.</p>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {products.map((p) => (
-                <EditProductRow key={p._id} product={p} />
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
+    <div className="flex flex-col gap-2">
+      {products.map((p) => (
+        <EditProductRow key={p._id} product={p} />
+      ))}
     </div>
   );
 }
 
 // ————— Host tools: earnings —————
 
-function HostEarningsCard({ hostOrgId }: { hostOrgId: Id<"hostOrgs"> }) {
+function StatCell({ value, label, hot }: { value: string; label: string; hot?: boolean }) {
+  return (
+    <div className="rounded-lg border px-3 py-2.5 text-center" style={hot ? { ...cardStyle, borderColor: "var(--garden-citron)" } : cardStyle}>
+      <div className="text-lg font-semibold" style={{ color: hot ? "var(--garden-citron)" : "var(--garden-paper)", fontFamily: "var(--garden-font-mono)" }}>
+        {value}
+      </div>
+      <div className="text-[11px] uppercase tracking-[0.06em] mt-1" style={{ color: "var(--garden-dim)" }}>{label}</div>
+    </div>
+  );
+}
+
+function HostEarnings({ hostOrgId }: { hostOrgId: Id<"hostOrgs"> }) {
   const earnings = useQuery(api.garden.products.getCommunityEarnings, { hostOrgId });
 
+  if (earnings === undefined) return <Loading />;
+  if (earnings === null) return <Hint>Nothing to show yet.</Hint>;
+
   return (
-    <div className="g-card" style={{ marginTop: 20 }}>
-      <SectionLabel>Earnings</SectionLabel>
-      {earnings === undefined ? (
-        <div style={{ marginTop: 12 }}>
-          <GardenLoading />
+    <>
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
+        <StatCell value={String(earnings.salesCount)} label="Sales" />
+        <StatCell value={formatMoney(earnings.grossCents)} label="Gross" />
+        <StatCell value={formatMoney(earnings.hostCents)} label="Your 90%" hot />
+        <StatCell value={formatMoney(earnings.paidOutCents)} label="Paid out" />
+        <StatCell value={formatMoney(earnings.owedCents)} label="Owed" />
+      </div>
+      <p className="mt-3 text-xs" style={{ color: "var(--garden-dim)" }}>
+        Your share is paid out by hand for now — we'll record each transfer here.
+      </p>
+
+      <div className="mt-6">
+        <div className="text-sm font-semibold mb-2.5" style={{ color: "var(--garden-paper)" }}>Recent sales</div>
+        {earnings.recent.length === 0 ? (
+          <Hint>Nothing sold yet.</Hint>
+        ) : (
+          <div className="flex flex-col">
+            {earnings.recent.map((r) => (
+              <div key={r.purchaseId} className="flex flex-wrap items-baseline gap-3 py-2.5 border-b" style={{ borderColor: "var(--garden-hairline)" }}>
+                <span className="text-sm font-semibold" style={{ color: "var(--garden-paper)" }}>{r.productName}</span>
+                <span className="text-xs" style={{ color: "var(--garden-dim)" }}>{r.buyerName}</span>
+                <span className="text-xs" style={{ color: "var(--garden-dim)" }}>{formatMoney(r.hostCents)} of {formatMoney(r.grossCents)}</span>
+                <span className="text-xs" style={{ color: "var(--garden-dim)" }}>{r.status}</span>
+                <span className="text-xs" style={{ color: "var(--garden-dim)" }}>{formatDateTime(r.createdAt)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="mt-6">
+        <div className="text-sm font-semibold mb-2.5" style={{ color: "var(--garden-paper)" }}>Payouts</div>
+        {earnings.payouts.length === 0 ? (
+          <Hint>No payouts recorded yet.</Hint>
+        ) : (
+          <div className="flex flex-col">
+            {earnings.payouts.map((p, i) => (
+              <div key={i} className="flex flex-wrap items-baseline gap-3 py-2.5 border-b" style={{ borderColor: "var(--garden-hairline)" }}>
+                <span className="text-sm font-semibold" style={{ color: "var(--garden-paper)" }}>{formatMoney(p.amountCents)}</span>
+                {p.reference && <span className="text-xs" style={{ color: "var(--garden-dim)" }}>{p.reference}</span>}
+                {p.note && <span className="text-xs" style={{ color: "var(--garden-dim)" }}>{p.note}</span>}
+                <span className="text-xs" style={{ color: "var(--garden-dim)" }}>{formatDateTime(p.paidAt)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+// ————— Host tools panel: one collapsed <details>, closed by default —————
+
+function HostToolsPanel({ community }: { community: Community }) {
+  return (
+    <details className="mt-10 rounded-2xl border" style={cardStyle}>
+      <summary
+        className="cursor-pointer select-none px-5 py-4 flex items-center justify-between gap-3 flex-wrap"
+        style={{ listStyle: "none" }}
+      >
+        <span className="text-sm font-semibold" style={{ color: "var(--garden-paper)" }}>Host tools</span>
+        <span className="text-xs" style={{ color: "var(--garden-dim)" }}>
+          Edit, roster{community.pendingCount > 0 ? ` (${community.pendingCount} pending)` : ""}, products, earnings
+        </span>
+      </summary>
+      <div className="px-5 pb-6 pt-1 border-t" style={{ borderColor: "var(--garden-hairline)" }}>
+        <div className="mt-5">
+          <SectionLabel>Community details</SectionLabel>
+          <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+            <EditCommunityForm community={community} />
+            <div>
+              <div className="text-sm font-semibold mb-2.5" style={{ color: "var(--garden-paper)" }}>
+                Members {community.pendingCount > 0 ? `(${community.pendingCount} pending)` : ""}
+              </div>
+              <MemberRoster hostOrgId={community._id} />
+            </div>
+          </div>
         </div>
-      ) : earnings === null ? (
-        <p className="g-hint" style={{ marginTop: 12 }}>Nothing to show yet.</p>
-      ) : (
-        <>
-          <div
-            style={{
-              marginTop: 16,
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit,minmax(120px,1fr))",
-              gap: 10,
-            }}
-          >
-            <div className="g-cell">
-              <div className="g-cell-v">{earnings.salesCount}</div>
-              <div className="g-label" style={{ marginTop: 4 }}>Sales</div>
-            </div>
-            <div className="g-cell">
-              <div className="g-cell-v">{formatMoney(earnings.grossCents)}</div>
-              <div className="g-label" style={{ marginTop: 4 }}>Gross</div>
-            </div>
-            <div className="g-cell g-cell-hot">
-              <div className="g-cell-v">{formatMoney(earnings.hostCents)}</div>
-              <div className="g-label" style={{ marginTop: 4 }}>Your 90%</div>
-            </div>
-            <div className="g-cell">
-              <div className="g-cell-v">{formatMoney(earnings.paidOutCents)}</div>
-              <div className="g-label" style={{ marginTop: 4 }}>Paid out</div>
-            </div>
-            <div className="g-cell">
-              <div className="g-cell-v">{formatMoney(earnings.owedCents)}</div>
-              <div className="g-label" style={{ marginTop: 4 }}>Owed</div>
-            </div>
-          </div>
-          <p className="g-hint" style={{ marginTop: 12 }}>
-            Your share is paid out by hand for now — we'll record each transfer here.
-          </p>
 
-          <div style={{ marginTop: 24 }}>
-            <div className="g-label" style={{ marginBottom: 10 }}>Recent sales</div>
-            {earnings.recent.length === 0 ? (
-              <p className="g-hint">Nothing sold yet.</p>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column" }}>
-                {earnings.recent.map((r) => (
-                  <div
-                    key={r.purchaseId}
-                    style={{
-                      display: "flex",
-                      flexWrap: "wrap",
-                      alignItems: "baseline",
-                      gap: 12,
-                      padding: "10px 0",
-                      borderBottom: "1px solid var(--g-hairline)",
-                    }}
-                  >
-                    <span style={{ fontSize: 14.5, color: "var(--g-paper)", fontWeight: 600 }}>{r.productName}</span>
-                    <span className="g-hint">{r.buyerName}</span>
-                    <span className="g-hint">{formatMoney(r.hostCents)} of {formatMoney(r.grossCents)}</span>
-                    <span className="g-hint">{r.status}</span>
-                    <span className="g-hint">{formatDateTime(r.createdAt)}</span>
-                  </div>
-                ))}
-              </div>
-            )}
+        <div className="mt-9">
+          <SectionLabel>Products</SectionLabel>
+          <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+            <CreateProductForm hostOrgId={community._id} />
+            <div>
+              <div className="text-sm font-semibold mb-2.5" style={{ color: "var(--garden-paper)" }}>Current products</div>
+              <HostProductsList hostOrgId={community._id} />
+            </div>
           </div>
+        </div>
 
-          <div style={{ marginTop: 24 }}>
-            <div className="g-label" style={{ marginBottom: 10 }}>Payouts</div>
-            {earnings.payouts.length === 0 ? (
-              <p className="g-hint">No payouts recorded yet.</p>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column" }}>
-                {earnings.payouts.map((p, i) => (
-                  <div
-                    key={i}
-                    style={{
-                      display: "flex",
-                      flexWrap: "wrap",
-                      alignItems: "baseline",
-                      gap: 12,
-                      padding: "10px 0",
-                      borderBottom: "1px solid var(--g-hairline)",
-                    }}
-                  >
-                    <span style={{ fontSize: 14.5, color: "var(--g-paper)", fontWeight: 600 }}>
-                      {formatMoney(p.amountCents)}
-                    </span>
-                    {p.reference && <span className="g-hint">{p.reference}</span>}
-                    {p.note && <span className="g-hint">{p.note}</span>}
-                    <span className="g-hint">{formatDateTime(p.paidAt)}</span>
-                  </div>
-                ))}
-              </div>
-            )}
+        <div className="mt-9">
+          <SectionLabel>Earnings</SectionLabel>
+          <div className="mt-4">
+            <HostEarnings hostOrgId={community._id} />
           </div>
-        </>
-      )}
-    </div>
+        </div>
+      </div>
+    </details>
   );
 }
 
@@ -1135,87 +1040,64 @@ export default function CommunityDetailPage() {
 
   if (community === undefined) {
     return (
-      <GardenPage>
-        <GardenNav active="Communities" />
-        <div style={{ marginTop: 28 }}>
-          <GardenLoading />
-        </div>
-      </GardenPage>
+      <PageShell>
+        <Loading />
+      </PageShell>
     );
   }
 
   if (community === null) {
     return (
-      <GardenPage>
-        <GardenNav active="Communities" />
-        <div style={{ marginTop: 28 }}>
-          <GardenErrorState message="Check the link — this community isn't here." />
-        </div>
-      </GardenPage>
+      <PageShell>
+        <p className="text-sm" style={{ color: "var(--garden-dim)" }}>
+          Check the link — this community isn't here.
+        </p>
+      </PageShell>
     );
   }
 
   return (
-    <GardenPage>
-      <GardenNav active="Communities" />
-
+    <PageShell>
       {community.status === "pending" && (
-        <div
-          className="g-cell"
-          style={{ marginTop: 24, padding: "12px 14px", fontSize: 14, color: "var(--g-muted)" }}
-        >
+        <div className={cellClass} style={{ ...cardStyle, marginBottom: 20, fontSize: 13.5, color: "var(--garden-muted)" }}>
           In review — only you and operators can see this page until it's approved.
         </div>
       )}
 
-      <div style={{ marginTop: 28 }}>
-        <h1 className="g-h" style={{ fontSize: "clamp(28px,5vw,40px)" }}>
-          {community.name}
-        </h1>
-        {community.tagline && (
-          <p style={{ marginTop: 10, fontSize: 15, lineHeight: 1.5, maxWidth: "58ch" }}>
-            {community.tagline}
-          </p>
+      <h1
+        className="text-2xl sm:text-3xl font-semibold"
+        style={{ color: "var(--garden-paper)", fontFamily: "var(--garden-font-display)" }}
+      >
+        {community.name}
+      </h1>
+      {community.tagline && (
+        <p className="mt-2.5 text-[15px] leading-relaxed max-w-[58ch]" style={{ color: "var(--garden-body)" }}>
+          {community.tagline}
+        </p>
+      )}
+      <div className="mt-2.5 flex gap-3.5 flex-wrap text-[13.5px]" style={{ color: "var(--garden-muted)" }}>
+        {community.locationLabel && <span>{community.locationLabel}</span>}
+        {community.websiteUrl && (
+          <a href={community.websiteUrl} target="_blank" rel="noopener noreferrer" style={{ color: "var(--garden-citron)" }}>
+            Website →
+          </a>
         )}
-        <div style={{ marginTop: 10, display: "flex", gap: 14, flexWrap: "wrap", fontSize: 13.5, color: "var(--g-muted)" }}>
-          {community.locationLabel && <span>{community.locationLabel}</span>}
-          {community.websiteUrl && (
-            <a href={community.websiteUrl} target="_blank" rel="noopener noreferrer" style={{ color: "var(--g-citron)" }}>
-              Website →
-            </a>
-          )}
-          {community.hosts.length > 0 && <span>Hosted by {community.hosts.join(", ")}</span>}
-          <span>{community.memberCount} member{community.memberCount === 1 ? "" : "s"}</span>
-        </div>
-        {community.description && (
-          <p style={{ marginTop: 16, fontSize: 15, lineHeight: 1.6, maxWidth: "62ch" }}>
-            {community.description}
-          </p>
-        )}
-        <div
-          style={{
-            marginTop: 16,
-            display: "flex",
-            alignItems: "baseline",
-            gap: 14,
-            flexWrap: "wrap",
-            fontSize: 13.5,
-          }}
-        >
-          <span style={{ color: "var(--g-muted)" }}>Browse everything in {community.name}:</span>
-          <Link to={`/projects?community=${community.slug}`} style={{ color: "var(--g-citron)" }}>
-            Projects →
-          </Link>
-          <Link to={`/events?community=${community.slug}`} style={{ color: "var(--g-citron)" }}>
-            Events →
-          </Link>
-          <Link to={`/offerings?community=${community.slug}`} style={{ color: "var(--g-citron)" }}>
-            Classes →
-          </Link>
-        </div>
+        {community.hosts.length > 0 && <span>Hosted by {community.hosts.join(", ")}</span>}
+        <span>{community.memberCount} member{community.memberCount === 1 ? "" : "s"}</span>
+      </div>
+      {community.description && (
+        <p className="mt-4 text-[15px] leading-relaxed max-w-[62ch]" style={{ color: "var(--garden-body)" }}>
+          {community.description}
+        </p>
+      )}
+      <div className="mt-4 flex items-baseline gap-3.5 flex-wrap text-[13.5px]">
+        <span style={{ color: "var(--garden-muted)" }}>Browse everything in {community.name}:</span>
+        <Link to={`/projects?community=${community.slug}`} style={{ color: "var(--garden-citron)" }}>Projects →</Link>
+        <Link to={`/events?community=${community.slug}`} style={{ color: "var(--garden-citron)" }}>Events →</Link>
+        <Link to={`/offerings?community=${community.slug}`} style={{ color: "var(--garden-citron)" }}>Classes →</Link>
       </div>
 
-      <div style={{ marginTop: 22 }}>
+      <div className="mt-5">
         <JoinControl community={community} />
       </div>
 
@@ -1232,24 +1114,15 @@ export default function CommunityDetailPage() {
       />
 
       {community.hasFund && (
-        <div style={{ marginTop: 28 }}>
+        <div className="mt-7">
           <SectionLabel>Fund</SectionLabel>
-          <Link
-            to={`/fund/${community.slug}`}
-            style={{ display: "inline-block", marginTop: 10, fontSize: 14.5, color: "var(--g-citron)" }}
-          >
+          <Link to={`/fund/${community.slug}`} className="inline-block mt-2.5 text-sm" style={{ color: "var(--garden-citron)" }}>
             See the ledger →
           </Link>
         </div>
       )}
 
-      {community.viewer.canManage && (
-        <>
-          <HostTools community={community} />
-          <HostProductsCard hostOrgId={community._id} />
-          <HostEarningsCard hostOrgId={community._id} />
-        </>
-      )}
-    </GardenPage>
+      {community.viewer.canManage && <HostToolsPanel community={community} />}
+    </PageShell>
   );
 }

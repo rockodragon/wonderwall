@@ -7,7 +7,7 @@ import { useLocationField } from "../lib/useLocationField";
 import { AnnouncementComposer } from "../components/AnnouncementComposer";
 import { CommunityPicker } from "../components/CommunityPicker";
 import {
-  CommunityFilterChips,
+  CommunityContextLine,
   communityNameFor,
   useCommunityContext,
 } from "../components/CommunityFilter";
@@ -151,11 +151,12 @@ export default function Offerings() {
           Recurring classes, coaching, and workshop series — find a seat, or offer one.
         </p>
 
-        <CommunityFilterChips
+        <CommunityContextLine
           variant="app"
           selected={communitySlug}
-          onSelect={setCommunitySlug}
+          setSelected={setCommunitySlug}
           communities={communities}
+          rows={offerings}
         />
 
         <div className="flex flex-wrap items-center justify-between gap-3 mb-6 mt-3">
@@ -654,6 +655,13 @@ function PostOfferingForm({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  // Pre-fill from the sidebar switcher's current context, create mode only
+  // (community-ux.md §2/§6) — an edit form keeps the offering's own
+  // community, it doesn't get silently reassigned to whatever's selected now.
+  const { selected: switcherCommunitySlug, communities: myCommunities } = useCommunityContext();
+  const defaultHostOrgId = isEdit
+    ? undefined
+    : myCommunities.find((c) => c.slug === switcherCommunitySlug)?._id;
 
   function toggleTag(tag: string) {
     setSelectedTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
@@ -1079,7 +1087,7 @@ function PostOfferingForm({
             )}
           </div>
 
-          <CommunityPicker value={hostOrgId} onChange={setHostOrgId} />
+          <CommunityPicker value={hostOrgId} onChange={setHostOrgId} defaultHostOrgId={defaultHostOrgId} />
 
           {error && <p className="text-sm text-red-400">{error}</p>}
           <div className="flex gap-2 justify-end pt-2">

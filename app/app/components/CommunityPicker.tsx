@@ -12,6 +12,7 @@
 // which one to render as; the underlying <select> and its options are
 // identical either way.
 
+import { useEffect } from "react";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 
@@ -22,15 +23,40 @@ export function CommunityPicker({
   onChange,
   variant = "garden",
   className,
+  defaultHostOrgId,
 }: {
   /** The selected community's hostOrgId, or "" for none. */
   value: string;
   onChange: (hostOrgId: string) => void;
   variant?: "garden" | "tailwind";
   className?: string;
+  /**
+   * Pre-selects this hostOrgId the first time the picker has active
+   * communities to choose from (community-ux.md §2/§6) — derived by each
+   * create-form call site from the sidebar CommunitySwitcher's current
+   * context (`useCommunityContext().selected`, resolved against
+   * `listMyCommunities`). Only fires while `value` is still unset, so it
+   * never overrides a selection the person already made; still changeable
+   * to "No community — just me" either way.
+   */
+  defaultHostOrgId?: string;
 }) {
   const communities = useQuery(api.garden.communities.listMyCommunities);
   const active = (communities ?? []).filter((c) => c.status === "active");
+
+  useEffect(() => {
+    if (
+      value === EMPTY_VALUE &&
+      defaultHostOrgId &&
+      active.some((c) => c._id === defaultHostOrgId)
+    ) {
+      onChange(defaultHostOrgId);
+    }
+    // Only re-run when the default or the active list changes — deliberately
+    // excludes `value`/`onChange` so this fires once to pre-fill, not every
+    // time the person picks something (including picking "No community").
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [defaultHostOrgId, active.map((c) => c._id).join(",")]);
 
   // Nothing to post into: render nothing at all (not an empty/disabled
   // select) — same "don't show a control with only one useless option"

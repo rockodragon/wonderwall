@@ -52,7 +52,6 @@ export function GardenWordmark() {
     citron underline (never a fill — citron is for actions). */
 const NAV_ITEMS = [
   { to: "/garden", label: "Garden" },
-  { to: "/communities", label: "Communities" },
   { to: "/projects", label: "Projects" },
   { to: "/garden/events", label: "Events" }, // NOT /events — that's the legacy auth-gated route
   { to: "/tables", label: "Tables" },

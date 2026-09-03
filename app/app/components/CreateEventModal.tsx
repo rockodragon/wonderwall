@@ -7,6 +7,7 @@ import { LocationAutocomplete } from "./LocationAutocomplete";
 import { useLocationField } from "../lib/useLocationField";
 import { EVENT_TAGS } from "../constants/eventTags";
 import { CommunityPicker } from "./CommunityPicker";
+import { useCommunityContext } from "./CommunityFilter";
 import {
   TicketTierEditor,
   draftsToTiers,
@@ -31,6 +32,10 @@ export function CreateEventModal({ onClose }: { onClose: () => void }) {
   const [hostOrgId, setHostOrgId] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  // Pre-fill from the sidebar switcher's current context (community-ux.md
+  // §2/§6) — still changeable to "No community — just me" via CommunityPicker.
+  const { selected: switcherCommunitySlug, communities: myCommunities } = useCommunityContext();
+  const defaultHostOrgId = myCommunities.find((c) => c.slug === switcherCommunitySlug)?._id;
 
   function toggleTag(tag: string) {
     setTags((prev) =>
@@ -271,7 +276,12 @@ export function CreateEventModal({ onClose }: { onClose: () => void }) {
               </div>
             </div>
 
-            <CommunityPicker value={hostOrgId} onChange={setHostOrgId} variant="tailwind" />
+            <CommunityPicker
+              value={hostOrgId}
+              onChange={setHostOrgId}
+              variant="tailwind"
+              defaultHostOrgId={defaultHostOrgId}
+            />
 
             <div className="flex items-center gap-3">
               <input

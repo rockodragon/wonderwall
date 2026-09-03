@@ -9,7 +9,7 @@ import { AnnouncementComposer } from "../components/AnnouncementComposer";
 import { budgetAmountLabel, budgetKindLabel } from "../lib/budgetLabel";
 import { CommunityPicker } from "../components/CommunityPicker";
 import {
-  CommunityFilterChips,
+  CommunityContextLine,
   communityNameFor,
   useCommunityContext,
 } from "../components/CommunityFilter";
@@ -190,11 +190,12 @@ export default function Projects() {
           </div>
         )}
 
-        <CommunityFilterChips
+        <CommunityContextLine
           variant="app"
           selected={communitySlug}
-          onSelect={setCommunitySlug}
+          setSelected={setCommunitySlug}
           communities={communities}
+          rows={projects}
         />
 
         <div className="flex flex-wrap items-center justify-between gap-3 mb-4 mt-3">
@@ -676,6 +677,10 @@ function PaidProjectForm({
   const [hostOrgId, setHostOrgId] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  // Pre-fill from the sidebar switcher's current context (community-ux.md
+  // §2/§6) — still changeable to "No community — just me" via CommunityPicker.
+  const { selected: switcherCommunitySlug, communities: myCommunities } = useCommunityContext();
+  const defaultHostOrgId = myCommunities.find((c) => c.slug === switcherCommunitySlug)?._id;
 
   function toggleInterest(tag: string) {
     setInterests((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
@@ -937,7 +942,7 @@ function PaidProjectForm({
               />
             </div>
           )}
-          <CommunityPicker value={hostOrgId} onChange={setHostOrgId} />
+          <CommunityPicker value={hostOrgId} onChange={setHostOrgId} defaultHostOrgId={defaultHostOrgId} />
           {error && <p className="text-sm text-red-400">{error}</p>}
           <div className="flex gap-2 justify-end pt-2">
             <button
@@ -977,6 +982,10 @@ function PassionProjectForm({ onClose }: { onClose: () => void }) {
   const [hostOrgId, setHostOrgId] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  // Pre-fill from the sidebar switcher's current context (community-ux.md
+  // §2/§6) — still changeable to "No community — just me" via CommunityPicker.
+  const { selected: switcherCommunitySlug, communities: myCommunities } = useCommunityContext();
+  const defaultHostOrgId = myCommunities.find((c) => c.slug === switcherCommunitySlug)?._id;
 
   function toggleInterest(tag: string) {
     setInterests((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
@@ -1192,7 +1201,7 @@ function PassionProjectForm({ onClose }: { onClose: () => void }) {
               </p>
             </div>
           )}
-          <CommunityPicker value={hostOrgId} onChange={setHostOrgId} />
+          <CommunityPicker value={hostOrgId} onChange={setHostOrgId} defaultHostOrgId={defaultHostOrgId} />
           {error && <p className="text-sm text-red-400">{error}</p>}
           <div className="flex gap-2 justify-end pt-2">
             <button

@@ -8,7 +8,7 @@ import { TagFilterPills } from "../components/TagFilterPills";
 import { useFilterState } from "../lib/useFilterState";
 import { EVENT_TAGS } from "../constants/eventTags";
 import {
-  CommunityFilterChips,
+  CommunityContextLine,
   communityNameFor,
   useCommunityContext,
 } from "../components/CommunityFilter";
@@ -133,11 +133,12 @@ export default function Events() {
           className="mb-4"
         />
 
-        <CommunityFilterChips
+        <CommunityContextLine
           variant="app"
           selected={communitySlug}
-          onSelect={setCommunitySlug}
+          setSelected={setCommunitySlug}
           communities={communities}
+          rows={allEvents}
         />
 
         <div className="flex flex-wrap items-center justify-between gap-3 mb-4 mt-3">

@@ -1,18 +1,15 @@
 // /communities — the directory of named groups on creatives.exchange (see
-// docs/features/community-groups.md §0 and §5 step 1). Each community has
-// its own tables, events, and projects; joining any of them is free.
-// Same three-state discipline as tables._index.tsx: loading, empty, real.
+// docs/features/community-groups.md §0 and docs/features/community-ux.md
+// §5). Rendered inside the app shell (_app.tsx), public: a signed-out
+// visitor sees the exact same grid as a signed-in one — only the actions
+// that require an account (Join, Apply) gate on sign-in, on the pages this
+// links to. Same three-state discipline as tables._index.tsx: loading,
+// empty, real — restyled to the app shell's --garden-* token system instead
+// of the retired GardenNav/GardenPage shell.
 
 import { useQuery } from "convex/react";
 import { Link, useRouteError } from "react-router";
 import { api } from "../../convex/_generated/api";
-import {
-  GardenErrorState,
-  GardenLoading,
-  GardenNav,
-  GardenPage,
-} from "../garden/ui";
-import "../garden/garden.css";
 
 export function meta() {
   return [
@@ -24,12 +21,19 @@ export function meta() {
 export function ErrorBoundary() {
   useRouteError();
   return (
-    <GardenPage>
-      <GardenNav active="Communities" />
-      <div style={{ marginTop: 28 }}>
-        <GardenErrorState message="Communities isn't live yet — check back soon." />
+    <div className="min-h-screen bg-[var(--garden-ink)]">
+      <link rel="stylesheet" href="/tokens.css" />
+      <link rel="stylesheet" href="/about/fonts/fonts.css" />
+      <div className="p-4 sm:p-6 max-w-7xl mx-auto">
+        <h1
+          className="text-2xl sm:text-3xl font-semibold mb-2"
+          style={{ color: "var(--garden-paper)", fontFamily: "var(--garden-font-display)" }}
+        >
+          Communities isn't live yet
+        </h1>
+        <p className="text-[var(--garden-body)]">Check back soon.</p>
       </div>
-    </GardenPage>
+    </div>
   );
 }
 
@@ -48,30 +52,27 @@ function CommunityCard({ community }: { community: CommunityRow }) {
     <Link
       to={`/communities/${community.slug}`}
       aria-label={community.name}
-      className="g-card"
-      style={{ display: "block", textDecoration: "none", color: "inherit" }}
+      className="block rounded-2xl border p-5 h-full transition-colors hover:opacity-90"
+      style={{ borderColor: "var(--garden-hairline)", backgroundColor: "var(--garden-ink-raised)" }}
     >
-      <div className="g-h" style={{ fontSize: 17 }}>
+      <div
+        className="font-semibold text-lg"
+        style={{ color: "var(--garden-paper)", fontFamily: "var(--garden-font-display)" }}
+      >
         {community.name}
       </div>
       {community.tagline && (
-        <p style={{ marginTop: 8, fontSize: 14.5, lineHeight: 1.5, color: "var(--g-body)" }}>
+        <p className="mt-2 text-sm leading-relaxed" style={{ color: "var(--garden-body)" }}>
           {community.tagline}
         </p>
       )}
       <div
-        className="g-mono"
-        style={{
-          marginTop: 10,
-          fontSize: 12.5,
-          letterSpacing: "0.06em",
-          textTransform: "uppercase",
-          color: "var(--g-dim)",
-        }}
+        className="mt-3 text-xs uppercase tracking-[0.06em]"
+        style={{ color: "var(--garden-dim)", fontFamily: "var(--garden-font-mono)" }}
       >
         {community.locationLabel ?? "Wherever you are"}
       </div>
-      <p style={{ marginTop: 8, fontSize: 14.5, color: "var(--g-muted)" }}>
+      <p className="mt-2 text-sm" style={{ color: "var(--garden-muted)" }}>
         {community.memberCount} member{community.memberCount === 1 ? "" : "s"}
         {community.hosts.length > 0 ? ` · hosted by ${community.hosts.join(", ")}` : ""}
       </p>
@@ -84,19 +85,26 @@ function HostCTACard() {
     <Link
       to="/communities/apply"
       aria-label="Host your community — apply"
-      className="g-card"
-      style={{
-        display: "block",
-        textDecoration: "none",
-        color: "inherit",
-        borderStyle: "dashed",
-      }}
+      className="block rounded-2xl border border-dashed p-5 h-full transition-colors hover:opacity-90"
+      style={{ borderColor: "var(--garden-hairline-raised)", backgroundColor: "var(--garden-ink-raised)" }}
     >
-      <span className="g-badge g-badge-line">Host a community</span>
-      <div className="g-h" style={{ fontSize: 17, marginTop: 10 }}>
+      <span
+        className="inline-block px-2.5 py-1 rounded-full text-[11px] font-medium uppercase tracking-[0.06em]"
+        style={{
+          fontFamily: "var(--garden-font-mono)",
+          backgroundColor: "rgba(215,242,90,0.14)",
+          color: "var(--garden-citron)",
+        }}
+      >
+        Host a community
+      </span>
+      <div
+        className="mt-3 font-semibold text-lg"
+        style={{ color: "var(--garden-paper)", fontFamily: "var(--garden-font-display)" }}
+      >
         Host your community — apply
       </div>
-      <p style={{ marginTop: 8, fontSize: 14.5, lineHeight: 1.5, color: "var(--g-muted)" }}>
+      <p className="mt-2 text-sm leading-relaxed" style={{ color: "var(--garden-muted)" }}>
         Hosting is free. New communities open around November.
       </p>
     </Link>
@@ -108,53 +116,46 @@ export default function CommunitiesIndex() {
     | CommunityRow[]
     | undefined;
 
-  if (communities === undefined) {
-    return (
-      <GardenPage wide>
-        <GardenNav active="Communities" />
-        <div style={{ marginTop: 28 }}>
-          <GardenLoading />
-        </div>
-      </GardenPage>
-    );
-  }
-
   return (
-    <GardenPage wide>
-      <GardenNav active="Communities" />
-      <div style={{ marginTop: 28, marginBottom: 24 }}>
-        <h1 className="g-h" style={{ fontSize: "clamp(28px,5vw,40px)" }}>
+    <div className="min-h-screen bg-[var(--garden-ink)]">
+      <link rel="stylesheet" href="/tokens.css" />
+      <link rel="stylesheet" href="/about/fonts/fonts.css" />
+      <div className="p-4 sm:p-6 max-w-7xl mx-auto">
+        <h1
+          className="text-2xl sm:text-3xl font-semibold text-[var(--garden-paper)] mb-1"
+          style={{ fontFamily: "var(--garden-font-display)" }}
+        >
           Communities
         </h1>
-        <p style={{ marginTop: 10, fontSize: 15, lineHeight: 1.5, maxWidth: "58ch" }}>
-          Named groups on creatives.exchange — each with its own tables,
-          events, and projects. Join free.
+        <p className="text-[var(--garden-body)] mb-6">
+          Named groups on creatives.exchange — each with its own tables, events, and projects. Join free.
         </p>
-      </div>
 
-      {communities.length === 0 ? (
-        <div style={{ maxWidth: 460 }}>
-          <p style={{ fontSize: 14.5, lineHeight: 1.6 }}>
-            No communities are open yet.
-          </p>
-          <div style={{ marginTop: 16 }}>
+        {communities === undefined ? (
+          <div className="flex items-center justify-center py-24">
+            <div
+              className="h-8 w-8 rounded-full border-2 border-t-transparent animate-spin"
+              style={{ borderColor: "var(--garden-citron)", borderTopColor: "transparent" }}
+            />
+          </div>
+        ) : communities.length === 0 ? (
+          <div className="max-w-md">
+            <p className="text-sm" style={{ color: "var(--garden-dim)" }}>
+              No communities are open yet.
+            </p>
+            <div className="mt-4">
+              <HostCTACard />
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {communities.map((c) => (
+              <CommunityCard key={c._id} community={c} />
+            ))}
             <HostCTACard />
           </div>
-        </div>
-      ) : (
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))",
-            gap: 14,
-          }}
-        >
-          {communities.map((c) => (
-            <CommunityCard key={c._id} community={c} />
-          ))}
-          <HostCTACard />
-        </div>
-      )}
-    </GardenPage>
+        )}
+      </div>
+    </div>
   );
 }

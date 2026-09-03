@@ -129,90 +129,67 @@ export function communityNameFor(
   return fromRows ?? slug;
 }
 
-const CHIP_STYLE_APP = "px-3 py-1.5 rounded-lg text-[13px] font-medium uppercase tracking-[0.06em] whitespace-nowrap transition-colors";
-
-/** Renders nothing when the signed-in user has no active communities. */
-export function CommunityFilterChips({
+/**
+ * The quiet one-line replacement for the old chip row (community-ux.md §2/§6):
+ * "In {name}. Show everything" — plain text + link, not a control (the
+ * control is the sidebar CommunitySwitcher now). Renders nothing when
+ * `selected === "all"`. `rows` is the page's already-fetched list, used as a
+ * last-resort name lookup for a community the viewer isn't a member of (a
+ * deep-linked `?community=` slug) — same fallback communityNameFor always had.
+ */
+export function CommunityContextLine({
   selected,
-  onSelect,
+  setSelected,
   communities,
+  rows,
   variant,
 }: {
   selected: string;
-  onSelect: (slug: string) => void;
+  setSelected: (slug: string) => void;
   communities: CommunitySummary[];
+  rows?: readonly { community?: { name: string; slug: string } | null }[];
   variant: "garden" | "app";
 }) {
-  if (communities.length === 0) return null;
+  if (selected === ALL) return null;
+  const name = communityNameFor(selected, communities, rows);
 
   if (variant === "garden") {
     return (
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+      <p className="g-hint" style={{ marginBottom: 16 }}>
+        In {name}.{" "}
         <button
           type="button"
-          className="g-demo-chip"
-          data-active={selected === ALL}
-          aria-pressed={selected === ALL}
-          onClick={() => onSelect(ALL)}
+          onClick={() => setSelected(ALL)}
+          className="g-mono"
+          style={{
+            color: "var(--g-citron)",
+            background: "none",
+            border: "none",
+            padding: 0,
+            cursor: "pointer",
+            textDecoration: "underline",
+          }}
         >
-          All
+          Show everything
         </button>
-        {communities.map((c) => (
-          <button
-            key={c._id}
-            type="button"
-            className="g-demo-chip"
-            data-active={selected === c.slug}
-            aria-pressed={selected === c.slug}
-            onClick={() => onSelect(c.slug)}
-          >
-            {c.name}
-            {c.isHome && (
-              <span aria-hidden="true" style={{ marginLeft: 5, opacity: 0.7 }}>
-                ⌂
-              </span>
-            )}
-          </button>
-        ))}
-      </div>
+      </p>
     );
   }
 
   return (
-    <div className="flex flex-wrap gap-2">
+    <p
+      className="text-sm mb-6"
+      style={{ color: "var(--garden-dim)", fontFamily: "var(--garden-font-body)" }}
+    >
+      In {name}.{" "}
       <button
         type="button"
-        onClick={() => onSelect(ALL)}
-        className={CHIP_STYLE_APP}
-        style={{
-          fontFamily: "var(--garden-font-body)",
-          backgroundColor: selected === ALL ? "var(--garden-citron)" : "var(--garden-ink-raised)",
-          color: selected === ALL ? "var(--garden-ink)" : "var(--garden-muted)",
-        }}
+        onClick={() => setSelected(ALL)}
+        className="underline underline-offset-2 hover:opacity-80"
+        style={{ color: "var(--garden-citron)" }}
       >
-        All
+        Show everything
       </button>
-      {communities.map((c) => (
-        <button
-          key={c._id}
-          type="button"
-          onClick={() => onSelect(c.slug)}
-          className={CHIP_STYLE_APP}
-          style={{
-            fontFamily: "var(--garden-font-body)",
-            backgroundColor:
-              selected === c.slug ? "var(--garden-citron)" : "var(--garden-ink-raised)",
-            color: selected === c.slug ? "var(--garden-ink)" : "var(--garden-muted)",
-          }}
-        >
-          {c.name}
-          {c.isHome && (
-            <span aria-hidden="true" style={{ marginLeft: 5, opacity: 0.7 }}>
-              ⌂
-            </span>
-          )}
-        </button>
-      ))}
-    </div>
+    </p>
   );
 }
