@@ -135,6 +135,137 @@ function EmptyRow({ children }: { children: React.ReactNode }) {
   );
 }
 
+// ————— Communities section —————
+
+function CommunitiesSection({
+  applications,
+}: {
+  applications: {
+    _id: string;
+    name: string;
+    slug: string;
+    tagline?: string;
+    status: string;
+    applicantNote?: string;
+    ownerName?: string;
+    memberCount: number;
+  }[];
+}) {
+  const reviewCommunity = useMutation(api.garden.communities.reviewCommunity);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [status, setStatus] = useState<Status>(null);
+
+  async function act(hostOrgId: string, decision: "approve" | "decline" | "archive") {
+    setBusyId(hostOrgId);
+    setStatus(null);
+    try {
+      await reviewCommunity({ hostOrgId: hostOrgId as Id<"hostOrgs">, decision });
+      setStatus({
+        kind: "ok",
+        text: `Community ${decision === "approve" ? "approved" : decision === "decline" ? "declined" : "archived"}.`,
+      });
+    } catch (err) {
+      setStatus({ kind: "err", text: reasonFor(err, "Couldn't update that community — try again.") });
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  const pending = applications.filter((a) => a.status === "pending");
+  const active = applications.filter((a) => a.status === "active");
+
+  return (
+    <section style={{ marginTop: 40 }}>
+      <h2 className="g-h" style={{ fontSize: "clamp(20px,3.5vw,26px)" }}>
+        Communities
+      </h2>
+      <p className="g-hint" style={{ marginTop: 4 }}>
+        Self-serve host applications — approve to list, decline to close them out.
+      </p>
+
+      <div style={{ marginTop: 16 }}>
+        <div className="g-label" style={{ marginBottom: 10 }}>
+          Pending applications ({pending.length})
+        </div>
+        {pending.length === 0 ? (
+          <EmptyRow>Nothing waiting on review.</EmptyRow>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {pending.map((a) => (
+              <div key={a._id} className="g-cell" style={{ padding: "12px 14px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+                  <span style={{ color: "var(--g-paper)", fontWeight: 600, fontSize: 14.5 }}>{a.name}</span>
+                  <span className="g-badge g-badge-line">{a.status}</span>
+                </div>
+                <div className="g-hint" style={{ marginTop: 6 }}>
+                  {a.ownerName ? `${a.ownerName} · ` : ""}
+                  {a.memberCount} member{a.memberCount === 1 ? "" : "s"}
+                  {a.tagline ? ` · ${a.tagline}` : ""}
+                </div>
+                {a.applicantNote && (
+                  <p className="g-hint" style={{ marginTop: 6, fontStyle: "italic" }}>
+                    "{a.applicantNote}"
+                  </p>
+                )}
+                <div style={{ marginTop: 10, display: "flex", gap: 8 }}>
+                  <button
+                    className="g-btn g-btn-citron"
+                    disabled={busyId === a._id}
+                    onClick={() => act(a._id, "approve")}
+                  >
+                    Approve
+                  </button>
+                  <button
+                    className="g-btn g-btn-ghost"
+                    disabled={busyId === a._id}
+                    onClick={() => act(a._id, "decline")}
+                  >
+                    Decline
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div style={{ marginTop: 24 }}>
+        <div className="g-label" style={{ marginBottom: 10 }}>
+          Active communities ({active.length})
+        </div>
+        {active.length === 0 ? (
+          <EmptyRow>None approved yet.</EmptyRow>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {active.map((a) => (
+              <div key={a._id} className="g-cell" style={{ padding: "12px 14px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+                  <span style={{ color: "var(--g-paper)", fontWeight: 600, fontSize: 14.5 }}>{a.name}</span>
+                  <Link to={`/communities/${a.slug}`} className="g-hint">
+                    View →
+                  </Link>
+                </div>
+                <div className="g-hint" style={{ marginTop: 6 }}>
+                  {a.memberCount} member{a.memberCount === 1 ? "" : "s"}
+                </div>
+                <button
+                  className="g-btn g-btn-ghost"
+                  disabled={busyId === a._id}
+                  style={{ marginTop: 10 }}
+                  onClick={() => act(a._id, "archive")}
+                >
+                  Archive
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+      <StatusLine status={status} />
+    </section>
+  );
+}
+
 // ————— Tables section —————
 
 const TABLE_MODES = ["open", "member", "cohort"] as const;
@@ -636,6 +767,7 @@ export default function AdminGardenPage() {
   const profile = useQuery(api.profiles.getMyProfile);
   const data = useQuery(api.garden.operator.listOperatorData);
   const projects = useQuery(api.garden.operator.listProjectsForAllocation);
+  const communityApps = useQuery(api.garden.communities.listCommunityApplications);
 
   if (profile === undefined) {
     return (
@@ -669,12 +801,13 @@ export default function AdminGardenPage() {
         </Link>
       </div>
 
-      {data === undefined || projects === undefined ? (
+      {data === undefined || projects === undefined || communityApps === undefined ? (
         <div style={{ marginTop: 28 }}>
           <GardenLoading />
         </div>
       ) : (
         <>
+          <CommunitiesSection applications={communityApps} />
           <TablesSection hostOrgs={data.hostOrgs} tables={data.tables} />
           <SessionsSection
             tables={data.tables.map((t) => ({ _id: t._id, name: t.name, slug: t.slug }))}

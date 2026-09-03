@@ -19,6 +19,7 @@ const primaryNavItems = [
   { path: "/search", label: "People", icon: SearchIcon },
   { path: "/events", label: "Events", icon: CalendarIcon },
   { path: "/offerings", label: "Classes", icon: ClassesIcon },
+  { path: "/communities", label: "Communities", icon: UsersIcon },
 ];
 const secondaryNavItems = [
   { path: "/favorites", label: "Favorites", icon: HeartIcon },
@@ -288,6 +289,24 @@ function ClassesIcon({ className }: { className?: string }) {
         strokeLinejoin="round"
         strokeWidth={2}
         d="M12 6L3 10l9 4 9-4-9-4zM6.5 12.5V17c0 1 2.5 3 5.5 3s5.5-2 5.5-3v-4.5"
+      />
+    </svg>
+  );
+}
+
+function UsersIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-5.13a4 4 0 11-8 0 4 4 0 018 0zm6 3a4 4 0 10-2.24-7.32"
       />
     </svg>
   );

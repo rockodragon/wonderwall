@@ -136,6 +136,9 @@ export default function GardenIndex() {
           <Link to="/garden/events" className="g-btn g-btn-ghost">
             See what's happening
           </Link>
+          <Link to="/communities" className="g-btn g-btn-ghost">
+            Browse communities
+          </Link>
         </div>
       </div>
 
