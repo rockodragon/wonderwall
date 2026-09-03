@@ -68,7 +68,13 @@ npx convex run garden/devSeed:seedCommunityLaunch --prod   # once ready to go li
 ```
 
 Idempotent. Ensures the `creatives-exchange` platform row, re-kinds/patches
-`the-garden` to `kind: "community"`, and ensures `abiding-practice`.
+`the-garden` to `kind: "community"` (with its tagline, description, and
+location), ensures `abiding-practice`, and makes every admin account a
+**host** of The Garden. To name the hosts explicitly instead:
+
+```
+npx convex run garden/devSeed:seedCommunityLaunch '{"hostEmails":["you@example.com"]}'
+```
 
 ## 5. Confirm the webhook
 

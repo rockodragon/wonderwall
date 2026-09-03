@@ -11,6 +11,7 @@
 // idempotent call — prefer it over seedHostOrg on a fresh deployment.
 import { v } from "convex/values";
 import { internalMutation } from "../_generated/server";
+import type { Id } from "../_generated/dataModel";
 import { COMMUNITY_KIND, PLATFORM_ORG_SLUG } from "./communities";
 
 // Kept working for existing callers/scripts, but now creates "the-garden"
@@ -375,8 +376,11 @@ export const seedFirstTableEvent = internalMutation({
 //   npx convex run garden/devSeed:seedCommunityLaunch
 //   npx convex run garden/devSeed:seedCommunityLaunch --prod
 export const seedCommunityLaunch = internalMutation({
-  args: {},
-  handler: async (ctx) => {
+  // hostEmails: who runs The Garden. Defaults to every admin profile, so
+  // the operator's own account becomes the first host with no extra step.
+  //   npx convex run garden/devSeed:seedCommunityLaunch '{"hostEmails":["rick@example.com"]}'
+  args: { hostEmails: v.optional(v.array(v.string())) },
+  handler: async (ctx, args) => {
     const now = Date.now();
     const created: string[] = [];
     const found: string[] = [];
@@ -409,17 +413,76 @@ export const seedCommunityLaunch = internalMutation({
     const gardenPatch = {
       name: "The Garden",
       kind: COMMUNITY_KIND,
-      tagline: "Kingdom creatives",
+      tagline: "Kingdom creatives — the first community on creatives.exchange",
+      description:
+        "A community of Kingdom-minded creatives getting their work funded, finding collaborators, and gathering around real tables — in San Diego and wherever the next table opens. Free to join. Half of every seat funds another creative's project.",
+      locationLabel: "San Diego · online",
       status: "active",
       visibility: "public",
       joinPolicy: "open",
     } as const;
+    let gardenId;
     if (!garden) {
-      await ctx.db.insert("hostOrgs", { ...gardenPatch, slug: "the-garden", createdAt: now });
+      gardenId = await ctx.db.insert("hostOrgs", { ...gardenPatch, slug: "the-garden", createdAt: now });
       created.push("hostOrgs:the-garden");
     } else {
-      await ctx.db.patch(garden._id, gardenPatch);
+      gardenId = garden._id;
+      // Copy the community fields only where the row has none — a host who
+      // has edited the page keeps their words; the structural fields
+      // (kind/status/visibility/joinPolicy) always converge.
+      await ctx.db.patch(garden._id, {
+        name: garden.name || gardenPatch.name,
+        kind: gardenPatch.kind,
+        status: gardenPatch.status,
+        visibility: gardenPatch.visibility,
+        joinPolicy: garden.joinPolicy ?? gardenPatch.joinPolicy,
+        tagline: garden.tagline ?? gardenPatch.tagline,
+        description: garden.description ?? gardenPatch.description,
+        locationLabel: garden.locationLabel ?? gardenPatch.locationLabel,
+      });
       found.push("hostOrgs:the-garden");
+    }
+
+    // The Garden's hosts: the given emails, else every admin. Idempotent —
+    // an existing member row is promoted to host, never duplicated.
+    let hostUserIds: Id<"users">[] = [];
+    if (args.hostEmails && args.hostEmails.length > 0) {
+      for (const email of args.hostEmails) {
+        const user = await ctx.db
+          .query("users")
+          .withIndex("email", (q) => q.eq("email", email.trim().toLowerCase()))
+          .first();
+        if (user) hostUserIds.push(user._id);
+        else found.push(`no user for ${email}`);
+      }
+    } else {
+      const admins = (await ctx.db.query("profiles").collect()).filter((p) => p.isAdmin === true);
+      hostUserIds = admins.map((p) => p.userId);
+    }
+    for (const userId of hostUserIds) {
+      const existing = await ctx.db
+        .query("communityMembers")
+        .withIndex("by_hostOrgId_userId", (q) => q.eq("hostOrgId", gardenId).eq("userId", userId))
+        .unique();
+      if (existing) {
+        if (existing.role !== "host" || existing.status !== "active") {
+          await ctx.db.patch(existing._id, { role: "host", status: "active" });
+        }
+        found.push(`host:${String(userId)}`);
+      } else {
+        await ctx.db.insert("communityMembers", {
+          hostOrgId: gardenId,
+          userId,
+          role: "host",
+          status: "active",
+          joinedAt: now,
+        });
+        created.push(`host:${String(userId)}`);
+      }
+    }
+    const gardenOrg = await ctx.db.get(gardenId);
+    if (gardenOrg && !gardenOrg.ownerUserId && hostUserIds[0]) {
+      await ctx.db.patch(gardenId, { ownerUserId: hostUserIds[0] });
     }
 
     // Abiding Practice — the one real org partner today.
