@@ -16,7 +16,8 @@ export type Capability =
   | "table.create"
   | "seat.cover"
   | "fellowship.fund"
-  | "project.pledge";
+  | "project.pledge"
+  | "community.create";
 
 export interface GardenUser {
   id: string;
@@ -136,6 +137,17 @@ export function can(user: GardenUser, capability: Capability): CanResult {
         reason:
           "Tables are ongoing rosters run by hosts. Creating one requires the Leader tier.",
         upgradePath: HOST_PATH,
+      };
+
+    case "community.create":
+      // Hosting is free (Aug 31 model): any signed-in account may APPLY to
+      // host a community; operators approve before it's listed
+      // (docs/features/community-groups.md §0). Only a visitor is denied.
+      if (level !== "visitor") return { allowed: true };
+      return {
+        allowed: false,
+        reason: "Sign in (free) to apply to host a community.",
+        upgradePath: "Create a free account",
       };
 
     case "seat.cover":

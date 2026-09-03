@@ -42,6 +42,7 @@ const MATRIX: [Capability, [boolean, boolean, boolean, boolean, boolean, boolean
   ["seat.cover",             [false, false, false, false, false, true,  true]],
   ["fellowship.fund",        [false, false, false, false, false, true,  true]],
   ["project.pledge",         [false, false, false, false, false, true,  true]],
+  ["community.create",       [false, true,  true,  true,  true,  true,  true]],
 ];
 
 const COLUMNS: [string, GardenUser][] = [
