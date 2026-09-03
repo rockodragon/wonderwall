@@ -9,6 +9,7 @@
  */
 
 import type * as admin from "../admin.js";
+import type * as adminEmails from "../adminEmails.js";
 import type * as analytics from "../analytics.js";
 import type * as announcements from "../announcements.js";
 import type * as artifacts from "../artifacts.js";
@@ -40,9 +41,9 @@ import type * as garden_interestsMigration from "../garden/interestsMigration.js
 import type * as garden_jobsMigration from "../garden/jobsMigration.js";
 import type * as garden_memberships from "../garden/memberships.js";
 import type * as garden_operator from "../garden/operator.js";
+import type * as garden_products from "../garden/products.js";
 import type * as garden_profileInterestsFieldMigration from "../garden/profileInterestsFieldMigration.js";
 import type * as garden_projectOriginMigration from "../garden/projectOriginMigration.js";
-import type * as garden_products from "../garden/products.js";
 import type * as garden_projects from "../garden/projects.js";
 import type * as garden_projectsPublic from "../garden/projectsPublic.js";
 import type * as garden_reports from "../garden/reports.js";
@@ -80,6 +81,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   admin: typeof admin;
+  adminEmails: typeof adminEmails;
   analytics: typeof analytics;
   announcements: typeof announcements;
   artifacts: typeof artifacts;
@@ -111,9 +113,9 @@ declare const fullApi: ApiFromModules<{
   "garden/jobsMigration": typeof garden_jobsMigration;
   "garden/memberships": typeof garden_memberships;
   "garden/operator": typeof garden_operator;
+  "garden/products": typeof garden_products;
   "garden/profileInterestsFieldMigration": typeof garden_profileInterestsFieldMigration;
   "garden/projectOriginMigration": typeof garden_projectOriginMigration;
-  "garden/products": typeof garden_products;
   "garden/projects": typeof garden_projects;
   "garden/projectsPublic": typeof garden_projectsPublic;
   "garden/reports": typeof garden_reports;
