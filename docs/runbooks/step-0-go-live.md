@@ -83,6 +83,13 @@ events are enabled: `checkout.session.completed`,
 `customer.subscription.created`, `customer.subscription.updated`,
 `customer.subscription.deleted`, `invoice.paid`.
 
+## 5b. Turn on the customer portal
+
+Stripe dashboard → Settings → Billing → **Customer portal** (test mode) →
+enable it and allow: cancel subscriptions, update payment method, invoice
+history. The "Manage billing" button in Settings opens this portal;
+cancellations flow back through the existing subscription webhooks.
+
 ## 6. Acceptance test
 
 1. Run a **test-mode** $10 checkout from `/join` (card `4242 4242 4242
