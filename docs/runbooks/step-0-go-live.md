@@ -76,6 +76,23 @@ location), ensures `abiding-practice`, and makes every admin account a
 npx convex run garden/devSeed:seedCommunityLaunch '{"hostEmails":["you@example.com"]}'
 ```
 
+## 4b. Stale data (if `npx convex dev` says "Schema validation failed")
+
+Rows written before a field rename block the schema push. Temporarily set
+schema validation off — change the last line of `convex/schema.ts` from
+`});` to `}, { schemaValidation: false });` — then run, in order:
+
+```
+npx convex dev --once
+npx convex run garden/profileInterestsFieldMigration:migrateProfileInterestsField
+npx convex run garden/waitlistHostFieldMigration:migrateWaitlistHostField
+```
+
+Restore the last line to `});` and run `npx convex dev` again. Repeat for
+any other table it names (there is a migration per rename under
+`convex/garden/*Migration.ts`). Run the same two migrations with `--prod`
+before the first production deploy of this branch.
+
 ## 5. Confirm the webhook
 
 Stripe dashboard → Developers → Webhooks → your endpoint → confirm all five
