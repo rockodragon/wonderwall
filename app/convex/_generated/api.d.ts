@@ -45,6 +45,7 @@ import type * as garden_projectOriginMigration from "../garden/projectOriginMigr
 import type * as garden_products from "../garden/products.js";
 import type * as garden_projects from "../garden/projects.js";
 import type * as garden_projectsPublic from "../garden/projectsPublic.js";
+import type * as garden_reports from "../garden/reports.js";
 import type * as garden_stories from "../garden/stories.js";
 import type * as garden_stripe from "../garden/stripe.js";
 import type * as garden_stripeHandlers from "../garden/stripeHandlers.js";
@@ -114,6 +115,7 @@ declare const fullApi: ApiFromModules<{
   "garden/products": typeof garden_products;
   "garden/projects": typeof garden_projects;
   "garden/projectsPublic": typeof garden_projectsPublic;
+  "garden/reports": typeof garden_reports;
   "garden/stories": typeof garden_stories;
   "garden/stripe": typeof garden_stripe;
   "garden/stripeHandlers": typeof garden_stripeHandlers;
