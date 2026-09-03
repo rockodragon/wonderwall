@@ -100,3 +100,13 @@ Exit (to run after step 0): a test-mode $10 seat yields an active membership and
 - **Public copy still contradicts the model** in `garden._index.tsx` and `join.tsx` ("waived once a table charges," "half of every membership"). Step 2 replaces `/join`; the landing copy is a one-line fix to do at the same time.
 - **If pay-what-you-want ever ships, it needs an in-app "change my amount" path** (the Stripe portal can't edit ad-hoc prices). One more reason it is deferred.
 - **Webhook coverage.** Dues shares depend on `invoice.paid` being enabled on the Stripe endpoint (the bootstrap script does this). The nightly reconcile sweep repairs membership state, not invoices; a missed invoice event is an operator adjustment.
+
+## 7 · Line items for sale, and the operator ledger (added 2026-09-03, evening)
+
+**A community sells products.** Any number, each at its own price, one-time or monthly: a premium circle, a resource bundle, a cohort seat. Each product carries gated **resources** (private links) that only a buyer with current access, the community's hosts, or an operator ever receive; the public listing shows the count, never the links. Hosts manage products from their community page. Buyers check out on the platform's Stripe; monthly products require sign-in so the subscription follows the account.
+
+**Money on a sale.** Host 90% / platform 10% including processing, the published split for anything a host sells, recorded on every `productPurchases` row (one row per payment: the checkout, then each renewal invoice). The host share accrues as **owed**; there is no payout rail until Stripe Connect, so an operator records each manual transfer as a `hostPayouts` row and the owed figure nets it out. Access follows the row: one-time purchases are forever, subscriptions lapse a week after their last paid period unless renewed.
+
+**The operator ledger, `/admin/ledger`.** One page that answers the money questions from the tables that already exist: fees collected by source and by month (dues shares, pool contributions, host sales; event tickets show gross with "split not recorded"), pool balances per organization, host earnings and payouts owed per community with a record-payout form, members per community broken down by platform seat level (free, seat, five, Leader, covered, home), platform-wide seats and coverage codes, and a recent money-events feed. Hosts see their own slice on their community page.
+
+**Not in this round.** Refunds still need an operator adjustment; there is no self-serve cancel for monthly products (Stripe's portal handles it once the billing portal action exists); tickets keep their pre-existing no-split record.
