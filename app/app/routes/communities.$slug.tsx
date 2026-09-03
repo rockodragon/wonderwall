@@ -486,12 +486,26 @@ function MemberRoster({ hostOrgId, isOwner }: { hostOrgId: Id<"hostOrgs">; isOwn
 
 // ————— Sections —————
 
-function TablesSection({ tables }: { tables: Community["tables"] }) {
+// The same rule ProductsSection already applies below: an empty section is a
+// dead-end for a random visitor (four stacked "nothing yet" blocks read as
+// broken, not new), so it's simply not rendered for them. A manager still
+// sees it, with a link straight to the create flow instead of a bare
+// sentence — the empty state is useful information for the one person who
+// can act on it.
+function TablesSection({
+  tables,
+  canManage,
+}: {
+  tables: Community["tables"];
+  canManage: boolean;
+  slug: string;
+}) {
+  if (tables.length === 0 && !canManage) return null;
   return (
     <div className="mt-7">
       <SectionLabel>Tables</SectionLabel>
       {tables.length === 0 ? (
-        <div className="mt-2.5"><Hint>No tables here yet.</Hint></div>
+        <div className="mt-2.5"><Hint>No tables here yet. Tables are hand-created for now — message us to set one up.</Hint></div>
       ) : (
         <div className="mt-3 flex flex-col gap-2">
           {tables.map((t) => (
@@ -509,12 +523,26 @@ function TablesSection({ tables }: { tables: Community["tables"] }) {
   );
 }
 
-function EventsSection({ events }: { events: Community["events"] }) {
+function EventsSection({
+  events,
+  canManage,
+  slug,
+}: {
+  events: Community["events"];
+  canManage: boolean;
+  slug: string;
+}) {
+  if (events.length === 0 && !canManage) return null;
   return (
     <div className="mt-7">
       <SectionLabel>Upcoming events</SectionLabel>
       {events.length === 0 ? (
-        <div className="mt-2.5"><Hint>Nothing scheduled yet.</Hint></div>
+        <div className="mt-2.5">
+          <Hint>Nothing scheduled yet.</Hint>{" "}
+          <Link to={`/events?community=${slug}`} className="text-sm" style={{ color: "var(--garden-citron)" }}>
+            Put one on →
+          </Link>
+        </div>
       ) : (
         <div className="mt-3 flex flex-col gap-2">
           {events.map((e) => (
@@ -532,12 +560,26 @@ function EventsSection({ events }: { events: Community["events"] }) {
   );
 }
 
-function ProjectsSection({ projects }: { projects: Community["projects"] }) {
+function ProjectsSection({
+  projects,
+  canManage,
+  slug,
+}: {
+  projects: Community["projects"];
+  canManage: boolean;
+  slug: string;
+}) {
+  if (projects.length === 0 && !canManage) return null;
   return (
     <div className="mt-7">
       <SectionLabel>Projects</SectionLabel>
       {projects.length === 0 ? (
-        <div className="mt-2.5"><Hint>No projects posted here yet.</Hint></div>
+        <div className="mt-2.5">
+          <Hint>No projects posted here yet.</Hint>{" "}
+          <Link to={`/projects?community=${slug}`} className="text-sm" style={{ color: "var(--garden-citron)" }}>
+            Post the first one →
+          </Link>
+        </div>
       ) : (
         <div className="mt-3 flex flex-col gap-2">
           {projects.map((p) => (
@@ -553,12 +595,26 @@ function ProjectsSection({ projects }: { projects: Community["projects"] }) {
   );
 }
 
-function OfferingsSection({ offerings }: { offerings: Community["offerings"] }) {
+function OfferingsSection({
+  offerings,
+  canManage,
+  slug,
+}: {
+  offerings: Community["offerings"];
+  canManage: boolean;
+  slug: string;
+}) {
+  if (offerings.length === 0 && !canManage) return null;
   return (
     <div className="mt-7">
       <SectionLabel>Classes &amp; coaching</SectionLabel>
       {offerings.length === 0 ? (
-        <div className="mt-2.5"><Hint>Nothing offered here yet.</Hint></div>
+        <div className="mt-2.5">
+          <Hint>Nothing offered here yet.</Hint>{" "}
+          <Link to={`/offerings?community=${slug}`} className="text-sm" style={{ color: "var(--garden-citron)" }}>
+            Post one →
+          </Link>
+        </div>
       ) : (
         <div className="mt-3 flex flex-col gap-2">
           {offerings.map((o) => (
@@ -1173,10 +1229,10 @@ export default function CommunityDetailPage() {
         <JoinControl community={community} />
       </div>
 
-      <TablesSection tables={community.tables} />
-      <EventsSection events={community.events} />
-      <ProjectsSection projects={community.projects} />
-      <OfferingsSection offerings={community.offerings} />
+      <TablesSection tables={community.tables} canManage={community.viewer.canManage} slug={community.slug} />
+      <EventsSection events={community.events} canManage={community.viewer.canManage} slug={community.slug} />
+      <ProjectsSection projects={community.projects} canManage={community.viewer.canManage} slug={community.slug} />
+      <OfferingsSection offerings={community.offerings} canManage={community.viewer.canManage} slug={community.slug} />
 
       <ProductsSection
         hostOrgId={community._id}

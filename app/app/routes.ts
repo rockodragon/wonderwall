@@ -56,6 +56,7 @@ export default [
     route("search", "routes/search.tsx"),
     route("projects", "routes/projects.tsx"),
     route("offerings", "routes/offerings.tsx"),
+    route("offerings/:offeringId", "routes/offerings.$id.tsx"),
     route("works", "routes/works.tsx"),
     route("works/:artifactId", "routes/work.tsx"),
     route("events", "routes/events.tsx"),
