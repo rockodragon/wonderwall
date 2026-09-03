@@ -17,7 +17,13 @@ import { useConvexAuth } from "convex/react";
 import { Link, useLocation } from "react-router";
 import { communityNameFor, useCommunityContext } from "./CommunityFilter";
 
-const ALL_LABEL = "All of creatives.exchange";
+// The no-community-selected value is the platform's own name: you are always
+// somewhere, and when you haven't picked a community that somewhere is
+// creatives.exchange itself (the commons — community-groups.md §0). The
+// control is labelled "Community" so the name below it reads as a value, not
+// as a stray brand mark.
+const ALL_LABEL = "creatives.exchange";
+const ALL_HINT = "Everything, every community";
 
 export function CommunitySwitcher() {
   const { isAuthenticated } = useConvexAuth();
@@ -66,12 +72,21 @@ export function CommunitySwitcher() {
         type="button"
         aria-haspopup="menu"
         aria-expanded={open}
+        aria-label={`Community: ${label}`}
+        title={label}
         onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center justify-between gap-2 px-3 py-2 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+        className="flex w-full items-center justify-between gap-2 px-3 py-2 rounded-lg text-left hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
       >
-        <span className="truncate flex items-center gap-1.5">
-          {selectedCommunity?.isHome && <span aria-hidden="true">⌂</span>}
-          {label}
+        {/* min-w-0 lets the value actually truncate instead of overflowing the
+            256px rail — the old single-line label clipped mid-word. */}
+        <span className="min-w-0">
+          <span className="block text-xs uppercase tracking-[0.08em] text-gray-500 dark:text-gray-400">
+            Community
+          </span>
+          <span className="mt-0.5 flex items-center gap-1.5 text-sm font-medium text-gray-800 dark:text-gray-200">
+            {selectedCommunity?.isHome && <span aria-hidden="true">⌂</span>}
+            <span className="truncate">{label}</span>
+          </span>
         </span>
         <ChevronIcon
           className={`w-3.5 h-3.5 shrink-0 text-gray-400 transition-transform ${open ? "rotate-180" : ""}`}
@@ -91,7 +106,12 @@ export function CommunitySwitcher() {
               setOpen(false);
             }}
           >
-            {ALL_LABEL}
+            <span className="block">
+              {ALL_LABEL}
+              <span className="block text-xs font-normal text-gray-500 dark:text-gray-400">
+                {ALL_HINT}
+              </span>
+            </span>
           </MenuItem>
           {communities.map((c) => (
             <MenuItem
@@ -115,15 +135,15 @@ export function CommunitySwitcher() {
             to="/communities"
             role="menuitem"
             onClick={() => setOpen(false)}
-            className="block px-3 py-1.5 text-sm text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
+            className="block px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
           >
-            Browse all communities →
+            Browse communities →
           </Link>
           <Link
             to="/communities/apply"
             role="menuitem"
             onClick={() => setOpen(false)}
-            className="block px-3 py-1.5 text-sm text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
+            className="block px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
           >
             Host your own →
           </Link>

@@ -42,6 +42,7 @@ type CommunityRow = {
   name: string;
   slug: string;
   tagline?: string;
+  description?: string;
   locationLabel?: string;
   memberCount: number;
   hosts: string[];
@@ -66,6 +67,14 @@ function CommunityCard({ community }: { community: CommunityRow }) {
           {community.tagline}
         </p>
       )}
+      {/* The description is what a first-time visitor is actually reading for
+          — what this community IS. Without it the card is a name and a
+          member count, which tells a newcomer nothing. */}
+      {community.description && (
+        <p className="mt-2 text-sm leading-relaxed" style={{ color: "var(--garden-muted)" }}>
+          {community.description}
+        </p>
+      )}
       <div
         className="mt-3 text-xs uppercase tracking-[0.06em]"
         style={{ color: "var(--garden-dim)", fontFamily: "var(--garden-font-mono)" }}
@@ -76,6 +85,12 @@ function CommunityCard({ community }: { community: CommunityRow }) {
         {community.memberCount} member{community.memberCount === 1 ? "" : "s"}
         {community.hosts.length > 0 ? ` · hosted by ${community.hosts.join(", ")}` : ""}
       </p>
+      <span
+        className="mt-4 inline-block text-sm font-medium"
+        style={{ color: "var(--garden-citron)" }}
+      >
+        See inside &amp; join — free →
+      </span>
     </Link>
   );
 }
@@ -127,8 +142,10 @@ export default function CommunitiesIndex() {
         >
           Communities
         </h1>
-        <p className="text-[var(--garden-body)] mb-6">
-          Named groups on creatives.exchange — each with its own tables, events, and projects. Join free.
+        <p className="text-[var(--garden-body)] mb-6 max-w-2xl">
+          Named groups on creatives.exchange — each with its own tables, events, projects, and
+          classes. Joining is free, and you can be in as many as you like. Run a group already?
+          Host it here.
         </p>
 
         {communities === undefined ? (
