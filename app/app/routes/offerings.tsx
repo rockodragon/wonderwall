@@ -734,24 +734,29 @@ export function SignupModal({ offering, onClose }: { offering: any; onClose: () 
 
 // Create when `offering` is omitted, edit in place when it's passed — one
 // form instead of two parallel ones, prefilled from the existing record.
-// Progressive-disclosure section wrapper (founder item 4: "the edit page is
-// too busy and narrow and tall... need sections to progressively
-// disclose"). Reuses communities.$slug.tsx's HostToolsPanel <details>
+// Progressive-disclosure section wrapper (founder: "the edit page is too
+// busy and narrow and tall... need sections to progressively disclose...
+// start with top one, then allow user to open the schedule, then..."). Every
+// section is one of these now, including Basics/Schedule, which used to
+// render as a permanently-open plain box — the founder's second round of
+// feedback asked for the SAME collapse-by-default behavior everywhere, not
+// just on Tags/Location, so Basics is the only one that starts open
+// (`defaultOpen`); everything below it defaults closed on a fresh post and
+// only opens automatically in edit mode when it already holds data (see
+// scheduleDefaultOpen/pricingDefaultOpen/tagsDefaultOpen/locationDefaultOpen
+// above). `summaryExtra` is what makes a collapsed section still legible —
+// the founder specifically wants Tags to preview the actual selected names,
+// not a bare count. Reuses communities.$slug.tsx's HostToolsPanel <details>
 // convention exactly — same bordered box, same SectionLabel-style summary
 // treatment — rather than inventing a new collapsible pattern.
-// `collapsible={false}` sections (Basics, Schedule) render as a plain
-// static header instead of a <summary>, since those two are "always open,
-// not collapsible" per the spec, not just "open by default."
 function FormSection({
   label,
   children,
-  collapsible = true,
   defaultOpen = true,
   summaryExtra,
 }: {
   label: string;
   children: ReactNode;
-  collapsible?: boolean;
   defaultOpen?: boolean;
   summaryExtra?: string;
 }) {
@@ -760,17 +765,6 @@ function FormSection({
     color: "var(--garden-dim)",
     fontFamily: "var(--garden-font-mono)",
   } as const;
-
-  if (!collapsible) {
-    return (
-      <div className="rounded-xl border p-4" style={boxStyle}>
-        <div className="text-[11px] font-semibold uppercase tracking-[0.08em] mb-3.5" style={labelStyle}>
-          {label}
-        </div>
-        <div className="flex flex-col gap-4">{children}</div>
-      </div>
-    );
-  }
 
   return (
     <details className="rounded-xl border" style={boxStyle} open={defaultOpen}>
@@ -856,6 +850,28 @@ export function PostOfferingForm({
   const tagsDefaultOpen = (offering?.interests?.length ?? 0) > 0;
   const locationDefaultOpen =
     offering?.remote === false || !!offering?.photoUrl || !!offering?.photoStorageId;
+  // Same rule for the two sections that just went from "always open" to
+  // collapsible (founder: "progressively disclose... start with top one" —
+  // every section below Basics should default closed on a fresh post, and
+  // only open automatically in edit mode when it already holds real data,
+  // matching the rule Tags/Location already used.
+  const scheduleDefaultOpen = !!offering?.cadence || !!offering?.startDate;
+  const pricingDefaultOpen = !!offering?.priceCents || !!offering?.externalPaymentLinkUrl;
+
+  // Collapsed-state previews: the founder specifically wants Tags to show
+  // the actual selected names, not a bare count ("show the selected tags in
+  // the collapsed state") — same idea extended to Schedule/Pricing so every
+  // section reads at a glance without opening it, the way Location already
+  // does with its "Remote"/address summary below.
+  const TAG_SUMMARY_LIMIT = 4;
+  const tagsSummary =
+    selectedTags.length === 0
+      ? "None yet"
+      : selectedTags.length <= TAG_SUMMARY_LIMIT
+        ? selectedTags.join(", ")
+        : `${selectedTags.slice(0, TAG_SUMMARY_LIMIT).join(", ")} +${selectedTags.length - TAG_SUMMARY_LIMIT} more`;
+  const scheduleSummary = cadence.trim() || (startDateStr ? formatDateOnly(new Date(startDateStr).getTime()) : null) || "Not set yet";
+  const pricingSummary = isFree ? "Free" : price.trim() ? `$${price.trim()}` : "Not set yet";
 
   function toggleTag(tag: string) {
     setSelectedTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
@@ -1006,7 +1022,7 @@ export function PostOfferingForm({
           A recurring class, coaching slot, or workshop series — a display cadence, not a calendar system.
         </p>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <FormSection label="Basics" collapsible={false}>
+          <FormSection label="Basics" defaultOpen summaryExtra={title.trim() || "Not started"}>
             <div>
               <label className="block text-xs uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
                 Title
@@ -1065,7 +1081,7 @@ export function PostOfferingForm({
             <CommunityPicker value={hostOrgId} onChange={setHostOrgId} defaultHostOrgId={defaultHostOrgId} />
           </FormSection>
 
-          <FormSection label="Schedule" collapsible={false}>
+          <FormSection label="Schedule" defaultOpen={scheduleDefaultOpen} summaryExtra={scheduleSummary}>
             <div>
               <label className="block text-xs uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
                 Cadence
@@ -1147,7 +1163,7 @@ export function PostOfferingForm({
             </div>
           </FormSection>
 
-          <FormSection label="Pricing & registration" defaultOpen>
+          <FormSection label="Pricing & registration" defaultOpen={pricingDefaultOpen} summaryExtra={pricingSummary}>
             <div>
               <label className="flex items-center gap-2 text-sm mb-2" style={{ color: "var(--garden-body)" }}>
                 <input
@@ -1197,13 +1213,7 @@ export function PostOfferingForm({
             </div>
           </FormSection>
 
-          <FormSection
-            label="Tags"
-            defaultOpen={tagsDefaultOpen}
-            summaryExtra={
-              selectedTags.length > 0 ? `${selectedTags.length} selected` : "None yet"
-            }
-          >
+          <FormSection label="Tags" defaultOpen={tagsDefaultOpen} summaryExtra={tagsSummary}>
             <div className="flex flex-wrap gap-1.5">
               {DISCIPLINE_TAGS.map((tag) => {
                 const active = selectedTags.includes(tag);

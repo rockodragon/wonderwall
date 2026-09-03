@@ -512,3 +512,100 @@ export const seedCommunityLaunch = internalMutation({
     return { ok: true, created, found };
   },
 });
+// Local-dev-only sample content: three varied offerings so /offerings and
+// the community page aren't a permanent empty state while testing the
+// card/detail-page/form work. Idempotent by title (skips a title that
+// already exists for the seeded owner). Owner defaults to the first admin
+// profile, same convention as seedCommunityLaunch. Run:
+//   npx convex run garden/devSeed:seedTestOfferings
+export const seedTestOfferings = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const admin = (await ctx.db.query("profiles").collect()).find((p) => p.isAdmin === true);
+    if (!admin) throw new Error("No admin profile found — sign in once first.");
+
+    const garden = await ctx.db
+      .query("hostOrgs")
+      .withIndex("by_slug", (q) => q.eq("slug", "the-garden"))
+      .unique();
+
+    const now = Date.now();
+    const day = 24 * 60 * 60 * 1000;
+    const rows: Array<{
+      title: string;
+      description: string;
+      format: string;
+      cadence?: string;
+      startDate?: number;
+      isRecurring?: boolean;
+      endDate?: number;
+      priceCents?: number;
+      remote: boolean;
+      interests: string[];
+      hostOrgId?: Id<"hostOrgs">;
+    }> = [
+      {
+        title: "Weekly Life Drawing",
+        description: "Bring your own materials — model provided. Beginners welcome.",
+        format: "class",
+        cadence: "Tuesdays 6pm",
+        startDate: now + 5 * day,
+        isRecurring: true,
+        endDate: now + 90 * day,
+        priceCents: 2000,
+        remote: false,
+        interests: ["Illustration", "Art"],
+        hostOrgId: garden?._id,
+      },
+      {
+        title: "1:1 Portfolio Coaching",
+        description: "A working session on your portfolio, submissions, and next steps.",
+        format: "coaching",
+        cadence: "By appointment",
+        priceCents: 5000,
+        remote: true,
+        interests: ["Design"],
+      },
+      {
+        title: "Songwriting Workshop",
+        description: "A single Saturday session — bring a half-finished song and finish it.",
+        format: "workshop",
+        startDate: now + 12 * day,
+        remote: true,
+        interests: ["Music", "Writing"],
+      },
+    ];
+
+    const created: string[] = [];
+    const found: string[] = [];
+    for (const row of rows) {
+      const existing = await ctx.db
+        .query("offerings")
+        .filter((q) => q.eq(q.field("title"), row.title))
+        .first();
+      if (existing) {
+        found.push(row.title);
+        continue;
+      }
+      await ctx.db.insert("offerings", {
+        userId: admin.userId,
+        title: row.title,
+        description: row.description,
+        format: row.format,
+        cadence: row.cadence,
+        startDate: row.startDate,
+        isRecurring: row.isRecurring,
+        endDate: row.endDate,
+        priceCents: row.priceCents,
+        remote: row.remote,
+        interests: row.interests,
+        hostOrgId: row.hostOrgId,
+        status: "active",
+        createdAt: now,
+        updatedAt: now,
+      });
+      created.push(row.title);
+    }
+    return { ok: true, created, found };
+  },
+});
