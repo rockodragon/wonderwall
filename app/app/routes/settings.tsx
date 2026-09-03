@@ -122,6 +122,11 @@ export default function Settings() {
         )}
       </div>
 
+      {/* Your purchases */}
+      <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-800">
+        <PurchasesSection />
+      </div>
+
       {/* Artifacts section */}
       <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-800">
         <ArtifactsSection
@@ -138,6 +143,59 @@ export default function Settings() {
         >
           Sign out
         </button>
+      </div>
+    </div>
+  );
+}
+
+function formatMoneyCents(cents: number): string {
+  const dollars = cents / 100;
+  const isWhole = Number.isInteger(dollars);
+  return `$${dollars.toLocaleString("en-US", {
+    minimumFractionDigits: isWhole ? 0 : 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
+function PurchasesSection() {
+  const purchases = useQuery(api.garden.products.listMyPurchases);
+
+  if (!purchases || purchases.length === 0) return null;
+
+  return (
+    <div>
+      <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+        Your purchases
+      </h2>
+      <div className="space-y-2">
+        {purchases.map((p) => (
+          <div
+            key={p.purchaseId}
+            className="flex items-center justify-between gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-xl"
+          >
+            <div className="min-w-0">
+              <p className="font-medium text-gray-900 dark:text-white text-sm truncate">
+                {p.productName}
+              </p>
+              <Link
+                to={`/communities/${p.communitySlug}`}
+                className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+              >
+                {p.communityName}
+              </Link>
+              <span className="text-xs text-gray-400 dark:text-gray-500 ml-2">
+                {p.status}
+                {p.billing === "monthly" && p.currentPeriodEnd
+                  ? ` · renews ${new Date(p.currentPeriodEnd).toLocaleDateString()}`
+                  : ""}
+              </span>
+            </div>
+            <div className="text-sm font-semibold text-gray-900 dark:text-white whitespace-nowrap">
+              {formatMoneyCents(p.grossCents)}
+              {p.billing === "monthly" ? "/mo" : ""}
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );

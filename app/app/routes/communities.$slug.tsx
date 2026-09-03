@@ -4,11 +4,11 @@
 // three-state discipline as tables.$slug.tsx, plus a "Host tools" card for
 // viewer.canManage and a review banner while the community is pending.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
-import { useConvexAuth, useMutation, useQuery } from "convex/react";
+import { useAction, useConvexAuth, useMutation, useQuery } from "convex/react";
 import { ConvexError } from "convex/values";
-import { Link, useParams, useRouteError } from "react-router";
+import { Link, useParams, useRouteError, useSearchParams } from "react-router";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import {
@@ -80,6 +80,24 @@ type Community = {
     joinWouldBePending: boolean;
   };
 };
+
+type Product = {
+  _id: Id<"communityProducts">;
+  hostOrgId: Id<"hostOrgs">;
+  name: string;
+  description?: string;
+  benefits?: string;
+  priceCents: number;
+  billing: "one_time" | "monthly";
+  resourceCount: number;
+  status: string;
+  sortOrder: number;
+  viewer: { hasAccess: boolean; canManage: boolean };
+};
+
+function priceLabel(priceCents: number, billing: string): string {
+  return billing === "monthly" ? `${formatMoney(priceCents)}/mo` : `${formatMoney(priceCents)} one-time`;
+}
 
 // ————— Join / membership control —————
 
@@ -544,10 +562,572 @@ function OfferingsSection({ offerings }: { offerings: Community["offerings"] }) 
   );
 }
 
+function ProductResources({ productId }: { productId: Id<"communityProducts"> }) {
+  const access = useQuery(api.garden.products.getProductAccess, { productId });
+
+  if (access === undefined) {
+    return <GardenLoading label="Loading resources…" />;
+  }
+  if (!access || !access.hasAccess) return null;
+  if (access.resources.length === 0) {
+    return <p className="g-hint" style={{ marginTop: 10 }}>No resources listed yet.</p>;
+  }
+  return (
+    <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>
+      {access.resources.map((r, i) => (
+        <a
+          key={i}
+          href={r.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ fontSize: 14.5, color: "var(--g-citron)" }}
+        >
+          {r.label} →
+        </a>
+      ))}
+    </div>
+  );
+}
+
+function ProductCard({ product, slug }: { product: Product; slug: string }) {
+  const { isAuthenticated, isLoading } = useConvexAuth();
+  const createProductCheckout = useAction(api.garden.stripe.createProductCheckout);
+  const [showResources, setShowResources] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleBuy() {
+    setError(null);
+    setBusy(true);
+    try {
+      const { url } = await createProductCheckout({ productId: product._id });
+      window.location.href = url;
+    } catch (err) {
+      setError(reasonFor(err, "Couldn't start checkout — try again."));
+      setBusy(false);
+    }
+  }
+
+  const actionWord = product.billing === "monthly" ? "Join" : "Buy";
+
+  return (
+    <div className="g-card">
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+        <span className="g-h" style={{ fontSize: 18 }}>{product.name}</span>
+        {product.viewer.hasAccess && <span className="g-badge g-badge-citron">You're in</span>}
+      </div>
+      {product.description && (
+        <p style={{ marginTop: 8, fontSize: 14.5, lineHeight: 1.5 }}>{product.description}</p>
+      )}
+      {product.benefits && (
+        <p style={{ marginTop: 8, fontSize: 14.5, color: "var(--g-muted)", lineHeight: 1.5 }}>
+          {product.benefits}
+        </p>
+      )}
+      <div className="g-hint" style={{ marginTop: 10 }}>
+        {priceLabel(product.priceCents, product.billing)}
+        {product.resourceCount > 0
+          ? ` · ${product.resourceCount} private resource${product.resourceCount === 1 ? "" : "s"}`
+          : ""}
+      </div>
+
+      {product.viewer.hasAccess ? (
+        <>
+          <button
+            className="g-btn g-btn-ghost"
+            style={{ marginTop: 14 }}
+            onClick={() => setShowResources((s) => !s)}
+          >
+            {showResources ? "Hide resources" : "Show resources"}
+          </button>
+          {showResources && <ProductResources productId={product._id} />}
+        </>
+      ) : isLoading ? null : !isAuthenticated ? (
+        <Link
+          to={`/login?redirect=/communities/${slug}`}
+          className="g-btn g-btn-ghost"
+          style={{ marginTop: 14, display: "inline-block" }}
+        >
+          Sign in to {actionWord.toLowerCase()}
+        </Link>
+      ) : (
+        <>
+          <button className="g-btn g-btn-citron" style={{ marginTop: 14 }} disabled={busy} onClick={handleBuy}>
+            {busy ? "Starting checkout…" : `${actionWord} — ${formatMoney(product.priceCents)}`}
+          </button>
+          {error && <p style={{ marginTop: 8, fontSize: 14, color: "var(--g-body)" }}>{error}</p>}
+        </>
+      )}
+    </div>
+  );
+}
+
+function ProductsSection({
+  hostOrgId,
+  slug,
+  canManage,
+  purchased,
+}: {
+  hostOrgId: Id<"hostOrgs">;
+  slug: string;
+  canManage: boolean;
+  purchased: boolean;
+}) {
+  const products = useQuery(api.garden.products.listProducts, { hostOrgId }) as Product[] | undefined;
+
+  if (products === undefined) {
+    return (
+      <div style={{ marginTop: 28 }}>
+        <SectionLabel>For members</SectionLabel>
+        <div style={{ marginTop: 10 }}>
+          <GardenLoading />
+        </div>
+      </div>
+    );
+  }
+
+  if (products.length === 0 && !canManage) return null;
+
+  return (
+    <div style={{ marginTop: 28 }}>
+      <SectionLabel>For members</SectionLabel>
+      {purchased && (
+        <div className="g-card" style={{ marginTop: 12, borderColor: "var(--g-citron)", maxWidth: "50ch" }}>
+          <div className="g-label" style={{ color: "var(--g-citron)" }}>You're in</div>
+          <p style={{ marginTop: 8, fontSize: 15 }}>You're in. Your resources are below.</p>
+        </div>
+      )}
+      {products.length === 0 ? (
+        <p className="g-hint" style={{ marginTop: 10 }}>Nothing for sale here yet.</p>
+      ) : (
+        <div
+          style={{
+            marginTop: 12,
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))",
+            gap: 14,
+          }}
+        >
+          {products.map((p) => (
+            <ProductCard key={p._id} product={p} slug={slug} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ————— Host tools: products —————
+
+const PRODUCT_BILLINGS = [
+  { value: "one_time", label: "One-time" },
+  { value: "monthly", label: "Monthly" },
+] as const;
+
+function ResourceRows({
+  resources,
+  onChange,
+}: {
+  resources: { label: string; url: string }[];
+  onChange: (next: { label: string; url: string }[]) => void;
+}) {
+  function update(i: number, field: "label" | "url", value: string) {
+    const next = resources.slice();
+    next[i] = { ...next[i], [field]: value };
+    onChange(next);
+  }
+  function add() {
+    onChange([...resources, { label: "", url: "" }]);
+  }
+  function remove(i: number) {
+    onChange(resources.filter((_, idx) => idx !== i));
+  }
+
+  return (
+    <div>
+      {resources.map((r, i) => (
+        <div key={i} style={{ display: "flex", gap: 8, marginTop: 8 }}>
+          <input
+            className="g-input"
+            placeholder="Label"
+            value={r.label}
+            onChange={(e) => update(i, "label", e.target.value)}
+            style={{ flex: 1 }}
+          />
+          <input
+            className="g-input"
+            placeholder="https://…"
+            value={r.url}
+            onChange={(e) => update(i, "url", e.target.value)}
+            style={{ flex: 2 }}
+          />
+          <button type="button" className="g-btn g-btn-ghost" onClick={() => remove(i)}>
+            Remove
+          </button>
+        </div>
+      ))}
+      <button type="button" className="g-btn g-btn-ghost" style={{ marginTop: 8 }} onClick={add}>
+        + Add resource
+      </button>
+    </div>
+  );
+}
+
+function CreateProductForm({ hostOrgId }: { hostOrgId: Id<"hostOrgs"> }) {
+  const createProduct = useMutation(api.garden.products.createProduct);
+  const [name, setName] = useState("");
+  const [priceDollars, setPriceDollars] = useState("");
+  const [billing, setBilling] = useState<(typeof PRODUCT_BILLINGS)[number]["value"]>("one_time");
+  const [benefits, setBenefits] = useState("");
+  const [description, setDescription] = useState("");
+  const [resources, setResources] = useState<{ label: string; url: string }[]>([]);
+  const [status, setStatus] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function onSubmit(e: FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setStatus(null);
+    try {
+      const priceCents = Math.round(parseFloat(priceDollars || "0") * 100);
+      await createProduct({
+        hostOrgId,
+        name,
+        description: description.trim() || undefined,
+        benefits: benefits.trim() || undefined,
+        priceCents,
+        billing,
+        resources: resources.filter((r) => r.label.trim() && r.url.trim()),
+      });
+      setStatus({ kind: "ok", text: `"${name}" created.` });
+      setName("");
+      setPriceDollars("");
+      setBenefits("");
+      setDescription("");
+      setResources([]);
+    } catch (err) {
+      setStatus({ kind: "err", text: reasonFor(err, "Couldn't create the product — try again.") });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <form onSubmit={onSubmit}>
+      <label className="g-label" style={{ display: "block", marginBottom: 6 }}>Name</label>
+      <input className="g-input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Premium membership" />
+
+      <label className="g-label" style={{ display: "block", marginTop: 14, marginBottom: 6 }}>Price (dollars)</label>
+      <input
+        className="g-input"
+        value={priceDollars}
+        onChange={(e) => setPriceDollars(e.target.value)}
+        inputMode="decimal"
+        placeholder="25"
+        style={{ maxWidth: 160 }}
+      />
+
+      <div style={{ marginTop: 14 }}>
+        <label className="g-label" style={{ display: "block", marginBottom: 6 }}>Billing</label>
+        <div style={{ display: "flex", gap: 16 }}>
+          {PRODUCT_BILLINGS.map((b) => (
+            <label key={b.value} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 14.5 }}>
+              <input
+                type="radio"
+                name="billing"
+                checked={billing === b.value}
+                onChange={() => setBilling(b.value)}
+              />
+              {b.label}
+            </label>
+          ))}
+        </div>
+      </div>
+
+      <label className="g-label" style={{ display: "block", marginTop: 14, marginBottom: 6 }}>Benefits</label>
+      <textarea className="g-input" value={benefits} onChange={(e) => setBenefits(e.target.value)} rows={2} style={{ resize: "vertical" }} />
+
+      <label className="g-label" style={{ display: "block", marginTop: 14, marginBottom: 6 }}>Description</label>
+      <textarea className="g-input" value={description} onChange={(e) => setDescription(e.target.value)} rows={3} style={{ resize: "vertical" }} />
+
+      <div style={{ marginTop: 14 }}>
+        <label className="g-label" style={{ display: "block", marginBottom: 6 }}>Resources</label>
+        <ResourceRows resources={resources} onChange={setResources} />
+      </div>
+
+      <button className="g-btn g-btn-citron" type="submit" disabled={busy || !name.trim() || !priceDollars.trim()} style={{ marginTop: 16 }}>
+        {busy ? "Creating…" : "Create product"}
+      </button>
+      {status && (
+        <p style={{ marginTop: 10, fontSize: 14, color: status.kind === "ok" ? "var(--g-citron)" : "var(--g-body)" }}>
+          {status.kind === "ok" ? "✓ " : ""}
+          {status.text}
+        </p>
+      )}
+    </form>
+  );
+}
+
+function EditProductRow({ product }: { product: Product }) {
+  const updateProduct = useMutation(api.garden.products.updateProduct);
+  const [editing, setEditing] = useState(false);
+  const [priceDollars, setPriceDollars] = useState((product.priceCents / 100).toString());
+  const [resources, setResources] = useState<{ label: string; url: string }[]>([]);
+  const [resourcesLoaded, setResourcesLoaded] = useState(false);
+  const access = useQuery(
+    api.garden.products.getProductAccess,
+    editing && !resourcesLoaded ? { productId: product._id } : "skip",
+  );
+  const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
+
+  useEffect(() => {
+    if (access && editing && !resourcesLoaded) {
+      setResources(access.resources.map((r) => ({ ...r })));
+      setResourcesLoaded(true);
+    }
+  }, [access, editing, resourcesLoaded]);
+
+  async function toggleStatus() {
+    setBusy(true);
+    setStatus(null);
+    try {
+      await updateProduct({ productId: product._id, status: product.status === "active" ? "archived" : "active" });
+    } catch (err) {
+      setStatus({ kind: "err", text: reasonFor(err, "Couldn't update that product — try again.") });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function saveEdit() {
+    setBusy(true);
+    setStatus(null);
+    try {
+      const priceCents = Math.round(parseFloat(priceDollars || "0") * 100);
+      await updateProduct({
+        productId: product._id,
+        priceCents,
+        resources: resources.filter((r) => r.label.trim() && r.url.trim()),
+      });
+      setStatus({ kind: "ok", text: "Saved." });
+      setEditing(false);
+      setResourcesLoaded(false);
+    } catch (err) {
+      setStatus({ kind: "err", text: reasonFor(err, "Couldn't save — try again.") });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="g-cell" style={{ padding: "12px 14px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+        <span style={{ color: "var(--g-paper)", fontWeight: 600, fontSize: 14.5 }}>{product.name}</span>
+        <span className="g-badge g-badge-line">{product.status}</span>
+      </div>
+      <div className="g-hint" style={{ marginTop: 6 }}>
+        {priceLabel(product.priceCents, product.billing)} · {product.resourceCount} resource
+        {product.resourceCount === 1 ? "" : "s"}
+      </div>
+      <div style={{ marginTop: 10, display: "flex", gap: 8 }}>
+        <button className="g-btn g-btn-ghost" disabled={busy} onClick={toggleStatus}>
+          {product.status === "active" ? "Archive" : "Unarchive"}
+        </button>
+        <button className="g-btn g-btn-ghost" disabled={busy} onClick={() => setEditing((e) => !e)}>
+          {editing ? "Cancel" : "Edit"}
+        </button>
+      </div>
+      {editing && (
+        <div style={{ marginTop: 12 }}>
+          <label className="g-label" style={{ display: "block", marginBottom: 6 }}>Price (dollars)</label>
+          <input
+            className="g-input"
+            value={priceDollars}
+            onChange={(e) => setPriceDollars(e.target.value)}
+            inputMode="decimal"
+            style={{ maxWidth: 160 }}
+          />
+          <div style={{ marginTop: 12 }}>
+            <label className="g-label" style={{ display: "block", marginBottom: 6 }}>Resources</label>
+            {access === undefined && !resourcesLoaded ? (
+              <GardenLoading label="Loading resources…" />
+            ) : (
+              <ResourceRows resources={resources} onChange={setResources} />
+            )}
+          </div>
+          <button className="g-btn g-btn-citron" disabled={busy} onClick={saveEdit} style={{ marginTop: 12 }}>
+            {busy ? "Saving…" : "Save"}
+          </button>
+        </div>
+      )}
+      {status && (
+        <p style={{ marginTop: 8, fontSize: 14, color: status.kind === "ok" ? "var(--g-citron)" : "var(--g-body)" }}>
+          {status.kind === "ok" ? "✓ " : ""}
+          {status.text}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function HostProductsCard({ hostOrgId }: { hostOrgId: Id<"hostOrgs"> }) {
+  const products = useQuery(api.garden.products.listProducts, { hostOrgId }) as Product[] | undefined;
+
+  return (
+    <div className="g-card" style={{ marginTop: 20 }}>
+      <SectionLabel>Products</SectionLabel>
+      <div
+        style={{
+          marginTop: 16,
+          display: "grid",
+          gridTemplateColumns: "minmax(260px, 1fr) minmax(260px, 1.2fr)",
+          gap: 24,
+          alignItems: "start",
+        }}
+        className="g-op-grid"
+      >
+        <CreateProductForm hostOrgId={hostOrgId} />
+        <div>
+          <div className="g-label" style={{ marginBottom: 10 }}>
+            Current products {products ? `(${products.length})` : ""}
+          </div>
+          {products === undefined ? (
+            <GardenLoading />
+          ) : products.length === 0 ? (
+            <p className="g-hint">No products yet.</p>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {products.map((p) => (
+                <EditProductRow key={p._id} product={p} />
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ————— Host tools: earnings —————
+
+function HostEarningsCard({ hostOrgId }: { hostOrgId: Id<"hostOrgs"> }) {
+  const earnings = useQuery(api.garden.products.getCommunityEarnings, { hostOrgId });
+
+  return (
+    <div className="g-card" style={{ marginTop: 20 }}>
+      <SectionLabel>Earnings</SectionLabel>
+      {earnings === undefined ? (
+        <div style={{ marginTop: 12 }}>
+          <GardenLoading />
+        </div>
+      ) : earnings === null ? (
+        <p className="g-hint" style={{ marginTop: 12 }}>Nothing to show yet.</p>
+      ) : (
+        <>
+          <div
+            style={{
+              marginTop: 16,
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit,minmax(120px,1fr))",
+              gap: 10,
+            }}
+          >
+            <div className="g-cell">
+              <div className="g-cell-v">{earnings.salesCount}</div>
+              <div className="g-label" style={{ marginTop: 4 }}>Sales</div>
+            </div>
+            <div className="g-cell">
+              <div className="g-cell-v">{formatMoney(earnings.grossCents)}</div>
+              <div className="g-label" style={{ marginTop: 4 }}>Gross</div>
+            </div>
+            <div className="g-cell g-cell-hot">
+              <div className="g-cell-v">{formatMoney(earnings.hostCents)}</div>
+              <div className="g-label" style={{ marginTop: 4 }}>Your 90%</div>
+            </div>
+            <div className="g-cell">
+              <div className="g-cell-v">{formatMoney(earnings.paidOutCents)}</div>
+              <div className="g-label" style={{ marginTop: 4 }}>Paid out</div>
+            </div>
+            <div className="g-cell">
+              <div className="g-cell-v">{formatMoney(earnings.owedCents)}</div>
+              <div className="g-label" style={{ marginTop: 4 }}>Owed</div>
+            </div>
+          </div>
+          <p className="g-hint" style={{ marginTop: 12 }}>
+            Your share is paid out by hand for now — we'll record each transfer here.
+          </p>
+
+          <div style={{ marginTop: 24 }}>
+            <div className="g-label" style={{ marginBottom: 10 }}>Recent sales</div>
+            {earnings.recent.length === 0 ? (
+              <p className="g-hint">Nothing sold yet.</p>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                {earnings.recent.map((r) => (
+                  <div
+                    key={r.purchaseId}
+                    style={{
+                      display: "flex",
+                      flexWrap: "wrap",
+                      alignItems: "baseline",
+                      gap: 12,
+                      padding: "10px 0",
+                      borderBottom: "1px solid var(--g-hairline)",
+                    }}
+                  >
+                    <span style={{ fontSize: 14.5, color: "var(--g-paper)", fontWeight: 600 }}>{r.productName}</span>
+                    <span className="g-hint">{r.buyerName}</span>
+                    <span className="g-hint">{formatMoney(r.hostCents)} of {formatMoney(r.grossCents)}</span>
+                    <span className="g-hint">{r.status}</span>
+                    <span className="g-hint">{formatDateTime(r.createdAt)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div style={{ marginTop: 24 }}>
+            <div className="g-label" style={{ marginBottom: 10 }}>Payouts</div>
+            {earnings.payouts.length === 0 ? (
+              <p className="g-hint">No payouts recorded yet.</p>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                {earnings.payouts.map((p, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      display: "flex",
+                      flexWrap: "wrap",
+                      alignItems: "baseline",
+                      gap: 12,
+                      padding: "10px 0",
+                      borderBottom: "1px solid var(--g-hairline)",
+                    }}
+                  >
+                    <span style={{ fontSize: 14.5, color: "var(--g-paper)", fontWeight: 600 }}>
+                      {formatMoney(p.amountCents)}
+                    </span>
+                    {p.reference && <span className="g-hint">{p.reference}</span>}
+                    {p.note && <span className="g-hint">{p.note}</span>}
+                    <span className="g-hint">{formatDateTime(p.paidAt)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 // ————— Page —————
 
 export default function CommunityDetailPage() {
   const { slug } = useParams();
+  const [searchParams] = useSearchParams();
+  const purchased = searchParams.get("purchased") === "1";
   const community = useQuery(
     api.garden.communities.getCommunity,
     slug ? { slug } : "skip",
@@ -623,6 +1203,13 @@ export default function CommunityDetailPage() {
       <ProjectsSection projects={community.projects} />
       <OfferingsSection offerings={community.offerings} />
 
+      <ProductsSection
+        hostOrgId={community._id}
+        slug={community.slug}
+        canManage={community.viewer.canManage}
+        purchased={purchased}
+      />
+
       {community.hasFund && (
         <div style={{ marginTop: 28 }}>
           <SectionLabel>Fund</SectionLabel>
@@ -635,7 +1222,13 @@ export default function CommunityDetailPage() {
         </div>
       )}
 
-      {community.viewer.canManage && <HostTools community={community} />}
+      {community.viewer.canManage && (
+        <>
+          <HostTools community={community} />
+          <HostProductsCard hostOrgId={community._id} />
+          <HostEarningsCard hostOrgId={community._id} />
+        </>
+      )}
     </GardenPage>
   );
 }

@@ -796,9 +796,14 @@ export default function AdminGardenPage() {
             Operator console
           </h1>
         </div>
-        <Link to="/admin" className="g-mono" style={{ fontSize: 12.5, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--g-muted)" }}>
-          ← Back to admin
-        </Link>
+        <div style={{ display: "flex", gap: 16, alignItems: "baseline" }}>
+          <Link to="/admin/ledger" className="g-mono" style={{ fontSize: 12.5, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--g-citron)" }}>
+            Platform ledger →
+          </Link>
+          <Link to="/admin" className="g-mono" style={{ fontSize: 12.5, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--g-muted)" }}>
+            ← Back to admin
+          </Link>
+        </div>
       </div>
 
       {data === undefined || projects === undefined || communityApps === undefined ? (

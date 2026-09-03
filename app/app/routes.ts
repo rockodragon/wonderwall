@@ -70,6 +70,7 @@ export default [
     route("admin", "routes/admin.tsx"),
     route("admin/crawler", "routes/admin.crawler.tsx"),
     route("admin/garden", "routes/admin.garden.tsx"),
+    route("admin/ledger", "routes/admin.ledger.tsx"),
     route("admin/waitlist", "routes/admin.waitlist.tsx"),
     route("messages", "routes/messages._index.tsx"),
     route("messages/:conversationId", "routes/messages.$conversationId.tsx"),
