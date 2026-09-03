@@ -44,6 +44,13 @@ export default defineSchema({
     inviteUsageCount: v.optional(v.number()), // track how many times their invite link has been used
     unlimitedInvites: v.optional(v.boolean()), // admin accounts with unlimited invites
     isAdmin: v.optional(v.boolean()), // admin access for platform management
+    // Fixed personal code for approving waitlist entries (waitlist.ts
+    // approveEntry) — 6 chars, part of the admin's name + a random suffix,
+    // generated once (admin.ts syncAdminGroup) and reused for every person
+    // that admin approves. Resolves through the same route as inviteSlug
+    // (convex/invites.ts findInviterProfile) so approved members sign
+    // up at the same /signup/:code URL as a peer invite.
+    adminCode: v.optional(v.string()),
     // Garden roles — free to hold, pay per act (plan §2.1). Levels are NOT
     // stored here; they derive from memberships (garden/entitlements.ts).
     patronRole: v.optional(v.boolean()),
@@ -62,7 +69,8 @@ export default defineSchema({
   })
     .index("by_userId", ["userId"])
     .index("by_name", ["name"])
-    .index("by_inviteSlug", ["inviteSlug"]),
+    .index("by_inviteSlug", ["inviteSlug"])
+    .index("by_adminCode", ["adminCode"]),
 
   // Flexible key-value attributes (social handles, employer, etc.)
   attributes: defineTable({
@@ -311,6 +319,13 @@ export default defineSchema({
     interestedInHosting: v.optional(v.boolean()),
     hearAboutUs: v.optional(v.string()),
     hearAboutUsOther: v.optional(v.string()),
+    // Admin approval (waitlist.ts approveEntry). approvedBy names which
+    // admin approved them — their adminCode (profiles.adminCode) is what
+    // got emailed, looked up from this at display/send time rather than
+    // copied here, so a right-to-be-forgotten deletion of the admin's
+    // account doesn't leave a dangling code string behind.
+    approvedBy: v.optional(v.id("users")),
+    approvedAt: v.optional(v.number()),
   }).index("by_email", ["email"]),
 
   // Jobs board

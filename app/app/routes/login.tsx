@@ -3,7 +3,6 @@ import { usePostHog } from "@posthog/react";
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router";
 import { useConvexAuth } from "convex/react";
-import { OWNERSHIP_LINE } from "../legal/entity";
 
 export function meta() {
   return [
@@ -233,8 +232,6 @@ export default function Login() {
           >
             Privacy Policy
           </Link>
-          <br />
-          {OWNERSHIP_LINE}
         </p>
       </div>
     </div>

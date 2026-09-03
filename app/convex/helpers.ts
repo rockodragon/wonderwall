@@ -81,3 +81,68 @@ export async function requireAdminCtx(
   await requireAdmin(ctx, userId);
   return userId;
 }
+
+const ADMIN_CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no 0/O/1/I
+
+/**
+ * The admin's fixed waitlist-approval code (profiles.adminCode): part of
+ * their name, uppercased, padded with random characters to 6, unique
+ * against both adminCode and inviteSlug (they resolve at the same
+ * /signup/:code route — see invites.ts's findInviterProfile). Generates
+ * and persists one on first call; every later call for the same profile
+ * returns the same code, so an admin's approvals all carry one code.
+ */
+export async function ensureAdminCode(
+  ctx: MutationCtx,
+  profile: Doc<"profiles">,
+): Promise<string> {
+  // The code has to be reusable across every waitlist approval this admin
+  // makes, so it can't be subject to the normal 3-invite progressive cap
+  // (getInviteLimit in invites.ts) — unlimitedInvites is what exempts a
+  // profile from that check in redeemBySlug. Guaranteed here, alongside the
+  // code itself, rather than left to callers to remember.
+  if (profile.adminCode) {
+    if (!profile.unlimitedInvites) {
+      await ctx.db.patch(profile._id, { unlimitedInvites: true });
+    }
+    return profile.adminCode;
+  }
+
+  const prefix = profile.name
+    .toUpperCase()
+    .replace(/[^A-Z]/g, "")
+    .slice(0, 4) || "MBR";
+
+  const takenCandidate = async (candidate: string) => {
+    const [bySlug, byCode] = await Promise.all([
+      ctx.db
+        .query("profiles")
+        .withIndex("by_inviteSlug", (q) => q.eq("inviteSlug", candidate))
+        .first(),
+      ctx.db
+        .query("profiles")
+        .withIndex("by_adminCode", (q) => q.eq("adminCode", candidate))
+        .first(),
+    ]);
+    return bySlug !== null || byCode !== null;
+  };
+
+  let code = "";
+  for (let attempt = 0; attempt < 50; attempt++) {
+    const suffixLen = 6 - prefix.length;
+    let suffix = "";
+    for (let i = 0; i < suffixLen; i++) {
+      suffix +=
+        ADMIN_CODE_CHARS[Math.floor(Math.random() * ADMIN_CODE_CHARS.length)];
+    }
+    const candidate = prefix + suffix;
+    if (!(await takenCandidate(candidate))) {
+      code = candidate;
+      break;
+    }
+  }
+  if (!code) throw new Error("Could not generate a unique admin code");
+
+  await ctx.db.patch(profile._id, { adminCode: code, unlimitedInvites: true });
+  return code;
+}
