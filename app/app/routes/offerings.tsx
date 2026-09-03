@@ -1,16 +1,24 @@
 import { useMutation, useQuery } from "convex/react";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { ReactNode } from "react";
+import { Link } from "react-router";
 import { api } from "../../convex/_generated/api";
 import { INTERESTS } from "../constants/interests";
 import { LocationAutocomplete } from "../components/LocationAutocomplete";
 import { useLocationField } from "../lib/useLocationField";
-import { AnnouncementComposer } from "../components/AnnouncementComposer";
 import { CommunityPicker } from "../components/CommunityPicker";
 import {
   CommunityContextLine,
   communityNameFor,
   useCommunityContext,
 } from "../components/CommunityFilter";
+
+// AnnouncementComposer moved off this list page entirely — it now renders
+// only on the detail page (routes/offerings.$id.tsx), per the founder's
+// item 3 ("messaging belongs inside the detail page, not included in list
+// view"). PostOfferingForm/SignupModal/the format helpers below are
+// exported so that detail page can reuse them rather than re-implement the
+// edit form and sign-up flow.
 
 // Discipline tags share the canonical INTERESTS list with People
 // (search.tsx) and Projects (projects.tsx) — same values, same order.
@@ -38,13 +46,15 @@ const FORMAT_OPTIONS = [
   { label: "Other", value: "other" },
 ];
 
-const FORMAT_LABELS: Record<string, string> = Object.fromEntries(
+export const FORMAT_LABELS: Record<string, string> = Object.fromEntries(
   FORMAT_OPTIONS.map((f) => [f.value, f.label]),
 );
 
 // Convex surfaces a thrown ConvexError's payload on err.data, not
-// err.message — see the identical helper in projects.tsx.
-function errorMessage(err: unknown): string {
+// err.message — see the identical helper in projects.tsx. Exported: the
+// detail route (offerings.$id.tsx) reuses this for its own owner-action
+// mutations rather than duplicating it.
+export function errorMessage(err: unknown): string {
   const data = (err as { data?: unknown })?.data;
   if (data && typeof data === "object" && "reason" in data) {
     return String((data as { reason: unknown }).reason);
@@ -52,13 +62,13 @@ function errorMessage(err: unknown): string {
   return "Something went wrong — try again.";
 }
 
-function formatPrice(priceCents?: number): string {
+export function formatPrice(priceCents?: number): string {
   if (!priceCents) return "Free";
   return `$${(priceCents / 100).toLocaleString()}`;
 }
 
 // Same display convention as event.tsx's datetime rendering.
-function formatDateTime(ms?: number): string | null {
+export function formatDateTime(ms?: number): string | null {
   if (!ms) return null;
   return new Date(ms).toLocaleDateString("en-US", {
     weekday: "short",
@@ -69,7 +79,7 @@ function formatDateTime(ms?: number): string | null {
   });
 }
 
-function formatDateOnly(ms?: number): string | null {
+export function formatDateOnly(ms?: number): string | null {
   if (!ms) return null;
   return new Date(ms).toLocaleDateString("en-US", {
     month: "short",
@@ -98,7 +108,7 @@ function toTimeInputValue(ms?: number): string {
 }
 
 // Same hostname-display convention as work.tsx/profile.tsx/settings.tsx.
-function domainFromUrl(url: string): string {
+export function domainFromUrl(url: string): string {
   try {
     return new URL(url).hostname.replace("www.", "");
   } catch {
@@ -110,6 +120,10 @@ export default function Offerings() {
   const offerings = useQuery(api.offerings.listOfferings);
   const myProfile = useQuery(api.profiles.getMyProfile);
   const [formatFilter, setFormatFilter] = useState("");
+  // "Mine" — item 3's second half: a quick filter to the signed-in creator's
+  // own offerings, now that messaging (the other reason someone would want
+  // to find their own listing) has moved to the detail page.
+  const [mineOnly, setMineOnly] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const {
     selected: communitySlug,
@@ -127,6 +141,9 @@ export default function Offerings() {
   const filtered = useMemo(() => {
     if (!offerings) return [];
     let list = formatFilter ? offerings.filter((o) => o.format === formatFilter) : offerings;
+    if (mineOnly) {
+      list = list.filter((o) => !!myProfile && o.userId === myProfile.userId);
+    }
     if (communitySlug !== "all") {
       list = list.filter((o) => o.community?.slug === communitySlug);
     }
@@ -134,7 +151,7 @@ export default function Offerings() {
       list = list.filter((o) => o.interests?.some((tag) => tagFilter.includes(tag)));
     }
     return list;
-  }, [offerings, formatFilter, communitySlug, tagFilter]);
+  }, [offerings, formatFilter, mineOnly, myProfile, communitySlug, tagFilter]);
 
   return (
     <div className="min-h-screen bg-[var(--garden-ink)]">
@@ -176,6 +193,19 @@ export default function Offerings() {
                 {f.label}
               </button>
             ))}
+            {myProfile && (
+              <button
+                onClick={() => setMineOnly((v) => !v)}
+                className="px-3 py-1.5 rounded-lg text-[13px] font-medium uppercase tracking-[0.06em] whitespace-nowrap transition-colors"
+                style={{
+                  fontFamily: "var(--garden-font-body)",
+                  backgroundColor: mineOnly ? "var(--garden-citron)" : "var(--garden-ink-raised)",
+                  color: mineOnly ? "var(--garden-ink)" : "var(--garden-muted)",
+                }}
+              >
+                Mine
+              </button>
+            )}
           </div>
           <button
             onClick={() => setShowForm(true)}
@@ -261,17 +291,231 @@ export default function Offerings() {
   );
 }
 
+// The whole card is a Link to the detail page now (founder item 3: owner
+// messaging moved off the list entirely, and item 2 moved owner controls
+// behind a kebab) — matches ProjectCard's "wrap the card, stop propagation
+// on the interactive bits" convention in projects.tsx. PostOfferingForm/
+// SignupModal render as siblings AFTER the Link (not nested inside it):
+// nesting a fixed-position modal inside an <a> would mean every click
+// inside it (Cancel, form fields, the backdrop) bubbles to the anchor and
+// triggers navigation unless every single one stops propagation — lifting
+// them out avoids that whole class of bug, same as projects.tsx lifting
+// SupportModal to the page level.
 function OfferingCard({ offering, isOwner }: { offering: any; isOwner: boolean }) {
-  const updateStatus = useMutation(api.offerings.updateOfferingStatus);
-  const deleteOffering = useMutation(api.offerings.deleteOffering);
-  const [busy, setBusy] = useState(false);
   const [showEditForm, setShowEditForm] = useState(false);
   const [showSignupModal, setShowSignupModal] = useState(false);
 
-  async function handleStatusChange(status: string) {
+  return (
+    <>
+      <Link
+        to={`/offerings/${offering._id}`}
+        className="group rounded-2xl overflow-hidden border h-full flex flex-col transition-colors"
+        style={{ borderColor: "var(--garden-hairline)", backgroundColor: "var(--garden-ink-raised)" }}
+      >
+        {/* Image area: format + price badges always overlay this same box
+            (top-left / top-right) whether it holds a real photo or the
+            placeholder icon — founder item 1 wanted the price in a fixed,
+            non-buried spot, and photo-dependent positioning would defeat
+            that. Both are solid (non-translucent) chips so they stay
+            legible over any photo. */}
+        <div
+          className="relative aspect-[16/10] overflow-hidden flex items-center justify-center"
+          style={{ backgroundColor: "var(--garden-ink)" }}
+        >
+          {offering.photoUrl ? (
+            <img
+              src={offering.photoUrl}
+              alt={offering.title}
+              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+            />
+          ) : (
+            <svg
+              className="w-10 h-10"
+              style={{ color: "var(--garden-hairline-raised)" }}
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1}
+                d="M12 6L3 10l9 4 9-4-9-4zM6.5 12.5V17c0 1 2.5 3 5.5 3s5.5-2 5.5-3v-4.5"
+              />
+            </svg>
+          )}
+          <span
+            className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[11px] font-semibold uppercase tracking-[0.06em]"
+            style={{
+              fontFamily: "var(--garden-font-mono)",
+              backgroundColor: "rgba(20,20,18,0.72)",
+              color: "var(--garden-paper)",
+            }}
+          >
+            {FORMAT_LABELS[offering.format] ?? offering.format}
+          </span>
+          <span
+            className="absolute top-2 right-2 px-2.5 py-1 rounded-full text-xs font-bold"
+            style={{
+              fontFamily: "var(--garden-font-mono)",
+              backgroundColor: "var(--garden-citron)",
+              color: "var(--garden-ink)",
+            }}
+          >
+            {formatPrice(offering.priceCents)}
+          </span>
+        </div>
+        <div className="p-4 flex-1 flex flex-col min-w-0">
+          <div className="flex items-start justify-between gap-2 mb-1">
+            <h3
+              className="font-semibold line-clamp-2"
+              style={{ color: "var(--garden-paper)", fontFamily: "var(--garden-font-display)" }}
+            >
+              {offering.title}
+            </h3>
+            {isOwner && (
+              <OfferingKebabMenu offering={offering} onEdit={() => setShowEditForm(true)} />
+            )}
+          </div>
+          {offering.interests && offering.interests.length > 0 && (
+            <div className="flex flex-wrap gap-1 mb-2">
+              {offering.interests.slice(0, 4).map((tag: string) => (
+                <span
+                  key={tag}
+                  className="px-2 py-0.5 rounded-full text-[11px] font-medium"
+                  style={{
+                    fontFamily: "var(--garden-font-body)",
+                    backgroundColor: "rgba(198,198,190,0.1)",
+                    color: "var(--garden-muted)",
+                  }}
+                >
+                  {tag}
+                </span>
+              ))}
+              {offering.interests.length > 4 && (
+                <span className="px-2 py-0.5 text-[11px]" style={{ color: "var(--garden-dim)" }}>
+                  +{offering.interests.length - 4}
+                </span>
+              )}
+            </div>
+          )}
+          {offering.description && (
+            <p className="text-sm line-clamp-2 mb-2" style={{ color: "var(--garden-dim)" }}>
+              {offering.description}
+            </p>
+          )}
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs mb-3" style={{ color: "var(--garden-muted)" }}>
+            {offering.cadence && <span>{offering.cadence}</span>}
+            {formatDateTime(offering.startDate) && <span>{formatDateTime(offering.startDate)}</span>}
+            {offering.isRecurring && (
+              <span>
+                {formatDateOnly(offering.endDate)
+                  ? `Recurring until ${formatDateOnly(offering.endDate)}`
+                  : "Recurring"}
+              </span>
+            )}
+            <span>{offering.remote === false && offering.location ? offering.location : "Remote"}</span>
+          </div>
+          {offering.creator && (
+            <div className="mt-auto flex items-center gap-2 pt-2 min-w-0">
+              {offering.creator.imageUrl ? (
+                <img
+                  src={offering.creator.imageUrl}
+                  alt={offering.creator.name}
+                  className="w-5 h-5 rounded-full object-cover shrink-0"
+                />
+              ) : (
+                <div
+                  className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
+                  style={{ backgroundColor: "var(--garden-hairline-raised)", color: "var(--garden-paper)" }}
+                >
+                  {offering.creator.name.charAt(0).toUpperCase()}
+                </div>
+              )}
+              <span className="text-xs break-words" style={{ color: "var(--garden-muted)" }}>
+                {offering.creator.name}
+                {offering.community && (
+                  <span style={{ color: "var(--garden-dim)" }}> · in {offering.community.name}</span>
+                )}
+              </span>
+            </div>
+          )}
+
+          <div
+            className="flex items-center justify-between gap-2 mt-3 pt-3"
+            style={{ borderTop: "1px solid var(--garden-hairline)" }}
+          >
+            <span className="text-xs" style={{ color: "var(--garden-dim)" }}>
+              {offering.signupCount > 0
+                ? `${offering.signupCount} signed up`
+                : "Be the first to sign up"}
+            </span>
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setShowSignupModal(true);
+              }}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-opacity hover:opacity-90"
+              style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
+            >
+              Sign up
+            </button>
+          </div>
+        </div>
+      </Link>
+
+      {showEditForm && (
+        <PostOfferingForm offering={offering} onClose={() => setShowEditForm(false)} />
+      )}
+      {showSignupModal && (
+        <SignupModal offering={offering} onClose={() => setShowSignupModal(false)} />
+      )}
+    </>
+  );
+}
+
+// Owner-only kebab (⋮) — replaces the always-visible status select + Edit +
+// Delete row (founder item 2: "shouldn't just show up like that, even for
+// owners"). Same open/close plumbing as CommunitySwitcher.tsx's own
+// dropdown: useState + outside-click/Escape via a ref, role="menu"/
+// menuitem, a raised bordered surface. Every trigger and menu item stops
+// propagation so the card's own Link never fires underneath it.
+function OfferingKebabMenu({ offering, onEdit }: { offering: any; onEdit: () => void }) {
+  const updateStatus = useMutation(api.offerings.updateOfferingStatus);
+  const deleteOffering = useMutation(api.offerings.deleteOffering);
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onPointerDown(e: MouseEvent) {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
+  async function handleToggleStatus(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    setOpen(false);
     setBusy(true);
     try {
-      await updateStatus({ offeringId: offering._id, status });
+      await updateStatus({
+        offeringId: offering._id,
+        status: offering.status === "active" ? "archived" : "active",
+      });
     } catch (err) {
       window.alert(errorMessage(err));
     } finally {
@@ -279,7 +523,10 @@ function OfferingCard({ offering, isOwner }: { offering: any; isOwner: boolean }
     }
   }
 
-  async function handleDelete() {
+  async function handleDelete(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    setOpen(false);
     if (!window.confirm(`Delete "${offering.title}"? This can't be undone.`)) return;
     setBusy(true);
     try {
@@ -291,200 +538,74 @@ function OfferingCard({ offering, isOwner }: { offering: any; isOwner: boolean }
   }
 
   return (
-    <div
-      className="rounded-2xl overflow-hidden border h-full flex flex-col transition-colors"
-      style={{ borderColor: "var(--garden-hairline)", backgroundColor: "var(--garden-ink-raised)" }}
-    >
-      <div
-        className="aspect-[16/10] overflow-hidden flex items-center justify-center"
-        style={{ backgroundColor: "var(--garden-ink)" }}
+    <div ref={rootRef} className="relative shrink-0">
+      <button
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label="Offering actions"
+        disabled={busy}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setOpen((o) => !o);
+        }}
+        className="w-7 h-7 rounded-lg flex items-center justify-center text-base leading-none disabled:opacity-50 transition-colors hover:opacity-80"
+        style={{ color: "var(--garden-dim)", backgroundColor: "var(--garden-ink)" }}
       >
-        {offering.photoUrl ? (
-          <img
-            src={offering.photoUrl}
-            alt={offering.title}
-            className="w-full h-full object-cover"
-          />
-        ) : (
-          <svg
-            className="w-10 h-10"
-            style={{ color: "var(--garden-hairline-raised)" }}
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={1}
-              d="M12 6L3 10l9 4 9-4-9-4zM6.5 12.5V17c0 1 2.5 3 5.5 3s5.5-2 5.5-3v-4.5"
-            />
-          </svg>
-        )}
-      </div>
-      <div className="p-4 flex-1 flex flex-col min-w-0">
-        <div className="flex items-start justify-between gap-2 mb-1">
-          <h3
-            className="font-semibold line-clamp-2"
-            style={{ color: "var(--garden-paper)", fontFamily: "var(--garden-font-display)" }}
-          >
-            {offering.title}
-          </h3>
-          <span
-            className="shrink-0 px-2 py-0.5 rounded-full text-[11px] font-medium uppercase tracking-[0.06em]"
-            style={{
-              fontFamily: "var(--garden-font-mono)",
-              backgroundColor: "rgba(215,242,90,0.14)",
-              color: "var(--garden-citron)",
-            }}
-          >
-            {FORMAT_LABELS[offering.format] ?? offering.format}
-          </span>
-        </div>
-        {offering.interests && offering.interests.length > 0 && (
-          <div className="flex flex-wrap gap-1 mb-2">
-            {offering.interests.map((tag: string) => (
-              <span
-                key={tag}
-                className="px-2 py-0.5 rounded-full text-[11px] font-medium"
-                style={{
-                  fontFamily: "var(--garden-font-body)",
-                  backgroundColor: "rgba(198,198,190,0.1)",
-                  color: "var(--garden-muted)",
-                }}
-              >
-                {tag}
-              </span>
-            ))}
-          </div>
-        )}
-        {offering.description && (
-          <p className="text-sm line-clamp-2 mb-2" style={{ color: "var(--garden-dim)" }}>
-            {offering.description}
-          </p>
-        )}
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs mb-3" style={{ color: "var(--garden-muted)" }}>
-          {offering.cadence && <span>{offering.cadence}</span>}
-          {formatDateTime(offering.startDate) && <span>{formatDateTime(offering.startDate)}</span>}
-          {offering.isRecurring && (
-            <span>
-              {formatDateOnly(offering.endDate)
-                ? `Recurring until ${formatDateOnly(offering.endDate)}`
-                : "Recurring"}
-            </span>
-          )}
-          <span style={{ color: "var(--garden-citron)" }}>{formatPrice(offering.priceCents)}</span>
-          <span>{offering.remote === false && offering.location ? offering.location : "Remote"}</span>
-        </div>
-        {offering.creator && (
-          <div className="mt-auto flex items-center gap-2 pt-2 min-w-0">
-            {offering.creator.imageUrl ? (
-              <img
-                src={offering.creator.imageUrl}
-                alt={offering.creator.name}
-                className="w-5 h-5 rounded-full object-cover shrink-0"
-              />
-            ) : (
-              <div
-                className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
-                style={{ backgroundColor: "var(--garden-hairline-raised)", color: "var(--garden-paper)" }}
-              >
-                {offering.creator.name.charAt(0).toUpperCase()}
-              </div>
-            )}
-            <span className="text-xs break-words" style={{ color: "var(--garden-muted)" }}>
-              {offering.creator.name}
-              {offering.community && (
-                <span style={{ color: "var(--garden-dim)" }}> · in {offering.community.name}</span>
-              )}
-            </span>
-          </div>
-        )}
-
+        ⋮
+      </button>
+      {open && (
         <div
-          className="flex items-center justify-between gap-2 mt-3 pt-3"
-          style={{ borderTop: "1px solid var(--garden-hairline)" }}
+          role="menu"
+          aria-label="Offering actions"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+          className="absolute right-0 mt-1 w-40 rounded-lg border overflow-hidden z-20 shadow-lg"
+          style={{ backgroundColor: "var(--garden-ink-raised)", borderColor: "var(--garden-hairline-raised)" }}
         >
-          <span className="text-xs" style={{ color: "var(--garden-dim)" }}>
-            {offering.signupCount > 0
-              ? `${offering.signupCount} signed up`
-              : "Be the first to sign up"}
-          </span>
           <button
-            onClick={() => setShowSignupModal(true)}
-            className="px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-opacity hover:opacity-90"
-            style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
+            type="button"
+            role="menuitem"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setOpen(false);
+              onEdit();
+            }}
+            className="block w-full text-left px-3 py-2 text-xs font-medium transition-colors hover:opacity-80"
+            style={{ color: "var(--garden-body)" }}
           >
-            Sign up
+            Edit
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            disabled={busy}
+            onClick={handleToggleStatus}
+            className="block w-full text-left px-3 py-2 text-xs font-medium transition-colors hover:opacity-80 disabled:opacity-50"
+            style={{ color: "var(--garden-body)" }}
+          >
+            {offering.status === "active" ? "Archive" : "Reactivate"}
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            disabled={busy}
+            onClick={handleDelete}
+            className="block w-full text-left px-3 py-2 text-xs font-medium transition-colors hover:opacity-80 disabled:opacity-50 text-red-400"
+          >
+            Delete
           </button>
         </div>
-
-        {isOwner && (
-          <div
-            className="flex items-center justify-between gap-2 mt-3 pt-3"
-            style={{ borderTop: "1px solid var(--garden-hairline)" }}
-          >
-            <select
-              value={offering.status}
-              disabled={busy}
-              onChange={(e) => handleStatusChange(e.target.value)}
-              className="px-2 py-1 rounded-lg text-xs font-medium outline-none disabled:opacity-50"
-              style={{
-                fontFamily: "var(--garden-font-body)",
-                backgroundColor: "var(--garden-ink)",
-                color: "var(--garden-body)",
-                border: "1px solid var(--garden-hairline-raised)",
-              }}
-            >
-              <option value="active">Active</option>
-              <option value="archived">Archived</option>
-            </select>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setShowEditForm(true)}
-                disabled={busy}
-                className="px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-opacity hover:opacity-90 disabled:opacity-50"
-                style={{
-                  backgroundColor: "var(--garden-ink)",
-                  color: "var(--garden-body)",
-                  border: "1px solid var(--garden-hairline-raised)",
-                }}
-              >
-                Edit
-              </button>
-              <button
-                onClick={handleDelete}
-                disabled={busy}
-                className="px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-opacity hover:opacity-90 disabled:opacity-50"
-                style={{ backgroundColor: "transparent", color: "var(--garden-dim)" }}
-              >
-                Delete
-              </button>
-            </div>
-          </div>
-        )}
-        {isOwner && (
-          <div className="mt-3">
-            <AnnouncementComposer
-              targetType="offering"
-              targetId={offering._id}
-              heading="Message participants"
-            />
-          </div>
-        )}
-      </div>
-
-      {showEditForm && (
-        <PostOfferingForm offering={offering} onClose={() => setShowEditForm(false)} />
-      )}
-      {showSignupModal && (
-        <SignupModal offering={offering} onClose={() => setShowSignupModal(false)} />
       )}
     </div>
   );
 }
 
-function SignupModal({ offering, onClose }: { offering: any; onClose: () => void }) {
+export function SignupModal({ offering, onClose }: { offering: any; onClose: () => void }) {
   const signUp = useMutation(api.offerings.signUpForOffering);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -613,7 +734,70 @@ function SignupModal({ offering, onClose }: { offering: any; onClose: () => void
 
 // Create when `offering` is omitted, edit in place when it's passed — one
 // form instead of two parallel ones, prefilled from the existing record.
-function PostOfferingForm({
+// Progressive-disclosure section wrapper (founder item 4: "the edit page is
+// too busy and narrow and tall... need sections to progressively
+// disclose"). Reuses communities.$slug.tsx's HostToolsPanel <details>
+// convention exactly — same bordered box, same SectionLabel-style summary
+// treatment — rather than inventing a new collapsible pattern.
+// `collapsible={false}` sections (Basics, Schedule) render as a plain
+// static header instead of a <summary>, since those two are "always open,
+// not collapsible" per the spec, not just "open by default."
+function FormSection({
+  label,
+  children,
+  collapsible = true,
+  defaultOpen = true,
+  summaryExtra,
+}: {
+  label: string;
+  children: ReactNode;
+  collapsible?: boolean;
+  defaultOpen?: boolean;
+  summaryExtra?: string;
+}) {
+  const boxStyle = { borderColor: "var(--garden-hairline-raised)", backgroundColor: "var(--garden-ink)" };
+  const labelStyle = {
+    color: "var(--garden-dim)",
+    fontFamily: "var(--garden-font-mono)",
+  } as const;
+
+  if (!collapsible) {
+    return (
+      <div className="rounded-xl border p-4" style={boxStyle}>
+        <div className="text-[11px] font-semibold uppercase tracking-[0.08em] mb-3.5" style={labelStyle}>
+          {label}
+        </div>
+        <div className="flex flex-col gap-4">{children}</div>
+      </div>
+    );
+  }
+
+  return (
+    <details className="rounded-xl border" style={boxStyle} open={defaultOpen}>
+      <summary
+        className="cursor-pointer select-none px-4 py-3 flex items-center justify-between gap-3 flex-wrap"
+        style={{ listStyle: "none" }}
+      >
+        <span className="text-[11px] font-semibold uppercase tracking-[0.08em]" style={labelStyle}>
+          {label}
+        </span>
+        {summaryExtra && (
+          <span className="text-xs" style={{ color: "var(--garden-dim)" }}>
+            {summaryExtra}
+          </span>
+        )}
+      </summary>
+      <div
+        className="px-4 pb-4 pt-1 border-t flex flex-col gap-4"
+        style={{ borderColor: "var(--garden-hairline)" }}
+      >
+        {children}
+      </div>
+    </details>
+  );
+}
+
+export function PostOfferingForm({
   offering,
   onClose,
 }: {
@@ -662,6 +846,16 @@ function PostOfferingForm({
   const defaultHostOrgId = isEdit
     ? undefined
     : myCommunities.find((c) => c.slug === switcherCommunitySlug)?._id;
+
+  // Progressive-disclosure defaults (founder item 4) — computed once from
+  // the stable `offering` prop, NOT from the live form state above. If
+  // these read from e.g. `selectedTags`/`remote` instead, React would
+  // re-sync the <details>'s `open` DOM attribute every time that state
+  // changes and fight the user's own manual expand/collapse the moment
+  // they, say, clear the last selected tag while the section is open.
+  const tagsDefaultOpen = (offering?.interests?.length ?? 0) > 0;
+  const locationDefaultOpen =
+    offering?.remote === false || !!offering?.photoUrl || !!offering?.photoStorageId;
 
   function toggleTag(tag: string) {
     setSelectedTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
@@ -799,7 +993,7 @@ function PostOfferingForm({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto" style={{ backgroundColor: "rgba(0,0,0,0.6)" }}>
       <div
-        className="w-full max-w-md rounded-2xl border p-6 my-8"
+        className="w-full max-w-2xl rounded-2xl border p-6 my-8"
         style={{ backgroundColor: "var(--garden-ink-raised)", borderColor: "var(--garden-hairline)" }}
       >
         <h2
@@ -812,76 +1006,41 @@ function PostOfferingForm({
           A recurring class, coaching slot, or workshop series — a display cadence, not a calendar system.
         </p>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <div>
-            <label className="block text-xs uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
-              Title
-            </label>
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Weekly beginner tap class"
-              className="w-full px-3 py-2 rounded-lg border text-sm outline-none"
-              style={{
-                backgroundColor: "var(--garden-ink)",
-                borderColor: "var(--garden-hairline-raised)",
-                color: "var(--garden-paper)",
-              }}
-            />
-          </div>
-          <div>
-            <label className="block text-xs uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
-              Photo (optional)
-            </label>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleFileUpload}
-              className="hidden"
-            />
-            {photoPreview ? (
-              <div className="relative rounded-lg overflow-hidden aspect-[16/10]">
-                <img src={photoPreview} alt="" className="w-full h-full object-cover" />
-                <button
-                  type="button"
-                  onClick={handleRemovePhoto}
-                  className="absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center text-sm font-semibold"
-                  style={{ backgroundColor: "rgba(0,0,0,0.6)", color: "#fff" }}
-                >
-                  ×
-                </button>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploading}
-                className="w-full py-6 rounded-lg border border-dashed text-xs disabled:opacity-50 transition-colors"
-                style={{ borderColor: "var(--garden-hairline-raised)", color: "var(--garden-dim)" }}
-              >
-                {uploading ? "Uploading…" : "Click to upload an image"}
-              </button>
-            )}
-          </div>
-          <div>
-            <label className="block text-xs uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
-              Description
-            </label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={3}
-              placeholder="What happens in a session"
-              className="w-full px-3 py-2 rounded-lg border text-sm outline-none resize-none"
-              style={{
-                backgroundColor: "var(--garden-ink)",
-                borderColor: "var(--garden-hairline-raised)",
-                color: "var(--garden-paper)",
-              }}
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
+          <FormSection label="Basics" collapsible={false}>
+            <div>
+              <label className="block text-xs uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
+                Title
+              </label>
+              <input
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Weekly beginner tap class"
+                className="w-full px-3 py-2 rounded-lg border text-sm outline-none"
+                style={{
+                  backgroundColor: "var(--garden-ink-raised)",
+                  borderColor: "var(--garden-hairline-raised)",
+                  color: "var(--garden-paper)",
+                }}
+              />
+            </div>
+            <div>
+              <label className="block text-xs uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
+                Description
+              </label>
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={3}
+                placeholder="What happens in a session"
+                className="w-full px-3 py-2 rounded-lg border text-sm outline-none resize-none"
+                style={{
+                  backgroundColor: "var(--garden-ink-raised)",
+                  borderColor: "var(--garden-hairline-raised)",
+                  color: "var(--garden-paper)",
+                }}
+              />
+            </div>
             <div>
               <label className="block text-xs uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
                 Format
@@ -891,7 +1050,7 @@ function PostOfferingForm({
                 onChange={(e) => setFormat(e.target.value)}
                 className="w-full px-3 py-2 rounded-lg border text-sm outline-none"
                 style={{
-                  backgroundColor: "var(--garden-ink)",
+                  backgroundColor: "var(--garden-ink-raised)",
                   borderColor: "var(--garden-hairline-raised)",
                   color: "var(--garden-paper)",
                 }}
@@ -903,6 +1062,10 @@ function PostOfferingForm({
                 ))}
               </select>
             </div>
+            <CommunityPicker value={hostOrgId} onChange={setHostOrgId} defaultHostOrgId={defaultHostOrgId} />
+          </FormSection>
+
+          <FormSection label="Schedule" collapsible={false}>
             <div>
               <label className="block text-xs uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
                 Cadence
@@ -914,82 +1077,133 @@ function PostOfferingForm({
                 placeholder="Tuesdays 6pm"
                 className="w-full px-3 py-2 rounded-lg border text-sm outline-none"
                 style={{
-                  backgroundColor: "var(--garden-ink)",
+                  backgroundColor: "var(--garden-ink-raised)",
                   borderColor: "var(--garden-hairline-raised)",
                   color: "var(--garden-paper)",
                 }}
               />
             </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
-                Start date
-              </label>
-              <input
-                type="date"
-                value={startDateStr}
-                onChange={(e) => setStartDateStr(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border text-sm outline-none"
-                style={{
-                  backgroundColor: "var(--garden-ink)",
-                  borderColor: "var(--garden-hairline-raised)",
-                  color: "var(--garden-paper)",
-                }}
-              />
-            </div>
-            <div>
-              <label className="block text-xs uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
-                Start time
-              </label>
-              <input
-                type="time"
-                value={startTimeStr}
-                onChange={(e) => setStartTimeStr(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border text-sm outline-none"
-                style={{
-                  backgroundColor: "var(--garden-ink)",
-                  borderColor: "var(--garden-hairline-raised)",
-                  color: "var(--garden-paper)",
-                }}
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="flex items-center gap-2 text-sm mb-2" style={{ color: "var(--garden-body)" }}>
-              <input
-                type="checkbox"
-                checked={isRecurring}
-                onChange={(e) => setIsRecurring(e.target.checked)}
-              />
-              This repeats (recurring)
-            </label>
-            {isRecurring && (
-              <>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
                 <label className="block text-xs uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
-                  Recurring until
+                  Start date
                 </label>
                 <input
                   type="date"
-                  value={endDateStr}
-                  onChange={(e) => setEndDateStr(e.target.value)}
+                  value={startDateStr}
+                  onChange={(e) => setStartDateStr(e.target.value)}
                   className="w-full px-3 py-2 rounded-lg border text-sm outline-none"
                   style={{
-                    backgroundColor: "var(--garden-ink)",
+                    backgroundColor: "var(--garden-ink-raised)",
                     borderColor: "var(--garden-hairline-raised)",
                     color: "var(--garden-paper)",
                   }}
                 />
-              </>
-            )}
-          </div>
+              </div>
+              <div>
+                <label className="block text-xs uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
+                  Start time
+                </label>
+                <input
+                  type="time"
+                  value={startTimeStr}
+                  onChange={(e) => setStartTimeStr(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border text-sm outline-none"
+                  style={{
+                    backgroundColor: "var(--garden-ink-raised)",
+                    borderColor: "var(--garden-hairline-raised)",
+                    color: "var(--garden-paper)",
+                  }}
+                />
+              </div>
+            </div>
+            <div>
+              <label className="flex items-center gap-2 text-sm mb-2" style={{ color: "var(--garden-body)" }}>
+                <input
+                  type="checkbox"
+                  checked={isRecurring}
+                  onChange={(e) => setIsRecurring(e.target.checked)}
+                />
+                This repeats (recurring)
+              </label>
+              {isRecurring && (
+                <>
+                  <label className="block text-xs uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
+                    Recurring until
+                  </label>
+                  <input
+                    type="date"
+                    value={endDateStr}
+                    onChange={(e) => setEndDateStr(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg border text-sm outline-none"
+                    style={{
+                      backgroundColor: "var(--garden-ink-raised)",
+                      borderColor: "var(--garden-hairline-raised)",
+                      color: "var(--garden-paper)",
+                    }}
+                  />
+                </>
+              )}
+            </div>
+          </FormSection>
 
-          <div>
-            <label className="block text-xs uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
-              Tags
-            </label>
+          <FormSection label="Pricing & registration" defaultOpen>
+            <div>
+              <label className="flex items-center gap-2 text-sm mb-2" style={{ color: "var(--garden-body)" }}>
+                <input
+                  type="checkbox"
+                  checked={isFree}
+                  onChange={(e) => setIsFree(e.target.checked)}
+                />
+                This is free
+              </label>
+              {!isFree && (
+                <input
+                  type="number"
+                  min="1"
+                  value={price}
+                  onChange={(e) => setPrice(e.target.value)}
+                  placeholder="Price (USD)"
+                  className="w-full px-3 py-2 rounded-lg border text-sm outline-none"
+                  style={{
+                    fontFamily: "var(--garden-font-mono)",
+                    backgroundColor: "var(--garden-ink-raised)",
+                    borderColor: "var(--garden-hairline-raised)",
+                    color: "var(--garden-paper)",
+                  }}
+                />
+              )}
+            </div>
+            <div>
+              <label className="block text-xs uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
+                Link to register/pay elsewhere (optional)
+              </label>
+              <input
+                type="text"
+                value={externalPaymentLinkUrl}
+                onChange={(e) => setExternalPaymentLinkUrl(e.target.value)}
+                placeholder="https://..."
+                className="w-full px-3 py-2 rounded-lg border text-sm outline-none"
+                style={{
+                  backgroundColor: "var(--garden-ink-raised)",
+                  borderColor: "var(--garden-hairline-raised)",
+                  color: "var(--garden-paper)",
+                }}
+              />
+              <p className="text-xs mt-1.5" style={{ color: "var(--garden-dim)" }}>
+                If you already use another tool to take sign-ups and payment, link it here — people
+                can still sign up here so you have one place to see who's coming.
+              </p>
+            </div>
+          </FormSection>
+
+          <FormSection
+            label="Tags"
+            defaultOpen={tagsDefaultOpen}
+            summaryExtra={
+              selectedTags.length > 0 ? `${selectedTags.length} selected` : "None yet"
+            }
+          >
             <div className="flex flex-wrap gap-1.5">
               {DISCIPLINE_TAGS.map((tag) => {
                 const active = selectedTags.includes(tag);
@@ -1002,7 +1216,7 @@ function PostOfferingForm({
                     className="px-2.5 py-1 rounded-full text-xs font-medium transition-colors"
                     style={{
                       fontFamily: "var(--garden-font-body)",
-                      backgroundColor: active ? "var(--garden-citron)" : "var(--garden-ink)",
+                      backgroundColor: active ? "var(--garden-citron)" : "var(--garden-ink-raised)",
                       color: active ? "var(--garden-ink)" : "var(--garden-muted)",
                       border: `1px solid ${active ? "var(--garden-citron)" : "var(--garden-hairline-raised)"}`,
                     }}
@@ -1012,82 +1226,72 @@ function PostOfferingForm({
                 );
               })}
             </div>
-          </div>
+          </FormSection>
 
-          <div>
-            <label className="flex items-center gap-2 text-sm mb-2" style={{ color: "var(--garden-body)" }}>
-              <input
-                type="checkbox"
-                checked={isFree}
-                onChange={(e) => setIsFree(e.target.checked)}
-              />
-              This is free
-            </label>
-            {!isFree && (
-              <input
-                type="number"
-                min="1"
-                value={price}
-                onChange={(e) => setPrice(e.target.value)}
-                placeholder="Price (USD)"
-                className="w-full px-3 py-2 rounded-lg border text-sm outline-none"
-                style={{
-                  fontFamily: "var(--garden-font-mono)",
-                  backgroundColor: "var(--garden-ink)",
-                  borderColor: "var(--garden-hairline-raised)",
-                  color: "var(--garden-paper)",
-                }}
-              />
-            )}
-          </div>
-
-          <div>
-            <label className="block text-xs uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
-              Link to register/pay elsewhere (optional)
-            </label>
-            <input
-              type="text"
-              value={externalPaymentLinkUrl}
-              onChange={(e) => setExternalPaymentLinkUrl(e.target.value)}
-              placeholder="https://..."
-              className="w-full px-3 py-2 rounded-lg border text-sm outline-none"
-              style={{
-                backgroundColor: "var(--garden-ink)",
-                borderColor: "var(--garden-hairline-raised)",
-                color: "var(--garden-paper)",
-              }}
-            />
-            <p className="text-xs mt-1.5" style={{ color: "var(--garden-dim)" }}>
-              If you already use another tool to take sign-ups and payment, link it here — people
-              can still sign up here so you have one place to see who's coming.
-            </p>
-          </div>
-
-          <div>
-            <label className="flex items-center gap-2 text-sm mb-2" style={{ color: "var(--garden-body)" }}>
-              <input
-                type="checkbox"
-                checked={remote}
-                onChange={(e) => setRemote(e.target.checked)}
-              />
-              This is remote / online
-            </label>
-            {!remote && (
-              <>
-                <label className="block text-xs uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
-                  Location
-                </label>
-                <LocationAutocomplete
-                  value={location.value}
-                  onChange={location.onChange}
-                  onSelect={location.onSelect}
-                  placeholder="Search for a location"
+          <FormSection
+            label="Location & photo"
+            defaultOpen={locationDefaultOpen}
+            summaryExtra={remote ? "Remote" : location.value || "In person"}
+          >
+            <div>
+              <label className="flex items-center gap-2 text-sm mb-2" style={{ color: "var(--garden-body)" }}>
+                <input
+                  type="checkbox"
+                  checked={remote}
+                  onChange={(e) => setRemote(e.target.checked)}
                 />
-              </>
-            )}
-          </div>
-
-          <CommunityPicker value={hostOrgId} onChange={setHostOrgId} defaultHostOrgId={defaultHostOrgId} />
+                This is remote / online
+              </label>
+              {!remote && (
+                <>
+                  <label className="block text-xs uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
+                    Location
+                  </label>
+                  <LocationAutocomplete
+                    value={location.value}
+                    onChange={location.onChange}
+                    onSelect={location.onSelect}
+                    placeholder="Search for a location"
+                  />
+                </>
+              )}
+            </div>
+            <div>
+              <label className="block text-xs uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
+                Photo (optional)
+              </label>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleFileUpload}
+                className="hidden"
+              />
+              {photoPreview ? (
+                <div className="relative rounded-lg overflow-hidden aspect-[16/10]">
+                  <img src={photoPreview} alt="" className="w-full h-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={handleRemovePhoto}
+                    className="absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center text-sm font-semibold"
+                    style={{ backgroundColor: "rgba(0,0,0,0.6)", color: "#fff" }}
+                  >
+                    ×
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                  className="w-full py-6 rounded-lg border border-dashed text-xs disabled:opacity-50 transition-colors"
+                  style={{ borderColor: "var(--garden-hairline-raised)", color: "var(--garden-dim)" }}
+                >
+                  {uploading ? "Uploading…" : "Click to upload an image"}
+                </button>
+              )}
+            </div>
+          </FormSection>
 
           {error && <p className="text-sm text-red-400">{error}</p>}
           <div className="flex gap-2 justify-end pt-2">

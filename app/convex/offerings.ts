@@ -183,6 +183,55 @@ export const listOfferings = query({
   },
 });
 
+// Single-offering fetch for the detail page (routes/offerings.$id.tsx).
+// Same per-row shape as listOfferings above (resolved photo URL, creator,
+// signupCount, community) — deliberately WITHOUT the full signups roster;
+// that stays behind listSignupsForOffering's creator-or-admin gate, called
+// separately by the detail page's owner-only view when it needs names.
+// `offeringId` is v.string() rather than v.id("offerings") so a malformed
+// or foreign id normalizes to null instead of throwing — a plain 404, not
+// a crash, for a bad/stale URL.
+export const getOffering = query({
+  args: { offeringId: v.string() },
+  handler: async (ctx, args) => {
+    const id = ctx.db.normalizeId("offerings", args.offeringId);
+    if (!id) return null;
+
+    const offering = await ctx.db.get(id);
+    if (!offering) return null;
+
+    const [user, signups, communityById] = await Promise.all([
+      ctx.db
+        .query("profiles")
+        .withIndex("by_userId", (q) => q.eq("userId", offering.userId))
+        .unique(),
+      ctx.db
+        .query("offeringSignups")
+        .withIndex("by_offeringId", (q) => q.eq("offeringId", offering._id))
+        .collect(),
+      resolveCommunities(ctx, [offering.hostOrgId]),
+    ]);
+
+    const resolvedPhotoUrl = offering.photoStorageId
+      ? await ctx.storage.getUrl(offering.photoStorageId)
+      : (offering.photoUrl ?? null);
+
+    return {
+      ...offering,
+      photoUrl: resolvedPhotoUrl,
+      signupCount: signups.length,
+      creator: user
+        ? {
+            _id: user._id,
+            name: user.name,
+            imageUrl: user.imageUrl,
+          }
+        : null,
+      community: offering.hostOrgId ? (communityById.get(String(offering.hostOrgId)) ?? null) : null,
+    };
+  },
+});
+
 export const updateOfferingStatus = mutation({
   args: {
     offeringId: v.id("offerings"),
