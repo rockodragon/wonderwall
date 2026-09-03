@@ -29,6 +29,10 @@ Start with business outcome and user journey before implementation. Each feature
 - [Community groups: architecture review and build plan](features/community-groups.md)
 - [Community grant pools (Leader tier)](features/community-grant-pools.md)
 
+## Runbooks
+
+- [Step 0: go live in Stripe test mode](runbooks/step-0-go-live.md)
+
 ## Research
 
 - [Organization sponsorship add-ons](research/org-sponsorship-add-ons.md)
