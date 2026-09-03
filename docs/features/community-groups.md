@@ -103,6 +103,8 @@ Exit (to run after step 0): a test-mode $10 seat yields an active membership and
 
 ## 7 · Line items for sale, and the operator ledger (added 2026-09-03, evening)
 
+Navigation and shell decisions for the community layer (one app shell, a community switcher under the wordmark, no chip rows, The Garden's framing) live in [`community-ux.md`](community-ux.md).
+
 **A community sells products.** Any number, each at its own price, one-time or monthly: a premium circle, a resource bundle, a cohort seat. Each product carries gated **resources** (private links) that only a buyer with current access, the community's hosts, or an operator ever receive; the public listing shows the count, never the links. Hosts manage products from their community page. Buyers check out on the platform's Stripe; monthly products require sign-in so the subscription follows the account.
 
 **Money on a sale.** Host 90% / platform 10% including processing, the published split for anything a host sells, recorded on every `productPurchases` row (one row per payment: the checkout, then each renewal invoice). The host share accrues as **owed**; there is no payout rail until Stripe Connect, so an operator records each manual transfer as a `hostPayouts` row and the owed figure nets it out. Access follows the row: one-time purchases are forever, subscriptions lapse a week after their last paid period unless renewed.

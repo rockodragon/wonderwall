@@ -413,9 +413,9 @@ export const seedCommunityLaunch = internalMutation({
     const gardenPatch = {
       name: "The Garden",
       kind: COMMUNITY_KIND,
-      tagline: "Kingdom creatives — the first community on creatives.exchange",
+      tagline: "Kingdom-minded creatives, funded in the open.",
       description:
-        "A community of Kingdom-minded creatives getting their work funded, finding collaborators, and gathering around real tables — in San Diego and wherever the next table opens. Free to join. Half of every seat funds another creative's project.",
+        "The Garden is creatives.exchange's first community — Kingdom-minded creatives who get their work funded, find collaborators, and gather around real tables, in San Diego and wherever the next table opens. Join free: browse projects, sit in on open tables, show your portfolio. Money is never the only door. When you want your work funded, a seat is $10 a month, and half of every membership funds another creative's project.",
       locationLabel: "San Diego · online",
       status: "active",
       visibility: "public",
@@ -436,8 +436,14 @@ export const seedCommunityLaunch = internalMutation({
         status: gardenPatch.status,
         visibility: gardenPatch.visibility,
         joinPolicy: garden.joinPolicy ?? gardenPatch.joinPolicy,
-        tagline: garden.tagline ?? gardenPatch.tagline,
-        description: garden.description ?? gardenPatch.description,
+        tagline:
+          garden.tagline && garden.tagline !== "Kingdom creatives" && !garden.tagline.startsWith("Kingdom creatives —")
+            ? garden.tagline
+            : gardenPatch.tagline,
+        description:
+          garden.description && !garden.description.startsWith("A community of Kingdom-minded creatives")
+            ? garden.description
+            : gardenPatch.description,
         locationLabel: garden.locationLabel ?? gardenPatch.locationLabel,
       });
       found.push("hostOrgs:the-garden");
