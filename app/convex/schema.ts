@@ -1098,6 +1098,69 @@ export default defineSchema({
     .index("by_stripeRef", ["stripeRef"])
     .index("by_userId", ["userId"]),
 
+  // ——— Community line items for sale (docs/features/community-groups.md §7) ———
+  // A community can sell several products at different prices: a premium
+  // tier, a resource bundle, a cohort. One-time or monthly. Buyers get the
+  // product's gated `resources` (private links) — served ONLY by
+  // garden/products.getProductAccess after a purchase check; the public
+  // listing never includes them. Money: host 90% / platform 10% (the
+  // published split for anything a host sells), recorded per purchase.
+  communityProducts: defineTable({
+    hostOrgId: v.id("hostOrgs"),
+    name: v.string(),
+    description: v.optional(v.string()),
+    benefits: v.optional(v.string()), // what you get, plain text
+    priceCents: v.number(),
+    billing: v.string(), // "one_time" | "monthly"
+    resources: v.optional(
+      v.array(v.object({ label: v.string(), url: v.string() })),
+    ), // GATED — never spread into a public response
+    status: v.string(), // "active" | "archived"
+    sortOrder: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_hostOrgId", ["hostOrgId"]),
+
+  // One row per PAYMENT on a community product: a one-time checkout, the
+  // first payment of a subscription (keyed by checkout session), or a
+  // renewal (keyed by invoice). Access = any row for (product, user) that is
+  // one-time "paid", or a subscription row whose status is still entitled.
+  // Written by the Stripe webhook (garden/stripeHandlers.ts).
+  productPurchases: defineTable({
+    productId: v.id("communityProducts"),
+    hostOrgId: v.id("hostOrgs"),
+    userId: v.optional(v.id("users")),
+    buyerEmail: v.optional(v.string()),
+    grossCents: v.number(),
+    platformCents: v.number(), // 10% incl. processing
+    hostCents: v.number(), // 90% — accrues as OWED until a payout is recorded
+    billing: v.string(), // mirrors the product at purchase time
+    status: v.string(), // "paid" (one-time) | "active" | "past_due" | "canceled" | "refunded"
+    stripeRef: v.string(), // checkout session id or invoice id — idempotency key
+    stripeSubscriptionId: v.optional(v.string()),
+    currentPeriodEnd: v.optional(v.number()), // ms, subscriptions
+    period: v.string(), // "YYYY-MM"
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_productId", ["productId"])
+    .index("by_hostOrgId", ["hostOrgId"])
+    .index("by_userId", ["userId"])
+    .index("by_stripeRef", ["stripeRef"])
+    .index("by_stripeSubscriptionId", ["stripeSubscriptionId"]),
+
+  // Operator-recorded payouts of a host's accrued share (manual transfers
+  // until Stripe Connect — phase-1b architect §2.5). Owed = sum(hostCents
+  // on productPurchases) − sum(hostPayouts.amountCents).
+  hostPayouts: defineTable({
+    hostOrgId: v.id("hostOrgs"),
+    amountCents: v.number(),
+    reference: v.optional(v.string()), // Zelle/bank memo
+    note: v.optional(v.string()),
+    paidAt: v.number(),
+    createdAt: v.number(),
+  }).index("by_hostOrgId", ["hostOrgId"]),
+
   // Story updates (W3) — the credit-carrying timeline on public story pages.
   storyUpdates: defineTable({
     projectId: v.id("projects"),
