@@ -168,15 +168,18 @@ export default function CommunitiesIndex() {
         >
           Communities
         </h1>
-        {/* Written at the people we want hosting: someone who already has a
-            newsletter, a Discord, a cohort, a following. Lead with what they
-            get (their own room, their own terms, they keep 90%), not with a
-            definition of the word "community". */}
+        {/* No metaphor, per the locked copy voice (product plan §3.1): state
+            the fact, name the alternative the reader is actually using
+            (Discord, Substack, a class roster), lead with the concrete gap
+            it doesn't close — following isn't funding. */}
+        <p className="text-[var(--garden-body)] mb-3 max-w-2xl">
+          Each community here is run by the person who built it, not by us. Joining one is
+          free — its tables, events, projects, and classes.
+        </p>
         <p className="text-[var(--garden-body)] mb-6 max-w-2xl">
-          Every community here is someone's room — their people, their name on the door, their way
-          of doing things. Joining any of them is free. If you already gather creatives, in a
-          newsletter, a group chat, or a class, bring them somewhere their work gets funded in the
-          open. Hosting is free and you keep 90% of anything you sell.
+          Already running a Discord, a Substack, or a class roster for creatives? Host it here
+          instead. Keep your name on it, keep 90% of anything you sell, and give the people you
+          gather a place where their work gets funded — not just liked.
         </p>
 
         {communities === undefined ? (
