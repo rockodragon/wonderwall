@@ -9,7 +9,9 @@ import { mutation, query } from "../_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { ConvexError } from "convex/values";
 import type { MutationCtx } from "../_generated/server";
+import type { Id } from "../_generated/dataModel";
 import { slugifyTitle, resolveAvailableSlug } from "./stories";
+import { assertCommunityMember } from "./communities";
 
 // Slug generation, wired at creation time (review follow-up — stories.ts's
 // ensureStorySlug internalMutation existed but nothing called it). It can't
@@ -76,6 +78,10 @@ export const createPassionProject = mutation({
     // independent of the creator's profile interests. See the schema
     // comment on `projects.interests`.
     interests: v.optional(v.array(v.string())),
+    // The community this project is posted INTO (optional — content stays
+    // owned by the creator, this only tags it; community-groups.md §0).
+    // Membership is checked before the tag is ever written.
+    hostOrgId: v.optional(v.id("hostOrgs")),
     ...locationArgs,
   },
   handler: async (ctx, args) => {
@@ -87,6 +93,10 @@ export const createPassionProject = mutation({
         code: "invalid_goal",
         reason: "If you set a support goal, it needs to be a real positive amount.",
       });
+    }
+
+    if (args.hostOrgId) {
+      await assertCommunityMember(ctx, args.hostOrgId, userId);
     }
 
     const now = Date.now();
@@ -106,6 +116,7 @@ export const createPassionProject = mutation({
       benefitsNonprofit: args.benefitsNonprofit,
       nonprofitName: args.benefitsNonprofit ? args.nonprofitName : undefined,
       interests: args.interests,
+      hostOrgId: args.hostOrgId,
       location: args.location,
       locationType: args.locationType,
       address: args.address,
@@ -183,6 +194,16 @@ export const listProjects = query({
       (p) => VISIBLE_STATUSES.has(p.status) && p.origin !== "portfolio",
     );
 
+    // Batch the hostOrgs lookups: one ctx.db.get per DISTINCT community, not
+    // one per project (several posted projects can share a community).
+    const hostOrgIds = [...new Set(projects.map((p) => p.hostOrgId).filter((id): id is Id<"hostOrgs"> => !!id))];
+    const hostOrgs = await Promise.all(hostOrgIds.map((id) => ctx.db.get(id)));
+    const communityById = new Map<string, { name: string; slug: string }>();
+    hostOrgIds.forEach((id, i) => {
+      const org = hostOrgs[i];
+      if (org) communityById.set(String(id), { name: org.name, slug: org.slug });
+    });
+
     const withDetails = await Promise.all(
       projects.map(async (project) => {
         const [user, media, support] = await Promise.all([
@@ -223,6 +244,7 @@ export const listProjects = query({
             : null,
           media: resolvedMedia,
           supportCount: support.length,
+          community: project.hostOrgId ? (communityById.get(String(project.hostOrgId)) ?? null) : null,
         };
       }),
     );
@@ -350,6 +372,8 @@ export const createPaidProject = mutation({
     // independent of the creator's profile interests. See the schema
     // comment on `projects.interests`.
     interests: v.optional(v.array(v.string())),
+    // See createPassionProject's hostOrgId comment.
+    hostOrgId: v.optional(v.id("hostOrgs")),
     ...locationArgs,
   },
   handler: async (ctx, args) => {
@@ -358,6 +382,10 @@ export const createPaidProject = mutation({
 
     const budgetError = validateBudgetDeclaration(args);
     if (budgetError) throw new ConvexError(budgetError);
+
+    if (args.hostOrgId) {
+      await assertCommunityMember(ctx, args.hostOrgId, userId);
+    }
 
     const now = Date.now();
     const storySlug = await generateStorySlug(ctx, args.title);
@@ -374,6 +402,7 @@ export const createPaidProject = mutation({
       photoUrl: args.photoUrl,
       storySlug,
       interests: args.interests,
+      hostOrgId: args.hostOrgId,
       location: args.location,
       locationType: args.locationType,
       address: args.address,

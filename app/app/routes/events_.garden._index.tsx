@@ -49,6 +49,7 @@ type EventRow = {
   location?: string;
   tags: string[];
   priceCents?: number;
+  community?: { name: string; slug: string } | null;
 };
 
 /** The `events` table has no dedicated price field today — if one lands
@@ -91,6 +92,11 @@ function EventCard({ event }: { event: EventRow }) {
       <p style={{ marginTop: 8, fontSize: 14.5, lineHeight: 1.5, color: "var(--g-muted)" }}>
         {event.location ?? "Location TBA"} · {costLine(event)}
       </p>
+      {event.community && (
+        <div className="g-credit" style={{ marginTop: 6 }}>
+          in {event.community.name}
+        </div>
+      )}
     </Link>
   );
 }

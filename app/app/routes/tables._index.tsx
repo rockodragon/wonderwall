@@ -46,6 +46,7 @@ type TableRow = {
   photoUrl?: string;
   priceCents?: number;
   memberCount: number;
+  community?: { name: string; slug: string } | null;
 };
 
 function FilterChips({
@@ -110,6 +111,11 @@ function TableCard({ table }: { table: TableRow }) {
         {table.memberCount} on the roster
         {table.priceCents ? ` · ${formatMoney(table.priceCents)}` : ""}
       </p>
+      {table.community && (
+        <div className="g-credit" style={{ marginTop: 6 }}>
+          in {table.community.name}
+        </div>
+      )}
     </Link>
   );
 }

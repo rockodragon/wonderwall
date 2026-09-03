@@ -7,6 +7,7 @@ import { LocationAutocomplete } from "../components/LocationAutocomplete";
 import { useLocationField } from "../lib/useLocationField";
 import { AnnouncementComposer } from "../components/AnnouncementComposer";
 import { budgetAmountLabel, budgetKindLabel } from "../lib/budgetLabel";
+import { CommunityPicker } from "../components/CommunityPicker";
 
 const KIND_FILTERS = [
   { label: "All", value: "" },
@@ -510,6 +511,9 @@ function ProjectCard({
               {/* Names are never truncated — the card wraps to fit instead */}
               <span className="text-xs break-words" style={{ color: "var(--garden-muted)" }}>
                 {project.creator.name}
+                {project.community && (
+                  <span style={{ color: "var(--garden-dim)" }}> · in {project.community.name}</span>
+                )}
               </span>
             </div>
           )}
@@ -635,6 +639,7 @@ function PaidProjectForm({
   const location = useLocationField();
   const [remote, setRemote] = useState(true);
   const [interests, setInterests] = useState<string[]>([]);
+  const [hostOrgId, setHostOrgId] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -694,6 +699,7 @@ function PaidProjectForm({
         ...location.toArgs(),
         remote,
         interests: interests.length > 0 ? interests : undefined,
+        hostOrgId: hostOrgId ? (hostOrgId as any) : undefined,
       });
       onClose();
     } catch (err) {
@@ -897,6 +903,7 @@ function PaidProjectForm({
               />
             </div>
           )}
+          <CommunityPicker value={hostOrgId} onChange={setHostOrgId} />
           {error && <p className="text-sm text-red-400">{error}</p>}
           <div className="flex gap-2 justify-end pt-2">
             <button
@@ -933,6 +940,7 @@ function PassionProjectForm({ onClose }: { onClose: () => void }) {
   const [raiseByDate, setRaiseByDate] = useState("");
   const [benefitsNonprofit, setBenefitsNonprofit] = useState(false);
   const [nonprofitName, setNonprofitName] = useState("");
+  const [hostOrgId, setHostOrgId] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -972,6 +980,7 @@ function PassionProjectForm({ onClose }: { onClose: () => void }) {
         raiseByDate: raiseByDate ? new Date(raiseByDate).getTime() : undefined,
         benefitsNonprofit: benefitsNonprofit || undefined,
         nonprofitName: benefitsNonprofit ? nonprofitName.trim() : undefined,
+        hostOrgId: hostOrgId ? (hostOrgId as any) : undefined,
       });
       onClose();
     } catch (err) {
@@ -1149,6 +1158,7 @@ function PassionProjectForm({ onClose }: { onClose: () => void }) {
               </p>
             </div>
           )}
+          <CommunityPicker value={hostOrgId} onChange={setHostOrgId} />
           {error && <p className="text-sm text-red-400">{error}</p>}
           <div className="flex gap-2 justify-end pt-2">
             <button

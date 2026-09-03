@@ -14,6 +14,8 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { ConvexError } from "convex/values";
+import type { Id } from "./_generated/dataModel";
+import { assertCommunityMember } from "./garden/communities";
 
 const VALID_STATUSES = new Set(["active", "archived"]);
 
@@ -55,7 +57,27 @@ const offeringFields = {
   photoStorageId: v.optional(v.id("_storage")),
   externalPaymentLinkUrl: v.optional(v.string()),
   interests: v.optional(v.array(v.string())),
+  // The community this offering is posted INTO (optional — content stays
+  // owned by the creator, this only tags it; community-groups.md §0).
+  hostOrgId: v.optional(v.id("hostOrgs")),
 };
+
+/** Batches hostOrgs lookups into one Map keyed by hostOrgId string — used by
+ * listOfferings/getOffering so N offerings sharing a community cost one
+ * ctx.db.get per community, not one per offering. */
+async function resolveCommunities(
+  ctx: { db: { get: (id: Id<"hostOrgs">) => Promise<{ name: string; slug: string } | null> } },
+  hostOrgIds: (Id<"hostOrgs"> | undefined)[],
+): Promise<Map<string, { name: string; slug: string }>> {
+  const distinct = [...new Set(hostOrgIds.filter((id): id is Id<"hostOrgs"> => !!id))];
+  const orgs = await Promise.all(distinct.map((id) => ctx.db.get(id)));
+  const out = new Map<string, { name: string; slug: string }>();
+  distinct.forEach((id, i) => {
+    const org = orgs[i];
+    if (org) out.set(String(id), { name: org.name, slug: org.slug });
+  });
+  return out;
+}
 
 export const createOffering = mutation({
   args: offeringFields,
@@ -68,6 +90,10 @@ export const createOffering = mutation({
     }
     if (!args.format.trim()) {
       throw new ConvexError({ code: "missing_format", reason: "Pick a format." });
+    }
+
+    if (args.hostOrgId) {
+      await assertCommunityMember(ctx, args.hostOrgId, userId);
     }
 
     const now = Date.now();
@@ -91,6 +117,7 @@ export const createOffering = mutation({
       photoStorageId: args.photoStorageId,
       externalPaymentLinkUrl: args.externalPaymentLinkUrl,
       interests: args.interests,
+      hostOrgId: args.hostOrgId,
       status: "active",
       createdAt: now,
       updatedAt: now,
@@ -116,6 +143,8 @@ export const listOfferings = query({
       .query("offerings")
       .filter((q) => q.eq(q.field("status"), "active"))
       .collect();
+
+    const communityById = await resolveCommunities(ctx, offerings.map((o) => o.hostOrgId));
 
     const withDetails = await Promise.all(
       offerings.map(async (offering) => {
@@ -145,6 +174,7 @@ export const listOfferings = query({
                 imageUrl: user.imageUrl,
               }
             : null,
+          community: offering.hostOrgId ? (communityById.get(String(offering.hostOrgId)) ?? null) : null,
         };
       }),
     );
@@ -191,6 +221,10 @@ export const updateOffering = mutation({
   args: {
     offeringId: v.id("offerings"),
     ...offeringFields,
+    // Convex validators don't accept `null` through v.optional — pass this
+    // instead to remove an already-set hostOrgId (offeringFields.hostOrgId
+    // above is only ever "set to this" or "leave alone").
+    clearCommunity: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
@@ -213,6 +247,10 @@ export const updateOffering = mutation({
     }
     if (!args.format.trim()) {
       throw new ConvexError({ code: "missing_format", reason: "Pick a format." });
+    }
+
+    if (args.hostOrgId) {
+      await assertCommunityMember(ctx, args.hostOrgId, userId);
     }
 
     // updateOffering fully replaces the record from form state each submit
@@ -243,6 +281,7 @@ export const updateOffering = mutation({
       photoUrl: args.photoUrl,
       photoStorageId: args.photoStorageId,
       externalPaymentLinkUrl: args.externalPaymentLinkUrl,
+      hostOrgId: args.clearCommunity ? undefined : (args.hostOrgId ?? offering.hostOrgId),
       interests: args.interests,
       updatedAt: Date.now(),
     });

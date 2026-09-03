@@ -6,6 +6,7 @@ import { api } from "../../convex/_generated/api";
 import { LocationAutocomplete } from "./LocationAutocomplete";
 import { useLocationField } from "../lib/useLocationField";
 import { EVENT_TAGS } from "../constants/eventTags";
+import { CommunityPicker } from "./CommunityPicker";
 import {
   TicketTierEditor,
   draftsToTiers,
@@ -27,6 +28,7 @@ export function CreateEventModal({ onClose }: { onClose: () => void }) {
   const location = useLocationField();
   const [tags, setTags] = useState<string[]>([]);
   const [requiresApproval, setRequiresApproval] = useState(false);
+  const [hostOrgId, setHostOrgId] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -79,6 +81,7 @@ export function CreateEventModal({ onClose }: { onClose: () => void }) {
         venueAddress: venueAddress.trim() || undefined,
         tags,
         requiresApproval,
+        hostOrgId: hostOrgId ? (hostOrgId as any) : undefined,
       });
 
       // Track event created
@@ -267,6 +270,8 @@ export function CreateEventModal({ onClose }: { onClose: () => void }) {
                 ))}
               </div>
             </div>
+
+            <CommunityPicker value={hostOrgId} onChange={setHostOrgId} variant="tailwind" />
 
             <div className="flex items-center gap-3">
               <input

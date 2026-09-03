@@ -5,6 +5,7 @@ import { INTERESTS } from "../constants/interests";
 import { LocationAutocomplete } from "../components/LocationAutocomplete";
 import { useLocationField } from "../lib/useLocationField";
 import { AnnouncementComposer } from "../components/AnnouncementComposer";
+import { CommunityPicker } from "../components/CommunityPicker";
 
 // Discipline tags share the canonical INTERESTS list with People
 // (search.tsx) and Projects (projects.tsx) — same values, same order.
@@ -358,6 +359,9 @@ function OfferingCard({ offering, isOwner }: { offering: any; isOwner: boolean }
             )}
             <span className="text-xs break-words" style={{ color: "var(--garden-muted)" }}>
               {offering.creator.name}
+              {offering.community && (
+                <span style={{ color: "var(--garden-dim)" }}> · in {offering.community.name}</span>
+              )}
             </span>
           </div>
         )}
@@ -604,6 +608,7 @@ function PostOfferingForm({
   const [externalPaymentLinkUrl, setExternalPaymentLinkUrl] = useState(
     offering?.externalPaymentLinkUrl ?? "",
   );
+  const [hostOrgId, setHostOrgId] = useState(offering?.hostOrgId ?? "");
   // photoUrl from the query is already resolved (a real storage URL when
   // photoStorageId is set) — fine to preview, but never re-submitted as-is:
   // the only thing this form writes back is photoStorageId.
@@ -730,9 +735,15 @@ function PostOfferingForm({
         photoStorageId: (photoStorageId as any) ?? undefined,
         externalPaymentLinkUrl: trimmedLink || undefined,
         interests: selectedTags.length > 0 ? selectedTags : undefined,
+        hostOrgId: hostOrgId ? (hostOrgId as any) : undefined,
       };
       if (isEdit) {
-        await updateOffering({ offeringId: offering._id, ...payload });
+        // Choosing the empty option on an offering that already had a
+        // community clears it — Convex validators don't accept `null`
+        // through v.optional, so this is a separate flag (see
+        // convex/offerings.ts's updateOffering).
+        const clearCommunity = !hostOrgId && !!offering.hostOrgId;
+        await updateOffering({ offeringId: offering._id, ...payload, clearCommunity });
       } else {
         await createOffering(payload);
       }
@@ -1033,6 +1044,8 @@ function PostOfferingForm({
               </>
             )}
           </div>
+
+          <CommunityPicker value={hostOrgId} onChange={setHostOrgId} />
 
           {error && <p className="text-sm text-red-400">{error}</p>}
           <div className="flex gap-2 justify-end pt-2">
