@@ -45,7 +45,6 @@ const PRICE_ENV_BY_LEVEL: Record<string, string | undefined> = {
 export const createMembershipCheckout = action({
   args: {
     level: v.union(v.literal("seat"), v.literal("five"), v.literal("host")),
-    hostOrgSlug: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const userId = await auth.getUserId(ctx);
@@ -58,14 +57,6 @@ export const createMembershipCheckout = action({
       throw new ConvexError(
         `Stripe price env var for level "${args.level}" is not set (STRIPE_PRICE_${args.level.toUpperCase()}).`,
       );
-    }
-
-    const hostOrg = await ctx.runQuery(
-      (internal as any).garden.memberships.getHostOrgForCheckout,
-      { slug: args.hostOrgSlug },
-    );
-    if (!hostOrg) {
-      throw new ConvexError("Host org not found — has the default 'the-garden' row been seeded?");
     }
 
     const stripe = getStripeClient();
@@ -96,10 +87,11 @@ export const createMembershipCheckout = action({
     // every customer.subscription.* webhook is self-sufficient even if it
     // arrives before checkout.session.completed — see stripeHandlers.ts's
     // header comment for why this matters for idempotent convergence.
+    // No hostOrgId: a seat is platform membership, not community membership
+    // (community-groups.md §0).
     const metadata: Record<string, string> = {
       kind: "membership",
       level: args.level,
-      hostOrgId: String(hostOrg._id),
       userId: String(userId),
     };
 
@@ -212,7 +204,117 @@ export const createTicketCheckout = action({
 //
 // export const createCoverageCheckout = action({ ... });
 
+// ——— createPoolContributionCheckout — one-time "fund the pool" payment ———
+//
+// Money words: this is NEVER "donate"/"gift"/tax-deductible copy — money
+// through the platform's own Stripe account is fund/back/"add to the
+// project pool" language only (see fund.$slug.tsx and community-groups.md
+// §3). "Donate" stays reserved for the AP out-link lane the fund page
+// already renders when an org has givingUrl/paymentLinkUrl.
+//
+// Same shape as createTicketCheckout (mode "payment", inline price_data —
+// there's no pre-provisioned Stripe price for an arbitrary contribution
+// amount). checkout.session.completed records the inflow into
+// grantContributions (type "contribution_in") via the existing webhook path
+// (stripeHandlers.ts's handlePoolContributionCompleted → memberships.
+// makeConvexDb). Guests can pay — auth is optional, same as ticket
+// checkout; Stripe collects the buyer's email either way.
+
+const MIN_POOL_CONTRIBUTION_CENTS = 500; // $5
+const MAX_POOL_CONTRIBUTION_CENTS = 500_000; // $5,000 — bigger asks go through Rick directly
+
+// hostOrgs.slug for the single platform row (mirrors garden/communities.ts's
+// PLATFORM_ORG_SLUG). Kept as a literal rather than imported so this "use
+// node" action file doesn't pull communities.ts's query/mutation-defining
+// module into its bundle for one constant.
+const PLATFORM_HOST_ORG_SLUG = "creatives-exchange";
+
+export const createPoolContributionCheckout = action({
+  args: {
+    amountCents: v.number(),
+    hostOrgSlug: v.optional(v.string()),
+    payerName: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    if (!Number.isInteger(args.amountCents)) {
+      throw new ConvexError({ reason: "Give a whole number of cents." });
+    }
+    if (args.amountCents < MIN_POOL_CONTRIBUTION_CENTS) {
+      throw new ConvexError({
+        reason: `Contributions start at $${(MIN_POOL_CONTRIBUTION_CENTS / 100).toFixed(0)}.`,
+      });
+    }
+    if (args.amountCents > MAX_POOL_CONTRIBUTION_CENTS) {
+      throw new ConvexError({
+        reason: `Contributions top out at $${(MAX_POOL_CONTRIBUTION_CENTS / 100).toLocaleString()} here — for anything bigger, reach out directly.`,
+      });
+    }
+
+    const slug = args.hostOrgSlug ?? PLATFORM_HOST_ORG_SLUG;
+    const hostOrg = await ctx.runQuery(
+      (internal as any).garden.memberships.getHostOrgBySlug,
+      { slug },
+    );
+    if (!hostOrg) {
+      throw new ConvexError({ reason: "That project pool isn't set up yet — check back soon." });
+    }
+    if (hostOrg.kind !== "platform" && hostOrg.kind !== "community") {
+      throw new ConvexError({
+        reason:
+          "This organization's fund runs through its own giving link, not the project pool — look for the Give button on their page.",
+      });
+    }
+
+    const userId = await auth.getUserId(ctx);
+    const identity = await ctx.auth.getUserIdentity();
+
+    const stripe = getStripeClient();
+
+    const productName =
+      hostOrg.kind === "platform"
+        ? "Project pool — creatives.exchange"
+        : `Project pool — ${hostOrg.name}`;
+
+    const metadata: Record<string, string> = {
+      kind: "pool_contribution",
+      hostOrgId: String(hostOrg._id),
+      ...(userId ? { userId: String(userId) } : {}),
+      ...(args.payerName ? { payerName: args.payerName } : {}),
+    };
+
+    const session = await stripe.checkout.sessions.create({
+      mode: "payment",
+      customer_email: identity?.email ?? undefined,
+      line_items: [
+        {
+          quantity: 1,
+          price_data: {
+            currency: "usd",
+            unit_amount: args.amountCents,
+            product_data: { name: productName },
+          },
+        },
+      ],
+      metadata,
+      success_url: `${siteUrl()}/fund/${hostOrg.slug}?contributed=1`,
+      cancel_url: `${siteUrl()}/fund/${hostOrg.slug}`,
+      allow_promotion_codes: false,
+    });
+
+    if (!session.url) {
+      throw new ConvexError("Stripe did not return a checkout URL.");
+    }
+
+    return { url: session.url };
+  },
+});
+
 // ——— Nightly reconcile — the backstop (architect §2.3, "never cut") ———
+//
+// Note: this sweep only replays `customer.subscription.*` state (see the
+// loop below) — it never reconciles invoices, so a missed invoice.paid
+// delivery for a dues share has no backstop today; that gap is tracked
+// alongside the rest of the money-model follow-ups, not solved here.
 
 export const reconcileMemberships = internalAction({
   args: {},

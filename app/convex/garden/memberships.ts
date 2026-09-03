@@ -17,10 +17,6 @@ import type { Id } from "../_generated/dataModel";
 import { auth } from "../auth";
 import { handleStripeEvent, type Db, type StripeWebhookEvent } from "./stripeHandlers";
 
-// The Garden is the default host org; coverage/membership checkout that
-// doesn't specify a hostOrgSlug attaches here (architect §2.1).
-export const DEFAULT_HOST_ORG_SLUG = "the-garden";
-
 const ENTITLED_STATUSES = new Set(["active", "past_due"]);
 const LEVEL_RANK: Record<string, number> = { seat: 1, five: 2, host: 3 };
 
@@ -69,10 +65,14 @@ function makeConvexDb(ctx: MutationCtx): Db {
         .unique();
       if (!row) return null;
       return {
+        id: String(row._id),
         userId: String(row.userId),
         level: row.level,
         status: row.status,
-        hostOrgId: String(row.hostOrgId),
+        // Optional — a seat is platform membership, not community
+        // membership (community-groups.md §0); only covered/legacy rows
+        // carry one.
+        hostOrgId: row.hostOrgId ? String(row.hostOrgId) : undefined,
         stripeSubscriptionId: row.stripeSubscriptionId,
         stripePriceId: row.stripePriceId,
         currentPeriodEnd: row.currentPeriodEnd,
@@ -91,7 +91,7 @@ function makeConvexDb(ctx: MutationCtx): Db {
         userId: row.userId as Id<"users">,
         level: row.level,
         status: row.status,
-        hostOrgId: row.hostOrgId as Id<"hostOrgs">,
+        hostOrgId: row.hostOrgId as Id<"hostOrgs"> | undefined,
         stripeSubscriptionId: row.stripeSubscriptionId,
         stripePriceId: row.stripePriceId,
         currentPeriodEnd: row.currentPeriodEnd,
@@ -155,6 +155,39 @@ function makeConvexDb(ctx: MutationCtx): Db {
         await ctx.db.insert("ticketPurchases", { ...patch, createdAt: Date.now() });
       }
     },
+
+    async getHostOrgIdBySlug(slug: string) {
+      const row = await ctx.db
+        .query("hostOrgs")
+        .withIndex("by_slug", (q) => q.eq("slug", slug))
+        .unique();
+      return row ? String(row._id) : null;
+    },
+
+    async getContributionByStripeRef(stripeRef: string) {
+      const row = await ctx.db
+        .query("grantContributions")
+        .withIndex("by_stripeRef", (q) => q.eq("stripeRef", stripeRef))
+        .unique();
+      return row ? { stripeRef: row.stripeRef as string } : null;
+    },
+
+    async insertContribution(row) {
+      await ctx.db.insert("grantContributions", {
+        hostOrgId: row.hostOrgId as Id<"hostOrgs">,
+        type: row.type,
+        grossCents: row.grossCents,
+        platformCents: row.platformCents,
+        poolCents: row.poolCents,
+        userId: row.userId as Id<"users"> | undefined,
+        payerName: row.payerName,
+        membershipId: row.membershipId as Id<"memberships"> | undefined,
+        stripeRef: row.stripeRef,
+        period: row.period,
+        note: row.note,
+        createdAt: Date.now(),
+      });
+    },
   };
 }
 
@@ -190,13 +223,15 @@ export const saveBillingCustomer = internalMutation({
   },
 });
 
-export const getHostOrgForCheckout = internalQuery({
-  args: { slug: v.optional(v.string()) },
+// Used by stripe.ts's createPoolContributionCheckout (a "use node" action,
+// no ctx.db of its own) to resolve which pool a one-time contribution
+// targets and validate its kind before building the Stripe session.
+export const getHostOrgBySlug = internalQuery({
+  args: { slug: v.string() },
   handler: async (ctx, args) => {
-    const slug = args.slug ?? DEFAULT_HOST_ORG_SLUG;
     return ctx.db
       .query("hostOrgs")
-      .withIndex("by_slug", (q) => q.eq("slug", slug))
+      .withIndex("by_slug", (q) => q.eq("slug", args.slug))
       .unique();
   },
 });

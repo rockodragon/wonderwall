@@ -27,6 +27,14 @@ auth.addHttpRoutes(http);
 // NOTE (codegen): `internal.garden.memberships.applyStripeEvent` isn't in
 // the generated API yet (stale codegen, see garden/memberships.ts's header)
 // — cast through `as any` until `npx convex dev` regenerates it.
+//
+// Events to enable on this endpoint in the Stripe dashboard (all consumed by
+// garden/stripeHandlers.ts's dispatcher):
+//   checkout.session.completed        — memberships, event tickets, pool contributions
+//   customer.subscription.created     — memberships, coverage
+//   customer.subscription.updated     — memberships, coverage
+//   customer.subscription.deleted     — memberships, coverage
+//   invoice.paid                      — dues shares into the grant pool ledger (new)
 // ————————————————————————————————————————————————————————————————
 
 // Matches the `stripe` package's pinned default (node_modules/stripe's

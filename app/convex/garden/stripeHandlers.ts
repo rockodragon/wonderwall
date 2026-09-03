@@ -16,8 +16,11 @@
 // on the Subscription object. Two things make that safe here:
 //   1. garden/stripe.ts sets `subscription_data.metadata` to the *same*
 //      object as the session metadata, so every subscription.* webhook is
-//      self-sufficient (kind/level/hostOrgId/userId all present) even if it
-//      arrives before checkout.session.completed does.
+//      self-sufficient (kind/level/userId all present) even if it arrives
+//      before checkout.session.completed does. hostOrgId is no longer part
+//      of that metadata (a seat is platform membership, not community
+//      membership — community-groups.md §0); it only survives on rows a
+//      covered/legacy path set directly.
 //   2. The webhook endpoint is configured (architect note, see http.ts) to
 //      expand `data.object.subscription` on checkout.session.completed, so
 //      we usually get status/price/period-end without a follow-up API call.
@@ -56,8 +59,31 @@ export interface StripeCheckoutSessionLike {
   customer_details?: { email?: string | null } | null;
   metadata?: Record<string, string> | null;
   /** Total charged in the smallest currency unit — present on one-time
-   * payment sessions (event tickets). */
+   * payment sessions (event tickets, pool contributions). */
   amount_total?: number | null;
+  /** Seconds since epoch. Used as the contribution `period` fallback for
+   * one-time pool contributions, which (unlike invoices) carry no
+   * period_start. */
+  created?: number;
+}
+
+/** Locally-typed Stripe Invoice shape — `invoice.paid` (dues shares). Stripe
+ * has moved where a paid invoice's subscription metadata lives across API
+ * versions (top-level `subscription_details`, the newer `parent.
+ * subscription_details`, and the line item as a last resort), so
+ * resolveInvoiceMembershipMetadata checks all three rather than picking one. */
+export interface StripeInvoiceLike {
+  id: string;
+  amount_paid: number;
+  created: number;
+  customer: string | null;
+  subscription?: string | { id: string } | null;
+  parent?: { subscription_details?: { metadata?: Record<string, string> | null } | null } | null;
+  subscription_details?: { metadata?: Record<string, string> | null } | null;
+  lines?: { data?: Array<{ metadata?: Record<string, string> | null }> } | null;
+  /** Seconds since epoch — the billing period this invoice covers. Falls
+   * back to `created` when absent. */
+  period_start?: number;
 }
 
 export type StripeWebhookEvent =
@@ -76,6 +102,11 @@ export type StripeWebhookEvent =
       type: "customer.subscription.deleted";
       data: { object: StripeSubscriptionLike };
     }
+  | {
+      id: string;
+      type: "invoice.paid";
+      data: { object: StripeInvoiceLike };
+    }
   | { id: string; type: string; data: { object: unknown } };
 
 // ——— The Db interface pure handlers depend on. Rows use plain strings for
@@ -89,14 +120,41 @@ export interface BillingCustomerRow {
 }
 
 export interface MembershipRow {
+  /** Convex row id — present only on reads (getMembershipBySubscription),
+   * never required on a write. Lets handleInvoicePaid reference the
+   * membership from a grantContributions row (membershipId). */
+  id?: string;
   userId: string;
   level: string; // "seat" | "five" | "host"
   status: string; // "active" | "past_due" | "canceled" | "incomplete"
-  hostOrgId: string;
+  /** A seat is PLATFORM membership, not community membership (community-
+   * groups.md §0) — new self-paid seats leave this unset. Still set for
+   * covered seats (coverage.ts writes ctx.db directly, bypassing this Db). */
+  hostOrgId?: string;
   stripeSubscriptionId: string;
   stripePriceId?: string;
   currentPeriodEnd?: number;
   coveredByCodeId?: string;
+}
+
+/** Money IN to a grant pool — the mirror of `allocations` (money OUT).
+ * Written by handleInvoicePaid (dues_share) and handlePoolContributionPaid
+ * (contribution_in) below; topup_in/sponsor_in/entry_fee_in/adjustment are
+ * operator-entered (garden/allocations.ts's recordContribution), never
+ * through this webhook path. See schema.ts's grantContributions comment for
+ * the fee-rule vocabulary. */
+export interface ContributionRow {
+  hostOrgId: string;
+  type: "dues_share" | "contribution_in" | "topup_in" | "sponsor_in" | "entry_fee_in" | "adjustment";
+  grossCents: number;
+  platformCents: number;
+  poolCents: number;
+  userId?: string;
+  payerName?: string;
+  membershipId?: string;
+  stripeRef?: string;
+  period: string; // "YYYY-MM"
+  note?: string;
 }
 
 export interface CoverageCodeRow {
@@ -133,6 +191,19 @@ export interface Db {
   /** Keyed by stripeSessionId — replaying the same checkout.session.completed
    * event must converge to one row (idempotency, same as memberships). */
   upsertTicketPurchase(row: TicketPurchaseRow): Promise<void>;
+
+  /** Resolves a hostOrgs row's id by slug — used to find the platform pool
+   * row ("creatives-exchange") for dues shares and pool contributions that
+   * don't name a community. */
+  getHostOrgIdBySlug(slug: string): Promise<string | null>;
+
+  /** Idempotency check for grantContributions, keyed by stripeRef (an
+   * invoice id or checkout session id) — same convergence pattern as
+   * upsertMembership/upsertTicketPurchase, but contributions are
+   * insert-once (never patched), so this is a lookup-before-insert instead
+   * of an upsert. */
+  getContributionByStripeRef(stripeRef: string): Promise<{ stripeRef: string } | null>;
+  insertContribution(row: ContributionRow): Promise<void>;
 }
 
 // ——— Pure helpers ———
@@ -178,6 +249,46 @@ function expandedSubscription(session: StripeCheckoutSessionLike): StripeSubscri
     : session.subscription;
 }
 
+// ——— Fee rules (community-grant-pools.md §2 "one bite per dollar") ———
+//
+// The single row's own dollar amounts are what makes each math case
+// checkable at a glance from the ledger — see grantContributions' schema
+// comment. Kept local to this file (rather than imported) because they're
+// pure integer math with no Convex/Stripe surface of their own.
+
+/** Dues (subscription invoices): pool 50% / platform 50% (platform's half
+ * covers processing too). */
+function duesSplit(grossCents: number): { platformCents: number; poolCents: number } {
+  const poolCents = Math.round(grossCents * 0.5);
+  return { platformCents: grossCents - poolCents, poolCents };
+}
+
+/** One-time pool contributions ("one bite per dollar"): platform 10%
+ * including processing, pool gets the rest. Same formula recordContribution
+ * (garden/allocations.ts) uses for operator-entered topup/sponsor/entry-fee
+ * inflows — kept in one place there since that mutation has no Stripe event
+ * to hang off of. */
+function contributionSplit(grossCents: number): { platformCents: number; poolCents: number } {
+  const platformCents = Math.round(grossCents * 0.1);
+  return { platformCents, poolCents: grossCents - platformCents };
+}
+
+/** "YYYY-MM" from a Stripe seconds-since-epoch timestamp — same convention
+ * allocations.period already uses (UTC, so this never drifts with the
+ * server's local timezone). */
+function periodFromStripeSeconds(seconds: number): string {
+  const d = new Date(seconds * 1000);
+  const year = d.getUTCFullYear();
+  const month = String(d.getUTCMonth() + 1).padStart(2, "0");
+  return `${year}-${month}`;
+}
+
+/** hostOrgs.slug for the single platform row (mirrors garden/communities.ts's
+ * PLATFORM_ORG_SLUG). Duplicated as a literal, not imported, so this pure
+ * file never pulls in communities.ts's Convex query/mutation definitions —
+ * see this file's header note on staying dependency-free. */
+const PLATFORM_HOST_ORG_SLUG = "creatives-exchange";
+
 // ——— checkout.session.completed (membership + event tickets — coverage
 // checkout + issuance is W2; other kinds/modes are ignored defensively) ———
 
@@ -208,6 +319,52 @@ async function handleTicketCheckoutCompleted(
   });
 }
 
+/** One-time payment session for a pool contribution (mode "payment",
+ * kind "pool_contribution" — created by garden/stripe.ts's
+ * createPoolContributionCheckout). "One bite per dollar": platform takes
+ * 10%, the rest locks to the named pool (or the platform pool when no
+ * community is named). Idempotent by session id, like ticket checkouts. */
+async function handlePoolContributionCompleted(
+  session: StripeCheckoutSessionLike,
+  db: Db,
+): Promise<void> {
+  const grossCents = session.amount_total ?? 0;
+  if (grossCents <= 0) {
+    console.warn("[stripe] pool_contribution checkout.session.completed has no amount", {
+      sessionId: session.id,
+    });
+    return;
+  }
+
+  if (await db.getContributionByStripeRef(session.id)) return; // idempotent replay
+
+  const metadata = session.metadata ?? {};
+  const hostOrgId = metadata.hostOrgId || (await db.getHostOrgIdBySlug(PLATFORM_HOST_ORG_SLUG));
+  if (!hostOrgId) {
+    console.warn("[stripe] pool_contribution checkout.session.completed: no resolvable host org (is the platform row seeded?)", {
+      sessionId: session.id,
+    });
+    return;
+  }
+
+  const { platformCents, poolCents } = contributionSplit(grossCents);
+  const periodSeconds = session.created ?? Math.floor(Date.now() / 1000);
+
+  await db.insertContribution({
+    hostOrgId,
+    type: "contribution_in",
+    grossCents,
+    platformCents,
+    poolCents,
+    userId: metadata.userId || undefined,
+    // NEVER session.customer_details?.email — a payer name is opt-in
+    // display copy, not a captured email (task spec, money-words rule).
+    payerName: metadata.payerName || undefined,
+    stripeRef: session.id,
+    period: periodFromStripeSeconds(periodSeconds),
+  });
+}
+
 async function handleCheckoutSessionCompleted(
   session: StripeCheckoutSessionLike,
   db: Db,
@@ -218,6 +375,9 @@ async function handleCheckoutSessionCompleted(
     if (metadata.kind === "event_ticket") {
       return handleTicketCheckoutCompleted(session, db);
     }
+    if (metadata.kind === "pool_contribution") {
+      return handlePoolContributionCompleted(session, db);
+    }
     return; // unknown one-time payment kind — ignore defensively
   }
 
@@ -225,8 +385,11 @@ async function handleCheckoutSessionCompleted(
 
   if (metadata.kind !== "membership") return;
 
-  const { userId, level, hostOrgId } = metadata;
-  if (!userId || !level || !hostOrgId) {
+  // hostOrgId is intentionally NOT required here — a seat is platform
+  // membership, not community membership (community-groups.md §0); new
+  // self-paid checkouts carry no hostOrgId at all.
+  const { userId, level } = metadata;
+  if (!userId || !level) {
     console.warn("[stripe] checkout.session.completed missing required metadata", {
       sessionId: session.id,
     });
@@ -258,7 +421,11 @@ async function handleCheckoutSessionCompleted(
     userId,
     level,
     status,
-    hostOrgId,
+    // No hostOrgId in metadata anymore (a seat is platform membership) —
+    // preserve one only if a prior row already had it (e.g. out-of-order
+    // arrival after a covered/legacy row was written directly by
+    // coverage.ts).
+    hostOrgId: existing?.hostOrgId,
     stripeSubscriptionId: subId,
     stripePriceId: sub ? extractPriceId(sub) : undefined,
     currentPeriodEnd: sub ? extractCurrentPeriodEnd(sub) : undefined,
@@ -280,10 +447,12 @@ async function handleMembershipSubscriptionUpdate(
   const metadata = sub.metadata ?? {};
 
   const userId = metadata.userId ?? existing?.userId;
-  const hostOrgId = metadata.hostOrgId ?? existing?.hostOrgId;
   const level = metadata.level ?? existing?.level;
+  // Optional — a seat is platform membership, not community membership.
+  // Kept only for legacy/covered rows that already carried one.
+  const hostOrgId = metadata.hostOrgId ?? existing?.hostOrgId;
 
-  if (!userId || !hostOrgId || !level) {
+  if (!userId || !level) {
     // No metadata (legacy/foreign subscription) and no prior row to fall
     // back on — we can't reconstruct enough to create a membership safely.
     console.warn("[stripe] subscription event: cannot resolve membership identity", {
@@ -360,6 +529,69 @@ async function handleSubscriptionDeleted(sub: StripeSubscriptionLike, db: Db): P
   await handleMembershipSubscriptionUpdate(sub, db, "canceled");
 }
 
+// ——— invoice.paid (dues shares) ———
+
+/** Stripe has relocated a paid invoice's subscription metadata across API
+ * versions — try the newer `parent.subscription_details`, then the older
+ * top-level `subscription_details`, then fall back to the first line
+ * item's metadata (subscription_data.metadata mirrors onto both, per this
+ * file's header note). Returns null when none carry any metadata at all. */
+function resolveInvoiceMembershipMetadata(invoice: StripeInvoiceLike): Record<string, string> | null {
+  return (
+    invoice.parent?.subscription_details?.metadata ??
+    invoice.subscription_details?.metadata ??
+    invoice.lines?.data?.[0]?.metadata ??
+    null
+  );
+}
+
+function subscriptionIdFromInvoice(invoice: StripeInvoiceLike): string | undefined {
+  const sub = invoice.subscription;
+  if (!sub) return undefined;
+  return typeof sub === "string" ? sub : sub.id;
+}
+
+/** Dues share on a paid membership invoice — the recurring half of the
+ * grant-pool inflow (the other half is one-time pool contributions, see
+ * handlePoolContributionCompleted above). Idempotent by invoice id, and a
+ * deliberately quiet no-op — never throws — on anything that can't be
+ * resolved: a missing platform hostOrgs row is an ops issue to fix (seed
+ * it), not a reason to fail the webhook and have Stripe retry forever. */
+async function handleInvoicePaid(invoice: StripeInvoiceLike, db: Db): Promise<void> {
+  if (!invoice.amount_paid || invoice.amount_paid <= 0) return; // $0 invoice (e.g. a trial) — nothing moved
+
+  const metadata = resolveInvoiceMembershipMetadata(invoice);
+  if (!metadata || metadata.kind !== "membership") return; // not a membership subscription's invoice
+
+  if (await db.getContributionByStripeRef(invoice.id)) return; // idempotent replay
+
+  const hostOrgId = await db.getHostOrgIdBySlug(PLATFORM_HOST_ORG_SLUG);
+  if (!hostOrgId) {
+    console.warn("[stripe] invoice.paid: platform host org row is missing — has 'creatives-exchange' been seeded?", {
+      invoiceId: invoice.id,
+    });
+    return;
+  }
+
+  const grossCents = invoice.amount_paid;
+  const { platformCents, poolCents } = duesSplit(grossCents);
+
+  const subId = subscriptionIdFromInvoice(invoice);
+  const membership = subId ? await db.getMembershipBySubscription(subId) : null;
+
+  await db.insertContribution({
+    hostOrgId,
+    type: "dues_share",
+    grossCents,
+    platformCents,
+    poolCents,
+    userId: metadata.userId || undefined,
+    membershipId: membership?.id,
+    stripeRef: invoice.id,
+    period: periodFromStripeSeconds(invoice.period_start ?? invoice.created),
+  });
+}
+
 // ——— Dispatcher ———
 
 export async function handleStripeEvent(event: StripeWebhookEvent, db: Db): Promise<void> {
@@ -371,6 +603,8 @@ export async function handleStripeEvent(event: StripeWebhookEvent, db: Db): Prom
       return handleSubscriptionUpdated(event.data.object as StripeSubscriptionLike, db);
     case "customer.subscription.deleted":
       return handleSubscriptionDeleted(event.data.object as StripeSubscriptionLike, db);
+    case "invoice.paid":
+      return handleInvoicePaid(event.data.object as StripeInvoiceLike, db);
     default:
       return; // every other event type is intentionally ignored (W1 scope)
   }
