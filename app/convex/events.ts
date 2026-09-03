@@ -611,6 +611,9 @@ export const getAttendees = query({
 export const search = query({
   args: {
     query: v.string(),
+    // Community context (docs/features/community-ux.md §2): only events
+    // posted into that community. Unknown slug → nothing (fail closed).
+    communitySlug: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const q = args.query.toLowerCase();
@@ -619,6 +622,15 @@ export const search = query({
     const now = Date.now();
     let events = await ctx.db.query("events").collect();
     events = events.filter((e) => e.status === "published" && e.datetime > now);
+
+    if (args.communitySlug) {
+      const org = await ctx.db
+        .query("hostOrgs")
+        .withIndex("by_slug", (q) => q.eq("slug", args.communitySlug!))
+        .unique();
+      if (!org) return [];
+      events = events.filter((e) => e.hostOrgId && String(e.hostOrgId) === String(org._id));
+    }
 
     // Filter by search query
     const filtered = events.filter(

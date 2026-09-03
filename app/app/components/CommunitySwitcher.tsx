@@ -52,12 +52,20 @@ export function CommunitySwitcher() {
   if (!isAuthenticated) {
     const redirect = `${location.pathname}${location.search}`;
     return (
-      <Link
-        to={`/login?redirect=${encodeURIComponent(redirect)}`}
-        className="flex items-center justify-center px-3 py-1.5 rounded-full text-xs font-medium border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-      >
-        Sign in
-      </Link>
+      <div className="flex flex-col gap-1.5">
+        <Link
+          to={`/login?redirect=${encodeURIComponent(redirect)}`}
+          className="flex items-center justify-center px-3 py-1.5 rounded-full text-xs font-medium border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+        >
+          Sign in
+        </Link>
+        <Link
+          to="/communities"
+          className="text-center text-xs text-gray-500 dark:text-gray-400 hover:underline"
+        >
+          Browse communities →
+        </Link>
+      </div>
     );
   }
 
