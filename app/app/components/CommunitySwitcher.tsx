@@ -86,11 +86,16 @@ export function CommunitySwitcher() {
         />
       </button>
 
+      {/* The open menu is raised one step off the rail (gray-800 against the
+          sidebar's gray-900) with a ring and a real shadow, so it reads as a
+          panel floating above the nav rather than a hole cut in it. The
+          negative insets line it up with the nav links' px-4 — at the
+          container's p-6 the nav items poked out past both of its edges. */}
       {open && (
         <div
           role="menu"
           aria-label="Switch community"
-          className="absolute left-0 right-0 mt-1 py-1 rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-lg z-50"
+          className="absolute -left-2 -right-2 mt-1 py-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 ring-1 ring-black/5 dark:ring-white/10 shadow-2xl z-50"
         >
           <MenuItem
             selected={selected === "all"}
@@ -118,12 +123,12 @@ export function CommunitySwitcher() {
               {c.name}
             </MenuItem>
           ))}
-          <div className="my-1 border-t border-gray-100 dark:border-gray-800" />
+          <div className="my-1 border-t border-gray-100 dark:border-gray-700" />
           <Link
             to="/communities"
             role="menuitem"
             onClick={() => setOpen(false)}
-            className="block px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+            className="block px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
           >
             Browse communities →
           </Link>
@@ -131,7 +136,7 @@ export function CommunitySwitcher() {
             to="/communities/apply"
             role="menuitem"
             onClick={() => setOpen(false)}
-            className="block px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+            className="block px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
           >
             Host your own →
           </Link>
@@ -159,7 +164,7 @@ function MenuItem({
       className={`flex w-full items-center px-3 py-1.5 text-sm text-left transition-colors ${
         selected
           ? "font-semibold text-blue-600 dark:text-blue-400"
-          : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+          : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
       }`}
     >
       {children}

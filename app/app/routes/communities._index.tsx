@@ -166,10 +166,15 @@ export default function CommunitiesIndex() {
         >
           Communities
         </h1>
+        {/* Written at the people we want hosting: someone who already has a
+            newsletter, a Discord, a cohort, a following. Lead with what they
+            get (their own room, their own terms, they keep 90%), not with a
+            definition of the word "community". */}
         <p className="text-[var(--garden-body)] mb-6 max-w-2xl">
-          Named groups on creatives.exchange — each with its own tables, events, projects, and
-          classes. Joining is free, and you can be in as many as you like. Run a group already?
-          Host it here.
+          Every community here is someone's room — their people, their name on the door, their way
+          of doing things. Joining any of them is free. If you already gather creatives, in a
+          newsletter, a group chat, or a class, bring them somewhere their work gets funded in the
+          open. Hosting is free and you keep 90% of anything you sell.
         </p>
 
         {communities === undefined ? (
