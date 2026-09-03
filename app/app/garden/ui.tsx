@@ -251,3 +251,12 @@ export function formatDuration(mins?: number): string | undefined {
   const hrs = mins / 60;
   return `${Number.isInteger(hrs) ? hrs : hrs.toFixed(1)} hr`;
 }
+
+/** A proper list join for co-hosted names: "A", "A and B", "A, B, and C" —
+ * used for a community's leaders line on its page and directory card. */
+export function joinNames(names: string[]): string {
+  if (names.length === 0) return "";
+  if (names.length === 1) return names[0];
+  if (names.length === 2) return `${names[0]} and ${names[1]}`;
+  return `${names.slice(0, -1).join(", ")}, and ${names[names.length - 1]}`;
+}

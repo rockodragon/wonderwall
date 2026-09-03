@@ -143,6 +143,100 @@ export function canManageCommunity(role: string | undefined): boolean {
 }
 
 // ——————————————————————————————————————————————————————————————
+// Leadership — a community has exactly one owner (hostOrgs.ownerUserId,
+// always an active role-"host" member) and any number of admins (any other
+// active role-"host" member). Both are co-listed publicly. "moderator"
+// stays valid for existing rows — it can still manage — but is never
+// treated as a leader here and no new moderator rows get created.
+// ——————————————————————————————————————————————————————————————
+
+/** Only role "host" counts as a leader (owner or admin) for public
+ * co-listing — "moderator" manages but isn't listed. */
+export function isLeaderRole(role: string | undefined): boolean {
+  return role === "host";
+}
+
+export interface LeaderRow {
+  userId: string;
+  name: string;
+}
+
+export interface Leader {
+  userId: string;
+  name: string;
+  isOwner: boolean;
+}
+
+/** Owner first, then admins by name (locale compare) — the shape every
+ * public "Hosted by …" line and the host-tools roster order from. `rows`
+ * should already be the active role-"host" members. */
+export function orderLeaders(rows: LeaderRow[], ownerUserId: string | undefined): Leader[] {
+  const owner = ownerUserId ? rows.find((r) => r.userId === ownerUserId) : undefined;
+  const admins = rows
+    .filter((r) => r.userId !== ownerUserId)
+    .slice()
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const out: Leader[] = [];
+  if (owner) out.push({ userId: owner.userId, name: owner.name, isOwner: true });
+  for (const a of admins) out.push({ userId: a.userId, name: a.name, isOwner: false });
+  return out;
+}
+
+export interface RoleChangeInput {
+  actorIsOwner: boolean;
+  actorIsOperator: boolean;
+  targetIsOwner: boolean;
+  targetStatus: string;
+  nextRole: string;
+}
+
+export interface RoleDecision {
+  allowed: boolean;
+  reason?: string;
+}
+
+/** The gate for setMemberRole: who may promote/demote whom. */
+export function resolveRoleChange(input: RoleChangeInput): RoleDecision {
+  if (!input.actorIsOwner && !input.actorIsOperator) {
+    return { allowed: false, reason: "Only the community's owner can change roles." };
+  }
+  if (input.nextRole !== "host" && input.nextRole !== "member") {
+    return { allowed: false, reason: 'Role is "host" or "member".' };
+  }
+  if (input.targetIsOwner) {
+    return {
+      allowed: false,
+      reason: "The owner's role can't be changed from here — transfer ownership first.",
+    };
+  }
+  if (input.targetStatus !== "active") {
+    return { allowed: false, reason: "That person isn't an active member." };
+  }
+  return { allowed: true };
+}
+
+export interface OwnershipTransferInput {
+  actorIsOwner: boolean;
+  actorIsOperator: boolean;
+  targetIsActiveMember: boolean;
+  targetIsOwner: boolean;
+}
+
+/** The gate for transferOwnership. */
+export function resolveOwnershipTransfer(input: OwnershipTransferInput): RoleDecision {
+  if (!input.actorIsOwner && !input.actorIsOperator) {
+    return { allowed: false, reason: "Only the community's owner can transfer ownership." };
+  }
+  if (input.targetIsOwner) {
+    return { allowed: false, reason: "They're already the owner." };
+  }
+  if (!input.targetIsActiveMember) {
+    return { allowed: false, reason: "Only an active member can become the owner." };
+  }
+  return { allowed: true };
+}
+
+// ——————————————————————————————————————————————————————————————
 // Shared server helpers (used by projects.ts / events.ts / offerings.ts to
 // validate a `hostOrgId` on content — "post into a community")
 // ——————————————————————————————————————————————————————————————
@@ -244,6 +338,20 @@ async function profileNames(ctx: Ctx, userIds: Id<"users">[]): Promise<Map<strin
   return out;
 }
 
+/** Owner-first, then admins by name — see orderLeaders. `names` misses an
+ * id when the profile lookup came up empty (same defensive filter `hosts`
+ * uses), so those ids are silently dropped here too. */
+function buildLeaders(
+  hostIds: Id<"users">[],
+  names: Map<string, string>,
+  ownerUserId: Id<"users"> | undefined,
+): Leader[] {
+  const rows: LeaderRow[] = hostIds
+    .map((id) => ({ userId: String(id), name: names.get(String(id)) }))
+    .filter((r): r is LeaderRow => !!r.name);
+  return orderLeaders(rows, ownerUserId ? String(ownerUserId) : undefined);
+}
+
 function publicShape(org: Doc<"hostOrgs">) {
   const c = normalizeCommunity(org);
   return {
@@ -291,6 +399,7 @@ export const listCommunities = query({
           ...publicShape(org),
           memberCount: active.length,
           hosts: hostIds.map((id) => names.get(String(id))).filter((n): n is string => !!n),
+          leaders: buildLeaders(hostIds, names, org.ownerUserId),
         };
       }),
     );
@@ -374,6 +483,7 @@ export const getCommunity = query({
     return {
       ...publicShape(org),
       hosts: hostIds.map((id) => names.get(String(id))).filter((n): n is string => !!n),
+      leaders: buildLeaders(hostIds, names, org.ownerUserId),
       memberCount: activeMembers.length,
       pendingCount: viewerManages ? members.filter((m) => m.status === "pending").length : 0,
       hasFund: allocations.length > 0 || !!org.givingUrl || !!org.paymentLinkUrl,
@@ -420,6 +530,7 @@ export const getCommunity = query({
         isSignedIn: !!userId,
         membership: mine ? { role: mine.role, status: mine.status, isHome: !!mine.isHome } : null,
         canManage: viewerManages,
+        isOwner: !!userId && !!org.ownerUserId && String(org.ownerUserId) === String(userId),
         canJoin: decision.alreadyMember
           ? { allowed: false, reason: undefined }
           : { allowed: decision.allowed, reason: decision.reason },
@@ -580,6 +691,13 @@ export const leaveCommunity = mutation({
     if (!userId) throw new ConvexError({ code: "unauthenticated" });
     const existing = await getCommunityMember(ctx, args.hostOrgId, userId);
     if (!existing) return { ok: true };
+    const org = await ctx.db.get(args.hostOrgId);
+    if (org?.ownerUserId && String(org.ownerUserId) === String(userId)) {
+      throw new ConvexError({
+        code: "owner_cannot_leave",
+        reason: "You're the owner — transfer ownership to someone else before leaving.",
+      });
+    }
     if (existing.role === "host") {
       const hosts = await ctx.db
         .query("communityMembers")
@@ -690,12 +808,92 @@ export const setMemberStatus = mutation({
   },
 });
 
-/** Roster for hosts: names + status, pending first. Members-only read. */
+/** Only the owner — or a platform operator — may promote/demote. Admins
+ * (role "host") keep the management powers they already have but can't
+ * touch anyone's role. Gated by resolveRoleChange; never touches the
+ * owner's own row (transfer ownership first). */
+export const setMemberRole = mutation({
+  args: {
+    hostOrgId: v.id("hostOrgs"),
+    userId: v.id("users"),
+    role: v.union(v.literal("host"), v.literal("member")),
+  },
+  handler: async (ctx, args) => {
+    const actorId = await getAuthUserId(ctx);
+    if (!actorId) throw new ConvexError({ code: "unauthenticated" });
+    const org = await ctx.db.get(args.hostOrgId);
+    if (!org || org.kind !== COMMUNITY_KIND) {
+      throw new ConvexError({ code: "not_found", reason: "That community isn't there." });
+    }
+    const actorProfile = await ctx.db
+      .query("profiles")
+      .withIndex("by_userId", (q) => q.eq("userId", actorId))
+      .unique();
+    const target = await getCommunityMember(ctx, args.hostOrgId, args.userId);
+
+    const decision = resolveRoleChange({
+      actorIsOwner: !!org.ownerUserId && String(org.ownerUserId) === String(actorId),
+      actorIsOperator: isAdminProfile(actorProfile),
+      targetIsOwner: !!org.ownerUserId && String(org.ownerUserId) === String(args.userId),
+      targetStatus: target?.status ?? "removed",
+      nextRole: args.role,
+    });
+    if (!decision.allowed) {
+      throw new ConvexError({ code: "forbidden", reason: decision.reason });
+    }
+
+    // decision.allowed guarantees target is active, so it exists.
+    await ctx.db.patch(target!._id, { role: args.role });
+    return { ok: true };
+  },
+});
+
+/** Hands the community to someone else. Only the owner or an operator may
+ * call this. The new owner's row is guaranteed role "host"/active; the
+ * previous owner keeps their role "host" row — they're now an admin. */
+export const transferOwnership = mutation({
+  args: { hostOrgId: v.id("hostOrgs"), userId: v.id("users") },
+  handler: async (ctx, args) => {
+    const actorId = await getAuthUserId(ctx);
+    if (!actorId) throw new ConvexError({ code: "unauthenticated" });
+    const org = await ctx.db.get(args.hostOrgId);
+    if (!org || org.kind !== COMMUNITY_KIND) {
+      throw new ConvexError({ code: "not_found", reason: "That community isn't there." });
+    }
+    const actorProfile = await ctx.db
+      .query("profiles")
+      .withIndex("by_userId", (q) => q.eq("userId", actorId))
+      .unique();
+    const target = await getCommunityMember(ctx, args.hostOrgId, args.userId);
+
+    const decision = resolveOwnershipTransfer({
+      actorIsOwner: !!org.ownerUserId && String(org.ownerUserId) === String(actorId),
+      actorIsOperator: isAdminProfile(actorProfile),
+      targetIsActiveMember: !!target && target.status === "active",
+      targetIsOwner: !!org.ownerUserId && String(org.ownerUserId) === String(args.userId),
+    });
+    if (!decision.allowed) {
+      throw new ConvexError({ code: "forbidden", reason: decision.reason });
+    }
+
+    // decision.allowed guarantees target is an active member, so it exists.
+    if (target!.role !== "host") {
+      await ctx.db.patch(target!._id, { role: "host" });
+    }
+    await ctx.db.patch(args.hostOrgId, { ownerUserId: args.userId });
+    return { ok: true };
+  },
+});
+
+/** Roster for hosts: names + role + status, owner -> admins -> pending ->
+ * members, each group by name. Members-only read. */
 export const listMembers = query({
   args: { hostOrgId: v.id("hostOrgs") },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) return null;
+    const org = await ctx.db.get(args.hostOrgId);
+    if (!org) return null;
     const mine = await getCommunityMember(ctx, args.hostOrgId, userId);
     const profile = await ctx.db
       .query("profiles")
@@ -711,17 +909,24 @@ export const listMembers = query({
       .collect();
     const shown = rows.filter((m) => m.status !== "removed" && (manages || m.status === "active"));
     const names = await profileNames(ctx, shown.map((m) => m.userId));
+    const ownerId = org.ownerUserId ? String(org.ownerUserId) : undefined;
+
     return shown
       .map((m) => ({
         userId: m.userId,
         name: names.get(String(m.userId)) ?? "Someone",
         role: m.role,
         status: m.status,
+        isOwner: ownerId !== undefined && String(m.userId) === ownerId,
         joinedAt: m.joinedAt,
       }))
-      .sort((a, b) =>
-        a.status === b.status ? a.name.localeCompare(b.name) : a.status === "pending" ? -1 : 1,
-      );
+      .sort((a, b) => {
+        const rank = (r: typeof a) =>
+          r.isOwner ? 0 : r.status === "pending" ? 2 : isLeaderRole(r.role) ? 1 : 3;
+        const ra = rank(a);
+        const rb = rank(b);
+        return ra === rb ? a.name.localeCompare(b.name) : ra - rb;
+      });
   },
 });
 

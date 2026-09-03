@@ -5,9 +5,13 @@
 import { describe, expect, it } from "vitest";
 import {
   canManageCommunity,
+  isLeaderRole,
   isListedCommunity,
   normalizeCommunity,
+  orderLeaders,
   resolveCommunityJoin,
+  resolveOwnershipTransfer,
+  resolveRoleChange,
   validateApplication,
 } from "./communities";
 
@@ -131,5 +135,117 @@ describe("canManageCommunity", () => {
     expect(canManageCommunity("moderator")).toBe(true);
     expect(canManageCommunity("member")).toBe(false);
     expect(canManageCommunity(undefined)).toBe(false);
+  });
+});
+
+describe("isLeaderRole — publicly co-listed leaders", () => {
+  it("only role host counts, not moderator or member", () => {
+    expect(isLeaderRole("host")).toBe(true);
+    expect(isLeaderRole("moderator")).toBe(false);
+    expect(isLeaderRole("member")).toBe(false);
+    expect(isLeaderRole(undefined)).toBe(false);
+  });
+});
+
+describe("orderLeaders — owner first, then admins by name", () => {
+  it("puts the owner first regardless of name", () => {
+    const rows = [
+      { userId: "b", name: "Zeb" },
+      { userId: "a", name: "Amy" },
+    ];
+    expect(orderLeaders(rows, "b")).toEqual([
+      { userId: "b", name: "Zeb", isOwner: true },
+      { userId: "a", name: "Amy", isOwner: false },
+    ]);
+  });
+  it("orders admins by locale-compared name", () => {
+    const rows = [
+      { userId: "c", name: "Zeb" },
+      { userId: "a", name: "Amy" },
+      { userId: "b", name: "Bo" },
+    ];
+    expect(orderLeaders(rows, "c").map((r) => r.name)).toEqual(["Zeb", "Amy", "Bo"]);
+  });
+  it("with no owner id, everyone sorts as an admin by name", () => {
+    const rows = [
+      { userId: "b", name: "Zeb" },
+      { userId: "a", name: "Amy" },
+    ];
+    expect(orderLeaders(rows, undefined)).toEqual([
+      { userId: "a", name: "Amy", isOwner: false },
+      { userId: "b", name: "Zeb", isOwner: false },
+    ]);
+  });
+  it("a single owner with no admins", () => {
+    expect(orderLeaders([{ userId: "a", name: "Amy" }], "a")).toEqual([
+      { userId: "a", name: "Amy", isOwner: true },
+    ]);
+  });
+});
+
+describe("resolveRoleChange", () => {
+  const base = {
+    actorIsOwner: true,
+    actorIsOperator: false,
+    targetIsOwner: false,
+    targetStatus: "active",
+    nextRole: "host",
+  };
+  it("the owner can promote an active member to admin", () => {
+    expect(resolveRoleChange(base)).toEqual({ allowed: true });
+  });
+  it("an operator can also change roles", () => {
+    expect(resolveRoleChange({ ...base, actorIsOwner: false, actorIsOperator: true })).toEqual({
+      allowed: true,
+    });
+  });
+  it("nobody else may act", () => {
+    const d = resolveRoleChange({ ...base, actorIsOwner: false, actorIsOperator: false });
+    expect(d.allowed).toBe(false);
+    expect(d.reason).toMatch(/owner/);
+  });
+  it("the owner's own row can never be changed from here — transfer first", () => {
+    const d = resolveRoleChange({ ...base, targetIsOwner: true });
+    expect(d.allowed).toBe(false);
+    expect(d.reason).toMatch(/transfer/i);
+  });
+  it("the target must be an active member", () => {
+    for (const targetStatus of ["pending", "removed"]) {
+      const d = resolveRoleChange({ ...base, targetStatus });
+      expect(d.allowed).toBe(false);
+    }
+  });
+  it("only host or member are valid next roles", () => {
+    expect(resolveRoleChange({ ...base, nextRole: "moderator" }).allowed).toBe(false);
+    expect(resolveRoleChange({ ...base, nextRole: "member" }).allowed).toBe(true);
+  });
+});
+
+describe("resolveOwnershipTransfer", () => {
+  const base = {
+    actorIsOwner: true,
+    actorIsOperator: false,
+    targetIsActiveMember: true,
+    targetIsOwner: false,
+  };
+  it("the owner can hand it to an active member", () => {
+    expect(resolveOwnershipTransfer(base)).toEqual({ allowed: true });
+  });
+  it("an operator can also transfer ownership", () => {
+    expect(
+      resolveOwnershipTransfer({ ...base, actorIsOwner: false, actorIsOperator: true }),
+    ).toEqual({ allowed: true });
+  });
+  it("nobody else may act", () => {
+    const d = resolveOwnershipTransfer({ ...base, actorIsOwner: false, actorIsOperator: false });
+    expect(d.allowed).toBe(false);
+  });
+  it("can't transfer to the current owner", () => {
+    const d = resolveOwnershipTransfer({ ...base, targetIsOwner: true });
+    expect(d.allowed).toBe(false);
+  });
+  it("the target must already be an active member", () => {
+    const d = resolveOwnershipTransfer({ ...base, targetIsActiveMember: false });
+    expect(d.allowed).toBe(false);
   });
 });

@@ -10,6 +10,7 @@
 import { useQuery } from "convex/react";
 import { Link, useRouteError } from "react-router";
 import { api } from "../../convex/_generated/api";
+import { joinNames } from "../garden/ui";
 
 export function meta() {
   return [
@@ -46,6 +47,7 @@ type CommunityRow = {
   locationLabel?: string;
   memberCount: number;
   hosts: string[];
+  leaders: { userId: string; name: string; isOwner: boolean }[];
 };
 
 function CommunityCard({ community }: { community: CommunityRow }) {
@@ -91,9 +93,9 @@ function CommunityCard({ community }: { community: CommunityRow }) {
         </p>
       )}
 
-      {community.hosts.length > 0 && (
+      {community.leaders.length > 0 && (
         <p className="mt-3 text-sm" style={{ color: "var(--garden-muted)" }}>
-          Hosted by {community.hosts.join(", ")}
+          Hosted by {joinNames(community.leaders.map((l) => l.name))}
         </p>
       )}
 

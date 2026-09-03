@@ -13,7 +13,7 @@ import { ConvexError } from "convex/values";
 import { Link, useParams, useRouteError, useSearchParams } from "react-router";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
-import { formatDateTime, formatMoney } from "../garden/ui";
+import { formatDateTime, formatMoney, joinNames } from "../garden/ui";
 
 export function meta() {
   return [
@@ -104,6 +104,7 @@ type Community = {
   joinPolicy: string;
   visibility: string;
   hosts: string[];
+  leaders: { userId: string; name: string; isOwner: boolean }[];
   memberCount: number;
   pendingCount: number;
   hasFund: boolean;
@@ -115,6 +116,7 @@ type Community = {
     isSignedIn: boolean;
     membership: Membership;
     canManage: boolean;
+    isOwner: boolean;
     canJoin: { allowed: boolean; reason?: string };
     joinWouldBePending: boolean;
   };
@@ -355,11 +357,24 @@ function EditCommunityForm({ community }: { community: Community }) {
   );
 }
 
-function MemberRoster({ hostOrgId }: { hostOrgId: Id<"hostOrgs"> }) {
+/** Owner, Admin, Member, Pending — the plain label the spec wants, not the
+ * raw role/status pair. Pending outranks role; owner outranks pending. */
+function memberLabel(m: { role: string; status: string; isOwner: boolean }): string {
+  if (m.isOwner) return "Owner";
+  if (m.status === "pending") return "Pending";
+  if (m.role === "host") return "Admin";
+  return "Member";
+}
+
+function MemberRoster({ hostOrgId, isOwner }: { hostOrgId: Id<"hostOrgs">; isOwner: boolean }) {
   const members = useQuery(api.garden.communities.listMembers, { hostOrgId });
   const setMemberStatus = useMutation(api.garden.communities.setMemberStatus);
+  const setMemberRole = useMutation(api.garden.communities.setMemberRole);
+  const transferOwnership = useMutation(api.garden.communities.transferOwnership);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Two-step inline confirm for "Transfer ownership" — never window.confirm.
+  const [confirmTransferId, setConfirmTransferId] = useState<string | null>(null);
 
   async function act(userId: string, next: "active" | "removed") {
     setBusyId(userId);
@@ -368,6 +383,31 @@ function MemberRoster({ hostOrgId }: { hostOrgId: Id<"hostOrgs"> }) {
       await setMemberStatus({ hostOrgId, userId: userId as Id<"users">, status: next });
     } catch (err) {
       setError(reasonFor(err, "Couldn't update that member — try again."));
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function changeRole(userId: string, role: "host" | "member") {
+    setBusyId(userId);
+    setError(null);
+    try {
+      await setMemberRole({ hostOrgId, userId: userId as Id<"users">, role });
+    } catch (err) {
+      setError(reasonFor(err, "Couldn't update that member — try again."));
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function confirmTransfer(userId: string) {
+    setBusyId(userId);
+    setError(null);
+    try {
+      await transferOwnership({ hostOrgId, userId: userId as Id<"users"> });
+      setConfirmTransferId(null);
+    } catch (err) {
+      setError(reasonFor(err, "Couldn't transfer ownership — try again."));
     } finally {
       setBusyId(null);
     }
@@ -382,33 +422,63 @@ function MemberRoster({ hostOrgId }: { hostOrgId: Id<"hostOrgs"> }) {
 
   return (
     <div className="flex flex-col gap-2">
-      {members.map((m) => (
-        <div
-          key={m.userId}
-          className={cellClass}
-          style={{ ...cardStyle, padding: "10px 12px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}
-        >
-          <div>
-            <span className="text-sm font-semibold" style={{ color: "var(--garden-paper)" }}>{m.name}</span>
-            <span className="text-xs ml-2" style={{ color: "var(--garden-dim)" }}>
-              {m.role}
-              {m.status === "pending" ? " · pending" : ""}
-            </span>
-          </div>
-          {m.role !== "host" && (
-            <div className="flex gap-2">
-              {m.status === "pending" && (
-                <button className={btnGhostClass} style={btnGhostStyle} disabled={busyId === m.userId} onClick={() => act(m.userId, "active")}>
-                  Approve
-                </button>
-              )}
-              <button className={btnGhostClass} style={btnGhostStyle} disabled={busyId === m.userId} onClick={() => act(m.userId, "removed")}>
-                Remove
-              </button>
+      {members.map((m) => {
+        const busy = busyId === m.userId;
+        const confirmingTransfer = confirmTransferId === m.userId;
+        return (
+          <div
+            key={m.userId}
+            className={cellClass}
+            style={{ ...cardStyle, padding: "10px 12px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}
+          >
+            <div>
+              <span className="text-sm font-semibold" style={{ color: "var(--garden-paper)" }}>{m.name}</span>
+              <span className="text-xs ml-2" style={{ color: "var(--garden-dim)" }}>{memberLabel(m)}</span>
             </div>
-          )}
-        </div>
-      ))}
+            <div className="flex gap-2 flex-wrap items-center">
+              {m.role !== "host" && (
+                <>
+                  {m.status === "pending" && (
+                    <button className={btnGhostClass} style={btnGhostStyle} disabled={busy} onClick={() => act(m.userId, "active")}>
+                      Approve
+                    </button>
+                  )}
+                  <button className={btnGhostClass} style={btnGhostStyle} disabled={busy} onClick={() => act(m.userId, "removed")}>
+                    Remove
+                  </button>
+                </>
+              )}
+              {isOwner && !m.isOwner && m.status === "active" && (
+                <>
+                  {m.role === "host" ? (
+                    <button className={btnGhostClass} style={btnGhostStyle} disabled={busy} onClick={() => changeRole(m.userId, "member")}>
+                      Remove admin
+                    </button>
+                  ) : (
+                    <button className={btnGhostClass} style={btnGhostStyle} disabled={busy} onClick={() => changeRole(m.userId, "host")}>
+                      Make admin
+                    </button>
+                  )}
+                  {confirmingTransfer ? (
+                    <>
+                      <button className={btnGhostClass} style={btnGhostStyle} disabled={busy} onClick={() => confirmTransfer(m.userId)}>
+                        {busy ? "Transferring…" : "Confirm transfer"}
+                      </button>
+                      <button className={btnGhostClass} style={btnGhostStyle} disabled={busy} onClick={() => setConfirmTransferId(null)}>
+                        Cancel
+                      </button>
+                    </>
+                  ) : (
+                    <button className={btnGhostClass} style={btnGhostStyle} disabled={busy} onClick={() => setConfirmTransferId(m.userId)}>
+                      Transfer ownership
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        );
+      })}
       {error && <p className="text-xs" style={{ color: "var(--garden-body)" }}>{error}</p>}
     </div>
   );
@@ -1000,7 +1070,7 @@ function HostToolsPanel({ community }: { community: Community }) {
               <div className="text-sm font-semibold mb-2.5" style={{ color: "var(--garden-paper)" }}>
                 Members {community.pendingCount > 0 ? `(${community.pendingCount} pending)` : ""}
               </div>
-              <MemberRoster hostOrgId={community._id} />
+              <MemberRoster hostOrgId={community._id} isOwner={community.viewer.isOwner} />
             </div>
           </div>
         </div>
@@ -1082,7 +1152,9 @@ export default function CommunityDetailPage() {
             Website →
           </a>
         )}
-        {community.hosts.length > 0 && <span>Hosted by {community.hosts.join(", ")}</span>}
+        {community.leaders.length > 0 && (
+          <span>Hosted by {joinNames(community.leaders.map((l) => l.name))}</span>
+        )}
         <span>{community.memberCount} member{community.memberCount === 1 ? "" : "s"}</span>
       </div>
       {community.description && (
