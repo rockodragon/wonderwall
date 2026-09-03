@@ -244,6 +244,13 @@ export default function JoinPage() {
         </div>
       </div>
 
+      <p className="g-hint" style={{ marginTop: 12 }}>
+        Already a member?{" "}
+        <Link to="/settings" style={{ textDecoration: "underline" }}>
+          Manage billing in Settings.
+        </Link>
+      </p>
+
       {/* Honest about the state of things: no fake checkout. */}
       <div style={{ marginTop: 36, maxWidth: "52ch" }}>
         <SectionLabel>Seats open this fall</SectionLabel>

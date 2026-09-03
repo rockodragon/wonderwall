@@ -421,6 +421,52 @@ export const createProductCheckout = action({
   },
 });
 
+// ——— createBillingPortalSession — self-serve card update / cancel ———
+//
+// Points a signed-in user at their existing Stripe customer's Billing
+// Portal — the only self-serve lane for cancelling a seat/product
+// subscription or updating a card (there's no in-app cancel/update flow).
+// Reuses the same billingCustomers row createMembershipCheckout and
+// createProductCheckout write on first checkout (architect §3.4): one
+// Stripe customer per user across every checkout *and* the portal, so this
+// works for a seat, a Five/Leader membership, or a monthly community
+// product alike.
+//
+// NOTE: the portal's available actions (cancel, update payment method,
+// view invoices, switch plan, etc.) are configured in the Stripe dashboard
+// under Settings → Billing → Customer portal, not here. Whatever a member
+// does in the portal — including cancellation — flows back through the
+// existing `customer.subscription.updated`/`customer.subscription.deleted`
+// webhooks (stripeHandlers.ts, already implemented/tested), so nothing
+// else on the Convex side needs to change to reflect it.
+
+export const createBillingPortalSession = action({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await auth.getUserId(ctx);
+    if (!userId) {
+      throw new ConvexError("Sign in to manage billing.");
+    }
+
+    const existing = await ctx.runQuery(
+      (internal as any).garden.memberships.getBillingCustomerForUser,
+      { userId: String(userId) },
+    );
+    if (!existing?.stripeCustomerId) {
+      throw new ConvexError("No billing on file yet — a seat or a purchase sets this up.");
+    }
+
+    const stripe = getStripeClient();
+
+    const session = await stripe.billingPortal.sessions.create({
+      customer: existing.stripeCustomerId,
+      return_url: `${siteUrl()}/settings`,
+    });
+
+    return { url: session.url };
+  },
+});
+
 // ——— Nightly reconcile — the backstop (architect §2.3, "never cut") ———
 //
 // Note: this sweep only replays `customer.subscription.*` state (see the
