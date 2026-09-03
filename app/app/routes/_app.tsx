@@ -11,7 +11,25 @@ import { CommunitySwitcher } from "../components/CommunitySwitcher";
 // these without being redirected to /login — the directory, the apply page,
 // and individual community pages all do their own signed-out handling
 // (Sign in CTAs, no partial forms) rather than being gated at the shell.
-const PUBLIC_PATHS = ["/communities"];
+// Prefix match is correct here: /communities, /communities/apply, and every
+// /communities/:slug should all be public.
+const PUBLIC_PATH_PREFIXES = ["/communities"];
+
+// /events/:eventId is public too — a calendar invite goes to a guest with
+// no account by design (eventRsvps.userId is optional), and event.tsx's own
+// guest branches (RSVP, no organizer tools) depend on this page not
+// redirecting them to /login (docs/gated-event-video-prd.md). Unlike
+// /communities, a prefix match would also expose the *list* at /events —
+// nobody asked for that — so this matches exactly one path segment after
+// /events/, never the bare list.
+const PUBLIC_EVENT_DETAIL_PATH = /^\/events\/[^/]+$/;
+
+function isPublicPathname(pathname: string): boolean {
+  return (
+    PUBLIC_PATH_PREFIXES.some((prefix) => pathname.startsWith(prefix)) ||
+    PUBLIC_EVENT_DETAIL_PATH.test(pathname)
+  );
+}
 
 // V1 (docs/the-exchange-v1-prd.md §5): Projects / People / Events, full
 // stop. "The Garden" retires as a nav destination (superseded); "Portfolios"
@@ -45,7 +63,7 @@ export default function AppLayout() {
   // Messages badge instead (2026-08-30, on request).
   const sidebarBadgeCount = unreadCount + notificationCount;
 
-  const isPublicPath = PUBLIC_PATHS.some((p) => location.pathname.startsWith(p));
+  const isPublicPath = isPublicPathname(location.pathname);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated && !isPublicPath) {

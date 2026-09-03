@@ -1,10 +1,16 @@
-// /events/:eventId — the canonical event page, and PUBLIC.
+// /events/:eventId — the canonical event page, and PUBLIC for a signed-out
+// guest holding a calendar invite (eventRsvps.userId is optional by
+// design): the join link, the recording, "add to calendar" and the RSVP
+// all live here. Gating it dead-ended exactly the person holding the
+// invite — docs/gated-event-video-prd.md.
 //
-// routes.ts registers this outside the _app.tsx layout on purpose: the join
-// link, the recording, "add to calendar" and the RSVP all live here, and a
-// calendar invite is precisely the thing a guest with no account receives
-// (eventRsvps.userId is optional by design). Gating it dead-ended exactly
-// the person holding the invite — docs/gated-event-video-prd.md.
+// It lives inside the _app.tsx layout (routes.ts) with every other route,
+// but routes/_app.tsx exempts /events/:eventId from its redirect-to-/login
+// effect via its public-path matcher — the same mechanism /communities
+// uses — so the shell (wordmark, sidebar, mobile nav) still renders for a
+// guest instead of leaving this page with no chrome. /events itself (the
+// browse list) stays gated, which is why the back link below still branches
+// on isGuest rather than pointing straight at /events.
 //
 // So this file has two audiences. The rule for the logged-out one:
 //
@@ -32,7 +38,6 @@ import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { YOUTUBE_LIVE_LABEL, YOUTUBE_LIVE_URL } from "../constants/broadcast";
 import { FavoriteButton } from "../components/FavoriteButton";
-import { Wordmark } from "../components/Wordmark";
 import {
   LocationAutocomplete,
   type LocationSuggestion,
@@ -216,6 +221,22 @@ function LocationMapCard({
   );
 }
 
+/** Back to the events list — rendered in every state of this page (loading,
+ *  not-found, loaded), so there's always a way out. /events itself stays
+ *  inside the auth-gated layout (routes.ts), so a guest is sent to the
+ *  guest-facing browse page instead of a link that would bounce them to
+ *  /login via _app.tsx's redirect. */
+function EventsBackLink({ isGuest }: { isGuest: boolean }) {
+  return (
+    <Link
+      to={isGuest ? "/garden/events" : "/events"}
+      className="text-blue-600 hover:text-blue-500 text-sm font-medium"
+    >
+      ← Back to events
+    </Link>
+  );
+}
+
 export default function EventDetail() {
   const { eventId } = useParams();
   // isLoading is true only while Convex resolves the stored token. Treating
@@ -276,7 +297,8 @@ export default function EventDetail() {
   if (event === undefined) {
     return (
       <div className="p-6 max-w-4xl mx-auto">
-        <div className="animate-pulse">
+        <EventsBackLink isGuest={isGuest} />
+        <div className="animate-pulse mt-4">
           <div className="h-48 bg-gray-200 dark:bg-gray-700 rounded-2xl mb-6" />
           <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-64 mb-4" />
           <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-48 mb-8" />
@@ -287,8 +309,11 @@ export default function EventDetail() {
 
   if (!event) {
     return (
-      <div className="p-6 max-w-4xl mx-auto text-center py-12">
-        <p className="text-gray-500 dark:text-gray-400">Event not found</p>
+      <div className="p-6 max-w-4xl mx-auto">
+        <EventsBackLink isGuest={isGuest} />
+        <div className="text-center py-12">
+          <p className="text-gray-500 dark:text-gray-400">Event not found</p>
+        </div>
       </div>
     );
   }
@@ -359,21 +384,13 @@ export default function EventDetail() {
       <link rel="stylesheet" href="/tokens.css" />
       <link rel="stylesheet" href="/about/fonts/fonts.css" />
 
-      {/* Guests get no app shell — this page renders outside the _app.tsx
-          layout — so give them the one bar they need to not be stranded. */}
-      {isGuest && (
-        <div className="flex items-center justify-between px-6 py-4">
-          <Link to="/" aria-label="The Exchange — home">
-            <Wordmark size="sm" tone="adaptive" />
-          </Link>
-          <Link
-            to="/login"
-            className="text-sm font-medium text-gray-700 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400"
-          >
-            Sign in
-          </Link>
-        </div>
-      )}
+      {/* Back link, above the hero — the wordmark/sidebar/sign-in chrome
+          around this page now comes from _app.tsx itself (guest included,
+          via its public-path matcher), so this file only needs the one
+          thing it's still responsible for: a way back to the list. */}
+      <div className="px-6 pt-4">
+        <EventsBackLink isGuest={isGuest} />
+      </div>
 
       {/* Cover Image */}
       <div className="relative h-56 md:h-72 overflow-hidden">
@@ -929,18 +946,6 @@ export default function EventDetail() {
             />
           </div>
         )}
-
-        {/* Back link. /events is still inside the auth-gated layout, so a
-            guest goes to the public browse page instead of being bounced to
-            /login by the one link offering them a way out. */}
-        <div className="mt-8">
-          <Link
-            to={isGuest ? "/garden/events" : "/events"}
-            className="text-blue-600 hover:text-blue-500 text-sm font-medium"
-          >
-            ← Back to events
-          </Link>
-        </div>
       </div>
 
       {/* Edit Form Modal */}
