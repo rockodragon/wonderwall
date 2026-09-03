@@ -1192,6 +1192,27 @@ export default function CommunityDetailPage() {
             {community.description}
           </p>
         )}
+        <div
+          style={{
+            marginTop: 16,
+            display: "flex",
+            alignItems: "baseline",
+            gap: 14,
+            flexWrap: "wrap",
+            fontSize: 13.5,
+          }}
+        >
+          <span style={{ color: "var(--g-muted)" }}>Browse everything in {community.name}:</span>
+          <Link to={`/projects?community=${community.slug}`} style={{ color: "var(--g-citron)" }}>
+            Projects →
+          </Link>
+          <Link to={`/events?community=${community.slug}`} style={{ color: "var(--g-citron)" }}>
+            Events →
+          </Link>
+          <Link to={`/offerings?community=${community.slug}`} style={{ color: "var(--g-citron)" }}>
+            Classes →
+          </Link>
+        </div>
       </div>
 
       <div style={{ marginTop: 22 }}>

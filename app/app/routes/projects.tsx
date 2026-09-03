@@ -8,6 +8,11 @@ import { useLocationField } from "../lib/useLocationField";
 import { AnnouncementComposer } from "../components/AnnouncementComposer";
 import { budgetAmountLabel, budgetKindLabel } from "../lib/budgetLabel";
 import { CommunityPicker } from "../components/CommunityPicker";
+import {
+  CommunityFilterChips,
+  communityNameFor,
+  useCommunityContext,
+} from "../components/CommunityFilter";
 
 const KIND_FILTERS = [
   { label: "All", value: "" },
@@ -73,6 +78,11 @@ export default function Projects() {
   const [showPassionForm, setShowPassionForm] = useState(false);
   const [supportingProject, setSupportingProject] = useState<any>(null);
   const [searchParams, setSearchParams] = useSearchParams();
+  const {
+    selected: communitySlug,
+    setSelected: setCommunitySlug,
+    communities,
+  } = useCommunityContext();
 
   const interestFilter = useMemo(
     () => (searchParams.get("interests") || "").split(",").map((s) => s.trim()).filter(Boolean),
@@ -132,6 +142,9 @@ export default function Projects() {
   const filtered = useMemo(() => {
     if (!projects) return [];
     let list = kindFilter ? projects.filter((p) => p.kind === kindFilter) : projects;
+    if (communitySlug !== "all") {
+      list = list.filter((p) => p.community?.slug === communitySlug);
+    }
     if (tagFilter.length > 0) {
       list = list.filter((p) => projectTopics(p).some((fn: string) => tagFilter.includes(fn)));
     }
@@ -139,7 +152,7 @@ export default function Projects() {
       list = [...list].sort((a, b) => Number(isMatch(b)) - Number(isMatch(a)));
     }
     return list;
-  }, [projects, kindFilter, tagFilter, interestFilter, locationFilter]);
+  }, [projects, kindFilter, communitySlug, tagFilter, interestFilter, locationFilter]);
 
   return (
     <div className="min-h-screen bg-[var(--garden-ink)]">
@@ -177,7 +190,14 @@ export default function Projects() {
           </div>
         )}
 
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <CommunityFilterChips
+          variant="app"
+          selected={communitySlug}
+          onSelect={setCommunitySlug}
+          communities={communities}
+        />
+
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4 mt-3">
           <div className="flex gap-2">
             {KIND_FILTERS.map((f) => (
               <button
@@ -238,6 +258,20 @@ export default function Projects() {
               className="h-8 w-8 rounded-full border-2 border-t-transparent animate-spin"
               style={{ borderColor: "var(--garden-citron)", borderTopColor: "transparent" }}
             />
+          </div>
+        ) : filtered.length === 0 && communitySlug !== "all" ? (
+          <div className="text-center py-16" style={{ color: "var(--garden-dim)" }}>
+            <p className="text-lg font-medium mb-1" style={{ color: "var(--garden-body)" }}>
+              Nothing in {communityNameFor(communitySlug, communities, projects)} yet — see
+              everything
+            </p>
+            <button
+              onClick={() => setCommunitySlug("all")}
+              className="text-sm underline underline-offset-2 hover:opacity-80"
+              style={{ color: "var(--garden-citron)" }}
+            >
+              Show all communities
+            </button>
           </div>
         ) : filtered.length === 0 ? (
           <div className="text-center py-16" style={{ color: "var(--garden-dim)" }}>

@@ -6,6 +6,11 @@ import { LocationAutocomplete } from "../components/LocationAutocomplete";
 import { useLocationField } from "../lib/useLocationField";
 import { AnnouncementComposer } from "../components/AnnouncementComposer";
 import { CommunityPicker } from "../components/CommunityPicker";
+import {
+  CommunityFilterChips,
+  communityNameFor,
+  useCommunityContext,
+} from "../components/CommunityFilter";
 
 // Discipline tags share the canonical INTERESTS list with People
 // (search.tsx) and Projects (projects.tsx) — same values, same order.
@@ -106,6 +111,11 @@ export default function Offerings() {
   const myProfile = useQuery(api.profiles.getMyProfile);
   const [formatFilter, setFormatFilter] = useState("");
   const [showForm, setShowForm] = useState(false);
+  const {
+    selected: communitySlug,
+    setSelected: setCommunitySlug,
+    communities,
+  } = useCommunityContext();
 
   // Discipline-tag pills, a hard filter alongside the format-pill row —
   // same semantics as Projects' tag pills: click to require, not just sort.
@@ -117,11 +127,14 @@ export default function Offerings() {
   const filtered = useMemo(() => {
     if (!offerings) return [];
     let list = formatFilter ? offerings.filter((o) => o.format === formatFilter) : offerings;
+    if (communitySlug !== "all") {
+      list = list.filter((o) => o.community?.slug === communitySlug);
+    }
     if (tagFilter.length > 0) {
       list = list.filter((o) => o.interests?.some((tag) => tagFilter.includes(tag)));
     }
     return list;
-  }, [offerings, formatFilter, tagFilter]);
+  }, [offerings, formatFilter, communitySlug, tagFilter]);
 
   return (
     <div className="min-h-screen bg-[var(--garden-ink)]">
@@ -138,7 +151,14 @@ export default function Offerings() {
           Recurring classes, coaching, and workshop series — find a seat, or offer one.
         </p>
 
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+        <CommunityFilterChips
+          variant="app"
+          selected={communitySlug}
+          onSelect={setCommunitySlug}
+          communities={communities}
+        />
+
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-6 mt-3">
           <div className="flex flex-wrap gap-2">
             {FORMAT_FILTERS.map((f) => (
               <button
@@ -200,6 +220,20 @@ export default function Offerings() {
               className="h-8 w-8 rounded-full border-2 border-t-transparent animate-spin"
               style={{ borderColor: "var(--garden-citron)", borderTopColor: "transparent" }}
             />
+          </div>
+        ) : filtered.length === 0 && communitySlug !== "all" ? (
+          <div className="text-center py-16" style={{ color: "var(--garden-dim)" }}>
+            <p className="text-lg font-medium mb-1" style={{ color: "var(--garden-body)" }}>
+              Nothing in {communityNameFor(communitySlug, communities, offerings)} yet — see
+              everything
+            </p>
+            <button
+              onClick={() => setCommunitySlug("all")}
+              className="text-sm underline underline-offset-2 hover:opacity-80"
+              style={{ color: "var(--garden-citron)" }}
+            >
+              Show all communities
+            </button>
           </div>
         ) : filtered.length === 0 ? (
           <div className="text-center py-16" style={{ color: "var(--garden-dim)" }}>
