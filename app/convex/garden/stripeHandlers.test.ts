@@ -13,6 +13,7 @@ import {
   type CoverageCodeRow,
   type Db,
   type MembershipRow,
+  type ProductPurchaseRow,
   type StripeCheckoutSessionLike,
   type StripeInvoiceLike,
   type StripeSubscriptionLike,
@@ -31,6 +32,7 @@ function createFakeDb() {
   const billingCustomers = new Map<string, BillingCustomerRow>(); // keyed by userId
   const ticketPurchases = new Map<string, TicketPurchaseRow>(); // keyed by stripeSessionId
   const contributions = new Map<string, ContributionRow>(); // keyed by stripeRef
+  const productPurchases = new Map<string, ProductPurchaseRow>(); // keyed by stripeRef
   // Only "creatives-exchange" is seeded by default — tests that need it
   // absent (the "missing platform row" case) delete it first.
   const hostOrgsBySlug = new Map<string, string>([["creatives-exchange", PLATFORM_HOST_ORG_ID]]);
@@ -78,9 +80,31 @@ function createFakeDb() {
       if (!row.stripeRef) throw new Error("test fixture expects every contribution to carry a stripeRef");
       contributions.set(row.stripeRef, row);
     },
+    async getProductPurchaseByRef(stripeRef) {
+      return productPurchases.has(stripeRef) ? { stripeRef } : null;
+    },
+    async insertProductPurchase(row) {
+      productPurchases.set(row.stripeRef, row);
+    },
+    async updateProductPurchasesBySubscription(stripeSubscriptionId, patch) {
+      for (const [ref, row] of productPurchases) {
+        if (row.stripeSubscriptionId === stripeSubscriptionId) {
+          productPurchases.set(ref, { ...row, ...patch });
+        }
+      }
+    },
   };
 
-  return { db, memberships, codes, billingCustomers, ticketPurchases, contributions, hostOrgsBySlug };
+  return {
+    db,
+    memberships,
+    codes,
+    billingCustomers,
+    ticketPurchases,
+    contributions,
+    productPurchases,
+    hostOrgsBySlug,
+  };
 }
 
 // ——— Fixtures (hand-written, shaped like real Stripe objects) ———
@@ -764,6 +788,249 @@ describe("checkout.session.completed (pool contributions)", () => {
       db,
     );
     expect(contributions.size).toBe(0);
+  });
+});
+
+// ——— checkout.session.completed / subscription / invoice (community products) ———
+
+const PRODUCT_METADATA_ONE_TIME = {
+  kind: "community_product",
+  productId: "product_1",
+  hostOrgId: "hostOrg_community1",
+  userId: "user_diane",
+  billing: "one_time",
+};
+
+const PRODUCT_METADATA_MONTHLY = {
+  kind: "community_product",
+  productId: "product_2",
+  hostOrgId: "hostOrg_community1",
+  userId: "user_diane",
+  billing: "monthly",
+};
+
+function productSessionFixture(
+  overrides: Partial<StripeCheckoutSessionLike> = {},
+): StripeCheckoutSessionLike {
+  return {
+    id: "cs_product_1",
+    mode: "payment",
+    customer: null,
+    subscription: null,
+    customer_details: { email: "diane@example.com" },
+    amount_total: 2500, // $25
+    created: 1_700_000_000,
+    metadata: { ...PRODUCT_METADATA_ONE_TIME },
+    ...overrides,
+  };
+}
+
+function productSubscriptionFixture(
+  overrides: Partial<StripeSubscriptionLike> = {},
+): StripeSubscriptionLike {
+  return {
+    id: "sub_product_1",
+    customer: "cus_123",
+    status: "active",
+    current_period_end: 1_800_000_000, // seconds
+    items: { data: [{ price: { id: "price_product" }, quantity: 1 }] },
+    metadata: { ...PRODUCT_METADATA_MONTHLY },
+    ...overrides,
+  };
+}
+
+function productMonthlySessionFixture(
+  overrides: Partial<StripeCheckoutSessionLike> = {},
+): StripeCheckoutSessionLike {
+  return {
+    id: "cs_product_monthly_1",
+    mode: "subscription",
+    customer: "cus_123",
+    subscription: productSubscriptionFixture(),
+    customer_details: { email: "diane@example.com" },
+    amount_total: 1000, // $10/mo
+    created: 1_700_000_000,
+    metadata: { ...PRODUCT_METADATA_MONTHLY },
+    ...overrides,
+  };
+}
+
+function productInvoiceFixture(overrides: Partial<StripeInvoiceLike> = {}): StripeInvoiceLike {
+  return {
+    id: "in_product_1",
+    amount_paid: 1000, // $10
+    created: 1_700_000_000,
+    customer: "cus_123",
+    subscription: "sub_product_1",
+    parent: { subscription_details: { metadata: { ...PRODUCT_METADATA_MONTHLY } } },
+    period_start: 1_700_000_000,
+    billing_reason: "subscription_cycle",
+    lines: { data: [{ period: { end: 1_800_000_000 } }] },
+    ...overrides,
+  };
+}
+
+describe("checkout.session.completed (community products)", () => {
+  it("happy path one-time: writes a paid row keyed by session id, 90/10 split ($25 -> 250/2250)", async () => {
+    const { db, productPurchases } = createFakeDb();
+    await handleStripeEvent(event("checkout.session.completed", productSessionFixture()), db);
+    expect(productPurchases.get("cs_product_1")).toMatchObject({
+      productId: "product_1",
+      hostOrgId: "hostOrg_community1",
+      userId: "user_diane",
+      buyerEmail: "diane@example.com",
+      grossCents: 2500,
+      platformCents: 250,
+      hostCents: 2250,
+      billing: "one_time",
+      status: "paid",
+      stripeRef: "cs_product_1",
+      period: "2023-11",
+    });
+  });
+
+  it("monthly first payment: status active, subscription id + period end (ms) recorded", async () => {
+    const { db, productPurchases } = createFakeDb();
+    await handleStripeEvent(event("checkout.session.completed", productMonthlySessionFixture()), db);
+    expect(productPurchases.get("cs_product_monthly_1")).toMatchObject({
+      productId: "product_2",
+      billing: "monthly",
+      status: "active",
+      stripeSubscriptionId: "sub_product_1",
+      currentPeriodEnd: 1_800_000_000_000, // seconds -> ms
+      grossCents: 1000,
+      platformCents: 100,
+      hostCents: 900,
+    });
+  });
+
+  it("idempotent replay: same session event twice yields one row", async () => {
+    const { db, productPurchases } = createFakeDb();
+    const evt = event("checkout.session.completed", productSessionFixture());
+    await handleStripeEvent(evt, db);
+    await handleStripeEvent(evt, db);
+    expect(productPurchases.size).toBe(1);
+  });
+
+  it("guest one-time purchase: no userId in metadata, buyer email still kept", async () => {
+    const { db, productPurchases } = createFakeDb();
+    await handleStripeEvent(
+      event(
+        "checkout.session.completed",
+        productSessionFixture({
+          metadata: {
+            kind: "community_product",
+            productId: "product_1",
+            hostOrgId: "hostOrg_community1",
+            billing: "one_time",
+          },
+        }),
+      ),
+      db,
+    );
+    const row = productPurchases.get("cs_product_1")!;
+    expect(row.userId).toBeUndefined();
+    expect(row.buyerEmail).toBe("diane@example.com");
+  });
+
+  it("missing required metadata (no productId/hostOrgId/billing) is a safe no-op", async () => {
+    const { db, productPurchases } = createFakeDb();
+    await handleStripeEvent(
+      event(
+        "checkout.session.completed",
+        productSessionFixture({ metadata: { kind: "community_product" } }),
+      ),
+      db,
+    );
+    expect(productPurchases.size).toBe(0);
+  });
+});
+
+describe("customer.subscription.updated/.deleted (community products)", () => {
+  it("past_due propagates to every purchase row on that subscription", async () => {
+    const { db, productPurchases } = createFakeDb();
+    await handleStripeEvent(event("checkout.session.completed", productMonthlySessionFixture()), db);
+    await handleStripeEvent(
+      event("customer.subscription.updated", productSubscriptionFixture({ status: "past_due" })),
+      db,
+    );
+    expect(productPurchases.get("cs_product_monthly_1")?.status).toBe("past_due");
+  });
+
+  it("canceled propagates to every purchase row on that subscription", async () => {
+    const { db, productPurchases } = createFakeDb();
+    await handleStripeEvent(event("checkout.session.completed", productMonthlySessionFixture()), db);
+    await handleStripeEvent(
+      event("customer.subscription.updated", productSubscriptionFixture({ status: "canceled" })),
+      db,
+    );
+    expect(productPurchases.get("cs_product_monthly_1")?.status).toBe("canceled");
+  });
+
+  it("deleted subscription cancels every purchase row on that subscription", async () => {
+    const { db, productPurchases } = createFakeDb();
+    await handleStripeEvent(event("checkout.session.completed", productMonthlySessionFixture()), db);
+    await handleStripeEvent(
+      event("customer.subscription.deleted", productSubscriptionFixture({ status: "canceled" })),
+      db,
+    );
+    expect(productPurchases.get("cs_product_monthly_1")?.status).toBe("canceled");
+  });
+
+  it("unknown subscription id is a safe no-op", async () => {
+    const { db, productPurchases } = createFakeDb();
+    await handleStripeEvent(
+      event(
+        "customer.subscription.updated",
+        productSubscriptionFixture({ id: "sub_no_purchase_row" }),
+      ),
+      db,
+    );
+    expect(productPurchases.size).toBe(0);
+  });
+});
+
+describe("invoice.paid (community product renewals)", () => {
+  it("renewal invoice ('subscription_cycle') inserts exactly one row, 90/10 split; replay is a no-op", async () => {
+    const { db, productPurchases } = createFakeDb();
+    const evt = event("invoice.paid", productInvoiceFixture());
+    await handleStripeEvent(evt, db);
+    await handleStripeEvent(evt, db);
+    expect(productPurchases.size).toBe(1);
+    expect(productPurchases.get("in_product_1")).toMatchObject({
+      productId: "product_2",
+      hostOrgId: "hostOrg_community1",
+      userId: "user_diane",
+      grossCents: 1000,
+      platformCents: 100,
+      hostCents: 900,
+      billing: "monthly",
+      status: "active",
+      stripeSubscriptionId: "sub_product_1",
+      currentPeriodEnd: 1_800_000_000_000,
+      period: "2023-11",
+    });
+  });
+
+  it("the first invoice ('subscription_create') inserts nothing — checkout already recorded it", async () => {
+    const { db, productPurchases } = createFakeDb();
+    await handleStripeEvent(
+      event("invoice.paid", productInvoiceFixture({ billing_reason: "subscription_create" })),
+      db,
+    );
+    expect(productPurchases.size).toBe(0);
+  });
+
+  it("missing metadata (unresolvable subscription) is a safe no-op", async () => {
+    const { db, productPurchases } = createFakeDb();
+    await handleStripeEvent(
+      event(
+        "invoice.paid",
+        productInvoiceFixture({ parent: null, subscription_details: null, lines: null }),
+      ),
+      db,
+    );
+    expect(productPurchases.size).toBe(0);
   });
 });
 

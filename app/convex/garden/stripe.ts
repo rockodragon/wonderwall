@@ -309,6 +309,118 @@ export const createPoolContributionCheckout = action({
   },
 });
 
+// ——— createProductCheckout — one-time or monthly community product ———
+//
+// Same shape as createTicketCheckout/createPoolContributionCheckout (mode
+// varies by billing, inline price_data — communityProducts has no
+// pre-provisioned Stripe price) but reuses createMembershipCheckout's
+// billing-customer pattern for signed-in buyers, because a monthly product
+// needs a Stripe customer to attach the subscription to and a one-time
+// buyer benefits from it too (one customer per user across every checkout +
+// the billing portal). Guests may buy a one-time product; monthly requires
+// sign-in so the subscription has a user to tie back to (productPurchases.
+// userId is how customer.subscription.* webhooks find their rows via
+// stripeSubscriptionId, but hasProductAccess — garden/products.ts — reads
+// by userId, so a guest subscription could never be recognized as owned).
+// Metadata mirrors onto subscription_data for monthly, same reasoning as
+// createMembershipCheckout: every customer.subscription.* / invoice.paid
+// webhook must be self-sufficient (kind/productId/hostOrgId/billing) even
+// if it arrives before checkout.session.completed does — see
+// stripeHandlers.ts's header comment.
+
+export const createProductCheckout = action({
+  args: {
+    productId: v.id("communityProducts"),
+  },
+  handler: async (ctx, args) => {
+    const info = await ctx.runQuery(
+      (internal as any).garden.memberships.getProductForCheckout,
+      { productId: args.productId },
+    );
+    if (!info) {
+      throw new ConvexError("That product isn't there anymore.");
+    }
+    const { product, org } = info;
+
+    if (product.status !== "active") {
+      throw new ConvexError("This product isn't for sale right now.");
+    }
+    if (org.kind !== "community" || (org.status ?? "active") !== "active") {
+      throw new ConvexError("This community isn't set up to sell right now.");
+    }
+
+    const userId = await auth.getUserId(ctx);
+    if (product.billing === "monthly" && !userId) {
+      throw new ConvexError("Sign in to subscribe — we tie a subscription to your account.");
+    }
+
+    const stripe = getStripeClient();
+
+    // Reuse one Stripe customer per user across checkouts + the billing
+    // portal (architect §3.4) — same pattern as createMembershipCheckout.
+    let stripeCustomerId: string | undefined;
+    if (userId) {
+      const existing = await ctx.runQuery(
+        (internal as any).garden.memberships.getBillingCustomerForUser,
+        { userId: String(userId) },
+      );
+      stripeCustomerId = existing?.stripeCustomerId;
+      if (!stripeCustomerId) {
+        const identity = await ctx.auth.getUserIdentity();
+        const customer = await stripe.customers.create({
+          email: identity?.email ?? undefined,
+          metadata: { userId: String(userId) },
+        });
+        stripeCustomerId = customer.id;
+        await ctx.runMutation((internal as any).garden.memberships.saveBillingCustomer, {
+          userId: String(userId),
+          stripeCustomerId,
+          email: identity?.email ?? undefined,
+        });
+      }
+    }
+
+    const metadata: Record<string, string> = {
+      kind: "community_product",
+      productId: String(args.productId),
+      hostOrgId: String(product.hostOrgId),
+      ...(userId ? { userId: String(userId) } : {}),
+      billing: product.billing,
+    };
+
+    const isMonthly = product.billing === "monthly";
+    const successUrl = `${siteUrl()}/communities/${org.slug}?purchased=1`;
+    const cancelUrl = `${siteUrl()}/communities/${org.slug}`;
+
+    const session = await stripe.checkout.sessions.create({
+      mode: isMonthly ? "subscription" : "payment",
+      ...(stripeCustomerId ? { customer: stripeCustomerId } : {}),
+      line_items: [
+        {
+          quantity: 1,
+          price_data: {
+            currency: "usd",
+            unit_amount: product.priceCents,
+            product_data: { name: `${product.name} — ${org.name}` },
+            ...(isMonthly ? { recurring: { interval: "month" as const } } : {}),
+          },
+        },
+      ],
+      metadata,
+      ...(isMonthly ? { subscription_data: { metadata } } : {}),
+      success_url: successUrl,
+      cancel_url: cancelUrl,
+      allow_promotion_codes: false,
+    });
+
+    if (!session.url) {
+      throw new ConvexError("Stripe did not return a checkout URL.");
+    }
+
+    return { url: session.url };
+  },
+});
+
 // ——— Nightly reconcile — the backstop (architect §2.3, "never cut") ———
 //
 // Note: this sweep only replays `customer.subscription.*` state (see the

@@ -188,6 +188,48 @@ function makeConvexDb(ctx: MutationCtx): Db {
         createdAt: Date.now(),
       });
     },
+
+    async getProductPurchaseByRef(stripeRef: string) {
+      const row = await ctx.db
+        .query("productPurchases")
+        .withIndex("by_stripeRef", (q) => q.eq("stripeRef", stripeRef))
+        .unique();
+      return row ? { stripeRef: row.stripeRef as string } : null;
+    },
+
+    async insertProductPurchase(row) {
+      const now = Date.now();
+      await ctx.db.insert("productPurchases", {
+        productId: row.productId as Id<"communityProducts">,
+        hostOrgId: row.hostOrgId as Id<"hostOrgs">,
+        userId: row.userId as Id<"users"> | undefined,
+        buyerEmail: row.buyerEmail,
+        grossCents: row.grossCents,
+        platformCents: row.platformCents,
+        hostCents: row.hostCents,
+        billing: row.billing,
+        status: row.status,
+        stripeRef: row.stripeRef,
+        stripeSubscriptionId: row.stripeSubscriptionId,
+        currentPeriodEnd: row.currentPeriodEnd,
+        period: row.period,
+        createdAt: now,
+        updatedAt: now,
+      });
+    },
+
+    async updateProductPurchasesBySubscription(stripeSubscriptionId, patch) {
+      const rows = await ctx.db
+        .query("productPurchases")
+        .withIndex("by_stripeSubscriptionId", (q) =>
+          q.eq("stripeSubscriptionId", stripeSubscriptionId),
+        )
+        .collect();
+      const updatedAt = Date.now();
+      for (const row of rows) {
+        await ctx.db.patch(row._id, { ...patch, updatedAt });
+      }
+    },
   };
 }
 
@@ -233,6 +275,37 @@ export const getHostOrgBySlug = internalQuery({
       .query("hostOrgs")
       .withIndex("by_slug", (q) => q.eq("slug", args.slug))
       .unique();
+  },
+});
+
+// Used by stripe.ts's createProductCheckout (a "use node" action, no
+// ctx.db of its own) to load a community product + its host org in one
+// round trip before building the Stripe session. Null when either side is
+// missing — never partial data the action would have to null-check twice.
+export const getProductForCheckout = internalQuery({
+  args: { productId: v.id("communityProducts") },
+  handler: async (ctx, args) => {
+    const product = await ctx.db.get(args.productId);
+    if (!product) return null;
+    const org = await ctx.db.get(product.hostOrgId);
+    if (!org) return null;
+    return {
+      product: {
+        _id: product._id,
+        hostOrgId: product.hostOrgId,
+        name: product.name,
+        priceCents: product.priceCents,
+        billing: product.billing,
+        status: product.status,
+      },
+      org: {
+        _id: org._id,
+        slug: org.slug,
+        name: org.name,
+        kind: org.kind,
+        status: org.status,
+      },
+    };
   },
 });
 

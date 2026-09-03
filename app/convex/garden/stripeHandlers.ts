@@ -80,10 +80,24 @@ export interface StripeInvoiceLike {
   subscription?: string | { id: string } | null;
   parent?: { subscription_details?: { metadata?: Record<string, string> | null } | null } | null;
   subscription_details?: { metadata?: Record<string, string> | null } | null;
-  lines?: { data?: Array<{ metadata?: Record<string, string> | null }> } | null;
+  lines?: {
+    data?: Array<{
+      metadata?: Record<string, string> | null;
+      /** Seconds since epoch — the line's billing period. Used (community
+       * product renewals only) as the subscription's next currentPeriodEnd,
+       * since a paid invoice carries no top-level current_period_end of its
+       * own. */
+      period?: { end?: number } | null;
+    }>;
+  } | null;
   /** Seconds since epoch — the billing period this invoice covers. Falls
    * back to `created` when absent. */
   period_start?: number;
+  /** "subscription_create" on the very first invoice of a subscription
+   * (already recorded by checkout.session.completed), "subscription_cycle"
+   * on a renewal. Community-product renewals are recorded ONLY on
+   * "subscription_cycle" — see handleProductInvoicePaid. */
+  billing_reason?: string;
 }
 
 export type StripeWebhookEvent =
@@ -175,6 +189,27 @@ export interface TicketPurchaseRow {
   status: string; // "paid"
 }
 
+/** One row per PAYMENT on a community product (schema.ts's productPurchases
+ * comment, verbatim): a one-time checkout, a subscription's first payment
+ * (keyed by checkout session id), or a renewal (keyed by invoice id).
+ * Written by handleProductCheckoutCompleted and handleProductInvoicePaid
+ * below, patched in place by handleProductSubscriptionUpdate/.deleted. */
+export interface ProductPurchaseRow {
+  productId: string;
+  hostOrgId: string;
+  userId?: string;
+  buyerEmail?: string;
+  grossCents: number;
+  platformCents: number; // 10% incl. processing — hostSaleSplit below
+  hostCents: number; // 90%
+  billing: string; // "one_time" | "monthly" — mirrors the product at purchase time
+  status: string; // "paid" (one-time) | "active" | "past_due" | "canceled" | "refunded"
+  stripeRef: string; // checkout session id or invoice id — idempotency key
+  stripeSubscriptionId?: string;
+  currentPeriodEnd?: number; // ms, subscriptions
+  period: string; // "YYYY-MM"
+}
+
 export interface Db {
   getBillingCustomerByStripeId(stripeCustomerId: string): Promise<BillingCustomerRow | null>;
   upsertBillingCustomer(row: BillingCustomerRow): Promise<void>;
@@ -204,6 +239,21 @@ export interface Db {
    * of an upsert. */
   getContributionByStripeRef(stripeRef: string): Promise<{ stripeRef: string } | null>;
   insertContribution(row: ContributionRow): Promise<void>;
+
+  /** Idempotency check for productPurchases, keyed by stripeRef (a checkout
+   * session id for a first payment, an invoice id for a renewal) — same
+   * lookup-before-insert pattern as getContributionByStripeRef. */
+  getProductPurchaseByRef(stripeRef: string): Promise<{ stripeRef: string } | null>;
+  insertProductPurchase(row: ProductPurchaseRow): Promise<void>;
+
+  /** Propagates a subscription's status/period-end onto every
+   * productPurchases row keyed by that stripeSubscriptionId — there can be
+   * more than one (the first-payment row plus any renewal rows). Unknown
+   * subscription id is a safe no-op. */
+  updateProductPurchasesBySubscription(
+    stripeSubscriptionId: string,
+    patch: { status: string; currentPeriodEnd?: number },
+  ): Promise<void>;
 }
 
 // ——— Pure helpers ———
@@ -271,6 +321,21 @@ function duesSplit(grossCents: number): { platformCents: number; poolCents: numb
 function contributionSplit(grossCents: number): { platformCents: number; poolCents: number } {
   const platformCents = Math.round(grossCents * 0.1);
   return { platformCents, poolCents: grossCents - platformCents };
+}
+
+/** Anything a host sells (community products): host 90% / platform 10%
+ * including processing. Same rule and rounding as products.ts's
+ * splitHostSale, reimplemented locally (not imported) so this file stays
+ * dependency-free — see header note. */
+function hostSaleSplit(grossCents: number): { platformCents: number; hostCents: number } {
+  const platformCents = Math.round(grossCents * 0.1);
+  return { platformCents, hostCents: grossCents - platformCents };
+}
+
+/** Stripe timestamps are seconds since epoch; every ms-typed field on our
+ * rows (productPurchases.currentPeriodEnd) needs this conversion. */
+function toMsTimestamp(seconds: number | undefined): number | undefined {
+  return typeof seconds === "number" ? seconds * 1000 : undefined;
 }
 
 /** "YYYY-MM" from a Stripe seconds-since-epoch timestamp — same convention
@@ -365,11 +430,62 @@ async function handlePoolContributionCompleted(
   });
 }
 
+/** Checkout session for a community product (mode "payment" for one_time,
+ * "subscription" for monthly — created by garden/stripe.ts's
+ * createProductCheckout). Records the payment, keyed by session id for
+ * idempotency, with the 90/10 host split. A monthly purchase's status is
+ * "active" (not "paid" — it needs the subscription lifecycle to keep it
+ * entitled); its stripeSubscriptionId/currentPeriodEnd come from the
+ * expanded subscription when present, same fallback-to-"incomplete"-later
+ * reasoning as handleCheckoutSessionCompleted's membership branch (an
+ * almost-always-following subscription.updated event converges it). */
+async function handleProductCheckoutCompleted(
+  session: StripeCheckoutSessionLike,
+  db: Db,
+): Promise<void> {
+  if (await db.getProductPurchaseByRef(session.id)) return; // idempotent replay
+
+  const metadata = session.metadata ?? {};
+  const { productId, hostOrgId, billing, userId } = metadata;
+  if (!productId || !hostOrgId || !billing) {
+    console.warn("[stripe] community_product checkout.session.completed missing metadata", {
+      sessionId: session.id,
+    });
+    return;
+  }
+
+  const grossCents = session.amount_total ?? 0;
+  const { platformCents, hostCents } = hostSaleSplit(grossCents);
+  const periodSeconds = session.created ?? Math.floor(Date.now() / 1000);
+
+  const sub = expandedSubscription(session);
+
+  await db.insertProductPurchase({
+    productId,
+    hostOrgId,
+    userId: userId || undefined,
+    buyerEmail: session.customer_details?.email ?? undefined,
+    grossCents,
+    platformCents,
+    hostCents,
+    billing,
+    status: billing === "monthly" ? "active" : "paid",
+    stripeRef: session.id,
+    stripeSubscriptionId: billing === "monthly" ? subscriptionId(session) : undefined,
+    currentPeriodEnd: sub ? toMsTimestamp(extractCurrentPeriodEnd(sub)) : undefined,
+    period: periodFromStripeSeconds(periodSeconds),
+  });
+}
+
 async function handleCheckoutSessionCompleted(
   session: StripeCheckoutSessionLike,
   db: Db,
 ): Promise<void> {
   const metadata = session.metadata ?? {};
+
+  if (metadata.kind === "community_product") {
+    return handleProductCheckoutCompleted(session, db);
+  }
 
   if (session.mode === "payment") {
     if (metadata.kind === "event_ticket") {
@@ -502,16 +618,34 @@ async function handleCoverageSubscriptionUpdate(sub: StripeSubscriptionLike, db:
   });
 }
 
+/** Community-product subscription: patches every productPurchases row keyed
+ * by this stripeSubscriptionId (the first-payment row plus any renewal
+ * rows) with the mapped status and period end. Unknown subscription id is a
+ * safe no-op — the Db method itself finds nothing to patch. */
+async function handleProductSubscriptionUpdate(
+  sub: StripeSubscriptionLike,
+  db: Db,
+  status: string,
+): Promise<void> {
+  await db.updateProductPurchasesBySubscription(sub.id, {
+    status,
+    currentPeriodEnd: toMsTimestamp(extractCurrentPeriodEnd(sub)),
+  });
+}
+
 async function handleSubscriptionUpdated(sub: StripeSubscriptionLike, db: Db): Promise<void> {
   const kind = sub.metadata?.kind;
 
   if (kind === "coverage") return handleCoverageSubscriptionUpdate(sub, db);
+  if (kind === "community_product") {
+    return handleProductSubscriptionUpdate(sub, db, mapSubscriptionStatus(sub.status));
+  }
   if (kind && kind !== "membership") return; // unknown recurring kind — ignore defensively
 
   await handleMembershipSubscriptionUpdate(sub, db, mapSubscriptionStatus(sub.status));
 }
 
-// ——— customer.subscription.deleted (membership + coverage) ———
+// ——— customer.subscription.deleted (membership + coverage + community product) ———
 
 async function handleSubscriptionDeleted(sub: StripeSubscriptionLike, db: Db): Promise<void> {
   const kind = sub.metadata?.kind;
@@ -521,6 +655,11 @@ async function handleSubscriptionDeleted(sub: StripeSubscriptionLike, db: Db): P
     if (!code) return; // never issued (W2) or already gone — nothing to converge
     await db.updateCode(sub.id, { status: "canceled" });
     return;
+  }
+  if (kind === "community_product") {
+    // Deletion always means canceled — no status mapping ambiguity, and
+    // idempotent (re-applying to an already-canceled row is a no-op change).
+    return handleProductSubscriptionUpdate(sub, db, "canceled");
   }
   if (kind && kind !== "membership") return;
 
@@ -557,11 +696,62 @@ function subscriptionIdFromInvoice(invoice: StripeInvoiceLike): string | undefin
  * deliberately quiet no-op — never throws — on anything that can't be
  * resolved: a missing platform hostOrgs row is an ops issue to fix (seed
  * it), not a reason to fail the webhook and have Stripe retry forever. */
+/** Renewal invoice on a community-product subscription — the recurring half
+ * of a monthly product's income (the first payment is recorded by
+ * handleProductCheckoutCompleted instead). Only "subscription_cycle"
+ * invoices are recorded here; the very first invoice on a new subscription
+ * carries billing_reason "subscription_create" and is deliberately skipped
+ * — checkout.session.completed already wrote that row. Idempotent by
+ * invoice id, quiet no-op on anything unresolvable, same reasoning as
+ * handleInvoicePaid below. */
+async function handleProductInvoicePaid(
+  invoice: StripeInvoiceLike,
+  metadata: Record<string, string>,
+  db: Db,
+): Promise<void> {
+  if (invoice.billing_reason !== "subscription_cycle") return; // first invoice — already recorded at checkout
+
+  if (await db.getProductPurchaseByRef(invoice.id)) return; // idempotent replay
+
+  const { productId, hostOrgId, userId } = metadata;
+  if (!productId || !hostOrgId) {
+    console.warn("[stripe] community_product invoice.paid missing metadata", {
+      invoiceId: invoice.id,
+    });
+    return;
+  }
+
+  const grossCents = invoice.amount_paid;
+  const { platformCents, hostCents } = hostSaleSplit(grossCents);
+  const periodEndSeconds = invoice.lines?.data?.[0]?.period?.end ?? undefined;
+
+  await db.insertProductPurchase({
+    productId,
+    hostOrgId,
+    userId: userId || undefined,
+    grossCents,
+    platformCents,
+    hostCents,
+    billing: "monthly",
+    status: "active",
+    stripeRef: invoice.id,
+    stripeSubscriptionId: subscriptionIdFromInvoice(invoice),
+    currentPeriodEnd: toMsTimestamp(periodEndSeconds),
+    period: periodFromStripeSeconds(invoice.period_start ?? invoice.created),
+  });
+}
+
 async function handleInvoicePaid(invoice: StripeInvoiceLike, db: Db): Promise<void> {
   if (!invoice.amount_paid || invoice.amount_paid <= 0) return; // $0 invoice (e.g. a trial) — nothing moved
 
   const metadata = resolveInvoiceMembershipMetadata(invoice);
-  if (!metadata || metadata.kind !== "membership") return; // not a membership subscription's invoice
+  if (!metadata) return; // no resolvable subscription metadata at all
+
+  if (metadata.kind === "community_product") {
+    return handleProductInvoicePaid(invoice, metadata, db);
+  }
+
+  if (metadata.kind !== "membership") return; // not a membership subscription's invoice
 
   if (await db.getContributionByStripeRef(invoice.id)) return; // idempotent replay
 
