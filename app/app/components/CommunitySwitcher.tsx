@@ -17,13 +17,11 @@ import { useConvexAuth } from "convex/react";
 import { Link, useLocation } from "react-router";
 import { communityNameFor, useCommunityContext } from "./CommunityFilter";
 
-// The no-community-selected value is the platform's own name: you are always
-// somewhere, and when you haven't picked a community that somewhere is
-// creatives.exchange itself (the commons — community-groups.md §0). The
-// control is labelled "Community" so the name below it reads as a value, not
-// as a stray brand mark.
-const ALL_LABEL = "creatives.exchange";
-const ALL_HINT = "Everything, every community";
+// One line, and never the platform's name: the Wordmark directly above
+// already says CREATIVES.EXCHANGE, so repeating it here read as the brand
+// stuttering. Unselected the control names what it does — "All communities"
+// — and selected it names the community you're looking through.
+const ALL_LABEL = "All communities";
 
 export function CommunitySwitcher() {
   const { isAuthenticated } = useConvexAuth();
@@ -72,21 +70,16 @@ export function CommunitySwitcher() {
         type="button"
         aria-haspopup="menu"
         aria-expanded={open}
-        aria-label={`Community: ${label}`}
+        aria-label={`Switch community — showing ${label}`}
         title={label}
         onClick={() => setOpen((o) => !o)}
         className="flex w-full items-center justify-between gap-2 px-3 py-2 rounded-lg text-left hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
       >
-        {/* min-w-0 lets the value actually truncate instead of overflowing the
-            256px rail — the old single-line label clipped mid-word. */}
-        <span className="min-w-0">
-          <span className="block text-xs uppercase tracking-[0.08em] text-gray-500 dark:text-gray-400">
-            Community
-          </span>
-          <span className="mt-0.5 flex items-center gap-1.5 text-sm font-medium text-gray-800 dark:text-gray-200">
-            {selectedCommunity?.isHome && <span aria-hidden="true">⌂</span>}
-            <span className="truncate">{label}</span>
-          </span>
+        {/* min-w-0 lets the name actually truncate inside the 256px rail
+            instead of clipping mid-word. */}
+        <span className="flex min-w-0 items-center gap-1.5 text-sm font-medium text-gray-800 dark:text-gray-200">
+          {selectedCommunity?.isHome && <span aria-hidden="true">⌂</span>}
+          <span className="truncate">{label}</span>
         </span>
         <ChevronIcon
           className={`w-3.5 h-3.5 shrink-0 text-gray-400 transition-transform ${open ? "rotate-180" : ""}`}
@@ -106,12 +99,7 @@ export function CommunitySwitcher() {
               setOpen(false);
             }}
           >
-            <span className="block">
-              {ALL_LABEL}
-              <span className="block text-xs font-normal text-gray-500 dark:text-gray-400">
-                {ALL_HINT}
-              </span>
-            </span>
+            {ALL_LABEL}
           </MenuItem>
           {communities.map((c) => (
             <MenuItem

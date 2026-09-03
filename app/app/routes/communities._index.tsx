@@ -53,7 +53,7 @@ function CommunityCard({ community }: { community: CommunityRow }) {
     <Link
       to={`/communities/${community.slug}`}
       aria-label={community.name}
-      className="block rounded-2xl border p-5 h-full transition-colors hover:opacity-90"
+      className="flex flex-col rounded-2xl border p-5 h-full transition-colors hover:opacity-90"
       style={{ borderColor: "var(--garden-hairline)", backgroundColor: "var(--garden-ink-raised)" }}
     >
       <div
@@ -62,31 +62,45 @@ function CommunityCard({ community }: { community: CommunityRow }) {
       >
         {community.name}
       </div>
+
+      {/* Location and size are facts you scan; they sit right under the name
+          rather than below a paragraph nobody has read yet. */}
+      <div
+        className="mt-2 text-xs uppercase tracking-[0.06em]"
+        style={{ color: "var(--garden-dim)", fontFamily: "var(--garden-font-mono)" }}
+      >
+        {community.locationLabel ?? "Wherever you are"} · {community.memberCount} member
+        {community.memberCount === 1 ? "" : "s"}
+      </div>
+
       {community.tagline && (
-        <p className="mt-2 text-sm leading-relaxed" style={{ color: "var(--garden-body)" }}>
+        <p className="mt-3 text-sm leading-relaxed" style={{ color: "var(--garden-body)" }}>
           {community.tagline}
         </p>
       )}
-      {/* The description is what a first-time visitor is actually reading for
-          — what this community IS. Without it the card is a name and a
-          member count, which tells a newcomer nothing. */}
+
+      {/* Clamped: a directory card says enough to choose, and the community's
+          own page says the rest. Unclamped, one long description turned this
+          card into a wall and left the card beside it looking empty. */}
       {community.description && (
-        <p className="mt-2 text-sm leading-relaxed" style={{ color: "var(--garden-muted)" }}>
+        <p
+          className="mt-2 text-sm leading-relaxed line-clamp-3"
+          style={{ color: "var(--garden-muted)" }}
+        >
           {community.description}
         </p>
       )}
-      <div
-        className="mt-3 text-xs uppercase tracking-[0.06em]"
-        style={{ color: "var(--garden-dim)", fontFamily: "var(--garden-font-mono)" }}
-      >
-        {community.locationLabel ?? "Wherever you are"}
-      </div>
-      <p className="mt-2 text-sm" style={{ color: "var(--garden-muted)" }}>
-        {community.memberCount} member{community.memberCount === 1 ? "" : "s"}
-        {community.hosts.length > 0 ? ` · hosted by ${community.hosts.join(", ")}` : ""}
-      </p>
+
+      {community.hosts.length > 0 && (
+        <p className="mt-3 text-sm" style={{ color: "var(--garden-muted)" }}>
+          Hosted by {community.hosts.join(", ")}
+        </p>
+      )}
+
+      {/* mt-auto keeps every card's call to action on the same line, however
+          much or little the card above it had to say. */}
       <span
-        className="mt-4 inline-block text-sm font-medium"
+        className="mt-auto pt-4 inline-block text-sm font-medium"
         style={{ color: "var(--garden-citron)" }}
       >
         See inside &amp; join — free →
@@ -100,11 +114,11 @@ function HostCTACard() {
     <Link
       to="/communities/apply"
       aria-label="Host your community — apply"
-      className="block rounded-2xl border border-dashed p-5 h-full transition-colors hover:opacity-90"
+      className="flex flex-col rounded-2xl border border-dashed p-5 h-full transition-colors hover:opacity-90"
       style={{ borderColor: "var(--garden-hairline-raised)", backgroundColor: "var(--garden-ink-raised)" }}
     >
       <span
-        className="inline-block px-2.5 py-1 rounded-full text-[11px] font-medium uppercase tracking-[0.06em]"
+        className="inline-block self-start px-2.5 py-1 rounded-full text-xs font-medium uppercase tracking-[0.06em]"
         style={{
           fontFamily: "var(--garden-font-mono)",
           backgroundColor: "rgba(215,242,90,0.14)",
@@ -117,11 +131,21 @@ function HostCTACard() {
         className="mt-3 font-semibold text-lg"
         style={{ color: "var(--garden-paper)", fontFamily: "var(--garden-font-display)" }}
       >
-        Host your community — apply
+        Host your own community
       </div>
-      <p className="mt-2 text-sm leading-relaxed" style={{ color: "var(--garden-muted)" }}>
-        Hosting is free. New communities open around November.
+      <p className="mt-2 text-sm leading-relaxed" style={{ color: "var(--garden-body)" }}>
+        Already gather people? Bring them here — your own page, tables, events, and classes.
       </p>
+      <p className="mt-2 text-sm leading-relaxed" style={{ color: "var(--garden-muted)" }}>
+        Hosting is free, and you keep 90% of anything you sell. New communities open around
+        November.
+      </p>
+      <span
+        className="mt-auto pt-4 inline-block text-sm font-medium"
+        style={{ color: "var(--garden-citron)" }}
+      >
+        Apply to host →
+      </span>
     </Link>
   );
 }
