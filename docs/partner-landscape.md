@@ -11,7 +11,7 @@
 
 | Who | Where it stands | The ask |
 |---|---|---|
-| The Grove (Joey O'Connor, Carlsbad) | Board is already asking "how might the Grove serve other arts ministries." Grantmaking dormant 1.5 yrs. | Become host community #3. Their hub question is our product. |
+| The Grove (Joey O'Connor, Carlsbad) | Rick's read (8/28): winding down. Grantmaking already dormant 1.5 yrs. | Changed ask: not a host community — ask David/Joey where its remaining assets, board relationships, and people land. A wind-down can seed the ecosystem (that's what CIVA's did). |
 | Danny Barragan (Reveal / Temple, Little Italy) | Agreed to advise 8/24. Monthly large creative gathering. | Temple as community #4; Danny as the citywide "front door" voice. Give him the business coaching he asked for. |
 | Ryan Knight (filmmaker) | Pitched the 2-min cinematic testimonial series, ~2-month delivery. | Greenlight one pilot film (an AP fellowship story). It doubles as the recruitment asset for everyone below. |
 | Abiding Practice (David) + Table Art Society (Haley) | Founding communities. | Live on the platform with one funded story before Nov 6. |
@@ -28,7 +28,7 @@
 
 **Allies and funders — not tenants.**
 
-- **Creative Arts Collective (Belmont University)** — a $32M Lilly Endowment grantmaking initiative, launched 2024, writing $50k–$250k grants to exactly our ecosystem; grantees already include Rabbit Room and IAM. The single most important ally on this list: introduce creatives.exchange as infrastructure their grantees share. Contact: collective@belmont.edu (no named leader public ⚠).
+- **Creative Arts Collective (Belmont University)** — Lilly Endowment gave Belmont $32M in 2024 to re-grant to Christian arts projects. Belmont doesn't keep it; they run applications and write the checks. Two programs (verified 8/28 from their site): **Create, Educate & Network** ($75k–$250k, ~10 awards/cycle, open to artists, artist collaboratives, church leaders, faith-based nonprofits, arts orgs, educational institutions; last cycle's letter of inquiry was due Nov 3, full proposal Mar 16) and **Artist in Context** ($50k–$80k, ~5 awards/cycle, for orgs/churches hosting an artist — which is our Sponsored Artist Fellowship with their money). The platform itself is not the applicant — AP, TAS, or a partner church is, with creatives.exchange as the infrastructure line in the budget. Requirements: US projects, clear connection to the Christian story, grantees join network retreats/cohorts. Watch for the next LOI window (~November). Executive Director: Rick Rekedal. Contact: collective@belmont.edu.
 - **Calvin Institute of Christian Worship** — funds dozens of worship-arts projects yearly. Funding/legitimacy ally.
 - **IAM Culture Care / Makoto Fujimura** — prestige halo, not operational scale. A blessing or advisory role is the win. Practical contact: Haejin Shim Fujimura.
 - **CIVA diaspora** — 45-year visual-arts org, dissolved 2023 over overhead and compliance costs. Its former members are a real, currently-homeless audience, and its death is our best cautionary tale: this sector runs on thin nonprofits that can't each carry their own infrastructure.
@@ -38,26 +38,24 @@
 
 ---
 
-## 2 · The pitch — three arguments
+## 2 · What we say to get someone to move here
 
-**Financial.**
-- Substack keeps 10% + Stripe forever; the "Substack tax" is driving a documented exodus (Alison Roman → Ghost, Sept 2025; Sean Highkin's public math: $4,968/yr on Substack vs $2,052/yr on Ghost, and 22% growth after leaving). Patreon's stacked take reaches 13–14%.
-- Our shape: hosting a community costs the org $0. The platform earns 10% only when money moves to creative work. Dues stay in the ecosystem — member → home community → grant pool — instead of leaving as rent.
-- For orgs: infrastructure consolidation is budget relief. Rabbit Room pays for Substack, Shopify, and Universe while running a deficit; Roach pays Patreon and Mighty Networks at the same time. CIVA died of overhead.
-- For creators: nobody below 100k subscribers gets migration help anywhere (beehiiv's concierge is enterprise-only; Ghost is self-serve). White-glove migration for 1k–40k-sub creators is an offer no one else makes.
+**Money.**
+- On Substack a writer pays 10% of every subscription, forever, plus card fees. Patreon takes about the same.
+- Here, running a community costs nothing. We take 10% only when someone funds a project or backs a creative.
+- Real numbers to use in the room: sportswriter Sean Highkin published his — about $5,000/yr in Substack fees vs about $2,000/yr after moving to Ghost, and 22% growth after leaving. Alison Roman (343k subscribers) left too.
+- For orgs: Rabbit Room pays Substack, Shopify, and a ticketing service separately, while running a $500K deficit. We replace those bills with $0.
 
-**Practical.**
-- The tools they duct-tape together — newsletter here, Zoom there, forums somewhere else, Patreon for money — are one platform here: portfolios, projects, funding, recurring gatherings with video, events with RSVP. David hit this exact pain: the community's message board didn't even live on the platform they paid for.
-- Community features are revenue features: Substack's own data says writers hosting 2+ chats earn 19% more; Patreon's own report says 53% of creators find connecting harder than five years ago.
-- Discovery on the big platforms is stalling for mid-size creators (multiple writers report 80–90% growth drops after Substack's Jan 2026 feed shift). Our answer is different: curated cross-community membership, not an algorithm.
-- Keep your Substack. Free posts stay the top of the funnel; the community, gatherings, and money live here. This is David's own plan for AP — it's the template, not a concession.
+**Day-to-day.**
+- Everyone we want to recruit runs their community on three or four tools taped together: newsletter on Substack, meetings on Zoom, a forum somewhere else, money on Patreon. Jonathan Rogers runs all four.
+- We put the audience, gatherings with video, RSVPs, portfolios, and funding under one roof, one login.
+- Growth on the big platforms has stalled for mid-size writers. Several published that their growth dropped 80–90% after Substack changed its feed in January.
+- They keep their Substack for free posts. The community and the money move here. That's already David's plan for AP, so we can show it, not argue it.
 
-**Spiritual.**
-- Platform association is now a live conscience issue: 247 writers signed the open letter over Substack hosting paid Nazi newsletters, and the Feb 2026 Guardian investigation showed the problem persists. A Christian creative's 10% funds that platform. Here, the margin funds a grant pool their own community governs.
-- Patronage with a face instead of parasocial subscription pressure: named backing of specific people and projects, inside a community with real human curation — the answer to both the boundary strain and the no-editorial-rigor critique Christian writers have voiced about Patreon-style support.
-- Formation over audience-building: communities keep their own language and standards ("committed to Christ, committed to their craft") while the platform stays broad. Skool's open marketplace — where, as Danny put it, very different neighbors are a click away — is the argument for curation by hosts who know their people.
-
----
+**Conscience.**
+- In February the Guardian found Substack still hosting, and recommending, paid Nazi newsletters. 247 writers signed a protest letter over this; some well-known ones left. A Christian writer's 10% helps fund that platform.
+- Here, the platform's cut goes into a grant pool their own community controls.
+- A community can be openly Christian in its own space without the platform itself waving the flag — which is exactly what Danny asked for.
 
 ## 3 · What the Aug 14–27 calls settled
 
@@ -123,6 +121,55 @@ Worth repeating in the room:
 **Skool-native leads (verify first ⚠):** Creator Impact (Christian YouTubers/filmmakers), Jeff Miller's Christian Writers, Christian Creatives Collective. Smaller Substack leads via Challies' 2026 roundup: Chris Martin (Moody, illustration), Andrew Roycroft, Esther Roth.
 
 ---
+
+## 6a · Host-community candidates by discipline (researched 9/3)
+
+The pattern across every discipline: real communities, renting 2–4 tools each — Mighty Networks (Realm Makers, Christian Media Association, Breath & the Clay), Circle (Nashville Christian Songwriters, Writing Worship), Ning (Christian Comic Arts Society), Discord (Christian Animation Network), Facebook + Zoom (Hope*Writers, Word Weavers, NCVA, Anselm). Nobody has portfolios or a funding layer.
+
+**Best structural fits, in order:**
+
+| Org | Discipline | Size | What they run today | The pitch | Person |
+|---|---|---|---|---|---|
+| **NCVA** (Network of Christians in Visual Arts) | visual arts | 814 in FB group | CIVA's successor (launched late 2023). "Creator Circles" — ≤8 people, monthly, on Zoom + Neon CRM. | Their core product is literally our tables feature, run on a CRM and Zoom. **Warm path: co-founder Steven Homestead was on our 8/27 call.** | Michelle Paine, Steven Homestead |
+| **Realm Makers** | spec-fic writers | 350 conf + online membership | "RealmSphere" tiers $7.99–11.99/mo on Mighty Networks; annual conference | Already runs our exact model, rented from Mighty Networks. | Becky Minor, CEO |
+| **ACFW** (American Christian Fiction Writers) | fiction writers | ~3,000 members, 31 chapters | $75 join / $49/yr; local chapters; annual conference; new CEO Oct 2025 | Chapters are ready-made tables; leadership transition = opening. | Kathleen Y'Barbo Turner, CEO |
+| **Word Weavers International** | critique groups | 1,200 writers, 30+ chapters | $55/yr dues; in-person + Zoom groups; $212k/yr budget | Thin nonprofit running critique tables on Zoom — clean upgrade. | Eva Marie Everson, CEO |
+| **United Adoration** | worship arts | retreats + local "UA Collectives" | $320k/yr nonprofit; Subsplash for registration | Their "UA Collectives" = multi-site host communities with no real infrastructure. | Rev. Dave Frincke; Rachel Wilhelm |
+| **Nashville Christian Songwriters** | songwriters | UNVERIFIED size | $97/mo cohort community on Circle | Paid, cohort-based, virtual-first — on-thesis. | John Chisum |
+| **Christian Comic Arts Society** | comics | 20+ yr community | Runs on Ning (a 2008-era platform); annual SD Comic-Con mixer + LA meetups | Local overlap (San Diego mixer) + visibly outdated platform. | via LA organizer ⚠ |
+| **Christian Animation Network** | animation | 80 members | Discord; free / $1+ / $39/mo tiers with monthly 1:1s | Smallest and easiest pilot migration; founder's stated pain is creative isolation. | Adam Harding Willis |
+| **CITA** (Christians in Theatre Arts) | theatre | ~1,200 historic; now reduced | Pop-up "Happenings," job board, FB group; mid-ED-transition | 50-year brand, under-resourced, in transition — either the opening or the reason to wait. | Bruce D. Long, ED |
+| **168 Film Project** | film | 1,500+ films since 2003 | $168/team competition + festival; $141k/yr revenue | 20-year alumni base, thin web presence; board includes Brian Bird. | John David Ware |
+
+**Also real, different play:** Hope*Writers (3,200+ paying at $47/mo — the biggest paid writer community found; reference model + recruiting pool, unlikely to migrate wholesale), Cageless Birds (Helsers, NC — campus + dispersed alumni needing a digital home between cohorts), Writing Worship (Nordhoff cohorts on Circle + Teachable), Redbud Writers Guild (relational, women writers).
+
+**Benchmarks and channels, not migration targets:** Worship Initiative/Psallo (Shane & Shane, own SaaS), Bethel's WorshipU, COMPEL ($40/mo under Proverbs 31), Jerry Jenkins Guild (~2,000 ⚠), GMA ($60–130/yr trade assn), ICVM (trade), FAFF Association ($49.70/mo — closest single comp to our model in film), Christian Media Association (Mighty Networks + CONTENT conference at Capernaum Studios).
+
+**White space worth naming in the pitch:** no Christian playwrights guild exists; photographers have no formal org; sculptors/muralists/ceramicists appear only inside multi-discipline networks. CIVA's collapse left visual artists with a Facebook-group-scale successor. The gaps are the market.
+
+## 6b · Patron sources (researched 9/3)
+
+Where the money people actually are, in order of fit:
+
+- **Wedgwood Circle** — the closest thing to a patron network built for our thesis: investors and patrons funding "good, true, beautiful" culture (film, music, theatre, literature, gaming) since 2007. Patrons pay $2,500/yr, creators $250/yr; annual 3-day gathering every November in Franklin, TN. Reported check sizes $25k–$250k plus $1k–$10k micro-grants ⚠ (secondary source). Founder/chairman: Mark Rodgers. Bonus connection: CITA's ED Bruce D. Long is Wedgwood's theatre liaison.
+- **Praxis** — don't court it, apply to it. Business Accelerator: ~12 ventures/yr, $100K on an uncapped SAFE, requires US C-corp and affirming the Apostles' Creed; there's also a $50K nonprofit-founder track. Media/film ventures are precedented. Their Capital Fellowship is a room full of exactly the funders we want to know.
+- **National Christian Foundation** (+ The Signatry, WaterStone) — $2.6B granted in 2024, but it's donor-directed pass-through to 501(c)(3)s only. No discovery mechanism; the donor must already know you. Play: make sure AP (and later partner orgs) can receive DAF grants, and put "give via your NCF fund" language on fellowship asks. Individuals cluster here but are reached through their own churches and networks, not through NCF.
+- **The Gathering** — invite-only annual conference of families giving $200k+/yr to Christian causes. President: Josh Kwan. No application; we get there through a member introduction (Wedgwood and Fieldstead circles overlap it).
+- **Fieldstead and Company** (Howard & Roberta Ahmanson) — the grande-dame patrons of Christian arts (funded Biola's arts center, IAM). Relationship-based, no application. Long-game.
+- **Belmont's Creative Arts Collective** — covered in §1; ED Rick Rekedal; next LOI window ~November.
+- **Windrider Institute** — Sundance-partnered film formation network (~500/yr at their Summit); Templeton-funded; invitation-based. Channel for film credibility, not a grants desk.
+- **Skip for now:** M.J. Murdock Trust (Pacific Northwest only), Maclellan (invitation-only, arts not a focus), Faith Driven Investor (network worth being in, but their capital is SaaS/consumer VC, not arts).
+
+## 6c · Churches and the sponsored-seat pitch (researched 9/3)
+
+What already exists, so we're not pitching in the abstract:
+
+- **Redeemer NYC's Center for Faith & Work** still runs (Gotham Fellowship, Vocation Groups); its current arts arm appears to be "Arts Greenhouse" ⚠ (structure unverified). The historic model — Fujimura was a Redeemer elder when IAM started — is the lineage our pitch stands in.
+- **Church of the City NY — creative.nyc**: weekly artist meetups, commissioned works, paid Creative Pastor staff. Proof that a church will fund creative community as staff + commissions.
+- **Artist-in-residence comps with real numbers:** Richmond Worship Arts Fellowship — 9 months, **$1,000/mo stipend, multiple churches sharing artists across a region** (this is our Sponsored Artist Fellowship as a consortium — the strongest model found); Village Church (Beaverton) — stipend + housing + studio; Ecclesia Houston (Scott Erickson was their AiR); St. Andrew's Wesley (Vancouver) — $2,000/mo + $3,000 materials; Grace Cathedral SF — residencies since 2012.
+- **San Diego churches: none has a funded artist program.** Rock + Awaken are huge (~22k/week combined ⚠) with internal creative teams only; Flood's mission literally names "arts, media and storytelling" but has no patronage program; Light Church meets at La Paloma (a venue already on our Nov 6 shortlist); North Coast Calvary — nothing found. That's not a dead end — it's open ground: the first SD church to sponsor creatives gets the story.
+- **How to word the ask (from published church-budget frameworks):** churches don't have an "arts" budget line. A $10/mo sponsored seat fits the **worship/production or discipleship line**. A $5k fellowship only fits if framed as **missions — commissioning a creative into the city the way you'd support a missionary** — or as a designated gift outside the operating budget. Use the buckets they already have; don't ask them to invent one. (This matches David's original AP use case: the worship-leader-as-missionary.)
+- ⚠ One name-check for David: the research couldn't verify a "Neighbors Church" in Encinitas — confirm which church Sarah Grant and Sarah Shreve are actually with before we put it in print.
 
 ## 7 · The Substack migration playbook
 
