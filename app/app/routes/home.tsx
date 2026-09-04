@@ -505,6 +505,64 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Who it's for — one door per constituent, see
+          docs/marketing/constituent-playbook.md */}
+      <section className="px-6 py-16 max-w-6xl mx-auto">
+        <h2 className="text-3xl font-bold text-[var(--garden-paper)] mb-3">
+          Who it's for
+        </h2>
+        <p className="text-[var(--garden-body)] mb-10 max-w-2xl">
+          Six ways in. Money is never the only door.
+        </p>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {[
+            {
+              to: "/for/creatives",
+              label: "Creatives",
+              line: "Get your work funded. Free to join.",
+            },
+            {
+              to: "/for/hosts",
+              label: "Hosts",
+              line: "Get paid to gather the people you already gather.",
+            },
+            {
+              to: "/for/patrons",
+              label: "Patrons",
+              line: "Back a person. 100% of it reaches them.",
+            },
+            {
+              to: "/for/churches",
+              label: "Churches",
+              line: "Cover a seat for a creative in your congregation.",
+            },
+            {
+              to: "/for/donors",
+              label: "Donors",
+              line: "Tax-deductible. 90% goes out as grants.",
+            },
+            {
+              to: "/for/partners",
+              label: "Venues & businesses",
+              line: "Offer the space, or post the budget.",
+            },
+          ].map((d) => (
+            <Link
+              key={d.to}
+              to={d.to}
+              className="group p-6 bg-[var(--garden-ink-raised)] rounded-2xl border border-[var(--garden-hairline)] hover:border-[var(--garden-citron)] transition-all duration-300"
+            >
+              <h3 className="text-lg font-bold text-[var(--garden-paper)] mb-1">
+                {d.label}
+              </h3>
+              <p className="text-[var(--garden-muted)] leading-relaxed">
+                {d.line}
+              </p>
+            </Link>
+          ))}
+        </div>
+      </section>
+
       {/* Footer */}
       <footer className="px-6 py-8 border-t border-[var(--garden-hairline)]">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">

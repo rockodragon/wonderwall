@@ -38,6 +38,12 @@ export default [
   // is a separate decision.
   route("events/:eventId", "routes/event.tsx"),
 
+  // Public audience pages (/for/creatives, /for/hosts, …) — one page per
+  // constituent door in docs/marketing/constituent-playbook.md. Outside the
+  // _app layout on purpose: these are handed to people who have no account
+  // and gating them would defeat the point.
+  route("for/:audience", "routes/for.$audience.tsx"),
+
   // App routes (with nav layout)
   layout("routes/_app.tsx", [
     route("search", "routes/search.tsx"),
