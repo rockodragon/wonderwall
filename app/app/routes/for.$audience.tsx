@@ -33,180 +33,182 @@ const AUDIENCES: Audience[] = [
     eyebrow: "For creatives",
     headline: "Get your work funded.",
     subhead:
-      "Paid work, backing, and a real grant fund — for creatives who are tired of exposure. Free to join.",
+      "Find paid work. Get backed by people who believe in you. Apply for grants. Joining is free.",
     points: [
       {
-        title: "You keep 100%",
-        body: "When someone backs your project, our fee is paid by them at checkout. It is not taken out of your money. No other platform does this.",
+        title: "You keep all of it",
+        body: "When someone gives you $100, you get $100. They cover our fee when they check out. Nothing comes out of your side.",
       },
       {
-        title: "A grant fund that's actually funded",
-        body: "Money from churches and donors, administered by Abiding Practice — a 501(c)(3) — and every grant is published where anyone can read it.",
+        title: "There's money set aside for your work",
+        body: "Churches and neighbors put money into a fund. You apply. A nonprofit decides who gets it, and every grant is posted publicly, so you can see who got what.",
       },
       {
-        title: "Paid work worth applying to",
-        body: "Posted by churches, businesses and nonprofits who want to hire creatives. Not scraped from a job board.",
+        title: "Real work, from people nearby",
+        body: "Churches, businesses and nonprofits post jobs here because they want to hire a creative. You can see exactly who's asking.",
       },
       {
-        title: "People who get it",
-        body: "The Garden is the Christian creative community inside creatives.exchange. It's where this started.",
+        title: "You won't be doing this alone",
+        body: "The Garden is a community of Christian creatives here. Bring your work, get honest feedback, meet people making things near you.",
       },
     ],
     cost:
-      "Free to join and stay free. A seat is $10/month when you want to be funded — start projects, apply to paid work, propose to the grant fund. Half of it funds another creative's project.",
+      "Joining is free and stays free. A seat is $10 a month when you're ready to be funded. It lets you start projects, apply for work, and propose to the grant fund. Half of your $10 goes to fund another creative.",
     ctaLabel: "Join free",
     ctaTo: "/join",
     metaTitle: "Get your work funded — creatives.exchange",
     metaDescription:
-      "Paid work, backing and a real grant fund for creatives. Free to join. When someone backs your project you keep 100% — the backer covers the platform fee, not you.",
+      "Find paid work, get backed by people who believe in you, and apply for grants. Joining is free. When someone gives you $100, you get $100.",
   },
   {
     slug: "hosts",
     eyebrow: "For hosts and community leaders",
-    headline: "Get paid to gather the people you already gather.",
+    headline: "Get paid for the community you already lead.",
     subhead:
-      "Run your community here, sell what you teach, and keep 90% of it. Hosting is free.",
+      "Bring your people. Teach what you know. Keep 90% of what you sell. Hosting costs nothing.",
     points: [
       {
-        title: "Keep 90% of what you sell",
-        body: "Classes, cohorts, premium content — you keep 90 cents of every dollar. One rule, no tiers, no negotiation.",
+        title: "You keep 90 cents of every dollar",
+        body: "Classes, cohorts, memberships, prints, downloads. One rate for all of it. We take ten cents.",
       },
       {
-        title: "Hosting costs nothing",
-        body: "Bring your community, run your sessions, keep your roster. You are paid for what you sell, never charged for who you bring.",
+        title: "Hosting is free",
+        body: "You're paid for what you sell. You're never charged for the people you bring.",
       },
       {
         title: "Your people can win grants",
-        body: "Creatives in your community can propose to the grant fund. That money goes to them, and it is a reason for them to show up.",
+        body: "Creatives in your community can apply to the fund. That money goes straight to them, and it gives them a reason to keep showing up.",
       },
       {
-        title: "The tools are already here",
-        body: "Sessions, rosters, RSVPs, events, payments, and a public record of what got funded.",
+        title: "One place instead of five",
+        body: "Rosters, sessions, sign-ups, events and payments together. You can stop stitching tools into each other.",
       },
     ],
     cost:
-      "Free to host. 10% of what you sell. The $50/month Leader tier adds funding programs you run for your own community — contests, funded cohorts, and grant pools.",
+      "Free to host. We take 10% of what you sell. For $50 a month you can also run funding programs for your own community — contests, funded cohorts, and grant pools.",
     ctaLabel: "Talk to us about hosting",
     ctaTo: "/faq",
     metaTitle: "For hosts — creatives.exchange",
     metaDescription:
-      "Run your creative community here. Hosting is free, you keep 90% of what you sell, and your people can win grants from the fund.",
+      "Bring your community here. Hosting is free, you keep 90% of what you sell, and the creatives in your community can apply for grants.",
   },
   {
     slug: "patrons",
     eyebrow: "For patrons and backers",
-    headline: "Back a specific person, not an algorithm.",
-    subhead:
-      "Choose a creative, fund their project, and see what it became. 100% of your gift reaches them.",
+    headline: "Put money behind someone you believe in.",
+    subhead: "Pick a creative. Fund their project. Watch it get made.",
     points: [
       {
-        title: "100% reaches the creative",
-        body: "You cover the platform fee at checkout so the full amount goes to them. Nothing is skimmed off their side.",
+        title: "All of it reaches them",
+        body: "You cover the fee when you check out, so the creative receives the full amount you meant to give.",
       },
       {
-        title: "You're credited on the work",
-        body: "Your name appears on the project you backed. Not a like, not a follow — a credit on something that got made.",
+        title: "Your name is on the work",
+        body: "Not a like or a follow. A credit on something that got made.",
       },
       {
-        title: "You see what happened",
-        body: "Story updates from the creative as the work progresses, and a finished piece at the end of it.",
+        title: "You see how it goes",
+        body: "The creative posts updates as the work comes together, and the finished piece when it's done.",
       },
     ],
     cost:
-      "Holding a patron account is free. You choose what to give and when. This is backing, not a donation — it is not tax-deductible, and the creative pays income tax on it.",
+      "A patron account is free. You choose the amount and when. This is backing, not a donation, so it isn't tax-deductible and the creative pays income tax on it.",
     ctaLabel: "Browse projects",
     ctaTo: "/projects",
     metaTitle: "For patrons — creatives.exchange",
     metaDescription:
-      "Back a specific creative's project. 100% of your gift reaches them because you cover the platform fee, and you're credited on the finished work.",
+      "Pick a creative, fund their project, and watch it get made. You cover the fee at checkout so the full amount reaches them.",
   },
   {
     slug: "churches",
-    eyebrow: "For churches and sponsoring organizations",
-    headline: "Cover a seat for the creatives in your congregation.",
+    eyebrow: "For churches and organizations",
+    headline: "Cover a seat for a creative in your church.",
     subhead:
-      "$10 a month opens the door for one creative. You can see exactly what it did.",
+      "$10 a month opens the door for one person. You can see exactly where it went.",
     points: [
       {
         title: "A covered seat is a full seat",
         body: "The creative you sponsor gets everything a paying member gets. The only difference is who paid.",
       },
       {
-        title: "You see the names and the results",
-        body: "Seats issued, seats redeemed, and which creatives they went to. Your credit appears on the work they publish.",
+        title: "You see the names",
+        body: "Seats given, seats used, and who used them. Your church is credited on the work they publish.",
       },
       {
-        title: "One subscription, one code",
-        body: "Buy ten seats on one card, hand out one code. No spreadsheets, no chasing individual signups.",
+        title: "One card, one code",
+        body: "Buy ten seats at once and hand out a single code. No spreadsheets, no chasing people down.",
       },
       {
-        title: "Your creatives find real work",
-        body: "Paid opportunities, backing from people who believe in them, and a grant fund they can apply to.",
+        title: "It adds up",
+        body: "Ten seats is $50 a month. Half of that goes into the grant fund, which is about two grants a year to creatives in this county.",
       },
     ],
     cost:
-      "$10 per seat per month, bought in whatever quantity you want. Buying a year at once is one charge instead of twelve.",
+      "$10 per seat per month, in any number you want. Paying for a year at once is one charge instead of twelve.",
     ctaLabel: "Talk to us about seats",
     ctaTo: "/faq",
     metaTitle: "For churches — creatives.exchange",
     metaDescription:
-      "Cover seats for the creatives in your congregation. $10 a month per seat, one code for your whole group, and a clear record of what it did.",
+      "Cover seats for the creatives in your church. $10 a month per seat, one code for your whole group, and a clear record of where it went.",
   },
   {
     slug: "donors",
     eyebrow: "For donors and institutions",
-    headline: "Fund creative work, and see every dollar land.",
+    headline: "Fund creative work, and see where it lands.",
     subhead:
-      "The Grant Fund is administered by Abiding Practice, a 501(c)(3). Your gift is tax-deductible and every grant is published.",
+      "The grant fund is run by Abiding Practice, a 501(c)(3). Your gift is tax-deductible and every grant is posted publicly.",
     points: [
       {
-        title: "90% goes out as grants",
-        body: "When you cover the processing fee at checkout, 90 cents of every dollar becomes a grant. The rest covers administration and the platform that runs it.",
+        title: "90 cents of every dollar becomes a grant",
+        body: "When you cover the processing fee at checkout, ninety cents of each dollar goes out to a creative. The rest runs the fund and the platform.",
       },
       {
-        title: "Tax-deductible, properly",
-        body: "Abiding Practice is the recipient of record and issues your receipt. Not a workaround — a real 501(c)(3) doing real grant administration.",
+        title: "A real receipt from a real nonprofit",
+        body: "Abiding Practice receives your gift and sends the receipt. Not a workaround — a 501(c)(3) doing the grant work.",
       },
       {
-        title: "A public record",
-        body: "Date, amount, creative, project. Readable by anyone, without an account. You can check what your money did and so can everyone else.",
+        title: "You can check the work",
+        body: "Date, amount, creative, project. Anyone can read the list without an account.",
+      },
+      {
+        title: "What it buys",
+        body: "$250 covers materials for a project. $500 a month for six months lets a creative stop taking the other job.",
       },
     ],
     cost:
-      "Give what you want, once or monthly. Larger commitments are a conversation — those are the gifts that make the fund something a creative can plan around.",
+      "Give once or monthly, in any amount. Larger commitments are worth a conversation — those are the gifts a creative can plan around.",
     ctaLabel: "See the fund",
     ctaTo: "/fund/abiding-practice",
     metaTitle: "For donors — creatives.exchange",
     metaDescription:
-      "Give to the Grant Fund, administered by Abiding Practice, a 501(c)(3). Tax-deductible, 90% granted, and every grant published in public.",
+      "Give to a grant fund run by Abiding Practice, a 501(c)(3). Tax-deductible, ninety cents of every dollar granted, and every grant posted publicly.",
   },
   {
     slug: "partners",
     eyebrow: "For venues and businesses",
-    headline: "Offer the space, or post the budget.",
-    subhead:
-      "Find creatives who are ready to work, and put your name on what gets made.",
+    headline: "Hire a creative, or offer your space.",
+    subhead: "The people here have portfolios, and they want the work.",
     points: [
       {
-        title: "Post work and get real applicants",
-        body: "Creatives here have portfolios, and they applied because they want the job — not because a job board matched a keyword.",
+        title: "Real applicants",
+        body: "Creatives here apply because they want the job, not because a keyword matched.",
       },
       {
-        title: "Your name goes on the finished work",
+        title: "Your name goes on it",
         body: "Sponsors and venue partners are credited on the projects and events they made possible.",
       },
       {
-        title: "Space counts",
-        body: "A room, a stage, a studio for an afternoon. Venue partnerships are the same currency as money here.",
+        title: "Space counts as much as money",
+        body: "A room, a stage, a studio for an afternoon. It's the same kind of help.",
       },
     ],
     cost:
-      "Posting work is free. Business sponsorships start at $100/month, and unlike a donation they are a marketing expense you write off as one.",
+      "Posting work is free. Business sponsorships start at $100 a month, and unlike a donation you write it off as marketing.",
     ctaLabel: "Post a job",
     ctaTo: "/jobs/new",
     metaTitle: "For venues and businesses — creatives.exchange",
     metaDescription:
-      "Hire creatives who are ready to work, or offer your space. Posting is free, and your name goes on what gets made.",
+      "Hire creatives who want the work, or offer your space. Posting is free, and your name goes on what gets made.",
   },
 ];
 

@@ -497,39 +497,39 @@ export default function Home() {
           Who it's for
         </h2>
         <p className="text-[var(--garden-body)] mb-10 max-w-2xl">
-          Six ways in. Money is never the only door.
+          Six ways in. You can always start free.
         </p>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {[
             {
               to: "/for/creatives",
               label: "Creatives",
-              line: "Get your work funded. Free to join.",
+              line: "Get your work funded. Joining is free.",
             },
             {
               to: "/for/hosts",
               label: "Hosts",
-              line: "Get paid to gather the people you already gather.",
+              line: "Get paid for the community you already lead.",
             },
             {
               to: "/for/patrons",
               label: "Patrons",
-              line: "Back a person. 100% of it reaches them.",
+              line: "Put money behind someone you believe in.",
             },
             {
               to: "/for/churches",
               label: "Churches",
-              line: "Cover a seat for a creative in your congregation.",
+              line: "Cover a seat for a creative in your church.",
             },
             {
               to: "/for/donors",
               label: "Donors",
-              line: "Tax-deductible. 90% goes out as grants.",
+              line: "Tax-deductible. Ninety cents of every dollar becomes a grant.",
             },
             {
               to: "/for/partners",
               label: "Venues & businesses",
-              line: "Offer the space, or post the budget.",
+              line: "Hire a creative, or offer your space.",
             },
           ].map((d) => (
             <Link
