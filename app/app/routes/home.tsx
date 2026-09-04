@@ -465,7 +465,8 @@ export default function Home() {
           </p>
           <div className="text-[var(--garden-body)] text-lg leading-relaxed flex flex-col gap-4 max-w-xl">
             <p className="text-[var(--garden-paper)]">
-              Here's to the ones who make things.
+              Somebody makes the work. Somebody pays for it. Both of them are
+              here.
             </p>
             <p>
               The photographer with a folder nobody paid for. The songwriter
@@ -474,7 +475,14 @@ export default function Home() {
               to someone.
             </p>
             <p>
-              Most of them have been told it's a hobby. They kept going anyway.
+              The church that put ten people on the platform instead of buying
+              another screen. The neighbor who sends $50 a month and doesn't
+              want a thank-you. The cafe owner who gave up the back room on a
+              Tuesday.
+            </p>
+            <p>
+              The work gets called a hobby. The money gets called charity.
+              It's neither.
             </p>
             <p className="text-[var(--garden-paper)]">
               Give somebody enough to keep going, and the work stops being a
