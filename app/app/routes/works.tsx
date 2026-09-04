@@ -1,6 +1,6 @@
 import { useQuery } from "convex/react";
 import { Link } from "react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import { CreateWorkComposer } from "../components/CreateWorkComposer";
 
@@ -18,7 +18,12 @@ export default function Works() {
   const [searchQuery, setSearchQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
 
-  // Filter then shuffle
+  // Filter, then newest first. This used to end in a Fisher-Yates shuffle,
+  // which combined with the old index-based bento sizing meant a piece's box
+  // size was fully random on every visit — no wonder the grid felt like it
+  // was just "regular boxes" (founder). Recency now drives both order and,
+  // for the single newest piece, a guaranteed featured size (see BentoCard/
+  // bentoSpanFor below) — the newest work leads, on purpose, every time.
   const filteredArtifacts = useMemo(() => {
     if (!artifacts) return [];
     let filtered = [...artifacts];
@@ -40,12 +45,7 @@ export default function Works() {
       filtered = filtered.filter((a) => a.type === typeFilter);
     }
 
-    // Shuffle
-    for (let i = filtered.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [filtered[i], filtered[j]] = [filtered[j], filtered[i]];
-    }
-    return filtered;
+    return [...filtered].sort((a, b) => b.createdAt - a.createdAt);
   }, [artifacts, searchQuery, typeFilter]);
 
   if (!artifacts) {
@@ -151,219 +151,249 @@ export default function Works() {
         ))}
       </div>
 
-      {/* Bento grid layout */}
+      {/* Bento grid layout — box size is now a real signal, not an index
+          pattern: the single newest piece (index 0, since filteredArtifacts
+          is recency-sorted above) is always featured/large, and every other
+          card sizes itself off its own actual image aspect ratio (measured
+          client-side, since nothing in the schema stores width/height) or a
+          type-appropriate default for non-image content. See BentoCard. */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 auto-rows-[200px]">
-        {filteredArtifacts.map((artifact, index) => {
-          // Determine size class for bento effect
-          const sizeClass = getBentoSize(index);
-
-          // Check if URL is an image (strip query string first)
-          const urlWithoutQuery =
-            artifact.resolvedMediaUrl?.split("?")[0] || "";
-          const isImageUrl = /\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i.test(
-            urlWithoutQuery,
-          );
-          // Also treat as image if it has a mediaStorageId (Convex storage URLs don't have extensions)
-          const hasStoredImage = !!artifact.mediaStorageId;
-
-          // Check if URL is YouTube
-          const youtubeMatch = artifact.resolvedMediaUrl?.match(
-            /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
-          );
-          const youtubeId = youtubeMatch?.[1];
-          const youtubeThumbnail = youtubeId
-            ? `https://img.youtube.com/vi/${youtubeId}/mqdefault.jpg`
-            : null;
-
-          const showAsImage =
-            artifact.type === "image" ||
-            hasStoredImage ||
-            (artifact.type === "link" && isImageUrl);
-
-          return (
-            <Link
-              key={artifact._id}
-              to={`/works/${artifact._id}`}
-              className={`group relative overflow-hidden rounded-2xl bg-gray-100 dark:bg-gray-800 ${sizeClass}`}
-            >
-              {/* Media content */}
-              {showAsImage && artifact.resolvedMediaUrl && (
-                <img
-                  src={artifact.resolvedMediaUrl}
-                  alt={artifact.title || "Work"}
-                  className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                />
-              )}
-
-              {/* YouTube video thumbnail */}
-              {youtubeThumbnail && !showAsImage && (
-                <div className="relative w-full h-full">
-                  <img
-                    src={youtubeThumbnail}
-                    alt={artifact.title || "Video"}
-                    className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                  />
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="w-16 h-16 bg-red-600 rounded-full flex items-center justify-center shadow-lg">
-                      <svg
-                        className="w-8 h-8 text-white ml-1"
-                        fill="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path d="M8 5v14l11-7z" />
-                      </svg>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {artifact.type === "video" &&
-                artifact.resolvedMediaUrl &&
-                !youtubeId && (
-                  <video
-                    src={artifact.resolvedMediaUrl}
-                    className="w-full h-full object-cover"
-                    muted
-                    loop
-                    playsInline
-                    onMouseEnter={(e) => e.currentTarget.play()}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.pause();
-                      e.currentTarget.currentTime = 0;
-                    }}
-                  />
-                )}
-
-              {artifact.type === "text" && (
-                <div className="w-full h-full p-4 flex flex-col justify-center bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-900/30 dark:to-purple-900/30">
-                  {artifact.title && (
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2 line-clamp-2">
-                      {artifact.title}
-                    </h3>
-                  )}
-                  {artifact.content && (
-                    <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-4">
-                      {artifact.content}
-                    </p>
-                  )}
-                </div>
-              )}
-
-              {artifact.type === "link" && !isImageUrl && !youtubeId && (
-                <>
-                  {artifact.ogImageUrl ? (
-                    // Use og:image as background
-                    <div className="relative w-full h-full bg-gray-100 dark:bg-gray-800">
-                      <img
-                        src={artifact.ogImageUrl}
-                        alt={artifact.title || "Link preview"}
-                        className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105"
-                      />
-                      {/* Title overlay */}
-                      {artifact.title && (
-                        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-4">
-                          <h3 className="text-white font-semibold line-clamp-2">
-                            {artifact.title}
-                          </h3>
-                        </div>
-                      )}
-                      {/* Link icon badge */}
-                      <div className="absolute top-3 right-3 w-8 h-8 bg-white/90 dark:bg-black/70 rounded-full flex items-center justify-center">
-                        <svg
-                          className="w-4 h-4 text-gray-700 dark:text-gray-300"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
-                          />
-                        </svg>
-                      </div>
-                    </div>
-                  ) : (
-                    // Fallback gradient card
-                    <LinkFallbackCard
-                      title={artifact.title}
-                      url={artifact.resolvedMediaUrl}
-                    />
-                  )}
-                </>
-              )}
-
-              {artifact.type === "audio" && (
-                <div className="w-full h-full p-4 flex flex-col justify-center items-center bg-gradient-to-br from-orange-50 to-red-50 dark:from-orange-900/30 dark:to-red-900/30">
-                  <svg
-                    className="w-12 h-12 text-orange-600 dark:text-orange-400 mb-2"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"
-                    />
-                  </svg>
-                  {artifact.title && (
-                    <h3 className="text-sm font-medium text-gray-900 dark:text-white text-center line-clamp-2">
-                      {artifact.title}
-                    </h3>
-                  )}
-                </div>
-              )}
-
-              {/* Overlay with creator info */}
-              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent p-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                <div className="flex items-center gap-2">
-                  {artifact.profile?.imageUrl ? (
-                    <img
-                      src={artifact.profile.imageUrl}
-                      alt={artifact.profile.displayName || "Creator"}
-                      className="w-6 h-6 rounded-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-6 h-6 rounded-full bg-gray-500 flex items-center justify-center text-white text-xs">
-                      {artifact.profile?.displayName?.[0]?.toUpperCase() || "?"}
-                    </div>
-                  )}
-                  <span className="text-white text-sm font-medium truncate">
-                    {artifact.profile?.displayName || "Anonymous"}
-                  </span>
-                </div>
-                {artifact.title && artifact.type !== "text" && (
-                  <p className="text-white/80 text-xs mt-1 truncate">
-                    {artifact.title}
-                  </p>
-                )}
-              </div>
-            </Link>
-          );
-        })}
+        {filteredArtifacts.map((artifact, index) => (
+          <BentoCard key={artifact._id} artifact={artifact} featured={index === 0} />
+        ))}
       </div>
 
     </div>
   );
 }
 
-// Determine bento box size based on index for visual variety
-function getBentoSize(index: number): string {
-  const pattern = index % 12;
-  // Create variety: some items span 2 columns and/or 2 rows
-  if (pattern === 0 || pattern === 7) {
-    return "col-span-2 row-span-2"; // Large square
+// Measures an image's own aspect ratio client-side — nothing in the
+// artifacts schema stores width/height, so this is the only way to know a
+// piece's real shape. Resets to null (unknown) whenever the url changes, so
+// a recycled card (filter change) never briefly shows the previous image's
+// ratio while the new one loads.
+function useImageAspect(url: string | null | undefined): number | null {
+  const [ratio, setRatio] = useState<number | null>(null);
+  useEffect(() => {
+    setRatio(null);
+    if (!url) return;
+    let cancelled = false;
+    const img = new window.Image();
+    img.onload = () => {
+      if (!cancelled && img.naturalWidth && img.naturalHeight) {
+        setRatio(img.naturalWidth / img.naturalHeight);
+      }
+    };
+    img.src = url;
+    return () => {
+      cancelled = true;
+    };
+  }, [url]);
+  return ratio;
+}
+
+// The bento span: recency wins outright (the newest piece is always
+// featured, full stop — "prioritize recency"), then real content shape
+// drives everyone else ("size attributes"). A wide/landscape photo gets a
+// wide box, a portrait photo gets a tall one, a near-square photo (or an
+// image whose ratio hasn't loaded yet) gets the standard 1x1 cell. Non-image
+// types get a shape that fits what they actually are — video thumbnails are
+// inherently landscape, text needs vertical room to read, audio/link
+// fallbacks are fine standard-sized.
+function bentoSpanFor({
+  featured,
+  type,
+  ratio,
+}: {
+  featured: boolean;
+  type: string;
+  ratio: number | null;
+}): string {
+  if (featured) return "col-span-2 row-span-2";
+  if (ratio !== null) {
+    if (ratio >= 1.35) return "col-span-2 row-span-1"; // landscape
+    if (ratio <= 0.75) return "row-span-2"; // portrait
+    return ""; // near-square
   }
-  if (pattern === 3 || pattern === 10) {
-    return "col-span-2 row-span-1"; // Wide
-  }
-  if (pattern === 5) {
-    return "col-span-1 row-span-2"; // Tall
-  }
-  return "col-span-1 row-span-1"; // Standard
+  if (type === "video") return "col-span-2 row-span-1";
+  if (type === "text") return "row-span-2";
+  return "";
+}
+
+function BentoCard({ artifact, featured }: { artifact: any; featured: boolean }) {
+  // Check if URL is an image (strip query string first)
+  const urlWithoutQuery = artifact.resolvedMediaUrl?.split("?")[0] || "";
+  const isImageUrl = /\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i.test(urlWithoutQuery);
+  // Also treat as image if it has a mediaStorageId (Convex storage URLs don't have extensions)
+  const hasStoredImage = !!artifact.mediaStorageId;
+
+  // Check if URL is YouTube
+  const youtubeMatch = artifact.resolvedMediaUrl?.match(
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
+  );
+  const youtubeId = youtubeMatch?.[1];
+  const youtubeThumbnail = youtubeId
+    ? `https://img.youtube.com/vi/${youtubeId}/mqdefault.jpg`
+    : null;
+
+  const showAsImage =
+    artifact.type === "image" ||
+    hasStoredImage ||
+    (artifact.type === "link" && isImageUrl);
+
+  // Only real photos get measured — a YouTube thumbnail is always 16:9
+  // (handled by the video-type default above) and doesn't need its own
+  // aspect probe.
+  const ratio = useImageAspect(showAsImage ? artifact.resolvedMediaUrl : null);
+  const sizeClass = bentoSpanFor({ featured, type: artifact.type, ratio });
+
+  return (
+    <Link
+      to={`/works/${artifact._id}`}
+      className={`group relative overflow-hidden rounded-2xl bg-gray-100 dark:bg-gray-800 ${sizeClass}`}
+    >
+      {/* Media content */}
+      {showAsImage && artifact.resolvedMediaUrl && (
+        <img
+          src={artifact.resolvedMediaUrl}
+          alt={artifact.title || "Work"}
+          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+        />
+      )}
+
+      {/* YouTube video thumbnail */}
+      {youtubeThumbnail && !showAsImage && (
+        <div className="relative w-full h-full">
+          <img
+            src={youtubeThumbnail}
+            alt={artifact.title || "Video"}
+            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+          />
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="w-16 h-16 bg-red-600 rounded-full flex items-center justify-center shadow-lg">
+              <svg className="w-8 h-8 text-white ml-1" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M8 5v14l11-7z" />
+              </svg>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {artifact.type === "video" && artifact.resolvedMediaUrl && !youtubeId && (
+        <video
+          src={artifact.resolvedMediaUrl}
+          className="w-full h-full object-cover"
+          muted
+          loop
+          playsInline
+          onMouseEnter={(e) => e.currentTarget.play()}
+          onMouseLeave={(e) => {
+            e.currentTarget.pause();
+            e.currentTarget.currentTime = 0;
+          }}
+        />
+      )}
+
+      {artifact.type === "text" && (
+        <div className="w-full h-full p-4 flex flex-col justify-center bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-900/30 dark:to-purple-900/30">
+          {artifact.title && (
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2 line-clamp-2">
+              {artifact.title}
+            </h3>
+          )}
+          {artifact.content && (
+            <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-4">{artifact.content}</p>
+          )}
+        </div>
+      )}
+
+      {artifact.type === "link" && !isImageUrl && !youtubeId && (
+        <>
+          {artifact.ogImageUrl ? (
+            // Use og:image as background
+            <div className="relative w-full h-full bg-gray-100 dark:bg-gray-800">
+              <img
+                src={artifact.ogImageUrl}
+                alt={artifact.title || "Link preview"}
+                className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105"
+              />
+              {/* Title overlay */}
+              {artifact.title && (
+                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-4">
+                  <h3 className="text-white font-semibold line-clamp-2">{artifact.title}</h3>
+                </div>
+              )}
+              {/* Link icon badge */}
+              <div className="absolute top-3 right-3 w-8 h-8 bg-white/90 dark:bg-black/70 rounded-full flex items-center justify-center">
+                <svg
+                  className="w-4 h-4 text-gray-700 dark:text-gray-300"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+                  />
+                </svg>
+              </div>
+            </div>
+          ) : (
+            // Fallback gradient card
+            <LinkFallbackCard title={artifact.title} url={artifact.resolvedMediaUrl} />
+          )}
+        </>
+      )}
+
+      {artifact.type === "audio" && (
+        <div className="w-full h-full p-4 flex flex-col justify-center items-center bg-gradient-to-br from-orange-50 to-red-50 dark:from-orange-900/30 dark:to-red-900/30">
+          <svg
+            className="w-12 h-12 text-orange-600 dark:text-orange-400 mb-2"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"
+            />
+          </svg>
+          {artifact.title && (
+            <h3 className="text-sm font-medium text-gray-900 dark:text-white text-center line-clamp-2">
+              {artifact.title}
+            </h3>
+          )}
+        </div>
+      )}
+
+      {/* Overlay with creator info */}
+      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent p-4 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="flex items-center gap-2">
+          {artifact.profile?.imageUrl ? (
+            <img
+              src={artifact.profile.imageUrl}
+              alt={artifact.profile.displayName || "Creator"}
+              className="w-6 h-6 rounded-full object-cover"
+            />
+          ) : (
+            <div className="w-6 h-6 rounded-full bg-gray-500 flex items-center justify-center text-white text-xs">
+              {artifact.profile?.displayName?.[0]?.toUpperCase() || "?"}
+            </div>
+          )}
+          <span className="text-white text-sm font-medium truncate">
+            {artifact.profile?.displayName || "Anonymous"}
+          </span>
+        </div>
+        {artifact.title && artifact.type !== "text" && (
+          <p className="text-white/80 text-xs mt-1 truncate">{artifact.title}</p>
+        )}
+      </div>
+    </Link>
+  );
 }
 
 function LinkFallbackCard({
