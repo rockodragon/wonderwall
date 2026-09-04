@@ -504,32 +504,32 @@ export default function Home() {
             {
               to: "/for/creatives",
               label: "Creatives",
-              line: "Find your people. Get paid. Joining is free.",
+              line: "Find collaborators. Find paid work.",
             },
             {
               to: "/for/hosts",
               label: "Hosts",
-              line: "Get paid for the community you already lead.",
+              line: "Earn from the community you already lead.",
             },
             {
               to: "/for/patrons",
               label: "Patrons",
-              line: "Put money behind someone you believe in.",
+              line: "Support a creative you believe in.",
             },
             {
               to: "/for/churches",
               label: "Churches",
-              line: "Cover a seat for a creative in your church.",
+              line: "Support the creatives in your church.",
             },
             {
               to: "/for/donors",
               label: "Donors",
-              line: "Tax-deductible. Ninety cents of every dollar becomes a grant.",
+              line: "Support creatives. Tax-deductible.",
             },
             {
               to: "/for/partners",
               label: "Venues & businesses",
-              line: "Hire a creative, or offer your space.",
+              line: "Hire a creative, or open your doors.",
             },
           ].map((d) => (
             <Link

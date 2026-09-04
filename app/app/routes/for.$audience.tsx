@@ -14,10 +14,18 @@ import type { Route } from "./+types/for.$audience";
 //   - The platform is open to any creative; The Garden is the Christian
 //     creative community inside it. Creative-facing copy says so plainly.
 //
-// CTA destinations MUST be public routes. Anything inside the _app layout
+// Buttons name what the PERSON wants, never what our system calls it.
+// Nobody outside this codebase knows what a "seat" is, and no patron came
+// here to read a ledger. Write the label from the desire — support a
+// creative, hire someone, earn from your community — then find a route for
+// it. Never the other way round.
+//
+// CTA destinations must be public routes. Anything inside the _app layout
 // (/projects, /faq, /jobs/new, /search, /offerings) redirects a logged-out
-// visitor to /login, which dead-ends the exact person this page was written
-// for. Public today: /join, /fund/:slug, /tables, /garden/events, /story/:slug.
+// visitor to /login. Public today: /join, /fund/:slug, /tables,
+// /garden/events, /story/:slug. Several of these buttons land on /join
+// because the page a person actually wants — browse projects, browse
+// creatives — is gated. That is a product gap, not a copy decision.
 
 type Audience = {
   slug: string;
@@ -63,8 +71,8 @@ const AUDIENCES: Audience[] = [
       "Joining is free and stays free. A seat is $10 a month when you're ready to be funded. It lets you start projects, apply for work, and propose to the grant fund. Half of your $10 goes to fund another creative.",
     ctaLabel: "Find collaborators",
     ctaTo: "/join",
-    ctaLabel2: "See who's been funded",
-    ctaTo2: "/fund/abiding-practice",
+    ctaLabel2: "Find paid work",
+    ctaTo2: "/join",
     metaTitle: "Find your people, get paid — creatives.exchange",
     metaDescription:
       "Find paid work, get backed by people who believe in you, and apply for grants. Joining is free. When someone gives you $100, you get $100.",
@@ -72,7 +80,7 @@ const AUDIENCES: Audience[] = [
   {
     slug: "hosts",
     eyebrow: "For hosts and community leaders",
-    headline: "Get paid for the community you already lead.",
+    headline: "Earn from the community you already lead.",
     subhead:
       "Bring your people. Teach what you know. Keep 90% of what you sell. Hosting costs nothing.",
     points: [
@@ -95,11 +103,11 @@ const AUDIENCES: Audience[] = [
     ],
     cost:
       "Free to host. We take 10% of what you sell. For $50 a month you can also run funding programs for your own community — contests, funded cohorts, and grant pools.",
-    ctaLabel: "Start hosting, free",
+    ctaLabel: "Start earning from your community",
     ctaTo: "/join",
-    ctaLabel2: "See the tables",
+    ctaLabel2: "See what you'd keep",
     ctaTo2: "/tables",
-    metaTitle: "For hosts — creatives.exchange",
+    metaTitle: "Earn from the community you lead — creatives.exchange",
     metaDescription:
       "Bring your community here. Hosting is free, you keep 90% of what you sell, and the creatives in your community can apply for grants.",
   },
@@ -124,9 +132,9 @@ const AUDIENCES: Audience[] = [
     ],
     cost:
       "A patron account is free. You choose the amount and when. This is backing, not a donation, so it isn't tax-deductible and the creative pays income tax on it.",
-    ctaLabel: "See who's been funded",
-    ctaTo: "/fund/abiding-practice",
-    ctaLabel2: "Create an account",
+    ctaLabel: "Support a creative",
+    ctaTo: "/join",
+    ctaLabel2: "See who needs backing",
     ctaTo2: "/join",
     metaTitle: "For patrons — creatives.exchange",
     metaDescription:
@@ -135,9 +143,9 @@ const AUDIENCES: Audience[] = [
   {
     slug: "churches",
     eyebrow: "For churches and organizations",
-    headline: "Cover a seat for a creative in your church.",
+    headline: "Support the creatives in your church.",
     subhead:
-      "$10 a month opens the door for one person. You can see exactly where it went.",
+      "$10 a month opens the door for one of them. You can see exactly what it did.",
     points: [
       {
         title: "A covered seat is a full seat",
@@ -158,18 +166,18 @@ const AUDIENCES: Audience[] = [
     ],
     cost:
       "$10 per seat per month, in any number you want. Paying for a year at once is one charge instead of twelve.",
-    ctaLabel: "Cover seats",
+    ctaLabel: "Support your creatives",
     ctaTo: "/join",
-    ctaLabel2: "See where it goes",
+    ctaLabel2: "See where the money goes",
     ctaTo2: "/fund/abiding-practice",
-    metaTitle: "For churches — creatives.exchange",
+    metaTitle: "Support the creatives in your church — creatives.exchange",
     metaDescription:
       "Cover seats for the creatives in your church. $10 a month per seat, one code for your whole group, and a clear record of where it went.",
   },
   {
     slug: "donors",
     eyebrow: "For donors and institutions",
-    headline: "Fund creative work, and see where it lands.",
+    headline: "Support creatives, and see exactly where it lands.",
     subhead:
       "The grant fund is run by Abiding Practice, a 501(c)(3). Your gift is tax-deductible and every grant is posted publicly.",
     points: [
@@ -192,18 +200,18 @@ const AUDIENCES: Audience[] = [
     ],
     cost:
       "Give once or monthly, in any amount. Larger commitments are worth a conversation — those are the gifts a creative can plan around.",
-    ctaLabel: "Give to the fund",
+    ctaLabel: "Support creatives",
     ctaTo: "/fund/abiding-practice",
     ctaLabel2: "Come to the November 6 event",
     ctaTo2: "/garden/events",
-    metaTitle: "For donors — creatives.exchange",
+    metaTitle: "Support creatives, see where it lands — creatives.exchange",
     metaDescription:
       "Give to a grant fund run by Abiding Practice, a 501(c)(3). Tax-deductible, ninety cents of every dollar granted, and every grant posted publicly.",
   },
   {
     slug: "partners",
     eyebrow: "For venues and businesses",
-    headline: "Hire a creative, or offer your space.",
+    headline: "Hire a creative, or open your doors.",
     subhead: "The people here have portfolios, and they want the work.",
     points: [
       {
@@ -221,10 +229,10 @@ const AUDIENCES: Audience[] = [
     ],
     cost:
       "Posting work is free. Business sponsorships start at $100 a month, and unlike a donation you write it off as marketing.",
-    ctaLabel: "Post paid work",
+    ctaLabel: "Hire a creative",
     ctaTo: "/join",
-    ctaLabel2: "Come to the November 6 event",
-    ctaTo2: "/garden/events",
+    ctaLabel2: "Offer your space",
+    ctaTo2: "/join",
     metaTitle: "For venues and businesses — creatives.exchange",
     metaDescription:
       "Hire creatives who want the work, or offer your space. Posting is free, and your name goes on what gets made.",
