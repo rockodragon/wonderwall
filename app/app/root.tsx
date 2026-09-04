@@ -19,6 +19,10 @@ export const links: Route.LinksFunction = () => [
   // the home page looked right because a component on it happened to pull
   // tokens.css in. Loading it here means every route has the palette.
   { rel: "stylesheet", href: "/tokens.css" },
+  // Bricolage Grotesque / Archivo / JetBrains Mono — the brand faces that
+  // --garden-font-display and friends name. Same story as tokens.css: only
+  // some pages loaded this, so headlines fell back to Inter on the rest.
+  { rel: "stylesheet", href: "/about/fonts/fonts.css" },
   { rel: "preconnect", href: "https://fonts.googleapis.com" },
   {
     rel: "preconnect",

@@ -196,7 +196,10 @@ export default function Opportunities() {
       </header>
 
       <main className="px-6 pb-24 max-w-6xl mx-auto">
-        <h1 className="text-4xl md:text-6xl font-bold text-[var(--garden-paper)] leading-tight mb-5 max-w-3xl">
+        <h1
+          className="text-4xl md:text-6xl font-bold text-[var(--garden-paper)] leading-tight mb-5 max-w-3xl"
+          style={{ fontFamily: "var(--garden-font-display)" }}
+        >
           What's open right now.
         </h1>
         <p className="text-xl text-[var(--garden-body)] max-w-2xl mb-10">

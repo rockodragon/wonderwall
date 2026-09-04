@@ -34,6 +34,10 @@ export default [
   // account they govern would be a circle.
   route("legal/terms", "routes/legal.terms.tsx"),
   route("legal/privacy", "routes/legal.privacy.tsx"),
+  // Attribution for the campaign photography. CC BY requires it to be
+  // visible wherever the work is used, so every page carrying a photo links
+  // here — that makes this page a licence obligation, not a nicety.
+  route("legal/credits", "routes/legal.credits.tsx"),
 
   // Public audience pages (/for/creatives, /for/hosts, …) — one page per
   // constituent door in docs/marketing/constituent-playbook.md. Outside the

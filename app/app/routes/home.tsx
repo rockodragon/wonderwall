@@ -5,6 +5,7 @@ import type { Route } from "./+types/home";
 import { api } from "../../convex/_generated/api";
 import { Wordmark } from "../components/Wordmark";
 import { WaitlistFollowUpDark } from "../components/WaitlistFollowUpDark";
+import { CAMPAIGN_IMAGES } from "../lib/campaign";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -436,6 +437,53 @@ export default function Home() {
         </div>
       </main>
 
+      {/* "Create different." — the campaign, on the site rather than in a
+          deck. Pictures of people making things, then the line, then the
+          manifesto. No names and no quotes on these frames: the photography
+          is Creative Commons stand-in work (lib/campaign.ts), and an
+          invented testimonial pinned to a stranger's face is a lie. */}
+      <section className="py-16 bg-[var(--garden-ink)]">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-[var(--garden-hairline)]">
+          {(["busker", "ade", "band", "gallery"] as const).map((key) => (
+            <img
+              key={key}
+              src={CAMPAIGN_IMAGES[key].src}
+              alt={CAMPAIGN_IMAGES[key].alt}
+              loading="lazy"
+              className="w-full aspect-[4/5] object-cover bg-[var(--garden-ink-raised)]"
+            />
+          ))}
+        </div>
+
+        <div className="px-6 max-w-6xl mx-auto mt-14 grid gap-10 md:grid-cols-2">
+          <p
+            className="text-5xl md:text-7xl text-[var(--garden-paper)] leading-none lowercase"
+            style={{ fontFamily: "var(--garden-font-display)", fontWeight: 600 }}
+          >
+            create{" "}
+            <span className="text-[var(--garden-citron)]">different.</span>
+          </p>
+          <div className="text-[var(--garden-body)] text-lg leading-relaxed flex flex-col gap-4 max-w-xl">
+            <p className="text-[var(--garden-paper)]">
+              Here's to the ones who make things.
+            </p>
+            <p>
+              The photographer with a folder nobody paid for. The songwriter
+              who plays the set, then goes home at midnight and writes the real
+              thing. The designer who said yes to the flyer because it mattered
+              to someone.
+            </p>
+            <p>
+              Most of them have been told it's a hobby. They kept going anyway.
+            </p>
+            <p className="text-[var(--garden-paper)]">
+              Give somebody enough to keep going, and the work stops being a
+              thing they steal time for. It becomes the thing they do.
+            </p>
+          </div>
+        </div>
+      </section>
+
       {/* Features */}
       <section className="px-6 py-20 max-w-6xl mx-auto bg-[var(--garden-ink)]">
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -575,6 +623,12 @@ export default function Home() {
             >
               About
             </a>
+            <Link
+              to="/legal/credits"
+              className="text-[var(--garden-dim)] hover:text-[var(--garden-paper)] text-sm transition-colors"
+            >
+              Credits
+            </Link>
             <Link
               to="/legal/terms"
               className="text-[var(--garden-dim)] hover:text-[var(--garden-paper)] text-sm transition-colors"

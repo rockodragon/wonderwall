@@ -1,5 +1,7 @@
 import { Link } from "react-router";
 import type { Route } from "./+types/for.$audience";
+import { CampaignBand } from "../components/CampaignBand";
+import type { CampaignImageKey } from "../lib/campaign";
 
 // Public audience pages — one per constituent door in
 // docs/marketing/constituent-playbook.md. Deliberately OUTSIDE the _app.tsx
@@ -42,6 +44,11 @@ type Audience = {
   ctaTo: string;
   ctaLabel2: string;
   ctaTo2: string;
+  /** The "create different ___." band. The word after "different" changes
+      per door; the verb never does. Photography is stand-in — see
+      lib/campaign.ts. */
+  bandTail?: string;
+  bandImages: [CampaignImageKey, CampaignImageKey];
   metaTitle: string;
   metaDescription: string;
 };
@@ -77,6 +84,7 @@ const AUDIENCES: Audience[] = [
     ctaTo: "/join",
     ctaLabel2: "Find paid work",
     ctaTo2: "/opportunities",
+    bandImages: ["shua", "june"],
     metaTitle: "Find your people, get paid — creatives.exchange",
     metaDescription:
       "Find paid work, get backed by people who believe in you, and apply for grants. Joining is free. When someone gives you $100, you get $100.",
@@ -111,6 +119,8 @@ const AUDIENCES: Audience[] = [
     ctaTo: "/join",
     ctaLabel2: "See what you'd keep",
     ctaTo2: "/tables",
+    bandTail: "livelihoods",
+    bandImages: ["marta", "gallery"],
     metaTitle: "Earn from the community you lead — creatives.exchange",
     metaDescription:
       "Bring your community here. Hosting is free, you keep 90% of what you sell, and the creatives in your community can apply for grants.",
@@ -140,6 +150,8 @@ const AUDIENCES: Audience[] = [
     ctaTo: "/opportunities",
     ctaLabel2: "Create a free patron account",
     ctaTo2: "/join",
+    bandTail: "odds",
+    bandImages: ["band", "viewing"],
     metaTitle: "For patrons — creatives.exchange",
     metaDescription:
       "Pick a creative, fund their project, and watch it get made. You cover the fee at checkout so the full amount reaches them.",
@@ -174,6 +186,8 @@ const AUDIENCES: Audience[] = [
     ctaTo: "/join",
     ctaLabel2: "See what it pays for",
     ctaTo2: "/fund/abiding-practice",
+    bandTail: "futures",
+    bandImages: ["church", "busker"],
     metaTitle: "Support the creatives in your church — creatives.exchange",
     metaDescription:
       "Cover seats for the creatives in your church. $10 a month per seat, one code for your whole group, and a clear record of where it went.",
@@ -208,6 +222,8 @@ const AUDIENCES: Audience[] = [
     ctaTo: "/fund/abiding-practice",
     ctaLabel2: "Come to the November 6 event",
     ctaTo2: "/garden/events",
+    bandTail: "outcomes",
+    bandImages: ["dee", "cafe"],
     metaTitle: "Support creatives, see where it lands — creatives.exchange",
     metaDescription:
       "Give to a grant fund run by Abiding Practice, a 501(c)(3). Tax-deductible, ninety cents of every dollar granted, and every grant posted publicly.",
@@ -237,6 +253,8 @@ const AUDIENCES: Audience[] = [
     ctaTo: "/join",
     ctaLabel2: "Offer your space",
     ctaTo2: "/join",
+    bandTail: "nights",
+    bandImages: ["night", "opening"],
     metaTitle: "For venues and businesses — creatives.exchange",
     metaDescription:
       "Hire creatives who want the work, or offer your space. Posting is free, and your name goes on what gets made.",
@@ -304,12 +322,20 @@ export default function ForAudience({ params }: Route.ComponentProps) {
         <p className="text-[var(--garden-citron)] text-sm font-semibold tracking-wide uppercase mb-4">
           {audience.eyebrow}
         </p>
-        <h1 className="text-4xl md:text-6xl font-bold text-[var(--garden-paper)] leading-tight mb-5 max-w-3xl">
+        <h1
+          className="text-4xl md:text-6xl font-bold text-[var(--garden-paper)] leading-tight mb-5 max-w-3xl"
+          style={{ fontFamily: "var(--garden-font-display)" }}
+        >
           {audience.headline}
         </h1>
         <p className="text-xl text-[var(--garden-body)] max-w-2xl mb-12">
           {audience.subhead}
         </p>
+
+        <CampaignBand
+          images={audience.bandImages}
+          tail={audience.bandTail}
+        />
 
         <div className="grid gap-4 sm:grid-cols-2 mb-12">
           {audience.points.map((p) => (
@@ -366,6 +392,11 @@ export default function ForAudience({ params }: Route.ComponentProps) {
               </Link>
             ))}
           </div>
+          <p className="mt-8 text-[var(--garden-dim)] text-sm">
+            <Link to="/legal/credits" className="hover:text-[var(--garden-body)]">
+              Photography credits
+            </Link>
+          </p>
         </div>
       </main>
     </div>
