@@ -5,7 +5,6 @@ import { api } from "../../convex/_generated/api";
 import { INTERESTS } from "../constants/interests";
 import { LocationAutocomplete } from "../components/LocationAutocomplete";
 import { useLocationField } from "../lib/useLocationField";
-import { AnnouncementComposer } from "../components/AnnouncementComposer";
 import { budgetAmountLabel, budgetKindLabel } from "../lib/budgetLabel";
 import { CommunityPicker } from "../components/CommunityPicker";
 import {
@@ -20,7 +19,7 @@ const KIND_FILTERS = [
   { label: "Paid", value: "paid" },
 ];
 
-const STATUS_LABELS: Record<string, string> = {
+export const STATUS_LABELS: Record<string, string> = {
   pending: "Pending",
   active: "Active",
   in_progress: "In Progress",
@@ -72,7 +71,6 @@ function errorMessage(err: unknown): string {
 
 export default function Projects() {
   const projects = useQuery(api.garden.projects.listProjects);
-  const myProfile = useQuery(api.profiles.getMyProfile);
   const [kindFilter, setKindFilter] = useState("");
   const [showPaidForm, setShowPaidForm] = useState(false);
   const [showPassionForm, setShowPassionForm] = useState(false);
@@ -158,7 +156,7 @@ export default function Projects() {
     <div className="min-h-screen bg-[var(--garden-ink)]">
       <link rel="stylesheet" href="/tokens.css" />
       <link rel="stylesheet" href="/about/fonts/fonts.css" />
-      <div className="p-4 sm:p-6 max-w-7xl mx-auto">
+      <div className="p-4 sm:p-6 max-w-[1600px] mx-auto">
         <h1
           className="text-2xl sm:text-3xl font-semibold text-[var(--garden-paper)] mb-1"
           style={{ fontFamily: "var(--garden-font-display)" }}
@@ -282,14 +280,13 @@ export default function Projects() {
             <p className="text-sm">Be the first to post something you're making</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {filtered.map((project) => (
               <ProjectCard
                 key={project._id}
                 project={project}
                 onSupport={setSupportingProject}
                 matched={hasMatchFilter && isMatch(project)}
-                isOwn={!!myProfile && myProfile.userId === project.userId}
               />
             ))}
           </div>
@@ -374,15 +371,12 @@ function ProjectCard({
   project,
   onSupport,
   matched,
-  isOwn,
 }: {
   project: any;
   onSupport: (project: any) => void;
   matched?: boolean;
-  isOwn?: boolean;
 }) {
   const thumb = project.media.find((m: any) => m.resolvedMediaUrl)?.resolvedMediaUrl;
-  const detailArtifact = project.media[0];
   // Passion-only campaign deadline (docs/the-exchange-v1-prd.md §7 review
   // follow-up) — a past raiseByDate just means the badge doesn't render;
   // building a distinct "expired" state is explicitly out of scope.
@@ -406,8 +400,12 @@ function ProjectCard({
       className="group rounded-2xl overflow-hidden border h-full flex flex-col transition-colors"
       style={{ borderColor: "var(--garden-hairline)", backgroundColor: "var(--garden-ink-raised)" }}
     >
+      {/* Same fixed overlay spot Classes uses: kind top-left, money top-right
+          of the image area, in the SAME place whether or not there's a
+          photo — founder item (Classes redesign) was explicit that a
+          photo-dependent position defeats the point of a fixed badge. */}
       <div
-        className="aspect-[16/10] overflow-hidden flex items-center justify-center"
+        className="relative aspect-[16/10] overflow-hidden flex items-center justify-center"
         style={{ backgroundColor: "var(--garden-ink)" }}
       >
         {thumb ? (
@@ -432,26 +430,36 @@ function ProjectCard({
             />
           </svg>
         )}
-      </div>
-      <div className="p-4 flex-1 flex flex-col min-w-0">
-        <div className="flex items-start justify-between gap-2 mb-1">
-          <h3
-            className="font-semibold line-clamp-2"
-            style={{ color: "var(--garden-paper)", fontFamily: "var(--garden-font-display)" }}
-          >
-            {project.title}
-          </h3>
+        <span
+          className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[11px] font-semibold uppercase tracking-[0.06em]"
+          style={{
+            fontFamily: "var(--garden-font-mono)",
+            backgroundColor: "rgba(20,20,18,0.72)",
+            color: "var(--garden-paper)",
+          }}
+        >
+          {kindWord}
+        </span>
+        {hasMoney && moneyWord && (
           <span
-            className="shrink-0 px-2 py-0.5 rounded-full text-[11px] font-medium uppercase tracking-[0.06em]"
+            className="absolute top-2 right-2 px-2.5 py-1 rounded-full text-xs font-bold"
             style={{
               fontFamily: "var(--garden-font-mono)",
-              backgroundColor: hasMoney ? "rgba(215,242,90,0.14)" : "rgba(198,198,190,0.1)",
-              color: hasMoney ? "var(--garden-citron)" : "var(--garden-muted)",
+              backgroundColor: "var(--garden-citron)",
+              color: "var(--garden-ink)",
             }}
           >
-            {kindWord}
+            {moneyWord}
           </span>
-        </div>
+        )}
+      </div>
+      <div className="p-4 flex-1 flex flex-col min-w-0">
+        <h3
+          className="font-semibold line-clamp-2 mb-1"
+          style={{ color: "var(--garden-paper)", fontFamily: "var(--garden-font-display)" }}
+        >
+          {project.title}
+        </h3>
         <div className="flex flex-wrap items-center gap-1.5 mb-2">
           {daysLeft !== null && (
             <span
@@ -552,41 +560,7 @@ function ProjectCard({
               </span>
             </div>
           )}
-          {project.kind === "paid" && moneyWord && (
-            <span
-              className="shrink-0 text-sm font-semibold"
-              style={{ fontFamily: "var(--garden-font-mono)", color: "var(--garden-citron)" }}
-            >
-              {moneyWord}
-            </span>
-          )}
         </div>
-        {isOwn && (
-          <div
-            className="mt-3"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-            }}
-          >
-            <div className="flex items-center gap-2">
-              <label
-                className="text-[11px] uppercase tracking-[0.06em]"
-                style={{ color: "var(--garden-dim)" }}
-              >
-                Status
-              </label>
-              <StatusSelect project={project} />
-            </div>
-            <div className="mt-3">
-              <AnnouncementComposer
-                targetType="project"
-                targetId={project._id}
-                heading="Message supporters"
-              />
-            </div>
-          </div>
-        )}
         <div className="flex items-center justify-between gap-2 mt-3 pt-3" style={{ borderTop: "1px solid var(--garden-hairline)" }}>
           <span className="text-xs" style={{ color: "var(--garden-dim)" }}>
             {project.supportCount > 0
@@ -609,16 +583,17 @@ function ProjectCard({
     </div>
   );
 
-  return detailArtifact ? (
-    <Link to={`/works/${detailArtifact._id}`}>{card}</Link>
-  ) : (
-    <div>{card}</div>
-  );
+  // Every card is now a real, working link — before this it only linked
+  // anywhere at all when an attached portfolio artifact existed, and even
+  // then it diverted to that artifact's own /works page rather than the
+  // project's own page. That left most cards (any project with no attached
+  // media) not clickable at all.
+  return <Link to={`/projects/${project._id}`}>{card}</Link>;
 }
 
 // Minimal utility control, not a design centerpiece — a creator changing
 // their own project's status via the new updateProjectStatus mutation.
-function StatusSelect({ project }: { project: any }) {
+export function StatusSelect({ project }: { project: any }) {
   const updateProjectStatus = useMutation(api.garden.projects.updateProjectStatus);
   const [saving, setSaving] = useState(false);
   const options = STATUS_OPTIONS_BY_KIND[project.kind] ?? STATUS_OPTIONS_BY_KIND.passion;
@@ -1234,7 +1209,7 @@ const SUPPORT_TYPES = [
   { value: "resource", label: "Offer a resource" },
 ];
 
-function SupportModal({ project, onClose }: { project: any; onClose: () => void }) {
+export function SupportModal({ project, onClose }: { project: any; onClose: () => void }) {
   const existing = useQuery(api.garden.support.listSupportForProject, { projectId: project._id });
   const supportProject = useMutation(api.garden.support.supportProject);
 

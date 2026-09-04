@@ -1,239 +1,281 @@
-// /projects/:id — a single project's public detail page (spec §5). Actions
-// ("Back this project" / "Apply") are display-only for now — real
-// backing/applying needs Stripe + auth wiring — but the button stays
-// visible; it communicates intent per founder instruction, it just doesn't
-// fake a payment.
+// /projects/:id — a single project's detail page. Replaces the retired
+// GardenPage/GardenNav version of this route (which queried the older,
+// pre-community garden/projectsPublic.getProject and lived OUTSIDE the
+// _app layout — same "side nav disappears" bug already fixed on events).
+// This route is registered inside the _app layout in routes.ts, so the
+// sidebar/wordmark/CommunitySwitcher render normally; it queries the
+// CURRENT garden/projects.getProject (same shape listProjects' cards use).
+//
+// StatusSelect and SupportModal are reused directly from routes/projects.tsx
+// (the list page) rather than re-implemented — same convention offerings.
+// $id.tsx already uses for PostOfferingForm/SignupModal.
 
 import { useState } from "react";
+import type { ReactNode } from "react";
 import { useQuery } from "convex/react";
 import { Link, useParams, useRouteError } from "react-router";
 import { api } from "../../convex/_generated/api";
-import { budgetKindLabel, budgetLabel } from "../lib/budgetLabel";
-import {
-  GardenErrorState,
-  GardenLoading,
-  GardenNav,
-  GardenPage,
-  SectionLabel,
-  formatPeriod,
-} from "../garden/ui";
-import "../garden/garden.css";
+import { AnnouncementComposer } from "../components/AnnouncementComposer";
+import { budgetAmountLabel, budgetKindLabel } from "../lib/budgetLabel";
+import { STATUS_LABELS, StatusSelect, SupportModal } from "./projects";
 
+// Loader-less (client-only useQuery, same as communities.$slug.tsx and
+// offerings.$id.tsx) — `data` is never actually populated; this just
+// matches those two routes' existing convention rather than inventing one.
 export function meta({ data }: { data?: { title?: string } }) {
   return [
-    { title: data?.title ? `${data.title} — The Garden` : "Project — The Garden" },
+    { title: data?.title ? `${data.title} — Projects` : "Project — creatives.exchange" },
     { name: "robots", content: "noindex" },
   ];
 }
 
 export function ErrorBoundary() {
-  useRouteError(); // logged by the framework; the page just degrades warmly
+  useRouteError();
   return (
-    <GardenPage wide>
-      <GardenNav active="Projects" />
-      <div style={{ marginTop: 28 }}>
-        <GardenErrorState message="This project isn't live yet — check back soon." />
-      </div>
-    </GardenPage>
-  );
-}
-
-type CreditEntry = { orgName: string; period: string; amount: number };
-
-type ProjectDetail = {
-  id: string;
-  kind: "passion" | "paid";
-  title: string;
-  blurb?: string;
-  byName: string;
-  photoUrl?: string;
-  budgetType?: string;
-  budget?: number;
-  budgetMax?: number;
-  goal?: number;
-  raisedCents?: number;
-  storySlug?: string;
-  moneyLine: string;
-  credits: CreditEntry[];
-};
-
-function KindBadge({ project }: { project: ProjectDetail }) {
-  if (project.kind === "passion") {
-    return <span className="g-badge g-badge-line">Passion</span>;
-  }
-  // A volunteer posting gets the plain badge, not the citron one — citron
-  // reads as "there's money here", and on a volunteer post there isn't.
-  const isVolunteer = budgetKindLabel(project) === "Volunteer";
-  return (
-    <span className={isVolunteer ? "g-badge g-badge-line" : "g-badge g-badge-citron"}>
-      {budgetLabel(project)}
-    </span>
-  );
-}
-
-/** Goal bar for a passion project: paper fill with a 2px citron cap — never
- * a citron fill (citron is reserved for actions/tiny badges, same rule as
- * the demo's ProjectDetail treatment this mirrors). */
-function GoalBar({ goal, raisedCents }: { goal: number; raisedCents?: number }) {
-  const raisedDollars = (raisedCents ?? 0) / 100;
-  const pct = Math.min(100, (raisedDollars / goal) * 100);
-  return (
-    <div style={{ marginTop: 22, maxWidth: 360 }}>
-      <div className="g-label">Goal</div>
-      <div
-        style={{
-          marginTop: 8,
-          height: 6,
-          borderRadius: 3,
-          background: "var(--g-hairline)",
-          overflow: "hidden",
-          position: "relative",
-        }}
-      >
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            width: `${pct}%`,
-            background: "var(--g-paper)",
-            borderRight: "2px solid var(--g-citron)",
-          }}
-        />
-      </div>
-      <p style={{ marginTop: 8, fontSize: 15, color: "var(--g-paper)" }}>
-        ${raisedDollars.toLocaleString()} of ${goal.toLocaleString()}
+    <PageShell>
+      <p className="text-sm" style={{ color: "var(--garden-dim)" }}>
+        This project isn't here — check back soon.
       </p>
-    </div>
+    </PageShell>
   );
 }
 
-function ActionButton({ project }: { project: ProjectDetail }) {
-  const [clicked, setClicked] = useState(false);
-  const label = project.kind === "passion" ? "Back this project" : "Apply";
+function PageShell({ children }: { children: ReactNode }) {
   return (
-    <div style={{ marginTop: 24 }}>
-      <button type="button" className="g-btn g-btn-citron" onClick={() => setClicked(true)}>
-        {label}
-      </button>
-      {clicked && (
-        <p className="g-hint" style={{ marginTop: 10 }}>
-          Backing opens when memberships go live this fall.
-        </p>
-      )}
+    <div className="min-h-screen bg-[var(--garden-ink)]">
+      <link rel="stylesheet" href="/tokens.css" />
+      <link rel="stylesheet" href="/about/fonts/fonts.css" />
+      <div className="p-4 sm:p-6 max-w-3xl mx-auto">{children}</div>
     </div>
   );
 }
 
-export default function ProjectDetailPage() {
-  const { id } = useParams();
-  // Hooks stay above every early return (React rules-of-hooks).
-  const project = useQuery(
-    api.garden.projectsPublic.getProject,
-    id ? { projectId: id } : "skip",
-  ) as ProjectDetail | null | undefined;
+function Loading() {
+  return (
+    <div className="flex items-center justify-center py-24">
+      <div
+        className="h-8 w-8 rounded-full border-2 border-t-transparent animate-spin"
+        style={{ borderColor: "var(--garden-citron)", borderTopColor: "transparent" }}
+      />
+    </div>
+  );
+}
+
+function BackLink() {
+  return (
+    <Link
+      to="/projects"
+      className="inline-block text-sm mb-5 hover:opacity-80"
+      style={{ color: "var(--garden-citron)" }}
+    >
+      ← Projects
+    </Link>
+  );
+}
+
+function DetailCard({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div
+      className="rounded-2xl border p-4 mb-6"
+      style={{ borderColor: "var(--garden-hairline)", backgroundColor: "var(--garden-ink-raised)" }}
+    >
+      <div
+        className="text-[11px] font-semibold uppercase tracking-[0.08em] mb-3"
+        style={{ color: "var(--garden-dim)", fontFamily: "var(--garden-font-mono)" }}
+      >
+        {label}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+export default function ProjectDetail() {
+  const { id } = useParams<{ id: string }>();
+  const project = useQuery(api.garden.projects.getProject, id ? { projectId: id } : "skip");
+  const myProfile = useQuery(api.profiles.getMyProfile);
+  const [showSupportModal, setShowSupportModal] = useState(false);
 
   if (project === undefined) {
     return (
-      <GardenPage wide>
-        <GardenNav active="Projects" />
-        <div style={{ marginTop: 28 }}>
-          <GardenLoading />
-        </div>
-      </GardenPage>
+      <PageShell>
+        <BackLink />
+        <Loading />
+      </PageShell>
     );
   }
 
   if (project === null) {
     return (
-      <GardenPage wide>
-        <GardenNav active="Projects" />
-        <div style={{ marginTop: 28 }}>
-          <GardenErrorState message="Check the link — this project isn't set up here." />
-        </div>
-      </GardenPage>
+      <PageShell>
+        <BackLink />
+        <p className="text-sm" style={{ color: "var(--garden-dim)" }}>
+          Check the link — this project isn't here anymore.
+        </p>
+      </PageShell>
     );
   }
 
+  const isOwner = !!myProfile && project.userId === myProfile.userId;
+  const kindWord = project.kind === "paid" ? budgetKindLabel(project) : "Passion";
+  const moneyWord = project.kind === "paid" ? budgetAmountLabel(project) : null;
+  const hasMoney = project.kind === "paid" && kindWord === "Paid";
+  const thumb = project.media.find((m: any) => m.resolvedMediaUrl)?.resolvedMediaUrl;
+
   return (
-    <GardenPage wide>
-      <GardenNav active="Projects" />
-      <Link
-        to="/projects"
-        className="g-mono"
-        style={{
-          display: "inline-block",
-          marginTop: 20,
-          fontSize: 12.5,
-          letterSpacing: "0.08em",
-          textTransform: "uppercase",
-          color: "var(--g-muted)",
-          textDecoration: "none",
-        }}
+    <PageShell>
+      <BackLink />
+
+      {/* Same overlay spot as the card and Classes' detail page: kind
+          top-left, money top-right, whether or not there's a photo. */}
+      <div
+        className="relative rounded-2xl overflow-hidden border aspect-[16/9] flex items-center justify-center mb-6"
+        style={{ borderColor: "var(--garden-hairline)", backgroundColor: "var(--garden-ink-raised)" }}
       >
-        ← All projects
-      </Link>
-
-      <div style={{ marginTop: 20, maxWidth: 640 }}>
-        {project.photoUrl && (
-          <img
-            src={project.photoUrl}
-            alt=""
-            style={{
-              width: "100%",
-              height: 280,
-              objectFit: "cover",
-              borderRadius: 8,
-              display: "block",
-              filter: "saturate(0.85)",
-            }}
-          />
-        )}
-
-        <div style={{ marginTop: 16 }}>
-          <KindBadge project={project} />
-        </div>
-        <h1 className="g-h" style={{ marginTop: 12, fontSize: "clamp(26px,4.5vw,36px)" }}>
-          {project.title}
-        </h1>
-        <div className="g-credit" style={{ marginTop: 8 }}>
-          <b>{project.byName}</b>
-        </div>
-        {project.blurb && (
-          <p style={{ marginTop: 16, fontSize: 15, lineHeight: 1.6 }}>{project.blurb}</p>
-        )}
-
-        {project.kind === "passion" && project.goal !== undefined && project.goal > 0 ? (
-          <GoalBar goal={project.goal} raisedCents={project.raisedCents} />
+        {thumb ? (
+          <img src={thumb} alt={project.title} className="w-full h-full object-cover" />
         ) : (
-          <p style={{ marginTop: 22, fontSize: 14.5, color: "var(--g-paper)" }}>
-            {project.moneyLine}
-          </p>
+          <svg
+            className="w-14 h-14"
+            style={{ color: "var(--garden-hairline-raised)" }}
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={1}
+              d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+            />
+          </svg>
         )}
-
-        {project.credits.length > 0 && (
-          <div style={{ marginTop: 24 }}>
-            <SectionLabel>Credits</SectionLabel>
-            <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
-              {project.credits.map((credit, i) => (
-                <p key={`${credit.orgName}-${credit.period}-${i}`} style={{ fontSize: 14.5 }}>
-                  Funded by the {credit.orgName} Fund — ${credit.amount.toLocaleString()} ·{" "}
-                  {formatPeriod(credit.period)}
-                </p>
-              ))}
-            </div>
-          </div>
+        <span
+          className="absolute top-3 left-3 px-2.5 py-1 rounded-full text-xs font-semibold uppercase tracking-[0.06em]"
+          style={{ fontFamily: "var(--garden-font-mono)", backgroundColor: "rgba(20,20,18,0.72)", color: "var(--garden-paper)" }}
+        >
+          {kindWord}
+        </span>
+        {hasMoney && moneyWord && (
+          <span
+            className="absolute top-3 right-3 px-3 py-1.5 rounded-full text-sm font-bold"
+            style={{ fontFamily: "var(--garden-font-mono)", backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
+          >
+            {moneyWord}
+          </span>
         )}
-
-        {project.storySlug && (
-          <div style={{ marginTop: 20 }}>
-            <Link to={`/story/${project.storySlug}`} style={{ fontSize: 14.5, color: "var(--g-citron)" }}>
-              Read the story →
-            </Link>
-          </div>
-        )}
-
-        <ActionButton project={project} />
       </div>
-    </GardenPage>
+
+      <h1
+        className="text-2xl sm:text-3xl font-semibold mb-2"
+        style={{ color: "var(--garden-paper)", fontFamily: "var(--garden-font-display)" }}
+      >
+        {project.title}
+      </h1>
+
+      {project.creator && (
+        <Link to={`/profile/${project.creator._id}`} className="flex items-center gap-2 mb-4 w-fit hover:opacity-80">
+          {project.creator.imageUrl ? (
+            <img
+              src={project.creator.imageUrl}
+              alt={project.creator.name}
+              className="w-6 h-6 rounded-full object-cover shrink-0"
+            />
+          ) : (
+            <div
+              className="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0"
+              style={{ backgroundColor: "var(--garden-hairline-raised)", color: "var(--garden-paper)" }}
+            >
+              {project.creator.name.charAt(0).toUpperCase()}
+            </div>
+          )}
+          <span className="text-sm" style={{ color: "var(--garden-muted)" }}>
+            {project.creator.name}
+            {project.community && (
+              <span style={{ color: "var(--garden-dim)" }}> · in {project.community.name}</span>
+            )}
+          </span>
+        </Link>
+      )}
+
+      {project.status && project.status !== "active" && (
+        <span
+          className="inline-block mb-4 px-2 py-0.5 rounded-full text-[11px] font-medium uppercase tracking-[0.06em]"
+          style={{ fontFamily: "var(--garden-font-mono)", backgroundColor: "rgba(198,198,190,0.1)", color: "var(--garden-muted)" }}
+        >
+          {STATUS_LABELS[project.status] ?? project.status}
+        </span>
+      )}
+
+      {project.interests && project.interests.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mb-4">
+          {project.interests.map((tag: string) => (
+            <span
+              key={tag}
+              className="px-2.5 py-1 rounded-full text-xs font-medium"
+              style={{ fontFamily: "var(--garden-font-body)", backgroundColor: "rgba(198,198,190,0.1)", color: "var(--garden-muted)" }}
+            >
+              {tag}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {project.blurb && (
+        <p className="text-sm leading-relaxed mb-6" style={{ color: "var(--garden-body)" }}>
+          {project.blurb}
+        </p>
+      )}
+
+      {project.benefitsNonprofit && (
+        <DetailCard label="Nonprofit">
+          <p className="text-sm" style={{ color: "var(--garden-body)" }}>
+            Supports {project.nonprofitName || "a nonprofit"} — self-declared, not verified.
+          </p>
+        </DetailCard>
+      )}
+
+      {!project.remote && project.location && (
+        <DetailCard label="Location">
+          <p className="text-sm" style={{ color: "var(--garden-body)" }}>{project.location}</p>
+        </DetailCard>
+      )}
+
+      <div
+        className="flex items-center justify-between gap-2 mb-6 pt-4"
+        style={{ borderTop: "1px solid var(--garden-hairline)" }}
+      >
+        <span className="text-sm" style={{ color: "var(--garden-dim)" }}>
+          {project.supportCount > 0
+            ? `${project.supportCount} ${project.supportCount === 1 ? "supporter" : "supporters"}`
+            : "Be the first to support"}
+        </span>
+        <button
+          onClick={() => setShowSupportModal(true)}
+          className="px-4 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition-opacity hover:opacity-90"
+          style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
+        >
+          Support
+        </button>
+      </div>
+
+      {isOwner && (
+        <>
+          <DetailCard label="Manage">
+            <div className="flex items-center gap-2">
+              <label className="text-[11px] uppercase tracking-[0.06em]" style={{ color: "var(--garden-dim)" }}>
+                Status
+              </label>
+              <StatusSelect project={project} />
+            </div>
+          </DetailCard>
+          <div className="mb-6">
+            <AnnouncementComposer targetType="project" targetId={project._id} heading="Message supporters" />
+          </div>
+        </>
+      )}
+
+      {showSupportModal && <SupportModal project={project} onClose={() => setShowSupportModal(false)} />}
+    </PageShell>
   );
 }

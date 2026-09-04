@@ -157,7 +157,7 @@ export default function Offerings() {
     <div className="min-h-screen bg-[var(--garden-ink)]">
       <link rel="stylesheet" href="/tokens.css" />
       <link rel="stylesheet" href="/about/fonts/fonts.css" />
-      <div className="p-4 sm:p-6 max-w-7xl mx-auto">
+      <div className="p-4 sm:p-6 max-w-[1600px] mx-auto">
         <h1
           className="text-2xl sm:text-3xl font-semibold text-[var(--garden-paper)] mb-1"
           style={{ fontFamily: "var(--garden-font-display)" }}
@@ -274,7 +274,7 @@ export default function Offerings() {
             <p className="text-sm">Be the first to post a class, a coaching slot, or a workshop</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {filtered.map((offering) => (
               <OfferingCard
                 key={offering._id}

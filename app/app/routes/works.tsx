@@ -93,7 +93,7 @@ export default function Works() {
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-6 max-w-[1600px] mx-auto">
       <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
         Portfolios
       </h1>
@@ -152,7 +152,7 @@ export default function Works() {
       </div>
 
       {/* Bento grid layout */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 auto-rows-[200px]">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 auto-rows-[200px]">
         {filteredArtifacts.map((artifact, index) => {
           // Determine size class for bento effect
           const sizeClass = getBentoSize(index);

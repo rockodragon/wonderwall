@@ -39,6 +39,7 @@ export default [
   layout("routes/_app.tsx", [
     route("search", "routes/search.tsx"),
     route("projects", "routes/projects.tsx"),
+    route("projects/:id", "routes/projects.$id.tsx"),
     route("offerings", "routes/offerings.tsx"),
     route("offerings/:offeringId", "routes/offerings.$id.tsx"),
     route("works", "routes/works.tsx"),
@@ -100,8 +101,15 @@ export default [
   route("story/:slug", "routes/story.$slug.tsx"),
   route("tables", "routes/tables._index.tsx"),
   route("tables/:slug", "routes/tables.$slug.tsx"),
-  route("projects", "routes/projects._index.tsx"),
-  route("projects/:id", "routes/projects.$id.tsx"),
+  // "projects" here (routes/projects._index.tsx, the old GardenPage/GardenNav
+  // shell) was a dead route registration — it shared this exact path with
+  // the live route("projects", "routes/projects.tsx") inside the _app layout
+  // below, which always won the match, so this one was never actually
+  // reachable. Removed rather than left in as misleading dead code; the file
+  // itself is untouched. "projects/:id" moved into the _app layout for the
+  // same reason events/:eventId did (see that route's comment) — it's a
+  // real, currently-reachable route, and living outside the layout meant
+  // the sidebar/wordmark disappeared on every project page.
   route("c/:code", "routes/c.$code.tsx"),
   // Guest-RSVP events browse/detail — deliberately NOT at /events or
   // /events/:eventId, which are already the legacy app-shell routes above.

@@ -253,6 +253,63 @@ export const listProjects = query({
   },
 });
 
+// Single-project fetch for the detail page (routes/projects.$id.tsx). Same
+// per-row shape as listProjects above (resolved media, creator, supportCount,
+// community) — deliberately the ONE source of truth for that shape, rather
+// than the older garden/projectsPublic.ts:getProject, which predates
+// communities/media-array/support and was only ever called by the retired
+// projects.$id.tsx GardenPage shell (grepped — no other caller). This is the
+// current module (create/update/list all live here), so the single-item
+// getter belongs beside them, not in a separate legacy file.
+// `projectId` is v.string() rather than v.id("projects") so a malformed or
+// foreign id normalizes to null instead of throwing — a plain 404 for a bad
+// URL, same convention as garden/offerings.ts's getOffering.
+export const getProject = query({
+  args: { projectId: v.string() },
+  handler: async (ctx, args) => {
+    const id = ctx.db.normalizeId("projects", args.projectId);
+    if (!id) return null;
+    const project = await ctx.db.get(id);
+    if (!project) return null;
+
+    const [user, media, support, communityOrg] = await Promise.all([
+      ctx.db
+        .query("profiles")
+        .withIndex("by_userId", (q) => q.eq("userId", project.userId))
+        .unique(),
+      ctx.db
+        .query("artifacts")
+        .withIndex("by_projectId", (q) => q.eq("projectId", project._id))
+        .collect(),
+      ctx.db
+        .query("projectSupport")
+        .withIndex("by_projectId", (q) => q.eq("projectId", project._id))
+        .filter((q) => q.eq(q.field("status"), "confirmed"))
+        .collect(),
+      project.hostOrgId ? ctx.db.get(project.hostOrgId) : Promise.resolve(null),
+    ]);
+
+    const resolvedMedia = await Promise.all(
+      media.map(async (artifact) => ({
+        ...artifact,
+        resolvedMediaUrl: artifact.mediaStorageId
+          ? await ctx.storage.getUrl(artifact.mediaStorageId)
+          : artifact.mediaUrl || null,
+      })),
+    );
+
+    return {
+      ...project,
+      creator: user
+        ? { _id: user._id, name: user.name, imageUrl: user.imageUrl, interests: user.interests, location: user.location }
+        : null,
+      media: resolvedMedia,
+      supportCount: support.length,
+      community: communityOrg ? { name: communityOrg.name, slug: communityOrg.slug } : null,
+    };
+  },
+});
+
 // The guardrail on paid projects (plan §2.3) is that a creative always knows
 // what they're walking into. This used to be enforced as a required number:
 // `budget: v.number()`, anything else rejected with "Paid projects need a
