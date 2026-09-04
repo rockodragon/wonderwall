@@ -13,6 +13,11 @@ import type { Route } from "./+types/for.$audience";
 //     100%. Never claim a payout speed — no cadence is set.
 //   - The platform is open to any creative; The Garden is the Christian
 //     creative community inside it. Creative-facing copy says so plainly.
+//
+// CTA destinations MUST be public routes. Anything inside the _app layout
+// (/projects, /faq, /jobs/new, /search, /offerings) redirects a logged-out
+// visitor to /login, which dead-ends the exact person this page was written
+// for. Public today: /join, /fund/:slug, /tables, /garden/events, /story/:slug.
 
 type Audience = {
   slug: string;
@@ -23,6 +28,8 @@ type Audience = {
   cost: string;
   ctaLabel: string;
   ctaTo: string;
+  ctaLabel2: string;
+  ctaTo2: string;
   metaTitle: string;
   metaDescription: string;
 };
@@ -31,9 +38,9 @@ const AUDIENCES: Audience[] = [
   {
     slug: "creatives",
     eyebrow: "For creatives",
-    headline: "Get your work funded.",
+    headline: "Find your people. Get paid.",
     subhead:
-      "Find paid work. Get backed by people who believe in you. Apply for grants. Joining is free.",
+      "Work with other creatives, find paid work, and get backed by people who believe in you. Joining is free.",
     points: [
       {
         title: "You keep all of it",
@@ -54,9 +61,11 @@ const AUDIENCES: Audience[] = [
     ],
     cost:
       "Joining is free and stays free. A seat is $10 a month when you're ready to be funded. It lets you start projects, apply for work, and propose to the grant fund. Half of your $10 goes to fund another creative.",
-    ctaLabel: "Join free",
+    ctaLabel: "Find collaborators",
     ctaTo: "/join",
-    metaTitle: "Get your work funded — creatives.exchange",
+    ctaLabel2: "See who's been funded",
+    ctaTo2: "/fund/abiding-practice",
+    metaTitle: "Find your people, get paid — creatives.exchange",
     metaDescription:
       "Find paid work, get backed by people who believe in you, and apply for grants. Joining is free. When someone gives you $100, you get $100.",
   },
@@ -86,8 +95,10 @@ const AUDIENCES: Audience[] = [
     ],
     cost:
       "Free to host. We take 10% of what you sell. For $50 a month you can also run funding programs for your own community — contests, funded cohorts, and grant pools.",
-    ctaLabel: "Talk to us about hosting",
-    ctaTo: "/faq",
+    ctaLabel: "Start hosting, free",
+    ctaTo: "/join",
+    ctaLabel2: "See the tables",
+    ctaTo2: "/tables",
     metaTitle: "For hosts — creatives.exchange",
     metaDescription:
       "Bring your community here. Hosting is free, you keep 90% of what you sell, and the creatives in your community can apply for grants.",
@@ -113,8 +124,10 @@ const AUDIENCES: Audience[] = [
     ],
     cost:
       "A patron account is free. You choose the amount and when. This is backing, not a donation, so it isn't tax-deductible and the creative pays income tax on it.",
-    ctaLabel: "Browse projects",
-    ctaTo: "/projects",
+    ctaLabel: "See who's been funded",
+    ctaTo: "/fund/abiding-practice",
+    ctaLabel2: "Create an account",
+    ctaTo2: "/join",
     metaTitle: "For patrons — creatives.exchange",
     metaDescription:
       "Pick a creative, fund their project, and watch it get made. You cover the fee at checkout so the full amount reaches them.",
@@ -145,8 +158,10 @@ const AUDIENCES: Audience[] = [
     ],
     cost:
       "$10 per seat per month, in any number you want. Paying for a year at once is one charge instead of twelve.",
-    ctaLabel: "Talk to us about seats",
-    ctaTo: "/faq",
+    ctaLabel: "Cover seats",
+    ctaTo: "/join",
+    ctaLabel2: "See where it goes",
+    ctaTo2: "/fund/abiding-practice",
     metaTitle: "For churches — creatives.exchange",
     metaDescription:
       "Cover seats for the creatives in your church. $10 a month per seat, one code for your whole group, and a clear record of where it went.",
@@ -177,8 +192,10 @@ const AUDIENCES: Audience[] = [
     ],
     cost:
       "Give once or monthly, in any amount. Larger commitments are worth a conversation — those are the gifts a creative can plan around.",
-    ctaLabel: "See the fund",
+    ctaLabel: "Give to the fund",
     ctaTo: "/fund/abiding-practice",
+    ctaLabel2: "Come to the November 6 event",
+    ctaTo2: "/garden/events",
     metaTitle: "For donors — creatives.exchange",
     metaDescription:
       "Give to a grant fund run by Abiding Practice, a 501(c)(3). Tax-deductible, ninety cents of every dollar granted, and every grant posted publicly.",
@@ -204,8 +221,10 @@ const AUDIENCES: Audience[] = [
     ],
     cost:
       "Posting work is free. Business sponsorships start at $100 a month, and unlike a donation you write it off as marketing.",
-    ctaLabel: "Post a job",
-    ctaTo: "/jobs/new",
+    ctaLabel: "Post paid work",
+    ctaTo: "/join",
+    ctaLabel2: "Come to the November 6 event",
+    ctaTo2: "/garden/events",
     metaTitle: "For venues and businesses — creatives.exchange",
     metaDescription:
       "Hire creatives who want the work, or offer your space. Posting is free, and your name goes on what gets made.",
@@ -313,10 +332,10 @@ export default function ForAudience({ params }: Route.ComponentProps) {
             {audience.ctaLabel}
           </Link>
           <Link
-            to="/events"
-            className="px-6 py-3 text-[var(--garden-body)] hover:text-[var(--garden-paper)] font-medium transition-colors"
+            to={audience.ctaTo2}
+            className="px-6 py-3 rounded-xl font-medium border border-[var(--garden-hairline)] text-[var(--garden-body)] hover:text-[var(--garden-paper)] hover:border-[var(--garden-citron)] transition-colors"
           >
-            See what's coming up
+            {audience.ctaLabel2}
           </Link>
         </div>
 

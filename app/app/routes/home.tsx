@@ -504,7 +504,7 @@ export default function Home() {
             {
               to: "/for/creatives",
               label: "Creatives",
-              line: "Get your work funded. Joining is free.",
+              line: "Find your people. Get paid. Joining is free.",
             },
             {
               to: "/for/hosts",
