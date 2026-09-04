@@ -18,5 +18,14 @@ export default {
     "/demo/host/dashboard",
     "/demo/offers",
     "/demo/app",
+    // Audience pages are handed out and shared as links, so each one needs
+    // real HTML with its own title/description/OG tags. Keep this list in
+    // step with AUDIENCES in routes/for.$audience.tsx.
+    "/for/creatives",
+    "/for/hosts",
+    "/for/patrons",
+    "/for/churches",
+    "/for/donors",
+    "/for/partners",
   ],
 } satisfies Config;

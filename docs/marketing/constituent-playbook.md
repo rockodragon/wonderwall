@@ -10,63 +10,82 @@ Six audiences, one story. Each section: who they are and where to find them, the
 
 The elevator pitch everyone hears first, whatever door they came in:
 
-> **creatives.exchange is where creative work gets funded in the open.** Join free — browse every community, sit in on open tables, show your portfolio. Money is never the only door. When you want your work funded, a seat is $10 a month, and your receipt says exactly where it goes: $5 funds other creatives' projects, $5 runs the place. When someone backs a project, 90% goes to the creative, immediately, and every allocation is published on a ledger anyone can read without an account. On **November 6** we're putting the first funded work on stage at Lightchurch in Encinitas — a ticketed fundraiser for the Grant Fund, with a free livestream.
+> **Most creative work gets found in a Facebook group and paid for out of somebody's goodwill. creatives.exchange exists to change that.** It's where creatives find paid work, get backed by people who believe in them, and apply to a real grant fund. Joining is free and stays free. When someone backs your project you keep 100% — our fee is paid by the backer, not taken out of your money. The grant fund is administered by Abiding Practice, a 501(c)(3), and every grant is published. **The Garden** is the Christian creative community inside it, and it's where this started. On **November 6** we're putting funded work on stage at Lightchurch in Encinitas — a ticketed fundraiser for the Grant Fund, with a free livestream.
 
 The same story, angled per door:
 
 | Constituent | Their sentence |
 |---|---|
-| Creatives | "You can always show up free — you pay when you want your work funded." |
+| Creatives | "Get your work funded. You keep 100% — the backer covers our fee, not you." |
 | Hosts | "Get paid to gather the people you already gather." |
-| Individual patrons | "Back a specific person. 90% reaches them. You're credited on the work." |
-| Churches & orgs | "$10 covers a creative's seat. The public ledger shows what it did." |
-| Donors & institutions | "Tax-deductible through a 501(c)(3). ~87% of every dollar is granted." |
+| Individual patrons | "Back a specific person. 100% reaches them. You're credited on the work." |
+| Churches & orgs | "$10 covers a creative's seat. The public grant list shows what it did." |
+| Donors & institutions | "Tax-deductible through a 501(c)(3). 90% of every dollar is granted." |
 | Venues & businesses | "Offer the space or post the budget. Your name goes on the finished work." |
 
 **Universal don't-say list** — these hold with every audience, in every channel:
 
 - Never mention internal splits, "home community," or per-member host shares. The only money sentence a member ever hears is the receipt: **"$5 funds other creatives' projects · $5 runs the place."**
 - **"Donate"** is used for exactly one thing: the General Grant Fund (tax-deductible, administered by Abiding Practice, a 501(c)(3)). Everywhere else the words are **back** and **fund**.
-- Never promise grant winnings, awards, exposure, or income. Promise the mechanism: public ledger, 90% through, immediately.
+- Describing what the platform is for — **"get your work funded"** — is correct and we should say it plainly. What we never do is promise a *specific* person a specific outcome: that their project will be funded, that they'll win a grant, or a dollar figure they'll earn.
 - Never "raffle," "drawing," or any chance-based mechanic. Grant programs are skill contests and judged or voted grants only.
 - Never "artist." The word is **creative**.
+- **Faith framing, resolved (2026-09):** the platform is open to any creative. **The Garden is the Christian creative community inside it, and it is where this started.** Creative-facing copy names The Garden plainly rather than hiding it. Copy aimed at civic funders, foundations, and public partners describes the platform and lists The Garden as one community on it. Both are true; neither is a dodge.
 - Never pitch the seat as the way in. The way in is free, always: "Money is never the only door."
 
 ---
 
 ## 1 · Creatives (free → seat)
 
-**Target.** Working and side-hustle creatives who already show their work somewhere: people posting finished work on Behance and Dribbble; filmmakers on FilmFreeway festival submission lists; writers and musicians selling direct on Bandcamp and itch.io; local creatives showing at open mics, art walks, and juried shows listed on their city arts council's event calendar.
+**Target.** Working and side-hustle creatives in San Diego County first — density matters more than reach. Church worship and media teams, art walks and open mics in North County and downtown, film and writing groups, juried shows on the county arts calendar, design and photo people already freelancing. National portfolio sites (Behance, Dribbble, FilmFreeway, Bandcamp) are a second wave, not the first.
 
-**The pitch.** Join free and show your work — full profile, portfolio, every community, open tables. You can always show up free — you pay when you want your work funded. A seat is $10 a month: start projects, apply to paid work, propose to the Grant Fund, and your receipt shows $5 of it funding other creatives' projects.
+**What they actually want,** in order: to get paid for work they're already doing; to stop chasing invoices and goodwill; to be around people who take both the craft and the faith seriously.
+
+**The pitch.** Most creative work around here gets found in a Facebook group and paid for out of somebody's goodwill. This is built to change that. Find paid work posted by churches, businesses and nonprofits. Get backed by people who believe in your project — and keep 100% of it, because our fee is paid by the backer, not taken out of your money. Apply to a grant fund that is real money, administered by a 501(c)(3), with every grant published. Joining is free and stays free.
 
 **Email**
 
-Subject: **Your work, funded in the open**
+Subject: **Your work deserves to be paid for**
 
-> Hi {name} — I saw {specific piece} and wanted to reach out directly.
+> Hi {name} — I saw {specific piece} and wanted to reach out.
 >
-> I'm building creatives.exchange: a place where creative work actually gets funded. Joining is free — profile, portfolio, any community, open tables. Money is never the only door. When you want your work funded, a seat is $10/mo: start projects, apply to paid work, propose to the Grant Fund. When someone backs your project, 90% goes to you, immediately — no waiting on a goal, no chasing checks.
+> Most creative work in San Diego gets found in a Facebook group and paid for out of someone's goodwill. I'm building creatives.exchange to change that — a place where creatives find paid work, get backed, and can apply to a real grant fund.
 >
-> On November 6 we're showcasing funded work live at Lightchurch in Encinitas.
+> Three things that make it different:
 >
-> Could I get 20 minutes this week to show you how it works and hear what you're making? No pitch deck — I'll just show you.
+> — **You keep 100% of what a backer gives you.** Our fee is paid by them at checkout, not taken out of your money. No other platform does that.
+> — **The grant fund is real.** Funded by churches and donors, administered by Abiding Practice — a 501(c)(3) — and every grant is published where anyone can read it.
+> — **Joining is free and stays free.** A seat is $10/month only when you want to be funded.
+>
+> The Garden is the Christian creative community inside it, which is where this started and probably why you're getting this email from me.
+>
+> On November 6 we're putting funded work on stage at Lightchurch in Encinitas.
+>
+> Could I have 20 minutes this week? I'd rather hear what you're making than pitch you.
 >
 > — Rick
 
-**Text/DM.** "Hey {name} — loved {piece}. I'm building creatives.exchange: free to join, and when your work gets backed, 90% goes to you, immediately. Got 20 min this week? Would love to show you before our Nov 6 showcase."
+**Text/DM.** "Hey {name} — loved {piece}. I'm building creatives.exchange: creatives finding paid work and getting backed, and you keep 100% because the backer covers our fee. Free to join. Got 20 min before our Nov 6 showcase?"
 
 **Flyer**
 
 - Headline: **Get your work funded.**
-- Subhead: Free to join. A seat is $10/mo when you're ready to be backed.
+- Subhead: Paid work, backing, and a real grant fund — for creatives who are tired of exposure. Free to join.
 - Bullets:
-  - When someone backs your project, 90% goes to you, immediately.
-  - Your backers are credited on the work — people invested in your story, not passing likes.
-  - Your $10 receipt: $5 funds other creatives' projects, $5 runs the place.
-- CTA: creatives.exchange — join free today.
+  - **You keep 100%.** When someone backs your project, our fee is paid by them, not taken out of your money.
+  - **A grant fund that's actually funded.** Money from churches and donors, administered by a 501(c)(3), every grant published.
+  - **Paid work worth applying to.** Posted by churches, businesses and nonprofits who want to hire creatives.
+  - **People who get it.** The Garden — the Christian creative community inside creatives.exchange.
+- The seat: Free to join and stay free. $10/month when you want to be funded — start projects, apply to paid work, propose to the grant fund. Half of it funds another creative's project.
+- CTA: **creatives.exchange**
 
-**Don't say.** Never promise their project will get funded or win a grant — promise the mechanism. Never frame the free account as a trial or the seat as the "real" membership. **Don't lead with the public ledger to creatives** — transparency is the *backer's* selling point; to a creative it sounds like their income is on display. To creatives, the line is "90%, immediately."
+**What makes the $10 worth it,** if they ask directly: start your own fundable projects, apply to paid work, propose to the grant fund, join member tables, and put on events. A free account can see everything and belong anywhere; the seat is what makes you fundable.
+
+**Don't say.**
+- Don't promise *this person* will get funded or win a grant. "Get your work funded" describes the platform; "your project will get funded" is a promise we can't keep.
+- Don't claim a payout timeline we haven't set. "You keep 100%" is the claim. Speed is not.
+- Don't lead with the public grant list. Transparency is the *backer's* and *donor's* selling point; to a creative it can read as their income being on display.
+- Don't frame the free account as a trial, or the seat as the "real" membership.
 
 ## 2 · Hosts and community leaders (free host → $50 Leader tier)
 
