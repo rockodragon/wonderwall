@@ -10,12 +10,9 @@ import { budgetKindLabel } from "../lib/budgetLabel";
 // "see what's being made" button on the audience pages had nowhere honest
 // to land.
 //
-// The rule this page implements: gate PARTICIPATION, not VIEWING. A visitor
+// The rule this page implements: gate participation, not viewing. A visitor
 // with no account can read every posting — the money, who's asking, what the
-// work is. What they can't do without signing up is apply, back, or message.
-// Signup is the price of acting, not of looking. That trade is the whole
-// reason this page exists: an invite-only platform still has to show a
-// stranger something worth wanting.
+// work is. Applying, backing and messaging still need an account.
 //
 // Reads convex/garden/projectsPublic.ts's listProjects, which is public and
 // unauthenticated by design and already filters to visible, non-portfolio
@@ -47,26 +44,17 @@ type ProjectCard = {
 type TabId = "paid" | "passion" | "all";
 
 // Paid work leads. A creative's first visit decides whether they come back,
-// and "here is money someone is offering" answers that faster than anything
-// else on the platform does.
-const TABS: { id: TabId; label: string; blurb: string }[] = [
-  {
-    id: "paid",
-    label: "Paid work",
-    blurb: "Jobs and commissions posted by churches, businesses and nonprofits.",
-  },
-  {
-    id: "passion",
-    label: "Projects to back",
-    blurb: "Work creatives are making, and are raising money to finish.",
-  },
-  { id: "all", label: "Everything", blurb: "Every open posting on the platform." },
+// and money on the screen answers that faster than anything else here.
+const TABS: { id: TabId; label: string }[] = [
+  { id: "paid", label: "Paid work" },
+  { id: "passion", label: "Projects to back" },
+  { id: "all", label: "Everything" },
 ];
 
 export function meta() {
   const title = "Open work and projects — creatives.exchange";
   const description =
-    "Paid work posted by churches, businesses and nonprofits, and projects creatives are raising money to finish. Anyone can look. Joining is free.";
+    "Paid work posted by churches, businesses and nonprofits, and projects creatives are raising money to finish.";
   const image = "https://creatives.exchange/og-image.png";
   return [
     { title },
@@ -158,12 +146,12 @@ function ProjectTile({ project }: { project: ProjectCard }) {
 }
 
 /** Empty is the likely first state — postings are being seeded before
-    creatives are invited — so it still has to say what this place is and
-    give a way in. A dead end here wastes the visit. */
+    creatives are invited — so it still needs a way in rather than a dead
+    end. Two lines, no consolation prize. */
 function EmptyState({ tab }: { tab: TabId }) {
   const line =
     tab === "paid"
-      ? "No paid work is open at this minute."
+      ? "No paid work is open right now."
       : tab === "passion"
         ? "No projects are raising right now."
         : "Nothing is posted right now.";
@@ -171,9 +159,7 @@ function EmptyState({ tab }: { tab: TabId }) {
     <div className="rounded-2xl border border-[var(--garden-hairline)] p-8 max-w-2xl">
       <p className="text-[var(--garden-paper)] font-semibold text-lg mb-2">{line}</p>
       <p className="text-[var(--garden-body)] leading-relaxed mb-6">
-        New postings go up as churches, businesses and hosts bring their work
-        here. Make an account and you'll see them first — and you can post
-        your own.
+        Check back, or make an account and post your own.
       </p>
       <Link
         to="/join"
@@ -191,8 +177,6 @@ export default function Opportunities() {
     api.garden.projectsPublic.listProjects,
     tab === "all" ? {} : { kind: tab },
   ) as ProjectCard[] | undefined;
-
-  const active = TABS.find((t) => t.id === tab) ?? TABS[0];
 
   return (
     <div className="min-h-screen bg-[var(--garden-ink)]">
@@ -212,22 +196,17 @@ export default function Opportunities() {
       </header>
 
       <main className="px-6 pb-24 max-w-6xl mx-auto">
-        <p className="text-[var(--garden-citron)] text-sm font-semibold tracking-wide uppercase mb-4">
-          Open now
-        </p>
         <h1 className="text-4xl md:text-6xl font-bold text-[var(--garden-paper)] leading-tight mb-5 max-w-3xl">
-          See what's being made, and what's being paid for.
+          What's open right now.
         </h1>
         <p className="text-xl text-[var(--garden-body)] max-w-2xl mb-10">
-          Every posting here comes from a real person. Look as long as you
-          like. You'll need an account to apply or to back someone, and that's
-          free.
+          You'll need a free account to apply or to back someone.
         </p>
 
         <div
           role="tablist"
           aria-label="What to browse"
-          className="flex flex-wrap gap-3 mb-3"
+          className="flex flex-wrap gap-3 mb-10"
         >
           {TABS.map((t) => {
             const isActive = t.id === tab;
@@ -249,7 +228,6 @@ export default function Opportunities() {
             );
           })}
         </div>
-        <p className="text-[var(--garden-dim)] text-sm mb-10">{active.blurb}</p>
 
         {projects === undefined ? (
           <p className="text-[var(--garden-dim)] text-sm">Loading…</p>
@@ -268,10 +246,8 @@ export default function Opportunities() {
             Joining is free.
           </h2>
           <p className="text-[var(--garden-body)] leading-relaxed mb-6">
-            Make an account to apply for work, back a project, or post
-            something of your own. If you're a creative, The Garden is the
-            Christian creative community inside the platform, and it's where
-            this started.
+            An account lets you apply for work, back a project, or post your
+            own.
           </p>
           <div className="flex flex-wrap items-center gap-4">
             <Link
