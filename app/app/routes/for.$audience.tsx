@@ -26,10 +26,10 @@ import type { Route } from "./+types/for.$audience";
 //
 // CTA destinations must be public routes. Anything inside the _app layout
 // (/projects, /faq, /jobs/new, /search, /offerings) redirects a logged-out
-// visitor to /login. Public today: /join, /fund/:slug, /tables,
-// /garden/events, /story/:slug. Several of these buttons land on /join
-// because the page a person actually wants — browse projects, browse
-// creatives — is gated. That is a product gap, not a copy decision.
+// visitor to /login. Public today: /opportunities, /join, /fund/:slug,
+// /tables, /garden/events, /story/:slug. "Show me the work" now has a real
+// destination — /opportunities — so buttons about SEEING go there and
+// buttons about JOINING go to /join.
 
 type Audience = {
   slug: string;
@@ -76,7 +76,7 @@ const AUDIENCES: Audience[] = [
     ctaLabel: "Find collaborators",
     ctaTo: "/join",
     ctaLabel2: "Find paid work",
-    ctaTo2: "/join",
+    ctaTo2: "/opportunities",
     metaTitle: "Find your people, get paid — creatives.exchange",
     metaDescription:
       "Find paid work, get backed by people who believe in you, and apply for grants. Joining is free. When someone gives you $100, you get $100.",
@@ -137,8 +137,8 @@ const AUDIENCES: Audience[] = [
     cost:
       "A patron account is free. You choose the amount and when. This is backing, not a donation, so it isn't tax-deductible and the creative pays income tax on it.",
     ctaLabel: "Pick someone to back",
-    ctaTo: "/join",
-    ctaLabel2: "See what's being made",
+    ctaTo: "/opportunities",
+    ctaLabel2: "Create a free patron account",
     ctaTo2: "/join",
     metaTitle: "For patrons — creatives.exchange",
     metaDescription:

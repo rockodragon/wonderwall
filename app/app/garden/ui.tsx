@@ -4,6 +4,7 @@
 // layout, this file only holds what's genuinely shared.
 
 import type { ReactNode } from "react";
+import { useConvexAuth } from "convex/react";
 import { Link } from "react-router";
 
 // ————— Page shell —————
@@ -52,13 +53,21 @@ export function GardenWordmark() {
     citron underline (never a fill — citron is for actions). */
 const NAV_ITEMS = [
   { to: "/garden", label: "Garden" },
-  { to: "/projects", label: "Projects" },
+  // "Projects" is the one item whose destination depends on who's looking:
+  // /projects lives inside the _app layout and redirects a logged-out
+  // visitor to /login, so on these mostly-public pages the nav was walking
+  // strangers into a wall. Signed in → the real page; signed out →
+  // /opportunities, the public browse of the same postings.
+  { to: "/projects", publicTo: "/opportunities", label: "Projects" },
   { to: "/garden/events", label: "Events" }, // NOT /events — that's the legacy auth-gated route
   { to: "/tables", label: "Tables" },
   { to: "/fund/abiding-practice", label: "Fund" },
 ] as const;
 
 export function GardenNav({ active }: { active?: string }) {
+  // During prerender and the first paint this reads false, so the markup a
+  // crawler sees is the public one — which is the correct default here.
+  const { isAuthenticated } = useConvexAuth();
   return (
     <header style={{ paddingBottom: 14 }}>
       <div
@@ -86,10 +95,12 @@ export function GardenNav({ active }: { active?: string }) {
       >
         {NAV_ITEMS.map((item) => {
           const isActive = active === item.label;
+          const to =
+            "publicTo" in item && !isAuthenticated ? item.publicTo : item.to;
           return (
             <Link
               key={item.to}
-              to={item.to}
+              to={to}
               className="g-nav"
               aria-current={isActive ? "page" : undefined}
               style={

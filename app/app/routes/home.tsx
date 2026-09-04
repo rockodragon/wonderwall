@@ -546,6 +546,19 @@ export default function Home() {
             </Link>
           ))}
         </div>
+        {/* The one link on this page that shows the goods instead of
+            describing them. Public: /opportunities is outside the _app
+            layout, so nobody lands on a login form. */}
+        <p className="mt-8 text-[var(--garden-body)]">
+          Or just{" "}
+          <Link
+            to="/opportunities"
+            className="text-[var(--garden-citron)] font-semibold hover:opacity-80 transition-opacity"
+          >
+            see what's open right now
+          </Link>
+          .
+        </p>
       </section>
 
       {/* Footer */}
