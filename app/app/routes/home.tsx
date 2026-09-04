@@ -514,17 +514,17 @@ export default function Home() {
             {
               to: "/for/patrons",
               label: "Patrons",
-              line: "Support a creative you believe in.",
+              line: "Pick someone to back, and watch it get made.",
             },
             {
               to: "/for/churches",
               label: "Churches",
-              line: "Support the creatives in your church.",
+              line: "Sponsor the creative team you already have.",
             },
             {
               to: "/for/donors",
               label: "Donors",
-              line: "Support creatives. Tax-deductible.",
+              line: "Give to the grant fund. Tax-deductible.",
             },
             {
               to: "/for/partners",

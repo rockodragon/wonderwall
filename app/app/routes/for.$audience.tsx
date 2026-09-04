@@ -14,6 +14,10 @@ import type { Route } from "./+types/for.$audience";
 //   - The platform is open to any creative; The Garden is the Christian
 //     creative community inside it. Creative-facing copy says so plainly.
 //
+// Six doors, six different verbs: find, start, pick, sponsor, give, hire.
+// If three buttons all say "support a creative" the page has stopped
+// distinguishing between audiences.
+//
 // Buttons name what the PERSON wants, never what our system calls it.
 // Nobody outside this codebase knows what a "seat" is, and no patron came
 // here to read a ledger. Write the label from the desire — support a
@@ -132,9 +136,9 @@ const AUDIENCES: Audience[] = [
     ],
     cost:
       "A patron account is free. You choose the amount and when. This is backing, not a donation, so it isn't tax-deductible and the creative pays income tax on it.",
-    ctaLabel: "Support a creative",
+    ctaLabel: "Pick someone to back",
     ctaTo: "/join",
-    ctaLabel2: "See who needs backing",
+    ctaLabel2: "See what's being made",
     ctaTo2: "/join",
     metaTitle: "For patrons — creatives.exchange",
     metaDescription:
@@ -166,9 +170,9 @@ const AUDIENCES: Audience[] = [
     ],
     cost:
       "$10 per seat per month, in any number you want. Paying for a year at once is one charge instead of twelve.",
-    ctaLabel: "Support your creatives",
+    ctaLabel: "Sponsor your creative team",
     ctaTo: "/join",
-    ctaLabel2: "See where the money goes",
+    ctaLabel2: "See what it pays for",
     ctaTo2: "/fund/abiding-practice",
     metaTitle: "Support the creatives in your church — creatives.exchange",
     metaDescription:
@@ -200,7 +204,7 @@ const AUDIENCES: Audience[] = [
     ],
     cost:
       "Give once or monthly, in any amount. Larger commitments are worth a conversation — those are the gifts a creative can plan around.",
-    ctaLabel: "Support creatives",
+    ctaLabel: "Give to the grant fund",
     ctaTo: "/fund/abiding-practice",
     ctaLabel2: "Come to the November 6 event",
     ctaTo2: "/garden/events",
