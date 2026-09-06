@@ -465,28 +465,21 @@ export default function Home() {
           </p>
           <div className="text-[var(--garden-body)] text-lg leading-relaxed flex flex-col gap-4 max-w-xl">
             <p className="text-[var(--garden-paper)]">
-              Somebody makes the work. Somebody pays for it. Both of them are
-              here.
+              Something somebody made has gotten you through. You never paid
+              them for it.
             </p>
             <p>
-              The photographer with a folder nobody paid for. The songwriter
-              who plays the set, then goes home at midnight and writes the real
-              thing. The designer who said yes to the flyer because it mattered
-              to someone.
+              A song on a bad drive home. A photo of your kid that's still on
+              the fridge. A room that felt different because somebody made it
+              that way.
             </p>
             <p>
-              The church that put ten people on the platform instead of buying
-              another screen. The neighbor who sends $50 a month and doesn't
-              want a thank-you. The cafe owner who gave up the back room on a
-              Tuesday.
-            </p>
-            <p>
-              The work gets called a hobby. The money gets called charity.
-              It's neither.
+              That's not a hobby, and paying for it isn't charity. It's work.
+              Most of the people doing it are doing it after their real job.
             </p>
             <p className="text-[var(--garden-paper)]">
-              Give somebody enough to keep going, and the work stops being a
-              thing they steal time for. It becomes the thing they do.
+              This is a place to pay them. Or, if you're the one making it, a
+              place to get paid.
             </p>
           </div>
         </div>
