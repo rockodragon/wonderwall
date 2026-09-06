@@ -455,32 +455,41 @@ export default function Home() {
           ))}
         </div>
 
-        <div className="px-6 max-w-6xl mx-auto mt-14 grid gap-10 md:grid-cols-2">
+        <div className="px-6 max-w-6xl mx-auto mt-14">
           <p
-            className="text-5xl md:text-7xl text-[var(--garden-paper)] leading-none lowercase"
+            className="text-5xl md:text-7xl text-[var(--garden-paper)] leading-none lowercase mb-12"
             style={{ fontFamily: "var(--garden-font-display)", fontWeight: 600 }}
           >
             create{" "}
             <span className="text-[var(--garden-citron)]">different.</span>
           </p>
-          <div className="text-[var(--garden-body)] text-lg leading-relaxed flex flex-col gap-4 max-w-xl">
-            <p className="text-[var(--garden-paper)]">
-              Something somebody made has gotten you through. You never paid
-              them for it.
-            </p>
-            <p>
-              A song on a bad drive home. A photo of your kid that's still on
-              the fridge. A room that felt different because somebody made it
-              that way.
-            </p>
-            <p>
-              That's not a hobby, and paying for it isn't charity. It's work.
-              Most of the people doing it are doing it after their real job.
-            </p>
-            <p className="text-[var(--garden-paper)]">
-              This is a place to pay them. Or, if you're the one making it, a
-              place to get paid.
-            </p>
+          {/* Two addresses, not one. A single block aimed at everybody lands
+              on nobody, and the version that opened "you never paid them for
+              it" put the reader in debt before it said hello. Each side gets
+              recognised for something they have already done. */}
+          <div className="grid gap-10 md:grid-cols-2 max-w-5xl">
+            <div>
+              <p className="text-[var(--garden-citron)] text-sm font-semibold tracking-wide uppercase mb-3">
+                If you make things
+              </p>
+              <p className="text-[var(--garden-body)] text-lg leading-relaxed">
+                You already know what it costs. The hours after the job. The
+                gear you bought yourself. The idea you put down because rent
+                was due. What's here is work with a number on it, and people
+                who want it done.
+              </p>
+            </div>
+            <div>
+              <p className="text-[var(--garden-citron)] text-sm font-semibold tracking-wide uppercase mb-3">
+                If you back someone
+              </p>
+              <p className="text-[var(--garden-body)] text-lg leading-relaxed">
+                You've done it already. Bought the record at the show. Paid a
+                kid to shoot the wedding. Told somebody their thing was good
+                and meant it. Here you can do it on purpose, and see what it
+                turned into.
+              </p>
+            </div>
           </div>
         </div>
       </section>
