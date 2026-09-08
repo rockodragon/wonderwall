@@ -1,110 +1,60 @@
 # Following — decision and spec
 
-v0.1 · 2026-09-08 · owner: Rick · status: **decided, not built**. Resolves beads issue `wonderwall-pjd` ("Design: Social connection metaphor").
+v0.2 · 2026-09-08 · owner: Rick · status: **building**. Resolves beads issue `wonderwall-pjd`. v0.1 was checked against the code on 2026-09-08 and corrected; the corrections are the "Why" notes below.
 
-## 0 · The decision
+## 0 · Decision
 
-The platform has three kinds of connection between people. Each does one job.
+Three kinds of connection between people. Following is the one this spec builds.
 
-| Connection | What it records | Direction | Who sees it |
+| Connection | Records | Direction | Visible to | Status |
+|---|---|---|---|---|
+| Credits | People you worked with on a project | Mutual, earned | Public | Specified (V1 PRD §8), **not built** |
+| Communities | Where you belong | Join / leave | Members | Built |
+| **Following** | People whose work you respect | One-way | The two people | This spec |
+
+Following is a shortlist plus notifications. No feed, no follower counts, no follower lists, no acceptance. `wonderwall-pjd` options Connect, Friend, Crew, and "enhanced Favorites" are closed. The word is **Follow**; the notification copy says "is following your work" rather than "follower," which is the connotation the ticket flagged.
+
+## 1 · What ships
+
+**Existing `favorites` rows with `targetType: "profile"` are follows.** No new table, no migration. `targetId` on those rows is a **profile id**, not a user id. Every fan-out below resolves `profiles.by_userId` first, then `favorites.by_target`. Get this wrong and notifications silently never fire.
+
+| # | Piece | Where | Notes |
 |---|---|---|---|
-| **Credits** | People you have worked with on a project | Mutual, earned | Public, on the project and both profiles |
-| **Communities** | Where you belong | Join / leave | Public roster |
-| **Following** | Individual people whose work you respect | One-way | The two people involved. Never counted in public. |
+| 1 | **Follow button** | `FavoriteButton` when `targetType="profile"` | Text pill "Follow" / "Following", always visible. Today it is a heart hidden behind hover, unreachable on phones. Events keep the heart. Add the button to the project page (`getProject.creator._id` is already a profile id). |
+| 2 | **Follows you** | `profile.tsx` | Shown when the viewed person follows the viewer. New query `follows.followsMe(profileId)`. Private to the pair. |
+| 3 | **"Is following your work"** | `favorites.toggle`, on create of a profile favorite | One notification to the followed user, linking to the follower's profile. `getNotifications` must return `relatedUserProfile.profileId` (today it returns `inviteSlug` only). |
+| 4 | **Following page** | `favorites.tsx` → title and nav label "Following" | People grouped by the **first interest** on their profile, from `INTERESTS`. Six or more follows → groups; fewer → flat. Most recently followed first within a group. One line each: photo, name, interests. No-interest people land in "Other" (same bucket as the real interest "Other"; accepted). Saved events stay in a section below, headed "Events you saved". `getMyFavorites` already returns `interests` and `favoritedAt`; grouping is frontend, with the grouping rule in `app/lib/groupFollows.ts` and a unit test. |
+| 5 | **Followed person posts a project** | `createPaidProject`, `createPassionProject` | Fan out: "**Name** posted *Title*." → `/projects/:id` |
+| 6 | **Followed person creates an event** | `events.createEvent` | Fan out: "**Name** is hosting *Title*, *date*." → `/events/:id`. There is no publish step; events are created `published`. Fires on create. |
+| 7 | **Notifications on /messages** | `messages._index.tsx` | Section above conversations, newest first, from `getNotifications`. The existing mark-all-read on mount stays; the list still renders read items. |
+| 8 | **Block / unblock** | `messaging.ts`, `profile.tsx`, `settings.tsx` | `blockUser`, `unblockUser`, `isBlocked`, `listBlocked`. `blocks` table and every read path exist; nothing writes it. Block link on a profile (not own), "Blocked people" list in Settings with unblock. `getOrCreateConversation` must check blocks; today only `sendMessage` does. Required because following makes people findable and any member can message any member. |
 
-Credits alone fail at the start: almost nobody has worked with anybody yet. Communities are a room, not a choice about a person. Following is how someone says "this one" about an individual before any work has happened. That is a basic human interest and the platform should hold it.
+All notification writes are direct `ctx.db.insert("notifications", …)` in the `likesDigest.ts` shape. The public `createNotification` mutation is not callable from server code and is not used.
 
-Following is not a feed. There is no timeline of followed people's activity, no follower counts, no follower lists, no acceptance step. It is a shortlist plus a few notifications.
+**One helper, used by 5 and 6:** `notifyFollowers(ctx, ownerUserId, { type, title, message, linkUrl })` in `convex/follows.ts`. Resolves owner → profile → followers → inserts. `relatedUserId` is the owner.
 
-Resolution on `wonderwall-pjd`: **Follow**, one-way, quiet. Options "Connect", "Friend", "Crew" and "Keep enhanced Favorites" are closed. Favorites is the existing implementation and becomes Following for people; the heart on events stays a bookmark.
+## 2 · Not in this build
 
-## 1 · What a person can do
-
-- **Follow** another person from their profile, from a search card, from a project page, from a community roster.
-- **See who they follow** on one page, grouped by what those people make (§2).
-- **Get told** when a person they follow posts a project, gets a project funded, or is on an event (§3).
-- **Be told once** when someone starts following them, by name. No running count.
-- **See "follows you back"** on a profile when both people follow each other. That is the only mutual signal, and it is private to the pair.
-- **Unfollow.** No notification.
-
-## 2 · The people-you-follow page, grouped by interest
-
-The page is organized by what the followed people make, not by a flat list or by recency. This is the differentiator. A flat list of names is a contacts app; a page that reads "Photographers · Musicians · Writers · Designers" is a map of your taste, and it is what you look at when you are hiring or building a team.
-
-Rules:
-
-- A person appears once, under the **first interest on their profile**. Interests come from the canonical `INTERESTS` list (`app/app/constants/interests.ts`). A person with no interests appears under "Other".
-- Group headings are the interest names. Within a group, most recently followed first.
-- **Under six follows, the page is a flat list.** Grouping three people into three groups is noise. Above six, groups.
-- Each entry: photo, name, interests, community, and their most recent project if they have one. One line each, no card chrome.
-- Events you have saved stay on this page in their own section below, unchanged.
-
-Nothing on this page is visible to anyone but the owner.
-
-## 3 · Notifications
-
-Three triggers, all about a person you follow. One in-app notification each, with a link. Email follows the existing digest pattern (`likesDigest.ts`, three times a day), batched, not per event.
-
-| Trigger | Notification |
+| Dropped | Why |
 |---|---|
-| They post a project (passion or paid) | "**Name** posted *Project title*." → the project |
-| Their project receives funding (a backing, a grant allocation, a pool contribution) | "**Name**'s *Project title* was funded." → the project. One per project per day at most. |
-| They are on a published event, as organizer or credited participant | "**Name** is at *Event title*, *date*." → the event |
+| "Project was funded" notification | No money reaches a project today. `projectSupport` is pledge-only ("no money actually moves"), `raisedCents` is never incremented, `grantContributions` has no `projectId`. Add when backing checkout lands. |
+| Event participants | `events` has one person field, `organizerId`. No lineup exists. |
+| Email digests | `scheduleNotificationEmail` has no opt-out and Settings has no preference UI. Adding three email triggers before an off switch exists is wrong. In-app only. |
+| Followed-first ordering in search and /opportunities | `profiles.search` has a deliberate wonderings-first sort; `listProjects` slices to 50 before any reorder and is unauthenticated. Separate ticket. |
+| "Invite someone you follow" on a paid post | No apply or invite flow exists on projects. |
+| Following projects | Widening `targetType` to `"project"` needs a third branch in `getMyFavorites` and a consumer; `/events` also reads that query. Separate ticket. |
+| Community roster as a follow surface | `listMembers` is members-only and returns user ids, not profile ids. |
+| Per-project-per-day dedupe | Not needed: 5 and 6 fire once per created row. |
 
-And one about you:
+## 3 · Build
 
-| Trigger | Notification |
-|---|---|
-| Someone follows you | "**Name** started following your work." → their profile |
+Three agents in parallel, no shared files. Then one integration pass: typecheck, tests, build.
 
-Notifications land in the existing `notifications` table. There is no page that lists notifications today (`messages._index.tsx` header comment). This spec requires one: a Notifications section at the top of `/messages`, newest first, cleared on view. That is the smallest place that already carries the unread badge.
+- **Backend** — `convex/follows.ts` (`notifyFollowers`, `followsMe`), `favorites.ts` (#3), `notifications.ts` (`profileId` in `relatedUserProfile`), `garden/projects.ts` (#5), `events.ts` (#6), `messaging.ts` (#8 mutations + conversation block check). Update `projects.test.ts` and `events.test.ts` if fan-out changes their mocks.
+- **Frontend, follow** — `FavoriteButton.tsx`, `profile.tsx` (#1 #2 #8 link), `favorites.tsx` (#4), `_app.tsx` nav label, `search.tsx` button visibility, `projects.$id.tsx` button, `lib/groupFollows.ts` + test.
+- **Frontend, inbox** — `messages._index.tsx` (#7), `settings.tsx` (#8 list).
 
-## 4 · Signals the platform may use
+## 4 · Known pre-existing issues touched here, not fixed
 
-Following is a private signal of interest. The platform may use it quietly:
-
-- In **search** and on **/opportunities**, people you follow and their projects sort first. A light preference, never a label.
-- On a **paid post**, "Invite someone you follow" is the shortlist for who to ask.
-- For **operators**, aggregate follow counts are one input into who to feature. Never shown to members.
-
-It is never used to rank people against each other in public.
-
-## 5 · Data
-
-Reuse `favorites` (`schema.ts:290`). It is already one-way, polymorphic (`targetType`, `targetId`), indexed by user and by target.
-
-- `targetType: "profile"` rows are follows. No migration. Existing favorites become follows on day one.
-- `targetType: "event"` rows stay bookmarks.
-- Add `"project"` to the accepted union in `favorites.ts` (`toggle`, `isFavorited`, `getFavoriteCount`), as `dev-gap-inventory.md:21` already describes. Following a project is optional scope; the union change is three lines and unblocks it.
-- No new table. No `follows` table.
-
-Notification writes:
-
-- `createPaidProject` and `createPassionProject` (`garden/projects.ts`) → for each follower of `userId`, insert a notification. Followers are `favorites.by_target` with `targetType: "profile"`.
-- Funding events already write to `projectSupport`, `allocations`, and `grantContributions`; each of those inserts adds a follower notification for the project owner, deduplicated per project per day.
-- Event publish (`events.ts`, where `status` becomes `"published"`) → followers of the organizer and of each credited participant.
-- `favorites.toggle` when a profile follow is created → one notification to the followed user.
-
-## 6 · Build
-
-In order. Each is shippable alone.
-
-1. **Rename and widen.** "Favorite" becomes "Follow" on profiles, search cards and the nav. Heart stays on events. Widen the `targetType` union. Half a day.
-2. **"Started following your work" notification** and the **follows-you-back** indicator on profiles. Half a day.
-3. **Notifications section on `/messages`.** The three follow triggers and the digest email. One to two days.
-4. **Grouped follow page.** Replace the People section of `favorites.tsx` with the grouped view and the six-follow threshold. One day.
-5. **Search and browse ordering.** Followed people first. Half a day.
-
-Estimate: four to five days total.
-
-## 7 · Also required before this ships
-
-Following makes people more findable, and any member can already message any member. There is a `blocks` table and messaging reads it, but **nothing writes to it**: no block button, no mutation. Ship block and unblock (profile menu, conversation menu, Settings list) before or with step 1. `messaging-feature-prd.md` §Block already specifies it. One day.
-
-## 8 · Not doing
-
-- Follower counts, anywhere, for anyone but operators.
-- A public list of who follows whom.
-- A feed or timeline.
-- Acceptance, requests, or "pending".
-- Weighting follows heavily in any ranking.
+- `createNotification` is a public mutation any client can call to forge a notification to any user (`notifications.ts:110`). Unused. Should become internal or be deleted.
+- `projectSupport.status` is documented `"pending" | "confirmed"` but written `"pledged"`.
