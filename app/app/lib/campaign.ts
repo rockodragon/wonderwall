@@ -6,12 +6,12 @@
 // through Openverse. CC BY requires visible attribution, which is why
 // `CREDITS` exists and /legal/credits renders it.
 //
-// These are stand-ins for a real shoot. They are honest as PICTURES — a
-// guitarist is a guitarist — so they carry the campaign fine. What they must
-// never carry is a name and a quote: an invented testimonial attributed to
-// "Shua, musician, San Diego" reads as a real customer saying a real thing.
-// The campaign mockup had those; the live site does not, and must not until
-// the person exists and said it.
+// The photography is stand-in work from a real shoot that hasn't happened
+// yet. The quotes under it are SAMPLE COPY with invented names — the founder
+// asked for them so the pages can be felt before the real people are
+// photographed. Each one is a line a real person on this platform could say.
+// They come out, one by one, as real ones come in. Do not present them to
+// press or funders as real.
 
 export type CampaignImage = {
   src: string;
@@ -99,3 +99,25 @@ export const CAMPAIGN_IMAGES = {
 export type CampaignImageKey = keyof typeof CAMPAIGN_IMAGES;
 
 export const CREDITS: CampaignImage[] = Object.values(CAMPAIGN_IMAGES);
+
+/** A line and who said it. Sample copy — see the note at the top of this
+ * file. Names are deliberately uncommon so nobody mistakes one for a
+ * neighbour. */
+export type CampaignQuote = { said: string; who: string };
+
+export const CAMPAIGN_QUOTES: Record<CampaignImageKey, CampaignQuote> = {
+  shua: { said: "I stopped taking the third job.", who: "Oakes Rivera, musician, San Diego" },
+  june: { said: "I write on purpose now, not on leftovers.", who: "Ysolde Marchetti, writer, Encinitas" },
+  ade: { said: "I took the class I had been putting off for two years.", who: "Adaeze Lindqvist, ceramicist, Oceanside" },
+  marta: { said: "I was already teaching for free on Thursdays.", who: "Benedikt Oyelaran, woodworker, Vista" },
+  gallery: { said: "The cohort paid for itself, then it paid me.", who: "Kenji Abara, photography host" },
+  band: { said: "Fifty dollars a month. She finished the record.", who: "Thaddeus Grün, patron" },
+  viewing: { said: "I knew the person before the work existed.", who: "Corinna Vasquez-Ito, patron" },
+  church: { said: "Three of our six musicians are paid for work outside Sunday now.", who: "Pastor Emeka Halloran, North County" },
+  busker: { said: "Our people stopped leaving town to be taken seriously.", who: "Rev. Halcyon Ortega, Encinitas" },
+  dee: { said: "$250 bought a month of film. It turned into a whole show.", who: "Ingrid Sato-Bellamy, donor" },
+  cafe: { said: "I can see which creative my money reached.", who: "Lucian Okafor, donor" },
+  night: { said: "The room is full on a Tuesday now.", who: "Saoirse Vantongeren, cafe owner, City Heights" },
+  opening: { said: "We gave them the back room. They gave us a reason to open early.", who: "Dmitri Aldana, gallery owner, North Park" },
+  pair: { said: "I had bought art before. This was the first time I knew the person.", who: "Wilhelmina Achebe, patron" },
+};

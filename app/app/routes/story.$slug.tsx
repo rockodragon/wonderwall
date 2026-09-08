@@ -195,8 +195,8 @@ export default function StoryPage() {
           <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 8 }}>
             {credits.allocations.map((c, i) => (
               <div className="g-credit" key={`${c.orgName}-${i}`}>
-                Funded by the <b>{c.orgName} Fund</b> — ${c.amount.toLocaleString()} ·{" "}
-                {formatPeriod(c.period)}
+                <b>Grant Fund</b> — ${c.amount.toLocaleString()} · {formatPeriod(c.period)} ·
+                administered by {c.orgName}
               </div>
             ))}
             {credits.sponsorLine && <SponsorCredit line={credits.sponsorLine} />}

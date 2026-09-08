@@ -1,5 +1,6 @@
-import { Link } from "react-router";
 import { CREDITS } from "../lib/campaign";
+import { GardenHeader } from "../garden/ui";
+import "../garden/garden.css";
 
 // Photography credits. CC BY requires visible attribution wherever the work
 // is used, so this page is a licence obligation, not a nicety — every page
@@ -18,15 +19,8 @@ export function meta() {
 export default function Credits() {
   return (
     <div className="min-h-screen bg-[var(--garden-ink)]">
-      <header className="px-6 py-6 max-w-3xl mx-auto">
-        <Link
-          to="/"
-          className="text-[var(--garden-body)] hover:text-[var(--garden-paper)] text-sm font-medium transition-colors"
-        >
-          ← creatives.exchange
-        </Link>
-      </header>
-      <main className="px-6 pb-24 max-w-3xl mx-auto">
+      <GardenHeader />
+      <main className="px-6 pt-8 pb-24 max-w-[980px] mx-auto">
         <h1 className="text-4xl font-bold text-[var(--garden-paper)] mb-5">
           Photography credits
         </h1>

@@ -2,6 +2,8 @@ import { Link } from "react-router";
 import type { Route } from "./+types/for.$audience";
 import { CampaignBand } from "../components/CampaignBand";
 import type { CampaignImageKey } from "../lib/campaign";
+import { GardenHeader } from "../garden/ui";
+import "../garden/garden.css";
 
 // Public audience pages — one per constituent door in
 // docs/marketing/constituent-playbook.md. Deliberately OUTSIDE the _app.tsx
@@ -71,11 +73,11 @@ const AUDIENCES: Audience[] = [
       },
       {
         title: "Real work, from people nearby",
-        body: "Churches, businesses and nonprofits post jobs here because they want to hire a creative. You can see exactly who's asking.",
+        body: "Churches, businesses and nonprofits post paid work here. Each post says who is asking and what it pays.",
       },
       {
         title: "You won't be doing this alone",
-        body: "The Garden is a community of Christian creatives here. Bring your work, get honest feedback, meet people making things near you.",
+        body: "The Garden is the Christian creative community on the platform. Share your work, get feedback, meet people making things near you.",
       },
     ],
     cost:
@@ -98,7 +100,7 @@ const AUDIENCES: Audience[] = [
     points: [
       {
         title: "You keep 90 cents of every dollar",
-        body: "Classes, cohorts, memberships, prints, downloads. One rate for all of it. We take ten cents.",
+        body: "Classes, cohorts, memberships, prints, downloads. One rate for all of it.",
       },
       {
         title: "Hosting is free",
@@ -106,11 +108,11 @@ const AUDIENCES: Audience[] = [
       },
       {
         title: "Your people can win grants",
-        body: "Creatives in your community can apply to the fund. That money goes straight to them, and it gives them a reason to keep showing up.",
+        body: "Creatives in your community can apply to the grant fund. The money goes to them directly.",
       },
       {
         title: "One place instead of five",
-        body: "Rosters, sessions, sign-ups, events and payments together. You can stop stitching tools into each other.",
+        body: "Rosters, sessions, sign-ups, events and payments in one place.",
       },
     ],
     cost:
@@ -137,7 +139,7 @@ const AUDIENCES: Audience[] = [
       },
       {
         title: "Your name is on the work",
-        body: "Not a like or a follow. A credit on something that got made.",
+        body: "You are credited on the finished work.",
       },
       {
         title: "You see how it goes",
@@ -173,7 +175,7 @@ const AUDIENCES: Audience[] = [
       },
       {
         title: "One card, one code",
-        body: "Buy ten seats at once and hand out a single code. No spreadsheets, no chasing people down.",
+        body: "Buy ten seats at once and hand out a single code.",
       },
       {
         title: "It adds up",
@@ -205,7 +207,7 @@ const AUDIENCES: Audience[] = [
       },
       {
         title: "A real receipt from a real nonprofit",
-        body: "Abiding Practice receives your gift and sends the receipt. Not a workaround — a 501(c)(3) doing the grant work.",
+        body: "Abiding Practice, a 501(c)(3), receives your gift and sends the receipt.",
       },
       {
         title: "You can check the work",
@@ -213,7 +215,7 @@ const AUDIENCES: Audience[] = [
       },
       {
         title: "What it buys",
-        body: "$250 covers materials for a project. $500 a month for six months lets a creative stop taking the other job.",
+        body: "$250 covers materials for a project. $500 a month for six months covers rent while a creative finishes a body of work.",
       },
     ],
     cost:
@@ -232,11 +234,11 @@ const AUDIENCES: Audience[] = [
     slug: "partners",
     eyebrow: "For venues and businesses",
     headline: "Hire a creative, or open your doors.",
-    subhead: "The people here have portfolios, and they want the work.",
+    subhead: "Post the job. Creatives with portfolios apply.",
     points: [
       {
-        title: "Real applicants",
-        body: "Creatives here apply because they want the job, not because a keyword matched.",
+        title: "Applicants you can see",
+        body: "Creatives here apply to your post directly. You see their portfolio before you reply.",
       },
       {
         title: "Your name goes on it",
@@ -244,7 +246,7 @@ const AUDIENCES: Audience[] = [
       },
       {
         title: "Space counts as much as money",
-        body: "A room, a stage, a studio for an afternoon. It's the same kind of help.",
+        body: "A room, a stage, a studio for an afternoon. Offer space the same way you would offer money.",
       },
     ],
     cost:
@@ -309,16 +311,9 @@ export default function ForAudience({ params }: Route.ComponentProps) {
 
   return (
     <div className="min-h-screen bg-[var(--garden-ink)]">
-      <header className="px-6 py-6 max-w-5xl mx-auto">
-        <Link
-          to="/"
-          className="text-[var(--garden-body)] hover:text-[var(--garden-paper)] text-sm font-medium transition-colors"
-        >
-          ← creatives.exchange
-        </Link>
-      </header>
+      <GardenHeader />
 
-      <main className="px-6 pb-24 max-w-5xl mx-auto">
+      <main className="px-6 pt-8 pb-24 max-w-[980px] mx-auto">
         <p className="text-[var(--garden-citron)] text-sm font-semibold tracking-wide uppercase mb-4">
           {audience.eyebrow}
         </p>

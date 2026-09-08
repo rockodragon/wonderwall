@@ -3,6 +3,8 @@ import { useQuery } from "convex/react";
 import { Link } from "react-router";
 import { api } from "../../convex/_generated/api";
 import { budgetKindLabel } from "../lib/budgetLabel";
+import { GardenHeader } from "../garden/ui";
+import "../garden/garden.css";
 
 // /opportunities — the public browse surface. Deliberately OUTSIDE the
 // _app.tsx layout: that layout sends logged-out visitors to /login
@@ -180,22 +182,9 @@ export default function Opportunities() {
 
   return (
     <div className="min-h-screen bg-[var(--garden-ink)]">
-      <header className="px-6 py-6 max-w-6xl mx-auto flex items-center justify-between gap-6">
-        <Link
-          to="/"
-          className="text-[var(--garden-body)] hover:text-[var(--garden-paper)] text-sm font-medium transition-colors"
-        >
-          ← creatives.exchange
-        </Link>
-        <Link
-          to="/login"
-          className="text-[var(--garden-dim)] hover:text-[var(--garden-paper)] text-sm transition-colors"
-        >
-          Sign in
-        </Link>
-      </header>
+      <GardenHeader active="Projects" />
 
-      <main className="px-6 pb-24 max-w-6xl mx-auto">
+      <main className="px-6 pt-8 pb-24 max-w-[980px] mx-auto">
         <h1
           className="text-4xl md:text-6xl font-bold text-[var(--garden-paper)] leading-tight mb-5 max-w-3xl"
           style={{ fontFamily: "var(--garden-font-display)" }}

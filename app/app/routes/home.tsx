@@ -5,7 +5,8 @@ import type { Route } from "./+types/home";
 import { api } from "../../convex/_generated/api";
 import { Wordmark } from "../components/Wordmark";
 import { WaitlistFollowUpDark } from "../components/WaitlistFollowUpDark";
-import { CAMPAIGN_IMAGES } from "../lib/campaign";
+import { CAMPAIGN_IMAGES, CAMPAIGN_QUOTES } from "../lib/campaign";
+import { NAV_ITEMS } from "../garden/ui";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -150,6 +151,19 @@ export default function Home() {
           </div>
         </h1>
         <div className="flex items-center gap-4 shrink-0">
+          {/* Same five items as GardenNav, so the header does not change
+              shape between the landing page and every other public page. */}
+          <nav aria-label="Site" className="hidden md:flex items-center gap-5 mr-2">
+            {NAV_ITEMS.map((item) => (
+              <Link
+                key={item.to}
+                to={"publicTo" in item && !isAuthenticated ? item.publicTo : item.to}
+                className="text-[14px] text-[var(--garden-body)] hover:text-[var(--garden-paper)] transition-colors"
+              >
+                {item.label}
+              </Link>
+            ))}
+          </nav>
           {isAuthenticated ? (
             <Link
               to="/search"
@@ -438,20 +452,31 @@ export default function Home() {
       </main>
 
       {/* "Create different." — the campaign, on the site rather than in a
-          deck. Pictures of people making things, then the line, then the
-          manifesto. No names and no quotes on these frames: the photography
-          is Creative Commons stand-in work (lib/campaign.ts), and an
-          invented testimonial pinned to a stranger's face is a lie. */}
+          deck. Four frames with a line under each, then the mark, then the
+          two addresses. Photography and quotes are sample copy — see the
+          note at the top of lib/campaign.ts. */}
       <section className="py-16 bg-[var(--garden-ink)]">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-[var(--garden-hairline)]">
           {(["busker", "ade", "band", "gallery"] as const).map((key) => (
-            <img
-              key={key}
-              src={CAMPAIGN_IMAGES[key].src}
-              alt={CAMPAIGN_IMAGES[key].alt}
-              loading="lazy"
-              className="w-full aspect-[4/5] object-cover bg-[var(--garden-ink-raised)]"
-            />
+            <figure key={key} className="m-0 bg-[var(--garden-ink)]">
+              <img
+                src={CAMPAIGN_IMAGES[key].src}
+                alt={CAMPAIGN_IMAGES[key].alt}
+                loading="lazy"
+                className="w-full aspect-[4/5] object-cover bg-[var(--garden-ink-raised)]"
+              />
+              <figcaption className="px-4 pt-4 pb-6">
+                <p
+                  className="text-[var(--garden-paper)] text-lg md:text-xl leading-tight mb-1"
+                  style={{ fontFamily: "var(--garden-font-display)", fontWeight: 500 }}
+                >
+                  “{CAMPAIGN_QUOTES[key].said}”
+                </p>
+                <p className="text-[var(--garden-dim)] text-xs">
+                  {CAMPAIGN_QUOTES[key].who}
+                </p>
+              </figcaption>
+            </figure>
           ))}
         </div>
 

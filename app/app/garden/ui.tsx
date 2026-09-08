@@ -41,7 +41,7 @@ export function SectionLabel({ children }: { children: ReactNode }) {
     community's own surfaces, not here. */
 export function GardenWordmark() {
   return (
-    <Link to="/garden" className="g-wordmark">
+    <Link to="/" className="g-wordmark">
       creatives.exchange
     </Link>
   );
@@ -51,7 +51,7 @@ export function GardenWordmark() {
     orphans reachable only by typed URL — which is exactly what happened.
     Keep the item list identical everywhere; the active item gets the
     citron underline (never a fill — citron is for actions). */
-const NAV_ITEMS = [
+export const NAV_ITEMS = [
   { to: "/garden", label: "Garden" },
   // "Projects" is the one item whose destination depends on who's looking:
   // /projects lives inside the _app layout and redirects a logged-out
@@ -113,6 +113,21 @@ export function GardenNav({ active }: { active?: string }) {
         })}
       </nav>
     </header>
+  );
+}
+
+/** GardenNav for pages that are NOT built on the g- credit-sheet system —
+    the Tailwind marketing pages (/for/*, /opportunities, /legal/credits).
+    Wraps only the header in .garden-root so the g- classes resolve, and
+    zeroes the min-height that .garden-root otherwise imposes. One nav,
+    every public page; without this each of those pages had its own. */
+export function GardenHeader({ active }: { active?: string }) {
+  return (
+    <div className="garden-root" style={{ minHeight: 0 }}>
+      <div className="g-wrap g-wrap-wide" style={{ paddingBottom: 0 }}>
+        <GardenNav active={active} />
+      </div>
+    </div>
   );
 }
 

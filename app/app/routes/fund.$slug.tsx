@@ -55,7 +55,7 @@ const PRESET_AMOUNTS_CENTS = [1000, 2500, 5000, 10000]; // $10 · $25 · $50 · 
 
 export function meta() {
   return [
-    { title: "Fund — The Garden" },
+    { title: "Grant Fund — creatives.exchange" },
     { name: "robots", content: "noindex" },
   ];
 }
@@ -209,11 +209,11 @@ export default function FundPage() {
 
       <div style={{ marginTop: 28 }}>
         <h1 className="g-h" style={{ fontSize: "clamp(28px,5vw,40px)" }}>
-          {org.name} Fund
+          Grant Fund
         </h1>
         <p style={{ marginTop: 12, fontSize: 15, lineHeight: 1.6, maxWidth: "58ch" }}>
-          The {org.name} Fund backs creative work. Allocations are published
-          here, in the open.
+          Grants to creatives, administered by {org.name}. Every grant is
+          published on this page.
         </p>
 
         {isPool && (
@@ -252,7 +252,7 @@ export default function FundPage() {
                 className="g-btn g-btn-citron"
                 style={{ marginTop: 18, display: "inline-block" }}
               >
-                Give to the {org.name} Fund
+                Give to the Grant Fund
               </a>
             )}
             <p className="g-hint" style={{ marginTop: 10 }}>
