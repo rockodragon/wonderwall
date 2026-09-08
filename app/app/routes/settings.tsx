@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import confetti from "canvas-confetti";
 import { api } from "../../convex/_generated/api";
+import type { Id } from "../../convex/_generated/dataModel";
 import { LocationAutocomplete } from "../components/LocationAutocomplete";
 import { useLocationField } from "../lib/useLocationField";
 import { INTERESTS } from "../constants/interests";
@@ -140,6 +141,11 @@ export default function Settings() {
           editArtifactId={editArtifactId}
           onEditComplete={clearEditParam}
         />
+      </div>
+
+      {/* Blocked people */}
+      <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-800">
+        <BlockedSection />
       </div>
 
       {/* Sign out */}
@@ -318,6 +324,83 @@ function PurchasesSection() {
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+function BlockedSection() {
+  const blocked = useQuery(api.messaging.listBlocked, {});
+  const unblockUser = useMutation(api.messaging.unblockUser);
+  const [pendingUserId, setPendingUserId] = useState<string | null>(null);
+
+  async function handleUnblock(userId: Id<"users">) {
+    setPendingUserId(userId);
+    try {
+      await unblockUser({ userId });
+    } catch (err) {
+      console.error("Unblock error:", err);
+    } finally {
+      setPendingUserId(null);
+    }
+  }
+
+  return (
+    <div>
+      <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+        Blocked people
+      </h2>
+      <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+        Blocked people can't message you, and you won't see their messages.
+      </p>
+
+      {/* Still loading — render nothing rather than flash the empty line. */}
+      {blocked === undefined ? null : blocked.length === 0 ? (
+        <p className="text-sm text-gray-500 dark:text-gray-400">
+          You haven't blocked anyone.
+        </p>
+      ) : (
+        <div className="space-y-2">
+          {blocked.map((person) => (
+            <div
+              key={person.userId}
+              className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-xl"
+            >
+              {person.imageUrl ? (
+                <img
+                  src={person.imageUrl}
+                  alt={person.name}
+                  className="w-10 h-10 rounded-full object-cover shrink-0"
+                />
+              ) : (
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-400 to-gray-500 dark:from-gray-600 dark:to-gray-700 flex items-center justify-center text-white text-base font-bold shrink-0">
+                  {person.name.charAt(0).toUpperCase() || "?"}
+                </div>
+              )}
+              <div className="flex-1 min-w-0">
+                {person.profileId ? (
+                  <Link
+                    to={`/profile/${person.profileId}`}
+                    className="block font-medium text-gray-900 dark:text-white text-sm truncate hover:text-blue-600 dark:hover:text-blue-400"
+                  >
+                    {person.name}
+                  </Link>
+                ) : (
+                  <p className="font-medium text-gray-900 dark:text-white text-sm truncate">
+                    {person.name}
+                  </p>
+                )}
+              </div>
+              <button
+                onClick={() => handleUnblock(person.userId)}
+                disabled={pendingUserId === person.userId}
+                className="text-sm text-blue-600 hover:text-blue-500 font-medium disabled:opacity-50 shrink-0"
+              >
+                Unblock
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

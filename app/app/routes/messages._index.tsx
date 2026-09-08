@@ -1,19 +1,50 @@
 import { useMutation, useQuery } from "convex/react";
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { api } from "../../convex/_generated/api";
+
+// Notifications visible before "Show all". We fetch past this so we know
+// whether there is anything more to show; the query's own default is 20.
+const NOTIFICATIONS_SHOWN = 20;
+const NOTIFICATIONS_FETCH = 100;
 
 export default function MessagesIndex() {
   const navigate = useNavigate();
   const conversations = useQuery(api.messaging.getConversations);
+  const notifications = useQuery(api.notifications.getNotifications, {
+    limit: NOTIFICATIONS_FETCH,
+  });
+  const [showAllNotifications, setShowAllNotifications] = useState(false);
 
-  // The sidebar's unread badge is now Messages + Notifications combined,
-  // with no separate notifications page to clear the latter — visiting
-  // Messages is the closest thing to "checked in," so it clears both.
+  // The sidebar's unread badge is Messages + Notifications combined, and
+  // this page is where notifications are listed and read — so mounting it
+  // clears both. The list keeps rendering read items.
   const markAllNotificationsRead = useMutation(api.notifications.markAllAsRead);
   useEffect(() => {
     markAllNotificationsRead({});
   }, []);
+
+  // markAllAsRead fires on mount, so the live query flips every readAt a
+  // render or two later. Capture which rows were unread the first time data
+  // arrives and keep highlighting those for the life of the page.
+  const initialUnreadIds = useRef<Set<string> | null>(null);
+  if (notifications !== undefined && initialUnreadIds.current === null) {
+    initialUnreadIds.current = new Set(
+      notifications
+        .filter((n) => n.readAt === undefined)
+        .map((n) => n._id as string),
+    );
+  }
+
+  const hasNotifications =
+    notifications !== undefined && notifications.length > 0;
+  const visibleNotifications = !hasNotifications
+    ? []
+    : showAllNotifications
+      ? notifications
+      : notifications.slice(0, NOTIFICATIONS_SHOWN);
+  const hasMoreNotifications =
+    hasNotifications && notifications.length > NOTIFICATIONS_SHOWN;
 
   // Helper to format relative time
   const getRelativeTime = (timestamp: number): string => {
@@ -55,6 +86,97 @@ export default function MessagesIndex() {
           Your conversations
         </p>
       </div>
+
+      {/* Notifications — rendered only when there are any */}
+      {hasNotifications && (
+        <div className="mb-8">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
+            Notifications
+          </h2>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 divide-y divide-gray-100 dark:divide-gray-700 overflow-hidden">
+            {visibleNotifications.map((n) => {
+              const wasUnread = initialUnreadIds.current?.has(n._id) ?? false;
+              const avatarUrl = n.relatedUserProfile?.imageUrl || n.imageUrl;
+              const avatarName = n.relatedUserProfile?.name;
+
+              const rowClassName = `flex items-start gap-3 px-4 py-3 border-l-2 transition-colors ${
+                wasUnread
+                  ? "border-l-[var(--garden-citron)]"
+                  : "border-l-transparent"
+              } ${
+                n.linkUrl
+                  ? "hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                  : ""
+              }`;
+
+              const content = (
+                <>
+                  {/* Avatar */}
+                  {avatarUrl ? (
+                    <img
+                      src={avatarUrl}
+                      alt={avatarName ?? ""}
+                      className="w-10 h-10 rounded-full object-cover flex-shrink-0"
+                    />
+                  ) : avatarName ? (
+                    <div className="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center text-white text-xs font-medium flex-shrink-0">
+                      {getInitials(avatarName)}
+                    </div>
+                  ) : (
+                    <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex-shrink-0" />
+                  )}
+
+                  {/* Content */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-baseline justify-between gap-2">
+                      <p
+                        className={`text-sm truncate ${
+                          wasUnread ? "font-semibold" : "font-medium"
+                        } text-gray-900 dark:text-white`}
+                      >
+                        {n.title}
+                      </p>
+                      <span className="text-xs text-gray-500 dark:text-gray-500 flex-shrink-0">
+                        {getRelativeTime(n.createdAt)}
+                      </span>
+                    </div>
+                    {n.message && (
+                      <p className="text-sm text-gray-700 dark:text-gray-300 mt-0.5">
+                        {n.message}
+                      </p>
+                    )}
+                  </div>
+                </>
+              );
+
+              return n.linkUrl ? (
+                <Link key={n._id} to={n.linkUrl} className={rowClassName}>
+                  {content}
+                </Link>
+              ) : (
+                <div key={n._id} className={rowClassName}>
+                  {content}
+                </div>
+              );
+            })}
+          </div>
+          {hasMoreNotifications && (
+            <button
+              onClick={() => setShowAllNotifications((v) => !v)}
+              className="mt-2 text-sm text-blue-600 hover:text-blue-500 dark:text-blue-400 font-medium"
+            >
+              {showAllNotifications ? "Show less" : "Show all"}
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Conversations heading — only needed once there is a section above */}
+      {hasNotifications && (
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
+          Conversations
+        </h2>
+      )}
 
       {/* Loading State */}
       {conversations === undefined ? (
