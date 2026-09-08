@@ -286,11 +286,12 @@ export default defineSchema({
     .index("by_userId", ["userId"])
     .index("by_artifactId_userId", ["artifactId", "userId"]),
 
-  // Favorites (can favorite profiles or events)
+  // Favorites (can favorite profiles or events). A "profile" favorite IS a
+  // follow (docs/features/following.md) — there is no separate follows table.
   favorites: defineTable({
-    userId: v.id("users"),
+    userId: v.id("users"), // the favoriter / follower — a users id
     targetType: v.string(), // "profile" | "event"
-    targetId: v.string(), // ID of the profile or event
+    targetId: v.string(), // profiles._id or events._id — for "profile" this is the PROFILE id, not the user id
     createdAt: v.number(),
   })
     .index("by_userId", ["userId"])

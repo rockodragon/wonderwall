@@ -4,6 +4,7 @@ import type { Id } from "./_generated/dataModel";
 import { auth } from "./auth";
 import { scheduleNotificationEmail } from "./emailHelpers";
 import { assertCommunityMember } from "./garden/communities";
+import { formatFollowedEventDate, notifyFollowers } from "./follows";
 
 // ——— Pure validation helpers (unit-tested in events.test.ts) ———
 
@@ -322,10 +323,11 @@ export const create = mutation({
     }
 
     const now = Date.now();
+    const title = args.title.trim();
 
-    return await ctx.db.insert("events", {
+    const eventId = await ctx.db.insert("events", {
       organizerId: userId,
-      title: args.title.trim(),
+      title,
       description: args.description.trim(),
       datetime: args.datetime,
       endTime: args.endTime,
@@ -343,6 +345,26 @@ export const create = mutation({
       createdAt: now,
       updatedAt: now,
     });
+
+    // Following fan-out (docs/features/following.md §1 #6): events are born
+    // `published`, so create is the moment. Same linkUrl convention as the
+    // event_application notification in `apply` below. `userId` is the
+    // organizer's users id — notifyFollowers hops to the profile id that
+    // follows are actually keyed on, and returns 0 (never throws) when the
+    // organizer has no profile.
+    const organizerProfile = await ctx.db
+      .query("profiles")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .first();
+    const organizerName = organizerProfile?.name || "Someone";
+    await notifyFollowers(ctx, userId, {
+      type: "followed_created_event",
+      title: `${organizerName} is hosting ${title}`,
+      message: formatFollowedEventDate(args.datetime),
+      linkUrl: `/events/${eventId}`,
+    });
+
+    return eventId;
   },
 });
 

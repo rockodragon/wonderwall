@@ -12,6 +12,31 @@ import type { MutationCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 import { slugifyTitle, resolveAvailableSlug } from "./stories";
 import { assertCommunityMember } from "./communities";
+import { notifyFollowers } from "../follows";
+
+// Following fan-out (docs/features/following.md §1 #5): "Name posted Title"
+// to everyone following the poster, once per created row. `userId` is a
+// users id; notifyFollowers does the users → profile → favorites hop
+// itself, since follows are keyed by PROFILE id. Never throws — a poster
+// with no profile just notifies nobody — so it can't roll back the insert.
+async function notifyFollowersOfProject(
+  ctx: MutationCtx,
+  userId: Id<"users">,
+  projectId: Id<"projects">,
+  title: string,
+): Promise<void> {
+  const profile = await ctx.db
+    .query("profiles")
+    .withIndex("by_userId", (q) => q.eq("userId", userId))
+    .first();
+  const name = profile?.name || "Someone";
+  await notifyFollowers(ctx, userId, {
+    type: "followed_posted_project",
+    title: `${name} posted ${title}`,
+    message: "",
+    linkUrl: `/projects/${projectId}`,
+  });
+}
 
 // Slug generation, wired at creation time (review follow-up — stories.ts's
 // ensureStorySlug internalMutation existed but nothing called it). It can't
@@ -126,6 +151,7 @@ export const createPassionProject = mutation({
       createdAt: now,
       updatedAt: now,
     });
+    await notifyFollowersOfProject(ctx, userId, id, args.title);
     return { projectId: id, storySlug };
   },
 });
@@ -469,6 +495,7 @@ export const createPaidProject = mutation({
       createdAt: now,
       updatedAt: now,
     });
+    await notifyFollowersOfProject(ctx, userId, id, args.title);
     return { projectId: id, storySlug };
   },
 });

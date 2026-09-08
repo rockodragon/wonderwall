@@ -23,15 +23,44 @@ export const toggle = mutation({
       .first();
 
     if (existing) {
+      // Unfollow / unsave is silent — no notification (following.md §1 #3).
       await ctx.db.delete(existing._id);
       return { favorited: false };
     } else {
+      const now = Date.now();
       await ctx.db.insert("favorites", {
         userId,
         targetType: args.targetType,
         targetId: args.targetId,
-        createdAt: Date.now(),
+        createdAt: now,
       });
+
+      // A profile favorite is a follow (docs/features/following.md). Tell
+      // the followed person once, on create. `targetId` here is a PROFILE
+      // id, so hop through the profile row to reach the recipient's users
+      // id; `userId` (the actor) is already a users id. The link points at
+      // the follower's profile, so we need the actor's profile id too.
+      if (args.targetType === "profile") {
+        const followedProfile = await ctx.db.get(
+          args.targetId as Id<"profiles">,
+        );
+        if (followedProfile && followedProfile.userId !== userId) {
+          const actorProfile = await ctx.db
+            .query("profiles")
+            .withIndex("by_userId", (q) => q.eq("userId", userId))
+            .first();
+          const followerName = actorProfile?.name || "Someone";
+          await ctx.db.insert("notifications", {
+            userId: followedProfile.userId,
+            type: "new_follower",
+            title: `${followerName} is following your work`,
+            message: "",
+            linkUrl: actorProfile ? `/profile/${actorProfile._id}` : undefined,
+            relatedUserId: userId,
+            createdAt: now,
+          });
+        }
+      }
       return { favorited: true };
     }
   },
