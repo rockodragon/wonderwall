@@ -29,6 +29,7 @@ import type * as eventVideo from "../eventVideo.js";
 import type * as events from "../events.js";
 import type * as favorites from "../favorites.js";
 import type * as files from "../files.js";
+import type * as follows from "../follows.js";
 import type * as garden_allocations from "../garden/allocations.js";
 import type * as garden_artifactsMigration from "../garden/artifactsMigration.js";
 import type * as garden_capabilities from "../garden/capabilities.js";
@@ -101,6 +102,7 @@ declare const fullApi: ApiFromModules<{
   events: typeof events;
   favorites: typeof favorites;
   files: typeof files;
+  follows: typeof follows;
   "garden/allocations": typeof garden_allocations;
   "garden/artifactsMigration": typeof garden_artifactsMigration;
   "garden/capabilities": typeof garden_capabilities;

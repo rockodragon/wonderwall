@@ -38,6 +38,30 @@ export function FavoriteButton({
     });
   }
 
+  // A profile favorite is a follow (docs/features/following.md §1). The
+  // control says so in words: a hidden heart never read as "follow", and
+  // hover-reveal made it unreachable on phones. Events keep the heart.
+  if (targetType === "profile") {
+    const pillSizeClasses = {
+      sm: "px-2.5 py-1 text-xs",
+      md: "px-3 py-1.5 text-sm",
+    };
+
+    return (
+      <button
+        onClick={handleClick}
+        className={`${pillSizeClasses[size]} rounded-full font-medium border transition-colors duration-200 whitespace-nowrap ${
+          isFavorited
+            ? "bg-[var(--garden-citron)] text-[var(--garden-ink)] border-[var(--garden-citron)]"
+            : "bg-transparent text-gray-700 dark:text-gray-200 border-gray-300 dark:border-gray-600 hover:border-[var(--garden-citron)]"
+        }`}
+        title={isFavorited ? "Unfollow" : "Follow"}
+      >
+        {isFavorited ? "Following" : "Follow"}
+      </button>
+    );
+  }
+
   const sizeClasses = {
     sm: "w-8 h-8",
     md: "w-10 h-10",

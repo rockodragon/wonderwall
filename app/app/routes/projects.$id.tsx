@@ -16,6 +16,7 @@ import { useQuery } from "convex/react";
 import { Link, useParams, useRouteError } from "react-router";
 import { api } from "../../convex/_generated/api";
 import { AnnouncementComposer } from "../components/AnnouncementComposer";
+import { FavoriteButton } from "../components/FavoriteButton";
 import { budgetAmountLabel, budgetKindLabel } from "../lib/budgetLabel";
 import { STATUS_LABELS, StatusSelect, SupportModal } from "./projects";
 
@@ -173,29 +174,37 @@ export default function ProjectDetail() {
         {project.title}
       </h1>
 
+      {/* creator._id is a PROFILE id — the same id the Follow button keys on.
+          The button sits beside the link, not inside it, so a tap follows
+          without also navigating. */}
       {project.creator && (
-        <Link to={`/profile/${project.creator._id}`} className="flex items-center gap-2 mb-4 w-fit hover:opacity-80">
-          {project.creator.imageUrl ? (
-            <img
-              src={project.creator.imageUrl}
-              alt={project.creator.name}
-              className="w-6 h-6 rounded-full object-cover shrink-0"
-            />
-          ) : (
-            <div
-              className="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0"
-              style={{ backgroundColor: "var(--garden-hairline-raised)", color: "var(--garden-paper)" }}
-            >
-              {project.creator.name.charAt(0).toUpperCase()}
-            </div>
-          )}
-          <span className="text-sm" style={{ color: "var(--garden-muted)" }}>
-            {project.creator.name}
-            {project.community && (
-              <span style={{ color: "var(--garden-dim)" }}> · in {project.community.name}</span>
+        <div className="flex items-center gap-3 mb-4">
+          <Link to={`/profile/${project.creator._id}`} className="flex items-center gap-2 w-fit hover:opacity-80">
+            {project.creator.imageUrl ? (
+              <img
+                src={project.creator.imageUrl}
+                alt={project.creator.name}
+                className="w-6 h-6 rounded-full object-cover shrink-0"
+              />
+            ) : (
+              <div
+                className="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0"
+                style={{ backgroundColor: "var(--garden-hairline-raised)", color: "var(--garden-paper)" }}
+              >
+                {project.creator.name.charAt(0).toUpperCase()}
+              </div>
             )}
-          </span>
-        </Link>
+            <span className="text-sm" style={{ color: "var(--garden-muted)" }}>
+              {project.creator.name}
+              {project.community && (
+                <span style={{ color: "var(--garden-dim)" }}> · in {project.community.name}</span>
+              )}
+            </span>
+          </Link>
+          {!isOwner && (
+            <FavoriteButton targetType="profile" targetId={project.creator._id} size="sm" />
+          )}
+        </div>
       )}
 
       {project.status && project.status !== "active" && (

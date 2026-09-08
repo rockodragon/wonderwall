@@ -195,7 +195,8 @@ function ProfileCard({ profile }: { profile: ProfileResult }) {
           {profile.interests.slice(0, 2).join(" • ")}
         </p>
       </div>
-      <div className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+      {/* Always visible: hover-reveal has no equivalent on touch screens. */}
+      <div className="shrink-0">
         <FavoriteButton targetType="profile" targetId={profile._id} size="sm" />
       </div>
     </Link>

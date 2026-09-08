@@ -1,6 +1,6 @@
 # Following — decision and spec
 
-v0.2 · 2026-09-08 · owner: Rick · status: **building**. Resolves beads issue `wonderwall-pjd`. v0.1 was checked against the code on 2026-09-08 and corrected; the corrections are the "Why" notes below.
+v0.2 · 2026-09-08 · owner: Rick · status: **built 2026-09-08, on main**. Resolves beads issue `wonderwall-pjd`. v0.1 was checked against the code on 2026-09-08 and corrected; the corrections are the "Why" notes below.
 
 ## 0 · Decision
 

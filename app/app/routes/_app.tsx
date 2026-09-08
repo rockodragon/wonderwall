@@ -46,7 +46,7 @@ const primaryNavItems = [
   { path: "/offerings", label: "Classes", icon: ClassesIcon },
 ];
 const secondaryNavItems = [
-  { path: "/favorites", label: "Favorites", icon: HeartIcon },
+  { path: "/favorites", label: "Following", icon: HeartIcon },
   { path: "/settings", label: "Profile", icon: UserIcon },
 ];
 const navItems = [...primaryNavItems, ...secondaryNavItems];
