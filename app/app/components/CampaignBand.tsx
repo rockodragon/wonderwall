@@ -4,23 +4,17 @@ import {
   type CampaignImageKey,
 } from "../lib/campaign";
 
-// The "create different." band — two black-and-white frames and the line.
+// The "create together." band — two black-and-white frames and the line.
 //
 // Type never sits on a photograph here. That was the one rule the campaign
 // pass settled: a gradient over a busy picture is a legibility gamble and it
 // loses on a phone in daylight. Words sit on solid ground, above or below.
-//
-// The word after "different" is what changes per audience — odds, futures,
-// livelihoods, outcomes, nights. The verb never does.
 
 export function CampaignBand({
   images,
-  tail,
   caption,
 }: {
   images: [CampaignImageKey, CampaignImageKey];
-  /** The word after "different" — omit for the bare "create different." */
-  tail?: string;
   caption?: string;
 }) {
   return (
@@ -29,10 +23,7 @@ export function CampaignBand({
         className="text-3xl md:text-5xl text-[var(--garden-paper)] leading-none mb-6 lowercase"
         style={{ fontFamily: "var(--garden-font-display)", fontWeight: 600 }}
       >
-        create{" "}
-        <span className="text-[var(--garden-citron)]">
-          {tail ? `different ${tail}.` : "different."}
-        </span>
+        create <span className="text-[var(--garden-citron)]">together.</span>
       </p>
       <div className="grid gap-6 sm:grid-cols-2">
         {images.map((key) => {

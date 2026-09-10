@@ -46,10 +46,8 @@ type Audience = {
   ctaTo: string;
   ctaLabel2: string;
   ctaTo2: string;
-  /** The "create different ___." band. The word after "different" changes
-      per door; the verb never does. Photography is stand-in — see
-      lib/campaign.ts. */
-  bandTail?: string;
+  /** The "create together." band. Photography and quotes are sample copy —
+      see lib/campaign.ts. */
   bandImages: [CampaignImageKey, CampaignImageKey];
   metaTitle: string;
   metaDescription: string;
@@ -121,7 +119,6 @@ const AUDIENCES: Audience[] = [
     ctaTo: "/join",
     ctaLabel2: "See what you'd keep",
     ctaTo2: "/tables",
-    bandTail: "livelihoods",
     bandImages: ["marta", "gallery"],
     metaTitle: "Earn from the community you lead — creatives.exchange",
     metaDescription:
@@ -152,7 +149,6 @@ const AUDIENCES: Audience[] = [
     ctaTo: "/opportunities",
     ctaLabel2: "Create a free patron account",
     ctaTo2: "/join",
-    bandTail: "odds",
     bandImages: ["band", "viewing"],
     metaTitle: "For patrons — creatives.exchange",
     metaDescription:
@@ -188,7 +184,6 @@ const AUDIENCES: Audience[] = [
     ctaTo: "/join",
     ctaLabel2: "See what it pays for",
     ctaTo2: "/fund/abiding-practice",
-    bandTail: "futures",
     bandImages: ["church", "busker"],
     metaTitle: "Support the creatives in your church — creatives.exchange",
     metaDescription:
@@ -224,7 +219,6 @@ const AUDIENCES: Audience[] = [
     ctaTo: "/fund/abiding-practice",
     ctaLabel2: "Come to the November 6 event",
     ctaTo2: "/garden/events",
-    bandTail: "outcomes",
     bandImages: ["dee", "cafe"],
     metaTitle: "Support creatives, see where it lands — creatives.exchange",
     metaDescription:
@@ -255,7 +249,6 @@ const AUDIENCES: Audience[] = [
     ctaTo: "/join",
     ctaLabel2: "Offer your space",
     ctaTo2: "/join",
-    bandTail: "nights",
     bandImages: ["night", "opening"],
     metaTitle: "For venues and businesses — creatives.exchange",
     metaDescription:
@@ -327,10 +320,7 @@ export default function ForAudience({ params }: Route.ComponentProps) {
           {audience.subhead}
         </p>
 
-        <CampaignBand
-          images={audience.bandImages}
-          tail={audience.bandTail}
-        />
+        <CampaignBand images={audience.bandImages} />
 
         <div className="grid gap-4 sm:grid-cols-2 mb-12">
           {audience.points.map((p) => (

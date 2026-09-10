@@ -190,17 +190,12 @@ export default function Home() {
             className="text-5xl md:text-6xl font-bold text-[var(--garden-paper)] leading-tight mb-5"
             style={{ fontFamily: "var(--garden-font-display)" }}
           >
-            Show and grow
-            <br />
-            your craft.
-            <br />
-            <span className="text-[var(--garden-citron)]">Collaborate</span>
-            <br />
-            & find work.
+            Create{" "}
+            <span className="text-[var(--garden-citron)]">together.</span>
           </h2>
           <p className="mt-5 text-lg md:text-xl text-[var(--garden-body)] max-w-2xl mx-auto mb-6">
-            A community for creatives and the people who support them — post
-            projects, find collaborators, and grow through events and paid work.
+            Creatives, patrons, hosts, churches and venues, in one place. Every
+            project shows who made it and who backed it.
           </p>
 
           {/* Closed Beta Badge */}
@@ -451,10 +446,9 @@ export default function Home() {
         </div>
       </main>
 
-      {/* "Create different." — the campaign, on the site rather than in a
-          deck. Four frames with a line under each, then the mark, then the
-          two addresses. Photography and quotes are sample copy — see the
-          note at the top of lib/campaign.ts. */}
+      {/* "Create together." — the campaign on the site. Four frames with a
+          line under each, then the passage. Photography and quotes are sample
+          copy — see the note at the top of lib/campaign.ts. */}
       <section className="py-16 bg-[var(--garden-ink)]">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-[var(--garden-hairline)]">
           {(["busker", "ade", "band", "gallery"] as const).map((key) => (
@@ -481,95 +475,21 @@ export default function Home() {
         </div>
 
         <div className="px-6 max-w-6xl mx-auto mt-14">
-          <p
-            className="text-5xl md:text-7xl text-[var(--garden-paper)] leading-none lowercase mb-12"
-            style={{ fontFamily: "var(--garden-font-display)", fontWeight: 600 }}
-          >
-            create{" "}
-            <span className="text-[var(--garden-citron)]">different.</span>
-          </p>
-          {/* Two addresses, not one. A single block aimed at everybody lands
-              on nobody, and the version that opened "you never paid them for
-              it" put the reader in debt before it said hello. Each side gets
-              recognised for something they have already done. */}
-          <div className="grid gap-10 md:grid-cols-2 max-w-5xl">
-            <div>
-              <p className="text-[var(--garden-citron)] text-sm font-semibold tracking-wide uppercase mb-3">
-                If you make things
-              </p>
-              <p className="text-[var(--garden-body)] text-lg leading-relaxed">
-                You already know what it costs. The hours after the job. The
-                gear you bought yourself. The idea you put down because rent
-                was due. What's here is work with a number on it, and people
-                who want it done.
-              </p>
-            </div>
-            <div>
-              <p className="text-[var(--garden-citron)] text-sm font-semibold tracking-wide uppercase mb-3">
-                If you back someone
-              </p>
-              <p className="text-[var(--garden-body)] text-lg leading-relaxed">
-                You've done it already. Bought the record at the show. Paid a
-                kid to shoot the wedding. Told somebody their thing was good
-                and meant it. Here you can do it on purpose, and see what it
-                turned into.
-              </p>
-            </div>
+          {/* One passage, everyone in it. The earlier version had two
+              columns facing each other, makers and backers, which said "two
+              sides" on a page whose claim is one room. */}
+          <div className="max-w-3xl text-[var(--garden-body)] text-lg md:text-xl leading-relaxed flex flex-col gap-5">
+            <p className="text-[var(--garden-paper)]">Nothing here gets made alone.</p>
+            <p>
+              A creative posts the work. A patron backs it. A church covers the
+              seat. A cafe opens the back room. A host runs the class where it
+              started. When it's done, all of those names are on it.
+            </p>
+            <p>
+              The Garden is the founding Christian creative community on the
+              platform.
+            </p>
           </div>
-        </div>
-      </section>
-
-      {/* Features */}
-      <section className="px-6 py-20 max-w-6xl mx-auto bg-[var(--garden-ink)]">
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <FeatureCard
-            title="Show Your Craft"
-            description="Build a portfolio that shows your work, taste, process, and availability so the right people can find you."
-            icon={
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-              />
-            }
-          />
-          <FeatureCard
-            title="Find Work"
-            description="Discover projects, commissions, and creative opportunities from organizations that value your craft and character."
-            icon={
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-              />
-            }
-          />
-          <FeatureCard
-            title="Collaborate"
-            description="Connect directly with other creatives for projects, gigs, partnerships, and shared creative practice."
-            icon={
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
-              />
-            }
-          />
-          <FeatureCard
-            title="Grow Through Events"
-            description="Join interviews, podcasts, trainings, classes, workshops, and creative sessions with Christian creatives."
-            icon={
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-              />
-            }
-          />
         </div>
       </section>
 
@@ -580,7 +500,7 @@ export default function Home() {
           Who it's for
         </h2>
         <p className="text-[var(--garden-body)] mb-10 max-w-2xl">
-          Six ways in. You can always start free.
+          Six ways in. One place.
         </p>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {[
@@ -648,8 +568,8 @@ export default function Home() {
       <footer className="px-6 py-8 border-t border-[var(--garden-hairline)]">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <p className="text-[var(--garden-dim)] text-sm">
-            creatives.exchange — Show your craft, grow with others,
-            collaborate, and find work
+            creatives.exchange — creatives and the people who back them, in
+            one place
           </p>
           <div className="flex items-center gap-6">
             <a
@@ -685,35 +605,6 @@ export default function Home() {
           </div>
         </div>
       </footer>
-    </div>
-  );
-}
-
-function FeatureCard({
-  title,
-  description,
-  icon,
-}: {
-  title: string;
-  description: string;
-  icon: React.ReactNode;
-}) {
-  return (
-    <div className="group p-8 bg-[var(--garden-ink-raised)] rounded-2xl border border-[var(--garden-hairline)] hover:border-[var(--garden-citron)] transition-all duration-300">
-      <div className="w-14 h-14 bg-[var(--garden-ink)] rounded-xl flex items-center justify-center mb-4 border border-[var(--garden-hairline)] transition-colors">
-        <svg
-          className="w-7 h-7 text-[var(--garden-body)]"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          {icon}
-        </svg>
-      </div>
-      <h3 className="text-xl font-bold text-[var(--garden-paper)] mb-3">
-        {title}
-      </h3>
-      <p className="text-[var(--garden-muted)] leading-relaxed">{description}</p>
     </div>
   );
 }

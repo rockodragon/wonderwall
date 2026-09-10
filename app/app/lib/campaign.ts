@@ -1,4 +1,4 @@
-// "Create different." — the campaign photography and the line it carries.
+// "Create together." — the campaign photography and the line it carries.
 //
 // One manifest so every surface uses the same frames and the credits stay
 // correct. The files live in public/campaign/, converted to black and white
