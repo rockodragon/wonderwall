@@ -128,27 +128,26 @@ const AUDIENCES: Audience[] = [
     eyebrow: "For patrons and backers",
     headline: "Back someone you believe in.",
     subhead:
-      "A person, a team, or a project. With money, or with a room, a camera, an introduction. Watch it get made.",
+      "A person, a team, or a project. Pick one, and watch it get made.",
     points: [
       {
-        title: "What you choose to give is what they get",
-        body: "Our fee is added at checkout, on your receipt. A $100 gift is $100 to the creative.",
+        title: "You know who you're backing",
+        body: "A name, a face, a body of work, and usually a town near yours. Not a campaign page.",
       },
       {
-        title: "Money isn't the only way",
-        body: "Offer a studio for an afternoon, gear, a print run, a connection. A resource is backing too, and it's credited the same way.",
+        title: "You watch it get made",
+        body: "Updates as the work comes together. The finished piece when it's done. Your name on it.",
       },
       {
-        title: "Your name is on the work",
-        body: "You are credited on the finished work, whatever you gave.",
+        title: "Back more than one way",
+        body: "Money, a room for an afternoon, gear, an introduction. All of it counts, and all of it is credited.",
       },
       {
-        title: "You see how it goes",
-        body: "The creative posts updates as the work comes together, and the finished piece when it's done.",
+        title: "You'll meet them",
+        body: "Shows, openings, workshops. The people you back are the people in the room.",
       },
     ],
-    cost:
-      "A patron account is free. You choose what to give and when. Backing isn't a donation, so it isn't tax-deductible, and the creative pays income tax on money they receive.",
+    cost: "A patron account is free. You decide what to give, and when.",
     ctaLabel: "Pick someone to back",
     ctaTo: "/opportunities",
     ctaLabel2: "Create a free patron account",
@@ -156,7 +155,7 @@ const AUDIENCES: Audience[] = [
     bandImages: ["band", "viewing"],
     metaTitle: "For patrons — creatives.exchange",
     metaDescription:
-      "Back a creative, a team, or a project with money or resources. Our fee is added at checkout, so what you choose to give is what they get.",
+      "Back a creative, a team, or a project. Watch it get made, get credited on the work, and meet the people you back.",
   },
   {
     slug: "churches",
