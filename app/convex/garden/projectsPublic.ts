@@ -35,6 +35,7 @@ export interface ProjectLike {
   storySlug?: string;
   status?: string;
   origin?: string;
+  stage?: string;
 }
 
 export interface ProjectCard {
@@ -52,6 +53,7 @@ export interface ProjectCard {
   storySlug?: string;
   moneyLine: string;
   status?: string;
+  stage?: string;
 }
 
 /** Dollar formatting for this file's own money lines — a display-only
@@ -132,6 +134,7 @@ export function shapeProjectCard(project: ProjectLike, ownerName: string): Proje
     raisedCents: project.raisedCents,
     storySlug: project.storySlug,
     status: project.status,
+    stage: project.stage,
     moneyLine: resolveMoneyLine({
       kind,
       budgetType: project.budgetType,

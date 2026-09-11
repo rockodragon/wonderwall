@@ -799,7 +799,7 @@ function LeadTeamTools({
           <div className="flex flex-col gap-2">
             {invited.map((inv: any) => (
               <div key={inv.memberId} className="flex items-center gap-2 text-sm">
-                {inv.byEmail ? (
+                {inv.emailed ? (
                   <span style={{ color: "var(--garden-paper)" }}>Invited by email</span>
                 ) : inv.profileId ? (
                   <Link to={`/profile/${inv.profileId}`} className="hover:opacity-80" style={{ color: "var(--garden-paper)" }}>
