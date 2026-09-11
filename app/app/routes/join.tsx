@@ -4,9 +4,10 @@
 // createMembershipCheckout, the same action settings.tsx's billing portal
 // and fund.$slug.tsx's pool contribution already use. There is no waitlist
 // fallback: clicking a tier either opens a real Checkout session or shows a
-// plain error (e.g. a price isn't configured yet). Signed-out visitors go
-// to /signup first — Checkout needs an account to attach the subscription
-// to.
+// plain error (e.g. a price isn't configured yet). A signed-out visitor is
+// asked once, not twice — the click stashes ?level= as a pending intent and
+// sends them to signup; _app.tsx replays it, and the tier they picked opens
+// checkout on arrival.
 //
 // "Seat" stayed as the internal Level value (capabilities.ts, memberships
 // .level) — that's a bigger rename than this page needs. What changed here
@@ -22,12 +23,13 @@
 // host who ALSO wants to run funding programs for their community — it is
 // not the price of hosting itself, and the copy says so.
 
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useAction, useConvexAuth, useQuery } from "convex/react";
 import { ConvexError } from "convex/values";
-import { Link, useRouteError } from "react-router";
+import { Link, useNavigate, useRouteError, useSearchParams } from "react-router";
 import { api } from "../../convex/_generated/api";
 import { SiteHeader } from "../components/SiteHeader";
+import { setPendingIntent } from "../lib/pendingIntent";
 import { GardenErrorState, GardenPage, SectionLabel } from "../garden/ui";
 import "../garden/garden.css";
 
@@ -132,13 +134,36 @@ function checkoutErrorMessage(err: unknown): string {
   return "Checkout didn't open — try again in a moment.";
 }
 
-function LevelButton({ card }: { card: LevelCard }) {
+function LevelButton({ card, autoStart }: { card: LevelCard; autoStart: boolean }) {
   const { isAuthenticated } = useConvexAuth();
+  const navigate = useNavigate();
   const createMembershipCheckout = useAction(api.garden.stripe.createMembershipCheckout);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const started = useRef(false);
 
   const btnClass = card.recommended ? "g-btn g-btn-citron" : "g-btn g-btn-ghost";
+
+  const startCheckout = useCallback(async () => {
+    if (!card.level) return;
+    setError(null);
+    setPending(true);
+    try {
+      const { url } = await createMembershipCheckout({ level: card.level });
+      window.location.assign(url);
+    } catch (err) {
+      setError(checkoutErrorMessage(err));
+      setPending(false);
+    }
+  }, [card.level, createMembershipCheckout]);
+
+  // They picked this tier before they had an account. _app.tsx sent them
+  // back here with ?level=, so open checkout rather than asking again.
+  useEffect(() => {
+    if (!autoStart || !isAuthenticated || started.current) return;
+    started.current = true;
+    void startCheckout();
+  }, [autoStart, isAuthenticated, startCheckout]);
 
   if (!card.level) {
     // Free tier — nothing to check out, just an account.
@@ -149,24 +174,14 @@ function LevelButton({ card }: { card: LevelCard }) {
     );
   }
 
-  if (!isAuthenticated) {
-    return (
-      <Link to="/signup" className={btnClass} style={{ marginTop: 14, alignSelf: "flex-start" }}>
-        Sign up to join
-      </Link>
-    );
-  }
-
-  async function handleClick() {
-    setError(null);
-    setPending(true);
-    try {
-      const { url } = await createMembershipCheckout({ level: card.level! });
-      window.location.assign(url);
-    } catch (err) {
-      setError(checkoutErrorMessage(err));
-      setPending(false);
+  function handleClick() {
+    if (!isAuthenticated) {
+      // One choice, not two: remember the tier, then send them to sign up.
+      setPendingIntent(`/join?level=${card.level}`);
+      navigate("/signup");
+      return;
     }
+    void startCheckout();
   }
 
   return (
@@ -191,6 +206,8 @@ function LevelButton({ card }: { card: LevelCard }) {
 
 export default function JoinPage() {
   const membership = useQuery(api.garden.memberships.getMyMembership);
+  const [searchParams] = useSearchParams();
+  const resumeLevel = searchParams.get("level");
 
   return (
     <GardenPage wide>
@@ -297,7 +314,7 @@ export default function JoinPage() {
                 </p>
               )}
               <div style={{ marginTop: "auto" }}>
-                <LevelButton card={level} />
+                <LevelButton card={level} autoStart={level.level === resumeLevel} />
               </div>
             </div>
           ))}

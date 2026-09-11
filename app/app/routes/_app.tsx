@@ -3,6 +3,7 @@ import { Link, Outlet, useLocation, useNavigate } from "react-router";
 import { useEffect, useState } from "react";
 import { usePostHog } from "@posthog/react";
 import { api } from "../../convex/_generated/api";
+import { takePendingIntent } from "../lib/pendingIntent";
 import { InviteCTA } from "../components/InviteCTA";
 import { Wordmark } from "../components/Wordmark";
 import { CommunitySwitcher } from "../components/CommunitySwitcher";
@@ -71,9 +72,10 @@ export default function AppLayout() {
     }
   }, [isAuthenticated, isLoading, isPublicPath, navigate]);
 
-  // Pending project credit claimed while signed out (project-teams.md §3):
-  // claim.$token.tsx stashed the token before sending this person to sign
-  // up. Runs once per sign-in, then clears the stash.
+  // Whatever this person clicked before they had an account — Join, Back
+  // this, Apply — replayed the moment they're authenticated, so they never
+  // have to choose the same thing twice. Claim links use the older
+  // pendingClaim stash; both are checked, claim first.
   useEffect(() => {
     if (!isAuthenticated) return;
     try {
@@ -81,10 +83,13 @@ export default function AppLayout() {
       if (token) {
         localStorage.removeItem("pendingClaim");
         navigate(`/claim/${token}`);
+        return;
       }
     } catch {
       // Private browsing / storage disabled — nothing to recover.
     }
+    const intent = takePendingIntent();
+    if (intent) navigate(intent);
   }, [isAuthenticated, navigate]);
 
   // Identify user in PostHog when authenticated and profile loaded

@@ -19,6 +19,7 @@
 // reasonFor) mirrors admin.garden.tsx; the confirm/error handling mirrors
 // c.$code.tsx's redeem flow.
 
+import { SiteHeader } from "../components/SiteHeader";
 import { type FormEvent, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { ConvexError } from "convex/values";
@@ -30,7 +31,6 @@ import {
   FactRow,
   GardenErrorState,
   GardenLoading,
-  GardenNav,
   GardenPage,
   SectionLabel,
   formatDateTime,
@@ -48,7 +48,7 @@ export function ErrorBoundary() {
   useRouteError(); // logged by the framework; the page just degrades warmly
   return (
     <GardenPage>
-      <GardenNav active="Events" />
+      <SiteHeader />
       <div style={{ marginTop: 28 }}>
         <GardenErrorState message="This event isn't live yet — check back soon." />
       </div>
@@ -153,7 +153,7 @@ export default function GardenEventDetail() {
   if (event === undefined) {
     return (
       <GardenPage>
-        <GardenNav active="Events" />
+        <SiteHeader />
         <div style={{ marginTop: 28 }}>
           <GardenLoading />
         </div>
@@ -164,7 +164,7 @@ export default function GardenEventDetail() {
   if (event === null) {
     return (
       <GardenPage>
-        <GardenNav active="Events" />
+        <SiteHeader />
         <div style={{ marginTop: 28 }}>
           <GardenErrorState message="That event isn't there anymore — check the link and try again." />
         </div>
@@ -203,7 +203,7 @@ export default function GardenEventDetail() {
 
   return (
     <GardenPage>
-      <GardenNav active="Events" />
+      <SiteHeader />
 
       <div style={{ marginTop: 28 }}>
         <h1 className="g-h" style={{ fontSize: "clamp(28px,5vw,40px)" }}>

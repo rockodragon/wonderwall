@@ -8,13 +8,13 @@
 // and an ErrorBoundary for "backend not deployed." Hooks stay above every
 // return — a Rules-of-Hooks violation crashed a Garden page before.
 
+import { SiteHeader } from "../components/SiteHeader";
 import { useQuery } from "convex/react";
 import { Link, useRouteError } from "react-router";
 import { api } from "../../convex/_generated/api";
 import {
   GardenErrorState,
   GardenLoading,
-  GardenNav,
   GardenPage,
   SectionLabel,
   formatMoney,
@@ -36,7 +36,7 @@ export function ErrorBoundary() {
   useRouteError(); // logged by the framework; the page just degrades warmly
   return (
     <GardenPage wide>
-      <GardenNav active="Garden" />
+      <SiteHeader />
       <div style={{ marginTop: 28 }}>
         <GardenErrorState message="The Garden isn't fully live yet — check back soon." />
       </div>
@@ -117,7 +117,7 @@ export default function GardenIndex() {
 
   return (
     <GardenPage wide>
-      <GardenNav active="Garden" />
+      <SiteHeader />
 
       {/* Hero */}
       <div style={{ marginTop: 40, maxWidth: "62ch" }}>

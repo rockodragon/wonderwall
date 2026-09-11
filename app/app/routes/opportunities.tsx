@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { useQuery } from "convex/react";
-import { Link } from "react-router";
+import { useConvexAuth, useQuery } from "convex/react";
+import { Link, useNavigate } from "react-router";
 import { api } from "../../convex/_generated/api";
 import { budgetKindLabel } from "../lib/budgetLabel";
+import { setPendingIntent } from "../lib/pendingIntent";
 import { resolveStage, stageLabel } from "../lib/stage";
 import { SiteHeader } from "../components/SiteHeader";
 
@@ -79,15 +80,45 @@ export function meta() {
 }
 
 /** The one-line "what you'd be doing about this" under each card. Paid work
-    is applied to; a project is backed. Both land on /join, because both are
-    the act this page doesn't let a stranger do yet. */
+    is applied to; a project is backed. The label names the act, not the
+    paperwork — a signed-out visitor gets sent to signup and then straight
+    back to this project, so "Apply" stays true either way. */
 function actionLabel(project: ProjectCard): string {
   if (project.kind === "paid") {
-    return budgetKindLabel(project) === "Volunteer"
-      ? "Sign up to volunteer"
-      : "Sign up to apply";
+    return budgetKindLabel(project) === "Volunteer" ? "Volunteer" : "Apply";
   }
-  return "Sign up to back this";
+  return "Back this";
+}
+
+/** The card action. Signed in, it's a plain link to the project. Signed
+    out, it remembers the project and routes through signup — one choice,
+    not two, and never a detour to the membership page (applying is free). */
+function CardAction({ project }: { project: ProjectCard }) {
+  const { isAuthenticated } = useConvexAuth();
+  const navigate = useNavigate();
+  const to = `/projects/${project.id}`;
+  const className =
+    "text-[var(--garden-body)] hover:text-[var(--garden-citron)] font-medium text-sm transition-colors";
+
+  if (isAuthenticated) {
+    return (
+      <Link to={to} className={className}>
+        {actionLabel(project)} →
+      </Link>
+    );
+  }
+  return (
+    <button
+      type="button"
+      className={className}
+      onClick={() => {
+        setPendingIntent(to);
+        navigate("/signup");
+      }}
+    >
+      {actionLabel(project)} →
+    </button>
+  );
 }
 
 function fundedPercent(project: ProjectCard): number | null {
@@ -145,12 +176,7 @@ function ProjectTile({ project }: { project: ProjectCard }) {
           </div>
         )}
         <div className="mt-auto pt-2">
-          <Link
-            to="/join"
-            className="text-[var(--garden-body)] hover:text-[var(--garden-citron)] font-medium text-sm transition-colors"
-          >
-            {actionLabel(project)} →
-          </Link>
+          <CardAction project={project} />
         </div>
       </div>
     </article>

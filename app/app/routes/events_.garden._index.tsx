@@ -11,13 +11,13 @@
 // Same three-state shape as tables._index.tsx: loading (useQuery undefined),
 // empty (no upcoming events), and the real list.
 
+import { SiteHeader } from "../components/SiteHeader";
 import { useQuery } from "convex/react";
 import { Link, useRouteError } from "react-router";
 import { api } from "../../convex/_generated/api";
 import {
   GardenErrorState,
   GardenLoading,
-  GardenNav,
   GardenPage,
   formatDateTime,
 } from "../garden/ui";
@@ -39,7 +39,7 @@ export function ErrorBoundary() {
   useRouteError(); // logged by the framework; the page just degrades warmly
   return (
     <GardenPage>
-      <GardenNav active="Events" />
+      <SiteHeader />
       <div style={{ marginTop: 28 }}>
         <GardenErrorState message="Events isn't live yet — check back soon." />
       </div>
@@ -117,7 +117,7 @@ export default function GardenEventsIndex() {
   if (events === undefined) {
     return (
       <GardenPage wide>
-        <GardenNav active="Events" />
+        <SiteHeader />
         <div style={{ marginTop: 28 }}>
           <GardenLoading />
         </div>
@@ -128,7 +128,7 @@ export default function GardenEventsIndex() {
   if (events.length === 0) {
     return (
       <GardenPage wide>
-        <GardenNav active="Events" />
+        <SiteHeader />
         <div style={{ marginTop: 28, marginBottom: 24 }}>
           <h1 className="g-h" style={{ fontSize: "clamp(28px,5vw,40px)" }}>
             Events
@@ -154,7 +154,7 @@ export default function GardenEventsIndex() {
 
   return (
     <GardenPage wide>
-      <GardenNav active="Events" />
+      <SiteHeader />
       <div style={{ marginTop: 28, marginBottom: 24 }}>
         <h1 className="g-h" style={{ fontSize: "clamp(28px,5vw,40px)" }}>
           Events

@@ -18,6 +18,7 @@
 // (still has to look designed, not blank), and an unknown slug or an
 // undeployed backend (both read as "isn't live yet").
 
+import { SiteHeader } from "../components/SiteHeader";
 import { useState } from "react";
 import { useAction, useQuery } from "convex/react";
 import { ConvexError } from "convex/values";
@@ -27,7 +28,6 @@ import {
   GardenErrorState,
   GardenLoading,
   GardenPage,
-  GardenNav,
   SectionLabel,
   formatMoney,
   formatPeriod,
@@ -64,7 +64,7 @@ export function ErrorBoundary() {
   useRouteError(); // logged by the framework; the page just degrades warmly
   return (
     <GardenPage>
-      <GardenNav active="Fund" />
+      <SiteHeader />
       <div style={{ marginTop: 28 }}>
         <GardenErrorState message="This fund's ledger isn't live yet — check back soon." />
       </div>
@@ -175,7 +175,7 @@ export default function FundPage() {
   if (data === undefined) {
     return (
       <GardenPage>
-        <GardenNav active="Fund" />
+        <SiteHeader />
         <div style={{ marginTop: 28 }}>
           <GardenLoading />
         </div>
@@ -186,7 +186,7 @@ export default function FundPage() {
   if (data === null) {
     return (
       <GardenPage>
-        <GardenNav active="Fund" />
+        <SiteHeader />
         <div style={{ marginTop: 28 }}>
           <GardenErrorState message="Check the link — this fund isn't set up here." />
         </div>
@@ -205,7 +205,7 @@ export default function FundPage() {
 
   return (
     <GardenPage wide>
-      <GardenNav active="Fund" />
+      <SiteHeader />
 
       <div style={{ marginTop: 28 }}>
         <h1 className="g-h" style={{ fontSize: "clamp(28px,5vw,40px)" }}>

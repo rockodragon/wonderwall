@@ -4,6 +4,7 @@
 // visibleMeetingUrl) — this page just renders whatever the query hands back,
 // it never has the link to withhold on its own.
 
+import { SiteHeader } from "../components/SiteHeader";
 import { useState } from "react";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { Link, useParams, useRouteError } from "react-router";
@@ -15,7 +16,6 @@ import {
   GardenErrorState,
   GardenLoading,
   GardenPage,
-  GardenNav,
   SectionLabel,
   formatDateTime,
   formatDuration,
@@ -33,7 +33,7 @@ export function ErrorBoundary() {
   useRouteError();
   return (
     <GardenPage>
-      <GardenNav active="Tables" />
+      <SiteHeader />
       <div style={{ marginTop: 28 }}>
         <GardenErrorState message="This table isn't live yet — check back soon." />
       </div>
@@ -226,7 +226,7 @@ export default function TableDetailPage() {
   if (table === undefined) {
     return (
       <GardenPage>
-        <GardenNav active="Tables" />
+        <SiteHeader />
         <div style={{ marginTop: 28 }}>
           <GardenLoading />
         </div>
@@ -237,7 +237,7 @@ export default function TableDetailPage() {
   if (table === null) {
     return (
       <GardenPage>
-        <GardenNav active="Tables" />
+        <SiteHeader />
         <div style={{ marginTop: 28 }}>
           <GardenErrorState message="Check the link — this table isn't set up here." />
         </div>
@@ -247,7 +247,7 @@ export default function TableDetailPage() {
 
   return (
     <GardenPage>
-      <GardenNav active="Tables" />
+      <SiteHeader />
 
       <div style={{ marginTop: 28 }}>
         {table.format && <span className="g-badge g-badge-line">{table.format}</span>}
