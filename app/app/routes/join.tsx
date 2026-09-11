@@ -4,8 +4,15 @@
 // deliberately honest about that instead of faking a payment flow: it shows
 // exactly what each level gets and what it costs, and captures interest with
 // the existing waitlist mutation. When Stripe lands, the tier buttons swap
-// from "Tell me when seats open" to createMembershipCheckout — the layout and
-// copy don't change.
+// from "Tell me when membership opens" to createMembershipCheckout — the
+// layout and copy don't change.
+//
+// "Seat" stayed as the internal Level value (capabilities.ts, memberships
+// .level) — that's a bigger rename than this page needs. What changed here
+// is the WORD a visitor reads: "member," not "seat." A dues split rendered
+// as two stat tiles read like a leaked admin metric, not a pitch, so it's
+// gone; the same idea — part of what you pay funds someone else's work —
+// is one clause in the subhead now, no dollar figures.
 
 import { useState } from "react";
 import { useMutation } from "convex/react";
@@ -22,11 +29,11 @@ import "../garden/garden.css";
 
 export function meta() {
   return [
-    { title: "Take a seat — The Garden" },
+    { title: "Become a member — The Garden" },
     {
       name: "description",
       content:
-        "A seat in The Garden is $10/mo: start a project, apply to paid work, join member tables. Half of every membership funds another creative's project.",
+        "Membership in The Garden is $10/mo: start a project, apply to paid work, join member tables — and support other creatives through the Grant Fund.",
     },
   ];
 }
@@ -52,11 +59,11 @@ const LEVELS = [
       "Profile and portfolio",
       "Join open tables",
       "RSVP to public events",
-      "Follow projects",
+      "Support or join projects",
     ],
   },
   {
-    name: "A seat",
+    name: "Member",
     price: "$10/mo",
     recommended: true,
     perks: [
@@ -68,13 +75,13 @@ const LEVELS = [
     ],
   },
   {
-    name: "Five seats",
+    name: "Team",
     price: "$25/mo",
     recommended: false,
     perks: [
       "Up to five active projects",
       "Invite collaborators onto them",
-      "Everything a seat gets",
+      "Everything a member gets",
     ],
   },
   {
@@ -120,51 +127,16 @@ export default function JoinPage() {
 
       <div style={{ marginTop: 28, maxWidth: "58ch" }}>
         <h1 className="g-h" style={{ fontSize: "clamp(28px,5vw,40px)" }}>
-          Take a seat.
+          Become a member.
         </h1>
         <p style={{ marginTop: 12, fontSize: 15, lineHeight: 1.6 }}>
-          Half of every membership funds another creative's project. From day
-          one your money is supporting someone — instead of hoping to hear
-          back.
+          Membership is yours to use — start a project, apply to paid work,
+          join tables — and part of it funds the Grant Fund for other
+          creatives too.
         </p>
       </div>
 
-      {/* The published dues split — always two cells: $5 funds other
-          creatives' projects, $5 runs the place. Data cells, never buttons. */}
-      <div style={{ display: "flex", gap: 10, marginTop: 22, maxWidth: 460 }}>
-        <div className="g-cell g-cell-hot" style={{ flex: 1, textAlign: "center" }}>
-          <span className="g-cell-v" style={{ fontSize: 18 }}>$5</span>
-          <div
-            className="g-mono"
-            style={{
-              fontSize: 12.5,
-              letterSpacing: "0.06em",
-              textTransform: "uppercase",
-              color: "var(--g-muted)",
-              marginTop: 4,
-            }}
-          >
-            funds other creatives' projects
-          </div>
-        </div>
-        <div className="g-cell" style={{ flex: 1, textAlign: "center" }}>
-          <span className="g-cell-v" style={{ fontSize: 18 }}>$5</span>
-          <div
-            className="g-mono"
-            style={{
-              fontSize: 12.5,
-              letterSpacing: "0.06em",
-              textTransform: "uppercase",
-              color: "var(--g-muted)",
-              marginTop: 4,
-            }}
-          >
-            runs the place
-          </div>
-        </div>
-      </div>
-
-      <div style={{ marginTop: 36 }}>
+      <div style={{ marginTop: 32 }}>
         <SectionLabel>Levels</SectionLabel>
         <div
           style={{
@@ -253,15 +225,15 @@ export default function JoinPage() {
 
       {/* Honest about the state of things: no fake checkout. */}
       <div style={{ marginTop: 36, maxWidth: "52ch" }}>
-        <SectionLabel>Seats open this fall</SectionLabel>
+        <SectionLabel>Membership opens this fall</SectionLabel>
         {state === "done" ? (
           <div
             className="g-card"
             style={{ marginTop: 12, borderColor: "var(--g-citron)" }}
           >
             <p style={{ fontSize: 15, lineHeight: 1.6 }}>
-              You're on the list. We'll email you the day seats open — and
-              nothing else.
+              You're on the list. We'll email you the day membership opens
+              — and nothing else.
             </p>
             <div style={{ marginTop: 14, display: "flex", gap: 14, flexWrap: "wrap" }}>
               <Link to="/tables" className="g-btn g-btn-ghost">
@@ -302,7 +274,7 @@ export default function JoinPage() {
                 disabled={!valid || state === "sending"}
                 style={!valid ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
               >
-                {state === "sending" ? "Sending…" : "Tell me when seats open"}
+                {state === "sending" ? "Sending…" : "Tell me when membership opens"}
               </button>
             </form>
             {state === "error" && (
@@ -313,8 +285,8 @@ export default function JoinPage() {
           </>
         )}
         <p className="g-hint" style={{ marginTop: 14 }}>
-          Covered by a church or sponsor? A coverage code gets you a full seat
-          at no cost — the link they gave you starts with /c/.
+          Covered by a church or sponsor? A coverage code gets you full
+          membership at no cost — the link they gave you starts with /c/.
         </p>
       </div>
     </GardenPage>

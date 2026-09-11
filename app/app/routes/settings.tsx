@@ -225,7 +225,7 @@ function BillingSection() {
             to="/join"
             className="text-blue-600 dark:text-blue-400 hover:underline"
           >
-            Take a seat
+            Become a member
           </Link>
         </p>
       </div>

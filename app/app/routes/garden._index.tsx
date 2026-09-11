@@ -131,7 +131,7 @@ export default function GardenIndex() {
         </p>
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 24 }}>
           <Link to="/join" className="g-btn g-btn-citron">
-            Take a seat — $10/mo
+            Become a member — $10/mo
           </Link>
           <Link to="/garden/events" className="g-btn g-btn-ghost">
             See what's happening

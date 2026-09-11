@@ -68,7 +68,7 @@ const TIERS: {
       "Profile + portfolio",
       "Join open tables",
       "RSVP public events",
-      "Follow projects",
+      "Support or join projects",
     ],
     Icon: IconPeople,
   },
