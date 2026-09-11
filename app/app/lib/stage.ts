@@ -20,8 +20,9 @@ export type Stage = (typeof STAGES)[number];
 
 /** Labels per kind. "forming" reads as Hiring on a paid post, because a paid
  * post is a hiring post — otherwise every open gig on /opportunities would
- * have said "Planning". */
-export function stageLabel(stage: Stage, kind: "passion" | "paid"): string {
+ * have said "Planning". `kind` is the raw schema string; anything but "paid"
+ * reads as passion. */
+export function stageLabel(stage: Stage, kind: string): string {
   switch (stage) {
     case "planning":
       return "Planning";

@@ -862,6 +862,17 @@ export default defineSchema({
     // The community this was posted INTO (optional — content belongs to the
     // person, and is only tagged to a community; community-groups.md §0).
     hostOrgId: v.optional(v.id("hostOrgs")),
+    // Stage of the creative process (docs/features/project-teams.md §1):
+    // "planning" | "raising" | "forming" | "working" | "releasing" |
+    // "completed". A label, not a state machine, and deliberately NOT a
+    // rename of `status` (which stays lifecycle/visibility). Optional: rows
+    // from before this field derive one via resolveStage — the canonical
+    // copy lives in app/app/lib/stage.ts, twinned in garden/projectTeam.ts
+    // because convex/ can't import from app/.
+    stage: v.optional(v.string()),
+    // When `stage` last changed — setStage's once-per-24h notification rule
+    // (project-teams.md §6) checks against it.
+    stageChangedAt: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
@@ -871,6 +882,42 @@ export default defineSchema({
     .index("by_storySlug", ["storySlug"])
     .index("by_legacyJobId", ["legacyJobId"])
     .index("by_hostOrgId", ["hostOrgId"]),
+
+  // Project team (docs/features/project-teams.md §2). One row per person
+  // per project, reused across status changes — structurally
+  // eventApplications plus communityMembers. The lead is projects.userId,
+  // not a row. `userId` is absent until an off-platform credit is claimed;
+  // until then `name` is the credit line and `email` (normalized, never
+  // returned to clients) is where the claim link went.
+  projectMembers: defineTable({
+    projectId: v.id("projects"),
+    userId: v.optional(v.id("users")),
+    name: v.string(),
+    email: v.optional(v.string()),
+    role: v.string(), // free text, ≤ 60 chars
+    status: v.union(
+      v.literal("pending"),
+      v.literal("invited"),
+      v.literal("accepted"),
+      v.literal("declined"),
+      v.literal("withdrawn"),
+      v.literal("left"),
+      v.literal("removed"),
+    ),
+    invitedByUserId: v.optional(v.id("users")),
+    message: v.optional(v.string()), // ≤ 500 chars
+    claimToken: v.optional(v.string()), // crypto.randomUUID(); single use; cleared on claim
+    claimExpiresAt: v.optional(v.number()), // 30 days
+    createdAt: v.number(),
+    respondedAt: v.optional(v.number()),
+  })
+    .index("by_projectId_status", ["projectId", "status"])
+    .index("by_userId_status", ["userId", "status"])
+    .index("by_projectId_userId", ["projectId", "userId"])
+    .index("by_claimToken", ["claimToken"])
+    // Email-invite limit (§3: 10 per lead per day) counts the lead's rows
+    // with an email set over createdAt.
+    .index("by_invitedByUserId", ["invitedByUserId"]),
 
   // Support widget (docs/the-exchange-v1-prd.md §9): one record per act of
   // support on a project. Financial types start "pending" until an operator

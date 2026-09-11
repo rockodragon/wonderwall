@@ -13,6 +13,7 @@ import type { Id } from "../_generated/dataModel";
 import { slugifyTitle, resolveAvailableSlug } from "./stories";
 import { assertCommunityMember } from "./communities";
 import { notifyFollowers } from "../follows";
+import { isStage, stageLabel, shouldNotifyStageChange } from "./projectTeam";
 
 // Following fan-out (docs/features/following.md §1 #5): "Name posted Title"
 // to everyone following the poster, once per created row. `userId` is a
@@ -135,6 +136,9 @@ export const createPassionProject = mutation({
       goal: args.goal,
       raisedCents: 0,
       status: "active",
+      // Stage default (docs/features/project-teams.md §1): passion → planning.
+      stage: "planning",
+      stageChangedAt: now,
       photoUrl: args.photoUrl,
       storySlug,
       raiseByDate: args.raiseByDate,
@@ -193,6 +197,76 @@ export const updateProjectStatus = mutation({
 
     await ctx.db.patch(args.projectId, { status: args.status, updatedAt: Date.now() });
     return { ok: true };
+  },
+});
+
+// Stage (docs/features/project-teams.md §1): the creative-process label,
+// separate from `status` above (which stays lifecycle/visibility — Archive
+// still goes through updateProjectStatus). Any stage can move to any other.
+// Same permission as updateProjectStatus: the lead or an operator. Accepted
+// team members hear "Title is now Working" — but only when the stage really
+// changed and the previous change is absent or older than 24h (§6), since
+// this mutation has no rate limit of its own.
+export const setStage = mutation({
+  args: { projectId: v.id("projects"), stage: v.string() },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new ConvexError({ code: "unauthenticated" });
+
+    const project = await ctx.db.get(args.projectId);
+    if (!project) throw new ConvexError({ code: "not_found" });
+
+    const profile = await ctx.db
+      .query("profiles")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .unique();
+    if (project.userId !== userId && !profile?.isAdmin) {
+      throw new ConvexError({
+        code: "forbidden",
+        reason: "Only the creator or an operator can change this.",
+      });
+    }
+
+    if (!isStage(args.stage)) {
+      throw new ConvexError({ code: "invalid_stage", reason: "Not a valid stage." });
+    }
+    if (project.stage === args.stage) return { ok: true, changed: false };
+
+    const now = Date.now();
+    const notifyTeam = shouldNotifyStageChange(
+      project.stage,
+      args.stage,
+      project.stageChangedAt,
+      now,
+    );
+    await ctx.db.patch(args.projectId, {
+      stage: args.stage,
+      stageChangedAt: now,
+      updatedAt: now,
+    });
+
+    if (notifyTeam) {
+      const members = await ctx.db
+        .query("projectMembers")
+        .withIndex("by_projectId_status", (q) =>
+          q.eq("projectId", args.projectId).eq("status", "accepted"),
+        )
+        .collect();
+      const title = `${project.title} is now ${stageLabel(args.stage, project.kind)}`;
+      for (const member of members) {
+        if (!member.userId || member.userId === userId) continue;
+        await ctx.db.insert("notifications", {
+          userId: member.userId,
+          type: "project_stage_changed",
+          title,
+          message: "",
+          linkUrl: `/projects/${args.projectId}`,
+          relatedUserId: userId,
+          createdAt: now,
+        });
+      }
+    }
+    return { ok: true, changed: true, notified: notifyTeam };
   },
 });
 
@@ -482,6 +556,10 @@ export const createPaidProject = mutation({
       budget: args.budget,
       budgetMax: args.budgetMax,
       status: "active",
+      // Stage default (docs/features/project-teams.md §1): paid → forming
+      // (a paid post is a hiring post).
+      stage: "forming",
+      stageChangedAt: now,
       photoUrl: args.photoUrl,
       storySlug,
       interests: args.interests,

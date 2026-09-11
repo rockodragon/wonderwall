@@ -45,6 +45,7 @@ import type * as garden_operator from "../garden/operator.js";
 import type * as garden_products from "../garden/products.js";
 import type * as garden_profileInterestsFieldMigration from "../garden/profileInterestsFieldMigration.js";
 import type * as garden_projectOriginMigration from "../garden/projectOriginMigration.js";
+import type * as garden_projectTeam from "../garden/projectTeam.js";
 import type * as garden_projects from "../garden/projects.js";
 import type * as garden_projectsPublic from "../garden/projectsPublic.js";
 import type * as garden_reports from "../garden/reports.js";
@@ -118,6 +119,7 @@ declare const fullApi: ApiFromModules<{
   "garden/products": typeof garden_products;
   "garden/profileInterestsFieldMigration": typeof garden_profileInterestsFieldMigration;
   "garden/projectOriginMigration": typeof garden_projectOriginMigration;
+  "garden/projectTeam": typeof garden_projectTeam;
   "garden/projects": typeof garden_projects;
   "garden/projectsPublic": typeof garden_projectsPublic;
   "garden/reports": typeof garden_reports;

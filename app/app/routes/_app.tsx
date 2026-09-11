@@ -71,6 +71,22 @@ export default function AppLayout() {
     }
   }, [isAuthenticated, isLoading, isPublicPath, navigate]);
 
+  // Pending project credit claimed while signed out (project-teams.md §3):
+  // claim.$token.tsx stashed the token before sending this person to sign
+  // up. Runs once per sign-in, then clears the stash.
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    try {
+      const token = localStorage.getItem("pendingClaim");
+      if (token) {
+        localStorage.removeItem("pendingClaim");
+        navigate(`/claim/${token}`);
+      }
+    } catch {
+      // Private browsing / storage disabled — nothing to recover.
+    }
+  }, [isAuthenticated, navigate]);
+
   // Identify user in PostHog when authenticated and profile loaded
   useEffect(() => {
     if (isAuthenticated && profile && posthog) {

@@ -39,6 +39,11 @@ export default [
   // here — that makes this page a licence obligation, not a nicety.
   route("legal/credits", "routes/legal.credits.tsx"),
 
+  // Claiming an off-platform project credit (project-teams.md §3, §7).
+  // Public: the person may not have an account yet, so this stays outside
+  // the _app layout below rather than bouncing them to /login.
+  route("claim/:token", "routes/claim.$token.tsx"),
+
   // Public audience pages (/for/creatives, /for/hosts, …) — one page per
   // constituent door in docs/marketing/constituent-playbook.md. Outside the
   // _app layout on purpose: these are handed to people who have no account

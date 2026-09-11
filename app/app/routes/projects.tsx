@@ -12,6 +12,7 @@ import {
   communityNameFor,
   useCommunityContext,
 } from "../components/CommunityFilter";
+import { resolveStage, stageLabel, STAGES } from "../lib/stage";
 
 const KIND_FILTERS = [
   { label: "All", value: "" },
@@ -61,7 +62,7 @@ const BUDGET_TYPE_OPTIONS = [
 // only ConvexError.data is meant to reach the client). Caught via testing:
 // a real validation error ("Needs a real amount.") was showing as an opaque
 // server error instead of its actual reason.
-function errorMessage(err: unknown): string {
+export function errorMessage(err: unknown): string {
   const data = (err as { data?: unknown })?.data;
   if (data && typeof data === "object" && "reason" in data) {
     return String((data as { reason: unknown }).reason);
@@ -394,6 +395,7 @@ function ProjectCard({
   const kindWord = project.kind === "paid" ? budgetKindLabel(project) : "Passion";
   const moneyWord = project.kind === "paid" ? budgetAmountLabel(project) : null;
   const hasMoney = project.kind === "paid" && kindWord === "Paid";
+  const stage = resolveStage(project);
 
   const card = (
     <div
@@ -461,6 +463,18 @@ function ProjectCard({
           {project.title}
         </h3>
         <div className="flex flex-wrap items-center gap-1.5 mb-2">
+          {/* Stage always shows — see docs/features/project-teams.md §7 —
+              right beside the money/budget badge above it. */}
+          <span
+            className="self-start px-2 py-0.5 rounded-full text-[11px] font-medium uppercase tracking-[0.06em]"
+            style={{
+              fontFamily: "var(--garden-font-mono)",
+              backgroundColor: "rgba(198,198,190,0.1)",
+              color: "var(--garden-muted)",
+            }}
+          >
+            {stageLabel(stage, project.kind)}
+          </span>
           {daysLeft !== null && (
             <span
               className="self-start px-2 py-0.5 rounded-full text-[11px] font-medium uppercase tracking-[0.06em]"
@@ -497,9 +511,10 @@ function ProjectCard({
               Matches you
             </span>
           )}
-          {/* An "active" badge on every card would just be noise — only
-              in_progress/completed/archived signal something worth knowing. */}
-          {project.status && project.status !== "active" && (
+          {/* Stage (above) now carries the lifecycle signal on every card;
+              this legacy status pill is kept only for archived, per
+              docs/features/project-teams.md §7. */}
+          {project.status === "archived" && (
             <span
               className="self-start px-2 py-0.5 rounded-full text-[11px] font-medium uppercase tracking-[0.06em]"
               style={{
@@ -627,6 +642,49 @@ export function StatusSelect({ project }: { project: any }) {
       {options.map((o) => (
         <option key={o.value} value={o.value}>
           {o.label}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+// Stage select — the project page's stage control (docs/features/
+// project-teams.md §1). StatusSelect above still backs the legacy status
+// pill and is untouched; this is a separate control writing the new
+// `stage` field via setStage. Any stage can move to any other — it's a
+// label, not a state machine, so every option is always available.
+export function StageSelect({ project }: { project: any }) {
+  const setStage = useMutation(api.garden.projects.setStage);
+  const [saving, setSaving] = useState(false);
+
+  async function handleChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    const stage = e.target.value;
+    setSaving(true);
+    try {
+      await setStage({ projectId: project._id, stage });
+    } catch {
+      // Reverts on the next render since project.stage won't have actually
+      // changed server-side — same convention as StatusSelect above.
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <select
+      value={resolveStage(project)}
+      onChange={handleChange}
+      disabled={saving}
+      className="text-xs rounded-lg border px-2 py-1 outline-none disabled:opacity-50"
+      style={{
+        backgroundColor: "var(--garden-ink)",
+        borderColor: "var(--garden-hairline-raised)",
+        color: "var(--garden-body)",
+      }}
+    >
+      {STAGES.map((s) => (
+        <option key={s} value={s}>
+          {stageLabel(s, project.kind)}
         </option>
       ))}
     </select>

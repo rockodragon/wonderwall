@@ -6,7 +6,11 @@ import type { Id } from "../../convex/_generated/dataModel";
 import { FavoriteButton } from "../components/FavoriteButton";
 import { ShareButton } from "../components/ShareButton";
 import { usePostHog } from "@posthog/react";
+import { stageLabel, type Stage } from "../lib/stage";
 
+// Matches listAffiliations's return shape (project-teams.md §4). Annotated
+// explicitly here — not inferred from the query — so this section still
+// typechecks while app/convex/garden/projectTeam.ts is still being written.
 export default function Profile() {
   const { profileId } = useParams();
   const navigate = useNavigate();
@@ -25,6 +29,11 @@ export default function Profile() {
   const theirTables = useQuery(
     api.garden.tables.listTablesForUser,
     profile?.userId ? { userId: profile.userId } : "skip",
+  );
+  // Projects this person leads or is accepted on (project-teams.md §7).
+  const affiliations = useQuery(
+    api.garden.projectTeam.listAffiliations,
+    profile?._id ? { profileId: profile._id } : "skip",
   );
   const getOrCreateConversation = useMutation(
     api.messaging.getOrCreateConversation,
@@ -344,6 +353,39 @@ export default function Profile() {
                   See the table →
                 </div>
               </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Projects this person leads or is on the team of. Above Work —
+          project-teams.md §7 — hidden entirely when there are none. */}
+      {affiliations && affiliations.length > 0 && (
+        <div className="mb-8">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+            Projects
+          </h2>
+          <div className="divide-y divide-gray-200 dark:divide-gray-800">
+            {affiliations.map((a) => (
+              <div
+                key={a.projectId}
+                className="flex items-baseline justify-between gap-3 flex-wrap py-3"
+              >
+                <div className="flex items-baseline gap-2 flex-wrap">
+                  <Link
+                    to={`/projects/${a.projectId}`}
+                    className="font-medium text-gray-900 dark:text-white hover:underline"
+                  >
+                    {a.title}
+                  </Link>
+                  <span className="text-sm text-gray-600 dark:text-gray-300">
+                    {a.role || "Lead"}
+                  </span>
+                </div>
+                <span className="text-sm text-gray-500 dark:text-gray-400">
+                  {stageLabel(a.stage as Stage, a.kind)}
+                </span>
+              </div>
             ))}
           </div>
         </div>

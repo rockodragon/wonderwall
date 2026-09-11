@@ -12,13 +12,15 @@
 
 import { useState } from "react";
 import type { ReactNode } from "react";
-import { useQuery } from "convex/react";
-import { Link, useParams, useRouteError } from "react-router";
+import { useMutation, useQuery } from "convex/react";
+import { Link, useNavigate, useParams, useRouteError } from "react-router";
 import { api } from "../../convex/_generated/api";
+import type { Id } from "../../convex/_generated/dataModel";
 import { AnnouncementComposer } from "../components/AnnouncementComposer";
 import { FavoriteButton } from "../components/FavoriteButton";
 import { budgetAmountLabel, budgetKindLabel } from "../lib/budgetLabel";
-import { STATUS_LABELS, StatusSelect, SupportModal } from "./projects";
+import { resolveStage, stageLabel } from "../lib/stage";
+import { errorMessage, STATUS_LABELS, StageSelect, SupportModal } from "./projects";
 
 // Loader-less (client-only useQuery, same as communities.$slug.tsx and
 // offerings.$id.tsx) — `data` is never actually populated; this just
@@ -167,12 +169,22 @@ export default function ProjectDetail() {
         )}
       </div>
 
-      <h1
-        className="text-2xl sm:text-3xl font-semibold mb-2"
-        style={{ color: "var(--garden-paper)", fontFamily: "var(--garden-font-display)" }}
-      >
-        {project.title}
-      </h1>
+      <div className="flex flex-wrap items-center gap-2 mb-2">
+        <h1
+          className="text-2xl sm:text-3xl font-semibold"
+          style={{ color: "var(--garden-paper)", fontFamily: "var(--garden-font-display)" }}
+        >
+          {project.title}
+        </h1>
+        {/* Stage always shows, for everyone — docs/features/project-teams.md
+            §7. The legacy status pill below is now archived-only. */}
+        <span
+          className="px-2 py-0.5 rounded-full text-[11px] font-medium uppercase tracking-[0.06em]"
+          style={{ fontFamily: "var(--garden-font-mono)", backgroundColor: "rgba(198,198,190,0.1)", color: "var(--garden-muted)" }}
+        >
+          {stageLabel(resolveStage(project), project.kind)}
+        </span>
+      </div>
 
       {/* creator._id is a PROFILE id — the same id the Follow button keys on.
           The button sits beside the link, not inside it, so a tap follows
@@ -207,7 +219,7 @@ export default function ProjectDetail() {
         </div>
       )}
 
-      {project.status && project.status !== "active" && (
+      {project.status === "archived" && (
         <span
           className="inline-block mb-4 px-2 py-0.5 rounded-full text-[11px] font-medium uppercase tracking-[0.06em]"
           style={{ fontFamily: "var(--garden-font-mono)", backgroundColor: "rgba(198,198,190,0.1)", color: "var(--garden-muted)" }}
@@ -235,6 +247,8 @@ export default function ProjectDetail() {
           {project.blurb}
         </p>
       )}
+
+      <TeamCard project={project} isOwner={isOwner} myProfile={myProfile} />
 
       {project.benefitsNonprofit && (
         <DetailCard label="Nonprofit">
@@ -271,20 +285,754 @@ export default function ProjectDetail() {
       {isOwner && (
         <>
           <DetailCard label="Manage">
-            <div className="flex items-center gap-2">
-              <label className="text-[11px] uppercase tracking-[0.06em]" style={{ color: "var(--garden-dim)" }}>
-                Status
-              </label>
-              <StatusSelect project={project} />
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="flex items-center gap-2">
+                <label className="text-[11px] uppercase tracking-[0.06em]" style={{ color: "var(--garden-dim)" }}>
+                  Stage
+                </label>
+                <StageSelect project={project} />
+              </div>
+              {/* Archive is separate from stage — stage is a label on live
+                  work, archiving is the lifecycle action (docs/features/
+                  project-teams.md §1). */}
+              <ArchiveButton project={project} />
             </div>
           </DetailCard>
           <div className="mb-6">
-            <AnnouncementComposer targetType="project" targetId={project._id} heading="Message supporters" />
+            <AnnouncementComposer targetType="project" targetId={project._id} heading="Message team and supporters" />
           </div>
         </>
       )}
 
       {showSupportModal && <SupportModal project={project} onClose={() => setShowSupportModal(false)} />}
     </PageShell>
+  );
+}
+
+// Minimal utility control, same convention as StatusSelect/StageSelect in
+// routes/projects.tsx — a creator moving their own project to archived via
+// the existing updateProjectStatus mutation. Kept as a separate action from
+// stage: stage is a label on live work, archiving changes lifecycle/
+// visibility (docs/features/project-teams.md §1).
+function ArchiveButton({ project }: { project: any }) {
+  const updateProjectStatus = useMutation(api.garden.projects.updateProjectStatus);
+  const [saving, setSaving] = useState(false);
+
+  async function handleClick() {
+    if (!window.confirm(`Archive "${project.title}"? It'll stop showing on /projects.`)) return;
+    setSaving(true);
+    try {
+      await updateProjectStatus({ projectId: project._id, status: "archived" });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (project.status === "archived") return null;
+
+  return (
+    <button
+      onClick={handleClick}
+      disabled={saving}
+      className="text-xs underline underline-offset-2 hover:opacity-80 disabled:opacity-50"
+      style={{ color: "var(--garden-dim)" }}
+    >
+      Archive
+    </button>
+  );
+}
+
+// Small avatar, same fallback-initial pattern as the creator block above —
+// pulled out here since the team card repeats it for the lead, every
+// accepted member, and every pending request.
+function Avatar({ name, imageUrl }: { name: string; imageUrl?: string | null }) {
+  return imageUrl ? (
+    <img src={imageUrl} alt={name} className="w-6 h-6 rounded-full object-cover shrink-0" />
+  ) : (
+    <div
+      className="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0"
+      style={{ backgroundColor: "var(--garden-hairline-raised)", color: "var(--garden-paper)" }}
+    >
+      {name.charAt(0).toUpperCase()}
+    </div>
+  );
+}
+
+// The existing profile-page Message button, copied here rather than shared:
+// it navigates via getOrCreateConversation the same way (routes/profile.tsx
+// ~136-161), just without PostHog (this page doesn't fire those events).
+function MessageButton({ userId }: { userId: string }) {
+  const getOrCreateConversation = useMutation(api.messaging.getOrCreateConversation);
+  const navigate = useNavigate();
+  const [starting, setStarting] = useState(false);
+
+  async function handleClick() {
+    if (starting) return;
+    setStarting(true);
+    try {
+      const conversation = await getOrCreateConversation({ otherUserId: userId as any });
+      if (conversation) navigate(`/messages/${conversation._id}`);
+    } catch {
+      // Quiet failure, same as profile.tsx's Message button — nothing
+      // useful to surface inline on a compact team row.
+    } finally {
+      setStarting(false);
+    }
+  }
+
+  return (
+    <button
+      onClick={handleClick}
+      disabled={starting}
+      className="ml-auto text-xs underline underline-offset-2 hover:opacity-80 disabled:opacity-50 whitespace-nowrap"
+      style={{ color: "var(--garden-citron)" }}
+    >
+      Message
+    </button>
+  );
+}
+
+function TeamMemberRow({
+  name,
+  imageUrl,
+  profileId,
+  roleLabel,
+  userId,
+  showMessage,
+}: {
+  name: string;
+  imageUrl?: string | null;
+  profileId?: string | null;
+  roleLabel: string;
+  userId?: string;
+  showMessage?: boolean;
+}) {
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <Avatar name={name} imageUrl={imageUrl} />
+      {profileId ? (
+        <Link to={`/profile/${profileId}`} className="hover:opacity-80" style={{ color: "var(--garden-paper)" }}>
+          {name}
+        </Link>
+      ) : (
+        <span style={{ color: "var(--garden-paper)" }}>{name}</span>
+      )}
+      <span style={{ color: "var(--garden-dim)" }}>— {roleLabel}</span>
+      {showMessage && userId && <MessageButton userId={userId} />}
+    </div>
+  );
+}
+
+// Team card — lead, accepted members, off-platform credits, the viewer's
+// own membership actions, and (lead-only) requests/invited/add-someone
+// tools. See docs/features/project-teams.md §2-4 and §7.
+function TeamCard({
+  project,
+  isOwner,
+  myProfile,
+}: {
+  project: any;
+  isOwner: boolean;
+  myProfile: any;
+}) {
+  const team = useQuery(api.garden.projectTeam.getTeam, { projectId: project._id });
+
+  if (!team) return null;
+
+  const myUserId = myProfile?.userId;
+
+  return (
+    <DetailCard label="Team">
+      <div className="flex flex-col gap-2.5">
+        <TeamMemberRow
+          name={team.lead.name}
+          imageUrl={team.lead.imageUrl}
+          profileId={team.lead.profileId}
+          roleLabel="Lead"
+          userId={team.lead.userId}
+          showMessage={!!myUserId && myUserId !== team.lead.userId}
+        />
+        {team.accepted.map((m: any) => (
+          <TeamMemberRow
+            key={m.memberId}
+            name={m.name}
+            imageUrl={m.imageUrl}
+            profileId={m.profileId}
+            roleLabel={m.role}
+            userId={m.userId}
+            showMessage={!!myUserId && myUserId !== m.userId}
+          />
+        ))}
+        {team.credits.map((c: any) => (
+          <div key={c.memberId} className="flex items-center gap-2 text-sm">
+            <span style={{ color: "var(--garden-paper)" }}>{c.name}</span>
+            <span style={{ color: "var(--garden-dim)" }}>— {c.role}</span>
+            <span
+              className="text-[10px] uppercase tracking-[0.06em]"
+              style={{ fontFamily: "var(--garden-font-mono)", color: "var(--garden-dim)" }}
+            >
+              invited
+            </span>
+          </div>
+        ))}
+      </div>
+
+      {!isOwner && (
+        <ViewerTeamActions project={project} mine={team.mine} leadName={team.lead.name} />
+      )}
+
+      {isOwner && <LeadTeamTools project={project} pending={team.pending} invited={team.invited} />}
+    </DetailCard>
+  );
+}
+
+// Not-on-the-team viewer actions: apply/ask, or the state of an existing
+// request/invite/membership. Hidden for the lead — they get LeadTeamTools
+// instead. See docs/features/project-teams.md §3, §7.
+function ViewerTeamActions({
+  project,
+  mine,
+  leadName,
+}: {
+  project: any;
+  mine: { memberId: string; status: string; role: string } | undefined;
+  leadName: string;
+}) {
+  const withdrawRequest = useMutation(api.garden.projectTeam.withdrawRequest);
+  const respondToInvite = useMutation(api.garden.projectTeam.respondToInvite);
+  const leaveProject = useMutation(api.garden.projectTeam.leaveProject);
+  const [showJoinModal, setShowJoinModal] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  async function run(action: () => Promise<unknown>) {
+    setBusy(true);
+    setError("");
+    try {
+      await action();
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="pt-3 mt-2.5" style={{ borderTop: "1px solid var(--garden-hairline)" }}>
+      {!mine && (
+        <button
+          onClick={() => setShowJoinModal(true)}
+          className="px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-opacity hover:opacity-90"
+          style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
+        >
+          {project.kind === "paid" ? "Apply" : "Ask to join"}
+        </button>
+      )}
+
+      {mine?.status === "pending" && (
+        <div className="flex items-center gap-3 text-sm" style={{ color: "var(--garden-body)" }}>
+          <span>Requested as {mine.role}</span>
+          <button
+            disabled={busy}
+            onClick={() => run(() => withdrawRequest({ projectId: project._id }))}
+            className="text-xs underline underline-offset-2 hover:opacity-80 disabled:opacity-50"
+            style={{ color: "var(--garden-dim)" }}
+          >
+            Withdraw
+          </button>
+        </div>
+      )}
+
+      {mine?.status === "invited" && (
+        <div className="flex items-center gap-3 text-sm flex-wrap" style={{ color: "var(--garden-body)" }}>
+          <span>
+            {leadName} invited you as {mine.role}
+          </span>
+          <button
+            disabled={busy}
+            onClick={() => run(() => respondToInvite({ projectId: project._id, accept: true }))}
+            className="text-xs px-2.5 py-1 rounded-lg font-semibold disabled:opacity-50"
+            style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
+          >
+            Accept
+          </button>
+          <button
+            disabled={busy}
+            onClick={() => run(() => respondToInvite({ projectId: project._id, accept: false }))}
+            className="text-xs underline underline-offset-2 hover:opacity-80 disabled:opacity-50"
+            style={{ color: "var(--garden-dim)" }}
+          >
+            Decline
+          </button>
+        </div>
+      )}
+
+      {mine?.status === "accepted" && (
+        <div className="flex items-center gap-3 text-sm" style={{ color: "var(--garden-body)" }}>
+          <span>You're on this project as {mine.role}</span>
+          <button
+            disabled={busy}
+            onClick={() => {
+              if (window.confirm("Leave this project's team?")) {
+                run(() => leaveProject({ projectId: project._id }));
+              }
+            }}
+            className="text-xs underline underline-offset-2 hover:opacity-80 disabled:opacity-50"
+            style={{ color: "var(--garden-dim)" }}
+          >
+            Leave
+          </button>
+        </div>
+      )}
+
+      {error && <p className="text-sm text-red-400 mt-2">{error}</p>}
+
+      {showJoinModal && <JoinRequestModal project={project} onClose={() => setShowJoinModal(false)} />}
+    </div>
+  );
+}
+
+// Same visual style as SupportModal in routes/projects.tsx — a small modal,
+// not a page, for the one thing it does: ask to join, or apply.
+function JoinRequestModal({ project, onClose }: { project: any; onClose: () => void }) {
+  const requestToJoin = useMutation(api.garden.projectTeam.requestToJoin);
+  const [role, setRole] = useState("");
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [done, setDone] = useState(false);
+  const isPaid = project.kind === "paid";
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    if (!role.trim()) {
+      setError("Say what role you'd take on.");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await requestToJoin({
+        projectId: project._id,
+        role: role.trim(),
+        message: message.trim() || undefined,
+      });
+      setDone(true);
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto"
+      style={{ backgroundColor: "rgba(0,0,0,0.6)" }}
+    >
+      <div
+        className="w-full max-w-md rounded-2xl border p-6 my-8"
+        style={{ backgroundColor: "var(--garden-ink-raised)", borderColor: "var(--garden-hairline)" }}
+      >
+        <h2
+          className="text-xl font-semibold mb-4"
+          style={{ color: "var(--garden-paper)", fontFamily: "var(--garden-font-display)" }}
+        >
+          {isPaid ? "Apply to" : "Ask to join"} "{project.title}"
+        </h2>
+
+        {done ? (
+          <div className="py-4">
+            <p className="text-sm mb-4" style={{ color: "var(--garden-body)" }}>
+              Sent — the lead will follow up.
+            </p>
+            <button
+              onClick={onClose}
+              className="px-4 py-2 rounded-lg text-sm font-semibold"
+              style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
+            >
+              Done
+            </button>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            <div>
+              <label className="block text-xs uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
+                Role
+              </label>
+              <input
+                type="text"
+                value={role}
+                onChange={(e) => setRole(e.target.value.slice(0, 60))}
+                placeholder="Editor"
+                maxLength={60}
+                className="w-full px-3 py-2 rounded-lg border text-sm outline-none"
+                style={{
+                  backgroundColor: "var(--garden-ink)",
+                  borderColor: "var(--garden-hairline-raised)",
+                  color: "var(--garden-paper)",
+                }}
+              />
+            </div>
+            <div>
+              <label className="block text-xs uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
+                Note (optional)
+              </label>
+              <textarea
+                value={message}
+                onChange={(e) => setMessage(e.target.value.slice(0, 500))}
+                rows={3}
+                maxLength={500}
+                placeholder="Why you'd be good for this"
+                className="w-full px-3 py-2 rounded-lg border text-sm outline-none resize-none"
+                style={{
+                  backgroundColor: "var(--garden-ink)",
+                  borderColor: "var(--garden-hairline-raised)",
+                  color: "var(--garden-paper)",
+                }}
+              />
+            </div>
+            {error && <p className="text-sm text-red-400">{error}</p>}
+            <div className="flex gap-2 justify-end pt-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 rounded-lg text-sm font-medium"
+                style={{ color: "var(--garden-dim)" }}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={submitting}
+                className="px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-50"
+                style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
+              >
+                {submitting ? "Sending…" : "Send"}
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Lead-only: requests waiting on a decision, people already invited, and a
+// compact way to add someone new. One card section, not a page — see
+// docs/features/project-teams.md §4, §7.
+function LeadTeamTools({
+  project,
+  pending,
+  invited,
+}: {
+  project: any;
+  pending: any[] | undefined;
+  invited: any[] | undefined;
+}) {
+  const decideRequest = useMutation(api.garden.projectTeam.decideRequest);
+  const removeMember = useMutation(api.garden.projectTeam.removeMember);
+  const [error, setError] = useState("");
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  async function run(memberId: string, action: () => Promise<unknown>) {
+    setBusyId(memberId);
+    setError("");
+    try {
+      await action();
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  return (
+    <div className="pt-4 mt-2.5 flex flex-col gap-4" style={{ borderTop: "1px solid var(--garden-hairline)" }}>
+      {pending && pending.length > 0 && (
+        <div>
+          <p className="text-[11px] uppercase tracking-[0.06em] mb-2" style={{ color: "var(--garden-dim)" }}>
+            Requests
+          </p>
+          <div className="flex flex-col gap-2">
+            {pending.map((r: any) => (
+              <div key={r.memberId} className="flex items-start gap-2 text-sm">
+                <Avatar name={r.name} imageUrl={r.imageUrl} />
+                <div className="flex-1 min-w-0">
+                  <Link to={`/profile/${r.profileId}`} className="hover:opacity-80" style={{ color: "var(--garden-paper)" }}>
+                    {r.name}
+                  </Link>
+                  <span style={{ color: "var(--garden-dim)" }}> — {r.role}</span>
+                  {r.message && (
+                    <p className="text-xs mt-0.5" style={{ color: "var(--garden-dim)" }}>
+                      "{r.message}"
+                    </p>
+                  )}
+                </div>
+                <button
+                  disabled={busyId === r.memberId}
+                  onClick={() => run(r.memberId, () => decideRequest({ memberId: r.memberId, accept: true }))}
+                  className="text-xs px-2.5 py-1 rounded-lg font-semibold whitespace-nowrap disabled:opacity-50"
+                  style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
+                >
+                  Accept
+                </button>
+                <button
+                  disabled={busyId === r.memberId}
+                  onClick={() => run(r.memberId, () => decideRequest({ memberId: r.memberId, accept: false }))}
+                  className="text-xs underline underline-offset-2 hover:opacity-80 disabled:opacity-50 whitespace-nowrap"
+                  style={{ color: "var(--garden-dim)" }}
+                >
+                  Decline
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {invited && invited.length > 0 && (
+        <div>
+          <p className="text-[11px] uppercase tracking-[0.06em] mb-2" style={{ color: "var(--garden-dim)" }}>
+            Invited
+          </p>
+          <div className="flex flex-col gap-2">
+            {invited.map((inv: any) => (
+              <div key={inv.memberId} className="flex items-center gap-2 text-sm">
+                {inv.byEmail ? (
+                  <span style={{ color: "var(--garden-paper)" }}>Invited by email</span>
+                ) : inv.profileId ? (
+                  <Link to={`/profile/${inv.profileId}`} className="hover:opacity-80" style={{ color: "var(--garden-paper)" }}>
+                    {inv.name}
+                  </Link>
+                ) : (
+                  <span style={{ color: "var(--garden-paper)" }}>{inv.name}</span>
+                )}
+                <span style={{ color: "var(--garden-dim)" }}>— {inv.role}</span>
+                <button
+                  disabled={busyId === inv.memberId}
+                  onClick={() => run(inv.memberId, () => removeMember({ memberId: inv.memberId }))}
+                  className="ml-auto text-xs underline underline-offset-2 hover:opacity-80 disabled:opacity-50 whitespace-nowrap"
+                  style={{ color: "var(--garden-dim)" }}
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <AddSomeone projectId={project._id} />
+
+      {error && <p className="text-sm text-red-400">{error}</p>}
+    </div>
+  );
+}
+
+// Add someone: search people already here, or credit someone who isn't
+// (docs/features/project-teams.md §3). Two modes in one compact block
+// rather than a separate form — this is one card section, not a page.
+function AddSomeone({ projectId }: { projectId: string }) {
+  const [mode, setMode] = useState<"search" | "credit">("search");
+  const [query, setQuery] = useState("");
+  const [invitingUserId, setInvitingUserId] = useState<string | null>(null);
+  const [roleDraft, setRoleDraft] = useState("");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [creditRole, setCreditRole] = useState("");
+  const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const results = useQuery(
+    api.garden.projectTeam.searchPeopleForInvite,
+    query.trim().length >= 2 ? { q: query.trim() } : "skip",
+  );
+  const inviteMember = useMutation(api.garden.projectTeam.inviteMember);
+
+  async function sendPersonInvite(userId: string) {
+    if (!roleDraft.trim()) {
+      setError("Say what role you're inviting them for.");
+      return;
+    }
+    setError("");
+    setSubmitting(true);
+    try {
+      await inviteMember({
+        projectId: projectId as Id<"projects">,
+        userId: userId as Id<"users">,
+        role: roleDraft.trim(),
+      });
+      setInvitingUserId(null);
+      setRoleDraft("");
+      setQuery("");
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleCreditSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    if (!name.trim()) {
+      setError("Add their name.");
+      return;
+    }
+    if (!creditRole.trim()) {
+      setError("Say what role they had.");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await inviteMember({
+        projectId: projectId as Id<"projects">,
+        name: name.trim(),
+        email: email.trim() || undefined,
+        role: creditRole.trim(),
+      });
+      setName("");
+      setEmail("");
+      setCreditRole("");
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  const inputStyle = {
+    backgroundColor: "var(--garden-ink)",
+    borderColor: "var(--garden-hairline-raised)",
+    color: "var(--garden-paper)",
+  };
+
+  return (
+    <div>
+      <p className="text-[11px] uppercase tracking-[0.06em] mb-2" style={{ color: "var(--garden-dim)" }}>
+        Add someone
+      </p>
+
+      {mode === "search" ? (
+        <>
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search people by name"
+            className="w-full px-3 py-2 rounded-lg border text-sm outline-none"
+            style={inputStyle}
+          />
+          {results && results.length > 0 && (
+            <div className="flex flex-col gap-2 mt-2">
+              {results.map((p: any) => (
+                <div key={p.profileId} className="flex items-center gap-2 text-sm">
+                  <Avatar name={p.name} imageUrl={p.imageUrl} />
+                  <span className="flex-1 min-w-0 truncate" style={{ color: "var(--garden-paper)" }}>
+                    {p.name}
+                  </span>
+                  {invitingUserId === p.userId ? (
+                    <>
+                      <input
+                        type="text"
+                        value={roleDraft}
+                        onChange={(e) => setRoleDraft(e.target.value.slice(0, 60))}
+                        placeholder="Role"
+                        maxLength={60}
+                        className="w-24 px-2 py-1 rounded-lg border text-xs outline-none"
+                        style={inputStyle}
+                      />
+                      <button
+                        disabled={submitting}
+                        onClick={() => sendPersonInvite(p.userId)}
+                        className="text-xs px-2 py-1 rounded-lg font-semibold whitespace-nowrap disabled:opacity-50"
+                        style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
+                      >
+                        Send
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        setInvitingUserId(p.userId);
+                        setRoleDraft("");
+                        setError("");
+                      }}
+                      className="text-xs underline underline-offset-2 hover:opacity-80 whitespace-nowrap"
+                      style={{ color: "var(--garden-citron)" }}
+                    >
+                      Invite
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={() => {
+              setMode("credit");
+              setError("");
+            }}
+            className="block text-xs underline underline-offset-2 hover:opacity-80 mt-2"
+            style={{ color: "var(--garden-muted)" }}
+          >
+            Not on the platform yet
+          </button>
+        </>
+      ) : (
+        <form onSubmit={handleCreditSubmit} className="flex flex-col gap-2">
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Name"
+            className="w-full px-3 py-2 rounded-lg border text-sm outline-none"
+            style={inputStyle}
+          />
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="Email (optional)"
+            className="w-full px-3 py-2 rounded-lg border text-sm outline-none"
+            style={inputStyle}
+          />
+          <input
+            type="text"
+            value={creditRole}
+            onChange={(e) => setCreditRole(e.target.value.slice(0, 60))}
+            placeholder="Role"
+            maxLength={60}
+            className="w-full px-3 py-2 rounded-lg border text-sm outline-none"
+            style={inputStyle}
+          />
+          <div className="flex gap-2 justify-end">
+            <button
+              type="button"
+              onClick={() => {
+                setMode("search");
+                setError("");
+              }}
+              className="px-3 py-1.5 rounded-lg text-xs font-medium"
+              style={{ color: "var(--garden-dim)" }}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50"
+              style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
+            >
+              {submitting ? "Adding…" : "Add credit"}
+            </button>
+          </div>
+        </form>
+      )}
+
+      {error && <p className="text-sm text-red-400 mt-2">{error}</p>}
+    </div>
   );
 }

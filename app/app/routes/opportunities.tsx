@@ -3,6 +3,7 @@ import { useQuery } from "convex/react";
 import { Link } from "react-router";
 import { api } from "../../convex/_generated/api";
 import { budgetKindLabel } from "../lib/budgetLabel";
+import { resolveStage, stageLabel } from "../lib/stage";
 import { GardenHeader } from "../garden/ui";
 import "../garden/garden.css";
 
@@ -40,6 +41,10 @@ type ProjectCard = {
   raisedCents?: number;
   moneyLine: string;
   status?: string;
+  // Not on the public query today (garden/projectsPublic.ts may or may not
+  // send it) — optional so this page still typechecks either way.
+  // resolveStage() derives a sensible value when it's missing.
+  stage?: string;
   community?: { name: string; slug: string } | null;
 };
 
@@ -106,8 +111,14 @@ function ProjectTile({ project }: { project: ProjectCard }) {
         />
       )}
       <div className="flex flex-col flex-1 p-6">
-        <p className="text-[var(--garden-citron)] font-semibold text-sm mb-2">
-          {project.moneyLine}
+        <p className="text-sm mb-2">
+          <span className="text-[var(--garden-citron)] font-semibold">
+            {project.moneyLine}
+          </span>
+          <span className="text-[var(--garden-dim)]">
+            {" "}
+            · {stageLabel(resolveStage(project), project.kind)}
+          </span>
         </p>
         <h2 className="text-[var(--garden-paper)] font-semibold text-lg leading-snug mb-2">
           {project.title}

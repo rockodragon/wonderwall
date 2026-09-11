@@ -38,7 +38,7 @@ The reminder must fire exactly once per (target, start time) no matter how many 
 
 | Target | Source rows | Reachability |
 |--------|-------------|--------------|
-| Project | `projectSupport` by `by_projectId` | `supporterUserId` set → in-app + email. Absent → **unreachable** (the table has no email field). Optional in schema, but `garden/support.ts:supportProject` is the only write path and it requires auth, so this is defensive, not an expected state |
+| Project | `projectSupport` by `by_projectId`, **plus** `projectMembers` by `by_projectId_status` with `status: "accepted"` (docs/features/project-teams.md §5 — the lead messages team and supporters at once) | `supporterUserId` set → in-app + email. Absent → **unreachable** (the table has no email field). Optional in schema, but `garden/support.ts:supportProject` is the only write path and it requires auth, so this is defensive, not an expected state. Accepted team member (`userId` is always set once accepted) → in-app + email |
 | Event | `eventRsvps` by `by_eventId`, **plus** `eventApplications` by `by_eventId_status` with `status: "accepted"` | RSVP with `userId` → in-app + email. Guest RSVP (no `userId`) → **email only**, via `eventRsvps.email` (required field). Accepted applicant (`applicantId`, required) → in-app + email |
 | Offering | `offeringSignups` by `by_offeringId`, status `"pledged"` or `"confirmed"` | `userId` is required on this table → always in-app + email |
 
