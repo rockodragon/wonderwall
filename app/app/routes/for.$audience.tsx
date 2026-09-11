@@ -165,20 +165,20 @@ const AUDIENCES: Audience[] = [
       "$10 a month opens the door for one of them. You can see exactly what it did.",
     points: [
       {
-        title: "A covered seat is a full seat",
-        body: "The creative you sponsor gets everything a paying member gets. The only difference is who paid.",
+        title: "They get everything, not a discount",
+        body: "The creative you sponsor can start projects, take paid work, and propose to the grant fund — same as anyone who pays for it themselves.",
       },
       {
-        title: "You see the names",
-        body: "Seats given, seats used, and who used them. Your church is credited on the work they publish.",
+        title: "It's not really about Sunday",
+        body: "The people you sponsor keep making after the service ends — festivals, bars, wherever people are. You helped make that possible.",
       },
       {
         title: "One card, one code",
         body: "Buy ten seats at once and hand out a single code.",
       },
       {
-        title: "It adds up",
-        body: "Ten seats is $50 a month. Half of that goes into the grant fund, which is about two grants a year to creatives in this county.",
+        title: "Where it goes",
+        body: "Half of every seat funds the grant program. The other half keeps this running. Every grant that goes out is public.",
       },
     ],
     cost:
