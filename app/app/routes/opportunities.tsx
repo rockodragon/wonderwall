@@ -4,8 +4,7 @@ import { Link } from "react-router";
 import { api } from "../../convex/_generated/api";
 import { budgetKindLabel } from "../lib/budgetLabel";
 import { resolveStage, stageLabel } from "../lib/stage";
-import { GardenHeader } from "../garden/ui";
-import "../garden/garden.css";
+import { SiteHeader } from "../components/SiteHeader";
 
 // /opportunities — the public browse surface. Deliberately OUTSIDE the
 // _app.tsx layout: that layout sends logged-out visitors to /login
@@ -193,7 +192,7 @@ export default function Opportunities() {
 
   return (
     <div className="min-h-screen bg-[var(--garden-ink)]">
-      <GardenHeader active="Projects" />
+      <SiteHeader />
 
       <main className="px-6 pt-8 pb-24 max-w-[980px] mx-auto">
         <h1

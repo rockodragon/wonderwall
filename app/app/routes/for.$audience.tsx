@@ -2,8 +2,7 @@ import { Link } from "react-router";
 import type { Route } from "./+types/for.$audience";
 import { CampaignBand } from "../components/CampaignBand";
 import type { CampaignImageKey } from "../lib/campaign";
-import { GardenHeader } from "../garden/ui";
-import "../garden/garden.css";
+import { SiteHeader } from "../components/SiteHeader";
 
 // Public audience pages — one per constituent door in
 // docs/marketing/constituent-playbook.md. Deliberately OUTSIDE the _app.tsx
@@ -127,16 +126,21 @@ const AUDIENCES: Audience[] = [
   {
     slug: "patrons",
     eyebrow: "For patrons and backers",
-    headline: "Put money behind someone you believe in.",
-    subhead: "Pick a creative. Fund their project. Watch it get made.",
+    headline: "Back someone you believe in.",
+    subhead:
+      "A person, a team, or a project. With money, or with a room, a camera, an introduction. Watch it get made.",
     points: [
       {
-        title: "All of it reaches them",
-        body: "You cover the fee when you check out, so the creative receives the full amount you meant to give.",
+        title: "What you choose to give is what they get",
+        body: "Our fee is added at checkout, on your receipt. A $100 gift is $100 to the creative.",
+      },
+      {
+        title: "Money isn't the only way",
+        body: "Offer a studio for an afternoon, gear, a print run, a connection. A resource is backing too, and it's credited the same way.",
       },
       {
         title: "Your name is on the work",
-        body: "You are credited on the finished work.",
+        body: "You are credited on the finished work, whatever you gave.",
       },
       {
         title: "You see how it goes",
@@ -144,7 +148,7 @@ const AUDIENCES: Audience[] = [
       },
     ],
     cost:
-      "A patron account is free. You choose the amount and when. This is backing, not a donation, so it isn't tax-deductible and the creative pays income tax on it.",
+      "A patron account is free. You choose what to give and when. Backing isn't a donation, so it isn't tax-deductible, and the creative pays income tax on money they receive.",
     ctaLabel: "Pick someone to back",
     ctaTo: "/opportunities",
     ctaLabel2: "Create a free patron account",
@@ -152,7 +156,7 @@ const AUDIENCES: Audience[] = [
     bandImages: ["band", "viewing"],
     metaTitle: "For patrons — creatives.exchange",
     metaDescription:
-      "Pick a creative, fund their project, and watch it get made. You cover the fee at checkout so the full amount reaches them.",
+      "Back a creative, a team, or a project with money or resources. Our fee is added at checkout, so what you choose to give is what they get.",
   },
   {
     slug: "churches",
@@ -304,7 +308,7 @@ export default function ForAudience({ params }: Route.ComponentProps) {
 
   return (
     <div className="min-h-screen bg-[var(--garden-ink)]">
-      <GardenHeader />
+      <SiteHeader />
 
       <main className="px-6 pt-8 pb-24 max-w-[980px] mx-auto">
         <p className="text-[var(--garden-citron)] text-sm font-semibold tracking-wide uppercase mb-4">

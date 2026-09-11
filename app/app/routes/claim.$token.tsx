@@ -9,8 +9,7 @@ import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { ConvexError } from "convex/values";
 import { Link, useNavigate, useParams } from "react-router";
 import { api } from "../../convex/_generated/api";
-import { GardenHeader } from "../garden/ui";
-import "../garden/garden.css";
+import { SiteHeader } from "../components/SiteHeader";
 
 export function meta() {
   return [
@@ -59,7 +58,7 @@ export default function ClaimToken() {
 
   return (
     <div className="min-h-screen bg-[var(--garden-ink)]">
-      <GardenHeader />
+      <SiteHeader />
       <main className="px-6 pt-8 pb-24 max-w-[640px] mx-auto">
         {isLoading || claim === undefined ? (
           <p className="text-[var(--garden-dim)] text-sm">Loading…</p>

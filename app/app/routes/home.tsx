@@ -3,10 +3,9 @@ import { Link, useNavigate } from "react-router";
 import { useEffect, useState } from "react";
 import type { Route } from "./+types/home";
 import { api } from "../../convex/_generated/api";
-import { Wordmark } from "../components/Wordmark";
+import { SiteHeader } from "../components/SiteHeader";
 import { WaitlistFollowUpDark } from "../components/WaitlistFollowUpDark";
 import { CAMPAIGN_IMAGES, CAMPAIGN_QUOTES } from "../lib/campaign";
-import { NAV_ITEMS } from "../garden/ui";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -140,47 +139,7 @@ export default function Home() {
     <div className="min-h-screen bg-[var(--garden-ink)] overflow-hidden">
       <link rel="stylesheet" href="/tokens.css" />
       <link rel="stylesheet" href="/about/fonts/fonts.css" />
-      {/* Header */}
-      <header className="absolute top-0 left-0 right-0 z-50 px-4 sm:px-6 py-4 sm:py-6 flex items-center justify-between gap-3 max-w-7xl mx-auto">
-        <h1 className="min-w-0">
-          <div className="sm:hidden">
-            <Wordmark size="sm" />
-          </div>
-          <div className="hidden sm:flex">
-            <Wordmark size="lg" tagline />
-          </div>
-        </h1>
-        <div className="flex items-center gap-4 shrink-0">
-          {/* Same five items as GardenNav, so the header does not change
-              shape between the landing page and every other public page. */}
-          <nav aria-label="Site" className="hidden md:flex items-center gap-5 mr-2">
-            {NAV_ITEMS.map((item) => (
-              <Link
-                key={item.to}
-                to={"publicTo" in item && !isAuthenticated ? item.publicTo : item.to}
-                className="text-[14px] text-[var(--garden-body)] hover:text-[var(--garden-paper)] transition-colors"
-              >
-                {item.label}
-              </Link>
-            ))}
-          </nav>
-          {isAuthenticated ? (
-            <Link
-              to="/search"
-              className="px-4 py-2 sm:px-6 sm:py-2.5 text-[14px] sm:text-base whitespace-nowrap bg-[var(--garden-citron)] text-[var(--garden-ink)] rounded-xl font-semibold hover:opacity-90 transition-all"
-            >
-              Go to App
-            </Link>
-          ) : (
-            <Link
-              to="/login"
-              className="px-4 py-2 text-[14px] sm:text-[15px] whitespace-nowrap text-[var(--garden-body)] hover:text-[var(--garden-paper)] font-medium transition-colors"
-            >
-              Sign in
-            </Link>
-          )}
-        </div>
-      </header>
+      <SiteHeader overlay />
 
       {/* Hero Section with Marquees */}
       <main className="relative pt-28 md:pt-24 pb-20">

@@ -1,6 +1,5 @@
 import { CREDITS } from "../lib/campaign";
-import { GardenHeader } from "../garden/ui";
-import "../garden/garden.css";
+import { SiteHeader } from "../components/SiteHeader";
 
 // Photography credits. CC BY requires visible attribution wherever the work
 // is used, so this page is a licence obligation, not a nicety — every page
@@ -19,7 +18,7 @@ export function meta() {
 export default function Credits() {
   return (
     <div className="min-h-screen bg-[var(--garden-ink)]">
-      <GardenHeader />
+      <SiteHeader />
       <main className="px-6 pt-8 pb-24 max-w-[980px] mx-auto">
         <h1 className="text-4xl font-bold text-[var(--garden-paper)] mb-5">
           Photography credits
