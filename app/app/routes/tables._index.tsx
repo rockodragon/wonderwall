@@ -2,7 +2,6 @@
 // surface for "a roster with your name on it." Format filter chips reuse the
 // demo.app.tsx chip pattern (aria-pressed, one active at a time).
 
-import { SiteHeader } from "../components/SiteHeader";
 import { useMemo, useState } from "react";
 import { useQuery } from "convex/react";
 import { Link, useRouteError } from "react-router";
@@ -31,7 +30,6 @@ export function ErrorBoundary() {
   useRouteError();
   return (
     <GardenPage>
-      <SiteHeader />
       <div style={{ marginTop: 28 }}>
         <GardenErrorState message="Tables isn't live yet — check back soon." />
       </div>
@@ -141,8 +139,7 @@ export default function TablesIndex() {
   if (tables === undefined) {
     return (
       <GardenPage wide>
-        <SiteHeader />
-        <div style={{ marginTop: 28 }}>
+          <div style={{ marginTop: 28 }}>
           <GardenLoading />
         </div>
       </GardenPage>
@@ -152,8 +149,7 @@ export default function TablesIndex() {
   if (tables.length === 0) {
     return (
       <GardenPage wide>
-        <SiteHeader />
-        <div style={{ marginTop: 28, maxWidth: "50ch" }}>
+          <div style={{ marginTop: 28, maxWidth: "50ch" }}>
           <h1 className="g-h" style={{ fontSize: "clamp(28px,5vw,40px)" }}>
             Tables
           </h1>
@@ -173,7 +169,6 @@ export default function TablesIndex() {
 
   return (
     <GardenPage wide>
-      <SiteHeader />
       <div style={{ marginTop: 28, marginBottom: 24 }}>
         <h1 className="g-h" style={{ fontSize: "clamp(28px,5vw,40px)" }}>
           Tables

@@ -6,6 +6,7 @@
 import type { ReactNode } from "react";
 import { useConvexAuth } from "convex/react";
 import { Link } from "react-router";
+import { SiteHeader } from "../components/SiteHeader";
 
 // ————— Page shell —————
 
@@ -14,14 +15,22 @@ import { Link } from "react-router";
 export function GardenPage({
   children,
   wide,
+  bare,
 }: {
   children: ReactNode;
   wide?: boolean;
+  /** Skip the site header — for a page that renders its own chrome. */
+  bare?: boolean;
 }) {
   return (
     <div className="garden-root">
       <link rel="stylesheet" href="/tokens.css" />
       <link rel="stylesheet" href="/about/fonts/fonts.css" />
+      {/* The header sits OUTSIDE the wrap on purpose. Nested inside
+          .g-wrap's 680px column it gets squeezed and the nav collides with
+          the wordmark — which is exactly what happened when each page
+          rendered its own. One place, full width, every Garden route. */}
+      {!bare && <SiteHeader />}
       <div className={wide ? "g-wrap g-wrap-wide" : "g-wrap"}>{children}</div>
     </div>
   );

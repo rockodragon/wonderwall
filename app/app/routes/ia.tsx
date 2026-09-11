@@ -9,7 +9,6 @@
 // no external lib) per the build brief. Layers pulled from brief §1-2 and
 // product plan §2.1/§6 (seat vs. seat-at-a-table).
 
-import { SiteHeader } from "../components/SiteHeader";
 import { Link, useRouteError } from "react-router";
 import { GardenErrorState, GardenPage, SectionLabel, FactRow } from "../garden/ui";
 import "../garden/garden.css";
@@ -29,7 +28,6 @@ export function ErrorBoundary() {
   useRouteError();
   return (
     <GardenPage>
-      <SiteHeader />
       <div style={{ marginTop: 28 }}>
         <GardenErrorState message="This page isn't live yet — check back soon." />
       </div>
@@ -163,7 +161,6 @@ const QUESTIONS: { q: string; body: string; note?: string }[] = [
 export default function IAPage() {
   return (
     <GardenPage wide>
-      <SiteHeader />
 
       {/* ————— 1. Header ————— */}
       <div style={{ marginTop: 28, maxWidth: "62ch" }}>

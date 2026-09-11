@@ -210,6 +210,31 @@ export interface ProductPurchaseRow {
   period: string; // "YYYY-MM"
 }
 
+/** One row per act of support on a project (schema.ts's projectSupport).
+ * Written here only for the two FINANCIAL types: a backing checkout
+ * (garden/stripe.ts's createBackingCheckout) inserts a "pending" row up
+ * front, and this file confirms it once Stripe says the money actually
+ * moved.
+ *
+ * STATUS INCONSISTENCY (pre-existing, named rather than "fixed" — schema.ts
+ * is owned elsewhere): schema.ts documents projectSupport.status as
+ * "pending" | "confirmed", but garden/support.ts's older pledge path writes
+ * "pledged", and its VISIBLE_STATUSES reads "confirmed" | "pledged". The
+ * backing path therefore uses the schema's own pair — "pending" (public
+ * nowhere: it is in neither VISIBLE_STATUSES nor garden/projects.ts's
+ * confirmed-only filter) then "confirmed" — so for real money, only a real
+ * charge makes the row public. Nothing here writes "pledged". */
+export interface ProjectSupportRow {
+  projectId: string;
+  supporterUserId?: string;
+  supporterName: string;
+  type: string; // "financial_one_time" | "financial_recurring"
+  amountCents: number;
+  message?: string;
+  visible: boolean;
+  status: string; // "pending" | "confirmed"
+}
+
 export interface Db {
   getBillingCustomerByStripeId(stripeCustomerId: string): Promise<BillingCustomerRow | null>;
   upsertBillingCustomer(row: BillingCustomerRow): Promise<void>;
@@ -254,6 +279,28 @@ export interface Db {
     stripeSubscriptionId: string,
     patch: { status: string; currentPeriodEnd?: number },
   ): Promise<void>;
+
+  /** Backing (garden/stripe.ts's createBackingCheckout). The checkout action
+   * writes the "pending" projectSupport row before redirecting and passes its
+   * id on the session metadata, so confirmation is a patch keyed by row id —
+   * the same converge-on-replay guarantee upsertMembership gets from the
+   * subscription id, without needing a stripeRef column projectSupport
+   * doesn't have. insertProjectSupport is the fallback for a session whose
+   * pending row is gone (or predates it). */
+  getProjectSupportById(supportId: string): Promise<{ id: string; status: string } | null>;
+  updateProjectSupport(
+    supportId: string,
+    patch: Partial<Pick<ProjectSupportRow, "status" | "amountCents">>,
+  ): Promise<void>;
+  insertProjectSupport(row: ProjectSupportRow): Promise<void>;
+
+  /** Coverage-code issuance (garden/stripe.ts's createCoverageCheckout).
+   * getCodeByCode is the uniqueness check for a freshly generated code
+   * (coverageCodes.code is what a creative types at /c/CODE, so it must not
+   * collide); insertCoverageCode is idempotency-guarded by the caller via
+   * getCodeBySubscription above — one subscription, one code. */
+  getCodeByCode(code: string): Promise<{ code: string } | null>;
+  insertCoverageCode(row: CoverageCodeRow): Promise<void>;
 }
 
 // ——— Pure helpers ———
@@ -354,8 +401,63 @@ function periodFromStripeSeconds(seconds: number): string {
  * see this file's header note on staying dependency-free. */
 const PLATFORM_HOST_ORG_SLUG = "creatives-exchange";
 
-// ——— checkout.session.completed (membership + event tickets — coverage
-// checkout + issuance is W2; other kinds/modes are ignored defensively) ———
+// ——— Backing a project (garden/stripe.ts's createBackingCheckout) ———
+//
+// The $5 floor is a margin rule, not a UX preference: Stripe's 30c fixed fee
+// eats an unreasonable share of anything smaller (docs/features/
+// community-groups.md §3 — the same floor createPoolContributionCheckout
+// uses). Pure so the checkout action and its tests share one authority.
+
+export const MIN_BACKING_CENTS = 500; // $5
+
+/** Null when the amount is fundable; otherwise the reason to show the
+ * backer, verbatim. Money words: "back"/"fund"/"add to", never
+ * "donate"/"gift"/tax-deductible — this money moves through the platform's
+ * own Stripe account (see garden/stripe.ts's header). */
+export function validateBackingAmount(amountCents: number): string | null {
+  if (!Number.isFinite(amountCents) || !Number.isInteger(amountCents)) {
+    return "Give a whole number of cents.";
+  }
+  if (amountCents < MIN_BACKING_CENTS) {
+    return `Backing starts at $${(MIN_BACKING_CENTS / 100).toFixed(0)}.`;
+  }
+  return null;
+}
+
+// ——— Coverage-code generation (garden/stripe.ts's createCoverageCheckout) ———
+//
+// Same alphabet and shape as convex/invites.ts's generateCode and
+// helpers.ts's ensureAdminCode: no 0/O/1/I, so a code read off a bulletin
+// board or a slide can't be mistyped into someone else's.
+
+const COVERAGE_CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no 0/O/1/I
+const COVERAGE_CODE_LENGTH = 8;
+const COVERAGE_CODE_ATTEMPTS = 25;
+
+function randomCoverageCode(): string {
+  let code = "";
+  for (let i = 0; i < COVERAGE_CODE_LENGTH; i++) {
+    code += COVERAGE_CODE_CHARS[Math.floor(Math.random() * COVERAGE_CODE_CHARS.length)];
+  }
+  return code;
+}
+
+/** Collision handling mirrors ensureAdminCode: generate, check, retry a
+ * bounded number of times. Exhausting every attempt THROWS rather than
+ * quietly skipping issuance (the file's usual posture for unresolvable
+ * data) — a sponsor has already been charged at this point, so a 500 that
+ * Stripe retries is strictly better than a paid subscription with no code. */
+async function generateUniqueCoverageCode(db: Db): Promise<string> {
+  for (let attempt = 0; attempt < COVERAGE_CODE_ATTEMPTS; attempt++) {
+    const candidate = randomCoverageCode();
+    if (!(await db.getCodeByCode(candidate))) return candidate;
+  }
+  throw new Error("Could not generate a unique coverage code");
+}
+
+// ——— checkout.session.completed (membership, event tickets, pool
+// contributions, community products, project backing, and coverage-code
+// issuance; other kinds/modes are ignored defensively) ———
 
 /** One-time payment session for an event ticket (mode "payment",
  * kind "event_ticket" — created by garden/stripe.ts's createTicketCheckout).
@@ -477,6 +579,116 @@ async function handleProductCheckoutCompleted(
   });
 }
 
+/** Backing a project — mode "payment" for "Give once", "subscription" for
+ * "Give monthly" (kind "backing", created by garden/stripe.ts's
+ * createBackingCheckout). The projectSupport row already exists as "pending"
+ * (written by the action before the redirect, its id carried on the session
+ * metadata); this confirms it, which is what makes it visible in the Support
+ * modal and counted by garden/projects.ts's confirmed-only filter.
+ *
+ * Idempotent two ways: a replay finds the row already "confirmed" and stops,
+ * and the fallback insert (pending row missing — deleted, or a session
+ * created before it existed) is only reached when there is no id to converge
+ * on. */
+async function handleBackingCheckoutCompleted(
+  session: StripeCheckoutSessionLike,
+  db: Db,
+): Promise<void> {
+  const metadata = session.metadata ?? {};
+  const { projectId, supportId, userId, supporterName, visible } = metadata;
+  const type = session.mode === "subscription" ? "financial_recurring" : "financial_one_time";
+
+  if (supportId) {
+    const existing = await db.getProjectSupportById(supportId);
+    if (existing) {
+      if (existing.status === "confirmed") return; // idempotent replay
+      // Only the status moves: amount/visibility/message were captured at
+      // intent time and Stripe charged exactly that (no promotion codes).
+      await db.updateProjectSupport(supportId, { status: "confirmed" });
+      return;
+    }
+  }
+
+  if (!projectId) {
+    console.warn("[stripe] backing checkout.session.completed missing projectId metadata", {
+      sessionId: session.id,
+    });
+    return;
+  }
+
+  const amountCents = session.amount_total ?? 0;
+  if (amountCents <= 0) {
+    console.warn("[stripe] backing checkout.session.completed has no amount", {
+      sessionId: session.id,
+    });
+    return;
+  }
+
+  await db.insertProjectSupport({
+    projectId,
+    supporterUserId: userId || undefined,
+    supporterName: supporterName || "Someone",
+    type,
+    amountCents,
+    // NEVER session.customer_details?.email — a supporter name is opt-in
+    // display copy, not a captured email (same rule as pool contributions).
+    visible: visible === "true",
+    status: "confirmed",
+  });
+}
+
+/** Coverage — a sponsor (a church) buying N seats: mode "subscription",
+ * kind "coverage", quantity = seats (created by garden/stripe.ts's
+ * createCoverageCheckout). Issues the coverageCodes row a creative redeems
+ * at /c/CODE (garden/coverage.ts). The seat count and the code's later
+ * status are then kept in sync by handleCoverageSubscriptionUpdate below —
+ * this only has to get the row into existence.
+ *
+ * Idempotent by subscription id: one subscription, one code, forever. A
+ * replay (or an out-of-order subscription.updated that arrived first and was
+ * a no-op) converges on the same single row. */
+async function handleCoverageCheckoutCompleted(
+  session: StripeCheckoutSessionLike,
+  db: Db,
+): Promise<void> {
+  const metadata = session.metadata ?? {};
+  const { hostOrgId, seats } = metadata;
+  const subId = subscriptionId(session);
+
+  if (!hostOrgId || !subId) {
+    console.warn("[stripe] coverage checkout.session.completed missing hostOrgId or subscription", {
+      sessionId: session.id,
+    });
+    return;
+  }
+
+  if (await db.getCodeBySubscription(subId)) return; // idempotent replay
+
+  const sub = expandedSubscription(session);
+  const parsedSeats = Number(seats);
+  const seatCount =
+    Number.isInteger(parsedSeats) && parsedSeats > 0
+      ? parsedSeats
+      : (sub ? extractQuantity(sub) : undefined) ?? 1;
+
+  // Issue ACTIVE unless the subscription is already visibly in trouble. An
+  // unexpanded or "incomplete" subscription issues active on purpose: the
+  // grace rule is that billing trouble suspends a code, never that a
+  // sponsor who just paid waits on a webhook race — and the
+  // almost-always-following subscription.updated converges it either way
+  // (see handleCoverageSubscriptionUpdate).
+  const mapped = sub ? mapSubscriptionStatus(sub.status) : "active";
+  const status = mapped === "past_due" ? "suspended" : mapped === "canceled" ? "canceled" : "active";
+
+  await db.insertCoverageCode({
+    hostOrgId,
+    code: await generateUniqueCoverageCode(db),
+    seats: seatCount,
+    stripeSubscriptionId: subId,
+    status,
+  });
+}
+
 async function handleCheckoutSessionCompleted(
   session: StripeCheckoutSessionLike,
   db: Db,
@@ -485,6 +697,12 @@ async function handleCheckoutSessionCompleted(
 
   if (metadata.kind === "community_product") {
     return handleProductCheckoutCompleted(session, db);
+  }
+
+  // Backing spans both modes ("Give once" is a payment, "Give monthly" a
+  // subscription), so it dispatches before the mode split.
+  if (metadata.kind === "backing") {
+    return handleBackingCheckoutCompleted(session, db);
   }
 
   if (session.mode === "payment") {
@@ -498,6 +716,10 @@ async function handleCheckoutSessionCompleted(
   }
 
   if (session.mode !== "subscription") return;
+
+  if (metadata.kind === "coverage") {
+    return handleCoverageCheckoutCompleted(session, db);
+  }
 
   if (metadata.kind !== "membership") return;
 
@@ -598,9 +820,11 @@ async function handleMembershipSubscriptionUpdate(
 async function handleCoverageSubscriptionUpdate(sub: StripeSubscriptionLike, db: Db): Promise<void> {
   const code = await db.getCodeBySubscription(sub.id);
   if (!code) {
-    // Coverage-code issuance (creating the row) is W2 — a subscription
-    // update for a code we don't know about yet is a no-op here.
-    console.warn("[stripe] coverage subscription update with no coverageCodes row (issuance is W2)", {
+    // Issuance happens on checkout.session.completed
+    // (handleCoverageCheckoutCompleted above). An update that beats it —
+    // or one for a foreign/legacy subscription — is a no-op here; the
+    // checkout event issues the row and carries the seat count itself.
+    console.warn("[stripe] coverage subscription update with no coverageCodes row yet", {
       subscriptionId: sub.id,
     });
     return;
@@ -652,7 +876,7 @@ async function handleSubscriptionDeleted(sub: StripeSubscriptionLike, db: Db): P
 
   if (kind === "coverage") {
     const code = await db.getCodeBySubscription(sub.id);
-    if (!code) return; // never issued (W2) or already gone — nothing to converge
+    if (!code) return; // never issued, or already gone — nothing to converge
     await db.updateCode(sub.id, { status: "canceled" });
     return;
   }

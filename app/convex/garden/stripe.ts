@@ -17,6 +17,10 @@ import Stripe from "stripe";
 import { action, internalAction } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { auth } from "../auth";
+// Pure money logic lives in the dependency-free handler file so the checkout
+// action and the webhook share one authority (and so it's unit-testable
+// without this file's node runtime / Stripe SDK).
+import { validateBackingAmount } from "./stripeHandlers";
 
 // Matches the `stripe` package's pinned default (node_modules/stripe's
 // apiVersion.js) at install time — keep these in lockstep on upgrade.
@@ -193,16 +197,167 @@ export const createTicketCheckout = action({
   },
 });
 
-// ——— createCoverageCheckout — W2 (church coverage codes). Stub only. ———
+// ——— createCoverageCheckout — church coverage codes (W2) ———
 //
-// TODO(W2): mirrors createMembershipCheckout but mode="subscription" with
-// `quantity = seats` on a single seat-equivalent price, metadata
-// {kind: "coverage", hostOrgId, sponsorName}. The webhook side
-// (customer.subscription.updated/.deleted for kind="coverage") is already
-// implemented in stripeHandlers.ts and tested — only the checkout-session
-// creation + the coverageCodes row issuance are outstanding.
+// Mirrors createMembershipCheckout exactly — same billing-customer reuse,
+// same mirrored metadata — with two differences: `quantity = seats` on the
+// seat price (one subscription backs the whole code, D2), and metadata
+// {kind: "coverage", hostOrgId, sponsorName, seats}.
 //
-// export const createCoverageCheckout = action({ ... });
+// Webhook side, verified by reading stripeHandlers.ts rather than trusting
+// the old TODO: customer.subscription.updated/.deleted for kind="coverage"
+// WAS already implemented and tested (handleCoverageSubscriptionUpdate —
+// seats and status converge from the subscription), but the coverageCodes
+// row ISSUANCE genuinely was not — checkout.session.completed ignored
+// kind="coverage" entirely and every subscription event for an unissued
+// code logged "issuance is W2" and returned. Issuance now lives in
+// stripeHandlers.ts's handleCoverageCheckoutCompleted, keyed idempotently by
+// subscription id, with the code generated the way convex/invites.ts and
+// helpers.ts generate theirs.
+//
+// Money words: a sponsor "covers seats" — this is not a donation and the
+// copy never says so.
+
+const MIN_COVERAGE_SEATS = 1;
+const MAX_COVERAGE_SEATS = 500; // bigger sponsorships go through Rick directly
+
+export const createCoverageCheckout = action({
+  args: {
+    hostOrgId: v.id("hostOrgs"),
+    seats: v.number(),
+    sponsorName: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const userId = await auth.getUserId(ctx);
+    if (!userId) {
+      throw new ConvexError({ reason: "Sign in to cover seats." });
+    }
+
+    if (!Number.isInteger(args.seats)) {
+      throw new ConvexError({ reason: "Seats has to be a whole number." });
+    }
+    if (args.seats < MIN_COVERAGE_SEATS || args.seats > MAX_COVERAGE_SEATS) {
+      throw new ConvexError({
+        reason: `Cover between ${MIN_COVERAGE_SEATS} and ${MAX_COVERAGE_SEATS} seats here — for more, reach out directly.`,
+      });
+    }
+
+    const priceId = PRICE_ENV_BY_LEVEL.seat;
+    if (!priceId) {
+      throw new ConvexError("Stripe price env var for seats is not set (STRIPE_PRICE_SEAT).");
+    }
+
+    const org = await ctx.runQuery(
+      (internal as any).garden.memberships.getHostOrgForCoverage,
+      { hostOrgId: args.hostOrgId },
+    );
+    if (!org) {
+      throw new ConvexError({ reason: "That organization isn't set up yet." });
+    }
+
+    const stripe = getStripeClient();
+
+    // Reuse one Stripe customer per user across checkouts + the billing
+    // portal (architect §3.4) — identical to createMembershipCheckout.
+    const existing = await ctx.runQuery(
+      (internal as any).garden.memberships.getBillingCustomerForUser,
+      { userId: String(userId) },
+    );
+
+    let stripeCustomerId: string | undefined = existing?.stripeCustomerId;
+    if (!stripeCustomerId) {
+      const identity = await ctx.auth.getUserIdentity();
+      const customer = await stripe.customers.create({
+        email: identity?.email ?? undefined,
+        metadata: { userId: String(userId) },
+      });
+      stripeCustomerId = customer.id;
+      await ctx.runMutation((internal as any).garden.memberships.saveBillingCustomer, {
+        userId: String(userId),
+        stripeCustomerId,
+        email: identity?.email ?? undefined,
+      });
+    }
+
+    // Mirrored onto the subscription itself for the same reason
+    // createMembershipCheckout does it: every customer.subscription.*
+    // webhook has to be self-sufficient even if it lands before
+    // checkout.session.completed (stripeHandlers.ts's header).
+    const metadata: Record<string, string> = {
+      kind: "coverage",
+      hostOrgId: String(args.hostOrgId),
+      sponsorName: args.sponsorName,
+      seats: String(args.seats),
+    };
+
+    const session = await stripe.checkout.sessions.create({
+      mode: "subscription",
+      customer: stripeCustomerId,
+      line_items: [{ price: priceId, quantity: args.seats }],
+      metadata,
+      subscription_data: { metadata },
+      // Mirrors createMembershipCheckout's /join/success — and, like it,
+      // points at a page that isn't built yet (there's no public sponsor
+      // route today; codes are visible to operators on /admin/garden).
+      // Repoint both when the sponsor page lands.
+      success_url: `${siteUrl()}/coverage/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${siteUrl()}/coverage`,
+      allow_promotion_codes: false,
+    });
+
+    if (!session.url) {
+      throw new ConvexError("Stripe did not return a checkout URL.");
+    }
+
+    return { url: session.url };
+  },
+});
+
+// ——— getCoverageBySession — what the /coverage/success page shows ———
+//
+// coverageCodes carries no purchaser id, so "the code I just bought" can
+// only be found through Stripe: session -> subscription -> the code the
+// webhook issued against it (by_stripeSubscriptionId). Returns
+// {status:"pending"} rather than throwing when the webhook hasn't landed
+// yet — checkout redirects the browser faster than Stripe delivers, and a
+// sponsor who just paid should never see an error.
+
+export const getCoverageBySession = action({
+  args: { sessionId: v.string() },
+  handler: async (ctx, args): Promise<
+    | { status: "ready"; code: string; seats: number; orgName: string | null }
+    | { status: "pending" }
+  > => {
+    const userId = await auth.getUserId(ctx);
+    if (!userId) throw new ConvexError("Sign in to see your code.");
+
+    const stripe = getStripeClient();
+    let session: Stripe.Checkout.Session;
+    try {
+      session = await stripe.checkout.sessions.retrieve(args.sessionId);
+    } catch {
+      return { status: "pending" };
+    }
+
+    const subscriptionId =
+      typeof session.subscription === "string"
+        ? session.subscription
+        : session.subscription?.id;
+    if (!subscriptionId) return { status: "pending" };
+
+    const row = await ctx.runQuery(
+      (internal as any).garden.memberships.getCoverageCodeBySubscription,
+      { stripeSubscriptionId: subscriptionId },
+    );
+    if (!row) return { status: "pending" };
+    return {
+      status: "ready",
+      code: row.code,
+      seats: row.seats,
+      orgName: row.orgName ?? null,
+    };
+  },
+});
 
 // ——— createPoolContributionCheckout — one-time "fund the pool" payment ———
 //
@@ -298,6 +453,138 @@ export const createPoolContributionCheckout = action({
       metadata,
       success_url: `${siteUrl()}/fund/${hostOrg.slug}?contributed=1`,
       cancel_url: `${siteUrl()}/fund/${hostOrg.slug}`,
+      allow_promotion_codes: false,
+    });
+
+    if (!session.url) {
+      throw new ConvexError("Stripe did not return a checkout URL.");
+    }
+
+    return { url: session.url };
+  },
+});
+
+// ——— createBackingCheckout — backing a project, once or monthly ———
+//
+// The Patron path: someone picks a project in the Support modal (app/routes/
+// projects.tsx), chooses "Give once" or "Give monthly", and real money moves
+// — before this, that flow recorded a pledge and charged nothing.
+//
+// Money words: "back"/"fund"/"add to". NEVER "donate"/"gift"/tax-deductible
+// — this runs through the platform's own Stripe account, same rule as
+// createPoolContributionCheckout above. ("Donate" stays reserved for the AP
+// out-link lane on an org's own page.)
+//
+// Shape: createTicketCheckout's inline price_data (there's no
+// pre-provisioned Stripe price for an arbitrary backing amount) with
+// createMembershipCheckout's billing-customer reuse and mirrored
+// subscription metadata for the monthly case — a customer.subscription.*
+// event has to be self-sufficient even if it beats
+// checkout.session.completed (stripeHandlers.ts's header).
+//
+// Auth required, unlike ticket/pool checkout: a backing row names a
+// supporter on a public project page, and garden/support.ts's row carries
+// supporterUserId.
+//
+// The projectSupport row is written FIRST (support.ts's startBacking,
+// status "pending") and its id rides on the metadata, because
+// projectSupport has no stripeRef column to converge on — see that
+// mutation's comment. An abandoned checkout leaves a "pending" row that is
+// visible nowhere.
+
+export const createBackingCheckout = action({
+  args: {
+    projectId: v.id("projects"),
+    amountCents: v.number(),
+    recurring: v.boolean(),
+    visible: v.boolean(),
+    message: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const userId = await auth.getUserId(ctx);
+    if (!userId) {
+      throw new ConvexError({ reason: "Sign in to back a project." });
+    }
+
+    // $5 floor + whole-cents rule (community-groups.md §3) — the pure
+    // authority lives in stripeHandlers.ts so tests can pin it down.
+    const invalid = validateBackingAmount(args.amountCents);
+    if (invalid) {
+      throw new ConvexError({ reason: invalid });
+    }
+
+    const started = await ctx.runMutation((internal as any).garden.support.startBacking, {
+      projectId: args.projectId,
+      userId: String(userId),
+      amountCents: args.amountCents,
+      recurring: args.recurring,
+      visible: args.visible,
+      message: args.message,
+    });
+    if (!started) {
+      throw new ConvexError({ reason: "That project isn't taking support right now." });
+    }
+
+    const stripe = getStripeClient();
+
+    // Reuse one Stripe customer per user across checkouts + the billing
+    // portal (architect §3.4) — same as createMembershipCheckout. A monthly
+    // backing NEEDS one (the subscription attaches to it); a one-time
+    // backing benefits from it (one customer, one portal).
+    const existing = await ctx.runQuery(
+      (internal as any).garden.memberships.getBillingCustomerForUser,
+      { userId: String(userId) },
+    );
+
+    let stripeCustomerId: string | undefined = existing?.stripeCustomerId;
+    if (!stripeCustomerId) {
+      const identity = await ctx.auth.getUserIdentity();
+      const customer = await stripe.customers.create({
+        email: identity?.email ?? undefined,
+        metadata: { userId: String(userId) },
+      });
+      stripeCustomerId = customer.id;
+      await ctx.runMutation((internal as any).garden.memberships.saveBillingCustomer, {
+        userId: String(userId),
+        stripeCustomerId,
+        email: identity?.email ?? undefined,
+      });
+    }
+
+    const metadata: Record<string, string> = {
+      kind: "backing",
+      projectId: String(args.projectId),
+      userId: String(userId),
+      visible: String(args.visible),
+      supporterName: started.supporterName,
+      // Not part of the metadata contract the webhook strictly needs — the
+      // row id it converges on (see handleBackingCheckoutCompleted, which
+      // falls back to inserting from the four fields above if it's absent).
+      supportId: String(started.supportId),
+    };
+
+    const session = await stripe.checkout.sessions.create({
+      mode: args.recurring ? "subscription" : "payment",
+      customer: stripeCustomerId,
+      line_items: [
+        {
+          quantity: 1,
+          price_data: {
+            currency: "usd",
+            unit_amount: args.amountCents,
+            product_data: {
+              name: args.recurring
+                ? `Monthly backing — ${started.projectTitle}`
+                : `Backing — ${started.projectTitle}`,
+            },
+            ...(args.recurring ? { recurring: { interval: "month" as const } } : {}),
+          },
+        },
+      ],
+      metadata,
+      ...(args.recurring ? { subscription_data: { metadata } } : {}),
+      success_url: `${siteUrl()}/projects/${args.projectId}?backed=1`,
+      cancel_url: `${siteUrl()}/projects/${args.projectId}`,
       allow_promotion_codes: false,
     });
 

@@ -6,7 +6,6 @@
 // this is an SPA route with no loader, so it cannot set them itself. Not
 // faking them here; see functions-spike for that piece.
 
-import { SiteHeader } from "../components/SiteHeader";
 import { useQuery } from "convex/react";
 import { useParams, useRouteError } from "react-router";
 import { api } from "../../convex/_generated/api";
@@ -31,7 +30,6 @@ export function ErrorBoundary() {
   useRouteError();
   return (
     <GardenPage>
-      <SiteHeader />
       <div style={{ marginTop: 28 }}>
         <GardenErrorState message="This story isn't live yet — check back soon." />
       </div>
@@ -64,8 +62,7 @@ export default function StoryPage() {
   if (data === undefined) {
     return (
       <GardenPage>
-        <SiteHeader />
-        <div style={{ marginTop: 28 }}>
+          <div style={{ marginTop: 28 }}>
           <GardenLoading />
         </div>
       </GardenPage>
@@ -75,8 +72,7 @@ export default function StoryPage() {
   if (data === null) {
     return (
       <GardenPage>
-        <SiteHeader />
-        <div style={{ marginTop: 28 }}>
+          <div style={{ marginTop: 28 }}>
           <GardenErrorState message="Check the link — this story isn't set up here." />
         </div>
       </GardenPage>
@@ -90,7 +86,6 @@ export default function StoryPage() {
 
   return (
     <GardenPage>
-      <SiteHeader />
 
       {project.photoUrl && (
         <img

@@ -28,7 +28,6 @@ import { useAction, useConvexAuth, useQuery } from "convex/react";
 import { ConvexError } from "convex/values";
 import { Link, useNavigate, useRouteError, useSearchParams } from "react-router";
 import { api } from "../../convex/_generated/api";
-import { SiteHeader } from "../components/SiteHeader";
 import { setPendingIntent } from "../lib/pendingIntent";
 import { GardenErrorState, GardenPage, SectionLabel } from "../garden/ui";
 import "../garden/garden.css";
@@ -48,7 +47,6 @@ export function ErrorBoundary() {
   useRouteError();
   return (
     <GardenPage>
-      <SiteHeader />
       <div style={{ marginTop: 28 }}>
         <GardenErrorState message="This page isn't live yet — check back soon." />
       </div>
@@ -211,7 +209,6 @@ export default function JoinPage() {
 
   return (
     <GardenPage wide>
-      <SiteHeader />
 
       <div style={{ marginTop: 28, maxWidth: "58ch" }}>
         <h1 className="g-h" style={{ fontSize: "clamp(28px,5vw,40px)" }}>

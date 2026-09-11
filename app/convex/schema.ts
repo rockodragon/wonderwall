@@ -1146,6 +1146,40 @@ export default defineSchema({
     .index("by_stripeRef", ["stripeRef"])
     .index("by_userId", ["userId"]),
 
+  // A creative's ask TO a grant fund — the self-serve front door the pool.propose
+  // capability (garden/capabilities.ts) gated with nothing behind it until now.
+  // An operator still decides (decideProposal, garden/grantProposals.ts): this
+  // table is the request/review record, not a payment — a real payout is an
+  // `allocations` row (allocationId links back once one is recorded), so the
+  // public ledger stays exactly what actually went out, no proposals in it.
+  grantProposals: defineTable({
+    userId: v.id("users"), // the proposer
+    hostOrgId: v.id("hostOrgs"), // which fund
+    projectId: v.optional(v.id("projects")), // may stand alone, or reference an existing project
+    title: v.string(), // <= 120 chars, enforced in the mutation
+    summary: v.string(), // <= 2000 chars, enforced in the mutation
+    amountCents: v.number(), // what they're asking for; positive integer, >= 500
+    status: v.union(
+      v.literal("submitted"),
+      v.literal("under_review"),
+      v.literal("approved"),
+      v.literal("declined"),
+      v.literal("withdrawn"),
+    ),
+    decidedByUserId: v.optional(v.id("users")), // the operator who decided
+    decidedAt: v.optional(v.number()),
+    operatorNote: v.optional(v.string()), // internal only — never returned to the proposer
+    allocationId: v.optional(v.id("allocations")), // set once an approval is actually paid out
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    // One open ask at a time (submitProposal's uniqueness check) + the
+    // proposer's own list, newest first within a status.
+    .index("by_userId_status", ["userId", "status"])
+    // Operator review queue, optionally filtered to one status.
+    .index("by_hostOrgId_status", ["hostOrgId", "status"])
+    .index("by_projectId", ["projectId"]),
+
   // ——— Community line items for sale (docs/features/community-groups.md §7) ———
   // A community can sell several products at different prices: a premium
   // tier, a resource bundle, a cohort. One-time or monthly. Buyers get the

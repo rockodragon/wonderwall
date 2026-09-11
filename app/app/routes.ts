@@ -120,6 +120,16 @@ export default [
   // The Garden's first production surfaces (real Convex data, not demo-data)
   route("garden", "routes/garden._index.tsx"),
   route("join", "routes/join.tsx"),
+  // Where Stripe lands people after checkout. These existed as success_url
+  // targets in garden/stripe.ts long before they existed as routes, so
+  // anyone who actually paid hit the 404 page. Public: the redirect comes
+  // back from Stripe, not from inside the app shell.
+  route("join/success", "routes/join.success.tsx"),
+  // The sponsor's half of coverage (the-garden-product-plan.md §4.2). The
+  // creative's half is /c/:code. Public — a church treasurer shouldn't need
+  // an account to see the price.
+  route("coverage", "routes/coverage._index.tsx"),
+  route("coverage/success", "routes/coverage.success.tsx"),
   route("fund/:slug", "routes/fund.$slug.tsx"),
   route("story/:slug", "routes/story.$slug.tsx"),
   route("tables", "routes/tables._index.tsx"),

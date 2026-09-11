@@ -18,13 +18,15 @@
 // (still has to look designed, not blank), and an unknown slug or an
 // undeployed backend (both read as "isn't live yet").
 
-import { SiteHeader } from "../components/SiteHeader";
 import { useState } from "react";
-import { useAction, useQuery } from "convex/react";
+import type { FormEvent } from "react";
+import { useAction, useConvexAuth, useMutation, useQuery } from "convex/react";
 import { ConvexError } from "convex/values";
 import { Link, useParams, useRouteError, useSearchParams } from "react-router";
 import { api } from "../../convex/_generated/api";
+import type { Id } from "../../convex/_generated/dataModel";
 import {
+  DenialPanel,
   GardenErrorState,
   GardenLoading,
   GardenPage,
@@ -64,7 +66,6 @@ export function ErrorBoundary() {
   useRouteError(); // logged by the framework; the page just degrades warmly
   return (
     <GardenPage>
-      <SiteHeader />
       <div style={{ marginTop: 28 }}>
         <GardenErrorState message="This fund's ledger isn't live yet — check back soon." />
       </div>
@@ -163,6 +164,254 @@ function AddToPoolPanel({ slug }: { slug: string }) {
   );
 }
 
+const PROPOSAL_STATUS_LABELS: Record<string, string> = {
+  submitted: "Submitted",
+  under_review: "Under review",
+  approved: "Approved",
+  declined: "Declined",
+  withdrawn: "Withdrawn",
+};
+
+/** One of the proposer's own asks — with a Withdraw action while it's still
+ * open (submitted / under_review). */
+function MyProposalRow({
+  proposal,
+  onWithdraw,
+}: {
+  proposal: {
+    proposalId: Id<"grantProposals">;
+    title: string;
+    summary: string;
+    amountCents: number;
+    status: string;
+  };
+  onWithdraw: (proposalId: Id<"grantProposals">) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const canWithdraw = proposal.status === "submitted" || proposal.status === "under_review";
+
+  return (
+    <div className="g-cell" style={{ padding: "12px 14px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+        <span style={{ color: "var(--g-paper)", fontWeight: 600, fontSize: 14.5 }}>{proposal.title}</span>
+        <span className="g-badge g-badge-line">{PROPOSAL_STATUS_LABELS[proposal.status] ?? proposal.status}</span>
+      </div>
+      <div className="g-hint" style={{ marginTop: 6 }}>
+        {formatMoney(proposal.amountCents)} asked
+      </div>
+      <p style={{ marginTop: 6, fontSize: 14, lineHeight: 1.5 }}>{proposal.summary}</p>
+      {canWithdraw && (
+        <button
+          type="button"
+          className="g-btn g-btn-ghost"
+          style={{ marginTop: 10 }}
+          disabled={busy}
+          onClick={async () => {
+            setBusy(true);
+            try {
+              await onWithdraw(proposal.proposalId);
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          {busy ? "Withdrawing…" : "Withdraw"}
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** The "Propose a grant" section (task spec §3). Three states: signed out
+ * (a line + a link to /join), signed in without `pool.propose` (the
+ * denial anatomy, verbatim — DenialPanel), signed in with it (the form
+ * plus the proposer's own open/past proposals). Own component so its hooks
+ * only mount for this section. */
+function ProposeGrantSection({ slug }: { slug: string }) {
+  const { isAuthenticated, isLoading: authLoading } = useConvexAuth();
+  const access = useQuery(api.garden.grantProposals.getProposeAccess, { hostOrgSlug: slug });
+  const myProposals = useQuery(
+    api.garden.grantProposals.listMyProposals,
+    isAuthenticated && access?.hostOrgId ? { hostOrgId: access.hostOrgId } : "skip",
+  );
+  const myProjects = useQuery(
+    api.garden.grantProposals.listMyProjectsForProposal,
+    isAuthenticated ? {} : "skip",
+  );
+  const submitProposal = useMutation(api.garden.grantProposals.submitProposal);
+  const withdrawProposal = useMutation(api.garden.grantProposals.withdrawProposal);
+
+  const [title, setTitle] = useState("");
+  const [amountDollars, setAmountDollars] = useState("");
+  const [summary, setSummary] = useState("");
+  const [projectId, setProjectId] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
+
+  async function onSubmit(e: FormEvent) {
+    e.preventDefault();
+    if (!access?.hostOrgId) return;
+    setStatus(null);
+    setBusy(true);
+    try {
+      const amountCents = Math.round(parseFloat(amountDollars || "0") * 100);
+      await submitProposal({
+        hostOrgId: access.hostOrgId,
+        projectId: projectId ? (projectId as Id<"projects">) : undefined,
+        title,
+        summary,
+        amountCents,
+      });
+      setStatus({ kind: "ok", text: "Sent. An operator will review it." });
+      setTitle("");
+      setAmountDollars("");
+      setSummary("");
+      setProjectId("");
+    } catch (err) {
+      setStatus({ kind: "err", text: reasonFor(err, "Couldn't send that. Try again.") });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onWithdraw(proposalId: Id<"grantProposals">) {
+    try {
+      await withdrawProposal({ proposalId });
+    } catch {
+      // Withdraw is best-effort from this row; the list will just show the
+      // proposal's current status if it didn't change.
+    }
+  }
+
+  if (authLoading || access === undefined) {
+    return (
+      <div style={{ marginTop: 36 }}>
+        <SectionLabel>Propose a grant</SectionLabel>
+        <div style={{ marginTop: 12 }}>
+          <GardenLoading />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ marginTop: 36 }}>
+      <SectionLabel>Propose a grant</SectionLabel>
+
+      {!isAuthenticated ? (
+        <div style={{ marginTop: 12 }}>
+          <p style={{ fontSize: 14.5 }}>Sign in to send a proposal to this fund.</p>
+          <Link to="/join" className="g-btn g-btn-ghost" style={{ marginTop: 12, display: "inline-block" }}>
+            Sign in
+          </Link>
+        </div>
+      ) : !access.allowed ? (
+        <div style={{ marginTop: 12 }}>
+          <DenialPanel reason={access.reason} upgradePath={access.upgradePath} />
+        </div>
+      ) : (
+        <>
+          <div className="g-card" style={{ marginTop: 12, maxWidth: "56ch" }}>
+            <form onSubmit={onSubmit}>
+              <label className="g-label" style={{ display: "block", marginBottom: 6 }}>
+                Title
+              </label>
+              <input
+                className="g-input"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="What the grant is for"
+                maxLength={120}
+              />
+
+              <label className="g-label" style={{ display: "block", marginTop: 14, marginBottom: 6 }}>
+                Amount you're asking for
+              </label>
+              <input
+                className="g-input"
+                value={amountDollars}
+                onChange={(e) => setAmountDollars(e.target.value)}
+                inputMode="decimal"
+                placeholder="500"
+                style={{ maxWidth: 160 }}
+              />
+              <p className="g-hint" style={{ marginTop: 5 }}>
+                Dollars. $5 minimum.
+              </p>
+
+              <label className="g-label" style={{ display: "block", marginTop: 14, marginBottom: 6 }}>
+                Summary
+              </label>
+              <textarea
+                className="g-input"
+                value={summary}
+                onChange={(e) => setSummary(e.target.value)}
+                rows={3}
+                maxLength={2000}
+                placeholder="What the grant funds, and why."
+                style={{ resize: "vertical" }}
+              />
+
+              {myProjects && myProjects.length > 0 && (
+                <>
+                  <label className="g-label" style={{ display: "block", marginTop: 14, marginBottom: 6 }}>
+                    Project (optional)
+                  </label>
+                  <select
+                    className="g-input"
+                    value={projectId}
+                    onChange={(e) => setProjectId(e.target.value)}
+                    style={{ appearance: "none" }}
+                  >
+                    <option value="">Not tied to a project</option>
+                    {myProjects.map((p) => (
+                      <option key={p.projectId} value={p.projectId}>
+                        {p.title}
+                      </option>
+                    ))}
+                  </select>
+                </>
+              )}
+
+              <button
+                className="g-btn g-btn-citron"
+                type="submit"
+                disabled={busy || !title.trim() || !amountDollars.trim() || !summary.trim()}
+                style={{ marginTop: 18 }}
+              >
+                {busy ? "Sending…" : "Send proposal"}
+              </button>
+              {status && (
+                <p
+                  style={{
+                    marginTop: 12,
+                    fontSize: 14.5,
+                    color: status.kind === "ok" ? "var(--g-citron)" : "var(--g-body)",
+                  }}
+                >
+                  {status.text}
+                </p>
+              )}
+            </form>
+          </div>
+
+          <div style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 10, maxWidth: "56ch" }}>
+            {myProposals === undefined ? (
+              <GardenLoading label="Loading your proposals…" />
+            ) : myProposals.length === 0 ? (
+              <p className="g-hint">You haven't sent a proposal to this fund yet.</p>
+            ) : (
+              myProposals.map((p) => (
+                <MyProposalRow key={p.proposalId} proposal={p} onWithdraw={onWithdraw} />
+              ))
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 export default function FundPage() {
   const { slug } = useParams();
   // Hooks stay above every early return (React rules-of-hooks).
@@ -175,8 +424,7 @@ export default function FundPage() {
   if (data === undefined) {
     return (
       <GardenPage>
-        <SiteHeader />
-        <div style={{ marginTop: 28 }}>
+          <div style={{ marginTop: 28 }}>
           <GardenLoading />
         </div>
       </GardenPage>
@@ -186,8 +434,7 @@ export default function FundPage() {
   if (data === null) {
     return (
       <GardenPage>
-        <SiteHeader />
-        <div style={{ marginTop: 28 }}>
+          <div style={{ marginTop: 28 }}>
           <GardenErrorState message="Check the link — this fund isn't set up here." />
         </div>
       </GardenPage>
@@ -205,7 +452,6 @@ export default function FundPage() {
 
   return (
     <GardenPage wide>
-      <SiteHeader />
 
       <div style={{ marginTop: 28 }}>
         <h1 className="g-h" style={{ fontSize: "clamp(28px,5vw,40px)" }}>
@@ -386,6 +632,8 @@ export default function FundPage() {
           </div>
         )}
       </div>
+
+      <ProposeGrantSection slug={org.slug} />
     </GardenPage>
   );
 }

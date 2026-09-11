@@ -30,7 +30,9 @@ auth.addHttpRoutes(http);
 //
 // Events to enable on this endpoint in the Stripe dashboard (all consumed by
 // garden/stripeHandlers.ts's dispatcher):
-//   checkout.session.completed        — memberships, event tickets, pool contributions
+//   checkout.session.completed        — memberships, event tickets, pool
+//                                       contributions, project backing,
+//                                       church coverage (issues the code)
 //   customer.subscription.created     — memberships, coverage
 //   customer.subscription.updated     — memberships, coverage
 //   customer.subscription.deleted     — memberships, coverage

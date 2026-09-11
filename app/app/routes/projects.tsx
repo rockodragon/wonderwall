@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import { Link, useSearchParams } from "react-router";
 import { useMemo, useState } from "react";
 import { api } from "../../convex/_generated/api";
@@ -1267,9 +1267,24 @@ const SUPPORT_TYPES = [
   { value: "resource", label: "Offer a resource" },
 ];
 
+// Twin of MIN_BACKING_CENTS in convex/garden/stripeHandlers.ts (the server
+// is the authority; this is only so the modal can say it out loud and catch
+// an obvious miss before a round trip).
+const MIN_BACKING_DOLLARS = 5;
+
+// Backing a project is REAL money now: the two financial options open a
+// Stripe Checkout session (convex/garden/stripe.ts's createBackingCheckout)
+// and hand the browser off to it, exactly like fund.$slug.tsx's
+// AddToPoolPanel. Encouragement and resource offers are unchanged — they're
+// free, they post instantly, and nothing about them involves a charge.
+//
+// Money words (the rule stripe.ts states for its own lane): money moving
+// through the platform's Stripe is "back"/"fund"/"add to" — never
+// "donate"/"gift"/tax-deductible.
 export function SupportModal({ project, onClose }: { project: any; onClose: () => void }) {
   const existing = useQuery(api.garden.support.listSupportForProject, { projectId: project._id });
   const supportProject = useMutation(api.garden.support.supportProject);
+  const createBackingCheckout = useAction(api.garden.stripe.createBackingCheckout);
 
   const [type, setType] = useState("encouragement");
   const [amount, setAmount] = useState("");
@@ -1285,12 +1300,39 @@ export function SupportModal({ project, onClose }: { project: any; onClose: () =
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+
+    if (isFinancial) {
+      const amountCents = Math.round(Number(amount) * 100);
+      // Mirrors the server's floor (validateBackingAmount) so an obvious
+      // miss costs a round trip to nowhere instead of a round trip to Convex.
+      if (!Number.isFinite(amountCents) || amountCents < MIN_BACKING_DOLLARS * 100) {
+        setError(`Back this with at least $${MIN_BACKING_DOLLARS}.`);
+        return;
+      }
+      setSubmitting(true);
+      try {
+        const { url } = await createBackingCheckout({
+          projectId: project._id,
+          amountCents,
+          recurring: type === "financial_recurring",
+          visible,
+          message: message.trim() || undefined,
+        });
+        // Leaving for Stripe — deliberately no setSubmitting(false), so the
+        // button stays disabled through the handoff.
+        window.location.assign(url);
+      } catch (err) {
+        setError(errorMessage(err));
+        setSubmitting(false);
+      }
+      return;
+    }
+
     setSubmitting(true);
     try {
       await supportProject({
         projectId: project._id,
         type,
-        amountCents: isFinancial ? Math.round(Number(amount) * 100) : undefined,
         message: type === "encouragement" ? message.trim() : undefined,
         resourceDescription: type === "resource" ? resourceDescription.trim() : undefined,
         visible,
@@ -1325,11 +1367,20 @@ export function SupportModal({ project, onClose }: { project: any; onClose: () =
               {existing.map((e) => (
                 <li key={e._id} className="text-sm" style={{ color: "var(--garden-body)" }}>
                   <span style={{ color: "var(--garden-paper)" }}>{e.supporterName}</span>
+                  {/* "pledged" is the older, pre-checkout row (garden/
+                      support.ts writes that status); a "confirmed" one is
+                      money that actually moved. */}
                   {e.type === "financial_one_time" && e.amountCents && (
-                    <span style={{ color: "var(--garden-citron)" }}> · ${(e.amountCents / 100).toLocaleString()} pledged</span>
+                    <span style={{ color: "var(--garden-citron)" }}>
+                      {" "}· ${(e.amountCents / 100).toLocaleString()}
+                      {e.status === "pledged" ? " pledged" : " backed"}
+                    </span>
                   )}
                   {e.type === "financial_recurring" && e.amountCents && (
-                    <span style={{ color: "var(--garden-citron)" }}> · ${(e.amountCents / 100).toLocaleString()}/mo pledged</span>
+                    <span style={{ color: "var(--garden-citron)" }}>
+                      {" "}· ${(e.amountCents / 100).toLocaleString()}/mo
+                      {e.status === "pledged" ? " pledged" : ""}
+                    </span>
                   )}
                   {e.message && <span style={{ color: "var(--garden-dim)" }}> — "{e.message}"</span>}
                   {e.resourceDescription && (
@@ -1343,10 +1394,11 @@ export function SupportModal({ project, onClose }: { project: any; onClose: () =
 
         {done ? (
           <div className="py-4">
+            {/* Only encouragement and resource land here — a financial
+                backing leaves for Stripe Checkout instead of resolving
+                in-modal. */}
             <p className="text-sm mb-4" style={{ color: "var(--garden-body)" }}>
-              {isFinancial
-                ? "Pledge recorded — thank you. We'll follow up when real checkout is live."
-                : "Thanks for showing up for this."}
+              Thanks for showing up for this.
             </p>
             <button
               onClick={onClose}
@@ -1399,8 +1451,30 @@ export function SupportModal({ project, onClose }: { project: any; onClose: () =
                   className="text-xs mt-1.5 px-2.5 py-1.5 rounded-md"
                   style={{ color: "var(--garden-citron)", backgroundColor: "rgba(215,242,90,0.1)" }}
                 >
-                  This is a pledge — no checkout, no charge. Nothing is collected at this point.
+                  ${MIN_BACKING_DOLLARS} minimum
+                  {type === "financial_recurring" ? ", charged monthly until you cancel" : ""}.
+                  Next step is secure checkout — your card is charged there, not here.
                 </p>
+              </div>
+            )}
+
+            {isFinancial && (
+              <div>
+                <label className="block text-xs uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
+                  Note to the creator (optional)
+                </label>
+                <textarea
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  rows={2}
+                  placeholder="Why this one matters to you…"
+                  className="w-full px-3 py-2 rounded-lg border text-sm outline-none resize-none"
+                  style={{
+                    backgroundColor: "var(--garden-ink)",
+                    borderColor: "var(--garden-hairline-raised)",
+                    color: "var(--garden-paper)",
+                  }}
+                />
               </div>
             )}
 
@@ -1465,7 +1539,13 @@ export function SupportModal({ project, onClose }: { project: any; onClose: () =
                 className="px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-50"
                 style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
               >
-                {submitting ? "Sending…" : isFinancial ? "Pledge" : "Send"}
+                {submitting
+                  ? isFinancial
+                    ? "Starting checkout…"
+                    : "Sending…"
+                  : isFinancial
+                    ? "Continue to checkout"
+                    : "Send"}
               </button>
             </div>
           </form>

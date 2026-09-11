@@ -38,6 +38,7 @@ import type * as garden_coverage from "../garden/coverage.js";
 import type * as garden_devSeed from "../garden/devSeed.js";
 import type * as garden_entitlements from "../garden/entitlements.js";
 import type * as garden_eventRsvps from "../garden/eventRsvps.js";
+import type * as garden_grantProposals from "../garden/grantProposals.js";
 import type * as garden_interestsMigration from "../garden/interestsMigration.js";
 import type * as garden_jobsMigration from "../garden/jobsMigration.js";
 import type * as garden_memberships from "../garden/memberships.js";
@@ -112,6 +113,7 @@ declare const fullApi: ApiFromModules<{
   "garden/devSeed": typeof garden_devSeed;
   "garden/entitlements": typeof garden_entitlements;
   "garden/eventRsvps": typeof garden_eventRsvps;
+  "garden/grantProposals": typeof garden_grantProposals;
   "garden/interestsMigration": typeof garden_interestsMigration;
   "garden/jobsMigration": typeof garden_jobsMigration;
   "garden/memberships": typeof garden_memberships;

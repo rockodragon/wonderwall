@@ -636,6 +636,149 @@ function CoverageSection({
   );
 }
 
+// ————— Grant proposals section —————
+
+const PROPOSAL_STATUS_FILTERS = ["all", "submitted", "under_review", "approved", "declined", "withdrawn"] as const;
+const PROPOSAL_STATUS_LABELS: Record<string, string> = {
+  all: "All",
+  submitted: "Submitted",
+  under_review: "Under review",
+  approved: "Approved",
+  declined: "Declined",
+  withdrawn: "Withdrawn",
+};
+
+function ProposalRow({
+  proposal,
+}: {
+  proposal: {
+    proposalId: string;
+    proposerName: string;
+    title: string;
+    summary: string;
+    amountCents: number;
+    status: string;
+  };
+}) {
+  const decideProposal = useMutation(api.garden.grantProposals.decideProposal);
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState<"approve" | "decline" | null>(null);
+  const [status, setStatus] = useState<Status>(null);
+  const decidable = proposal.status === "submitted" || proposal.status === "under_review";
+
+  async function decide(approve: boolean) {
+    setBusy(approve ? "approve" : "decline");
+    setStatus(null);
+    try {
+      await decideProposal({
+        proposalId: proposal.proposalId as Id<"grantProposals">,
+        approve,
+        operatorNote: note.trim() || undefined,
+      });
+      setStatus({ kind: "ok", text: approve ? "Approved." : "Declined." });
+    } catch (err) {
+      setStatus({ kind: "err", text: reasonFor(err, "Couldn't decide that proposal. Try again.") });
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <div className="g-cell" style={{ padding: "12px 14px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+        <span style={{ color: "var(--g-paper)", fontWeight: 600, fontSize: 14.5 }}>{proposal.title}</span>
+        <span className="g-cell-v" style={{ fontSize: 16 }}>{formatMoney(proposal.amountCents)}</span>
+      </div>
+      <div className="g-hint" style={{ marginTop: 6 }}>
+        {proposal.proposerName} · {PROPOSAL_STATUS_LABELS[proposal.status] ?? proposal.status}
+      </div>
+      <p style={{ marginTop: 6, fontSize: 14, lineHeight: 1.5 }}>{proposal.summary}</p>
+      {decidable && (
+        <div style={{ marginTop: 10 }}>
+          <input
+            className="g-input"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="Internal note (optional)"
+          />
+          <div style={{ marginTop: 8, display: "flex", gap: 8 }}>
+            <button className="g-btn g-btn-citron" disabled={busy !== null} onClick={() => decide(true)}>
+              {busy === "approve" ? "Approving…" : "Approve"}
+            </button>
+            <button className="g-btn g-btn-ghost" disabled={busy !== null} onClick={() => decide(false)}>
+              {busy === "decline" ? "Declining…" : "Decline"}
+            </button>
+          </div>
+          <StatusLine status={status} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function GrantProposalsSection({ hostOrgs }: { hostOrgs: { _id: string; name: string; slug: string }[] }) {
+  const [hostOrgId, setHostOrgId] = useState(hostOrgs[0]?._id ?? "");
+  const [statusFilter, setStatusFilter] = useState<(typeof PROPOSAL_STATUS_FILTERS)[number]>("all");
+
+  const proposals = useQuery(
+    api.garden.grantProposals.listProposalsForReview,
+    hostOrgId
+      ? {
+          hostOrgId: hostOrgId as Id<"hostOrgs">,
+          status: statusFilter === "all" ? undefined : statusFilter,
+        }
+      : "skip",
+  );
+
+  return (
+    <SectionCard title="Grant proposals" hint="Self-serve asks from creatives. Approve or decline, with an optional internal note.">
+      <div>
+        <Field label="Fund (host org)">
+          <select className="g-input" value={hostOrgId} onChange={(e) => setHostOrgId(e.target.value)} style={{ appearance: "none" }}>
+            {hostOrgs.length === 0 ? <option value="">No host orgs yet</option> : null}
+            {hostOrgs.map((o) => (
+              <option key={o._id} value={o._id}>
+                {o.name}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field label="Status">
+          <select
+            className="g-input"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as (typeof PROPOSAL_STATUS_FILTERS)[number])}
+            style={{ appearance: "none" }}
+          >
+            {PROPOSAL_STATUS_FILTERS.map((s) => (
+              <option key={s} value={s}>
+                {PROPOSAL_STATUS_LABELS[s]}
+              </option>
+            ))}
+          </select>
+        </Field>
+      </div>
+
+      <div>
+        <div className="g-label" style={{ marginBottom: 10 }}>
+          Proposals ({proposals?.length ?? 0})
+        </div>
+        {proposals === undefined ? (
+          <EmptyRow>Loading…</EmptyRow>
+        ) : proposals.length === 0 ? (
+          <EmptyRow>Nothing here.</EmptyRow>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {proposals.map((p) => (
+              <ProposalRow key={p.proposalId} proposal={p} />
+            ))}
+          </div>
+        )}
+      </div>
+    </SectionCard>
+  );
+}
+
 // ————— Allocations section —————
 
 function AllocationsSection({
@@ -819,6 +962,7 @@ export default function AdminGardenPage() {
             upcomingSessions={data.upcomingSessions}
           />
           <CoverageSection hostOrgs={data.hostOrgs} coverageCodes={data.coverageCodes} />
+          <GrantProposalsSection hostOrgs={data.hostOrgs} />
           <AllocationsSection hostOrgs={data.hostOrgs} projects={projects} recentAllocations={data.recentAllocations} />
         </>
       )}

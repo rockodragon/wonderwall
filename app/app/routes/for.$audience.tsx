@@ -184,7 +184,7 @@ const AUDIENCES: Audience[] = [
     cost:
       "$10 per seat per month, in any number you want. Paying for a year at once is one charge instead of twelve.",
     ctaLabel: "Sponsor your creative team",
-    ctaTo: "/join",
+    ctaTo: "/coverage",
     ctaLabel2: "See what it pays for",
     ctaTo2: "/fund/abiding-practice",
     bandImages: ["church", "busker"],

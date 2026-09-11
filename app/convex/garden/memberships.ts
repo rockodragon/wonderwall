@@ -218,6 +218,50 @@ function makeConvexDb(ctx: MutationCtx): Db {
       });
     },
 
+    async getProjectSupportById(supportId: string) {
+      const row = await ctx.db.get(supportId as Id<"projectSupport">);
+      return row ? { id: String(row._id), status: row.status } : null;
+    },
+
+    async updateProjectSupport(supportId: string, patch) {
+      const existing = await ctx.db.get(supportId as Id<"projectSupport">);
+      if (!existing) return; // row deleted between checkout and webhook — no-op
+      await ctx.db.patch(supportId as Id<"projectSupport">, patch);
+    },
+
+    async insertProjectSupport(row) {
+      await ctx.db.insert("projectSupport", {
+        projectId: row.projectId as Id<"projects">,
+        supporterUserId: row.supporterUserId as Id<"users"> | undefined,
+        supporterName: row.supporterName,
+        type: row.type,
+        amountCents: row.amountCents,
+        message: row.message,
+        visible: row.visible,
+        status: row.status,
+        createdAt: Date.now(),
+      });
+    },
+
+    async getCodeByCode(code: string) {
+      const row = await ctx.db
+        .query("coverageCodes")
+        .withIndex("by_code", (q) => q.eq("code", code))
+        .unique();
+      return row ? { code: row.code } : null;
+    },
+
+    async insertCoverageCode(row) {
+      await ctx.db.insert("coverageCodes", {
+        hostOrgId: row.hostOrgId as Id<"hostOrgs">,
+        code: row.code,
+        seats: row.seats,
+        stripeSubscriptionId: row.stripeSubscriptionId,
+        status: row.status,
+        createdAt: Date.now(),
+      });
+    },
+
     async updateProductPurchasesBySubscription(stripeSubscriptionId, patch) {
       const rows = await ctx.db
         .query("productPurchases")
@@ -257,6 +301,24 @@ export const getBillingCustomerForUser = internalQuery({
   },
 });
 
+/** The /coverage/success page's lookup, via garden/stripe.ts's
+ * getCoverageBySession action: the code the webhook issued against this
+ * subscription, plus the sponsoring org's name for the confirmation line. */
+export const getCoverageCodeBySubscription = internalQuery({
+  args: { stripeSubscriptionId: v.string() },
+  handler: async (ctx, args) => {
+    const row = await ctx.db
+      .query("coverageCodes")
+      .withIndex("by_stripeSubscriptionId", (q) =>
+        q.eq("stripeSubscriptionId", args.stripeSubscriptionId),
+      )
+      .unique();
+    if (!row) return null;
+    const org = await ctx.db.get(row.hostOrgId);
+    return { code: row.code, seats: row.seats, orgName: org?.name ?? null };
+  },
+});
+
 export const saveBillingCustomer = internalMutation({
   args: { userId: v.id("users"), stripeCustomerId: v.string(), email: v.optional(v.string()) },
   handler: async (ctx, args) => {
@@ -275,6 +337,19 @@ export const getHostOrgBySlug = internalQuery({
       .query("hostOrgs")
       .withIndex("by_slug", (q) => q.eq("slug", args.slug))
       .unique();
+  },
+});
+
+// Used by stripe.ts's createCoverageCheckout (a "use node" action, no
+// ctx.db of its own) to confirm the sponsoring org exists before building a
+// seat subscription for it. Returns only what the action needs for the
+// Stripe product line — never the whole row.
+export const getHostOrgForCoverage = internalQuery({
+  args: { hostOrgId: v.id("hostOrgs") },
+  handler: async (ctx, args) => {
+    const org = await ctx.db.get(args.hostOrgId);
+    if (!org) return null;
+    return { _id: org._id, name: org.name, slug: org.slug, kind: org.kind, status: org.status };
   },
 });
 

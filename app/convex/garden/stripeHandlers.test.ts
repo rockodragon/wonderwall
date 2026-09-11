@@ -3,17 +3,20 @@
 // real Stripe payloads. This is the correctness proof for W1 (nothing
 // executes against real Stripe tonight — see stripe.ts).
 
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   extractCurrentPeriodEnd,
   handleStripeEvent,
   mapSubscriptionStatus,
+  validateBackingAmount,
+  MIN_BACKING_CENTS,
   type BillingCustomerRow,
   type ContributionRow,
   type CoverageCodeRow,
   type Db,
   type MembershipRow,
   type ProductPurchaseRow,
+  type ProjectSupportRow,
   type StripeCheckoutSessionLike,
   type StripeInvoiceLike,
   type StripeSubscriptionLike,
@@ -33,6 +36,11 @@ function createFakeDb() {
   const ticketPurchases = new Map<string, TicketPurchaseRow>(); // keyed by stripeSessionId
   const contributions = new Map<string, ContributionRow>(); // keyed by stripeRef
   const productPurchases = new Map<string, ProductPurchaseRow>(); // keyed by stripeRef
+  // Keyed by row id — a backing checkout writes its "pending" row before the
+  // redirect (garden/support.ts's startBacking) and the webhook converges on
+  // that id, since projectSupport has no stripeRef column.
+  const projectSupport = new Map<string, ProjectSupportRow & { id: string }>();
+  let nextSupportId = 1;
   // Only "creatives-exchange" is seeded by default — tests that need it
   // absent (the "missing platform row" case) delete it first.
   const hostOrgsBySlug = new Map<string, string>([["creatives-exchange", PLATFORM_HOST_ORG_ID]]);
@@ -93,6 +101,28 @@ function createFakeDb() {
         }
       }
     },
+    async getProjectSupportById(supportId) {
+      const row = projectSupport.get(supportId);
+      return row ? { id: row.id, status: row.status } : null;
+    },
+    async updateProjectSupport(supportId, patch) {
+      const existing = projectSupport.get(supportId);
+      if (!existing) return;
+      projectSupport.set(supportId, { ...existing, ...patch });
+    },
+    async insertProjectSupport(row) {
+      const id = `support_${nextSupportId++}`;
+      projectSupport.set(id, { ...row, id });
+    },
+    async getCodeByCode(code) {
+      for (const row of codes.values()) {
+        if (row.code === code) return { code: row.code };
+      }
+      return null;
+    },
+    async insertCoverageCode(row) {
+      codes.set(row.stripeSubscriptionId, row);
+    },
   };
 
   return {
@@ -104,6 +134,7 @@ function createFakeDb() {
     contributions,
     productPurchases,
     hostOrgsBySlug,
+    projectSupport,
   };
 }
 
@@ -210,14 +241,15 @@ describe("checkout.session.completed", () => {
     expect(memberships.size).toBe(0);
   });
 
-  it("non-membership kind (e.g. missing/other metadata) is ignored — coverage checkout is W2", async () => {
-    const { db, memberships, billingCustomers } = createFakeDb();
+  it("a coverage session with no hostOrgId writes nothing (never a membership)", async () => {
+    const { db, memberships, billingCustomers, codes } = createFakeDb();
     await handleStripeEvent(
       event("checkout.session.completed", checkoutSessionFixture({ metadata: { kind: "coverage" } })),
       db,
     );
     expect(memberships.size).toBe(0);
     expect(billingCustomers.size).toBe(0);
+    expect(codes.size).toBe(0); // issuance needs a sponsoring org
   });
 
   it("unexpanded subscription (string id only) falls back to incomplete, not a guess", async () => {
@@ -1050,5 +1082,292 @@ describe("extractCurrentPeriodEnd", () => {
       items: { data: [{ price: { id: "price_seat" }, quantity: 1, current_period_end: 1_900_000_000 }] },
     });
     expect(extractCurrentPeriodEnd(sub)).toBe(1_900_000_000);
+  });
+});
+
+// ——— Backing a project (checkout.session.completed, kind "backing") ———
+
+const BACKING_METADATA = {
+  kind: "backing",
+  projectId: "project_1",
+  userId: "user_patron",
+  visible: "true",
+  supporterName: "Ada",
+  supportId: "support_pending",
+};
+
+function backingSessionFixture(
+  overrides: Partial<StripeCheckoutSessionLike> = {},
+): StripeCheckoutSessionLike {
+  return {
+    id: "cs_backing",
+    mode: "payment",
+    customer: "cus_patron",
+    subscription: null,
+    customer_details: { email: "ada@example.com" },
+    metadata: { ...BACKING_METADATA },
+    amount_total: 2500,
+    created: 1_700_000_000,
+    ...overrides,
+  };
+}
+
+/** What garden/support.ts's startBacking leaves behind before the redirect. */
+function seedPendingBacking(
+  projectSupport: Map<string, ProjectSupportRow & { id: string }>,
+  overrides: Partial<ProjectSupportRow> = {},
+) {
+  projectSupport.set("support_pending", {
+    id: "support_pending",
+    projectId: "project_1",
+    supporterUserId: "user_patron",
+    supporterName: "Ada",
+    type: "financial_one_time",
+    amountCents: 2500,
+    visible: true,
+    status: "pending",
+    ...overrides,
+  });
+}
+
+describe("checkout.session.completed — backing a project", () => {
+  it("confirms the pending row the checkout action wrote, leaving its money alone", async () => {
+    const { db, projectSupport } = createFakeDb();
+    seedPendingBacking(projectSupport);
+
+    await handleStripeEvent(event("checkout.session.completed", backingSessionFixture()), db);
+
+    expect(projectSupport.size).toBe(1);
+    expect(projectSupport.get("support_pending")).toMatchObject({
+      status: "confirmed",
+      amountCents: 2500,
+      type: "financial_one_time",
+      supporterUserId: "user_patron",
+      visible: true,
+    });
+  });
+
+  it("replaying the same event converges — one row, still confirmed", async () => {
+    const { db, projectSupport } = createFakeDb();
+    seedPendingBacking(projectSupport);
+    const evt = event("checkout.session.completed", backingSessionFixture());
+
+    await handleStripeEvent(evt, db);
+    await handleStripeEvent(evt, db);
+
+    expect(projectSupport.size).toBe(1);
+    expect(projectSupport.get("support_pending")?.status).toBe("confirmed");
+  });
+
+  it("monthly backing (mode 'subscription') records financial_recurring", async () => {
+    const { db, projectSupport } = createFakeDb();
+    seedPendingBacking(projectSupport, { type: "financial_recurring", amountCents: 1000 });
+
+    await handleStripeEvent(
+      event(
+        "checkout.session.completed",
+        backingSessionFixture({ mode: "subscription", subscription: "sub_backing", amount_total: 1000 }),
+      ),
+      db,
+    );
+
+    expect(projectSupport.get("support_pending")).toMatchObject({
+      status: "confirmed",
+      type: "financial_recurring",
+      amountCents: 1000,
+    });
+  });
+
+  it("inserts a confirmed row when the pending one is gone (deleted, or an older session)", async () => {
+    const { db, projectSupport } = createFakeDb();
+
+    await handleStripeEvent(
+      event("checkout.session.completed", backingSessionFixture({ mode: "subscription", subscription: "sub_backing" })),
+      db,
+    );
+
+    expect(projectSupport.size).toBe(1);
+    expect([...projectSupport.values()][0]).toMatchObject({
+      projectId: "project_1",
+      supporterUserId: "user_patron",
+      supporterName: "Ada",
+      type: "financial_recurring",
+      amountCents: 2500,
+      visible: true,
+      status: "confirmed",
+    });
+  });
+
+  it("anonymous backing (visible 'false') never flips to public on the fallback insert", async () => {
+    const { db, projectSupport } = createFakeDb();
+
+    await handleStripeEvent(
+      event(
+        "checkout.session.completed",
+        backingSessionFixture({ metadata: { ...BACKING_METADATA, visible: "false" } }),
+      ),
+      db,
+    );
+
+    expect([...projectSupport.values()][0]?.visible).toBe(false);
+  });
+
+  it("no projectId and no pending row is a safe no-op", async () => {
+    const { db, projectSupport } = createFakeDb();
+    await handleStripeEvent(
+      event("checkout.session.completed", backingSessionFixture({ metadata: { kind: "backing" } })),
+      db,
+    );
+    expect(projectSupport.size).toBe(0);
+  });
+
+  it("a session with no amount writes nothing rather than a $0 backing", async () => {
+    const { db, projectSupport } = createFakeDb();
+    await handleStripeEvent(
+      event("checkout.session.completed", backingSessionFixture({ amount_total: 0 })),
+      db,
+    );
+    expect(projectSupport.size).toBe(0);
+  });
+});
+
+describe("validateBackingAmount — the $5 floor (community-groups.md §3)", () => {
+  it("accepts the floor exactly and anything above it", () => {
+    expect(validateBackingAmount(MIN_BACKING_CENTS)).toBeNull();
+    expect(validateBackingAmount(2500)).toBeNull();
+  });
+
+  it("rejects anything under $5 — Stripe's 30c fixed fee eats the margin", () => {
+    expect(validateBackingAmount(499)).toContain("$5");
+    expect(validateBackingAmount(0)).toContain("$5");
+    expect(validateBackingAmount(-2500)).toContain("$5");
+  });
+
+  it("rejects fractional cents and non-numbers before they reach Stripe", () => {
+    expect(validateBackingAmount(2500.5)).toBe("Give a whole number of cents.");
+    expect(validateBackingAmount(NaN)).toBe("Give a whole number of cents.");
+    expect(validateBackingAmount(Infinity)).toBe("Give a whole number of cents.");
+  });
+
+  it("never says donate/gift/tax-deductible (money-words rule)", () => {
+    const reasons = [validateBackingAmount(1), validateBackingAmount(2500.5)].join(" ").toLowerCase();
+    for (const banned of ["donat", "gift", "tax-deduct"]) {
+      expect(reasons).not.toContain(banned);
+    }
+  });
+});
+
+// ——— Coverage-code issuance (checkout.session.completed, kind "coverage") ———
+
+function coverageSessionFixture(
+  overrides: Partial<StripeCheckoutSessionLike> = {},
+): StripeCheckoutSessionLike {
+  return {
+    id: "cs_grace",
+    mode: "subscription",
+    customer: "cus_grace",
+    subscription: coverageSubscriptionFixture(),
+    metadata: { ...COVERAGE_METADATA, sponsorName: "Grace Church", seats: "10" },
+    ...overrides,
+  };
+}
+
+describe("checkout.session.completed — coverage code issuance", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("issues one code for the sponsor's subscription", async () => {
+    const { db, codes } = createFakeDb();
+    await handleStripeEvent(event("checkout.session.completed", coverageSessionFixture()), db);
+
+    expect(codes.size).toBe(1);
+    const issued = codes.get("sub_grace");
+    expect(issued).toMatchObject({
+      hostOrgId: "hostOrg_grace",
+      seats: 10,
+      stripeSubscriptionId: "sub_grace",
+      status: "active",
+    });
+    // Same alphabet as invites.ts/helpers.ts — no 0/O/1/I to mistype.
+    expect(issued?.code).toMatch(/^[A-HJ-NP-Z2-9]{8}$/);
+  });
+
+  it("replaying issues nothing new — one subscription, one code", async () => {
+    const { db, codes } = createFakeDb();
+    const evt = event("checkout.session.completed", coverageSessionFixture());
+    await handleStripeEvent(evt, db);
+    const first = codes.get("sub_grace")?.code;
+    await handleStripeEvent(evt, db);
+
+    expect(codes.size).toBe(1);
+    expect(codes.get("sub_grace")?.code).toBe(first);
+  });
+
+  it("retries past a code collision instead of issuing a duplicate", async () => {
+    const { db, codes } = createFakeDb();
+    codes.set("sub_other", {
+      hostOrgId: "hostOrg_other",
+      code: "AAAAAAAA",
+      seats: 1,
+      stripeSubscriptionId: "sub_other",
+      status: "active",
+    });
+    // First candidate is all-"A" (index 0) and collides; the second is
+    // all-"9" (the last character of the alphabet).
+    let call = 0;
+    vi.spyOn(Math, "random").mockImplementation(() => (call++ < 8 ? 0 : 0.999999));
+
+    await handleStripeEvent(event("checkout.session.completed", coverageSessionFixture()), db);
+
+    expect(codes.get("sub_grace")?.code).toBe("99999999");
+  });
+
+  it("falls back to the subscription's quantity when seats metadata is absent", async () => {
+    const { db, codes } = createFakeDb();
+    await handleStripeEvent(
+      event(
+        "checkout.session.completed",
+        coverageSessionFixture({ metadata: { ...COVERAGE_METADATA } }),
+      ),
+      db,
+    );
+    expect(codes.get("sub_grace")?.seats).toBe(10);
+  });
+
+  it("a sponsor already past due issues suspended, not active", async () => {
+    const { db, codes } = createFakeDb();
+    await handleStripeEvent(
+      event(
+        "checkout.session.completed",
+        coverageSessionFixture({ subscription: coverageSubscriptionFixture({ status: "past_due" }) }),
+      ),
+      db,
+    );
+    expect(codes.get("sub_grace")?.status).toBe("suspended");
+  });
+
+  it("an unexpanded subscription still issues (active), and later events converge it", async () => {
+    const { db, codes } = createFakeDb();
+    await handleStripeEvent(
+      event("checkout.session.completed", coverageSessionFixture({ subscription: "sub_grace" })),
+      db,
+    );
+    expect(codes.get("sub_grace")).toMatchObject({ seats: 10, status: "active" });
+
+    await handleStripeEvent(
+      event("customer.subscription.updated", coverageSubscriptionFixture({ status: "past_due" })),
+      db,
+    );
+    expect(codes.get("sub_grace")?.status).toBe("suspended");
+  });
+
+  it("no subscription id on the session issues nothing", async () => {
+    const { db, codes } = createFakeDb();
+    await handleStripeEvent(
+      event("checkout.session.completed", coverageSessionFixture({ subscription: null })),
+      db,
+    );
+    expect(codes.size).toBe(0);
   });
 });
