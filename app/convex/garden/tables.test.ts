@@ -57,7 +57,7 @@ describe("resolveTableJoin", () => {
     });
     expect(decision.allowed).toBe(false);
     expect(decision.reason).toMatch(/members-only/i);
-    expect(decision.upgradePath).toMatch(/seat.*\$10\/mo/i);
+    expect(decision.upgradePath).toMatch(/member.*\$10\/mo/i);
     expect(decision.alreadyMember).toBeUndefined();
   });
 
@@ -79,7 +79,7 @@ describe("resolveTableJoin", () => {
       priceCents: 12000,
     });
     expect(decision.allowed).toBe(false);
-    expect(decision.upgradePath).toMatch(/seat.*\$10\/mo/i);
+    expect(decision.upgradePath).toMatch(/member.*\$10\/mo/i);
   });
 
   it("cohort mode with a price: allowed for a seat-level user returns paymentPending", () => {

@@ -1,30 +1,34 @@
 // /join — the membership page. The front door's primary CTA lands here.
 //
-// Checkout is NOT live yet (Stripe keys pending, spec §1.1), so this page is
-// deliberately honest about that instead of faking a payment flow: it shows
-// exactly what each level gets and what it costs, and captures interest with
-// the existing waitlist mutation. When Stripe lands, the tier buttons swap
-// from "Tell me when membership opens" to createMembershipCheckout — the
-// layout and copy don't change.
+// Each paid card is a real Stripe Checkout button — garden/stripe.ts's
+// createMembershipCheckout, the same action settings.tsx's billing portal
+// and fund.$slug.tsx's pool contribution already use. There is no waitlist
+// fallback: clicking a tier either opens a real Checkout session or shows a
+// plain error (e.g. a price isn't configured yet). Signed-out visitors go
+// to /signup first — Checkout needs an account to attach the subscription
+// to.
 //
 // "Seat" stayed as the internal Level value (capabilities.ts, memberships
 // .level) — that's a bigger rename than this page needs. What changed here
 // is the WORD a visitor reads: "member," not "seat." A dues split rendered
 // as two stat tiles read like a leaked admin metric, not a pitch, so it's
 // gone; the same idea — part of what you pay funds someone else's work —
-// is one clause in the subhead now, no dollar figures.
+// is one clause in the subhead, no dollar figures.
+//
+// Hosting a community (tables, classes, selling to your own people) is
+// free — that's /communities/apply, not a line item here (see
+// docs/features/community-groups.md §0 and the /for/hosts page's own cost
+// line). The paid "Community Host" tier below is a distinct upgrade for a
+// host who ALSO wants to run funding programs for their community — it is
+// not the price of hosting itself, and the copy says so.
 
 import { useState } from "react";
-import { useMutation } from "convex/react";
+import { useAction, useConvexAuth, useQuery } from "convex/react";
+import { ConvexError } from "convex/values";
 import { Link, useRouteError } from "react-router";
 import { api } from "../../convex/_generated/api";
-import { WaitlistFollowUp } from "../components/WaitlistFollowUp";
-import {
-  GardenErrorState,
-  GardenNav,
-  GardenPage,
-  SectionLabel,
-} from "../garden/ui";
+import { SiteHeader } from "../components/SiteHeader";
+import { GardenErrorState, GardenPage, SectionLabel } from "../garden/ui";
 import "../garden/garden.css";
 
 export function meta() {
@@ -42,7 +46,7 @@ export function ErrorBoundary() {
   useRouteError();
   return (
     <GardenPage>
-      <GardenNav />
+      <SiteHeader />
       <div style={{ marginTop: 28 }}>
         <GardenErrorState message="This page isn't live yet — check back soon." />
       </div>
@@ -50,7 +54,21 @@ export function ErrorBoundary() {
   );
 }
 
-const LEVELS = [
+type MembershipLevel = "seat" | "five" | "host";
+
+type LevelCard = {
+  name: string;
+  price: string;
+  recommended: boolean;
+  perks: string[];
+  /** Absent on the free tier — nothing to check out. */
+  level?: MembershipLevel;
+  /** A short note under the perks, for the one tier where the price needs
+      one sentence of context (Community Host — see the file header). */
+  note?: string;
+};
+
+const LEVELS: LevelCard[] = [
   {
     name: "Free account",
     price: "$0",
@@ -66,6 +84,7 @@ const LEVELS = [
     name: "Member",
     price: "$10/mo",
     recommended: true,
+    level: "seat",
     perks: [
       "One active passion project",
       "Apply to paid work",
@@ -75,9 +94,10 @@ const LEVELS = [
     ],
   },
   {
-    name: "Team",
+    name: "Five projects",
     price: "$25/mo",
     recommended: false,
+    level: "five",
     perks: [
       "Up to five active projects",
       "Invite collaborators onto them",
@@ -85,45 +105,96 @@ const LEVELS = [
     ],
   },
   {
-    name: "Leader",
+    name: "Community Host",
     price: "$50/mo",
     recommended: false,
+    level: "host",
     perks: [
-      "Host tables — your roster, your format",
-      "Curate project spaces",
-      "Run community grant programs (coming)",
+      "Run funding programs for your community — contests, funded cohorts, grant pools (coming)",
+      "Create tables — your roster, your format",
       "Ten active projects",
-      "Keep 90% of anything you sell",
     ],
+    note: "Hosting itself is free — apply any time at /communities/apply. This is for a host who also wants to run funding programs.",
   },
 ];
 
-export default function JoinPage() {
-  const addToWaitlist = useMutation(api.waitlist.addToWaitlist);
-  const [email, setEmail] = useState("");
-  const [state, setState] = useState<"idle" | "sending" | "done" | "error">("idle");
-  const [message, setMessage] = useState("");
-  const [position, setPosition] = useState<number | null>(null);
+/** Same shape as settings.tsx's billingErrorMessage — a plain ConvexError
+    string or {reason} reads as a warm line instead of the generic fallback. */
+function checkoutErrorMessage(err: unknown): string {
+  if (err instanceof ConvexError) {
+    const data = err.data as unknown;
+    if (typeof data === "string") return data;
+    if (data && typeof data === "object" && "reason" in data) {
+      const reason = (data as { reason?: unknown }).reason;
+      if (reason) return String(reason);
+    }
+  }
+  return "Checkout didn't open — try again in a moment.";
+}
 
-  const valid = /.+@.+\..+/.test(email.trim());
+function LevelButton({ card }: { card: LevelCard }) {
+  const { isAuthenticated } = useConvexAuth();
+  const createMembershipCheckout = useAction(api.garden.stripe.createMembershipCheckout);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!valid || state === "sending") return;
-    setState("sending");
+  const btnClass = card.recommended ? "g-btn g-btn-citron" : "g-btn g-btn-ghost";
+
+  if (!card.level) {
+    // Free tier — nothing to check out, just an account.
+    return (
+      <Link to="/signup" className={btnClass} style={{ marginTop: 14, alignSelf: "flex-start" }}>
+        Sign up free
+      </Link>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <Link to="/signup" className={btnClass} style={{ marginTop: 14, alignSelf: "flex-start" }}>
+        Sign up to join
+      </Link>
+    );
+  }
+
+  async function handleClick() {
+    setError(null);
+    setPending(true);
     try {
-      const result = await addToWaitlist({ email: email.trim() });
-      setPosition(result.position ?? null);
-      setState("done");
-    } catch {
-      setState("error");
-      setMessage("That didn't go through — try again in a moment.");
+      const { url } = await createMembershipCheckout({ level: card.level! });
+      window.location.assign(url);
+    } catch (err) {
+      setError(checkoutErrorMessage(err));
+      setPending(false);
     }
   }
 
   return (
+    <div style={{ marginTop: 14 }}>
+      <button
+        type="button"
+        onClick={handleClick}
+        disabled={pending}
+        className={btnClass}
+        style={pending ? { opacity: 0.6, cursor: "wait" } : undefined}
+      >
+        {pending ? "Opening checkout…" : `Join — ${card.price}`}
+      </button>
+      {error && (
+        <p className="g-hint" style={{ marginTop: 8, maxWidth: "34ch" }}>
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
+export default function JoinPage() {
+  const membership = useQuery(api.garden.memberships.getMyMembership);
+
+  return (
     <GardenPage wide>
-      <GardenNav />
+      <SiteHeader />
 
       <div style={{ marginTop: 28, maxWidth: "58ch" }}>
         <h1 className="g-h" style={{ fontSize: "clamp(28px,5vw,40px)" }}>
@@ -135,6 +206,15 @@ export default function JoinPage() {
           creatives too.
         </p>
       </div>
+
+      {membership && (
+        <p className="g-hint" style={{ marginTop: 16 }}>
+          You're already a member.{" "}
+          <Link to="/settings" style={{ textDecoration: "underline" }}>
+            Manage billing in Settings.
+          </Link>
+        </p>
+      )}
 
       <div style={{ marginTop: 32 }}>
         <SectionLabel>Levels</SectionLabel>
@@ -150,11 +230,11 @@ export default function JoinPage() {
             <div
               key={level.name}
               className="g-card"
-              style={
-                level.recommended
-                  ? { borderColor: "var(--g-citron)" }
-                  : undefined
-              }
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                ...(level.recommended ? { borderColor: "var(--g-citron)" } : {}),
+              }}
             >
               <div
                 style={{
@@ -211,84 +291,23 @@ export default function JoinPage() {
                   </li>
                 ))}
               </ul>
+              {level.note && (
+                <p className="g-hint" style={{ marginTop: 10 }}>
+                  {level.note}
+                </p>
+              )}
+              <div style={{ marginTop: "auto" }}>
+                <LevelButton card={level} />
+              </div>
             </div>
           ))}
         </div>
       </div>
 
-      <p className="g-hint" style={{ marginTop: 12 }}>
-        Already a member?{" "}
-        <Link to="/settings" style={{ textDecoration: "underline" }}>
-          Manage billing in Settings.
-        </Link>
+      <p className="g-hint" style={{ marginTop: 20 }}>
+        Covered by a church or sponsor? A coverage code gets you full
+        membership at no cost — the link they gave you starts with /c/.
       </p>
-
-      {/* Honest about the state of things: no fake checkout. */}
-      <div style={{ marginTop: 36, maxWidth: "52ch" }}>
-        <SectionLabel>Membership opens this fall</SectionLabel>
-        {state === "done" ? (
-          <div
-            className="g-card"
-            style={{ marginTop: 12, borderColor: "var(--g-citron)" }}
-          >
-            <p style={{ fontSize: 15, lineHeight: 1.6 }}>
-              You're on the list. We'll email you the day membership opens
-              — and nothing else.
-            </p>
-            <div style={{ marginTop: 14, display: "flex", gap: 14, flexWrap: "wrap" }}>
-              <Link to="/tables" className="g-btn g-btn-ghost">
-                See the tables
-              </Link>
-              <Link to="/projects" className="g-btn g-btn-ghost">
-                See what people are making
-              </Link>
-            </div>
-
-            <WaitlistFollowUp email={email.trim()} initialPosition={position} />
-          </div>
-        ) : (
-          <>
-            <p style={{ marginTop: 10, fontSize: 15, lineHeight: 1.6 }}>
-              Memberships open with our first tables this fall. Leave your
-              email and you'll be first through the door.
-            </p>
-            <form
-              onSubmit={handleSubmit}
-              style={{ marginTop: 14, display: "flex", gap: 10, flexWrap: "wrap" }}
-            >
-              <label htmlFor="join-email" className="g-label" style={{ flexBasis: "100%" }}>
-                Email
-              </label>
-              <input
-                id="join-email"
-                type="email"
-                className="g-input"
-                style={{ maxWidth: 320 }}
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
-              />
-              <button
-                type="submit"
-                className="g-btn g-btn-citron"
-                disabled={!valid || state === "sending"}
-                style={!valid ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
-              >
-                {state === "sending" ? "Sending…" : "Tell me when membership opens"}
-              </button>
-            </form>
-            {state === "error" && (
-              <p className="g-hint" style={{ marginTop: 10 }}>
-                {message}
-              </p>
-            )}
-          </>
-        )}
-        <p className="g-hint" style={{ marginTop: 14 }}>
-          Covered by a church or sponsor? A coverage code gets you full
-          membership at no cost — the link they gave you starts with /c/.
-        </p>
-      </div>
     </GardenPage>
   );
 }

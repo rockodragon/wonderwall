@@ -48,9 +48,9 @@ const PASSION_CAPS: Record<Level, number> = {
   host: 10,
 };
 
-const SEAT_PATH = "Take a seat — $10/mo";
-const FIVE_PATH = "Five seats — $25/mo";
-const HOST_PATH = "Lead — $50/mo";
+const SEAT_PATH = "Become a member — $10/mo";
+const FIVE_PATH = "Five projects — $25/mo";
+const HOST_PATH = "Community Host — $50/mo";
 
 const isPaidLevel = (l: Level) => l === "seat" || l === "five" || l === "host";
 
@@ -135,7 +135,7 @@ export function can(user: GardenUser, capability: Capability): CanResult {
       return {
         allowed: false,
         reason:
-          "Tables are ongoing rosters run by hosts. Creating one requires the Leader tier.",
+          "Tables are ongoing rosters run by hosts. Creating one requires the Community Host tier.",
         upgradePath: HOST_PATH,
       };
 
@@ -165,9 +165,9 @@ export function can(user: GardenUser, capability: Capability): CanResult {
 export const LEVEL_LABEL: Record<Level, string> = {
   visitor: "Visitor",
   free: "Free account",
-  seat: "A seat · $10/mo",
-  five: "Five seats · $25/mo",
-  host: "Leader · $50/mo",
+  seat: "Member · $10/mo",
+  five: "Five projects · $25/mo",
+  host: "Community Host · $50/mo",
 };
 
 /** Published splits — render these wherever money appears.

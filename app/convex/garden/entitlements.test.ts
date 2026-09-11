@@ -100,7 +100,7 @@ describe("assertCanPure", () => {
       expect(data.code).toBe("entitlement_denied");
       expect(data.capability).toBe("project.create.passion");
       expect(data.reason).toBeTruthy();
-      expect(data.upgradePath).toMatch(/seat.*\$10\/mo/i);
+      expect(data.upgradePath).toMatch(/member.*\$10\/mo/i);
     }
   });
 });
