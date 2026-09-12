@@ -804,6 +804,7 @@ export default defineSchema({
     raisedCents: v.optional(v.number()), // passion: keep-what-you-raise running total
     status: v.string(), // "pending" | "active" | "in_progress" | "completed" | "archived"
     photoUrl: v.optional(v.string()),
+    photoStorageId: v.optional(v.id("_storage")),
     storySlug: v.optional(v.string()), // public story page (W3)
     legacyJobId: v.optional(v.id("jobs")),
     // V1 support widget (docs/the-exchange-v1-prd.md §9): set once by the

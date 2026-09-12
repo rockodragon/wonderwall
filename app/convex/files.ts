@@ -177,6 +177,33 @@ export const deleteWonderingImage = mutation({
   },
 });
 
+// Save project hero image
+export const saveProjectImage = mutation({
+  args: {
+    projectId: v.id("projects"),
+    storageId: v.id("_storage"),
+  },
+  handler: async (ctx, args) => {
+    const userId = await auth.getUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
+    const project = await ctx.db.get(args.projectId);
+    if (!project) throw new Error("Project not found");
+    if (project.userId !== userId) throw new Error("Not authorized");
+
+    if (project.photoStorageId) {
+      await ctx.storage.delete(project.photoStorageId);
+    }
+
+    await ctx.db.patch(args.projectId, {
+      photoStorageId: args.storageId,
+      updatedAt: Date.now(),
+    });
+
+    return { success: true };
+  },
+});
+
 // Save event cover image
 export const saveEventCoverImage = mutation({
   args: {

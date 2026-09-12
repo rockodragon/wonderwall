@@ -10,7 +10,7 @@
 // (the list page) rather than re-implemented — same convention offerings.
 // $id.tsx already uses for PostOfferingForm/SignupModal.
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { Link, useNavigate, useParams, useRouteError } from "react-router";
@@ -93,6 +93,38 @@ function DetailCard({ label, children }: { label: string; children: ReactNode })
   );
 }
 
+function PencilIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+      <path d="m15 5 4 4" />
+    </svg>
+  );
+}
+
+function TrashIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 6h18" />
+      <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+      <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+    </svg>
+  );
+}
+
+function EditButton({ onClick, label }: { onClick: () => void; label: string }) {
+  return (
+    <button
+      onClick={onClick}
+      title={label}
+      className="inline-flex items-center justify-center w-6 h-6 rounded-md hover:bg-[rgba(198,198,190,0.15)] transition-colors"
+      style={{ color: "var(--garden-dim)" }}
+    >
+      <PencilIcon size={13} />
+    </button>
+  );
+}
+
 export default function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
   const project = useQuery(api.garden.projects.getProject, id ? { projectId: id } : "skip");
@@ -123,72 +155,24 @@ export default function ProjectDetail() {
   const kindWord = project.kind === "paid" ? budgetKindLabel(project) : "Passion";
   const moneyWord = project.kind === "paid" ? budgetAmountLabel(project) : null;
   const hasMoney = project.kind === "paid" && kindWord === "Paid";
-  const thumb = project.media.find((m: any) => m.resolvedMediaUrl)?.resolvedMediaUrl;
+  const thumb = project.resolvedPhotoUrl || project.media.find((m: any) => m.resolvedMediaUrl)?.resolvedMediaUrl;
 
   return (
     <PageShell>
       <BackLink />
 
-      {thumb ? (
-        <div
-          className="relative rounded-2xl overflow-hidden border aspect-[16/9] flex items-center justify-center mb-6"
-          style={{ borderColor: "var(--garden-hairline)", backgroundColor: "var(--garden-ink-raised)" }}
-        >
-          <img src={thumb} alt={project.title} className="w-full h-full object-cover" />
-          <span
-            className="absolute top-3 left-3 px-2.5 py-1 rounded-full text-xs font-semibold uppercase tracking-[0.06em]"
-            style={{ fontFamily: "var(--garden-font-mono)", backgroundColor: "rgba(20,20,18,0.72)", color: "var(--garden-paper)" }}
-          >
-            {kindWord}
-          </span>
-          {hasMoney && moneyWord && (
-            <span
-              className="absolute top-3 right-3 px-3 py-1.5 rounded-full text-sm font-bold"
-              style={{ fontFamily: "var(--garden-font-mono)", backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
-            >
-              {moneyWord}
-            </span>
-          )}
-        </div>
-      ) : (
-        <div className="flex flex-wrap items-center gap-2 mb-4">
-          <span
-            className="px-2.5 py-1 rounded-full text-xs font-semibold uppercase tracking-[0.06em]"
-            style={{ fontFamily: "var(--garden-font-mono)", backgroundColor: "rgba(198,198,190,0.1)", color: "var(--garden-muted)" }}
-          >
-            {kindWord}
-          </span>
-          {hasMoney && moneyWord && (
-            <span
-              className="px-3 py-1 rounded-full text-sm font-bold"
-              style={{ fontFamily: "var(--garden-font-mono)", backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
-            >
-              {moneyWord}
-            </span>
-          )}
-        </div>
-      )}
+      <ProjectHero
+        thumb={thumb}
+        title={project.title}
+        kindWord={kindWord}
+        hasMoney={hasMoney}
+        moneyWord={moneyWord}
+        projectId={project._id}
+        isOwner={isOwner}
+      />
 
-      <div className="flex flex-wrap items-center gap-2 mb-2">
-        <h1
-          className="text-2xl sm:text-3xl font-semibold"
-          style={{ color: "var(--garden-paper)", fontFamily: "var(--garden-font-display)" }}
-        >
-          {project.title}
-        </h1>
-        {/* Stage always shows, for everyone — docs/features/project-teams.md
-            §7. The legacy status pill below is now archived-only. */}
-        <span
-          className="px-2 py-0.5 rounded-full text-[11px] font-medium uppercase tracking-[0.06em]"
-          style={{ fontFamily: "var(--garden-font-mono)", backgroundColor: "rgba(198,198,190,0.1)", color: "var(--garden-muted)" }}
-        >
-          {stageLabel(resolveStage(project), project.kind)}
-        </span>
-      </div>
+      <InlineEditableTitle project={project} isOwner={isOwner} />
 
-      {/* creator._id is a PROFILE id — the same id the Follow button keys on.
-          The button sits beside the link, not inside it, so a tap follows
-          without also navigating. */}
       {project.creator && (
         <div className="flex items-center gap-3 mb-4">
           <Link to={`/profile/${project.creator._id}`} className="flex items-center gap-2 w-fit hover:opacity-80">
@@ -242,11 +226,7 @@ export default function ProjectDetail() {
         </div>
       )}
 
-      {project.blurb && (
-        <p className="text-sm leading-relaxed mb-6" style={{ color: "var(--garden-body)" }}>
-          {project.blurb}
-        </p>
-      )}
+      <InlineEditableBlurb project={project} isOwner={isOwner} />
 
       <TeamCard project={project} isOwner={isOwner} myProfile={myProfile} />
 
@@ -258,11 +238,7 @@ export default function ProjectDetail() {
         </DetailCard>
       )}
 
-      {!project.remote && project.location && (
-        <DetailCard label="Location">
-          <p className="text-sm" style={{ color: "var(--garden-body)" }}>{project.location}</p>
-        </DetailCard>
-      )}
+      <InlineEditableLocation project={project} isOwner={isOwner} />
 
       <div
         className="flex items-center justify-between gap-2 mb-6 pt-4"
@@ -292,13 +268,9 @@ export default function ProjectDetail() {
                 </label>
                 <StageSelect project={project} />
               </div>
-              {/* Archive is separate from stage — stage is a label on live
-                  work, archiving is the lifecycle action (docs/features/
-                  project-teams.md §1). */}
               <ArchiveButton project={project} />
             </div>
           </DetailCard>
-          <ProjectEditor project={project} />
           <TierManager projectId={project._id} />
           <div className="mb-6">
             <AnnouncementComposer targetType="project" targetId={project._id} heading="Message team and supporters" />
@@ -344,117 +316,335 @@ function ArchiveButton({ project }: { project: any }) {
   );
 }
 
-function ProjectEditor({ project }: { project: any }) {
-  const updateProject = useMutation((api as any).garden.projects.updateProject);
-  const [open, setOpen] = useState(false);
-  const [blurb, setBlurb] = useState(project.blurb ?? "");
-  const [photoUrl, setPhotoUrl] = useState(project.photoUrl ?? "");
-  const [location, setLocation] = useState(project.location ?? "");
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
+function ProjectHero({
+  thumb,
+  title,
+  kindWord,
+  hasMoney,
+  moneyWord,
+  projectId,
+  isOwner,
+}: {
+  thumb: string | null | undefined;
+  title: string;
+  kindWord: string;
+  hasMoney: boolean;
+  moneyWord: string | null;
+  projectId: Id<"projects">;
+  isOwner: boolean;
+}) {
+  const generateUploadUrl = useMutation(api.files.generateUploadUrl);
+  const saveProjectImage = useMutation((api as any).files.saveProjectImage);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
 
-  async function handleSave(e: React.FormEvent) {
-    e.preventDefault();
-    setSaving(true);
-    setError("");
+  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) return;
+    if (file.size > 5 * 1024 * 1024) {
+      alert("Image must be under 5 MB.");
+      return;
+    }
+    setUploading(true);
     try {
-      await updateProject({
-        projectId: project._id,
-        blurb: blurb.trim() || undefined,
-        photoUrl: photoUrl.trim() || undefined,
-        location: location.trim() || undefined,
+      const uploadUrl = await generateUploadUrl();
+      const result = await fetch(uploadUrl, {
+        method: "POST",
+        headers: { "Content-Type": file.type },
+        body: file,
       });
-      setOpen(false);
-    } catch (err) {
-      setError(errorMessage(err));
+      const { storageId } = await result.json();
+      await saveProjectImage({ projectId, storageId });
+    } catch {
+      alert("Upload failed — try again.");
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  }
+
+  if (thumb) {
+    return (
+      <div
+        className="group relative rounded-2xl overflow-hidden border aspect-[16/9] flex items-center justify-center mb-6"
+        style={{ borderColor: "var(--garden-hairline)", backgroundColor: "var(--garden-ink-raised)" }}
+      >
+        <img src={thumb} alt={title} className="w-full h-full object-cover" />
+        <span
+          className="absolute top-3 left-3 px-2.5 py-1 rounded-full text-xs font-semibold uppercase tracking-[0.06em]"
+          style={{ fontFamily: "var(--garden-font-mono)", backgroundColor: "rgba(20,20,18,0.72)", color: "var(--garden-paper)" }}
+        >
+          {kindWord}
+        </span>
+        {hasMoney && moneyWord && (
+          <span
+            className="absolute top-3 right-3 px-3 py-1.5 rounded-full text-sm font-bold"
+            style={{ fontFamily: "var(--garden-font-mono)", backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
+          >
+            {moneyWord}
+          </span>
+        )}
+        {isOwner && (
+          <>
+            <input ref={fileRef} type="file" accept="image/*" onChange={handleImageUpload} hidden />
+            <button
+              onClick={() => fileRef.current?.click()}
+              disabled={uploading}
+              className="absolute bottom-3 right-3 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-50"
+              style={{ backgroundColor: "rgba(20,20,18,0.72)", color: "var(--garden-paper)" }}
+            >
+              <PencilIcon size={12} />
+              {uploading ? "Uploading…" : "Change image"}
+            </button>
+          </>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 mb-4">
+      <span
+        className="px-2.5 py-1 rounded-full text-xs font-semibold uppercase tracking-[0.06em]"
+        style={{ fontFamily: "var(--garden-font-mono)", backgroundColor: "rgba(198,198,190,0.1)", color: "var(--garden-muted)" }}
+      >
+        {kindWord}
+      </span>
+      {hasMoney && moneyWord && (
+        <span
+          className="px-3 py-1 rounded-full text-sm font-bold"
+          style={{ fontFamily: "var(--garden-font-mono)", backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
+        >
+          {moneyWord}
+        </span>
+      )}
+      {isOwner && (
+        <>
+          <input ref={fileRef} type="file" accept="image/*" onChange={handleImageUpload} hidden />
+          <button
+            onClick={() => fileRef.current?.click()}
+            disabled={uploading}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-opacity hover:opacity-80 disabled:opacity-50"
+            style={{ backgroundColor: "rgba(198,198,190,0.1)", color: "var(--garden-muted)" }}
+          >
+            <PencilIcon size={12} />
+            {uploading ? "Uploading…" : "Add image"}
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
+function InlineEditableTitle({ project, isOwner }: { project: any; isOwner: boolean }) {
+  const updateProject = useMutation((api as any).garden.projects.updateProject);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(project.title);
+  const [saving, setSaving] = useState(false);
+
+  async function save() {
+    if (!draft.trim() || draft.trim() === project.title) {
+      setEditing(false);
+      setDraft(project.title);
+      return;
+    }
+    setSaving(true);
+    try {
+      await updateProject({ projectId: project._id, title: draft.trim() });
+      setEditing(false);
+    } catch {
+      setDraft(project.title);
+      setEditing(false);
     } finally {
       setSaving(false);
     }
   }
 
-  const inputStyle = {
-    backgroundColor: "var(--garden-ink)",
-    borderColor: "var(--garden-hairline-raised)",
-    color: "var(--garden-paper)",
-  };
-
-  if (!open) {
-    return (
-      <DetailCard label="Edit details">
-        <button
-          onClick={() => setOpen(true)}
-          className="text-xs underline underline-offset-2 hover:opacity-80"
-          style={{ color: "var(--garden-dim)" }}
+  return (
+    <div className="flex flex-wrap items-center gap-2 mb-2">
+      {editing ? (
+        <input
+          autoFocus
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={save}
+          onKeyDown={(e) => { if (e.key === "Enter") save(); if (e.key === "Escape") { setDraft(project.title); setEditing(false); } }}
+          disabled={saving}
+          className="text-2xl sm:text-3xl font-semibold px-1 rounded border outline-none min-w-0 flex-1"
+          style={{ backgroundColor: "var(--garden-ink)", borderColor: "var(--garden-hairline-raised)", color: "var(--garden-paper)", fontFamily: "var(--garden-font-display)" }}
+        />
+      ) : (
+        <h1
+          className="text-2xl sm:text-3xl font-semibold"
+          style={{ color: "var(--garden-paper)", fontFamily: "var(--garden-font-display)" }}
         >
-          Edit description, image, location
-        </button>
-      </DetailCard>
-    );
+          {project.title}
+        </h1>
+      )}
+      <span
+        className="px-2 py-0.5 rounded-full text-[11px] font-medium uppercase tracking-[0.06em]"
+        style={{ fontFamily: "var(--garden-font-mono)", backgroundColor: "rgba(198,198,190,0.1)", color: "var(--garden-muted)" }}
+      >
+        {stageLabel(resolveStage(project), project.kind)}
+      </span>
+      {isOwner && !editing && <EditButton onClick={() => { setDraft(project.title); setEditing(true); }} label="Edit title" />}
+    </div>
+  );
+}
+
+function InlineEditableBlurb({ project, isOwner }: { project: any; isOwner: boolean }) {
+  const updateProject = useMutation((api as any).garden.projects.updateProject);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(project.blurb ?? "");
+  const [saving, setSaving] = useState(false);
+
+  async function save() {
+    const trimmed = draft.trim();
+    if (trimmed === (project.blurb ?? "")) {
+      setEditing(false);
+      return;
+    }
+    setSaving(true);
+    try {
+      await updateProject({ projectId: project._id, blurb: trimmed || undefined });
+      setEditing(false);
+    } catch {
+      setDraft(project.blurb ?? "");
+      setEditing(false);
+    } finally {
+      setSaving(false);
+    }
   }
 
-  return (
-    <DetailCard label="Edit details">
-      <form onSubmit={handleSave} className="flex flex-col gap-3">
-        <div>
-          <label className="block text-[11px] uppercase tracking-[0.06em] mb-1" style={{ color: "var(--garden-dim)" }}>
-            Description
-          </label>
-          <textarea
-            value={blurb}
-            onChange={(e) => setBlurb(e.target.value)}
-            rows={3}
-            className="w-full px-3 py-2 rounded-lg border text-sm outline-none resize-none"
-            style={inputStyle}
-          />
-        </div>
-        <div>
-          <label className="block text-[11px] uppercase tracking-[0.06em] mb-1" style={{ color: "var(--garden-dim)" }}>
-            Image URL
-          </label>
-          <input
-            type="url"
-            value={photoUrl}
-            onChange={(e) => setPhotoUrl(e.target.value)}
-            placeholder="https://…"
-            className="w-full px-3 py-2 rounded-lg border text-sm outline-none"
-            style={inputStyle}
-          />
-        </div>
-        <div>
-          <label className="block text-[11px] uppercase tracking-[0.06em] mb-1" style={{ color: "var(--garden-dim)" }}>
-            Location
-          </label>
-          <input
-            type="text"
-            value={location}
-            onChange={(e) => setLocation(e.target.value)}
-            placeholder="City, State"
-            className="w-full px-3 py-2 rounded-lg border text-sm outline-none"
-            style={inputStyle}
-          />
-        </div>
-        {error && <p className="text-sm text-red-400">{error}</p>}
-        <div className="flex items-center gap-2">
+  if (editing) {
+    return (
+      <div className="mb-6">
+        <textarea
+          autoFocus
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          rows={3}
+          disabled={saving}
+          className="w-full px-3 py-2 rounded-lg border text-sm outline-none resize-none leading-relaxed"
+          style={{ backgroundColor: "var(--garden-ink)", borderColor: "var(--garden-hairline-raised)", color: "var(--garden-paper)" }}
+        />
+        <div className="flex items-center gap-2 mt-1.5">
           <button
-            type="submit"
+            onClick={save}
             disabled={saving}
-            className="px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50"
+            className="px-3 py-1 rounded-lg text-xs font-semibold disabled:opacity-50"
             style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
           >
             {saving ? "Saving…" : "Save"}
           </button>
           <button
-            type="button"
-            onClick={() => setOpen(false)}
-            className="text-xs underline underline-offset-2 hover:opacity-80"
+            onClick={() => { setDraft(project.blurb ?? ""); setEditing(false); }}
+            className="text-xs hover:opacity-80"
             style={{ color: "var(--garden-dim)" }}
           >
             Cancel
           </button>
         </div>
-      </form>
-    </DetailCard>
+      </div>
+    );
+  }
+
+  if (!project.blurb && !isOwner) return null;
+
+  return (
+    <div className="flex items-start gap-1 mb-6">
+      <p className="text-sm leading-relaxed flex-1" style={{ color: "var(--garden-body)" }}>
+        {project.blurb || (isOwner ? "No description yet" : "")}
+      </p>
+      {isOwner && <EditButton onClick={() => { setDraft(project.blurb ?? ""); setEditing(true); }} label="Edit description" />}
+    </div>
   );
+}
+
+function InlineEditableLocation({ project, isOwner }: { project: any; isOwner: boolean }) {
+  const updateProject = useMutation((api as any).garden.projects.updateProject);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(project.location ?? "");
+  const [saving, setSaving] = useState(false);
+
+  async function save() {
+    const trimmed = draft.trim();
+    if (trimmed === (project.location ?? "")) {
+      setEditing(false);
+      return;
+    }
+    setSaving(true);
+    try {
+      await updateProject({ projectId: project._id, location: trimmed || undefined });
+      setEditing(false);
+    } catch {
+      setDraft(project.location ?? "");
+      setEditing(false);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (project.remote && !isOwner) return null;
+
+  if (editing) {
+    return (
+      <DetailCard label="Location">
+        <div className="flex items-center gap-2">
+          <input
+            autoFocus
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") save(); if (e.key === "Escape") { setDraft(project.location ?? ""); setEditing(false); } }}
+            disabled={saving}
+            placeholder="City, State"
+            className="flex-1 px-3 py-2 rounded-lg border text-sm outline-none"
+            style={{ backgroundColor: "var(--garden-ink)", borderColor: "var(--garden-hairline-raised)", color: "var(--garden-paper)" }}
+          />
+          <button
+            onClick={save}
+            disabled={saving}
+            className="px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50"
+            style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
+          >
+            {saving ? "…" : "Save"}
+          </button>
+          <button
+            onClick={() => { setDraft(project.location ?? ""); setEditing(false); }}
+            className="text-xs hover:opacity-80"
+            style={{ color: "var(--garden-dim)" }}
+          >
+            Cancel
+          </button>
+        </div>
+      </DetailCard>
+    );
+  }
+
+  if (!project.remote && project.location) {
+    return (
+      <DetailCard label="Location">
+        <div className="flex items-center gap-1">
+          <p className="text-sm flex-1" style={{ color: "var(--garden-body)" }}>{project.location}</p>
+          {isOwner && <EditButton onClick={() => { setDraft(project.location ?? ""); setEditing(true); }} label="Edit location" />}
+        </div>
+      </DetailCard>
+    );
+  }
+
+  if (isOwner) {
+    return (
+      <DetailCard label="Location">
+        <div className="flex items-center gap-1">
+          <p className="text-sm flex-1" style={{ color: "var(--garden-dim)" }}>No location set</p>
+          <EditButton onClick={() => { setDraft(""); setEditing(true); }} label="Add location" />
+        </div>
+      </DetailCard>
+    );
+  }
+
+  return null;
 }
 
 // Small avatar, same fallback-initial pattern as the creator block above —
@@ -1460,10 +1650,33 @@ function TierManager({ projectId }: { projectId: Id<"projects"> }) {
           ) : (
             <div
               key={tier._id}
-              className="rounded-lg border p-3"
+              className="group/tier relative rounded-lg border p-3"
               style={{ borderColor: "var(--garden-hairline)" }}
             >
-              <div className="flex items-center gap-2 flex-wrap">
+              <div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover/tier:opacity-100 transition-opacity">
+                <button
+                  onClick={() => {
+                    setEditingId(tier._id);
+                    setShowAdd(false);
+                    setError("");
+                  }}
+                  title="Edit tier"
+                  className="flex items-center justify-center w-7 h-7 rounded-md hover:bg-[rgba(198,198,190,0.15)] transition-colors"
+                  style={{ color: "var(--garden-citron)" }}
+                >
+                  <PencilIcon size={13} />
+                </button>
+                <button
+                  onClick={() => handleDelete(tier._id, tier.name)}
+                  title="Delete tier"
+                  className="flex items-center justify-center w-7 h-7 rounded-md hover:bg-[rgba(198,198,190,0.15)] transition-colors"
+                  style={{ color: "var(--garden-dim)" }}
+                >
+                  <TrashIcon size={13} />
+                </button>
+              </div>
+
+              <div className="flex items-center gap-2 flex-wrap pr-16">
                 <span
                   className="font-semibold text-sm"
                   style={{ color: "var(--garden-paper)", fontFamily: "var(--garden-font-display)" }}
@@ -1507,27 +1720,6 @@ function TierManager({ projectId }: { projectId: Id<"projects"> }) {
                   ))}
                 </ul>
               )}
-
-              <div className="flex items-center gap-3 mt-2.5">
-                <button
-                  onClick={() => {
-                    setEditingId(tier._id);
-                    setShowAdd(false);
-                    setError("");
-                  }}
-                  className="text-xs underline underline-offset-2 hover:opacity-80"
-                  style={{ color: "var(--garden-citron)" }}
-                >
-                  Edit
-                </button>
-                <button
-                  onClick={() => handleDelete(tier._id, tier.name)}
-                  className="text-xs underline underline-offset-2 hover:opacity-80"
-                  style={{ color: "var(--garden-dim)" }}
-                >
-                  Delete
-                </button>
-              </div>
             </div>
           ),
         )}
