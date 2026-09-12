@@ -9,7 +9,7 @@
 // Creates the project, posts the initial story updates, and sets up the
 // Abiding Practice fiscal sponsor association.
 
-import { internalMutation } from "../_generated/server";
+import { mutation } from "../_generated/server";
 import { resolveAvailableSlug, slugifyTitle } from "./stories";
 
 const PROJECT_TITLE = "Small Acts: Neighbors";
@@ -29,7 +29,7 @@ const INITIAL_UPDATES = [
   },
 ];
 
-export const seed = internalMutation({
+export const seed = mutation({
   args: {},
   handler: async (ctx) => {
     // Find rickmoy@gmail.com's user record.
