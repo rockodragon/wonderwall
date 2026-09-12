@@ -233,6 +233,8 @@ export interface ProjectSupportRow {
   message?: string;
   visible: boolean;
   status: string; // "pending" | "confirmed"
+  tierId?: string;
+  tierName?: string;
 }
 
 export interface Db {
@@ -595,7 +597,7 @@ async function handleBackingCheckoutCompleted(
   db: Db,
 ): Promise<void> {
   const metadata = session.metadata ?? {};
-  const { projectId, supportId, userId, supporterName, visible } = metadata;
+  const { projectId, supportId, userId, supporterName, visible, tierId } = metadata;
   const type = session.mode === "subscription" ? "financial_recurring" : "financial_one_time";
 
   if (supportId) {
@@ -634,6 +636,7 @@ async function handleBackingCheckoutCompleted(
     // display copy, not a captured email (same rule as pool contributions).
     visible: visible === "true",
     status: "confirmed",
+    ...(tierId ? { tierId } : {}),
   });
 }
 

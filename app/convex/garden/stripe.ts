@@ -499,6 +499,7 @@ export const createBackingCheckout = action({
     recurring: v.boolean(),
     visible: v.boolean(),
     message: v.optional(v.string()),
+    tierId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const userId = await auth.getUserId(ctx);
@@ -520,6 +521,7 @@ export const createBackingCheckout = action({
       recurring: args.recurring,
       visible: args.visible,
       message: args.message,
+      ...(args.tierId ? { tierId: args.tierId } : {}),
     });
     if (!started) {
       throw new ConvexError({ reason: "That project isn't taking support right now." });
@@ -561,6 +563,7 @@ export const createBackingCheckout = action({
       // row id it converges on (see handleBackingCheckoutCompleted, which
       // falls back to inserting from the four fields above if it's absent).
       supportId: String(started.supportId),
+      ...(args.tierId ? { tierId: args.tierId } : {}),
     };
 
     const session = await stripe.checkout.sessions.create({

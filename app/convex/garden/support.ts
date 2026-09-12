@@ -23,6 +23,7 @@
 
 import { v } from "convex/values";
 import { mutation, query, internalMutation } from "../_generated/server";
+import type { Id } from "../_generated/dataModel";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { ConvexError } from "convex/values";
 
@@ -112,6 +113,8 @@ export const startBacking = internalMutation({
     recurring: v.boolean(),
     visible: v.boolean(),
     message: v.optional(v.string()),
+    tierId: v.optional(v.string()),
+    tierName: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const project = await ctx.db.get(args.projectId);
@@ -123,6 +126,19 @@ export const startBacking = internalMutation({
       .unique();
     const supporterName = profile?.name ?? "Someone";
 
+    // Resolve patron tier if provided — the tier may have been deleted
+    // between page load and checkout, so a missing or wrong-project tier
+    // is silently ignored (the backing still proceeds without a tier).
+    let resolvedTierId: undefined | Id<"patronTiers"> = undefined;
+    let resolvedTierName: string | undefined = undefined;
+    if (args.tierId) {
+      const tier = await ctx.db.get(args.tierId as any);
+      if (tier && (tier as any).projectId === args.projectId) {
+        resolvedTierId = args.tierId as any;
+        resolvedTierName = (tier as any).name;
+      }
+    }
+
     const supportId = await ctx.db.insert("projectSupport", {
       projectId: args.projectId,
       supporterUserId: args.userId,
@@ -133,6 +149,7 @@ export const startBacking = internalMutation({
       visible: args.visible,
       status: "pending", // → "confirmed" when Stripe says the money moved
       createdAt: Date.now(),
+      ...(resolvedTierId ? { tierId: resolvedTierId, tierName: resolvedTierName } : {}),
     });
 
     return { supportId, supporterName, projectTitle: project.title };
@@ -160,6 +177,8 @@ export const listSupportForProject = query({
         resourceDescription: e.resourceDescription,
         status: e.status,
         createdAt: e.createdAt,
+        tierId: e.tierId,
+        tierName: e.tierName,
         // Explicit allowlist, not a spread: someone who asked to give
         // anonymously (visible: false) must not have their identity
         // reach the client at all — a masked name alone still leaked

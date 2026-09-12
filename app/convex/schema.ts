@@ -919,6 +919,26 @@ export default defineSchema({
     // with an email set over createdAt.
     .index("by_invitedByUserId", ["invitedByUserId"]),
 
+  // Patron tiers: host-customizable backing levels per project. A project
+  // with no tiers still accepts freeform backing; when tiers exist the
+  // backing UI shows them as cards and locks the checkout amount to the
+  // tier's price. Hosts (especially nonprofits) may use their own
+  // vocabulary — "partner" / "sustainer" / "champion" instead of generic
+  // tier labels.
+  patronTiers: defineTable({
+    projectId: v.id("projects"),
+    name: v.string(), // host-chosen label, e.g. "Sustainer", "Champion"
+    description: v.optional(v.string()),
+    priceCents: v.number(), // $5 min (same as backing floor)
+    benefits: v.optional(v.array(v.string())), // line items shown on the tier card
+    sortOrder: v.number(), // display ordering (ascending)
+    isActive: v.boolean(), // soft-delete / unpublish without removing
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_projectId", ["projectId"])
+    .index("by_projectId_sortOrder", ["projectId", "sortOrder"]),
+
   // Support widget (docs/the-exchange-v1-prd.md §9): one record per act of
   // support on a project. Financial types start "pending" until an operator
   // confirms the money actually moved (no webhook listener in V1 — see PRD
@@ -933,6 +953,8 @@ export default defineSchema({
     resourceDescription: v.optional(v.string()),
     visible: v.boolean(), // show supporter name publicly (default true)
     status: v.string(), // "pending" | "confirmed"
+    tierId: v.optional(v.id("patronTiers")),
+    tierName: v.optional(v.string()), // denormalized at checkout time
     createdAt: v.number(),
   })
     .index("by_projectId", ["projectId"])

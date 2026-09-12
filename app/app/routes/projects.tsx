@@ -1283,6 +1283,7 @@ const MIN_BACKING_DOLLARS = 5;
 // "donate"/"gift"/tax-deductible.
 export function SupportModal({ project, onClose }: { project: any; onClose: () => void }) {
   const existing = useQuery(api.garden.support.listSupportForProject, { projectId: project._id });
+  const tiers = useQuery((api as any).garden.patronTiers.listTiers, { projectId: project._id });
   const supportProject = useMutation(api.garden.support.supportProject);
   const createBackingCheckout = useAction(api.garden.stripe.createBackingCheckout);
 
@@ -1294,29 +1295,42 @@ export function SupportModal({ project, onClose }: { project: any; onClose: () =
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
+  const [selectedTierId, setSelectedTierId] = useState<string | null>(null);
+  const [showCustomAmount, setShowCustomAmount] = useState(false);
 
   const isFinancial = type === "financial_one_time" || type === "financial_recurring";
+  const hasTiers = tiers && tiers.length > 0;
+  const selectedTier = tiers?.find((t: any) => t._id === selectedTierId);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
 
     if (isFinancial) {
-      const amountCents = Math.round(Number(amount) * 100);
-      // Mirrors the server's floor (validateBackingAmount) so an obvious
-      // miss costs a round trip to nowhere instead of a round trip to Convex.
-      if (!Number.isFinite(amountCents) || amountCents < MIN_BACKING_DOLLARS * 100) {
-        setError(`Back this with at least $${MIN_BACKING_DOLLARS}.`);
-        return;
+      let finalAmountCents: number;
+      let finalTierId: string | undefined;
+
+      if (selectedTier && !showCustomAmount) {
+        finalAmountCents = selectedTier.priceCents;
+        finalTierId = selectedTier._id;
+      } else {
+        finalAmountCents = Math.round(Number(amount) * 100);
+        // Mirrors the server's floor (validateBackingAmount) so an obvious
+        // miss costs a round trip to nowhere instead of a round trip to Convex.
+        if (!Number.isFinite(finalAmountCents) || finalAmountCents < MIN_BACKING_DOLLARS * 100) {
+          setError(`Back this with at least $${MIN_BACKING_DOLLARS}.`);
+          return;
+        }
       }
       setSubmitting(true);
       try {
         const { url } = await createBackingCheckout({
           projectId: project._id,
-          amountCents,
+          amountCents: finalAmountCents,
           recurring: type === "financial_recurring",
           visible,
           message: message.trim() || undefined,
+          tierId: finalTierId,
         });
         // Leaving for Stripe — deliberately no setSubmitting(false), so the
         // button stays disabled through the handoff.
@@ -1367,9 +1381,14 @@ export function SupportModal({ project, onClose }: { project: any; onClose: () =
               {existing.map((e) => (
                 <li key={e._id} className="text-sm" style={{ color: "var(--garden-body)" }}>
                   <span style={{ color: "var(--garden-paper)" }}>{e.supporterName}</span>
-                  {/* "pledged" is the older, pre-checkout row (garden/
-                      support.ts writes that status); a "confirmed" one is
-                      money that actually moved. */}
+                  {e.tierName && (
+                    <span
+                      className="ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-medium uppercase tracking-[0.04em]"
+                      style={{ backgroundColor: "rgba(215,242,90,0.12)", color: "var(--garden-citron)" }}
+                    >
+                      {e.tierName}
+                    </span>
+                  )}
                   {e.type === "financial_one_time" && e.amountCents && (
                     <span style={{ color: "var(--garden-citron)" }}>
                       {" "}· ${(e.amountCents / 100).toLocaleString()}
@@ -1428,8 +1447,58 @@ export function SupportModal({ project, onClose }: { project: any; onClose: () =
               ))}
             </div>
 
-            {isFinancial && (
+            {isFinancial && hasTiers && !showCustomAmount ? (
+              <div className="flex flex-col gap-2">
+                {tiers.map((tier: any) => (
+                  <button
+                    key={tier._id}
+                    type="button"
+                    onClick={() => { setSelectedTierId(tier._id); setShowCustomAmount(false); }}
+                    className="text-left rounded-xl border p-3 transition-colors"
+                    style={{
+                      borderColor: selectedTierId === tier._id ? "var(--garden-citron)" : "var(--garden-hairline)",
+                      backgroundColor: selectedTierId === tier._id ? "rgba(215,242,90,0.08)" : "var(--garden-ink)",
+                    }}
+                  >
+                    <div className="flex items-baseline justify-between gap-2 mb-1">
+                      <span className="text-sm font-semibold" style={{ color: "var(--garden-paper)" }}>
+                        {tier.name}
+                      </span>
+                      <span className="text-sm font-bold" style={{ color: "var(--garden-citron)", fontFamily: "var(--garden-font-mono)" }}>
+                        ${(tier.priceCents / 100).toLocaleString()}{type === "financial_recurring" ? "/mo" : ""}
+                      </span>
+                    </div>
+                    {tier.description && (
+                      <p className="text-xs mb-1" style={{ color: "var(--garden-body)" }}>{tier.description}</p>
+                    )}
+                    {tier.benefits && tier.benefits.length > 0 && (
+                      <ul className="text-xs flex flex-col gap-0.5" style={{ color: "var(--garden-dim)" }}>
+                        {tier.benefits.map((b: string, i: number) => <li key={i}>· {b}</li>)}
+                      </ul>
+                    )}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => { setSelectedTierId(null); setShowCustomAmount(true); }}
+                  className="text-xs underline underline-offset-2 hover:opacity-80 self-start mt-1"
+                  style={{ color: "var(--garden-dim)" }}
+                >
+                  Custom amount instead
+                </button>
+              </div>
+            ) : isFinancial && (
               <div>
+                {hasTiers && showCustomAmount && (
+                  <button
+                    type="button"
+                    onClick={() => { setShowCustomAmount(false); }}
+                    className="text-xs underline underline-offset-2 hover:opacity-80 mb-2"
+                    style={{ color: "var(--garden-dim)" }}
+                  >
+                    Back to tiers
+                  </button>
+                )}
                 <label className="block text-xs uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
                   Amount (USD{type === "financial_recurring" ? "/mo" : ""})
                 </label>

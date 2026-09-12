@@ -298,6 +298,7 @@ export default function ProjectDetail() {
               <ArchiveButton project={project} />
             </div>
           </DetailCard>
+          <TierManager projectId={project._id} />
           <div className="mb-6">
             <AnnouncementComposer targetType="project" targetId={project._id} heading="Message team and supporters" />
           </div>
@@ -1034,5 +1035,372 @@ function AddSomeone({ projectId }: { projectId: string }) {
 
       {error && <p className="text-sm text-red-400 mt-2">{error}</p>}
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// TierManager — owner-only patron tier CRUD, placed inside the isOwner block
+// between Manage and AnnouncementComposer.
+// ---------------------------------------------------------------------------
+
+function TierForm({
+  initial,
+  onSave,
+  onCancel,
+  saving,
+}: {
+  initial?: { name: string; priceCents: number; description?: string; benefits?: string[] };
+  onSave: (data: { name: string; priceCents: number; description?: string; benefits: string[] }) => void;
+  onCancel: () => void;
+  saving: boolean;
+}) {
+  const [name, setName] = useState(initial?.name ?? "");
+  const [price, setPrice] = useState(initial ? String(initial.priceCents / 100) : "");
+  const [description, setDescription] = useState(initial?.description ?? "");
+  const [benefits, setBenefits] = useState<string[]>(initial?.benefits ?? []);
+
+  const inputStyle = {
+    backgroundColor: "var(--garden-ink)",
+    borderColor: "var(--garden-hairline-raised)",
+    color: "var(--garden-paper)",
+  };
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const cents = Math.round(Number(price) * 100);
+    onSave({
+      name: name.trim(),
+      priceCents: cents,
+      description: description.trim() || undefined,
+      benefits: benefits.map((b) => b.trim()).filter(Boolean),
+    });
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+      <div>
+        <label
+          className="block text-xs uppercase tracking-[0.06em] mb-1.5"
+          style={{ color: "var(--garden-dim)" }}
+        >
+          Name
+        </label>
+        <input
+          type="text"
+          value={name}
+          onChange={(e) => setName(e.target.value.slice(0, 60))}
+          placeholder="e.g. Sustainer, Champion, Partner"
+          maxLength={60}
+          required
+          className="w-full px-3 py-2 rounded-lg border text-sm outline-none"
+          style={inputStyle}
+        />
+      </div>
+
+      <div>
+        <label
+          className="block text-xs uppercase tracking-[0.06em] mb-1.5"
+          style={{ color: "var(--garden-dim)" }}
+        >
+          Price ($/mo)
+        </label>
+        <input
+          type="number"
+          min="5"
+          step="1"
+          value={price}
+          onChange={(e) => setPrice(e.target.value)}
+          placeholder="5"
+          required
+          className="w-full px-3 py-2 rounded-lg border text-sm outline-none"
+          style={{ ...inputStyle, fontFamily: "var(--garden-font-mono)" }}
+        />
+      </div>
+
+      <div>
+        <label
+          className="block text-xs uppercase tracking-[0.06em] mb-1.5"
+          style={{ color: "var(--garden-dim)" }}
+        >
+          Description (optional)
+        </label>
+        <textarea
+          value={description}
+          onChange={(e) => setDescription(e.target.value.slice(0, 500))}
+          rows={2}
+          maxLength={500}
+          placeholder="What this level of support means"
+          className="w-full px-3 py-2 rounded-lg border text-sm outline-none resize-none"
+          style={inputStyle}
+        />
+      </div>
+
+      <div>
+        <label
+          className="block text-xs uppercase tracking-[0.06em] mb-1.5"
+          style={{ color: "var(--garden-dim)" }}
+        >
+          Benefits
+        </label>
+        <div className="flex flex-col gap-2">
+          {benefits.map((b, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <input
+                type="text"
+                value={b}
+                onChange={(e) => {
+                  const next = [...benefits];
+                  next[i] = e.target.value.slice(0, 200);
+                  setBenefits(next);
+                }}
+                maxLength={200}
+                placeholder={`Benefit ${i + 1}`}
+                className="flex-1 px-3 py-2 rounded-lg border text-sm outline-none"
+                style={inputStyle}
+              />
+              <button
+                type="button"
+                onClick={() => setBenefits(benefits.filter((_, j) => j !== i))}
+                className="text-xs underline underline-offset-2 hover:opacity-80 whitespace-nowrap"
+                style={{ color: "var(--garden-dim)" }}
+              >
+                Remove
+              </button>
+            </div>
+          ))}
+          {benefits.length < 8 && (
+            <button
+              type="button"
+              onClick={() => setBenefits([...benefits, ""])}
+              className="text-xs underline underline-offset-2 hover:opacity-80 w-fit"
+              style={{ color: "var(--garden-citron)" }}
+            >
+              Add benefit
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="flex gap-2 justify-end pt-1">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="px-4 py-2 rounded-lg text-sm font-medium"
+          style={{ color: "var(--garden-dim)" }}
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          disabled={saving}
+          className="px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-50"
+          style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
+        >
+          {saving ? "Saving…" : "Save"}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function TierManager({ projectId }: { projectId: Id<"projects"> }) {
+  const tiers = useQuery((api as any).garden.patronTiers.listAllTiers, { projectId });
+  const createTier = useMutation((api as any).garden.patronTiers.createTier);
+  const updateTier = useMutation((api as any).garden.patronTiers.updateTier);
+  const deleteTier = useMutation((api as any).garden.patronTiers.deleteTier);
+
+  const [showAdd, setShowAdd] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleCreate(data: {
+    name: string;
+    priceCents: number;
+    description?: string;
+    benefits: string[];
+  }) {
+    setSaving(true);
+    setError("");
+    try {
+      await createTier({
+        projectId,
+        name: data.name,
+        priceCents: data.priceCents,
+        description: data.description,
+        benefits: data.benefits.length > 0 ? data.benefits : undefined,
+      });
+      setShowAdd(false);
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleUpdate(
+    tierId: Id<"patronTiers">,
+    data: { name: string; priceCents: number; description?: string; benefits: string[] },
+  ) {
+    setSaving(true);
+    setError("");
+    try {
+      await updateTier({
+        tierId,
+        name: data.name,
+        priceCents: data.priceCents,
+        description: data.description,
+        benefits: data.benefits.length > 0 ? data.benefits : undefined,
+      });
+      setEditingId(null);
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete(tierId: Id<"patronTiers">, tierName: string) {
+    if (!window.confirm(`Delete the "${tierName}" tier? This cannot be undone.`)) return;
+    setError("");
+    try {
+      await deleteTier({ tierId });
+    } catch (err) {
+      setError(errorMessage(err));
+    }
+  }
+
+  if (tiers === undefined) return null;
+
+  return (
+    <DetailCard label="Patron Tiers">
+      {tiers.length === 0 && !showAdd && (
+        <p className="text-sm mb-3" style={{ color: "var(--garden-dim)" }}>
+          No patron tiers yet. Add tiers to let backers choose a level of support.
+        </p>
+      )}
+
+      <div className="flex flex-col gap-4">
+        {tiers.map((tier: any) =>
+          editingId === tier._id ? (
+            <TierForm
+              key={tier._id}
+              initial={{
+                name: tier.name,
+                priceCents: tier.priceCents,
+                description: tier.description,
+                benefits: tier.benefits,
+              }}
+              onSave={(data) => handleUpdate(tier._id, data)}
+              onCancel={() => {
+                setEditingId(null);
+                setError("");
+              }}
+              saving={saving}
+            />
+          ) : (
+            <div
+              key={tier._id}
+              className="rounded-lg border p-3"
+              style={{ borderColor: "var(--garden-hairline)" }}
+            >
+              <div className="flex items-center gap-2 flex-wrap">
+                <span
+                  className="font-semibold text-sm"
+                  style={{ color: "var(--garden-paper)", fontFamily: "var(--garden-font-display)" }}
+                >
+                  {tier.name}
+                </span>
+                <span
+                  className="text-sm"
+                  style={{ color: "var(--garden-muted)", fontFamily: "var(--garden-font-mono)" }}
+                >
+                  ${(tier.priceCents / 100).toFixed(0)}/mo
+                </span>
+                <span
+                  className="px-2 py-0.5 rounded-full text-[10px] font-medium uppercase tracking-[0.06em]"
+                  style={{
+                    fontFamily: "var(--garden-font-mono)",
+                    backgroundColor: tier.isActive ? "rgba(215,242,90,0.15)" : "rgba(198,198,190,0.1)",
+                    color: tier.isActive ? "var(--garden-citron)" : "var(--garden-dim)",
+                  }}
+                >
+                  {tier.isActive ? "Active" : "Inactive"}
+                </span>
+              </div>
+
+              {tier.description && (
+                <p className="text-sm mt-1.5" style={{ color: "var(--garden-body)" }}>
+                  {tier.description}
+                </p>
+              )}
+
+              {tier.benefits && tier.benefits.length > 0 && (
+                <ul className="mt-2 flex flex-col gap-1">
+                  {tier.benefits.map((b: string, i: number) => (
+                    <li
+                      key={i}
+                      className="text-sm pl-3 relative before:content-['·'] before:absolute before:left-0"
+                      style={{ color: "var(--garden-body)" }}
+                    >
+                      {b}
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              <div className="flex items-center gap-3 mt-2.5">
+                <button
+                  onClick={() => {
+                    setEditingId(tier._id);
+                    setShowAdd(false);
+                    setError("");
+                  }}
+                  className="text-xs underline underline-offset-2 hover:opacity-80"
+                  style={{ color: "var(--garden-citron)" }}
+                >
+                  Edit
+                </button>
+                <button
+                  onClick={() => handleDelete(tier._id, tier.name)}
+                  className="text-xs underline underline-offset-2 hover:opacity-80"
+                  style={{ color: "var(--garden-dim)" }}
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          ),
+        )}
+      </div>
+
+      {showAdd && (
+        <div className={tiers.length > 0 ? "mt-4" : ""}>
+          <TierForm
+            onSave={handleCreate}
+            onCancel={() => {
+              setShowAdd(false);
+              setError("");
+            }}
+            saving={saving}
+          />
+        </div>
+      )}
+
+      {!showAdd && !editingId && (
+        <button
+          onClick={() => {
+            setShowAdd(true);
+            setError("");
+          }}
+          className="mt-3 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-opacity hover:opacity-90"
+          style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
+        >
+          Add tier
+        </button>
+      )}
+
+      {error && <p className="text-sm text-red-400 mt-3">{error}</p>}
+    </DetailCard>
   );
 }
