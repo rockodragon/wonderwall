@@ -50,14 +50,13 @@ export const seed = internalMutation({
 
     if (!ownerUserId) {
       // Try accounts table (Convex Auth stores email there).
-      const accounts = await ctx.db.query("accounts").collect();
-      for (const acc of accounts) {
-        const providerAccountId = (acc as Record<string, unknown>)
-          .providerAccountId as string | undefined;
+      // Cast through `any` — accounts is an auth-managed table not in the
+      // app's typed schema, and this is a one-off seed script.
+      const accounts = await (ctx.db as any).query("accounts").collect();
+      for (const acc of accounts as any[]) {
         if (
-          providerAccountId === "rickmoy@gmail.com" ||
-          ((acc as Record<string, unknown>).email as string | undefined) ===
-            "rickmoy@gmail.com"
+          acc.providerAccountId === "rickmoy@gmail.com" ||
+          acc.email === "rickmoy@gmail.com"
         ) {
           ownerUserId = acc.userId;
           break;
