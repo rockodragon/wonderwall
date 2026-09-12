@@ -129,45 +129,45 @@ export default function ProjectDetail() {
     <PageShell>
       <BackLink />
 
-      {/* Same overlay spot as the card and Classes' detail page: kind
-          top-left, money top-right, whether or not there's a photo. */}
-      <div
-        className="relative rounded-2xl overflow-hidden border aspect-[16/9] flex items-center justify-center mb-6"
-        style={{ borderColor: "var(--garden-hairline)", backgroundColor: "var(--garden-ink-raised)" }}
-      >
-        {thumb ? (
-          <img src={thumb} alt={project.title} className="w-full h-full object-cover" />
-        ) : (
-          <svg
-            className="w-14 h-14"
-            style={{ color: "var(--garden-hairline-raised)" }}
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={1}
-              d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-            />
-          </svg>
-        )}
-        <span
-          className="absolute top-3 left-3 px-2.5 py-1 rounded-full text-xs font-semibold uppercase tracking-[0.06em]"
-          style={{ fontFamily: "var(--garden-font-mono)", backgroundColor: "rgba(20,20,18,0.72)", color: "var(--garden-paper)" }}
+      {thumb ? (
+        <div
+          className="relative rounded-2xl overflow-hidden border aspect-[16/9] flex items-center justify-center mb-6"
+          style={{ borderColor: "var(--garden-hairline)", backgroundColor: "var(--garden-ink-raised)" }}
         >
-          {kindWord}
-        </span>
-        {hasMoney && moneyWord && (
+          <img src={thumb} alt={project.title} className="w-full h-full object-cover" />
           <span
-            className="absolute top-3 right-3 px-3 py-1.5 rounded-full text-sm font-bold"
-            style={{ fontFamily: "var(--garden-font-mono)", backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
+            className="absolute top-3 left-3 px-2.5 py-1 rounded-full text-xs font-semibold uppercase tracking-[0.06em]"
+            style={{ fontFamily: "var(--garden-font-mono)", backgroundColor: "rgba(20,20,18,0.72)", color: "var(--garden-paper)" }}
           >
-            {moneyWord}
+            {kindWord}
           </span>
-        )}
-      </div>
+          {hasMoney && moneyWord && (
+            <span
+              className="absolute top-3 right-3 px-3 py-1.5 rounded-full text-sm font-bold"
+              style={{ fontFamily: "var(--garden-font-mono)", backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
+            >
+              {moneyWord}
+            </span>
+          )}
+        </div>
+      ) : (
+        <div className="flex flex-wrap items-center gap-2 mb-4">
+          <span
+            className="px-2.5 py-1 rounded-full text-xs font-semibold uppercase tracking-[0.06em]"
+            style={{ fontFamily: "var(--garden-font-mono)", backgroundColor: "rgba(198,198,190,0.1)", color: "var(--garden-muted)" }}
+          >
+            {kindWord}
+          </span>
+          {hasMoney && moneyWord && (
+            <span
+              className="px-3 py-1 rounded-full text-sm font-bold"
+              style={{ fontFamily: "var(--garden-font-mono)", backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
+            >
+              {moneyWord}
+            </span>
+          )}
+        </div>
+      )}
 
       <div className="flex flex-wrap items-center gap-2 mb-2">
         <h1
@@ -253,7 +253,7 @@ export default function ProjectDetail() {
       {project.benefitsNonprofit && (
         <DetailCard label="Nonprofit">
           <p className="text-sm" style={{ color: "var(--garden-body)" }}>
-            Supports {project.nonprofitName || "a nonprofit"} — self-declared, not verified.
+            Funded via {project.nonprofitName || "a nonprofit"}, a 501(c)(3).
           </p>
         </DetailCard>
       )}
@@ -298,6 +298,7 @@ export default function ProjectDetail() {
               <ArchiveButton project={project} />
             </div>
           </DetailCard>
+          <ProjectEditor project={project} />
           <TierManager projectId={project._id} />
           <div className="mb-6">
             <AnnouncementComposer targetType="project" targetId={project._id} heading="Message team and supporters" />
@@ -340,6 +341,119 @@ function ArchiveButton({ project }: { project: any }) {
     >
       Archive
     </button>
+  );
+}
+
+function ProjectEditor({ project }: { project: any }) {
+  const updateProject = useMutation((api as any).garden.projects.updateProject);
+  const [open, setOpen] = useState(false);
+  const [blurb, setBlurb] = useState(project.blurb ?? "");
+  const [photoUrl, setPhotoUrl] = useState(project.photoUrl ?? "");
+  const [location, setLocation] = useState(project.location ?? "");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleSave(e: React.FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    setError("");
+    try {
+      await updateProject({
+        projectId: project._id,
+        blurb: blurb.trim() || undefined,
+        photoUrl: photoUrl.trim() || undefined,
+        location: location.trim() || undefined,
+      });
+      setOpen(false);
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const inputStyle = {
+    backgroundColor: "var(--garden-ink)",
+    borderColor: "var(--garden-hairline-raised)",
+    color: "var(--garden-paper)",
+  };
+
+  if (!open) {
+    return (
+      <DetailCard label="Edit details">
+        <button
+          onClick={() => setOpen(true)}
+          className="text-xs underline underline-offset-2 hover:opacity-80"
+          style={{ color: "var(--garden-dim)" }}
+        >
+          Edit description, image, location
+        </button>
+      </DetailCard>
+    );
+  }
+
+  return (
+    <DetailCard label="Edit details">
+      <form onSubmit={handleSave} className="flex flex-col gap-3">
+        <div>
+          <label className="block text-[11px] uppercase tracking-[0.06em] mb-1" style={{ color: "var(--garden-dim)" }}>
+            Description
+          </label>
+          <textarea
+            value={blurb}
+            onChange={(e) => setBlurb(e.target.value)}
+            rows={3}
+            className="w-full px-3 py-2 rounded-lg border text-sm outline-none resize-none"
+            style={inputStyle}
+          />
+        </div>
+        <div>
+          <label className="block text-[11px] uppercase tracking-[0.06em] mb-1" style={{ color: "var(--garden-dim)" }}>
+            Image URL
+          </label>
+          <input
+            type="url"
+            value={photoUrl}
+            onChange={(e) => setPhotoUrl(e.target.value)}
+            placeholder="https://…"
+            className="w-full px-3 py-2 rounded-lg border text-sm outline-none"
+            style={inputStyle}
+          />
+        </div>
+        <div>
+          <label className="block text-[11px] uppercase tracking-[0.06em] mb-1" style={{ color: "var(--garden-dim)" }}>
+            Location
+          </label>
+          <input
+            type="text"
+            value={location}
+            onChange={(e) => setLocation(e.target.value)}
+            placeholder="City, State"
+            className="w-full px-3 py-2 rounded-lg border text-sm outline-none"
+            style={inputStyle}
+          />
+        </div>
+        {error && <p className="text-sm text-red-400">{error}</p>}
+        <div className="flex items-center gap-2">
+          <button
+            type="submit"
+            disabled={saving}
+            className="px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50"
+            style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
+          >
+            {saving ? "Saving…" : "Save"}
+          </button>
+          <button
+            type="button"
+            onClick={() => setOpen(false)}
+            className="text-xs underline underline-offset-2 hover:opacity-80"
+            style={{ color: "var(--garden-dim)" }}
+          >
+            Cancel
+          </button>
+        </div>
+      </form>
+    </DetailCard>
   );
 }
 
@@ -400,6 +514,7 @@ function TeamMemberRow({
   roleLabel,
   userId,
   showMessage,
+  memberId,
 }: {
   name: string;
   imageUrl?: string | null;
@@ -407,7 +522,31 @@ function TeamMemberRow({
   roleLabel: string;
   userId?: string;
   showMessage?: boolean;
+  memberId?: string;
 }) {
+  const updateMemberRole = useMutation((api as any).garden.projectTeam.updateMemberRole);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(roleLabel);
+  const [saving, setSaving] = useState(false);
+
+  async function saveRole() {
+    if (!draft.trim() || draft.trim() === roleLabel) {
+      setEditing(false);
+      setDraft(roleLabel);
+      return;
+    }
+    setSaving(true);
+    try {
+      await updateMemberRole({ memberId, role: draft.trim() });
+      setEditing(false);
+    } catch {
+      setDraft(roleLabel);
+      setEditing(false);
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
     <div className="flex items-center gap-2 text-sm">
       <Avatar name={name} imageUrl={imageUrl} />
@@ -418,7 +557,26 @@ function TeamMemberRow({
       ) : (
         <span style={{ color: "var(--garden-paper)" }}>{name}</span>
       )}
-      <span style={{ color: "var(--garden-dim)" }}>— {roleLabel}</span>
+      {editing ? (
+        <input
+          autoFocus
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={saveRole}
+          onKeyDown={(e) => { if (e.key === "Enter") saveRole(); if (e.key === "Escape") { setDraft(roleLabel); setEditing(false); } }}
+          disabled={saving}
+          className="px-1.5 py-0.5 rounded border text-sm outline-none min-w-0"
+          style={{ backgroundColor: "var(--garden-ink)", borderColor: "var(--garden-hairline-raised)", color: "var(--garden-paper)", maxWidth: "14rem" }}
+        />
+      ) : (
+        <span
+          style={{ color: "var(--garden-dim)", cursor: memberId ? "pointer" : undefined }}
+          onClick={memberId ? () => { setDraft(roleLabel); setEditing(true); } : undefined}
+          title={memberId ? "Click to edit role" : undefined}
+        >
+          — {roleLabel}
+        </span>
+      )}
       {showMessage && userId && <MessageButton userId={userId} />}
     </div>
   );
@@ -462,6 +620,7 @@ function TeamCard({
             roleLabel={m.role}
             userId={m.userId}
             showMessage={!!myUserId && myUserId !== m.userId}
+            memberId={isOwner ? m.memberId : undefined}
           />
         ))}
         {team.credits.map((c: any) => (

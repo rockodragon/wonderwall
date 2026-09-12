@@ -160,6 +160,54 @@ export const createPassionProject = mutation({
   },
 });
 
+export const updateProject = mutation({
+  args: {
+    projectId: v.id("projects"),
+    title: v.optional(v.string()),
+    blurb: v.optional(v.string()),
+    photoUrl: v.optional(v.string()),
+    interests: v.optional(v.array(v.string())),
+    benefitsNonprofit: v.optional(v.boolean()),
+    nonprofitName: v.optional(v.string()),
+    ...locationArgs,
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new ConvexError({ code: "unauthenticated" });
+
+    const project = await ctx.db.get(args.projectId);
+    if (!project) throw new ConvexError({ code: "not_found" });
+
+    const profile = await ctx.db
+      .query("profiles")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .unique();
+    if (project.userId !== userId && !profile?.isAdmin) {
+      throw new ConvexError({
+        code: "forbidden",
+        reason: "Only the creator or an operator can edit this.",
+      });
+    }
+
+    const patch: Record<string, any> = { updatedAt: Date.now() };
+    if (args.title !== undefined) patch.title = args.title;
+    if (args.blurb !== undefined) patch.blurb = args.blurb;
+    if (args.photoUrl !== undefined) patch.photoUrl = args.photoUrl;
+    if (args.interests !== undefined) patch.interests = args.interests;
+    if (args.benefitsNonprofit !== undefined) patch.benefitsNonprofit = args.benefitsNonprofit;
+    if (args.nonprofitName !== undefined) patch.nonprofitName = args.nonprofitName;
+    if (args.location !== undefined) patch.location = args.location;
+    if (args.locationType !== undefined) patch.locationType = args.locationType;
+    if (args.address !== undefined) patch.address = args.address;
+    if (args.coordinates !== undefined) patch.coordinates = args.coordinates;
+    if (args.placeId !== undefined) patch.placeId = args.placeId;
+    if (args.remote !== undefined) patch.remote = args.remote;
+
+    await ctx.db.patch(args.projectId, patch);
+    return { ok: true };
+  },
+});
+
 // Status transitions allowed per project kind (docs/the-exchange-v1-prd.md
 // §7): passion projects have no budget-completion moment in the same sense
 // paid work does, so "in_progress" doesn't apply to them.

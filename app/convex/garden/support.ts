@@ -27,7 +27,7 @@ import type { Id } from "../_generated/dataModel";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { ConvexError } from "convex/values";
 
-const FINANCIAL_TYPES = new Set(["financial_one_time", "financial_recurring"]);
+const FINANCIAL_TYPES = new Set(["financial_one_time", "financial_recurring", "financial_annual"]);
 const VALID_TYPES = new Set([...FINANCIAL_TYPES, "encouragement", "resource"]);
 
 export const supportProject = mutation({
@@ -115,6 +115,7 @@ export const startBacking = internalMutation({
     message: v.optional(v.string()),
     tierId: v.optional(v.string()),
     tierName: v.optional(v.string()),
+    interval: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const project = await ctx.db.get(args.projectId);
@@ -143,7 +144,7 @@ export const startBacking = internalMutation({
       projectId: args.projectId,
       supporterUserId: args.userId,
       supporterName,
-      type: args.recurring ? "financial_recurring" : "financial_one_time",
+      type: args.recurring ? (args.interval === "year" ? "financial_annual" : "financial_recurring") : "financial_one_time",
       amountCents: args.amountCents,
       message: args.message?.trim() || undefined,
       visible: args.visible,

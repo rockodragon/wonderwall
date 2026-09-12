@@ -496,7 +496,7 @@ function ProjectCard({
                 color: "var(--garden-muted)",
               }}
             >
-              Supports {project.nonprofitName || "a nonprofit"} — self-declared, not verified
+              Funded via {project.nonprofitName || "a nonprofit"}, a 501(c)(3)
             </span>
           )}
           {matched && (
@@ -1263,6 +1263,7 @@ function PassionProjectForm({ onClose }: { onClose: () => void }) {
 const SUPPORT_TYPES = [
   { value: "financial_one_time", label: "Give once" },
   { value: "financial_recurring", label: "Give monthly" },
+  { value: "financial_annual", label: "Give annually" },
   { value: "encouragement", label: "Encouragement" },
   { value: "resource", label: "Offer a resource" },
 ];
@@ -1298,7 +1299,7 @@ export function SupportModal({ project, onClose }: { project: any; onClose: () =
   const [selectedTierId, setSelectedTierId] = useState<string | null>(null);
   const [showCustomAmount, setShowCustomAmount] = useState(false);
 
-  const isFinancial = type === "financial_one_time" || type === "financial_recurring";
+  const isFinancial = type === "financial_one_time" || type === "financial_recurring" || type === "financial_annual";
   const hasTiers = tiers && tiers.length > 0;
   const selectedTier = tiers?.find((t: any) => t._id === selectedTierId);
 
@@ -1311,7 +1312,7 @@ export function SupportModal({ project, onClose }: { project: any; onClose: () =
       let finalTierId: string | undefined;
 
       if (selectedTier && !showCustomAmount) {
-        finalAmountCents = selectedTier.priceCents;
+        finalAmountCents = type === "financial_annual" ? selectedTier.priceCents * 12 : selectedTier.priceCents;
         finalTierId = selectedTier._id;
       } else {
         finalAmountCents = Math.round(Number(amount) * 100);
@@ -1327,10 +1328,11 @@ export function SupportModal({ project, onClose }: { project: any; onClose: () =
         const { url } = await createBackingCheckout({
           projectId: project._id,
           amountCents: finalAmountCents,
-          recurring: type === "financial_recurring",
+          recurring: type !== "financial_one_time",
           visible,
           message: message.trim() || undefined,
           tierId: finalTierId,
+          ...(type === "financial_annual" ? { interval: "year" } : {}),
         });
         // Leaving for Stripe — deliberately no setSubmitting(false), so the
         // button stays disabled through the handoff.
@@ -1395,9 +1397,9 @@ export function SupportModal({ project, onClose }: { project: any; onClose: () =
                       {e.status === "pledged" ? " pledged" : " backed"}
                     </span>
                   )}
-                  {e.type === "financial_recurring" && e.amountCents && (
+                  {(e.type === "financial_recurring" || e.type === "financial_annual") && e.amountCents && (
                     <span style={{ color: "var(--garden-citron)" }}>
-                      {" "}· ${(e.amountCents / 100).toLocaleString()}/mo
+                      {" "}· ${(e.amountCents / 100).toLocaleString()}{e.type === "financial_annual" ? "/yr" : "/mo"}
                       {e.status === "pledged" ? " pledged" : ""}
                     </span>
                   )}
@@ -1465,7 +1467,7 @@ export function SupportModal({ project, onClose }: { project: any; onClose: () =
                         {tier.name}
                       </span>
                       <span className="text-sm font-bold" style={{ color: "var(--garden-citron)", fontFamily: "var(--garden-font-mono)" }}>
-                        ${(tier.priceCents / 100).toLocaleString()}{type === "financial_recurring" ? "/mo" : ""}
+                        ${type === "financial_annual" ? (tier.priceCents * 12 / 100).toLocaleString() : (tier.priceCents / 100).toLocaleString()}{type === "financial_recurring" ? "/mo" : type === "financial_annual" ? "/yr" : ""}
                       </span>
                     </div>
                     {tier.description && (
@@ -1500,7 +1502,7 @@ export function SupportModal({ project, onClose }: { project: any; onClose: () =
                   </button>
                 )}
                 <label className="block text-xs uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
-                  Amount (USD{type === "financial_recurring" ? "/mo" : ""})
+                  Amount (USD{type === "financial_recurring" ? "/mo" : type === "financial_annual" ? "/yr" : ""})
                 </label>
                 <input
                   type="number"
@@ -1521,7 +1523,7 @@ export function SupportModal({ project, onClose }: { project: any; onClose: () =
                   style={{ color: "var(--garden-citron)", backgroundColor: "rgba(215,242,90,0.1)" }}
                 >
                   ${MIN_BACKING_DOLLARS} minimum
-                  {type === "financial_recurring" ? ", charged monthly until you cancel" : ""}.
+                  {type === "financial_recurring" ? ", charged monthly until you cancel" : type === "financial_annual" ? ", charged annually until you cancel" : ""}.
                   Next step is secure checkout — your card is charged there, not here.
                 </p>
               </div>
