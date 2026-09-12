@@ -1,4 +1,4 @@
-import { v } from "convex/values";
+import { v, ConvexError } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import type { QueryCtx } from "./_generated/server";
 import { auth } from "./auth";
@@ -59,6 +59,15 @@ export const getOrCreateConversation = mutation({
     // Cannot create conversation with self
     if (userId === args.otherUserId) {
       throw new Error("Cannot create conversation with yourself");
+    }
+
+    // Refuse in either direction when a block exists (following.md §1 #8 —
+    // until now only sendMessage checked; the "Message" button on a profile
+    // could still open a thread). Same bidirectional set getConversations
+    // filters with. ConvexError so the client can read `data.code`.
+    const blockedUserIds = await getBlockedUserIds(ctx, userId);
+    if (blockedUserIds.has(args.otherUserId)) {
+      throw new ConvexError({ code: "blocked" });
     }
 
     // Check if conversation already exists
@@ -560,5 +569,136 @@ export const getUnreadCount = query({
     }
 
     return totalUnread;
+  },
+});
+
+// ——— Blocking (docs/features/following.md §1 #8) ———
+//
+// The `blocks` table and every read path (getBlockedUserIds, sendMessage,
+// getConversations, getUnreadCount) predate this; nothing wrote it. These
+// take USERS ids — a block is between two accounts, not two profiles — so a
+// client holding a profile (profile.tsx) passes `profile.userId`. listBlocked
+// resolves the profile id back for linking, since /profile/:id routes on
+// profiles._id.
+
+/**
+ * Block a user. Idempotent: a second call finds the existing row via
+ * by_blocker_blocked and returns it instead of inserting a duplicate.
+ */
+export const blockUser = mutation({
+  args: {
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    const me = await auth.getUserId(ctx);
+    if (!me) throw new ConvexError({ code: "unauthenticated" });
+
+    if (me === args.userId) {
+      throw new ConvexError({
+        code: "invalid_target",
+        reason: "You can't block yourself.",
+      });
+    }
+
+    const existing = await ctx.db
+      .query("blocks")
+      .withIndex("by_blocker_blocked", (q) =>
+        q.eq("blockerId", me).eq("blockedId", args.userId),
+      )
+      .first();
+    if (existing) return existing._id;
+
+    return await ctx.db.insert("blocks", {
+      blockerId: me,
+      blockedId: args.userId,
+      createdAt: Date.now(),
+    });
+  },
+});
+
+/**
+ * Unblock a user. No-op when there is no block to remove.
+ */
+export const unblockUser = mutation({
+  args: {
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    const me = await auth.getUserId(ctx);
+    if (!me) throw new ConvexError({ code: "unauthenticated" });
+
+    const existing = await ctx.db
+      .query("blocks")
+      .withIndex("by_blocker_blocked", (q) =>
+        q.eq("blockerId", me).eq("blockedId", args.userId),
+      )
+      .first();
+    if (existing) {
+      await ctx.db.delete(existing._id);
+      return true;
+    }
+    return false;
+  },
+});
+
+/**
+ * Have I blocked this user? Only my own direction is reported — whether
+ * they've blocked me stays private to them.
+ */
+export const isBlocked = query({
+  args: {
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    const me = await auth.getUserId(ctx);
+    if (!me) return { blockedByMe: false };
+
+    const existing = await ctx.db
+      .query("blocks")
+      .withIndex("by_blocker_blocked", (q) =>
+        q.eq("blockerId", me).eq("blockedId", args.userId),
+      )
+      .first();
+
+    return { blockedByMe: existing !== null };
+  },
+});
+
+/**
+ * People I've blocked, most recent first — the "Blocked people" list in
+ * Settings. Each row carries both ids: `userId` for unblockUser, `profileId`
+ * for linking (null if they have no profile, in which case the name falls
+ * back to "Someone"). Image resolved the same way getConversations does.
+ */
+export const listBlocked = query({
+  args: {},
+  handler: async (ctx) => {
+    const me = await auth.getUserId(ctx);
+    if (!me) return [];
+
+    const blocks = await ctx.db
+      .query("blocks")
+      .withIndex("by_blockerId", (q) => q.eq("blockerId", me))
+      .collect();
+
+    const rows = await Promise.all(
+      blocks.map(async (block) => {
+        const profile = await ctx.db
+          .query("profiles")
+          .withIndex("by_userId", (q) => q.eq("userId", block.blockedId))
+          .first();
+
+        return {
+          userId: block.blockedId,
+          profileId: profile ? profile._id : null,
+          name: profile?.name || "Someone",
+          imageUrl: profile ? await resolveImageUrl(ctx, profile) : null,
+          blockedAt: block.createdAt,
+        };
+      }),
+    );
+
+    rows.sort((a, b) => b.blockedAt - a.blockedAt);
+    return rows;
   },
 });

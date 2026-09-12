@@ -9,7 +9,35 @@ import { mutation, query } from "../_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { ConvexError } from "convex/values";
 import type { MutationCtx } from "../_generated/server";
+import type { Id } from "../_generated/dataModel";
 import { slugifyTitle, resolveAvailableSlug } from "./stories";
+import { assertCommunityMember } from "./communities";
+import { notifyFollowers } from "../follows";
+import { isStage, stageLabel, shouldNotifyStageChange } from "./projectTeam";
+
+// Following fan-out (docs/features/following.md §1 #5): "Name posted Title"
+// to everyone following the poster, once per created row. `userId` is a
+// users id; notifyFollowers does the users → profile → favorites hop
+// itself, since follows are keyed by PROFILE id. Never throws — a poster
+// with no profile just notifies nobody — so it can't roll back the insert.
+async function notifyFollowersOfProject(
+  ctx: MutationCtx,
+  userId: Id<"users">,
+  projectId: Id<"projects">,
+  title: string,
+): Promise<void> {
+  const profile = await ctx.db
+    .query("profiles")
+    .withIndex("by_userId", (q) => q.eq("userId", userId))
+    .first();
+  const name = profile?.name || "Someone";
+  await notifyFollowers(ctx, userId, {
+    type: "followed_posted_project",
+    title: `${name} posted ${title}`,
+    message: "",
+    linkUrl: `/projects/${projectId}`,
+  });
+}
 
 // Slug generation, wired at creation time (review follow-up — stories.ts's
 // ensureStorySlug internalMutation existed but nothing called it). It can't
@@ -76,6 +104,10 @@ export const createPassionProject = mutation({
     // independent of the creator's profile interests. See the schema
     // comment on `projects.interests`.
     interests: v.optional(v.array(v.string())),
+    // The community this project is posted INTO (optional — content stays
+    // owned by the creator, this only tags it; community-groups.md §0).
+    // Membership is checked before the tag is ever written.
+    hostOrgId: v.optional(v.id("hostOrgs")),
     ...locationArgs,
   },
   handler: async (ctx, args) => {
@@ -89,6 +121,10 @@ export const createPassionProject = mutation({
       });
     }
 
+    if (args.hostOrgId) {
+      await assertCommunityMember(ctx, args.hostOrgId, userId);
+    }
+
     const now = Date.now();
     const storySlug = await generateStorySlug(ctx, args.title);
     const id = await ctx.db.insert("projects", {
@@ -100,12 +136,16 @@ export const createPassionProject = mutation({
       goal: args.goal,
       raisedCents: 0,
       status: "active",
+      // Stage default (docs/features/project-teams.md §1): passion → planning.
+      stage: "planning",
+      stageChangedAt: now,
       photoUrl: args.photoUrl,
       storySlug,
       raiseByDate: args.raiseByDate,
       benefitsNonprofit: args.benefitsNonprofit,
       nonprofitName: args.benefitsNonprofit ? args.nonprofitName : undefined,
       interests: args.interests,
+      hostOrgId: args.hostOrgId,
       location: args.location,
       locationType: args.locationType,
       address: args.address,
@@ -115,6 +155,7 @@ export const createPassionProject = mutation({
       createdAt: now,
       updatedAt: now,
     });
+    await notifyFollowersOfProject(ctx, userId, id, args.title);
     return { projectId: id, storySlug };
   },
 });
@@ -159,6 +200,76 @@ export const updateProjectStatus = mutation({
   },
 });
 
+// Stage (docs/features/project-teams.md §1): the creative-process label,
+// separate from `status` above (which stays lifecycle/visibility — Archive
+// still goes through updateProjectStatus). Any stage can move to any other.
+// Same permission as updateProjectStatus: the lead or an operator. Accepted
+// team members hear "Title is now Working" — but only when the stage really
+// changed and the previous change is absent or older than 24h (§6), since
+// this mutation has no rate limit of its own.
+export const setStage = mutation({
+  args: { projectId: v.id("projects"), stage: v.string() },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new ConvexError({ code: "unauthenticated" });
+
+    const project = await ctx.db.get(args.projectId);
+    if (!project) throw new ConvexError({ code: "not_found" });
+
+    const profile = await ctx.db
+      .query("profiles")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .unique();
+    if (project.userId !== userId && !profile?.isAdmin) {
+      throw new ConvexError({
+        code: "forbidden",
+        reason: "Only the creator or an operator can change this.",
+      });
+    }
+
+    if (!isStage(args.stage)) {
+      throw new ConvexError({ code: "invalid_stage", reason: "Not a valid stage." });
+    }
+    if (project.stage === args.stage) return { ok: true, changed: false };
+
+    const now = Date.now();
+    const notifyTeam = shouldNotifyStageChange(
+      project.stage,
+      args.stage,
+      project.stageChangedAt,
+      now,
+    );
+    await ctx.db.patch(args.projectId, {
+      stage: args.stage,
+      stageChangedAt: now,
+      updatedAt: now,
+    });
+
+    if (notifyTeam) {
+      const members = await ctx.db
+        .query("projectMembers")
+        .withIndex("by_projectId_status", (q) =>
+          q.eq("projectId", args.projectId).eq("status", "accepted"),
+        )
+        .collect();
+      const title = `${project.title} is now ${stageLabel(args.stage, project.kind)}`;
+      for (const member of members) {
+        if (!member.userId || member.userId === userId) continue;
+        await ctx.db.insert("notifications", {
+          userId: member.userId,
+          type: "project_stage_changed",
+          title,
+          message: "",
+          linkUrl: `/projects/${args.projectId}`,
+          relatedUserId: userId,
+          createdAt: now,
+        });
+      }
+    }
+    return { ok: true, changed: true, notified: notifyTeam };
+  },
+});
+
 // V1 (docs/the-exchange-v1-prd.md §7): the public Projects browse surface.
 // Joins each project to its creator profile and, if it was created through
 // the artifacts.create path, its attached media — passion and paid projects
@@ -182,6 +293,16 @@ export const listProjects = query({
       // "posted" so real projects never vanish defensively.
       (p) => VISIBLE_STATUSES.has(p.status) && p.origin !== "portfolio",
     );
+
+    // Batch the hostOrgs lookups: one ctx.db.get per DISTINCT community, not
+    // one per project (several posted projects can share a community).
+    const hostOrgIds = [...new Set(projects.map((p) => p.hostOrgId).filter((id): id is Id<"hostOrgs"> => !!id))];
+    const hostOrgs = await Promise.all(hostOrgIds.map((id) => ctx.db.get(id)));
+    const communityById = new Map<string, { name: string; slug: string }>();
+    hostOrgIds.forEach((id, i) => {
+      const org = hostOrgs[i];
+      if (org) communityById.set(String(id), { name: org.name, slug: org.slug });
+    });
 
     const withDetails = await Promise.all(
       projects.map(async (project) => {
@@ -223,11 +344,69 @@ export const listProjects = query({
             : null,
           media: resolvedMedia,
           supportCount: support.length,
+          community: project.hostOrgId ? (communityById.get(String(project.hostOrgId)) ?? null) : null,
         };
       }),
     );
 
     return withDetails.sort((a, b) => b.createdAt - a.createdAt);
+  },
+});
+
+// Single-project fetch for the detail page (routes/projects.$id.tsx). Same
+// per-row shape as listProjects above (resolved media, creator, supportCount,
+// community) — deliberately the ONE source of truth for that shape, rather
+// than the older garden/projectsPublic.ts:getProject, which predates
+// communities/media-array/support and was only ever called by the retired
+// projects.$id.tsx GardenPage shell (grepped — no other caller). This is the
+// current module (create/update/list all live here), so the single-item
+// getter belongs beside them, not in a separate legacy file.
+// `projectId` is v.string() rather than v.id("projects") so a malformed or
+// foreign id normalizes to null instead of throwing — a plain 404 for a bad
+// URL, same convention as garden/offerings.ts's getOffering.
+export const getProject = query({
+  args: { projectId: v.string() },
+  handler: async (ctx, args) => {
+    const id = ctx.db.normalizeId("projects", args.projectId);
+    if (!id) return null;
+    const project = await ctx.db.get(id);
+    if (!project) return null;
+
+    const [user, media, support, communityOrg] = await Promise.all([
+      ctx.db
+        .query("profiles")
+        .withIndex("by_userId", (q) => q.eq("userId", project.userId))
+        .unique(),
+      ctx.db
+        .query("artifacts")
+        .withIndex("by_projectId", (q) => q.eq("projectId", project._id))
+        .collect(),
+      ctx.db
+        .query("projectSupport")
+        .withIndex("by_projectId", (q) => q.eq("projectId", project._id))
+        .filter((q) => q.eq(q.field("status"), "confirmed"))
+        .collect(),
+      project.hostOrgId ? ctx.db.get(project.hostOrgId) : Promise.resolve(null),
+    ]);
+
+    const resolvedMedia = await Promise.all(
+      media.map(async (artifact) => ({
+        ...artifact,
+        resolvedMediaUrl: artifact.mediaStorageId
+          ? await ctx.storage.getUrl(artifact.mediaStorageId)
+          : artifact.mediaUrl || null,
+      })),
+    );
+
+    return {
+      ...project,
+      creator: user
+        ? { _id: user._id, name: user.name, imageUrl: user.imageUrl, interests: user.interests, location: user.location }
+        : null,
+      media: resolvedMedia,
+      supportCount: support.length,
+      community: communityOrg ? { name: communityOrg.name, slug: communityOrg.slug } : null,
+    };
   },
 });
 
@@ -350,6 +529,8 @@ export const createPaidProject = mutation({
     // independent of the creator's profile interests. See the schema
     // comment on `projects.interests`.
     interests: v.optional(v.array(v.string())),
+    // See createPassionProject's hostOrgId comment.
+    hostOrgId: v.optional(v.id("hostOrgs")),
     ...locationArgs,
   },
   handler: async (ctx, args) => {
@@ -358,6 +539,10 @@ export const createPaidProject = mutation({
 
     const budgetError = validateBudgetDeclaration(args);
     if (budgetError) throw new ConvexError(budgetError);
+
+    if (args.hostOrgId) {
+      await assertCommunityMember(ctx, args.hostOrgId, userId);
+    }
 
     const now = Date.now();
     const storySlug = await generateStorySlug(ctx, args.title);
@@ -371,9 +556,14 @@ export const createPaidProject = mutation({
       budget: args.budget,
       budgetMax: args.budgetMax,
       status: "active",
+      // Stage default (docs/features/project-teams.md §1): paid → forming
+      // (a paid post is a hiring post).
+      stage: "forming",
+      stageChangedAt: now,
       photoUrl: args.photoUrl,
       storySlug,
       interests: args.interests,
+      hostOrgId: args.hostOrgId,
       location: args.location,
       locationType: args.locationType,
       address: args.address,
@@ -383,6 +573,7 @@ export const createPaidProject = mutation({
       createdAt: now,
       updatedAt: now,
     });
+    await notifyFollowersOfProject(ctx, userId, id, args.title);
     return { projectId: id, storySlug };
   },
 });

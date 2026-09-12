@@ -15,7 +15,6 @@ import {
   GardenErrorState,
   GardenLoading,
   GardenPage,
-  GardenNav,
   SectionLabel,
   formatDateTime,
   formatDuration,
@@ -33,7 +32,6 @@ export function ErrorBoundary() {
   useRouteError();
   return (
     <GardenPage>
-      <GardenNav active="Tables" />
       <div style={{ marginTop: 28 }}>
         <GardenErrorState message="This table isn't live yet — check back soon." />
       </div>
@@ -226,8 +224,7 @@ export default function TableDetailPage() {
   if (table === undefined) {
     return (
       <GardenPage>
-        <GardenNav active="Tables" />
-        <div style={{ marginTop: 28 }}>
+          <div style={{ marginTop: 28 }}>
           <GardenLoading />
         </div>
       </GardenPage>
@@ -237,8 +234,7 @@ export default function TableDetailPage() {
   if (table === null) {
     return (
       <GardenPage>
-        <GardenNav active="Tables" />
-        <div style={{ marginTop: 28 }}>
+          <div style={{ marginTop: 28 }}>
           <GardenErrorState message="Check the link — this table isn't set up here." />
         </div>
       </GardenPage>
@@ -247,7 +243,6 @@ export default function TableDetailPage() {
 
   return (
     <GardenPage>
-      <GardenNav active="Tables" />
 
       <div style={{ marginTop: 28 }}>
         {table.format && <span className="g-badge g-badge-line">{table.format}</span>}

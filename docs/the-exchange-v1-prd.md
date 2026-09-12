@@ -252,6 +252,8 @@ This was the one piece of real revenue infrastructure missing from the first dra
 
 ## 16. Host communities — the post-V1 path
 
+> **Reattachment started 2026-09-03.** The community layer is being built now, starting with The Garden (Kingdom Creatives) as the first community and pay-what-you-want seats. See [features/community-groups.md](features/community-groups.md); where it and this section disagree, that doc wins.
+
 Deferred, not cut. Every table this depends on — `hostOrgs`, `gardenTables`, `tableMemberships`, `tableSessions`, `memberships`, `coverageCodes`, `allocations` — stays in schema untouched; V1 simply doesn't build new surfaces on top of it yet. The most likely way it comes back, once the core Exchange loop (sign up → profile → post a project → get tagged → get supported) is validated:
 
 1. **A Host becomes something you affiliate with, not something that gates you.** A Creative or Patron profile gets an optional "affiliated with [Host]" field — AP, TAS, a church — the same way the current `hostOrgs` table already models a named organization. No re-signup, no separate account tier.

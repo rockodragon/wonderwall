@@ -20,7 +20,6 @@ import {
   GardenErrorState,
   GardenLoading,
   GardenPage,
-  GardenNav,
   SectionLabel,
 } from "../garden/ui";
 import "../garden/garden.css";
@@ -36,7 +35,6 @@ export function ErrorBoundary() {
   useRouteError(); // logged by the framework; the page just degrades warmly
   return (
     <GardenPage>
-      <GardenNav />
       <div style={{ marginTop: 28 }}>
         <GardenErrorState message="This code isn't live yet — check back soon." />
       </div>
@@ -71,8 +69,7 @@ export default function CoveragePage() {
   if (data === undefined) {
     return (
       <GardenPage>
-        <GardenNav />
-        <div style={{ marginTop: 28 }}>
+          <div style={{ marginTop: 28 }}>
           <GardenLoading />
         </div>
       </GardenPage>
@@ -82,8 +79,7 @@ export default function CoveragePage() {
   if (data === null) {
     return (
       <GardenPage>
-        <GardenNav />
-        <div style={{ marginTop: 28 }}>
+          <div style={{ marginTop: 28 }}>
           <GardenErrorState message="That code isn't one of ours — check the spelling." />
         </div>
       </GardenPage>
@@ -111,7 +107,6 @@ export default function CoveragePage() {
 
   return (
     <GardenPage>
-      <GardenNav />
 
       <div style={{ marginTop: 28 }}>
         <SectionLabel>{data.sponsorName} is covering seats</SectionLabel>

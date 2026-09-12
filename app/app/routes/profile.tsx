@@ -6,7 +6,11 @@ import type { Id } from "../../convex/_generated/dataModel";
 import { FavoriteButton } from "../components/FavoriteButton";
 import { ShareButton } from "../components/ShareButton";
 import { usePostHog } from "@posthog/react";
+import { stageLabel, type Stage } from "../lib/stage";
 
+// Matches listAffiliations's return shape (project-teams.md §4). Annotated
+// explicitly here — not inferred from the query — so this section still
+// typechecks while app/convex/garden/projectTeam.ts is still being written.
 export default function Profile() {
   const { profileId } = useParams();
   const navigate = useNavigate();
@@ -26,6 +30,11 @@ export default function Profile() {
     api.garden.tables.listTablesForUser,
     profile?.userId ? { userId: profile.userId } : "skip",
   );
+  // Projects this person leads or is accepted on (project-teams.md §7).
+  const affiliations = useQuery(
+    api.garden.projectTeam.listAffiliations,
+    profile?._id ? { profileId: profile._id } : "skip",
+  );
   const getOrCreateConversation = useMutation(
     api.messaging.getOrCreateConversation,
   );
@@ -34,6 +43,19 @@ export default function Profile() {
 
   // Check if viewing own profile
   const isOwnProfile = myProfile?._id === profileId;
+
+  // Following is private to the pair, so the only signal shown is whether
+  // this person follows the viewer. Skipped on the own profile.
+  const followsMe = useQuery(
+    api.follows.followsMe,
+    profile?._id && !isOwnProfile ? { profileId: profile._id } : "skip",
+  );
+  const blockStatus = useQuery(
+    api.messaging.isBlocked,
+    profile?.userId && !isOwnProfile ? { userId: profile.userId } : "skip",
+  );
+  const blockUser = useMutation(api.messaging.blockUser);
+  const unblockUser = useMutation(api.messaging.unblockUser);
   const profileNeedsSetup =
     isOwnProfile &&
     !profile?.bio?.trim() &&
@@ -66,6 +88,26 @@ export default function Profile() {
       console.error("Failed to start conversation:", error);
     } finally {
       setStartingConversation(false);
+    }
+  };
+
+  const handleToggleBlock = async () => {
+    if (!profile?.userId) return;
+    try {
+      if (blockStatus?.blockedByMe) {
+        await unblockUser({ userId: profile.userId });
+        return;
+      }
+      if (
+        !window.confirm(
+          `Block ${profile.name}? They won't be able to message you.`,
+        )
+      ) {
+        return;
+      }
+      await blockUser({ userId: profile.userId });
+    } catch (error) {
+      console.error("Failed to update block:", error);
     }
   };
 
@@ -117,6 +159,11 @@ export default function Profile() {
             </h1>
             <FavoriteButton targetType="profile" targetId={profile._id} />
             <ShareButton type="profile" title={profile.name} size="sm" />
+            {followsMe === true && (
+              <span className="text-xs text-[var(--garden-dim)]">
+                Follows you
+              </span>
+            )}
           </div>
           {profile.interests.length > 0 && (
             <p className="text-gray-600 dark:text-gray-400 mt-1 text-sm sm:text-base">
@@ -133,32 +180,44 @@ export default function Profile() {
               {profile.bio}
             </p>
           )}
-          {/* Message button - below bio, only for other profiles */}
+          {/* Message button - below bio, only for other profiles. Block sits
+              beside it as a quiet link: it must be reachable, not prominent. */}
           {!isOwnProfile && (
-            <button
-              onClick={handleStartConversation}
-              disabled={startingConversation}
-              className="mt-4 flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-colors bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
-            >
-              {startingConversation ? (
-                <div className="w-4 h-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-              ) : (
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
+            <div className="mt-4 flex items-center gap-4">
+              <button
+                onClick={handleStartConversation}
+                disabled={startingConversation}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-colors bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+              >
+                {startingConversation ? (
+                  <div className="w-4 h-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                ) : (
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                    />
+                  </svg>
+                )}
+                Message
+              </button>
+              {blockStatus !== undefined && (
+                <button
+                  type="button"
+                  onClick={handleToggleBlock}
+                  className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:underline"
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-                  />
-                </svg>
+                  {blockStatus.blockedByMe ? "Unblock" : "Block"}
+                </button>
               )}
-              Message
-            </button>
+            </div>
           )}
           {/* Invite stats */}
           {inviteStats && (
@@ -294,6 +353,39 @@ export default function Profile() {
                   See the table →
                 </div>
               </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Projects this person leads or is on the team of. Above Work —
+          project-teams.md §7 — hidden entirely when there are none. */}
+      {affiliations && affiliations.length > 0 && (
+        <div className="mb-8">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+            Projects
+          </h2>
+          <div className="divide-y divide-gray-200 dark:divide-gray-800">
+            {affiliations.map((a) => (
+              <div
+                key={a.projectId}
+                className="flex items-baseline justify-between gap-3 flex-wrap py-3"
+              >
+                <div className="flex items-baseline gap-2 flex-wrap">
+                  <Link
+                    to={`/projects/${a.projectId}`}
+                    className="font-medium text-gray-900 dark:text-white hover:underline"
+                  >
+                    {a.title}
+                  </Link>
+                  <span className="text-sm text-gray-600 dark:text-gray-300">
+                    {a.role || "Lead"}
+                  </span>
+                </div>
+                <span className="text-sm text-gray-500 dark:text-gray-400">
+                  {stageLabel(a.stage as Stage, a.kind)}
+                </span>
+              </div>
             ))}
           </div>
         </div>
@@ -464,7 +556,6 @@ export default function Profile() {
             <p>This profile doesn't have any content yet</p>
           </div>
         )}
-
     </div>
   );
 }

@@ -10,9 +10,13 @@ import {
   GardenErrorState,
   GardenLoading,
   GardenPage,
-  GardenNav,
   formatMoney,
 } from "../garden/ui";
+import {
+  CommunityContextLine,
+  communityNameFor,
+  useCommunityContext,
+} from "../components/CommunityFilter";
 import "../garden/garden.css";
 
 export function meta() {
@@ -26,7 +30,6 @@ export function ErrorBoundary() {
   useRouteError();
   return (
     <GardenPage>
-      <GardenNav active="Tables" />
       <div style={{ marginTop: 28 }}>
         <GardenErrorState message="Tables isn't live yet — check back soon." />
       </div>
@@ -46,6 +49,7 @@ type TableRow = {
   photoUrl?: string;
   priceCents?: number;
   memberCount: number;
+  community?: { name: string; slug: string } | null;
 };
 
 function FilterChips({
@@ -110,6 +114,11 @@ function TableCard({ table }: { table: TableRow }) {
         {table.memberCount} on the roster
         {table.priceCents ? ` · ${formatMoney(table.priceCents)}` : ""}
       </p>
+      {table.community && (
+        <div className="g-credit" style={{ marginTop: 6 }}>
+          in {table.community.name}
+        </div>
+      )}
     </Link>
   );
 }
@@ -117,6 +126,8 @@ function TableCard({ table }: { table: TableRow }) {
 export default function TablesIndex() {
   const tables = useQuery(api.garden.tables.listTables, {}) as TableRow[] | undefined;
   const [filter, setFilter] = useState("All");
+  const { selected: communitySlug, setSelected: setCommunitySlug, communities } =
+    useCommunityContext();
 
   const formats = useMemo(() => {
     if (!tables) return [];
@@ -128,8 +139,7 @@ export default function TablesIndex() {
   if (tables === undefined) {
     return (
       <GardenPage wide>
-        <GardenNav active="Tables" />
-        <div style={{ marginTop: 28 }}>
+          <div style={{ marginTop: 28 }}>
           <GardenLoading />
         </div>
       </GardenPage>
@@ -139,8 +149,7 @@ export default function TablesIndex() {
   if (tables.length === 0) {
     return (
       <GardenPage wide>
-        <GardenNav active="Tables" />
-        <div style={{ marginTop: 28, maxWidth: "50ch" }}>
+          <div style={{ marginTop: 28, maxWidth: "50ch" }}>
           <h1 className="g-h" style={{ fontSize: "clamp(28px,5vw,40px)" }}>
             Tables
           </h1>
@@ -152,11 +161,14 @@ export default function TablesIndex() {
     );
   }
 
-  const shown = filter === "All" ? tables : tables.filter((t) => t.format === filter);
+  const byFormat = filter === "All" ? tables : tables.filter((t) => t.format === filter);
+  const shown =
+    communitySlug === "all"
+      ? byFormat
+      : byFormat.filter((t) => t.community?.slug === communitySlug);
 
   return (
     <GardenPage wide>
-      <GardenNav active="Tables" />
       <div style={{ marginTop: 28, marginBottom: 24 }}>
         <h1 className="g-h" style={{ fontSize: "clamp(28px,5vw,40px)" }}>
           Tables
@@ -167,20 +179,51 @@ export default function TablesIndex() {
         </p>
       </div>
 
-      <FilterChips options={filterOptions} active={filter} onSelect={setFilter} />
+      <CommunityContextLine
+        variant="garden"
+        selected={communitySlug}
+        setSelected={setCommunitySlug}
+        communities={communities}
+        rows={tables}
+      />
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))",
-          gap: 14,
-          marginTop: 20,
-        }}
-      >
-        {shown.map((t) => (
-          <TableCard key={t._id} table={t} />
-        ))}
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <FilterChips options={filterOptions} active={filter} onSelect={setFilter} />
       </div>
+
+      {shown.length === 0 && communitySlug !== "all" ? (
+        <div style={{ marginTop: 20, fontSize: 14.5 }}>
+          Nothing in {communityNameFor(communitySlug, communities, tables)} yet — see
+          everything.{" "}
+          <button
+            type="button"
+            onClick={() => setCommunitySlug("all")}
+            className="g-mono"
+            style={{
+              color: "var(--g-citron)",
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              textDecoration: "underline",
+            }}
+          >
+            Show all
+          </button>
+        </div>
+      ) : (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))",
+            gap: 14,
+            marginTop: 20,
+          }}
+        >
+          {shown.map((t) => (
+            <TableCard key={t._id} table={t} />
+          ))}
+        </div>
+      )}
     </GardenPage>
   );
 }

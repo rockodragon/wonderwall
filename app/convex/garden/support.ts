@@ -1,12 +1,28 @@
 // Support widget (docs/the-exchange-v1-prd.md §9, revised 2026-08-30). Four
 // types in one record: financial one-time/recurring, encouragement,
-// resource. Financial support is UX-only for now, on purpose — no Stripe,
-// no payment link required, no money actually moves. It records a pledge
-// (status "pledged") the same way a real gift will later; the only thing
-// that changes when real checkout lands is what happens after submit.
+// resource.
+//
+// Real checkout has landed for the two FINANCIAL types: the Support modal
+// (app/routes/projects.tsx) now calls garden/stripe.ts's
+// createBackingCheckout, which writes its projectSupport row through
+// startBacking below (status "pending") and lets the Stripe webhook confirm
+// it (garden/stripeHandlers.ts's handleBackingCheckoutCompleted). Money
+// really moves there. supportProject stays the path for encouragement and
+// resource offers — no money, real the moment they're posted — and keeps its
+// original financial branch for the operator/manual lane (confirmSupport).
+//
+// STATUS VOCABULARY (a real, pre-existing inconsistency, named here rather
+// than papered over): schema.ts documents projectSupport.status as
+// "pending" | "confirmed", supportProject writes "pledged" for financial
+// intent, and VISIBLE_STATUSES below reads "confirmed" | "pledged". All
+// three disagree. The new backing path deliberately uses the schema's own
+// pair — "pending" until Stripe confirms, then "confirmed" — so an
+// abandoned checkout shows up nowhere ("pending" is in neither
+// VISIBLE_STATUSES nor garden/projects.ts's confirmed-only filter). Fixing
+// the older "pledged" rows is a schema-owner call, not this file's.
 
 import { v } from "convex/values";
-import { mutation, query } from "../_generated/server";
+import { mutation, query, internalMutation } from "../_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { ConvexError } from "convex/values";
 
@@ -59,14 +75,67 @@ export const supportProject = mutation({
       message: args.message?.trim() || undefined,
       resourceDescription: args.resourceDescription?.trim() || undefined,
       visible: args.visible,
-      // Encouragement/resource are real the moment they're posted. Financial
-      // pledges are real intent, not received money — "pledged" until a
-      // future real-checkout pass changes what happens after submit.
+      // Encouragement/resource are real the moment they're posted.
+      // Financial here is the legacy/manual pledge lane only — real card
+      // money now goes through startBacking below ("pending" → "confirmed"),
+      // never this branch. "pledged" is kept verbatim so the rows written
+      // before checkout existed keep reading the same in the modal.
+      // (See this file's header: schema.ts says "pending" | "confirmed";
+      // this value matches neither. Named, not silently changed.)
       status: FINANCIAL_TYPES.has(args.type) ? "pledged" : "confirmed",
       createdAt: Date.now(),
     });
 
     return { supportId };
+  },
+});
+
+// ——— Backing checkout support (garden/stripe.ts's createBackingCheckout) ———
+
+/** Validates the project and writes the "pending" projectSupport row a
+ * backing checkout will confirm, in one round trip (an action has no ctx.db
+ * of its own). Returns null — never throws — when the project is gone or
+ * archived, so the action can raise its own ConvexError with a reason the
+ * modal can show, exactly like memberships.ts's getProductForCheckout.
+ *
+ * The row is written BEFORE the redirect on purpose: it's what gives the
+ * webhook a row id to converge on (projectSupport has no stripeRef column),
+ * and it carries the message/visibility captured at intent time. An
+ * abandoned checkout leaves a "pending" row that is visible nowhere and
+ * counted nowhere — that's the whole reason "pending" is the right status
+ * for it. */
+export const startBacking = internalMutation({
+  args: {
+    projectId: v.id("projects"),
+    userId: v.id("users"),
+    amountCents: v.number(),
+    recurring: v.boolean(),
+    visible: v.boolean(),
+    message: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const project = await ctx.db.get(args.projectId);
+    if (!project || project.status === "archived") return null;
+
+    const profile = await ctx.db
+      .query("profiles")
+      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+      .unique();
+    const supporterName = profile?.name ?? "Someone";
+
+    const supportId = await ctx.db.insert("projectSupport", {
+      projectId: args.projectId,
+      supporterUserId: args.userId,
+      supporterName,
+      type: args.recurring ? "financial_recurring" : "financial_one_time",
+      amountCents: args.amountCents,
+      message: args.message?.trim() || undefined,
+      visible: args.visible,
+      status: "pending", // → "confirmed" when Stripe says the money moved
+      createdAt: Date.now(),
+    });
+
+    return { supportId, supporterName, projectTitle: project.title };
   },
 });
 

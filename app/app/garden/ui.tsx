@@ -4,7 +4,9 @@
 // layout, this file only holds what's genuinely shared.
 
 import type { ReactNode } from "react";
+import { useConvexAuth } from "convex/react";
 import { Link } from "react-router";
+import { SiteHeader } from "../components/SiteHeader";
 
 // ————— Page shell —————
 
@@ -13,14 +15,22 @@ import { Link } from "react-router";
 export function GardenPage({
   children,
   wide,
+  bare,
 }: {
   children: ReactNode;
   wide?: boolean;
+  /** Skip the site header — for a page that renders its own chrome. */
+  bare?: boolean;
 }) {
   return (
     <div className="garden-root">
       <link rel="stylesheet" href="/tokens.css" />
       <link rel="stylesheet" href="/about/fonts/fonts.css" />
+      {/* The header sits OUTSIDE the wrap on purpose. Nested inside
+          .g-wrap's 680px column it gets squeezed and the nav collides with
+          the wordmark — which is exactly what happened when each page
+          rendered its own. One place, full width, every Garden route. */}
+      {!bare && <SiteHeader />}
       <div className={wide ? "g-wrap g-wrap-wide" : "g-wrap"}>{children}</div>
     </div>
   );
@@ -40,7 +50,7 @@ export function SectionLabel({ children }: { children: ReactNode }) {
     community's own surfaces, not here. */
 export function GardenWordmark() {
   return (
-    <Link to="/garden" className="g-wordmark">
+    <Link to="/" className="g-wordmark">
       creatives.exchange
     </Link>
   );
@@ -50,15 +60,23 @@ export function GardenWordmark() {
     orphans reachable only by typed URL — which is exactly what happened.
     Keep the item list identical everywhere; the active item gets the
     citron underline (never a fill — citron is for actions). */
-const NAV_ITEMS = [
+export const NAV_ITEMS = [
   { to: "/garden", label: "Garden" },
-  { to: "/projects", label: "Projects" },
+  // "Projects" is the one item whose destination depends on who's looking:
+  // /projects lives inside the _app layout and redirects a logged-out
+  // visitor to /login, so on these mostly-public pages the nav was walking
+  // strangers into a wall. Signed in → the real page; signed out →
+  // /opportunities, the public browse of the same postings.
+  { to: "/projects", publicTo: "/opportunities", label: "Projects" },
   { to: "/garden/events", label: "Events" }, // NOT /events — that's the legacy auth-gated route
   { to: "/tables", label: "Tables" },
   { to: "/fund/abiding-practice", label: "Fund" },
 ] as const;
 
 export function GardenNav({ active }: { active?: string }) {
+  // During prerender and the first paint this reads false, so the markup a
+  // crawler sees is the public one — which is the correct default here.
+  const { isAuthenticated } = useConvexAuth();
   return (
     <header style={{ paddingBottom: 14 }}>
       <div
@@ -86,10 +104,12 @@ export function GardenNav({ active }: { active?: string }) {
       >
         {NAV_ITEMS.map((item) => {
           const isActive = active === item.label;
+          const to =
+            "publicTo" in item && !isAuthenticated ? item.publicTo : item.to;
           return (
             <Link
               key={item.to}
-              to={item.to}
+              to={to}
               className="g-nav"
               aria-current={isActive ? "page" : undefined}
               style={
@@ -102,6 +122,21 @@ export function GardenNav({ active }: { active?: string }) {
         })}
       </nav>
     </header>
+  );
+}
+
+/** GardenNav for pages that are NOT built on the g- credit-sheet system —
+    the Tailwind marketing pages (/for/*, /opportunities, /legal/credits).
+    Wraps only the header in .garden-root so the g- classes resolve, and
+    zeroes the min-height that .garden-root otherwise imposes. One nav,
+    every public page; without this each of those pages had its own. */
+export function GardenHeader({ active }: { active?: string }) {
+  return (
+    <div className="garden-root" style={{ minHeight: 0 }}>
+      <div className="g-wrap g-wrap-wide" style={{ paddingBottom: 0 }}>
+        <GardenNav active={active} />
+      </div>
+    </div>
   );
 }
 
@@ -250,4 +285,13 @@ export function formatDuration(mins?: number): string | undefined {
   if (mins < 60) return `${mins} min`;
   const hrs = mins / 60;
   return `${Number.isInteger(hrs) ? hrs : hrs.toFixed(1)} hr`;
+}
+
+/** A proper list join for co-hosted names: "A", "A and B", "A, B, and C" —
+ * used for a community's leaders line on its page and directory card. */
+export function joinNames(names: string[]): string {
+  if (names.length === 0) return "";
+  if (names.length === 1) return names[0];
+  if (names.length === 2) return `${names[0]} and ${names[1]}`;
+  return `${names.slice(0, -1).join(", ")}, and ${names[names.length - 1]}`;
 }

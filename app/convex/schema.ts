@@ -44,6 +44,13 @@ export default defineSchema({
     inviteUsageCount: v.optional(v.number()), // track how many times their invite link has been used
     unlimitedInvites: v.optional(v.boolean()), // admin accounts with unlimited invites
     isAdmin: v.optional(v.boolean()), // admin access for platform management
+    // Fixed personal code for approving waitlist entries (waitlist.ts
+    // approveEntry) — 6 chars, part of the admin's name + a random suffix,
+    // generated once (admin.ts syncAdminGroup) and reused for every person
+    // that admin approves. Resolves through the same route as inviteSlug
+    // (convex/invites.ts findInviterProfile) so approved members sign
+    // up at the same /signup/:code URL as a peer invite.
+    adminCode: v.optional(v.string()),
     // Garden roles — free to hold, pay per act (plan §2.1). Levels are NOT
     // stored here; they derive from memberships (garden/entitlements.ts).
     patronRole: v.optional(v.boolean()),
@@ -62,7 +69,8 @@ export default defineSchema({
   })
     .index("by_userId", ["userId"])
     .index("by_name", ["name"])
-    .index("by_inviteSlug", ["inviteSlug"]),
+    .index("by_inviteSlug", ["inviteSlug"])
+    .index("by_adminCode", ["adminCode"]),
 
   // Flexible key-value attributes (social handles, employer, etc.)
   attributes: defineTable({
@@ -185,12 +193,16 @@ export default defineSchema({
     priceCents: v.optional(v.number()), // shown on the public page; that's the point of a price
     paymentLinkUrl: v.optional(v.string()), // public by design — you must see it to pay
     hasVideo: v.optional(v.boolean()), // "this event has a room" — carries no secret
+    // The community this event was posted into (optional; public by design,
+    // it's a name on a card). See projects.hostOrgId.
+    hostOrgId: v.optional(v.id("hostOrgs")),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
     .index("by_organizerId", ["organizerId"])
     .index("by_datetime", ["datetime"])
-    .index("by_status", ["status"]),
+    .index("by_status", ["status"])
+    .index("by_hostOrgId", ["hostOrgId"]),
 
   // The ONLY home for secret event URLs (docs/gated-event-video-prd.md,
   // "Data model"). Nothing spreads this document into a public response:
@@ -274,11 +286,12 @@ export default defineSchema({
     .index("by_userId", ["userId"])
     .index("by_artifactId_userId", ["artifactId", "userId"]),
 
-  // Favorites (can favorite profiles or events)
+  // Favorites (can favorite profiles or events). A "profile" favorite IS a
+  // follow (docs/features/following.md) — there is no separate follows table.
   favorites: defineTable({
-    userId: v.id("users"),
+    userId: v.id("users"), // the favoriter / follower — a users id
     targetType: v.string(), // "profile" | "event"
-    targetId: v.string(), // ID of the profile or event
+    targetId: v.string(), // profiles._id or events._id — for "profile" this is the PROFILE id, not the user id
     createdAt: v.number(),
   })
     .index("by_userId", ["userId"])
@@ -311,6 +324,13 @@ export default defineSchema({
     interestedInHosting: v.optional(v.boolean()),
     hearAboutUs: v.optional(v.string()),
     hearAboutUsOther: v.optional(v.string()),
+    // Admin approval (waitlist.ts approveEntry). approvedBy names which
+    // admin approved them — their adminCode (profiles.adminCode) is what
+    // got emailed, looked up from this at display/send time rather than
+    // copied here, so a right-to-be-forgotten deletion of the admin's
+    // account doesn't leave a dangling code string behind.
+    approvedBy: v.optional(v.id("users")),
+    approvedAt: v.optional(v.number()),
   }).index("by_email", ["email"]),
 
   // Jobs board
@@ -653,23 +673,61 @@ export default defineSchema({
   // never stored on profiles (profiles carries only the free-to-hold roles).
   // ————————————————————————————————————————————————————————————————
 
-  // Host organizations (provisioned by operators, not self-serve).
-  // The Garden itself is the default host org; churches/sponsors are also
-  // hostOrgs (kind "church") so coverage + allocations share one shape.
+  // Host organizations = COMMUNITIES (docs/features/community-groups.md).
+  // One table, three kinds: "community" (a named group on the platform —
+  // The Garden is the first; hosts apply, operators approve), "org"/"church"
+  // (a sponsor or fund owner — Abiding Practice — that may never be listed
+  // as a community), and "platform" (the single creatives.exchange row that
+  // owns the platform-wide project pool ledger; never listed). Coverage,
+  // allocations, tables, and grantContributions all key off this table.
+  //
+  // Every community field below is OPTIONAL so rows written before the
+  // community layer keep validating: absent status reads as "active",
+  // absent visibility as "public", absent joinPolicy as "open"
+  // (garden/communities.ts normalizes).
   hostOrgs: defineTable({
     name: v.string(),
     slug: v.string(),
-    kind: v.string(), // "platform" | "church" | "org"
+    kind: v.string(), // "community" | "platform" | "church" | "org"
     givingUrl: v.optional(v.string()), // fallback outbound giving page
     // Stripe Payment Link from the ORG'S OWN Stripe account (they create it,
     // we embed it). Giving starts and ends on our site via after_completion
     // redirect back to /fund/:slug — org stays merchant of record (D3).
     paymentLinkUrl: v.optional(v.string()),
     stripeCustomerId: v.optional(v.string()), // set for orgs that buy coverage
+    // ——— Community layer ———
+    tagline: v.optional(v.string()), // one line under the name
+    description: v.optional(v.string()), // the community's own words (plain text)
+    coverUrl: v.optional(v.string()),
+    websiteUrl: v.optional(v.string()),
+    locationLabel: v.optional(v.string()), // "San Diego" / "Online" — display only
+    ownerUserId: v.optional(v.id("users")), // the host who applied / runs it
+    status: v.optional(v.string()), // "pending" | "active" | "declined" | "archived"
+    visibility: v.optional(v.string()), // "public" | "unlisted"
+    joinPolicy: v.optional(v.string()), // "open" | "apply"
+    applicantNote: v.optional(v.string()), // "what you already gather" — from the apply form
+    approvedAt: v.optional(v.number()),
     createdAt: v.number(),
   })
     .index("by_slug", ["slug"])
-    .index("by_stripeCustomerId", ["stripeCustomerId"]),
+    .index("by_stripeCustomerId", ["stripeCustomerId"])
+    .index("by_kind_status", ["kind", "status"])
+    .index("by_ownerUserId", ["ownerUserId"]),
+
+  // Community membership (user ↔ community). Distinct from `memberships`
+  // below, which is the PAID SEAT: a seat is platform membership, not
+  // community membership (brief §5.6). Belonging to a community is free.
+  communityMembers: defineTable({
+    hostOrgId: v.id("hostOrgs"),
+    userId: v.id("users"),
+    role: v.string(), // "host" | "moderator" | "member"
+    status: v.string(), // "active" | "pending" (joinPolicy "apply") | "removed"
+    isHome: v.optional(v.boolean()), // the member's named home community (one at most)
+    joinedAt: v.number(),
+  })
+    .index("by_hostOrgId", ["hostOrgId"])
+    .index("by_userId", ["userId"])
+    .index("by_hostOrgId_userId", ["hostOrgId", "userId"]),
 
   // Stripe customer linkage (1:1 with user once they ever check out).
   billingCustomers: defineTable({
@@ -687,7 +745,10 @@ export default defineSchema({
     userId: v.id("users"),
     level: v.string(), // "seat" | "five" | "host"
     status: v.string(), // "active" | "past_due" | "canceled" | "incomplete"
-    hostOrgId: v.id("hostOrgs"), // the community this membership belongs to
+    // A seat is PLATFORM membership (brief §5.6) — new self-paid seats leave
+    // this unset. Still written for covered seats (the sponsoring org) and
+    // kept on legacy rows; entitlements never read it.
+    hostOrgId: v.optional(v.id("hostOrgs")),
     stripeSubscriptionId: v.string(),
     stripePriceId: v.optional(v.string()),
     currentPeriodEnd: v.optional(v.number()),
@@ -798,6 +859,20 @@ export default defineSchema({
     // existing rows predate this field until garden/projectOriginMigration.ts
     // backfills them; treat an absent value as "posted" everywhere it's read.
     origin: v.optional(v.string()),
+    // The community this was posted INTO (optional — content belongs to the
+    // person, and is only tagged to a community; community-groups.md §0).
+    hostOrgId: v.optional(v.id("hostOrgs")),
+    // Stage of the creative process (docs/features/project-teams.md §1):
+    // "planning" | "raising" | "forming" | "working" | "releasing" |
+    // "completed". A label, not a state machine, and deliberately NOT a
+    // rename of `status` (which stays lifecycle/visibility). Optional: rows
+    // from before this field derive one via resolveStage — the canonical
+    // copy lives in app/app/lib/stage.ts, twinned in garden/projectTeam.ts
+    // because convex/ can't import from app/.
+    stage: v.optional(v.string()),
+    // When `stage` last changed — setStage's once-per-24h notification rule
+    // (project-teams.md §6) checks against it.
+    stageChangedAt: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
@@ -805,7 +880,44 @@ export default defineSchema({
     .index("by_userId_kind_status", ["userId", "kind", "status"])
     .index("by_kind_status", ["kind", "status"])
     .index("by_storySlug", ["storySlug"])
-    .index("by_legacyJobId", ["legacyJobId"]),
+    .index("by_legacyJobId", ["legacyJobId"])
+    .index("by_hostOrgId", ["hostOrgId"]),
+
+  // Project team (docs/features/project-teams.md §2). One row per person
+  // per project, reused across status changes — structurally
+  // eventApplications plus communityMembers. The lead is projects.userId,
+  // not a row. `userId` is absent until an off-platform credit is claimed;
+  // until then `name` is the credit line and `email` (normalized, never
+  // returned to clients) is where the claim link went.
+  projectMembers: defineTable({
+    projectId: v.id("projects"),
+    userId: v.optional(v.id("users")),
+    name: v.string(),
+    email: v.optional(v.string()),
+    role: v.string(), // free text, ≤ 60 chars
+    status: v.union(
+      v.literal("pending"),
+      v.literal("invited"),
+      v.literal("accepted"),
+      v.literal("declined"),
+      v.literal("withdrawn"),
+      v.literal("left"),
+      v.literal("removed"),
+    ),
+    invitedByUserId: v.optional(v.id("users")),
+    message: v.optional(v.string()), // ≤ 500 chars
+    claimToken: v.optional(v.string()), // crypto.randomUUID(); single use; cleared on claim
+    claimExpiresAt: v.optional(v.number()), // 30 days
+    createdAt: v.number(),
+    respondedAt: v.optional(v.number()),
+  })
+    .index("by_projectId_status", ["projectId", "status"])
+    .index("by_userId_status", ["userId", "status"])
+    .index("by_projectId_userId", ["projectId", "userId"])
+    .index("by_claimToken", ["claimToken"])
+    // Email-invite limit (§3: 10 per lead per day) counts the lead's rows
+    // with an email set over createdAt.
+    .index("by_invitedByUserId", ["invitedByUserId"]),
 
   // Support widget (docs/the-exchange-v1-prd.md §9): one record per act of
   // support on a project. Financial types start "pending" until an operator
@@ -875,12 +987,17 @@ export default defineSchema({
     // calls signUpForOffering so the sign-up is recorded here regardless of
     // what happens on the external site.
     externalPaymentLinkUrl: v.optional(v.string()),
+    // The community this offering was posted into (optional). The table
+    // comment above predates the community layer: an offering still belongs
+    // to its creator; this is a tag, not ownership (community-groups.md).
+    hostOrgId: v.optional(v.id("hostOrgs")),
     status: v.string(), // "active" | "archived"
     createdAt: v.number(),
     updatedAt: v.number(),
   })
     .index("by_userId", ["userId"])
-    .index("by_status", ["status"]),
+    .index("by_status", ["status"])
+    .index("by_hostOrgId", ["hostOrgId"]),
 
   // Offering sign-ups (fix for offerings.ts: previously no way to record
   // "someone joined this class," even when payment happened externally).
@@ -1000,6 +1117,131 @@ export default defineSchema({
   })
     .index("by_hostOrgId", ["hostOrgId"])
     .index("by_projectId", ["projectId"]),
+
+  // Money IN to a grant pool (allocations above is money OUT). One row per
+  // inflow, typed — never free text (community-grant-pools.md §4). Written
+  // by the Stripe webhook (dues shares on invoice.paid, one-time pool
+  // contributions on checkout.session.completed) or by an operator (top-ups,
+  // sponsor money, entry fees, adjustments). Idempotent by stripeRef.
+  //
+  // Fee rule ("one bite per dollar", pools doc §2): grossCents is what the
+  // payer paid; platformCents is the platform's share INCLUDING processing;
+  // poolCents is what the pool actually holds. For dues, the receipt split
+  // is 50/50; for direct inflows, 10% platform. Awards out are 0%.
+  grantContributions: defineTable({
+    hostOrgId: v.id("hostOrgs"), // the pool owner: the platform row, or a community
+    type: v.string(), // "dues_share" | "contribution_in" | "topup_in" | "sponsor_in" | "entry_fee_in" | "adjustment"
+    grossCents: v.number(),
+    platformCents: v.number(),
+    poolCents: v.number(), // may be negative on an adjustment (refund/chargeback clawback)
+    userId: v.optional(v.id("users")), // the payer, when known
+    payerName: v.optional(v.string()), // display name for public credit (never email)
+    membershipId: v.optional(v.id("memberships")),
+    stripeRef: v.optional(v.string()), // invoice id / checkout session id — idempotency key
+    period: v.string(), // "YYYY-MM" — same convention as allocations.period
+    note: v.optional(v.string()),
+    createdAt: v.number(),
+  })
+    .index("by_hostOrgId", ["hostOrgId"])
+    .index("by_stripeRef", ["stripeRef"])
+    .index("by_userId", ["userId"]),
+
+  // A creative's ask TO a grant fund — the self-serve front door the pool.propose
+  // capability (garden/capabilities.ts) gated with nothing behind it until now.
+  // An operator still decides (decideProposal, garden/grantProposals.ts): this
+  // table is the request/review record, not a payment — a real payout is an
+  // `allocations` row (allocationId links back once one is recorded), so the
+  // public ledger stays exactly what actually went out, no proposals in it.
+  grantProposals: defineTable({
+    userId: v.id("users"), // the proposer
+    hostOrgId: v.id("hostOrgs"), // which fund
+    projectId: v.optional(v.id("projects")), // may stand alone, or reference an existing project
+    title: v.string(), // <= 120 chars, enforced in the mutation
+    summary: v.string(), // <= 2000 chars, enforced in the mutation
+    amountCents: v.number(), // what they're asking for; positive integer, >= 500
+    status: v.union(
+      v.literal("submitted"),
+      v.literal("under_review"),
+      v.literal("approved"),
+      v.literal("declined"),
+      v.literal("withdrawn"),
+    ),
+    decidedByUserId: v.optional(v.id("users")), // the operator who decided
+    decidedAt: v.optional(v.number()),
+    operatorNote: v.optional(v.string()), // internal only — never returned to the proposer
+    allocationId: v.optional(v.id("allocations")), // set once an approval is actually paid out
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    // One open ask at a time (submitProposal's uniqueness check) + the
+    // proposer's own list, newest first within a status.
+    .index("by_userId_status", ["userId", "status"])
+    // Operator review queue, optionally filtered to one status.
+    .index("by_hostOrgId_status", ["hostOrgId", "status"])
+    .index("by_projectId", ["projectId"]),
+
+  // ——— Community line items for sale (docs/features/community-groups.md §7) ———
+  // A community can sell several products at different prices: a premium
+  // tier, a resource bundle, a cohort. One-time or monthly. Buyers get the
+  // product's gated `resources` (private links) — served ONLY by
+  // garden/products.getProductAccess after a purchase check; the public
+  // listing never includes them. Money: host 90% / platform 10% (the
+  // published split for anything a host sells), recorded per purchase.
+  communityProducts: defineTable({
+    hostOrgId: v.id("hostOrgs"),
+    name: v.string(),
+    description: v.optional(v.string()),
+    benefits: v.optional(v.string()), // what you get, plain text
+    priceCents: v.number(),
+    billing: v.string(), // "one_time" | "monthly"
+    resources: v.optional(
+      v.array(v.object({ label: v.string(), url: v.string() })),
+    ), // GATED — never spread into a public response
+    status: v.string(), // "active" | "archived"
+    sortOrder: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_hostOrgId", ["hostOrgId"]),
+
+  // One row per PAYMENT on a community product: a one-time checkout, the
+  // first payment of a subscription (keyed by checkout session), or a
+  // renewal (keyed by invoice). Access = any row for (product, user) that is
+  // one-time "paid", or a subscription row whose status is still entitled.
+  // Written by the Stripe webhook (garden/stripeHandlers.ts).
+  productPurchases: defineTable({
+    productId: v.id("communityProducts"),
+    hostOrgId: v.id("hostOrgs"),
+    userId: v.optional(v.id("users")),
+    buyerEmail: v.optional(v.string()),
+    grossCents: v.number(),
+    platformCents: v.number(), // 10% incl. processing
+    hostCents: v.number(), // 90% — accrues as OWED until a payout is recorded
+    billing: v.string(), // mirrors the product at purchase time
+    status: v.string(), // "paid" (one-time) | "active" | "past_due" | "canceled" | "refunded"
+    stripeRef: v.string(), // checkout session id or invoice id — idempotency key
+    stripeSubscriptionId: v.optional(v.string()),
+    currentPeriodEnd: v.optional(v.number()), // ms, subscriptions
+    period: v.string(), // "YYYY-MM"
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_productId", ["productId"])
+    .index("by_hostOrgId", ["hostOrgId"])
+    .index("by_userId", ["userId"])
+    .index("by_stripeRef", ["stripeRef"])
+    .index("by_stripeSubscriptionId", ["stripeSubscriptionId"]),
+
+  // Operator-recorded payouts of a host's accrued share (manual transfers
+  // until Stripe Connect — phase-1b architect §2.5). Owed = sum(hostCents
+  // on productPurchases) − sum(hostPayouts.amountCents).
+  hostPayouts: defineTable({
+    hostOrgId: v.id("hostOrgs"),
+    amountCents: v.number(),
+    reference: v.optional(v.string()), // Zelle/bank memo
+    note: v.optional(v.string()),
+    paidAt: v.number(),
+    createdAt: v.number(),
+  }).index("by_hostOrgId", ["hostOrgId"]),
 
   // Story updates (W3) — the credit-carrying timeline on public story pages.
   storyUpdates: defineTable({

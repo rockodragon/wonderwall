@@ -17,10 +17,14 @@ import { api } from "../../convex/_generated/api";
 import {
   GardenErrorState,
   GardenLoading,
-  GardenNav,
   GardenPage,
   formatDateTime,
 } from "../garden/ui";
+import {
+  CommunityContextLine,
+  communityNameFor,
+  useCommunityContext,
+} from "../components/CommunityFilter";
 import "../garden/garden.css";
 
 export function meta() {
@@ -34,7 +38,6 @@ export function ErrorBoundary() {
   useRouteError(); // logged by the framework; the page just degrades warmly
   return (
     <GardenPage>
-      <GardenNav active="Events" />
       <div style={{ marginTop: 28 }}>
         <GardenErrorState message="Events isn't live yet — check back soon." />
       </div>
@@ -49,6 +52,7 @@ type EventRow = {
   location?: string;
   tags: string[];
   priceCents?: number;
+  community?: { name: string; slug: string } | null;
 };
 
 /** The `events` table has no dedicated price field today — if one lands
@@ -91,6 +95,11 @@ function EventCard({ event }: { event: EventRow }) {
       <p style={{ marginTop: 8, fontSize: 14.5, lineHeight: 1.5, color: "var(--g-muted)" }}>
         {event.location ?? "Location TBA"} · {costLine(event)}
       </p>
+      {event.community && (
+        <div className="g-credit" style={{ marginTop: 6 }}>
+          in {event.community.name}
+        </div>
+      )}
     </Link>
   );
 }
@@ -100,12 +109,13 @@ export default function GardenEventsIndex() {
     status: "published",
     upcoming: true,
   }) as EventRow[] | undefined;
+  const { selected: communitySlug, setSelected: setCommunitySlug, communities } =
+    useCommunityContext();
 
   if (events === undefined) {
     return (
       <GardenPage wide>
-        <GardenNav active="Events" />
-        <div style={{ marginTop: 28 }}>
+          <div style={{ marginTop: 28 }}>
           <GardenLoading />
         </div>
       </GardenPage>
@@ -115,8 +125,7 @@ export default function GardenEventsIndex() {
   if (events.length === 0) {
     return (
       <GardenPage wide>
-        <GardenNav active="Events" />
-        <div style={{ marginTop: 28, marginBottom: 24 }}>
+          <div style={{ marginTop: 28, marginBottom: 24 }}>
           <h1 className="g-h" style={{ fontSize: "clamp(28px,5vw,40px)" }}>
             Events
           </h1>
@@ -134,9 +143,13 @@ export default function GardenEventsIndex() {
     );
   }
 
+  const shown =
+    communitySlug === "all"
+      ? events
+      : events.filter((e) => e.community?.slug === communitySlug);
+
   return (
     <GardenPage wide>
-      <GardenNav active="Events" />
       <div style={{ marginTop: 28, marginBottom: 24 }}>
         <h1 className="g-h" style={{ fontSize: "clamp(28px,5vw,40px)" }}>
           Events
@@ -146,17 +159,47 @@ export default function GardenEventsIndex() {
         </p>
       </div>
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))",
-          gap: 14,
-        }}
-      >
-        {events.map((event) => (
-          <EventCard key={event._id} event={event} />
-        ))}
-      </div>
+      <CommunityContextLine
+        variant="garden"
+        selected={communitySlug}
+        setSelected={setCommunitySlug}
+        communities={communities}
+        rows={events}
+      />
+
+      {shown.length === 0 ? (
+        <div style={{ marginTop: 20, fontSize: 14.5 }}>
+          Nothing in {communityNameFor(communitySlug, communities, events)} yet — see
+          everything.{" "}
+          <button
+            type="button"
+            onClick={() => setCommunitySlug("all")}
+            className="g-mono"
+            style={{
+              color: "var(--g-citron)",
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              textDecoration: "underline",
+            }}
+          >
+            Show all
+          </button>
+        </div>
+      ) : (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))",
+            gap: 14,
+            marginTop: 20,
+          }}
+        >
+          {shown.map((event) => (
+            <EventCard key={event._id} event={event} />
+          ))}
+        </div>
+      )}
     </GardenPage>
   );
 }

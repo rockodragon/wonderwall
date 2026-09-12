@@ -1,12 +1,18 @@
-import { useMutation, useQuery } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import { Link, useSearchParams } from "react-router";
 import { useMemo, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import { INTERESTS } from "../constants/interests";
 import { LocationAutocomplete } from "../components/LocationAutocomplete";
 import { useLocationField } from "../lib/useLocationField";
-import { AnnouncementComposer } from "../components/AnnouncementComposer";
 import { budgetAmountLabel, budgetKindLabel } from "../lib/budgetLabel";
+import { CommunityPicker } from "../components/CommunityPicker";
+import {
+  CommunityContextLine,
+  communityNameFor,
+  useCommunityContext,
+} from "../components/CommunityFilter";
+import { resolveStage, stageLabel, STAGES } from "../lib/stage";
 
 const KIND_FILTERS = [
   { label: "All", value: "" },
@@ -14,7 +20,7 @@ const KIND_FILTERS = [
   { label: "Paid", value: "paid" },
 ];
 
-const STATUS_LABELS: Record<string, string> = {
+export const STATUS_LABELS: Record<string, string> = {
   pending: "Pending",
   active: "Active",
   in_progress: "In Progress",
@@ -56,7 +62,7 @@ const BUDGET_TYPE_OPTIONS = [
 // only ConvexError.data is meant to reach the client). Caught via testing:
 // a real validation error ("Needs a real amount.") was showing as an opaque
 // server error instead of its actual reason.
-function errorMessage(err: unknown): string {
+export function errorMessage(err: unknown): string {
   const data = (err as { data?: unknown })?.data;
   if (data && typeof data === "object" && "reason" in data) {
     return String((data as { reason: unknown }).reason);
@@ -66,12 +72,16 @@ function errorMessage(err: unknown): string {
 
 export default function Projects() {
   const projects = useQuery(api.garden.projects.listProjects);
-  const myProfile = useQuery(api.profiles.getMyProfile);
   const [kindFilter, setKindFilter] = useState("");
   const [showPaidForm, setShowPaidForm] = useState(false);
   const [showPassionForm, setShowPassionForm] = useState(false);
   const [supportingProject, setSupportingProject] = useState<any>(null);
   const [searchParams, setSearchParams] = useSearchParams();
+  const {
+    selected: communitySlug,
+    setSelected: setCommunitySlug,
+    communities,
+  } = useCommunityContext();
 
   const interestFilter = useMemo(
     () => (searchParams.get("interests") || "").split(",").map((s) => s.trim()).filter(Boolean),
@@ -131,6 +141,9 @@ export default function Projects() {
   const filtered = useMemo(() => {
     if (!projects) return [];
     let list = kindFilter ? projects.filter((p) => p.kind === kindFilter) : projects;
+    if (communitySlug !== "all") {
+      list = list.filter((p) => p.community?.slug === communitySlug);
+    }
     if (tagFilter.length > 0) {
       list = list.filter((p) => projectTopics(p).some((fn: string) => tagFilter.includes(fn)));
     }
@@ -138,13 +151,13 @@ export default function Projects() {
       list = [...list].sort((a, b) => Number(isMatch(b)) - Number(isMatch(a)));
     }
     return list;
-  }, [projects, kindFilter, tagFilter, interestFilter, locationFilter]);
+  }, [projects, kindFilter, communitySlug, tagFilter, interestFilter, locationFilter]);
 
   return (
     <div className="min-h-screen bg-[var(--garden-ink)]">
       <link rel="stylesheet" href="/tokens.css" />
       <link rel="stylesheet" href="/about/fonts/fonts.css" />
-      <div className="p-4 sm:p-6 max-w-7xl mx-auto">
+      <div className="p-4 sm:p-6 max-w-[1600px] mx-auto">
         <h1
           className="text-2xl sm:text-3xl font-semibold text-[var(--garden-paper)] mb-1"
           style={{ fontFamily: "var(--garden-font-display)" }}
@@ -176,7 +189,15 @@ export default function Projects() {
           </div>
         )}
 
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <CommunityContextLine
+          variant="app"
+          selected={communitySlug}
+          setSelected={setCommunitySlug}
+          communities={communities}
+          rows={projects}
+        />
+
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4 mt-3">
           <div className="flex gap-2">
             {KIND_FILTERS.map((f) => (
               <button
@@ -238,6 +259,20 @@ export default function Projects() {
               style={{ borderColor: "var(--garden-citron)", borderTopColor: "transparent" }}
             />
           </div>
+        ) : filtered.length === 0 && communitySlug !== "all" ? (
+          <div className="text-center py-16" style={{ color: "var(--garden-dim)" }}>
+            <p className="text-lg font-medium mb-1" style={{ color: "var(--garden-body)" }}>
+              Nothing in {communityNameFor(communitySlug, communities, projects)} yet — see
+              everything
+            </p>
+            <button
+              onClick={() => setCommunitySlug("all")}
+              className="text-sm underline underline-offset-2 hover:opacity-80"
+              style={{ color: "var(--garden-citron)" }}
+            >
+              Show all communities
+            </button>
+          </div>
         ) : filtered.length === 0 ? (
           <div className="text-center py-16" style={{ color: "var(--garden-dim)" }}>
             <p className="text-lg font-medium mb-1" style={{ color: "var(--garden-body)" }}>
@@ -246,14 +281,13 @@ export default function Projects() {
             <p className="text-sm">Be the first to post something you're making</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {filtered.map((project) => (
               <ProjectCard
                 key={project._id}
                 project={project}
                 onSupport={setSupportingProject}
                 matched={hasMatchFilter && isMatch(project)}
-                isOwn={!!myProfile && myProfile.userId === project.userId}
               />
             ))}
           </div>
@@ -338,15 +372,12 @@ function ProjectCard({
   project,
   onSupport,
   matched,
-  isOwn,
 }: {
   project: any;
   onSupport: (project: any) => void;
   matched?: boolean;
-  isOwn?: boolean;
 }) {
   const thumb = project.media.find((m: any) => m.resolvedMediaUrl)?.resolvedMediaUrl;
-  const detailArtifact = project.media[0];
   // Passion-only campaign deadline (docs/the-exchange-v1-prd.md §7 review
   // follow-up) — a past raiseByDate just means the badge doesn't render;
   // building a distinct "expired" state is explicitly out of scope.
@@ -364,14 +395,19 @@ function ProjectCard({
   const kindWord = project.kind === "paid" ? budgetKindLabel(project) : "Passion";
   const moneyWord = project.kind === "paid" ? budgetAmountLabel(project) : null;
   const hasMoney = project.kind === "paid" && kindWord === "Paid";
+  const stage = resolveStage(project);
 
   const card = (
     <div
       className="group rounded-2xl overflow-hidden border h-full flex flex-col transition-colors"
       style={{ borderColor: "var(--garden-hairline)", backgroundColor: "var(--garden-ink-raised)" }}
     >
+      {/* Same fixed overlay spot Classes uses: kind top-left, money top-right
+          of the image area, in the SAME place whether or not there's a
+          photo — founder item (Classes redesign) was explicit that a
+          photo-dependent position defeats the point of a fixed badge. */}
       <div
-        className="aspect-[16/10] overflow-hidden flex items-center justify-center"
+        className="relative aspect-[16/10] overflow-hidden flex items-center justify-center"
         style={{ backgroundColor: "var(--garden-ink)" }}
       >
         {thumb ? (
@@ -396,27 +432,49 @@ function ProjectCard({
             />
           </svg>
         )}
-      </div>
-      <div className="p-4 flex-1 flex flex-col min-w-0">
-        <div className="flex items-start justify-between gap-2 mb-1">
-          <h3
-            className="font-semibold line-clamp-2"
-            style={{ color: "var(--garden-paper)", fontFamily: "var(--garden-font-display)" }}
-          >
-            {project.title}
-          </h3>
+        <span
+          className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[11px] font-semibold uppercase tracking-[0.06em]"
+          style={{
+            fontFamily: "var(--garden-font-mono)",
+            backgroundColor: "rgba(20,20,18,0.72)",
+            color: "var(--garden-paper)",
+          }}
+        >
+          {kindWord}
+        </span>
+        {hasMoney && moneyWord && (
           <span
-            className="shrink-0 px-2 py-0.5 rounded-full text-[11px] font-medium uppercase tracking-[0.06em]"
+            className="absolute top-2 right-2 px-2.5 py-1 rounded-full text-xs font-bold"
             style={{
               fontFamily: "var(--garden-font-mono)",
-              backgroundColor: hasMoney ? "rgba(215,242,90,0.14)" : "rgba(198,198,190,0.1)",
-              color: hasMoney ? "var(--garden-citron)" : "var(--garden-muted)",
+              backgroundColor: "var(--garden-citron)",
+              color: "var(--garden-ink)",
             }}
           >
-            {kindWord}
+            {moneyWord}
           </span>
-        </div>
+        )}
+      </div>
+      <div className="p-4 flex-1 flex flex-col min-w-0">
+        <h3
+          className="font-semibold line-clamp-2 mb-1"
+          style={{ color: "var(--garden-paper)", fontFamily: "var(--garden-font-display)" }}
+        >
+          {project.title}
+        </h3>
         <div className="flex flex-wrap items-center gap-1.5 mb-2">
+          {/* Stage always shows — see docs/features/project-teams.md §7 —
+              right beside the money/budget badge above it. */}
+          <span
+            className="self-start px-2 py-0.5 rounded-full text-[11px] font-medium uppercase tracking-[0.06em]"
+            style={{
+              fontFamily: "var(--garden-font-mono)",
+              backgroundColor: "rgba(198,198,190,0.1)",
+              color: "var(--garden-muted)",
+            }}
+          >
+            {stageLabel(stage, project.kind)}
+          </span>
           {daysLeft !== null && (
             <span
               className="self-start px-2 py-0.5 rounded-full text-[11px] font-medium uppercase tracking-[0.06em]"
@@ -453,9 +511,10 @@ function ProjectCard({
               Matches you
             </span>
           )}
-          {/* An "active" badge on every card would just be noise — only
-              in_progress/completed/archived signal something worth knowing. */}
-          {project.status && project.status !== "active" && (
+          {/* Stage (above) now carries the lifecycle signal on every card;
+              this legacy status pill is kept only for archived, per
+              docs/features/project-teams.md §7. */}
+          {project.status === "archived" && (
             <span
               className="self-start px-2 py-0.5 rounded-full text-[11px] font-medium uppercase tracking-[0.06em]"
               style={{
@@ -510,44 +569,13 @@ function ProjectCard({
               {/* Names are never truncated — the card wraps to fit instead */}
               <span className="text-xs break-words" style={{ color: "var(--garden-muted)" }}>
                 {project.creator.name}
+                {project.community && (
+                  <span style={{ color: "var(--garden-dim)" }}> · in {project.community.name}</span>
+                )}
               </span>
             </div>
           )}
-          {project.kind === "paid" && moneyWord && (
-            <span
-              className="shrink-0 text-sm font-semibold"
-              style={{ fontFamily: "var(--garden-font-mono)", color: "var(--garden-citron)" }}
-            >
-              {moneyWord}
-            </span>
-          )}
         </div>
-        {isOwn && (
-          <div
-            className="mt-3"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-            }}
-          >
-            <div className="flex items-center gap-2">
-              <label
-                className="text-[11px] uppercase tracking-[0.06em]"
-                style={{ color: "var(--garden-dim)" }}
-              >
-                Status
-              </label>
-              <StatusSelect project={project} />
-            </div>
-            <div className="mt-3">
-              <AnnouncementComposer
-                targetType="project"
-                targetId={project._id}
-                heading="Message supporters"
-              />
-            </div>
-          </div>
-        )}
         <div className="flex items-center justify-between gap-2 mt-3 pt-3" style={{ borderTop: "1px solid var(--garden-hairline)" }}>
           <span className="text-xs" style={{ color: "var(--garden-dim)" }}>
             {project.supportCount > 0
@@ -570,16 +598,17 @@ function ProjectCard({
     </div>
   );
 
-  return detailArtifact ? (
-    <Link to={`/works/${detailArtifact._id}`}>{card}</Link>
-  ) : (
-    <div>{card}</div>
-  );
+  // Every card is now a real, working link — before this it only linked
+  // anywhere at all when an attached portfolio artifact existed, and even
+  // then it diverted to that artifact's own /works page rather than the
+  // project's own page. That left most cards (any project with no attached
+  // media) not clickable at all.
+  return <Link to={`/projects/${project._id}`}>{card}</Link>;
 }
 
 // Minimal utility control, not a design centerpiece — a creator changing
 // their own project's status via the new updateProjectStatus mutation.
-function StatusSelect({ project }: { project: any }) {
+export function StatusSelect({ project }: { project: any }) {
   const updateProjectStatus = useMutation(api.garden.projects.updateProjectStatus);
   const [saving, setSaving] = useState(false);
   const options = STATUS_OPTIONS_BY_KIND[project.kind] ?? STATUS_OPTIONS_BY_KIND.passion;
@@ -619,6 +648,49 @@ function StatusSelect({ project }: { project: any }) {
   );
 }
 
+// Stage select — the project page's stage control (docs/features/
+// project-teams.md §1). StatusSelect above still backs the legacy status
+// pill and is untouched; this is a separate control writing the new
+// `stage` field via setStage. Any stage can move to any other — it's a
+// label, not a state machine, so every option is always available.
+export function StageSelect({ project }: { project: any }) {
+  const setStage = useMutation(api.garden.projects.setStage);
+  const [saving, setSaving] = useState(false);
+
+  async function handleChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    const stage = e.target.value;
+    setSaving(true);
+    try {
+      await setStage({ projectId: project._id, stage });
+    } catch {
+      // Reverts on the next render since project.stage won't have actually
+      // changed server-side — same convention as StatusSelect above.
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <select
+      value={resolveStage(project)}
+      onChange={handleChange}
+      disabled={saving}
+      className="text-xs rounded-lg border px-2 py-1 outline-none disabled:opacity-50"
+      style={{
+        backgroundColor: "var(--garden-ink)",
+        borderColor: "var(--garden-hairline-raised)",
+        color: "var(--garden-body)",
+      }}
+    >
+      {STAGES.map((s) => (
+        <option key={s} value={s}>
+          {stageLabel(s, project.kind)}
+        </option>
+      ))}
+    </select>
+  );
+}
+
 function PaidProjectForm({
   onClose,
   onSwitchToPassion,
@@ -635,8 +707,13 @@ function PaidProjectForm({
   const location = useLocationField();
   const [remote, setRemote] = useState(true);
   const [interests, setInterests] = useState<string[]>([]);
+  const [hostOrgId, setHostOrgId] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  // Pre-fill from the sidebar switcher's current context (community-ux.md
+  // §2/§6) — still changeable to "No community — just me" via CommunityPicker.
+  const { selected: switcherCommunitySlug, communities: myCommunities } = useCommunityContext();
+  const defaultHostOrgId = myCommunities.find((c) => c.slug === switcherCommunitySlug)?._id;
 
   function toggleInterest(tag: string) {
     setInterests((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
@@ -694,6 +771,7 @@ function PaidProjectForm({
         ...location.toArgs(),
         remote,
         interests: interests.length > 0 ? interests : undefined,
+        hostOrgId: hostOrgId ? (hostOrgId as any) : undefined,
       });
       onClose();
     } catch (err) {
@@ -897,6 +975,7 @@ function PaidProjectForm({
               />
             </div>
           )}
+          <CommunityPicker value={hostOrgId} onChange={setHostOrgId} defaultHostOrgId={defaultHostOrgId} />
           {error && <p className="text-sm text-red-400">{error}</p>}
           <div className="flex gap-2 justify-end pt-2">
             <button
@@ -933,8 +1012,13 @@ function PassionProjectForm({ onClose }: { onClose: () => void }) {
   const [raiseByDate, setRaiseByDate] = useState("");
   const [benefitsNonprofit, setBenefitsNonprofit] = useState(false);
   const [nonprofitName, setNonprofitName] = useState("");
+  const [hostOrgId, setHostOrgId] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  // Pre-fill from the sidebar switcher's current context (community-ux.md
+  // §2/§6) — still changeable to "No community — just me" via CommunityPicker.
+  const { selected: switcherCommunitySlug, communities: myCommunities } = useCommunityContext();
+  const defaultHostOrgId = myCommunities.find((c) => c.slug === switcherCommunitySlug)?._id;
 
   function toggleInterest(tag: string) {
     setInterests((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
@@ -972,6 +1056,7 @@ function PassionProjectForm({ onClose }: { onClose: () => void }) {
         raiseByDate: raiseByDate ? new Date(raiseByDate).getTime() : undefined,
         benefitsNonprofit: benefitsNonprofit || undefined,
         nonprofitName: benefitsNonprofit ? nonprofitName.trim() : undefined,
+        hostOrgId: hostOrgId ? (hostOrgId as any) : undefined,
       });
       onClose();
     } catch (err) {
@@ -1149,6 +1234,7 @@ function PassionProjectForm({ onClose }: { onClose: () => void }) {
               </p>
             </div>
           )}
+          <CommunityPicker value={hostOrgId} onChange={setHostOrgId} defaultHostOrgId={defaultHostOrgId} />
           {error && <p className="text-sm text-red-400">{error}</p>}
           <div className="flex gap-2 justify-end pt-2">
             <button
@@ -1181,9 +1267,24 @@ const SUPPORT_TYPES = [
   { value: "resource", label: "Offer a resource" },
 ];
 
-function SupportModal({ project, onClose }: { project: any; onClose: () => void }) {
+// Twin of MIN_BACKING_CENTS in convex/garden/stripeHandlers.ts (the server
+// is the authority; this is only so the modal can say it out loud and catch
+// an obvious miss before a round trip).
+const MIN_BACKING_DOLLARS = 5;
+
+// Backing a project is REAL money now: the two financial options open a
+// Stripe Checkout session (convex/garden/stripe.ts's createBackingCheckout)
+// and hand the browser off to it, exactly like fund.$slug.tsx's
+// AddToPoolPanel. Encouragement and resource offers are unchanged — they're
+// free, they post instantly, and nothing about them involves a charge.
+//
+// Money words (the rule stripe.ts states for its own lane): money moving
+// through the platform's Stripe is "back"/"fund"/"add to" — never
+// "donate"/"gift"/tax-deductible.
+export function SupportModal({ project, onClose }: { project: any; onClose: () => void }) {
   const existing = useQuery(api.garden.support.listSupportForProject, { projectId: project._id });
   const supportProject = useMutation(api.garden.support.supportProject);
+  const createBackingCheckout = useAction(api.garden.stripe.createBackingCheckout);
 
   const [type, setType] = useState("encouragement");
   const [amount, setAmount] = useState("");
@@ -1199,12 +1300,39 @@ function SupportModal({ project, onClose }: { project: any; onClose: () => void 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+
+    if (isFinancial) {
+      const amountCents = Math.round(Number(amount) * 100);
+      // Mirrors the server's floor (validateBackingAmount) so an obvious
+      // miss costs a round trip to nowhere instead of a round trip to Convex.
+      if (!Number.isFinite(amountCents) || amountCents < MIN_BACKING_DOLLARS * 100) {
+        setError(`Back this with at least $${MIN_BACKING_DOLLARS}.`);
+        return;
+      }
+      setSubmitting(true);
+      try {
+        const { url } = await createBackingCheckout({
+          projectId: project._id,
+          amountCents,
+          recurring: type === "financial_recurring",
+          visible,
+          message: message.trim() || undefined,
+        });
+        // Leaving for Stripe — deliberately no setSubmitting(false), so the
+        // button stays disabled through the handoff.
+        window.location.assign(url);
+      } catch (err) {
+        setError(errorMessage(err));
+        setSubmitting(false);
+      }
+      return;
+    }
+
     setSubmitting(true);
     try {
       await supportProject({
         projectId: project._id,
         type,
-        amountCents: isFinancial ? Math.round(Number(amount) * 100) : undefined,
         message: type === "encouragement" ? message.trim() : undefined,
         resourceDescription: type === "resource" ? resourceDescription.trim() : undefined,
         visible,
@@ -1239,11 +1367,20 @@ function SupportModal({ project, onClose }: { project: any; onClose: () => void 
               {existing.map((e) => (
                 <li key={e._id} className="text-sm" style={{ color: "var(--garden-body)" }}>
                   <span style={{ color: "var(--garden-paper)" }}>{e.supporterName}</span>
+                  {/* "pledged" is the older, pre-checkout row (garden/
+                      support.ts writes that status); a "confirmed" one is
+                      money that actually moved. */}
                   {e.type === "financial_one_time" && e.amountCents && (
-                    <span style={{ color: "var(--garden-citron)" }}> · ${(e.amountCents / 100).toLocaleString()} pledged</span>
+                    <span style={{ color: "var(--garden-citron)" }}>
+                      {" "}· ${(e.amountCents / 100).toLocaleString()}
+                      {e.status === "pledged" ? " pledged" : " backed"}
+                    </span>
                   )}
                   {e.type === "financial_recurring" && e.amountCents && (
-                    <span style={{ color: "var(--garden-citron)" }}> · ${(e.amountCents / 100).toLocaleString()}/mo pledged</span>
+                    <span style={{ color: "var(--garden-citron)" }}>
+                      {" "}· ${(e.amountCents / 100).toLocaleString()}/mo
+                      {e.status === "pledged" ? " pledged" : ""}
+                    </span>
                   )}
                   {e.message && <span style={{ color: "var(--garden-dim)" }}> — "{e.message}"</span>}
                   {e.resourceDescription && (
@@ -1257,10 +1394,11 @@ function SupportModal({ project, onClose }: { project: any; onClose: () => void 
 
         {done ? (
           <div className="py-4">
+            {/* Only encouragement and resource land here — a financial
+                backing leaves for Stripe Checkout instead of resolving
+                in-modal. */}
             <p className="text-sm mb-4" style={{ color: "var(--garden-body)" }}>
-              {isFinancial
-                ? "Pledge recorded — thank you. We'll follow up when real checkout is live."
-                : "Thanks for showing up for this."}
+              Thanks for showing up for this.
             </p>
             <button
               onClick={onClose}
@@ -1313,8 +1451,30 @@ function SupportModal({ project, onClose }: { project: any; onClose: () => void 
                   className="text-xs mt-1.5 px-2.5 py-1.5 rounded-md"
                   style={{ color: "var(--garden-citron)", backgroundColor: "rgba(215,242,90,0.1)" }}
                 >
-                  This is a pledge — no checkout, no charge. Nothing is collected at this point.
+                  ${MIN_BACKING_DOLLARS} minimum
+                  {type === "financial_recurring" ? ", charged monthly until you cancel" : ""}.
+                  Next step is secure checkout — your card is charged there, not here.
                 </p>
+              </div>
+            )}
+
+            {isFinancial && (
+              <div>
+                <label className="block text-xs uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
+                  Note to the creator (optional)
+                </label>
+                <textarea
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  rows={2}
+                  placeholder="Why this one matters to you…"
+                  className="w-full px-3 py-2 rounded-lg border text-sm outline-none resize-none"
+                  style={{
+                    backgroundColor: "var(--garden-ink)",
+                    borderColor: "var(--garden-hairline-raised)",
+                    color: "var(--garden-paper)",
+                  }}
+                />
               </div>
             )}
 
@@ -1379,7 +1539,13 @@ function SupportModal({ project, onClose }: { project: any; onClose: () => void 
                 className="px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-50"
                 style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
               >
-                {submitting ? "Sending…" : isFinancial ? "Pledge" : "Send"}
+                {submitting
+                  ? isFinancial
+                    ? "Starting checkout…"
+                    : "Sending…"
+                  : isFinancial
+                    ? "Continue to checkout"
+                    : "Send"}
               </button>
             </div>
           </form>

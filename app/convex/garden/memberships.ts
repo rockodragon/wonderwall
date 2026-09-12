@@ -17,10 +17,6 @@ import type { Id } from "../_generated/dataModel";
 import { auth } from "../auth";
 import { handleStripeEvent, type Db, type StripeWebhookEvent } from "./stripeHandlers";
 
-// The Garden is the default host org; coverage/membership checkout that
-// doesn't specify a hostOrgSlug attaches here (architect §2.1).
-export const DEFAULT_HOST_ORG_SLUG = "the-garden";
-
 const ENTITLED_STATUSES = new Set(["active", "past_due"]);
 const LEVEL_RANK: Record<string, number> = { seat: 1, five: 2, host: 3 };
 
@@ -69,10 +65,14 @@ function makeConvexDb(ctx: MutationCtx): Db {
         .unique();
       if (!row) return null;
       return {
+        id: String(row._id),
         userId: String(row.userId),
         level: row.level,
         status: row.status,
-        hostOrgId: String(row.hostOrgId),
+        // Optional — a seat is platform membership, not community
+        // membership (community-groups.md §0); only covered/legacy rows
+        // carry one.
+        hostOrgId: row.hostOrgId ? String(row.hostOrgId) : undefined,
         stripeSubscriptionId: row.stripeSubscriptionId,
         stripePriceId: row.stripePriceId,
         currentPeriodEnd: row.currentPeriodEnd,
@@ -91,7 +91,7 @@ function makeConvexDb(ctx: MutationCtx): Db {
         userId: row.userId as Id<"users">,
         level: row.level,
         status: row.status,
-        hostOrgId: row.hostOrgId as Id<"hostOrgs">,
+        hostOrgId: row.hostOrgId as Id<"hostOrgs"> | undefined,
         stripeSubscriptionId: row.stripeSubscriptionId,
         stripePriceId: row.stripePriceId,
         currentPeriodEnd: row.currentPeriodEnd,
@@ -155,6 +155,125 @@ function makeConvexDb(ctx: MutationCtx): Db {
         await ctx.db.insert("ticketPurchases", { ...patch, createdAt: Date.now() });
       }
     },
+
+    async getHostOrgIdBySlug(slug: string) {
+      const row = await ctx.db
+        .query("hostOrgs")
+        .withIndex("by_slug", (q) => q.eq("slug", slug))
+        .unique();
+      return row ? String(row._id) : null;
+    },
+
+    async getContributionByStripeRef(stripeRef: string) {
+      const row = await ctx.db
+        .query("grantContributions")
+        .withIndex("by_stripeRef", (q) => q.eq("stripeRef", stripeRef))
+        .unique();
+      return row ? { stripeRef: row.stripeRef as string } : null;
+    },
+
+    async insertContribution(row) {
+      await ctx.db.insert("grantContributions", {
+        hostOrgId: row.hostOrgId as Id<"hostOrgs">,
+        type: row.type,
+        grossCents: row.grossCents,
+        platformCents: row.platformCents,
+        poolCents: row.poolCents,
+        userId: row.userId as Id<"users"> | undefined,
+        payerName: row.payerName,
+        membershipId: row.membershipId as Id<"memberships"> | undefined,
+        stripeRef: row.stripeRef,
+        period: row.period,
+        note: row.note,
+        createdAt: Date.now(),
+      });
+    },
+
+    async getProductPurchaseByRef(stripeRef: string) {
+      const row = await ctx.db
+        .query("productPurchases")
+        .withIndex("by_stripeRef", (q) => q.eq("stripeRef", stripeRef))
+        .unique();
+      return row ? { stripeRef: row.stripeRef as string } : null;
+    },
+
+    async insertProductPurchase(row) {
+      const now = Date.now();
+      await ctx.db.insert("productPurchases", {
+        productId: row.productId as Id<"communityProducts">,
+        hostOrgId: row.hostOrgId as Id<"hostOrgs">,
+        userId: row.userId as Id<"users"> | undefined,
+        buyerEmail: row.buyerEmail,
+        grossCents: row.grossCents,
+        platformCents: row.platformCents,
+        hostCents: row.hostCents,
+        billing: row.billing,
+        status: row.status,
+        stripeRef: row.stripeRef,
+        stripeSubscriptionId: row.stripeSubscriptionId,
+        currentPeriodEnd: row.currentPeriodEnd,
+        period: row.period,
+        createdAt: now,
+        updatedAt: now,
+      });
+    },
+
+    async getProjectSupportById(supportId: string) {
+      const row = await ctx.db.get(supportId as Id<"projectSupport">);
+      return row ? { id: String(row._id), status: row.status } : null;
+    },
+
+    async updateProjectSupport(supportId: string, patch) {
+      const existing = await ctx.db.get(supportId as Id<"projectSupport">);
+      if (!existing) return; // row deleted between checkout and webhook — no-op
+      await ctx.db.patch(supportId as Id<"projectSupport">, patch);
+    },
+
+    async insertProjectSupport(row) {
+      await ctx.db.insert("projectSupport", {
+        projectId: row.projectId as Id<"projects">,
+        supporterUserId: row.supporterUserId as Id<"users"> | undefined,
+        supporterName: row.supporterName,
+        type: row.type,
+        amountCents: row.amountCents,
+        message: row.message,
+        visible: row.visible,
+        status: row.status,
+        createdAt: Date.now(),
+      });
+    },
+
+    async getCodeByCode(code: string) {
+      const row = await ctx.db
+        .query("coverageCodes")
+        .withIndex("by_code", (q) => q.eq("code", code))
+        .unique();
+      return row ? { code: row.code } : null;
+    },
+
+    async insertCoverageCode(row) {
+      await ctx.db.insert("coverageCodes", {
+        hostOrgId: row.hostOrgId as Id<"hostOrgs">,
+        code: row.code,
+        seats: row.seats,
+        stripeSubscriptionId: row.stripeSubscriptionId,
+        status: row.status,
+        createdAt: Date.now(),
+      });
+    },
+
+    async updateProductPurchasesBySubscription(stripeSubscriptionId, patch) {
+      const rows = await ctx.db
+        .query("productPurchases")
+        .withIndex("by_stripeSubscriptionId", (q) =>
+          q.eq("stripeSubscriptionId", stripeSubscriptionId),
+        )
+        .collect();
+      const updatedAt = Date.now();
+      for (const row of rows) {
+        await ctx.db.patch(row._id, { ...patch, updatedAt });
+      }
+    },
   };
 }
 
@@ -182,6 +301,24 @@ export const getBillingCustomerForUser = internalQuery({
   },
 });
 
+/** The /coverage/success page's lookup, via garden/stripe.ts's
+ * getCoverageBySession action: the code the webhook issued against this
+ * subscription, plus the sponsoring org's name for the confirmation line. */
+export const getCoverageCodeBySubscription = internalQuery({
+  args: { stripeSubscriptionId: v.string() },
+  handler: async (ctx, args) => {
+    const row = await ctx.db
+      .query("coverageCodes")
+      .withIndex("by_stripeSubscriptionId", (q) =>
+        q.eq("stripeSubscriptionId", args.stripeSubscriptionId),
+      )
+      .unique();
+    if (!row) return null;
+    const org = await ctx.db.get(row.hostOrgId);
+    return { code: row.code, seats: row.seats, orgName: org?.name ?? null };
+  },
+});
+
 export const saveBillingCustomer = internalMutation({
   args: { userId: v.id("users"), stripeCustomerId: v.string(), email: v.optional(v.string()) },
   handler: async (ctx, args) => {
@@ -190,14 +327,60 @@ export const saveBillingCustomer = internalMutation({
   },
 });
 
-export const getHostOrgForCheckout = internalQuery({
-  args: { slug: v.optional(v.string()) },
+// Used by stripe.ts's createPoolContributionCheckout (a "use node" action,
+// no ctx.db of its own) to resolve which pool a one-time contribution
+// targets and validate its kind before building the Stripe session.
+export const getHostOrgBySlug = internalQuery({
+  args: { slug: v.string() },
   handler: async (ctx, args) => {
-    const slug = args.slug ?? DEFAULT_HOST_ORG_SLUG;
     return ctx.db
       .query("hostOrgs")
-      .withIndex("by_slug", (q) => q.eq("slug", slug))
+      .withIndex("by_slug", (q) => q.eq("slug", args.slug))
       .unique();
+  },
+});
+
+// Used by stripe.ts's createCoverageCheckout (a "use node" action, no
+// ctx.db of its own) to confirm the sponsoring org exists before building a
+// seat subscription for it. Returns only what the action needs for the
+// Stripe product line — never the whole row.
+export const getHostOrgForCoverage = internalQuery({
+  args: { hostOrgId: v.id("hostOrgs") },
+  handler: async (ctx, args) => {
+    const org = await ctx.db.get(args.hostOrgId);
+    if (!org) return null;
+    return { _id: org._id, name: org.name, slug: org.slug, kind: org.kind, status: org.status };
+  },
+});
+
+// Used by stripe.ts's createProductCheckout (a "use node" action, no
+// ctx.db of its own) to load a community product + its host org in one
+// round trip before building the Stripe session. Null when either side is
+// missing — never partial data the action would have to null-check twice.
+export const getProductForCheckout = internalQuery({
+  args: { productId: v.id("communityProducts") },
+  handler: async (ctx, args) => {
+    const product = await ctx.db.get(args.productId);
+    if (!product) return null;
+    const org = await ctx.db.get(product.hostOrgId);
+    if (!org) return null;
+    return {
+      product: {
+        _id: product._id,
+        hostOrgId: product.hostOrgId,
+        name: product.name,
+        priceCents: product.priceCents,
+        billing: product.billing,
+        status: product.status,
+      },
+      org: {
+        _id: org._id,
+        slug: org.slug,
+        name: org.name,
+        kind: org.kind,
+        status: org.status,
+      },
+    };
   },
 });
 

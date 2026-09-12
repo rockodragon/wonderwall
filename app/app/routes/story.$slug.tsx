@@ -13,7 +13,6 @@ import {
   GardenErrorState,
   GardenLoading,
   GardenPage,
-  GardenNav,
   SectionLabel,
   formatDate,
   formatPeriod,
@@ -31,7 +30,6 @@ export function ErrorBoundary() {
   useRouteError();
   return (
     <GardenPage>
-      <GardenNav active="Projects" />
       <div style={{ marginTop: 28 }}>
         <GardenErrorState message="This story isn't live yet — check back soon." />
       </div>
@@ -64,8 +62,7 @@ export default function StoryPage() {
   if (data === undefined) {
     return (
       <GardenPage>
-        <GardenNav active="Projects" />
-        <div style={{ marginTop: 28 }}>
+          <div style={{ marginTop: 28 }}>
           <GardenLoading />
         </div>
       </GardenPage>
@@ -75,8 +72,7 @@ export default function StoryPage() {
   if (data === null) {
     return (
       <GardenPage>
-        <GardenNav active="Projects" />
-        <div style={{ marginTop: 28 }}>
+          <div style={{ marginTop: 28 }}>
           <GardenErrorState message="Check the link — this story isn't set up here." />
         </div>
       </GardenPage>
@@ -90,7 +86,6 @@ export default function StoryPage() {
 
   return (
     <GardenPage>
-      <GardenNav active="Projects" />
 
       {project.photoUrl && (
         <img
@@ -195,8 +190,8 @@ export default function StoryPage() {
           <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 8 }}>
             {credits.allocations.map((c, i) => (
               <div className="g-credit" key={`${c.orgName}-${i}`}>
-                Funded by the <b>{c.orgName} Fund</b> — ${c.amount.toLocaleString()} ·{" "}
-                {formatPeriod(c.period)}
+                <b>Grant Fund</b> — ${c.amount.toLocaleString()} · {formatPeriod(c.period)} ·
+                administered by {c.orgName}
               </div>
             ))}
             {credits.sponsorLine && <SponsorCredit line={credits.sponsorLine} />}

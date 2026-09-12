@@ -159,6 +159,19 @@ export async function resolveAudience(
           unreachable++;
         }
       }
+      // Accepted team members (docs/features/project-teams.md §5) join the
+      // supporters — "Message team and supporters". Only `accepted` rows;
+      // an accepted row always has a userId (garden/projectTeam.ts sets it
+      // on respondToInvite / decideRequest / claimInvite).
+      const members = await ctx.db
+        .query("projectMembers")
+        .withIndex("by_projectId_status", (q) =>
+          q.eq("projectId", targetId as Id<"projects">).eq("status", "accepted"),
+        )
+        .collect();
+      for (const member of members) {
+        if (member.userId) byUserId.set(member.userId, { userId: member.userId });
+      }
       break;
     }
     case "event": {

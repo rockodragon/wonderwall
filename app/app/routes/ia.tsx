@@ -10,7 +10,7 @@
 // product plan §2.1/§6 (seat vs. seat-at-a-table).
 
 import { Link, useRouteError } from "react-router";
-import { GardenErrorState, GardenNav, GardenPage, SectionLabel, FactRow } from "../garden/ui";
+import { GardenErrorState, GardenPage, SectionLabel, FactRow } from "../garden/ui";
 import "../garden/garden.css";
 
 export function meta() {
@@ -28,7 +28,6 @@ export function ErrorBoundary() {
   useRouteError();
   return (
     <GardenPage>
-      <GardenNav />
       <div style={{ marginTop: 28 }}>
         <GardenErrorState message="This page isn't live yet — check back soon." />
       </div>
@@ -162,7 +161,6 @@ const QUESTIONS: { q: string; body: string; note?: string }[] = [
 export default function IAPage() {
   return (
     <GardenPage wide>
-      <GardenNav />
 
       {/* ————— 1. Header ————— */}
       <div style={{ marginTop: 28, maxWidth: "62ch" }}>

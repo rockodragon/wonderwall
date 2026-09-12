@@ -3,6 +3,7 @@ Allow: /
 Allow: /login
 Allow: /faq
 Allow: /signup/
+Allow: /legal/
 
 Disallow: /search
 Disallow: /works
@@ -15,4 +16,4 @@ Disallow: /admin
 Disallow: /messages
 Disallow: /onboarding
 
-Sitemap: https://wonderwall.app/sitemap.xml
+Sitemap: https://creatives.exchange/sitemap.xml

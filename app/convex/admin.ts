@@ -1,7 +1,8 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { auth } from "./auth";
-import { requireAdmin } from "./helpers";
+import { requireAdmin, requireAdminCtx, ensureAdminCode } from "./helpers";
+import { ADMIN_EMAILS } from "./adminEmails";
 
 // Bootstrap admin - only works if no admins exist yet
 // Run from Convex dashboard: admin:bootstrapAdmin({ email: "rickmoy@gmail.com" })
@@ -341,6 +342,60 @@ export const setAdminStatus = mutation({
     return {
       success: true,
       message: `Admin status ${args.isAdmin ? "granted" : "revoked"} for user`,
+    };
+  },
+});
+
+// Backfills the standing admin group (adminEmails.ts) for accounts that
+// already existed when an email was added to that list — auth.ts's signup
+// hook only covers new signups. Also (re)generates each admin's fixed
+// waitlist-approval code (profiles.adminCode) if they don't have one yet.
+// Safe to call repeatedly: already-admin, already-coded accounts are
+// left untouched. Requires an existing admin to call it (see admin.tsx's
+// "Sync Admin Group" button) — same gate as setAdminStatus above.
+export const syncAdminGroup = mutation({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdminCtx(ctx);
+
+    const allUsers = await ctx.db.query("users").collect();
+
+    let grantedAdmin = 0;
+    let codesGenerated = 0;
+    const notFound: string[] = [];
+
+    for (const email of ADMIN_EMAILS) {
+      const user = allUsers.find(
+        (u) => "email" in u && u.email?.toLowerCase() === email,
+      );
+      if (!user) {
+        notFound.push(email);
+        continue;
+      }
+
+      const profile = await ctx.db
+        .query("profiles")
+        .withIndex("by_userId", (q) => q.eq("userId", user._id))
+        .first();
+      if (!profile) {
+        notFound.push(email);
+        continue;
+      }
+
+      if (!profile.isAdmin) {
+        await ctx.db.patch(profile._id, { isAdmin: true });
+        grantedAdmin++;
+      }
+      if (!profile.adminCode) {
+        await ensureAdminCode(ctx, profile);
+        codesGenerated++;
+      }
+    }
+
+    return {
+      grantedAdmin,
+      codesGenerated,
+      notFound, // emails with no account yet — nothing to do until they sign up
     };
   },
 });

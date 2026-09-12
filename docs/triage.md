@@ -546,6 +546,8 @@ bd show wonderwall-7df
 
 ## ✨ wonderwall-pjd Design: Social connection metaphor (connect vs follow vs friend)
 
+> **Resolved 2026-09-08 — Follow, one-way, quiet. See `docs/features/following.md`.** Close with `bd close wonderwall-pjd` when the beads DB is next touched; this export predates the decision.
+
 | Property | Value |
 |----------|-------|
 | **Type** | ✨ feature |

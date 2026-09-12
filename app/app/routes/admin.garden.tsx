@@ -135,6 +135,137 @@ function EmptyRow({ children }: { children: React.ReactNode }) {
   );
 }
 
+// ————— Communities section —————
+
+function CommunitiesSection({
+  applications,
+}: {
+  applications: {
+    _id: string;
+    name: string;
+    slug: string;
+    tagline?: string;
+    status: string;
+    applicantNote?: string;
+    ownerName?: string;
+    memberCount: number;
+  }[];
+}) {
+  const reviewCommunity = useMutation(api.garden.communities.reviewCommunity);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [status, setStatus] = useState<Status>(null);
+
+  async function act(hostOrgId: string, decision: "approve" | "decline" | "archive") {
+    setBusyId(hostOrgId);
+    setStatus(null);
+    try {
+      await reviewCommunity({ hostOrgId: hostOrgId as Id<"hostOrgs">, decision });
+      setStatus({
+        kind: "ok",
+        text: `Community ${decision === "approve" ? "approved" : decision === "decline" ? "declined" : "archived"}.`,
+      });
+    } catch (err) {
+      setStatus({ kind: "err", text: reasonFor(err, "Couldn't update that community — try again.") });
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  const pending = applications.filter((a) => a.status === "pending");
+  const active = applications.filter((a) => a.status === "active");
+
+  return (
+    <section style={{ marginTop: 40 }}>
+      <h2 className="g-h" style={{ fontSize: "clamp(20px,3.5vw,26px)" }}>
+        Communities
+      </h2>
+      <p className="g-hint" style={{ marginTop: 4 }}>
+        Self-serve host applications — approve to list, decline to close them out.
+      </p>
+
+      <div style={{ marginTop: 16 }}>
+        <div className="g-label" style={{ marginBottom: 10 }}>
+          Pending applications ({pending.length})
+        </div>
+        {pending.length === 0 ? (
+          <EmptyRow>Nothing waiting on review.</EmptyRow>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {pending.map((a) => (
+              <div key={a._id} className="g-cell" style={{ padding: "12px 14px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+                  <span style={{ color: "var(--g-paper)", fontWeight: 600, fontSize: 14.5 }}>{a.name}</span>
+                  <span className="g-badge g-badge-line">{a.status}</span>
+                </div>
+                <div className="g-hint" style={{ marginTop: 6 }}>
+                  {a.ownerName ? `${a.ownerName} · ` : ""}
+                  {a.memberCount} member{a.memberCount === 1 ? "" : "s"}
+                  {a.tagline ? ` · ${a.tagline}` : ""}
+                </div>
+                {a.applicantNote && (
+                  <p className="g-hint" style={{ marginTop: 6, fontStyle: "italic" }}>
+                    "{a.applicantNote}"
+                  </p>
+                )}
+                <div style={{ marginTop: 10, display: "flex", gap: 8 }}>
+                  <button
+                    className="g-btn g-btn-citron"
+                    disabled={busyId === a._id}
+                    onClick={() => act(a._id, "approve")}
+                  >
+                    Approve
+                  </button>
+                  <button
+                    className="g-btn g-btn-ghost"
+                    disabled={busyId === a._id}
+                    onClick={() => act(a._id, "decline")}
+                  >
+                    Decline
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div style={{ marginTop: 24 }}>
+        <div className="g-label" style={{ marginBottom: 10 }}>
+          Active communities ({active.length})
+        </div>
+        {active.length === 0 ? (
+          <EmptyRow>None approved yet.</EmptyRow>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {active.map((a) => (
+              <div key={a._id} className="g-cell" style={{ padding: "12px 14px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+                  <span style={{ color: "var(--g-paper)", fontWeight: 600, fontSize: 14.5 }}>{a.name}</span>
+                  <Link to={`/communities/${a.slug}`} className="g-hint">
+                    View →
+                  </Link>
+                </div>
+                <div className="g-hint" style={{ marginTop: 6 }}>
+                  {a.memberCount} member{a.memberCount === 1 ? "" : "s"}
+                </div>
+                <button
+                  className="g-btn g-btn-ghost"
+                  disabled={busyId === a._id}
+                  style={{ marginTop: 10 }}
+                  onClick={() => act(a._id, "archive")}
+                >
+                  Archive
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+      <StatusLine status={status} />
+    </section>
+  );
+}
+
 // ————— Tables section —————
 
 const TABLE_MODES = ["open", "member", "cohort"] as const;
@@ -505,6 +636,149 @@ function CoverageSection({
   );
 }
 
+// ————— Grant proposals section —————
+
+const PROPOSAL_STATUS_FILTERS = ["all", "submitted", "under_review", "approved", "declined", "withdrawn"] as const;
+const PROPOSAL_STATUS_LABELS: Record<string, string> = {
+  all: "All",
+  submitted: "Submitted",
+  under_review: "Under review",
+  approved: "Approved",
+  declined: "Declined",
+  withdrawn: "Withdrawn",
+};
+
+function ProposalRow({
+  proposal,
+}: {
+  proposal: {
+    proposalId: string;
+    proposerName: string;
+    title: string;
+    summary: string;
+    amountCents: number;
+    status: string;
+  };
+}) {
+  const decideProposal = useMutation(api.garden.grantProposals.decideProposal);
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState<"approve" | "decline" | null>(null);
+  const [status, setStatus] = useState<Status>(null);
+  const decidable = proposal.status === "submitted" || proposal.status === "under_review";
+
+  async function decide(approve: boolean) {
+    setBusy(approve ? "approve" : "decline");
+    setStatus(null);
+    try {
+      await decideProposal({
+        proposalId: proposal.proposalId as Id<"grantProposals">,
+        approve,
+        operatorNote: note.trim() || undefined,
+      });
+      setStatus({ kind: "ok", text: approve ? "Approved." : "Declined." });
+    } catch (err) {
+      setStatus({ kind: "err", text: reasonFor(err, "Couldn't decide that proposal. Try again.") });
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <div className="g-cell" style={{ padding: "12px 14px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+        <span style={{ color: "var(--g-paper)", fontWeight: 600, fontSize: 14.5 }}>{proposal.title}</span>
+        <span className="g-cell-v" style={{ fontSize: 16 }}>{formatMoney(proposal.amountCents)}</span>
+      </div>
+      <div className="g-hint" style={{ marginTop: 6 }}>
+        {proposal.proposerName} · {PROPOSAL_STATUS_LABELS[proposal.status] ?? proposal.status}
+      </div>
+      <p style={{ marginTop: 6, fontSize: 14, lineHeight: 1.5 }}>{proposal.summary}</p>
+      {decidable && (
+        <div style={{ marginTop: 10 }}>
+          <input
+            className="g-input"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="Internal note (optional)"
+          />
+          <div style={{ marginTop: 8, display: "flex", gap: 8 }}>
+            <button className="g-btn g-btn-citron" disabled={busy !== null} onClick={() => decide(true)}>
+              {busy === "approve" ? "Approving…" : "Approve"}
+            </button>
+            <button className="g-btn g-btn-ghost" disabled={busy !== null} onClick={() => decide(false)}>
+              {busy === "decline" ? "Declining…" : "Decline"}
+            </button>
+          </div>
+          <StatusLine status={status} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function GrantProposalsSection({ hostOrgs }: { hostOrgs: { _id: string; name: string; slug: string }[] }) {
+  const [hostOrgId, setHostOrgId] = useState(hostOrgs[0]?._id ?? "");
+  const [statusFilter, setStatusFilter] = useState<(typeof PROPOSAL_STATUS_FILTERS)[number]>("all");
+
+  const proposals = useQuery(
+    api.garden.grantProposals.listProposalsForReview,
+    hostOrgId
+      ? {
+          hostOrgId: hostOrgId as Id<"hostOrgs">,
+          status: statusFilter === "all" ? undefined : statusFilter,
+        }
+      : "skip",
+  );
+
+  return (
+    <SectionCard title="Grant proposals" hint="Self-serve asks from creatives. Approve or decline, with an optional internal note.">
+      <div>
+        <Field label="Fund (host org)">
+          <select className="g-input" value={hostOrgId} onChange={(e) => setHostOrgId(e.target.value)} style={{ appearance: "none" }}>
+            {hostOrgs.length === 0 ? <option value="">No host orgs yet</option> : null}
+            {hostOrgs.map((o) => (
+              <option key={o._id} value={o._id}>
+                {o.name}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field label="Status">
+          <select
+            className="g-input"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as (typeof PROPOSAL_STATUS_FILTERS)[number])}
+            style={{ appearance: "none" }}
+          >
+            {PROPOSAL_STATUS_FILTERS.map((s) => (
+              <option key={s} value={s}>
+                {PROPOSAL_STATUS_LABELS[s]}
+              </option>
+            ))}
+          </select>
+        </Field>
+      </div>
+
+      <div>
+        <div className="g-label" style={{ marginBottom: 10 }}>
+          Proposals ({proposals?.length ?? 0})
+        </div>
+        {proposals === undefined ? (
+          <EmptyRow>Loading…</EmptyRow>
+        ) : proposals.length === 0 ? (
+          <EmptyRow>Nothing here.</EmptyRow>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {proposals.map((p) => (
+              <ProposalRow key={p.proposalId} proposal={p} />
+            ))}
+          </div>
+        )}
+      </div>
+    </SectionCard>
+  );
+}
+
 // ————— Allocations section —————
 
 function AllocationsSection({
@@ -636,6 +910,7 @@ export default function AdminGardenPage() {
   const profile = useQuery(api.profiles.getMyProfile);
   const data = useQuery(api.garden.operator.listOperatorData);
   const projects = useQuery(api.garden.operator.listProjectsForAllocation);
+  const communityApps = useQuery(api.garden.communities.listCommunityApplications);
 
   if (profile === undefined) {
     return (
@@ -664,23 +939,30 @@ export default function AdminGardenPage() {
             Operator console
           </h1>
         </div>
-        <Link to="/admin" className="g-mono" style={{ fontSize: 12.5, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--g-muted)" }}>
-          ← Back to admin
-        </Link>
+        <div style={{ display: "flex", gap: 16, alignItems: "baseline" }}>
+          <Link to="/admin/ledger" className="g-mono" style={{ fontSize: 12.5, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--g-citron)" }}>
+            Platform ledger →
+          </Link>
+          <Link to="/admin" className="g-mono" style={{ fontSize: 12.5, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--g-muted)" }}>
+            ← Back to admin
+          </Link>
+        </div>
       </div>
 
-      {data === undefined || projects === undefined ? (
+      {data === undefined || projects === undefined || communityApps === undefined ? (
         <div style={{ marginTop: 28 }}>
           <GardenLoading />
         </div>
       ) : (
         <>
+          <CommunitiesSection applications={communityApps} />
           <TablesSection hostOrgs={data.hostOrgs} tables={data.tables} />
           <SessionsSection
             tables={data.tables.map((t) => ({ _id: t._id, name: t.name, slug: t.slug }))}
             upcomingSessions={data.upcomingSessions}
           />
           <CoverageSection hostOrgs={data.hostOrgs} coverageCodes={data.coverageCodes} />
+          <GrantProposalsSection hostOrgs={data.hostOrgs} />
           <AllocationsSection hostOrgs={data.hostOrgs} projects={projects} recentAllocations={data.recentAllocations} />
         </>
       )}

@@ -1,7 +1,9 @@
 import { v } from "convex/values";
-import type { Doc } from "./_generated/dataModel";
-import { mutation } from "./_generated/server";
+import type { Doc, Id } from "./_generated/dataModel";
+import { mutation, query } from "./_generated/server";
 import type { QueryCtx } from "./_generated/server";
+import { internal } from "./_generated/api";
+import { requireAdminCtx, ensureAdminCode } from "./helpers";
 
 function computePriorityScore(a: {
   role?: string;
@@ -119,5 +121,108 @@ export const answerWaitlistQuestions = mutation({
       success: true,
       position: updated ? await rankOf(ctx, updated) : null,
     };
+  },
+});
+
+// Everyone on the list, with their "move up the list" answers, for the
+// admin waitlist table (routes/admin.waitlist.tsx). Ordered the same way
+// rankOf ranks an individual entry, so the admin view and an applicant's
+// own position agree.
+export const listForAdmin = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdminCtx(ctx);
+
+    const all = await ctx.db.query("waitlist").collect();
+    const sorted = [...all].sort((a, b) => {
+      const scoreA = a.priorityScore ?? 0;
+      const scoreB = b.priorityScore ?? 0;
+      if (scoreA !== scoreB) return scoreB - scoreA;
+      return a.createdAt - b.createdAt;
+    });
+
+    const approverIds = [
+      ...new Set(
+        sorted
+          .map((w) => w.approvedBy)
+          .filter((id): id is Id<"users"> => id !== undefined),
+      ),
+    ];
+    const approverNames = new Map<Id<"users">, string>();
+    for (const id of approverIds) {
+      const profile = await ctx.db
+        .query("profiles")
+        .withIndex("by_userId", (q) => q.eq("userId", id))
+        .first();
+      if (profile) approverNames.set(id, profile.name);
+    }
+
+    return sorted.map((w, i) => ({
+      _id: w._id,
+      email: w.email,
+      createdAt: w.createdAt,
+      answeredAt: w.answeredAt,
+      rank: i + 1,
+      priorityScore: w.priorityScore ?? 0,
+      role: w.role,
+      projectDescription: w.projectDescription,
+      projectUrl: w.projectUrl,
+      hasLaunchProject: w.hasLaunchProject,
+      portfolioUrl: w.portfolioUrl,
+      interestedInHosting: w.interestedInHosting,
+      hearAboutUs: w.hearAboutUs,
+      hearAboutUsOther: w.hearAboutUsOther,
+      approved: w.approvedBy !== undefined,
+      approvedAt: w.approvedAt,
+      approvedByName: w.approvedBy
+        ? (approverNames.get(w.approvedBy) ?? "Admin")
+        : undefined,
+    }));
+  },
+});
+
+// Approves one waitlist entry: records who approved it, and emails the
+// applicant the approving admin's fixed code (profiles.adminCode,
+// generated on first use here if they don't have one yet) so they can
+// sign up at /signup/:code — the same route a peer invite lands on, since
+// invites.ts's findInviterProfile resolves either kind of code. Idempotent:
+// a second call on an already-approved entry is a no-op, so a double click
+// or two admins racing on the same row doesn't re-send the email or
+// overwrite who approved it first.
+export const approveEntry = mutation({
+  args: { waitlistId: v.id("waitlist") },
+  handler: async (ctx, args) => {
+    const adminUserId = await requireAdminCtx(ctx);
+
+    const entry = await ctx.db.get(args.waitlistId);
+    if (!entry) throw new Error("Waitlist entry not found");
+    if (entry.approvedBy !== undefined) {
+      return { alreadyApproved: true, code: undefined };
+    }
+
+    const adminProfile = await ctx.db
+      .query("profiles")
+      .withIndex("by_userId", (q) => q.eq("userId", adminUserId))
+      .first();
+    if (!adminProfile) throw new Error("Admin profile not found");
+
+    const code = await ensureAdminCode(ctx, adminProfile);
+
+    await ctx.db.patch(entry._id, {
+      approvedBy: adminUserId,
+      approvedAt: Date.now(),
+    });
+
+    await ctx.scheduler.runAfter(0, internal.emails.sendNotificationEmail, {
+      to: entry.email,
+      subject: "You're approved for creatives.exchange",
+      previewText: "Your invite code is ready — come on in.",
+      heading: "You're in!",
+      body: `Good news — you're approved to join The Exchange. Use invite code <strong>${code}</strong> when you sign up, or just tap the button below and it'll be filled in for you.`,
+      ctaText: "Create your account",
+      ctaUrl: `/signup/${code}`,
+    });
+
+    return { alreadyApproved: false, code };
   },
 });

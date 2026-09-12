@@ -13,6 +13,16 @@ import { Analytics } from "./components/Analytics";
 import "./app.css";
 
 export const links: Route.LinksFunction = () => [
+  // The --garden-* palette lives ONLY in public/tokens.css. Pages that
+  // didn't load it (the /for/* audience pages, /opportunities) rendered
+  // every colour as an undefined var — white page, invisible text — while
+  // the home page looked right because a component on it happened to pull
+  // tokens.css in. Loading it here means every route has the palette.
+  { rel: "stylesheet", href: "/tokens.css" },
+  // Bricolage Grotesque / Archivo / JetBrains Mono — the brand faces that
+  // --garden-font-display and friends name. Same story as tokens.css: only
+  // some pages loaded this, so headlines fell back to Inter on the rest.
+  { rel: "stylesheet", href: "/about/fonts/fonts.css" },
   { rel: "preconnect", href: "https://fonts.googleapis.com" },
   {
     rel: "preconnect",

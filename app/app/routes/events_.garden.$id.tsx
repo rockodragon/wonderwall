@@ -30,7 +30,6 @@ import {
   FactRow,
   GardenErrorState,
   GardenLoading,
-  GardenNav,
   GardenPage,
   SectionLabel,
   formatDateTime,
@@ -48,7 +47,6 @@ export function ErrorBoundary() {
   useRouteError(); // logged by the framework; the page just degrades warmly
   return (
     <GardenPage>
-      <GardenNav active="Events" />
       <div style={{ marginTop: 28 }}>
         <GardenErrorState message="This event isn't live yet — check back soon." />
       </div>
@@ -153,8 +151,7 @@ export default function GardenEventDetail() {
   if (event === undefined) {
     return (
       <GardenPage>
-        <GardenNav active="Events" />
-        <div style={{ marginTop: 28 }}>
+          <div style={{ marginTop: 28 }}>
           <GardenLoading />
         </div>
       </GardenPage>
@@ -164,8 +161,7 @@ export default function GardenEventDetail() {
   if (event === null) {
     return (
       <GardenPage>
-        <GardenNav active="Events" />
-        <div style={{ marginTop: 28 }}>
+          <div style={{ marginTop: 28 }}>
           <GardenErrorState message="That event isn't there anymore — check the link and try again." />
         </div>
       </GardenPage>
@@ -203,7 +199,6 @@ export default function GardenEventDetail() {
 
   return (
     <GardenPage>
-      <GardenNav active="Events" />
 
       <div style={{ marginTop: 28 }}>
         <h1 className="g-h" style={{ fontSize: "clamp(28px,5vw,40px)" }}>

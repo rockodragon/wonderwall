@@ -219,6 +219,18 @@ export default function Signup() {
           >
             Already have an account? Sign in
           </Link>
+
+          {/* This branch is what /signup renders without an invite slug, so it
+              is a signup surface too — it needs the same links as the form. */}
+          <p className="mt-8 text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+            <Link to="/legal/terms" className="text-blue-600 hover:text-blue-500">
+              Terms of Service
+            </Link>{" "}
+            &middot;{" "}
+            <Link to="/legal/privacy" className="text-blue-600 hover:text-blue-500">
+              Privacy Policy
+            </Link>
+          </p>
         </div>
       </div>
     );
@@ -447,7 +459,23 @@ export default function Signup() {
             {googleLoading ? "Signing up..." : "Google"}
           </button>
 
-          <p className="mt-6 text-center text-sm text-gray-600 dark:text-gray-400">
+          {/* Sits below BOTH signup paths — the password form above and the
+              Google button — because it has to cover whichever one is used.
+              Links are public routes on purpose: there is no account yet to
+              authenticate, see routes.ts. */}
+          <p className="mt-6 text-center text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+            By creating an account you agree to our{" "}
+            <Link to="/legal/terms" className="text-blue-600 hover:text-blue-500">
+              Terms of Service
+            </Link>{" "}
+            and{" "}
+            <Link to="/legal/privacy" className="text-blue-600 hover:text-blue-500">
+              Privacy Policy
+            </Link>
+            .
+          </p>
+
+          <p className="mt-4 text-center text-sm text-gray-600 dark:text-gray-400">
             Already have an account?{" "}
             <Link
               to="/login"

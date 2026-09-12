@@ -9,6 +9,7 @@
     "typecheck": "react-router typegen && tsc",
     "test": "vitest run",
     "test:e2e": "playwright test",
+    "stripe:bootstrap": "node --experimental-strip-types scripts/stripe-bootstrap.ts",
     "deploy": "VITE_CONVEX_URL=https://courteous-rabbit-750.convex.cloud VITE_PUBLIC_POSTHOG_KEY=phc_v7Aaz8wNG9vd6zGBjMm9oynfW4MH3eTNoG9GLJuewSjM pnpm run build && wrangler pages deploy ./build/client",
     "preview": "pnpm run build && wrangler pages dev ./build/client"
   },

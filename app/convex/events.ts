@@ -1,7 +1,10 @@
 import { v } from "convex/values";
 import { internalQuery, mutation, query } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
 import { auth } from "./auth";
 import { scheduleNotificationEmail } from "./emailHelpers";
+import { assertCommunityMember } from "./garden/communities";
+import { formatFollowedEventDate, notifyFollowers } from "./follows";
 
 // ——— Pure validation helpers (unit-tested in events.test.ts) ———
 
@@ -86,6 +89,23 @@ const ticketTiersValidator = v.optional(
   ),
 );
 
+// Batches hostOrgs lookups for a set of events into a single Map keyed by
+// hostOrgId string — never one ctx.db.get per event (several events can
+// share a community). Used by both `list` and `get`.
+async function resolveCommunities(
+  ctx: { db: { get: (id: Id<"hostOrgs">) => Promise<{ name: string; slug: string } | null> } },
+  hostOrgIds: (Id<"hostOrgs"> | undefined)[],
+): Promise<Map<string, { name: string; slug: string }>> {
+  const distinct = [...new Set(hostOrgIds.filter((id): id is Id<"hostOrgs"> => !!id))];
+  const orgs = await Promise.all(distinct.map((id) => ctx.db.get(id)));
+  const out = new Map<string, { name: string; slug: string }>();
+  distinct.forEach((id, i) => {
+    const org = orgs[i];
+    if (org) out.set(String(id), { name: org.name, slug: org.slug });
+  });
+  return out;
+}
+
 export const list = query({
   args: {
     status: v.optional(v.string()),
@@ -124,6 +144,8 @@ export const list = query({
     // next-up-first.
     events.sort((a, b) => (args.past ? b.datetime - a.datetime : a.datetime - b.datetime));
 
+    const communityById = await resolveCommunities(ctx, events.map((e) => e.hostOrgId));
+
     // Resolve cover images
     const eventsWithImages = await Promise.all(
       events.map(async (event) => {
@@ -149,6 +171,7 @@ export const list = query({
           ...event,
           coverImageUrl,
           attendeeCount: applications.length,
+          community: event.hostOrgId ? (communityById.get(String(event.hostOrgId)) ?? null) : null,
         };
       }),
     );
@@ -227,6 +250,10 @@ export const get = query({
       }
     }
 
+    const community = event.hostOrgId
+      ? (await resolveCommunities(ctx, [event.hostOrgId])).get(String(event.hostOrgId)) ?? null
+      : null;
+
     return {
       ...event,
       ticketsSoldByTier,
@@ -242,6 +269,7 @@ export const get = query({
       applicationCount: applications.length,
       userApplication,
       isOrganizer: userId === event.organizerId,
+      community,
     };
   },
 });
@@ -276,6 +304,9 @@ export const create = mutation({
     placeId: v.optional(v.string()),
     tags: v.array(v.string()),
     requiresApproval: v.boolean(),
+    // The community this event is posted INTO (optional — content stays
+    // owned by the organizer, this only tags it; community-groups.md §0).
+    hostOrgId: v.optional(v.id("hostOrgs")),
   },
   handler: async (ctx, args) => {
     const userId = await auth.getUserId(ctx);
@@ -287,11 +318,16 @@ export const create = mutation({
     const { tiers, error: tiersError } = normalizeTicketTiers(args.ticketTiers);
     if (tiersError) throw new Error(tiersError);
 
-    const now = Date.now();
+    if (args.hostOrgId) {
+      await assertCommunityMember(ctx, args.hostOrgId, userId);
+    }
 
-    return await ctx.db.insert("events", {
+    const now = Date.now();
+    const title = args.title.trim();
+
+    const eventId = await ctx.db.insert("events", {
       organizerId: userId,
-      title: args.title.trim(),
+      title,
       description: args.description.trim(),
       datetime: args.datetime,
       endTime: args.endTime,
@@ -304,10 +340,31 @@ export const create = mutation({
       placeId: args.placeId,
       tags: args.tags,
       requiresApproval: args.requiresApproval,
+      hostOrgId: args.hostOrgId,
       status: "published",
       createdAt: now,
       updatedAt: now,
     });
+
+    // Following fan-out (docs/features/following.md §1 #6): events are born
+    // `published`, so create is the moment. Same linkUrl convention as the
+    // event_application notification in `apply` below. `userId` is the
+    // organizer's users id — notifyFollowers hops to the profile id that
+    // follows are actually keyed on, and returns 0 (never throws) when the
+    // organizer has no profile.
+    const organizerProfile = await ctx.db
+      .query("profiles")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .first();
+    const organizerName = organizerProfile?.name || "Someone";
+    await notifyFollowers(ctx, userId, {
+      type: "followed_created_event",
+      title: `${organizerName} is hosting ${title}`,
+      message: formatFollowedEventDate(args.datetime),
+      linkUrl: `/events/${eventId}`,
+    });
+
+    return eventId;
   },
 });
 
@@ -342,6 +399,11 @@ export const update = mutation({
     placeId: v.optional(v.string()),
     tags: v.array(v.string()),
     requiresApproval: v.boolean(),
+    hostOrgId: v.optional(v.id("hostOrgs")),
+    // Convex validators don't accept `null` through v.optional — pass this
+    // instead to remove an already-set hostOrgId. See createPassionProject's
+    // hostOrgId comment for what this field means.
+    clearCommunity: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const userId = await auth.getUserId(ctx);
@@ -357,6 +419,10 @@ export const update = mutation({
     const { tiers, error: tiersError } = normalizeTicketTiers(args.ticketTiers);
     if (tiersError) throw new Error(tiersError);
 
+    if (args.hostOrgId) {
+      await assertCommunityMember(ctx, args.hostOrgId, userId);
+    }
+
     await ctx.db.patch(args.eventId, {
       title: args.title.trim(),
       description: args.description.trim(),
@@ -371,6 +437,7 @@ export const update = mutation({
       placeId: args.placeId,
       tags: args.tags,
       requiresApproval: args.requiresApproval,
+      hostOrgId: args.clearCommunity ? undefined : (args.hostOrgId ?? event.hostOrgId),
       updatedAt: Date.now(),
     });
   },
@@ -566,6 +633,9 @@ export const getAttendees = query({
 export const search = query({
   args: {
     query: v.string(),
+    // Community context (docs/features/community-ux.md §2): only events
+    // posted into that community. Unknown slug → nothing (fail closed).
+    communitySlug: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const q = args.query.toLowerCase();
@@ -574,6 +644,15 @@ export const search = query({
     const now = Date.now();
     let events = await ctx.db.query("events").collect();
     events = events.filter((e) => e.status === "published" && e.datetime > now);
+
+    if (args.communitySlug) {
+      const org = await ctx.db
+        .query("hostOrgs")
+        .withIndex("by_slug", (q) => q.eq("slug", args.communitySlug!))
+        .unique();
+      if (!org) return [];
+      events = events.filter((e) => e.hostOrgId && String(e.hostOrgId) === String(org._id));
+    }
 
     // Filter by search query
     const filtered = events.filter(

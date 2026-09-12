@@ -35,6 +35,7 @@ export interface ProjectLike {
   storySlug?: string;
   status?: string;
   origin?: string;
+  stage?: string;
 }
 
 export interface ProjectCard {
@@ -52,6 +53,7 @@ export interface ProjectCard {
   storySlug?: string;
   moneyLine: string;
   status?: string;
+  stage?: string;
 }
 
 /** Dollar formatting for this file's own money lines — a display-only
@@ -132,6 +134,7 @@ export function shapeProjectCard(project: ProjectLike, ownerName: string): Proje
     raisedCents: project.raisedCents,
     storySlug: project.storySlug,
     status: project.status,
+    stage: project.stage,
     moneyLine: resolveMoneyLine({
       kind,
       budgetType: project.budgetType,
@@ -205,9 +208,21 @@ export const listProjects = query({
     const nameByUserId = new Map<string, string>();
     for (const p of profiles) if (p) nameByUserId.set(String(p.userId), p.name);
 
-    return newestFirst.map((p) =>
-      shapeProjectCard(p, nameByUserId.get(String(p.userId)) ?? FALLBACK_OWNER_NAME),
-    );
+    // The community each project was posted into (community-groups.md) —
+    // one lookup per distinct org, only real communities surface.
+    const hostOrgIds = [
+      ...new Set(newestFirst.map((p) => p.hostOrgId).filter((id): id is NonNullable<typeof id> => !!id)),
+    ];
+    const orgs = await Promise.all(hostOrgIds.map((id) => ctx.db.get(id)));
+    const communityById = new Map<string, { name: string; slug: string }>();
+    for (const org of orgs) {
+      if (org && org.kind === "community") communityById.set(String(org._id), { name: org.name, slug: org.slug });
+    }
+
+    return newestFirst.map((p) => ({
+      ...shapeProjectCard(p, nameByUserId.get(String(p.userId)) ?? FALLBACK_OWNER_NAME),
+      community: p.hostOrgId ? communityById.get(String(p.hostOrgId)) ?? null : null,
+    }));
   },
 });
 

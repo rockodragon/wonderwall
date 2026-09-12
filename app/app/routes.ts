@@ -9,7 +9,12 @@ export default [
   // Public routes
   index("routes/home.tsx"),
   route("login", "routes/login.tsx"),
-  route("signup/:inviteSlug", "routes/signup.tsx"),
+  // Bare /signup is a URL people type and land on; without this route it fell
+  // through to the 404 catch-all, so the "Invite Required" branch inside
+  // signup.tsx (which handles a missing slug, and carries the Terms/Privacy
+  // links) was unreachable. Both paths render the same module.
+  route("signup", "routes/signup.tsx"),
+  route("signup/:inviteSlug", "routes/signup.tsx", { id: "signup-invite" }),
   route("oauth-callback", "routes/oauth-callback.tsx"),
   route("onboarding", "routes/onboarding.tsx"),
   // Organizations (Host-tier pricing/lead-gen page) un-published for V1 —
@@ -22,21 +27,22 @@ export default [
   // route("organizations", "routes/organizations.tsx"),
   // route("organizations/demo", "routes/organizations_.demo.tsx"),
 
-  // Event detail is PUBLIC — deliberately outside the _app.tsx layout below,
-  // which navigates unauthenticated visitors to /login (routes/_app.tsx:42).
-  // A calendar invite goes to a guest with no account by design
-  // (eventRsvps.userId is optional), and the join link, the recording and
-  // "add to calendar" all live on this page — gating it dead-ended exactly
-  // the person holding the invite (docs/gated-event-video-prd.md).
-  //
-  // routes/event.tsx is the component, not the /garden/events/:id one: this
-  // path is what functions/events/[id].ts injects real OG tags for, so link
-  // unfurling depends on it staying put. The page degrades for logged-out
-  // visitors on its own (guest RSVP, no organizer tools) — see event.tsx.
-  //
-  // The browse list at /events stays inside the layout for now; promoting it
-  // is a separate decision.
-  route("events/:eventId", "routes/event.tsx"),
+  // Legal pages are PUBLIC and deliberately outside the _app.tsx layout
+  // below, for the same reason the event page is: that layout sends
+  // unauthenticated visitors to /login (routes/_app.tsx:42), and the signup
+  // form links here before an account exists. Gating the terms behind the
+  // account they govern would be a circle.
+  route("legal/terms", "routes/legal.terms.tsx"),
+  route("legal/privacy", "routes/legal.privacy.tsx"),
+  // Attribution for the campaign photography. CC BY requires it to be
+  // visible wherever the work is used, so every page carrying a photo links
+  // here — that makes this page a licence obligation, not a nicety.
+  route("legal/credits", "routes/legal.credits.tsx"),
+
+  // Claiming an off-platform project credit (project-teams.md §3, §7).
+  // Public: the person may not have an account yet, so this stays outside
+  // the _app layout below rather than bouncing them to /login.
+  route("claim/:token", "routes/claim.$token.tsx"),
 
   // Public audience pages (/for/creatives, /for/hosts, …) — one page per
   // constituent door in docs/marketing/constituent-playbook.md. Outside the
@@ -44,14 +50,43 @@ export default [
   // and gating them would defeat the point.
   route("for/:audience", "routes/for.$audience.tsx"),
 
+  // Public browse (/opportunities). Outside the _app layout for the same
+  // reason the audience pages are: /projects lives inside it and bounces a
+  // logged-out visitor to /login, so there was no honest destination for
+  // "see what's being made". Reads garden/projectsPublic.ts, which is public
+  // by design. Participation is still gated — every action on the page goes
+  // to /join.
+  route("opportunities", "routes/opportunities.tsx"),
+
   // App routes (with nav layout)
   layout("routes/_app.tsx", [
     route("search", "routes/search.tsx"),
     route("projects", "routes/projects.tsx"),
+    route("projects/:id", "routes/projects.$id.tsx"),
     route("offerings", "routes/offerings.tsx"),
+    route("offerings/:offeringId", "routes/offerings.$id.tsx"),
     route("works", "routes/works.tsx"),
     route("works/:artifactId", "routes/work.tsx"),
     route("events", "routes/events.tsx"),
+    // Event detail lives inside the layout like everything else here, but
+    // stays reachable by a signed-out guest: routes/_app.tsx's public-path
+    // matcher exempts /events/<id> (not the bare /events list above) from
+    // the redirect-to-/login effect, so the shell (wordmark, sidebar, mobile
+    // nav) still renders instead of leaving the page with no chrome. A
+    // calendar invite goes to exactly such a guest by design
+    // (eventRsvps.userId is optional), and the join link, the recording and
+    // "add to calendar" all live on this page — gating it dead-ended
+    // exactly the person holding the invite (docs/gated-event-video-prd.md).
+    //
+    // routes/event.tsx is the component, not the /garden/events/:id one:
+    // this path is what functions/events/[id].ts injects real OG tags for,
+    // so link unfurling depends on it staying put. The page still degrades
+    // for logged-out visitors on its own (guest RSVP, no organizer tools,
+    // back link routed to the guest-facing /garden/events) — see event.tsx.
+    route("events/:eventId", "routes/event.tsx"),
+    route("communities", "routes/communities._index.tsx"),
+    route("communities/apply", "routes/communities.apply.tsx"),
+    route("communities/:slug", "routes/communities.$slug.tsx"),
     route("jobs", "routes/jobs._index.tsx"),
     route("jobs/new", "routes/jobs.new.tsx"),
     route("jobs/:id", "routes/jobs.$id.tsx"),
@@ -63,6 +98,8 @@ export default [
     route("admin", "routes/admin.tsx"),
     route("admin/crawler", "routes/admin.crawler.tsx"),
     route("admin/garden", "routes/admin.garden.tsx"),
+    route("admin/ledger", "routes/admin.ledger.tsx"),
+    route("admin/waitlist", "routes/admin.waitlist.tsx"),
     route("messages", "routes/messages._index.tsx"),
     route("messages/:conversationId", "routes/messages.$conversationId.tsx"),
   ]),
@@ -83,12 +120,29 @@ export default [
   // The Garden's first production surfaces (real Convex data, not demo-data)
   route("garden", "routes/garden._index.tsx"),
   route("join", "routes/join.tsx"),
+  // Where Stripe lands people after checkout. These existed as success_url
+  // targets in garden/stripe.ts long before they existed as routes, so
+  // anyone who actually paid hit the 404 page. Public: the redirect comes
+  // back from Stripe, not from inside the app shell.
+  route("join/success", "routes/join.success.tsx"),
+  // The sponsor's half of coverage (the-garden-product-plan.md §4.2). The
+  // creative's half is /c/:code. Public — a church treasurer shouldn't need
+  // an account to see the price.
+  route("coverage", "routes/coverage._index.tsx"),
+  route("coverage/success", "routes/coverage.success.tsx"),
   route("fund/:slug", "routes/fund.$slug.tsx"),
   route("story/:slug", "routes/story.$slug.tsx"),
   route("tables", "routes/tables._index.tsx"),
   route("tables/:slug", "routes/tables.$slug.tsx"),
-  route("projects", "routes/projects._index.tsx"),
-  route("projects/:id", "routes/projects.$id.tsx"),
+  // "projects" here (routes/projects._index.tsx, the old GardenPage/GardenNav
+  // shell) was a dead route registration — it shared this exact path with
+  // the live route("projects", "routes/projects.tsx") inside the _app layout
+  // below, which always won the match, so this one was never actually
+  // reachable. Removed rather than left in as misleading dead code; the file
+  // itself is untouched. "projects/:id" moved into the _app layout for the
+  // same reason events/:eventId did (see that route's comment) — it's a
+  // real, currently-reachable route, and living outside the layout meant
+  // the sidebar/wordmark disappeared on every project page.
   route("c/:code", "routes/c.$code.tsx"),
   // Guest-RSVP events browse/detail — deliberately NOT at /events or
   // /events/:eventId, which are already the legacy app-shell routes above.

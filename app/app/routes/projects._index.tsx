@@ -51,6 +51,9 @@ type ProjectCard = {
   raisedCents?: number;
   storySlug?: string;
   moneyLine: string;
+  // Present once convex/garden/projectsPublic.ts's listProjects resolves it
+  // from hostOrgId — optional here so this card degrades cleanly either way.
+  community?: { name: string; slug: string } | null;
 };
 
 type Filter = "All" | "Passion" | "Paid";
@@ -119,6 +122,7 @@ function ProjectCardView({ project }: { project: ProjectCard }) {
         </div>
         <div className="g-credit" style={{ marginTop: 6 }}>
           <b>{project.byName}</b>
+          {project.community && <span> · in {project.community.name}</span>}
         </div>
         {project.blurb && (
           <p

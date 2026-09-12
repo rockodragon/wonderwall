@@ -3,8 +3,34 @@ import { Link, Outlet, useLocation, useNavigate } from "react-router";
 import { useEffect, useState } from "react";
 import { usePostHog } from "@posthog/react";
 import { api } from "../../convex/_generated/api";
+import { takePendingIntent } from "../lib/pendingIntent";
 import { InviteCTA } from "../components/InviteCTA";
 import { Wordmark } from "../components/Wordmark";
+import { CommunitySwitcher } from "../components/CommunitySwitcher";
+
+// Public paths (community-ux.md §2/§6): a signed-out visitor may browse
+// these without being redirected to /login — the directory, the apply page,
+// and individual community pages all do their own signed-out handling
+// (Sign in CTAs, no partial forms) rather than being gated at the shell.
+// Prefix match is correct here: /communities, /communities/apply, and every
+// /communities/:slug should all be public.
+const PUBLIC_PATH_PREFIXES = ["/communities"];
+
+// /events/:eventId is public too — a calendar invite goes to a guest with
+// no account by design (eventRsvps.userId is optional), and event.tsx's own
+// guest branches (RSVP, no organizer tools) depend on this page not
+// redirecting them to /login (docs/gated-event-video-prd.md). Unlike
+// /communities, a prefix match would also expose the *list* at /events —
+// nobody asked for that — so this matches exactly one path segment after
+// /events/, never the bare list.
+const PUBLIC_EVENT_DETAIL_PATH = /^\/events\/[^/]+$/;
+
+function isPublicPathname(pathname: string): boolean {
+  return (
+    PUBLIC_PATH_PREFIXES.some((prefix) => pathname.startsWith(prefix)) ||
+    PUBLIC_EVENT_DETAIL_PATH.test(pathname)
+  );
+}
 
 // V1 (docs/the-exchange-v1-prd.md §5): Projects / People / Events, full
 // stop. "The Garden" retires as a nav destination (superseded); "Portfolios"
@@ -21,7 +47,7 @@ const primaryNavItems = [
   { path: "/offerings", label: "Classes", icon: ClassesIcon },
 ];
 const secondaryNavItems = [
-  { path: "/favorites", label: "Favorites", icon: HeartIcon },
+  { path: "/favorites", label: "Following", icon: HeartIcon },
   { path: "/settings", label: "Profile", icon: UserIcon },
 ];
 const navItems = [...primaryNavItems, ...secondaryNavItems];
@@ -38,11 +64,33 @@ export default function AppLayout() {
   // Messages badge instead (2026-08-30, on request).
   const sidebarBadgeCount = unreadCount + notificationCount;
 
+  const isPublicPath = isPublicPathname(location.pathname);
+
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
+    if (!isLoading && !isAuthenticated && !isPublicPath) {
       navigate("/login");
     }
-  }, [isAuthenticated, isLoading, navigate]);
+  }, [isAuthenticated, isLoading, isPublicPath, navigate]);
+
+  // Whatever this person clicked before they had an account — Join, Back
+  // this, Apply — replayed the moment they're authenticated, so they never
+  // have to choose the same thing twice. Claim links use the older
+  // pendingClaim stash; both are checked, claim first.
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    try {
+      const token = localStorage.getItem("pendingClaim");
+      if (token) {
+        localStorage.removeItem("pendingClaim");
+        navigate(`/claim/${token}`);
+        return;
+      }
+    } catch {
+      // Private browsing / storage disabled — nothing to recover.
+    }
+    const intent = takePendingIntent();
+    if (intent) navigate(intent);
+  }, [isAuthenticated, navigate]);
 
   // Identify user in PostHog when authenticated and profile loaded
   useEffect(() => {
@@ -64,7 +112,7 @@ export default function AppLayout() {
     );
   }
 
-  if (!isAuthenticated) {
+  if (!isAuthenticated && !isPublicPath) {
     return null;
   }
 
@@ -127,10 +175,11 @@ export default function AppLayout() {
 
       {/* Desktop sidebar */}
       <aside className="hidden md:flex md:flex-col md:fixed md:inset-y-0 md:w-64 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800">
-        <div className="p-6">
+        <div className="p-6 space-y-4">
           <Link to="/">
             <Wordmark size="sm" tone="adaptive" />
           </Link>
+          <CommunitySwitcher />
         </div>
 
         <nav className="px-4 space-y-1">
@@ -155,7 +204,10 @@ export default function AppLayout() {
 
         {/* Secondary — real destinations, just not the three-item pitch.
             Pushed to the bottom of the rail (mt-auto), not just below a
-            divider, so they read as genuinely lower-priority. */}
+            divider, so they read as genuinely lower-priority. Hidden for a
+            signed-out visitor on a public path (community-ux.md §6): every
+            item here needs an account, so there's nothing useful behind it. */}
+        {isAuthenticated && (
         <nav className="mt-auto px-4 py-3 space-y-1 border-t border-gray-100 dark:border-gray-800">
           {secondaryNavItems.map((item) => {
             const isActive = location.pathname.startsWith(item.path);
@@ -215,11 +267,28 @@ export default function AppLayout() {
               Crawler
             </Link>
           )}
+          {/* Admin-only: Waitlist link */}
+          {profile?.isAdmin && (
+            <Link
+              to="/admin/waitlist"
+              className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm transition-colors ${
+                location.pathname.startsWith("/admin/waitlist")
+                  ? "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
+                  : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-300"
+              }`}
+            >
+              <WaitlistIcon className="w-4.5 h-4.5" />
+              Waitlist
+            </Link>
+          )}
         </nav>
+        )}
 
+        {isAuthenticated && (
         <div className="p-4">
           <InviteCTA />
         </div>
+        )}
       </aside>
     </div>
   );
@@ -278,6 +347,7 @@ function ClassesIcon({ className }: { className?: string }) {
     </svg>
   );
 }
+
 
 function UserIcon({ className }: { className?: string }) {
   return (
@@ -382,6 +452,24 @@ function CrawlerIcon({ className }: { className?: string }) {
         strokeLinejoin="round"
         strokeWidth={2}
         d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"
+      />
+    </svg>
+  );
+}
+
+function WaitlistIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
       />
     </svg>
   );

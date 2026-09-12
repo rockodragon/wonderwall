@@ -33,6 +33,9 @@ export const getNotifications = query({
           ...n,
           relatedUserProfile: relatedUserProfile
             ? {
+                // profiles._id — what /profile/:id routes on. relatedUserId
+                // is a users id, which no client route accepts.
+                profileId: relatedUserProfile._id,
                 name: relatedUserProfile.name,
                 imageUrl: relatedUserProfile.imageUrl,
                 inviteSlug: relatedUserProfile.inviteSlug,

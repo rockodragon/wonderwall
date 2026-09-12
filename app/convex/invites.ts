@@ -1,6 +1,25 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import type { QueryCtx, MutationCtx } from "./_generated/server";
 import { auth } from "./auth";
+
+// A pasted or emailed code can be either kind of invite: a member's own
+// inviteSlug, or an admin's fixed waitlist-approval code (adminCode, set by
+// waitlist.ts's approveEntry). Both live on the profiles table and both
+// land at /signup/:code, so every lookup here tries inviteSlug first —
+// the far more common case — and falls back to adminCode.
+async function findInviterProfile(ctx: QueryCtx | MutationCtx, code: string) {
+  const bySlug = await ctx.db
+    .query("profiles")
+    .withIndex("by_inviteSlug", (q) => q.eq("inviteSlug", code))
+    .first();
+  if (bySlug) return bySlug;
+
+  return await ctx.db
+    .query("profiles")
+    .withIndex("by_adminCode", (q) => q.eq("adminCode", code))
+    .first();
+}
 
 function generateCode(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -280,10 +299,7 @@ export const generateInviteSlug = mutation({
 export const getInviterInfo = query({
   args: { slug: v.string() },
   handler: async (ctx, args) => {
-    const profile = await ctx.db
-      .query("profiles")
-      .withIndex("by_inviteSlug", (q) => q.eq("inviteSlug", args.slug))
-      .first();
+    const profile = await findInviterProfile(ctx, args.slug);
 
     if (!profile) return null;
 
@@ -399,10 +415,7 @@ export const redeemBySlug = mutation({
     if (!userId) throw new Error("Not authenticated");
 
     // Find the inviter profile
-    const inviterProfile = await ctx.db
-      .query("profiles")
-      .withIndex("by_inviteSlug", (q) => q.eq("inviteSlug", args.slug))
-      .first();
+    const inviterProfile = await findInviterProfile(ctx, args.slug);
 
     if (!inviterProfile) throw new Error("Invalid invite link");
 

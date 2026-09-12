@@ -7,6 +7,11 @@ import { SearchInput } from "../components/SearchInput";
 import { TagFilterPills } from "../components/TagFilterPills";
 import { useFilterState } from "../lib/useFilterState";
 import { EVENT_TAGS } from "../constants/eventTags";
+import {
+  CommunityContextLine,
+  communityNameFor,
+  useCommunityContext,
+} from "../components/CommunityFilter";
 
 // The card itself lives in components/EventCard.tsx — /favorites renders the
 // same component, so the treatment can only be changed in one place.
@@ -53,6 +58,11 @@ export default function Events() {
   const allEvents = isPastTab ? pastEvents : upcomingEvents;
   const favorites = useQuery(api.favorites.getMyFavorites, {});
   const [showCreate, setShowCreate] = useState(false);
+  const {
+    selected: communitySlug,
+    setSelected: setCommunitySlug,
+    communities,
+  } = useCommunityContext();
 
   // Fixed canonical list (same one the create form offers), not derived from
   // which events currently happen to be tagged — a dynamic list disappears
@@ -79,8 +89,11 @@ export default function Events() {
     if (tagFilters.length > 0) {
       list = list.filter((e) => e.tags.some((t: string) => tagFilters.includes(t)));
     }
+    if (communitySlug !== "all") {
+      list = list.filter((e: any) => e.community?.slug === communitySlug);
+    }
     return list;
-  }, [allEvents, debouncedQuery, tagFilters]);
+  }, [allEvents, debouncedQuery, tagFilters, communitySlug]);
 
   // Get favorited event IDs
   const favoriteEventIds = new Set(
@@ -120,7 +133,15 @@ export default function Events() {
           className="mb-4"
         />
 
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <CommunityContextLine
+          variant="app"
+          selected={communitySlug}
+          setSelected={setCommunitySlug}
+          communities={communities}
+          rows={allEvents}
+        />
+
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4 mt-3">
           <div className="flex gap-2">
             <button
               onClick={() => setActiveTab("all")}
@@ -200,6 +221,20 @@ export default function Events() {
                 borderTopColor: "transparent",
               }}
             />
+          </div>
+        ) : filteredEvents.length === 0 && communitySlug !== "all" ? (
+          <div className="text-center py-16" style={{ color: "var(--garden-muted)" }}>
+            <p className="text-lg font-medium mb-1" style={{ color: "var(--garden-body)" }}>
+              Nothing in {communityNameFor(communitySlug, communities, allEvents)} yet — see
+              everything
+            </p>
+            <button
+              onClick={() => setCommunitySlug("all")}
+              className="text-sm underline underline-offset-2 hover:opacity-80"
+              style={{ color: "var(--garden-citron)" }}
+            >
+              Show all communities
+            </button>
           </div>
         ) : filteredEvents.length === 0 ? (
           <div className="text-center py-16" style={{ color: "var(--garden-muted)" }}>

@@ -12,9 +12,29 @@ import { v } from "convex/values";
 import { ConvexError } from "convex/values";
 import { mutation, query } from "../_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import type { Id } from "../_generated/dataModel";
 import { can } from "./capabilities";
 import type { GardenUser } from "./capabilities";
 import { getGardenUser, throwDenial } from "./entitlements";
+import { COMMUNITY_KIND } from "./communities";
+
+/** Batches hostOrgs lookups into one Map keyed by hostOrgId string — every
+ * gardenTables row has a hostOrgId (it's required, unlike projects/events/
+ * offerings), but only communities (kind COMMUNITY_KIND) are ever surfaced
+ * as `community` — the platform org itself is never listed. */
+async function resolveCommunities(
+  ctx: { db: { get: (id: Id<"hostOrgs">) => Promise<{ kind: string; name: string; slug: string } | null> } },
+  hostOrgIds: Id<"hostOrgs">[],
+): Promise<Map<string, { name: string; slug: string }>> {
+  const distinct = [...new Set(hostOrgIds)];
+  const orgs = await Promise.all(distinct.map((id) => ctx.db.get(id)));
+  const out = new Map<string, { name: string; slug: string }>();
+  distinct.forEach((id, i) => {
+    const org = orgs[i];
+    if (org && org.kind === COMMUNITY_KIND) out.set(String(id), { name: org.name, slug: org.slug });
+  });
+  return out;
+}
 
 // ——— Pure core ———
 
@@ -86,6 +106,8 @@ export const listTables = query({
       .withIndex("by_status", (q) => q.eq("status", "active"))
       .collect();
 
+    const communityById = await resolveCommunities(ctx, tables.map((t: any) => t.hostOrgId));
+
     // A roster count is a fact about the table, not a person — fine to
     // compute eagerly here (unlike names, which stay behind getTable).
     return await Promise.all(
@@ -106,6 +128,7 @@ export const listTables = query({
           photoUrl: t.photoUrl,
           priceCents: t.priceCents,
           memberCount: roster.length,
+          community: communityById.get(String(t.hostOrgId)) ?? null,
         };
       }),
     );
@@ -169,6 +192,8 @@ export const getTable = query({
     // gating happens at join time once we know who they are; we don't
     // pre-compute a denial for someone who hasn't logged in yet.
 
+    const community = (await resolveCommunities(ctx, [table.hostOrgId])).get(String(table.hostOrgId)) ?? null;
+
     return {
       _id: table._id,
       name: table.name,
@@ -182,6 +207,7 @@ export const getTable = query({
       priceCents: table.priceCents,
       meetingUrl: visibleMeetingUrl(table.meetingUrl, isMember),
       roster: rosterNames,
+      community,
       sessions: sessions.map((s: any) => ({
         _id: s._id,
         title: s.title,
