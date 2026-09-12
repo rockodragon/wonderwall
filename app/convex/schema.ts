@@ -947,7 +947,7 @@ export default defineSchema({
     projectId: v.id("projects"),
     supporterUserId: v.optional(v.id("users")),
     supporterName: v.string(),
-    type: v.string(), // "financial_one_time" | "financial_recurring" | "encouragement" | "resource"
+    type: v.string(), // "financial_one_time" | "financial_recurring" | "financial_annual" | "encouragement" | "resource"
     amountCents: v.optional(v.number()),
     message: v.optional(v.string()),
     resourceDescription: v.optional(v.string()),

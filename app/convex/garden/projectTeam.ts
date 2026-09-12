@@ -555,6 +555,22 @@ export const requestToJoin = mutation({
   },
 });
 
+/** Lead updates an accepted member's role. */
+export const updateMemberRole = mutation({
+  args: { memberId: v.id("projectMembers"), role: v.string() },
+  handler: async (ctx, args) => {
+    const actorId = await requireUser(ctx);
+    const row = await ctx.db.get(args.memberId);
+    if (!row) throw new ConvexError({ code: "not_found", reason: "No such member." });
+    const project = await requireProject(ctx, row.projectId);
+    await assertLead(ctx, project, actorId);
+    const role = validateRole(args.role);
+    if (row.role === role) return { ok: true as const, changed: false as const };
+    await ctx.db.patch(args.memberId, { role });
+    return { ok: true as const, changed: true as const };
+  },
+});
+
 /** Requester takes back a pending request. No-op unless it is pending. */
 export const withdrawRequest = mutation({
   args: { projectId: v.id("projects") },

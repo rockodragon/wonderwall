@@ -500,6 +500,7 @@ export const createBackingCheckout = action({
     visible: v.boolean(),
     message: v.optional(v.string()),
     tierId: v.optional(v.string()),
+    interval: v.optional(v.union(v.literal("month"), v.literal("year"))),
   },
   handler: async (ctx, args) => {
     const userId = await auth.getUserId(ctx);
@@ -522,6 +523,7 @@ export const createBackingCheckout = action({
       visible: args.visible,
       message: args.message,
       ...(args.tierId ? { tierId: args.tierId } : {}),
+      ...(args.interval ? { interval: args.interval } : {}),
     });
     if (!started) {
       throw new ConvexError({ reason: "That project isn't taking support right now." });
@@ -553,15 +555,15 @@ export const createBackingCheckout = action({
       });
     }
 
+    const billingInterval = args.recurring ? (args.interval ?? "month") : undefined;
+    const intervalLabel = billingInterval === "year" ? "Annual" : billingInterval === "month" ? "Monthly" : undefined;
+
     const metadata: Record<string, string> = {
       kind: "backing",
       projectId: String(args.projectId),
       userId: String(userId),
       visible: String(args.visible),
       supporterName: started.supporterName,
-      // Not part of the metadata contract the webhook strictly needs — the
-      // row id it converges on (see handleBackingCheckoutCompleted, which
-      // falls back to inserting from the four fields above if it's absent).
       supportId: String(started.supportId),
       ...(args.tierId ? { tierId: args.tierId } : {}),
     };
@@ -576,11 +578,11 @@ export const createBackingCheckout = action({
             currency: "usd",
             unit_amount: args.amountCents,
             product_data: {
-              name: args.recurring
-                ? `Monthly backing — ${started.projectTitle}`
+              name: intervalLabel
+                ? `${intervalLabel} backing — ${started.projectTitle}`
                 : `Backing — ${started.projectTitle}`,
             },
-            ...(args.recurring ? { recurring: { interval: "month" as const } } : {}),
+            ...(args.recurring ? { recurring: { interval: billingInterval! } } : {}),
           },
         },
       ],
