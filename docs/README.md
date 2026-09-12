@@ -1,69 +1,33 @@
-# Product Documentation
+# Docs index
 
-This directory holds product strategy, feature specs, and implementation research for TheCrossBoard, also referred to as The Cross Board. The public destination is [thecrossboard.org](https://www.thecrossboard.org). Wonderwall appears in parts of the codebase as the underlying project name.
+The project is **creatives.exchange** (repo: wonderwall). Four documents are the live set. Agree on these before changing code this cycle; everything else is a spec or history.
 
-## How To Use These Docs
+## The live set
 
-Start with business outcome and user journey before implementation. Each feature should answer:
+| Doc | What it holds |
+|---|---|
+| [The plan](creatives-exchange-discussion-brief.md) | What the platform is, how membership and money work, who owns work, open questions. **Start here.** |
+| [Financial model](financial-model-3yr.xlsx) | Small/Medium/Large 3-year budget. Blue cells are inputs; `Inputs!B9` toggles who absorbs card fees. |
+| [Partner landscape](partner-landscape.md) | Who we approach, what we say to them, patrons, churches, the migration playbook. |
+| [Product plan](the-garden-product-plan.md) | Product spec and build canon. **Lags the plan in spots** (host $50/mo, "Tables" vocabulary, single-tenant assumptions) — reconcile after the plan is agreed, before code changes. |
 
-- What user job does this help someone complete?
-- What business outcome does it support?
-- Where does it sit in the journey: discover, join, show work, find opportunity, participate, or go deeper?
-- What is the smallest useful version?
-- What should remain flexible until the community proves demand?
+## Feature specs
 
-## Core Product
-
-- [Root product README](../README.md): high-level vision for TheCrossBoard.
-- [Core PRD](prd.md): existing Wonderwall product requirements for creative profiles, discovery, events, and invites.
-- [Strategic plan](thecrossboard-strategic-plan.md): monetization and competitive positioning for The Crossboard direction.
-- [Priority brief](priority-brief.md): current delivery priorities.
-
-## Feature Specs
-
-- [Jobs feature PRD](jobs-feature-prd.md)
-- [Messaging feature PRD](messaging-feature-prd.md)
-- [Event location PRD](prd-event-location.md)
+- [Phase 1B spec](phase-1b/spec.md) — the October build plan (money foundation, entitlements, coverage codes)
+- [V1 PRD](the-exchange-v1-prd.md)
 - [Entitlements and paywall foundation](features/entitlements-paywall-foundation.md)
-- [Member paywall and live media integration](features/paid-community-youtube-media.md)
-- [Community groups: architecture review and build plan](features/community-groups.md)
-- [Community grant pools (Leader tier)](features/community-grant-pools.md)
+- [Community groups](features/community-groups.md) · [Community grant pools](features/community-grant-pools.md) · [Paid community + media](features/paid-community-youtube-media.md)
+- Older PRDs: [jobs](jobs-feature-prd.md) · [messaging](messaging-feature-prd.md) · [event location](prd-event-location.md) · [announcements](announcements-prd.md) · [events video hosting](events-video-hosting-prd.md) · [gated event video](gated-event-video-prd.md)
 
-## Runbooks
+## Runbooks and research
 
 - [Step 0: go live in Stripe test mode](runbooks/step-0-go-live.md)
+- [Entity structure research](entity-structure-research.md) · [research/](research/)
 
-## Research
+## Historical (superseded — do not quote from these)
 
-- [Organization sponsorship add-ons](research/org-sponsorship-add-ons.md)
-- [Job board crawler strategy](research/job-board-crawler-strategy.md)
-- [Crawler implementation](research/crawler-implementation.md)
+Earlier eras of the same idea. Their money splits and vocabulary are out of date (60/30/10, "Spaces", per-tier pricing). The money-flow diagrams people remember live here.
 
-## Board Materials
-
-- [Board review deck: paid membership and live events](decks/thecrossboard-board-review.html)
-
-### Publishing Board Decks
-
-The UpSight deck publisher lives in the separate Insights repo, so run uploads from that directory:
-
-```bash
-cd /Users/richardmoy/Code/ai/Insights
-npx tsx scripts/upload-deck.ts /Users/richardmoy/Code/ai/wonderwall/docs/decks/thecrossboard-board-review.html /Users/richardmoy/Code/ai/wonderwall/docs/decks/assets --title "CrossBoard for Abiding Practice"
-```
-
-## Proposed Structure
-
-Use this structure for new docs:
-
-```text
-docs/
-  README.md
-  prd.md
-  features/
-    <feature-name>.md
-  research/
-    <research-topic>.md
-```
-
-Feature specs belong in `docs/features/` when they describe a new product capability. Research belongs in `docs/research/` when it compares vendors, markets, APIs, or implementation options.
+- TheCrossBoard era: [strategic plan](thecrossboard-strategic-plan.md) · [core PRD](prd.md) · [priority brief](priority-brief.md) · [board deck](decks/)
+- The Exchange era: [vision](the-exchange-vision.md) · [MVP](the-exchange-mvp.md) · [discernment brief](the-exchange-discernment-brief.md) · [stakeholder one-pager](the-exchange-stakeholder-one-pager.md)
+- The Garden era: [old P&L](the-garden-pnl.xlsx) (superseded by the financial model) · [triage](triage.md)

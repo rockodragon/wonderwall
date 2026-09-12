@@ -1,0 +1,95 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 790" font-family="Arial, Helvetica, sans-serif">
+  <defs>
+    <marker id="arw" markerWidth="9" markerHeight="9" refX="8" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" fill="#555"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="920" height="790" fill="#ffffff"/>
+
+  <!-- Panel 1: dues -->
+  <text x="20" y="34" font-size="18" font-weight="bold" fill="#111">1 · Membership dues — each community sets its own split. Shown: The Garden's (40 / 50 / 10)</text>
+
+  <rect x="20" y="60" width="210" height="74" rx="10" fill="#FFF3E0" stroke="#FB8C00" stroke-width="1.5"/>
+  <text x="34" y="88" font-size="15" font-weight="bold" fill="#111">Church or patron</text>
+  <text x="34" y="106" font-size="12.5" fill="#444">covers seats — pays the</text>
+  <text x="34" y="122" font-size="12.5" fill="#444">dues for their people</text>
+
+  <line x1="230" y1="97" x2="266" y2="97" stroke="#555" stroke-width="1.5" marker-end="url(#arw)"/>
+
+  <rect x="270" y="60" width="225" height="74" rx="10" fill="#FFF3E0" stroke="#FB8C00" stroke-width="1.5"/>
+  <text x="284" y="86" font-size="15" font-weight="bold" fill="#111">Member pays dues</text>
+  <text x="284" y="104" font-size="12.5" fill="#444">each community sets its price</text>
+  <text x="284" y="120" font-size="12.5" fill="#444">(The Garden: $10/mo)</text>
+
+  <rect x="630" y="44" width="270" height="56" rx="10" fill="#E8F5E9" stroke="#43A047" stroke-width="1.5"/>
+  <text x="644" y="66" font-size="15" font-weight="bold" fill="#111">The community — 40%</text>
+  <text x="644" y="84" font-size="12.5" fill="#444">runs the group</text>
+
+  <rect x="630" y="116" width="270" height="56" rx="10" fill="#E8F5E9" stroke="#43A047" stroke-width="1.5"/>
+  <text x="644" y="138" font-size="15" font-weight="bold" fill="#111">Community project pool — 50%</text>
+  <text x="644" y="156" font-size="12.5" fill="#444">optional — grants for members' projects</text>
+
+  <rect x="630" y="188" width="270" height="56" rx="10" fill="#F3E5F5" stroke="#8E24AA" stroke-width="1.5"/>
+  <text x="644" y="210" font-size="15" font-weight="bold" fill="#111">Platform — 10%</text>
+  <text x="644" y="228" font-size="12.5" fill="#444">our share on all money we move</text>
+
+  <line x1="495" y1="90" x2="626" y2="72" stroke="#555" stroke-width="1.5" marker-end="url(#arw)"/>
+  <text x="546" y="70" font-size="13" font-weight="bold" fill="#111">40%</text>
+  <line x1="495" y1="99" x2="626" y2="140" stroke="#555" stroke-width="1.5" marker-end="url(#arw)"/>
+  <text x="546" y="112" font-size="13" font-weight="bold" fill="#111">50%</text>
+  <line x1="495" y1="108" x2="626" y2="212" stroke="#555" stroke-width="1.5" marker-end="url(#arw)"/>
+  <text x="546" y="158" font-size="13" font-weight="bold" fill="#111">10%</text>
+
+  <rect x="630" y="272" width="270" height="66" rx="10" fill="#E8F4FD" stroke="#1E88E5" stroke-width="1.5"/>
+  <text x="644" y="294" font-size="15" font-weight="bold" fill="#111">A member's project gets funded</text>
+  <text x="644" y="312" font-size="12.5" fill="#444">a small committee decides at first;</text>
+  <text x="644" y="328" font-size="12.5" fill="#444">member votes and polls come later</text>
+
+  <path d="M900,144 L913,144 L913,300 L906,300" fill="none" stroke="#555" stroke-width="1.5" marker-end="url(#arw)"/>
+  <text x="908" y="264" text-anchor="end" font-size="12.5" fill="#444">grants</text>
+
+  <!-- Panel 2: other routes -->
+  <text x="20" y="392" font-size="18" font-weight="bold" fill="#111">2 · Other money routes</text>
+
+  <rect x="20" y="416" width="250" height="64" rx="10" fill="#FFF3E0" stroke="#FB8C00" stroke-width="1.5"/>
+  <text x="34" y="442" font-size="15" font-weight="bold" fill="#111">A patron backs a creative,</text>
+  <text x="34" y="462" font-size="15" font-weight="bold" fill="#111">a project, or a fellowship</text>
+
+  <rect x="630" y="404" width="270" height="48" rx="10" fill="#E8F4FD" stroke="#1E88E5" stroke-width="1.5"/>
+  <text x="644" y="433" font-size="15" font-weight="bold" fill="#111">The creative — 90%</text>
+  <rect x="630" y="464" width="270" height="48" rx="10" fill="#F3E5F5" stroke="#8E24AA" stroke-width="1.5"/>
+  <text x="644" y="493" font-size="15" font-weight="bold" fill="#111">Platform — 10%</text>
+
+  <line x1="270" y1="440" x2="626" y2="426" stroke="#555" stroke-width="1.5" marker-end="url(#arw)"/>
+  <text x="436" y="422" font-size="13" font-weight="bold" fill="#111">90%</text>
+  <line x1="270" y1="456" x2="626" y2="486" stroke="#555" stroke-width="1.5" marker-end="url(#arw)"/>
+  <text x="436" y="482" font-size="13" font-weight="bold" fill="#111">10%</text>
+
+  <rect x="20" y="548" width="250" height="64" rx="10" fill="#FFF3E0" stroke="#FB8C00" stroke-width="1.5"/>
+  <text x="34" y="574" font-size="15" font-weight="bold" fill="#111">Someone pays for a class</text>
+  <text x="34" y="592" font-size="12.5" fill="#444">the host sets the price</text>
+
+  <rect x="630" y="536" width="270" height="48" rx="10" fill="#E8F4FD" stroke="#1E88E5" stroke-width="1.5"/>
+  <text x="644" y="559" font-size="15" font-weight="bold" fill="#111">The host — 90%</text>
+  <text x="644" y="576" font-size="12" fill="#444">the person who runs the class</text>
+  <rect x="630" y="596" width="270" height="48" rx="10" fill="#F3E5F5" stroke="#8E24AA" stroke-width="1.5"/>
+  <text x="644" y="625" font-size="15" font-weight="bold" fill="#111">Platform — 10%</text>
+
+  <line x1="270" y1="572" x2="626" y2="558" stroke="#555" stroke-width="1.5" marker-end="url(#arw)"/>
+  <text x="436" y="554" font-size="13" font-weight="bold" fill="#111">90%</text>
+  <line x1="270" y1="588" x2="626" y2="618" stroke="#555" stroke-width="1.5" marker-end="url(#arw)"/>
+  <text x="436" y="614" font-size="13" font-weight="bold" fill="#111">10%</text>
+
+  <rect x="20" y="680" width="250" height="64" rx="10" fill="#FFF3E0" stroke="#FB8C00" stroke-width="1.5"/>
+  <text x="34" y="706" font-size="15" font-weight="bold" fill="#111">Giving through the community's</text>
+  <text x="34" y="726" font-size="15" font-weight="bold" fill="#111">own giving page</text>
+
+  <rect x="630" y="686" width="270" height="52" rx="10" fill="#E8F5E9" stroke="#43A047" stroke-width="1.5"/>
+  <text x="644" y="708" font-size="15" font-weight="bold" fill="#111">The community — 100%</text>
+  <text x="644" y="726" font-size="12.5" fill="#444">their own processor — never through us</text>
+
+  <line x1="270" y1="712" x2="626" y2="712" stroke="#555" stroke-width="1.5" marker-end="url(#arw)"/>
+  <text x="430" y="704" font-size="13" font-weight="bold" fill="#111">100%</text>
+
+  <text x="20" y="774" font-size="12.5" fill="#444">Card processing (about 3% + 30¢ per charge) is added at checkout — the payer covers it.</text>
+</svg>

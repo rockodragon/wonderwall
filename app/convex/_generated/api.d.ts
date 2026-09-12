@@ -43,6 +43,7 @@ import type * as garden_interestsMigration from "../garden/interestsMigration.js
 import type * as garden_jobsMigration from "../garden/jobsMigration.js";
 import type * as garden_memberships from "../garden/memberships.js";
 import type * as garden_operator from "../garden/operator.js";
+import type * as garden_patronTiers from "../garden/patronTiers.js";
 import type * as garden_products from "../garden/products.js";
 import type * as garden_profileInterestsFieldMigration from "../garden/profileInterestsFieldMigration.js";
 import type * as garden_projectOriginMigration from "../garden/projectOriginMigration.js";
@@ -50,6 +51,8 @@ import type * as garden_projectTeam from "../garden/projectTeam.js";
 import type * as garden_projects from "../garden/projects.js";
 import type * as garden_projectsPublic from "../garden/projectsPublic.js";
 import type * as garden_reports from "../garden/reports.js";
+import type * as garden_seedNeighborsProject from "../garden/seedNeighborsProject.js";
+import type * as garden_seedPaidPostings from "../garden/seedPaidPostings.js";
 import type * as garden_stories from "../garden/stories.js";
 import type * as garden_stripe from "../garden/stripe.js";
 import type * as garden_stripeHandlers from "../garden/stripeHandlers.js";
@@ -118,6 +121,7 @@ declare const fullApi: ApiFromModules<{
   "garden/jobsMigration": typeof garden_jobsMigration;
   "garden/memberships": typeof garden_memberships;
   "garden/operator": typeof garden_operator;
+  "garden/patronTiers": typeof garden_patronTiers;
   "garden/products": typeof garden_products;
   "garden/profileInterestsFieldMigration": typeof garden_profileInterestsFieldMigration;
   "garden/projectOriginMigration": typeof garden_projectOriginMigration;
@@ -125,6 +129,8 @@ declare const fullApi: ApiFromModules<{
   "garden/projects": typeof garden_projects;
   "garden/projectsPublic": typeof garden_projectsPublic;
   "garden/reports": typeof garden_reports;
+  "garden/seedNeighborsProject": typeof garden_seedNeighborsProject;
+  "garden/seedPaidPostings": typeof garden_seedPaidPostings;
   "garden/stories": typeof garden_stories;
   "garden/stripe": typeof garden_stripe;
   "garden/stripeHandlers": typeof garden_stripeHandlers;
