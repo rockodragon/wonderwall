@@ -1,5 +1,11 @@
 // /join — the membership page. The front door's primary CTA lands here.
 //
+// INVITE GATE (easy to remove later): unauthenticated visitors must enter
+// a valid invite code before they see the tier cards. The gate is a single
+// InviteGate component — to remove the requirement, delete InviteGate and
+// the `inviteSlug` prop threading, and the page goes back to open access.
+// Accepts ?invite=slug in the URL so shared links skip the input step.
+//
 // Each paid card is a real Stripe Checkout button — garden/stripe.ts's
 // createMembershipCheckout, the same action settings.tsx's billing portal
 // and fund.$slug.tsx's pool contribution already use. There is no waitlist
@@ -132,7 +138,7 @@ function checkoutErrorMessage(err: unknown): string {
   return "Checkout didn't open — try again in a moment.";
 }
 
-function LevelButton({ card, autoStart }: { card: LevelCard; autoStart: boolean }) {
+function LevelButton({ card, autoStart, inviteSlug }: { card: LevelCard; autoStart: boolean; inviteSlug?: string }) {
   const { isAuthenticated } = useConvexAuth();
   const navigate = useNavigate();
   const createMembershipCheckout = useAction(api.garden.stripe.createMembershipCheckout);
@@ -163,10 +169,11 @@ function LevelButton({ card, autoStart }: { card: LevelCard; autoStart: boolean 
     void startCheckout();
   }, [autoStart, isAuthenticated, startCheckout]);
 
+  const signupPath = inviteSlug ? `/signup/${inviteSlug}` : "/signup";
+
   if (!card.level) {
-    // Free tier — nothing to check out, just an account.
     return (
-      <Link to="/signup" className={btnClass} style={{ marginTop: 14, alignSelf: "flex-start" }}>
+      <Link to={signupPath} className={btnClass} style={{ marginTop: 14, alignSelf: "flex-start" }}>
         Sign up free
       </Link>
     );
@@ -174,9 +181,9 @@ function LevelButton({ card, autoStart }: { card: LevelCard; autoStart: boolean 
 
   function handleClick() {
     if (!isAuthenticated) {
-      // One choice, not two: remember the tier, then send them to sign up.
       setPendingIntent(`/join?level=${card.level}`);
-      navigate("/signup");
+      if (inviteSlug) sessionStorage.setItem("invite-accepted", inviteSlug);
+      navigate(signupPath);
       return;
     }
     void startCheckout();
@@ -202,10 +209,124 @@ function LevelButton({ card, autoStart }: { card: LevelCard; autoStart: boolean 
   );
 }
 
+// ——— Invite gate ———————————————————————————————————————————————————————
+// To remove the invite requirement later: delete this component and the
+// `inviteSlug` / `setInviteSlug` state in JoinPage, and change the guard
+// from `!isAuthenticated && !inviteSlug` to `false`. One spot.
+
+function InviteGate({ onValidated }: { onValidated: (slug: string) => void }) {
+  const [input, setInput] = useState("");
+  const [checking, setChecking] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const inviterInfo = useQuery(
+    api.invites.getInviterInfo,
+    checking ? { slug: checking } : "skip",
+  );
+
+  useEffect(() => {
+    if (!checking) return;
+    if (inviterInfo === undefined) return; // loading
+    if (inviterInfo === null) {
+      setError("That invite code wasn't recognized.");
+      setChecking(null);
+      return;
+    }
+    if (!inviterInfo.canAcceptMore) {
+      setError("This invite has reached its limit — ask the person for a new one.");
+      setChecking(null);
+      return;
+    }
+    onValidated(checking);
+  }, [checking, inviterInfo, onValidated]);
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const slug = input.trim().replace(/^.*\/signup\//, "").replace(/^.*[?&]invite=/, "").replace(/&.*$/, "");
+    if (!slug) { setError("Paste your invite link or code."); return; }
+    setError(null);
+    setChecking(slug);
+  }
+
+  return (
+    <div style={{ marginTop: 28, maxWidth: "42ch" }}>
+      <h1 className="g-h" style={{ fontSize: "clamp(28px,5vw,40px)" }}>
+        Become a member.
+      </h1>
+      <p style={{ marginTop: 12, fontSize: 15, lineHeight: 1.6 }}>
+        The Exchange is invite-only right now. Paste the invite link you
+        received to see membership options.
+      </p>
+      <form onSubmit={handleSubmit} style={{ marginTop: 20, display: "flex", gap: 8 }}>
+        <input
+          type="text"
+          value={input}
+          onChange={(e) => { setInput(e.target.value); setError(null); }}
+          placeholder="Invite link or code"
+          className="g-input"
+          style={{ flex: 1, minWidth: 0 }}
+          autoFocus
+        />
+        <button
+          type="submit"
+          className="g-btn g-btn-citron"
+          disabled={!!checking}
+          style={checking ? { opacity: 0.6, cursor: "wait" } : undefined}
+        >
+          {checking ? "Checking…" : "Continue"}
+        </button>
+      </form>
+      {error && (
+        <p style={{ marginTop: 8, fontSize: 14, color: "var(--g-dim)" }}>
+          {error}
+        </p>
+      )}
+      <p className="g-hint" style={{ marginTop: 16 }}>
+        Don't have an invite? Ask an existing member — they can share their
+        link from Settings.
+      </p>
+    </div>
+  );
+}
+
+// ——— Main page ————————————————————————————————————————————————————————
+
 export default function JoinPage() {
+  const { isAuthenticated } = useConvexAuth();
   const membership = useQuery(api.garden.memberships.getMyMembership);
   const [searchParams] = useSearchParams();
   const resumeLevel = searchParams.get("level");
+
+  // Invite slug — from ?invite= param, or entered in the gate.
+  const [inviteSlug, setInviteSlug] = useState<string | null>(() => {
+    const param = new URLSearchParams(window.location.search).get("invite");
+    return param || null;
+  });
+
+  // Validate ?invite= from URL the same way as the gate input.
+  const inviterInfo = useQuery(
+    api.invites.getInviterInfo,
+    inviteSlug && !isAuthenticated ? { slug: inviteSlug } : "skip",
+  );
+
+  // If the URL slug is invalid, clear it so the gate shows.
+  useEffect(() => {
+    if (inviteSlug && inviterInfo !== undefined && inviterInfo === null) {
+      setInviteSlug(null);
+    }
+  }, [inviteSlug, inviterInfo]);
+
+  const inviteValidated = isAuthenticated || (inviteSlug && inviterInfo && inviterInfo.canAcceptMore);
+
+  // ——— Invite gate: remove this block to open the page to everyone ———
+  if (!inviteValidated) {
+    return (
+      <GardenPage>
+        <InviteGate onValidated={setInviteSlug} />
+      </GardenPage>
+    );
+  }
+  // ——————————————————————————————————————————————————————————————————
 
   return (
     <GardenPage wide>
@@ -228,6 +349,17 @@ export default function JoinPage() {
             Manage billing in Settings.
           </Link>
         </p>
+      )}
+
+      {inviteSlug && inviterInfo && (
+        <div className="g-card" style={{ marginTop: 16, maxWidth: "42ch", display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ width: 32, height: 32, borderRadius: "50%", background: "var(--g-muted)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "var(--g-ink)", flexShrink: 0 }}>
+            {(inviterInfo.name || "?").charAt(0).toUpperCase()}
+          </div>
+          <span style={{ fontSize: 14, color: "var(--g-body)" }}>
+            Invited by <strong>{inviterInfo.name}</strong>
+          </span>
+        </div>
       )}
 
       <div style={{ marginTop: 32 }}>
@@ -311,7 +443,7 @@ export default function JoinPage() {
                 </p>
               )}
               <div style={{ marginTop: "auto" }}>
-                <LevelButton card={level} autoStart={level.level === resumeLevel} />
+                <LevelButton card={level} autoStart={level.level === resumeLevel} inviteSlug={inviteSlug ?? undefined} />
               </div>
             </div>
           ))}

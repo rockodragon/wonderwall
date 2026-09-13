@@ -380,9 +380,9 @@ export default function Home() {
                   <div className="space-y-2">
                     <button
                       onClick={() => {
-                        // Mark that user accepted invite from home page
-                        sessionStorage.setItem("invite-accepted", inviteSlug);
-                        navigate(`/signup/${inviteSlug}`);
+                        // Send to /join with the invite pre-validated so
+                        // they see tier options before creating an account.
+                        navigate(`/join?invite=${inviteSlug}`);
                       }}
                       className="w-full px-6 py-4 bg-[var(--garden-citron)] text-[var(--garden-ink)] rounded-xl font-semibold hover:opacity-90 transition-all"
                     >
