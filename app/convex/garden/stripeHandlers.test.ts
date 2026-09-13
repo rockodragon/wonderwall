@@ -41,6 +41,7 @@ function createFakeDb() {
   // that id, since projectSupport has no stripeRef column.
   const projectSupport = new Map<string, ProjectSupportRow & { id: string }>();
   let nextSupportId = 1;
+  const projectRaisedCents = new Map<string, number>(); // projectId -> accumulated cents
   // Only "creatives-exchange" is seeded by default — tests that need it
   // absent (the "missing platform row" case) delete it first.
   const hostOrgsBySlug = new Map<string, string>([["creatives-exchange", PLATFORM_HOST_ORG_ID]]);
@@ -103,7 +104,7 @@ function createFakeDb() {
     },
     async getProjectSupportById(supportId) {
       const row = projectSupport.get(supportId);
-      return row ? { id: row.id, status: row.status } : null;
+      return row ? { id: row.id, status: row.status, amountCents: row.amountCents, projectId: row.projectId } : null;
     },
     async updateProjectSupport(supportId, patch) {
       const existing = projectSupport.get(supportId);
@@ -113,6 +114,9 @@ function createFakeDb() {
     async insertProjectSupport(row) {
       const id = `support_${nextSupportId++}`;
       projectSupport.set(id, { ...row, id });
+    },
+    async incrementProjectRaisedCents(projectId, amountCents) {
+      projectRaisedCents.set(projectId, (projectRaisedCents.get(projectId) ?? 0) + amountCents);
     },
     async getCodeByCode(code) {
       for (const row of codes.values()) {
@@ -135,6 +139,7 @@ function createFakeDb() {
     productPurchases,
     hostOrgsBySlug,
     projectSupport,
+    projectRaisedCents,
   };
 }
 

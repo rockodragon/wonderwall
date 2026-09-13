@@ -190,6 +190,43 @@ export const listSupportForProject = query({
   },
 });
 
+export const listSupportByUser = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return [];
+
+    const entries = await ctx.db
+      .query("projectSupport")
+      .withIndex("by_supporterUserId", (q: any) => q.eq("supporterUserId", userId))
+      .collect();
+
+    const visible = entries
+      .filter((e) => VISIBLE_STATUSES.has(e.status))
+      .sort((a, b) => b.createdAt - a.createdAt);
+
+    const projectIds = [...new Set(visible.map((e) => e.projectId))];
+    const projects = new Map<string, { title: string; photoUrl?: string }>();
+    for (const pid of projectIds) {
+      const p = await ctx.db.get(pid);
+      if (p) projects.set(String(pid), { title: p.title, photoUrl: p.photoUrl });
+    }
+
+    return visible.map((e) => ({
+      _id: e._id,
+      projectId: e.projectId,
+      projectTitle: projects.get(String(e.projectId))?.title ?? "Untitled",
+      type: e.type,
+      amountCents: e.amountCents,
+      message: e.message,
+      status: e.status,
+      createdAt: e.createdAt,
+      tierId: e.tierId,
+      tierName: e.tierName,
+    }));
+  },
+});
+
 // Operator-only: mark a pending financial pledge as received. No Stripe
 // webhook in V1 (PRD §9) — this is the manual confirmation step.
 export const confirmSupport = mutation({

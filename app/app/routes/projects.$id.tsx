@@ -241,7 +241,7 @@ export default function ProjectDetail() {
       <InlineEditableLocation project={project} isOwner={isOwner} />
 
       <div
-        className="flex items-center justify-between gap-2 mb-6 pt-4"
+        className="flex items-center justify-between gap-2 pt-4"
         style={{ borderTop: "1px solid var(--garden-hairline)" }}
       >
         <span className="text-sm" style={{ color: "var(--garden-dim)" }}>
@@ -257,6 +257,7 @@ export default function ProjectDetail() {
           Support
         </button>
       </div>
+      <SupportersList projectId={project._id} />
 
       {isOwner && (
         <>
@@ -1753,5 +1754,79 @@ function TierManager({ projectId }: { projectId: Id<"projects"> }) {
 
       {error && <p className="text-sm text-red-400 mt-3">{error}</p>}
     </DetailCard>
+  );
+}
+
+const SUPPORT_TYPE_LABEL: Record<string, string> = {
+  financial_one_time: "Backed",
+  financial_recurring: "Monthly backer",
+  financial_annual: "Annual backer",
+  encouragement: "Encouragement",
+  resource: "Resource offer",
+};
+
+function SupportersList({ projectId }: { projectId: Id<"projects"> }) {
+  const supporters = useQuery(
+    (api as any).garden.support.listSupportForProject,
+    { projectId },
+  );
+  const [expanded, setExpanded] = useState(false);
+
+  if (!supporters || supporters.length === 0) return <div className="mb-6" />;
+
+  const show = expanded ? supporters : supporters.slice(0, 5);
+  const hasMore = supporters.length > 5;
+
+  return (
+    <div className="mb-6">
+      <div className="space-y-1.5">
+        {show.map((s: any) => (
+          <div key={s._id} className="flex items-center gap-2 text-sm">
+            <span
+              className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
+              style={{
+                backgroundColor: "var(--garden-muted, #e5e5e5)",
+                color: "var(--garden-ink)",
+              }}
+            >
+              {(s.supporterName || "A").charAt(0).toUpperCase()}
+            </span>
+            <span style={{ color: "var(--garden-body)" }}>
+              {s.supporterName}
+            </span>
+            {s.tierName && (
+              <span
+                className="text-[10px] uppercase tracking-[0.06em] px-1.5 py-0.5 rounded"
+                style={{
+                  backgroundColor: "var(--garden-muted, #e5e5e5)",
+                  color: "var(--garden-dim)",
+                }}
+              >
+                {s.tierName}
+              </span>
+            )}
+            {!s.tierName && s.type && (
+              <span className="text-xs" style={{ color: "var(--garden-dim)" }}>
+                {SUPPORT_TYPE_LABEL[s.type] ?? ""}
+              </span>
+            )}
+            {s.message && (
+              <span className="text-xs truncate max-w-[200px]" style={{ color: "var(--garden-dim)" }}>
+                "{s.message}"
+              </span>
+            )}
+          </div>
+        ))}
+      </div>
+      {hasMore && !expanded && (
+        <button
+          onClick={() => setExpanded(true)}
+          className="mt-2 text-xs font-medium hover:underline"
+          style={{ color: "var(--garden-dim)" }}
+        >
+          Show all {supporters.length} supporters
+        </button>
+      )}
+    </div>
   );
 }

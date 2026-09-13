@@ -135,6 +135,11 @@ export default function Settings() {
         <PurchasesSection />
       </div>
 
+      {/* My backings */}
+      <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-800">
+        <BackingsSection />
+      </div>
+
       {/* Artifacts section */}
       <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-800">
         <ArtifactsSection
@@ -320,6 +325,56 @@ function PurchasesSection() {
             <div className="text-sm font-semibold text-gray-900 dark:text-white whitespace-nowrap">
               {formatMoneyCents(p.grossCents)}
               {p.billing === "monthly" ? "/mo" : ""}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+const TYPE_LABEL: Record<string, string> = {
+  financial_one_time: "One-time",
+  financial_recurring: "Monthly",
+  financial_annual: "Annual",
+};
+
+function BackingsSection() {
+  const backings = useQuery((api as any).garden.support.listSupportByUser);
+
+  if (!backings || backings.length === 0) return null;
+
+  return (
+    <div>
+      <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+        Your backings
+      </h2>
+      <div className="space-y-2">
+        {backings.map((b: any) => (
+          <div
+            key={b._id}
+            className="flex items-center justify-between gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-xl"
+          >
+            <div className="min-w-0">
+              <Link
+                to={`/projects/${b.projectId}`}
+                className="font-medium text-gray-900 dark:text-white text-sm truncate hover:text-blue-600 dark:hover:text-blue-400 block"
+              >
+                {b.projectTitle}
+              </Link>
+              <span className="text-xs text-gray-400 dark:text-gray-500">
+                {TYPE_LABEL[b.type] ?? b.type}
+                {b.tierName ? ` · ${b.tierName}` : ""}
+                {" · "}
+                {b.status}
+                {" · "}
+                {new Date(b.createdAt).toLocaleDateString()}
+              </span>
+            </div>
+            <div className="text-sm font-semibold text-gray-900 dark:text-white whitespace-nowrap">
+              {b.amountCents ? formatMoneyCents(b.amountCents) : ""}
+              {b.type === "financial_recurring" ? "/mo" : ""}
+              {b.type === "financial_annual" ? "/yr" : ""}
             </div>
           </div>
         ))}
