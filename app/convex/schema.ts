@@ -931,6 +931,7 @@ export default defineSchema({
     name: v.string(), // host-chosen label, e.g. "Sustainer", "Champion"
     description: v.optional(v.string()),
     priceCents: v.number(), // $5 min (same as backing floor)
+    billing: v.optional(v.union(v.literal("one_time"), v.literal("monthly"))), // absent = "monthly"
     benefits: v.optional(v.array(v.string())), // line items shown on the tier card
     sortOrder: v.number(), // display ordering (ascending)
     isActive: v.boolean(), // soft-delete / unpublish without removing

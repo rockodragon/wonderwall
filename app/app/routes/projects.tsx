@@ -67,6 +67,7 @@ export function errorMessage(err: unknown): string {
   if (data && typeof data === "object" && "reason" in data) {
     return String((data as { reason: unknown }).reason);
   }
+  if (typeof data === "string" && data.length > 0) return data;
   return "Something went wrong — try again.";
 }
 
@@ -377,7 +378,7 @@ function ProjectCard({
   onSupport: (project: any) => void;
   matched?: boolean;
 }) {
-  const thumb = project.media.find((m: any) => m.resolvedMediaUrl)?.resolvedMediaUrl;
+  const thumb = project.media.find((m: any) => m.resolvedMediaUrl)?.resolvedMediaUrl ?? project.resolvedPhotoUrl;
   // Passion-only campaign deadline (docs/the-exchange-v1-prd.md §7 review
   // follow-up) — a past raiseByDate just means the badge doesn't render;
   // building a distinct "expired" state is explicitly out of scope.
@@ -1300,7 +1301,9 @@ export function SupportModal({ project, onClose }: { project: any; onClose: () =
   const [showCustomAmount, setShowCustomAmount] = useState(false);
 
   const isFinancial = type === "financial_one_time" || type === "financial_recurring" || type === "financial_annual";
-  const hasTiers = tiers && tiers.length > 0;
+  const billingFilter = type === "financial_one_time" ? "one_time" : "monthly";
+  const filteredTiers = tiers?.filter((t: any) => (t.billing ?? "monthly") === billingFilter);
+  const hasTiers = filteredTiers && filteredTiers.length > 0;
   const selectedTier = tiers?.find((t: any) => t._id === selectedTierId);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -1436,7 +1439,7 @@ export function SupportModal({ project, onClose }: { project: any; onClose: () =
                 <button
                   key={t.value}
                   type="button"
-                  onClick={() => setType(t.value)}
+                  onClick={() => { setType(t.value); setSelectedTierId(null); setShowCustomAmount(false); }}
                   className="px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors"
                   style={{
                     fontFamily: "var(--garden-font-body)",
@@ -1451,7 +1454,7 @@ export function SupportModal({ project, onClose }: { project: any; onClose: () =
 
             {isFinancial && hasTiers && !showCustomAmount ? (
               <div className="flex flex-col gap-2">
-                {tiers.map((tier: any) => (
+                {filteredTiers.map((tier: any) => (
                   <button
                     key={tier._id}
                     type="button"
@@ -1467,7 +1470,11 @@ export function SupportModal({ project, onClose }: { project: any; onClose: () =
                         {tier.name}
                       </span>
                       <span className="text-sm font-bold" style={{ color: "var(--garden-citron)", fontFamily: "var(--garden-font-mono)" }}>
-                        ${type === "financial_annual" ? (tier.priceCents * 12 / 100).toLocaleString() : (tier.priceCents / 100).toLocaleString()}{type === "financial_recurring" ? "/mo" : type === "financial_annual" ? "/yr" : ""}
+                        ${(tier.billing ?? "monthly") === "one_time"
+                          ? (tier.priceCents / 100).toLocaleString()
+                          : type === "financial_annual"
+                            ? (tier.priceCents * 12 / 100).toLocaleString() + "/yr"
+                            : (tier.priceCents / 100).toLocaleString() + "/mo"}
                       </span>
                     </div>
                     {tier.description && (

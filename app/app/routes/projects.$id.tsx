@@ -1399,13 +1399,14 @@ function TierForm({
   onCancel,
   saving,
 }: {
-  initial?: { name: string; priceCents: number; description?: string; benefits?: string[] };
-  onSave: (data: { name: string; priceCents: number; description?: string; benefits: string[] }) => void;
+  initial?: { name: string; priceCents: number; billing?: string; description?: string; benefits?: string[] };
+  onSave: (data: { name: string; priceCents: number; billing: "one_time" | "monthly"; description?: string; benefits: string[] }) => void;
   onCancel: () => void;
   saving: boolean;
 }) {
   const [name, setName] = useState(initial?.name ?? "");
   const [price, setPrice] = useState(initial ? String(initial.priceCents / 100) : "");
+  const [billing, setBilling] = useState<"one_time" | "monthly">((initial?.billing as "one_time" | "monthly") ?? "monthly");
   const [description, setDescription] = useState(initial?.description ?? "");
   const [benefits, setBenefits] = useState<string[]>(initial?.benefits ?? []);
 
@@ -1421,6 +1422,7 @@ function TierForm({
     onSave({
       name: name.trim(),
       priceCents: cents,
+      billing,
       description: description.trim() || undefined,
       benefits: benefits.map((b) => b.trim()).filter(Boolean),
     });
@@ -1452,7 +1454,32 @@ function TierForm({
           className="block text-xs uppercase tracking-[0.06em] mb-1.5"
           style={{ color: "var(--garden-dim)" }}
         >
-          Price ($/mo)
+          Type
+        </label>
+        <div className="flex gap-2">
+          {([["monthly", "Monthly"], ["one_time", "One-time"]] as const).map(([val, lbl]) => (
+            <button
+              key={val}
+              type="button"
+              onClick={() => setBilling(val)}
+              className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+              style={{
+                backgroundColor: billing === val ? "var(--garden-citron)" : "var(--garden-ink)",
+                color: billing === val ? "var(--garden-ink)" : "var(--garden-muted)",
+              }}
+            >
+              {lbl}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <label
+          className="block text-xs uppercase tracking-[0.06em] mb-1.5"
+          style={{ color: "var(--garden-dim)" }}
+        >
+          {billing === "one_time" ? "Price ($)" : "Price ($/mo)"}
         </label>
         <input
           type="number"
@@ -1567,6 +1594,7 @@ function TierManager({ projectId }: { projectId: Id<"projects"> }) {
   async function handleCreate(data: {
     name: string;
     priceCents: number;
+    billing: "one_time" | "monthly";
     description?: string;
     benefits: string[];
   }) {
@@ -1577,6 +1605,7 @@ function TierManager({ projectId }: { projectId: Id<"projects"> }) {
         projectId,
         name: data.name,
         priceCents: data.priceCents,
+        billing: data.billing,
         description: data.description,
         benefits: data.benefits.length > 0 ? data.benefits : undefined,
       });
@@ -1590,7 +1619,7 @@ function TierManager({ projectId }: { projectId: Id<"projects"> }) {
 
   async function handleUpdate(
     tierId: Id<"patronTiers">,
-    data: { name: string; priceCents: number; description?: string; benefits: string[] },
+    data: { name: string; priceCents: number; billing: "one_time" | "monthly"; description?: string; benefits: string[] },
   ) {
     setSaving(true);
     setError("");
@@ -1599,6 +1628,7 @@ function TierManager({ projectId }: { projectId: Id<"projects"> }) {
         tierId,
         name: data.name,
         priceCents: data.priceCents,
+        billing: data.billing,
         description: data.description,
         benefits: data.benefits.length > 0 ? data.benefits : undefined,
       });
@@ -1638,6 +1668,7 @@ function TierManager({ projectId }: { projectId: Id<"projects"> }) {
               initial={{
                 name: tier.name,
                 priceCents: tier.priceCents,
+                billing: tier.billing,
                 description: tier.description,
                 benefits: tier.benefits,
               }}
@@ -1688,7 +1719,7 @@ function TierManager({ projectId }: { projectId: Id<"projects"> }) {
                   className="text-sm"
                   style={{ color: "var(--garden-muted)", fontFamily: "var(--garden-font-mono)" }}
                 >
-                  ${(tier.priceCents / 100).toFixed(0)}/mo
+                  ${(tier.priceCents / 100).toFixed(0)}{tier.billing === "one_time" ? "" : "/mo"}
                 </span>
                 <span
                   className="px-2 py-0.5 rounded-full text-[10px] font-medium uppercase tracking-[0.06em]"

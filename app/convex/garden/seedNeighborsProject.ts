@@ -79,10 +79,10 @@ export const seed = mutation({
       return { ok: true, existed: true };
     }
 
-    // Find Abiding Practice hostOrg for fiscal sponsor association.
-    const ap = await ctx.db
+    // Find The Garden community for the project's community association.
+    const garden = await ctx.db
       .query("hostOrgs")
-      .withIndex("by_slug", (q) => q.eq("slug", "abiding-practice"))
+      .withIndex("by_slug", (q) => q.eq("slug", "the-garden"))
       .unique();
 
     const now = Date.now();
@@ -108,7 +108,7 @@ export const seed = mutation({
       stageChangedAt: now,
       storySlug,
       interests: ["Filmmaking", "Photography"],
-      hostOrgId: ap?._id,
+      hostOrgId: garden?._id,
       location: "Nepal / San Diego, CA",
       remote: false,
       benefitsNonprofit: true,

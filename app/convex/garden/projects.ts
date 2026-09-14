@@ -349,7 +349,7 @@ export const listProjects = query({
     const communityById = new Map<string, { name: string; slug: string }>();
     hostOrgIds.forEach((id, i) => {
       const org = hostOrgs[i];
-      if (org) communityById.set(String(id), { name: org.name, slug: org.slug });
+      if (org && org.kind === "community") communityById.set(String(id), { name: org.name, slug: org.slug });
     });
 
     const withDetails = await Promise.all(
@@ -463,7 +463,7 @@ export const getProject = query({
         : null,
       media: resolvedMedia,
       supportCount: support.length,
-      community: communityOrg ? { name: communityOrg.name, slug: communityOrg.slug } : null,
+      community: communityOrg && communityOrg.kind === "community" ? { name: communityOrg.name, slug: communityOrg.slug } : null,
     };
   },
 });

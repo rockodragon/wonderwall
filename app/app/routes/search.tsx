@@ -1,5 +1,5 @@
 import { useQuery } from "convex/react";
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
 import { api } from "../../convex/_generated/api";
 import { INTERESTS } from "../constants/interests";
@@ -8,6 +8,26 @@ import { SearchInput } from "../components/SearchInput";
 import { TagFilterPills } from "../components/TagFilterPills";
 import { useFilterState } from "../lib/useFilterState";
 import { CommunityContextLine, useCommunityContext } from "../components/CommunityFilter";
+
+const RADIUS_OPTIONS = [
+  { label: "25 mi", value: 25 },
+  { label: "50 mi", value: 50 },
+  { label: "100 mi", value: 100 },
+] as const;
+
+function haversineDistance(
+  lat1: number, lng1: number,
+  lat2: number, lng2: number,
+): number {
+  const R = 3958.8;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
 
 // Derived directly from the canonical INTERESTS list so this can never
 // drift from it again (it previously did — see git history). Label and
@@ -20,11 +40,37 @@ type ProfileResult = {
   name: string;
   imageUrl?: string;
   interests: string[];
+  location?: string;
+  coordinates?: { lat: number; lng: number };
   wondering: { prompt: string; _id: string; imageUrl: string | null } | null;
 };
 
 export default function Search() {
   const [filterExpanded, setFilterExpanded] = useState(false);
+  const [nearMe, setNearMe] = useState(false);
+  const [userPos, setUserPos] = useState<{ lat: number; lng: number } | null>(null);
+  const [geoError, setGeoError] = useState("");
+  const [geoLoading, setGeoLoading] = useState(false);
+  const [radius, setRadius] = useState(25);
+
+  const requestLocation = useCallback(() => {
+    if (userPos) { setNearMe(true); return; }
+    if (!navigator.geolocation) { setGeoError("Location not supported by your browser"); return; }
+    setGeoLoading(true);
+    setGeoError("");
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setUserPos({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        setNearMe(true);
+        setGeoLoading(false);
+      },
+      (err) => {
+        setGeoError(err.code === 1 ? "Location access denied" : "Could not determine location");
+        setGeoLoading(false);
+      },
+      { enableHighAccuracy: false, timeout: 10000 },
+    );
+  }, [userPos]);
 
   const {
     query,
@@ -58,11 +104,25 @@ export default function Search() {
 
   const filteredProfiles = useMemo(() => {
     if (!profiles) return profiles;
-    if (activeFilters.length === 0) return profiles;
-    return profiles.filter((profile) =>
-      activeFilters.some((filter) => profile.interests.includes(filter)),
-    );
-  }, [profiles, activeFilters]);
+    let result = profiles;
+    if (activeFilters.length > 0) {
+      result = result.filter((profile) =>
+        activeFilters.some((filter) => profile.interests.includes(filter)),
+      );
+    }
+    if (nearMe && userPos) {
+      result = result
+        .map((p) => ({
+          ...p,
+          _distance: p.coordinates
+            ? haversineDistance(userPos.lat, userPos.lng, p.coordinates.lat, p.coordinates.lng)
+            : Infinity,
+        }))
+        .filter((p) => p._distance <= radius)
+        .sort((a, b) => a._distance - b._distance);
+    }
+    return result;
+  }, [profiles, activeFilters, nearMe, userPos, radius]);
 
   // Search events when there's a query
   const events = useQuery(
@@ -87,7 +147,7 @@ export default function Search() {
         variant="app"
       />
 
-      {/* Search input + Filter on same line */}
+      {/* Search input + Near Me + Filter on same line */}
       <div className="flex gap-3 mb-6">
         <SearchInput
           value={query}
@@ -95,6 +155,18 @@ export default function Search() {
           placeholder="Search by name, role, or event..."
           className="flex-1"
         />
+        <button
+          onClick={() => { nearMe ? setNearMe(false) : requestLocation(); }}
+          disabled={geoLoading}
+          className={`flex items-center gap-2 px-4 py-3 rounded-xl border transition-colors shrink-0 ${
+            nearMe
+              ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
+              : "border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+          }`}
+        >
+          <LocationIcon className="w-4 h-4" />
+          <span className="font-medium hidden sm:inline">{geoLoading ? "Locating..." : "Near me"}</span>
+        </button>
         <button
           onClick={() => setFilterExpanded(!filterExpanded)}
           className={`flex items-center gap-2 px-4 py-3 rounded-xl border transition-colors shrink-0 ${
@@ -110,6 +182,30 @@ export default function Search() {
           />
         </button>
       </div>
+
+      {/* Near me radius selector */}
+      {nearMe && (
+        <div className="mb-6 flex items-center gap-3 flex-wrap">
+          <span className="text-sm text-gray-500 dark:text-gray-400">Within:</span>
+          {RADIUS_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              onClick={() => setRadius(opt.value)}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                radius === opt.value
+                  ? "bg-blue-600 text-white"
+                  : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300"
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {geoError && (
+        <p className="text-sm text-red-500 mb-4">{geoError}</p>
+      )}
 
       {/* Filter accordion content */}
       {filterExpanded && (
@@ -168,8 +264,11 @@ export default function Search() {
   );
 }
 
-function ProfileCard({ profile }: { profile: ProfileResult }) {
+function ProfileCard({ profile }: { profile: ProfileResult & { _distance?: number } }) {
   const hasImage = !!profile.imageUrl;
+  const distLabel = profile._distance != null && isFinite(profile._distance)
+    ? profile._distance < 1 ? "< 1 mi" : `${Math.round(profile._distance)} mi`
+    : null;
 
   return (
     <Link
@@ -192,7 +291,8 @@ function ProfileCard({ profile }: { profile: ProfileResult }) {
           {profile.name}
         </h3>
         <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-          {profile.interests.slice(0, 2).join(" • ")}
+          {distLabel && <span className="text-blue-500 dark:text-blue-400">{distLabel} · </span>}
+          {profile.interests.slice(0, 2).join(" · ")}
         </p>
       </div>
       {/* Always visible: hover-reveal has no equivalent on touch screens. */}
@@ -267,6 +367,15 @@ function EventCard({ event }: { event: any }) {
         )}
       </div>
     </Link>
+  );
+}
+
+function LocationIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+    </svg>
   );
 }
 

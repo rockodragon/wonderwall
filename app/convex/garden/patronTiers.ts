@@ -37,6 +37,7 @@ export const createTier = mutation({
     name: v.string(),
     description: v.optional(v.string()),
     priceCents: v.number(),
+    billing: v.optional(v.union(v.literal("one_time"), v.literal("monthly"))),
     benefits: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
@@ -84,6 +85,7 @@ export const createTier = mutation({
       name: args.name,
       description: args.description,
       priceCents: args.priceCents,
+      billing: args.billing,
       benefits: args.benefits,
       sortOrder: maxSort + 1,
       isActive: true,
@@ -99,6 +101,7 @@ export const updateTier = mutation({
     name: v.optional(v.string()),
     description: v.optional(v.string()),
     priceCents: v.optional(v.number()),
+    billing: v.optional(v.union(v.literal("one_time"), v.literal("monthly"))),
     benefits: v.optional(v.array(v.string())),
     isActive: v.optional(v.boolean()),
   },
@@ -137,6 +140,7 @@ export const updateTier = mutation({
     if (args.name !== undefined) patch.name = args.name;
     if (args.description !== undefined) patch.description = args.description;
     if (args.priceCents !== undefined) patch.priceCents = args.priceCents;
+    if (args.billing !== undefined) patch.billing = args.billing;
     if (args.benefits !== undefined) patch.benefits = args.benefits;
     if (args.isActive !== undefined) patch.isActive = args.isActive;
 

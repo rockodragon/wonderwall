@@ -29,7 +29,7 @@ const STRIPE_API_VERSION = "2026-08-26.dahlia" as const;
 function getStripeClient(): Stripe {
   const secretKey = process.env.STRIPE_SECRET_KEY;
   if (!secretKey) {
-    throw new ConvexError("Stripe is not configured (STRIPE_SECRET_KEY missing).");
+    throw new ConvexError({ reason: "Stripe is not configured (STRIPE_SECRET_KEY missing)." });
   }
   return new Stripe(secretKey, { apiVersion: STRIPE_API_VERSION });
 }
@@ -594,7 +594,7 @@ export const createBackingCheckout = action({
     });
 
     if (!session.url) {
-      throw new ConvexError("Stripe did not return a checkout URL.");
+      throw new ConvexError({ reason: "Stripe did not return a checkout URL." });
     }
 
     return { url: session.url };
