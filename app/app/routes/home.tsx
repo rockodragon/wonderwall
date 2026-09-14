@@ -6,6 +6,7 @@ import { api } from "../../convex/_generated/api";
 import { SiteHeader } from "../components/SiteHeader";
 import { WaitlistFollowUpDark } from "../components/WaitlistFollowUpDark";
 import { CAMPAIGN_IMAGES, CAMPAIGN_QUOTES } from "../lib/campaign";
+import { Reveal } from "../hooks/useReveal";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -153,8 +154,8 @@ export default function Home() {
             <span className="text-[var(--garden-citron)]">together.</span>
           </h2>
           <p className="mt-5 text-lg md:text-xl text-[var(--garden-body)] max-w-2xl mx-auto mb-6">
-            Creatives, patrons, hosts, and community partners — all in one
-            place. Every project shows who made it and who backed it.
+            Creatives, patrons, hosts, churches and venues, in one place. Every
+            project shows who made it and who backed it.
           </p>
 
           {/* Closed Beta Badge */}
@@ -380,9 +381,9 @@ export default function Home() {
                   <div className="space-y-2">
                     <button
                       onClick={() => {
-                        // Send to /join with the invite pre-validated so
-                        // they see tier options before creating an account.
-                        navigate(`/join?invite=${inviteSlug}`);
+                        // Mark that user accepted invite from home page
+                        sessionStorage.setItem("invite-accepted", inviteSlug);
+                        navigate(`/signup/${inviteSlug}`);
                       }}
                       className="w-full px-6 py-4 bg-[var(--garden-citron)] text-[var(--garden-ink)] rounded-xl font-semibold hover:opacity-90 transition-all"
                     >
@@ -406,10 +407,10 @@ export default function Home() {
       </main>
 
       {/* The passage — sets the tone before the personas */}
-      <section className=”py-16 bg-[var(--garden-ink)]”>
-        <div className=”px-6 max-w-6xl mx-auto”>
-          <div className=”max-w-3xl text-[var(--garden-body)] text-lg md:text-xl leading-relaxed flex flex-col gap-5”>
-            <p className=”text-[var(--garden-paper)]”>Nothing here gets made alone.</p>
+      <section className="py-16 bg-[var(--garden-ink)]">
+        <Reveal className="px-6 max-w-6xl mx-auto">
+          <div className="max-w-3xl text-[var(--garden-body)] text-lg md:text-xl leading-relaxed flex flex-col gap-5">
+            <p className="text-[var(--garden-paper)]">Nothing here gets made alone.</p>
             <p>
               A creative posts the work. A patron backs it. A partner opens
               their doors. A host runs the table where it all started. When
@@ -420,7 +421,7 @@ export default function Home() {
               platform.
             </p>
           </div>
-        </div>
+        </Reveal>
       </section>
 
       {/* Who it's for — alternating image/text rows per persona */}
@@ -435,13 +436,15 @@ export default function Home() {
         <div className="flex flex-col gap-20">
           {/* Creatives — image left */}
           <div className="grid md:grid-cols-2 gap-8 md:gap-12 items-center">
-            <img
-              src={CAMPAIGN_IMAGES.ade.src}
-              alt={CAMPAIGN_IMAGES.ade.alt}
-              loading="lazy"
-              className="w-full aspect-[4/5] object-cover rounded-2xl bg-[var(--garden-ink-raised)]"
-            />
-            <div>
+            <Reveal>
+              <img
+                src={CAMPAIGN_IMAGES.ade.src}
+                alt={CAMPAIGN_IMAGES.ade.alt}
+                loading="lazy"
+                className="w-full aspect-[4/5] object-cover rounded-2xl bg-[var(--garden-ink-raised)]"
+              />
+            </Reveal>
+            <Reveal delay={150}>
               <p className="text-[var(--garden-citron)] text-xs font-semibold tracking-wide uppercase mb-3">
                 For creatives
               </p>
@@ -471,20 +474,20 @@ export default function Home() {
                   Learn more
                 </Link>
               </div>
-            </div>
+            </Reveal>
           </div>
 
           {/* Patrons — image right */}
           <div className="grid md:grid-cols-2 gap-8 md:gap-12 items-center">
-            <div className="md:order-1">
+            <Reveal className="md:order-1">
               <img
                 src={CAMPAIGN_IMAGES.viewing.src}
                 alt={CAMPAIGN_IMAGES.viewing.alt}
                 loading="lazy"
                 className="w-full aspect-[4/5] object-cover rounded-2xl bg-[var(--garden-ink-raised)]"
               />
-            </div>
-            <div>
+            </Reveal>
+            <Reveal delay={150}>
               <p className="text-[var(--garden-citron)] text-xs font-semibold tracking-wide uppercase mb-3">
                 For patrons
               </p>
@@ -514,18 +517,20 @@ export default function Home() {
                   Learn more
                 </Link>
               </div>
-            </div>
+            </Reveal>
           </div>
 
           {/* Hosts — image left */}
           <div className="grid md:grid-cols-2 gap-8 md:gap-12 items-center">
-            <img
-              src={CAMPAIGN_IMAGES.gallery.src}
-              alt={CAMPAIGN_IMAGES.gallery.alt}
-              loading="lazy"
-              className="w-full aspect-[4/5] object-cover rounded-2xl bg-[var(--garden-ink-raised)]"
-            />
-            <div>
+            <Reveal>
+              <img
+                src={CAMPAIGN_IMAGES.gallery.src}
+                alt={CAMPAIGN_IMAGES.gallery.alt}
+                loading="lazy"
+                className="w-full aspect-[4/5] object-cover rounded-2xl bg-[var(--garden-ink-raised)]"
+              />
+            </Reveal>
+            <Reveal delay={150}>
               <p className="text-[var(--garden-citron)] text-xs font-semibold tracking-wide uppercase mb-3">
                 For hosts
               </p>
@@ -555,20 +560,20 @@ export default function Home() {
                   Join now
                 </Link>
               </div>
-            </div>
+            </Reveal>
           </div>
 
           {/* Community Partners — image right */}
           <div className="grid md:grid-cols-2 gap-8 md:gap-12 items-center">
-            <div className="md:order-1">
+            <Reveal className="md:order-1">
               <img
                 src={CAMPAIGN_IMAGES.opening.src}
                 alt={CAMPAIGN_IMAGES.opening.alt}
                 loading="lazy"
                 className="w-full aspect-[4/5] object-cover rounded-2xl bg-[var(--garden-ink-raised)]"
               />
-            </div>
-            <div>
+            </Reveal>
+            <Reveal delay={150}>
               <p className="text-[var(--garden-citron)] text-xs font-semibold tracking-wide uppercase mb-3">
                 For community partners
               </p>
@@ -597,7 +602,7 @@ export default function Home() {
                   For churches
                 </Link>
               </div>
-            </div>
+            </Reveal>
           </div>
         </div>
 
@@ -617,26 +622,28 @@ export default function Home() {
           quotes, moved to the bottom so the personas land first. */}
       <section className="py-16 bg-[var(--garden-ink)]">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-[var(--garden-hairline)]">
-          {(["busker", "ade", "band", "gallery"] as const).map((key) => (
-            <figure key={key} className="m-0 bg-[var(--garden-ink)]">
-              <img
-                src={CAMPAIGN_IMAGES[key].src}
-                alt={CAMPAIGN_IMAGES[key].alt}
-                loading="lazy"
-                className="w-full aspect-[4/5] object-cover bg-[var(--garden-ink-raised)]"
-              />
-              <figcaption className="px-4 pt-4 pb-6">
-                <p
-                  className="text-[var(--garden-paper)] text-lg md:text-xl leading-tight mb-1"
-                  style={{ fontFamily: "var(--garden-font-display)", fontWeight: 500 }}
-                >
-                  "{CAMPAIGN_QUOTES[key].said}"
-                </p>
-                <p className="text-[var(--garden-dim)] text-xs">
-                  {CAMPAIGN_QUOTES[key].who}
-                </p>
-              </figcaption>
-            </figure>
+          {(["busker", "ade", "band", "gallery"] as const).map((key, i) => (
+            <Reveal key={key} delay={i * 120}>
+              <figure className="m-0 bg-[var(--garden-ink)]">
+                <img
+                  src={CAMPAIGN_IMAGES[key].src}
+                  alt={CAMPAIGN_IMAGES[key].alt}
+                  loading="lazy"
+                  className="w-full aspect-[4/5] object-cover bg-[var(--garden-ink-raised)]"
+                />
+                <figcaption className="px-4 pt-4 pb-6">
+                  <p
+                    className="text-[var(--garden-paper)] text-lg md:text-xl leading-tight mb-1"
+                    style={{ fontFamily: "var(--garden-font-display)", fontWeight: 500 }}
+                  >
+                    {"“"}{CAMPAIGN_QUOTES[key].said}{"”"}
+                  </p>
+                  <p className="text-[var(--garden-dim)] text-xs">
+                    {CAMPAIGN_QUOTES[key].who}
+                  </p>
+                </figcaption>
+              </figure>
+            </Reveal>
           ))}
         </div>
       </section>

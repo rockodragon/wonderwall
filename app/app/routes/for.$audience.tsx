@@ -3,6 +3,7 @@ import type { Route } from "./+types/for.$audience";
 import { CampaignBand } from "../components/CampaignBand";
 import type { CampaignImageKey } from "../lib/campaign";
 import { SiteHeader } from "../components/SiteHeader";
+import { Reveal } from "../hooks/useReveal";
 
 // Public audience pages — one per constituent door in
 // docs/marketing/constituent-playbook.md. Deliberately OUTSIDE the _app.tsx
@@ -60,7 +61,7 @@ const AUDIENCES: Audience[] = [
     eyebrow: "For creatives",
     headline: "Find your people. Get paid.",
     subhead:
-      "Work with other creatives, find paid work, and get backed by people who believe in you. Joining is free.",
+      "Work with other creatives, grow in your craft, find paid work, and get backed by people who believe in you. Joining is free.",
     points: [
       {
         title: "You keep all of it",
@@ -136,7 +137,7 @@ const AUDIENCES: Audience[] = [
     eyebrow: "For patrons",
     headline: "Back someone you believe in.",
     subhead:
-      "A person, a team, or a project. Pick one, and watch it get made.",
+      "Sponsor a project. Gift memberships. Offer a venue or other resources. Pick someone and watch it get made.",
     points: [
       {
         title: "You know who you're backing",
@@ -334,32 +335,35 @@ export default function ForAudience({ params }: Route.ComponentProps) {
           )}
         </div>
 
-        <CampaignBand images={audience.bandImages} />
+        <Reveal>
+          <CampaignBand images={audience.bandImages} />
+        </Reveal>
 
         <div className="grid gap-4 sm:grid-cols-2 mb-12">
-          {audience.points.map((p) => (
-            <div
-              key={p.title}
-              className="p-6 bg-[var(--garden-ink-raised)]/80 rounded-2xl border border-[var(--garden-hairline-raised)]"
-            >
-              <h2 className="text-[var(--garden-paper)] font-semibold text-lg mb-2">
-                {p.title}
-              </h2>
-              <p className="text-[var(--garden-body)] leading-relaxed">
-                {p.body}
-              </p>
-            </div>
+          {audience.points.map((p, i) => (
+            <Reveal key={p.title} delay={i * 80}>
+              <div className="p-6 bg-[var(--garden-ink-raised)]/80 rounded-2xl border border-[var(--garden-hairline-raised)] h-full">
+                <h2 className="text-[var(--garden-paper)] font-semibold text-lg mb-2">
+                  {p.title}
+                </h2>
+                <p className="text-[var(--garden-body)] leading-relaxed">
+                  {p.body}
+                </p>
+              </div>
+            </Reveal>
           ))}
         </div>
 
-        <div className="p-6 rounded-2xl border border-[var(--garden-hairline)] mb-12 max-w-3xl">
-          <h2 className="text-[var(--garden-dim)] text-xs font-semibold tracking-wide uppercase mb-3">
-            What it costs
-          </h2>
-          <p className="text-[var(--garden-body)] leading-relaxed">
-            {audience.cost}
-          </p>
-        </div>
+        <Reveal>
+          <div className="p-6 rounded-2xl border border-[var(--garden-hairline)] mb-12 max-w-3xl">
+            <h2 className="text-[var(--garden-dim)] text-xs font-semibold tracking-wide uppercase mb-3">
+              What it costs
+            </h2>
+            <p className="text-[var(--garden-body)] leading-relaxed">
+              {audience.cost}
+            </p>
+          </div>
+        </Reveal>
 
         {/* Bottom CTAs — the closing ask */}
         <div className="flex flex-col sm:flex-row flex-wrap gap-3 mb-16">
