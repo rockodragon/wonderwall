@@ -54,7 +54,7 @@ export default function Favorites() {
           <div
             className="h-8 w-8 rounded-full border-2 border-t-transparent animate-spin"
             style={{
-              borderColor: "var(--garden-citron)",
+              borderColor: "var(--app-accent)",
               borderTopColor: "transparent",
             }}
           />
@@ -95,7 +95,7 @@ export default function Favorites() {
           ) : (
             <p
               className="text-sm py-8"
-              style={{ color: "var(--garden-muted)" }}
+              style={{ color: "var(--app-text-dim)" }}
             >
               You aren't following anyone yet. Tap Follow on a profile.
             </p>
@@ -131,23 +131,24 @@ export default function Favorites() {
   );
 }
 
-// Page chrome, shared by the loading and loaded states. Ink ground + garden
-// type to match /events — without it the card would be a dark tile dropped on
-// the old gray page, and the old `text-gray-900 dark:text-white` headings
-// would vanish against the ink for anyone on a light OS theme.
+// Page chrome, shared by the loading and loaded states. This is an app-shell
+// page (part of the authenticated nav, not a marketing page), so its surface
+// and text use the --app-* tokens and follow the OS light/dark preference the
+// same way _app.tsx and search.tsx do — unlike /events and /projects, which
+// stay on the fixed-dark --garden-* palette on purpose.
 function PageShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-[var(--garden-ink)]">
+    <div className="min-h-screen" style={{ backgroundColor: "var(--app-surface)" }}>
       <link rel="stylesheet" href="/tokens.css" />
       <link rel="stylesheet" href="/about/fonts/fonts.css" />
       <div className="p-4 sm:p-6 max-w-7xl mx-auto">
         <h1
-          className="text-2xl sm:text-3xl font-semibold text-[var(--garden-paper)] mb-1"
-          style={{ fontFamily: "var(--garden-font-display)" }}
+          className="text-2xl sm:text-3xl font-semibold mb-1"
+          style={{ color: "var(--app-text)", fontFamily: "var(--garden-font-display)" }}
         >
           Following
         </h1>
-        <p className="text-[var(--garden-body)] mb-6">
+        <p className="mb-6" style={{ color: "var(--app-text-dim)" }}>
           People you follow and events you saved.
         </p>
         {children}
@@ -161,7 +162,7 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
     <h2
       className="text-lg font-semibold mb-4"
       style={{
-        color: "var(--garden-paper)",
+        color: "var(--app-text)",
         fontFamily: "var(--garden-font-display)",
       }}
     >
@@ -173,7 +174,7 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
 // One line per person, no card chrome: this is a shortlist, not a gallery.
 function FollowList({ items }: { items: FavoriteProfileItem[] }) {
   return (
-    <ul className="divide-y divide-[var(--garden-hairline)]">
+    <ul className="divide-y divide-[var(--app-hairline)]">
       {items.map((item) => (
         <FollowRow key={item.favoriteId} item={item} />
       ))}
@@ -196,8 +197,8 @@ function FollowRow({ item }: { item: FavoriteProfileItem }) {
         <div
           className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
           style={{
-            backgroundColor: "var(--garden-hairline-raised)",
-            color: "var(--garden-paper)",
+            backgroundColor: "var(--app-hairline-raised)",
+            color: "var(--app-text)",
           }}
         >
           {item.profile.name.charAt(0).toUpperCase()}
@@ -207,14 +208,14 @@ function FollowRow({ item }: { item: FavoriteProfileItem }) {
         <Link
           to={`/profile/${item.profile._id}`}
           className="block font-medium text-sm truncate hover:underline"
-          style={{ color: "var(--garden-paper)" }}
+          style={{ color: "var(--app-text)" }}
         >
           {item.profile.name}
         </Link>
         {item.profile.interests.length > 0 && (
           <p
             className="text-xs truncate"
-            style={{ color: "var(--garden-dim)" }}
+            style={{ color: "var(--app-text-dim)" }}
           >
             {item.profile.interests.join(" • ")}
           </p>
