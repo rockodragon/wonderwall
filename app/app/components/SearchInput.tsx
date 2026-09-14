@@ -18,9 +18,12 @@ export function SearchInput({
 }: SearchInputProps) {
   return (
     <div className={`relative ${className}`}>
-      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+      <div
+        className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"
+        style={{ color: "var(--app-text-dim)" }}
+      >
         <svg
-          className="w-5 h-5 text-gray-400"
+          className="w-5 h-5"
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -38,14 +41,27 @@ export function SearchInput({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full pl-12 pr-10 py-3 border border-gray-300 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
+        className="w-full pl-12 pr-10 py-3 rounded-xl border outline-none transition-shadow"
+        style={{
+          borderColor: "var(--app-hairline)",
+          backgroundColor: "var(--app-surface-raised)",
+          color: "var(--app-text)",
+          boxShadow: "0 0 0 0 transparent",
+        }}
+        onFocus={(e) => {
+          e.currentTarget.style.boxShadow = "0 0 0 2px var(--app-accent)";
+        }}
+        onBlur={(e) => {
+          e.currentTarget.style.boxShadow = "0 0 0 0 transparent";
+        }}
       />
       {value && (
         <button
           type="button"
           onClick={() => onChange("")}
           aria-label="Clear search"
-          className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+          className="absolute inset-y-0 right-0 pr-4 flex items-center transition-colors"
+          style={{ color: "var(--app-text-dim)" }}
         >
           <svg
             className="w-4 h-4"

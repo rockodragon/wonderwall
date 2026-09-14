@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
 import { api } from "../../convex/_generated/api";
 import { INTERESTS } from "../constants/interests";
+import { EventCard } from "../components/EventCard";
 import { SearchInput } from "../components/SearchInput";
 import { TagFilterPills } from "../components/TagFilterPills";
 import { useFilterState } from "../lib/useFilterState";
@@ -133,10 +134,10 @@ export default function Search() {
 
   return (
     <div className="max-w-6xl mx-auto p-6">
-      <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+      <h2 className="text-2xl font-bold mb-2" style={{ color: "var(--app-text)" }}>
         People
       </h2>
-      <p className="text-gray-500 dark:text-gray-400 mb-4">
+      <p className="mb-4" style={{ color: "var(--app-text-dim)" }}>
         Find creatives by interest, location and see what they're up to
       </p>
       <CommunityContextLine
@@ -157,22 +158,24 @@ export default function Search() {
         <button
           onClick={() => { nearMe ? setNearMe(false) : requestLocation(); }}
           disabled={geoLoading}
-          className={`flex items-center gap-2 px-4 py-3 rounded-xl border transition-colors shrink-0 ${
+          className="flex items-center gap-2 px-4 py-3 rounded-xl border transition-colors shrink-0"
+          style={
             nearMe
-              ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
-              : "border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-          }`}
+              ? { borderColor: "var(--app-accent)", backgroundColor: "var(--app-accent-wash)", color: "var(--app-accent-ink)" }
+              : { borderColor: "var(--app-hairline)", backgroundColor: "var(--app-surface-raised)", color: "var(--app-text)" }
+          }
         >
           <LocationIcon className="w-4 h-4" />
           <span className="font-medium hidden sm:inline">{geoLoading ? "Locating..." : "Near me"}</span>
         </button>
         <button
           onClick={() => setFilterExpanded(!filterExpanded)}
-          className={`flex items-center gap-2 px-4 py-3 rounded-xl border transition-colors shrink-0 ${
+          className="flex items-center gap-2 px-4 py-3 rounded-xl border transition-colors shrink-0"
+          style={
             activeFilters.length > 0
-              ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
-              : "border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-          }`}
+              ? { borderColor: "var(--app-accent)", backgroundColor: "var(--app-accent-wash)", color: "var(--app-accent-ink)" }
+              : { borderColor: "var(--app-hairline)", backgroundColor: "var(--app-surface-raised)", color: "var(--app-text)" }
+          }
         >
           <FilterIcon className="w-4 h-4" />
           <span className="font-medium hidden sm:inline">{filterLabel}</span>
@@ -185,16 +188,17 @@ export default function Search() {
       {/* Near me radius selector */}
       {nearMe && (
         <div className="mb-6 flex items-center gap-3 flex-wrap">
-          <span className="text-sm text-gray-500 dark:text-gray-400">Within:</span>
+          <span className="text-sm" style={{ color: "var(--app-text-dim)" }}>Within:</span>
           {RADIUS_OPTIONS.map((opt) => (
             <button
               key={opt.value}
               onClick={() => setRadius(opt.value)}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+              className="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
+              style={
                 radius === opt.value
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300"
-              }`}
+                  ? { backgroundColor: "var(--app-accent)", color: "var(--garden-ink)" }
+                  : { backgroundColor: "var(--app-hairline)", color: "var(--app-text-muted)" }
+              }
             >
               {opt.label}
             </button>
@@ -208,7 +212,10 @@ export default function Search() {
 
       {/* Filter accordion content */}
       {filterExpanded && (
-        <div className="mb-6 p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl">
+        <div
+          className="mb-6 p-4 border rounded-xl"
+          style={{ backgroundColor: "var(--app-surface-raised)", borderColor: "var(--app-hairline)" }}
+        >
           <TagFilterPills
             options={FILTERS}
             active={activeFilters}
@@ -221,10 +228,13 @@ export default function Search() {
       {/* Results */}
       {loading ? (
         <div className="text-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto" />
+          <div
+            className="animate-spin rounded-full h-8 w-8 border-b-2 mx-auto"
+            style={{ borderColor: "var(--app-accent)" }}
+          />
         </div>
       ) : filteredProfiles?.length === 0 && (!events || events.length === 0) ? (
-        <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+        <div className="text-center py-12" style={{ color: "var(--app-text-dim)" }}>
           <p>{nearMe ? "No nearby profiles found — most people haven't set a precise location yet. Try a wider radius or turn off Near me." : query ? "No results found" : "No creatives to show yet"}</p>
         </div>
       ) : (
@@ -232,7 +242,7 @@ export default function Search() {
           {/* Events section - show when searching */}
           {events && events.length > 0 && (
             <section>
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              <h2 className="text-lg font-semibold mb-4" style={{ color: "var(--app-text)" }}>
                 Events
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -246,7 +256,7 @@ export default function Search() {
           {/* People */}
           {filteredProfiles && filteredProfiles.length > 0 && (
             <section>
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              <h2 className="text-lg font-semibold mb-4" style={{ color: "var(--app-text)" }}>
                 {query ? "People" : "Creatives"}
               </h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -272,7 +282,8 @@ function ProfileCard({ profile }: { profile: ProfileResult & { _distance?: numbe
   return (
     <Link
       to={`/profile/${profile._id}`}
-      className="group flex items-center gap-3 p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-blue-500 dark:hover:border-blue-500 transition-colors"
+      className="group flex items-center gap-3 p-4 rounded-xl border transition-colors hover:border-[var(--app-accent)]"
+      style={{ borderColor: "var(--app-hairline)", backgroundColor: "var(--app-surface-raised)" }}
     >
       {hasImage ? (
         <img
@@ -281,87 +292,23 @@ function ProfileCard({ profile }: { profile: ProfileResult & { _distance?: numbe
           className="w-12 h-12 rounded-full object-cover shrink-0"
         />
       ) : (
-        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-gray-400 to-gray-500 dark:from-gray-600 dark:to-gray-700 flex items-center justify-center text-white font-bold shrink-0">
+        <div
+          className="w-12 h-12 rounded-full flex items-center justify-center font-bold shrink-0"
+          style={{ backgroundColor: "var(--app-hairline-raised)", color: "var(--app-text)" }}
+        >
           {profile.name.charAt(0).toUpperCase()}
         </div>
       )}
       {/* Name never truncates — Follow moved to the profile page itself
           (profile.tsx), which freed the width this used to fight for. */}
       <div className="min-w-0 flex-1">
-        <h3 className="font-medium text-gray-900 dark:text-white text-sm leading-snug">
+        <h3 className="font-medium text-sm leading-snug" style={{ color: "var(--app-text)" }}>
           {profile.name}
         </h3>
-        <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">
-          {distLabel && <span className="text-blue-500 dark:text-blue-400">{distLabel} · </span>}
+        <p className="text-xs truncate mt-0.5" style={{ color: "var(--app-text-dim)" }}>
+          {distLabel && <span style={{ color: "var(--app-accent-ink)" }}>{distLabel} · </span>}
           {profile.interests.slice(0, 2).join(" · ")}
         </p>
-      </div>
-    </Link>
-  );
-}
-
-function EventCard({ event }: { event: any }) {
-  const date = new Date(event.datetime);
-  const formattedDate = date.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-  });
-
-  return (
-    <Link
-      to={`/events/${event._id}`}
-      className="group block overflow-hidden rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-blue-500 dark:hover:border-blue-500 transition-colors"
-    >
-      {/* Cover image */}
-      <div className="aspect-[16/9] bg-gray-100 dark:bg-gray-700 relative overflow-hidden">
-        {event.coverImageUrl ? (
-          <img
-            src={event.coverImageUrl}
-            alt={event.title}
-            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-          />
-        ) : (
-          <div
-            className={`w-full h-full bg-gradient-to-br ${
-              event.coverColor === "purple"
-                ? "from-purple-400 to-pink-500"
-                : event.coverColor === "green"
-                  ? "from-green-400 to-emerald-500"
-                  : event.coverColor === "orange"
-                    ? "from-orange-400 to-red-500"
-                    : "from-blue-400 to-indigo-500"
-            }`}
-          />
-        )}
-        <div className="absolute top-3 left-3 bg-white dark:bg-gray-900 rounded-lg px-2 py-1">
-          <span className="text-xs font-semibold text-gray-900 dark:text-white">
-            {formattedDate}
-          </span>
-        </div>
-      </div>
-
-      {/* Content */}
-      <div className="p-4">
-        <h3 className="font-semibold text-gray-900 dark:text-white line-clamp-1">
-          {event.title}
-        </h3>
-        {event.location && (
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 line-clamp-1">
-            {event.location}
-          </p>
-        )}
-        {event.tags.length > 0 && (
-          <div className="flex flex-wrap gap-1 mt-2">
-            {event.tags.slice(0, 3).map((tag: string) => (
-              <span
-                key={tag}
-                className="text-xs px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded-full"
-              >
-                {tag}
-              </span>
-            ))}
-          </div>
-        )}
       </div>
     </Link>
   );

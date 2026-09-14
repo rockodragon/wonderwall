@@ -1,5 +1,5 @@
 import { useQuery } from "convex/react";
-import { useMemo, useState } from "react";
+import { useMemo, useState, type CSSProperties } from "react";
 import { api } from "../../convex/_generated/api";
 import { CreateEventModal } from "../components/CreateEventModal";
 import { EventCard } from "../components/EventCard";
@@ -109,7 +109,26 @@ export default function Events() {
       : events;
 
   return (
-    <div className="min-h-screen bg-[var(--garden-ink)]">
+    // SearchInput and TagFilterPills (below) now use the --app-* tokens
+    // that let the app shell follow light/dark OS preference — but this
+    // page is permanently dark, unconditionally on --garden-ink, so the
+    // --app-* aliases are pinned to their dark values here too. Otherwise
+    // a light-mode visitor would get a pale search box sitting on a black
+    // page instead of matching it.
+    <div
+      className="min-h-screen bg-[var(--garden-ink)]"
+      style={{
+        "--app-surface": "var(--garden-ink)",
+        "--app-surface-raised": "var(--garden-ink-raised)",
+        "--app-hairline": "var(--garden-hairline)",
+        "--app-hairline-raised": "var(--garden-hairline-raised)",
+        "--app-text": "var(--garden-paper)",
+        "--app-text-dim": "var(--garden-dim)",
+        "--app-text-muted": "var(--garden-muted)",
+        "--app-accent": "var(--garden-citron)",
+        "--app-accent-ink": "var(--garden-citron)",
+      } as CSSProperties}
+    >
       <link rel="stylesheet" href="/tokens.css" />
       <link rel="stylesheet" href="/about/fonts/fonts.css" />
       <div className="p-4 sm:p-6 max-w-7xl mx-auto">
@@ -124,8 +143,10 @@ export default function Events() {
         </p>
 
         {/* SearchInput and TagFilterPills below are shared with /search
-            (People) and are deliberately left on the older neutral styling —
-            restyling them here would change a surface outside this page. */}
+            (People) and now use the --app-* tokens (see tokens.css) so both
+            pages get the citron/garden look — this page's --app-* pins to
+            the dark values above since it doesn't follow OS light/dark
+            itself. */}
         <SearchInput
           value={searchQuery}
           onChange={setSearchQuery}

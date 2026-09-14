@@ -35,10 +35,13 @@ export function TagFilterPills({
             aria-pressed={isActive}
             onClick={() => onToggle(option.value)}
             className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-              isActive
-                ? "bg-blue-600 text-white"
-                : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"
+              isActive ? "" : "hover:bg-[var(--app-hairline-raised)]"
             }`}
+            style={
+              isActive
+                ? { backgroundColor: "var(--app-accent)", color: "var(--garden-ink)" }
+                : { backgroundColor: "var(--app-hairline)", color: "var(--app-text-muted)" }
+            }
           >
             {option.label}
           </button>
@@ -48,7 +51,8 @@ export function TagFilterPills({
         <button
           type="button"
           onClick={onClear}
-          className="text-sm underline text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+          className="text-sm underline transition-colors"
+          style={{ color: "var(--app-text-dim)" }}
         >
           Clear
         </button>
