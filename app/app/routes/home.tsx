@@ -649,23 +649,20 @@ export default function Home() {
           </div>
         </div>
 
-        <p className="mt-14 md:mt-[72px] text-lg text-[var(--garden-dim)]">
-          Or just{" "}
+        <div className="mt-14 md:mt-[72px] flex flex-wrap gap-3">
           <Link
             to="/opportunities"
-            className="text-[var(--garden-citron)] font-medium hover:opacity-80 transition-opacity"
+            className="px-[22px] py-[13px] rounded-[10px] text-base font-semibold border border-[var(--garden-citron)] text-[var(--garden-citron)] hover:bg-[var(--garden-citron)] hover:text-[var(--garden-ink)] transition-all"
           >
-            see what's open right now
+            See what's open
           </Link>
-          {" "}or{" "}
           <Link
             to="/grant-program"
-            className="text-[var(--garden-citron)] font-medium hover:opacity-80 transition-opacity"
+            className="px-[22px] py-[13px] rounded-[10px] text-base font-semibold border border-[var(--garden-citron)] text-[var(--garden-citron)] hover:bg-[var(--garden-citron)] hover:text-[var(--garden-ink)] transition-all"
           >
-            learn about the Grant Program
+            Grant Program
           </Link>
-          .
-        </p>
+        </div>
       </section>
 
       {/* Campaign atmosphere — 4-column image/quote grid */}

@@ -79,7 +79,9 @@ function GiveModal({
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        backgroundColor: "rgba(0,0,0,0.65)",
+        backgroundColor: "rgba(0,0,0,0.7)",
+        backdropFilter: "blur(8px)",
+        WebkitBackdropFilter: "blur(8px)",
         padding: 16,
       }}
     >
@@ -89,6 +91,7 @@ function GiveModal({
           width: "100%",
           maxWidth: 420,
           position: "relative",
+          backgroundColor: "var(--garden-ink-raised, #1a1a1a)",
         }}
         onClick={(e) => e.stopPropagation()}
       >
