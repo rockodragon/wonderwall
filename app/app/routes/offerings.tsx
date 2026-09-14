@@ -12,6 +12,8 @@ import {
   communityNameFor,
   useCommunityContext,
 } from "../components/CommunityFilter";
+import { haversineDistance, NEAR_ME_RADIUS_OPTIONS, useNearMe } from "../lib/useNearMe";
+import { ChevronDownIcon, FilterIcon, LocationIcon } from "../components/icons";
 
 // AnnouncementComposer moved off this list page entirely — it now renders
 // only on the detail page (routes/offerings.$id.tsx), per the founder's
@@ -125,6 +127,16 @@ export default function Offerings() {
   // to find their own listing) has moved to the detail page.
   const [mineOnly, setMineOnly] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [tagsExpanded, setTagsExpanded] = useState(false);
+  const {
+    nearMe,
+    userPos,
+    geoError,
+    geoLoading,
+    radius,
+    setRadius,
+    toggleNearMe,
+  } = useNearMe();
   const {
     selected: communitySlug,
     setSelected: setCommunitySlug,
@@ -140,7 +152,7 @@ export default function Offerings() {
 
   const filtered = useMemo(() => {
     if (!offerings) return [];
-    let list = formatFilter ? offerings.filter((o) => o.format === formatFilter) : offerings;
+    let list: any[] = formatFilter ? offerings.filter((o) => o.format === formatFilter) : offerings;
     if (mineOnly) {
       list = list.filter((o) => !!myProfile && o.userId === myProfile.userId);
     }
@@ -148,10 +160,21 @@ export default function Offerings() {
       list = list.filter((o) => o.community?.slug === communitySlug);
     }
     if (tagFilter.length > 0) {
-      list = list.filter((o) => o.interests?.some((tag) => tagFilter.includes(tag)));
+      list = list.filter((o) => o.interests?.some((tag: string) => tagFilter.includes(tag)));
+    }
+    if (nearMe && userPos) {
+      list = list
+        .map((o) => ({
+          ...o,
+          _distance: o.coordinates
+            ? haversineDistance(userPos.lat, userPos.lng, o.coordinates.lat, o.coordinates.lng)
+            : Infinity,
+        }))
+        .filter((o) => o._distance <= radius)
+        .sort((a, b) => a._distance - b._distance);
     }
     return list;
-  }, [offerings, formatFilter, mineOnly, myProfile, communitySlug, tagFilter]);
+  }, [offerings, formatFilter, mineOnly, myProfile, communitySlug, tagFilter, nearMe, userPos, radius]);
 
   return (
     <div className="min-h-screen bg-[var(--garden-ink)]">
@@ -206,6 +229,19 @@ export default function Offerings() {
                 Mine
               </button>
             )}
+            <button
+              onClick={toggleNearMe}
+              disabled={geoLoading}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-medium uppercase tracking-[0.06em] whitespace-nowrap transition-colors"
+              style={{
+                fontFamily: "var(--garden-font-body)",
+                backgroundColor: nearMe ? "var(--garden-citron)" : "var(--garden-ink-raised)",
+                color: nearMe ? "var(--garden-ink)" : "var(--garden-muted)",
+              }}
+            >
+              <LocationIcon className="w-3.5 h-3.5" />
+              {geoLoading ? "Locating…" : "Near me"}
+            </button>
           </div>
           <button
             onClick={() => setShowForm(true)}
@@ -216,7 +252,44 @@ export default function Offerings() {
           </button>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 mb-6">
+        {nearMe && (
+          <div className="mb-4 flex items-center gap-3 flex-wrap">
+            <span className="text-sm" style={{ color: "var(--garden-dim)" }}>Within:</span>
+            {NEAR_ME_RADIUS_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => setRadius(opt.value)}
+                className="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
+                style={{
+                  backgroundColor: radius === opt.value ? "var(--garden-citron)" : "var(--garden-ink-raised)",
+                  color: radius === opt.value ? "var(--garden-ink)" : "var(--garden-muted)",
+                }}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        )}
+        {geoError && <p className="text-sm text-red-500 mb-4">{geoError}</p>}
+
+        <div className="mb-6">
+          <button
+            type="button"
+            onClick={() => setTagsExpanded((v) => !v)}
+            className="sm:hidden flex items-center gap-2 px-3 py-1.5 rounded-lg text-[13px] font-medium mb-2 transition-colors"
+            style={{
+              fontFamily: "var(--garden-font-body)",
+              backgroundColor: tagFilter.length > 0 ? "var(--garden-citron)" : "var(--garden-ink-raised)",
+              color: tagFilter.length > 0 ? "var(--garden-ink)" : "var(--garden-muted)",
+            }}
+          >
+            <FilterIcon className="w-3.5 h-3.5" />
+            Filter{tagFilter.length > 0 ? ` (${tagFilter.length})` : ""}
+            <ChevronDownIcon
+              className={`w-3.5 h-3.5 transition-transform ${tagsExpanded ? "rotate-180" : ""}`}
+            />
+          </button>
+        <div className={`${tagsExpanded ? "flex" : "hidden"} sm:flex flex-wrap items-center gap-2`}>
           {DISCIPLINE_TAGS.map((tag) => {
             const active = tagFilter.includes(tag);
             return (
@@ -243,6 +316,7 @@ export default function Offerings() {
               Clear
             </button>
           )}
+        </div>
         </div>
 
         {!offerings ? (

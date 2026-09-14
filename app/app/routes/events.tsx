@@ -12,6 +12,8 @@ import {
   communityNameFor,
   useCommunityContext,
 } from "../components/CommunityFilter";
+import { haversineDistance, NEAR_ME_RADIUS_OPTIONS, useNearMe } from "../lib/useNearMe";
+import { ChevronDownIcon, FilterIcon, LocationIcon } from "../components/icons";
 
 // The card itself lives in components/EventCard.tsx — /favorites renders the
 // same component, so the treatment can only be changed in one place.
@@ -58,6 +60,16 @@ export default function Events() {
   const allEvents = isPastTab ? pastEvents : upcomingEvents;
   const favorites = useQuery(api.favorites.getMyFavorites, {});
   const [showCreate, setShowCreate] = useState(false);
+  const [tagsExpanded, setTagsExpanded] = useState(false);
+  const {
+    nearMe,
+    userPos,
+    geoError,
+    geoLoading,
+    radius,
+    setRadius,
+    toggleNearMe,
+  } = useNearMe();
   const {
     selected: communitySlug,
     setSelected: setCommunitySlug,
@@ -76,7 +88,7 @@ export default function Events() {
   const events = useMemo(() => {
     if (!allEvents) return undefined;
     const q = debouncedQuery.trim().toLowerCase();
-    let list = allEvents;
+    let list = allEvents as any[];
     if (q) {
       list = list.filter(
         (e) =>
@@ -92,8 +104,19 @@ export default function Events() {
     if (communitySlug !== "all") {
       list = list.filter((e: any) => e.community?.slug === communitySlug);
     }
+    if (nearMe && userPos) {
+      list = list
+        .map((e) => ({
+          ...e,
+          _distance: e.coordinates
+            ? haversineDistance(userPos.lat, userPos.lng, e.coordinates.lat, e.coordinates.lng)
+            : Infinity,
+        }))
+        .filter((e) => e._distance <= radius)
+        .sort((a, b) => a._distance - b._distance);
+    }
     return list;
-  }, [allEvents, debouncedQuery, tagFilters, communitySlug]);
+  }, [allEvents, debouncedQuery, tagFilters, communitySlug, nearMe, userPos, radius]);
 
   // Get favorited event IDs
   const favoriteEventIds = new Set(
@@ -147,12 +170,48 @@ export default function Events() {
             pages get the citron/garden look — this page's --app-* pins to
             the dark values above since it doesn't follow OS light/dark
             itself. */}
-        <SearchInput
-          value={searchQuery}
-          onChange={setSearchQuery}
-          placeholder="Search events by name, location, or tag..."
-          className="mb-4"
-        />
+        <div className="flex gap-3 mb-4">
+          <SearchInput
+            value={searchQuery}
+            onChange={setSearchQuery}
+            placeholder="Search events by name, location, or tag..."
+            className="flex-1"
+          />
+          <button
+            onClick={toggleNearMe}
+            disabled={geoLoading}
+            className="flex items-center gap-2 px-4 py-3 rounded-xl border transition-colors shrink-0"
+            style={
+              nearMe
+                ? { borderColor: "var(--app-accent)", backgroundColor: "var(--app-accent-wash)", color: "var(--app-accent-ink)" }
+                : { borderColor: "var(--app-hairline)", backgroundColor: "var(--app-surface-raised)", color: "var(--app-text)" }
+            }
+          >
+            <LocationIcon className="w-4 h-4" />
+            <span className="font-medium hidden sm:inline">{geoLoading ? "Locating..." : "Near me"}</span>
+          </button>
+        </div>
+
+        {nearMe && (
+          <div className="mb-4 flex items-center gap-3 flex-wrap">
+            <span className="text-sm" style={{ color: "var(--app-text-dim)" }}>Within:</span>
+            {NEAR_ME_RADIUS_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => setRadius(opt.value)}
+                className="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
+                style={
+                  radius === opt.value
+                    ? { backgroundColor: "var(--app-accent)", color: "var(--garden-ink)" }
+                    : { backgroundColor: "var(--app-hairline)", color: "var(--app-text-muted)" }
+                }
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        )}
+        {geoError && <p className="text-sm text-red-500 mb-4">{geoError}</p>}
 
         <CommunityContextLine
           variant="app"
@@ -224,13 +283,33 @@ export default function Events() {
         </div>
 
         {tagOptions.length > 0 && (
-          <TagFilterPills
-            options={tagOptions}
-            active={tagFilters}
-            onToggle={toggleTag}
-            onClear={clearTags}
-            className="mb-6"
-          />
+          <div className="mb-6">
+            <button
+              type="button"
+              onClick={() => setTagsExpanded((v) => !v)}
+              className="sm:hidden flex items-center gap-2 px-3 py-1.5 rounded-lg text-[13px] font-medium mb-2 transition-colors"
+              style={{
+                fontFamily: "var(--garden-font-body)",
+                backgroundColor:
+                  tagFilters.length > 0 ? "var(--app-accent)" : "var(--app-surface-raised)",
+                color: tagFilters.length > 0 ? "var(--garden-ink)" : "var(--app-text-muted)",
+              }}
+            >
+              <FilterIcon className="w-3.5 h-3.5" />
+              Filter{tagFilters.length > 0 ? ` (${tagFilters.length})` : ""}
+              <ChevronDownIcon
+                className={`w-3.5 h-3.5 transition-transform ${tagsExpanded ? "rotate-180" : ""}`}
+              />
+            </button>
+            <div className={tagsExpanded ? "block sm:block" : "hidden sm:block"}>
+              <TagFilterPills
+                options={tagOptions}
+                active={tagFilters}
+                onToggle={toggleTag}
+                onClear={clearTags}
+              />
+            </div>
+          </div>
         )}
 
         {filteredEvents === undefined ? (
