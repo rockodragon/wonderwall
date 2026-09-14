@@ -219,6 +219,81 @@ export function validateRole(role: string): string {
   return trimmed;
 }
 
+export type RoleBudgetType = "amount" | "range" | "proposals" | "volunteer" | "confidential";
+const ROLE_BUDGET_TYPES = new Set<string>(["amount", "range", "proposals", "volunteer", "confidential"]);
+
+function isRealAmount(n: number | undefined): n is number {
+  return typeof n === "number" && Number.isFinite(n) && n > 0;
+}
+
+/** A role's payment declaration — same four states and rules as a paid
+ * project (projects.ts's validateBudgetDeclaration), plus "confidential",
+ * and — unlike a project — entirely optional: a role can simply not say.
+ * A parallel copy rather than a shared call for that reason: the project
+ * validator requires a type and has no "confidential" branch. Throws
+ * (matching this file's other validators) rather than returning an error
+ * object the way projects.ts's does. */
+export function validateRoleBudget(args: {
+  budgetType?: string;
+  budget?: number;
+  budgetMax?: number;
+}): { budgetType?: RoleBudgetType; budget?: number; budgetMax?: number } {
+  const { budgetType, budget, budgetMax } = args;
+
+  if (budgetType === undefined) {
+    if (budget !== undefined || budgetMax !== undefined) {
+      throw new ConvexError({
+        code: "invalid_budget",
+        reason: "Pick a payment type to go with that number, or clear the number.",
+      });
+    }
+    return {};
+  }
+
+  if (!ROLE_BUDGET_TYPES.has(budgetType)) {
+    throw new ConvexError({
+      code: "invalid_budget_type",
+      reason: "Say how this role pays: a set amount, a range, open to proposals, confidential, or volunteer.",
+    });
+  }
+  const type = budgetType as RoleBudgetType;
+
+  if (type === "amount") {
+    if (!isRealAmount(budget)) {
+      throw new ConvexError({ code: "invalid_budget", reason: "A set amount needs a real number bigger than zero." });
+    }
+    if (budgetMax !== undefined) {
+      throw new ConvexError({
+        code: "invalid_budget",
+        reason: "A set amount is one number. Pick a range if you want a low and a high.",
+      });
+    }
+    return { budgetType: type, budget };
+  }
+
+  if (type === "range") {
+    if (budget === undefined || budgetMax === undefined) {
+      throw new ConvexError({ code: "invalid_budget", reason: "A range needs both a low and a high number." });
+    }
+    if (!isRealAmount(budget) || !isRealAmount(budgetMax)) {
+      throw new ConvexError({ code: "invalid_budget", reason: "A range needs real numbers bigger than zero." });
+    }
+    if (budgetMax <= budget) {
+      throw new ConvexError({ code: "invalid_budget", reason: "A range needs a high number bigger than the low one." });
+    }
+    return { budgetType: type, budget, budgetMax };
+  }
+
+  // "proposals", "volunteer", "confidential" — no numbers attached.
+  if (budget !== undefined || budgetMax !== undefined) {
+    throw new ConvexError({
+      code: "invalid_budget",
+      reason: "That payment type has no number attached. Clear it, or pick a set amount or range.",
+    });
+  }
+  return { budgetType: type };
+}
+
 export function validateMessage(message: string | undefined): string | undefined {
   const trimmed = message?.trim();
   if (!trimmed) return undefined;
@@ -1037,6 +1112,9 @@ export const addRole = mutation({
     // list), so none added here.
     interests: v.optional(v.array(v.string())),
     neededBy: v.optional(v.number()),
+    budgetType: v.optional(v.string()),
+    budget: v.optional(v.number()),
+    budgetMax: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const actorId = await requireUser(ctx);
@@ -1047,12 +1125,14 @@ export const addRole = mutation({
     }
     const title = validateRole(args.title);
     const description = validateMessage(args.description);
+    const budget = validateRoleBudget(args);
     const roleId = await ctx.db.insert("projectRoles", {
       projectId: args.projectId,
       title,
       description,
       interests: args.interests,
       neededBy: args.neededBy,
+      ...budget,
       status: "open",
       createdAt: Date.now(),
     });
@@ -1070,6 +1150,16 @@ export const updateRole = mutation({
     description: v.optional(v.string()),
     interests: v.optional(v.array(v.string())),
     neededBy: v.optional(v.number()),
+    // Payment is all-or-nothing here: send none of the three to leave it
+    // untouched, or all of them together (as the UI's payment picker
+    // always would) to replace the whole declaration — validateRoleBudget
+    // validates args in isolation, not merged with the row's current
+    // values, so a partial send (e.g. budgetType alone, on a role that
+    // already had an amount) would wrongly validate against a stale number
+    // that isn't actually part of this update.
+    budgetType: v.optional(v.string()),
+    budget: v.optional(v.number()),
+    budgetMax: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const actorId = await requireUser(ctx);
@@ -1079,11 +1169,22 @@ export const updateRole = mutation({
     if (role.status !== "open") {
       throw new ConvexError({ code: "role_unavailable", reason: "That role isn't open any more." });
     }
-    const patch: { title?: string; description?: string; interests?: string[]; neededBy?: number } = {};
+    const patch: {
+      title?: string;
+      description?: string;
+      interests?: string[];
+      neededBy?: number;
+      budgetType?: RoleBudgetType;
+      budget?: number;
+      budgetMax?: number;
+    } = {};
     if (args.title !== undefined) patch.title = validateRole(args.title);
     if (args.description !== undefined) patch.description = validateMessage(args.description);
     if (args.interests !== undefined) patch.interests = args.interests;
     if (args.neededBy !== undefined) patch.neededBy = args.neededBy;
+    if (args.budgetType !== undefined || args.budget !== undefined || args.budgetMax !== undefined) {
+      Object.assign(patch, validateRoleBudget(args));
+    }
     if (Object.keys(patch).length === 0) return { ok: true as const, changed: false as const };
     await ctx.db.patch(args.roleId, patch);
     return { ok: true as const, changed: true as const };
@@ -1224,6 +1325,13 @@ export const listRoles = query({
       description: string | null;
       interests: string[];
       neededBy: number | null;
+      // Present only when the role actually declared payment — a role that
+      // never said gets no badge at all rather than a guessed default (see
+      // budgetLabel.ts's comment on why its own legacy-row fallback can't
+      // be reused for "unspecified" here).
+      budgetType: RoleBudgetType | null;
+      budget: number | null;
+      budgetMax: number | null;
       status: "open" | "filled";
       filledBy: { profileId: Id<"profiles"> | null; name: string; imageUrl: string | null } | null;
     }[] = [];
@@ -1250,6 +1358,9 @@ export const listRoles = query({
         description: row.description ?? null,
         interests: row.interests ?? [],
         neededBy: row.neededBy ?? null,
+        budgetType: row.budgetType ?? null,
+        budget: row.budget ?? null,
+        budgetMax: row.budgetMax ?? null,
         status: row.status,
         filledBy,
       });

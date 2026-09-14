@@ -21,8 +21,13 @@
 // Convex functions don't import from app/ — so the two are kept aligned by
 // hand and by their tests.
 
-/** The four honest money states a paid posting can declare. */
-export type BudgetType = "amount" | "range" | "proposals" | "volunteer";
+/** The honest money states a paid posting can declare. "confidential" is
+ * newer than the original four (added for role postings, projectTeam.ts's
+ * addRole/updateRole — paid, but the amount is withheld rather than stated
+ * or left open to negotiation) — a project's own posting form doesn't
+ * offer it, but nothing stops it from reading correctly here if it ever
+ * needs to. */
+export type BudgetType = "amount" | "range" | "proposals" | "volunteer" | "confidential";
 
 /** The budget fields as they come off a `projects` row (all optional on the
  * schema, so legacy rows read cleanly). */
@@ -60,7 +65,9 @@ function formatDollars(amount: number): string {
 export function resolveBudgetType(declaration: BudgetDeclaration): BudgetType {
   const { budgetType, budget, budgetMax } = declaration;
 
-  if (budgetType === "volunteer" || budgetType === "proposals") return budgetType;
+  if (budgetType === "volunteer" || budgetType === "proposals" || budgetType === "confidential") {
+    return budgetType;
+  }
 
   if (budgetType === "range" && isRealAmount(budget) && isRealAmount(budgetMax)) {
     return "range";
@@ -95,6 +102,8 @@ export function budgetAmountLabel(declaration: BudgetDeclaration): string | null
       return `${formatDollars(budget!)}–${budgetMax!.toLocaleString("en-US")}`;
     case "proposals":
       return "Open to proposals";
+    case "confidential":
+      return "Confidential";
     case "volunteer":
       return null;
   }

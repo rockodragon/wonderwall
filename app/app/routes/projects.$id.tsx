@@ -18,7 +18,7 @@ import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { AnnouncementComposer } from "../components/AnnouncementComposer";
 import { FavoriteButton } from "../components/FavoriteButton";
-import { budgetAmountLabel, budgetKindLabel } from "../lib/budgetLabel";
+import { budgetAmountLabel, budgetKindLabel, budgetLabel } from "../lib/budgetLabel";
 import { resolveStage, stageLabel } from "../lib/stage";
 import { INTERESTS } from "../constants/interests";
 import { errorMessage, STATUS_LABELS, StageSelect, SupportModal } from "./projects";
@@ -963,6 +963,18 @@ function daysUntil(neededBy: number | null): number | null {
   return Math.max(1, Math.ceil((neededBy - Date.now()) / 86400000));
 }
 
+// Same four states as projects.tsx's BUDGET_TYPE_OPTIONS, plus
+// "confidential" — a role's payment picker, not a project's, so it isn't
+// the exact same constant (that one doesn't offer confidential and
+// probably shouldn't; see budgetLabel.ts's BudgetType comment).
+const ROLE_BUDGET_TYPE_OPTIONS = [
+  { value: "amount", label: "Set amount" },
+  { value: "range", label: "Range" },
+  { value: "proposals", label: "Open to proposals" },
+  { value: "confidential", label: "Confidential" },
+  { value: "volunteer", label: "Volunteer" },
+] as const;
+
 function RolesSection({
   project,
   isOwner,
@@ -982,6 +994,9 @@ function RolesSection({
   const [description, setDescription] = useState("");
   const [interests, setInterests] = useState<string[]>([]);
   const [neededByStr, setNeededByStr] = useState("");
+  const [budgetType, setBudgetType] = useState(""); // "" = not specified
+  const [budget, setBudget] = useState("");
+  const [budgetMax, setBudgetMax] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -1005,6 +1020,23 @@ function RolesSection({
       setError("Say what role you need.");
       return;
     }
+    // Light client-side check so a typo doesn't round-trip to the server
+    // just to bounce back — validateRoleBudget (projectTeam.ts) is still
+    // the real authority and re-checks everything on save.
+    if (budgetType === "amount" && (!budget.trim() || !Number.isFinite(Number(budget)) || Number(budget) <= 0)) {
+      setError("A set amount needs a real number bigger than zero.");
+      return;
+    }
+    if (budgetType === "range") {
+      if (!budget.trim() || !budgetMax.trim()) {
+        setError("A range needs both a low and a high number.");
+        return;
+      }
+      if (Number(budgetMax) <= Number(budget)) {
+        setError("A range needs a high number bigger than the low one.");
+        return;
+      }
+    }
     setBusy(true);
     try {
       await addRole({
@@ -1013,11 +1045,17 @@ function RolesSection({
         description: description.trim() || undefined,
         interests: interests.length > 0 ? interests : undefined,
         neededBy: neededByStr ? new Date(neededByStr).getTime() : undefined,
+        budgetType: budgetType || undefined,
+        budget: budgetType === "amount" || budgetType === "range" ? Number(budget) : undefined,
+        budgetMax: budgetType === "range" ? Number(budgetMax) : undefined,
       });
       setTitle("");
       setDescription("");
       setInterests([]);
       setNeededByStr("");
+      setBudgetType("");
+      setBudget("");
+      setBudgetMax("");
       setAdding(false);
     } catch (err) {
       setError(errorMessage(err));
@@ -1053,6 +1091,18 @@ function RolesSection({
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <span style={{ color: "var(--garden-paper)" }}>{r.title}</span>
+                      {r.budgetType && (
+                        <span
+                          className="px-1.5 py-0.5 rounded-full text-[10px] font-medium uppercase tracking-[0.06em]"
+                          style={{
+                            fontFamily: "var(--garden-font-mono)",
+                            backgroundColor: "rgba(215,242,90,0.14)",
+                            color: "var(--garden-citron)",
+                          }}
+                        >
+                          {budgetLabel(r)}
+                        </span>
+                      )}
                       {days !== null && (
                         <span
                           className="px-1.5 py-0.5 rounded-full text-[10px] font-medium uppercase tracking-[0.06em]"
@@ -1138,6 +1188,73 @@ function RolesSection({
             />
             <div>
               <label className="block text-[11px] uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
+                Payment (optional)
+              </label>
+              <div role="radiogroup" aria-label="Payment" className="flex flex-wrap gap-1.5">
+                {ROLE_BUDGET_TYPE_OPTIONS.map((opt) => {
+                  const active = budgetType === opt.value;
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      role="radio"
+                      aria-checked={active}
+                      // Clicking the active pill again clears back to "not
+                      // specified" — the one state with no pill of its own.
+                      onClick={() => setBudgetType(active ? "" : opt.value)}
+                      className="px-2.5 py-1 rounded-full text-xs font-medium transition-colors"
+                      style={{
+                        fontFamily: "var(--garden-font-body)",
+                        backgroundColor: active ? "var(--garden-citron)" : "var(--garden-ink)",
+                        color: active ? "var(--garden-ink)" : "var(--garden-muted)",
+                        border: `1px solid ${active ? "var(--garden-citron)" : "var(--garden-hairline-raised)"}`,
+                      }}
+                    >
+                      {opt.label}
+                    </button>
+                  );
+                })}
+              </div>
+              {budgetType === "amount" && (
+                <input
+                  type="number"
+                  min="1"
+                  value={budget}
+                  onChange={(e) => setBudget(e.target.value)}
+                  placeholder="500"
+                  aria-label="Amount in US dollars"
+                  className="w-full mt-2 px-3 py-2 rounded-lg border text-sm outline-none"
+                  style={{ fontFamily: "var(--garden-font-mono)", ...inputStyle }}
+                />
+              )}
+              {budgetType === "range" && (
+                <div className="flex items-center gap-2 mt-2">
+                  <input
+                    type="number"
+                    min="1"
+                    value={budget}
+                    onChange={(e) => setBudget(e.target.value)}
+                    placeholder="300"
+                    aria-label="Low end, in US dollars"
+                    className="w-full px-3 py-2 rounded-lg border text-sm outline-none"
+                    style={{ fontFamily: "var(--garden-font-mono)", ...inputStyle }}
+                  />
+                  <span style={{ color: "var(--garden-dim)" }}>–</span>
+                  <input
+                    type="number"
+                    min="1"
+                    value={budgetMax}
+                    onChange={(e) => setBudgetMax(e.target.value)}
+                    placeholder="600"
+                    aria-label="High end, in US dollars"
+                    className="w-full px-3 py-2 rounded-lg border text-sm outline-none"
+                    style={{ fontFamily: "var(--garden-font-mono)", ...inputStyle }}
+                  />
+                </div>
+              )}
+            </div>
+            <div>
+              <label className="block text-[11px] uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
                 Needed by (optional)
               </label>
               <input
@@ -1182,6 +1299,9 @@ function RolesSection({
                   setDescription("");
                   setInterests([]);
                   setNeededByStr("");
+                  setBudgetType("");
+                  setBudget("");
+                  setBudgetMax("");
                   setError("");
                 }}
                 className="px-3 py-1.5 rounded-lg text-xs font-medium"

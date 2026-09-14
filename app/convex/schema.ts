@@ -974,6 +974,29 @@ export default defineSchema({
     // convention as projects.raiseByDate (projects.tsx) — no separate
     // "overdue" state to build.
     neededBy: v.optional(v.number()),
+    // Payment, per role rather than per project — a project's own paid/
+    // passion split can't say "the Director is paid, the Sound Mixer is
+    // volunteer" at once. Same field names and four states as
+    // projects.budgetType/budget/budgetMax (validateBudgetDeclaration,
+    // convex/garden/projects.ts) plus a fifth, "confidential" — paid, but
+    // the amount is deliberately withheld rather than stated or left open
+    // to negotiation (app/app/lib/budgetLabel.ts's BudgetType, which reads
+    // this same shape for display). Unlike a project, `budgetType` is
+    // entirely optional here: a role can simply not say. Validated by
+    // validateRoleBudget (projectTeam.ts) — a parallel, not a shared call,
+    // to projects.ts's validator, since that one requires a type and
+    // doesn't know about "confidential".
+    budgetType: v.optional(
+      v.union(
+        v.literal("amount"),
+        v.literal("range"),
+        v.literal("proposals"),
+        v.literal("volunteer"),
+        v.literal("confidential"),
+      ),
+    ),
+    budget: v.optional(v.number()), // the amount, or a range's low end
+    budgetMax: v.optional(v.number()), // a range's high end
     status: v.union(
       v.literal("open"),
       v.literal("filled"),

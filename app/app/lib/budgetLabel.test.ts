@@ -30,6 +30,12 @@ describe("budgetLabel — the four declared states", () => {
       "Paid · $1,200–3,000",
     );
   });
+
+  it("confidential is Paid, with the amount withheld rather than stated or open", () => {
+    expect(budgetLabel({ budgetType: "confidential" })).toBe("Paid · Confidential");
+    expect(budgetKindLabel({ budgetType: "confidential" })).toBe("Paid");
+    expect(budgetAmountLabel({ budgetType: "confidential" })).toBe("Confidential");
+  });
 });
 
 describe("budgetLabel — legacy rows written before budgetType existed", () => {
