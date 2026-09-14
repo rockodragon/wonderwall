@@ -142,18 +142,25 @@ export default function Home() {
       <link rel="stylesheet" href="/about/fonts/fonts.css" />
       <SiteHeader overlay />
 
-      {/* Hero Section with Marquees */}
+      {/* Hero Section */}
       <main className="relative pt-28 md:pt-24 pb-20">
+        {/* Radial glow behind hero */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background: "radial-gradient(ellipse 80% 50% at 50% 20%, rgba(215,242,90,0.06) 0%, rgba(215,242,90,0.02) 40%, transparent 70%)",
+          }}
+        />
         {/* Hero Content - Centered */}
         <div className="relative z-10 px-6 max-w-5xl mx-auto text-center mb-16 md:mb-20">
           <h2
-            className="text-5xl md:text-6xl font-bold text-[var(--garden-paper)] leading-tight mb-5"
-            style={{ fontFamily: "var(--garden-font-display)" }}
+            className="text-6xl md:text-8xl lg:text-9xl uppercase text-[var(--garden-paper)] leading-[0.9] tracking-tight mb-6"
+            style={{ fontFamily: "var(--garden-font-hero)" }}
           >
             Create{" "}
             <span className="text-[var(--garden-citron)]">together.</span>
           </h2>
-          <p className="mt-5 text-lg md:text-xl text-[var(--garden-body)] max-w-2xl mx-auto mb-6">
+          <p className="text-lg md:text-xl text-[var(--garden-body)] max-w-2xl mx-auto mb-6">
             Creatives, patrons, hosts, churches and venues, in one place. Every
             project shows who made it and who backed it.
           </p>
@@ -407,10 +414,13 @@ export default function Home() {
       </main>
 
       {/* The passage — sets the tone before the personas */}
-      <section className="py-16 bg-[var(--garden-ink)]">
+      <section className="py-20 bg-[var(--garden-ink-raised)]">
         <Reveal className="px-6 max-w-6xl mx-auto">
           <div className="max-w-3xl text-[var(--garden-body)] text-lg md:text-xl leading-relaxed flex flex-col gap-5">
-            <p className="text-[var(--garden-paper)]">Nothing here gets made alone.</p>
+            <p
+              className="text-[var(--garden-paper)] text-2xl md:text-3xl leading-tight"
+              style={{ fontFamily: "var(--garden-font-hero)" }}
+            >Nothing here gets made alone.</p>
             <p>
               A creative posts the work. A patron backs it. A partner opens
               their doors. A host runs the table where it all started. When
@@ -425,8 +435,11 @@ export default function Home() {
       </section>
 
       {/* Who it's for — alternating image/text rows per persona */}
-      <section className="py-16 max-w-6xl mx-auto px-6">
-        <h2 className="text-3xl font-bold text-[var(--garden-paper)] mb-3">
+      <section className="py-20 max-w-6xl mx-auto px-6">
+        <h2
+          className="text-4xl md:text-5xl uppercase text-[var(--garden-paper)] mb-3 tracking-tight"
+          style={{ fontFamily: "var(--garden-font-hero)" }}
+        >
           Who it's for
         </h2>
         <p className="text-[var(--garden-body)] mb-14 max-w-2xl">
@@ -450,7 +463,7 @@ export default function Home() {
               </p>
               <h3
                 className="text-2xl md:text-3xl font-bold text-[var(--garden-paper)] leading-tight mb-4"
-                style={{ fontFamily: "var(--garden-font-display)" }}
+                style={{ fontFamily: "var(--garden-font-hero)" }}
               >
                 Show your work. Find your people. Get paid.
               </h3>
@@ -493,7 +506,7 @@ export default function Home() {
               </p>
               <h3
                 className="text-2xl md:text-3xl font-bold text-[var(--garden-paper)] leading-tight mb-4"
-                style={{ fontFamily: "var(--garden-font-display)" }}
+                style={{ fontFamily: "var(--garden-font-hero)" }}
               >
                 Back someone you believe in.
               </h3>
@@ -536,7 +549,7 @@ export default function Home() {
               </p>
               <h3
                 className="text-2xl md:text-3xl font-bold text-[var(--garden-paper)] leading-tight mb-4"
-                style={{ fontFamily: "var(--garden-font-display)" }}
+                style={{ fontFamily: "var(--garden-font-hero)" }}
               >
                 Bring your community. Earn from what you teach.
               </h3>
@@ -579,7 +592,7 @@ export default function Home() {
               </p>
               <h3
                 className="text-2xl md:text-3xl font-bold text-[var(--garden-paper)] leading-tight mb-4"
-                style={{ fontFamily: "var(--garden-font-display)" }}
+                style={{ fontFamily: "var(--garden-font-hero)" }}
               >
                 Open your doors. Your name goes on it.
               </h3>
@@ -634,7 +647,7 @@ export default function Home() {
                 <figcaption className="px-4 pt-4 pb-6">
                   <p
                     className="text-[var(--garden-paper)] text-lg md:text-xl leading-tight mb-1"
-                    style={{ fontFamily: "var(--garden-font-display)", fontWeight: 500 }}
+                    style={{ fontFamily: "var(--garden-font-hero)" }}
                   >
                     {"“"}{CAMPAIGN_QUOTES[key].said}{"”"}
                   </p>

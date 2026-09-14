@@ -30,6 +30,7 @@
   --garden-citron: #d7f25a;
 
   /* Type */
+  --garden-font-hero: "Archivo Black", "Archivo", sans-serif;
   --garden-font-display: "Bricolage Grotesque", sans-serif;
   --garden-font-body: "Archivo", -apple-system, sans-serif;
   --garden-font-mono: "JetBrains Mono", monospace;
