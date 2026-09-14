@@ -11,6 +11,23 @@ type JobType = "Full-time" | "Part-time" | "Contract" | "Freelance";
 type VisibilityType = "Private" | "Members";
 type ExperienceLevelType = "Entry" | "Mid" | "Senior" | "Any";
 
+function inputStyle() {
+  return {
+    borderColor: "var(--app-hairline)",
+    backgroundColor: "var(--app-surface-raised)",
+    color: "var(--app-text)",
+    boxShadow: "0 0 0 0 transparent",
+  };
+}
+
+function onInputFocus(e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) {
+  e.currentTarget.style.boxShadow = "0 0 0 2px var(--app-accent)";
+}
+
+function onInputBlur(e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) {
+  e.currentTarget.style.boxShadow = "0 0 0 0 transparent";
+}
+
 export default function JobsNew() {
   const enabled = useFeatureGate(FF_JOBS, "/projects");
   const navigate = useNavigate();
@@ -145,10 +162,13 @@ export default function JobsNew() {
   if (!enabled) return null;
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+    <div className="min-h-screen" style={{ backgroundColor: "var(--app-surface)" }}>
       <div className="max-w-3xl mx-auto px-4 py-8">
-        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 p-6">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
+        <div
+          className="rounded-2xl shadow-sm border p-6"
+          style={{ backgroundColor: "var(--app-surface-raised)", borderColor: "var(--app-hairline)" }}
+        >
+          <h1 className="text-2xl font-bold mb-6" style={{ color: "var(--app-text)" }}>
             Post a Project
           </h1>
 
@@ -161,7 +181,7 @@ export default function JobsNew() {
 
             {/* Title */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className="block text-sm font-medium mb-1" style={{ color: "var(--app-text-muted)" }}>
                 Project Title <span className="text-red-500">*</span>
               </label>
               <input
@@ -170,16 +190,19 @@ export default function JobsNew() {
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="e.g., Senior Designer"
                 maxLength={100}
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
+                className="w-full px-4 py-2 rounded-lg border outline-none transition-shadow"
+                style={inputStyle()}
+                onFocus={onInputFocus}
+                onBlur={onInputBlur}
               />
-              <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              <div className="text-xs mt-1" style={{ color: "var(--app-text-dim)" }}>
                 {title.length}/100 characters
               </div>
             </div>
 
             {/* Description */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className="block text-sm font-medium mb-1" style={{ color: "var(--app-text-muted)" }}>
                 Project Description <span className="text-red-500">*</span>
               </label>
               <textarea
@@ -188,22 +211,28 @@ export default function JobsNew() {
                 placeholder="Describe the role, responsibilities, requirements, and what makes this opportunity unique..."
                 rows={8}
                 maxLength={5000}
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white resize-none"
+                className="w-full px-4 py-2 rounded-lg border outline-none transition-shadow resize-none"
+                style={inputStyle()}
+                onFocus={onInputFocus}
+                onBlur={onInputBlur}
               />
-              <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              <div className="text-xs mt-1" style={{ color: "var(--app-text-dim)" }}>
                 {description.length}/5000 characters
               </div>
             </div>
 
             {/* Location */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className="block text-sm font-medium mb-1" style={{ color: "var(--app-text-muted)" }}>
                 Location Type <span className="text-red-500">*</span>
               </label>
               <select
                 value={location}
                 onChange={(e) => setLocation(e.target.value as LocationType)}
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
+                className="w-full px-4 py-2 rounded-lg border outline-none transition-shadow"
+                style={inputStyle()}
+                onFocus={onInputFocus}
+                onBlur={onInputBlur}
               >
                 <option value="Remote">Remote</option>
                 <option value="Hybrid">Hybrid</option>
@@ -213,10 +242,10 @@ export default function JobsNew() {
 
             {/* Conditional location fields */}
             {location !== "Remote" && (
-              <div className="space-y-4 pl-4 border-l-2 border-gray-200 dark:border-gray-700">
+              <div className="space-y-4 pl-4 border-l-2" style={{ borderColor: "var(--app-hairline)" }}>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <label className="block text-sm font-medium mb-1" style={{ color: "var(--app-text-muted)" }}>
                       City <span className="text-red-500">*</span>
                     </label>
                     <input
@@ -224,11 +253,14 @@ export default function JobsNew() {
                       value={city}
                       onChange={(e) => setCity(e.target.value)}
                       placeholder="e.g., San Francisco"
-                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
+                      className="w-full px-4 py-2 rounded-lg border outline-none transition-shadow"
+                      style={inputStyle()}
+                      onFocus={onInputFocus}
+                      onBlur={onInputBlur}
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <label className="block text-sm font-medium mb-1" style={{ color: "var(--app-text-muted)" }}>
                       State/Province
                     </label>
                     <input
@@ -236,13 +268,16 @@ export default function JobsNew() {
                       value={state}
                       onChange={(e) => setState(e.target.value)}
                       placeholder="e.g., California"
-                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
+                      className="w-full px-4 py-2 rounded-lg border outline-none transition-shadow"
+                      style={inputStyle()}
+                      onFocus={onInputFocus}
+                      onBlur={onInputBlur}
                     />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <label className="block text-sm font-medium mb-1" style={{ color: "var(--app-text-muted)" }}>
                       Country <span className="text-red-500">*</span>
                     </label>
                     <input
@@ -250,11 +285,14 @@ export default function JobsNew() {
                       value={country}
                       onChange={(e) => setCountry(e.target.value)}
                       placeholder="e.g., United States"
-                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
+                      className="w-full px-4 py-2 rounded-lg border outline-none transition-shadow"
+                      style={inputStyle()}
+                      onFocus={onInputFocus}
+                      onBlur={onInputBlur}
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <label className="block text-sm font-medium mb-1" style={{ color: "var(--app-text-muted)" }}>
                       Zip/Postal Code
                     </label>
                     <input
@@ -262,7 +300,10 @@ export default function JobsNew() {
                       value={zipCode}
                       onChange={(e) => setZipCode(e.target.value)}
                       placeholder="e.g., 94103"
-                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
+                      className="w-full px-4 py-2 rounded-lg border outline-none transition-shadow"
+                      style={inputStyle()}
+                      onFocus={onInputFocus}
+                      onBlur={onInputBlur}
                     />
                   </div>
                 </div>
@@ -271,13 +312,16 @@ export default function JobsNew() {
 
             {/* Job Type */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className="block text-sm font-medium mb-1" style={{ color: "var(--app-text-muted)" }}>
                 Project Type <span className="text-red-500">*</span>
               </label>
               <select
                 value={jobType}
                 onChange={(e) => setJobType(e.target.value as JobType)}
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
+                className="w-full px-4 py-2 rounded-lg border outline-none transition-shadow"
+                style={inputStyle()}
+                onFocus={onInputFocus}
+                onBlur={onInputBlur}
               >
                 <option value="Full-time">Full-time</option>
                 <option value="Part-time">Part-time</option>
@@ -288,11 +332,14 @@ export default function JobsNew() {
 
             {/* Visibility */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label className="block text-sm font-medium mb-2" style={{ color: "var(--app-text-muted)" }}>
                 Visibility <span className="text-red-500">*</span>
               </label>
               <div className="space-y-3">
-                <label className="flex items-start gap-3 p-3 border border-gray-300 dark:border-gray-700 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                <label
+                  className="flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors hover:bg-[var(--app-hairline-raised)]"
+                  style={{ borderColor: "var(--app-hairline)" }}
+                >
                   <input
                     type="radio"
                     name="visibility"
@@ -304,16 +351,19 @@ export default function JobsNew() {
                     className="mt-0.5"
                   />
                   <div>
-                    <div className="font-medium text-gray-900 dark:text-white">
+                    <div className="font-medium" style={{ color: "var(--app-text)" }}>
                       Members Only
                     </div>
-                    <div className="text-sm text-gray-600 dark:text-gray-400">
+                    <div className="text-sm" style={{ color: "var(--app-text-dim)" }}>
                       Visible to all logged-in members. Members can express
                       interest.
                     </div>
                   </div>
                 </label>
-                <label className="flex items-start gap-3 p-3 border border-gray-300 dark:border-gray-700 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                <label
+                  className="flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors hover:bg-[var(--app-hairline-raised)]"
+                  style={{ borderColor: "var(--app-hairline)" }}
+                >
                   <input
                     type="radio"
                     name="visibility"
@@ -325,10 +375,10 @@ export default function JobsNew() {
                     className="mt-0.5"
                   />
                   <div>
-                    <div className="font-medium text-gray-900 dark:text-white">
+                    <div className="font-medium" style={{ color: "var(--app-text)" }}>
                       Private
                     </div>
-                    <div className="text-sm text-gray-600 dark:text-gray-400">
+                    <div className="text-sm" style={{ color: "var(--app-text-dim)" }}>
                       Only visible to you. Use this for drafts or private
                       listings.
                     </div>
@@ -339,7 +389,7 @@ export default function JobsNew() {
 
             {/* Hiring Organization */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className="block text-sm font-medium mb-1" style={{ color: "var(--app-text-muted)" }}>
                 Hiring Organization
               </label>
               <input
@@ -348,9 +398,12 @@ export default function JobsNew() {
                 onChange={(e) => setHiringOrg(e.target.value)}
                 placeholder="e.g., Acme Inc."
                 maxLength={100}
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
+                className="w-full px-4 py-2 rounded-lg border outline-none transition-shadow"
+                style={inputStyle()}
+                onFocus={onInputFocus}
+                onBlur={onInputBlur}
               />
-              <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              <div className="text-xs mt-1" style={{ color: "var(--app-text-dim)" }}>
                 {hiringOrg.length}/100 characters
               </div>
               <label className="flex items-center gap-2 mt-2">
@@ -358,9 +411,9 @@ export default function JobsNew() {
                   type="checkbox"
                   checked={postAnonymously}
                   onChange={(e) => setPostAnonymously(e.target.checked)}
-                  className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                  className="w-4 h-4 rounded"
                 />
-                <span className="text-sm text-gray-700 dark:text-gray-300">
+                <span className="text-sm" style={{ color: "var(--app-text-muted)" }}>
                   Post anonymously (hides organization name)
                 </span>
               </label>
@@ -368,7 +421,7 @@ export default function JobsNew() {
 
             {/* Compensation Range */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className="block text-sm font-medium mb-1" style={{ color: "var(--app-text-muted)" }}>
                 Compensation Range
               </label>
               <input
@@ -376,13 +429,16 @@ export default function JobsNew() {
                 value={compensationRange}
                 onChange={(e) => setCompensationRange(e.target.value)}
                 placeholder="e.g., $50k-$70k or $30/hr"
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
+                className="w-full px-4 py-2 rounded-lg border outline-none transition-shadow"
+                style={inputStyle()}
+                onFocus={onInputFocus}
+                onBlur={onInputBlur}
               />
             </div>
 
             {/* External Link */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className="block text-sm font-medium mb-1" style={{ color: "var(--app-text-muted)" }}>
                 External Link
               </label>
               <input
@@ -390,39 +446,48 @@ export default function JobsNew() {
                 value={externalLink}
                 onChange={(e) => setExternalLink(e.target.value)}
                 placeholder="https://example.com/apply"
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
+                className="w-full px-4 py-2 rounded-lg border outline-none transition-shadow"
+                style={inputStyle()}
+                onFocus={onInputFocus}
+                onBlur={onInputBlur}
               />
-              <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              <div className="text-xs mt-1" style={{ color: "var(--app-text-dim)" }}>
                 Link to external project posting or application form
               </div>
             </div>
 
             {/* Disciplines */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label className="block text-sm font-medium mb-2" style={{ color: "var(--app-text-muted)" }}>
                 Disciplines
               </label>
               <div className="flex flex-wrap gap-2">
-                {INTERESTS.map((discipline) => (
-                  <button
-                    key={discipline}
-                    type="button"
-                    onClick={() => toggleDiscipline(discipline)}
-                    className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                      disciplines.includes(discipline)
-                        ? "bg-blue-600 text-white"
-                        : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"
-                    }`}
-                  >
-                    {discipline}
-                  </button>
-                ))}
+                {INTERESTS.map((discipline) => {
+                  const active = disciplines.includes(discipline);
+                  return (
+                    <button
+                      key={discipline}
+                      type="button"
+                      onClick={() => toggleDiscipline(discipline)}
+                      className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                        active ? "" : "hover:bg-[var(--app-hairline-raised)]"
+                      }`}
+                      style={
+                        active
+                          ? { backgroundColor: "var(--app-accent)", color: "var(--garden-ink)" }
+                          : { backgroundColor: "var(--app-hairline)", color: "var(--app-text-muted)" }
+                      }
+                    >
+                      {discipline}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
             {/* Experience Level */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className="block text-sm font-medium mb-1" style={{ color: "var(--app-text-muted)" }}>
                 Experience Level
               </label>
               <select
@@ -430,7 +495,10 @@ export default function JobsNew() {
                 onChange={(e) =>
                   setExperienceLevel(e.target.value as ExperienceLevelType | "")
                 }
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
+                className="w-full px-4 py-2 rounded-lg border outline-none transition-shadow"
+                style={inputStyle()}
+                onFocus={onInputFocus}
+                onBlur={onInputBlur}
               >
                 <option value="">Not specified</option>
                 <option value="Entry">Entry Level</option>
@@ -441,18 +509,20 @@ export default function JobsNew() {
             </div>
 
             {/* Form Actions */}
-            <div className="flex gap-3 pt-4 border-t border-gray-200 dark:border-gray-800">
+            <div className="flex gap-3 pt-4 border-t" style={{ borderColor: "var(--app-hairline)" }}>
               <button
                 type="button"
                 onClick={() => navigate("/jobs")}
-                className="flex-1 py-2.5 px-4 border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                className="flex-1 py-2.5 px-4 rounded-lg border font-medium transition-colors hover:bg-[var(--app-hairline-raised)]"
+                style={{ borderColor: "var(--app-hairline)", color: "var(--app-text-muted)" }}
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={saving}
-                className="flex-1 py-2.5 px-4 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="flex-1 py-2.5 px-4 rounded-lg font-medium transition-opacity hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{ backgroundColor: "var(--app-accent)", color: "var(--garden-ink)" }}
               >
                 {saving ? "Posting..." : "Post Project"}
               </button>

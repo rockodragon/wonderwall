@@ -134,17 +134,18 @@ export default function JobsIndex() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+          <h1 className="text-3xl font-bold" style={{ color: "var(--app-text)" }}>
             Projects
           </h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">
+          <p className="mt-1" style={{ color: "var(--app-text-dim)" }}>
             Discover opportunities in the creative community
           </p>
         </div>
         <div className="flex items-center gap-2">
           <Link
             to="/organizations"
-            className="px-4 py-2 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 rounded-xl text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex items-center gap-2"
+            className="px-4 py-2 rounded-xl text-sm font-medium border transition-colors hover:bg-[var(--app-hairline-raised)] flex items-center gap-2"
+            style={{ borderColor: "var(--app-hairline)", color: "var(--app-text-muted)" }}
           >
             <svg
               className="w-4 h-4"
@@ -163,7 +164,8 @@ export default function JobsIndex() {
           </Link>
           <Link
             to="/jobs/new"
-            className="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 transition-colors"
+            className="px-4 py-2 rounded-xl text-sm font-medium transition-opacity hover:opacity-90"
+            style={{ backgroundColor: "var(--app-accent)", color: "var(--garden-ink)" }}
           >
             + Post a Project
           </Link>
@@ -172,9 +174,12 @@ export default function JobsIndex() {
 
       {/* Search */}
       <div className="relative mb-4">
-        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+        <div
+          className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"
+          style={{ color: "var(--app-text-dim)" }}
+        >
           <svg
-            className="w-5 h-5 text-gray-400"
+            className="w-5 h-5"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -192,7 +197,19 @@ export default function JobsIndex() {
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder="Search projects by title, description, or organization..."
-          className="w-full pl-12 pr-4 py-3 border border-gray-300 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
+          className="w-full pl-12 pr-4 py-3 rounded-xl border outline-none transition-shadow"
+          style={{
+            borderColor: "var(--app-hairline)",
+            backgroundColor: "var(--app-surface-raised)",
+            color: "var(--app-text)",
+            boxShadow: "0 0 0 0 transparent",
+          }}
+          onFocus={(e) => {
+            e.currentTarget.style.boxShadow = "0 0 0 2px var(--app-accent)";
+          }}
+          onBlur={(e) => {
+            e.currentTarget.style.boxShadow = "0 0 0 0 transparent";
+          }}
         />
       </div>
 
@@ -203,10 +220,13 @@ export default function JobsIndex() {
             key={tab.id}
             onClick={() => handleTabChange(tab.id)}
             className={`px-3 md:px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
-              activeTab === tab.id
-                ? "bg-blue-600 text-white"
-                : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"
+              activeTab === tab.id ? "" : "hover:bg-[var(--app-hairline-raised)]"
             }`}
+            style={
+              activeTab === tab.id
+                ? { backgroundColor: "var(--app-accent)", color: "var(--garden-ink)" }
+                : { backgroundColor: "var(--app-hairline)", color: "var(--app-text-muted)" }
+            }
           >
             <span className="md:hidden">{tab.shortLabel}</span>
             <span className="hidden md:inline">{tab.label}</span>
@@ -217,10 +237,13 @@ export default function JobsIndex() {
         <button
           onClick={() => setShowFilters(!showFilters)}
           className={`ml-auto flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-            hasActiveFilters
-              ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400"
-              : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"
+            hasActiveFilters ? "" : "hover:bg-[var(--app-hairline-raised)]"
           }`}
+          style={
+            hasActiveFilters
+              ? { backgroundColor: "var(--app-accent-wash)", color: "var(--app-accent-ink)" }
+              : { backgroundColor: "var(--app-hairline)", color: "var(--app-text-muted)" }
+          }
         >
           <svg
             className="w-4 h-4"
@@ -237,7 +260,7 @@ export default function JobsIndex() {
           </svg>
           Filter
           {hasActiveFilters && (
-            <span className="w-2 h-2 bg-blue-600 rounded-full" />
+            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: "var(--app-accent-ink)" }} />
           )}
           <svg
             className={`w-4 h-4 transition-transform ${showFilters ? "rotate-180" : ""}`}
@@ -257,13 +280,16 @@ export default function JobsIndex() {
 
       {/* Collapsible Filters */}
       {showFilters && (
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 mb-6 border border-gray-200 dark:border-gray-700 animate-in slide-in-from-top-2 duration-200">
+        <div
+          className="rounded-2xl p-6 mb-6 border animate-in slide-in-from-top-2 duration-200"
+          style={{ backgroundColor: "var(--app-surface-raised)", borderColor: "var(--app-hairline)" }}
+        >
           <div className="space-y-4">
             {/* Status and Location Dropdowns */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Status Filter */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <label className="block text-sm font-medium mb-2" style={{ color: "var(--app-text-muted)" }}>
                   Status
                 </label>
                 <select
@@ -271,7 +297,19 @@ export default function JobsIndex() {
                   onChange={(e) =>
                     setStatusFilter(e.target.value as StatusFilter)
                   }
-                  className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-xl text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-4 py-2 rounded-xl border outline-none transition-shadow"
+                  style={{
+                    backgroundColor: "var(--app-surface)",
+                    borderColor: "var(--app-hairline)",
+                    color: "var(--app-text)",
+                    boxShadow: "0 0 0 0 transparent",
+                  }}
+                  onFocus={(e) => {
+                    e.currentTarget.style.boxShadow = "0 0 0 2px var(--app-accent)";
+                  }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.boxShadow = "0 0 0 0 transparent";
+                  }}
                 >
                   <option value="All">All</option>
                   <option value="Open">Open Only</option>
@@ -281,7 +319,7 @@ export default function JobsIndex() {
 
               {/* Location Filter */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <label className="block text-sm font-medium mb-2" style={{ color: "var(--app-text-muted)" }}>
                   Location
                 </label>
                 <select
@@ -289,7 +327,19 @@ export default function JobsIndex() {
                   onChange={(e) =>
                     setLocationFilter(e.target.value as LocationFilter)
                   }
-                  className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-xl text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-4 py-2 rounded-xl border outline-none transition-shadow"
+                  style={{
+                    backgroundColor: "var(--app-surface)",
+                    borderColor: "var(--app-hairline)",
+                    color: "var(--app-text)",
+                    boxShadow: "0 0 0 0 transparent",
+                  }}
+                  onFocus={(e) => {
+                    e.currentTarget.style.boxShadow = "0 0 0 2px var(--app-accent)";
+                  }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.boxShadow = "0 0 0 0 transparent";
+                  }}
                 >
                   <option value="All">All</option>
                   <option value="Remote">Remote</option>
@@ -301,23 +351,29 @@ export default function JobsIndex() {
 
             {/* Disciplines Multi-Select */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label className="block text-sm font-medium mb-2" style={{ color: "var(--app-text-muted)" }}>
                 Disciplines
               </label>
               <div className="flex flex-wrap gap-2">
-                {INTERESTS.map((discipline) => (
-                  <button
-                    key={discipline}
-                    onClick={() => toggleDiscipline(discipline)}
-                    className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                      disciplinesFilter.includes(discipline)
-                        ? "bg-blue-600 text-white"
-                        : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
-                    }`}
-                  >
-                    {discipline}
-                  </button>
-                ))}
+                {INTERESTS.map((discipline) => {
+                  const active = disciplinesFilter.includes(discipline);
+                  return (
+                    <button
+                      key={discipline}
+                      onClick={() => toggleDiscipline(discipline)}
+                      className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                        active ? "" : "hover:bg-[var(--app-hairline-raised)]"
+                      }`}
+                      style={
+                        active
+                          ? { backgroundColor: "var(--app-accent)", color: "var(--garden-ink)" }
+                          : { backgroundColor: "var(--app-hairline)", color: "var(--app-text-muted)" }
+                      }
+                    >
+                      {discipline}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
@@ -329,7 +385,8 @@ export default function JobsIndex() {
                   setLocationFilter("All");
                   setDisciplinesFilter([]);
                 }}
-                className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                className="text-sm hover:underline"
+                style={{ color: "var(--app-accent-ink)" }}
               >
                 Clear all filters
               </button>
@@ -341,11 +398,14 @@ export default function JobsIndex() {
       {/* Loading State */}
       {filteredJobs === undefined ? (
         <div className="flex items-center justify-center py-16">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+          <div
+            className="animate-spin rounded-full h-8 w-8 border-b-2"
+            style={{ borderColor: "var(--app-accent)" }}
+          />
         </div>
       ) : filteredJobs.length === 0 ? (
         /* Empty State */
-        <div className="text-center py-16 text-gray-400 dark:text-gray-500">
+        <div className="text-center py-16" style={{ color: "var(--app-text-dim)" }}>
           <svg
             className="w-16 h-16 mx-auto mb-4 opacity-50"
             fill="none"
@@ -383,10 +443,14 @@ export default function JobsIndex() {
               <Link
                 key={job._id}
                 to={`/jobs/${job._id}`}
-                className="group flex flex-col bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 hover:border-blue-500 dark:hover:border-blue-500 transition-all hover:shadow-lg"
+                className="group flex flex-col rounded-2xl p-5 border transition-all hover:shadow-lg hover:border-[var(--app-accent)]"
+                style={{ backgroundColor: "var(--app-surface-raised)", borderColor: "var(--app-hairline)" }}
               >
                 {/* Job Title */}
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1 line-clamp-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                <h3
+                  className="text-lg font-bold mb-1 line-clamp-2 transition-colors group-hover:text-[var(--app-accent-ink)]"
+                  style={{ color: "var(--app-text)" }}
+                >
                   {job.title}
                 </h3>
 
@@ -402,7 +466,7 @@ export default function JobsIndex() {
                       </span>
                     ))}
                     {job.disciplines.length > 2 && (
-                      <span className="px-2 py-0.5 text-gray-500 dark:text-gray-400 text-xs">
+                      <span className="px-2 py-0.5 text-xs" style={{ color: "var(--app-text-dim)" }}>
                         +{job.disciplines.length - 2}
                       </span>
                     )}
@@ -410,7 +474,7 @@ export default function JobsIndex() {
                 )}
 
                 {/* Description Preview */}
-                <p className="text-sm text-gray-500 dark:text-gray-400 mb-3 line-clamp-2">
+                <p className="text-sm mb-3 line-clamp-2" style={{ color: "var(--app-text-dim)" }}>
                   {descriptionPreview}
                 </p>
 
@@ -421,24 +485,34 @@ export default function JobsIndex() {
                     className={`inline-flex items-center gap-1 px-2 py-0.5 border rounded-full text-xs font-medium ${
                       job.status === "Open"
                         ? "border-green-300 dark:border-green-700 text-green-600 dark:text-green-400"
-                        : "border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400"
+                        : ""
                     }`}
+                    style={
+                      job.status !== "Open"
+                        ? { borderColor: "var(--app-hairline-raised)", color: "var(--app-text-dim)" }
+                        : undefined
+                    }
                   >
                     <span
-                      className={`w-1.5 h-1.5 rounded-full ${
-                        job.status === "Open" ? "bg-green-500" : "bg-gray-400"
-                      }`}
+                      className={`w-1.5 h-1.5 rounded-full ${job.status === "Open" ? "bg-green-500" : ""}`}
+                      style={job.status !== "Open" ? { backgroundColor: "var(--app-text-dim)" } : undefined}
                     />
                     {job.status}
                   </span>
 
                   {/* Location Badge */}
-                  <span className="px-2 py-0.5 border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 rounded-full text-xs font-medium">
+                  <span
+                    className="px-2 py-0.5 border rounded-full text-xs font-medium"
+                    style={{ borderColor: "var(--app-hairline-raised)", color: "var(--app-text-muted)" }}
+                  >
                     {job.location}
                   </span>
 
                   {/* Job Type Badge */}
-                  <span className="px-2 py-0.5 border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 rounded-full text-xs font-medium">
+                  <span
+                    className="px-2 py-0.5 border rounded-full text-xs font-medium"
+                    style={{ borderColor: "var(--app-hairline-raised)", color: "var(--app-text-muted)" }}
+                  >
                     {job.jobType}
                   </span>
 
@@ -458,7 +532,10 @@ export default function JobsIndex() {
                 </div>
 
                 {/* Footer - Poster and Date */}
-                <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-100 dark:border-gray-700">
+                <div
+                  className="flex items-center justify-between mt-4 pt-3 border-t"
+                  style={{ borderColor: "var(--app-hairline)" }}
+                >
                   {job.poster && (
                     <div className="flex items-center gap-2 min-w-0">
                       {job.poster.imageUrl ? (
@@ -468,16 +545,19 @@ export default function JobsIndex() {
                           className="w-5 h-5 rounded-full object-cover flex-shrink-0"
                         />
                       ) : (
-                        <div className="w-5 h-5 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center text-white text-xs flex-shrink-0">
+                        <div
+                          className="w-5 h-5 rounded-full flex items-center justify-center text-xs flex-shrink-0"
+                          style={{ backgroundColor: "var(--app-hairline-raised)", color: "var(--app-text)" }}
+                        >
                           {job.poster.name[0]?.toUpperCase() || "?"}
                         </div>
                       )}
-                      <span className="text-xs text-gray-600 dark:text-gray-400 truncate">
+                      <span className="text-xs truncate" style={{ color: "var(--app-text-muted)" }}>
                         {job.poster.name}
                       </span>
                     </div>
                   )}
-                  <span className="text-xs text-gray-400 dark:text-gray-500 flex-shrink-0">
+                  <span className="text-xs flex-shrink-0" style={{ color: "var(--app-text-dim)" }}>
                     {getRelativeTime(job.createdAt)}
                   </span>
                 </div>
