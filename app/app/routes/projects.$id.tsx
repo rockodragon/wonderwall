@@ -1501,9 +1501,11 @@ function AddSomeone({ projectId }: { projectId: string }) {
   const [query, setQuery] = useState("");
   const [invitingUserId, setInvitingUserId] = useState<string | null>(null);
   const [roleDraft, setRoleDraft] = useState("");
+  const [selectedRoleId, setSelectedRoleId] = useState(""); // "" = custom/free-text role
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [creditRole, setCreditRole] = useState("");
+  const [creditRoleId, setCreditRoleId] = useState(""); // "" = custom/free-text role
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -1511,10 +1513,17 @@ function AddSomeone({ projectId }: { projectId: string }) {
     api.garden.projectTeam.searchPeopleForInvite,
     query.trim().length >= 2 ? { q: query.trim() } : "skip",
   );
+  // Open postings this project's already declared (RolesSection above) —
+  // offered here as a picker so inviting/crediting someone can fill one
+  // directly instead of only ever re-typing the same title as free text.
+  const roles = useQuery(api.garden.projectTeam.listRoles, { projectId: projectId as Id<"projects"> });
+  const openRoles = (roles ?? []).filter((r: any) => r.status === "open");
   const inviteMember = useMutation(api.garden.projectTeam.inviteMember);
 
   async function sendPersonInvite(userId: string) {
-    if (!roleDraft.trim()) {
+    const picked = openRoles.find((r: any) => r.roleId === selectedRoleId);
+    const role = picked ? picked.title : roleDraft.trim();
+    if (!role) {
       setError("Say what role you're inviting them for.");
       return;
     }
@@ -1524,10 +1533,12 @@ function AddSomeone({ projectId }: { projectId: string }) {
       await inviteMember({
         projectId: projectId as Id<"projects">,
         userId: userId as Id<"users">,
-        role: roleDraft.trim(),
+        role,
+        roleId: picked ? (picked.roleId as Id<"projectRoles">) : undefined,
       });
       setInvitingUserId(null);
       setRoleDraft("");
+      setSelectedRoleId("");
       setQuery("");
     } catch (err) {
       setError(errorMessage(err));
@@ -1543,7 +1554,9 @@ function AddSomeone({ projectId }: { projectId: string }) {
       setError("Add their name.");
       return;
     }
-    if (!creditRole.trim()) {
+    const picked = openRoles.find((r: any) => r.roleId === creditRoleId);
+    const role = picked ? picked.title : creditRole.trim();
+    if (!role) {
       setError("Say what role they had.");
       return;
     }
@@ -1553,11 +1566,13 @@ function AddSomeone({ projectId }: { projectId: string }) {
         projectId: projectId as Id<"projects">,
         name: name.trim(),
         email: email.trim() || undefined,
-        role: creditRole.trim(),
+        role,
+        roleId: picked ? (picked.roleId as Id<"projectRoles">) : undefined,
       });
       setName("");
       setEmail("");
       setCreditRole("");
+      setCreditRoleId("");
     } catch (err) {
       setError(errorMessage(err));
     } finally {
@@ -1590,22 +1605,55 @@ function AddSomeone({ projectId }: { projectId: string }) {
           {results && results.length > 0 && (
             <div className="flex flex-col gap-2 mt-2">
               {results.map((p: any) => (
-                <div key={p.profileId} className="flex items-center gap-2 text-sm">
-                  <Avatar name={p.name} imageUrl={p.imageUrl} />
-                  <span className="flex-1 min-w-0 truncate" style={{ color: "var(--garden-paper)" }}>
-                    {p.name}
-                  </span>
-                  {invitingUserId === p.userId ? (
-                    <>
-                      <input
-                        type="text"
-                        value={roleDraft}
-                        onChange={(e) => setRoleDraft(e.target.value.slice(0, 60))}
-                        placeholder="Role"
-                        maxLength={60}
-                        className="w-24 px-2 py-1 rounded-lg border text-xs outline-none"
-                        style={inputStyle}
-                      />
+                <div key={p.profileId} className="flex flex-col gap-1.5 text-sm">
+                  <div className="flex items-center gap-2">
+                    <Avatar name={p.name} imageUrl={p.imageUrl} />
+                    <span className="flex-1 min-w-0 truncate" style={{ color: "var(--garden-paper)" }}>
+                      {p.name}
+                    </span>
+                    {invitingUserId !== p.userId && (
+                      <button
+                        onClick={() => {
+                          setInvitingUserId(p.userId);
+                          setRoleDraft("");
+                          setSelectedRoleId("");
+                          setError("");
+                        }}
+                        className="text-xs underline underline-offset-2 hover:opacity-80 whitespace-nowrap"
+                        style={{ color: "var(--garden-citron)" }}
+                      >
+                        Invite
+                      </button>
+                    )}
+                  </div>
+                  {invitingUserId === p.userId && (
+                    <div className="flex items-center gap-2 pl-7">
+                      {openRoles.length > 0 && (
+                        <select
+                          value={selectedRoleId}
+                          onChange={(e) => setSelectedRoleId(e.target.value)}
+                          className="px-2 py-1 rounded-lg border text-xs outline-none"
+                          style={inputStyle}
+                        >
+                          <option value="">Custom role…</option>
+                          {openRoles.map((r: any) => (
+                            <option key={r.roleId} value={r.roleId}>
+                              {r.title}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                      {(openRoles.length === 0 || !selectedRoleId) && (
+                        <input
+                          type="text"
+                          value={roleDraft}
+                          onChange={(e) => setRoleDraft(e.target.value.slice(0, 60))}
+                          placeholder="Role"
+                          maxLength={60}
+                          className="w-24 px-2 py-1 rounded-lg border text-xs outline-none"
+                          style={inputStyle}
+                        />
+                      )}
                       <button
                         disabled={submitting}
                         onClick={() => sendPersonInvite(p.userId)}
@@ -1614,19 +1662,7 @@ function AddSomeone({ projectId }: { projectId: string }) {
                       >
                         Send
                       </button>
-                    </>
-                  ) : (
-                    <button
-                      onClick={() => {
-                        setInvitingUserId(p.userId);
-                        setRoleDraft("");
-                        setError("");
-                      }}
-                      className="text-xs underline underline-offset-2 hover:opacity-80 whitespace-nowrap"
-                      style={{ color: "var(--garden-citron)" }}
-                    >
-                      Invite
-                    </button>
+                    </div>
                   )}
                 </div>
               ))}
@@ -1662,15 +1698,32 @@ function AddSomeone({ projectId }: { projectId: string }) {
             className="w-full px-3 py-2 rounded-lg border text-sm outline-none"
             style={inputStyle}
           />
-          <input
-            type="text"
-            value={creditRole}
-            onChange={(e) => setCreditRole(e.target.value.slice(0, 60))}
-            placeholder="Role"
-            maxLength={60}
-            className="w-full px-3 py-2 rounded-lg border text-sm outline-none"
-            style={inputStyle}
-          />
+          {openRoles.length > 0 && (
+            <select
+              value={creditRoleId}
+              onChange={(e) => setCreditRoleId(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg border text-sm outline-none"
+              style={inputStyle}
+            >
+              <option value="">Custom role…</option>
+              {openRoles.map((r: any) => (
+                <option key={r.roleId} value={r.roleId}>
+                  {r.title}
+                </option>
+              ))}
+            </select>
+          )}
+          {(openRoles.length === 0 || !creditRoleId) && (
+            <input
+              type="text"
+              value={creditRole}
+              onChange={(e) => setCreditRole(e.target.value.slice(0, 60))}
+              placeholder="Role"
+              maxLength={60}
+              className="w-full px-3 py-2 rounded-lg border text-sm outline-none"
+              style={inputStyle}
+            />
+          )}
           <div className="flex gap-2 justify-end">
             <button
               type="button"
