@@ -107,8 +107,14 @@ export default function AppLayout() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+      <div
+        className="min-h-screen flex items-center justify-center"
+        style={{ backgroundColor: "var(--app-surface)" }}
+      >
+        <div
+          className="animate-spin rounded-full h-8 w-8 border-b-2"
+          style={{ borderColor: "var(--app-accent)" }}
+        />
       </div>
     );
   }
@@ -117,15 +123,27 @@ export default function AppLayout() {
     return null;
   }
 
+  // Shared active/inactive treatment for every sidebar/bottom-nav link —
+  // citron wash + accessible accent-ink when active (readable in both
+  // themes, see tokens.css's --app-accent-ink note), muted text otherwise.
+  function navLinkStyle(isActive: boolean) {
+    return isActive
+      ? { backgroundColor: "var(--app-accent-wash)", color: "var(--app-accent-ink)" }
+      : { color: "var(--app-text-muted)" };
+  }
+
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+    <div className="min-h-screen" style={{ backgroundColor: "var(--app-surface)" }}>
       {/* Main content */}
       <main className="pb-20 md:pb-0 md:pl-64">
         <Outlet />
       </main>
 
       {/* Mobile bottom nav - icons only to fit 7 items */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 md:hidden">
+      <nav
+        className="fixed bottom-0 left-0 right-0 z-50 border-t md:hidden"
+        style={{ backgroundColor: "var(--app-surface-raised)", borderColor: "var(--app-hairline)" }}
+      >
         <div className="flex justify-around py-3">
           {navItems.map((item) => {
             const isActive = location.pathname.startsWith(item.path);
@@ -134,18 +152,16 @@ export default function AppLayout() {
               <Link
                 key={item.path}
                 to={item.path}
-                className={`flex items-center justify-center p-2 ${
-                  isActive
-                    ? "text-blue-600 dark:text-blue-400"
-                    : "text-gray-500 dark:text-gray-400"
-                }`}
+                className="flex items-center justify-center p-2"
+                style={{ color: isActive ? "var(--app-accent-ink)" : "var(--app-text-dim)" }}
                 aria-label={item.label}
               >
                 {isProfileItem && profile?.imageUrl ? (
                   <img
                     src={profile.imageUrl}
                     alt={profile.name}
-                    className={`w-6 h-6 rounded-full object-cover ${isActive ? "ring-2 ring-blue-500" : ""}`}
+                    className="w-6 h-6 rounded-full object-cover"
+                    style={isActive ? { boxShadow: "0 0 0 2px var(--app-accent)" } : undefined}
                   />
                 ) : (
                   <item.icon className="w-6 h-6" />
@@ -155,11 +171,12 @@ export default function AppLayout() {
           })}
           <Link
             to="/messages"
-            className={`flex items-center justify-center p-2 ${
-              location.pathname.startsWith("/messages")
-                ? "text-blue-600 dark:text-blue-400"
-                : "text-gray-500 dark:text-gray-400"
-            }`}
+            className="flex items-center justify-center p-2"
+            style={{
+              color: location.pathname.startsWith("/messages")
+                ? "var(--app-accent-ink)"
+                : "var(--app-text-dim)",
+            }}
             aria-label="Messages"
           >
             <div className="relative">
@@ -175,7 +192,10 @@ export default function AppLayout() {
       </nav>
 
       {/* Desktop sidebar */}
-      <aside className="hidden md:flex md:flex-col md:fixed md:inset-y-0 md:w-64 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800">
+      <aside
+        className="hidden md:flex md:flex-col md:fixed md:inset-y-0 md:w-64 border-r"
+        style={{ backgroundColor: "var(--app-surface-raised)", borderColor: "var(--app-hairline)" }}
+      >
         <div className="p-6 space-y-4">
           <Link to="/">
             <Wordmark size="sm" tone="adaptive" />
@@ -190,11 +210,8 @@ export default function AppLayout() {
               <Link
                 key={item.path}
                 to={item.path}
-                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                  isActive
-                    ? "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
-                    : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
-                }`}
+                className="flex items-center gap-3 px-4 py-3 rounded-lg transition-colors hover:bg-[var(--app-hairline)]"
+                style={navLinkStyle(isActive)}
               >
                 <item.icon className="w-5 h-5" />
                 {item.label}
@@ -209,7 +226,10 @@ export default function AppLayout() {
             signed-out visitor on a public path (community-ux.md §6): every
             item here needs an account, so there's nothing useful behind it. */}
         {isAuthenticated && (
-        <nav className="mt-auto px-4 py-3 space-y-1 border-t border-gray-100 dark:border-gray-800">
+        <nav
+          className="mt-auto px-4 py-3 space-y-1 border-t"
+          style={{ borderColor: "var(--app-hairline)" }}
+        >
           {secondaryNavItems.map((item) => {
             const isActive = location.pathname.startsWith(item.path);
             const isProfileItem = item.path === "/settings";
@@ -217,11 +237,8 @@ export default function AppLayout() {
               <Link
                 key={item.path}
                 to={item.path}
-                className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm transition-colors ${
-                  isActive
-                    ? "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
-                    : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-300"
-                }`}
+                className="flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm transition-colors hover:bg-[var(--app-hairline)]"
+                style={navLinkStyle(isActive)}
               >
                 {isProfileItem && profile?.imageUrl ? (
                   <img
@@ -238,11 +255,8 @@ export default function AppLayout() {
           })}
           <Link
             to="/messages"
-            className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm transition-colors ${
-              location.pathname.startsWith("/messages")
-                ? "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
-                : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-300"
-            }`}
+            className="flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm transition-colors hover:bg-[var(--app-hairline)]"
+            style={navLinkStyle(location.pathname.startsWith("/messages"))}
           >
             <div className="relative">
               <EnvelopeIcon className="w-4.5 h-4.5" />
@@ -258,11 +272,8 @@ export default function AppLayout() {
           {profile?.isAdmin && (
             <Link
               to="/admin/crawler"
-              className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm transition-colors ${
-                location.pathname.startsWith("/admin/crawler")
-                  ? "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
-                  : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-300"
-              }`}
+              className="flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm transition-colors hover:bg-[var(--app-hairline)]"
+              style={navLinkStyle(location.pathname.startsWith("/admin/crawler"))}
             >
               <CrawlerIcon className="w-4.5 h-4.5" />
               Crawler
@@ -272,11 +283,8 @@ export default function AppLayout() {
           {profile?.isAdmin && (
             <Link
               to="/admin/waitlist"
-              className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm transition-colors ${
-                location.pathname.startsWith("/admin/waitlist")
-                  ? "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
-                  : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-300"
-              }`}
+              className="flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm transition-colors hover:bg-[var(--app-hairline)]"
+              style={navLinkStyle(location.pathname.startsWith("/admin/waitlist"))}
             >
               <WaitlistIcon className="w-4.5 h-4.5" />
               Waitlist
@@ -290,10 +298,11 @@ export default function AppLayout() {
           <InviteCTA />
         </div>
         ) : isPublicPath ? (
-        <div className="mt-auto px-4 py-4 border-t border-gray-100 dark:border-gray-800">
+        <div className="mt-auto px-4 py-4 border-t" style={{ borderColor: "var(--app-hairline)" }}>
           <Link
             to={`/login?redirect=${encodeURIComponent(location.pathname + location.search)}`}
-            className="flex items-center justify-center px-3 py-2 rounded-lg text-sm font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            className="flex items-center justify-center px-3 py-2 rounded-lg text-sm font-medium transition-colors hover:bg-[var(--app-hairline)]"
+            style={{ color: "var(--app-text-dim)" }}
           >
             Sign in
           </Link>
