@@ -50,14 +50,14 @@ function isPublicPathname(pathname: string): boolean {
 // The items themselves (label/destination/signed-out fallback) come from
 // garden/ui.tsx's NAV_ITEMS — the same list the public GardenNav/SiteHeader
 // build their nav from — so this sidebar and the marketing header can't
-// drift into showing the same label pointed at two different routes again
-// (they had: this file used to send "Spaces" to /tables while garden/ui.tsx
-// sent it to /communities).
+// drift into showing the same label pointed at two different routes again.
+// "Spaces" is /communities (2026-09-14, product decision) — see NAV_ITEMS'
+// own comment for the full history.
 const NAV_ICONS = {
   "/search": SearchIcon,
   "/projects": BriefcaseIcon,
   "/events": CalendarIcon,
-  "/tables": GridIcon,
+  "/communities": GridIcon,
   "/offerings": ClassesIcon,
 } as const;
 const secondaryNavItems = [

@@ -59,9 +59,8 @@ export function GardenWordmark() {
 /** THE shared nav item list — also what _app.tsx's authenticated sidebar
     and mobile bar build their own nav from (see the NAV_ICONS map there),
     so the two can't drift into showing the same label pointed at two
-    different routes the way they used to ("Spaces" here used to say
-    /communities while _app.tsx said /tables — see below for which one is
-    actually right). One list, one set of destinations, everywhere.
+    different routes the way they once did. One list, one set of
+    destinations, everywhere.
 
     "Projects" and "Events" are the two items whose destination depends on
     who's looking: /projects and /events both live inside the _app layout
@@ -75,12 +74,11 @@ export const NAV_ITEMS = [
   { to: "/search", label: "People" },
   { to: "/projects", publicTo: "/opportunities", label: "Projects" },
   { to: "/events", publicTo: "/garden/events", label: "Events" },
-  // /tables is "Spaces" — its own <title> says so (tables._index.tsx's
-  // meta()). /communities is a different, secondary concept (the
-  // directory of named groups/hosts you can join) — reachable from the
-  // sidebar's CommunitySwitcher ("Browse communities →"), not a top-level
-  // nav item.
-  { to: "/tables", label: "Spaces" },
+  // "Spaces" is /communities (2026-09-14, product decision) — the directory
+  // of named groups/hosts. Was briefly pointed at /tables on the reasoning
+  // that page's own <title> called itself "Spaces" — that title is now the
+  // stale one, not this link; /tables no longer has a nav-level name here.
+  { to: "/communities", label: "Spaces" },
   { to: "/offerings", label: "Learn" },
 ] as const;
 

@@ -21,7 +21,11 @@ import "../garden/garden.css";
 
 export function meta() {
   return [
-    { title: "Spaces — The Garden" },
+    // Not "Spaces" — that name is the nav's "Spaces" item, which points at
+    // /communities (2026-09-14, product decision). Leaving this page's own
+    // title as "Spaces" was exactly the kind of drift that made someone
+    // (mis-)infer this route WAS the nav's Spaces destination once already.
+    { title: "Tables — The Garden" },
     { name: "robots", content: "noindex" },
   ];
 }
