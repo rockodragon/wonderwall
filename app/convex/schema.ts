@@ -919,7 +919,13 @@ export default defineSchema({
     userId: v.optional(v.id("users")),
     name: v.string(),
     email: v.optional(v.string()),
-    role: v.string(), // free text, ≤ 60 chars
+    role: v.string(), // free text, ≤ 60 chars — the title of the role posting when roleId is set, otherwise self-declared/lead-typed
+    // The open role (below) this request/invite is for, when it's for one —
+    // absent for the original free-text "Apply"/"Ask to join"/invite flow,
+    // which still works unchanged (project-teams.md §8 didn't scope this
+    // out, it just never got a structured layer on top of it). Set once, at
+    // creation — never repointed to a different role posting.
+    roleId: v.optional(v.id("projectRoles")),
     status: v.union(
       v.literal("pending"),
       v.literal("invited"),
@@ -943,6 +949,37 @@ export default defineSchema({
     // Email-invite limit (§3: 10 per lead per day) counts the lead's rows
     // with an email set over createdAt.
     .index("by_invitedByUserId", ["invitedByUserId"]),
+
+  // Roles a project's lead is actively looking to fill — standing,
+  // independently-browsable postings ("we need a Sound Mixer"), distinct
+  // from the free-text `role` label projectMembers already carries per
+  // person. Without this, "role" only ever existed attached to a specific
+  // person at the moment they were invited or applied — a visitor had no
+  // way to see what the lead was actually looking for before proposing
+  // themselves for it blind. `title`/`description` reuse projectMembers'
+  // validateRole/validateMessage limits (60/500 chars) — same kind of text,
+  // same rules, one validator each (projectTeam.ts).
+  projectRoles: defineTable({
+    projectId: v.id("projects"),
+    title: v.string(), // "Director", "Sound Mixer" — ≤ 60 chars
+    description: v.optional(v.string()), // ≤ 500 chars
+    status: v.union(
+      v.literal("open"),
+      v.literal("filled"),
+      // The lead decided it isn't needed after all, without ever filling it
+      // — distinct from `filled` (soft-removed like every other status here,
+      // never hard-deleted, so a closed posting stays visible in the lead's
+      // own history even though listRoles stops returning it publicly).
+      v.literal("closed"),
+    ),
+    // The accepted projectMembers row currently filling this role — set the
+    // moment a request/invite tied to this role is accepted, cleared (and
+    // status reopened to "open") if that member is later removed or leaves.
+    filledByMemberId: v.optional(v.id("projectMembers")),
+    createdAt: v.number(),
+  })
+    .index("by_projectId", ["projectId"])
+    .index("by_projectId_status", ["projectId", "status"]),
 
   // Patron tiers: host-customizable backing levels per project. A project
   // with no tiers still accepts freeform backing; when tiers exist the

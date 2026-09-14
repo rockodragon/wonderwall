@@ -79,6 +79,7 @@ export function resolveStage(project: { stage?: string; status?: string; kind: s
 // ——————————————————————————————————————————————————————————————
 
 export type MemberStatus = Doc<"projectMembers">["status"];
+export type RoleStatus = Doc<"projectRoles">["status"];
 
 export const DAY_MS = 24 * 60 * 60 * 1000;
 /** A declined request may be repeated after this long (§2 reuse table). */
@@ -361,6 +362,60 @@ async function assertLead(ctx: Ctx, project: Doc<"projects">, userId: Id<"users"
   throw new ConvexError({ code: "forbidden", reason: "Only the project lead can do that." });
 }
 
+async function requireRole(ctx: Ctx, roleId: Id<"projectRoles">): Promise<Doc<"projectRoles">> {
+  const role = await ctx.db.get(roleId);
+  if (!role) throw new ConvexError({ code: "not_found", reason: "That role isn't there any more." });
+  return role;
+}
+
+/** A request/invite may name an open role belonging to the same project —
+ * never someone else's, never one already spoken for. Returns the role's
+ * current title, which always wins over whatever free-text `role` the
+ * caller also sent (so the label on the resulting projectMembers row can
+ * never drift from the posting it's for). */
+async function resolveRoleForRequest(
+  ctx: Ctx,
+  projectId: Id<"projects">,
+  roleId: Id<"projectRoles"> | undefined,
+): Promise<string | undefined> {
+  if (!roleId) return undefined;
+  const role = await requireRole(ctx, roleId);
+  if (String(role.projectId) !== String(projectId)) {
+    throw new ConvexError({ code: "not_found", reason: "That role isn't on this project." });
+  }
+  if (role.status !== "open") {
+    throw new ConvexError({
+      code: "role_unavailable",
+      reason: role.status === "filled" ? "Someone already filled that role." : "That role isn't open any more.",
+    });
+  }
+  return role.title;
+}
+
+/** Fills the role a newly-accepted row was for, if any — called from every
+ * path that can turn a row `accepted` (respondToInvite, decideRequest,
+ * claimInvite). Silently does nothing if the role is no longer open (filled
+ * by a racing acceptance, or closed) rather than blocking the person's own
+ * acceptance over a bookkeeping conflict — they still join the team either
+ * way, just without double-claiming the posting. */
+async function fillRoleIfLinked(ctx: MutationCtx, row: Doc<"projectMembers">): Promise<void> {
+  if (!row.roleId) return;
+  const role = await ctx.db.get(row.roleId);
+  if (!role || role.status !== "open") return;
+  await ctx.db.patch(role._id, { status: "filled", filledByMemberId: row._id });
+}
+
+/** Reopens the role a departing member was filling, if they were the one
+ * filling it — called from removeMember/leaveProject. A no-op for a plain
+ * free-text member (no roleId) or one whose role was already reassigned/
+ * closed out from under them. */
+async function reopenRoleIfVacated(ctx: MutationCtx, row: Doc<"projectMembers">): Promise<void> {
+  if (!row.roleId) return;
+  const role = await ctx.db.get(row.roleId);
+  if (!role || role.status !== "filled" || String(role.filledByMemberId) !== String(row._id)) return;
+  await ctx.db.patch(role._id, { status: "open", filledByMemberId: undefined });
+}
+
 // Copied from messaging.ts (module-private there): everyone `userId` has
 // blocked plus everyone who has blocked them.
 async function getBlockedUserIds(ctx: Ctx, userId: Id<"users">): Promise<Set<Id<"users">>> {
@@ -454,6 +509,7 @@ function freshRowFields(input: {
   name: string;
   email: string | undefined;
   role: string;
+  roleId: Id<"projectRoles"> | undefined;
   status: MemberStatus;
   invitedByUserId: Id<"users"> | undefined;
   message: string | undefined;
@@ -466,6 +522,7 @@ function freshRowFields(input: {
     name: input.name,
     email: input.email,
     role: input.role,
+    roleId: input.roleId,
     status: input.status,
     invitedByUserId: input.invitedByUserId,
     message: input.message,
@@ -487,6 +544,9 @@ export const requestToJoin = mutation({
     projectId: v.id("projects"),
     role: v.string(),
     message: v.optional(v.string()),
+    // Applying for a specific open role posting instead of free-typing one
+    // — see resolveRoleForRequest. Omit for the original free-text flow.
+    roleId: v.optional(v.id("projectRoles")),
   },
   handler: async (ctx, args) => {
     const userId = await requireUser(ctx);
@@ -497,7 +557,8 @@ export const requestToJoin = mutation({
     if (project.status === "archived") {
       throw new ConvexError({ code: "project_archived", reason: "This project is archived." });
     }
-    const role = validateRole(args.role);
+    const postedRoleTitle = await resolveRoleForRequest(ctx, args.projectId, args.roleId);
+    const role = postedRoleTitle ?? validateRole(args.role);
     const message = validateMessage(args.message);
     await assertNotBlocked(ctx, userId, project.userId);
 
@@ -538,6 +599,7 @@ export const requestToJoin = mutation({
       name,
       email: undefined,
       role,
+      roleId: args.roleId,
       status: "pending",
       invitedByUserId: undefined,
       message,
@@ -602,6 +664,9 @@ export const inviteMember = mutation({
     email: v.optional(v.string()),
     role: v.string(),
     message: v.optional(v.string()),
+    // Inviting someone directly into a specific open role posting — see
+    // resolveRoleForRequest. Omit for the original free-text flow.
+    roleId: v.optional(v.id("projectRoles")),
   },
   handler: async (ctx, args) => {
     const actorId = await requireUser(ctx);
@@ -610,7 +675,8 @@ export const inviteMember = mutation({
     if (project.status === "archived") {
       throw new ConvexError({ code: "project_archived", reason: "This project is archived." });
     }
-    const role = validateRole(args.role);
+    const postedRoleTitle = await resolveRoleForRequest(ctx, args.projectId, args.roleId);
+    const role = postedRoleTitle ?? validateRole(args.role);
     const message = validateMessage(args.message);
     const now = Date.now();
     const rows = await listProjectRows(ctx, args.projectId);
@@ -654,6 +720,7 @@ export const inviteMember = mutation({
         name: targetProfile.name,
         email: undefined,
         role,
+        roleId: args.roleId,
         status: "invited",
         invitedByUserId: actorId,
         message,
@@ -712,6 +779,7 @@ export const inviteMember = mutation({
       name,
       email,
       role,
+      roleId: args.roleId,
       status: "invited",
       invitedByUserId: actorId,
       message,
@@ -749,6 +817,7 @@ export const respondToInvite = mutation({
     const project = await requireProject(ctx, args.projectId);
     const status = args.accept ? ("accepted" as const) : ("declined" as const);
     await ctx.db.patch(existing._id, { status, respondedAt: Date.now() });
+    if (args.accept) await fillRoleIfLinked(ctx, existing);
 
     const profile = await getProfile(ctx, userId);
     const name = profile?.name || existing.name;
@@ -778,6 +847,7 @@ export const decideRequest = mutation({
     }
     const status = args.accept ? ("accepted" as const) : ("declined" as const);
     await ctx.db.patch(row._id, { status, respondedAt: Date.now() });
+    if (args.accept) await fillRoleIfLinked(ctx, row);
 
     if (row.userId) {
       await notify(ctx, {
@@ -815,6 +885,7 @@ export const removeMember = mutation({
       claimToken: undefined,
       claimExpiresAt: undefined,
     });
+    if (wasOnTeam) await reopenRoleIfVacated(ctx, row);
     if (wasOnTeam && row.userId) {
       await notify(ctx, {
         userId: row.userId,
@@ -840,6 +911,7 @@ export const leaveProject = mutation({
     }
     const project = await requireProject(ctx, args.projectId);
     await ctx.db.patch(existing._id, { status: "left", respondedAt: Date.now() });
+    await reopenRoleIfVacated(ctx, existing);
 
     const profile = await getProfile(ctx, userId);
     const name = profile?.name || existing.name;
@@ -901,10 +973,15 @@ export const claimInvite = mutation({
         await ctx.db.patch(existingMine._id, {
           status: "accepted",
           role: row.role,
+          roleId: row.roleId,
           name,
           invitedByUserId: row.invitedByUserId,
           respondedAt: now,
         });
+        // The credit row (row.roleId, if any) is the one that determines
+        // the fill — existingMine's own prior roleId (from its own separate
+        // request/invite, now overwritten above) never gets a look-in here.
+        await fillRoleIfLinked(ctx, { ...existingMine, roleId: row.roleId });
       }
       await ctx.db.delete(row._id);
     } else {
@@ -917,6 +994,7 @@ export const claimInvite = mutation({
         claimToken: undefined,
         claimExpiresAt: undefined,
       });
+      await fillRoleIfLinked(ctx, row);
     }
 
     await notify(ctx, {
@@ -928,6 +1006,85 @@ export const claimInvite = mutation({
       relatedUserId: userId,
     });
     return { ok: true as const, projectId: project._id, memberId };
+  },
+});
+
+// ——————————————————————————————————————————————————————————————
+// Role postings — standing open roles a lead declares, independent of any
+// one person (see the projectRoles schema comment). requestToJoin/
+// inviteMember above reference these by roleId; the three mutations below
+// are how a lead creates/edits/retires a posting.
+// ——————————————————————————————————————————————————————————————
+
+/** Lead posts an open role. Free, no daily limit (unlike invites/requests,
+ * this creates no relationship with another person yet). */
+export const addRole = mutation({
+  args: {
+    projectId: v.id("projects"),
+    title: v.string(),
+    description: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const actorId = await requireUser(ctx);
+    const project = await requireProject(ctx, args.projectId);
+    await assertLead(ctx, project, actorId);
+    if (project.status === "archived") {
+      throw new ConvexError({ code: "project_archived", reason: "This project is archived." });
+    }
+    const title = validateRole(args.title);
+    const description = validateMessage(args.description);
+    const roleId = await ctx.db.insert("projectRoles", {
+      projectId: args.projectId,
+      title,
+      description,
+      status: "open",
+      createdAt: Date.now(),
+    });
+    return { ok: true as const, roleId };
+  },
+});
+
+/** Lead edits an open role's title/description. Refuses once filled — the
+ * posting is standing in for a real person by then; use updateMemberRole
+ * on their projectMembers row instead. */
+export const updateRole = mutation({
+  args: {
+    roleId: v.id("projectRoles"),
+    title: v.optional(v.string()),
+    description: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const actorId = await requireUser(ctx);
+    const role = await requireRole(ctx, args.roleId);
+    const project = await requireProject(ctx, role.projectId);
+    await assertLead(ctx, project, actorId);
+    if (role.status !== "open") {
+      throw new ConvexError({ code: "role_unavailable", reason: "That role isn't open any more." });
+    }
+    const patch: { title?: string; description?: string } = {};
+    if (args.title !== undefined) patch.title = validateRole(args.title);
+    if (args.description !== undefined) patch.description = validateMessage(args.description);
+    if (Object.keys(patch).length === 0) return { ok: true as const, changed: false as const };
+    await ctx.db.patch(args.roleId, patch);
+    return { ok: true as const, changed: true as const };
+  },
+});
+
+/** Lead retires a role posting that turned out not to be needed. Only from
+ * `open` — a filled role comes down by removing the person instead (which
+ * reopens it), never by closing out from under them. */
+export const closeRole = mutation({
+  args: { roleId: v.id("projectRoles") },
+  handler: async (ctx, args) => {
+    const actorId = await requireUser(ctx);
+    const role = await requireRole(ctx, args.roleId);
+    const project = await requireProject(ctx, role.projectId);
+    await assertLead(ctx, project, actorId);
+    if (role.status !== "open") {
+      return { ok: true as const, changed: false as const };
+    }
+    await ctx.db.patch(args.roleId, { status: "closed" });
+    return { ok: true as const, changed: true as const };
   },
 });
 
@@ -1021,6 +1178,59 @@ export const getTeam = query({
       invited.push(toInvitedEntry(row, await resolvePerson(ctx, row.userId)));
     }
     return { lead, accepted, credits, mine, pending, invited };
+  },
+});
+
+/** Every open or filled role posting on a project, oldest first — what the
+ * lead is actually looking for, shown separately from the invited-people
+ * list so a visitor can pick a specific opening (or the free-text Apply/
+ * Ask-to-join button) instead of proposing a role blind. Closed postings
+ * are omitted — they're the lead's own history, not something to keep
+ * surfacing once retired. Doesn't itself require the lead — the whole
+ * project page already does (projects.$id.tsx lives inside the _app shell,
+ * which isn't on the signed-out-public-path list). */
+export const listRoles = query({
+  args: { projectId: v.id("projects") },
+  handler: async (ctx, args) => {
+    const rows = await ctx.db
+      .query("projectRoles")
+      .withIndex("by_projectId", (q) => q.eq("projectId", args.projectId))
+      .collect();
+    rows.sort((a, b) => a.createdAt - b.createdAt);
+
+    const out: {
+      roleId: Id<"projectRoles">;
+      title: string;
+      description: string | null;
+      status: "open" | "filled";
+      filledBy: { profileId: Id<"profiles"> | null; name: string; imageUrl: string | null } | null;
+    }[] = [];
+    for (const row of rows) {
+      if (row.status === "closed") continue;
+      let filledBy: (typeof out)[number]["filledBy"] = null;
+      // filledByMemberId always has a userId by the time it's "accepted" —
+      // every path that sets status "accepted" (respondToInvite,
+      // decideRequest, claimInvite) requires a real signed-in user by then.
+      if (row.status === "filled" && row.filledByMemberId) {
+        const memberRow = await ctx.db.get(row.filledByMemberId);
+        if (memberRow?.userId) {
+          const resolved = await resolvePerson(ctx, memberRow.userId);
+          filledBy = {
+            profileId: resolved.profileId,
+            name: resolved.name ?? memberRow.name,
+            imageUrl: resolved.imageUrl,
+          };
+        }
+      }
+      out.push({
+        roleId: row._id,
+        title: row.title,
+        description: row.description ?? null,
+        status: row.status,
+        filledBy,
+      });
+    }
+    return out;
   },
 });
 

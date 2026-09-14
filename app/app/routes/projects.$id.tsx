@@ -870,6 +870,11 @@ function TeamCard({
   myProfile: any;
 }) {
   const team = useQuery(api.garden.projectTeam.getTeam, { projectId: project._id });
+  // null = closed; {} = the free-text flow (generic Apply/Ask-to-join
+  // button); {roleId,title} = applying for a specific posted role (from
+  // RolesSection's Apply button) — TeamCard owns this so both entry points
+  // share the one modal instance instead of each opening their own.
+  const [joinModal, setJoinModal] = useState<{ roleId?: string; title?: string } | null>(null);
 
   if (!team) return null;
 
@@ -912,12 +917,214 @@ function TeamCard({
         ))}
       </div>
 
+      <RolesSection
+        project={project}
+        isOwner={isOwner}
+        mine={team.mine}
+        onApply={(role) => setJoinModal(role)}
+      />
+
       {!isOwner && (
-        <ViewerTeamActions project={project} mine={team.mine} leadName={team.lead.name} />
+        <ViewerTeamActions
+          project={project}
+          mine={team.mine}
+          leadName={team.lead.name}
+          onOpenJoinModal={() => setJoinModal({})}
+        />
       )}
 
       {isOwner && <LeadTeamTools project={project} pending={team.pending} invited={team.invited} />}
+
+      {joinModal && (
+        <JoinRequestModal
+          project={project}
+          preset={joinModal.roleId ? { roleId: joinModal.roleId, title: joinModal.title! } : null}
+          onClose={() => setJoinModal(null)}
+        />
+      )}
     </DetailCard>
+  );
+}
+
+// Open role postings — what the lead is actually looking for, separate from
+// the invited-people list above. Anyone can see open/filled roles; only the
+// lead can post/close one, and only a viewer with no existing relationship
+// to the project (no `mine` row) gets an Apply button per role — the
+// project already caps everyone at one pending/invited/accepted row
+// (projectTeam.ts's nextStatusForRequest), so a second "Apply" while one is
+// already in flight would just silently no-op rather than switch roles;
+// ViewerTeamActions below already shows that existing relationship's state.
+// See docs/features/project-teams.md §2-4 and §7.
+function RolesSection({
+  project,
+  isOwner,
+  mine,
+  onApply,
+}: {
+  project: any;
+  isOwner: boolean;
+  mine: { memberId: string; status: string; role: string } | undefined;
+  onApply: (role: { roleId: string; title: string }) => void;
+}) {
+  const roles = useQuery(api.garden.projectTeam.listRoles, { projectId: project._id });
+  const addRole = useMutation(api.garden.projectTeam.addRole);
+  const closeRole = useMutation(api.garden.projectTeam.closeRole);
+  const [adding, setAdding] = useState(false);
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  if (roles === undefined) return null;
+  if (!isOwner && roles.length === 0) return null;
+
+  const inputStyle = {
+    backgroundColor: "var(--garden-ink)",
+    borderColor: "var(--garden-hairline-raised)",
+    color: "var(--garden-paper)",
+  };
+
+  async function handleAdd(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    if (!title.trim()) {
+      setError("Say what role you need.");
+      return;
+    }
+    setBusy(true);
+    try {
+      await addRole({
+        projectId: project._id,
+        title: title.trim(),
+        description: description.trim() || undefined,
+      });
+      setTitle("");
+      setDescription("");
+      setAdding(false);
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleClose(roleId: string) {
+    setBusy(true);
+    setError("");
+    try {
+      await closeRole({ roleId: roleId as Id<"projectRoles"> });
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="pt-3 mt-2.5" style={{ borderTop: "1px solid var(--garden-hairline)" }}>
+      {roles.length > 0 && (
+        <>
+          <p className="text-[11px] uppercase tracking-[0.06em] mb-2" style={{ color: "var(--garden-dim)" }}>
+            Roles needed
+          </p>
+          <div className="flex flex-col gap-2 mb-2">
+            {roles.map((r: any) => (
+              <div key={r.roleId} className="flex items-start gap-2 text-sm">
+                <span className="flex-1 min-w-0" style={{ color: "var(--garden-paper)" }}>
+                  {r.title}
+                  {r.description && (
+                    <span className="block text-xs mt-0.5" style={{ color: "var(--garden-dim)" }}>
+                      {r.description}
+                    </span>
+                  )}
+                </span>
+                {r.status === "filled" ? (
+                  <span className="text-xs whitespace-nowrap pt-0.5" style={{ color: "var(--garden-dim)" }}>
+                    Filled — {r.filledBy?.name ?? "someone"}
+                  </span>
+                ) : isOwner ? (
+                  <button
+                    disabled={busy}
+                    onClick={() => handleClose(r.roleId)}
+                    className="text-xs underline underline-offset-2 hover:opacity-80 disabled:opacity-50 whitespace-nowrap"
+                    style={{ color: "var(--garden-dim)" }}
+                  >
+                    Close
+                  </button>
+                ) : !mine ? (
+                  <button
+                    onClick={() => onApply({ roleId: r.roleId, title: r.title })}
+                    className="text-xs px-2.5 py-1 rounded-lg font-semibold whitespace-nowrap transition-opacity hover:opacity-90"
+                    style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
+                  >
+                    Apply
+                  </button>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {isOwner &&
+        (adding ? (
+          <form onSubmit={handleAdd} className="flex flex-col gap-2">
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value.slice(0, 60))}
+              placeholder="Role, e.g. Sound Mixer"
+              maxLength={60}
+              autoFocus
+              className="w-full px-3 py-2 rounded-lg border text-sm outline-none"
+              style={inputStyle}
+            />
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value.slice(0, 500))}
+              rows={2}
+              maxLength={500}
+              placeholder="What this role involves (optional)"
+              className="w-full px-3 py-2 rounded-lg border text-sm outline-none resize-none"
+              style={inputStyle}
+            />
+            <div className="flex gap-2 justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  setAdding(false);
+                  setTitle("");
+                  setDescription("");
+                  setError("");
+                }}
+                className="px-3 py-1.5 rounded-lg text-xs font-medium"
+                style={{ color: "var(--garden-dim)" }}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={busy}
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50"
+                style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
+              >
+                {busy ? "Posting…" : "Post role"}
+              </button>
+            </div>
+          </form>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setAdding(true)}
+            className="text-xs underline underline-offset-2 hover:opacity-80"
+            style={{ color: "var(--garden-citron)" }}
+          >
+            + Add a role
+          </button>
+        ))}
+
+      {error && <p className="text-sm text-red-400 mt-2">{error}</p>}
+    </div>
   );
 }
 
@@ -928,15 +1135,18 @@ function ViewerTeamActions({
   project,
   mine,
   leadName,
+  onOpenJoinModal,
 }: {
   project: any;
   mine: { memberId: string; status: string; role: string } | undefined;
   leadName: string;
+  /** Opens the shared JoinRequestModal TeamCard owns — with no preset,
+   * this is the original free-text "propose your own role" flow. */
+  onOpenJoinModal: () => void;
 }) {
   const withdrawRequest = useMutation(api.garden.projectTeam.withdrawRequest);
   const respondToInvite = useMutation(api.garden.projectTeam.respondToInvite);
   const leaveProject = useMutation(api.garden.projectTeam.leaveProject);
-  const [showJoinModal, setShowJoinModal] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -956,7 +1166,7 @@ function ViewerTeamActions({
     <div className="pt-3 mt-2.5" style={{ borderTop: "1px solid var(--garden-hairline)" }}>
       {!mine && (
         <button
-          onClick={() => setShowJoinModal(true)}
+          onClick={onOpenJoinModal}
           className="px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-opacity hover:opacity-90"
           style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
         >
@@ -1021,17 +1231,26 @@ function ViewerTeamActions({
       )}
 
       {error && <p className="text-sm text-red-400 mt-2">{error}</p>}
-
-      {showJoinModal && <JoinRequestModal project={project} onClose={() => setShowJoinModal(false)} />}
     </div>
   );
 }
 
 // Same visual style as SupportModal in routes/projects.tsx — a small modal,
-// not a page, for the one thing it does: ask to join, or apply.
-function JoinRequestModal({ project, onClose }: { project: any; onClose: () => void }) {
+// not a page, for the one thing it does: ask to join, or apply. `preset`
+// carries a specific open role (from RolesSection's "Apply" button) — the
+// Role field locks to its title and the request carries roleId, instead of
+// the free-text "propose your own role" flow this modal always used to be.
+function JoinRequestModal({
+  project,
+  preset,
+  onClose,
+}: {
+  project: any;
+  preset?: { roleId: string; title: string } | null;
+  onClose: () => void;
+}) {
   const requestToJoin = useMutation(api.garden.projectTeam.requestToJoin);
-  const [role, setRole] = useState("");
+  const [role, setRole] = useState(preset?.title ?? "");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -1051,6 +1270,7 @@ function JoinRequestModal({ project, onClose }: { project: any; onClose: () => v
         projectId: project._id,
         role: role.trim(),
         message: message.trim() || undefined,
+        roleId: preset?.roleId as Id<"projectRoles"> | undefined,
       });
       setDone(true);
     } catch (err) {
@@ -1073,7 +1293,9 @@ function JoinRequestModal({ project, onClose }: { project: any; onClose: () => v
           className="text-xl font-semibold mb-4"
           style={{ color: "var(--garden-paper)", fontFamily: "var(--garden-font-display)" }}
         >
-          {isPaid ? "Apply to" : "Ask to join"} "{project.title}"
+          {preset
+            ? `Apply for "${preset.title}" on "${project.title}"`
+            : `${isPaid ? "Apply to" : "Ask to join"} "${project.title}"`}
         </h2>
 
         {done ? (
@@ -1101,13 +1323,19 @@ function JoinRequestModal({ project, onClose }: { project: any; onClose: () => v
                 onChange={(e) => setRole(e.target.value.slice(0, 60))}
                 placeholder="Editor"
                 maxLength={60}
-                className="w-full px-3 py-2 rounded-lg border text-sm outline-none"
+                disabled={!!preset}
+                className="w-full px-3 py-2 rounded-lg border text-sm outline-none disabled:opacity-70"
                 style={{
                   backgroundColor: "var(--garden-ink)",
                   borderColor: "var(--garden-hairline-raised)",
                   color: "var(--garden-paper)",
                 }}
               />
+              {preset && (
+                <p className="text-xs mt-1" style={{ color: "var(--garden-dim)" }}>
+                  Applying for the role as posted.
+                </p>
+              )}
             </div>
             <div>
               <label className="block text-xs uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
