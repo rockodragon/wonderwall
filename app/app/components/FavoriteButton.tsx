@@ -47,14 +47,35 @@ export function FavoriteButton({
       md: "px-3 py-1.5 text-sm",
     };
 
+    // "Following" is a status, not a call to action — a solid citron fill
+    // read as loud and competed with neighboring buttons (Message, etc.),
+    // so it gets the same quieter wash+ink-accent treatment as every other
+    // "active" state in the app-token system (see _app.tsx's navLinkStyle).
+    // "Follow" (not yet following) stays a plain outline: still inviting,
+    // without shouting louder than the status badge it turns into.
     return (
       <button
         onClick={handleClick}
-        className={`${pillSizeClasses[size]} rounded-full font-medium border transition-colors duration-200 whitespace-nowrap ${
+        className={`${pillSizeClasses[size]} rounded-full font-medium border transition-colors duration-200 whitespace-nowrap`}
+        style={
           isFavorited
-            ? "bg-[var(--garden-citron)] text-[var(--garden-ink)] border-[var(--garden-citron)]"
-            : "bg-transparent text-gray-700 dark:text-gray-200 border-gray-300 dark:border-gray-600 hover:border-[var(--garden-citron)]"
-        }`}
+            ? {
+                backgroundColor: "var(--app-accent-wash)",
+                color: "var(--app-accent-ink)",
+                borderColor: "var(--app-accent)",
+              }
+            : {
+                backgroundColor: "transparent",
+                color: "var(--app-text-muted)",
+                borderColor: "var(--app-hairline)",
+              }
+        }
+        onMouseEnter={(e) => {
+          if (!isFavorited) e.currentTarget.style.borderColor = "var(--app-accent)";
+        }}
+        onMouseLeave={(e) => {
+          if (!isFavorited) e.currentTarget.style.borderColor = "var(--app-hairline)";
+        }}
         title={isFavorited ? "Unfollow" : "Follow"}
       >
         {isFavorited ? "Following" : "Follow"}

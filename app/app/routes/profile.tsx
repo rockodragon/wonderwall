@@ -248,13 +248,17 @@ export default function Profile() {
               <button
                 onClick={handleStartConversation}
                 disabled={startingConversation}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-colors disabled:opacity-50"
-                style={{ backgroundColor: "var(--app-accent)", color: "var(--garden-ink)" }}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl border text-sm font-medium transition-colors disabled:opacity-50 hover:border-[var(--app-accent)]"
+                style={{
+                  backgroundColor: "var(--app-surface-raised)",
+                  color: "var(--app-text)",
+                  borderColor: "var(--app-hairline)",
+                }}
               >
                 {startingConversation ? (
                   <div
                     className="w-4 h-4 animate-spin rounded-full border-2 border-t-transparent"
-                    style={{ borderColor: "var(--garden-ink)" }}
+                    style={{ borderColor: "var(--app-text)" }}
                   />
                 ) : (
                   <svg
