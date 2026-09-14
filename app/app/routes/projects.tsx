@@ -98,6 +98,10 @@ export default function Projects() {
   // from whoever happens to have posted a project) so this list is always
   // identical to People's, regardless of current creator/project data.
   const [tagFilter, setTagFilter] = useState<string[]>([]);
+  // The full interest-tag row (20+ pills) ate most of a mobile screen
+  // before any project showed. Collapsed behind a toggle on mobile only —
+  // sm+ has the horizontal room to show it inline as before.
+  const [tagsExpanded, setTagsExpanded] = useState(false);
   const allTags: readonly string[] = INTERESTS;
   function toggleTag(tag: string) {
     setTagFilter((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
@@ -223,33 +227,54 @@ export default function Projects() {
         </div>
 
         {allTags.length > 0 && (
-          <div className="flex flex-wrap items-center gap-2 mb-6">
-            {allTags.map((tag) => {
-              const active = tagFilter.includes(tag);
-              return (
+          <div className="mb-6">
+            <button
+              type="button"
+              onClick={() => setTagsExpanded((v) => !v)}
+              className="sm:hidden flex items-center gap-2 px-3 py-1.5 rounded-lg text-[13px] font-medium mb-2 transition-colors"
+              style={{
+                fontFamily: "var(--garden-font-body)",
+                backgroundColor:
+                  tagFilter.length > 0 ? "var(--garden-citron)" : "var(--garden-ink-raised)",
+                color: tagFilter.length > 0 ? "var(--garden-ink)" : "var(--garden-muted)",
+              }}
+            >
+              <FilterIcon className="w-3.5 h-3.5" />
+              Filter{tagFilter.length > 0 ? ` (${tagFilter.length})` : ""}
+              <ChevronDownIcon
+                className={`w-3.5 h-3.5 transition-transform ${tagsExpanded ? "rotate-180" : ""}`}
+              />
+            </button>
+            <div
+              className={`${tagsExpanded ? "flex" : "hidden"} sm:flex flex-wrap items-center gap-2`}
+            >
+              {allTags.map((tag) => {
+                const active = tagFilter.includes(tag);
+                return (
+                  <button
+                    key={tag}
+                    onClick={() => toggleTag(tag)}
+                    className="px-3 py-1 rounded-full text-xs font-medium transition-colors"
+                    style={{
+                      fontFamily: "var(--garden-font-body)",
+                      backgroundColor: active ? "var(--garden-citron)" : "var(--garden-ink-raised)",
+                      color: active ? "var(--garden-ink)" : "var(--garden-muted)",
+                    }}
+                  >
+                    {tag}
+                  </button>
+                );
+              })}
+              {tagFilter.length > 0 && (
                 <button
-                  key={tag}
-                  onClick={() => toggleTag(tag)}
-                  className="px-3 py-1 rounded-full text-xs font-medium transition-colors"
-                  style={{
-                    fontFamily: "var(--garden-font-body)",
-                    backgroundColor: active ? "var(--garden-citron)" : "var(--garden-ink-raised)",
-                    color: active ? "var(--garden-ink)" : "var(--garden-muted)",
-                  }}
+                  onClick={() => setTagFilter([])}
+                  className="text-xs underline underline-offset-2 hover:opacity-80"
+                  style={{ color: "var(--garden-citron)" }}
                 >
-                  {tag}
+                  Clear
                 </button>
-              );
-            })}
-            {tagFilter.length > 0 && (
-              <button
-                onClick={() => setTagFilter([])}
-                className="text-xs underline underline-offset-2 hover:opacity-80"
-                style={{ color: "var(--garden-citron)" }}
-              >
-                Clear
-              </button>
-            )}
+              )}
+            </div>
           </div>
         )}
 
@@ -309,6 +334,27 @@ export default function Projects() {
         <SupportModal project={supportingProject} onClose={() => setSupportingProject(null)} />
       )}
     </div>
+  );
+}
+
+function FilterIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
+      />
+    </svg>
+  );
+}
+
+function ChevronDownIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+    </svg>
   );
 }
 
