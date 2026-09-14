@@ -835,7 +835,15 @@ export const respondToInvite = mutation({
 
 /** Lead answers a request. */
 export const decideRequest = mutation({
-  args: { memberId: v.id("projectMembers"), accept: v.boolean() },
+  args: {
+    memberId: v.id("projectMembers"),
+    accept: v.boolean(),
+    // A short note back to the applicant — why declined, or a welcome note
+    // on accept. Not persisted on the row; it only ever goes out as the
+    // notification text (same validateMessage limit as the applicant's own
+    // note when they asked).
+    message: v.optional(v.string()),
+  },
   handler: async (ctx, args) => {
     const actorId = await requireUser(ctx);
     const row = await ctx.db.get(args.memberId);
@@ -845,6 +853,7 @@ export const decideRequest = mutation({
     if (row.status !== "pending") {
       return { ok: true as const, changed: false as const, status: row.status };
     }
+    const note = validateMessage(args.message);
     const status = args.accept ? ("accepted" as const) : ("declined" as const);
     await ctx.db.patch(row._id, { status, respondedAt: Date.now() });
     if (args.accept) await fillRoleIfLinked(ctx, row);
@@ -854,7 +863,7 @@ export const decideRequest = mutation({
         userId: row.userId,
         type: "project_request_decided",
         title: args.accept ? `You're on ${project.title}` : `${project.title} didn't have room`,
-        message: `as ${row.role}`,
+        message: withNote(row.role, note),
         linkUrl: projectLink(project._id),
         relatedUserId: actorId,
       });
@@ -1023,6 +1032,11 @@ export const addRole = mutation({
     projectId: v.id("projects"),
     title: v.string(),
     description: v.optional(v.string()),
+    // Same plain array as projects.interests — no server-side validation
+    // there either (the client only ever offers the canonical INTERESTS
+    // list), so none added here.
+    interests: v.optional(v.array(v.string())),
+    neededBy: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const actorId = await requireUser(ctx);
@@ -1037,6 +1051,8 @@ export const addRole = mutation({
       projectId: args.projectId,
       title,
       description,
+      interests: args.interests,
+      neededBy: args.neededBy,
       status: "open",
       createdAt: Date.now(),
     });
@@ -1044,14 +1060,16 @@ export const addRole = mutation({
   },
 });
 
-/** Lead edits an open role's title/description. Refuses once filled — the
- * posting is standing in for a real person by then; use updateMemberRole
- * on their projectMembers row instead. */
+/** Lead edits an open role's title/description/interests/deadline. Refuses
+ * once filled — the posting is standing in for a real person by then; use
+ * updateMemberRole on their projectMembers row instead. */
 export const updateRole = mutation({
   args: {
     roleId: v.id("projectRoles"),
     title: v.optional(v.string()),
     description: v.optional(v.string()),
+    interests: v.optional(v.array(v.string())),
+    neededBy: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const actorId = await requireUser(ctx);
@@ -1061,9 +1079,11 @@ export const updateRole = mutation({
     if (role.status !== "open") {
       throw new ConvexError({ code: "role_unavailable", reason: "That role isn't open any more." });
     }
-    const patch: { title?: string; description?: string } = {};
+    const patch: { title?: string; description?: string; interests?: string[]; neededBy?: number } = {};
     if (args.title !== undefined) patch.title = validateRole(args.title);
     if (args.description !== undefined) patch.description = validateMessage(args.description);
+    if (args.interests !== undefined) patch.interests = args.interests;
+    if (args.neededBy !== undefined) patch.neededBy = args.neededBy;
     if (Object.keys(patch).length === 0) return { ok: true as const, changed: false as const };
     await ctx.db.patch(args.roleId, patch);
     return { ok: true as const, changed: true as const };
@@ -1202,6 +1222,8 @@ export const listRoles = query({
       roleId: Id<"projectRoles">;
       title: string;
       description: string | null;
+      interests: string[];
+      neededBy: number | null;
       status: "open" | "filled";
       filledBy: { profileId: Id<"profiles"> | null; name: string; imageUrl: string | null } | null;
     }[] = [];
@@ -1226,6 +1248,8 @@ export const listRoles = query({
         roleId: row._id,
         title: row.title,
         description: row.description ?? null,
+        interests: row.interests ?? [],
+        neededBy: row.neededBy ?? null,
         status: row.status,
         filledBy,
       });

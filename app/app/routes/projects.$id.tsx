@@ -955,6 +955,14 @@ function TeamCard({
 // already in flight would just silently no-op rather than switch roles;
 // ViewerTeamActions below already shows that existing relationship's state.
 // See docs/features/project-teams.md §2-4 and §7.
+// Past-date-just-hides-it, same convention as projects.tsx's raiseByDate
+// daysLeft — no separate "overdue" state to build for a role that's now
+// late; the badge simply stops showing.
+function daysUntil(neededBy: number | null): number | null {
+  if (!neededBy || neededBy <= Date.now()) return null;
+  return Math.max(1, Math.ceil((neededBy - Date.now()) / 86400000));
+}
+
 function RolesSection({
   project,
   isOwner,
@@ -972,6 +980,8 @@ function RolesSection({
   const [adding, setAdding] = useState(false);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [interests, setInterests] = useState<string[]>([]);
+  const [neededByStr, setNeededByStr] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -983,6 +993,10 @@ function RolesSection({
     borderColor: "var(--garden-hairline-raised)",
     color: "var(--garden-paper)",
   };
+
+  function toggleInterest(tag: string) {
+    setInterests((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
+  }
 
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
@@ -997,9 +1011,13 @@ function RolesSection({
         projectId: project._id,
         title: title.trim(),
         description: description.trim() || undefined,
+        interests: interests.length > 0 ? interests : undefined,
+        neededBy: neededByStr ? new Date(neededByStr).getTime() : undefined,
       });
       setTitle("");
       setDescription("");
+      setInterests([]);
+      setNeededByStr("");
       setAdding(false);
     } catch (err) {
       setError(errorMessage(err));
@@ -1027,41 +1045,71 @@ function RolesSection({
           <p className="text-[11px] uppercase tracking-[0.06em] mb-2" style={{ color: "var(--garden-dim)" }}>
             Roles needed
           </p>
-          <div className="flex flex-col gap-2 mb-2">
-            {roles.map((r: any) => (
-              <div key={r.roleId} className="flex items-start gap-2 text-sm">
-                <span className="flex-1 min-w-0" style={{ color: "var(--garden-paper)" }}>
-                  {r.title}
-                  {r.description && (
-                    <span className="block text-xs mt-0.5" style={{ color: "var(--garden-dim)" }}>
-                      {r.description}
+          <div className="flex flex-col gap-2.5 mb-2">
+            {roles.map((r: any) => {
+              const days = daysUntil(r.neededBy);
+              return (
+                <div key={r.roleId} className="flex items-start gap-2 text-sm">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span style={{ color: "var(--garden-paper)" }}>{r.title}</span>
+                      {days !== null && (
+                        <span
+                          className="px-1.5 py-0.5 rounded-full text-[10px] font-medium uppercase tracking-[0.06em]"
+                          style={{
+                            fontFamily: "var(--garden-font-mono)",
+                            backgroundColor: "rgba(198,198,190,0.1)",
+                            color: "var(--garden-dim)",
+                          }}
+                        >
+                          {days} {days === 1 ? "day" : "days"} left
+                        </span>
+                      )}
+                    </div>
+                    {r.description && (
+                      <span className="block text-xs mt-0.5" style={{ color: "var(--garden-dim)" }}>
+                        {r.description}
+                      </span>
+                    )}
+                    {r.interests.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {r.interests.map((tag: string) => (
+                          <span
+                            key={tag}
+                            className="px-1.5 py-0.5 rounded-full text-[10px] font-medium"
+                            style={{ backgroundColor: "rgba(198,198,190,0.1)", color: "var(--garden-muted)" }}
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  {r.status === "filled" ? (
+                    <span className="text-xs whitespace-nowrap pt-0.5" style={{ color: "var(--garden-dim)" }}>
+                      Filled — {r.filledBy?.name ?? "someone"}
                     </span>
-                  )}
-                </span>
-                {r.status === "filled" ? (
-                  <span className="text-xs whitespace-nowrap pt-0.5" style={{ color: "var(--garden-dim)" }}>
-                    Filled — {r.filledBy?.name ?? "someone"}
-                  </span>
-                ) : isOwner ? (
-                  <button
-                    disabled={busy}
-                    onClick={() => handleClose(r.roleId)}
-                    className="text-xs underline underline-offset-2 hover:opacity-80 disabled:opacity-50 whitespace-nowrap"
-                    style={{ color: "var(--garden-dim)" }}
-                  >
-                    Close
-                  </button>
-                ) : !mine ? (
-                  <button
-                    onClick={() => onApply({ roleId: r.roleId, title: r.title })}
-                    className="text-xs px-2.5 py-1 rounded-lg font-semibold whitespace-nowrap transition-opacity hover:opacity-90"
-                    style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
-                  >
-                    Apply
-                  </button>
-                ) : null}
-              </div>
-            ))}
+                  ) : isOwner ? (
+                    <button
+                      disabled={busy}
+                      onClick={() => handleClose(r.roleId)}
+                      className="text-xs underline underline-offset-2 hover:opacity-80 disabled:opacity-50 whitespace-nowrap"
+                      style={{ color: "var(--garden-dim)" }}
+                    >
+                      Close
+                    </button>
+                  ) : !mine ? (
+                    <button
+                      onClick={() => onApply({ roleId: r.roleId, title: r.title })}
+                      className="text-xs px-2.5 py-1 rounded-lg font-semibold whitespace-nowrap transition-opacity hover:opacity-90"
+                      style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
+                    >
+                      Apply
+                    </button>
+                  ) : null}
+                </div>
+              );
+            })}
           </div>
         </>
       )}
@@ -1088,6 +1136,43 @@ function RolesSection({
               className="w-full px-3 py-2 rounded-lg border text-sm outline-none resize-none"
               style={inputStyle}
             />
+            <div>
+              <label className="block text-[11px] uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
+                Needed by (optional)
+              </label>
+              <input
+                type="date"
+                value={neededByStr}
+                onChange={(e) => setNeededByStr(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border text-sm outline-none"
+                style={inputStyle}
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
+                Skills/interests (optional)
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                {INTERESTS.map((tag) => {
+                  const active = interests.includes(tag);
+                  return (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() => toggleInterest(tag)}
+                      className="px-2 py-0.5 rounded-full text-xs font-medium transition-colors"
+                      style={{
+                        backgroundColor: active ? "rgba(215,242,90,0.2)" : "rgba(198,198,190,0.1)",
+                        color: active ? "var(--garden-citron)" : "var(--garden-muted)",
+                        border: active ? "1px solid var(--garden-citron)" : "1px solid transparent",
+                      }}
+                    >
+                      {tag}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
             <div className="flex gap-2 justify-end">
               <button
                 type="button"
@@ -1095,6 +1180,8 @@ function RolesSection({
                   setAdding(false);
                   setTitle("");
                   setDescription("");
+                  setInterests([]);
+                  setNeededByStr("");
                   setError("");
                 }}
                 className="px-3 py-1.5 rounded-lg text-xs font-medium"
@@ -1397,12 +1484,22 @@ function LeadTeamTools({
   const removeMember = useMutation(api.garden.projectTeam.removeMember);
   const [error, setError] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
+  // A short note back to the applicant, mostly for declines ("not the right
+  // fit for this one, but...") — never persisted, just what decideRequest
+  // sends as the notification text. Keyed by memberId so each pending
+  // request's draft is independent.
+  const [decisionNotes, setDecisionNotes] = useState<Record<string, string>>({});
 
   async function run(memberId: string, action: () => Promise<unknown>) {
     setBusyId(memberId);
     setError("");
     try {
       await action();
+      setDecisionNotes((prev) => {
+        const next = { ...prev };
+        delete next[memberId];
+        return next;
+      });
     } catch (err) {
       setError(errorMessage(err));
     } finally {
@@ -1419,35 +1516,62 @@ function LeadTeamTools({
           </p>
           <div className="flex flex-col gap-2">
             {pending.map((r: any) => (
-              <div key={r.memberId} className="flex items-start gap-2 text-sm">
-                <Avatar name={r.name} imageUrl={r.imageUrl} />
-                <div className="flex-1 min-w-0">
-                  <Link to={`/profile/${r.profileId}`} className="hover:opacity-80" style={{ color: "var(--garden-paper)" }}>
-                    {r.name}
-                  </Link>
-                  <span style={{ color: "var(--garden-dim)" }}> — {r.role}</span>
-                  {r.message && (
-                    <p className="text-xs mt-0.5" style={{ color: "var(--garden-dim)" }}>
-                      "{r.message}"
-                    </p>
-                  )}
+              <div key={r.memberId} className="flex flex-col gap-1.5 text-sm">
+                <div className="flex items-start gap-2">
+                  <Avatar name={r.name} imageUrl={r.imageUrl} />
+                  <div className="flex-1 min-w-0">
+                    <Link to={`/profile/${r.profileId}`} className="hover:opacity-80" style={{ color: "var(--garden-paper)" }}>
+                      {r.name}
+                    </Link>
+                    <span style={{ color: "var(--garden-dim)" }}> — {r.role}</span>
+                    {r.message && (
+                      <p className="text-xs mt-0.5" style={{ color: "var(--garden-dim)" }}>
+                        "{r.message}"
+                      </p>
+                    )}
+                  </div>
                 </div>
-                <button
-                  disabled={busyId === r.memberId}
-                  onClick={() => run(r.memberId, () => decideRequest({ memberId: r.memberId, accept: true }))}
-                  className="text-xs px-2.5 py-1 rounded-lg font-semibold whitespace-nowrap disabled:opacity-50"
-                  style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
-                >
-                  Accept
-                </button>
-                <button
-                  disabled={busyId === r.memberId}
-                  onClick={() => run(r.memberId, () => decideRequest({ memberId: r.memberId, accept: false }))}
-                  className="text-xs underline underline-offset-2 hover:opacity-80 disabled:opacity-50 whitespace-nowrap"
-                  style={{ color: "var(--garden-dim)" }}
-                >
-                  Decline
-                </button>
+                <div className="flex items-center gap-2 pl-7">
+                  <input
+                    type="text"
+                    value={decisionNotes[r.memberId] ?? ""}
+                    onChange={(e) =>
+                      setDecisionNotes((prev) => ({ ...prev, [r.memberId]: e.target.value.slice(0, 500) }))
+                    }
+                    placeholder="Note back to them (optional)"
+                    maxLength={500}
+                    className="flex-1 min-w-0 px-2 py-1 rounded-lg border text-xs outline-none"
+                    style={{
+                      backgroundColor: "var(--garden-ink)",
+                      borderColor: "var(--garden-hairline-raised)",
+                      color: "var(--garden-paper)",
+                    }}
+                  />
+                  <button
+                    disabled={busyId === r.memberId}
+                    onClick={() =>
+                      run(r.memberId, () =>
+                        decideRequest({ memberId: r.memberId, accept: true, message: decisionNotes[r.memberId]?.trim() || undefined }),
+                      )
+                    }
+                    className="text-xs px-2.5 py-1 rounded-lg font-semibold whitespace-nowrap disabled:opacity-50"
+                    style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
+                  >
+                    Accept
+                  </button>
+                  <button
+                    disabled={busyId === r.memberId}
+                    onClick={() =>
+                      run(r.memberId, () =>
+                        decideRequest({ memberId: r.memberId, accept: false, message: decisionNotes[r.memberId]?.trim() || undefined }),
+                      )
+                    }
+                    className="text-xs underline underline-offset-2 hover:opacity-80 disabled:opacity-50 whitespace-nowrap"
+                    style={{ color: "var(--garden-dim)" }}
+                  >
+                    Decline
+                  </button>
+                </div>
               </div>
             ))}
           </div>

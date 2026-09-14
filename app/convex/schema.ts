@@ -963,6 +963,17 @@ export default defineSchema({
     projectId: v.id("projects"),
     title: v.string(), // "Director", "Sound Mixer" — ≤ 60 chars
     description: v.optional(v.string()), // ≤ 500 chars
+    // Same plain-array tag pattern as projects.interests — a role's own
+    // subject tags, since a project's roles often need different skills
+    // from each other (a Director and a Sound Mixer aren't found by the
+    // same tags), so one interests list at the project level couldn't
+    // represent either well.
+    interests: v.optional(v.array(v.string())),
+    // Optional deadline — "need this filled by": a role reads no more
+    // urgent than any other without one. Same past-date-just-hides-it
+    // convention as projects.raiseByDate (projects.tsx) — no separate
+    // "overdue" state to build.
+    neededBy: v.optional(v.number()),
     status: v.union(
       v.literal("open"),
       v.literal("filled"),
