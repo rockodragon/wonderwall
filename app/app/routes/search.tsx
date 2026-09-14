@@ -3,7 +3,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
 import { api } from "../../convex/_generated/api";
 import { INTERESTS } from "../constants/interests";
-import { FavoriteButton } from "../components/FavoriteButton";
 import { SearchInput } from "../components/SearchInput";
 import { TagFilterPills } from "../components/TagFilterPills";
 import { useFilterState } from "../lib/useFilterState";
@@ -286,18 +285,16 @@ function ProfileCard({ profile }: { profile: ProfileResult & { _distance?: numbe
           {profile.name.charAt(0).toUpperCase()}
         </div>
       )}
+      {/* Name never truncates — Follow moved to the profile page itself
+          (profile.tsx), which freed the width this used to fight for. */}
       <div className="min-w-0 flex-1">
-        <h3 className="font-medium text-gray-900 dark:text-white truncate text-sm">
+        <h3 className="font-medium text-gray-900 dark:text-white text-sm leading-snug">
           {profile.name}
         </h3>
-        <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+        <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">
           {distLabel && <span className="text-blue-500 dark:text-blue-400">{distLabel} · </span>}
           {profile.interests.slice(0, 2).join(" · ")}
         </p>
-      </div>
-      {/* Always visible: hover-reveal has no equivalent on touch screens. */}
-      <div className="shrink-0">
-        <FavoriteButton targetType="profile" targetId={profile._id} size="sm" />
       </div>
     </Link>
   );
