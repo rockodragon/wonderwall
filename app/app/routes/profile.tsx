@@ -446,7 +446,7 @@ export default function Profile() {
                         {a.role || "Lead"}
                       </span>
                       <span className="text-xs" style={{ color: "var(--app-text-dim)" }}>
-                        {stageLabel(a.stage as Stage, a.kind)}
+                        {stageLabel(a.stage as Stage)}
                       </span>
                     </div>
                   </div>
@@ -488,7 +488,7 @@ export default function Profile() {
                       </span>
                     </div>
                     <span className="text-sm shrink-0" style={{ color: "var(--app-text-dim)" }}>
-                      {stageLabel(a.stage as Stage, a.kind)}
+                      {stageLabel(a.stage as Stage)}
                     </span>
                   </div>
                 </div>

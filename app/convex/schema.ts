@@ -156,7 +156,15 @@ export default defineSchema({
     ),
     // Location fields
     location: v.optional(v.string()), // Venue name / display string: "Tamarack State Beach"
-    venueAddress: v.optional(v.string()), // Free-text street address ("123 Main St, Carlsbad, CA") — preferred for maps links when present. (`address` below is the structured autocomplete object, so this plain-string field gets its own name.)
+    // Optional, free-text street address override — NOT geocoded. Exists
+    // because a venue's own name (e.g. a park) often isn't itself a mailable
+    // address; when set, it's preferred over the structured `address` below
+    // for the "Open in Maps" link and static map image (event.tsx's
+    // LocationMapCard), since it's what the organizer actually wants someone
+    // typing directions to see. It plays no part in "near me" distance
+    // filtering — that only ever uses `coordinates`, which comes from
+    // picking a `location` suggestion, not from this field.
+    venueAddress: v.optional(v.string()),
     locationType: v.optional(v.string()), // "venue" | "city" | "zip" | "online" | "tbd"
     address: v.optional(
       v.object({
@@ -175,7 +183,7 @@ export default defineSchema({
         lng: v.number(),
       }),
     ),
-    placeId: v.optional(v.string()), // Radar place ID for enrichment
+    placeId: v.optional(v.string()), // Google Places ID for enrichment
     tags: v.array(v.string()),
     requiresApproval: v.boolean(),
     status: v.string(), // "draft" | "published" | "cancelled" | "completed"

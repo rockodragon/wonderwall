@@ -7,7 +7,7 @@ import { Link, useNavigate, useSearchParams } from "react-router";
 import confetti from "canvas-confetti";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
-import { LocationAutocomplete } from "../components/LocationAutocomplete";
+import { LocationAutocomplete, LocationVerifiedHint } from "../components/LocationAutocomplete";
 import { useLocationField } from "../lib/useLocationField";
 import { INTERESTS } from "../constants/interests";
 import { LEVEL_LABEL } from "../garden/capabilities";
@@ -825,6 +825,7 @@ function ProfileEditForm({
             }}
             placeholder="Search for your city..."
           />
+          <LocationVerifiedHint value={location.value} selected={location.selected} />
         </div>
 
         {/* Interests */}

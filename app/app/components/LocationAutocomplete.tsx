@@ -323,3 +323,42 @@ export function LocationAutocomplete({
     </div>
   );
 }
+
+/**
+ * The one piece of feedback every LocationAutocomplete call site needs and
+ * used to each roll (or skip) on its own: whether what's in the box actually
+ * resolved to a real place. Typing alone never geocodes anything — only
+ * picking a dropdown suggestion does (see useLocationField's `selected`) —
+ * so a form that lets someone type past the dropdown and submit free text
+ * silently drops that entry from "near me" distance filtering and gets a
+ * fuzzier map link, with no indication anything was lost. Render this right
+ * under every `<LocationAutocomplete>` (events, projects, offerings,
+ * profiles) so that's visible instead of silent.
+ */
+export function LocationVerifiedHint({
+  value,
+  selected,
+}: {
+  value: string;
+  selected: LocationSuggestion | null;
+}) {
+  if (!value.trim()) return null;
+
+  if (selected) {
+    return (
+      <p className="mt-1 text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
+        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+        </svg>
+        Location verified{selected.coordinates && " with coordinates"}
+      </p>
+    );
+  }
+
+  return (
+    <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
+      Not matched to a place yet — pick a suggestion from the dropdown so
+      maps and "near me" search can find this.
+    </p>
+  );
+}

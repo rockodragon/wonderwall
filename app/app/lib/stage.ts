@@ -18,18 +18,18 @@ export const STAGES = [
 
 export type Stage = (typeof STAGES)[number];
 
-/** Labels per kind. "forming" reads as Hiring on a paid post, because a paid
- * post is a hiring post — otherwise every open gig on /opportunities would
- * have said "Planning". `kind` is the raw schema string; anything but "paid"
- * reads as passion. */
-export function stageLabel(stage: Stage, kind: string): string {
+/** One label per stage, same for passion and paid — "forming" used to read
+ * "Hiring" on a paid post, but a project still forming its team is still
+ * forming its team whether or not the work is paid; "Hiring" implied an
+ * employment relationship this platform doesn't have. */
+export function stageLabel(stage: Stage): string {
   switch (stage) {
     case "planning":
       return "Planning";
     case "raising":
       return "Raising";
     case "forming":
-      return kind === "paid" ? "Hiring" : "Forming team";
+      return "Forming team";
     case "working":
       return "Working";
     case "releasing":
@@ -46,7 +46,7 @@ export function isStage(value: unknown): value is Stage {
 /** The stage a project displays as. `stage` wins when set; otherwise derive
  * from the legacy status so old rows read sensibly:
  *   in_progress → working, completed → completed,
- *   paid → forming (hiring), everything else → planning. */
+ *   paid → forming (still building the team), everything else → planning. */
 export function resolveStage(project: {
   stage?: string;
   status?: string;

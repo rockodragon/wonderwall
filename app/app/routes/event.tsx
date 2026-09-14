@@ -40,6 +40,7 @@ import { YOUTUBE_LIVE_LABEL, YOUTUBE_LIVE_URL } from "../constants/broadcast";
 import { FavoriteButton } from "../components/FavoriteButton";
 import {
   LocationAutocomplete,
+  LocationVerifiedHint,
   type LocationSuggestion,
 } from "../components/LocationAutocomplete";
 import { useLocationField } from "../lib/useLocationField";
@@ -2033,36 +2034,18 @@ function EditEventModal({
                 onSelect={location.onSelect}
                 placeholder="Search for a venue, type 'Online', or 'TBD'"
               />
-              {location.selected && (
-                <p className="mt-1 text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
-                  <svg
-                    className="w-3 h-3"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M5 13l4 4L19 7"
-                    />
-                  </svg>
-                  Location verified
-                  {location.selected.coordinates && " with coordinates"}
-                </p>
-              )}
+              <LocationVerifiedHint value={location.value} selected={location.selected} />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Address
+                Street address <span className="font-normal text-gray-400">(optional override)</span>
               </label>
               <input
                 type="text"
                 value={venueAddress}
                 onChange={(e) => setVenueAddress(e.target.value)}
-                placeholder="Street address (optional)"
+                placeholder="Only if the venue name above needs a precise address for maps"
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
               />
             </div>

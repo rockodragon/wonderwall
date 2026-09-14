@@ -3,7 +3,7 @@ import { Link, useSearchParams } from "react-router";
 import { useMemo, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import { INTERESTS } from "../constants/interests";
-import { LocationAutocomplete } from "../components/LocationAutocomplete";
+import { LocationAutocomplete, LocationVerifiedHint } from "../components/LocationAutocomplete";
 import { useLocationField } from "../lib/useLocationField";
 import { budgetAmountLabel, budgetKindLabel } from "../lib/budgetLabel";
 import { CommunityPicker } from "../components/CommunityPicker";
@@ -506,7 +506,7 @@ function ProjectCard({
               color: "var(--garden-muted)",
             }}
           >
-            {stageLabel(stage, project.kind)}
+            {stageLabel(stage)}
             {daysLeft !== null && ` · ${daysLeft} ${daysLeft === 1 ? "day" : "days"} left`}
           </span>
           {matched && (
@@ -708,7 +708,7 @@ export function StageSelect({ project }: { project: any }) {
     >
       {STAGES.map((s) => (
         <option key={s} value={s}>
-          {stageLabel(s, project.kind)}
+          {stageLabel(s)}
         </option>
       ))}
     </select>
@@ -997,6 +997,7 @@ function PaidProjectForm({
                 onSelect={location.onSelect}
                 placeholder="Search for a location, type 'Online', or 'TBD'"
               />
+              <LocationVerifiedHint value={location.value} selected={location.selected} />
             </div>
           )}
           <CommunityPicker value={hostOrgId} onChange={setHostOrgId} defaultHostOrgId={defaultHostOrgId} />
@@ -1226,6 +1227,7 @@ function PassionProjectForm({ onClose }: { onClose: () => void }) {
                 onSelect={location.onSelect}
                 placeholder="Search for a location, type 'Online', or 'TBD'"
               />
+              <LocationVerifiedHint value={location.value} selected={location.selected} />
             </div>
           )}
           <label className="flex items-center gap-2 text-sm" style={{ color: "var(--garden-body)" }}>

@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { Link } from "react-router";
 import { api } from "../../convex/_generated/api";
 import { INTERESTS } from "../constants/interests";
-import { LocationAutocomplete } from "../components/LocationAutocomplete";
+import { LocationAutocomplete, LocationVerifiedHint } from "../components/LocationAutocomplete";
 import { useLocationField } from "../lib/useLocationField";
 import { CommunityPicker } from "../components/CommunityPicker";
 import {
@@ -1337,6 +1337,7 @@ export function PostOfferingForm({
                     onSelect={location.onSelect}
                     placeholder="Search for a location"
                   />
+                  <LocationVerifiedHint value={location.value} selected={location.selected} />
                 </>
               )}
             </div>

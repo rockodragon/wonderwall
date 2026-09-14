@@ -16,17 +16,21 @@ New field `projects.stage`, optional. `projects.status` is untouched: it keeps m
 
 **Why:** renaming `status` values breaks `operator.ts` VISIBLE_STATUSES, `entitlements.ts`'s `by_userId_kind_status` predicate, `jobsMigration`'s archive guard, seven insert sites, two test files, and two `!== "active"` badge conditions, all silently. An additive field breaks nothing.
 
-| Stage | Passion label | Paid label |
-|---|---|---|
-| `planning` | Planning | Planning |
-| `raising` | Raising | Raising |
-| `forming` | Forming team | **Hiring** |
-| `working` | Working | Working |
-| `releasing` | Releasing | Releasing |
-| `completed` | Completed | Completed |
+| Stage | Label |
+|---|---|
+| `planning` | Planning |
+| `raising` | Raising |
+| `forming` | Forming team |
+| `working` | Working |
+| `releasing` | Releasing |
+| `completed` | Completed |
+
+One label per stage regardless of `kind` — `forming` used to read "Hiring" on a
+paid post, but "still forming its team" is true whether or not the work pays,
+and "Hiring" implied an employment relationship this platform doesn't have.
 
 - Any stage can move to any other. It is a label, not a state machine.
-- **Default:** paid → `forming` (a paid post is a hiring post). Passion → `planning`.
+- **Default:** paid → `forming` (a paid post still needs to build its team first). Passion → `planning`.
 - **Derived for old rows** (`stage` absent), in one pure function `resolveStage(project)`: `status in_progress → working`, `completed → completed`, paid → `forming`, else `planning`. No migration.
 - Stage label on cards in `/projects` and `/opportunities`, and on the project page. Always shown.
 - `StatusSelect` on the project page becomes a stage select writing `stage` via `setStage`. Archive becomes a separate "Archive" action calling the existing `updateProjectStatus`.

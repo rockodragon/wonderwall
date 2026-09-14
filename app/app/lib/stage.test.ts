@@ -22,12 +22,11 @@ describe("resolveStage", () => {
 });
 
 describe("stageLabel", () => {
-  it("reads forming as Hiring on paid and Forming team on passion", () => {
-    expect(stageLabel("forming", "paid")).toBe("Hiring");
-    expect(stageLabel("forming", "passion")).toBe("Forming team");
+  it("reads forming as Forming team regardless of kind", () => {
+    expect(stageLabel("forming")).toBe("Forming team");
   });
   it("has a label for every stage", () => {
-    for (const s of STAGES) expect(stageLabel(s, "passion")).toBeTruthy();
+    for (const s of STAGES) expect(stageLabel(s)).toBeTruthy();
   });
 });
 

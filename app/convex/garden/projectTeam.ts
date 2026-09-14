@@ -40,15 +40,15 @@ export function isStage(value: unknown): value is Stage {
   return typeof value === "string" && (STAGES as readonly string[]).includes(value);
 }
 
-/** "forming" reads as Hiring on a paid post (a paid post is a hiring post). */
-export function stageLabel(stage: Stage, kind: string): string {
+/** One label per stage, same for passion and paid — see app/app/lib/stage.ts. */
+export function stageLabel(stage: Stage): string {
   switch (stage) {
     case "planning":
       return "Planning";
     case "raising":
       return "Raising";
     case "forming":
-      return kind === "paid" ? "Hiring" : "Forming team";
+      return "Forming team";
     case "working":
       return "Working";
     case "releasing":

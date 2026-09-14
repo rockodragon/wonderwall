@@ -147,7 +147,7 @@ function ProjectTile({ project }: { project: ProjectCard }) {
           </span>
           <span className="text-[var(--garden-dim)]">
             {" "}
-            · {stageLabel(resolveStage(project), project.kind)}
+            · {stageLabel(resolveStage(project))}
           </span>
         </p>
         <h2 className="text-[var(--garden-paper)] font-semibold text-lg leading-snug mb-2">

@@ -476,7 +476,7 @@ function InlineEditableTitle({ project, isOwner }: { project: any; isOwner: bool
         className="px-2 py-0.5 rounded-full text-[11px] font-medium uppercase tracking-[0.06em]"
         style={{ fontFamily: "var(--garden-font-mono)", backgroundColor: "rgba(198,198,190,0.1)", color: "var(--garden-muted)" }}
       >
-        {stageLabel(resolveStage(project), project.kind)}
+        {stageLabel(resolveStage(project))}
       </span>
       {isOwner && !editing && <EditButton onClick={() => { setDraft(project.title); setEditing(true); }} label="Edit title" />}
     </div>

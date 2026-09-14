@@ -7,7 +7,7 @@ import { api } from "../../convex/_generated/api";
 
 import { INTERESTS } from "../constants/interests";
 import { ROLES, type Role } from "../constants/roles";
-import { LocationAutocomplete } from "../components/LocationAutocomplete";
+import { LocationAutocomplete, LocationVerifiedHint } from "../components/LocationAutocomplete";
 import { useLocationField } from "../lib/useLocationField";
 
 const PARTNER_OFFERINGS = [
@@ -722,6 +722,7 @@ function LocationField({
         onSelect={location.onSelect}
         placeholder="Nashville, TN"
       />
+      <LocationVerifiedHint value={location.value} selected={location.selected} />
       {helpText && <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{helpText}</p>}
     </div>
   );

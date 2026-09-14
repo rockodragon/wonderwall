@@ -39,10 +39,9 @@ describe("stage twin — matches app/app/lib/stage.ts", () => {
     expect(isStage(undefined)).toBe(false);
     expect(isStage(3)).toBe(false);
   });
-  it("forming reads Hiring on paid, Forming team on passion", () => {
-    expect(stageLabel("forming", "paid")).toBe("Hiring");
-    expect(stageLabel("forming", "passion")).toBe("Forming team");
-    expect(stageLabel("working", "paid")).toBe("Working");
+  it("forming reads Forming team regardless of kind", () => {
+    expect(stageLabel("forming")).toBe("Forming team");
+    expect(stageLabel("working")).toBe("Working");
   });
   it("resolveStage: stage wins, else derives from legacy status / kind", () => {
     expect(resolveStage({ stage: "releasing", status: "in_progress", kind: "paid" })).toBe("releasing");

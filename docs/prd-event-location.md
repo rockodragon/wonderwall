@@ -1,273 +1,159 @@
-# PRD: Event Location System
+# Location system
 
-## Overview
-Add location autocomplete, geocoding, and filtering capabilities to events. Users should be able to easily enter locations with autocomplete suggestions, and discover events near them.
+Status: **implemented** — this doc originally shipped as a pre-build PRD
+(hence the filename) and proposed Radar as the geocoding provider; the build
+went a different direction (Google Places) and grew to cover more than
+events. This revision replaces the proposal with what's actually running, so
+it stops misleading anyone who reads it before touching this code.
 
-## Goals
-1. Simplify event location entry with autocomplete
-2. Store structured location data (coordinates, address components)
-3. Enable location-based event discovery (near me, specific city)
-4. Support various location types (venue address, city only, zip code, "Online")
+## What it covers
 
----
+One location system, shared by four tables: `events`, `projects`,
+`offerings`, `profiles`. All four store the same shape and go through the
+same pipeline — see "Data model" and "Architecture" below. `jobs` is the one
+exception: its `location` is a `"Remote" | "Hybrid" | "On-site"` enum plus
+separate `city`/`state`/`country`/`zipCode` strings, a different and older
+model that predates this system and wasn't migrated (`convex/schema.ts`'s
+`jobs` table).
 
-## API Options Comparison
+## Provider: Google Places API (New)
 
-### 1. Google Places API (Recommended for quality)
-- **Pros**: Best coverage, most accurate, session-based pricing
-- **Cons**: Most expensive at scale
-- **Pricing**: ~$2.83/1000 sessions (Autocomplete), $5/1000 requests (Geocoding)
-- **Free tier**: $200/month credit (~70K autocomplete sessions)
+Not Radar. `convex/location.ts`'s `autocomplete` HTTP action calls
+`places.googleapis.com/v1/places:autocomplete`, then fetches
+`places.googleapis.com/v1/places/{placeId}` for each of the top 5
+predictions to get real coordinates and structured address components
+(`GOOGLE_PLACES_API_KEY` env var). `profiles.ts`'s `backfillCoordinates`
+internal action uses the same API's `:searchText` endpoint to resolve
+coordinates for profiles that have a location string but predate this
+pipeline.
 
-### 2. Radar (Recommended for cost)
-- **Pros**: Free up to 100K requests/month, good accuracy, built for developers
-- **Cons**: Less POI data than Google
-- **Pricing**: Free tier generous, then $0.50/1000 requests
-- **Best for**: Cost-conscious startups, US-focused apps
+Typing `"online"` or `"tbd"` is special-cased in `convex/location.ts` to
+return a synthetic suggestion without an API call — no key needed, no rate
+limit spent, for the two location types that aren't places at all.
 
-### 3. Geoapify
-- **Pros**: Built on OpenStreetMap, affordable, good API design
-- **Cons**: Less accurate than Google for business names
-- **Pricing**: Free tier (3000 req/day), then $49/month for 100K
-- **Best for**: OSM enthusiasts, budget-conscious
+## Architecture (the DRY part)
 
-### 4. HERE Maps
-- **Pros**: 250K free transactions/month, good coverage
-- **Cons**: Slightly less intuitive API
-- **Best for**: High volume needs
+Every form that collects a location uses the same two pieces:
 
-### 5. Mapbox
-- **Pros**: Good free tier (100K requests), nice UI components
-- **Cons**: Requires displaying Mapbox attribution
-- **Best for**: Apps already using Mapbox maps
+- **`app/app/components/LocationAutocomplete.tsx`** — the debounced (300ms)
+  text input + dropdown. Calls the `/api/location/autocomplete` HTTP action
+  above, renders suggestions with a type icon (venue/city/online/tbd), and
+  on selection calls back with a `LocationSuggestion`: `placeId`,
+  `displayName`, `formattedAddress`, `locationType`, `address` (street/
+  city/state/stateCode/zip/country/countryCode), and `coordinates` (when
+  Google returns one). Also exports `LocationVerifiedHint`, a small status
+  line every call site renders directly under the input — green "Location
+  verified" when the value matches a picked suggestion, amber "Not matched
+  to a place yet" when it doesn't. Typing without picking a suggestion was a
+  silent failure mode before this existed: the string saves fine, but
+  carries no coordinates, so it's invisible to "near me" search and gets a
+  fuzzier map link. The hint makes that visible instead of silent.
 
-### 6. Nominatim (OpenStreetMap)
-- **Pros**: Completely free, open data
-- **Cons**: Rate limited (1 req/sec), no commercial SLA, less accurate for POIs
-- **Best for**: Non-commercial or low-volume use
+- **`app/app/lib/useLocationField.ts`** — the shared state: tracks the
+  display string and the resolved `LocationSuggestion` side by side, clears
+  the resolved suggestion the moment the text is edited away from what was
+  picked (so a stale placeId/coordinates can never ride along with
+  unrelated freshly-typed text), and exposes `toArgs()` — what every create/
+  edit mutation spreads into its args: `{ location, locationType, address,
+  coordinates, placeId }`.
 
-### Recommendation
-**Start with Radar** for cost-effectiveness with good quality:
-- 100K free requests/month covers early growth
-- Easy migration to Google Places if needed later
-- Good autocomplete and geocoding accuracy
+Call sites: `CreateEventModal.tsx` + `event.tsx`'s edit form (events),
+`projects.tsx`'s create and edit forms (projects, gated behind a "This can
+be done remotely" checkbox — see "Remote" below), `offerings.tsx`'s create
+and edit forms (same remote-checkbox pattern), `settings.tsx`'s
+`ProfileEditForm`, and `onboarding.tsx`'s `LocationField`.
 
----
+## Data model
 
-## Data Model
-
-### Events Table Updates
-
-```typescript
-// convex/schema.ts - events table
-events: defineTable({
-  // ... existing fields ...
-
-  // Location fields (new)
-  location: v.optional(v.string()),              // Display string: "Tamarack State Beach, Carlsbad, CA"
-  locationType: v.optional(v.string()),          // "venue" | "city" | "zip" | "online" | "tbd"
-
-  // Structured address (when available)
-  address: v.optional(v.object({
-    street: v.optional(v.string()),              // "123 Main St"
-    city: v.optional(v.string()),                // "Carlsbad"
-    state: v.optional(v.string()),               // "CA"
-    zip: v.optional(v.string()),                 // "92008"
-    country: v.optional(v.string()),             // "US"
-  })),
-
-  // Coordinates for distance calculations
-  coordinates: v.optional(v.object({
-    lat: v.number(),                             // 33.1581
-    lng: v.number(),                             // -117.3506
-  })),
-
-  // External place ID for enrichment
-  placeId: v.optional(v.string()),               // Google/Radar place ID
-})
-  .index("by_coordinates", ["coordinates"])      // For geo queries
-```
-
-### Location Types
-| Type | Description | Example |
-|------|-------------|---------|
-| `venue` | Specific address/place | "Tamarack State Beach, Carlsbad, CA" |
-| `city` | City-level only | "Los Angeles, CA" |
-| `zip` | Zip code area | "92008" |
-| `online` | Virtual event | "Online" |
-| `tbd` | Location not yet decided | "TBD" |
-
----
-
-## User Experience
-
-### Event Creation Flow
-
-1. **Location Input Field**
-   - Text input with autocomplete dropdown
-   - Debounced search (300ms)
-   - Shows suggestions as user types
-   - Supports typing "Online" or "TBD" without API call
-
-2. **Autocomplete Suggestions**
-   ```
-   ┌────────────────────────────────────────┐
-   │ 🔍 Tamarack st                         │
-   ├────────────────────────────────────────┤
-   │ 📍 Tamarack State Beach               │
-   │    Carlsbad, CA                        │
-   │ ─────────────────────────────────────  │
-   │ 📍 Tamarack Street                     │
-   │    San Diego, CA 92101                 │
-   │ ─────────────────────────────────────  │
-   │ 📍 Tamarack Ave                        │
-   │    Oceanside, CA 92054                 │
-   └────────────────────────────────────────┘
-   ```
-
-3. **Selection**
-   - User selects suggestion
-   - System fetches full details (coordinates, address components)
-   - Stores structured data
-
-4. **Manual Entry Fallback**
-   - User can type custom location if not in suggestions
-   - Won't have coordinates (no distance filtering)
-   - Display warning: "Location not verified - distance filtering unavailable"
-
-### Event Discovery Filters
-
-```
-┌─ Location Filter ─────────────────────────┐
-│ ○ All locations                           │
-│ ● Near me (within 25 miles)              │
-│ ○ Specific city: [_______________]        │
-│ ○ Online only                             │
-└───────────────────────────────────────────┘
-```
-
-**"Near Me" Logic:**
-1. Request user's location (browser geolocation API)
-2. Calculate distance to each event with coordinates
-3. Filter to events within radius (default 25 miles)
-4. Sort by distance ascending
-
----
-
-## Technical Implementation
-
-### Phase 1: Backend Infrastructure
-
-1. **Add schema fields** (coordinates, address, locationType)
-2. **Create location service** (abstracted for provider switching)
-3. **Add geocoding action** for coordinate lookup
-4. **Update event mutations** to accept location data
-
-### Phase 2: Autocomplete API Integration
-
-1. **Create Convex HTTP action** for autocomplete proxy
-   - Keeps API key server-side
-   - Rate limits per user
-   - Caches common queries
-
-2. **Frontend autocomplete component**
-   - Debounced input
-   - Keyboard navigation
-   - Mobile-friendly dropdown
-
-### Phase 3: Distance Filtering
-
-1. **Add user location storage** (optional, for "near me")
-2. **Implement Haversine distance calculation**
-3. **Add filter UI to events page**
-4. **Sort by distance when filtering**
-
-### Distance Calculation (Haversine Formula)
+`events`, `projects`, `offerings`, and `profiles` each carry:
 
 ```typescript
-function getDistanceMiles(
-  lat1: number, lng1: number,
-  lat2: number, lng2: number
-): number {
-  const R = 3959; // Earth's radius in miles
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLng = (lng2 - lng1) * Math.PI / 180;
-  const a =
-    Math.sin(dLat/2) * Math.sin(dLat/2) +
-    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-    Math.sin(dLng/2) * Math.sin(dLng/2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-  return R * c;
-}
+location: v.optional(v.string()),       // display string, what search/matching reads
+locationType: v.optional(v.string()),   // "venue" | "city" | "zip" | "address" | "online" | "tbd"
+address: v.optional(v.object({
+  street: v.optional(v.string()),
+  city: v.optional(v.string()),
+  state: v.optional(v.string()),
+  stateCode: v.optional(v.string()),
+  zip: v.optional(v.string()),
+  country: v.optional(v.string()),
+  countryCode: v.optional(v.string()),
+})),
+coordinates: v.optional(v.object({ lat: v.number(), lng: v.number() })),
+placeId: v.optional(v.string()),        // Google Places ID, for re-fetching details later
 ```
 
----
+`projects` and `offerings` additionally carry `remote: v.optional(v.boolean())`
+— see "Remote, not multiple locations" below.
 
-## API Integration (Radar Example)
+`events` additionally carries `venueAddress: v.optional(v.string())` — a
+free-text street address, **not geocoded**, that overrides `address` for the
+"Open in Maps" link and static map image (`event.tsx`'s `LocationMapCard`)
+when set. It exists because a venue's own name is often not itself a
+mailable address (a park, a campus, a private home) — the organizer can name
+the venue for the autocomplete's `location`/`address`/`coordinates`, and
+separately give the exact street address someone should type into their own
+maps app. It plays no part in "near me" filtering, which only ever uses
+`coordinates`.
 
-### Environment Setup
-```bash
-# .env.local
-RADAR_API_KEY=prj_live_pk_xxx
-```
+There is no `by_coordinates` index (the original PRD proposed one). "Near
+me" filtering happens client-side after a normal query — see below — which
+is fine at this dataset's size; a real geo-index would only earn its keep
+once distance filtering runs before pagination, not after it.
 
-### Autocomplete Action
-```typescript
-// convex/location.ts
-import { httpAction } from "./_generated/server";
+### Should venue name and address be separate fields?
 
-export const autocomplete = httpAction(async (ctx, request) => {
-  const { query } = await request.json();
+Yes, but only where the "exact street address a person can type into a maps
+app" and "the name people actually know a place by" are genuinely different
+things — which is specifically the events case above. Projects, offerings,
+and profiles don't have that problem: a location there is "where," not "the
+precise pin for someone showing up," so the single structured `location`
+(with its own geocoded `address`) is enough, and none of them carry a second
+free-text field. Adding one everywhere "for consistency" would just
+reintroduce the exact confusion this doc exists to head off: a second field
+that looks like it's part of geocoding but isn't.
 
-  const response = await fetch(
-    `https://api.radar.io/v1/search/autocomplete?query=${encodeURIComponent(query)}&limit=5`,
-    {
-      headers: {
-        Authorization: process.env.RADAR_API_KEY!,
-      },
-    }
-  );
+## Remote, not multiple locations
 
-  const data = await response.json();
+`projects` and `offerings` support exactly one location plus a `remote`
+boolean (`true`/unset = remote-friendly, `false` = must be local to
+`location`) — not an array of locations. A project's create/edit form
+renders a "This can be done remotely" checkbox; the `LocationAutocomplete`
+only shows when it's unchecked, and submission requires either the checkbox
+or a non-empty location. This is a deliberate choice, not a gap: the
+`useLocationField`/`LocationAutocomplete` pair is a single-location
+abstraction shared by all four tables, and the actual cases this needs to
+cover — "based here," "based here but open to remote," "fully remote" — are
+all single-location-plus-a-flag. A touring project with several real stops
+would need a genuine multi-location model (an array, or a join table), which
+none of the four tables have; that's future work if it's ever needed, not
+something to bolt onto the shared single-location hook for one table.
 
-  return new Response(JSON.stringify(data.addresses), {
-    headers: { "Content-Type": "application/json" },
-  });
-});
-```
+## "Near me" — real coordinate distance filtering, client-side
 
----
+`app/app/lib/useNearMe.ts` has the shared pieces: a Haversine great-circle
+distance function, a `useNearMe()` hook wrapping browser geolocation, and
+`NEAR_ME_RADIUS_OPTIONS` (25/50/100 mi). `search.tsx` (People), `events.tsx`,
+and `offerings.tsx` each: fetch their normal (unfiltered-by-location) result
+set, then in a `useMemo`, when "near me" is on and the browser position is
+known, compute the distance to each row's `coordinates`, drop rows with no
+coordinates, filter to the radius, and sort ascending.
 
-## Migration Plan
+This depends entirely on `coordinates` being populated, which only happens
+when a `LocationAutocomplete` suggestion was actually picked (or a profile
+was covered by the `backfillCoordinates` backfill). `LocationVerifiedHint`
+(above) is what makes that dependency visible at the point where it would
+otherwise silently fail.
 
-1. **Add optional fields** - No migration needed, fields are optional
-2. **Backfill existing events** - Optional: geocode existing location strings
-3. **Update event forms** - Add autocomplete component
-4. **Add filters** - Enhance events list page
+## Open questions carried over from the original PRD
 
----
+Still open, still worth a real answer before anyone builds against them:
 
-## Success Metrics
-
-- **Autocomplete usage**: % of events created with autocomplete vs manual
-- **Location accuracy**: % of events with valid coordinates
-- **Filter adoption**: % of users using location filters
-- **API costs**: Monthly API spend vs free tier limits
-
----
-
-## Open Questions
-
-1. **Default radius for "near me"?** - Suggest 25 miles, make configurable
-2. **Show map on event page?** - Nice to have, adds complexity
-3. **Store user's home location?** - Privacy consideration, make optional
-4. **International support?** - Start US-only, expand based on user base
-
----
-
-## Sources
-
-- [Radar Address Autocomplete](https://radar.com/product/address-autocomplete-api)
-- [Geoapify as Google Places Alternative](https://www.geoapify.com/geoapify-as-a-google-places-api-alternative/)
-- [Google Places API Alternatives](https://traveltime.com/blog/google-places-api-alternatives-points-of-interest-data)
-- [HERE Geocoding API](https://developer.here.com/documentation/geocoding-search-api/dev_guide/index.html)
+1. Default "near me" radius — currently 25/50/100mi as user-chosen options,
+   no smart default.
+2. Show a map on the create/edit form itself (not just the read view)?
+3. Store a signed-in user's "home" location for a default "near me" center,
+   vs. always asking browser geolocation fresh?
+4. International support — the address-component parsing in
+   `convex/location.ts` is US-shaped (`stateCode`, `zip`); untested outside
+   the US.

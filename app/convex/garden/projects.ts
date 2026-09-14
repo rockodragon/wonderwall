@@ -300,7 +300,7 @@ export const setStage = mutation({
           q.eq("projectId", args.projectId).eq("status", "accepted"),
         )
         .collect();
-      const title = `${project.title} is now ${stageLabel(args.stage, project.kind)}`;
+      const title = `${project.title} is now ${stageLabel(args.stage)}`;
       for (const member of members) {
         if (!member.userId || member.userId === userId) continue;
         await ctx.db.insert("notifications", {
@@ -615,7 +615,7 @@ export const createPaidProject = mutation({
       budgetMax: args.budgetMax,
       status: "active",
       // Stage default (docs/features/project-teams.md §1): paid → forming
-      // (a paid post is a hiring post).
+      // (a paid post still needs to build its team before the work starts).
       stage: "forming",
       stageChangedAt: now,
       photoUrl: args.photoUrl,
