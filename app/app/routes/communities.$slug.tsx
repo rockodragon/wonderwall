@@ -219,7 +219,12 @@ function JoinControl({ community }: { community: Community }) {
           <span>
             Make this my home community.
             <br />
-            Your dues support your home community's project pool.
+            {/* Joining a community is free — dues only exist if you also
+                hold a paid seat (garden/capabilities.ts's isPaidLevel), so
+                this can't claim membership dues as an ongoing fact the way
+                the old copy did ("Your dues support..."). This just says
+                what the toggle controls: where dues go, if there are any. */}
+            Membership dues, if you have any, go to your home community's project pool.
           </span>
         </label>
         {note && <p className="mt-2 text-sm" style={{ color: "var(--garden-body)" }}>{note}</p>}

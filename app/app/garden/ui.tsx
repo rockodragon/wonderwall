@@ -56,20 +56,31 @@ export function GardenWordmark() {
   );
 }
 
-/** THE shared nav for every Garden surface. Without this the pages are
-    orphans reachable only by typed URL — which is exactly what happened.
-    Keep the item list identical everywhere; the active item gets the
-    citron underline (never a fill — citron is for actions). */
+/** THE shared nav item list — also what _app.tsx's authenticated sidebar
+    and mobile bar build their own nav from (see the NAV_ICONS map there),
+    so the two can't drift into showing the same label pointed at two
+    different routes the way they used to ("Spaces" here used to say
+    /communities while _app.tsx said /tables — see below for which one is
+    actually right). One list, one set of destinations, everywhere.
+
+    "Projects" and "Events" are the two items whose destination depends on
+    who's looking: /projects and /events both live inside the _app layout
+    and redirect a logged-out visitor to /login, so on a mostly-public page
+    — or in the app shell's own sidebar, for a signed-out visitor on one of
+    its public paths (/search, /communities, /offerings, /tables, an event
+    detail) — the nav was walking strangers into a wall. Signed in → the
+    real page; signed out → the public guest equivalent of the same
+    content (/opportunities, /garden/events). */
 export const NAV_ITEMS = [
-  { to: "/search", publicTo: "/search", label: "People" },
-  // "Projects" is the one item whose destination depends on who's looking:
-  // /projects lives inside the _app layout and redirects a logged-out
-  // visitor to /login, so on these mostly-public pages the nav was walking
-  // strangers into a wall. Signed in → the real page; signed out →
-  // /opportunities, the public browse of the same postings.
+  { to: "/search", label: "People" },
   { to: "/projects", publicTo: "/opportunities", label: "Projects" },
-  { to: "/garden/events", label: "Events" }, // NOT /events — that's the legacy auth-gated route
-  { to: "/communities", label: "Spaces" },
+  { to: "/events", publicTo: "/garden/events", label: "Events" },
+  // /tables is "Spaces" — its own <title> says so (tables._index.tsx's
+  // meta()). /communities is a different, secondary concept (the
+  // directory of named groups/hosts you can join) — reachable from the
+  // sidebar's CommunitySwitcher ("Browse communities →"), not a top-level
+  // nav item.
+  { to: "/tables", label: "Spaces" },
   { to: "/offerings", label: "Learn" },
 ] as const;
 

@@ -7,6 +7,7 @@ import { takePendingIntent } from "../lib/pendingIntent";
 import { InviteCTA } from "../components/InviteCTA";
 import { Wordmark } from "../components/Wordmark";
 import { CommunitySwitcher } from "../components/CommunitySwitcher";
+import { NAV_ITEMS } from "../garden/ui";
 
 // Public paths (community-ux.md §2/§6): a signed-out visitor may browse
 // these without being redirected to /login — the directory, the apply page,
@@ -32,26 +33,37 @@ function isPublicPathname(pathname: string): boolean {
   );
 }
 
-// V1 (docs/the-exchange-v1-prd.md §5): People / Projects / Events / Spaces /
-// Learn. "The Garden" is one community inside Spaces, not a nav-level
-// destination. "Portfolios" (/works) drops from nav — the page itself
-// stays live, un-linked rather than deleted, same pattern as /organizations.
-// Everything else (Favorites, Profile, Messages, admin Crawler) is real but
-// secondary — the desktop sidebar visually demotes it below a divider so the
-// primary pitch stays to five things; mobile's bottom bar has no room for
-// that hierarchy, so it keeps showing the full set.
-const primaryNavItems = [
-  { path: "/search", label: "People", icon: SearchIcon },
-  { path: "/projects", label: "Projects", icon: BriefcaseIcon },
-  { path: "/events", label: "Events", icon: CalendarIcon },
-  { path: "/tables", label: "Spaces", icon: GridIcon },
-  { path: "/offerings", label: "Learn", icon: ClassesIcon },
-];
+// V1 (docs/the-exchange-v1-prd.md §5, though that draft predated Spaces/
+// Learn and only sketched three items — the shipped nav grew to five):
+// People / Projects / Events / Spaces / Learn. "The Garden" is one
+// community inside Spaces, not a nav-level destination. "Portfolios"
+// (/works) drops from nav — the page itself stays live, un-linked rather
+// than deleted, same pattern as /organizations. Everything else (Favorites,
+// Profile, Messages, admin Crawler) is real but secondary — the desktop
+// sidebar visually demotes it below a divider so the primary pitch stays to
+// five things; mobile's bottom bar has no room for that hierarchy, so it
+// shows the full set too, but only for a signed-in viewer (a signed-out
+// visitor on a public path gets primary items only, same as the desktop
+// sidebar — there's nothing behind Following/Profile/Messages for them to
+// see, and every one of those three redirects a guest straight to /login).
+//
+// The items themselves (label/destination/signed-out fallback) come from
+// garden/ui.tsx's NAV_ITEMS — the same list the public GardenNav/SiteHeader
+// build their nav from — so this sidebar and the marketing header can't
+// drift into showing the same label pointed at two different routes again
+// (they had: this file used to send "Spaces" to /tables while garden/ui.tsx
+// sent it to /communities).
+const NAV_ICONS = {
+  "/search": SearchIcon,
+  "/projects": BriefcaseIcon,
+  "/events": CalendarIcon,
+  "/tables": GridIcon,
+  "/offerings": ClassesIcon,
+} as const;
 const secondaryNavItems = [
   { path: "/favorites", label: "Following", icon: HeartIcon },
   { path: "/settings", label: "Profile", icon: UserIcon },
 ];
-const navItems = [...primaryNavItems, ...secondaryNavItems];
 
 export default function AppLayout() {
   const { isAuthenticated, isLoading } = useConvexAuth();
@@ -123,6 +135,21 @@ export default function AppLayout() {
     return null;
   }
 
+  // Signed in → each item's real destination; signed out → its public
+  // fallback where NAV_ITEMS declares one (Projects, Events), otherwise the
+  // same destination (People/Spaces/Learn are already public routes).
+  const primaryNavItems = NAV_ITEMS.map((item) => ({
+    path: isAuthenticated || !("publicTo" in item) ? item.to : item.publicTo,
+    label: item.label,
+    icon: NAV_ICONS[item.to],
+  }));
+  // Following/Profile/Messages all require an account — nothing behind them
+  // for a signed-out visitor, so the mobile bar drops to primary items only,
+  // matching the desktop sidebar's secondaryNavItems block below.
+  const navItems = isAuthenticated
+    ? [...primaryNavItems, ...secondaryNavItems]
+    : primaryNavItems;
+
   // Shared active/inactive treatment for every sidebar/bottom-nav link —
   // citron wash + accessible accent-ink when active (readable in both
   // themes, see tokens.css's --app-accent-ink note), muted text otherwise.
@@ -158,10 +185,12 @@ export default function AppLayout() {
         <Outlet />
       </main>
 
-      {/* Mobile bottom nav - icons only to fit 7 items. Sits fixed over
-          scrolling content, so it needs a real shadow (not just the fill
-          color) to read as a solid bar instead of blending with whatever
-          scrolls underneath it. */}
+      {/* Mobile bottom nav - icons only, to fit up to 8 items (5 primary +
+          Following/Profile/Messages once signed in; 5 for a signed-out
+          visitor on a public path). Sits fixed over scrolling content, so
+          it needs a real shadow (not just the fill color) to read as a
+          solid bar instead of blending with whatever scrolls underneath
+          it. */}
       <nav
         className="fixed bottom-0 left-0 right-0 z-50 border-t md:hidden"
         style={{
@@ -195,25 +224,27 @@ export default function AppLayout() {
               </Link>
             );
           })}
-          <Link
-            to="/messages"
-            className="flex items-center justify-center p-2"
-            style={{
-              color: location.pathname.startsWith("/messages")
-                ? "var(--app-accent-ink)"
-                : "var(--app-text-dim)",
-            }}
-            aria-label="Messages"
-          >
-            <div className="relative">
-              <EnvelopeIcon className="w-6 h-6" />
-              {sidebarBadgeCount > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] rounded-full h-4 min-w-4 flex items-center justify-center px-1">
-                  {sidebarBadgeCount > 99 ? "99+" : sidebarBadgeCount}
-                </span>
-              )}
-            </div>
-          </Link>
+          {isAuthenticated && (
+            <Link
+              to="/messages"
+              className="flex items-center justify-center p-2"
+              style={{
+                color: location.pathname.startsWith("/messages")
+                  ? "var(--app-accent-ink)"
+                  : "var(--app-text-dim)",
+              }}
+              aria-label="Messages"
+            >
+              <div className="relative">
+                <EnvelopeIcon className="w-6 h-6" />
+                {sidebarBadgeCount > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] rounded-full h-4 min-w-4 flex items-center justify-center px-1">
+                    {sidebarBadgeCount > 99 ? "99+" : sidebarBadgeCount}
+                  </span>
+                )}
+              </div>
+            </Link>
+          )}
         </div>
       </nav>
 
