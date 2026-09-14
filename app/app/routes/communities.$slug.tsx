@@ -146,7 +146,6 @@ function JoinControl({ community }: { community: Community }) {
   const { isAuthenticated, isLoading } = useConvexAuth();
   const joinCommunity = useMutation(api.garden.communities.joinCommunity);
   const leaveCommunity = useMutation(api.garden.communities.leaveCommunity);
-  const setHomeCommunity = useMutation(api.garden.communities.setHomeCommunity);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
 
@@ -186,17 +185,6 @@ function JoinControl({ community }: { community: Community }) {
         setBusy(false);
       }
     }
-    async function handleHomeToggle(checked: boolean) {
-      setBusy(true);
-      setNote(null);
-      try {
-        await setHomeCommunity(checked ? { hostOrgId: community._id } : {});
-      } catch (err) {
-        setNote(reasonFor(err, "Couldn't update your home community."));
-      } finally {
-        setBusy(false);
-      }
-    }
     return (
       <div>
         <div className="flex items-center gap-4 flex-wrap">
@@ -205,28 +193,6 @@ function JoinControl({ community }: { community: Community }) {
             Leave
           </button>
         </div>
-        <label
-          className="mt-3 flex items-start gap-2 text-[13.5px]"
-          style={{ color: "var(--garden-muted)" }}
-        >
-          <input
-            type="checkbox"
-            checked={membership.isHome}
-            disabled={busy}
-            onChange={(e) => handleHomeToggle(e.target.checked)}
-            className="mt-1"
-          />
-          <span>
-            Make this my home community.
-            <br />
-            {/* Joining a community is free — dues only exist if you also
-                hold a paid seat (garden/capabilities.ts's isPaidLevel), so
-                this can't claim membership dues as an ongoing fact the way
-                the old copy did ("Your dues support..."). This just says
-                what the toggle controls: where dues go, if there are any. */}
-            Membership dues, if you have any, go to your home community's project pool.
-          </span>
-        </label>
         {note && <p className="mt-2 text-sm" style={{ color: "var(--garden-body)" }}>{note}</p>}
       </div>
     );

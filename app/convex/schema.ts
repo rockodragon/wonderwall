@@ -732,7 +732,21 @@ export default defineSchema({
     userId: v.id("users"),
     role: v.string(), // "host" | "moderator" | "member"
     status: v.string(), // "active" | "pending" (joinPolicy "apply") | "removed"
-    isHome: v.optional(v.boolean()), // the member's named home community (one at most)
+    // The member's named home community (one at most) — decides which
+    // community's pool gets the pool-half of their seat dues, if they have
+    // a paid seat (there's a platform fallback pool, "creatives-exchange",
+    // for members with no home set — see stripeHandlers.ts's
+    // getHostOrgIdBySlug comment). No UI sets this anymore (removed
+    // 2026-09-14, communities.$slug.tsx/CommunitySwitcher.tsx) — it read as
+    // a lie to a free member, since community membership itself is free and
+    // most members have no seat at all, so "your dues support..." was false
+    // for them. Left in schema/reports rather than deleted outright: it's
+    // real historical data for members who did set one, and ripping out the
+    // Stripe-side routing is a bigger, separate call (this platform's dues
+    // are one global seat subscription, not a per-community one — if the
+    // real model should be pay-per-community instead, that's a new pricing/
+    // checkout/migration design, not a field removal).
+    isHome: v.optional(v.boolean()),
     joinedAt: v.number(),
   })
     .index("by_hostOrgId", ["hostOrgId"])

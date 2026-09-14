@@ -55,7 +55,6 @@ export function CommunitySwitcher() {
     return null;
   }
 
-  const selectedCommunity = communities.find((c) => c.slug === selected);
   const label = selected === "all" ? ALL_LABEL : communityNameFor(selected, communities);
 
   return (
@@ -72,7 +71,6 @@ export function CommunitySwitcher() {
         {/* min-w-0 lets the name actually truncate inside the 256px rail
             instead of clipping mid-word. */}
         <span className="flex min-w-0 items-center gap-1.5 text-sm font-medium text-gray-800 dark:text-gray-200">
-          {selectedCommunity?.isHome && <span aria-hidden="true">⌂</span>}
           <span className="truncate">{label}</span>
         </span>
         <ChevronIcon
@@ -109,11 +107,6 @@ export function CommunitySwitcher() {
                 setOpen(false);
               }}
             >
-              {c.isHome && (
-                <span aria-hidden="true" className="mr-1">
-                  ⌂
-                </span>
-              )}
               {c.name}
             </MenuItem>
           ))}
