@@ -21,7 +21,7 @@ import "../garden/garden.css";
 
 export function meta() {
   return [
-    { title: "Tables — The Garden" },
+    { title: "Spaces — The Garden" },
     { name: "robots", content: "noindex" },
   ];
 }
@@ -31,7 +31,7 @@ export function ErrorBoundary() {
   return (
     <GardenPage>
       <div style={{ marginTop: 28 }}>
-        <GardenErrorState message="Tables isn't live yet — check back soon." />
+        <GardenErrorState message="Spaces isn't live yet — check back soon." />
       </div>
     </GardenPage>
   );
@@ -151,10 +151,10 @@ export default function TablesIndex() {
       <GardenPage wide>
           <div style={{ marginTop: 28, maxWidth: "50ch" }}>
           <h1 className="g-h" style={{ fontSize: "clamp(28px,5vw,40px)" }}>
-            Tables
+            Spaces
           </h1>
           <p style={{ marginTop: 12, fontSize: 15, lineHeight: 1.6 }}>
-            Tables are coming — the first ones open this fall.
+            Spaces are coming — the first ones open this fall.
           </p>
         </div>
       </GardenPage>
@@ -171,7 +171,7 @@ export default function TablesIndex() {
     <GardenPage wide>
       <div style={{ marginTop: 28, marginBottom: 24 }}>
         <h1 className="g-h" style={{ fontSize: "clamp(28px,5vw,40px)" }}>
-          Tables
+          Spaces
         </h1>
         <p style={{ marginTop: 10, fontSize: 15, lineHeight: 1.5, maxWidth: "58ch" }}>
           Groups you join and keep coming back to — classes, cohorts, critique

@@ -78,7 +78,7 @@ export default function Search() {
         People
       </h2>
       <p className="text-gray-500 dark:text-gray-400 mb-4">
-        Find creatives by what they do
+        Find creatives by interest, location and see what they're up to
       </p>
       <CommunityContextLine
         selected={community.selected}

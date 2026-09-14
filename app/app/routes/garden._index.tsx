@@ -119,19 +119,20 @@ export default function GardenIndex() {
       {/* Hero */}
       <div style={{ marginTop: 40, maxWidth: "62ch" }}>
         <h1 className="g-h" style={{ fontSize: "clamp(32px,6vw,52px)" }}>
-          Nobody makes anything alone.
+          The Garden
         </h1>
         <p style={{ marginTop: 16, fontSize: 16, lineHeight: 1.6, maxWidth: "58ch" }}>
-          creatives.exchange is where Kingdom-minded creatives get their work funded,
-          find collaborators, and gather around real tables — in San Diego
-          and wherever the next table opens.
+          The founding Christian creative community on the platform.
+          Kingdom-minded creatives finding collaborators, getting their work
+          funded, and gathering around real tables — in San Diego and
+          wherever the next table opens.
         </p>
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 24 }}>
-          <Link to="/join" className="g-btn g-btn-citron">
-            Become a member — $10/mo
-          </Link>
-          <Link to="/garden/events" className="g-btn g-btn-ghost">
+          <Link to="/garden/events" className="g-btn g-btn-citron">
             See what's happening
+          </Link>
+          <Link to="/join" className="g-btn g-btn-ghost">
+            Become a member — $10/mo
           </Link>
           <Link to="/communities" className="g-btn g-btn-ghost">
             Browse communities
@@ -198,18 +199,23 @@ export default function GardenIndex() {
         >
           <HowItWorksCell
             role="Creatives"
-            line="A seat: start projects, apply to paid work, join tables."
+            line="Start projects, apply to paid work, join tables."
             price="$10/mo"
           />
           <HowItWorksCell
             role="Patrons"
-            line="Back a specific creative or project — 90% goes to the work."
-            price="Free to hold, pay per act"
+            line="Back a creative or project — 90% goes to the work."
+            price="Free to join, pay per act"
           />
           <HowItWorksCell
-            role="Leaders"
-            line="Lead: host tables, curate project spaces, run grant programs. Hosting is free — you keep 90% of anything you sell."
-            price="$50/mo"
+            role="Hosts"
+            line="Bring your community. Host tables, run events, sell classes. You keep 90%."
+            price="Free to host"
+          />
+          <HowItWorksCell
+            role="Community Partners"
+            line="Churches, venues, businesses — sponsor creatives, open your doors, or post paid work."
+            price="Varies"
           />
         </div>
       </div>

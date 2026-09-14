@@ -1,8 +1,9 @@
-import { Link } from "react-router";
+import { Link, Navigate } from "react-router";
 import type { Route } from "./+types/for.$audience";
 import { CampaignBand } from "../components/CampaignBand";
 import type { CampaignImageKey } from "../lib/campaign";
 import { SiteHeader } from "../components/SiteHeader";
+import { Reveal } from "../hooks/useReveal";
 
 // Public audience pages — one per constituent door in
 // docs/marketing/constituent-playbook.md. Deliberately OUTSIDE the _app.tsx
@@ -17,7 +18,7 @@ import { SiteHeader } from "../components/SiteHeader";
 //   - The platform is open to any creative; The Garden is the Christian
 //     creative community inside it. Creative-facing copy says so plainly.
 //
-// Six doors, six different verbs: find, start, pick, sponsor, give, hire.
+// Four doors, four different verbs: find, back, bring, open.
 // If three buttons all say "support a creative" the page has stopped
 // distinguishing between audiences.
 //
@@ -45,6 +46,8 @@ type Audience = {
   ctaTo: string;
   ctaLabel2: string;
   ctaTo2: string;
+  ctaLabel3?: string;
+  ctaTo3?: string;
   /** The "create together." band. Photography and quotes are sample copy —
       see lib/campaign.ts. */
   bandImages: [CampaignImageKey, CampaignImageKey];
@@ -58,7 +61,7 @@ const AUDIENCES: Audience[] = [
     eyebrow: "For creatives",
     headline: "Find your people. Get paid.",
     subhead:
-      "Work with other creatives, find paid work, and get backed by people who believe in you. Joining is free.",
+      "Work with other creatives, grow in your craft, find paid work, and get backed by people who believe in you. Joining is free.",
     points: [
       {
         title: "You keep all of it",
@@ -66,11 +69,15 @@ const AUDIENCES: Audience[] = [
       },
       {
         title: "There's money set aside for your work",
-        body: "Churches and neighbors put money into a fund. You apply. A nonprofit decides who gets it, and every grant is posted publicly, so you can see who got what.",
+        body: "Community partners and patrons put money into a fund. You apply. A nonprofit decides who gets it, and every grant is posted publicly, so you can see who got what.",
       },
       {
         title: "Real work, from people nearby",
-        body: "Churches, businesses and nonprofits post paid work here. Each post says who is asking and what it pays.",
+        body: "Partners — churches, businesses, nonprofits — post paid work here. Each post says who is asking and what it pays.",
+      },
+      {
+        title: "Keep growing",
+        body: "Find your path through classes, coaching, and workshops. Join a cohort, work with a creative or spiritual coach, or sit in on a critique night.",
       },
       {
         title: "You won't be doing this alone",
@@ -83,6 +90,8 @@ const AUDIENCES: Audience[] = [
     ctaTo: "/join",
     ctaLabel2: "Find paid work",
     ctaTo2: "/opportunities",
+    ctaLabel3: "Find a class or coach",
+    ctaTo3: "/offerings",
     bandImages: ["shua", "june"],
     metaTitle: "Find your people, get paid — creatives.exchange",
     metaDescription:
@@ -125,10 +134,10 @@ const AUDIENCES: Audience[] = [
   },
   {
     slug: "patrons",
-    eyebrow: "For patrons and backers",
+    eyebrow: "For patrons",
     headline: "Back someone you believe in.",
     subhead:
-      "A person, a team, or a project. Pick one, and watch it get made.",
+      "Sponsor a project. Gift memberships. Offer a venue or other resources. Pick someone and watch it get made.",
     points: [
       {
         title: "You know who you're backing",
@@ -143,23 +152,23 @@ const AUDIENCES: Audience[] = [
         body: "Money, a room for an afternoon, gear, an introduction. All of it counts, and all of it is credited.",
       },
       {
-        title: "You'll meet them",
-        body: "Shows, openings, workshops. The people you back are the people in the room.",
+        title: "Give to the Grant Fund",
+        body: "The fund is run by Abiding Practice, a 501(c)(3). Your gift is tax-deductible, and every grant is posted publicly.",
       },
     ],
-    cost: "A patron account is free. You decide what to give, and when.",
+    cost: "A patron account is free. You decide what to give, and when. Larger commitments to the Grant Fund are worth a conversation — those are the gifts a creative can plan around.",
     ctaLabel: "Pick someone to back",
     ctaTo: "/opportunities",
-    ctaLabel2: "Create a free patron account",
-    ctaTo2: "/join",
+    ctaLabel2: "Give to the Grant Fund",
+    ctaTo2: "/fund/abiding-practice",
     bandImages: ["band", "viewing"],
     metaTitle: "For patrons — creatives.exchange",
     metaDescription:
-      "Back a creative, a team, or a project. Watch it get made, get credited on the work, and meet the people you back.",
+      "Back a creative, a team, or a project. Watch it get made, get credited on the work, and give to the Grant Fund.",
   },
   {
     slug: "churches",
-    eyebrow: "For churches and organizations",
+    eyebrow: "For churches",
     headline: "Support the creatives in your church.",
     subhead:
       "$10 a month opens the door for one of them. You can see exactly what it did.",
@@ -188,78 +197,52 @@ const AUDIENCES: Audience[] = [
     ctaLabel2: "See what it pays for",
     ctaTo2: "/fund/abiding-practice",
     bandImages: ["church", "busker"],
-    metaTitle: "Support the creatives in your church — creatives.exchange",
+    metaTitle: "For churches — creatives.exchange",
     metaDescription:
       "Cover seats for the creatives in your church. $10 a month per seat, one code for your whole group, and a clear record of where it went.",
   },
   {
-    slug: "donors",
-    eyebrow: "For donors and institutions",
-    headline: "Support creatives, and see exactly where it lands.",
-    subhead:
-      "The grant fund is run by Abiding Practice, a 501(c)(3). Your gift is tax-deductible and every grant is posted publicly.",
-    points: [
-      {
-        title: "90 cents of every dollar becomes a grant",
-        body: "When you cover the processing fee at checkout, ninety cents of each dollar goes out to a creative. The rest runs the fund and the platform.",
-      },
-      {
-        title: "A real receipt from a real nonprofit",
-        body: "Abiding Practice, a 501(c)(3), receives your gift and sends the receipt.",
-      },
-      {
-        title: "You can check the work",
-        body: "Date, amount, creative, project. Anyone can read the list without an account.",
-      },
-      {
-        title: "What it buys",
-        body: "$250 covers materials for a project. $500 a month for six months covers rent while a creative finishes a body of work.",
-      },
-    ],
-    cost:
-      "Give once or monthly, in any amount. Larger commitments are worth a conversation — those are the gifts a creative can plan around.",
-    ctaLabel: "Give to the grant fund",
-    ctaTo: "/fund/abiding-practice",
-    ctaLabel2: "Come to the November 6 event",
-    ctaTo2: "/garden/events",
-    bandImages: ["dee", "cafe"],
-    metaTitle: "Support creatives, see where it lands — creatives.exchange",
-    metaDescription:
-      "Give to a grant fund run by Abiding Practice, a 501(c)(3). Tax-deductible, ninety cents of every dollar granted, and every grant posted publicly.",
-  },
-  {
     slug: "partners",
-    eyebrow: "For venues and businesses",
-    headline: "Hire a creative, or open your doors.",
-    subhead: "Post the job. Creatives with portfolios apply.",
+    eyebrow: "For community partners",
+    headline: "Open your doors. Your name goes on what gets made.",
+    subhead:
+      "Venues, businesses, organizations — sponsor a creative, post paid work, or offer your space.",
     points: [
       {
-        title: "Applicants you can see",
-        body: "Creatives here apply to your post directly. You see their portfolio before you reply.",
-      },
-      {
-        title: "Your name goes on it",
-        body: "Sponsors and venue partners are credited on the projects and events they made possible.",
+        title: "Post paid work",
+        body: "Creatives apply directly. You see their portfolio before you reply.",
       },
       {
         title: "Space counts as much as money",
         body: "A room, a stage, a studio for an afternoon. Offer space the same way you would offer money.",
       },
+      {
+        title: "Your name goes on it",
+        body: "Partners are credited on the projects and events they made possible. When it's done, everyone knows who opened the door.",
+      },
+      {
+        title: "Sponsor creatives",
+        body: "Cover a seat for someone in your organization. $10 a month opens the door for one of them.",
+      },
     ],
     cost:
-      "Posting work is free. Business sponsorships start at $100 a month, and unlike a donation you write it off as marketing.",
-    ctaLabel: "Hire a creative",
+      "Posting work is free. Sponsoring seats is $10 each per month. Business sponsorships start at $100 a month.",
+    ctaLabel: "Post paid work",
     ctaTo: "/join",
     ctaLabel2: "Offer your space",
     ctaTo2: "/join",
     bandImages: ["night", "opening"],
-    metaTitle: "For venues and businesses — creatives.exchange",
+    metaTitle: "For community partners — creatives.exchange",
     metaDescription:
-      "Hire creatives who want the work, or offer your space. Posting is free, and your name goes on what gets made.",
+      "Venues and businesses — post paid work, offer your space, or sponsor creatives. Your name goes on what gets made.",
   },
 ];
 
 const BY_SLUG = new Map(AUDIENCES.map((a) => [a.slug, a]));
+
+const SLUG_REDIRECTS: Record<string, string> = {
+  donors: "patrons",
+};
 
 export function meta({ params }: Route.MetaArgs) {
   const a = BY_SLUG.get(params.audience ?? "");
@@ -285,6 +268,11 @@ export function meta({ params }: Route.MetaArgs) {
 }
 
 export default function ForAudience({ params }: Route.ComponentProps) {
+  const redirect = SLUG_REDIRECTS[params.audience ?? ""];
+  if (redirect) {
+    return <Navigate to={`/for/${redirect}`} replace />;
+  }
+
   const audience = BY_SLUG.get(params.audience ?? "");
 
   if (!audience) {
@@ -319,50 +307,86 @@ export default function ForAudience({ params }: Route.ComponentProps) {
         >
           {audience.headline}
         </h1>
-        <p className="text-xl text-[var(--garden-body)] max-w-2xl mb-12">
+        <p className="text-xl text-[var(--garden-body)] max-w-2xl mb-8">
           {audience.subhead}
         </p>
 
-        <CampaignBand images={audience.bandImages} />
-
-        <div className="grid gap-4 sm:grid-cols-2 mb-12">
-          {audience.points.map((p) => (
-            <div
-              key={p.title}
-              className="p-6 bg-[var(--garden-ink-raised)]/80 rounded-2xl border border-[var(--garden-hairline-raised)]"
-            >
-              <h2 className="text-[var(--garden-paper)] font-semibold text-lg mb-2">
-                {p.title}
-              </h2>
-              <p className="text-[var(--garden-body)] leading-relaxed">
-                {p.body}
-              </p>
-            </div>
-          ))}
-        </div>
-
-        <div className="p-6 rounded-2xl border border-[var(--garden-hairline)] mb-12 max-w-3xl">
-          <h2 className="text-[var(--garden-dim)] text-xs font-semibold tracking-wide uppercase mb-3">
-            What it costs
-          </h2>
-          <p className="text-[var(--garden-body)] leading-relaxed">
-            {audience.cost}
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-4 mb-16">
+        {/* Primary CTAs — up top, before the scroll */}
+        <div className="flex flex-col sm:flex-row flex-wrap gap-3 mb-16">
           <Link
             to={audience.ctaTo}
-            className="px-6 py-3 bg-[var(--garden-citron)] text-[var(--garden-ink)] rounded-xl font-semibold hover:opacity-90 transition-all"
+            className="px-8 py-4 bg-[var(--garden-citron)] text-[var(--garden-ink)] rounded-xl text-lg font-semibold hover:opacity-90 transition-all text-center"
           >
             {audience.ctaLabel}
           </Link>
           <Link
             to={audience.ctaTo2}
-            className="px-6 py-3 rounded-xl font-medium border border-[var(--garden-hairline)] text-[var(--garden-body)] hover:text-[var(--garden-paper)] hover:border-[var(--garden-citron)] transition-colors"
+            className="px-8 py-4 rounded-xl text-lg font-medium border border-[var(--garden-hairline)] text-[var(--garden-body)] hover:text-[var(--garden-paper)] hover:border-[var(--garden-citron)] transition-colors text-center"
           >
             {audience.ctaLabel2}
           </Link>
+          {audience.ctaLabel3 && audience.ctaTo3 && (
+            <Link
+              to={audience.ctaTo3}
+              className="px-8 py-4 rounded-xl text-lg font-medium border border-[var(--garden-hairline)] text-[var(--garden-body)] hover:text-[var(--garden-paper)] hover:border-[var(--garden-citron)] transition-colors text-center"
+            >
+              {audience.ctaLabel3}
+            </Link>
+          )}
+        </div>
+
+        <Reveal>
+          <CampaignBand images={audience.bandImages} />
+        </Reveal>
+
+        <div className="grid gap-4 sm:grid-cols-2 mb-12">
+          {audience.points.map((p, i) => (
+            <Reveal key={p.title} delay={i * 80}>
+              <div className="p-6 bg-[var(--garden-ink-raised)]/80 rounded-2xl border border-[var(--garden-hairline-raised)] h-full">
+                <h2 className="text-[var(--garden-paper)] font-semibold text-lg mb-2">
+                  {p.title}
+                </h2>
+                <p className="text-[var(--garden-body)] leading-relaxed">
+                  {p.body}
+                </p>
+              </div>
+            </Reveal>
+          ))}
+        </div>
+
+        <Reveal>
+          <div className="p-6 rounded-2xl border border-[var(--garden-hairline)] mb-12 max-w-3xl">
+            <h2 className="text-[var(--garden-dim)] text-xs font-semibold tracking-wide uppercase mb-3">
+              What it costs
+            </h2>
+            <p className="text-[var(--garden-body)] leading-relaxed">
+              {audience.cost}
+            </p>
+          </div>
+        </Reveal>
+
+        {/* Bottom CTAs — the closing ask */}
+        <div className="flex flex-col sm:flex-row flex-wrap gap-3 mb-16">
+          <Link
+            to={audience.ctaTo}
+            className="px-8 py-4 bg-[var(--garden-citron)] text-[var(--garden-ink)] rounded-xl text-lg font-semibold hover:opacity-90 transition-all text-center"
+          >
+            {audience.ctaLabel}
+          </Link>
+          <Link
+            to={audience.ctaTo2}
+            className="px-8 py-4 rounded-xl text-lg font-medium border border-[var(--garden-hairline)] text-[var(--garden-body)] hover:text-[var(--garden-paper)] hover:border-[var(--garden-citron)] transition-colors text-center"
+          >
+            {audience.ctaLabel2}
+          </Link>
+          {audience.ctaLabel3 && audience.ctaTo3 && (
+            <Link
+              to={audience.ctaTo3}
+              className="px-8 py-4 rounded-xl text-lg font-medium border border-[var(--garden-hairline)] text-[var(--garden-body)] hover:text-[var(--garden-paper)] hover:border-[var(--garden-citron)] transition-colors text-center"
+            >
+              {audience.ctaLabel3}
+            </Link>
+          )}
         </div>
 
         <div className="pt-10 border-t border-[var(--garden-hairline)]">

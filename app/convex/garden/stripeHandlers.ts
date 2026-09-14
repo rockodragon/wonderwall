@@ -289,12 +289,17 @@ export interface Db {
    * subscription id, without needing a stripeRef column projectSupport
    * doesn't have. insertProjectSupport is the fallback for a session whose
    * pending row is gone (or predates it). */
-  getProjectSupportById(supportId: string): Promise<{ id: string; status: string } | null>;
+  getProjectSupportById(supportId: string): Promise<{ id: string; status: string; amountCents: number; projectId: string } | null>;
   updateProjectSupport(
     supportId: string,
     patch: Partial<Pick<ProjectSupportRow, "status" | "amountCents">>,
   ): Promise<void>;
   insertProjectSupport(row: ProjectSupportRow): Promise<void>;
+
+  /** Atomically adds amountCents to the project's raisedCents running total.
+   * Called once per confirmed backing — idempotency is the caller's job (the
+   * "already confirmed" early return in handleBackingCheckoutCompleted). */
+  incrementProjectRaisedCents(projectId: string, amountCents: number): Promise<void>;
 
   /** Coverage-code issuance (garden/stripe.ts's createCoverageCheckout).
    * getCodeByCode is the uniqueness check for a freshly generated code
@@ -607,6 +612,7 @@ async function handleBackingCheckoutCompleted(
       // Only the status moves: amount/visibility/message were captured at
       // intent time and Stripe charged exactly that (no promotion codes).
       await db.updateProjectSupport(supportId, { status: "confirmed" });
+      await db.incrementProjectRaisedCents(existing.projectId, existing.amountCents);
       return;
     }
   }
@@ -638,6 +644,7 @@ async function handleBackingCheckoutCompleted(
     status: "confirmed",
     ...(tierId ? { tierId } : {}),
   });
+  await db.incrementProjectRaisedCents(projectId, amountCents);
 }
 
 /** Coverage — a sponsor (a church) buying N seats: mode "subscription",

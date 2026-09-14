@@ -1288,7 +1288,7 @@ export function SupportModal({ project, onClose }: { project: any; onClose: () =
   const supportProject = useMutation(api.garden.support.supportProject);
   const createBackingCheckout = useAction(api.garden.stripe.createBackingCheckout);
 
-  const [type, setType] = useState("encouragement");
+  const [type, setType] = useState("financial_recurring");
   const [amount, setAmount] = useState("");
   const [message, setMessage] = useState("");
   const [resourceDescription, setResourceDescription] = useState("");

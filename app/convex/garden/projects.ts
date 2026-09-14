@@ -379,8 +379,13 @@ export const listProjects = query({
           })),
         );
 
+        const resolvedPhotoUrl = project.photoStorageId
+          ? await ctx.storage.getUrl(project.photoStorageId)
+          : project.photoUrl || null;
+
         return {
           ...project,
+          resolvedPhotoUrl,
           creator: user
             ? {
                 _id: user._id,
@@ -446,8 +451,13 @@ export const getProject = query({
       })),
     );
 
+    const resolvedPhotoUrl = project.photoStorageId
+      ? await ctx.storage.getUrl(project.photoStorageId)
+      : project.photoUrl || null;
+
     return {
       ...project,
+      resolvedPhotoUrl,
       creator: user
         ? { _id: user._id, name: user.name, imageUrl: user.imageUrl, interests: user.interests, location: user.location }
         : null,

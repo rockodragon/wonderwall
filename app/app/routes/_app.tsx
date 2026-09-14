@@ -14,7 +14,7 @@ import { CommunitySwitcher } from "../components/CommunitySwitcher";
 // (Sign in CTAs, no partial forms) rather than being gated at the shell.
 // Prefix match is correct here: /communities, /communities/apply, and every
 // /communities/:slug should all be public.
-const PUBLIC_PATH_PREFIXES = ["/communities"];
+const PUBLIC_PATH_PREFIXES = ["/communities", "/search"];
 
 // /events/:eventId is public too — a calendar invite goes to a guest with
 // no account by design (eventRsvps.userId is optional), and event.tsx's own
@@ -32,19 +32,20 @@ function isPublicPathname(pathname: string): boolean {
   );
 }
 
-// V1 (docs/the-exchange-v1-prd.md §5): Projects / People / Events, full
-// stop. "The Garden" retires as a nav destination (superseded); "Portfolios"
-// (/works) drops from nav - the page itself stays live, un-linked rather
-// than deleted, same pattern as /organizations. Everything else (Favorites,
-// Profile, Messages, admin Crawler) is real but secondary — the desktop
-// sidebar visually demotes it below a divider so the primary pitch stays to
-// three things; mobile's bottom bar has no room for that hierarchy, so it
-// keeps showing the full set.
+// V1 (docs/the-exchange-v1-prd.md §5): People / Projects / Events / Spaces /
+// Learn. "The Garden" is one community inside Spaces, not a nav-level
+// destination. "Portfolios" (/works) drops from nav — the page itself
+// stays live, un-linked rather than deleted, same pattern as /organizations.
+// Everything else (Favorites, Profile, Messages, admin Crawler) is real but
+// secondary — the desktop sidebar visually demotes it below a divider so the
+// primary pitch stays to five things; mobile's bottom bar has no room for
+// that hierarchy, so it keeps showing the full set.
 const primaryNavItems = [
-  { path: "/projects", label: "Projects", icon: BriefcaseIcon },
   { path: "/search", label: "People", icon: SearchIcon },
+  { path: "/projects", label: "Projects", icon: BriefcaseIcon },
   { path: "/events", label: "Events", icon: CalendarIcon },
-  { path: "/offerings", label: "Classes", icon: ClassesIcon },
+  { path: "/tables", label: "Spaces", icon: GridIcon },
+  { path: "/offerings", label: "Learn", icon: ClassesIcon },
 ];
 const secondaryNavItems = [
   { path: "/favorites", label: "Following", icon: HeartIcon },

@@ -220,7 +220,9 @@ function makeConvexDb(ctx: MutationCtx): Db {
 
     async getProjectSupportById(supportId: string) {
       const row = await ctx.db.get(supportId as Id<"projectSupport">);
-      return row ? { id: String(row._id), status: row.status } : null;
+      return row
+        ? { id: String(row._id), status: row.status, amountCents: row.amountCents ?? 0, projectId: String(row.projectId) }
+        : null;
     },
 
     async updateProjectSupport(supportId: string, patch) {
@@ -240,6 +242,15 @@ function makeConvexDb(ctx: MutationCtx): Db {
         visible: row.visible,
         status: row.status,
         createdAt: Date.now(),
+      });
+    },
+
+    async incrementProjectRaisedCents(projectId: string, amountCents: number) {
+      const project = await ctx.db.get(projectId as Id<"projects">);
+      if (!project) return;
+      await ctx.db.patch(projectId as Id<"projects">, {
+        raisedCents: (project.raisedCents ?? 0) + amountCents,
+        updatedAt: Date.now(),
       });
     },
 
