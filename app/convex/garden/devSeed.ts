@@ -413,9 +413,9 @@ export const seedCommunityLaunch = internalMutation({
     const gardenPatch = {
       name: "The Garden",
       kind: COMMUNITY_KIND,
-      tagline: "Kingdom-minded creatives, funded in the open.",
+      tagline: "Creatives and the people who back them, gathering in the open.",
       description:
-        "The Garden is creatives.exchange's first community — Kingdom-minded creatives who get their work funded, find collaborators, and gather around real tables, in San Diego and wherever the next table opens. Join free: browse projects, sit in on open tables, show your portfolio. Money is never the only door. When you want your work funded, a seat is $10 a month, and half of every membership funds another creative's project.",
+        "The Garden is creatives.exchange's first community — creatives who get their work funded, find collaborators, and gather around real tables, in San Diego and wherever the next table opens. Join free: browse projects, sit in on open tables, show your portfolio. Money is never the only door. When you want your work funded, a seat is $10 a month, and half of every membership funds another creative's project.",
       locationLabel: "San Diego · online",
       status: "active",
       visibility: "public",
@@ -437,11 +437,11 @@ export const seedCommunityLaunch = internalMutation({
         visibility: gardenPatch.visibility,
         joinPolicy: garden.joinPolicy ?? gardenPatch.joinPolicy,
         tagline:
-          garden.tagline && garden.tagline !== "Kingdom creatives" && !garden.tagline.startsWith("Kingdom creatives —")
+          garden.tagline && garden.tagline !== "Kingdom creatives" && !garden.tagline.startsWith("Kingdom creatives —") && garden.tagline !== "Kingdom-minded creatives, funded in the open."
             ? garden.tagline
             : gardenPatch.tagline,
         description:
-          garden.description && !garden.description.startsWith("A community of Kingdom-minded creatives")
+          garden.description && !garden.description.startsWith("A community of Kingdom-minded creatives") && !garden.description.includes("Kingdom-minded creatives who get their work funded")
             ? garden.description
             : gardenPatch.description,
         locationLabel: garden.locationLabel ?? gardenPatch.locationLabel,
@@ -607,5 +607,34 @@ export const seedTestOfferings = internalMutation({
       created.push(row.title);
     }
     return { ok: true, created, found };
+  },
+});
+
+// Tag untagged projects to The Garden so the community page shows them.
+// Projects are tagged at creation time only (updateProject doesn't accept
+// hostOrgId), so any project created before The Garden existed has none.
+// Run against prod:
+//   npx convex run garden/devSeed:tagProjectsToGarden
+export const tagProjectsToGarden = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const garden = await ctx.db
+      .query("hostOrgs")
+      .withIndex("by_slug", (q) => q.eq("slug", "the-garden"))
+      .unique();
+    if (!garden) throw new Error("The Garden community doesn't exist — run seedCommunityLaunch first.");
+
+    const projects = await ctx.db.query("projects").collect();
+    const tagged: string[] = [];
+    const skipped: string[] = [];
+    for (const p of projects) {
+      if (p.hostOrgId) {
+        skipped.push(p.title);
+        continue;
+      }
+      await ctx.db.patch(p._id, { hostOrgId: garden._id });
+      tagged.push(p.title);
+    }
+    return { ok: true, gardenId: garden._id, tagged, skipped };
   },
 });

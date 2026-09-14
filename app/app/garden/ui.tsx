@@ -69,7 +69,7 @@ export const NAV_ITEMS = [
   // /opportunities, the public browse of the same postings.
   { to: "/projects", publicTo: "/opportunities", label: "Projects" },
   { to: "/garden/events", label: "Events" }, // NOT /events — that's the legacy auth-gated route
-  { to: "/tables", label: "Spaces" },
+  { to: "/communities", label: "Spaces" },
   { to: "/offerings", label: "Learn" },
 ] as const;
 

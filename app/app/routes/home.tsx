@@ -143,14 +143,6 @@ export default function Home() {
         <div className="grid md:grid-cols-12 gap-10 md:gap-16 items-end">
           {/* Left column — headline + subtext */}
           <div className="md:col-span-7">
-            <p
-              className="mb-6 md:mb-7 text-[var(--garden-dim)] text-xs tracking-[0.14em] uppercase"
-              style={{ fontFamily: monoFont }}
-            >
-              Give<span className="text-[var(--garden-citron)]">.</span>{" "}
-              Receive<span className="text-[var(--garden-citron)]">.</span>{" "}
-              Grow<span className="text-[var(--garden-citron)]">.</span>
-            </p>
             <h1
               className="text-5xl sm:text-7xl md:text-8xl lg:text-[104px] text-[var(--garden-paper)] leading-[0.95] mb-6 md:mb-8"
               style={{
