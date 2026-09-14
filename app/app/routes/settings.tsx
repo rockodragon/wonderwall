@@ -77,8 +77,8 @@ export default function Settings() {
       </div>
 
       {/* Network stats & Invite */}
-      <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-800">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+      <div className="mt-8 pt-6 border-t" style={{ borderColor: "var(--app-hairline)" }}>
+        <h2 className="text-lg font-semibold mb-4" style={{ color: "var(--app-text)" }}>
           Your Network
         </h2>
         {inviteStats && (
@@ -86,7 +86,8 @@ export default function Settings() {
             {inviteStats.invitedBy && (
               <Link
                 to={`/profile/${inviteStats.invitedBy.profileId}`}
-                className="text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400"
+                className="hover:opacity-80"
+                style={{ color: "var(--app-text-dim)" }}
               >
                 Invited by{" "}
                 <span className="font-medium">
@@ -114,7 +115,7 @@ export default function Settings() {
               </span>
             </span>
             {inviteStats.directInvitees > 0 && (
-              <span className="text-gray-400 dark:text-gray-500 text-xs">
+              <span className="text-xs" style={{ color: "var(--app-text-dim)" }}>
                 ({inviteStats.directInvitees} invited
                 {inviteStats.downstreamCount > 0 &&
                   `, +${inviteStats.downstreamCount} downstream`}
@@ -126,22 +127,22 @@ export default function Settings() {
       </div>
 
       {/* Billing */}
-      <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-800">
+      <div className="mt-8 pt-6 border-t" style={{ borderColor: "var(--app-hairline)" }}>
         <BillingSection />
       </div>
 
       {/* Your purchases */}
-      <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-800">
+      <div className="mt-8 pt-6 border-t" style={{ borderColor: "var(--app-hairline)" }}>
         <PurchasesSection />
       </div>
 
       {/* My backings */}
-      <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-800">
+      <div className="mt-8 pt-6 border-t" style={{ borderColor: "var(--app-hairline)" }}>
         <BackingsSection />
       </div>
 
       {/* Artifacts section */}
-      <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-800">
+      <div className="mt-8 pt-6 border-t" style={{ borderColor: "var(--app-hairline)" }}>
         <ArtifactsSection
           editArtifactId={editArtifactId}
           onEditComplete={clearEditParam}
@@ -149,12 +150,12 @@ export default function Settings() {
       </div>
 
       {/* Blocked people */}
-      <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-800">
+      <div className="mt-8 pt-6 border-t" style={{ borderColor: "var(--app-hairline)" }}>
         <BlockedSection />
       </div>
 
       {/* Sign out */}
-      <div className="mt-12 pt-6 border-t border-gray-200 dark:border-gray-800">
+      <div className="mt-12 pt-6 border-t" style={{ borderColor: "var(--app-hairline)" }}>
         <button
           onClick={handleSignOut}
           className="text-red-600 hover:text-red-500 font-medium"
@@ -221,14 +222,15 @@ function BillingSection() {
   if (!membership && !hasPurchases) {
     return (
       <div>
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+        <h2 className="text-lg font-semibold mb-4" style={{ color: "var(--app-text)" }}>
           Billing
         </h2>
-        <p className="text-sm text-gray-500 dark:text-gray-400">
+        <p className="text-sm" style={{ color: "var(--app-text-dim)" }}>
           No billing on file.{" "}
           <Link
             to="/join"
-            className="text-blue-600 dark:text-blue-400 hover:underline"
+            className="hover:underline"
+            style={{ color: "var(--app-accent-ink)" }}
           >
             Become a member
           </Link>
@@ -247,12 +249,12 @@ function BillingSection() {
 
   return (
     <div>
-      <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+      <h2 className="text-lg font-semibold mb-4" style={{ color: "var(--app-text)" }}>
         Billing
       </h2>
 
       {membership && (
-        <p className="text-sm text-gray-700 dark:text-gray-300 mb-3">
+        <p className="text-sm mb-3" style={{ color: "var(--app-text-muted)" }}>
           <span className="font-medium">{levelLabel}</span>
           {" · "}
           {membership.status}
@@ -261,14 +263,15 @@ function BillingSection() {
       )}
 
       {isCovered ? (
-        <p className="text-sm text-gray-500 dark:text-gray-400">
+        <p className="text-sm" style={{ color: "var(--app-text-dim)" }}>
           Covered by a sponsor — nothing to bill
         </p>
       ) : (
         <button
           onClick={handleManage}
           disabled={pending}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
+          className="px-4 py-2 rounded-lg text-sm font-medium transition-opacity hover:opacity-90 disabled:opacity-50"
+          style={{ backgroundColor: "var(--app-accent)", color: "var(--garden-ink)" }}
         >
           {pending ? "Opening…" : "Manage billing"}
         </button>
@@ -278,7 +281,7 @@ function BillingSection() {
         <p className="mt-2 text-sm text-red-600 dark:text-red-400">{error}</p>
       )}
 
-      <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
+      <p className="mt-3 text-xs" style={{ color: "var(--app-text-dim)" }}>
         Update your card, download receipts, or cancel. Changes take effect
         at the end of the billing period.
         {hasPurchases
@@ -296,33 +299,35 @@ function PurchasesSection() {
 
   return (
     <div>
-      <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+      <h2 className="text-lg font-semibold mb-4" style={{ color: "var(--app-text)" }}>
         Your purchases
       </h2>
       <div className="space-y-2">
         {purchases.map((p) => (
           <div
             key={p.purchaseId}
-            className="flex items-center justify-between gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-xl"
+            className="flex items-center justify-between gap-3 p-3 rounded-xl"
+            style={{ backgroundColor: "var(--app-surface-raised)" }}
           >
             <div className="min-w-0">
-              <p className="font-medium text-gray-900 dark:text-white text-sm truncate">
+              <p className="font-medium text-sm truncate" style={{ color: "var(--app-text)" }}>
                 {p.productName}
               </p>
               <Link
                 to={`/communities/${p.communitySlug}`}
-                className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                className="text-xs hover:underline"
+                style={{ color: "var(--app-accent-ink)" }}
               >
                 {p.communityName}
               </Link>
-              <span className="text-xs text-gray-400 dark:text-gray-500 ml-2">
+              <span className="text-xs ml-2" style={{ color: "var(--app-text-dim)" }}>
                 {p.status}
                 {p.billing === "monthly" && p.currentPeriodEnd
                   ? ` · renews ${new Date(p.currentPeriodEnd).toLocaleDateString()}`
                   : ""}
               </span>
             </div>
-            <div className="text-sm font-semibold text-gray-900 dark:text-white whitespace-nowrap">
+            <div className="text-sm font-semibold whitespace-nowrap" style={{ color: "var(--app-text)" }}>
               {formatMoneyCents(p.grossCents)}
               {p.billing === "monthly" ? "/mo" : ""}
             </div>
@@ -346,23 +351,25 @@ function BackingsSection() {
 
   return (
     <div>
-      <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+      <h2 className="text-lg font-semibold mb-4" style={{ color: "var(--app-text)" }}>
         Your backings
       </h2>
       <div className="space-y-2">
         {backings.map((b: any) => (
           <div
             key={b._id}
-            className="flex items-center justify-between gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-xl"
+            className="flex items-center justify-between gap-3 p-3 rounded-xl"
+            style={{ backgroundColor: "var(--app-surface-raised)" }}
           >
             <div className="min-w-0">
               <Link
                 to={`/projects/${b.projectId}`}
-                className="font-medium text-gray-900 dark:text-white text-sm truncate hover:text-blue-600 dark:hover:text-blue-400 block"
+                className="font-medium text-sm truncate block transition-colors hover:opacity-80"
+                style={{ color: "var(--app-text)" }}
               >
                 {b.projectTitle}
               </Link>
-              <span className="text-xs text-gray-400 dark:text-gray-500">
+              <span className="text-xs" style={{ color: "var(--app-text-dim)" }}>
                 {TYPE_LABEL[b.type] ?? b.type}
                 {b.tierName ? ` · ${b.tierName}` : ""}
                 {" · "}
@@ -371,7 +378,7 @@ function BackingsSection() {
                 {new Date(b.createdAt).toLocaleDateString()}
               </span>
             </div>
-            <div className="text-sm font-semibold text-gray-900 dark:text-white whitespace-nowrap">
+            <div className="text-sm font-semibold whitespace-nowrap" style={{ color: "var(--app-text)" }}>
               {b.amountCents ? formatMoneyCents(b.amountCents) : ""}
               {b.type === "financial_recurring" ? "/mo" : ""}
               {b.type === "financial_annual" ? "/yr" : ""}
@@ -401,16 +408,16 @@ function BlockedSection() {
 
   return (
     <div>
-      <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+      <h2 className="text-lg font-semibold mb-4" style={{ color: "var(--app-text)" }}>
         Blocked people
       </h2>
-      <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+      <p className="text-sm mb-4" style={{ color: "var(--app-text-dim)" }}>
         Blocked people can't message you, and you won't see their messages.
       </p>
 
       {/* Still loading — render nothing rather than flash the empty line. */}
       {blocked === undefined ? null : blocked.length === 0 ? (
-        <p className="text-sm text-gray-500 dark:text-gray-400">
+        <p className="text-sm" style={{ color: "var(--app-text-dim)" }}>
           You haven't blocked anyone.
         </p>
       ) : (
@@ -418,7 +425,8 @@ function BlockedSection() {
           {blocked.map((person) => (
             <div
               key={person.userId}
-              className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-xl"
+              className="flex items-center gap-3 p-3 rounded-xl"
+              style={{ backgroundColor: "var(--app-surface-raised)" }}
             >
               {person.imageUrl ? (
                 <img
@@ -427,7 +435,10 @@ function BlockedSection() {
                   className="w-10 h-10 rounded-full object-cover shrink-0"
                 />
               ) : (
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-400 to-gray-500 dark:from-gray-600 dark:to-gray-700 flex items-center justify-center text-white text-base font-bold shrink-0">
+                <div
+                  className="w-10 h-10 rounded-full flex items-center justify-center text-base font-bold shrink-0"
+                  style={{ backgroundColor: "var(--app-hairline-raised)", color: "var(--app-text)" }}
+                >
                   {person.name.charAt(0).toUpperCase() || "?"}
                 </div>
               )}
@@ -435,12 +446,13 @@ function BlockedSection() {
                 {person.profileId ? (
                   <Link
                     to={`/profile/${person.profileId}`}
-                    className="block font-medium text-gray-900 dark:text-white text-sm truncate hover:text-blue-600 dark:hover:text-blue-400"
+                    className="block font-medium text-sm truncate hover:opacity-80"
+                    style={{ color: "var(--app-text)" }}
                   >
                     {person.name}
                   </Link>
                 ) : (
-                  <p className="font-medium text-gray-900 dark:text-white text-sm truncate">
+                  <p className="font-medium text-sm truncate" style={{ color: "var(--app-text)" }}>
                     {person.name}
                   </p>
                 )}
@@ -448,7 +460,8 @@ function BlockedSection() {
               <button
                 onClick={() => handleUnblock(person.userId)}
                 disabled={pendingUserId === person.userId}
-                className="text-sm text-blue-600 hover:text-blue-500 font-medium disabled:opacity-50 shrink-0"
+                className="text-sm font-medium disabled:opacity-50 shrink-0 hover:opacity-80"
+                style={{ color: "var(--app-accent-ink)" }}
               >
                 Unblock
               </button>
@@ -479,22 +492,26 @@ function ProfileSummary({
             className="w-16 h-16 rounded-full object-cover"
           />
         ) : (
-          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-gray-400 to-gray-500 dark:from-gray-600 dark:to-gray-700 flex items-center justify-center text-white text-2xl font-bold">
+          <div
+            className="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold"
+            style={{ backgroundColor: "var(--app-hairline-raised)", color: "var(--app-text)" }}
+          >
             {profile.name.charAt(0).toUpperCase()}
           </div>
         )}
         <div>
-          <h3 className="font-semibold text-gray-900 dark:text-white">
+          <h3 className="font-semibold" style={{ color: "var(--app-text)" }}>
             {profile.name}
           </h3>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
+          <p className="text-sm" style={{ color: "var(--app-text-dim)" }}>
             {profile.interests?.join(", ") || "No roles set"}
           </p>
         </div>
       </div>
       <button
         onClick={onEdit}
-        className="px-4 py-2 text-blue-600 hover:text-blue-500 text-sm font-medium"
+        className="px-4 py-2 text-sm font-medium hover:opacity-80"
+        style={{ color: "var(--app-accent-ink)" }}
       >
         Edit Profile
       </button>
@@ -629,13 +646,14 @@ function ProfileEditForm({
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+        <h2 className="text-lg font-semibold" style={{ color: "var(--app-text)" }}>
           {isNewProfile ? "Set Up Your Profile" : "Edit Profile"}
         </h2>
         {!isNewProfile && (
           <button
             onClick={onDone}
-            className="text-sm text-gray-500 hover:text-gray-400"
+            className="text-sm hover:opacity-80"
+            style={{ color: "var(--app-text-dim)" }}
           >
             Cancel
           </button>
@@ -650,10 +668,14 @@ function ProfileEditForm({
               <img
                 src={displayImageUrl}
                 alt="Profile"
-                className="w-24 h-24 rounded-full object-cover border-2 border-gray-200 dark:border-gray-700"
+                className="w-24 h-24 rounded-full object-cover border-2"
+                style={{ borderColor: "var(--app-hairline)" }}
               />
             ) : (
-              <div className="w-24 h-24 rounded-full bg-gradient-to-br from-gray-400 to-gray-500 dark:from-gray-600 dark:to-gray-700 flex items-center justify-center text-white text-3xl font-bold">
+              <div
+                className="w-24 h-24 rounded-full flex items-center justify-center text-3xl font-bold"
+                style={{ backgroundColor: "var(--app-hairline-raised)", color: "var(--app-text)" }}
+              >
                 {name.charAt(0).toUpperCase() || "?"}
               </div>
             )}
@@ -664,7 +686,7 @@ function ProfileEditForm({
             )}
           </div>
           <div className="flex-1">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label className="block text-sm font-medium mb-2" style={{ color: "var(--app-text-muted)" }}>
               Profile Photo
             </label>
             <input
@@ -679,7 +701,8 @@ function ProfileEditForm({
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={uploading}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
+                className="px-4 py-2 rounded-lg text-sm font-medium transition-opacity hover:opacity-90 disabled:opacity-50"
+                style={{ backgroundColor: "var(--app-accent)", color: "var(--garden-ink)" }}
               >
                 {uploading
                   ? "Uploading..."
@@ -697,15 +720,15 @@ function ProfileEditForm({
                 </button>
               )}
             </div>
-            <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+            <p className="mt-2 text-xs" style={{ color: "var(--app-text-dim)" }}>
               JPG, PNG or GIF. Max 5MB.
             </p>
             {/* URL input option */}
             <div className="mt-3">
-              <div className="flex items-center gap-2 text-xs text-gray-400 mb-2">
-                <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
+              <div className="flex items-center gap-2 text-xs mb-2" style={{ color: "var(--app-text-dim)" }}>
+                <div className="flex-1 h-px" style={{ backgroundColor: "var(--app-hairline)" }} />
                 <span>or use URL</span>
-                <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
+                <div className="flex-1 h-px" style={{ backgroundColor: "var(--app-hairline)" }} />
               </div>
               <div className="flex gap-2">
                 <input
@@ -713,7 +736,8 @@ function ProfileEditForm({
                   value={imageUrlInput}
                   onChange={(e) => setImageUrlInput(e.target.value)}
                   placeholder="example.com/photo.jpg"
-                  className="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
+                  className="flex-1 px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent"
+                  style={{ borderColor: "var(--app-hairline)", backgroundColor: "var(--app-surface-raised)", color: "var(--app-text)" }}
                 />
                 <button
                   type="button"
@@ -735,7 +759,8 @@ function ProfileEditForm({
                     }
                   }}
                   disabled={uploading || !imageUrlInput.trim()}
-                  className="px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg text-sm font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors disabled:opacity-50"
+                  className="px-3 py-2 rounded-lg text-sm font-medium transition-colors hover:bg-[var(--app-hairline-raised)] disabled:opacity-50"
+                  style={{ backgroundColor: "var(--app-hairline)", color: "var(--app-text-muted)" }}
                 >
                   Use
                 </button>
@@ -746,20 +771,21 @@ function ProfileEditForm({
 
         {/* Name */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          <label className="block text-sm font-medium mb-2" style={{ color: "var(--app-text-muted)" }}>
             Name
           </label>
           <input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
+            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent"
+            style={{ borderColor: "var(--app-hairline)", backgroundColor: "var(--app-surface-raised)", color: "var(--app-text)" }}
           />
         </div>
 
         {/* Bio */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          <label className="block text-sm font-medium mb-2" style={{ color: "var(--app-text-muted)" }}>
             Bio
           </label>
           <textarea
@@ -767,13 +793,14 @@ function ProfileEditForm({
             onChange={(e) => setBio(e.target.value)}
             rows={3}
             placeholder="Tell us about yourself..."
-            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white resize-none"
+            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent resize-none"
+            style={{ borderColor: "var(--app-hairline)", backgroundColor: "var(--app-surface-raised)", color: "var(--app-text)" }}
           />
         </div>
 
         {/* Location */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          <label className="block text-sm font-medium mb-2" style={{ color: "var(--app-text-muted)" }}>
             Location
           </label>
           <LocationAutocomplete
@@ -802,7 +829,7 @@ function ProfileEditForm({
 
         {/* Interests */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          <label className="block text-sm font-medium mb-2" style={{ color: "var(--app-text-muted)" }}>
             What do you do?
           </label>
           <div className="flex flex-wrap gap-2">
@@ -811,11 +838,12 @@ function ProfileEditForm({
                 key={fn}
                 type="button"
                 onClick={() => toggleInterest(fn)}
-                className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${interests.includes(fn) ? "" : "hover:bg-[var(--app-hairline-raised)]"}`}
+                style={
                   interests.includes(fn)
-                    ? "bg-blue-600 text-white"
-                    : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"
-                }`}
+                    ? { backgroundColor: "var(--app-accent)", color: "var(--garden-ink)" }
+                    : { backgroundColor: "var(--app-hairline)", color: "var(--app-text-muted)" }
+                }
               >
                 {fn}
               </button>
@@ -827,13 +855,14 @@ function ProfileEditForm({
         <button
           type="submit"
           disabled={saving || !name.trim()}
-          className="w-full py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
+          className="w-full py-3 rounded-lg font-medium transition-opacity hover:opacity-90 disabled:opacity-50"
+          style={{ backgroundColor: "var(--app-accent)", color: "var(--garden-ink)" }}
         >
           {saving ? "Saving..." : "Save Profile"}
         </button>
       </form>
 
-      <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-800">
+      <div className="mt-8 pt-6 border-t" style={{ borderColor: "var(--app-hairline)" }}>
         <LinksSection />
       </div>
     </div>
@@ -913,38 +942,41 @@ function LinksSection() {
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+        <h2 className="text-lg font-semibold" style={{ color: "var(--app-text)" }}>
           Links
         </h2>
         {!showAddForm && !editingId && (
           <button
             onClick={() => setShowAddForm(true)}
-            className="text-sm text-blue-600 hover:text-blue-500 font-medium"
+            className="text-sm font-medium hover:opacity-80"
+            style={{ color: "var(--app-accent-ink)" }}
           >
             + Add Link
           </button>
         )}
       </div>
-      <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+      <p className="text-sm mb-4" style={{ color: "var(--app-text-dim)" }}>
         Add links to your website, social profiles, or portfolio.
       </p>
 
       {/* Add/Edit Form */}
       {(showAddForm || editingId) && (
-        <div className="mb-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-xl space-y-3">
+        <div className="mb-4 p-4 rounded-xl space-y-3" style={{ backgroundColor: "var(--app-surface-raised)" }}>
           <input
             type="text"
             value={label}
             onChange={(e) => setLabel(e.target.value)}
             placeholder="Label (e.g., Portfolio, Twitter)"
-            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-900 dark:text-white"
+            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent"
+            style={{ borderColor: "var(--app-hairline)", backgroundColor: "var(--app-surface)", color: "var(--app-text)" }}
           />
           <input
             type="text"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             placeholder="URL (e.g., myportfolio.com)"
-            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-900 dark:text-white"
+            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent"
+            style={{ borderColor: "var(--app-hairline)", backgroundColor: "var(--app-surface)", color: "var(--app-text)" }}
           />
           <div className="flex gap-2">
             <button
@@ -952,13 +984,15 @@ function LinksSection() {
                 editingId ? handleUpdate(editingId) : handleAdd()
               }
               disabled={saving || !label.trim() || !url.trim()}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+              className="px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 disabled:opacity-50"
+              style={{ backgroundColor: "var(--app-accent)", color: "var(--garden-ink)" }}
             >
               {saving ? "Saving..." : editingId ? "Update" : "Add"}
             </button>
             <button
               onClick={resetForm}
-              className="px-4 py-2 text-gray-600 dark:text-gray-400 text-sm"
+              className="px-4 py-2 text-sm"
+              style={{ color: "var(--app-text-dim)" }}
             >
               Cancel
             </button>
@@ -972,14 +1006,16 @@ function LinksSection() {
           {links.map((link, index) => (
             <div
               key={link._id}
-              className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-xl group"
+              className="flex items-center gap-3 p-3 rounded-xl group"
+              style={{ backgroundColor: "var(--app-surface-raised)" }}
             >
               {/* Reorder buttons */}
               <div className="flex flex-col gap-0.5">
                 <button
                   onClick={() => moveLink(index, "up")}
                   disabled={index === 0}
-                  className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 disabled:opacity-30"
+                  className="p-1 hover:opacity-80 disabled:opacity-30"
+                  style={{ color: "var(--app-text-dim)" }}
                 >
                   <svg
                     className="w-3 h-3"
@@ -998,7 +1034,8 @@ function LinksSection() {
                 <button
                   onClick={() => moveLink(index, "down")}
                   disabled={index === links.length - 1}
-                  className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 disabled:opacity-30"
+                  className="p-1 hover:opacity-80 disabled:opacity-30"
+                  style={{ color: "var(--app-text-dim)" }}
                 >
                   <svg
                     className="w-3 h-3"
@@ -1017,12 +1054,16 @@ function LinksSection() {
               </div>
 
               {/* Link icon */}
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-lg flex items-center justify-center shrink-0">
+              <div
+                className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
+                style={{ backgroundColor: "var(--app-accent-wash)" }}
+              >
                 <svg
-                  className="w-5 h-5 text-white"
+                  className="w-5 h-5"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
+                  style={{ color: "var(--app-accent-ink)" }}
                 >
                   <path
                     strokeLinecap="round"
@@ -1035,14 +1076,15 @@ function LinksSection() {
 
               {/* Link content */}
               <div className="flex-1 min-w-0">
-                <p className="font-medium text-gray-900 dark:text-white text-sm">
+                <p className="font-medium text-sm" style={{ color: "var(--app-text)" }}>
                   {link.label}
                 </p>
                 <a
                   href={normalizeUrl(link.url)}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-xs text-blue-600 dark:text-blue-400 hover:underline truncate block"
+                  className="text-xs hover:underline truncate block"
+                  style={{ color: "var(--app-accent-ink)" }}
                 >
                   {link.url}
                 </a>
@@ -1052,7 +1094,8 @@ function LinksSection() {
               <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button
                   onClick={() => startEdit(link)}
-                  className="p-2 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400"
+                  className="p-2 hover:opacity-80"
+                  style={{ color: "var(--app-text-dim)" }}
                 >
                   <svg
                     className="w-4 h-4"
@@ -1070,7 +1113,8 @@ function LinksSection() {
                 </button>
                 <button
                   onClick={() => handleDelete(link._id)}
-                  className="p-2 text-gray-400 hover:text-red-600 dark:hover:text-red-400"
+                  className="p-2 hover:text-red-600 dark:hover:text-red-400"
+                  style={{ color: "var(--app-text-dim)" }}
                 >
                   <svg
                     className="w-4 h-4"
@@ -1092,12 +1136,16 @@ function LinksSection() {
         </div>
       ) : !showAddForm ? (
         <div className="text-center py-8">
-          <div className="w-16 h-16 mx-auto mb-3 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-2xl flex items-center justify-center">
+          <div
+            className="w-16 h-16 mx-auto mb-3 rounded-2xl flex items-center justify-center"
+            style={{ backgroundColor: "var(--app-accent-wash)" }}
+          >
             <svg
-              className="w-8 h-8 text-white"
+              className="w-8 h-8"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
+              style={{ color: "var(--app-accent-ink)" }}
             >
               <path
                 strokeLinecap="round"
@@ -1107,7 +1155,7 @@ function LinksSection() {
               />
             </svg>
           </div>
-          <p className="text-gray-500 dark:text-gray-400 text-sm">
+          <p className="text-sm" style={{ color: "var(--app-text-dim)" }}>
             No links yet. Click "+ Add Link" to add your first.
           </p>
         </div>
@@ -1399,36 +1447,38 @@ function ArtifactsSection({
   return (
     <div ref={sectionRef}>
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+        <h2 className="text-lg font-semibold" style={{ color: "var(--app-text)" }}>
           Work & Portfolio
         </h2>
         {!showAddForm && !editingId && (
           <button
             onClick={() => setShowAddForm(true)}
-            className="text-sm text-blue-600 hover:text-blue-500 font-medium"
+            className="text-sm font-medium hover:opacity-80"
+            style={{ color: "var(--app-accent-ink)" }}
           >
             + Add
           </button>
         )}
       </div>
-      <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+      <p className="text-sm mb-4" style={{ color: "var(--app-text-dim)" }}>
         Showcase your work with text, images, videos, audio, or links. Max 5MB
         per file.
       </p>
 
       {/* Add/Edit Form */}
       {(showAddForm || editingId) && (
-        <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-xl">
+        <div className="mb-6 p-4 rounded-xl" style={{ backgroundColor: "var(--app-surface-raised)" }}>
           <div className="flex flex-wrap gap-2 mb-4">
             {ARTIFACT_TYPES.map((t) => (
               <button
                 key={t.value}
                 onClick={() => setType(t.value)}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                className="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
+                style={
                   type === t.value
-                    ? "bg-blue-600 text-white"
-                    : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
-                }`}
+                    ? { backgroundColor: "var(--app-accent)", color: "var(--garden-ink)" }
+                    : { backgroundColor: "var(--app-hairline)", color: "var(--app-text-muted)" }
+                }
               >
                 {t.label}
               </button>
@@ -1445,7 +1495,8 @@ function ArtifactsSection({
                 ? "Title (required for links)"
                 : "Title (optional)"
             }
-            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-900 dark:text-white mb-3"
+            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent mb-3"
+            style={{ borderColor: "var(--app-hairline)", backgroundColor: "var(--app-surface)", color: "var(--app-text)" }}
           />
 
           {type === "text" ? (
@@ -1454,7 +1505,8 @@ function ArtifactsSection({
               onChange={(e) => setContent(e.target.value)}
               placeholder="Write something..."
               rows={4}
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-900 dark:text-white resize-none mb-3"
+              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent resize-none mb-3"
+              style={{ borderColor: "var(--app-hairline)", backgroundColor: "var(--app-surface)", color: "var(--app-text)" }}
             />
           ) : (
             <div className="space-y-3 mb-3">
@@ -1504,7 +1556,8 @@ function ArtifactsSection({
                 <button
                   onClick={() => fileInputRef.current?.click()}
                   disabled={uploading}
-                  className="w-full py-8 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-gray-500 dark:text-gray-400 hover:border-blue-500 hover:text-blue-500 transition-colors"
+                  className="w-full py-8 border-2 border-dashed rounded-lg transition-colors hover:border-[var(--app-accent)] hover:text-[var(--app-accent-ink)]"
+                  style={{ borderColor: "var(--app-hairline)", color: "var(--app-text-dim)" }}
                 >
                   {uploading ? (
                     <span className="flex items-center justify-center gap-2">
@@ -1520,10 +1573,10 @@ function ArtifactsSection({
               {/* Or use URL */}
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-gray-300 dark:border-gray-600" />
+                  <div className="w-full border-t" style={{ borderColor: "var(--app-hairline)" }} />
                 </div>
                 <div className="relative flex justify-center text-xs">
-                  <span className="px-2 bg-gray-50 dark:bg-gray-800 text-gray-500">
+                  <span className="px-2" style={{ backgroundColor: "var(--app-surface-raised)", color: "var(--app-text-dim)" }}>
                     or paste URL
                   </span>
                 </div>
@@ -1542,7 +1595,8 @@ function ArtifactsSection({
                         ? "soundcloud.com/..."
                         : "example.com"
                 }
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-900 dark:text-white"
+                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent"
+                style={{ borderColor: "var(--app-hairline)", backgroundColor: "var(--app-surface)", color: "var(--app-text)" }}
                 disabled={!!uploadedStorageId}
               />
             </div>
@@ -1554,13 +1608,15 @@ function ArtifactsSection({
                 editingId ? handleUpdate(editingId) : handleCreate()
               }
               disabled={saving || !canSubmit}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+              className="px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 disabled:opacity-50"
+              style={{ backgroundColor: "var(--app-accent)", color: "var(--garden-ink)" }}
             >
               {saving ? "Saving..." : editingId ? "Update" : "Add"}
             </button>
             <button
               onClick={resetForm}
-              className="px-4 py-2 text-gray-600 dark:text-gray-400 text-sm"
+              className="px-4 py-2 text-sm"
+              style={{ color: "var(--app-text-dim)" }}
             >
               Cancel
             </button>
@@ -1631,7 +1687,7 @@ function ArtifactsSection({
                         <button
                           onClick={() => handleRefreshPreview(artifact._id)}
                           disabled={refreshingId === artifact._id}
-                          className="w-7 h-7 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center text-white hover:bg-blue-500/80 disabled:opacity-50"
+                          className="w-7 h-7 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center text-white hover:bg-[var(--app-accent)] hover:text-[var(--garden-ink)] disabled:opacity-50"
                           title="Refresh preview image"
                         >
                           {refreshingId === artifact._id ? (
@@ -1717,10 +1773,13 @@ function ArtifactsSection({
         </div>
       ) : !showAddForm ? (
         <div className="text-center py-8">
-          <div className="w-16 h-16 mx-auto mb-3 bg-gradient-to-br from-blue-400 to-purple-500 rounded-2xl flex items-center justify-center">
+          <div
+            className="w-16 h-16 mx-auto mb-3 rounded-2xl flex items-center justify-center"
+            style={{ backgroundColor: "var(--app-accent-wash)" }}
+          >
             <span className="text-3xl">✨</span>
           </div>
-          <p className="text-gray-500 dark:text-gray-400 text-sm">
+          <p className="text-sm" style={{ color: "var(--app-text-dim)" }}>
             No work added yet. Click "+ Add" to showcase your portfolio.
           </p>
         </div>

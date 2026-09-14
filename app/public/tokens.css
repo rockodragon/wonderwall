@@ -38,4 +38,43 @@
   /* Shape */
   --garden-radius-tight: 3px;
   --garden-radius-card: 10px;
+
+  /* App-shell surface tokens (wonderwall-8o1.reskin) — for the authenticated
+     app (_app.tsx and the pages inside it), which unlike the marketing
+     pages above still supports light AND dark via the OS preference (no
+     manual toggle exists — same auto-only behavior Tailwind's `dark:`
+     classes already relied on here). The --garden-* tokens above are the
+     FIXED dark palette the marketing pages always render in; these
+     --app-* tokens are the ones that actually flip with prefers-color-
+     scheme, light values live here, dark overrides are in the media query
+     below. citron itself needs no light variant as a FILL (ink text on
+     citron reads fine on either ground) — --app-accent-ink exists only for
+     when citron would be used as TEXT/icon color on a light surface, where
+     raw citron fails contrast; use the citron fill pattern instead wherever
+     that reads more naturally. */
+  --app-surface: var(--garden-paper);
+  --app-surface-raised: #eeeee7;
+  --app-hairline: #e2e2d8;
+  --app-hairline-raised: #d3d3c5;
+  --app-text: var(--garden-ink);
+  --app-text-dim: #6b6b62;
+  --app-text-muted: #514f43;
+  --app-accent: var(--garden-citron);
+  --app-accent-ink: #4d7c0f;
+  --app-accent-wash: rgba(215, 242, 90, 0.22);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --app-surface: var(--garden-ink);
+    --app-surface-raised: var(--garden-ink-raised);
+    --app-hairline: var(--garden-hairline);
+    --app-hairline-raised: var(--garden-hairline-raised);
+    --app-text: var(--garden-paper);
+    --app-text-dim: var(--garden-dim);
+    --app-text-muted: var(--garden-muted);
+    --app-accent: var(--garden-citron);
+    --app-accent-ink: var(--garden-citron);
+    --app-accent-wash: rgba(215, 242, 90, 0.14);
+  }
 }
