@@ -452,56 +452,185 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Who it's for — one door per constituent, see
-          docs/marketing/constituent-playbook.md */}
-      <section className="px-6 py-16 max-w-6xl mx-auto">
+      {/* Who it's for — alternating image/text rows per persona */}
+      <section className="py-16 max-w-6xl mx-auto px-6">
         <h2 className="text-3xl font-bold text-[var(--garden-paper)] mb-3">
           Who it's for
         </h2>
-        <p className="text-[var(--garden-body)] mb-10 max-w-2xl">
+        <p className="text-[var(--garden-body)] mb-14 max-w-2xl">
           Four seats at the table. One room.
         </p>
-        <div className="grid gap-4 sm:grid-cols-2">
-          {[
-            {
-              to: "/for/creatives",
-              label: "Creatives",
-              line: "Show your work, find your people, get paid. When someone backs you, you keep all of it.",
-            },
-            {
-              to: "/for/patrons",
-              label: "Patrons",
-              line: "Pick a creative to back and watch the work come together. Your name goes on it when it's done.",
-            },
-            {
-              to: "/for/hosts",
-              label: "Hosts",
-              line: "Bring the community you already lead. Hosting is free — you keep 90% of what you sell.",
-            },
-            {
-              to: "/for/partners",
-              label: "Community Partners",
-              line: "Churches, venues, businesses — sponsor a creative, open your doors, or post paid work.",
-            },
-          ].map((d) => (
-            <Link
-              key={d.to}
-              to={d.to}
-              className="group p-6 bg-[var(--garden-ink-raised)] rounded-2xl border border-[var(--garden-hairline)] hover:border-[var(--garden-citron)] transition-all duration-300"
-            >
-              <h3 className="text-lg font-bold text-[var(--garden-paper)] mb-1">
-                {d.label}
-              </h3>
-              <p className="text-[var(--garden-muted)] leading-relaxed">
-                {d.line}
+
+        <div className="flex flex-col gap-20">
+          {/* Creatives — image left */}
+          <div className="grid md:grid-cols-2 gap-8 md:gap-12 items-center">
+            <img
+              src={CAMPAIGN_IMAGES.ade.src}
+              alt={CAMPAIGN_IMAGES.ade.alt}
+              loading="lazy"
+              className="w-full aspect-[4/5] object-cover rounded-2xl bg-[var(--garden-ink-raised)]"
+            />
+            <div>
+              <p className="text-[var(--garden-citron)] text-xs font-semibold tracking-wide uppercase mb-3">
+                For creatives
               </p>
-            </Link>
-          ))}
+              <h3
+                className="text-2xl md:text-3xl font-bold text-[var(--garden-paper)] leading-tight mb-4"
+                style={{ fontFamily: "var(--garden-font-display)" }}
+              >
+                Show your work. Find your people. Get paid.
+              </h3>
+              <p className="text-[var(--garden-body)] leading-relaxed mb-6 max-w-md">
+                Get found by what you make and where you are. Post paid or
+                passion projects, find collaborators, and set crowdfunding
+                targets with real deadlines. Join a community. Find a coach.
+                When someone backs you, you keep all of it.
+              </p>
+              <div className="flex flex-wrap gap-3">
+                <Link
+                  to="/join"
+                  className="px-5 py-3 bg-[var(--garden-citron)] text-[var(--garden-ink)] rounded-xl font-semibold hover:opacity-90 transition-all"
+                >
+                  Join as a creative
+                </Link>
+                <Link
+                  to="/for/creatives"
+                  className="px-5 py-3 rounded-xl font-medium border border-[var(--garden-hairline)] text-[var(--garden-body)] hover:text-[var(--garden-paper)] hover:border-[var(--garden-citron)] transition-colors"
+                >
+                  Learn more
+                </Link>
+              </div>
+            </div>
+          </div>
+
+          {/* Patrons — image right */}
+          <div className="grid md:grid-cols-2 gap-8 md:gap-12 items-center">
+            <div className="md:order-1">
+              <img
+                src={CAMPAIGN_IMAGES.viewing.src}
+                alt={CAMPAIGN_IMAGES.viewing.alt}
+                loading="lazy"
+                className="w-full aspect-[4/5] object-cover rounded-2xl bg-[var(--garden-ink-raised)]"
+              />
+            </div>
+            <div>
+              <p className="text-[var(--garden-citron)] text-xs font-semibold tracking-wide uppercase mb-3">
+                For patrons
+              </p>
+              <h3
+                className="text-2xl md:text-3xl font-bold text-[var(--garden-paper)] leading-tight mb-4"
+                style={{ fontFamily: "var(--garden-font-display)" }}
+              >
+                Back someone you believe in.
+              </h3>
+              <p className="text-[var(--garden-body)] leading-relaxed mb-6 max-w-md">
+                Sponsor a project you believe in. Gift memberships to the
+                creatives around you. Offer a venue, gear, an introduction —
+                every kind of backing is credited, and your name goes on the
+                finished work.
+              </p>
+              <div className="flex flex-wrap gap-3">
+                <Link
+                  to="/opportunities"
+                  className="px-5 py-3 bg-[var(--garden-citron)] text-[var(--garden-ink)] rounded-xl font-semibold hover:opacity-90 transition-all"
+                >
+                  Pick someone to back
+                </Link>
+                <Link
+                  to="/for/patrons"
+                  className="px-5 py-3 rounded-xl font-medium border border-[var(--garden-hairline)] text-[var(--garden-body)] hover:text-[var(--garden-paper)] hover:border-[var(--garden-citron)] transition-colors"
+                >
+                  Learn more
+                </Link>
+              </div>
+            </div>
+          </div>
+
+          {/* Hosts — image left */}
+          <div className="grid md:grid-cols-2 gap-8 md:gap-12 items-center">
+            <img
+              src={CAMPAIGN_IMAGES.gallery.src}
+              alt={CAMPAIGN_IMAGES.gallery.alt}
+              loading="lazy"
+              className="w-full aspect-[4/5] object-cover rounded-2xl bg-[var(--garden-ink-raised)]"
+            />
+            <div>
+              <p className="text-[var(--garden-citron)] text-xs font-semibold tracking-wide uppercase mb-3">
+                For hosts
+              </p>
+              <h3
+                className="text-2xl md:text-3xl font-bold text-[var(--garden-paper)] leading-tight mb-4"
+                style={{ fontFamily: "var(--garden-font-display)" }}
+              >
+                Bring your community. Earn from what you teach.
+              </h3>
+              <p className="text-[var(--garden-body)] leading-relaxed mb-6 max-w-md">
+                Run a paid or free community — a cohort, a class, a creative
+                table. Offer spiritual or creative coaching. You keep 90% of
+                what you sell, hosting is free, and your people can apply to
+                the Grant Fund.
+              </p>
+              <div className="flex flex-wrap gap-3">
+                <Link
+                  to="/join"
+                  className="px-5 py-3 bg-[var(--garden-citron)] text-[var(--garden-ink)] rounded-xl font-semibold hover:opacity-90 transition-all"
+                >
+                  Start hosting
+                </Link>
+                <Link
+                  to="/for/hosts"
+                  className="px-5 py-3 rounded-xl font-medium border border-[var(--garden-hairline)] text-[var(--garden-body)] hover:text-[var(--garden-paper)] hover:border-[var(--garden-citron)] transition-colors"
+                >
+                  Learn more
+                </Link>
+              </div>
+            </div>
+          </div>
+
+          {/* Community Partners — image right */}
+          <div className="grid md:grid-cols-2 gap-8 md:gap-12 items-center">
+            <div className="md:order-1">
+              <img
+                src={CAMPAIGN_IMAGES.opening.src}
+                alt={CAMPAIGN_IMAGES.opening.alt}
+                loading="lazy"
+                className="w-full aspect-[4/5] object-cover rounded-2xl bg-[var(--garden-ink-raised)]"
+              />
+            </div>
+            <div>
+              <p className="text-[var(--garden-citron)] text-xs font-semibold tracking-wide uppercase mb-3">
+                For community partners
+              </p>
+              <h3
+                className="text-2xl md:text-3xl font-bold text-[var(--garden-paper)] leading-tight mb-4"
+                style={{ fontFamily: "var(--garden-font-display)" }}
+              >
+                Open your doors. Your name goes on it.
+              </h3>
+              <p className="text-[var(--garden-body)] leading-relaxed mb-6 max-w-md">
+                Churches, venues, businesses — post paid work, gift
+                memberships to your creatives, or open your space. When it's
+                done, everyone knows who made it possible.
+              </p>
+              <div className="flex flex-wrap gap-3">
+                <Link
+                  to="/for/partners"
+                  className="px-5 py-3 bg-[var(--garden-citron)] text-[var(--garden-ink)] rounded-xl font-semibold hover:opacity-90 transition-all"
+                >
+                  Partner with us
+                </Link>
+                <Link
+                  to="/for/churches"
+                  className="px-5 py-3 rounded-xl font-medium border border-[var(--garden-hairline)] text-[var(--garden-body)] hover:text-[var(--garden-paper)] hover:border-[var(--garden-citron)] transition-colors"
+                >
+                  For churches
+                </Link>
+              </div>
+            </div>
+          </div>
         </div>
-        {/* The one link on this page that shows the goods instead of
-            describing them. Public: /opportunities is outside the _app
-            layout, so nobody lands on a login form. */}
-        <p className="mt-8 text-[var(--garden-body)]">
+
+        <p className="mt-14 text-[var(--garden-body)]">
           Or just{" "}
           <Link
             to="/opportunities"

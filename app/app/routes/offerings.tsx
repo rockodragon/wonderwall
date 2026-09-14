@@ -165,7 +165,7 @@ export default function Offerings() {
           Classes & Coaching
         </h1>
         <p className="text-[var(--garden-body)] mb-6">
-          Recurring classes, coaching, and workshop series — find a seat, or offer one.
+          Find your path through classes, coaching, and workshops.
         </p>
 
         <CommunityContextLine
