@@ -153,8 +153,8 @@ export default function Home() {
             <span className="text-[var(--garden-citron)]">together.</span>
           </h2>
           <p className="mt-5 text-lg md:text-xl text-[var(--garden-body)] max-w-2xl mx-auto mb-6">
-            Creatives, patrons, hosts, churches and venues, in one place. Every
-            project shows who made it and who backed it.
+            Creatives, patrons, hosts, and community partners — all in one
+            place. Every project shows who made it and who backed it.
           </p>
 
           {/* Closed Beta Badge */}
@@ -440,9 +440,9 @@ export default function Home() {
           <div className="max-w-3xl text-[var(--garden-body)] text-lg md:text-xl leading-relaxed flex flex-col gap-5">
             <p className="text-[var(--garden-paper)]">Nothing here gets made alone.</p>
             <p>
-              A creative posts the work. A patron backs it. A church covers the
-              seat. A cafe opens the back room. A host runs the class where it
-              started. When it's done, all of those names are on it.
+              A creative posts the work. A patron backs it. A partner opens
+              their doors. A host runs the table where it all started. When
+              it's done, every name is on it.
             </p>
             <p>
               The Garden is the founding Christian creative community on the
@@ -459,39 +459,29 @@ export default function Home() {
           Who it's for
         </h2>
         <p className="text-[var(--garden-body)] mb-10 max-w-2xl">
-          Six ways in. One place.
+          Four seats at the table. One room.
         </p>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2">
           {[
             {
               to: "/for/creatives",
               label: "Creatives",
-              line: "Find collaborators. Find paid work.",
-            },
-            {
-              to: "/for/hosts",
-              label: "Hosts",
-              line: "Earn from the community you already lead.",
+              line: "Show your work, find your people, get paid. When someone backs you, you keep all of it.",
             },
             {
               to: "/for/patrons",
               label: "Patrons",
-              line: "Pick someone to back, and watch it get made.",
+              line: "Pick a creative to back and watch the work come together. Your name goes on it when it's done.",
             },
             {
-              to: "/for/churches",
-              label: "Churches",
-              line: "Sponsor the creative team you already have.",
-            },
-            {
-              to: "/for/donors",
-              label: "Donors",
-              line: "Give to the grant fund. Tax-deductible.",
+              to: "/for/hosts",
+              label: "Hosts",
+              line: "Bring the community you already lead. Hosting is free — you keep 90% of what you sell.",
             },
             {
               to: "/for/partners",
-              label: "Venues & businesses",
-              line: "Hire a creative, or open your doors.",
+              label: "Community Partners",
+              line: "Churches, venues, businesses — sponsor a creative, open your doors, or post paid work.",
             },
           ].map((d) => (
             <Link

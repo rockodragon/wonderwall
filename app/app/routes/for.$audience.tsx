@@ -1,4 +1,4 @@
-import { Link } from "react-router";
+import { Link, Navigate } from "react-router";
 import type { Route } from "./+types/for.$audience";
 import { CampaignBand } from "../components/CampaignBand";
 import type { CampaignImageKey } from "../lib/campaign";
@@ -17,7 +17,7 @@ import { SiteHeader } from "../components/SiteHeader";
 //   - The platform is open to any creative; The Garden is the Christian
 //     creative community inside it. Creative-facing copy says so plainly.
 //
-// Six doors, six different verbs: find, start, pick, sponsor, give, hire.
+// Four doors, four different verbs: find, back, bring, open.
 // If three buttons all say "support a creative" the page has stopped
 // distinguishing between audiences.
 //
@@ -66,11 +66,11 @@ const AUDIENCES: Audience[] = [
       },
       {
         title: "There's money set aside for your work",
-        body: "Churches and neighbors put money into a fund. You apply. A nonprofit decides who gets it, and every grant is posted publicly, so you can see who got what.",
+        body: "Community partners and patrons put money into a fund. You apply. A nonprofit decides who gets it, and every grant is posted publicly, so you can see who got what.",
       },
       {
         title: "Real work, from people nearby",
-        body: "Churches, businesses and nonprofits post paid work here. Each post says who is asking and what it pays.",
+        body: "Partners — churches, businesses, nonprofits — post paid work here. Each post says who is asking and what it pays.",
       },
       {
         title: "You won't be doing this alone",
@@ -125,7 +125,7 @@ const AUDIENCES: Audience[] = [
   },
   {
     slug: "patrons",
-    eyebrow: "For patrons and backers",
+    eyebrow: "For patrons",
     headline: "Back someone you believe in.",
     subhead:
       "A person, a team, or a project. Pick one, and watch it get made.",
@@ -143,123 +143,63 @@ const AUDIENCES: Audience[] = [
         body: "Money, a room for an afternoon, gear, an introduction. All of it counts, and all of it is credited.",
       },
       {
-        title: "You'll meet them",
-        body: "Shows, openings, workshops. The people you back are the people in the room.",
+        title: "Give to the Grant Fund",
+        body: "The fund is run by Abiding Practice, a 501(c)(3). Your gift is tax-deductible, and every grant is posted publicly.",
       },
     ],
-    cost: "A patron account is free. You decide what to give, and when.",
+    cost: "A patron account is free. You decide what to give, and when. Larger commitments to the Grant Fund are worth a conversation — those are the gifts a creative can plan around.",
     ctaLabel: "Pick someone to back",
     ctaTo: "/opportunities",
-    ctaLabel2: "Create a free patron account",
-    ctaTo2: "/join",
+    ctaLabel2: "Give to the Grant Fund",
+    ctaTo2: "/fund/abiding-practice",
     bandImages: ["band", "viewing"],
     metaTitle: "For patrons — creatives.exchange",
     metaDescription:
-      "Back a creative, a team, or a project. Watch it get made, get credited on the work, and meet the people you back.",
-  },
-  {
-    slug: "churches",
-    eyebrow: "For churches and organizations",
-    headline: "Support the creatives in your church.",
-    subhead:
-      "$10 a month opens the door for one of them. You can see exactly what it did.",
-    points: [
-      {
-        title: "They get everything, not a discount",
-        body: "The creative you sponsor can start projects, take paid work, and propose to the grant fund — same as anyone who pays for it themselves.",
-      },
-      {
-        title: "It's not really about Sunday",
-        body: "The people you sponsor keep making after the service ends — festivals, bars, wherever people are. You helped make that possible.",
-      },
-      {
-        title: "One card, one code",
-        body: "Buy ten seats at once and hand out a single code.",
-      },
-      {
-        title: "Where it goes",
-        body: "Half of every seat funds the grant program. The other half keeps this running. Every grant that goes out is public.",
-      },
-    ],
-    cost:
-      "$10 per seat per month, in any number you want. Paying for a year at once is one charge instead of twelve.",
-    ctaLabel: "Sponsor your creative team",
-    ctaTo: "/coverage",
-    ctaLabel2: "See what it pays for",
-    ctaTo2: "/fund/abiding-practice",
-    bandImages: ["church", "busker"],
-    metaTitle: "Support the creatives in your church — creatives.exchange",
-    metaDescription:
-      "Cover seats for the creatives in your church. $10 a month per seat, one code for your whole group, and a clear record of where it went.",
-  },
-  {
-    slug: "donors",
-    eyebrow: "For donors and institutions",
-    headline: "Support creatives, and see exactly where it lands.",
-    subhead:
-      "The grant fund is run by Abiding Practice, a 501(c)(3). Your gift is tax-deductible and every grant is posted publicly.",
-    points: [
-      {
-        title: "90 cents of every dollar becomes a grant",
-        body: "When you cover the processing fee at checkout, ninety cents of each dollar goes out to a creative. The rest runs the fund and the platform.",
-      },
-      {
-        title: "A real receipt from a real nonprofit",
-        body: "Abiding Practice, a 501(c)(3), receives your gift and sends the receipt.",
-      },
-      {
-        title: "You can check the work",
-        body: "Date, amount, creative, project. Anyone can read the list without an account.",
-      },
-      {
-        title: "What it buys",
-        body: "$250 covers materials for a project. $500 a month for six months covers rent while a creative finishes a body of work.",
-      },
-    ],
-    cost:
-      "Give once or monthly, in any amount. Larger commitments are worth a conversation — those are the gifts a creative can plan around.",
-    ctaLabel: "Give to the grant fund",
-    ctaTo: "/fund/abiding-practice",
-    ctaLabel2: "Come to the November 6 event",
-    ctaTo2: "/garden/events",
-    bandImages: ["dee", "cafe"],
-    metaTitle: "Support creatives, see where it lands — creatives.exchange",
-    metaDescription:
-      "Give to a grant fund run by Abiding Practice, a 501(c)(3). Tax-deductible, ninety cents of every dollar granted, and every grant posted publicly.",
+      "Back a creative, a team, or a project. Watch it get made, get credited on the work, and give to the Grant Fund.",
   },
   {
     slug: "partners",
-    eyebrow: "For venues and businesses",
-    headline: "Hire a creative, or open your doors.",
-    subhead: "Post the job. Creatives with portfolios apply.",
+    eyebrow: "For community partners",
+    headline: "Open your doors. Your name goes on what gets made.",
+    subhead:
+      "Churches, venues, businesses — sponsor a creative, post paid work, or offer your space.",
     points: [
       {
-        title: "Applicants you can see",
-        body: "Creatives here apply to your post directly. You see their portfolio before you reply.",
+        title: "Sponsor creatives directly",
+        body: "Cover a seat for someone in your church or organization. $10 a month opens the door for one of them — projects, paid work, grant proposals, all of it.",
       },
       {
-        title: "Your name goes on it",
-        body: "Sponsors and venue partners are credited on the projects and events they made possible.",
+        title: "Post paid work",
+        body: "Creatives apply directly. You see their portfolio before you reply.",
       },
       {
         title: "Space counts as much as money",
         body: "A room, a stage, a studio for an afternoon. Offer space the same way you would offer money.",
       },
+      {
+        title: "Your name goes on it",
+        body: "Partners are credited on the projects and events they made possible. When it's done, everyone knows who opened the door.",
+      },
     ],
     cost:
-      "Posting work is free. Business sponsorships start at $100 a month, and unlike a donation you write it off as marketing.",
-    ctaLabel: "Hire a creative",
-    ctaTo: "/join",
-    ctaLabel2: "Offer your space",
+      "Posting work is free. Sponsoring seats is $10 each per month. Business sponsorships start at $100 a month.",
+    ctaLabel: "Sponsor your creative team",
+    ctaTo: "/coverage",
+    ctaLabel2: "Post paid work",
     ctaTo2: "/join",
-    bandImages: ["night", "opening"],
-    metaTitle: "For venues and businesses — creatives.exchange",
+    bandImages: ["church", "busker"],
+    metaTitle: "For community partners — creatives.exchange",
     metaDescription:
-      "Hire creatives who want the work, or offer your space. Posting is free, and your name goes on what gets made.",
+      "Churches, venues, and businesses — sponsor creatives, post paid work, or offer your space. Your name goes on what gets made.",
   },
 ];
 
 const BY_SLUG = new Map(AUDIENCES.map((a) => [a.slug, a]));
+
+const SLUG_REDIRECTS: Record<string, string> = {
+  churches: "partners",
+  donors: "patrons",
+};
 
 export function meta({ params }: Route.MetaArgs) {
   const a = BY_SLUG.get(params.audience ?? "");
@@ -285,6 +225,11 @@ export function meta({ params }: Route.MetaArgs) {
 }
 
 export default function ForAudience({ params }: Route.ComponentProps) {
+  const redirect = SLUG_REDIRECTS[params.audience ?? ""];
+  if (redirect) {
+    return <Navigate to={`/for/${redirect}`} replace />;
+  }
+
   const audience = BY_SLUG.get(params.audience ?? "");
 
   if (!audience) {
