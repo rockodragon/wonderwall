@@ -137,9 +137,15 @@ export default function Profile() {
 
   return (
     <div className="p-4 sm:p-6 max-w-5xl mx-auto">
-      {/* Profile header */}
+      {/* Profile header. Identity (name/role/location/network) sits on the
+          left, all the ways to act on this person are grouped on the right
+          — Follow/Message/Share stay one click away, Block moves into the
+          kebab since it's rare and destructive, not a peer of the others. */}
       <div className="flex flex-col sm:flex-row sm:items-start gap-4 sm:gap-6 mb-8">
-        <div className="w-20 h-20 sm:w-24 sm:h-24 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center overflow-hidden shrink-0">
+        <div
+          className="w-20 h-20 sm:w-24 sm:h-24 rounded-full flex items-center justify-center overflow-hidden shrink-0"
+          style={{ backgroundColor: "var(--app-hairline-raised)" }}
+        >
           {profile.imageUrl ? (
             <img
               src={profile.imageUrl}
@@ -147,50 +153,109 @@ export default function Profile() {
               className="w-full h-full object-cover"
             />
           ) : (
-            <span className="text-2xl sm:text-3xl font-medium text-gray-500">
+            <span
+              className="text-2xl sm:text-3xl font-medium"
+              style={{ color: "var(--app-text-dim)" }}
+            >
               {profile.name.charAt(0)}
             </span>
           )}
         </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
-              {profile.name}
-            </h1>
-            <FavoriteButton targetType="profile" targetId={profile._id} />
-            <ShareButton type="profile" title={profile.name} size="sm" />
-            {followsMe === true && (
-              <span className="text-xs text-[var(--garden-dim)]">
-                Follows you
-              </span>
+
+        <div className="flex-1 min-w-0 flex flex-wrap items-start justify-between gap-4">
+          {/* Identity column */}
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+              <h1
+                className="text-xl sm:text-2xl font-bold"
+                style={{ color: "var(--app-text)" }}
+              >
+                {profile.name}
+              </h1>
+              {followsMe === true && (
+                <span className="text-xs" style={{ color: "var(--app-text-dim)" }}>
+                  Follows you
+                </span>
+              )}
+            </div>
+            {profile.interests.length > 0 && (
+              <p className="mt-1 text-sm sm:text-base" style={{ color: "var(--app-text-muted)" }}>
+                {profile.interests.join(" • ")}
+              </p>
+            )}
+            {profile.location && (
+              <p className="mt-0.5 text-sm sm:text-base" style={{ color: "var(--app-text-dim)" }}>
+                {profile.location}
+              </p>
+            )}
+            {/* Invite stats — moved up next to identity instead of below the
+                action row, so "who this person is" reads as one block. */}
+            {inviteStats && (
+              <div className="flex flex-wrap items-center gap-3 mt-2 text-sm">
+                {inviteStats.invitedBy && (
+                  <Link
+                    to={`/profile/${inviteStats.invitedBy.profileId}`}
+                    className="transition-colors hover:text-[var(--app-accent-ink)]"
+                    style={{ color: "var(--app-text-dim)" }}
+                  >
+                    Invited by{" "}
+                    <span className="font-medium">
+                      {inviteStats.invitedBy.name}
+                    </span>
+                  </Link>
+                )}
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded-full">
+                    <svg
+                      className="w-3.5 h-3.5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"
+                      />
+                    </svg>
+                    <span className="font-semibold">
+                      {inviteStats.networkSize}
+                    </span>
+                    <span className="text-emerald-600 dark:text-emerald-500">
+                      in network
+                    </span>
+                  </span>
+                  {inviteStats.directInvitees > 0 && (
+                    <span className="text-xs" style={{ color: "var(--app-text-dim)" }}>
+                      ({inviteStats.directInvitees} invited
+                      {inviteStats.downstreamCount > 0 &&
+                        `, +${inviteStats.downstreamCount} downstream`}
+                      )
+                    </span>
+                  )}
+                </div>
+              </div>
             )}
           </div>
-          {profile.interests.length > 0 && (
-            <p className="text-gray-600 dark:text-gray-400 mt-1 text-sm sm:text-base">
-              {profile.interests.join(" • ")}
-            </p>
-          )}
-          {profile.location && (
-            <p className="text-gray-500 dark:text-gray-500 mt-0.5 text-sm sm:text-base">
-              {profile.location}
-            </p>
-          )}
-          {profile.bio && (
-            <p className="text-gray-700 dark:text-gray-300 mt-3 text-sm sm:text-base">
-              {profile.bio}
-            </p>
-          )}
-          {/* Message button - below bio, only for other profiles. Block sits
-              beside it as a quiet link: it must be reachable, not prominent. */}
-          {!isOwnProfile && (
-            <div className="mt-4 flex items-center gap-4">
+
+          {/* Action cluster — Follow/Share always available (including on
+              your own profile, matching prior behavior); Message and the
+              Block kebab only make sense on someone else's. */}
+          <div className="flex items-center gap-2 shrink-0">
+            <FavoriteButton targetType="profile" targetId={profile._id} />
+            {!isOwnProfile && (
               <button
                 onClick={handleStartConversation}
                 disabled={startingConversation}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-colors bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-colors disabled:opacity-50"
+                style={{ backgroundColor: "var(--app-accent)", color: "var(--garden-ink)" }}
               >
                 {startingConversation ? (
-                  <div className="w-4 h-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  <div
+                    className="w-4 h-4 animate-spin rounded-full border-2 border-t-transparent"
+                    style={{ borderColor: "var(--garden-ink)" }}
+                  />
                 ) : (
                   <svg
                     className="w-4 h-4"
@@ -208,66 +273,26 @@ export default function Profile() {
                 )}
                 Message
               </button>
-              {blockStatus !== undefined && (
-                <button
-                  type="button"
-                  onClick={handleToggleBlock}
-                  className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:underline"
-                >
-                  {blockStatus.blockedByMe ? "Unblock" : "Block"}
-                </button>
-              )}
-            </div>
-          )}
-          {/* Invite stats */}
-          {inviteStats && (
-            <div className="flex flex-wrap items-center gap-3 mt-3 text-sm">
-              {inviteStats.invitedBy && (
-                <Link
-                  to={`/profile/${inviteStats.invitedBy.profileId}`}
-                  className="text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400"
-                >
-                  Invited by{" "}
-                  <span className="font-medium">
-                    {inviteStats.invitedBy.name}
-                  </span>
-                </Link>
-              )}
-              <div className="flex items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded-full">
-                  <svg
-                    className="w-3.5 h-3.5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"
-                    />
-                  </svg>
-                  <span className="font-semibold">
-                    {inviteStats.networkSize}
-                  </span>
-                  <span className="text-emerald-600 dark:text-emerald-500">
-                    in network
-                  </span>
-                </span>
-                {inviteStats.directInvitees > 0 && (
-                  <span className="text-gray-400 dark:text-gray-500 text-xs">
-                    ({inviteStats.directInvitees} invited
-                    {inviteStats.downstreamCount > 0 &&
-                      `, +${inviteStats.downstreamCount} downstream`}
-                    )
-                  </span>
-                )}
-              </div>
-            </div>
-          )}
+            )}
+            <ShareButton type="profile" title={profile.name} size="sm" />
+            {!isOwnProfile && blockStatus !== undefined && (
+              <ProfileOverflowMenu
+                blocked={blockStatus.blockedByMe}
+                onToggleBlock={handleToggleBlock}
+              />
+            )}
+          </div>
         </div>
       </div>
+
+      {profile.bio && (
+        <p
+          className="-mt-4 mb-8 text-sm sm:text-base"
+          style={{ color: "var(--app-text-muted)" }}
+        >
+          {profile.bio}
+        </p>
+      )}
 
       {/* Profile setup prompt for own incomplete profile */}
       {profileNeedsSetup && (
@@ -605,6 +630,58 @@ export default function Profile() {
             <p>This profile doesn't have any content yet</p>
           </div>
         )}
+    </div>
+  );
+}
+
+// The overflow menu for rare/destructive profile actions — just Block today.
+// Same fixed-backdrop dropdown pattern as projects.tsx's PostProjectMenu.
+function ProfileOverflowMenu({
+  blocked,
+  onToggleBlock,
+}: {
+  blocked: boolean;
+  onToggleBlock: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-label="More actions"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        className="flex items-center justify-center w-9 h-9 rounded-xl transition-colors hover:bg-[var(--app-hairline)]"
+        style={{ color: "var(--app-text-dim)" }}
+      >
+        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M12 6a2 2 0 100-4 2 2 0 000 4zM12 14a2 2 0 100-4 2 2 0 000 4zM12 22a2 2 0 100-4 2 2 0 000 4z" />
+        </svg>
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div
+            role="menu"
+            className="absolute right-0 mt-2 w-40 rounded-xl border overflow-hidden z-50"
+            style={{ backgroundColor: "var(--app-surface-raised)", borderColor: "var(--app-hairline)" }}
+          >
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                onToggleBlock();
+              }}
+              className="block w-full text-left px-4 py-2.5 text-sm transition-colors hover:bg-[var(--app-hairline)]"
+              style={{ color: "var(--app-text)" }}
+            >
+              {blocked ? "Unblock" : "Block"}
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 }
