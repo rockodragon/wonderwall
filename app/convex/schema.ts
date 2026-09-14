@@ -690,10 +690,12 @@ export default defineSchema({
     slug: v.string(),
     kind: v.string(), // "community" | "platform" | "church" | "org"
     givingUrl: v.optional(v.string()), // fallback outbound giving page
-    // Stripe Payment Link from the ORG'S OWN Stripe account (they create it,
-    // we embed it). Giving starts and ends on our site via after_completion
-    // redirect back to /fund/:slug — org stays merchant of record (D3).
+    // Stripe Payment Links from the ORG'S OWN Stripe account (they create
+    // them, we embed them). Giving starts and ends on our site via
+    // after_completion redirect back to the fund page — org stays merchant of
+    // record (D3). One link per cadence: one-time and monthly.
     paymentLinkUrl: v.optional(v.string()),
+    monthlyPaymentLinkUrl: v.optional(v.string()),
     stripeCustomerId: v.optional(v.string()), // set for orgs that buy coverage
     // ——— Community layer ———
     tagline: v.optional(v.string()), // one line under the name

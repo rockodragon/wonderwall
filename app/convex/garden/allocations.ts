@@ -465,6 +465,7 @@ export const getFundPage = query({
         slug: hostOrg.slug,
         givingUrl: hostOrg.givingUrl,
         paymentLinkUrl: hostOrg.paymentLinkUrl,
+        monthlyPaymentLinkUrl: hostOrg.monthlyPaymentLinkUrl,
       },
       totals: computeFundTotals(allocations),
       ledger: shapeLedger(allocations, projectsById),

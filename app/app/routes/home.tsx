@@ -657,6 +657,13 @@ export default function Home() {
           >
             see what's open right now
           </Link>
+          {" "}or{" "}
+          <Link
+            to="/grant-program"
+            className="text-[var(--garden-citron)] font-medium hover:opacity-80 transition-opacity"
+          >
+            learn about the Grant Program
+          </Link>
           .
         </p>
       </section>

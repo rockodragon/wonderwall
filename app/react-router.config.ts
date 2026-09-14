@@ -30,7 +30,7 @@ export default {
     // Public browse — prerendered for its own title/description/OG tags; the
     // postings themselves load client-side from Convex after hydration.
     "/opportunities",
-    "/grant-fund",
+    "/grant-program",
     "/legal/credits",
   ],
 } satisfies Config;

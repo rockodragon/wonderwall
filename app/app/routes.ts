@@ -130,6 +130,7 @@ export default [
   // an account to see the price.
   route("coverage", "routes/coverage._index.tsx"),
   route("coverage/success", "routes/coverage.success.tsx"),
+  route("grant-program", "routes/grant-program.tsx"),
   route("fund/:slug", "routes/fund.$slug.tsx"),
   route("story/:slug", "routes/story.$slug.tsx"),
   route("tables", "routes/tables._index.tsx"),
