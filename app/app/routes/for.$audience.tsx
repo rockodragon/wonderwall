@@ -105,6 +105,10 @@ const AUDIENCES: Audience[] = [
       "Bring your people. Teach what you know. Keep 90% of what you sell. Hosting costs nothing.",
     points: [
       {
+        title: "Ditch the five tools you're stitching together",
+        body: "Rosters, sign-ups, sessions, events, payments — one place, not a spreadsheet plus a forms tool plus a payment link plus a group chat.",
+      },
+      {
         title: "You keep 90 cents of every dollar",
         body: "Classes, cohorts, memberships, prints, downloads. One rate for all of it.",
       },
@@ -115,10 +119,6 @@ const AUDIENCES: Audience[] = [
       {
         title: "Grants keep your community engaged",
         body: "Half of every member's dues goes into a shared fund. Creatives in your community can apply and get funded directly — real support that gives them a reason to stay active here.",
-      },
-      {
-        title: "One place instead of five",
-        body: "Rosters, sessions, sign-ups, events and payments in one place.",
       },
     ],
     cost:
