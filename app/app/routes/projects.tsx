@@ -731,6 +731,7 @@ function PaidProjectForm({
   const location = useLocationField();
   const [remote, setRemote] = useState(true);
   const [interests, setInterests] = useState<string[]>([]);
+  const [showInterests, setShowInterests] = useState(false);
   const [hostOrgId, setHostOrgId] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -952,31 +953,44 @@ function PaidProjectForm({
             <label className="block text-xs uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
               Interests (optional)
             </label>
-            <div className="flex flex-wrap gap-1.5">
-              {INTERESTS.map((tag) => {
-                const active = interests.includes(tag);
-                return (
-                  <button
-                    key={tag}
-                    type="button"
-                    aria-pressed={active}
-                    onClick={() => toggleInterest(tag)}
-                    className="px-2.5 py-1 rounded-full text-xs font-medium transition-colors"
-                    style={{
-                      fontFamily: "var(--garden-font-body)",
-                      backgroundColor: active ? "var(--garden-citron)" : "var(--garden-ink)",
-                      color: active ? "var(--garden-ink)" : "var(--garden-muted)",
-                      border: `1px solid ${active ? "var(--garden-citron)" : "var(--garden-hairline-raised)"}`,
-                    }}
-                  >
-                    {tag}
-                  </button>
-                );
-              })}
-            </div>
-            <p className="text-xs mt-1.5" style={{ color: "var(--garden-dim)" }}>
-              What's this work about — helps people find it, separate from your own profile tags.
-            </p>
+            {showInterests ? (
+              <>
+                <div className="flex flex-wrap gap-1.5">
+                  {INTERESTS.map((tag) => {
+                    const active = interests.includes(tag);
+                    return (
+                      <button
+                        key={tag}
+                        type="button"
+                        aria-pressed={active}
+                        onClick={() => toggleInterest(tag)}
+                        className="px-2.5 py-1 rounded-full text-xs font-medium transition-colors"
+                        style={{
+                          fontFamily: "var(--garden-font-body)",
+                          backgroundColor: active ? "var(--garden-citron)" : "var(--garden-ink)",
+                          color: active ? "var(--garden-ink)" : "var(--garden-muted)",
+                          border: `1px solid ${active ? "var(--garden-citron)" : "var(--garden-hairline-raised)"}`,
+                        }}
+                      >
+                        {tag}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="text-xs mt-1.5" style={{ color: "var(--garden-dim)" }}>
+                  What's this work about — helps people find it, separate from your own profile tags.
+                </p>
+              </>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowInterests(true)}
+                className="text-xs underline underline-offset-2 hover:opacity-80"
+                style={{ color: "var(--garden-citron)" }}
+              >
+                {interests.length > 0 ? `${interests.length} selected — edit` : "+ Add interests"}
+              </button>
+            )}
           </div>
           <label className="flex items-center gap-2 text-sm" style={{ color: "var(--garden-body)" }}>
             <input
@@ -1034,6 +1048,7 @@ function PassionProjectForm({ onClose }: { onClose: () => void }) {
   const location = useLocationField();
   const [remote, setRemote] = useState(true);
   const [interests, setInterests] = useState<string[]>([]);
+  const [showInterests, setShowInterests] = useState(false);
   const [raiseByDate, setRaiseByDate] = useState("");
   const [benefitsNonprofit, setBenefitsNonprofit] = useState(false);
   const [nonprofitName, setNonprofitName] = useState("");
@@ -1182,31 +1197,44 @@ function PassionProjectForm({ onClose }: { onClose: () => void }) {
             <label className="block text-xs uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
               Interests (optional)
             </label>
-            <div className="flex flex-wrap gap-1.5">
-              {INTERESTS.map((tag) => {
-                const active = interests.includes(tag);
-                return (
-                  <button
-                    key={tag}
-                    type="button"
-                    aria-pressed={active}
-                    onClick={() => toggleInterest(tag)}
-                    className="px-2.5 py-1 rounded-full text-xs font-medium transition-colors"
-                    style={{
-                      fontFamily: "var(--garden-font-body)",
-                      backgroundColor: active ? "var(--garden-citron)" : "var(--garden-ink)",
-                      color: active ? "var(--garden-ink)" : "var(--garden-muted)",
-                      border: `1px solid ${active ? "var(--garden-citron)" : "var(--garden-hairline-raised)"}`,
-                    }}
-                  >
-                    {tag}
-                  </button>
-                );
-              })}
-            </div>
-            <p className="text-xs mt-1.5" style={{ color: "var(--garden-dim)" }}>
-              What's this project about — helps people find it, separate from your own profile tags.
-            </p>
+            {showInterests ? (
+              <>
+                <div className="flex flex-wrap gap-1.5">
+                  {INTERESTS.map((tag) => {
+                    const active = interests.includes(tag);
+                    return (
+                      <button
+                        key={tag}
+                        type="button"
+                        aria-pressed={active}
+                        onClick={() => toggleInterest(tag)}
+                        className="px-2.5 py-1 rounded-full text-xs font-medium transition-colors"
+                        style={{
+                          fontFamily: "var(--garden-font-body)",
+                          backgroundColor: active ? "var(--garden-citron)" : "var(--garden-ink)",
+                          color: active ? "var(--garden-ink)" : "var(--garden-muted)",
+                          border: `1px solid ${active ? "var(--garden-citron)" : "var(--garden-hairline-raised)"}`,
+                        }}
+                      >
+                        {tag}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="text-xs mt-1.5" style={{ color: "var(--garden-dim)" }}>
+                  What's this project about — helps people find it, separate from your own profile tags.
+                </p>
+              </>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowInterests(true)}
+                className="text-xs underline underline-offset-2 hover:opacity-80"
+                style={{ color: "var(--garden-citron)" }}
+              >
+                {interests.length > 0 ? `${interests.length} selected — edit` : "+ Add interests"}
+              </button>
+            )}
           </div>
           <label className="flex items-center gap-2 text-sm" style={{ color: "var(--garden-body)" }}>
             <input
