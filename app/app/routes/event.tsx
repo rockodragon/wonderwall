@@ -118,26 +118,23 @@ function formatTierPrice(priceCents: number): string {
 
 /** Location card for the event page. The static-map image needs a Google
     Maps API key; when the key is missing (or the image fails to load —
-    e.g. a free-text venue Google can't geocode) we render a clean map-pin
-    placeholder instead of a broken <img>. The "Open in Maps" link is always
-    built from a text query — the street address when the organizer provided
-    one (a geocode Google can actually resolve), otherwise the venue name —
-    so it works for free-text venues too. */
+    e.g. a free-text location Google can't geocode) we render a clean
+    map-pin placeholder instead of a broken <img>. The "Open in Maps" link
+    is always built from `location` — whatever the organizer's autocomplete
+    pick resolved to, whether that was a venue name or a searched street
+    address, since Places autocomplete resolves both from the same box. */
 function LocationMapCard({
   location,
-  address,
   coordinates,
 }: {
   location: string;
-  address?: string;
   coordinates?: { lat: number; lng: number };
 }) {
   const [imgFailed, setImgFailed] = useState(false);
   const mapsKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as
     | string
     | undefined;
-  // Prefer the street address for geocoding/search; fall back to venue name.
-  const mapsQuery = address || location;
+  const mapsQuery = location;
   const mapSrc =
     mapsKey && !imgFailed
       ? coordinates
@@ -183,11 +180,6 @@ function LocationMapCard({
           <p className="text-sm font-medium text-gray-600 dark:text-gray-300">
             {location}
           </p>
-          {address && (
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              {address}
-            </p>
-          )}
         </div>
       )}
       <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800">
@@ -195,11 +187,6 @@ function LocationMapCard({
           <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
             {location}
           </p>
-          {address && (
-            <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-              {address}
-            </p>
-          )}
         </div>
         <span className="text-xs text-blue-600 dark:text-blue-400 flex items-center gap-1 flex-shrink-0">
           Open in Maps
@@ -861,7 +848,6 @@ export default function EventDetail() {
             </h3>
             <LocationMapCard
               location={event.location}
-              address={event.venueAddress ?? undefined}
               coordinates={event.coordinates ?? undefined}
             />
           </div>
@@ -959,7 +945,6 @@ export default function EventDetail() {
             datetime: event.datetime,
             endTime: event.endTime,
             location: event.location,
-            venueAddress: event.venueAddress,
             ticketTiers: event.ticketTiers,
             locationType: event.locationType,
             address: event.address,
@@ -1827,7 +1812,6 @@ function EditEventModal({
     datetime: number;
     endTime?: number;
     location?: string;
-    venueAddress?: string;
     ticketTiers?: TicketTier[];
     locationType?: string;
     address?: LocationSuggestion["address"];
@@ -1853,9 +1837,6 @@ function EditEventModal({
   const [date, setDate] = useState(dateStr);
   const [time, setTime] = useState(timeStr);
   const [endTimeStr, setEndTimeStr] = useState(endTimeInit);
-  const [venueAddress, setVenueAddress] = useState(
-    initialValues.venueAddress || "",
-  );
   const [ticketTiers, setTicketTiers] = useState<TicketTierDraft[]>(
     tiersToDrafts(initialValues.ticketTiers),
   );
@@ -1915,7 +1896,6 @@ function EditEventModal({
         endTime,
         ticketTiers: tiers,
         ...location.toArgs(),
-        venueAddress: venueAddress.trim() || undefined,
         tags,
         requiresApproval,
       });
@@ -2026,28 +2006,15 @@ function EditEventModal({
 
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Venue name
+                Location
               </label>
               <LocationAutocomplete
                 value={location.value}
                 onChange={location.onChange}
                 onSelect={location.onSelect}
-                placeholder="Search for a venue, type 'Online', or 'TBD'"
+                placeholder="Search by venue name or street address, type 'Online', or 'TBD'"
               />
               <LocationVerifiedHint value={location.value} selected={location.selected} />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Street address <span className="font-normal text-gray-400">(optional override)</span>
-              </label>
-              <input
-                type="text"
-                value={venueAddress}
-                onChange={(e) => setVenueAddress(e.target.value)}
-                placeholder="Only if the venue name above needs a precise address for maps"
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
-              />
             </div>
 
             <div>

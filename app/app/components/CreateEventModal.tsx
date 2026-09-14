@@ -24,7 +24,6 @@ export function CreateEventModal({ onClose }: { onClose: () => void }) {
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
   const [endTimeStr, setEndTimeStr] = useState("");
-  const [venueAddress, setVenueAddress] = useState("");
   const [ticketTiers, setTicketTiers] = useState<TicketTierDraft[]>([]);
   const location = useLocationField();
   const [tags, setTags] = useState<string[]>([]);
@@ -83,7 +82,6 @@ export function CreateEventModal({ onClose }: { onClose: () => void }) {
         endTime,
         ticketTiers: tiers,
         ...location.toArgs(),
-        venueAddress: venueAddress.trim() || undefined,
         tags,
         requiresApproval,
         hostOrgId: hostOrgId ? (hostOrgId as any) : undefined,
@@ -205,28 +203,15 @@ export function CreateEventModal({ onClose }: { onClose: () => void }) {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Venue name
+                Location
               </label>
               <LocationAutocomplete
                 value={location.value}
                 onChange={location.onChange}
                 onSelect={location.onSelect}
-                placeholder="Search for a venue, type 'Online', or 'TBD'"
+                placeholder="Search by venue name or street address, type 'Online', or 'TBD'"
               />
               <LocationVerifiedHint value={location.value} selected={location.selected} />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Street address <span className="font-normal text-gray-400">(optional override)</span>
-              </label>
-              <input
-                type="text"
-                value={venueAddress}
-                onChange={(e) => setVenueAddress(e.target.value)}
-                placeholder="Only if the venue name above needs a precise address for maps"
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
-              />
             </div>
 
             <div>

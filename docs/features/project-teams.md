@@ -23,11 +23,20 @@ New field `projects.stage`, optional. `projects.status` is untouched: it keeps m
 | `forming` | Forming team |
 | `working` | Working |
 | `releasing` | Releasing |
+| `paused` | Paused |
 | `completed` | Completed |
+| `cancelled` | Cancelled |
 
 One label per stage regardless of `kind` — `forming` used to read "Hiring" on a
 paid post, but "still forming its team" is true whether or not the work pays,
 and "Hiring" implied an employment relationship this platform doesn't have.
+`paused` and `cancelled` exist because "stopped" isn't one thing: `paused` is
+a project still meant to move again (stalled, not abandoned), `cancelled` is
+a project that won't (a terminal outcome distinct from `completed`, which
+means it shipped). Both are just `stage` values, same as any other — they
+don't touch `status`; a paused or cancelled project can stay `active`
+(visible, browsable) the whole time, or get `archived` independently, same
+as any other stage.
 
 - Any stage can move to any other. It is a label, not a state machine.
 - **Default:** paid → `forming` (a paid post still needs to build its team first). Passion → `planning`.

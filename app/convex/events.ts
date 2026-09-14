@@ -282,7 +282,6 @@ export const create = mutation({
     endTime: v.optional(v.number()),
     ticketTiers: ticketTiersValidator,
     location: v.optional(v.string()),
-    venueAddress: v.optional(v.string()),
     locationType: v.optional(v.string()),
     address: v.optional(
       v.object({
@@ -333,7 +332,6 @@ export const create = mutation({
       endTime: args.endTime,
       ticketTiers: tiers,
       location: args.location?.trim(),
-      venueAddress: args.venueAddress?.trim() || undefined,
       locationType: args.locationType,
       address: args.address,
       coordinates: args.coordinates,
@@ -377,7 +375,6 @@ export const update = mutation({
     endTime: v.optional(v.number()),
     ticketTiers: ticketTiersValidator,
     location: v.optional(v.string()),
-    venueAddress: v.optional(v.string()),
     locationType: v.optional(v.string()),
     address: v.optional(
       v.object({
@@ -423,6 +420,10 @@ export const update = mutation({
       await assertCommunityMember(ctx, args.hostOrgId, userId);
     }
 
+    // venueAddress (deprecated, schema.ts) is deliberately left out of this
+    // patch — not read from args, not written as undefined — so an old
+    // event that still has one keeps it untouched across edits instead of
+    // having it silently cleared.
     await ctx.db.patch(args.eventId, {
       title: args.title.trim(),
       description: args.description.trim(),
@@ -430,7 +431,6 @@ export const update = mutation({
       endTime: args.endTime,
       ticketTiers: tiers,
       location: args.location?.trim(),
-      venueAddress: args.venueAddress?.trim() || undefined,
       locationType: args.locationType,
       address: args.address,
       coordinates: args.coordinates,

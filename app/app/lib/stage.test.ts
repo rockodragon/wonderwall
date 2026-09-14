@@ -31,7 +31,7 @@ describe("stageLabel", () => {
 });
 
 describe("isStage", () => {
-  it("accepts the six stages and nothing else", () => {
+  it("accepts the eight stages and nothing else", () => {
     for (const s of STAGES) expect(isStage(s)).toBe(true);
     expect(isStage("active")).toBe(false);
     expect(isStage(undefined)).toBe(false);

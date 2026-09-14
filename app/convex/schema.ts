@@ -154,16 +154,16 @@ export default defineSchema({
         }),
       ),
     ),
-    // Location fields
-    location: v.optional(v.string()), // Venue name / display string: "Tamarack State Beach"
-    // Optional, free-text street address override — NOT geocoded. Exists
-    // because a venue's own name (e.g. a park) often isn't itself a mailable
-    // address; when set, it's preferred over the structured `address` below
-    // for the "Open in Maps" link and static map image (event.tsx's
-    // LocationMapCard), since it's what the organizer actually wants someone
-    // typing directions to see. It plays no part in "near me" distance
-    // filtering — that only ever uses `coordinates`, which comes from
-    // picking a `location` suggestion, not from this field.
+    // Location fields — one box: the same LocationAutocomplete/Google
+    // Places pipeline resolves a venue name ("Tamarack State Beach") and a
+    // searched street address ("123 Main St, Carlsbad, CA") alike, so
+    // `location` is just whichever one the organizer picked.
+    location: v.optional(v.string()),
+    // DEPRECATED — no longer collected by any form (removed in favor of the
+    // one box above: picking an address directly already covers what this
+    // was for). Left declared, and left untouched by create/update, only so
+    // already-stored rows that have a value here stay schema-valid; new
+    // rows never set it.
     venueAddress: v.optional(v.string()),
     locationType: v.optional(v.string()), // "venue" | "city" | "zip" | "online" | "tbd"
     address: v.optional(

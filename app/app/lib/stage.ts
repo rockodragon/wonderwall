@@ -13,7 +13,9 @@ export const STAGES = [
   "forming",
   "working",
   "releasing",
+  "paused",
   "completed",
+  "cancelled",
 ] as const;
 
 export type Stage = (typeof STAGES)[number];
@@ -34,8 +36,12 @@ export function stageLabel(stage: Stage): string {
       return "Working";
     case "releasing":
       return "Releasing";
+    case "paused":
+      return "Paused";
     case "completed":
       return "Completed";
+    case "cancelled":
+      return "Cancelled";
   }
 }
 

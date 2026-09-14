@@ -86,32 +86,25 @@ placeId: v.optional(v.string()),        // Google Places ID, for re-fetching det
 `projects` and `offerings` additionally carry `remote: v.optional(v.boolean())`
 — see "Remote, not multiple locations" below.
 
-`events` additionally carries `venueAddress: v.optional(v.string())` — a
-free-text street address, **not geocoded**, that overrides `address` for the
-"Open in Maps" link and static map image (`event.tsx`'s `LocationMapCard`)
-when set. It exists because a venue's own name is often not itself a
-mailable address (a park, a campus, a private home) — the organizer can name
-the venue for the autocomplete's `location`/`address`/`coordinates`, and
-separately give the exact street address someone should type into their own
-maps app. It plays no part in "near me" filtering, which only ever uses
-`coordinates`.
-
 There is no `by_coordinates` index (the original PRD proposed one). "Near
 me" filtering happens client-side after a normal query — see below — which
 is fine at this dataset's size; a real geo-index would only earn its keep
 once distance filtering runs before pagination, not after it.
 
-### Should venue name and address be separate fields?
+### One box, not name + address
 
-Yes, but only where the "exact street address a person can type into a maps
-app" and "the name people actually know a place by" are genuinely different
-things — which is specifically the events case above. Projects, offerings,
-and profiles don't have that problem: a location there is "where," not "the
-precise pin for someone showing up," so the single structured `location`
-(with its own geocoded `address`) is enough, and none of them carry a second
-free-text field. Adding one everywhere "for consistency" would just
-reintroduce the exact confusion this doc exists to head off: a second field
-that looks like it's part of geocoding but isn't.
+`events` originally had a second field, `venueAddress` — free-text, not
+geocoded — that a user could fill in separately from the venue name, for
+when a venue's own name ("Golden Gate Park") wasn't itself a street address.
+That was two boxes doing one job: Places autocomplete already resolves a
+*street address typed directly* just as well as a venue name (it's a
+`locationType: "address"` suggestion, same pipeline, same coordinates). So
+there was never a reason to search by name in one box and then separately
+type an address in another — searching by whichever one you actually have
+was always enough. `venueAddress` is now schema-only, kept solely so
+already-created events that have a value there don't lose it (`create`/
+`update` in `convex/events.ts` never read or write it); no form collects it
+anymore. One box, on every one of the four tables.
 
 ## Remote, not multiple locations
 

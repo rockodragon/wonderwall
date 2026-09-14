@@ -29,8 +29,17 @@ import {
 const NOW = 1_800_000_000_000;
 
 describe("stage twin — matches app/app/lib/stage.ts", () => {
-  it("has the six stages in creative-process order", () => {
-    expect(STAGES).toEqual(["planning", "raising", "forming", "working", "releasing", "completed"]);
+  it("has the eight stages in creative-process order", () => {
+    expect(STAGES).toEqual([
+      "planning",
+      "raising",
+      "forming",
+      "working",
+      "releasing",
+      "paused",
+      "completed",
+      "cancelled",
+    ]);
   });
   it("isStage accepts only the tuple", () => {
     for (const s of STAGES) expect(isStage(s)).toBe(true);
