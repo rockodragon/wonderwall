@@ -649,26 +649,31 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="mt-14 md:mt-[72px] flex flex-wrap gap-3">
-          <Link
-            to="/opportunities"
-            className="px-[22px] py-[13px] rounded-[10px] text-base font-semibold transition-all"
-            style={{
-              border: "1px solid var(--garden-citron)",
-              color: "var(--garden-citron)",
-            }}
-          >
-            See what's open
-          </Link>
+        <div
+          className="mt-14 md:mt-[72px] rounded-[10px] p-8 md:p-10 flex flex-col md:flex-row md:items-center gap-6 md:gap-10"
+          style={{ border: "1px solid var(--garden-hairline)" }}
+        >
+          <div className="flex-1">
+            <h3
+              className="text-xl md:text-2xl text-[var(--garden-paper)] mb-3"
+              style={{
+                fontFamily: displayFont,
+                fontWeight: 500,
+                letterSpacing: "-0.02em",
+              }}
+            >
+              Grant Program
+            </h3>
+            <p className="text-base leading-[1.6] text-[var(--garden-body)]" style={{ textWrap: "pretty" }}>
+              Projects get funded through active grants from Membership
+              and Patrons — every award is published on the public ledger.
+            </p>
+          </div>
           <Link
             to="/grant-program"
-            className="px-[22px] py-[13px] rounded-[10px] text-base font-semibold transition-all"
-            style={{
-              border: "1px solid var(--garden-citron)",
-              color: "var(--garden-citron)",
-            }}
+            className="shrink-0 px-[22px] py-[13px] bg-[var(--garden-citron)] text-[var(--garden-ink)] rounded-[10px] font-semibold text-base hover:opacity-90 transition-all text-center"
           >
-            Grant Program
+            See the Grant Program
           </Link>
         </div>
       </section>
@@ -706,6 +711,19 @@ export default function Home() {
               </figure>
             </Reveal>
           ))}
+        </div>
+
+        <div className="mt-10 md:mt-14 text-center">
+          <Link
+            to="/opportunities"
+            className="inline-block px-[22px] py-[13px] rounded-[10px] text-base font-semibold transition-all"
+            style={{
+              border: "1px solid var(--garden-citron)",
+              color: "var(--garden-citron)",
+            }}
+          >
+            Browse open projects →
+          </Link>
         </div>
       </section>
 
