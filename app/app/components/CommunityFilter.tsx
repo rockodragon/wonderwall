@@ -17,7 +17,7 @@
 // default, not to an explicit URL param — an explicit link should keep
 // working regardless of membership.
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { useSearchParams } from "react-router";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
@@ -72,26 +72,41 @@ export function useCommunityContext() {
   const activeSlugs = useMemo(() => new Set(communities.map((c) => c.slug)), [communities]);
 
   const urlValue = searchParams.get(PARAM);
-  const [storedSlug, setStoredSlug] = useState<string | null>(readStored);
 
-  const selected = useMemo(() => {
-    if (urlValue) return urlValue;
-    if (!storedSlug) return ALL;
-    if (!loaded || activeSlugs.has(storedSlug)) return storedSlug;
-    return ALL;
-  }, [urlValue, storedSlug, loaded, activeSlugs]);
+  // The URL param is the ONLY live copy of "selected" — every page and the
+  // sidebar CommunitySwitcher each call this hook independently, and
+  // useSearchParams() is the one piece of state React Router keeps in sync
+  // across all of them automatically. This hook used to also mirror the
+  // value into a local useState (seeded from localStorage), which meant
+  // every caller carried its own private copy: switching to "all" from one
+  // page cleared that page's copy and the URL, but a sibling instance (most
+  // visibly the sidebar switcher) kept its stale copy and kept showing the
+  // old community. Seeding the URL from localStorage once, below, instead
+  // of tracking it in component state, keeps there from being a second copy
+  // to go stale.
+  useEffect(() => {
+    if (urlValue || !loaded) return;
+    const stored = readStored();
+    if (!stored || !activeSlugs.has(stored)) return;
+    setSearchParams(
+      (prev) => {
+        const params = new URLSearchParams(prev);
+        params.set(PARAM, stored);
+        return params;
+      },
+      { replace: true },
+    );
+  }, [urlValue, loaded, activeSlugs, setSearchParams]);
 
   useEffect(() => {
-    if (urlValue) {
-      writeStored(urlValue);
-      setStoredSlug(urlValue);
-    }
+    if (urlValue) writeStored(urlValue);
   }, [urlValue]);
+
+  const selected = urlValue || ALL;
 
   const setSelected = useCallback(
     (next: string) => {
       writeStored(next);
-      setStoredSlug(next === ALL ? null : next);
       setSearchParams(
         (prev) => {
           const params = new URLSearchParams(prev);
