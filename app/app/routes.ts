@@ -102,6 +102,14 @@ export default [
     route("admin/waitlist", "routes/admin.waitlist.tsx"),
     route("messages", "routes/messages._index.tsx"),
     route("messages/:conversationId", "routes/messages.$conversationId.tsx"),
+    // Spaces. Was outside this layout (its own GardenPage/SiteHeader
+    // chrome, "Go to App" CTA and all) — reachable from the bottom nav's
+    // Spaces tab, but landing a signed-in user on marketing chrome made no
+    // sense once they were already in the app. Moved in like events/:eventId
+    // above; routes/_app.tsx's public-path matcher exempts /tables so a
+    // signed-out guest still browses freely instead of bouncing to /login.
+    route("tables", "routes/tables._index.tsx"),
+    route("tables/:slug", "routes/tables.$slug.tsx"),
   ]),
 
   // The Garden demo world (client-only, Convex-free — see beads wonderwall-qej)
@@ -133,8 +141,6 @@ export default [
   route("grant-program", "routes/grant-program.tsx"),
   route("fund/:slug", "routes/fund.$slug.tsx"),
   route("story/:slug", "routes/story.$slug.tsx"),
-  route("tables", "routes/tables._index.tsx"),
-  route("tables/:slug", "routes/tables.$slug.tsx"),
   // "projects" here (routes/projects._index.tsx, the old GardenPage/GardenNav
   // shell) was a dead route registration — it shared this exact path with
   // the live route("projects", "routes/projects.tsx") inside the _app layout

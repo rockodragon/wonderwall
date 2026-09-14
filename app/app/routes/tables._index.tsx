@@ -29,7 +29,7 @@ export function meta() {
 export function ErrorBoundary() {
   useRouteError();
   return (
-    <GardenPage>
+    <GardenPage bare>
       <div style={{ marginTop: 28 }}>
         <GardenErrorState message="Spaces isn't live yet — check back soon." />
       </div>
@@ -138,7 +138,7 @@ export default function TablesIndex() {
 
   if (tables === undefined) {
     return (
-      <GardenPage wide>
+      <GardenPage wide bare>
           <div style={{ marginTop: 28 }}>
           <GardenLoading />
         </div>
@@ -148,7 +148,7 @@ export default function TablesIndex() {
 
   if (tables.length === 0) {
     return (
-      <GardenPage wide>
+      <GardenPage wide bare>
           <div style={{ marginTop: 28, maxWidth: "50ch" }}>
           <h1 className="g-h" style={{ fontSize: "clamp(28px,5vw,40px)" }}>
             Spaces
@@ -168,7 +168,7 @@ export default function TablesIndex() {
       : byFormat.filter((t) => t.community?.slug === communitySlug);
 
   return (
-    <GardenPage wide>
+    <GardenPage wide bare>
       <div style={{ marginTop: 28, marginBottom: 24 }}>
         <h1 className="g-h" style={{ fontSize: "clamp(28px,5vw,40px)" }}>
           Spaces

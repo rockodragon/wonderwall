@@ -14,7 +14,7 @@ import { CommunitySwitcher } from "../components/CommunitySwitcher";
 // (Sign in CTAs, no partial forms) rather than being gated at the shell.
 // Prefix match is correct here: /communities, /communities/apply, and every
 // /communities/:slug should all be public.
-const PUBLIC_PATH_PREFIXES = ["/communities", "/search", "/offerings"];
+const PUBLIC_PATH_PREFIXES = ["/communities", "/search", "/offerings", "/tables"];
 
 // /events/:eventId is public too — a calendar invite goes to a guest with
 // no account by design (eventRsvps.userId is optional), and event.tsx's own

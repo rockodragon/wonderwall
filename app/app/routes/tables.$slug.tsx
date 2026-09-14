@@ -31,7 +31,7 @@ export function meta() {
 export function ErrorBoundary() {
   useRouteError();
   return (
-    <GardenPage>
+    <GardenPage bare>
       <div style={{ marginTop: 28 }}>
         <GardenErrorState message="This table isn't live yet — check back soon." />
       </div>
@@ -223,7 +223,7 @@ export default function TableDetailPage() {
 
   if (table === undefined) {
     return (
-      <GardenPage>
+      <GardenPage bare>
           <div style={{ marginTop: 28 }}>
           <GardenLoading />
         </div>
@@ -233,7 +233,7 @@ export default function TableDetailPage() {
 
   if (table === null) {
     return (
-      <GardenPage>
+      <GardenPage bare>
           <div style={{ marginTop: 28 }}>
           <GardenErrorState message="Check the link — this table isn't set up here." />
         </div>
@@ -242,7 +242,7 @@ export default function TableDetailPage() {
   }
 
   return (
-    <GardenPage>
+    <GardenPage bare>
 
       <div style={{ marginTop: 28 }}>
         {table.format && <span className="g-badge g-badge-line">{table.format}</span>}
