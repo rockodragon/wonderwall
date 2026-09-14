@@ -44,8 +44,8 @@ type Audience = {
   cost: string;
   ctaLabel: string;
   ctaTo: string;
-  ctaLabel2: string;
-  ctaTo2: string;
+  ctaLabel2?: string;
+  ctaTo2?: string;
   ctaLabel3?: string;
   ctaTo3?: string;
   /** The "create together." band. Photography and quotes are sample copy —
@@ -113,8 +113,8 @@ const AUDIENCES: Audience[] = [
         body: "You're paid for what you sell. You're never charged for the people you bring.",
       },
       {
-        title: "Your people can win grants",
-        body: "Creatives in your community can apply to the grant fund. The money goes to them directly.",
+        title: "Grants keep your community engaged",
+        body: "Half of every member's dues goes into a shared fund. Creatives in your community can apply and get funded directly — real support that gives them a reason to stay active here.",
       },
       {
         title: "One place instead of five",
@@ -123,10 +123,11 @@ const AUDIENCES: Audience[] = [
     ],
     cost:
       "Free to host. We take 10% of what you sell. For $50 a month you can also run funding programs for your own community — contests, funded cohorts, and grant pools.",
+    // Hosting itself is free and lives at /communities/apply — /join is a
+    // paid $50/mo upgrade for a host who ALSO wants funding programs (see
+    // join.tsx's header comment), not how someone becomes a host at all.
     ctaLabel: "Start earning from your community",
-    ctaTo: "/join",
-    ctaLabel2: "See what you'd keep",
-    ctaTo2: "/tables",
+    ctaTo: "/communities/apply",
     bandImages: ["marta", "gallery"],
     metaTitle: "Earn from the community you lead — creatives.exchange",
     metaDescription:
@@ -319,12 +320,14 @@ export default function ForAudience({ params }: Route.ComponentProps) {
           >
             {audience.ctaLabel}
           </Link>
-          <Link
-            to={audience.ctaTo2}
-            className="px-8 py-4 rounded-xl text-lg font-medium border border-[var(--garden-hairline)] text-[var(--garden-body)] hover:text-[var(--garden-paper)] hover:border-[var(--garden-citron)] transition-colors text-center"
-          >
-            {audience.ctaLabel2}
-          </Link>
+          {audience.ctaLabel2 && audience.ctaTo2 && (
+            <Link
+              to={audience.ctaTo2}
+              className="px-8 py-4 rounded-xl text-lg font-medium border border-[var(--garden-hairline)] text-[var(--garden-body)] hover:text-[var(--garden-paper)] hover:border-[var(--garden-citron)] transition-colors text-center"
+            >
+              {audience.ctaLabel2}
+            </Link>
+          )}
           {audience.ctaLabel3 && audience.ctaTo3 && (
             <Link
               to={audience.ctaTo3}
@@ -373,12 +376,14 @@ export default function ForAudience({ params }: Route.ComponentProps) {
           >
             {audience.ctaLabel}
           </Link>
-          <Link
-            to={audience.ctaTo2}
-            className="px-8 py-4 rounded-xl text-lg font-medium border border-[var(--garden-hairline)] text-[var(--garden-body)] hover:text-[var(--garden-paper)] hover:border-[var(--garden-citron)] transition-colors text-center"
-          >
-            {audience.ctaLabel2}
-          </Link>
+          {audience.ctaLabel2 && audience.ctaTo2 && (
+            <Link
+              to={audience.ctaTo2}
+              className="px-8 py-4 rounded-xl text-lg font-medium border border-[var(--garden-hairline)] text-[var(--garden-body)] hover:text-[var(--garden-paper)] hover:border-[var(--garden-citron)] transition-colors text-center"
+            >
+              {audience.ctaLabel2}
+            </Link>
+          )}
           {audience.ctaLabel3 && audience.ctaTo3 && (
             <Link
               to={audience.ctaTo3}
