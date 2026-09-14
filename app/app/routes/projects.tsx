@@ -491,7 +491,13 @@ function ProjectCard({
         </h3>
         <div className="flex flex-wrap items-center gap-1.5 mb-2">
           {/* Stage always shows — see docs/features/project-teams.md §7 —
-              right beside the money/budget badge above it. */}
+              right beside the money/budget badge above it. Days-left folds
+              into the same pill instead of getting its own, so a passion
+              campaign near its deadline doesn't need two near-identical
+              pills to say one thing ("active" + "5 days left"). The
+              nonprofit-funding note lives on the project's own detail page
+              (projects.$id.tsx) — it's provenance, not a browse-time
+              decision factor, so it doesn't need a pill here too. */}
           <span
             className="self-start px-2 py-0.5 rounded-full text-[11px] font-medium uppercase tracking-[0.06em]"
             style={{
@@ -501,31 +507,8 @@ function ProjectCard({
             }}
           >
             {stageLabel(stage, project.kind)}
+            {daysLeft !== null && ` · ${daysLeft} ${daysLeft === 1 ? "day" : "days"} left`}
           </span>
-          {daysLeft !== null && (
-            <span
-              className="self-start px-2 py-0.5 rounded-full text-[11px] font-medium uppercase tracking-[0.06em]"
-              style={{
-                fontFamily: "var(--garden-font-mono)",
-                backgroundColor: "rgba(198,198,190,0.1)",
-                color: "var(--garden-muted)",
-              }}
-            >
-              {daysLeft} {daysLeft === 1 ? "day" : "days"} left
-            </span>
-          )}
-          {project.benefitsNonprofit && (
-            <span
-              className="self-start px-2 py-0.5 rounded-full text-[11px] font-medium"
-              style={{
-                fontFamily: "var(--garden-font-mono)",
-                backgroundColor: "rgba(198,198,190,0.1)",
-                color: "var(--garden-muted)",
-              }}
-            >
-              Funded via {project.nonprofitName || "a nonprofit"}, a 501(c)(3)
-            </span>
-          )}
           {matched && (
             <span
               className="self-start px-2 py-0.5 rounded-full text-[11px] font-medium uppercase tracking-[0.06em]"
@@ -555,8 +538,11 @@ function ProjectCard({
           )}
         </div>
         {project.interests && project.interests.length > 0 && (
+          // Capped at 3 — a browse card is a scan, not the full tag list
+          // (that's what the detail page is for); every tag rendered here
+          // was competing with the title and blurb for the same glance.
           <div className="flex flex-wrap gap-1 mb-2">
-            {project.interests.map((tag: string) => (
+            {project.interests.slice(0, 3).map((tag: string) => (
               <span
                 key={tag}
                 className="px-2 py-0.5 rounded-full text-[11px] font-medium"
@@ -569,6 +555,17 @@ function ProjectCard({
                 {tag}
               </span>
             ))}
+            {project.interests.length > 3 && (
+              <span
+                className="px-2 py-0.5 rounded-full text-[11px] font-medium"
+                style={{
+                  fontFamily: "var(--garden-font-body)",
+                  color: "var(--garden-dim)",
+                }}
+              >
+                +{project.interests.length - 3}
+              </span>
+            )}
           </div>
         )}
         {project.blurb && (
