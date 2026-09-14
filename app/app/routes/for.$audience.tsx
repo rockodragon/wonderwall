@@ -204,7 +204,7 @@ const AUDIENCES: Audience[] = [
   {
     slug: "partners",
     eyebrow: "For community partners",
-    headline: "Open your doors. Your name goes on what gets made.",
+    headline: "Open your doors. Help something grow.",
     subhead:
       "Venues, businesses, organizations — sponsor a creative, post paid work, or offer your space.",
     points: [
