@@ -119,9 +119,18 @@ export default function ConversationView() {
   // Loading state
   if (conversation === undefined || messagesData === undefined) {
     return (
-      <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-950">
+      <div
+        className="flex flex-col h-screen"
+        style={{ backgroundColor: "var(--app-surface)" }}
+      >
         {/* Header skeleton */}
-        <div className="flex items-center gap-3 p-4 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
+        <div
+          className="flex items-center gap-3 p-4 border-b"
+          style={{
+            backgroundColor: "var(--app-surface-raised)",
+            borderColor: "var(--app-hairline)",
+          }}
+        >
           <div className="w-8 h-8 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
           <div className="w-10 h-10 bg-gray-200 dark:bg-gray-700 rounded-full animate-pulse" />
           <div className="flex-1">
@@ -144,13 +153,17 @@ export default function ConversationView() {
   // Conversation not found
   if (!conversation) {
     return (
-      <div className="flex flex-col items-center justify-center h-screen bg-gray-50 dark:bg-gray-950 p-6">
+      <div
+        className="flex flex-col items-center justify-center h-screen p-6"
+        style={{ backgroundColor: "var(--app-surface)" }}
+      >
         <div className="text-center">
           <svg
-            className="w-16 h-16 mx-auto text-gray-400 mb-4"
+            className="w-16 h-16 mx-auto mb-4"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
+            style={{ color: "var(--app-text-dim)" }}
           >
             <path
               strokeLinecap="round"
@@ -159,16 +172,23 @@ export default function ConversationView() {
               d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
             />
           </svg>
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+          <h2
+            className="text-xl font-semibold mb-2"
+            style={{ color: "var(--app-text)" }}
+          >
             Conversation not found
           </h2>
-          <p className="text-gray-500 dark:text-gray-400 mb-6">
+          <p className="mb-6" style={{ color: "var(--app-text-dim)" }}>
             This conversation may have been deleted or you don't have access to
             it.
           </p>
           <button
             onClick={() => navigate(-1)}
-            className="px-6 py-2.5 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors"
+            className="px-6 py-2.5 rounded-xl font-medium hover:opacity-90 transition-colors"
+            style={{
+              backgroundColor: "var(--app-accent)",
+              color: "var(--garden-ink)",
+            }}
           >
             Go Back
           </button>
@@ -180,13 +200,23 @@ export default function ConversationView() {
   const messages = messagesData?.messages ?? [];
 
   return (
-    <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-950">
+    <div
+      className="flex flex-col h-screen"
+      style={{ backgroundColor: "var(--app-surface)" }}
+    >
       {/* Header */}
-      <div className="flex items-center gap-3 p-4 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shrink-0">
+      <div
+        className="flex items-center gap-3 p-4 border-b shrink-0"
+        style={{
+          backgroundColor: "var(--app-surface-raised)",
+          borderColor: "var(--app-hairline)",
+        }}
+      >
         {/* Back button */}
         <button
           onClick={() => navigate(-1)}
-          className="p-2 -ml-2 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+          className="p-2 -ml-2 rounded-lg transition-colors hover:text-[var(--app-text)] hover:bg-[var(--app-hairline-raised)]"
+          style={{ color: "var(--app-text-dim)" }}
           aria-label="Go back"
         >
           <svg
@@ -221,7 +251,10 @@ export default function ConversationView() {
             </div>
           )}
           <div className="flex-1 min-w-0">
-            <h1 className="font-semibold text-gray-900 dark:text-white truncate">
+            <h1
+              className="font-semibold truncate"
+              style={{ color: "var(--app-text)" }}
+            >
               {conversation.participant.name}
             </h1>
           </div>
@@ -231,7 +264,8 @@ export default function ConversationView() {
         <div className="relative">
           <button
             onClick={() => setShowMenu(!showMenu)}
-            className="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+            className="p-2 rounded-lg transition-colors hover:text-[var(--app-text)] hover:bg-[var(--app-hairline-raised)]"
+            style={{ color: "var(--app-text-dim)" }}
             aria-label="Menu"
           >
             <svg
@@ -256,10 +290,17 @@ export default function ConversationView() {
                 className="fixed inset-0 z-10"
                 onClick={() => setShowMenu(false)}
               />
-              <div className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 z-20 overflow-hidden">
+              <div
+                className="absolute right-0 top-full mt-1 w-48 rounded-xl shadow-lg border z-20 overflow-hidden"
+                style={{
+                  backgroundColor: "var(--app-surface-raised)",
+                  borderColor: "var(--app-hairline)",
+                }}
+              >
                 <Link
                   to={`/profile/${conversation.participant.profileId}`}
-                  className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  className="flex items-center gap-3 px-4 py-3 text-sm hover:bg-[var(--app-hairline-raised)] transition-colors"
+                  style={{ color: "var(--app-text-muted)" }}
                   onClick={() => setShowMenu(false)}
                 >
                   <svg
@@ -289,10 +330,11 @@ export default function ConversationView() {
           <div className="flex flex-col items-center justify-center h-full text-center">
             <div className="w-16 h-16 mb-4 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center">
               <svg
-                className="w-8 h-8 text-gray-400"
+                className="w-8 h-8"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
+                style={{ color: "var(--app-text-dim)" }}
               >
                 <path
                   strokeLinecap="round"
@@ -302,7 +344,7 @@ export default function ConversationView() {
                 />
               </svg>
             </div>
-            <p className="text-gray-500 dark:text-gray-400">
+            <p style={{ color: "var(--app-text-dim)" }}>
               No messages yet. Start the conversation!
             </p>
           </div>
@@ -313,21 +355,25 @@ export default function ConversationView() {
               className={`flex ${msg.isOwnMessage ? "justify-end" : "justify-start"}`}
             >
               <div
-                className={`max-w-[75%] ${
-                  msg.isOwnMessage
-                    ? "bg-blue-600 text-white rounded-2xl rounded-br-md"
-                    : "bg-gray-200 dark:bg-gray-800 text-gray-900 dark:text-white rounded-2xl rounded-bl-md"
+                className={`max-w-[75%] rounded-2xl ${
+                  msg.isOwnMessage ? "rounded-br-md" : "rounded-bl-md"
                 }`}
+                style={
+                  msg.isOwnMessage
+                    ? { backgroundColor: "var(--app-accent)", color: "var(--garden-ink)" }
+                    : { backgroundColor: "var(--app-hairline-raised)", color: "var(--app-text)" }
+                }
               >
                 <p className="px-4 py-2.5 whitespace-pre-wrap break-words">
                   {msg.content}
                 </p>
                 <p
-                  className={`px-4 pb-2 text-xs ${
+                  className="px-4 pb-2 text-xs"
+                  style={
                     msg.isOwnMessage
-                      ? "text-blue-200"
-                      : "text-gray-500 dark:text-gray-400"
-                  }`}
+                      ? { color: "var(--garden-ink)", opacity: 0.65 }
+                      : { color: "var(--app-text-dim)" }
+                  }
                 >
                   {formatTimestamp(msg.createdAt)}
                 </p>
@@ -339,7 +385,13 @@ export default function ConversationView() {
       </div>
 
       {/* Input area */}
-      <div className="p-4 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shrink-0">
+      <div
+        className="p-4 border-t shrink-0"
+        style={{
+          backgroundColor: "var(--app-surface-raised)",
+          borderColor: "var(--app-hairline)",
+        }}
+      >
         <div className="flex items-end gap-3">
           <textarea
             ref={inputRef}
@@ -348,8 +400,10 @@ export default function ConversationView() {
             onKeyDown={handleKeyDown}
             placeholder="Type a message..."
             rows={1}
-            className="flex-1 px-4 py-3 bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white rounded-2xl resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 max-h-32"
+            className="flex-1 px-4 py-3 rounded-2xl resize-none focus:outline-none focus:ring-2 focus:ring-[var(--app-accent)] max-h-32"
             style={{
+              backgroundColor: "var(--app-hairline-raised)",
+              color: "var(--app-text)",
               height: "auto",
               minHeight: "48px",
             }}
@@ -362,11 +416,15 @@ export default function ConversationView() {
           <button
             onClick={handleSend}
             disabled={!message.trim() || sending}
-            className="p-3 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+            className="p-3 rounded-full hover:opacity-90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+            style={{ backgroundColor: "var(--app-accent)", color: "var(--garden-ink)" }}
             aria-label="Send message"
           >
             {sending ? (
-              <div className="w-5 h-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+              <div
+                className="w-5 h-5 animate-spin rounded-full border-2"
+                style={{ borderColor: "var(--garden-ink)", borderTopColor: "transparent" }}
+              />
             ) : (
               <svg
                 className="w-5 h-5"
@@ -384,7 +442,10 @@ export default function ConversationView() {
             )}
           </button>
         </div>
-        <p className="text-xs text-gray-400 mt-2 text-center">
+        <p
+          className="text-xs mt-2 text-center"
+          style={{ color: "var(--app-text-dim)" }}
+        >
           Press Enter to send, Shift+Enter for new line
         </p>
       </div>
