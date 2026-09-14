@@ -61,7 +61,7 @@ export function GardenWordmark() {
     Keep the item list identical everywhere; the active item gets the
     citron underline (never a fill — citron is for actions). */
 export const NAV_ITEMS = [
-  { to: "/garden", label: "Garden" },
+  { to: "/search", publicTo: "/search", label: "People" },
   // "Projects" is the one item whose destination depends on who's looking:
   // /projects lives inside the _app layout and redirects a logged-out
   // visitor to /login, so on these mostly-public pages the nav was walking
@@ -69,8 +69,8 @@ export const NAV_ITEMS = [
   // /opportunities, the public browse of the same postings.
   { to: "/projects", publicTo: "/opportunities", label: "Projects" },
   { to: "/garden/events", label: "Events" }, // NOT /events — that's the legacy auth-gated route
-  { to: "/tables", label: "Tables" },
-  { to: "/fund/abiding-practice", label: "Fund" },
+  { to: "/tables", label: "Spaces" },
+  { to: "/offerings", label: "Learn" },
 ] as const;
 
 export function GardenNav({ active }: { active?: string }) {
