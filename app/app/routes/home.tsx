@@ -405,40 +405,11 @@ export default function Home() {
         </div>
       </main>
 
-      {/* "Create together." — the campaign on the site. Four frames with a
-          line under each, then the passage. Photography and quotes are sample
-          copy — see the note at the top of lib/campaign.ts. */}
-      <section className="py-16 bg-[var(--garden-ink)]">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-[var(--garden-hairline)]">
-          {(["busker", "ade", "band", "gallery"] as const).map((key) => (
-            <figure key={key} className="m-0 bg-[var(--garden-ink)]">
-              <img
-                src={CAMPAIGN_IMAGES[key].src}
-                alt={CAMPAIGN_IMAGES[key].alt}
-                loading="lazy"
-                className="w-full aspect-[4/5] object-cover bg-[var(--garden-ink-raised)]"
-              />
-              <figcaption className="px-4 pt-4 pb-6">
-                <p
-                  className="text-[var(--garden-paper)] text-lg md:text-xl leading-tight mb-1"
-                  style={{ fontFamily: "var(--garden-font-display)", fontWeight: 500 }}
-                >
-                  “{CAMPAIGN_QUOTES[key].said}”
-                </p>
-                <p className="text-[var(--garden-dim)] text-xs">
-                  {CAMPAIGN_QUOTES[key].who}
-                </p>
-              </figcaption>
-            </figure>
-          ))}
-        </div>
-
-        <div className="px-6 max-w-6xl mx-auto mt-14">
-          {/* One passage, everyone in it. The earlier version had two
-              columns facing each other, makers and backers, which said "two
-              sides" on a page whose claim is one room. */}
-          <div className="max-w-3xl text-[var(--garden-body)] text-lg md:text-xl leading-relaxed flex flex-col gap-5">
-            <p className="text-[var(--garden-paper)]">Nothing here gets made alone.</p>
+      {/* The passage — sets the tone before the personas */}
+      <section className=”py-16 bg-[var(--garden-ink)]”>
+        <div className=”px-6 max-w-6xl mx-auto”>
+          <div className=”max-w-3xl text-[var(--garden-body)] text-lg md:text-xl leading-relaxed flex flex-col gap-5”>
+            <p className=”text-[var(--garden-paper)]”>Nothing here gets made alone.</p>
             <p>
               A creative posts the work. A patron backs it. A partner opens
               their doors. A host runs the table where it all started. When
@@ -572,16 +543,16 @@ export default function Home() {
               </p>
               <div className="flex flex-wrap gap-3">
                 <Link
-                  to="/join"
+                  to="/for/hosts"
                   className="px-5 py-3 bg-[var(--garden-citron)] text-[var(--garden-ink)] rounded-xl font-semibold hover:opacity-90 transition-all"
                 >
                   Start hosting
                 </Link>
                 <Link
-                  to="/for/hosts"
+                  to="/join"
                   className="px-5 py-3 rounded-xl font-medium border border-[var(--garden-hairline)] text-[var(--garden-body)] hover:text-[var(--garden-paper)] hover:border-[var(--garden-citron)] transition-colors"
                 >
-                  Learn more
+                  Join now
                 </Link>
               </div>
             </div>
@@ -640,6 +611,34 @@ export default function Home() {
           </Link>
           .
         </p>
+      </section>
+
+      {/* "Create together." — the campaign atmosphere. Four frames with
+          quotes, moved to the bottom so the personas land first. */}
+      <section className="py-16 bg-[var(--garden-ink)]">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-[var(--garden-hairline)]">
+          {(["busker", "ade", "band", "gallery"] as const).map((key) => (
+            <figure key={key} className="m-0 bg-[var(--garden-ink)]">
+              <img
+                src={CAMPAIGN_IMAGES[key].src}
+                alt={CAMPAIGN_IMAGES[key].alt}
+                loading="lazy"
+                className="w-full aspect-[4/5] object-cover bg-[var(--garden-ink-raised)]"
+              />
+              <figcaption className="px-4 pt-4 pb-6">
+                <p
+                  className="text-[var(--garden-paper)] text-lg md:text-xl leading-tight mb-1"
+                  style={{ fontFamily: "var(--garden-font-display)", fontWeight: 500 }}
+                >
+                  "{CAMPAIGN_QUOTES[key].said}"
+                </p>
+                <p className="text-[var(--garden-dim)] text-xs">
+                  {CAMPAIGN_QUOTES[key].who}
+                </p>
+              </figcaption>
+            </figure>
+          ))}
+        </div>
       </section>
 
       {/* Footer */}
