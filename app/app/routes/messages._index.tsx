@@ -79,10 +79,13 @@ export default function MessagesIndex() {
     <div className="p-6 max-w-3xl mx-auto">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+        <h1
+          className="text-3xl font-bold"
+          style={{ color: "var(--app-text)" }}
+        >
           Messages
         </h1>
-        <p className="text-gray-500 dark:text-gray-400 mt-1">
+        <p className="mt-1" style={{ color: "var(--app-text-dim)" }}>
           Your conversations
         </p>
       </div>
@@ -90,10 +93,19 @@ export default function MessagesIndex() {
       {/* Notifications — rendered only when there are any */}
       {hasNotifications && (
         <div className="mb-8">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
+          <h2
+            className="text-lg font-semibold mb-3"
+            style={{ color: "var(--app-text)" }}
+          >
             Notifications
           </h2>
-          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 divide-y divide-gray-100 dark:divide-gray-700 overflow-hidden">
+          <div
+            className="rounded-2xl border divide-y divide-[var(--app-hairline)] overflow-hidden"
+            style={{
+              backgroundColor: "var(--app-surface-raised)",
+              borderColor: "var(--app-hairline)",
+            }}
+          >
             {visibleNotifications.map((n) => {
               const wasUnread = initialUnreadIds.current?.has(n._id) ?? false;
               const avatarUrl = n.relatedUserProfile?.imageUrl || n.imageUrl;
@@ -101,11 +113,11 @@ export default function MessagesIndex() {
 
               const rowClassName = `flex items-start gap-3 px-4 py-3 border-l-2 transition-colors ${
                 wasUnread
-                  ? "border-l-[var(--garden-citron)]"
+                  ? "border-l-[var(--app-accent)]"
                   : "border-l-transparent"
               } ${
                 n.linkUrl
-                  ? "hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                  ? "hover:bg-[var(--app-hairline-raised)]"
                   : ""
               }`;
 
@@ -132,16 +144,23 @@ export default function MessagesIndex() {
                       <p
                         className={`text-sm truncate ${
                           wasUnread ? "font-semibold" : "font-medium"
-                        } text-gray-900 dark:text-white`}
+                        }`}
+                        style={{ color: "var(--app-text)" }}
                       >
                         {n.title}
                       </p>
-                      <span className="text-xs text-gray-500 dark:text-gray-500 flex-shrink-0">
+                      <span
+                        className="text-xs flex-shrink-0"
+                        style={{ color: "var(--app-text-dim)" }}
+                      >
                         {getRelativeTime(n.createdAt)}
                       </span>
                     </div>
                     {n.message && (
-                      <p className="text-sm text-gray-700 dark:text-gray-300 mt-0.5">
+                      <p
+                        className="text-sm mt-0.5"
+                        style={{ color: "var(--app-text-muted)" }}
+                      >
                         {n.message}
                       </p>
                     )}
@@ -163,7 +182,8 @@ export default function MessagesIndex() {
           {hasMoreNotifications && (
             <button
               onClick={() => setShowAllNotifications((v) => !v)}
-              className="mt-2 text-sm text-blue-600 hover:text-blue-500 dark:text-blue-400 font-medium"
+              className="mt-2 text-sm font-medium hover:opacity-80 transition-opacity"
+              style={{ color: "var(--app-accent-ink)" }}
             >
               {showAllNotifications ? "Show less" : "Show all"}
             </button>
@@ -173,7 +193,10 @@ export default function MessagesIndex() {
 
       {/* Conversations heading — only needed once there is a section above */}
       {hasNotifications && (
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
+        <h2
+          className="text-lg font-semibold mb-3"
+          style={{ color: "var(--app-text)" }}
+        >
           Conversations
         </h2>
       )}
@@ -181,11 +204,17 @@ export default function MessagesIndex() {
       {/* Loading State */}
       {conversations === undefined ? (
         <div className="flex items-center justify-center py-16">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+          <div
+            className="animate-spin rounded-full h-8 w-8 border-b-2"
+            style={{ borderBottomColor: "var(--app-accent)" }}
+          />
         </div>
       ) : conversations.length === 0 ? (
         /* Empty State */
-        <div className="text-center py-16 text-gray-400 dark:text-gray-500">
+        <div
+          className="text-center py-16"
+          style={{ color: "var(--app-text-dim)" }}
+        >
           <svg
             className="w-16 h-16 mx-auto mb-4 opacity-50"
             fill="none"
@@ -214,7 +243,11 @@ export default function MessagesIndex() {
               <div
                 key={conversation._id}
                 onClick={() => navigate(`/messages/${conversation._id}`)}
-                className="group flex items-center gap-4 p-4 bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 hover:border-blue-500 dark:hover:border-blue-500 transition-all hover:shadow-lg cursor-pointer"
+                className="group flex items-center gap-4 p-4 rounded-2xl border hover:border-[var(--app-accent)] transition-all hover:shadow-lg cursor-pointer"
+                style={{
+                  backgroundColor: "var(--app-surface-raised)",
+                  borderColor: "var(--app-hairline)",
+                }}
               >
                 {/* Profile Image */}
                 {conversation.participant.imageUrl ? (
@@ -236,15 +269,17 @@ export default function MessagesIndex() {
                     <Link
                       to={`/profile/${conversation.participant.profileId}`}
                       onClick={(e) => e.stopPropagation()}
-                      className={`truncate hover:text-blue-600 dark:hover:text-blue-400 transition-colors ${
-                        isUnread
-                          ? "font-bold text-gray-900 dark:text-white"
-                          : "font-medium text-gray-900 dark:text-white"
+                      className={`truncate hover:text-[var(--app-accent-ink)] transition-colors ${
+                        isUnread ? "font-bold" : "font-medium"
                       }`}
+                      style={{ color: "var(--app-text)" }}
                     >
                       {conversation.participant.name}
                     </Link>
-                    <span className="text-xs text-gray-500 dark:text-gray-500 flex-shrink-0">
+                    <span
+                      className="text-xs flex-shrink-0"
+                      style={{ color: "var(--app-text-dim)" }}
+                    >
                       {getRelativeTime(conversation.lastMessageAt)}
                     </span>
                   </div>
@@ -253,17 +288,23 @@ export default function MessagesIndex() {
                   <div className="flex items-center gap-2 mt-1">
                     <p
                       className={`text-sm truncate flex-1 ${
-                        isUnread
-                          ? "font-semibold text-gray-800 dark:text-gray-200"
-                          : "text-gray-500 dark:text-gray-400"
+                        isUnread ? "font-semibold" : ""
                       }`}
+                      style={{
+                        color: isUnread
+                          ? "var(--app-text-muted)"
+                          : "var(--app-text-dim)",
+                      }}
                     >
                       {conversation.lastMessagePreview || "No messages yet"}
                     </p>
 
                     {/* Unread Indicator */}
                     {isUnread && (
-                      <span className="w-2.5 h-2.5 bg-blue-600 rounded-full flex-shrink-0" />
+                      <span
+                        className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: "var(--app-accent)" }}
+                      />
                     )}
                   </div>
                 </div>
