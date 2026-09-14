@@ -142,6 +142,9 @@ export default function Events() {
       className="min-h-screen bg-[var(--garden-ink)]"
       style={{
         "--app-surface": "var(--garden-ink)",
+        // _app.tsx already overrides --garden-ink-raised for this whole
+        // shell (the low-contrast "raised surface" fix), so this alias
+        // picks up the stronger value automatically.
         "--app-surface-raised": "var(--garden-ink-raised)",
         "--app-hairline": "var(--garden-hairline)",
         "--app-hairline-raised": "var(--garden-hairline-raised)",

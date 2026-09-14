@@ -51,9 +51,18 @@
      citron reads fine on either ground) — --app-accent-ink exists only for
      when citron would be used as TEXT/icon color on a light surface, where
      raw citron fails contrast; use the citron fill pattern instead wherever
-     that reads more naturally. */
+     that reads more naturally.
+
+     --app-surface-raised is deliberately its OWN value, not an alias to
+     --garden-ink-raised/paper — persistent chrome (the fixed mobile nav,
+     the sidebar) sits over scrolling content and needs to read as a solid
+     bar at a glance, not just a hairline outline. The old alias put it
+     ~5-10 lightness units off --app-surface, close enough that the nav
+     looked transparent — page content scrolling underneath visually
+     "won" against it. This bump keeps the same warm-neutral hue, just
+     with real separation. */
   --app-surface: var(--garden-paper);
-  --app-surface-raised: #eeeee7;
+  --app-surface-raised: #e3e3d6;
   --app-hairline: #e2e2d8;
   --app-hairline-raised: #d3d3c5;
   --app-text: var(--garden-ink);
@@ -67,7 +76,7 @@
 @media (prefers-color-scheme: dark) {
   :root {
     --app-surface: var(--garden-ink);
-    --app-surface-raised: var(--garden-ink-raised);
+    --app-surface-raised: #242420;
     --app-hairline: var(--garden-hairline);
     --app-hairline-raised: var(--garden-hairline-raised);
     --app-text: var(--garden-paper);

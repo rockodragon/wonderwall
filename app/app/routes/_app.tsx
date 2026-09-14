@@ -1,6 +1,6 @@
 import { useConvexAuth, useQuery } from "convex/react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { usePostHog } from "@posthog/react";
 import { api } from "../../convex/_generated/api";
 import { takePendingIntent } from "../lib/pendingIntent";
@@ -133,16 +133,42 @@ export default function AppLayout() {
   }
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: "var(--app-surface)" }}>
+    <div
+      className="min-h-screen"
+      style={{
+        backgroundColor: "var(--app-surface)",
+        // A handful of pages inside this shell (Projects, Events, Learn,
+        // project/offering detail, Communities) still render permanently
+        // dark against --garden-ink and reach for --garden-ink-raised
+        // directly for card/pill fills, rather than the theme-responsive
+        // --app-surface-raised above. --garden-ink-raised is only ~7
+        // lightness units off --garden-ink though — fine as a hairline
+        // accent, not enough for a fixed bar (the mobile nav) or a card
+        // that needs to read as clearly separate from the page behind it.
+        // Overriding it here — scoped to this shell's subtree only, never
+        // touching :root — gives every page inside the app the same
+        // stronger separation as --app-surface-raised, without moving the
+        // true marketing pages (home, grant-program, etc.) that live
+        // outside this layout and still want the subtler original value.
+        "--garden-ink-raised": "#242420",
+      } as CSSProperties}
+    >
       {/* Main content */}
       <main className="pb-20 md:pb-0 md:pl-64">
         <Outlet />
       </main>
 
-      {/* Mobile bottom nav - icons only to fit 7 items */}
+      {/* Mobile bottom nav - icons only to fit 7 items. Sits fixed over
+          scrolling content, so it needs a real shadow (not just the fill
+          color) to read as a solid bar instead of blending with whatever
+          scrolls underneath it. */}
       <nav
         className="fixed bottom-0 left-0 right-0 z-50 border-t md:hidden"
-        style={{ backgroundColor: "var(--app-surface-raised)", borderColor: "var(--app-hairline)" }}
+        style={{
+          backgroundColor: "var(--app-surface-raised)",
+          borderColor: "var(--app-hairline)",
+          boxShadow: "0 -8px 24px -6px rgba(0, 0, 0, 0.35)",
+        }}
       >
         <div className="flex justify-around py-3">
           {navItems.map((item) => {
