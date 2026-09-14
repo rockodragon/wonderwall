@@ -652,13 +652,21 @@ export default function Home() {
         <div className="mt-14 md:mt-[72px] flex flex-wrap gap-3">
           <Link
             to="/opportunities"
-            className="px-[22px] py-[13px] rounded-[10px] text-base font-semibold border border-[var(--garden-citron)] text-[var(--garden-citron)] hover:bg-[var(--garden-citron)] hover:text-[var(--garden-ink)] transition-all"
+            className="px-[22px] py-[13px] rounded-[10px] text-base font-semibold transition-all"
+            style={{
+              border: "1px solid var(--garden-citron)",
+              color: "var(--garden-citron)",
+            }}
           >
             See what's open
           </Link>
           <Link
             to="/grant-program"
-            className="px-[22px] py-[13px] rounded-[10px] text-base font-semibold border border-[var(--garden-citron)] text-[var(--garden-citron)] hover:bg-[var(--garden-citron)] hover:text-[var(--garden-ink)] transition-all"
+            className="px-[22px] py-[13px] rounded-[10px] text-base font-semibold transition-all"
+            style={{
+              border: "1px solid var(--garden-citron)",
+              color: "var(--garden-citron)",
+            }}
           >
             Grant Program
           </Link>
