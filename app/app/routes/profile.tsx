@@ -296,11 +296,18 @@ export default function Profile() {
 
       {/* Profile setup prompt for own incomplete profile */}
       {profileNeedsSetup && (
-        <div className="mb-8 p-6 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-2xl border border-blue-100 dark:border-blue-800">
+        <div
+          className="mb-8 p-6 rounded-2xl border"
+          style={{ backgroundColor: "var(--app-accent-wash)", borderColor: "var(--app-hairline)" }}
+        >
           <div className="text-center">
-            <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-blue-400 to-purple-500 rounded-2xl flex items-center justify-center">
+            <div
+              className="w-16 h-16 mx-auto mb-4 rounded-2xl flex items-center justify-center"
+              style={{ backgroundColor: "var(--app-accent)" }}
+            >
               <svg
-                className="w-8 h-8 text-white"
+                className="w-8 h-8"
+                style={{ color: "var(--garden-ink)" }}
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -313,16 +320,17 @@ export default function Profile() {
                 />
               </svg>
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+            <h3 className="text-lg font-semibold mb-2" style={{ color: "var(--app-text)" }}>
               Complete your profile
             </h3>
-            <p className="text-gray-600 dark:text-gray-400 mb-4 max-w-md mx-auto">
+            <p className="mb-4 max-w-md mx-auto" style={{ color: "var(--app-text-muted)" }}>
               Add a bio and share your work to help others discover and connect
               with you.
             </p>
             <Link
               to="/settings"
-              className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors"
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-colors"
+              style={{ backgroundColor: "var(--app-accent)", color: "var(--garden-ink)" }}
             >
               <svg
                 className="w-5 h-5"
@@ -346,7 +354,7 @@ export default function Profile() {
       {/* Tables this person sits at — follow a person into their rooms. */}
       {theirTables && theirTables.length > 0 && (
         <div className="mb-8">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+          <h2 className="text-lg font-semibold mb-4" style={{ color: "var(--app-text)" }}>
             Tables
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -354,27 +362,28 @@ export default function Profile() {
               <Link
                 key={t.slug}
                 to={`/tables/${t.slug}`}
-                className="block p-4 rounded-lg border border-gray-200 dark:border-gray-800 hover:border-gray-400 dark:hover:border-gray-600 transition-colors"
+                className="block p-4 rounded-lg border transition-colors hover:border-[var(--app-accent)]"
+                style={{ borderColor: "var(--app-hairline)" }}
               >
                 <div className="flex items-baseline justify-between gap-3 flex-wrap">
-                  <span className="font-medium text-gray-900 dark:text-white">
+                  <span className="font-medium" style={{ color: "var(--app-text)" }}>
                     {t.name}
                   </span>
                   {t.format && (
-                    <span className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                    <span className="text-xs uppercase tracking-wide" style={{ color: "var(--app-text-dim)" }}>
                       {t.format}
                     </span>
                   )}
                 </div>
                 {t.program && (
-                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  <div className="text-xs mt-1" style={{ color: "var(--app-text-dim)" }}>
                     {t.program}
                   </div>
                 )}
-                <div className="text-sm text-gray-600 dark:text-gray-300 mt-2">
+                <div className="text-sm mt-2" style={{ color: "var(--app-text-muted)" }}>
                   {t.cadence ?? t.mode} · {t.roster} on the roster
                 </div>
-                <div className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                <div className="text-sm mt-2" style={{ color: "var(--app-text-dim)" }}>
                   See the table →
                 </div>
               </Link>
@@ -388,7 +397,7 @@ export default function Profile() {
           ≤ 3 projects → card grid with thumbnails. ≥ 4 → compact list. */}
       {affiliations && affiliations.length > 0 && (
         <div className="mb-8">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+          <h2 className="text-lg font-semibold mb-4" style={{ color: "var(--app-text)" }}>
             Projects
           </h2>
           {affiliations.length <= 3 ? (
@@ -397,9 +406,13 @@ export default function Profile() {
                 <Link
                   key={a.projectId}
                   to={`/projects/${a.projectId}`}
-                  className="group block rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-blue-500 dark:hover:border-blue-500 transition-colors overflow-hidden"
+                  className="group block rounded-xl border transition-colors hover:border-[var(--app-accent)] overflow-hidden"
+                  style={{ borderColor: "var(--app-hairline)", backgroundColor: "var(--app-surface-raised)" }}
                 >
-                  <div className="aspect-[16/10] bg-gray-100 dark:bg-gray-700 relative overflow-hidden">
+                  <div
+                    className="aspect-[16/10] relative overflow-hidden"
+                    style={{ backgroundColor: "var(--app-hairline-raised)" }}
+                  >
                     {a.imageUrl ? (
                       <img
                         src={a.imageUrl}
@@ -407,18 +420,28 @@ export default function Profile() {
                         className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                       />
                     ) : (
-                      <div className="w-full h-full bg-gradient-to-br from-blue-400 to-indigo-500" />
+                      <div
+                        className="w-full h-full flex items-center justify-center"
+                        style={{ backgroundColor: "var(--app-accent-wash)" }}
+                      >
+                        <span
+                          className="text-2xl font-semibold"
+                          style={{ color: "var(--app-accent-ink)" }}
+                        >
+                          {a.title?.charAt(0)}
+                        </span>
+                      </div>
                     )}
                   </div>
                   <div className="p-4">
-                    <h3 className="font-medium text-gray-900 dark:text-white line-clamp-1">
+                    <h3 className="font-medium line-clamp-1" style={{ color: "var(--app-text)" }}>
                       {a.title}
                     </h3>
                     <div className="flex items-center justify-between mt-1">
-                      <span className="text-sm text-gray-600 dark:text-gray-300">
+                      <span className="text-sm" style={{ color: "var(--app-text-muted)" }}>
                         {a.role || "Lead"}
                       </span>
-                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                      <span className="text-xs" style={{ color: "var(--app-text-dim)" }}>
                         {stageLabel(a.stage as Stage, a.kind)}
                       </span>
                     </div>
@@ -427,7 +450,7 @@ export default function Profile() {
               ))}
             </div>
           ) : (
-            <div className="divide-y divide-gray-200 dark:divide-gray-800">
+            <div className="divide-y divide-[var(--app-hairline)]">
               {affiliations.map((a: any) => (
                 <div
                   key={a.projectId}
@@ -440,21 +463,27 @@ export default function Profile() {
                       className="w-10 h-10 rounded-lg object-cover shrink-0"
                     />
                   ) : (
-                    <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-400 to-indigo-500 shrink-0" />
+                    <div
+                      className="w-10 h-10 rounded-lg shrink-0 flex items-center justify-center text-sm font-semibold"
+                      style={{ backgroundColor: "var(--app-accent-wash)", color: "var(--app-accent-ink)" }}
+                    >
+                      {a.title?.charAt(0)}
+                    </div>
                   )}
                   <div className="flex items-baseline justify-between gap-3 flex-wrap flex-1 min-w-0">
                     <div className="flex items-baseline gap-2 flex-wrap min-w-0">
                       <Link
                         to={`/projects/${a.projectId}`}
-                        className="font-medium text-gray-900 dark:text-white hover:underline truncate"
+                        className="font-medium hover:underline truncate"
+                        style={{ color: "var(--app-text)" }}
                       >
                         {a.title}
                       </Link>
-                      <span className="text-sm text-gray-600 dark:text-gray-300">
+                      <span className="text-sm" style={{ color: "var(--app-text-muted)" }}>
                         {a.role || "Lead"}
                       </span>
                     </div>
-                    <span className="text-sm text-gray-500 dark:text-gray-400 shrink-0">
+                    <span className="text-sm shrink-0" style={{ color: "var(--app-text-dim)" }}>
                       {stageLabel(a.stage as Stage, a.kind)}
                     </span>
                   </div>
@@ -468,7 +497,7 @@ export default function Profile() {
       {/* Artifacts grid */}
       {profile.artifacts && profile.artifacts.length > 0 && (
         <>
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+          <h2 className="text-lg font-semibold mb-4" style={{ color: "var(--app-text)" }}>
             Portfolio
           </h2>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -487,7 +516,8 @@ export default function Profile() {
                 <Link
                   key={artifact._id}
                   to={`/works/${artifact._id}`}
-                  className="aspect-square bg-gray-100 dark:bg-gray-800 rounded-xl overflow-hidden block hover:ring-2 hover:ring-blue-500 transition-all"
+                  className="aspect-square rounded-xl overflow-hidden block hover:ring-2 hover:ring-[var(--app-accent)] transition-all"
+                  style={{ backgroundColor: "var(--app-hairline-raised)" }}
                 >
                   {artifact.type === "image" && artifact.mediaUrl ? (
                     <div className="relative w-full h-full">
@@ -500,7 +530,8 @@ export default function Profile() {
                       {artifact.linkUrl && (
                         <div className="absolute top-2 right-2 w-6 h-6 bg-white/90 dark:bg-black/70 rounded-full flex items-center justify-center">
                           <svg
-                            className="w-3 h-3 text-gray-700 dark:text-gray-300"
+                            className="w-3 h-3"
+                            style={{ color: "var(--app-text-muted)" }}
                             fill="none"
                             viewBox="0 0 24 24"
                             stroke="currentColor"
@@ -518,7 +549,10 @@ export default function Profile() {
                   ) : (artifact.type === "video" || isYouTubeUrl) &&
                     artifact.mediaUrl ? (
                     videoEmbedUrl ? (
-                      <div className="relative w-full h-full bg-gray-900">
+                      <div
+                        className="relative w-full h-full"
+                        style={{ backgroundColor: "var(--garden-ink)" }}
+                      >
                         {getYoutubeThumbnail(artifact.mediaUrl) ? (
                           <img
                             src={getYoutubeThumbnail(artifact.mediaUrl)!}
@@ -528,7 +562,8 @@ export default function Profile() {
                         ) : (
                           <div className="w-full h-full flex items-center justify-center">
                             <svg
-                              className="w-12 h-12 text-gray-600"
+                              className="w-12 h-12"
+                              style={{ color: "var(--garden-hairline-raised)" }}
                               fill="none"
                               viewBox="0 0 24 24"
                               stroke="currentColor"
@@ -561,7 +596,10 @@ export default function Profile() {
                         </div>
                       </div>
                     ) : (
-                      <div className="w-full h-full bg-gray-900 flex items-center justify-center">
+                      <div
+                        className="w-full h-full flex items-center justify-center"
+                        style={{ backgroundColor: "var(--garden-ink)" }}
+                      >
                         <video
                           src={artifact.mediaUrl}
                           className="w-full h-full object-cover"
@@ -570,11 +608,17 @@ export default function Profile() {
                       </div>
                     )
                   ) : artifact.type === "text" && artifact.content ? (
-                    <div className="p-4 text-sm text-gray-700 dark:text-gray-300 line-clamp-6">
+                    <div
+                      className="p-4 text-sm line-clamp-6"
+                      style={{ color: "var(--app-text-muted)" }}
+                    >
                       {artifact.content}
                     </div>
                   ) : artifact.type === "link" && artifact.ogImageUrl ? (
-                    <div className="relative w-full h-full bg-gray-100 dark:bg-gray-800">
+                    <div
+                      className="relative w-full h-full"
+                      style={{ backgroundColor: "var(--app-hairline-raised)" }}
+                    >
                       <img
                         src={artifact.ogImageUrl}
                         alt={artifact.title || "Link preview"}
@@ -582,7 +626,8 @@ export default function Profile() {
                       />
                       <div className="absolute top-2 right-2 w-6 h-6 bg-white/90 dark:bg-black/70 rounded-full flex items-center justify-center">
                         <svg
-                          className="w-3 h-3 text-gray-700 dark:text-gray-300"
+                          className="w-3 h-3"
+                          style={{ color: "var(--app-text-muted)" }}
                           fill="none"
                           viewBox="0 0 24 24"
                           stroke="currentColor"
@@ -602,7 +647,7 @@ export default function Profile() {
                       url={artifact.mediaUrl}
                     />
                   ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-gray-700 to-gray-900 flex items-end">
+                    <div className="w-full h-full bg-gradient-to-br from-[var(--garden-hairline-raised)] to-[var(--garden-ink)] flex items-end">
                       <div className="p-3">
                         {artifact.title ? (
                           <p className="text-white text-sm font-medium line-clamp-2">
@@ -626,7 +671,7 @@ export default function Profile() {
       {/* Empty state for no artifacts - only show for other profiles */}
       {(!profile.artifacts || profile.artifacts.length === 0) &&
         !profileNeedsSetup && (
-          <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+          <div className="text-center py-12" style={{ color: "var(--app-text-dim)" }}>
             <p>This profile doesn't have any content yet</p>
           </div>
         )}
@@ -814,7 +859,10 @@ function LinkFallbackCard({
       {/* Title and domain */}
       <div>
         {title && (
-          <h3 className="text-sm font-semibold text-gray-900 dark:text-white line-clamp-2 mb-1">
+          <h3
+            className="text-sm font-semibold line-clamp-2 mb-1"
+            style={{ color: "var(--app-text)" }}
+          >
             {title}
           </h3>
         )}
