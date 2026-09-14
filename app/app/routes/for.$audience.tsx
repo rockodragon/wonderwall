@@ -45,6 +45,8 @@ type Audience = {
   ctaTo: string;
   ctaLabel2: string;
   ctaTo2: string;
+  ctaLabel3?: string;
+  ctaTo3?: string;
   /** The "create together." band. Photography and quotes are sample copy —
       see lib/campaign.ts. */
   bandImages: [CampaignImageKey, CampaignImageKey];
@@ -73,6 +75,10 @@ const AUDIENCES: Audience[] = [
         body: "Partners — churches, businesses, nonprofits — post paid work here. Each post says who is asking and what it pays.",
       },
       {
+        title: "Keep growing",
+        body: "Find your path through classes, coaching, and workshops. Join a cohort, work with a creative or spiritual coach, or sit in on a critique night.",
+      },
+      {
         title: "You won't be doing this alone",
         body: "The Garden is the Christian creative community on the platform. Share your work, get feedback, meet people making things near you.",
       },
@@ -83,6 +89,8 @@ const AUDIENCES: Audience[] = [
     ctaTo: "/join",
     ctaLabel2: "Find paid work",
     ctaTo2: "/opportunities",
+    ctaLabel3: "Find a class or coach",
+    ctaTo3: "/offerings",
     bandImages: ["shua", "june"],
     metaTitle: "Find your people, get paid — creatives.exchange",
     metaDescription:
@@ -342,6 +350,14 @@ export default function ForAudience({ params }: Route.ComponentProps) {
           >
             {audience.ctaLabel2}
           </Link>
+          {audience.ctaLabel3 && audience.ctaTo3 && (
+            <Link
+              to={audience.ctaTo3}
+              className="px-6 py-3 rounded-xl font-medium border border-[var(--garden-hairline)] text-[var(--garden-body)] hover:text-[var(--garden-paper)] hover:border-[var(--garden-citron)] transition-colors"
+            >
+              {audience.ctaLabel3}
+            </Link>
+          )}
         </div>
 
         <div className="pt-10 border-t border-[var(--garden-hairline)]">

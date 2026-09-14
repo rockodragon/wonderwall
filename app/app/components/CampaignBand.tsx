@@ -35,7 +35,7 @@ export function CampaignBand({
                 src={img.src}
                 alt={img.alt}
                 loading="lazy"
-                className="w-full aspect-[4/5] object-cover rounded-2xl bg-[var(--garden-ink-raised)]"
+                className="w-full aspect-[4/3] object-cover rounded-2xl bg-[var(--garden-ink-raised)]"
               />
               <figcaption className="pt-4">
                 <p
