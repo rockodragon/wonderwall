@@ -77,7 +77,10 @@ export default function JobDetail() {
   if (job === undefined) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+        <div
+          className="animate-spin rounded-full h-8 w-8 border-b-2"
+          style={{ borderColor: "var(--app-accent)" }}
+        />
       </div>
     );
   }
@@ -85,10 +88,11 @@ export default function JobDetail() {
   if (!job) {
     return (
       <div className="p-6 max-w-4xl mx-auto text-center py-12">
-        <p className="text-gray-500 dark:text-gray-400">Project not found</p>
+        <p style={{ color: "var(--app-text-dim)" }}>Project not found</p>
         <Link
           to="/jobs"
-          className="text-blue-600 hover:underline mt-4 inline-block"
+          className="hover:underline mt-4 inline-block"
+          style={{ color: "var(--app-accent-ink)" }}
         >
           Back to Projects
         </Link>
@@ -120,7 +124,8 @@ export default function JobDetail() {
       {/* Back link */}
       <Link
         to="/jobs"
-        className="inline-flex items-center gap-2 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white mb-6 text-sm"
+        className="inline-flex items-center gap-2 hover:text-[var(--app-text)] mb-6 text-sm transition-colors"
+        style={{ color: "var(--app-text-dim)" }}
       >
         <svg
           className="w-4 h-4"
@@ -142,11 +147,17 @@ export default function JobDetail() {
         {/* Main Content */}
         <div className="lg:col-span-2 space-y-6">
           {/* Hero Section */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg">
+          <div
+            className="rounded-2xl p-6 shadow-lg"
+            style={{ backgroundColor: "var(--app-surface-raised)" }}
+          >
             <div className="flex items-start justify-between gap-4 mb-4">
               <div className="flex-1">
                 {/* Job Title */}
-                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-3">
+                <h1
+                  className="text-2xl sm:text-3xl font-bold mb-3"
+                  style={{ color: "var(--app-text)" }}
+                >
                   {job.title}
                 </h1>
 
@@ -168,16 +179,22 @@ export default function JobDetail() {
 
             {/* Job Description */}
             <div className="mb-6">
-              <div className="prose prose-base dark:prose-invert max-w-none prose-headings:text-gray-900 dark:prose-headings:text-white prose-p:text-gray-800 dark:prose-p:text-gray-200 prose-p:leading-relaxed prose-a:text-blue-600 dark:prose-a:text-blue-400 prose-strong:text-gray-900 dark:prose-strong:text-white prose-ul:text-gray-800 dark:prose-ul:text-gray-200 prose-ol:text-gray-800 dark:prose-ol:text-gray-200">
+              <div className="prose prose-base dark:prose-invert max-w-none prose-headings:text-[var(--app-text)] prose-p:text-[var(--app-text-muted)] prose-p:leading-relaxed prose-a:text-[var(--app-accent-ink)] prose-strong:text-[var(--app-text)] prose-ul:text-[var(--app-text-muted)] prose-ol:text-[var(--app-text-muted)]">
                 <Markdown>{job.description}</Markdown>
               </div>
             </div>
 
             {/* Secondary Metadata - Outlined badges */}
-            <div className="pt-6 border-t border-gray-200 dark:border-gray-700 space-y-4">
+            <div
+              className="pt-6 border-t space-y-4"
+              style={{ borderColor: "var(--app-hairline)" }}
+            >
               <div className="flex flex-wrap gap-2">
                 {/* Location */}
-                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 rounded-full text-sm">
+                <span
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 border rounded-full text-sm"
+                  style={{ borderColor: "var(--app-hairline-raised)", color: "var(--app-text-dim)" }}
+                >
                   <svg
                     className="w-4 h-4"
                     fill="none"
@@ -203,7 +220,10 @@ export default function JobDetail() {
                 </span>
 
                 {/* Job Type */}
-                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 rounded-full text-sm">
+                <span
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 border rounded-full text-sm"
+                  style={{ borderColor: "var(--app-hairline-raised)", color: "var(--app-text-dim)" }}
+                >
                   <svg
                     className="w-4 h-4"
                     fill="none"
@@ -225,19 +245,26 @@ export default function JobDetail() {
                   className={`inline-flex items-center gap-1.5 px-3 py-1.5 border rounded-full text-sm ${
                     job.status === "Open"
                       ? "border-green-300 dark:border-green-700 text-green-600 dark:text-green-400"
-                      : "border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400"
+                      : ""
                   }`}
+                  style={
+                    job.status === "Open"
+                      ? undefined
+                      : { borderColor: "var(--app-hairline-raised)", color: "var(--app-text-dim)" }
+                  }
                 >
                   <div
-                    className={`w-2 h-2 rounded-full ${
-                      job.status === "Open" ? "bg-green-500" : "bg-gray-500"
-                    }`}
+                    className={`w-2 h-2 rounded-full ${job.status === "Open" ? "bg-green-500" : ""}`}
+                    style={job.status === "Open" ? undefined : { backgroundColor: "var(--app-text-dim)" }}
                   />
                   {job.status}
                 </span>
 
                 {/* Posted date */}
-                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 rounded-full text-sm">
+                <span
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 border rounded-full text-sm"
+                  style={{ borderColor: "var(--app-hairline-raised)", color: "var(--app-text-dim)" }}
+                >
                   <svg
                     className="w-4 h-4"
                     fill="none"
@@ -259,12 +286,18 @@ export default function JobDetail() {
               {(job.experienceLevel || job.compensationRange) && (
                 <div className="flex flex-wrap gap-2">
                   {job.experienceLevel && job.experienceLevel !== "Any" && (
-                    <span className="inline-flex items-center px-3 py-1.5 border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 rounded-full text-sm">
+                    <span
+                      className="inline-flex items-center px-3 py-1.5 border rounded-full text-sm"
+                      style={{ borderColor: "var(--app-hairline-raised)", color: "var(--app-text-dim)" }}
+                    >
                       {job.experienceLevel} level
                     </span>
                   )}
                   {job.compensationRange && (
-                    <span className="inline-flex items-center px-3 py-1.5 border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 rounded-full text-sm">
+                    <span
+                      className="inline-flex items-center px-3 py-1.5 border rounded-full text-sm"
+                      style={{ borderColor: "var(--app-hairline-raised)", color: "var(--app-text-dim)" }}
+                    >
                       {job.compensationRange}
                     </span>
                   )}
@@ -274,12 +307,13 @@ export default function JobDetail() {
 
             {/* External Link */}
             {job.externalLink && (
-              <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+              <div className="mt-6 pt-6 border-t" style={{ borderColor: "var(--app-hairline)" }}>
                 <a
                   href={job.externalLink}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white rounded-xl font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-medium transition-colors hover:bg-[var(--app-hairline-raised)]"
+                  style={{ backgroundColor: "var(--app-hairline)", color: "var(--app-text)" }}
                 >
                   <svg
                     className="w-5 h-5"
@@ -301,12 +335,13 @@ export default function JobDetail() {
 
             {/* Interest Section */}
             {!job.isPoster && (
-              <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+              <div className="mt-6 pt-6 border-t" style={{ borderColor: "var(--app-hairline)" }}>
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
                     <div className="flex items-center gap-2">
                       <svg
-                        className="w-5 h-5 text-gray-400"
+                        className="w-5 h-5"
+                        style={{ color: "var(--app-text-dim)" }}
                         fill="none"
                         viewBox="0 0 24 24"
                         stroke="currentColor"
@@ -318,7 +353,7 @@ export default function JobDetail() {
                           d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"
                         />
                       </svg>
-                      <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                      <span className="text-sm font-medium" style={{ color: "var(--app-text-dim)" }}>
                         {interests?.count || 0}{" "}
                         {interests?.count === 1 ? "person" : "people"}{" "}
                         interested
@@ -333,7 +368,8 @@ export default function JobDetail() {
                       </span>
                       <button
                         onClick={() => setShowInterestModal(true)}
-                        className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                        className="px-4 py-2 border rounded-xl text-sm font-medium transition-colors hover:bg-[var(--app-hairline-raised)]"
+                        style={{ borderColor: "var(--app-hairline-raised)", color: "var(--app-text-muted)" }}
                       >
                         Edit
                       </button>
@@ -342,7 +378,8 @@ export default function JobDetail() {
                     <button
                       onClick={() => setShowInterestModal(true)}
                       disabled={job.status === "Closed"}
-                      className="px-6 py-2.5 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="px-6 py-2.5 rounded-xl font-medium transition-colors hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+                      style={{ backgroundColor: "var(--app-accent)", color: "var(--garden-ink)" }}
                     >
                       I'm Interested
                     </button>
@@ -353,11 +390,12 @@ export default function JobDetail() {
 
             {/* Poster Controls */}
             {job.isPoster && (
-              <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+              <div className="mt-6 pt-6 border-t" style={{ borderColor: "var(--app-hairline)" }}>
                 <div className="flex flex-wrap gap-3">
                   <Link
                     to={`/jobs/${jobId}/edit`}
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors"
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-colors hover:opacity-90"
+                    style={{ backgroundColor: "var(--app-accent)", color: "var(--garden-ink)" }}
                   >
                     <svg
                       className="w-4 h-4"
@@ -379,10 +417,14 @@ export default function JobDetail() {
                     <button
                       onClick={handleCloseJob}
                       disabled={closing}
-                      className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+                      className="inline-flex items-center gap-2 px-4 py-2 border rounded-xl font-medium transition-colors hover:bg-[var(--app-hairline-raised)] disabled:opacity-50"
+                      style={{ borderColor: "var(--app-hairline-raised)", color: "var(--app-text-muted)" }}
                     >
                       {closing ? (
-                        <div className="w-4 h-4 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600" />
+                        <div
+                          className="w-4 h-4 animate-spin rounded-full border-2"
+                          style={{ borderColor: "var(--app-hairline-raised)", borderTopColor: "var(--app-text-muted)" }}
+                        />
                       ) : (
                         <svg
                           className="w-4 h-4"
@@ -436,15 +478,16 @@ export default function JobDetail() {
             interests &&
             interests.interests &&
             interests.interests.length > 0 && (
-              <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg">
-                <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+              <div className="rounded-2xl p-6 shadow-lg" style={{ backgroundColor: "var(--app-surface-raised)" }}>
+                <h2 className="text-xl font-bold mb-4" style={{ color: "var(--app-text)" }}>
                   Interested Members ({interests.count})
                 </h2>
                 <div className="space-y-6">
                   {interests.interests.map((interest) => (
                     <div
                       key={interest._id}
-                      className="p-5 bg-gray-50 dark:bg-gray-900 rounded-xl"
+                      className="p-5 rounded-xl"
+                      style={{ backgroundColor: "var(--app-surface)" }}
                     >
                       {/* Profile Header */}
                       <div className="flex items-start gap-4 mb-4">
@@ -468,19 +511,20 @@ export default function JobDetail() {
                         <div className="flex-1 min-w-0">
                           <Link
                             to={`/profile/${interest.profile?._id}`}
-                            className="font-semibold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400"
+                            className="font-semibold hover:text-[var(--app-accent-ink)]"
+                            style={{ color: "var(--app-text)" }}
                           >
                             {interest.profile?.name}
                           </Link>
                           {interest.profile?.interests &&
                             interest.profile.interests.length > 0 && (
-                              <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                              <p className="text-sm mt-0.5" style={{ color: "var(--app-text-dim)" }}>
                                 {interest.profile.interests
                                   .slice(0, 3)
                                   .join(" · ")}
                               </p>
                             )}
-                          <p className="text-xs text-gray-400 mt-1">
+                          <p className="text-xs mt-1" style={{ color: "var(--app-text-dim)" }}>
                             Interested {formatDate(interest.createdAt)}
                           </p>
                         </div>
@@ -489,7 +533,7 @@ export default function JobDetail() {
                       {/* Note */}
                       {interest.note && (
                         <div className="mb-4">
-                          <p className="text-sm text-gray-700 dark:text-gray-300">
+                          <p className="text-sm" style={{ color: "var(--app-text-muted)" }}>
                             {interest.note}
                           </p>
                         </div>
@@ -499,7 +543,10 @@ export default function JobDetail() {
                       {interest.workLinkArtifacts &&
                         interest.workLinkArtifacts.length > 0 && (
                           <div>
-                            <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
+                            <p
+                              className="text-xs font-medium uppercase tracking-wide mb-2"
+                              style={{ color: "var(--app-text-dim)" }}
+                            >
                               Portfolio
                             </p>
                             <div className="flex flex-wrap gap-3">
@@ -507,7 +554,8 @@ export default function JobDetail() {
                                 <Link
                                   key={artifact._id}
                                   to={`/works/${artifact._id}`}
-                                  className="group relative w-24 h-24 rounded-lg overflow-hidden bg-gray-200 dark:bg-gray-700 hover:ring-2 hover:ring-blue-500 transition-all"
+                                  className="group relative w-24 h-24 rounded-lg overflow-hidden hover:ring-2 hover:ring-[var(--app-accent)] transition-all"
+                                  style={{ backgroundColor: "var(--app-hairline-raised)" }}
                                 >
                                   {artifact.type === "image" &&
                                   artifact.mediaUrl ? (
@@ -519,7 +567,8 @@ export default function JobDetail() {
                                   ) : (
                                     <div className="w-full h-full flex items-center justify-center">
                                       <svg
-                                        className="w-8 h-8 text-gray-400"
+                                        className="w-8 h-8"
+                                        style={{ color: "var(--app-text-dim)" }}
                                         fill="none"
                                         viewBox="0 0 24 24"
                                         stroke="currentColor"
@@ -556,8 +605,8 @@ export default function JobDetail() {
         <div className="lg:col-span-1">
           {/* Poster Card */}
           {job.poster && !job.postAnonymously && (
-            <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-lg mb-6">
-              <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">
+            <div className="rounded-2xl p-5 shadow-lg mb-6" style={{ backgroundColor: "var(--app-surface-raised)" }}>
+              <p className="text-xs font-medium uppercase tracking-wide mb-3" style={{ color: "var(--app-text-dim)" }}>
                 Posted By
               </p>
               <Link
@@ -577,12 +626,16 @@ export default function JobDetail() {
                     </div>
                   )}
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                    <h3
+                      className="font-semibold group-hover:text-[var(--app-accent-ink)] transition-colors"
+                      style={{ color: "var(--app-text)" }}
+                    >
                       {job.poster.name}
                     </h3>
                   </div>
                   <svg
-                    className="w-5 h-5 text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors"
+                    className="w-5 h-5 group-hover:text-[var(--app-accent-ink)] transition-colors"
+                    style={{ color: "var(--app-text-dim)" }}
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
@@ -601,7 +654,7 @@ export default function JobDetail() {
               {job.poster.interests &&
                 job.poster.interests.length > 0 && (
                   <div className="mb-3">
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                    <p className="text-sm" style={{ color: "var(--app-text-dim)" }}>
                       {job.poster.interests.slice(0, 3).join(" · ")}
                     </p>
                   </div>
@@ -609,11 +662,11 @@ export default function JobDetail() {
 
               {/* Hiring Org */}
               {job.hiringOrg && (
-                <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
-                  <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
+                <div className="pt-3 border-t" style={{ borderColor: "var(--app-hairline)" }}>
+                  <p className="text-xs font-medium uppercase tracking-wide mb-1" style={{ color: "var(--app-text-dim)" }}>
                     Organization
                   </p>
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">
+                  <p className="text-sm font-medium" style={{ color: "var(--app-text)" }}>
                     {job.hiringOrg}
                   </p>
                 </div>
@@ -622,11 +675,15 @@ export default function JobDetail() {
           )}
 
           {job.postAnonymously && (
-            <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-lg mb-6">
+            <div className="rounded-2xl p-5 shadow-lg mb-6" style={{ backgroundColor: "var(--app-surface-raised)" }}>
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+                <div
+                  className="w-12 h-12 rounded-full flex items-center justify-center"
+                  style={{ backgroundColor: "var(--app-hairline-raised)" }}
+                >
                   <svg
-                    className="w-6 h-6 text-gray-400"
+                    className="w-6 h-6"
+                    style={{ color: "var(--app-text-dim)" }}
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
@@ -640,10 +697,10 @@ export default function JobDetail() {
                   </svg>
                 </div>
                 <div>
-                  <p className="font-semibold text-gray-900 dark:text-white">
+                  <p className="font-semibold" style={{ color: "var(--app-text)" }}>
                     Anonymous Poster
                   </p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                  <p className="text-sm" style={{ color: "var(--app-text-dim)" }}>
                     Community Member
                   </p>
                 </div>

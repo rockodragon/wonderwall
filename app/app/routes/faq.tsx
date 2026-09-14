@@ -118,10 +118,10 @@ export default function FAQ() {
 
   return (
     <div className="p-6 max-w-3xl mx-auto">
-      <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+      <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--app-text)" }}>
         Frequently Asked Questions
       </h1>
-      <p className="text-gray-500 dark:text-gray-400 mb-8">
+      <p className="mb-8" style={{ color: "var(--app-text-dim)" }}>
         Everything you need to know about using The Exchange
       </p>
 
@@ -129,7 +129,8 @@ export default function FAQ() {
         {FAQ_SECTIONS.map((section) => (
           <div
             key={section.title}
-            className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden"
+            className="border rounded-xl overflow-hidden"
+            style={{ borderColor: "var(--app-hairline)" }}
           >
             {/* Section header */}
             <button
@@ -138,15 +139,17 @@ export default function FAQ() {
                   openSection === section.title ? null : section.title,
                 )
               }
-              className="w-full flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-750 transition-colors"
+              className="w-full flex items-center justify-between p-4 transition-colors hover:bg-[var(--app-hairline-raised)]"
+              style={{ backgroundColor: "var(--app-surface-raised)" }}
             >
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+              <h2 className="text-lg font-semibold" style={{ color: "var(--app-text)" }}>
                 {section.title}
               </h2>
               <svg
-                className={`w-5 h-5 text-gray-500 transition-transform ${
+                className={`w-5 h-5 transition-transform ${
                   openSection === section.title ? "rotate-180" : ""
                 }`}
+                style={{ color: "var(--app-text-dim)" }}
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -162,22 +165,23 @@ export default function FAQ() {
 
             {/* Questions */}
             {openSection === section.title && (
-              <div className="divide-y divide-gray-200 dark:divide-gray-700">
+              <div className="divide-y divide-[var(--app-hairline)]">
                 {section.questions.map((qa) => (
                   <div key={qa.q}>
                     <button
                       onClick={() =>
                         setOpenQuestion(openQuestion === qa.q ? null : qa.q)
                       }
-                      className="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+                      className="w-full flex items-center justify-between p-4 text-left transition-colors hover:bg-[var(--app-hairline-raised)]"
                     >
-                      <span className="font-medium text-gray-900 dark:text-white pr-4">
+                      <span className="font-medium pr-4" style={{ color: "var(--app-text)" }}>
                         {qa.q}
                       </span>
                       <svg
-                        className={`w-4 h-4 text-gray-400 shrink-0 transition-transform ${
+                        className={`w-4 h-4 shrink-0 transition-transform ${
                           openQuestion === qa.q ? "rotate-180" : ""
                         }`}
+                        style={{ color: "var(--app-text-dim)" }}
                         fill="none"
                         viewBox="0 0 24 24"
                         stroke="currentColor"
@@ -191,7 +195,7 @@ export default function FAQ() {
                       </svg>
                     </button>
                     {openQuestion === qa.q && (
-                      <div className="px-4 pb-4 text-gray-600 dark:text-gray-400">
+                      <div className="px-4 pb-4" style={{ color: "var(--app-text-dim)" }}>
                         {qa.a}
                       </div>
                     )}
@@ -204,17 +208,21 @@ export default function FAQ() {
       </div>
 
       {/* Contact section */}
-      <div className="mt-12 p-6 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-2xl text-center">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+      <div
+        className="mt-12 p-6 rounded-2xl text-center"
+        style={{ backgroundColor: "var(--app-accent-wash)" }}
+      >
+        <h3 className="text-lg font-semibold mb-2" style={{ color: "var(--app-text)" }}>
           Still have questions?
         </h3>
-        <p className="text-gray-600 dark:text-gray-400 mb-4">
+        <p className="mb-4" style={{ color: "var(--app-text-dim)" }}>
           We're here to help. Reach out to us anytime.
         </p>
         <div className="flex flex-wrap items-center justify-center gap-3">
         <a
           href="mailto:hello@creatives.exchange"
-          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors hover:opacity-90"
+          style={{ backgroundColor: "var(--app-accent)", color: "var(--garden-ink)" }}
         >
           <svg
             className="w-4 h-4"
@@ -235,7 +243,8 @@ export default function FAQ() {
           href="https://cal.com/rickmoy"
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border transition-colors hover:bg-[var(--app-hairline-raised)]"
+          style={{ borderColor: "var(--app-hairline-raised)", color: "var(--app-text-muted)" }}
         >
           <svg
             className="w-4 h-4"
