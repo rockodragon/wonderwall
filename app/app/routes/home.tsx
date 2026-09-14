@@ -457,16 +457,16 @@ export default function Home() {
                 targets with real deadlines. Join a community. Find a coach.
                 When someone backs you, you keep all of it.
               </p>
-              <div className="flex flex-wrap gap-3">
+              <div className="flex flex-col sm:flex-row flex-wrap gap-3">
                 <Link
                   to="/join"
-                  className="px-5 py-3 bg-[var(--garden-citron)] text-[var(--garden-ink)] rounded-xl font-semibold hover:opacity-90 transition-all"
+                  className="px-6 py-3.5 bg-[var(--garden-citron)] text-[var(--garden-ink)] rounded-xl font-semibold hover:opacity-90 transition-all text-center"
                 >
                   Join as a creative
                 </Link>
                 <Link
                   to="/for/creatives"
-                  className="px-5 py-3 rounded-xl font-medium border border-[var(--garden-hairline)] text-[var(--garden-body)] hover:text-[var(--garden-paper)] hover:border-[var(--garden-citron)] transition-colors"
+                  className="px-6 py-3.5 rounded-xl font-medium border border-[var(--garden-hairline)] text-[var(--garden-body)] hover:text-[var(--garden-paper)] hover:border-[var(--garden-citron)] transition-colors text-center"
                 >
                   Learn more
                 </Link>
@@ -500,16 +500,16 @@ export default function Home() {
                 every kind of backing is credited, and your name goes on the
                 finished work.
               </p>
-              <div className="flex flex-wrap gap-3">
+              <div className="flex flex-col sm:flex-row flex-wrap gap-3">
                 <Link
                   to="/opportunities"
-                  className="px-5 py-3 bg-[var(--garden-citron)] text-[var(--garden-ink)] rounded-xl font-semibold hover:opacity-90 transition-all"
+                  className="px-6 py-3.5 bg-[var(--garden-citron)] text-[var(--garden-ink)] rounded-xl font-semibold hover:opacity-90 transition-all text-center"
                 >
                   Pick someone to back
                 </Link>
                 <Link
                   to="/for/patrons"
-                  className="px-5 py-3 rounded-xl font-medium border border-[var(--garden-hairline)] text-[var(--garden-body)] hover:text-[var(--garden-paper)] hover:border-[var(--garden-citron)] transition-colors"
+                  className="px-6 py-3.5 rounded-xl font-medium border border-[var(--garden-hairline)] text-[var(--garden-body)] hover:text-[var(--garden-paper)] hover:border-[var(--garden-citron)] transition-colors text-center"
                 >
                   Learn more
                 </Link>
@@ -541,16 +541,16 @@ export default function Home() {
                 what you sell, hosting is free, and your people can apply to
                 the Grant Fund.
               </p>
-              <div className="flex flex-wrap gap-3">
+              <div className="flex flex-col sm:flex-row flex-wrap gap-3">
                 <Link
                   to="/for/hosts"
-                  className="px-5 py-3 bg-[var(--garden-citron)] text-[var(--garden-ink)] rounded-xl font-semibold hover:opacity-90 transition-all"
+                  className="px-6 py-3.5 bg-[var(--garden-citron)] text-[var(--garden-ink)] rounded-xl font-semibold hover:opacity-90 transition-all text-center"
                 >
                   Start hosting
                 </Link>
                 <Link
                   to="/join"
-                  className="px-5 py-3 rounded-xl font-medium border border-[var(--garden-hairline)] text-[var(--garden-body)] hover:text-[var(--garden-paper)] hover:border-[var(--garden-citron)] transition-colors"
+                  className="px-6 py-3.5 rounded-xl font-medium border border-[var(--garden-hairline)] text-[var(--garden-body)] hover:text-[var(--garden-paper)] hover:border-[var(--garden-citron)] transition-colors text-center"
                 >
                   Join now
                 </Link>
@@ -583,16 +583,16 @@ export default function Home() {
                 memberships to your creatives, or open your space. When it's
                 done, everyone knows who made it possible.
               </p>
-              <div className="flex flex-wrap gap-3">
+              <div className="flex flex-col sm:flex-row flex-wrap gap-3">
                 <Link
                   to="/for/partners"
-                  className="px-5 py-3 bg-[var(--garden-citron)] text-[var(--garden-ink)] rounded-xl font-semibold hover:opacity-90 transition-all"
+                  className="px-6 py-3.5 bg-[var(--garden-citron)] text-[var(--garden-ink)] rounded-xl font-semibold hover:opacity-90 transition-all text-center"
                 >
                   Partner with us
                 </Link>
                 <Link
                   to="/for/churches"
-                  className="px-5 py-3 rounded-xl font-medium border border-[var(--garden-hairline)] text-[var(--garden-body)] hover:text-[var(--garden-paper)] hover:border-[var(--garden-citron)] transition-colors"
+                  className="px-6 py-3.5 rounded-xl font-medium border border-[var(--garden-hairline)] text-[var(--garden-body)] hover:text-[var(--garden-paper)] hover:border-[var(--garden-citron)] transition-colors text-center"
                 >
                   For churches
                 </Link>

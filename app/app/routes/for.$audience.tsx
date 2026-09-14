@@ -306,9 +306,33 @@ export default function ForAudience({ params }: Route.ComponentProps) {
         >
           {audience.headline}
         </h1>
-        <p className="text-xl text-[var(--garden-body)] max-w-2xl mb-12">
+        <p className="text-xl text-[var(--garden-body)] max-w-2xl mb-8">
           {audience.subhead}
         </p>
+
+        {/* Primary CTAs — up top, before the scroll */}
+        <div className="flex flex-col sm:flex-row flex-wrap gap-3 mb-16">
+          <Link
+            to={audience.ctaTo}
+            className="px-8 py-4 bg-[var(--garden-citron)] text-[var(--garden-ink)] rounded-xl text-lg font-semibold hover:opacity-90 transition-all text-center"
+          >
+            {audience.ctaLabel}
+          </Link>
+          <Link
+            to={audience.ctaTo2}
+            className="px-8 py-4 rounded-xl text-lg font-medium border border-[var(--garden-hairline)] text-[var(--garden-body)] hover:text-[var(--garden-paper)] hover:border-[var(--garden-citron)] transition-colors text-center"
+          >
+            {audience.ctaLabel2}
+          </Link>
+          {audience.ctaLabel3 && audience.ctaTo3 && (
+            <Link
+              to={audience.ctaTo3}
+              className="px-8 py-4 rounded-xl text-lg font-medium border border-[var(--garden-hairline)] text-[var(--garden-body)] hover:text-[var(--garden-paper)] hover:border-[var(--garden-citron)] transition-colors text-center"
+            >
+              {audience.ctaLabel3}
+            </Link>
+          )}
+        </div>
 
         <CampaignBand images={audience.bandImages} />
 
@@ -337,23 +361,24 @@ export default function ForAudience({ params }: Route.ComponentProps) {
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-4 mb-16">
+        {/* Bottom CTAs — the closing ask */}
+        <div className="flex flex-col sm:flex-row flex-wrap gap-3 mb-16">
           <Link
             to={audience.ctaTo}
-            className="px-6 py-3 bg-[var(--garden-citron)] text-[var(--garden-ink)] rounded-xl font-semibold hover:opacity-90 transition-all"
+            className="px-8 py-4 bg-[var(--garden-citron)] text-[var(--garden-ink)] rounded-xl text-lg font-semibold hover:opacity-90 transition-all text-center"
           >
             {audience.ctaLabel}
           </Link>
           <Link
             to={audience.ctaTo2}
-            className="px-6 py-3 rounded-xl font-medium border border-[var(--garden-hairline)] text-[var(--garden-body)] hover:text-[var(--garden-paper)] hover:border-[var(--garden-citron)] transition-colors"
+            className="px-8 py-4 rounded-xl text-lg font-medium border border-[var(--garden-hairline)] text-[var(--garden-body)] hover:text-[var(--garden-paper)] hover:border-[var(--garden-citron)] transition-colors text-center"
           >
             {audience.ctaLabel2}
           </Link>
           {audience.ctaLabel3 && audience.ctaTo3 && (
             <Link
               to={audience.ctaTo3}
-              className="px-6 py-3 rounded-xl font-medium border border-[var(--garden-hairline)] text-[var(--garden-body)] hover:text-[var(--garden-paper)] hover:border-[var(--garden-citron)] transition-colors"
+              className="px-8 py-4 rounded-xl text-lg font-medium border border-[var(--garden-hairline)] text-[var(--garden-body)] hover:text-[var(--garden-paper)] hover:border-[var(--garden-citron)] transition-colors text-center"
             >
               {audience.ctaLabel3}
             </Link>
