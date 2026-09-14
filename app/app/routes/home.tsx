@@ -616,12 +616,12 @@ export default function Home() {
                   textWrap: "balance",
                 }}
               >
-                Open your doors. Help something grow.
+                Invest in creatives. They fill the room.
               </h3>
               <p className="text-base md:text-lg leading-[1.6] text-[var(--garden-body)] mb-8" style={{ textWrap: "pretty" }}>
-                Churches, venues, businesses — post paid work, gift
-                memberships to your creatives, or open your space. When it's
-                done, everyone knows who made it possible.
+                Churches, venues, businesses — post paid work, cover
+                memberships, or share your space. Creatives bring people
+                in. That's the deal.
               </p>
               <div className="flex items-center gap-3">
                 <Link
