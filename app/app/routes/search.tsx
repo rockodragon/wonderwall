@@ -226,7 +226,7 @@ export default function Search() {
         </div>
       ) : filteredProfiles?.length === 0 && (!events || events.length === 0) ? (
         <div className="text-center py-12 text-gray-500 dark:text-gray-400">
-          <p>{query ? "No results found" : "No creatives to show yet"}</p>
+          <p>{nearMe ? "No nearby profiles found — most people haven't set a precise location yet. Try a wider radius or turn off Near me." : query ? "No results found" : "No creatives to show yet"}</p>
         </div>
       ) : (
         <div className="space-y-12">

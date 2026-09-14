@@ -1,7 +1,7 @@
 import { v } from "convex/values";
-import { internalMutation, mutation, query } from "./_generated/server";
+import { internalAction, internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import type { QueryCtx } from "./_generated/server";
-import { api } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import { auth } from "./auth";
 import type { Doc } from "./_generated/dataModel";
 
@@ -404,5 +404,61 @@ export const setAdminByName = internalMutation({
     }
 
     return { updated: profiles.length };
+  },
+});
+
+export const backfillCoordinates = internalAction({
+  args: {},
+  handler: async (ctx) => {
+    const profiles: Array<{ _id: any; location?: string; coordinates?: { lat: number; lng: number } }> =
+      await ctx.runQuery(internal.profiles.profilesNeedingCoordinates);
+    const apiKey = process.env.GOOGLE_PLACES_API_KEY;
+    if (!apiKey) throw new Error("GOOGLE_PLACES_API_KEY not set");
+    let updated = 0;
+    for (const p of profiles) {
+      try {
+        const res = await fetch("https://places.googleapis.com/v1/places:searchText", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Goog-Api-Key": apiKey,
+            "X-Goog-FieldMask": "places.location",
+          },
+          body: JSON.stringify({ textQuery: p.location, maxResultCount: 1 }),
+        });
+        if (!res.ok) continue;
+        const data = await res.json();
+        const loc = data.places?.[0]?.location;
+        if (!loc?.latitude || !loc?.longitude) continue;
+        await ctx.runMutation(internal.profiles.patchCoordinates, {
+          profileId: p._id,
+          coordinates: { lat: loc.latitude, lng: loc.longitude },
+        });
+        updated++;
+      } catch {
+        // skip individual failures
+      }
+    }
+    return { checked: profiles.length, updated };
+  },
+});
+
+export const profilesNeedingCoordinates = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const all = await ctx.db.query("profiles").collect();
+    return all
+      .filter((p) => p.location && !p.coordinates)
+      .map((p) => ({ _id: p._id, location: p.location }));
+  },
+});
+
+export const patchCoordinates = internalMutation({
+  args: {
+    profileId: v.id("profiles"),
+    coordinates: v.object({ lat: v.number(), lng: v.number() }),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.profileId, { coordinates: args.coordinates });
   },
 });

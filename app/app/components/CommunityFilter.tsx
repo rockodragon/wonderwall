@@ -17,7 +17,7 @@
 // default, not to an explicit URL param — an explicit link should keep
 // working regardless of membership.
 
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
@@ -72,30 +72,26 @@ export function useCommunityContext() {
   const activeSlugs = useMemo(() => new Set(communities.map((c) => c.slug)), [communities]);
 
   const urlValue = searchParams.get(PARAM);
+  const [storedSlug, setStoredSlug] = useState<string | null>(readStored);
 
   const selected = useMemo(() => {
-    // An explicit URL param always wins, and is never invalidated by
-    // membership — it's how a non-member follows a community's own
-    // "browse everything" link and gets the filtered view.
     if (urlValue) return urlValue;
-    const stored = readStored();
-    if (!stored) return ALL;
-    // Not loaded yet: trust the stored value optimistically rather than
-    // flashing "all" for a moment before the query resolves.
-    if (!loaded || activeSlugs.has(stored)) return stored;
-    // The remembered community isn't one of the user's active ones anymore
-    // (they left it, or it's since gone inactive) — stop filtering by it.
+    if (!storedSlug) return ALL;
+    if (!loaded || activeSlugs.has(storedSlug)) return storedSlug;
     return ALL;
-  }, [urlValue, loaded, activeSlugs]);
+  }, [urlValue, storedSlug, loaded, activeSlugs]);
 
-  // A URL param becomes the remembered value the moment it's seen.
   useEffect(() => {
-    if (urlValue) writeStored(urlValue);
+    if (urlValue) {
+      writeStored(urlValue);
+      setStoredSlug(urlValue);
+    }
   }, [urlValue]);
 
   const setSelected = useCallback(
     (next: string) => {
       writeStored(next);
+      setStoredSlug(next === ALL ? null : next);
       setSearchParams(
         (prev) => {
           const params = new URLSearchParams(prev);

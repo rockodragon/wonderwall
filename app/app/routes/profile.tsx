@@ -359,35 +359,84 @@ export default function Profile() {
       )}
 
       {/* Projects this person leads or is on the team of. Above Work —
-          project-teams.md §7 — hidden entirely when there are none. */}
+          project-teams.md §7 — hidden entirely when there are none.
+          ≤ 3 projects → card grid with thumbnails. ≥ 4 → compact list. */}
       {affiliations && affiliations.length > 0 && (
         <div className="mb-8">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
             Projects
           </h2>
-          <div className="divide-y divide-gray-200 dark:divide-gray-800">
-            {affiliations.map((a) => (
-              <div
-                key={a.projectId}
-                className="flex items-baseline justify-between gap-3 flex-wrap py-3"
-              >
-                <div className="flex items-baseline gap-2 flex-wrap">
-                  <Link
-                    to={`/projects/${a.projectId}`}
-                    className="font-medium text-gray-900 dark:text-white hover:underline"
-                  >
-                    {a.title}
-                  </Link>
-                  <span className="text-sm text-gray-600 dark:text-gray-300">
-                    {a.role || "Lead"}
-                  </span>
+          {affiliations.length <= 3 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+              {affiliations.map((a: any) => (
+                <Link
+                  key={a.projectId}
+                  to={`/projects/${a.projectId}`}
+                  className="group block rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-blue-500 dark:hover:border-blue-500 transition-colors overflow-hidden"
+                >
+                  <div className="aspect-[16/10] bg-gray-100 dark:bg-gray-700 relative overflow-hidden">
+                    {a.imageUrl ? (
+                      <img
+                        src={a.imageUrl}
+                        alt={a.title}
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gradient-to-br from-blue-400 to-indigo-500" />
+                    )}
+                  </div>
+                  <div className="p-4">
+                    <h3 className="font-medium text-gray-900 dark:text-white line-clamp-1">
+                      {a.title}
+                    </h3>
+                    <div className="flex items-center justify-between mt-1">
+                      <span className="text-sm text-gray-600 dark:text-gray-300">
+                        {a.role || "Lead"}
+                      </span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                        {stageLabel(a.stage as Stage, a.kind)}
+                      </span>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <div className="divide-y divide-gray-200 dark:divide-gray-800">
+              {affiliations.map((a: any) => (
+                <div
+                  key={a.projectId}
+                  className="flex items-center gap-3 py-3"
+                >
+                  {a.imageUrl ? (
+                    <img
+                      src={a.imageUrl}
+                      alt={a.title}
+                      className="w-10 h-10 rounded-lg object-cover shrink-0"
+                    />
+                  ) : (
+                    <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-400 to-indigo-500 shrink-0" />
+                  )}
+                  <div className="flex items-baseline justify-between gap-3 flex-wrap flex-1 min-w-0">
+                    <div className="flex items-baseline gap-2 flex-wrap min-w-0">
+                      <Link
+                        to={`/projects/${a.projectId}`}
+                        className="font-medium text-gray-900 dark:text-white hover:underline truncate"
+                      >
+                        {a.title}
+                      </Link>
+                      <span className="text-sm text-gray-600 dark:text-gray-300">
+                        {a.role || "Lead"}
+                      </span>
+                    </div>
+                    <span className="text-sm text-gray-500 dark:text-gray-400 shrink-0">
+                      {stageLabel(a.stage as Stage, a.kind)}
+                    </span>
+                  </div>
                 </div>
-                <span className="text-sm text-gray-500 dark:text-gray-400">
-                  {stageLabel(a.stage as Stage, a.kind)}
-                </span>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

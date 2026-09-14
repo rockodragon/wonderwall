@@ -1037,7 +1037,7 @@ export const listAffiliations = query({
         .collect(),
     ]);
 
-    type Row = { projectId: Id<"projects">; title: string; role: string; stage: Stage; kind: string; createdAt: number };
+    type Row = { projectId: Id<"projects">; title: string; role: string; stage: Stage; kind: string; createdAt: number; photoStorageId?: Id<"_storage">; photoUrl?: string };
     const out: Row[] = [];
     const seen = new Set<string>();
     for (const project of owned) {
@@ -1050,6 +1050,8 @@ export const listAffiliations = query({
         stage: resolveStage(project),
         kind: project.kind,
         createdAt: project.createdAt,
+        photoStorageId: project.photoStorageId,
+        photoUrl: project.photoUrl,
       });
     }
     for (const row of acceptedRows) {
@@ -1064,10 +1066,18 @@ export const listAffiliations = query({
         stage: resolveStage(project),
         kind: project.kind,
         createdAt: project.createdAt,
+        photoStorageId: project.photoStorageId,
+        photoUrl: project.photoUrl,
       });
     }
     out.sort((a, b) => b.createdAt - a.createdAt);
-    return out.map(({ projectId, title, role, stage, kind }) => ({ projectId, title, role, stage, kind }));
+    const resolved = await Promise.all(
+      out.map(async ({ projectId, title, role, stage, kind, photoStorageId, photoUrl }) => {
+        const imageUrl = photoStorageId ? await ctx.storage.getUrl(photoStorageId) : photoUrl ?? null;
+        return { projectId, title, role, stage, kind, imageUrl };
+      }),
+    );
+    return resolved;
   },
 });
 
