@@ -48,25 +48,11 @@ export function CommunitySwitcher() {
     };
   }, [open]);
 
-  // Signed out: a "Sign in" pill, no picker (community-ux.md §2 state table).
+  // Signed out: hide the switcher entirely — the primary nav is all a
+  // visitor needs, and "Sign in" moves to the bottom of the sidebar
+  // (rendered in _app.tsx) so it doesn't dominate the page.
   if (!isAuthenticated) {
-    const redirect = `${location.pathname}${location.search}`;
-    return (
-      <div className="flex flex-col gap-1.5">
-        <Link
-          to={`/login?redirect=${encodeURIComponent(redirect)}`}
-          className="flex items-center justify-center px-3 py-1.5 rounded-full text-xs font-medium border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-        >
-          Sign in
-        </Link>
-        <Link
-          to="/communities"
-          className="text-center text-xs text-gray-500 dark:text-gray-400 hover:underline"
-        >
-          Browse communities →
-        </Link>
-      </div>
-    );
+    return null;
   }
 
   const selectedCommunity = communities.find((c) => c.slug === selected);

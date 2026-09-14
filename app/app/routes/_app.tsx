@@ -285,11 +285,20 @@ export default function AppLayout() {
         </nav>
         )}
 
-        {isAuthenticated && (
+        {isAuthenticated ? (
         <div className="p-4">
           <InviteCTA />
         </div>
-        )}
+        ) : isPublicPath ? (
+        <div className="mt-auto px-4 py-4 border-t border-gray-100 dark:border-gray-800">
+          <Link
+            to={`/login?redirect=${encodeURIComponent(location.pathname + location.search)}`}
+            className="flex items-center justify-center px-3 py-2 rounded-lg text-sm font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+          >
+            Sign in
+          </Link>
+        </div>
+        ) : null}
       </aside>
     </div>
   );
