@@ -158,16 +158,47 @@ const AUDIENCES: Audience[] = [
       "Back a creative, a team, or a project. Watch it get made, get credited on the work, and give to the Grant Fund.",
   },
   {
+    slug: "churches",
+    eyebrow: "For churches",
+    headline: "Support the creatives in your church.",
+    subhead:
+      "$10 a month opens the door for one of them. You can see exactly what it did.",
+    points: [
+      {
+        title: "They get everything, not a discount",
+        body: "The creative you sponsor can start projects, take paid work, and propose to the grant fund — same as anyone who pays for it themselves.",
+      },
+      {
+        title: "It's not really about Sunday",
+        body: "The people you sponsor keep making after the service ends — festivals, bars, wherever people are. You helped make that possible.",
+      },
+      {
+        title: "One card, one code",
+        body: "Buy ten seats at once and hand out a single code.",
+      },
+      {
+        title: "Where it goes",
+        body: "Half of every seat funds the grant program. The other half keeps this running. Every grant that goes out is public.",
+      },
+    ],
+    cost:
+      "$10 per seat per month, in any number you want. Paying for a year at once is one charge instead of twelve.",
+    ctaLabel: "Sponsor your creative team",
+    ctaTo: "/coverage",
+    ctaLabel2: "See what it pays for",
+    ctaTo2: "/fund/abiding-practice",
+    bandImages: ["church", "busker"],
+    metaTitle: "For churches — creatives.exchange",
+    metaDescription:
+      "Cover seats for the creatives in your church. $10 a month per seat, one code for your whole group, and a clear record of where it went.",
+  },
+  {
     slug: "partners",
     eyebrow: "For community partners",
     headline: "Open your doors. Your name goes on what gets made.",
     subhead:
-      "Churches, venues, businesses — sponsor a creative, post paid work, or offer your space.",
+      "Venues, businesses, organizations — sponsor a creative, post paid work, or offer your space.",
     points: [
-      {
-        title: "Sponsor creatives directly",
-        body: "Cover a seat for someone in your church or organization. $10 a month opens the door for one of them — projects, paid work, grant proposals, all of it.",
-      },
       {
         title: "Post paid work",
         body: "Creatives apply directly. You see their portfolio before you reply.",
@@ -180,24 +211,27 @@ const AUDIENCES: Audience[] = [
         title: "Your name goes on it",
         body: "Partners are credited on the projects and events they made possible. When it's done, everyone knows who opened the door.",
       },
+      {
+        title: "Sponsor creatives",
+        body: "Cover a seat for someone in your organization. $10 a month opens the door for one of them.",
+      },
     ],
     cost:
       "Posting work is free. Sponsoring seats is $10 each per month. Business sponsorships start at $100 a month.",
-    ctaLabel: "Sponsor your creative team",
-    ctaTo: "/coverage",
-    ctaLabel2: "Post paid work",
+    ctaLabel: "Post paid work",
+    ctaTo: "/join",
+    ctaLabel2: "Offer your space",
     ctaTo2: "/join",
-    bandImages: ["church", "busker"],
+    bandImages: ["night", "opening"],
     metaTitle: "For community partners — creatives.exchange",
     metaDescription:
-      "Churches, venues, and businesses — sponsor creatives, post paid work, or offer your space. Your name goes on what gets made.",
+      "Venues and businesses — post paid work, offer your space, or sponsor creatives. Your name goes on what gets made.",
   },
 ];
 
 const BY_SLUG = new Map(AUDIENCES.map((a) => [a.slug, a]));
 
 const SLUG_REDIRECTS: Record<string, string> = {
-  churches: "partners",
   donors: "patrons",
 };
 
