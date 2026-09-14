@@ -20,6 +20,7 @@ import { AnnouncementComposer } from "../components/AnnouncementComposer";
 import { FavoriteButton } from "../components/FavoriteButton";
 import { budgetAmountLabel, budgetKindLabel } from "../lib/budgetLabel";
 import { resolveStage, stageLabel } from "../lib/stage";
+import { INTERESTS } from "../constants/interests";
 import { errorMessage, STATUS_LABELS, StageSelect, SupportModal } from "./projects";
 
 // Loader-less (client-only useQuery, same as communities.$slug.tsx and
@@ -212,19 +213,7 @@ export default function ProjectDetail() {
         </span>
       )}
 
-      {project.interests && project.interests.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 mb-4">
-          {project.interests.map((tag: string) => (
-            <span
-              key={tag}
-              className="px-2.5 py-1 rounded-full text-xs font-medium"
-              style={{ fontFamily: "var(--garden-font-body)", backgroundColor: "rgba(198,198,190,0.1)", color: "var(--garden-muted)" }}
-            >
-              {tag}
-            </span>
-          ))}
-        </div>
-      )}
+      <InlineEditableInterests project={project} isOwner={isOwner} />
 
       <InlineEditableBlurb project={project} isOwner={isOwner} />
 
@@ -646,6 +635,101 @@ function InlineEditableLocation({ project, isOwner }: { project: any; isOwner: b
   }
 
   return null;
+}
+
+function InlineEditableInterests({ project, isOwner }: { project: any; isOwner: boolean }) {
+  const updateProject = useMutation((api as any).garden.projects.updateProject);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState<string[]>(project.interests ?? []);
+  const [saving, setSaving] = useState(false);
+
+  function toggle(interest: string) {
+    setDraft((prev) =>
+      prev.includes(interest) ? prev.filter((i) => i !== interest) : [...prev, interest],
+    );
+  }
+
+  async function save() {
+    if (JSON.stringify(draft.slice().sort()) === JSON.stringify((project.interests ?? []).slice().sort())) {
+      setEditing(false);
+      return;
+    }
+    setSaving(true);
+    try {
+      await updateProject({ projectId: project._id, interests: draft });
+      setEditing(false);
+    } catch {
+      setDraft(project.interests ?? []);
+      setEditing(false);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (editing) {
+    return (
+      <div className="mb-4">
+        <div className="flex flex-wrap gap-1.5 mb-3">
+          {INTERESTS.map((interest) => {
+            const active = draft.includes(interest);
+            return (
+              <button
+                key={interest}
+                type="button"
+                onClick={() => toggle(interest)}
+                className="px-2.5 py-1 rounded-full text-xs font-medium transition-colors"
+                style={{
+                  fontFamily: "var(--garden-font-body)",
+                  backgroundColor: active ? "rgba(215,242,90,0.2)" : "rgba(198,198,190,0.1)",
+                  color: active ? "var(--garden-citron)" : "var(--garden-muted)",
+                  border: active ? "1px solid var(--garden-citron)" : "1px solid transparent",
+                }}
+              >
+                {interest}
+              </button>
+            );
+          })}
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={save}
+            disabled={saving}
+            className="px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50"
+            style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
+          >
+            {saving ? "Saving..." : "Save"}
+          </button>
+          <button
+            onClick={() => { setDraft(project.interests ?? []); setEditing(false); }}
+            className="px-3 py-1.5 rounded-lg text-xs font-medium"
+            style={{ color: "var(--garden-dim)" }}
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const tags = project.interests ?? [];
+  if (tags.length === 0 && !isOwner) return null;
+
+  return (
+    <div className="flex flex-wrap items-center gap-1.5 mb-4">
+      {tags.map((tag: string) => (
+        <span
+          key={tag}
+          className="px-2.5 py-1 rounded-full text-xs font-medium"
+          style={{ fontFamily: "var(--garden-font-body)", backgroundColor: "rgba(198,198,190,0.1)", color: "var(--garden-muted)" }}
+        >
+          {tag}
+        </span>
+      ))}
+      {isOwner && (
+        <EditButton onClick={() => { setDraft(tags); setEditing(true); }} label="Edit tags" />
+      )}
+    </div>
+  );
 }
 
 // Small avatar, same fallback-initial pattern as the creator block above —
