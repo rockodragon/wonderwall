@@ -10,7 +10,7 @@ import { Reveal } from "../hooks/useReveal";
 
 export function meta({}: Route.MetaArgs) {
   return [
-    { title: "creatives.exchange — Create together, building flourishing communities" },
+    { title: "creatives.exchange — Create better together, building flourishing communities" },
     {
       name: "description",
       content:
@@ -18,7 +18,7 @@ export function meta({}: Route.MetaArgs) {
     },
     {
       property: "og:title",
-      content: "creatives.exchange — Create together, building flourishing communities",
+      content: "creatives.exchange — Create better together, building flourishing communities",
     },
     {
       property: "og:description",
@@ -39,7 +39,7 @@ export function meta({}: Route.MetaArgs) {
     { name: "twitter:card", content: "summary_large_image" },
     {
       name: "twitter:title",
-      content: "creatives.exchange — Create together, building flourishing communities",
+      content: "creatives.exchange — Create better together, building flourishing communities",
     },
     {
       name: "twitter:description",
@@ -115,7 +115,7 @@ export default function Home() {
                 textWrap: "balance",
               }}
             >
-              Create{" "}
+              Create better{" "}
               <span className="text-[var(--garden-citron)]">together.</span>
             </h1>
             <p className="text-lg md:text-[22px] leading-relaxed md:leading-[1.5] text-[var(--garden-body)] max-w-[560px]" style={{ textWrap: "pretty" }}>
@@ -238,7 +238,7 @@ export default function Home() {
       <section className="py-16 md:py-[88px] bg-[var(--garden-ink-raised)]">
         <Reveal className="max-w-[1280px] mx-auto px-6 md:px-14 grid md:grid-cols-12 gap-8 md:gap-16">
           <div className="md:col-span-5">
-            <p className="text-[var(--garden-citron)] text-sm md:text-base font-semibold tracking-wide uppercase mb-5">
+            <p className="text-[var(--garden-citron)] text-base md:text-lg font-semibold tracking-wide uppercase mb-5">
               The Garden
             </p>
             <h2
@@ -300,7 +300,7 @@ export default function Home() {
               />
             </Reveal>
             <Reveal delay={150} className="md:col-span-7 max-w-[560px]">
-              <p className="text-[var(--garden-citron)] text-sm md:text-base font-semibold tracking-wide uppercase mb-5">
+              <p className="text-[var(--garden-citron)] text-base md:text-lg font-semibold tracking-wide uppercase mb-5">
                 For creatives
               </p>
               <h3
@@ -340,7 +340,7 @@ export default function Home() {
           {/* Patrons — image right (7fr / 5fr) */}
           <div className="grid md:grid-cols-12 gap-8 md:gap-16 items-center">
             <Reveal delay={150} className="md:col-span-7 max-w-[560px] md:justify-self-end order-2 md:order-none">
-              <p className="text-[var(--garden-citron)] text-sm md:text-base font-semibold tracking-wide uppercase mb-5">
+              <p className="text-[var(--garden-citron)] text-base md:text-lg font-semibold tracking-wide uppercase mb-5">
                 For patrons
               </p>
               <h3
@@ -396,7 +396,7 @@ export default function Home() {
               />
             </Reveal>
             <Reveal delay={150} className="md:col-span-7 max-w-[560px]">
-              <p className="text-[var(--garden-citron)] text-sm md:text-base font-semibold tracking-wide uppercase mb-5">
+              <p className="text-[var(--garden-citron)] text-base md:text-lg font-semibold tracking-wide uppercase mb-5">
                 For hosts
               </p>
               <h3
@@ -436,7 +436,7 @@ export default function Home() {
           {/* Community Partners — image right (7fr / 5fr) */}
           <div className="grid md:grid-cols-12 gap-8 md:gap-16 items-center">
             <Reveal delay={150} className="md:col-span-7 max-w-[560px] md:justify-self-end order-2 md:order-none">
-              <p className="text-[var(--garden-citron)] text-sm md:text-base font-semibold tracking-wide uppercase mb-5">
+              <p className="text-[var(--garden-citron)] text-base md:text-lg font-semibold tracking-wide uppercase mb-5">
                 For community partners
               </p>
               <h3

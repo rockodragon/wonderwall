@@ -4,8 +4,8 @@
 // on /signup (its InviteEntry), the one step that actually needs it. A
 // ?invite=slug on this URL rides along to /signup/<slug> so the code isn't
 // asked for twice. ?community=<slug> makes the page read as that
-// community's door (its name in the headline, its tagline under the
-// subhead); without it, the copy is the platform's.
+// community's door (its name in the headline); without it, the copy is
+// the platform's.
 //
 // Each paid card is a real Stripe Checkout button — garden/stripe.ts's
 // createMembershipCheckout, the same action settings.tsx's billing portal
@@ -232,7 +232,6 @@ export default function JoinPage() {
     communitySlug ? { slug: communitySlug } : "skip",
   );
   const communityName = community?.name ?? null;
-  const communityTagline = community?.tagline ?? null;
 
   return (
     <GardenPage wide>
@@ -246,11 +245,6 @@ export default function JoinPage() {
           at member tables. Half of it goes into the Grant Fund, so your
           membership funds another creative's project too.
         </p>
-        {communityTagline && (
-          <p style={{ marginTop: 10, fontSize: 15, lineHeight: 1.6, color: "var(--g-dim)" }}>
-            {communityTagline}
-          </p>
-        )}
       </div>
 
       {membership && (
