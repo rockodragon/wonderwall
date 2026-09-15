@@ -412,33 +412,39 @@ export default function Home() {
       {/* Passage — 2-column: headline left, body right */}
       <section className="py-16 md:py-[88px] bg-[var(--garden-ink-raised)]">
         <Reveal className="max-w-[1280px] mx-auto px-6 md:px-14 grid md:grid-cols-12 gap-8 md:gap-16">
-          <h2
-            className="md:col-span-5 text-3xl md:text-[44px] text-[var(--garden-paper)] leading-[1.1]"
-            style={{
-              fontFamily: displayFont,
-              fontWeight: 500,
-              letterSpacing: "-0.02em",
-              textWrap: "balance",
-            }}
-          >
-            Nothing here gets made alone.
-          </h2>
+          <div className="md:col-span-5">
+            <p className="text-[var(--garden-citron)] text-xs font-semibold tracking-wide uppercase mb-5">
+              The Garden
+            </p>
+            <h2
+              className="text-3xl md:text-[44px] text-[var(--garden-paper)] leading-[1.1]"
+              style={{
+                fontFamily: displayFont,
+                fontWeight: 500,
+                letterSpacing: "-0.02em",
+                textWrap: "balance",
+              }}
+            >
+              A flourishing artistic economy.
+            </h2>
+          </div>
           <div className="md:col-span-7 flex flex-col gap-5 text-xl leading-[1.6] text-[var(--garden-body)] md:pt-2 max-w-[600px]">
             <p>
               Creatives find each other and make the work together. Patrons
               back it. Partners open their doors. Hosts run the tables where
-              it all starts.
+              it all starts. Nothing here gets made alone.
             </p>
             <p className="text-[var(--garden-dim)]">
-              <Link
-                to="/communities/the-garden"
-                className="text-[var(--garden-paper)] underline decoration-[var(--garden-citron)] decoration-2 underline-offset-4 hover:text-[var(--garden-citron)] transition-colors"
-              >
-                The Garden
-              </Link>{" "}
-              is the founding Christian creative community on the platform,
-              with one mission: love our neighbors through our craft.
+              The Garden is the founding Christian creative community on the
+              platform, with one mission: love our neighbors through our
+              craft.
             </p>
+            <Link
+              to="/communities/the-garden"
+              className="self-start text-base font-semibold text-[var(--garden-citron)] hover:opacity-80 transition-opacity"
+            >
+              Step into The Garden →
+            </Link>
           </div>
         </Reveal>
       </section>
