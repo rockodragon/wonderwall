@@ -1,4 +1,4 @@
-import { useConvexAuth, useMutation, useQuery } from "convex/react";
+import { useConvexAuth, useMutation } from "convex/react";
 import { Link, useNavigate } from "react-router";
 import { useEffect, useState } from "react";
 import type { Route } from "./+types/home";
@@ -10,20 +10,20 @@ import { Reveal } from "../hooks/useReveal";
 
 export function meta({}: Route.MetaArgs) {
   return [
-    { title: "creatives.exchange - Show Your Craft, Collaborate & Find Work" },
+    { title: "creatives.exchange — Create together, building flourishing communities" },
     {
       name: "description",
       content:
-        "Creatives, patrons, hosts and partners in one place, for the sake of your community. Show your work, collaborate, and find paid opportunities.",
+        "Creatives, patrons, hosts and partners in one place. Make good work, find your people, and love your neighbors through your craft.",
     },
     {
       property: "og:title",
-      content: "creatives.exchange - Show Your Craft, Collaborate & Find Work",
+      content: "creatives.exchange — Create together, building flourishing communities",
     },
     {
       property: "og:description",
       content:
-        "Creatives, patrons, hosts and partners in one place, for the sake of your community. Show your work, collaborate, and find paid opportunities.",
+        "Creatives, patrons, hosts and partners in one place. Make good work, find your people, and love your neighbors through your craft.",
     },
     { property: "og:type", content: "website" },
     {
@@ -39,12 +39,12 @@ export function meta({}: Route.MetaArgs) {
     { name: "twitter:card", content: "summary_large_image" },
     {
       name: "twitter:title",
-      content: "creatives.exchange - Show Your Craft, Collaborate & Find Work",
+      content: "creatives.exchange — Create together, building flourishing communities",
     },
     {
       name: "twitter:description",
       content:
-        "Creatives, patrons, hosts and partners in one place, for the sake of your community. Show your work, collaborate, and find paid opportunities.",
+        "Creatives, patrons, hosts and partners in one place. Make good work, find your people, and love your neighbors through your craft.",
     },
   ];
 }
@@ -59,26 +59,16 @@ export default function Home() {
   const [message, setMessage] = useState("");
   const [submittedEmail, setSubmittedEmail] = useState("");
   const [waitlistPosition, setWaitlistPosition] = useState<number | null>(null);
-  const [inviteInput, setInviteInput] = useState("");
-  const [inviteError, setInviteError] = useState("");
-  const [inviteSlug, setInviteSlug] = useState<string | null>(null);
   const addToWaitlist = useMutation(api.waitlist.addToWaitlist);
 
-  // Fetch inviter info when slug is set
-  const inviterInfo = useQuery(
-    api.invites.getInviterInfo,
-    inviteSlug ? { slug: inviteSlug } : "skip",
-  );
-
-  // Check for invite parameter in URL
+  // /?invite=slug used to open an invite preview here; the invite code is
+  // collected on /signup now, so an old link of that shape lands there.
   useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const inviteParam = urlParams.get("invite");
+    const inviteParam = new URLSearchParams(window.location.search).get("invite");
     if (inviteParam) {
-      setInviteSlug(inviteParam);
-      window.history.replaceState({}, "", "/");
+      navigate(`/signup/${encodeURIComponent(inviteParam)}`, { replace: true });
     }
-  }, []);
+  }, [navigate]);
 
   async function handleWaitlistSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -99,33 +89,6 @@ export default function Home() {
     } catch (err) {
       setStatus("error");
       setMessage("Something went wrong. Please try again.");
-    }
-  }
-
-  function handleInviteSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setInviteError("");
-
-    if (!inviteInput.trim()) {
-      setInviteError("Please enter an invite link or code");
-      return;
-    }
-
-    let slug = inviteInput.trim();
-
-    if (slug.includes("/signup/")) {
-      const match = slug.match(/\/signup\/([^/?]+)/);
-      if (match) {
-        slug = match[1];
-      }
-    } else if (slug.includes("/")) {
-      slug = slug.replace(/^\/+|\/+$/g, "");
-    }
-
-    if (slug) {
-      setInviteSlug(slug);
-    } else {
-      setInviteError("Invalid invite format");
     }
   }
 
@@ -156,21 +119,39 @@ export default function Home() {
               <span className="text-[var(--garden-citron)]">together.</span>
             </h1>
             <p className="text-lg md:text-[22px] leading-relaxed md:leading-[1.5] text-[var(--garden-body)] max-w-[560px]" style={{ textWrap: "pretty" }}>
-              Creatives, patrons, hosts and partners in one place, for the
-              sake of your community.
+              Creatives, patrons, hosts and partners in one place, building
+              flourishing communities.
             </p>
           </div>
 
           {/* Right column — invite + waitlist forms */}
           <div className="md:col-span-5 flex flex-col gap-7 pb-1.5">
-            {!inviteSlug ? (
-              <>
-                <div
-                  className="flex items-center gap-2 text-[var(--garden-dim)] text-xs tracking-[0.1em] uppercase"
-                  style={{ fontFamily: monoFont }}
-                >
+            <div
+              className="flex items-center gap-2 text-[var(--garden-dim)] text-xs tracking-[0.1em] uppercase"
+              style={{ fontFamily: monoFont }}
+            >
+              <svg
+                className="w-3.5 h-3.5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                />
+              </svg>
+              Closed beta · invite only
+            </div>
+
+            {/* Waitlist form */}
+            {status === "success" ? (
+              <div>
+                <div className="flex items-center gap-2 text-green-400">
                   <svg
-                    className="w-3.5 h-3.5"
+                    className="w-5 h-5 shrink-0"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
@@ -179,232 +160,84 @@ export default function Home() {
                       strokeLinecap="round"
                       strokeLinejoin="round"
                       strokeWidth={2}
-                      d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                      d="M5 13l4 4L19 7"
                     />
                   </svg>
-                  Closed beta · invite only
+                  <span className="font-semibold">You're on the list</span>
                 </div>
-
-                {/* Invite form — stacked */}
-                <form
-                  onSubmit={handleInviteSubmit}
-                  className="flex flex-col gap-2.5"
-                >
-                  <input
-                    type="text"
-                    value={inviteInput}
-                    onChange={(e) => setInviteInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") handleInviteSubmit(e);
-                    }}
-                    placeholder="Paste your invite code"
-                    className="w-full px-[18px] py-[15px] text-base border border-[var(--garden-hairline-raised)] rounded-[10px] bg-[var(--garden-ink-raised)] text-[var(--garden-paper)] placeholder-[var(--garden-muted)] outline-none focus:border-[var(--garden-citron)] transition-colors"
-                    style={{ fontFamily: "inherit" }}
-                  />
-                  {inviteError && (
-                    <p className="text-sm text-red-400">{inviteError}</p>
-                  )}
-                  <button
-                    type="submit"
-                    className="w-full px-[18px] py-[15px] text-base bg-[var(--garden-citron)] text-[var(--garden-ink)] rounded-[10px] font-semibold hover:opacity-90 transition-all cursor-pointer"
-                  >
-                    Enter with invite
-                  </button>
-                </form>
-
-                {/* Gradient divider */}
-                <div
-                  className="h-px"
-                  style={{
-                    background:
-                      "linear-gradient(90deg, transparent, var(--garden-hairline-raised) 20%, var(--garden-hairline-raised) 80%, transparent)",
-                  }}
-                />
-
-                {/* Waitlist form */}
-                {status === "success" ? (
-                  <div>
-                    <div className="flex items-center gap-2 text-green-400">
-                      <svg
-                        className="w-5 h-5 shrink-0"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M5 13l4 4L19 7"
-                        />
-                      </svg>
-                      <span className="font-semibold">You're on the list</span>
-                    </div>
-                    <p className="mt-1 text-sm text-[var(--garden-dim)]">
-                      {message}
-                    </p>
-                    <WaitlistFollowUpDark
-                      email={submittedEmail}
-                      initialPosition={waitlistPosition}
-                    />
-                  </div>
-                ) : (
-                  <form
-                    onSubmit={handleWaitlistSubmit}
-                    className="flex gap-2.5"
-                  >
-                    <input
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="your@email.com"
-                      className="flex-1 min-w-0 px-[18px] py-[15px] text-base border border-[var(--garden-hairline-raised)] rounded-[10px] bg-[var(--garden-ink-raised)] text-[var(--garden-paper)] placeholder-[var(--garden-muted)] outline-none focus:border-[var(--garden-hairline-raised)] transition-colors"
-                      style={{ fontFamily: "inherit" }}
-                      disabled={status === "loading"}
-                    />
-                    {status === "error" && (
-                      <p className="text-sm text-red-400 absolute">{message}</p>
-                    )}
-                    <button
-                      type="submit"
-                      disabled={status === "loading"}
-                      className="px-[18px] py-[15px] text-base bg-transparent border border-[var(--garden-hairline-raised)] text-[var(--garden-paper)] rounded-[10px] font-medium hover:bg-[var(--garden-ink-raised)] transition-all cursor-pointer whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {status === "loading"
-                        ? "Joining..."
-                        : "Join the waitlist"}
-                    </button>
-                  </form>
-                )}
-              </>
-            ) : inviterInfo === undefined ? (
-              <div className="flex items-center justify-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--garden-citron)]" />
-              </div>
-            ) : inviterInfo === null ? (
-              <div className="text-center py-4">
-                <p className="text-sm text-red-400 mb-3">
-                  Invalid invite link
+                <p className="mt-1 text-sm text-[var(--garden-dim)]">
+                  {message}
                 </p>
-                <button
-                  onClick={() => {
-                    setInviteSlug(null);
-                    setInviteInput("");
-                  }}
-                  className="text-sm text-[var(--garden-citron)] hover:opacity-80 font-medium transition-colors"
-                >
-                  Try again
-                </button>
+                <WaitlistFollowUpDark
+                  email={submittedEmail}
+                  initialPosition={waitlistPosition}
+                />
               </div>
             ) : (
-              <div className="bg-[var(--garden-ink-raised)] rounded-2xl shadow-2xl border border-[var(--garden-hairline)] overflow-hidden">
-                <div className="bg-[var(--garden-ink)] border-b border-[var(--garden-hairline)] px-6 py-5">
-                  <p className="text-[var(--garden-citron)] text-xs font-medium uppercase tracking-wide mb-1">
-                    You've been invited
-                  </p>
-                  <h3 className="text-2xl font-bold text-[var(--garden-paper)]">
-                    {inviterInfo.name} invited you to join
-                  </h3>
+              <form
+                onSubmit={handleWaitlistSubmit}
+                className="flex flex-col gap-2.5"
+              >
+                <div className="flex gap-2.5">
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="your@email.com"
+                    className="flex-1 min-w-0 px-[18px] py-[15px] text-base border border-[var(--garden-hairline-raised)] rounded-[10px] bg-[var(--garden-ink-raised)] text-[var(--garden-paper)] placeholder-[var(--garden-muted)] outline-none focus:border-[var(--garden-citron)] transition-colors"
+                    style={{ fontFamily: "inherit" }}
+                    disabled={status === "loading"}
+                  />
+                  <button
+                    type="submit"
+                    disabled={status === "loading"}
+                    className="px-[18px] py-[15px] text-base bg-[var(--garden-citron)] text-[var(--garden-ink)] rounded-[10px] font-semibold hover:opacity-90 transition-all cursor-pointer whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {status === "loading" ? "Joining..." : "Join the waitlist"}
+                  </button>
                 </div>
-                <div className="p-6">
-                  <div className="flex items-center gap-3 mb-4">
-                    {inviterInfo.imageUrl ? (
-                      <img
-                        src={inviterInfo.imageUrl}
-                        alt={inviterInfo.name}
-                        className="w-14 h-14 rounded-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-14 h-14 rounded-full bg-[var(--garden-hairline-raised)] flex items-center justify-center text-[var(--garden-paper)] text-lg font-bold">
-                        {inviterInfo.name.charAt(0).toUpperCase()}
-                      </div>
-                    )}
-                    <div className="text-left flex-1">
-                      <div className="font-semibold text-[var(--garden-paper)]">
-                        {inviterInfo.name}
-                      </div>
-                      {inviterInfo.interests &&
-                        inviterInfo.interests.length > 0 && (
-                          <div className="text-sm text-[var(--garden-muted)]">
-                            {inviterInfo.interests.join(", ")}
-                          </div>
-                        )}
-                    </div>
-                  </div>
-                  {inviterInfo.recentInvitees &&
-                  inviterInfo.recentInvitees.length > 0 ? (
-                    <div className="mb-4 p-4 bg-[var(--garden-ink)] border border-[var(--garden-hairline)] rounded-xl">
-                      <div className="flex items-center gap-3 mb-2">
-                        <div className="flex -space-x-2">
-                          <div
-                            className="w-8 h-8 rounded-full bg-[var(--garden-hairline-raised)] flex items-center justify-center text-[var(--garden-paper)] text-xs font-bold ring-2 ring-[var(--garden-ink-raised)]"
-                            title={inviterInfo.name}
-                          >
-                            {inviterInfo.name.charAt(0).toUpperCase()}
-                          </div>
-                          {inviterInfo.recentInvitees.map((invitee, idx) => (
-                            <div
-                              key={idx}
-                              className="w-8 h-8 rounded-full bg-[var(--garden-hairline-raised)] flex items-center justify-center text-[var(--garden-paper)] text-xs font-bold ring-2 ring-[var(--garden-ink-raised)]"
-                              title={invitee.name}
-                            >
-                              {invitee.name.charAt(0).toUpperCase()}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                      <p className="text-sm text-[var(--garden-body)]">
-                        Join{" "}
-                        <span className="font-semibold">
-                          {inviterInfo.name}
-                        </span>
-                        {inviterInfo.recentInvitees.map((invitee, idx) => (
-                          <span key={idx}>
-                            {idx === 0 && ", "}
-                            <span className="font-semibold">
-                              {invitee.name}
-                            </span>
-                            {idx < inviterInfo.recentInvitees.length - 1 &&
-                              ", "}
-                          </span>
-                        ))}{" "}
-                        and others on The Exchange
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="mb-4 p-4 bg-[var(--garden-ink)] border border-[var(--garden-hairline)] rounded-xl">
-                      <p className="text-sm text-[var(--garden-body)]">
-                        Be one of the first to join{" "}
-                        <span className="font-semibold text-[var(--garden-paper)]">
-                          {inviterInfo.name}
-                        </span>
-                        's network on The Exchange
-                      </p>
-                    </div>
-                  )}
-                  <div className="space-y-2">
-                    <button
-                      onClick={() => {
-                        sessionStorage.setItem("invite-accepted", inviteSlug);
-                        navigate(`/signup/${inviteSlug}`);
-                      }}
-                      className="w-full px-6 py-4 bg-[var(--garden-citron)] text-[var(--garden-ink)] rounded-xl font-semibold hover:opacity-90 transition-all"
-                    >
-                      Accept Invite & Join
-                    </button>
-                    <button
-                      onClick={() => {
-                        setInviteSlug(null);
-                        setInviteInput("");
-                      }}
-                      className="w-full px-4 py-2 text-[var(--garden-muted)] hover:text-[var(--garden-paper)] text-sm transition-colors"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              </div>
+                {status === "error" && (
+                  <p className="text-sm text-red-400">{message}</p>
+                )}
+              </form>
             )}
+
+            {/* Gradient divider */}
+            <div
+              className="h-px"
+              style={{
+                background:
+                  "linear-gradient(90deg, transparent, var(--garden-hairline-raised) 20%, var(--garden-hairline-raised) 80%, transparent)",
+              }}
+            />
+
+            {/* How the money works — the proof a creative wants before
+                scrolling. The invite-code form that sat here moved to
+                /signup, the one place that needs it. */}
+            <ul className="flex flex-col gap-3 text-[15px] leading-[1.5] text-[var(--garden-body)]">
+              <li className="flex gap-3">
+                <span className="text-[var(--garden-citron)] shrink-0" aria-hidden="true">—</span>
+                <span>Free to join. When someone backs you, you keep all of it.</span>
+              </li>
+              <li className="flex gap-3">
+                <span className="text-[var(--garden-citron)] shrink-0" aria-hidden="true">—</span>
+                <span>Half of every membership funds a member's project.</span>
+              </li>
+              <li className="flex gap-3">
+                <span className="text-[var(--garden-citron)] shrink-0" aria-hidden="true">—</span>
+                <span>Hosting is free. Hosts keep 90% of what they sell.</span>
+              </li>
+            </ul>
+
+            <p className="text-sm text-[var(--garden-dim)]">
+              Have an invite?{" "}
+              <Link
+                to="/signup"
+                className="text-[var(--garden-paper)] font-medium hover:text-[var(--garden-citron)] transition-colors"
+              >
+                Create your account →
+              </Link>
+            </p>
           </div>
         </div>
       </main>

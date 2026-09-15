@@ -60,20 +60,6 @@ export default function Signup() {
   const redeemInvite = useMutation(api.invites.redeemBySlug);
   const generateSlug = useMutation(api.invites.generateInviteSlug);
 
-  // Redirect to home page with invite preview if arriving directly
-  useEffect(() => {
-    if (inviteSlug && typeof window !== "undefined") {
-      const fromHome = sessionStorage.getItem("invite-accepted");
-      if (!fromHome || fromHome !== inviteSlug) {
-        // Redirect to home page to show invite preview
-        navigate(`/?invite=${inviteSlug}`, { replace: true });
-      } else {
-        // Clear the flag since we've used it
-        sessionStorage.removeItem("invite-accepted");
-      }
-    }
-  }, [inviteSlug, navigate]);
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
@@ -201,39 +187,11 @@ export default function Signup() {
     }
   }
 
-  // If no invite slug in URL, show error
+  // No slug in the URL: ask for the code here. This used to be a dead
+  // end ("Invite Required", no input) while the home page hero collected
+  // the code; the hero now carries the pitch and this page owns the gate.
   if (!inviteSlug) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950 px-4">
-        <div className="max-w-md w-full text-center">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-            Invite Required
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400 mb-6">
-            The Exchange is invite-only. Please use an invite link from an
-            existing member to join.
-          </p>
-          <Link
-            to="/login"
-            className="text-blue-600 hover:text-blue-500 font-medium"
-          >
-            Already have an account? Sign in
-          </Link>
-
-          {/* This branch is what /signup renders without an invite slug, so it
-              is a signup surface too — it needs the same links as the form. */}
-          <p className="mt-8 text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
-            <Link to="/legal/terms" className="text-blue-600 hover:text-blue-500">
-              Terms of Service
-            </Link>{" "}
-            &middot;{" "}
-            <Link to="/legal/privacy" className="text-blue-600 hover:text-blue-500">
-              Privacy Policy
-            </Link>
-          </p>
-        </div>
-      </div>
-    );
+    return <InviteEntry />;
   }
 
   // Show welcome modal after successful signup
@@ -481,6 +439,150 @@ export default function Signup() {
               to="/login"
               className="text-blue-600 hover:text-blue-500 font-medium"
             >
+              Sign in
+            </Link>
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ——— Invite entry: the one place the code is collected ————————————————
+// Accepts a bare code or a pasted /signup/<code> link, validates it with
+// the same query the form uses, then lands on /signup/<code> so the
+// inviter card and the form render as if the link had been clicked.
+
+function InviteEntry() {
+  const navigate = useNavigate();
+  const [input, setInput] = useState("");
+  const [checking, setChecking] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const inviterInfo = useQuery(
+    api.invites.getInviterInfo,
+    checking ? { slug: checking } : "skip",
+  );
+
+  useEffect(() => {
+    if (!checking || inviterInfo === undefined) return;
+    if (inviterInfo === null) {
+      setError("That invite code wasn't recognized.");
+      setChecking(null);
+      return;
+    }
+    if (!inviterInfo.canAcceptMore) {
+      setError("This invite has reached its limit — ask the person for a new one.");
+      setChecking(null);
+      return;
+    }
+    navigate(`/signup/${encodeURIComponent(checking)}`);
+  }, [checking, inviterInfo, navigate]);
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const slug = input
+      .trim()
+      .replace(/^.*\/signup\//, "")
+      .replace(/^.*[?&]invite=/, "")
+      .replace(/[?&#].*$/, "")
+      .replace(/\/+$/, "");
+    if (!slug) {
+      setError("Paste your invite link or code.");
+      return;
+    }
+    setError(null);
+    setChecking(slug);
+  }
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950 px-4 py-8">
+      <div className="max-w-md w-full space-y-6">
+        <div className="flex items-center justify-between mb-2">
+          <Link to="/" className="text-xl font-bold text-gray-900 dark:text-white">
+            creatives.exchange
+          </Link>
+          <Link
+            to="/login"
+            className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+          >
+            Sign in
+          </Link>
+        </div>
+
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 p-8">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+            Create your account
+          </h1>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+            The Exchange is invite-only right now. Paste the invite link or
+            code an existing member gave you.
+          </p>
+
+          {error && (
+            <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg text-sm">
+              {error}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label
+                htmlFor="invite"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+              >
+                Invite link or code
+              </label>
+              <input
+                id="invite"
+                type="text"
+                value={input}
+                onChange={(e) => {
+                  setInput(e.target.value);
+                  setError(null);
+                }}
+                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="creatives.exchange/signup/…"
+                autoFocus
+                required
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={!!checking}
+              className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {checking ? "Checking…" : "Continue"}
+            </button>
+          </form>
+
+          <div className="mt-6 space-y-2 text-sm text-gray-600 dark:text-gray-400">
+            <p>
+              No invite yet?{" "}
+              <Link to="/" className="text-blue-600 hover:text-blue-500 font-medium">
+                Join the waitlist
+              </Link>
+              , or ask a member — they can share their link from Settings.
+            </p>
+            <p>
+              Covered by a church or sponsor? Use the link they gave you — it
+              starts with /c/.
+            </p>
+          </div>
+
+          <p className="mt-6 text-center text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+            <Link to="/legal/terms" className="text-blue-600 hover:text-blue-500">
+              Terms of Service
+            </Link>{" "}
+            &middot;{" "}
+            <Link to="/legal/privacy" className="text-blue-600 hover:text-blue-500">
+              Privacy Policy
+            </Link>
+          </p>
+
+          <p className="mt-4 text-center text-sm text-gray-600 dark:text-gray-400">
+            Already have an account?{" "}
+            <Link to="/login" className="text-blue-600 hover:text-blue-500 font-medium">
               Sign in
             </Link>
           </p>
