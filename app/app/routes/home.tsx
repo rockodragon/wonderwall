@@ -124,7 +124,7 @@ export default function Home() {
             </p>
           </div>
 
-          {/* Right column — invite + waitlist forms */}
+          {/* Right column — waitlist + how the money works */}
           <div className="md:col-span-5 flex flex-col gap-7 pb-1.5">
             <div
               className="flex items-center gap-2 text-[var(--garden-dim)] text-xs tracking-[0.1em] uppercase"
@@ -211,17 +211,13 @@ export default function Home() {
               }}
             />
 
-            {/* How the money works — the two lines a creative wants before
+            {/* How the money works — the one line a creative wants before
                 scrolling. The invite-code form that sat here moved to
                 /signup, the one place that needs it. */}
             <ul className="flex flex-col gap-3 text-[15px] leading-[1.5] text-[var(--garden-body)]">
               <li className="flex gap-3">
                 <span className="text-[var(--garden-citron)] shrink-0" aria-hidden="true">—</span>
                 <span>Free to join. When someone backs you, you keep all of it.</span>
-              </li>
-              <li className="flex gap-3">
-                <span className="text-[var(--garden-citron)] shrink-0" aria-hidden="true">—</span>
-                <span>Half of every membership funds a member's project.</span>
               </li>
             </ul>
 
@@ -238,64 +234,86 @@ export default function Home() {
         </div>
       </main>
 
-      {/* Passage — 2-column: headline left, body right */}
+      {/* Pillars — Make. Back. Flourish. — the three-pillar tagline, explained
+          before the page gets into account types and The Garden. */}
       <section className="py-16 md:py-[88px] bg-[var(--garden-ink-raised)]">
-        <Reveal className="max-w-[1280px] mx-auto px-6 md:px-14 grid md:grid-cols-12 gap-8 md:gap-16">
-          <div className="md:col-span-5">
-            <p className="text-[var(--garden-citron)] text-xs font-semibold tracking-wide uppercase mb-5">
-              The Garden
-            </p>
-            <h2
-              className="text-3xl md:text-[44px] text-[var(--garden-paper)] leading-[1.1]"
-              style={{
-                fontFamily: displayFont,
-                fontWeight: 500,
-                letterSpacing: "-0.02em",
-                textWrap: "balance",
-              }}
-            >
-              A flourishing artistic economy.
-            </h2>
-          </div>
-          <div className="md:col-span-7 flex flex-col gap-5 text-xl leading-[1.6] text-[var(--garden-body)] md:pt-2 max-w-[600px]">
-            <p>
-              Creatives find each other and make the work together. Patrons
-              back it. Partners open their doors. Hosts run the tables where
-              it all starts. Nothing here gets made alone.
-            </p>
-            <p className="text-[var(--garden-dim)]">
-              The Garden is the founding Christian creative community on the
-              platform, with one mission: love our neighbors through our
-              craft.
-            </p>
-            <Link
-              to="/communities/the-garden"
-              className="self-start text-base font-semibold text-[var(--garden-citron)] hover:opacity-80 transition-opacity"
-            >
-              Step into The Garden →
-            </Link>
-          </div>
-        </Reveal>
-      </section>
-
-      {/* Who it's for — alternating image/text persona rows */}
-      <section className="py-16 md:py-24 px-6 md:px-14 max-w-[1280px] mx-auto">
-        {/* Section header — 2-column */}
-        <div className="grid md:grid-cols-12 gap-6 md:gap-16 mb-14 md:mb-[72px] items-baseline">
+        <div className="max-w-[1280px] mx-auto px-6 md:px-14">
           <h2
-            className="md:col-span-5 text-4xl md:text-[56px] text-[var(--garden-paper)] leading-none"
+            className="text-4xl md:text-[56px] text-[var(--garden-paper)] leading-none mb-12 md:mb-16"
             style={{
               fontFamily: displayFont,
               fontWeight: 500,
               letterSpacing: "-0.03em",
             }}
           >
-            Who it's for
+            Make<span className="text-[var(--garden-citron)]">.</span> Back
+            <span className="text-[var(--garden-citron)]">.</span> Flourish
+            <span className="text-[var(--garden-citron)]">.</span>
           </h2>
-          <p className="md:col-span-7 text-lg md:text-xl text-[var(--garden-dim)]">
-            Four seats at the table. One room.
-          </p>
+
+          <Reveal className="grid md:grid-cols-3 gap-8 md:gap-12">
+            {(
+              [
+                {
+                  eyebrow: "Make",
+                  heading: "Creatives make the work.",
+                  body: "Post what you're making, find collaborators, and take paid work from partners nearby. Joining is free, and when someone backs you, you keep all of it.",
+                },
+                {
+                  eyebrow: "Back",
+                  heading: "Everyone else backs it.",
+                  body: "Patrons, churches and partners put money, space and introductions behind the work, and every kind of backing is credited. Membership is optional, $10 a month, and half of it goes into a Grant Fund any member's project can apply to.",
+                },
+                {
+                  eyebrow: "Flourish",
+                  heading: "Communities flourish.",
+                  body: "Communities are the spaces where it compounds: tables, classes, events and a shared fund, run by the hosts who already lead them. Good work, made together, for the good of the place you live.",
+                },
+              ] as const
+            ).map((pillar) => (
+              <div key={pillar.eyebrow}>
+                <p
+                  className="text-[var(--garden-citron)] text-sm md:text-base font-semibold tracking-wide uppercase mb-5"
+                  style={{ fontFamily: monoFont }}
+                >
+                  {pillar.eyebrow}
+                </p>
+                <h3
+                  className="text-2xl md:text-[28px] text-[var(--garden-paper)] leading-[1.15] mb-4"
+                  style={{
+                    fontFamily: displayFont,
+                    fontWeight: 500,
+                    letterSpacing: "-0.02em",
+                    textWrap: "balance",
+                  }}
+                >
+                  {pillar.heading}
+                </h3>
+                <p
+                  className="text-base md:text-lg leading-[1.6] text-[var(--garden-body)]"
+                  style={{ textWrap: "pretty" }}
+                >
+                  {pillar.body}
+                </p>
+              </div>
+            ))}
+          </Reveal>
         </div>
+      </section>
+
+      {/* Who it's for — the four account types as alternating image/text
+          persona rows, then the Grant Program box */}
+      <section className="py-16 md:py-24 px-6 md:px-14 max-w-[1280px] mx-auto">
+        <h2
+          className="text-4xl md:text-[56px] text-[var(--garden-paper)] leading-none mb-14 md:mb-[72px]"
+          style={{
+            fontFamily: displayFont,
+            fontWeight: 500,
+            letterSpacing: "-0.03em",
+          }}
+        >
+          Who it's for
+        </h2>
 
         <div className="flex flex-col gap-16 md:gap-[88px]">
           {/* Creatives — image left (5fr / 7fr) */}
@@ -309,7 +327,7 @@ export default function Home() {
               />
             </Reveal>
             <Reveal delay={150} className="md:col-span-7 max-w-[560px]">
-              <p className="text-[var(--garden-citron)] text-xs font-semibold tracking-wide uppercase mb-5">
+              <p className="text-[var(--garden-citron)] text-sm md:text-base font-semibold tracking-wide uppercase mb-5">
                 For creatives
               </p>
               <h3
@@ -349,7 +367,7 @@ export default function Home() {
           {/* Patrons — image right (7fr / 5fr) */}
           <div className="grid md:grid-cols-12 gap-8 md:gap-16 items-center">
             <Reveal delay={150} className="md:col-span-7 max-w-[560px] md:justify-self-end order-2 md:order-none">
-              <p className="text-[var(--garden-citron)] text-xs font-semibold tracking-wide uppercase mb-5">
+              <p className="text-[var(--garden-citron)] text-sm md:text-base font-semibold tracking-wide uppercase mb-5">
                 For patrons
               </p>
               <h3
@@ -405,7 +423,7 @@ export default function Home() {
               />
             </Reveal>
             <Reveal delay={150} className="md:col-span-7 max-w-[560px]">
-              <p className="text-[var(--garden-citron)] text-xs font-semibold tracking-wide uppercase mb-5">
+              <p className="text-[var(--garden-citron)] text-sm md:text-base font-semibold tracking-wide uppercase mb-5">
                 For hosts
               </p>
               <h3
@@ -445,7 +463,7 @@ export default function Home() {
           {/* Community Partners — image right (7fr / 5fr) */}
           <div className="grid md:grid-cols-12 gap-8 md:gap-16 items-center">
             <Reveal delay={150} className="md:col-span-7 max-w-[560px] md:justify-self-end order-2 md:order-none">
-              <p className="text-[var(--garden-citron)] text-xs font-semibold tracking-wide uppercase mb-5">
+              <p className="text-[var(--garden-citron)] text-sm md:text-base font-semibold tracking-wide uppercase mb-5">
                 For community partners
               </p>
               <h3
@@ -517,6 +535,45 @@ export default function Home() {
             See the Grant Program
           </Link>
         </div>
+      </section>
+
+      {/* The Garden — compact, secondary block pointing at the founding community */}
+      <section className="px-6 md:px-14 pb-16 md:pb-24 max-w-[1280px] mx-auto">
+        <Reveal>
+          <div
+            className="rounded-[10px] p-8 md:p-10 flex flex-col md:flex-row md:items-center gap-6 md:gap-10"
+            style={{ border: "1px solid var(--garden-hairline)" }}
+          >
+            <div className="flex-1">
+              <p className="text-[var(--garden-citron)] text-sm md:text-base font-semibold tracking-wide uppercase mb-5">
+                The Garden
+              </p>
+              <h3
+                className="text-xl md:text-2xl text-[var(--garden-paper)] mb-3"
+                style={{
+                  fontFamily: displayFont,
+                  fontWeight: 500,
+                  letterSpacing: "-0.02em",
+                }}
+              >
+                A flourishing artistic economy.
+              </h3>
+              <p className="text-base leading-[1.6] text-[var(--garden-body)]" style={{ textWrap: "pretty" }}>
+                Creatives find each other and make the work together. Patrons
+                back it. Partners open their doors. Hosts run the tables where
+                it all starts. The Garden is the founding Christian creative
+                community on the platform, with one mission: love our neighbors
+                through our craft.
+              </p>
+            </div>
+            <Link
+              to="/communities/the-garden"
+              className="shrink-0 px-[22px] py-[13px] bg-[var(--garden-citron)] text-[var(--garden-ink)] rounded-[10px] font-semibold text-base hover:opacity-90 transition-all text-center"
+            >
+              Step into The Garden →
+            </Link>
+          </div>
+        </Reveal>
       </section>
 
       {/* Campaign atmosphere — 4-column image/quote grid */}

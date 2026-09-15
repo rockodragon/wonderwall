@@ -106,8 +106,8 @@ export function Wordmark({
               color: tone === "paper" ? DIM_STYLE_COLOR.paper : undefined,
             }}
           >
-            Give<span style={{ color: CITRON }}>.</span> Receive
-            <span style={{ color: CITRON }}>.</span> Grow
+            Make<span style={{ color: CITRON }}>.</span> Back
+            <span style={{ color: CITRON }}>.</span> Flourish
             <span style={{ color: CITRON }}>.</span>
           </span>
         )}
