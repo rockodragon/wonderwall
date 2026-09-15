@@ -13,7 +13,7 @@ import { ConvexError } from "convex/values";
 import { Link, useParams, useRouteError, useSearchParams } from "react-router";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
-import { formatDateTime, formatMoney, joinNames } from "../garden/ui";
+import { formatDateTime, formatMoney } from "../garden/ui";
 
 export function meta() {
   return [
@@ -455,154 +455,8 @@ function MemberRoster({ hostOrgId, isOwner }: { hostOrgId: Id<"hostOrgs">; isOwn
   );
 }
 
-// ————— Sections —————
-
-// The same rule ProductsSection already applies below: an empty section is a
-// dead-end for a random visitor (four stacked "nothing yet" blocks read as
-// broken, not new), so it's simply not rendered for them. A manager still
-// sees it, with a link straight to the create flow instead of a bare
-// sentence — the empty state is useful information for the one person who
-// can act on it.
-function TablesSection({
-  tables,
-  canManage,
-}: {
-  tables: Community["tables"];
-  canManage: boolean;
-  slug: string;
-}) {
-  if (tables.length === 0 && !canManage) return null;
-  return (
-    <div className="mt-7">
-      <SectionLabel>Tables</SectionLabel>
-      {tables.length === 0 ? (
-        <div className="mt-2.5"><Hint>No tables here yet. Tables are hand-created for now — message us to set one up.</Hint></div>
-      ) : (
-        <div className="mt-3 flex flex-col gap-2">
-          {tables.map((t) => (
-            <Link key={t._id} to={`/tables/${t.slug}`} className={cellClass} style={{ ...cardStyle, display: "block", textDecoration: "none" }}>
-              <span className="text-sm font-semibold" style={{ color: "var(--garden-paper)" }}>{t.name}</span>
-              <span className="text-xs ml-2.5" style={{ color: "var(--garden-dim)" }}>
-                {t.format ?? t.mode}
-                {t.cadence ? ` · ${t.cadence}` : ""}
-              </span>
-            </Link>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function EventsSection({
-  events,
-  canManage,
-  slug,
-}: {
-  events: Community["events"];
-  canManage: boolean;
-  slug: string;
-}) {
-  if (events.length === 0 && !canManage) return null;
-  return (
-    <div className="mt-7">
-      <SectionLabel>Upcoming events</SectionLabel>
-      {events.length === 0 ? (
-        <div className="mt-2.5">
-          <Hint>Nothing scheduled yet.</Hint>{" "}
-          <Link to={`/events?community=${slug}`} className="text-sm" style={{ color: "var(--garden-citron)" }}>
-            Put one on →
-          </Link>
-        </div>
-      ) : (
-        <div className="mt-3 flex flex-col gap-2">
-          {events.map((e) => (
-            <Link key={e._id} to={`/events/${e._id}`} className={cellClass} style={{ ...cardStyle, display: "block", textDecoration: "none" }}>
-              <span className="text-sm font-semibold" style={{ color: "var(--garden-paper)" }}>{e.title}</span>
-              <div className="text-xs mt-1" style={{ color: "var(--garden-dim)" }}>
-                {formatDateTime(e.datetime)}
-                {e.location ? ` · ${e.location}` : ""}
-              </div>
-            </Link>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function ProjectsSection({
-  projects,
-  canManage,
-  slug,
-}: {
-  projects: Community["projects"];
-  canManage: boolean;
-  slug: string;
-}) {
-  if (projects.length === 0 && !canManage) return null;
-  return (
-    <div className="mt-7">
-      <SectionLabel>Projects</SectionLabel>
-      {projects.length === 0 ? (
-        <div className="mt-2.5">
-          <Hint>No projects posted here yet.</Hint>{" "}
-          <Link to={`/projects?community=${slug}`} className="text-sm" style={{ color: "var(--garden-citron)" }}>
-            Post the first one →
-          </Link>
-        </div>
-      ) : (
-        <div className="mt-3 flex flex-col gap-2">
-          {projects.map((p) => (
-            <Link key={p._id} to={`/projects/${p._id}`} className={cellClass} style={{ ...cardStyle, display: "block", textDecoration: "none" }}>
-              <span className="text-sm font-semibold" style={{ color: "var(--garden-paper)" }}>{p.title}</span>
-              <span className="text-xs ml-2.5" style={{ color: "var(--garden-dim)" }}>by {p.byName}</span>
-              {p.blurb && <p className="text-xs mt-1" style={{ color: "var(--garden-dim)" }}>{p.blurb}</p>}
-            </Link>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function OfferingsSection({
-  offerings,
-  canManage,
-  slug,
-}: {
-  offerings: Community["offerings"];
-  canManage: boolean;
-  slug: string;
-}) {
-  if (offerings.length === 0 && !canManage) return null;
-  return (
-    <div className="mt-7">
-      <SectionLabel>Classes &amp; coaching</SectionLabel>
-      {offerings.length === 0 ? (
-        <div className="mt-2.5">
-          <Hint>Nothing offered here yet.</Hint>{" "}
-          <Link to={`/offerings?community=${slug}`} className="text-sm" style={{ color: "var(--garden-citron)" }}>
-            Post one →
-          </Link>
-        </div>
-      ) : (
-        <div className="mt-3 flex flex-col gap-2">
-          {offerings.map((o) => (
-            <Link key={o._id} to="/offerings" className={cellClass} style={{ ...cardStyle, display: "block", textDecoration: "none" }}>
-              <span className="text-sm font-semibold" style={{ color: "var(--garden-paper)" }}>{o.title}</span>
-              <span className="text-xs ml-2.5" style={{ color: "var(--garden-dim)" }}>
-                {o.format ?? "Offering"}
-                {o.cadence ? ` · ${o.cadence}` : ""}
-                {o.priceCents ? ` · ${formatMoney(o.priceCents)}` : ""}
-              </span>
-            </Link>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
+// ————— Products (the one section the page still lists: it is the buy
+// surface, and checkout lands back here with ?purchased=1) —————
 
 function ProductResources({ productId }: { productId: Id<"communityProducts"> }) {
   const access = useQuery(api.garden.products.getProductAccess, { productId });
@@ -1172,38 +1026,36 @@ export default function CommunityDetailPage() {
           {community.tagline}
         </p>
       )}
-      <div className="mt-2.5 flex gap-3.5 flex-wrap text-[13.5px]" style={{ color: "var(--garden-muted)" }}>
-        {community.locationLabel && <span>{community.locationLabel}</span>}
-        {community.websiteUrl && (
-          <a href={community.websiteUrl} target="_blank" rel="noopener noreferrer" style={{ color: "var(--garden-citron)" }}>
-            Website →
-          </a>
-        )}
-        {community.leaders.length > 0 && (
-          <span>Hosted by {joinNames(community.leaders.map((l) => l.name))}</span>
-        )}
-        <span>{community.memberCount} member{community.memberCount === 1 ? "" : "s"}</span>
-      </div>
+      {community.websiteUrl && (
+        <a
+          href={community.websiteUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-2.5 inline-block text-[13.5px]"
+          style={{ color: "var(--garden-citron)" }}
+        >
+          Website →
+        </a>
+      )}
       {community.description && (
         <p className="mt-4 text-[15px] leading-relaxed max-w-[62ch]" style={{ color: "var(--garden-body)" }}>
           {community.description}
         </p>
       )}
-      <div className="mt-4 flex items-baseline gap-3.5 flex-wrap text-[13.5px]">
-        <span style={{ color: "var(--garden-muted)" }}>Browse everything in {community.name}:</span>
-        <Link to={`/projects?community=${community.slug}`} style={{ color: "var(--garden-citron)" }}>Projects →</Link>
-        <Link to={`/events?community=${community.slug}`} style={{ color: "var(--garden-citron)" }}>Events →</Link>
-        <Link to={`/offerings?community=${community.slug}`} style={{ color: "var(--garden-citron)" }}>Classes →</Link>
-      </div>
 
-      <div className="mt-5">
+      {/* One row: the membership action, then where to browse. The per-
+          section lists that used to follow (tables, events, projects,
+          classes) duplicated these three links, so the page stops at the
+          links — the filtered list pages are the browse surface. */}
+      <div className="mt-5 flex items-center gap-x-5 gap-y-3 flex-wrap text-[13.5px]">
         <JoinControl community={community} />
+        <div className="flex items-baseline gap-3.5 flex-wrap">
+          <span style={{ color: "var(--garden-muted)" }}>or browse</span>
+          <Link to={`/projects?community=${community.slug}`} style={{ color: "var(--garden-citron)" }}>Projects →</Link>
+          <Link to={`/events?community=${community.slug}`} style={{ color: "var(--garden-citron)" }}>Events →</Link>
+          <Link to={`/offerings?community=${community.slug}`} style={{ color: "var(--garden-citron)" }}>Classes →</Link>
+        </div>
       </div>
-
-      <TablesSection tables={community.tables} canManage={community.viewer.canManage} slug={community.slug} />
-      <EventsSection events={community.events} canManage={community.viewer.canManage} slug={community.slug} />
-      <ProjectsSection projects={community.projects} canManage={community.viewer.canManage} slug={community.slug} />
-      <OfferingsSection offerings={community.offerings} canManage={community.viewer.canManage} slug={community.slug} />
 
       <ProductsSection
         hostOrgId={community._id}

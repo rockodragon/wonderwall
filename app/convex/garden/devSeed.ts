@@ -413,7 +413,7 @@ export const seedCommunityLaunch = internalMutation({
     const gardenPatch = {
       name: "The Garden",
       kind: COMMUNITY_KIND,
-      tagline: "Creatives and the people who back them, gathering in the open.",
+      tagline: "Love our neighbors through our craft.",
       description:
         "The Garden is creatives.exchange's first community — creatives who get their work funded, find collaborators, and gather around real tables, in San Diego and wherever the next table opens. Join free: browse projects, sit in on open tables, show your portfolio. Money is never the only door. When you want your work funded, a seat is $10 a month, and half of every membership funds another creative's project.",
       locationLabel: "San Diego · online",
@@ -437,7 +437,7 @@ export const seedCommunityLaunch = internalMutation({
         visibility: gardenPatch.visibility,
         joinPolicy: garden.joinPolicy ?? gardenPatch.joinPolicy,
         tagline:
-          garden.tagline && garden.tagline !== "Kingdom creatives" && !garden.tagline.startsWith("Kingdom creatives —") && garden.tagline !== "Kingdom-minded creatives, funded in the open."
+          garden.tagline && garden.tagline !== "Kingdom creatives" && !garden.tagline.startsWith("Kingdom creatives —") && garden.tagline !== "Kingdom-minded creatives, funded in the open." && garden.tagline !== "Creatives and the people who back them, gathering in the open."
             ? garden.tagline
             : gardenPatch.tagline,
         description:
