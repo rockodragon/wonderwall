@@ -377,8 +377,8 @@ export default function Home() {
             </Reveal>
             <Reveal className="md:col-span-5 order-1 md:order-none">
               <img
-                src={CAMPAIGN_IMAGES.viewing.src}
-                alt={CAMPAIGN_IMAGES.viewing.alt}
+                src={CAMPAIGN_IMAGES.gallery.src}
+                alt={CAMPAIGN_IMAGES.gallery.alt}
                 loading="lazy"
                 className="w-full aspect-[4/5] object-cover rounded-[10px] bg-[var(--garden-ink-raised)]"
               />
@@ -389,8 +389,8 @@ export default function Home() {
           <div className="grid md:grid-cols-12 gap-8 md:gap-16 items-center">
             <Reveal className="md:col-span-5">
               <img
-                src={CAMPAIGN_IMAGES.gallery.src}
-                alt={CAMPAIGN_IMAGES.gallery.alt}
+                src={CAMPAIGN_IMAGES.june.src}
+                alt={CAMPAIGN_IMAGES.june.alt}
                 loading="lazy"
                 className="w-full aspect-[4/5] object-cover rounded-[10px] bg-[var(--garden-ink-raised)]"
               />
