@@ -335,7 +335,7 @@ export default function Home() {
               </p>
               <div className="flex items-center gap-3">
                 <Link
-                  to="/join"
+                  to="/join?community=the-garden"
                   className="px-[22px] py-[13px] bg-[var(--garden-citron)] text-[var(--garden-ink)] rounded-[10px] font-semibold text-base hover:opacity-90 transition-all"
                 >
                   Join as a creative
@@ -437,7 +437,7 @@ export default function Home() {
                   Start hosting
                 </Link>
                 <Link
-                  to="/join"
+                  to="/join?community=the-garden"
                   className="px-2 py-[13px] font-medium text-base text-[var(--garden-body)] hover:text-[var(--garden-paper)] transition-colors"
                 >
                   Join now →
