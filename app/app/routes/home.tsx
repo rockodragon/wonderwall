@@ -410,8 +410,8 @@ export default function Home() {
       </main>
 
       {/* Passage — 2-column: headline left, body right */}
-      <section className="py-16 md:py-[88px] px-6 md:px-14 bg-[var(--garden-ink-raised)]">
-        <Reveal className="max-w-[1280px] mx-auto grid md:grid-cols-12 gap-8 md:gap-16">
+      <section className="py-16 md:py-[88px] bg-[var(--garden-ink-raised)]">
+        <Reveal className="max-w-[1280px] mx-auto px-6 md:px-14 grid md:grid-cols-12 gap-8 md:gap-16">
           <h2
             className="md:col-span-5 text-3xl md:text-[44px] text-[var(--garden-paper)] leading-[1.1]"
             style={{
@@ -425,8 +425,9 @@ export default function Home() {
           </h2>
           <div className="md:col-span-7 flex flex-col gap-5 text-xl leading-[1.6] text-[var(--garden-body)] md:pt-2 max-w-[600px]">
             <p>
-              A creative posts the work. A patron backs it. A partner opens
-              their doors. A host runs the table where it all started.
+              Creatives find each other and make the work together. Patrons
+              back it. Partners open their doors. Hosts run the tables where
+              it all starts.
             </p>
             <p className="text-[var(--garden-dim)]">
               <Link
