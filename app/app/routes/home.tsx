@@ -14,7 +14,7 @@ export function meta({}: Route.MetaArgs) {
     {
       name: "description",
       content:
-        "A creative community to show your work, grow through events and sessions, collaborate, and find paid opportunities.",
+        "Creatives, patrons, hosts and partners in one place, for the sake of your community. Show your work, collaborate, and find paid opportunities.",
     },
     {
       property: "og:title",
@@ -23,7 +23,7 @@ export function meta({}: Route.MetaArgs) {
     {
       property: "og:description",
       content:
-        "A creative community to show your work, grow through events and sessions, collaborate, and find paid opportunities.",
+        "Creatives, patrons, hosts and partners in one place, for the sake of your community. Show your work, collaborate, and find paid opportunities.",
     },
     { property: "og:type", content: "website" },
     {
@@ -44,7 +44,7 @@ export function meta({}: Route.MetaArgs) {
     {
       name: "twitter:description",
       content:
-        "A creative community to show your work, grow through events and sessions, collaborate, and find paid opportunities.",
+        "Creatives, patrons, hosts and partners in one place, for the sake of your community. Show your work, collaborate, and find paid opportunities.",
     },
   ];
 }
@@ -156,8 +156,8 @@ export default function Home() {
               <span className="text-[var(--garden-citron)]">together.</span>
             </h1>
             <p className="text-lg md:text-[22px] leading-relaxed md:leading-[1.5] text-[var(--garden-body)] max-w-[560px]" style={{ textWrap: "pretty" }}>
-              Creatives, patrons, hosts, churches and venues, in one place.
-              Every project shows who made it and who backed it.
+              Creatives, patrons, hosts and partners in one place, for the
+              sake of your community.
             </p>
           </div>
 
@@ -426,12 +426,17 @@ export default function Home() {
           <div className="md:col-span-7 flex flex-col gap-5 text-xl leading-[1.6] text-[var(--garden-body)] md:pt-2 max-w-[600px]">
             <p>
               A creative posts the work. A patron backs it. A partner opens
-              their doors. A host runs the table where it all started. When
-              it's done, every name is on it.
+              their doors. A host runs the table where it all started.
             </p>
             <p className="text-[var(--garden-dim)]">
-              The Garden is the founding Christian creative community on the
-              platform.
+              <Link
+                to="/communities/the-garden"
+                className="text-[var(--garden-paper)] underline decoration-[var(--garden-citron)] decoration-2 underline-offset-4 hover:text-[var(--garden-citron)] transition-colors"
+              >
+                The Garden
+              </Link>{" "}
+              is the founding Christian creative community on the platform,
+              with one mission: love our neighbors through our craft.
             </p>
           </div>
         </Reveal>
