@@ -211,7 +211,7 @@ export default function Home() {
               }}
             />
 
-            {/* How the money works — the proof a creative wants before
+            {/* How the money works — the two lines a creative wants before
                 scrolling. The invite-code form that sat here moved to
                 /signup, the one place that needs it. */}
             <ul className="flex flex-col gap-3 text-[15px] leading-[1.5] text-[var(--garden-body)]">
@@ -222,10 +222,6 @@ export default function Home() {
               <li className="flex gap-3">
                 <span className="text-[var(--garden-citron)] shrink-0" aria-hidden="true">—</span>
                 <span>Half of every membership funds a member's project.</span>
-              </li>
-              <li className="flex gap-3">
-                <span className="text-[var(--garden-citron)] shrink-0" aria-hidden="true">—</span>
-                <span>Hosting is free. Hosts keep 90% of what they sell.</span>
               </li>
             </ul>
 
