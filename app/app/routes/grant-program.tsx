@@ -24,6 +24,15 @@
 //
 // "By the numbers" reads api.garden.stats.publicCounts (public, aggregates
 // only). It renders em-dash tiles while loading so the layout is stable.
+// The "By city" row under it reads counts.cities / counts.withoutLocation
+// (top cities, privacy floor applied server-side).
+//
+// Render order: the shell, h1, intro, numbers, city row, the two-lane cards,
+// "How it works" and the FAQ render immediately — so the prerendered HTML
+// and the first client paint are the page, not a spinner. Only the
+// fund-specific parts (give CTA / thank-you, Totals, Ledger) wait on
+// api.garden.allocations.getFundPage, and they show a compact inline
+// loading state (or the "isn't live yet" card when the fund is unknown).
 //
 // Giving modal: collects amount + one-time/monthly, then redirects to the
 // org's own Stripe Payment Link (AP stays merchant of record for tax
@@ -39,7 +48,6 @@ import { api } from "../../convex/_generated/api";
 import {
   GardenPage,
   GardenLoading,
-  GardenErrorState,
   SectionLabel,
   formatMoney,
   formatPeriod,
@@ -152,6 +160,81 @@ function NumbersStrip({ counts }: { counts: PublicCounts | undefined }) {
         Live counts across the whole platform. Grants awarded includes every
         fund; the ledger below is one fund's.
       </p>
+    </div>
+  );
+}
+
+/** "Where" row: one quiet chip per city, from publicCounts.cities (top
+ * cities, privacy floor applied server-side). Defensive against the field
+ * being absent so the row never throws. */
+function CitiesRow({ counts }: { counts: PublicCounts | undefined }) {
+  const cities = counts?.cities ?? [];
+  const withoutLocation = counts?.withoutLocation?.creatives ?? 0;
+  const plural = (n: number, one: string, many: string) =>
+    `${n.toLocaleString("en-US")} ${n === 1 ? one : many}`;
+
+  return (
+    <div style={{ marginTop: 20 }}>
+      <div
+        className="g-label g-mono"
+        style={{ fontSize: 11, letterSpacing: "0.06em" }}
+      >
+        By city
+      </div>
+      {cities.length === 0 ? (
+        <p className="g-hint" style={{ marginTop: 8 }}>
+          Locations appear here as members add a city to their profile.
+        </p>
+      ) : (
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 8,
+            marginTop: 10,
+          }}
+        >
+          {cities.map((c) => (
+            <span
+              key={c.label}
+              style={{
+                display: "inline-flex",
+                alignItems: "baseline",
+                gap: 8,
+                padding: "5px 11px",
+                border: "1px solid var(--g-hairline)",
+                borderRadius: 999,
+                fontSize: 13,
+                color: "var(--g-paper)",
+                fontVariantNumeric: "tabular-nums",
+              }}
+            >
+              {c.label}
+              <span
+                className="g-mono"
+                style={{ fontSize: 11.5, color: "var(--g-dim)" }}
+              >
+                {plural(c.creatives, "creative", "creatives")}
+                {c.projects > 0 &&
+                  ` · ${plural(c.projects, "project", "projects")}`}
+              </span>
+            </span>
+          ))}
+        </div>
+      )}
+      {withoutLocation > 0 && (
+        <p
+          className="g-mono"
+          style={{
+            marginTop: 8,
+            fontSize: 11.5,
+            color: "var(--g-dim)",
+            fontVariantNumeric: "tabular-nums",
+          }}
+        >
+          {withoutLocation.toLocaleString("en-US")} without a location set.
+        </p>
+      )}
     </div>
   );
 }
@@ -406,7 +489,249 @@ function GiveModal({
   );
 }
 
+type FundData = NonNullable<
+  FunctionReturnType<typeof api.garden.allocations.getFundPage>
+>;
+
+/** The one "unknown fund / backend not deployed" state, scoped to the fund
+ * section so the rest of the explainer still reads. Same copy as before,
+ * without a second h1 on the page. */
+function FundNotLive() {
+  return (
+    <div className="g-card" style={{ marginTop: 12, maxWidth: "50ch" }}>
+      <div className="g-label">This fund isn't live yet.</div>
+      <p style={{ marginTop: 8, fontSize: 14.5, color: "var(--g-body)" }}>
+        The grant program page isn't live yet — check back soon.
+      </p>
+    </div>
+  );
+}
+
+/** Give CTA (or the post-Stripe thank-you) plus the tax-deductible hint.
+ * Needs the org name and payment links, so it waits on fund data. */
+function GiveBlock({
+  data,
+  gaveThanks,
+  onGive,
+}: {
+  data: FundData | null | undefined;
+  gaveThanks: boolean;
+  onGive: () => void;
+}) {
+  if (data === undefined) {
+    return (
+      <div style={{ marginTop: 20 }}>
+        <GardenLoading label="Loading fund…" />
+      </div>
+    );
+  }
+  if (data === null) return null;
+
+  const { org } = data;
+  const oneTimeUrl = org.paymentLinkUrl ?? org.givingUrl;
+  const monthlyUrl = org.monthlyPaymentLinkUrl;
+
+  return (
+    <>
+      {/* Thank-you card after returning from Stripe */}
+      {gaveThanks && (
+        <div
+          className="g-card"
+          style={{
+            marginTop: 20,
+            borderColor: "var(--g-citron)",
+            maxWidth: "50ch",
+          }}
+        >
+          <div className="g-label" style={{ color: "var(--g-citron)" }}>
+            Thank you
+          </div>
+          <p style={{ marginTop: 8, fontSize: 15 }}>
+            Your gift goes to {org.name}. Your receipt comes from them.
+            Grants from the fund are published on this page.
+          </p>
+        </div>
+      )}
+
+      {/* Give CTA */}
+      {!gaveThanks && (oneTimeUrl || monthlyUrl) && (
+        <button
+          type="button"
+          className="g-btn g-btn-citron"
+          onClick={onGive}
+          style={{ marginTop: 20 }}
+        >
+          Give to the Grant Fund
+        </button>
+      )}
+      <p className="g-hint" style={{ marginTop: 10, maxWidth: "50ch" }}>
+        Gifts go to {org.name}, a nonprofit. Your donation is tax-deductible
+        and your receipt comes from them.
+      </p>
+    </>
+  );
+}
+
+/** Totals + Ledger for the fund. Waits on fund data with a compact inline
+ * state; the section labels stay put so the layout doesn't jump. */
+function FundLedger({ data }: { data: FundData | null | undefined }) {
+  if (data === undefined) {
+    return (
+      <div style={{ marginTop: 36 }}>
+        <SectionLabel>Ledger</SectionLabel>
+        <div style={{ marginTop: 12 }}>
+          <GardenLoading label="Loading ledger…" />
+        </div>
+      </div>
+    );
+  }
+  if (data === null) {
+    return (
+      <div style={{ marginTop: 36 }}>
+        <SectionLabel>Ledger</SectionLabel>
+        <FundNotLive />
+      </div>
+    );
+  }
+
+  const { totals, ledger } = data;
+
+  return (
+    <>
+      {/* Totals */}
+      <div style={{ marginTop: 36 }}>
+        <SectionLabel>Totals</SectionLabel>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))",
+            gap: 10,
+            marginTop: 10,
+          }}
+        >
+          <div className="g-cell g-cell-hot">
+            <div className="g-cell-v">{formatMoney(totals.allTimeCents)}</div>
+            <div className="g-label" style={{ marginTop: 4 }}>
+              Granted all-time
+            </div>
+          </div>
+          {totals.byPeriod.map((p) => (
+            <div className="g-cell" key={p.period}>
+              <div className="g-cell-v">{formatMoney(p.cents)}</div>
+              <div className="g-label" style={{ marginTop: 4 }}>
+                {formatPeriod(p.period)}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Ledger */}
+      <div style={{ marginTop: 36 }}>
+        <SectionLabel>Ledger</SectionLabel>
+        {ledger.length === 0 ? (
+          <p
+            style={{
+              marginTop: 12,
+              fontSize: 14.5,
+              maxWidth: "50ch",
+              color: "var(--g-body)",
+            }}
+          >
+            No grants awarded yet. The first awards come out of the balance
+            above and are published here the week they go out.
+          </p>
+        ) : (
+          <div
+            style={{
+              marginTop: 12,
+              display: "flex",
+              flexDirection: "column",
+            }}
+          >
+            {ledger.map((entry, i) => (
+              <div
+                key={`${entry.period}-${entry.recipientName}-${i}`}
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  alignItems: "baseline",
+                  gap: 12,
+                  padding: "14px 0",
+                  borderBottom: "1px solid var(--g-hairline)",
+                }}
+              >
+                <span
+                  className="g-mono"
+                  style={{
+                    fontSize: 12.5,
+                    color: "var(--g-dim)",
+                    minWidth: 68,
+                  }}
+                >
+                  {formatPeriod(entry.period)}
+                </span>
+                <span className="g-h" style={{ fontSize: 15 }}>
+                  {formatMoney(entry.amount * 100)}
+                </span>
+                <span style={{ fontSize: 14.5, color: "var(--g-paper)" }}>
+                  {entry.recipientName}
+                </span>
+                {entry.projectTitle &&
+                  (entry.projectSlug ? (
+                    <Link
+                      to={`/story/${entry.projectSlug}`}
+                      style={{ fontSize: 14.5, color: "var(--g-citron)" }}
+                    >
+                      {entry.projectTitle}
+                    </Link>
+                  ) : (
+                    <span style={{ fontSize: 14.5, color: "var(--g-muted)" }}>
+                      {entry.projectTitle}
+                    </span>
+                  ))}
+                {entry.note && (
+                  <span
+                    style={{
+                      fontSize: 14.5,
+                      color: "var(--g-muted)",
+                      flexBasis: "100%",
+                    }}
+                  >
+                    {entry.note}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+function FaqItem({ q, children }: { q: string; children: ReactNode }) {
+  return (
+    <div>
+      <h3
+        style={{
+          fontSize: 15,
+          fontWeight: 600,
+          color: "var(--g-paper)",
+          marginBottom: 4,
+        }}
+      >
+        {q}
+      </h3>
+      <p style={{ fontSize: 14.5, lineHeight: 1.55, color: "var(--g-body)" }}>
+        {children}
+      </p>
+    </div>
+  );
+}
+
 export default function GrantProgramPage() {
+  // All hooks first — the page never early-returns before them.
   const [searchParams] = useSearchParams();
   const [showModal, setShowModal] = useState(false);
   const data = useQuery(api.garden.allocations.getFundPage, {
@@ -414,39 +739,17 @@ export default function GrantProgramPage() {
   });
   const counts = useQuery(api.garden.stats.publicCounts, {});
 
-  if (data === undefined) {
-    return (
-      <GardenPage>
-        <div style={{ marginTop: 28 }}>
-          <GardenLoading />
-        </div>
-      </GardenPage>
-    );
-  }
-
-  if (data === null) {
-    return (
-      <GardenPage>
-        <div style={{ marginTop: 28 }}>
-          <GardenErrorState message="The grant program page isn't live yet — check back soon." />
-        </div>
-      </GardenPage>
-    );
-  }
-
-  const { org, totals, ledger } = data;
   const gaveThanks = searchParams.get("gave") === "1";
-  const oneTimeUrl = org.paymentLinkUrl ?? org.givingUrl;
-  const monthlyUrl = org.monthlyPaymentLinkUrl;
+  const org = data?.org;
+  const oneTimeUrl = org ? (org.paymentLinkUrl ?? org.givingUrl) : undefined;
+  const monthlyUrl = org?.monthlyPaymentLinkUrl;
+  const canGive = Boolean(oneTimeUrl || monthlyUrl);
 
   return (
     <GardenPage wide>
       <div style={{ paddingTop: 48, paddingBottom: 80 }}>
-        {/* Hero */}
-        <h1
-          className="g-h"
-          style={{ fontSize: "clamp(28px,5vw,40px)" }}
-        >
+        {/* Hero — static, prerendered */}
+        <h1 className="g-h" style={{ fontSize: "clamp(28px,5vw,40px)" }}>
           Grant Program
         </h1>
         <p
@@ -466,46 +769,20 @@ export default function GrantProgramPage() {
           a public ledger. How decisions get made is spelled out below.
         </p>
 
-        {/* Thank-you card after returning from Stripe */}
-        {gaveThanks && (
-          <div
-            className="g-card"
-            style={{
-              marginTop: 20,
-              borderColor: "var(--g-citron)",
-              maxWidth: "50ch",
-            }}
-          >
-            <div className="g-label" style={{ color: "var(--g-citron)" }}>
-              Thank you
-            </div>
-            <p style={{ marginTop: 8, fontSize: 15 }}>
-              Your gift goes to {org.name}. Your receipt comes from them.
-              Grants from the fund are published on this page.
-            </p>
-          </div>
-        )}
-
-        {/* Give CTA */}
-        {!gaveThanks && (oneTimeUrl || monthlyUrl) && (
-          <button
-            type="button"
-            className="g-btn g-btn-citron"
-            onClick={() => setShowModal(true)}
-            style={{ marginTop: 20 }}
-          >
-            Give to the Grant Fund
-          </button>
-        )}
-        <p className="g-hint" style={{ marginTop: 10, maxWidth: "50ch" }}>
-          Gifts go to {org.name}, a nonprofit. Your donation is tax-deductible
-          and your receipt comes from them.
-        </p>
+        {/* Give CTA / thank-you — waits on fund data */}
+        <GiveBlock
+          data={data}
+          gaveThanks={gaveThanks}
+          onGive={() => setShowModal(true)}
+        />
 
         {/* By the numbers — public aggregates, em-dashes while loading */}
         <NumbersStrip counts={counts} />
 
-        {/* Two lanes explainer */}
+        {/* Where — one chip per city */}
+        <CitiesRow counts={counts} />
+
+        {/* Two lanes explainer — static copy; only the Give link waits */}
         <div style={{ marginTop: 48 }}>
           <SectionLabel>How money works here</SectionLabel>
           <div
@@ -558,7 +835,7 @@ export default function GrantProgramPage() {
                 decide their own awards — every dollar that goes out is on the
                 ledger below.
               </p>
-              {(oneTimeUrl || monthlyUrl) && (
+              {canGive && (
                 <button
                   type="button"
                   className="g-nav"
@@ -628,181 +905,37 @@ export default function GrantProgramPage() {
           </div>
         </div>
 
-        {/* Totals */}
-        <div style={{ marginTop: 36 }}>
-          <SectionLabel>Totals</SectionLabel>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))",
-              gap: 10,
-              marginTop: 10,
-            }}
-          >
-            <div className="g-cell g-cell-hot">
-              <div className="g-cell-v">{formatMoney(totals.allTimeCents)}</div>
-              <div className="g-label" style={{ marginTop: 4 }}>
-                Granted all-time
-              </div>
-            </div>
-            {totals.byPeriod.map((p) => (
-              <div className="g-cell" key={p.period}>
-                <div className="g-cell-v">{formatMoney(p.cents)}</div>
-                <div className="g-label" style={{ marginTop: 4 }}>
-                  {formatPeriod(p.period)}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+        {/* Totals + Ledger — fund data */}
+        <FundLedger data={data} />
 
-        {/* Ledger */}
-        <div style={{ marginTop: 36 }}>
-          <SectionLabel>Ledger</SectionLabel>
-          {ledger.length === 0 ? (
-            <p
-              style={{
-                marginTop: 12,
-                fontSize: 14.5,
-                maxWidth: "50ch",
-                color: "var(--g-body)",
-              }}
-            >
-              No grants awarded yet. The first awards come out of the balance
-              above and are published here the week they go out.
-            </p>
-          ) : (
-            <div
-              style={{
-                marginTop: 12,
-                display: "flex",
-                flexDirection: "column",
-              }}
-            >
-              {ledger.map((entry, i) => (
-                <div
-                  key={`${entry.period}-${entry.recipientName}-${i}`}
-                  style={{
-                    display: "flex",
-                    flexWrap: "wrap",
-                    alignItems: "baseline",
-                    gap: 12,
-                    padding: "14px 0",
-                    borderBottom: "1px solid var(--g-hairline)",
-                  }}
-                >
-                  <span
-                    className="g-mono"
-                    style={{
-                      fontSize: 12.5,
-                      color: "var(--g-dim)",
-                      minWidth: 68,
-                    }}
-                  >
-                    {formatPeriod(entry.period)}
-                  </span>
-                  <span className="g-h" style={{ fontSize: 15 }}>
-                    {formatMoney(entry.amount * 100)}
-                  </span>
-                  <span style={{ fontSize: 14.5, color: "var(--g-paper)" }}>
-                    {entry.recipientName}
-                  </span>
-                  {entry.projectTitle &&
-                    (entry.projectSlug ? (
-                      <Link
-                        to={`/story/${entry.projectSlug}`}
-                        style={{ fontSize: 14.5, color: "var(--g-citron)" }}
-                      >
-                        {entry.projectTitle}
-                      </Link>
-                    ) : (
-                      <span
-                        style={{ fontSize: 14.5, color: "var(--g-muted)" }}
-                      >
-                        {entry.projectTitle}
-                      </span>
-                    ))}
-                  {entry.note && (
-                    <span
-                      style={{
-                        fontSize: 14.5,
-                        color: "var(--g-muted)",
-                        flexBasis: "100%",
-                      }}
-                    >
-                      {entry.note}
-                    </span>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* FAQ */}
+        {/* FAQ — static */}
         <div style={{ marginTop: 48 }}>
           <SectionLabel>Common questions</SectionLabel>
           <div
             style={{ display: "flex", flexDirection: "column", gap: 20, marginTop: 14 }}
           >
-            <div>
-              <h3
-                style={{
-                  fontSize: 15,
-                  fontWeight: 600,
-                  color: "var(--g-paper)",
-                  marginBottom: 4,
-                }}
-              >
-                Is my gift tax-deductible?
-              </h3>
-              <p style={{ fontSize: 14.5, lineHeight: 1.55, color: "var(--g-body)" }}>
-                Yes. Abiding Practice is a registered 501(c)(3). You'll receive
-                a receipt for your records.
-              </p>
-            </div>
-            <div>
-              <h3
-                style={{
-                  fontSize: 15,
-                  fontWeight: 600,
-                  color: "var(--g-paper)",
-                  marginBottom: 4,
-                }}
-              >
-                How do creatives get grants?
-              </h3>
-              <p style={{ fontSize: 14.5, lineHeight: 1.55, color: "var(--g-body)" }}>
-                A paid member submits a proposal to a fund. Platform operators
-                decide proposals to the project pool; Abiding Practice decides
-                its own fund's awards. There is no fixed cycle yet, and a
-                grant is only a grant once it appears on the ledger above.
-              </p>
-            </div>
-            <div>
-              <h3
-                style={{
-                  fontSize: 15,
-                  fontWeight: 600,
-                  color: "var(--g-paper)",
-                  marginBottom: 4,
-                }}
-              >
-                What's the difference between backing and donating?
-              </h3>
-              <p style={{ fontSize: 14.5, lineHeight: 1.55, color: "var(--g-body)" }}>
-                Backing a project sends money directly to the creative (90/10
-                split, not tax-deductible). Donating to the Grant Fund goes to
-                Abiding Practice, who decides its own awards — that's the
-                tax-deductible path. Contributing to the project pool is a
-                third option: not tax-deductible, 90% to the pool.
-              </p>
-            </div>
+            <FaqItem q="Is my gift tax-deductible?">
+              Yes. Abiding Practice is a registered 501(c)(3). You'll receive
+              a receipt for your records.
+            </FaqItem>
+            <FaqItem q="How do creatives get grants?">
+              A paid member submits a proposal to a fund. Platform operators
+              decide proposals to the project pool; Abiding Practice decides
+              its own fund's awards. There is no fixed cycle yet, and a
+              grant is only a grant once it appears on the ledger above.
+            </FaqItem>
+            <FaqItem q="What's the difference between backing and donating?">
+              Backing a project sends money directly to the creative (90/10
+              split, not tax-deductible). Donating to the Grant Fund goes to
+              Abiding Practice, who decides its own awards — that's the
+              tax-deductible path. Contributing to the project pool is a
+              third option: not tax-deductible, 90% to the pool.
+            </FaqItem>
           </div>
         </div>
       </div>
 
-      {showModal && (
+      {showModal && org && (
         <GiveModal
           oneTimeUrl={oneTimeUrl}
           monthlyUrl={monthlyUrl}
