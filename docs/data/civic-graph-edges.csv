@@ -1,0 +1,90 @@
+source_id,target_id,relationship,detail,evidence_url,confidence
+prebys,p_glus,funds,"Senior Art & Design Fellowship at DSDP, Oct 20 2025-",https://www.prebysfdn.org/stories/blog/news/downtown-san-diego-partnership-hires-seasoned-arts-leader-to-establish-first-downtown-arts-district,high
+dsdp,p_glus,employs,"ED, Art + Design District",https://downtownsandiego.org/about/our-team/,high
+p_glus,add,leads,Executive Director,https://downtownsandiego.org/art-design/,high
+p_glus,cfta,board_of,Board president,https://www.caforthearts.org/team/jonathon-glus,high
+p_glus,sdam,board_of,Board member (bio may be stale),https://sdartmatters.org/who-we-are/our-team/board-of-directors/,medium
+p_glus,city_ca,former_head_of,ED Nov 2018-Oct 2025; Creative City plan; WDC 2024 liaison,https://timesofsandiego.com/arts/2018/11/01/mayor-appoints-new-executive-director-of-arts-and-culture-commission/,high
+p_glus,p_haley,knows,"Per Glus, Sept 15 2026",,medium
+p_haley,prebys,cultivating,Relationships at Prebys; nominated for 2027 Leadership Awards (Jun 2026 email),,medium
+p_glus,ucsd_dl,spoke_at,"Design@Large Design to Action, Jan 28 2026",https://www.instagram.com/p/DT3uNa5kpr8/,high
+prebys,sdam,funds,Strategic plan (2023) and ongoing,https://sdartmatters.org/who-we-are/partners-and-funders/,high
+prebys,city_ca,funds,"$3M into FY27 arts rescue, June 2026",https://www.kpbs.org/news/politics/2026/06/05/san-diego-leaders-propose-10-3m-plan-to-restore-arts-funding-amid-budget-cuts,high
+prebys,space4art,funds,$200k Arts Ecosystem 2025,https://www.sdspace4art.org/news/2025/09/17-space4art-receives-arts-ecosystem-grant,high
+prebys,mcasd,funds,$200k Arts Ecosystem 2025,https://mcasd.org/about/press/shared-spaces-initiative,high
+prebys,ccae,funds,$140k Arts Ecosystem 2025 (CCAE Theatricals),https://www.prebysfdn.org/grants/arts,high
+prebys,davidsharp,funds,2026 Leadership Award $100k to Brandon Steppe,https://timesofsandiego.com/life/2026/02/08/prebys-foundation-recognizes-5-local-nonprofit-leaders-with-100000-grants/,high
+prebys,macsd,funds,2026 Leadership Award $100k to Ethan van Thillo,https://timesofsandiego.com/life/2026/02/08/prebys-foundation-recognizes-5-local-nonprofit-leaders-with-100000-grants/,high
+prebys,sdtheatres,invests_near,"Bought California Theatre site ($6.3M, Jul 2026) adjacent to Civic Theatre",https://timesofsandiego.com/business/2026/07/21/prebys-buys-derelict-california-theatre-downtown-development-barrier/,high
+prebys,parker,partners,"Co-funders of Artists Count (with City, ICF, SDAM, Policy & Innovation Center)",https://artistscount.org/,high
+prebys,city_ca,partners,Artists Count; Far South/Border North ($1.4M Prebys + $4.75M CAC),https://www.sandiego.gov/far-south-border-north,high
+prebys,dsdp,partners,Art + Design District funder; Aug 21 2026 Civic Center statement,https://prebysfdn.org/stories/blog/news/prebys-foundation-reaffirms-commitment-to-collaborative-civic-center-process,high
+p_dubick,prebys,employed_by,Chief of Staff,https://www.prebysfdn.org/meet-prebys/our-team,high
+p_dubick,dsdp,board_of,Executive board,https://downtownsandiego.org/about/board-of-directors/,high
+p_hamilton,prebys,board_of,Director,https://www.prebysfdn.org/meet-prebys/our-board,high
+p_hamilton,sdam,board_of,Emeritus,https://sdartmatters.org/who-we-are/our-team/board-of-directors/,high
+p_hamilton,fbp,board_of,Chair,https://foreverbalboapark.org/about-us/leadership,high
+p_halliday,liberty,employed_by,VP & Chief Advancement Officer,https://sdartmatters.org/who-we-are/our-team/board-of-directors/,high
+p_halliday,sdam,board_of,Interim chair,https://sdartmatters.org/who-we-are/our-team/board-of-directors/,high
+p_halliday,efa,board_of,Board member,https://encinitasarts.org/about/board-of-directors,high
+p_lehman,sdam,leads,Executive Director,https://www.kpbs.org/news/politics/2026/06/04/latest-san-diego-budget-proposal-could-restore-some-arts-homeless-funding,high
+p_lehman,county_acc,board_of,Vice chair (D4),https://www.sandiegocounty.gov/content/sdc/cao/edga/arts-culture-commission/members.html,high
+p_martinez,avsd,leads,Director,https://artsandculturesd.org/,high
+p_martinez,p_lehman,partners,Co-organized 2026 restoration campaign,https://www.kpbs.org/news/politics/2026/06/04/latest-san-diego-budget-proposal-could-restore-some-arts-homeless-funding,high
+add,sdmag,partners,Co-publisher/underwriter of Sept 2026 Arts Edition + six months coverage,https://sandiegomagazine.com/everything-sd/art-design-district-sdfc-playmakers-and-san-diego-magazine-launch-new-model-for-local-arts-coverage/,high
+add,sdfc,partners,SDFC Playmakers digital co-publisher,https://sandiegomagazine.com/everything-sd/art-design-district-sdfc-playmakers-and-san-diego-magazine-launch-new-model-for-local-arts-coverage/,high
+dsdp,bofa,board_of,Pamela McCarthy (BofA) is DSDP secretary,https://downtownsandiego.org/about/board-of-directors/,high
+usbank,dsdp,sponsors,Create the Future Awards title sponsor,https://downtownsandiego.org/events/create-the-future-awards/,high
+city_ca,cac,partner_of,State-Local Partner for SD County; administers IAF Region 8,https://arts.ca.gov/slp_directory_map_2026,high
+p_cjones,city_ca,employed_by,Senior staff; CAC liaison; acting ED before Glus,https://www.sandiego.gov/economic-development/cultural-affairs/about/staff,high
+p_lawsonremer,county,member_of,"Supervisor D3 covering Encinitas, Del Mar, La Jolla, Little Italy",https://supervisorterralawsonremer.com/,high
+p_anderson,county,member_of,Supervisor D2 covering La Mesa,https://www.sandiegocounty.gov,high
+p_montgomerysteppe,bacd,founded,"Council resolution R-2022-508, Jun 14 2022",https://www.kpbs.org/news/local/2022/09/15/san-diegos-black-arts-culture-district-aims-to-empower-and-heal,high
+p_montgomerysteppe,city_ca,partners,"Co-announced $10.35M restoration with Lee, Foster, Prebys",https://www.kpbs.org/news/politics/2026/06/05/san-diego-leaders-propose-10-3m-plan-to-restore-arts-funding-amid-budget-cuts,high
+p_gilliam,county_acc,board_of,Chair,https://www.sandiegocounty.gov/content/sdc/cao/edga/arts-culture-commission/members.html,high
+p_jhy,bpcp,leads,President,,high
+p_jhy,mingei,leads,ED & CEO,https://mingei.org,high
+bpcp,globe,member,Full member,https://bpcp.org/about/,high
+bpcp,mingei,member,Full member,https://bpcp.org/about/,high
+ucsd_dl,dfa,founded,Design Forward Alliance established by UCSD Design Lab,https://sddesignweek.org/,high
+dfa,mingei,partners,Design Week 2026 partner,https://sddesignweek.org/,high
+mcasd,dfa,sponsors,Design Week sponsor,https://sddesignweek.org/,high
+dsdp,dfa,sponsors,Design Week sponsor,https://sddesignweek.org/,high
+qualcomm_fdn,dfa,sponsors,Design Week sponsor,https://sddesignweek.org/,high
+vanguard,parkmarket,partners,Art Garden with UCSD ArtsConnect,https://vanguardculture.com,high
+ssaw,ucsd_ah,partners,VAMP hosted at ArtPower,https://artpower.ucsd.edu/event/so-say-we-all-2025,high
+oma,sdvan,partners,2026 San Diego Art Prize,https://oma-online.org/2026-art-prize,high
+p_deery,encinitas,employed_by,PVAC instructor,https://encinitasca.gov/community/pacific-view,high
+p_deery,oma,former,Director of Exhibitions,https://encinitasca.gov/community/pacific-view,high
+ica,hillstreet,partners,Affiliated venue,https://icasandiego.org/venue/hill-street-country-club,high
+athenaeum,ljvma,partners,Murals of La Jolla with La Jolla Community Foundation,https://muralsoflajolla.com,high
+dickinson,ica,funds,Named grantee,https://www.thedickinsonfoundation.org,high
+dickinson,mingei,funds,Named grantee,https://www.thedickinsonfoundation.org,high
+jacobs,liberty,funds,$10M Joan and Irwin Jacobs Performing Arts Center (Cygnet/NTC),,high
+jacobs,sdopera,funds,"$4.5M Opera-Symphony collaboration fund, Jan 2026",,high
+jacobs,mcasd,funds,$20M naming gift,,high
+bofa,ljp,sponsors,2026/27 season sponsor,https://lajollaplayhouse.org,high
+usbank,ljp,sponsors,2026/27 season sponsor,https://lajollaplayhouse.org,high
+qualcomm_fdn,ljp,sponsors,2026/27 season sponsor,https://lajollaplayhouse.org,high
+missionfed,littleitaly,sponsors,"Title sponsor, Mission Fed ArtWalk",https://www.artwalksandiego.org,high
+missionfed,symphony,sponsors,Rady Shell programs,https://www.missionfed.com,high
+sdf,carlsbad_cf,parent_of,Regional affiliate,https://www.sdfoundation.org,high
+sdf,sdwf,parent_of,Hosted fund,https://sdwomensfoundation.org,high
+sdf,hervey,parent_of,Donor-advised endowment,https://www.sdfoundation.org,high
+hervey,stpauls,funds,$15k to Voices of Our City Choir (St. Paul's partner),,high
+cushman,sdf,administered_by,Cushman applications run through Jewish Community Foundation CAP (not SDF),https://cap.jcfsandiego.org,low
+rsff,rsfwf,partners,Closely associated giving circle,https://rsffoundation.org,high
+ap,lightchurch,partners,Light Church (San Diego) listed as partner,https://www.abidingpractice.com/community,high
+ap,tas,partners,TAS listed as partner,https://www.abidingpractice.com/community,high
+ap,barnabas,presented_to,"Presenting ministry, Mar 12 2025",https://www.barnabasgroupsd.org/presenting-ministries-archive/abiding-practice,high
+p_danny,rock,employed_by,Executive Creative Director,https://theorg.com/org/rock-church/org-chart/danny-barragan,high
+p_danny,littleitaly,based_in,Monthly gathering in Little Italy (per Rick; not public),,low
+fde,p_crockett,represented_by,SD connector,https://faithdrivenentrepreneur.org,high
+nccc,nccc,hosts,"Faith, Work & The Arts community group",,medium
+stjames,stjames,hosts,St. James GALLERY by-the-Sea; Music Series,https://sjbts.org,high
+plnu,p_nelson,employs,Writer's Symposium founder,https://www.pointloma.edu/events/writers-symposium-sea,high
+lightchurch,lapaloma,venue_at,Sunday services at La Paloma Theatre,https://www.lightsandiego.com/home,high
+tas,county,applicant_to,D2/D3 CEP/NRP (planned),,medium
+tas,city_ca,applicant_to,CCSD FY28 (planned),,medium
+p_homestead,tas,knows,On Aug 27 call with Rick,,medium
+cm,cm,recurs,Last Friday monthly,https://creativemornings.com/cities/sd,high

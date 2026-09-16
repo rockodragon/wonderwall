@@ -9,6 +9,7 @@ The project is **creatives.exchange** (repo: wonderwall). Four documents are the
 | [The plan](creatives-exchange-discussion-brief.md) | What the platform is, how membership and money work, who owns work, open questions. **Start here.** |
 | [Financial model](financial-model-3yr.xlsx) | Small/Medium/Large 3-year budget. Blue cells are inputs; `Inputs!B9` toggles who absorbs card fees. |
 | [Partner landscape](partner-landscape.md) | Who we approach, what we say to them, patrons, churches, the migration playbook. |
+| [Civic partners social graph](civic-partners-social-graph.md) | San Diego's civic funders, venues, associations and people (Prebys, City, County, foundations, churches): agendas, filings, grant calendar, events, the Glus thesis. CSVs in [data/](data/) for the UpSight import. |
 | [Product plan](the-garden-product-plan.md) | Product spec and build canon. **Lags the plan in spots** (host $50/mo, "Tables" vocabulary, single-tenant assumptions) — reconcile after the plan is agreed, before code changes. |
 
 ## Feature specs
