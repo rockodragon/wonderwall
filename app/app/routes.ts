@@ -21,11 +21,6 @@ export default [
   // not wired to the real Host/Table data model, see PRD §10
   // (docs/the-exchange-v1-prd.md). An org that wants in today signs up as a
   // Patron through the regular waitlist/onboarding flow instead.
-  // TODO: delete routes/organizations.tsx and routes/organizations_.demo.tsx,
-  // or repurpose for a future jobs-outreach push targeting organizations —
-  // see the TODO at the top of organizations.tsx.
-  // route("organizations", "routes/organizations.tsx"),
-  // route("organizations/demo", "routes/organizations_.demo.tsx"),
 
   // Legal pages are PUBLIC and deliberately outside the _app.tsx layout
   // below, for the same reason the event page is: that layout sends

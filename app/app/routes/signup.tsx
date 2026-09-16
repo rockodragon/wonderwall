@@ -565,8 +565,8 @@ function InviteEntry() {
               , or ask a member — they can share their link from Settings.
             </p>
             <p>
-              Covered by a church or sponsor? Use the link they gave you — it
-              starts with /c/.
+              Covered by a sponsor? Use the link they gave you — it starts
+              with /c/.
             </p>
           </div>
 

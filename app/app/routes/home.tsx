@@ -264,12 +264,20 @@ export default function Home() {
               platform, with one mission: love our neighbors through our
               craft.
             </p>
-            <Link
-              to="/communities/the-garden"
-              className="self-start text-base font-semibold text-[var(--garden-citron)] hover:opacity-80 transition-opacity"
-            >
-              Step into The Garden →
-            </Link>
+            <div className="flex items-center gap-6 self-start">
+              <Link
+                to="/communities/the-garden"
+                className="text-base font-semibold text-[var(--garden-citron)] hover:opacity-80 transition-opacity"
+              >
+                Step into The Garden →
+              </Link>
+              <Link
+                to="/for/churches"
+                className="text-base font-semibold text-[var(--garden-dim)] hover:text-[var(--garden-paper)] transition-colors"
+              >
+                For churches →
+              </Link>
+            </div>
           </div>
         </Reveal>
       </section>
@@ -451,9 +459,9 @@ export default function Home() {
                 Invest in creatives. They fill the room.
               </h3>
               <p className="text-base md:text-lg leading-[1.6] text-[var(--garden-body)] mb-8" style={{ textWrap: "pretty" }}>
-                Churches, venues, businesses — post paid work, cover
-                memberships, or share your space. Creatives bring people
-                in. That's the deal.
+                Venues, businesses, nonprofits, churches — post paid work,
+                cover memberships, or share your space. Creatives bring
+                people in.
               </p>
               <div className="flex items-center gap-3">
                 <Link
@@ -461,12 +469,6 @@ export default function Home() {
                   className="px-[22px] py-[13px] bg-[var(--garden-citron)] text-[var(--garden-ink)] rounded-[10px] font-semibold text-base hover:opacity-90 transition-all"
                 >
                   Partner with us
-                </Link>
-                <Link
-                  to="/for/churches"
-                  className="px-2 py-[13px] font-medium text-base text-[var(--garden-body)] hover:text-[var(--garden-paper)] transition-colors"
-                >
-                  For churches →
                 </Link>
               </div>
             </Reveal>

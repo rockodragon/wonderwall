@@ -1,15 +1,39 @@
-// /grant-program — the public grant program page: what the fund is, how to
-// give, and the transparent ledger. Replaces the unregistered /grant-fund
-// route and the AP-specific /fund/abiding-practice as the primary entry point.
+// /grant-program — the public grant program page: what the funds are, how
+// grants are decided, how to give, and the transparent ledger. Replaces the
+// unregistered /grant-fund route and the AP-specific /fund/abiding-practice
+// as the primary entry point. Prerendered (react-router.config.ts), so an
+// outside reader — a city arts director, a treasurer — sees it logged out.
+//
+// Everything in "How it works" is checked against the code, not the pitch:
+//   - dues split 50/50 into the PLATFORM pool row ("creatives-exchange"),
+//     one-time contributions 90/10 (garden/stripeHandlers.ts duesSplit /
+//     contributionSplit); Abiding Practice's 501(c)(3) fund is off-platform
+//     (fund.$slug.tsx header, hostOrgs kind "org"/"church").
+//   - proposals: garden/grantProposals.ts submitProposal (paid members,
+//     one open ask per fund, MIN_AMOUNT_CENTS = $5); decideProposal is
+//     operator-only and records a decision, never a payout.
+//   - payouts: garden/allocations.ts recordAllocation (admin), every row
+//     public on /fund/:slug and here.
+//   - NOT built: cycles/deadlines, published criteria, conflict-of-interest
+//     policy, community-run selection, percent-of-dues pledges. Say so.
+// If one of those changes, change the copy in the same PR.
+//
+// Money words: this page's Give button is the 501(c)(3) lane, so "donate" /
+// "gift" / "tax-deductible" are correct THERE. The platform project pool is
+// "fund" / "back" / "contribute" only (money-words rule, fund.$slug.tsx).
+//
+// "By the numbers" reads api.garden.stats.publicCounts (public, aggregates
+// only). It renders em-dash tiles while loading so the layout is stable.
 //
 // Giving modal: collects amount + one-time/monthly, then redirects to the
 // org's own Stripe Payment Link (AP stays merchant of record for tax
 // deductibility). Two links stored on the hostOrg: paymentLinkUrl (one-time)
-// and monthlyPaymentLinkUrl (recurring). "Donate" / "gift" IS correct here —
-// this is the 501(c)(3) lane (money-words rule).
+// and monthlyPaymentLinkUrl (recurring).
 
 import { useState } from "react";
+import type { ReactNode } from "react";
 import { useQuery } from "convex/react";
+import type { FunctionReturnType } from "convex/server";
 import { Link, useSearchParams } from "react-router";
 import { api } from "../../convex/_generated/api";
 import {
@@ -31,9 +55,125 @@ export function meta() {
     {
       name: "description",
       content:
-        "Tax-deductible giving to creative projects through Abiding Practice, a 501(c)(3). Every grant is published openly.",
+        "How grants work on creatives.exchange: two funds, who can propose, who decides, and a public ledger of every award. Tax-deductible giving through Abiding Practice, a 501(c)(3).",
     },
   ];
+}
+
+// Shape of api.garden.stats.publicCounts, derived from the query so the
+// strip can't drift from convex/garden/stats.ts.
+type PublicCounts = FunctionReturnType<typeof api.garden.stats.publicCounts>;
+
+const PLACEHOLDER = "—";
+
+function NumberTile({
+  label,
+  value,
+  sub,
+}: {
+  label: string;
+  value: string;
+  sub?: string;
+}) {
+  return (
+    <div className="g-cell">
+      <div
+        className="g-cell-v"
+        style={{ fontVariantNumeric: "tabular-nums" }}
+      >
+        {value}
+      </div>
+      <div
+        className="g-label g-mono"
+        style={{ marginTop: 4, fontSize: 11, letterSpacing: "0.06em" }}
+      >
+        {label}
+      </div>
+      {sub && (
+        <div
+          className="g-mono"
+          style={{
+            marginTop: 2,
+            fontSize: 11,
+            color: "var(--g-dim)",
+            fontVariantNumeric: "tabular-nums",
+          }}
+        >
+          {sub}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Six aggregate tiles. Zeros are shown honestly; only the placeholder
+ * differs between loading and loaded. */
+function NumbersStrip({ counts }: { counts: PublicCounts | undefined }) {
+  const n = (v: number | undefined) =>
+    v === undefined ? PLACEHOLDER : v.toLocaleString("en-US");
+  const money = (v: number | undefined) =>
+    v === undefined ? PLACEHOLDER : formatMoney(v);
+
+  const grantsSub =
+    counts === undefined
+      ? undefined
+      : counts.grantsAwarded === 0
+        ? "0 · first awards pending"
+        : `${counts.grantsAwarded.toLocaleString("en-US")} ${
+            counts.grantsAwarded === 1 ? "grant" : "grants"
+          }`;
+
+  return (
+    <div style={{ marginTop: 40 }}>
+      <SectionLabel>By the numbers</SectionLabel>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))",
+          gap: 10,
+          marginTop: 10,
+        }}
+      >
+        <NumberTile label="Creatives" value={n(counts?.creatives)} />
+        <NumberTile label="Communities" value={n(counts?.communities)} />
+        <NumberTile label="Active projects" value={n(counts?.activeProjects)} />
+        <NumberTile
+          label="Paid opportunities"
+          value={n(counts?.paidOpportunities)}
+        />
+        <NumberTile label="Backed directly" value={money(counts?.backedCents)} />
+        <NumberTile
+          label="Grants awarded"
+          value={money(counts?.grantsAwardedCents)}
+          sub={grantsSub}
+        />
+      </div>
+      <p className="g-hint" style={{ marginTop: 8 }}>
+        Live counts across the whole platform. Grants awarded includes every
+        fund; the ledger below is one fund's.
+      </p>
+    </div>
+  );
+}
+
+function HowItem({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <div>
+      <h3
+        style={{
+          fontSize: 15,
+          fontWeight: 600,
+          color: "var(--g-paper)",
+          marginBottom: 4,
+        }}
+      >
+        {title}
+      </h3>
+      <p style={{ fontSize: 14.5, lineHeight: 1.55, color: "var(--g-body)", maxWidth: "62ch" }}>
+        {children}
+      </p>
+    </div>
+  );
 }
 
 function GiveModal({
@@ -272,6 +412,7 @@ export default function GrantProgramPage() {
   const data = useQuery(api.garden.allocations.getFundPage, {
     hostOrgSlug: AP_SLUG,
   });
+  const counts = useQuery(api.garden.stats.publicCounts, {});
 
   if (data === undefined) {
     return (
@@ -317,11 +458,12 @@ export default function GrantProgramPage() {
             color: "var(--g-body)",
           }}
         >
-          Creatives on this platform propose projects. The Grant Fund —
-          administered by{" "}
+          Paid members propose projects. Two funds can award them: the
+          platform project pool, filled by half of every membership, and a
+          tax-deductible fund run by{" "}
           <strong style={{ color: "var(--g-paper)" }}>Abiding Practice</strong>,
-          a registered 501(c)(3) — awards grants to the ones that serve its
-          mission. Every grant is published here.
+          a registered 501(c)(3). Every award from either fund is recorded on
+          a public ledger. How decisions get made is spelled out below.
         </p>
 
         {/* Thank-you card after returning from Stripe */}
@@ -359,6 +501,9 @@ export default function GrantProgramPage() {
           Gifts go to {org.name}, a nonprofit. Your donation is tax-deductible
           and your receipt comes from them.
         </p>
+
+        {/* By the numbers — public aggregates, em-dashes while loading */}
+        <NumbersStrip counts={counts} />
 
         {/* Two lanes explainer */}
         <div style={{ marginTop: 48 }}>
@@ -410,8 +555,8 @@ export default function GrantProgramPage() {
                 }}
               >
                 Donate to the fund through Abiding Practice, a 501(c)(3). They
-                award grants to creatives — you see every dollar on the ledger
-                below.
+                decide their own awards — every dollar that goes out is on the
+                ledger below.
               </p>
               {(oneTimeUrl || monthlyUrl) && (
                 <button
@@ -433,6 +578,53 @@ export default function GrantProgramPage() {
                 </button>
               )}
             </div>
+          </div>
+        </div>
+
+        {/* How it works — governance, stated no stronger than the code */}
+        <div style={{ marginTop: 48 }}>
+          <SectionLabel>How it works</SectionLabel>
+          <div
+            style={{ display: "flex", flexDirection: "column", gap: 20, marginTop: 14 }}
+          >
+            <HowItem title="Two funds">
+              The platform project pool is filled by membership dues — 50% of
+              every payment — and by one-time contributions, of which 90% goes
+              to the pool and 10% to the platform. Abiding Practice, a
+              501(c)(3), runs a separate fund through its own payment
+              processor; gifts there are tax-deductible and never pass through
+              this platform. The ledger on this page is Abiding Practice's
+              fund; the project pool's ledger is at{" "}
+              <Link to="/fund/creatives-exchange" style={{ color: "var(--g-citron)" }}>
+                /fund/creatives-exchange
+              </Link>
+              .
+            </HowItem>
+            <HowItem title="Who can propose">
+              Any paid member can submit a proposal to a fund: a title, a
+              summary and an amount of $5 or more, optionally tied to a
+              project they lead. One open proposal per fund at a time.
+            </HowItem>
+            <HowItem title="Who decides">
+              Platform operators review proposals to the project pool and
+              approve or decline them. Abiding Practice decides its own
+              fund's awards. Approval and payout are separate steps: a grant
+              exists only once it is recorded as a public allocation with
+              recipient, amount and month.
+            </HowItem>
+            <HowItem title="Cadence and criteria">
+              There is no fixed cycle or deadline yet. Awards are made by
+              hand from the balance the ledger shows. Published criteria, a
+              conflict-of-interest policy and community-run selection are not
+              yet defined — they are on the roadmap, not in place.
+            </HowItem>
+            <HowItem title="Run a fund on these rails">
+              Any approved community can have its own pool today, with its
+              own public ledger and contribution button. A city program, a
+              foundation or a nonprofit could publish its awards the same
+              way. Percent-of-dues pledges to a community pool, award
+              deadlines and host-run selection are planned, not built.
+            </HowItem>
           </div>
         </div>
 
@@ -476,7 +668,8 @@ export default function GrantProgramPage() {
                 color: "var(--g-body)",
               }}
             >
-              Grants will be published here as they're awarded.
+              No grants awarded yet. The first awards come out of the balance
+              above and are published here the week they go out.
             </p>
           ) : (
             <div
@@ -580,9 +773,10 @@ export default function GrantProgramPage() {
                 How do creatives get grants?
               </h3>
               <p style={{ fontSize: 14.5, lineHeight: 1.55, color: "var(--g-body)" }}>
-                Creatives propose projects on the platform. Abiding Practice
-                reviews proposals and awards grants. The ledger above records
-                every grant.
+                A paid member submits a proposal to a fund. Platform operators
+                decide proposals to the project pool; Abiding Practice decides
+                its own fund's awards. There is no fixed cycle yet, and a
+                grant is only a grant once it appears on the ledger above.
               </p>
             </div>
             <div>
@@ -599,8 +793,9 @@ export default function GrantProgramPage() {
               <p style={{ fontSize: 14.5, lineHeight: 1.55, color: "var(--g-body)" }}>
                 Backing a project sends money directly to the creative (90/10
                 split, not tax-deductible). Donating to the Grant Fund goes to
-                Abiding Practice, who awards grants to creatives — that's the
-                tax-deductible path.
+                Abiding Practice, who decides its own awards — that's the
+                tax-deductible path. Contributing to the project pool is a
+                third option: not tax-deductible, 90% to the pool.
               </p>
             </div>
           </div>

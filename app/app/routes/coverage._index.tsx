@@ -1,4 +1,4 @@
-// /coverage — a church or sponsor buys seats for its creatives.
+// /coverage — a sponsor (a church, a business, a nonprofit) buys seats for its creatives.
 //
 // The persona audit found this was the most completely specified journey in
 // the docs (the-garden-product-plan.md §4.2: commit -> code -> hand out ->
@@ -6,7 +6,7 @@
 // tool that issues codes by hand. This is the sponsor's half. The creative's
 // half already exists at /c/:code.
 //
-// Public on purpose: a church treasurer following a link from /for/churches
+// Public on purpose: an org treasurer following a link from /for/churches
 // has no account and shouldn't need one to see the price. Checkout needs an
 // account, so the button carries the intent through signup the same way
 // /join does.
@@ -24,11 +24,11 @@ const SEAT_PRICE = 10; // $/seat/month, the published price
 
 export function meta() {
   return [
-    { title: "Sponsor your creatives — The Garden" },
+    { title: "Sponsor your creatives — creatives.exchange" },
     {
       name: "description",
       content:
-        "Cover seats for the creatives in your church. $10 per seat per month, one code for your whole group.",
+        "Cover seats for the creatives in your organization — a church, a business, a nonprofit. $10 per seat per month, one code for your whole group.",
     },
   ];
 }
@@ -105,8 +105,9 @@ export default function CoverageIndex() {
           Sponsor your creatives.
         </h1>
         <p style={{ marginTop: 12, fontSize: 15, lineHeight: 1.6 }}>
-          Cover seats for the people in your church who make things. You get
-          one code to hand out. They get everything a paying member gets.
+          Cover seats for the people in your organization who make things — a
+          church, a business, a nonprofit. You get one code to hand out. They
+          get everything a paying member gets.
         </p>
       </div>
 
@@ -156,7 +157,7 @@ export default function CoverageIndex() {
               id="cov-name"
               type="text"
               className="g-input"
-              placeholder="Grace Fellowship"
+              placeholder="Your organization's name"
               value={sponsorName}
               onChange={(e) => setSponsorName(e.target.value)}
               style={{ marginTop: 6, width: "100%", maxWidth: 320 }}

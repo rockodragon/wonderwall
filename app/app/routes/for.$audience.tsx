@@ -15,6 +15,11 @@ import { Reveal } from "../hooks/useReveal";
 //     named person their project WILL be funded is not.
 //   - A backer covers the platform fee at checkout, so the creative keeps
 //     100%. Never claim a payout speed — no cadence is set.
+//   - Grant money: dues shares (50%) fill the PLATFORM project pool
+//     (/fund/creatives-exchange); operators decide proposals to it. Abiding
+//     Practice's 501(c)(3) fund is a separate, off-platform lane. Never say a
+//     nonprofit decides the pool, and never point dues at /fund/abiding-practice.
+//     No grant cycle exists — never imply a deadline or a round.
 //   - The platform is open to any creative; The Garden is the Christian
 //     creative community inside it. Creative-facing copy says so plainly.
 //
@@ -69,7 +74,7 @@ const AUDIENCES: Audience[] = [
       },
       {
         title: "There's money set aside for your work",
-        body: "Community partners and patrons put money into a fund. You apply. A nonprofit decides who gets it, and every grant is posted publicly, so you can see who got what.",
+        body: "Half of every membership goes into a project pool. Paid members propose; operators review and every grant is posted publicly, so you can see who got what.",
       },
       {
         title: "Real work, from people nearby",
@@ -195,8 +200,11 @@ const AUDIENCES: Audience[] = [
       "$10 per seat per month, in any number you want. Paying for a year at once is one charge instead of twelve.",
     ctaLabel: "Sponsor your creative team",
     ctaTo: "/coverage",
-    ctaLabel2: "See what it pays for",
-    ctaTo2: "/fund/abiding-practice",
+    // Dues shares land on the PLATFORM pool row (stripeHandlers.ts
+    // handleInvoicePaid -> "creatives-exchange"), not on Abiding Practice's
+    // off-platform fund — so "see what it pays for" must point at that ledger.
+    ctaLabel2: "See the project pool ledger",
+    ctaTo2: "/fund/creatives-exchange",
     bandImages: ["church", "busker"],
     metaTitle: "For churches — creatives.exchange",
     metaDescription:

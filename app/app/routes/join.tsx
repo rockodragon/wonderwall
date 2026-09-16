@@ -356,8 +356,8 @@ export default function JoinPage() {
       </div>
 
       <p className="g-hint" style={{ marginTop: 20 }}>
-        Covered by a church or sponsor? A coverage code gets you full
-        membership at no cost — the link they gave you starts with /c/.
+        Covered by a sponsor? A coverage code gets you full membership at no
+        cost — the link they gave you starts with /c/.
       </p>
     </GardenPage>
   );

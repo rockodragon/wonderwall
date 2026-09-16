@@ -1,5 +1,6 @@
 // /c/:code — the coverage-code landing page (W2, spec §1.2 + §2.1). A
-// church buys seats; a creative lands here from a QR code or bulletin link.
+// sponsor (a church, a business, a nonprofit) buys seats; a creative lands
+// here from a QR code, bulletin, or newsletter link.
 // The whole page exists to make one fact land before anything else: a
 // covered seat is a full seat. Sponsorship changes who pays, never what the
 // creative can do.
@@ -26,7 +27,7 @@ import "../garden/garden.css";
 
 export function meta() {
   return [
-    { title: "Coverage — The Garden" },
+    { title: "Coverage — creatives.exchange" },
     { name: "robots", content: "noindex" },
   ];
 }
