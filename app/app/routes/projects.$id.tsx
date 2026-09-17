@@ -18,6 +18,8 @@ import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { AnnouncementComposer } from "../components/AnnouncementComposer";
 import { FavoriteButton } from "../components/FavoriteButton";
+import { LocationAutocomplete, LocationVerifiedHint } from "../components/LocationAutocomplete";
+import { useLocationField } from "../lib/useLocationField";
 import { budgetAmountLabel, budgetKindLabel, budgetLabel } from "../lib/budgetLabel";
 import { GigSchedule } from "../components/GigSchedule";
 import { resolveStage, stageLabel } from "../lib/stage";
@@ -570,69 +572,100 @@ function InlineEditableBlurb({ project, isOwner }: { project: any; isOwner: bool
 function InlineEditableLocation({ project, isOwner }: { project: any; isOwner: boolean }) {
   const updateProject = useMutation((api as any).garden.projects.updateProject);
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(project.location ?? "");
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  // Same wiring as the create forms in projects.tsx: the shared picker
+  // resolves a Places suggestion (type/address/coordinates) alongside the
+  // display string, and drops it the moment the text is edited away from
+  // the pick. Seeded from the project so "open, don't touch, save" keeps
+  // what was there.
+  const location = useLocationField(project);
+  const [remote, setRemote] = useState<boolean>(project.remote !== false);
+
+  function open() {
+    location.hydrate(project);
+    setRemote(project.remote !== false);
+    setError(null);
+    setEditing(true);
+  }
+
+  function cancel() {
+    setEditing(false);
+    setError(null);
+  }
 
   async function save() {
-    const trimmed = draft.trim();
-    if (trimmed === (project.location ?? "")) {
-      setEditing(false);
+    const args = location.toArgs();
+    if (!remote && !args.location) {
+      setError('Pick a location, or check "This can be done remotely."');
       return;
     }
     setSaving(true);
+    setError(null);
     try {
-      await updateProject({ projectId: project._id, location: trimmed || undefined });
+      // `location: ""` (not undefined) tells updateProject to clear the
+      // whole location group when the field was emptied.
+      await updateProject({ projectId: project._id, ...args, location: args.location ?? "", remote });
       setEditing(false);
-    } catch {
-      setDraft(project.location ?? "");
-      setEditing(false);
+    } catch (err) {
+      setError(errorMessage(err));
     } finally {
       setSaving(false);
     }
   }
 
-  if (project.remote && !isOwner) return null;
-
   if (editing) {
     return (
       <DetailCard label="Location">
-        <div className="flex items-center gap-2">
-          <input
-            autoFocus
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") save(); if (e.key === "Escape") { setDraft(project.location ?? ""); setEditing(false); } }}
-            disabled={saving}
-            placeholder="City, State"
-            className="flex-1 px-3 py-2 rounded-lg border text-sm outline-none"
-            style={{ backgroundColor: "var(--garden-ink)", borderColor: "var(--garden-hairline-raised)", color: "var(--garden-paper)" }}
-          />
-          <button
-            onClick={save}
-            disabled={saving}
-            className="px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50"
-            style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
-          >
-            {saving ? "…" : "Save"}
-          </button>
-          <button
-            onClick={() => { setDraft(project.location ?? ""); setEditing(false); }}
-            className="text-xs hover:opacity-80"
-            style={{ color: "var(--garden-dim)" }}
-          >
-            Cancel
-          </button>
+        <div className="flex flex-col gap-3">
+          <label className="flex items-center gap-2 text-sm" style={{ color: "var(--garden-body)" }}>
+            <input type="checkbox" checked={remote} onChange={(e) => setRemote(e.target.checked)} disabled={saving} />
+            This can be done remotely
+          </label>
+          {!remote && (
+            <div>
+              <LocationAutocomplete
+                value={location.value}
+                onChange={location.onChange}
+                onSelect={location.onSelect}
+                placeholder="Search for a location, type 'Online', or 'TBD'"
+                disabled={saving}
+              />
+              <LocationVerifiedHint value={location.value} selected={location.selected} />
+            </div>
+          )}
+          {error && <p className="text-sm text-red-400">{error}</p>}
+          <div className="flex items-center gap-2 justify-end">
+            <button onClick={cancel} disabled={saving} className="text-xs hover:opacity-80" style={{ color: "var(--garden-dim)" }}>
+              Cancel
+            </button>
+            <button
+              onClick={save}
+              disabled={saving}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50"
+              style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
+            >
+              {saving ? "Saving…" : "Save"}
+            </button>
+          </div>
         </div>
       </DetailCard>
     );
   }
 
-  if (!project.remote && project.location) {
+  const isRemote = project.remote !== false;
+  const summary = isRemote
+    ? project.location
+      ? `${project.location} · remote-friendly`
+      : "Remote-friendly — anywhere"
+    : project.location || null;
+
+  if (summary) {
     return (
       <DetailCard label="Location">
         <div className="flex items-center gap-1">
-          <p className="text-sm flex-1" style={{ color: "var(--garden-body)" }}>{project.location}</p>
-          {isOwner && <EditButton onClick={() => { setDraft(project.location ?? ""); setEditing(true); }} label="Edit location" />}
+          <p className="text-sm flex-1" style={{ color: "var(--garden-body)" }}>{summary}</p>
+          {isOwner && <EditButton onClick={open} label="Edit location" />}
         </div>
       </DetailCard>
     );
@@ -643,7 +676,7 @@ function InlineEditableLocation({ project, isOwner }: { project: any; isOwner: b
       <DetailCard label="Location">
         <div className="flex items-center gap-1">
           <p className="text-sm flex-1" style={{ color: "var(--garden-dim)" }}>No location set</p>
-          <EditButton onClick={() => { setDraft(""); setEditing(true); }} label="Add location" />
+          <EditButton onClick={open} label="Add location" />
         </div>
       </DetailCard>
     );
