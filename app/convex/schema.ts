@@ -64,6 +64,20 @@ export default defineSchema({
     supportInterests: v.optional(v.array(v.string())), // patron: categories they want to fund
     partnerOfferings: v.optional(v.array(v.string())), // partner: what they can offer
     lastLikeNotifiedAt: v.optional(v.number()), // last time likes digest was sent
+    // Live booking (docs/features/live-booking.md §6): where a venue pays
+    // this person directly, in the venue's own app — the platform hands
+    // over a link and records the payment, it never moves the money. NOT
+    // public: profiles.getProfile strips it; only the host who booked them
+    // reads it (garden/gigs.ts getSlotPayment). Written only by
+    // profiles.setPayoutHandles, which normalizes each value.
+    payoutHandles: v.optional(
+      v.object({
+        venmo: v.optional(v.string()), // username, no "@"
+        cashapp: v.optional(v.string()), // $cashtag, no "$"
+        paypal: v.optional(v.string()), // paypal.me name
+        zelle: v.optional(v.string()), // the email or phone on their bank account
+      }),
+    ),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
@@ -1422,4 +1436,86 @@ export default defineSchema({
     .index("by_announcementId_deliveredAt", ["announcementId", "deliveredAt"])
     // Cross-batch email dedupe (see Recipient resolution).
     .index("by_announcementId_email", ["announcementId", "email"]),
+
+  // ——— Live booking (docs/features/live-booking.md) ———
+  //
+  // A venue posts a recurring paid gig ("every Friday, 8–10pm, $300"). The
+  // posting itself is an ordinary `projects` row (kind "paid", so it sits on
+  // /projects and /opportunities with every other paid post); this table
+  // holds the schedule rule beside it, 1:1 by projectId. Dates are opened
+  // as `gigSlots` rows HORIZON_WEEKS ahead and extended daily by the cron
+  // (garden/gigs.ts extendGigSeries), so a series with no end date never
+  // runs out. Rule fields are stored the way the venue said them (venue-
+  // local date and clock strings + an IANA zone); the epoch math happens
+  // once per slot, in garden/gigRules.ts's slotTimes.
+  gigSeries: defineTable({
+    projectId: v.id("projects"),
+    hostUserId: v.id("users"), // mirrors projects.userId — the venue's account
+    venueName: v.optional(v.string()), // "The Grove" — shown on the card; the account may be a person
+    timeZone: v.string(), // IANA, e.g. "America/Los_Angeles"
+    startTime: v.string(), // "HH:MM" 24h, venue-local
+    endTime: v.string(), // "HH:MM"; at or before startTime = next morning
+    weekdays: v.array(v.number()), // 0 = Sunday … 6 = Saturday
+    intervalWeeks: v.number(), // 1 | 2 | 4
+    startDate: v.string(), // "YYYY-MM-DD" venue-local
+    endMode: v.string(), // "never" | "until" | "count"
+    endDate: v.optional(v.string()), // endMode "until"
+    count: v.optional(v.number()), // endMode "count"
+    status: v.string(), // "open" | "paused" (no new responses) | "ended"
+    materializedThrough: v.optional(v.string()), // last date the cron opened slots through
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_projectId", ["projectId"])
+    .index("by_status", ["status"]),
+
+  // One row per date a series is actually happening on. `open` takes
+  // responses; `booked` names the artist; `cancelled` is a date the venue
+  // dropped (a holiday) — kept, never deleted, once anyone has responded.
+  // Payment fields are the venue's own record of paying the artist
+  // directly (plan §3: "we record it and take nothing") — marked by the
+  // host, confirmed by the artist, never processed here.
+  gigSlots: defineTable({
+    seriesId: v.id("gigSeries"),
+    projectId: v.id("projects"), // denormalized for the project page's one range query
+    date: v.string(), // "YYYY-MM-DD" venue-local — unique within a series
+    startsAt: v.number(), // epoch ms
+    endsAt: v.number(),
+    status: v.string(), // "open" | "booked" | "cancelled"
+    bookedUserId: v.optional(v.id("users")),
+    bookedResponseId: v.optional(v.id("gigResponses")),
+    bookedAt: v.optional(v.number()),
+    cancelledAt: v.optional(v.number()),
+    paidAmountCents: v.optional(v.number()),
+    paidMethod: v.optional(v.string()), // "venmo" | "cashapp" | "paypal" | "zelle" | "cash" | "check" | "other"
+    paidAt: v.optional(v.number()), // host marked it paid
+    paidConfirmedAt: v.optional(v.number()), // artist confirmed it landed
+    createdAt: v.number(),
+  })
+    .index("by_seriesId_date", ["seriesId", "date"])
+    .index("by_projectId_startsAt", ["projectId", "startsAt"])
+    .index("by_bookedUserId_startsAt", ["bookedUserId", "startsAt"]),
+
+  // An artist saying "I can do that date" — one row per person per date,
+  // reused across withdraw/re-respond (nextResponseAction, gigRules.ts).
+  // `note` and `clipIds` are copied onto every date of one submission, so
+  // each date's responder list stands on its own. clipIds point at the
+  // artist's own `artifacts` rows (audio, video, or a music link) — the
+  // same "attach up to 3 work samples" idea the legacy jobs board had.
+  gigResponses: defineTable({
+    slotId: v.id("gigSlots"),
+    seriesId: v.id("gigSeries"),
+    projectId: v.id("projects"),
+    userId: v.id("users"),
+    profileId: v.id("profiles"),
+    status: v.string(), // "available" | "withdrawn" | "booked"
+    note: v.optional(v.string()), // ≤ 500 chars
+    clipIds: v.array(v.id("artifacts")), // ≤ 3, must belong to userId's profile
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_slotId_status", ["slotId", "status"])
+    .index("by_slotId_userId", ["slotId", "userId"])
+    .index("by_userId_status", ["userId", "status"])
+    .index("by_seriesId_userId", ["seriesId", "userId"]),
 });

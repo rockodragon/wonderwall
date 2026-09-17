@@ -1,5 +1,6 @@
 import { useAction, useMutation, useQuery } from "convex/react";
-import { Link, useSearchParams } from "react-router";
+import { Link, useNavigate, useSearchParams } from "react-router";
+import { GigSeriesForm } from "../components/GigSeriesForm";
 import { useMemo, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import { INTERESTS } from "../constants/interests";
@@ -19,6 +20,10 @@ const KIND_FILTERS = [
   { label: "All", value: "" },
   { label: "Passion", value: "passion" },
   { label: "Paid", value: "paid" },
+  // Live booking (docs/features/live-booking.md §5): a recurring paid gig is
+  // a paid project with a schedule attached (`gig` on the row), so "Paid"
+  // already includes it; this narrows to just those.
+  { label: "Paid gigs", value: "gigs" },
 ];
 
 export const STATUS_LABELS: Record<string, string> = {
@@ -76,6 +81,8 @@ export default function Projects() {
   const projects = useQuery(api.garden.projects.listProjects);
   const [kindFilter, setKindFilter] = useState("");
   const [showPaidForm, setShowPaidForm] = useState(false);
+  const [showGigForm, setShowGigForm] = useState(false);
+  const navigate = useNavigate();
   const [showPassionForm, setShowPassionForm] = useState(false);
   const [supportingProject, setSupportingProject] = useState<any>(null);
   const [searchParams, setSearchParams] = useSearchParams();
@@ -146,7 +153,12 @@ export default function Projects() {
 
   const filtered = useMemo(() => {
     if (!projects) return [];
-    let list = kindFilter ? projects.filter((p) => p.kind === kindFilter) : projects;
+    let list =
+      kindFilter === "gigs"
+        ? projects.filter((p) => !!p.gig)
+        : kindFilter
+          ? projects.filter((p) => p.kind === kindFilter)
+          : projects;
     if (communitySlug !== "all") {
       list = list.filter((p) => p.community?.slug === communitySlug);
     }
@@ -224,6 +236,7 @@ export default function Projects() {
           <PostProjectMenu
             onPaid={() => setShowPaidForm(true)}
             onPassion={() => setShowPassionForm(true)}
+            onGigs={() => setShowGigForm(true)}
           />
         </div>
 
@@ -321,6 +334,12 @@ export default function Projects() {
         )}
       </div>
 
+      {showGigForm && (
+        <GigSeriesForm
+          onClose={() => setShowGigForm(false)}
+          onCreated={(projectId) => navigate(`/projects/${projectId}`)}
+        />
+      )}
       {showPaidForm && (
         <PaidProjectForm
           onClose={() => setShowPaidForm(false)}
@@ -341,9 +360,11 @@ export default function Projects() {
 function PostProjectMenu({
   onPaid,
   onPassion,
+  onGigs,
 }: {
   onPaid: () => void;
   onPassion: () => void;
+  onGigs: () => void;
 }) {
   const [open, setOpen] = useState(false);
   return (
@@ -381,11 +402,24 @@ function PostProjectMenu({
                 onPaid();
               }}
               className="block w-full text-left px-4 py-3 text-sm transition-colors hover:opacity-80"
-              style={{ color: "var(--garden-paper)" }}
+              style={{ color: "var(--garden-paper)", borderBottom: "1px solid var(--garden-hairline)" }}
             >
               <span className="block font-medium">Paid work</span>
               <span className="block text-xs mt-0.5" style={{ color: "var(--garden-dim)" }}>
                 You're hiring someone — a bounded commission, with what it pays stated up front.
+              </span>
+            </button>
+            <button
+              onClick={() => {
+                setOpen(false);
+                onGigs();
+              }}
+              className="block w-full text-left px-4 py-3 text-sm transition-colors hover:opacity-80"
+              style={{ color: "var(--garden-paper)" }}
+            >
+              <span className="block font-medium">Paid gigs</span>
+              <span className="block text-xs mt-0.5" style={{ color: "var(--garden-dim)" }}>
+                A venue booking live acts on a schedule — every Friday, say. Artists mark the dates they can play; you pick who plays.
               </span>
             </button>
           </div>
@@ -420,7 +454,9 @@ function ProjectCard({
   // to proposals", or nothing at all for a volunteer ask). Both come from the
   // same helper as the full one-string badge on /projects and /projects/:id.
   const kindWord = project.kind === "paid" ? budgetKindLabel(project) : "Passion";
-  const moneyWord = project.kind === "paid" ? budgetAmountLabel(project) : null;
+  const moneyAmount = project.kind === "paid" ? budgetAmountLabel(project) : null;
+  // A gig's money is per date ("$300/date"), not per project.
+  const moneyWord = moneyAmount && project.gig && project.budgetType === "amount" ? `${moneyAmount}/date` : moneyAmount;
   const hasMoney = project.kind === "paid" && kindWord === "Paid";
   const stage = resolveStage(project);
 
@@ -537,6 +573,26 @@ function ProjectCard({
             </span>
           )}
         </div>
+        {project.gig && (
+          // Live booking: the schedule in one line — the card's real
+          // decision factor for a musician scanning for work.
+          <p className="text-[13px] mb-2" style={{ color: "var(--garden-body)" }}>
+            {project.gig.venueName ? `${project.gig.venueName} · ` : ""}
+            {project.gig.schedule}
+            {project.gig.status === "open" && project.gig.nextDateLabel
+              ? ` · next ${project.gig.nextDateLabel}`
+              : project.gig.status === "paused"
+                ? " · paused"
+                : project.gig.status === "ended"
+                  ? " · ended"
+                  : ""}
+            {project.gig.status === "open" && project.gig.openCount > 0 && (
+              <span style={{ color: "var(--garden-citron)" }}>
+                {" "}· {project.gig.openCount} {project.gig.openCount === 1 ? "date" : "dates"} open
+              </span>
+            )}
+          </p>
+        )}
         {project.interests && project.interests.length > 0 && (
           // Capped at 3 — a browse card is a scan, not the full tag list
           // (that's what the detail page is for); every tag rendered here

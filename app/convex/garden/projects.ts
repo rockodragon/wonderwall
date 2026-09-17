@@ -14,6 +14,7 @@ import { slugifyTitle, resolveAvailableSlug } from "./stories";
 import { assertCommunityMember } from "./communities";
 import { notifyFollowers } from "../follows";
 import { isStage, stageLabel, shouldNotifyStageChange } from "./projectTeam";
+import { summarizeGig } from "./gigSummary";
 
 // Following fan-out (docs/features/following.md §1 #5): "Name posted Title"
 // to everyone following the poster, once per created row. `userId` is a
@@ -352,9 +353,10 @@ export const listProjects = query({
       if (org && org.kind === "community") communityById.set(String(id), { name: org.name, slug: org.slug });
     });
 
+    const now = Date.now();
     const withDetails = await Promise.all(
       projects.map(async (project) => {
-        const [user, media, support] = await Promise.all([
+        const [user, media, support, gig] = await Promise.all([
           ctx.db
             .query("profiles")
             .withIndex("by_userId", (q) => q.eq("userId", project.userId))
@@ -368,6 +370,9 @@ export const listProjects = query({
             .withIndex("by_projectId", (q) => q.eq("projectId", project._id))
             .filter((q) => q.eq(q.field("status"), "confirmed"))
             .collect(),
+          // Live booking: null for every ordinary project, a one-line
+          // schedule summary for a recurring paid gig (gigSummary.ts).
+          summarizeGig(ctx, project._id, now),
         ]);
 
         const resolvedMedia = await Promise.all(
@@ -398,6 +403,7 @@ export const listProjects = query({
           media: resolvedMedia,
           supportCount: support.length,
           community: project.hostOrgId ? (communityById.get(String(project.hostOrgId)) ?? null) : null,
+          gig,
         };
       }),
     );
@@ -425,7 +431,7 @@ export const getProject = query({
     const project = await ctx.db.get(id);
     if (!project) return null;
 
-    const [user, media, support, communityOrg] = await Promise.all([
+    const [user, media, support, communityOrg, gig] = await Promise.all([
       ctx.db
         .query("profiles")
         .withIndex("by_userId", (q) => q.eq("userId", project.userId))
@@ -440,6 +446,8 @@ export const getProject = query({
         .filter((q) => q.eq(q.field("status"), "confirmed"))
         .collect(),
       project.hostOrgId ? ctx.db.get(project.hostOrgId) : Promise.resolve(null),
+      // Live booking summary — null unless this project is a gig series.
+      summarizeGig(ctx, project._id, Date.now()),
     ]);
 
     const resolvedMedia = await Promise.all(
@@ -464,6 +472,7 @@ export const getProject = query({
       media: resolvedMedia,
       supportCount: support.length,
       community: communityOrg && communityOrg.kind === "community" ? { name: communityOrg.name, slug: communityOrg.slug } : null,
+      gig,
     };
   },
 });

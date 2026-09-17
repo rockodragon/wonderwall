@@ -19,6 +19,7 @@ import type { Id } from "../../convex/_generated/dataModel";
 import { AnnouncementComposer } from "../components/AnnouncementComposer";
 import { FavoriteButton } from "../components/FavoriteButton";
 import { budgetAmountLabel, budgetKindLabel, budgetLabel } from "../lib/budgetLabel";
+import { GigSchedule } from "../components/GigSchedule";
 import { resolveStage, stageLabel } from "../lib/stage";
 import { INTERESTS } from "../constants/interests";
 import { errorMessage, STATUS_LABELS, StageSelect, SupportModal } from "./projects";
@@ -154,7 +155,10 @@ export default function ProjectDetail() {
 
   const isOwner = !!myProfile && project.userId === myProfile.userId;
   const kindWord = project.kind === "paid" ? budgetKindLabel(project) : "Passion";
-  const moneyWord = project.kind === "paid" ? budgetAmountLabel(project) : null;
+  const moneyAmount = project.kind === "paid" ? budgetAmountLabel(project) : null;
+  // Live booking (docs/features/live-booking.md): a gig's money is per date.
+  const isGig = !!project.gig;
+  const moneyWord = moneyAmount && isGig && project.budgetType === "amount" ? `${moneyAmount}/date` : moneyAmount;
   const hasMoney = project.kind === "paid" && kindWord === "Paid";
   const thumb = project.resolvedPhotoUrl || project.media.find((m: any) => m.resolvedMediaUrl)?.resolvedMediaUrl;
 
@@ -217,7 +221,14 @@ export default function ProjectDetail() {
 
       <InlineEditableBlurb project={project} isOwner={isOwner} />
 
-      <TeamCard project={project} isOwner={isOwner} myProfile={myProfile} />
+      {/* A gig is booked date by date, not staffed as a team — the schedule
+          card replaces the team/roles card, and the patron support widget
+          below stays off: a bar's Friday-night slot isn't backed, it's paid. */}
+      {isGig ? (
+        <GigSchedule project={project} isOwner={isOwner} myProfile={myProfile} />
+      ) : (
+        <TeamCard project={project} isOwner={isOwner} myProfile={myProfile} />
+      )}
 
       {project.benefitsNonprofit && (
         <DetailCard label="Nonprofit">
@@ -229,24 +240,28 @@ export default function ProjectDetail() {
 
       <InlineEditableLocation project={project} isOwner={isOwner} />
 
-      <div
-        className="flex items-center justify-between gap-2 pt-4"
-        style={{ borderTop: "1px solid var(--garden-hairline)" }}
-      >
-        <span className="text-sm" style={{ color: "var(--garden-dim)" }}>
-          {project.supportCount > 0
-            ? `${project.supportCount} ${project.supportCount === 1 ? "supporter" : "supporters"}`
-            : "Be the first to support"}
-        </span>
-        <button
-          onClick={() => setShowSupportModal(true)}
-          className="px-4 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition-opacity hover:opacity-90"
-          style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
-        >
-          Support
-        </button>
-      </div>
-      <SupportersList projectId={project._id} />
+      {!isGig && (
+        <>
+          <div
+            className="flex items-center justify-between gap-2 pt-4"
+            style={{ borderTop: "1px solid var(--garden-hairline)" }}
+          >
+            <span className="text-sm" style={{ color: "var(--garden-dim)" }}>
+              {project.supportCount > 0
+                ? `${project.supportCount} ${project.supportCount === 1 ? "supporter" : "supporters"}`
+                : "Be the first to support"}
+            </span>
+            <button
+              onClick={() => setShowSupportModal(true)}
+              className="px-4 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition-opacity hover:opacity-90"
+              style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
+            >
+              Support
+            </button>
+          </div>
+          <SupportersList projectId={project._id} />
+        </>
+      )}
 
       {isOwner && (
         <>
@@ -261,7 +276,7 @@ export default function ProjectDetail() {
               <ArchiveButton project={project} />
             </div>
           </DetailCard>
-          <TierManager projectId={project._id} />
+          {!isGig && <TierManager projectId={project._id} />}
           <div className="mb-6">
             <AnnouncementComposer targetType="project" targetId={project._id} heading="Message team and supporters" />
           </div>

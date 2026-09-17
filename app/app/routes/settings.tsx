@@ -11,6 +11,8 @@ import { LocationAutocomplete, LocationVerifiedHint } from "../components/Locati
 import { useLocationField } from "../lib/useLocationField";
 import { INTERESTS } from "../constants/interests";
 import { LEVEL_LABEL } from "../garden/capabilities";
+import { normalizeHandle, type PayoutKind } from "../../convex/garden/gigRules";
+import { errorMessage } from "./projects";
 
 // Normalize URL by adding https:// if missing
 function normalizeUrl(url: string): string {
@@ -139,6 +141,16 @@ export default function Settings() {
       {/* My backings */}
       <div className="mt-8 pt-6 border-t" style={{ borderColor: "var(--app-hairline)" }}>
         <BackingsSection />
+      </div>
+
+      {/* Getting paid (live booking) */}
+      <div className="mt-8 pt-6 border-t" style={{ borderColor: "var(--app-hairline)" }}>
+        <PayoutHandlesSection />
+      </div>
+
+      {/* Your gigs (live booking) */}
+      <div className="mt-8 pt-6 border-t" style={{ borderColor: "var(--app-hairline)" }}>
+        <MyGigsSection />
       </div>
 
       {/* Artifacts section */}
@@ -382,6 +394,216 @@ function BackingsSection() {
               {b.amountCents ? formatMoneyCents(b.amountCents) : ""}
               {b.type === "financial_recurring" ? "/mo" : ""}
               {b.type === "financial_annual" ? "/yr" : ""}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Live booking (docs/features/live-booking.md §6): where a venue pays this
+// person, in the venue's own app. Same normalizeHandle validation the
+// server (profiles.ts's setPayoutHandles) runs — mirrored here so a typo
+// shows up before the round trip, not after.
+const PAYOUT_FIELDS: { kind: PayoutKind; label: string; placeholder: string }[] = [
+  { kind: "venmo", label: "Venmo", placeholder: "@username" },
+  { kind: "cashapp", label: "Cash App", placeholder: "$cashtag" },
+  { kind: "paypal", label: "PayPal.Me", placeholder: "paypal.me/name" },
+  { kind: "zelle", label: "Zelle", placeholder: "email or phone on your bank account" },
+];
+
+function PayoutHandlesSection() {
+  const profile = useQuery(api.profiles.getMyProfile);
+  const setPayoutHandles = useMutation(api.profiles.setPayoutHandles);
+  const [values, setValues] = useState<Record<PayoutKind, string>>({
+    venmo: "",
+    cashapp: "",
+    paypal: "",
+    zelle: "",
+  });
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<PayoutKind, string>>>({});
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const prefilled = useRef(false);
+
+  useEffect(() => {
+    if (prefilled.current || !profile) return;
+    const handles = (profile as any).payoutHandles ?? {};
+    setValues({
+      venmo: handles.venmo ?? "",
+      cashapp: handles.cashapp ?? "",
+      paypal: handles.paypal ?? "",
+      zelle: handles.zelle ?? "",
+    });
+    prefilled.current = true;
+  }, [profile]);
+
+  if (profile === undefined) return null;
+
+  async function handleSave(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    setSaved(false);
+    const nextErrors: Partial<Record<PayoutKind, string>> = {};
+    const args: Record<PayoutKind, string | undefined> = {
+      venmo: undefined,
+      cashapp: undefined,
+      paypal: undefined,
+      zelle: undefined,
+    };
+    for (const field of PAYOUT_FIELDS) {
+      const result = normalizeHandle(field.kind, values[field.kind]);
+      if (!result.ok) {
+        nextErrors[field.kind] = result.reason;
+      } else {
+        args[field.kind] = result.value ?? undefined;
+      }
+    }
+    setFieldErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) return;
+
+    setSaving(true);
+    try {
+      await setPayoutHandles(args);
+      setSaved(true);
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div>
+      <h2 className="text-lg font-semibold mb-2" style={{ color: "var(--app-text)" }}>
+        Getting paid
+      </h2>
+      <p className="text-sm mb-4" style={{ color: "var(--app-text-dim)" }}>
+        When a venue books you, it pays you directly in one of these apps. Only the venue that booked you sees
+        this.
+      </p>
+      <form onSubmit={handleSave} className="flex flex-col gap-3 max-w-sm">
+        {PAYOUT_FIELDS.map((field) => (
+          <div key={field.kind}>
+            <label className="block text-sm font-medium mb-1" style={{ color: "var(--app-text-muted)" }}>
+              {field.label}
+            </label>
+            <input
+              type="text"
+              value={values[field.kind]}
+              onChange={(e) => {
+                const v = e.target.value;
+                setValues((prev) => ({ ...prev, [field.kind]: v }));
+                setFieldErrors((prev) => ({ ...prev, [field.kind]: undefined }));
+              }}
+              placeholder={field.placeholder}
+              className="w-full px-3 py-2 border rounded-lg text-sm outline-none focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent"
+              style={{ borderColor: "var(--app-hairline)", backgroundColor: "var(--app-surface-raised)", color: "var(--app-text)" }}
+            />
+            {field.kind === "venmo" && (
+              <p className="text-xs mt-1" style={{ color: "var(--app-text-dim)" }}>
+                Venmo's rules say payments for services should go to a business profile (1.9% + 10¢ to you). A
+                personal profile is at your own risk.
+              </p>
+            )}
+            {fieldErrors[field.kind] && <p className="text-sm text-red-400 mt-1">{fieldErrors[field.kind]}</p>}
+          </div>
+        ))}
+        {error && <p className="text-sm text-red-400">{error}</p>}
+        {saved && !error && (
+          <p className="text-sm" style={{ color: "var(--app-text-dim)" }}>
+            Saved.
+          </p>
+        )}
+        <div>
+          <button
+            type="submit"
+            disabled={saving}
+            className="px-4 py-2 rounded-lg text-sm font-medium transition-opacity hover:opacity-90 disabled:opacity-50"
+            style={{ backgroundColor: "var(--app-accent)", color: "var(--garden-ink)" }}
+          >
+            {saving ? "Saving…" : "Save"}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+// Live booking: the signed-in artist's own dates across every gig they've
+// responded to or been booked for — same row shape as BackingsSection.
+function MyGigsSection() {
+  const gigs = useQuery(api.garden.gigs.listMyGigs);
+
+  if (!gigs || gigs.length === 0) return null;
+
+  return (
+    <div>
+      <h2 className="text-lg font-semibold mb-4" style={{ color: "var(--app-text)" }}>
+        Your gigs
+      </h2>
+      <div className="space-y-2">
+        {gigs.map((g: any) => (
+          <div
+            key={g.slotId}
+            className="flex items-center justify-between gap-3 p-3 rounded-xl"
+            style={{ backgroundColor: "var(--app-surface-raised)" }}
+          >
+            <div className="min-w-0">
+              <Link
+                to={`/projects/${g.projectId}`}
+                className="font-medium text-sm truncate block transition-colors hover:opacity-80"
+                style={{ color: "var(--app-text)" }}
+              >
+                {g.title}
+              </Link>
+              <span className="text-xs" style={{ color: "var(--app-text-dim)" }}>
+                {g.venueName ? `${g.venueName} · ` : ""}
+                {g.dateLabel} · {g.timeRange}
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              {g.slotStatus === "cancelled" ? (
+                <span
+                  className="px-2 py-0.5 rounded-full text-xs font-medium uppercase tracking-[0.06em]"
+                  style={{ backgroundColor: "var(--app-hairline)", color: "var(--app-text-dim)" }}
+                >
+                  Cancelled
+                </span>
+              ) : g.mine === "booked" ? (
+                <>
+                  <span
+                    className="px-2 py-0.5 rounded-full text-xs font-medium uppercase tracking-[0.06em]"
+                    style={{ backgroundColor: "var(--app-accent)", color: "var(--garden-ink)" }}
+                  >
+                    Booked
+                  </span>
+                  {g.paidConfirmedAt ? (
+                    <span
+                      className="px-2 py-0.5 rounded-full text-xs font-medium uppercase tracking-[0.06em]"
+                      style={{ backgroundColor: "var(--app-hairline)", color: "var(--app-text-dim)" }}
+                    >
+                      Paid · confirmed
+                    </span>
+                  ) : g.paidAt ? (
+                    <span
+                      className="px-2 py-0.5 rounded-full text-xs font-medium uppercase tracking-[0.06em]"
+                      style={{ backgroundColor: "var(--app-hairline)", color: "var(--app-text-dim)" }}
+                    >
+                      Paid
+                    </span>
+                  ) : null}
+                </>
+              ) : g.mine === "available" ? (
+                <span
+                  className="px-2 py-0.5 rounded-full text-xs font-medium uppercase tracking-[0.06em]"
+                  style={{ backgroundColor: "var(--app-hairline)", color: "var(--app-text-dim)" }}
+                >
+                  Offered
+                </span>
+              ) : null}
             </div>
           </div>
         ))}
