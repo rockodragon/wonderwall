@@ -76,6 +76,18 @@ export function resolveStage(project: { stage?: string; status?: string; kind: s
   return project.kind === "paid" ? "forming" : "planning";
 }
 
+/** Whether a project is still taking new people: a role reads as "open", a
+ * visitor can ask to join or apply. A finished project isn't — archived,
+ * completed (by status or stage), or cancelled — so its unfilled roles stop
+ * surfacing and a request is refused, rather than someone applying to work
+ * that has already wrapped. "paused" still takes people: on hold is not
+ * over. Filled roles are unaffected; they're credits, not openings. */
+export function isAcceptingPeople(project: { stage?: string; status?: string; kind: string }): boolean {
+  if (project.status === "archived" || project.status === "completed") return false;
+  const stage = resolveStage(project);
+  return stage !== "completed" && stage !== "cancelled";
+}
+
 // ——————————————————————————————————————————————————————————————
 // Pure core
 // ——————————————————————————————————————————————————————————————
@@ -633,6 +645,12 @@ export const requestToJoin = mutation({
     }
     if (project.status === "archived") {
       throw new ConvexError({ code: "project_archived", reason: "This project is archived." });
+    }
+    if (!isAcceptingPeople(project)) {
+      throw new ConvexError({
+        code: "project_closed",
+        reason: "This project is finished and isn't taking new people.",
+      });
     }
     // Applying to paid work takes membership (the plan, §2; decided
     // 2026-09-17 alongside the gig gate — docs/features/live-booking.md
@@ -1303,7 +1321,11 @@ export const getTeam = query({
       ? { allowed: true as const, reason: null, upgradePath: null }
       : { allowed: false as const, reason: applyResult.reason ?? "Applying to paid work takes membership.", upgradePath: applyResult.upgradePath ?? null };
 
-    if (!isLead) return { lead, accepted, credits, mine, apply };
+    // The page hides its join/apply controls on a finished project rather
+    // than offering a button requestToJoin will refuse.
+    const acceptingPeople = isAcceptingPeople(project);
+
+    if (!isLead) return { lead, accepted, credits, mine, apply, acceptingPeople };
 
     const pending: PersonEntry[] = [];
     for (const row of rows) {
@@ -1315,7 +1337,7 @@ export const getTeam = query({
       if (row.status !== "invited") continue;
       invited.push(toInvitedEntry(row, await resolvePerson(ctx, row.userId)));
     }
-    return { lead, accepted, credits, mine, apply, pending, invited };
+    return { lead, accepted, credits, mine, apply, acceptingPeople, pending, invited };
   },
 });
 
@@ -1324,16 +1346,22 @@ export const getTeam = query({
  * list so a visitor can pick a specific opening (or the free-text Apply/
  * Ask-to-join button) instead of proposing a role blind. Closed postings
  * are omitted — they're the lead's own history, not something to keep
- * surfacing once retired. Doesn't itself require the lead — the whole
+ * surfacing once retired. So are OPEN postings on a project that's no
+ * longer taking people (isAcceptingPeople) — an unfilled role on finished
+ * work isn't an opening; filled ones stay, as credits. Doesn't itself require the lead — the whole
  * project page already does (projects.$id.tsx lives inside the _app shell,
  * which isn't on the signed-out-public-path list). */
 export const listRoles = query({
   args: { projectId: v.id("projects") },
   handler: async (ctx, args) => {
-    const rows = await ctx.db
-      .query("projectRoles")
-      .withIndex("by_projectId", (q) => q.eq("projectId", args.projectId))
-      .collect();
+    const [project, rows] = await Promise.all([
+      ctx.db.get(args.projectId),
+      ctx.db
+        .query("projectRoles")
+        .withIndex("by_projectId", (q) => q.eq("projectId", args.projectId))
+        .collect(),
+    ]);
+    const accepting = project ? isAcceptingPeople(project) : false;
     rows.sort((a, b) => a.createdAt - b.createdAt);
 
     const out: {
@@ -1354,6 +1382,7 @@ export const listRoles = query({
     }[] = [];
     for (const row of rows) {
       if (row.status === "closed") continue;
+      if (row.status === "open" && !accepting) continue;
       let filledBy: (typeof out)[number]["filledBy"] = null;
       // filledByMemberId always has a userId by the time it's "accepted" —
       // every path that sets status "accepted" (respondToInvite,
