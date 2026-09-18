@@ -170,7 +170,7 @@ In-app only, same table and shape as project teams. No email yet (see §10).
 
 **Done on this branch:** schema, rules and tests, every Convex function above, the nightly job, the Paid gigs filter and card line, the post form, the Dates card with venue and artist views, clips inline, the pay panel with deep links, mark paid / confirm, Settings sections for pay handles and your gigs, the public profile strips handles.
 
-**Runtime checked, not click-tested.** The schema and functions push cleanly to the local Convex backend (`app/.env.local` points at `local:` — run Convex commands with `fnm exec --using=24 --`, the CLI misbehaves under Node 26). The time-zone math (`Intl.DateTimeFormat` inside a Convex function) was run there and matched every expected instant, including both sides of a daylight-saving change. What has not happened is a signed-in click-through of the post form, the Dates card, and the pay panel; that needs a real session. Follow-ups are bead wonderwall-96j0.
+**Runtime checked, not click-tested.** The schema and functions push cleanly to a local Convex backend (run Convex commands with `fnm exec --using=24 --`). The time-zone math (`Intl.DateTimeFormat` inside a Convex function) was run there and matched every expected instant, including both sides of a daylight-saving change. The cloud dev deployment the main checkout targets (`dev:giant-wildebeest-814`) still rejects every schema push because it holds rows with fields no branch declares (`projects.body`, `storyUpdates.bodyDoc`) — a pre-existing problem, bead wonderwall-vx7f. What has not happened is a signed-in click-through of the post form, the Dates card, and the pay panel; that needs a real session. Follow-ups are bead wonderwall-96j0.
 
 **Not done, in order of value:**
 
