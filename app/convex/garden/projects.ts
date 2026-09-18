@@ -14,6 +14,12 @@ import { slugifyTitle, resolveAvailableSlug } from "./stories";
 import { assertCommunityMember } from "./communities";
 import { notifyFollowers } from "../follows";
 import { isStage, stageLabel, shouldNotifyStageChange } from "./projectTeam";
+import {
+  normalizeRichDoc,
+  orphanedStorageIds,
+  resolveRichDocMedia,
+  richDocValidator,
+} from "./richText";
 
 // Following fan-out (docs/features/following.md §1 #5): "Name posted Title"
 // to everyone following the poster, once per created row. `userId` is a
@@ -165,6 +171,10 @@ export const updateProject = mutation({
     projectId: v.id("projects"),
     title: v.optional(v.string()),
     blurb: v.optional(v.string()),
+    // The full page body. Passing [] clears it — v.optional means "field
+    // omitted = leave it alone", so an empty array is the only way the
+    // editor can say "I deleted everything".
+    body: v.optional(richDocValidator),
     photoUrl: v.optional(v.string()),
     interests: v.optional(v.array(v.string())),
     benefitsNonprofit: v.optional(v.boolean()),
@@ -192,6 +202,21 @@ export const updateProject = mutation({
     const patch: Record<string, any> = { updatedAt: Date.now() };
     if (args.title !== undefined) patch.title = args.title;
     if (args.blurb !== undefined) patch.blurb = args.blurb;
+    // Uploads referenced by the OLD body and not the new one are deleted
+    // here rather than left behind — an author who swaps a photo five times
+    // while writing would otherwise leave five files paid for and unread.
+    // Deletion is best-effort: a file already gone must not fail the save.
+    if (args.body !== undefined) {
+      const body = normalizeRichDoc(args.body);
+      patch.body = body;
+      for (const storageId of orphanedStorageIds(project.body, body)) {
+        try {
+          await ctx.storage.delete(storageId as Id<"_storage">);
+        } catch {
+          // already gone
+        }
+      }
+    }
     if (args.photoUrl !== undefined) patch.photoUrl = args.photoUrl;
     if (args.interests !== undefined) patch.interests = args.interests;
     if (args.benefitsNonprofit !== undefined) patch.benefitsNonprofit = args.benefitsNonprofit;
@@ -455,8 +480,14 @@ export const getProject = query({
       ? await ctx.storage.getUrl(project.photoStorageId)
       : project.photoUrl || null;
 
+    // Media blocks come back carrying the URL their storageId resolves to,
+    // the same shape resolvedMedia above already uses, so the renderer never
+    // has to make a second round trip per image.
+    const resolvedBody = await resolveRichDocMedia(ctx.storage, project.body);
+
     return {
       ...project,
+      body: resolvedBody,
       resolvedPhotoUrl,
       creator: user
         ? { _id: user._id, name: user.name, imageUrl: user.imageUrl, interests: user.interests, location: user.location }

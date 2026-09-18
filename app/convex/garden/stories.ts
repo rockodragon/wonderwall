@@ -15,6 +15,16 @@ import { internalMutation, mutation, query } from "../_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import { shapeCredits } from "./allocations";
+import { notifyFollowers } from "../follows";
+import {
+  normalizeRichDoc,
+  orphanedStorageIds,
+  resolveRichDocMedia,
+  richDocExcerpt,
+  richDocPlainText,
+  richDocValidator,
+  type RichDoc,
+} from "./richText";
 
 // ——————————————————————————————————————————————————————————————
 // Pure core: slug generation/dedup
@@ -145,11 +155,42 @@ export const ensureStorySlug = internalMutation({
   },
 });
 
+/**
+ * Derives the two things every update row stores from what the composer
+ * sent. `bodyDoc` is the rich version; `body` is its plain-text rendering,
+ * which stays a real column because notifications, excerpts and every row
+ * written before bodyDoc existed read it directly.
+ *
+ * An update with only a photo in it is valid and its plain text is legitimately
+ * empty — that is a post, not a mistake — so "is this empty?" asks the
+ * document, not the string. The plain-text-only path (`body` with no
+ * `bodyDoc`) is what the seeds and any older caller still use.
+ */
+export function shapeUpdateContent(args: {
+  body?: string;
+  bodyDoc?: RichDoc;
+}): { body: string; bodyDoc: RichDoc | undefined } {
+  const bodyDoc = normalizeRichDoc(args.bodyDoc);
+  if (bodyDoc) return { body: richDocPlainText(bodyDoc), bodyDoc };
+
+  const body = normalizeUpdateBody(args.body ?? "");
+  if (!body) {
+    throw new ConvexError({
+      code: "empty_body",
+      reason: "An update needs a few words or a photo — either one will do.",
+    });
+  }
+  return { body, bodyDoc: undefined };
+}
+
 /** Project OWNER only (userId match) — warm error otherwise. */
 export const postStoryUpdate = mutation({
   args: {
     projectId: v.id("projects"),
-    body: v.string(),
+    // Optional since the rich composer sends `bodyDoc` instead. Exactly one
+    // of the two has to carry something; shapeUpdateContent enforces it.
+    body: v.optional(v.string()),
+    bodyDoc: v.optional(richDocValidator),
     mediaUrl: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -159,22 +200,163 @@ export const postStoryUpdate = mutation({
     const project = await ctx.db.get(args.projectId);
     assertStoryOwner(project, userId);
 
-    const body = normalizeUpdateBody(args.body);
-    if (!body) {
-      throw new ConvexError({
-        code: "empty_body",
-        reason: "An update needs a few words — even a line will do.",
-      });
-    }
+    const { body, bodyDoc } = shapeUpdateContent(args);
 
     const id = await ctx.db.insert("storyUpdates", {
       projectId: args.projectId,
       authorUserId: userId,
       body,
+      bodyDoc,
       mediaUrl: args.mediaUrl,
       createdAt: Date.now(),
     });
+
+    // Same fan-out a new project gets (docs/features/following.md §1 #5):
+    // an update nobody hears about is a diary entry. Fire-and-forget — a
+    // notification failure must never roll back the post itself.
+    try {
+      const profile = await ctx.db
+        .query("profiles")
+        .withIndex("by_userId", (q) => q.eq("userId", userId))
+        .first();
+      const name = profile?.name || "Someone";
+      const excerpt = richDocExcerpt(bodyDoc, 140) || body.slice(0, 140);
+      await notifyFollowers(ctx, userId, {
+        type: "project_update",
+        title: `${name} posted an update on ${project!.title}`,
+        message: excerpt,
+        linkUrl: `/projects/${args.projectId}`,
+      });
+    } catch {
+      // notifying is a nicety; posting is the job
+    }
+
     return { storyUpdateId: id };
+  },
+});
+
+/** The update's AUTHOR only. Rewrites content in place and stamps editedAt,
+    so the timeline can say "edited" rather than changing silently under
+    people who already read it. */
+export const editStoryUpdate = mutation({
+  args: {
+    storyUpdateId: v.id("storyUpdates"),
+    body: v.optional(v.string()),
+    bodyDoc: v.optional(richDocValidator),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new ConvexError({ code: "unauthenticated" });
+
+    const update = await ctx.db.get(args.storyUpdateId);
+    if (!update) {
+      throw new ConvexError({ code: "not_found", reason: "That update isn't here anymore." });
+    }
+    if (String(update.authorUserId) !== String(userId)) {
+      throw new ConvexError({
+        code: "forbidden",
+        reason: "Only the person who posted an update can edit it.",
+      });
+    }
+
+    const { body, bodyDoc } = shapeUpdateContent(args);
+
+    // Same orphan sweep updateProject does — an edit that removes a photo
+    // should not leave the file behind.
+    for (const storageId of orphanedStorageIds(update.bodyDoc, bodyDoc)) {
+      try {
+        await ctx.storage.delete(storageId as Id<"_storage">);
+      } catch {
+        // already gone
+      }
+    }
+
+    await ctx.db.patch(args.storyUpdateId, { body, bodyDoc, editedAt: Date.now() });
+    return { ok: true };
+  },
+});
+
+/** The update's AUTHOR only. Takes its uploaded media with it. */
+export const deleteStoryUpdate = mutation({
+  args: { storyUpdateId: v.id("storyUpdates") },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new ConvexError({ code: "unauthenticated" });
+
+    const update = await ctx.db.get(args.storyUpdateId);
+    if (!update) return { ok: true }; // already gone — deleting twice is fine
+    if (String(update.authorUserId) !== String(userId)) {
+      throw new ConvexError({
+        code: "forbidden",
+        reason: "Only the person who posted an update can delete it.",
+      });
+    }
+
+    for (const storageId of orphanedStorageIds(update.bodyDoc, undefined)) {
+      try {
+        await ctx.storage.delete(storageId as Id<"_storage">);
+      } catch {
+        // already gone
+      }
+    }
+
+    await ctx.db.delete(args.storyUpdateId);
+    return { ok: true };
+  },
+});
+
+/**
+ * The in-app timeline on /projects/:id. Separate from getStoryPage (which
+ * serves the public /story/:slug page and returns a deliberately flattened,
+ * Id-free shape for the Pages Function): this one carries row ids, because
+ * the author needs to edit and delete from here, and author identity,
+ * because the in-app page shows who posted.
+ */
+export const listProjectUpdates = query({
+  args: { projectId: v.string() },
+  handler: async (ctx, args) => {
+    const projectId = ctx.db.normalizeId("projects", args.projectId);
+    if (!projectId) return [];
+
+    const rows = await ctx.db
+      .query("storyUpdates")
+      .withIndex("by_projectId", (q) => q.eq("projectId", projectId))
+      .collect();
+
+    const authorIds = [...new Set(rows.map((r) => String(r.authorUserId)))];
+    const authorProfiles = await Promise.all(
+      authorIds.map((id) =>
+        ctx.db
+          .query("profiles")
+          .withIndex("by_userId", (q) => q.eq("userId", id as Id<"users">))
+          .unique(),
+      ),
+    );
+    const authorById = new Map<string, { name: string; imageUrl?: string; profileId: string }>();
+    for (const profile of authorProfiles) {
+      if (profile) {
+        authorById.set(String(profile.userId), {
+          name: profile.name,
+          imageUrl: profile.imageUrl,
+          profileId: String(profile._id),
+        });
+      }
+    }
+
+    return await Promise.all(
+      [...rows]
+        .sort((a, b) => b.createdAt - a.createdAt)
+        .map(async (row) => ({
+          _id: row._id,
+          body: row.body,
+          bodyDoc: await resolveRichDocMedia(ctx.storage, row.bodyDoc),
+          mediaUrl: row.mediaUrl,
+          createdAt: row.createdAt,
+          editedAt: row.editedAt,
+          authorUserId: row.authorUserId,
+          author: authorById.get(String(row.authorUserId)) ?? null,
+        })),
+    );
   },
 });
 
@@ -245,15 +427,24 @@ export const getStoryPage = query({
       project: {
         title: project.title,
         blurb: project.blurb,
+        body: await resolveRichDocMedia(ctx.storage, project.body),
         kind: project.kind,
         goal: project.goal,
         raisedCents: project.raisedCents,
         photoUrl: project.photoUrl,
         byName: ownerProfile?.name ?? "",
       },
-      updates: [...updateRows]
-        .sort((a, b) => b.createdAt - a.createdAt)
-        .map((u) => ({ body: u.body, mediaUrl: u.mediaUrl, createdAt: u.createdAt })),
+      updates: await Promise.all(
+        [...updateRows]
+          .sort((a, b) => b.createdAt - a.createdAt)
+          .map(async (u) => ({
+            body: u.body,
+            bodyDoc: await resolveRichDocMedia(ctx.storage, u.bodyDoc),
+            mediaUrl: u.mediaUrl,
+            createdAt: u.createdAt,
+            editedAt: u.editedAt,
+          })),
+      ),
       credits: {
         allocations: shapeCredits(allocationRows, orgNameById),
         sponsorLine,

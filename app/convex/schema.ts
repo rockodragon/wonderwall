@@ -1,6 +1,7 @@
 import { authTables } from "@convex-dev/auth/server";
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+import { richDocValidator } from "./garden/richText";
 
 export default defineSchema({
   // Convex Auth tables (users, sessions, accounts, etc.)
@@ -811,7 +812,16 @@ export default defineSchema({
     userId: v.id("users"), // the creator (passion) or poster (paid)
     kind: v.string(), // "passion" | "paid"
     title: v.string(),
+    // The one-or-two-line summary every card, list and search result shows.
+    // Stays plain text on purpose: it has to read the same in a grid tile, a
+    // notification and an OG description, none of which can render blocks.
     blurb: v.optional(v.string()),
+    // The full project page — headings, formatted text, images, video
+    // embeds (docs/features/rich-project-content.md). Blocks, not HTML or
+    // markdown; see convex/garden/richText.ts for why. Optional and
+    // additive: every project written before this field simply has a blurb
+    // and no body, which is a perfectly good project page.
+    body: v.optional(richDocValidator),
     // Paid projects declare a money STATE, not necessarily a number (the
     // guardrail, plan §2.3 — see convex/garden/projects.ts). All three fields
     // are optional so rows written before budgetType existed keep working:
@@ -1366,9 +1376,21 @@ export default defineSchema({
   storyUpdates: defineTable({
     projectId: v.id("projects"),
     authorUserId: v.id("users"),
+    // The plain-text rendering of `bodyDoc`, kept as its own column rather
+    // than derived on read. It is what a notification, an excerpt and every
+    // row written before bodyDoc existed use, so it must stay readable on
+    // its own — postStoryUpdate writes both together.
     body: v.string(),
+    // The rich version (docs/features/rich-project-content.md). Absent on
+    // pre-existing rows and on an update posted as plain text.
+    bodyDoc: v.optional(richDocValidator),
+    // The original single-link media field, still read by the story page for
+    // older rows. New updates put media in `bodyDoc` instead.
     mediaUrl: v.optional(v.string()),
     createdAt: v.number(),
+    // Set when an author edits an update after posting it — the timeline
+    // shows "edited" rather than silently changing under people who read it.
+    editedAt: v.optional(v.number()),
   }).index("by_projectId", ["projectId"]),
 
   // Announcements (docs/announcements-prd.md). One row per send (manual

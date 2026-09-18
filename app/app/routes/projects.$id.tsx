@@ -18,6 +18,10 @@ import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { AnnouncementComposer } from "../components/AnnouncementComposer";
 import { FavoriteButton } from "../components/FavoriteButton";
+import { ProjectUpdates } from "../components/ProjectUpdates";
+import { RichContent } from "../components/RichContent";
+import { RichTextEditor } from "../components/RichTextEditor";
+import { isRichDocEmpty, toStoredDoc, type ResolvedRichBlock } from "../lib/richText";
 import { budgetAmountLabel, budgetKindLabel, budgetLabel } from "../lib/budgetLabel";
 import { resolveStage, stageLabel } from "../lib/stage";
 import { INTERESTS } from "../constants/interests";
@@ -217,6 +221,8 @@ export default function ProjectDetail() {
 
       <InlineEditableBlurb project={project} isOwner={isOwner} />
 
+      <InlineEditableStory project={project} isOwner={isOwner} />
+
       <TeamCard project={project} isOwner={isOwner} myProfile={myProfile} />
 
       {project.benefitsNonprofit && (
@@ -247,6 +253,14 @@ export default function ProjectDetail() {
         </button>
       </div>
       <SupportersList projectId={project._id} />
+
+      <div className="mt-8">
+        <ProjectUpdates
+          projectId={project._id}
+          isOwner={isOwner}
+          myUserId={myProfile?.userId}
+        />
+      </div>
 
       {isOwner && (
         <>
@@ -548,6 +562,114 @@ function InlineEditableBlurb({ project, isOwner }: { project: any; isOwner: bool
         {project.blurb || (isOwner ? "No description yet" : "")}
       </p>
       {isOwner && <EditButton onClick={() => { setDraft(project.blurb ?? ""); setEditing(true); }} label="Edit description" />}
+    </div>
+  );
+}
+
+// The full project page — headings, formatted text, images and video
+// embeds (docs/features/rich-project-content.md §2). Distinct from `blurb`
+// directly above it, which stays the one-line summary every card and search
+// result shows; this is the part a visitor reads once they've clicked in.
+//
+// Saves the whole document at once rather than per block: a project page is
+// a thing an author composes and then publishes, not a live surface, and
+// autosaving half-written blocks onto a public page would be worse.
+function InlineEditableStory({ project, isOwner }: { project: any; isOwner: boolean }) {
+  const updateProject = useMutation((api as any).garden.projects.updateProject);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState<ResolvedRichBlock[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const body: ResolvedRichBlock[] = project.body ?? [];
+  const hasBody = body.length > 0;
+
+  function startEditing() {
+    setDraft(body);
+    setError(null);
+    setEditing(true);
+  }
+
+  async function save() {
+    setSaving(true);
+    setError(null);
+    try {
+      // [] is how the editor says "I cleared this" — v.optional would read a
+      // missing field as "leave it alone" (garden/projects.ts).
+      await updateProject({ projectId: project._id, body: toStoredDoc(draft) });
+      setEditing(false);
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (editing) {
+    return (
+      <div className="mb-6" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <RichTextEditor
+          value={draft}
+          onChange={setDraft}
+          autoFocus
+          placeholder="Tell people what you're making, who it's for, and where it's going…"
+        />
+        {error && (
+          <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5, color: "var(--garden-citron)" }}>
+            {error}
+          </p>
+        )}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={save}
+            disabled={saving}
+            className="px-4 py-2 rounded-lg font-semibold disabled:opacity-50"
+            style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)", fontSize: 13.5 }}
+          >
+            {saving ? "Saving…" : isRichDocEmpty(draft) && hasBody ? "Clear page" : "Save"}
+          </button>
+          <button
+            onClick={() => {
+              setDraft(body);
+              setError(null);
+              setEditing(false);
+            }}
+            className="hover:opacity-80"
+            style={{ color: "var(--garden-dim)", fontSize: 13.5 }}
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!hasBody) {
+    if (!isOwner) return null;
+    return (
+      <button
+        onClick={startEditing}
+        className="w-full text-left px-4 py-3 rounded-lg mb-6 hover:opacity-90"
+        style={{
+          border: "1px dashed var(--garden-hairline-raised)",
+          backgroundColor: "var(--garden-ink-raised)",
+          color: "var(--garden-body)",
+          fontSize: 15,
+        }}
+      >
+        Add a full description — headings, photos, video, the whole page.
+      </button>
+    );
+  }
+
+  return (
+    <div className="mb-6">
+      {isOwner && (
+        <div className="flex justify-end mb-1">
+          <EditButton onClick={startEditing} label="Edit the project page" />
+        </div>
+      )}
+      <RichContent blocks={body} />
     </div>
   );
 }

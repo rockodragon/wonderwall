@@ -15,8 +15,9 @@ The project is **creatives.exchange** (repo: wonderwall). Four documents are the
 
 - [Phase 1B spec](phase-1b/spec.md) — the October build plan (money foundation, entitlements, coverage codes)
 - [V1 PRD](the-exchange-v1-prd.md)
-- [Entitlements and paywall foundation](features/entitlements-paywall-foundation.md)
+- [Entitlements — live status](features/entitlements-live-status.md) — what the code enforces vs. the plan, the payout-rail gap, open decisions · [Seat, Pool, Payout](features/seat-pool-payout.html) — the money model on one page (open in a browser)
 - [Community groups](features/community-groups.md) · [Community grant pools](features/community-grant-pools.md) · [Paid community + media](features/paid-community-youtube-media.md)
+- [Rich project content](features/rich-project-content.md) — the block model behind project pages and project updates (headings, images, video embeds)
 - Older PRDs: [jobs](jobs-feature-prd.md) · [messaging](messaging-feature-prd.md) · [event location](prd-event-location.md) · [announcements](announcements-prd.md) · [events video hosting](events-video-hosting-prd.md) · [gated event video](gated-event-video-prd.md)
 
 ## Runbooks and research
