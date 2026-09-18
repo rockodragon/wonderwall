@@ -90,7 +90,7 @@ const AUDIENCES: Audience[] = [
       },
     ],
     cost:
-      "Joining is free and stays free. A seat is $10 a month when you're ready to be funded. It lets you start projects, apply for work, and propose to the grant fund. Half of your $10 goes to fund another creative.",
+      "Joining is free and stays free. A seat is $10 a month when you're ready to be funded. It lets you start projects, apply for work, and propose to a grant fund. Half of your $10 goes to fund another creative.",
     ctaLabel: "Find collaborators",
     ctaTo: "/join",
     ctaLabel2: "Find paid work",
@@ -158,19 +158,19 @@ const AUDIENCES: Audience[] = [
         body: "Money, a room for an afternoon, gear, an introduction. All of it counts, and all of it is credited.",
       },
       {
-        title: "Give to the Grant Fund",
-        body: "The fund is run by Abiding Practice, a 501(c)(3). Your gift is tax-deductible, and every grant is posted publicly.",
+        title: "Give to a grant fund",
+        body: "Every community can run one. The Garden's is administered by Abiding Practice, a 501(c)(3), so gifts there are tax-deductible. Every grant, from any fund, is posted publicly.",
       },
     ],
-    cost: "A patron account is free. You decide what to give, and when. Larger commitments to the Grant Fund are worth a conversation — those are the gifts a creative can plan around.",
+    cost: "A patron account is free. You decide what to give, and when. Larger commitments to a grant fund are worth a conversation — those are the gifts a creative can plan around.",
     ctaLabel: "Pick someone to back",
     ctaTo: "/opportunities",
-    ctaLabel2: "Give to the Grant Fund",
+    ctaLabel2: "Give to a grant fund",
     ctaTo2: "/fund/abiding-practice",
     bandImages: ["band", "viewing"],
     metaTitle: "For patrons — creatives.exchange",
     metaDescription:
-      "Back a creative, a team, or a project. Watch it get made, get credited on the work, and give to the Grant Fund.",
+      "Back a creative, a team, or a project. Watch it get made, get credited on the work, and give to a grant fund.",
   },
   {
     slug: "churches",
@@ -181,7 +181,7 @@ const AUDIENCES: Audience[] = [
     points: [
       {
         title: "They get everything, not a discount",
-        body: "The creative you sponsor can start projects, take paid work, and propose to the grant fund — same as anyone who pays for it themselves.",
+        body: "The creative you sponsor can start projects, take paid work, and propose to a grant fund — same as anyone who pays for it themselves.",
       },
       {
         title: "It's not really about Sunday",

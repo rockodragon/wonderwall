@@ -63,7 +63,7 @@ export function meta() {
     {
       name: "description",
       content:
-        "How grants work on creatives.exchange: two funds, who can propose, who decides, and a public ledger of every award. Tax-deductible giving through Abiding Practice, a 501(c)(3).",
+        "How grants work on creatives.exchange: a platform project pool, community funds, who can propose, who decides, and a public ledger of every award. The Garden's fund is administered by Abiding Practice, a 501(c)(3).",
     },
   ];
 }
@@ -761,12 +761,13 @@ export default function GrantProgramPage() {
             color: "var(--g-body)",
           }}
         >
-          Paid members propose projects. Two funds can award them: the
-          platform project pool, filled by half of every membership, and a
-          tax-deductible fund run by{" "}
+          Paid members propose projects, and funds award them. There is a
+          platform project pool, filled by half of every membership, and
+          communities can run funds of their own. The first is The Garden's,
+          administered by{" "}
           <strong style={{ color: "var(--g-paper)" }}>Abiding Practice</strong>,
-          a registered 501(c)(3). Every award from either fund is recorded on
-          a public ledger. How decisions get made is spelled out below.
+          a registered 501(c)(3). Every award from any fund is recorded on a
+          public ledger. How decisions get made is spelled out below.
         </p>
 
         {/* Give CTA / thank-you — waits on fund data */}
@@ -831,9 +832,9 @@ export default function GrantProgramPage() {
                   color: "var(--g-body)",
                 }}
               >
-                Donate to the fund through Abiding Practice, a 501(c)(3). They
-                decide their own awards — every dollar that goes out is on the
-                ledger below.
+                Donate to The Garden's fund through Abiding Practice, a
+                501(c)(3). They decide their own awards — every dollar that
+                goes out is on the ledger below.
               </p>
               {canGive && (
                 <button
@@ -864,14 +865,15 @@ export default function GrantProgramPage() {
           <div
             style={{ display: "flex", flexDirection: "column", gap: 20, marginTop: 14 }}
           >
-            <HowItem title="Two funds">
+            <HowItem title="The funds">
               The platform project pool is filled by membership dues — 50% of
               every payment — and by one-time contributions, of which 90% goes
-              to the pool and 10% to the platform. Abiding Practice, a
-              501(c)(3), runs a separate fund through its own payment
-              processor; gifts there are tax-deductible and never pass through
-              this platform. The ledger on this page is Abiding Practice's
-              fund; the project pool's ledger is at{" "}
+              to the pool and 10% to the platform. Communities can run funds
+              of their own. The Garden's is administered by Abiding Practice,
+              a 501(c)(3), through its own payment processor; gifts there are
+              tax-deductible and never pass through this platform. The ledger
+              on this page is The Garden's fund; the project pool's ledger is
+              at{" "}
               <Link to="/fund/creatives-exchange" style={{ color: "var(--g-citron)" }}>
                 /fund/creatives-exchange
               </Link>
@@ -884,8 +886,9 @@ export default function GrantProgramPage() {
             </HowItem>
             <HowItem title="Who decides">
               Platform operators review proposals to the project pool and
-              approve or decline them. Abiding Practice decides its own
-              fund's awards. Approval and payout are separate steps: a grant
+              approve or decline them. A community fund's administrator
+              decides its own awards — for The Garden, that is Abiding
+              Practice. Approval and payout are separate steps: a grant
               exists only once it is recorded as a public allocation with
               recipient, amount and month.
             </HowItem>
@@ -915,20 +918,22 @@ export default function GrantProgramPage() {
             style={{ display: "flex", flexDirection: "column", gap: 20, marginTop: 14 }}
           >
             <FaqItem q="Is my gift tax-deductible?">
-              Yes. Abiding Practice is a registered 501(c)(3). You'll receive
-              a receipt for your records.
+              Gifts to The Garden's fund are: Abiding Practice is a registered
+              501(c)(3), and you'll receive a receipt for your records.
+              Contributions to the platform project pool are not.
             </FaqItem>
             <FaqItem q="How do creatives get grants?">
               A paid member submits a proposal to a fund. Platform operators
-              decide proposals to the project pool; Abiding Practice decides
-              its own fund's awards. There is no fixed cycle yet, and a
+              decide proposals to the project pool; a community fund's
+              administrator decides its own — Abiding Practice, for The
+              Garden. There is no fixed cycle yet, and a
               grant is only a grant once it appears on the ledger above.
             </FaqItem>
             <FaqItem q="What's the difference between backing and donating?">
               Backing a project sends money directly to the creative (90/10
-              split, not tax-deductible). Donating to the Grant Fund goes to
-              Abiding Practice, who decides its own awards — that's the
-              tax-deductible path. Contributing to the project pool is a
+              split, not tax-deductible). Donating to a community fund like
+              The Garden's goes to its administrator — Abiding Practice — who
+              decides its own awards; that's the tax-deductible path. Contributing to the project pool is a
               third option: not tax-deductible, 90% to the pool.
             </FaqItem>
           </div>
