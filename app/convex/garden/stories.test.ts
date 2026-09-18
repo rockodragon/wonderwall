@@ -11,6 +11,7 @@ import {
   deriveSponsorLine,
   normalizeUpdateBody,
   resolveAvailableSlug,
+  shapeUpdateContent,
   slugifyTitle,
   type CodeForSponsor,
   type MembershipForSponsor,
@@ -119,5 +120,53 @@ describe("assertStoryOwner (owner-only update gate)", () => {
       expect(e).toBeInstanceOf(ConvexError);
       expect((e as ConvexError<{ code: string }>).data.code).toBe("not_found");
     }
+  });
+});
+
+describe("shapeUpdateContent", () => {
+  it("derives the plain-text column from a rich document", () => {
+    expect(
+      shapeUpdateContent({
+        bodyDoc: [
+          { type: "heading", text: "Week three", level: 2 },
+          { type: "text", text: "We finished the **first** cut." },
+        ],
+      }),
+    ).toEqual({
+      body: "Week three\n\nWe finished the first cut.",
+      bodyDoc: [
+        { type: "heading", text: "Week three", level: 2 },
+        { type: "text", text: "We finished the **first** cut." },
+      ],
+    });
+  });
+
+  it("accepts a photo-only update — its plain text is legitimately empty", () => {
+    const shaped = shapeUpdateContent({ bodyDoc: [{ type: "image", storageId: "kg1" }] });
+    expect(shaped.body).toBe("");
+    expect(shaped.bodyDoc).toEqual([{ type: "image", storageId: "kg1" }]);
+  });
+
+  it("still takes a plain-text update, as the seeds send", () => {
+    expect(shapeUpdateContent({ body: "  Shot it all today.  " })).toEqual({
+      body: "Shot it all today.",
+      bodyDoc: undefined,
+    });
+  });
+
+  it("prefers the rich document when both arrive", () => {
+    const shaped = shapeUpdateContent({
+      body: "ignored",
+      bodyDoc: [{ type: "text", text: "kept" }],
+    });
+    expect(shaped.body).toBe("kept");
+  });
+
+  it("refuses an update with nothing in it", () => {
+    expect(() => shapeUpdateContent({})).toThrow(ConvexError);
+    expect(() => shapeUpdateContent({ body: "   " })).toThrow(ConvexError);
+    expect(() => shapeUpdateContent({ bodyDoc: [{ type: "text", text: "  " }] })).toThrow(
+      ConvexError,
+    );
   });
 });

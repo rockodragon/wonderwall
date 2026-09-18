@@ -17,6 +17,7 @@ import {
   formatDate,
   formatPeriod,
 } from "../garden/ui";
+import { RichContent } from "../components/RichContent";
 import "../garden/garden.css";
 
 export function meta() {
@@ -117,6 +118,13 @@ export default function StoryPage() {
             {project.blurb}
           </p>
         )}
+        {/* The full page the creator composed on /projects/:id — the blurb
+            above stays the lede (docs/features/rich-project-content.md §2). */}
+        {project.body?.length ? (
+          <div style={{ marginTop: 20, maxWidth: "62ch" }}>
+            <RichContent blocks={project.body} />
+          </div>
+        ) : null}
       </div>
 
       {hasProgress && (
@@ -166,9 +174,21 @@ export default function StoryPage() {
               >
                 <span className="g-mono" style={{ fontSize: 12.5, color: "var(--g-dim)" }}>
                   {formatDate(u.createdAt)}
+                  {u.editedAt ? " · edited" : ""}
                 </span>
-                <p style={{ marginTop: 6, fontSize: 14.5, lineHeight: 1.55 }}>{u.body}</p>
-                {u.mediaUrl && (
+                {u.bodyDoc?.length ? (
+                  <div style={{ marginTop: 8, maxWidth: "62ch" }}>
+                    <RichContent blocks={u.bodyDoc} />
+                  </div>
+                ) : (
+                  u.body && (
+                    <p style={{ marginTop: 6, fontSize: 14.5, lineHeight: 1.55, whiteSpace: "pre-wrap" }}>
+                      {u.body}
+                    </p>
+                  )
+                )}
+                {/* The original single-link media field, still on older rows. */}
+                {u.mediaUrl && !u.bodyDoc?.length && (
                   <a
                     href={u.mediaUrl}
                     target="_blank"

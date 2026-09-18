@@ -1,41 +1,7 @@
 import { authTables } from "@convex-dev/auth/server";
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
-
-// ——— Rich content blocks (forward-compat) ———
-//
-// The rich-project-content branch stores a project's full page and a story
-// update's rich body as an array of typed blocks, defined in its
-// convex/garden/richText.ts. Its seed has already written rows in that shape
-// to the shared deployment, and a schema without these fields refuses to
-// deploy ("extra field `body`"). So the validator lives here, verbatim, until
-// that branch merges and replaces this block with `import { richDocValidator }
-// from "./garden/richText"`. Keep the two identical in the meantime.
-const richBlockValidator = v.union(
-  v.object({ type: v.literal("heading"), text: v.string(), level: v.optional(v.number()) }),
-  v.object({ type: v.literal("text"), text: v.string() }),
-  v.object({ type: v.literal("quote"), text: v.string() }),
-  v.object({
-    type: v.literal("list"),
-    items: v.array(v.string()),
-    ordered: v.optional(v.boolean()),
-  }),
-  v.object({
-    type: v.literal("image"),
-    url: v.optional(v.string()),
-    storageId: v.optional(v.string()),
-    alt: v.optional(v.string()),
-    caption: v.optional(v.string()),
-  }),
-  v.object({
-    type: v.literal("video"),
-    url: v.optional(v.string()),
-    storageId: v.optional(v.string()),
-    caption: v.optional(v.string()),
-  }),
-  v.object({ type: v.literal("divider") }),
-);
-const richDocValidator = v.array(richBlockValidator);
+import { richDocValidator } from "./garden/richText";
 
 export default defineSchema({
   // Convex Auth tables (users, sessions, accounts, etc.)
@@ -860,8 +826,16 @@ export default defineSchema({
     userId: v.id("users"), // the creator (passion) or poster (paid)
     kind: v.string(), // "passion" | "paid"
     title: v.string(),
+    // The one-or-two-line summary every card, list and search result shows.
+    // Stays plain text on purpose: it has to read the same in a grid tile, a
+    // notification and an OG description, none of which can render blocks.
     blurb: v.optional(v.string()),
-    body: v.optional(richDocValidator), // rich page blocks — see the forward-compat note above
+    // The full project page — headings, formatted text, images, video
+    // embeds (docs/features/rich-project-content.md). Blocks, not HTML or
+    // markdown; see convex/garden/richText.ts for why. Optional and
+    // additive: every project written before this field simply has a blurb
+    // and no body, which is a perfectly good project page.
+    body: v.optional(richDocValidator),
     // Paid projects declare a money STATE, not necessarily a number (the
     // guardrail, plan §2.3 — see convex/garden/projects.ts). All three fields
     // are optional so rows written before budgetType existed keep working:
@@ -1416,10 +1390,20 @@ export default defineSchema({
   storyUpdates: defineTable({
     projectId: v.id("projects"),
     authorUserId: v.id("users"),
+    // The plain-text rendering of `bodyDoc`, kept as its own column rather
+    // than derived on read. It is what a notification, an excerpt and every
+    // row written before bodyDoc existed use, so it must stay readable on
+    // its own — postStoryUpdate writes both together.
     body: v.string(),
-    bodyDoc: v.optional(richDocValidator), // rich version — see the forward-compat note above
+    // The rich version (docs/features/rich-project-content.md). Absent on
+    // pre-existing rows and on an update posted as plain text.
+    bodyDoc: v.optional(richDocValidator),
+    // The original single-link media field, still read by the story page for
+    // older rows. New updates put media in `bodyDoc` instead.
     mediaUrl: v.optional(v.string()),
     createdAt: v.number(),
+    // Set when an author edits an update after posting it — the timeline
+    // shows "edited" rather than silently changing under people who read it.
     editedAt: v.optional(v.number()),
   }).index("by_projectId", ["projectId"]),
 

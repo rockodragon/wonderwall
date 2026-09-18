@@ -189,6 +189,63 @@ export const seedDevWorld = internalMutation({
       });
     }
 
+    // A worked example of rich project content (docs/features/rich-project-
+    // content.md) — the dev world should show what a real project page and a
+    // real update look like, not just a blurb. Patched rather than inserted
+    // so a deployment seeded before this existed picks it up too; guarded on
+    // `body` so it never overwrites anything an operator typed.
+    if (psalms && !psalms.body) {
+      await ctx.db.patch(psalms._id, {
+        body: [
+          { type: "heading", text: "What this is", level: 2 },
+          {
+            type: "text",
+            text:
+              "Five songs for the hours nobody writes worship music about. Recorded live " +
+              "to tape in the back room at *Folded Note*, two takes each, no click.",
+          },
+          {
+            type: "image",
+            url: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=1200",
+            alt: "A dim studio control room at night",
+            caption: "Night two, about 2AM.",
+          },
+          { type: "heading", text: "Where the money goes", level: 3 },
+          {
+            type: "list",
+            items: [
+              "Studio time — three nights",
+              "Mixing and mastering",
+              "A short run of vinyl for backers",
+            ],
+          },
+          {
+            type: "quote",
+            text: "The best takes were the ones we almost didn't keep.",
+          },
+          { type: "divider" },
+          {
+            type: "text",
+            text:
+              "Follow along here, or read more at " +
+              "[abidingpractice.org](https://abidingpractice.org).",
+          },
+        ],
+        updatedAt: now,
+      });
+      await ctx.db.insert("storyUpdates", {
+        projectId: psalms._id,
+        authorUserId: shua.userId,
+        body: "Rough mix of the second song\n\nStill arguing about the last chorus.",
+        bodyDoc: [
+          { type: "heading", text: "Rough mix of the second song", level: 3 },
+          { type: "text", text: "Still **arguing** about the last chorus." },
+          { type: "video", url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ" },
+        ],
+        createdAt: now + 1,
+      });
+    }
+
     // Marcus's table + two sessions
     let table = await ctx.db
       .query("gardenTables")
