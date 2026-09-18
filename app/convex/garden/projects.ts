@@ -197,11 +197,21 @@ export const updateProject = mutation({
     if (args.interests !== undefined) patch.interests = args.interests;
     if (args.benefitsNonprofit !== undefined) patch.benefitsNonprofit = args.benefitsNonprofit;
     if (args.nonprofitName !== undefined) patch.nonprofitName = args.nonprofitName;
-    if (args.location !== undefined) patch.location = args.location;
-    if (args.locationType !== undefined) patch.locationType = args.locationType;
-    if (args.address !== undefined) patch.address = args.address;
-    if (args.coordinates !== undefined) patch.coordinates = args.coordinates;
-    if (args.placeId !== undefined) patch.placeId = args.placeId;
+    // Location is one group, not five independent fields. When a caller
+    // sends `location`, the structured half (type/address/coordinates/
+    // placeId) is taken from the same call — including as undefined, which
+    // `patch` treats as "unset". Otherwise a text edit that wasn't a Places
+    // pick (useLocationField.toArgs() sends the structured fields as
+    // undefined in that case) would leave the previous pick's coordinates
+    // attached to a string they no longer describe. An empty string clears
+    // the location outright.
+    if (args.location !== undefined) {
+      patch.location = args.location.trim() || undefined;
+      patch.locationType = args.locationType;
+      patch.address = args.address;
+      patch.coordinates = args.coordinates;
+      patch.placeId = args.placeId;
+    }
     if (args.remote !== undefined) patch.remote = args.remote;
 
     await ctx.db.patch(args.projectId, patch);
