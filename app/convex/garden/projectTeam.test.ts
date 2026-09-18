@@ -7,6 +7,7 @@
 import { describe, expect, it } from "vitest";
 import type { Doc, Id } from "../_generated/dataModel";
 import {
+  isAcceptingPeople,
   CLAIM_TTL_MS,
   DAY_MS,
   DECLINED_RETRY_MS,
@@ -240,5 +241,30 @@ describe("nameMatches", () => {
     expect(nameMatches("Rick Moy", "moy")).toBe(true);
     expect(nameMatches("Rick Moy", "ick m")).toBe(true);
     expect(nameMatches("Rick Moy", "sam")).toBe(false);
+  });
+});
+
+describe("isAcceptingPeople", () => {
+  it("takes people while the work is live", () => {
+    for (const stage of ["planning", "raising", "forming", "working", "releasing"]) {
+      expect(isAcceptingPeople({ kind: "passion", status: "active", stage })).toBe(true);
+    }
+  });
+
+  it("still takes people while paused — on hold is not over", () => {
+    expect(isAcceptingPeople({ kind: "paid", status: "active", stage: "paused" })).toBe(true);
+  });
+
+  it("stops once the project is finished, by stage or by status", () => {
+    expect(isAcceptingPeople({ kind: "passion", status: "active", stage: "completed" })).toBe(false);
+    expect(isAcceptingPeople({ kind: "passion", status: "active", stage: "cancelled" })).toBe(false);
+    expect(isAcceptingPeople({ kind: "paid", status: "completed" })).toBe(false);
+    expect(isAcceptingPeople({ kind: "paid", status: "archived", stage: "forming" })).toBe(false);
+  });
+
+  it("reads a legacy row with no stage the way resolveStage does", () => {
+    // no stage + in_progress resolves to "working": still live
+    expect(isAcceptingPeople({ kind: "paid", status: "in_progress" })).toBe(true);
+    expect(isAcceptingPeople({ kind: "passion", status: "active" })).toBe(true);
   });
 });

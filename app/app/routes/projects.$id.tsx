@@ -1102,6 +1102,7 @@ function TeamCard({
           leadName={team.lead.name}
           onOpenJoinModal={() => setJoinModal({})}
           apply={team.apply}
+          acceptingPeople={team.acceptingPeople}
         />
       )}
 
@@ -1528,12 +1529,16 @@ function ViewerTeamActions({
   leadName,
   onOpenJoinModal,
   apply,
+  acceptingPeople,
 }: {
   project: any;
   mine: { memberId: string; status: string; role: string } | undefined;
   leadName: string;
   /** See RolesSection's `apply`. */
   apply?: { allowed: boolean; reason: string | null; upgradePath: string | null };
+  /** getTeam's isAcceptingPeople read — false on a finished project, where
+   * requestToJoin would refuse. Absent while loading (treated as open). */
+  acceptingPeople?: boolean;
   /** Opens the shared JoinRequestModal TeamCard owns — with no preset,
    * this is the original free-text "propose your own role" flow. */
   onOpenJoinModal: () => void;
@@ -1558,7 +1563,14 @@ function ViewerTeamActions({
 
   return (
     <div className="pt-3 mt-2.5" style={{ borderTop: "1px solid var(--garden-hairline)" }}>
-      {!mine && apply && !apply.allowed ? (
+      {!mine && acceptingPeople === false ? (
+        // Checked before the membership gate below: "Join to apply" on
+        // finished work would send someone to pay for something they still
+        // couldn't do.
+        <p className="text-sm" style={{ color: "var(--garden-body)" }}>
+          This project is finished and isn't taking new people.
+        </p>
+      ) : !mine && apply && !apply.allowed ? (
         // Applying to paid work takes membership (docs/features/live-booking.md
         // §8). The text is the server's own denial for project.applyPaid.
         <p className="text-sm" style={{ color: "var(--garden-body)" }}>
