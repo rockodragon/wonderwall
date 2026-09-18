@@ -395,10 +395,12 @@ function ProjectHero({
         {isOwner && (
           <>
             <input ref={fileRef} type="file" accept="image/*" onChange={handleImageUpload} hidden />
+            {/* Hidden until hover only where hover exists — on a phone there
+                is no hover, and the button used to be unreachable there. */}
             <button
               onClick={() => fileRef.current?.click()}
               disabled={uploading}
-              className="absolute bottom-3 right-3 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-50"
+              className="absolute bottom-3 right-3 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-opacity disabled:opacity-50 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 focus-visible:opacity-100"
               style={{ backgroundColor: "rgba(20,20,18,0.72)", color: "var(--garden-paper)" }}
             >
               <PencilIcon size={12} />
@@ -1725,22 +1727,7 @@ function LeadTeamTools({
                     )}
                   </div>
                 </div>
-                <div className="flex items-center gap-2 pl-7">
-                  <input
-                    type="text"
-                    value={decisionNotes[r.memberId] ?? ""}
-                    onChange={(e) =>
-                      setDecisionNotes((prev) => ({ ...prev, [r.memberId]: e.target.value.slice(0, 500) }))
-                    }
-                    placeholder="Note back to them (optional)"
-                    maxLength={500}
-                    className="flex-1 min-w-0 px-2 py-1 rounded-lg border text-xs outline-none"
-                    style={{
-                      backgroundColor: "var(--garden-ink)",
-                      borderColor: "var(--garden-hairline-raised)",
-                      color: "var(--garden-paper)",
-                    }}
-                  />
+                <div className="flex items-center gap-3 pl-7 flex-wrap">
                   <button
                     disabled={busyId === r.memberId}
                     onClick={() =>
@@ -1765,7 +1752,42 @@ function LeadTeamTools({
                   >
                     Decline
                   </button>
+                  {/* The note is optional and mostly for declines, so it's a
+                      link until wanted — an open box on every request made the
+                      list read as a form. A key present in decisionNotes (even
+                      "") is what marks it open; run() clears it after. */}
+                  {!(r.memberId in decisionNotes) && (
+                    <button
+                      type="button"
+                      onClick={() => setDecisionNotes((prev) => ({ ...prev, [r.memberId]: "" }))}
+                      className="hover:opacity-80 whitespace-nowrap"
+                      style={{ color: "var(--garden-dim)", fontSize: 13 }}
+                    >
+                      Add a note
+                    </button>
+                  )}
                 </div>
+                {r.memberId in decisionNotes && (
+                  <div className="pl-7">
+                    <input
+                      type="text"
+                      autoFocus
+                      value={decisionNotes[r.memberId] ?? ""}
+                      onChange={(e) =>
+                        setDecisionNotes((prev) => ({ ...prev, [r.memberId]: e.target.value.slice(0, 500) }))
+                      }
+                      placeholder="Note back to them — sent with Accept or Decline"
+                      maxLength={500}
+                      className="w-full px-2.5 py-1.5 rounded-lg border outline-none"
+                      style={{
+                        backgroundColor: "var(--garden-ink)",
+                        borderColor: "var(--garden-hairline-raised)",
+                        color: "var(--garden-paper)",
+                        fontSize: 14,
+                      }}
+                    />
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -1815,6 +1837,9 @@ function LeadTeamTools({
 // (docs/features/project-teams.md §3). Two modes in one compact block
 // rather than a separate form — this is one card section, not a page.
 function AddSomeone({ projectId }: { projectId: string }) {
+  // Closed until the lead asks for it — search, role pickers and the credit
+  // form were all on screen at once for a lead who'd only come to read.
+  const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<"search" | "credit">("search");
   const [query, setQuery] = useState("");
   const [invitingUserId, setInvitingUserId] = useState<string | null>(null);
@@ -1904,11 +1929,42 @@ function AddSomeone({ projectId }: { projectId: string }) {
     color: "var(--garden-paper)",
   };
 
+  if (!open) {
+    return (
+      <div>
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="px-3 py-1.5 rounded-lg font-semibold border hover:opacity-90"
+          style={{ borderColor: "var(--garden-hairline-raised)", color: "var(--garden-paper)", fontSize: 13.5 }}
+        >
+          + Add someone
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div>
-      <p className="text-[11px] uppercase tracking-[0.06em] mb-2" style={{ color: "var(--garden-dim)" }}>
-        Add someone
-      </p>
+      <div className="flex items-center justify-between mb-2">
+        <p className="uppercase tracking-[0.06em]" style={{ color: "var(--garden-dim)", fontSize: 12 }}>
+          Add someone
+        </p>
+        <button
+          type="button"
+          onClick={() => {
+            setOpen(false);
+            setMode("search");
+            setQuery("");
+            setInvitingUserId(null);
+            setError("");
+          }}
+          className="hover:opacity-80"
+          style={{ color: "var(--garden-dim)", fontSize: 13.5 }}
+        >
+          Done
+        </button>
+      </div>
 
       {mode === "search" ? (
         <>

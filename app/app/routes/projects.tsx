@@ -429,6 +429,16 @@ function PostProjectMenu({
   );
 }
 
+/** The cover a project without a photo gets. Lighter than the card around
+ * it, with a faint hairline texture, so an empty cover reads as a surface
+ * rather than a hole with a "missing image" icon in it. Neutral on purpose:
+ * citron is for actions and chip-scale badges, never large fills. */
+const EMPTY_COVER = {
+  backgroundColor: "var(--garden-hairline-raised)",
+  backgroundImage:
+    "repeating-linear-gradient(135deg, rgba(247,247,244,0.05) 0 1px, transparent 1px 11px)",
+};
+
 function ProjectCard({
   project,
   onSupport,
@@ -468,32 +478,22 @@ function ProjectCard({
       {/* Same fixed overlay spot Classes uses: kind top-left, money top-right
           of the image area, in the SAME place whether or not there's a
           photo — founder item (Classes redesign) was explicit that a
-          photo-dependent position defeats the point of a fixed badge. */}
+          photo-dependent position defeats the point of a fixed badge.
+          Without a photo the area collapses to a strip on a phone, where a
+          16:10 empty box was most of a screen of nothing; it keeps the full
+          box from sm up, where cards sit side by side and rows must line up. */}
       <div
-        className="relative aspect-[16/10] overflow-hidden flex items-center justify-center"
-        style={{ backgroundColor: "var(--garden-ink)" }}
+        className={`relative overflow-hidden flex items-center justify-center ${
+          thumb ? "aspect-[16/10]" : "h-11 sm:h-auto sm:aspect-[16/10]"
+        }`}
+        style={thumb ? { backgroundColor: "var(--garden-ink)" } : EMPTY_COVER}
       >
-        {thumb ? (
+        {thumb && (
           <img
             src={thumb}
             alt={project.title}
             className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
           />
-        ) : (
-          <svg
-            className="w-10 h-10"
-            style={{ color: "var(--garden-hairline-raised)" }}
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={1}
-              d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-            />
-          </svg>
         )}
         <span
           className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[11px] font-semibold uppercase tracking-[0.06em]"
