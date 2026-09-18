@@ -739,7 +739,12 @@ function SlotRow({
           </div>
         </div>
       );
-    } else if (schedule.viewer.isSignedIn && schedule.viewer.hasProfile && schedule.status === "open") {
+    } else if (
+      schedule.viewer.isSignedIn &&
+      schedule.viewer.hasProfile &&
+      schedule.viewer.canRespond &&
+      schedule.status === "open"
+    ) {
       if (slot.mine === "available") {
         right = (
           <div className="flex items-center gap-2">
@@ -974,9 +979,10 @@ export function GigSchedule({ project, isOwner, myProfile }: { project: any; isO
     });
   }
 
-  const selectableSlotIds: string[] = !isOwner
-    ? schedule.slots.filter((s: any) => s.status === "open" && !s.isPast && s.mine !== "available").map((s: any) => s.slotId)
-    : [];
+  const selectableSlotIds: string[] =
+    !isOwner && viewer.canRespond
+      ? schedule.slots.filter((s: any) => s.status === "open" && !s.isPast && s.mine !== "available").map((s: any) => s.slotId)
+      : [];
 
   const selectedSlots = schedule.slots.filter((s: any) => selected.has(s.slotId));
   const hasBookedSlot = schedule.slots.some((s: any) => s.mine === "booked");
@@ -1018,6 +1024,18 @@ export function GigSchedule({ project, isOwner, myProfile }: { project: any; isO
             Finish your profile
           </Link>{" "}
           to respond.
+        </p>
+      )}
+
+      {/* The gate (docs/features/live-booking.md §8): free to look, membership
+          to respond. The text is the server's own denial, so the page and
+          the mutation can never disagree about the rule. */}
+      {!isOwner && viewer.isSignedIn && viewer.hasProfile && !viewer.canRespond && schedule.status === "open" && (
+        <p className="text-sm mb-3" style={{ color: "var(--garden-body)" }}>
+          {viewer.respondDenial?.reason ?? "Responding to a gig takes membership."}{" "}
+          <Link to="/join" className="underline underline-offset-2 font-medium" style={{ color: "var(--garden-citron)" }}>
+            {viewer.respondDenial?.upgradePath ?? "Join to respond"}
+          </Link>
         </p>
       )}
 

@@ -6,7 +6,7 @@ v0.1 · 2026-09-17 · owner: Rick · status: **built on the `live-booking` branc
 
 A restaurant, a bar, or any community partner with a room posts a paid gig that repeats: "live music every Friday, 8 to 10pm, $300." The platform opens the dates. Artists mark the dates they can play and attach clips from their portfolio. The venue listens, picks one artist per date, and pays them directly in Venmo, Cash App, PayPal, or Zelle. The platform records the payment and takes nothing.
 
-It shows up under **Projects** as **Paid gigs**. A gig is a paid project with a schedule attached. It sits next to every other paid post on `/projects` and `/opportunities`, with its own filter chip.
+It shows up under **Projects** as **Paid gigs**. A gig is a paid project with a schedule attached. It sits next to every other paid post on `/projects` and `/opportunities`, with its own filter chip. Decided 2026-09-17: paid work, passion projects, and gigs live together under Projects, one toggle apart. The plan brief's line "jobs are their own thing, not projects" (§1) is the one sentence left to update.
 
 ## 1 · Who does what
 
@@ -146,9 +146,13 @@ The pure core — recurrence, clock math, validation, labels, payment links — 
 
 ## 8 · Permissions
 
-**As coded:** any signed-in account can post a gig (same as posting paid work today). Any signed-in member with a profile can respond. The venue, or an operator, manages the series.
+**Free to look, membership to respond.** Anyone can see a gig, its dates, and what it pays, signed in or not. Responding takes membership. Applying to a paid project role takes membership too, so the two rules never disagree. Asking to join a passion project stays free. Decided 2026-09-17; it is the plan's own rule ("job postings are public, applying takes membership," the plan §2) and it overrules the September 15 recommendation to let people apply free and pay only once hired.
 
-**The plan says** "job postings are public; applying takes membership" (the plan, §2). The seat gates for paid work are not enforced anywhere in the code today — that is a known gap from the September 15 audit, not something this feature introduced. When the reconcile pass decides the gate, it goes in one place here: `respondAvailable` in `gigs.ts`, the same spot the project-team `requestToJoin` would get it.
+**Why the gate is at respond, not at booking:** the venue's time is the scarce thing. A pool of paying members is worth more to a venue than a big pool of anyone. And the paywall belongs before the venue picks, not after: a chosen artist who then has to go pay before the booking is real is friction the venue eats. The incentive line is simple: members get booked, and one $300 date pays for two and a half years of Garden dues.
+
+**As coded:** two capabilities in `capabilities.ts`, `gig.respond` and `project.applyPaid`, enforced in `respondAvailable` and `requestToJoin` with the same denial shape every other gate uses. The page reads the same rule: a signed-in non-member sees the dates and "Join to respond" (or "Join to apply") instead of checkboxes and Apply buttons. Any signed-in account can post a gig, same as posting paid work. The venue, or an operator, manages the series.
+
+**Per community, later.** The plan makes membership per community. The code today has one platform-wide seat, so the gate reads that seat until the pricing reconcile pass lands. After it, the gate reads the gig's community, or The Garden for a gig posted with no community. A covered seat counts either way.
 
 ## 9 · Notifications
 
@@ -181,8 +185,7 @@ In-app only, same table and shape as project teams. No email yet (see §10).
 
 ## 11 · Open questions
 
-1. **The plan says jobs are their own thing, not projects.** This feature puts paid gigs under Projects, the way Rick asked ("it would appear in projects as paid gigs"). The legacy `/jobs` board still exists beside it. Either the plan's line changes to "jobs and gigs are paid projects," or `/jobs` gets retired for good. One decision, then the brief and this doc match.
-2. **Does responding to a gig take membership?** The plan says applying takes membership. The code gates nothing on paid work today. Decide once, for gigs and project roles together.
-3. **Deposits and notice.** Should the venue be able to ask for a cancellation notice window (48 hours), and should there be a way to hold a deposit? Both need money to move through us, so both wait for the payout rail.
-4. **More than one act per date?** Today a date books one artist. A venue running two sets a night would post two gigs. Fine for now; revisit if a real venue asks.
-5. **Should the artist's pay handles be shown to a venue before booking?** Today: only after. Showing them earlier would let a venue pay a deposit, but it also exposes the handle to anyone who posts a gig.
+1. **The legacy `/jobs` board.** Gigs and paid work live under Projects now. Retire `/jobs` for good, or keep it as read-only history? Either way the brief's "jobs are their own thing" line changes.
+2. **Deposits and notice.** Should the venue be able to ask for a cancellation notice window (48 hours), and should there be a way to hold a deposit? Both need money to move through us, so both wait for the payout rail.
+3. **More than one act per date?** Today a date books one artist. A venue running two sets a night would post two gigs. Fine for now; revisit if a real venue asks.
+4. **Should the artist's pay handles be shown to a venue before booking?** Today: only after. Showing them earlier would let a venue pay a deposit, but it also exposes the handle to anyone who posts a gig.

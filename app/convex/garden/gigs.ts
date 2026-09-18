@@ -20,6 +20,8 @@ import { slugifyTitle, resolveAvailableSlug } from "./stories";
 import { assertCommunityMember } from "./communities";
 import { validateBudgetDeclaration } from "./projects";
 import { ruleOf, summarizeGig } from "./gigSummary";
+import { can } from "./capabilities";
+import { assertCanPure, getGardenUser } from "./entitlements";
 import {
   HORIZON_WEEKS,
   MAX_CLIPS,
@@ -817,6 +819,9 @@ export const respondAvailable = mutation({
     if (args.slotIds.length > MAX_SLOTS_PER_RESPONSE) {
       throw new ConvexError({ code: "too_many_dates", reason: `Up to ${MAX_SLOTS_PER_RESPONSE} dates at a time.` });
     }
+    // The gate (docs/features/live-booking.md §8): free to look, membership
+    // to respond. Same denial anatomy every other enforced capability throws.
+    assertCanPure(await getGardenUser(ctx, userId), "gig.respond");
     await assertNotBlocked(ctx, userId, series.hostUserId);
     const note = validateNote(args.note);
     const clipIds = await validateClips(ctx, profile._id, args.clipIds);
@@ -931,6 +936,11 @@ export const getSchedule = query({
     const now = Date.now();
     const isHost = await isHostOrAdmin(ctx, series, userId);
     const viewerProfile = userId ? await getProfile(ctx, userId) : null;
+    // Whether this viewer may respond, decided by the same can() the
+    // mutation enforces — so the UI never offers a checkbox the server
+    // would refuse, and the denial text on the page is the server's own.
+    const respond =
+      userId && !isHost ? can(await getGardenUser(ctx, userId), "gig.respond") : { allowed: false as const };
 
     const rows = await ctx.db
       .query("gigSlots")
@@ -984,6 +994,10 @@ export const getSchedule = query({
         isHost,
         hasProfile: !!viewerProfile,
         hasPayoutHandles: !!viewerProfile?.payoutHandles && Object.values(viewerProfile.payoutHandles).some(Boolean),
+        canRespond: respond.allowed,
+        respondDenial: respond.allowed
+          ? null
+          : { reason: respond.reason ?? "Responding to a gig takes membership.", upgradePath: respond.upgradePath ?? null },
       },
       slots,
     };

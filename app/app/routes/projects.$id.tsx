@@ -937,6 +937,7 @@ function TeamCard({
         isOwner={isOwner}
         mine={team.mine}
         onApply={(role) => setJoinModal(role)}
+        apply={team.apply}
       />
 
       {!isOwner && (
@@ -945,6 +946,7 @@ function TeamCard({
           mine={team.mine}
           leadName={team.lead.name}
           onOpenJoinModal={() => setJoinModal({})}
+          apply={team.apply}
         />
       )}
 
@@ -995,9 +997,13 @@ function RolesSection({
   isOwner,
   mine,
   onApply,
+  apply,
 }: {
   project: any;
   isOwner: boolean;
+  /** Whether the viewer may apply — getTeam's read of the same
+   * project.applyPaid rule requestToJoin enforces. Absent while loading. */
+  apply?: { allowed: boolean; reason: string | null; upgradePath: string | null };
   mine: { memberId: string; status: string; role: string } | undefined;
   onApply: (role: { roleId: string; title: string }) => void;
 }) {
@@ -1163,6 +1169,14 @@ function RolesSection({
                     >
                       Close
                     </button>
+                  ) : !mine && apply && !apply.allowed ? (
+                    <Link
+                      to="/join"
+                      className="text-xs underline underline-offset-2 whitespace-nowrap pt-0.5"
+                      style={{ color: "var(--garden-citron)" }}
+                    >
+                      Join to apply
+                    </Link>
                   ) : !mine ? (
                     <button
                       onClick={() => onApply({ roleId: r.roleId, title: r.title })}
@@ -1358,10 +1372,13 @@ function ViewerTeamActions({
   mine,
   leadName,
   onOpenJoinModal,
+  apply,
 }: {
   project: any;
   mine: { memberId: string; status: string; role: string } | undefined;
   leadName: string;
+  /** See RolesSection's `apply`. */
+  apply?: { allowed: boolean; reason: string | null; upgradePath: string | null };
   /** Opens the shared JoinRequestModal TeamCard owns — with no preset,
    * this is the original free-text "propose your own role" flow. */
   onOpenJoinModal: () => void;
@@ -1386,7 +1403,16 @@ function ViewerTeamActions({
 
   return (
     <div className="pt-3 mt-2.5" style={{ borderTop: "1px solid var(--garden-hairline)" }}>
-      {!mine && (
+      {!mine && apply && !apply.allowed ? (
+        // Applying to paid work takes membership (docs/features/live-booking.md
+        // §8). The text is the server's own denial for project.applyPaid.
+        <p className="text-sm" style={{ color: "var(--garden-body)" }}>
+          {apply.reason ?? "Applying to paid work takes membership."}{" "}
+          <Link to="/join" className="underline underline-offset-2 font-medium" style={{ color: "var(--garden-citron)" }}>
+            {apply.upgradePath ?? "Join to apply"}
+          </Link>
+        </p>
+      ) : !mine ? (
         <button
           onClick={onOpenJoinModal}
           className="px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-opacity hover:opacity-90"
@@ -1394,7 +1420,7 @@ function ViewerTeamActions({
         >
           {project.kind === "paid" ? "Apply" : "Ask to join"}
         </button>
-      )}
+      ) : null}
 
       {mine?.status === "pending" && (
         <div className="flex items-center gap-3 text-sm" style={{ color: "var(--garden-body)" }}>
