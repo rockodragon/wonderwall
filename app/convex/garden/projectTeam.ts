@@ -17,6 +17,8 @@ import { internal } from "../_generated/api";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { isAdminProfile } from "../helpers";
 import { isValidEmail, normalizeEmail } from "./eventRsvps";
+import { can } from "./capabilities";
+import { assertCanPure, getGardenUser } from "./entitlements";
 
 // ——————————————————————————————————————————————————————————————
 // Stage — TWIN of app/app/lib/stage.ts (STAGES, isStage, stageLabel,
@@ -631,6 +633,13 @@ export const requestToJoin = mutation({
     }
     if (project.status === "archived") {
       throw new ConvexError({ code: "project_archived", reason: "This project is archived." });
+    }
+    // Applying to paid work takes membership (the plan, §2; decided
+    // 2026-09-17 alongside the gig gate — docs/features/live-booking.md
+    // §8). Asking to join a passion project stays free. First real caller
+    // of project.applyPaid, which capabilities.ts had defined all along.
+    if (project.kind === "paid") {
+      assertCanPure(await getGardenUser(ctx, userId), "project.applyPaid");
     }
     const postedRoleTitle = await resolveRoleForRequest(ctx, args.projectId, args.roleId);
     const role = postedRoleTitle ?? validateRole(args.role);
@@ -1286,7 +1295,15 @@ export const getTeam = query({
         ? { memberId: myRow._id, status: myRow.status, role: myRow.role }
         : undefined;
 
-    if (!isLead) return { lead, accepted, credits, mine };
+    // May this viewer apply? The same can() requestToJoin enforces, so the
+    // page swaps Apply for "Join to apply" instead of letting someone hit
+    // the server's refusal. Passion projects are always open to ask.
+    const applyResult = project.kind === "paid" && !isLead ? can(await getGardenUser(ctx, userId), "project.applyPaid") : { allowed: true as const };
+    const apply = applyResult.allowed
+      ? { allowed: true as const, reason: null, upgradePath: null }
+      : { allowed: false as const, reason: applyResult.reason ?? "Applying to paid work takes membership.", upgradePath: applyResult.upgradePath ?? null };
+
+    if (!isLead) return { lead, accepted, credits, mine, apply };
 
     const pending: PersonEntry[] = [];
     for (const row of rows) {
@@ -1298,7 +1315,7 @@ export const getTeam = query({
       if (row.status !== "invited") continue;
       invited.push(toInvitedEntry(row, await resolvePerson(ctx, row.userId)));
     }
-    return { lead, accepted, credits, mine, pending, invited };
+    return { lead, accepted, credits, mine, apply, pending, invited };
   },
 });
 

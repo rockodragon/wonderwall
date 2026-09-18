@@ -46,4 +46,13 @@ crons.interval(
   internal.announcements.sendDueReminders,
 );
 
+// Live booking (docs/features/live-booking.md §3): every open gig series
+// keeps dates open HORIZON_WEEKS ahead. Idempotent — a date that already
+// has a slot is skipped, so any cadence is safe.
+crons.daily(
+  "extend-gig-series",
+  { hourUTC: 10, minuteUTC: 30 }, // ~3am Pacific
+  internal.garden.gigs.extendGigSeries,
+);
+
 export default crons;

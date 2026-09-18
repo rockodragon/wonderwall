@@ -1,9 +1,10 @@
-import { v } from "convex/values";
+import { v, ConvexError } from "convex/values";
 import { internalAction, internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import type { QueryCtx } from "./_generated/server";
 import { api, internal } from "./_generated/api";
 import { auth } from "./auth";
 import type { Doc } from "./_generated/dataModel";
+import { normalizeHandle, PAYOUT_KINDS, type PayoutHandles } from "./garden/gigRules";
 
 // Helper to resolve image URL from storage or external URL
 async function resolveImageUrl(
@@ -114,8 +115,13 @@ export const getProfile = query({
       };
     }
 
+    // Payout handles (docs/features/live-booking.md §6) are for the venue
+    // that booked this person, never the public page — gigs.getSlotPayment
+    // is the only reader. Stripped here rather than trusting every caller.
+    const { payoutHandles: _private, ...publicProfile } = profile;
+    void _private;
     return {
-      ...profile,
+      ...publicProfile,
       imageUrl,
       attributes: Object.fromEntries(attributes.map((a) => [a.key, a.value])),
       links: links.sort((a, b) => a.order - b.order),
@@ -460,5 +466,40 @@ export const patchCoordinates = internalMutation({
   },
   handler: async (ctx, args) => {
     await ctx.db.patch(args.profileId, { coordinates: args.coordinates });
+  },
+});
+
+/**
+ * Live booking (docs/features/live-booking.md §6): where a venue pays you.
+ * Each value is normalized (an "@", a "$", a pasted profile URL all reduce
+ * to the bare handle) and validated by gigRules.ts's normalizeHandle; an
+ * empty value clears that app. The whole object clears when every app is
+ * empty, so a profile that never set any stays exactly as it was.
+ */
+export const setPayoutHandles = mutation({
+  args: {
+    venmo: v.optional(v.string()),
+    cashapp: v.optional(v.string()),
+    paypal: v.optional(v.string()),
+    zelle: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const userId = await auth.getUserId(ctx);
+    if (!userId) throw new ConvexError({ code: "unauthenticated", reason: "Sign in first." });
+    const profile = await ctx.db
+      .query("profiles")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .first();
+    if (!profile) throw new ConvexError({ code: "no_profile", reason: "Finish your profile first." });
+
+    const handles: PayoutHandles = {};
+    for (const kind of PAYOUT_KINDS) {
+      const result = normalizeHandle(kind, args[kind]);
+      if (!result.ok) throw new ConvexError({ code: "invalid_handle", field: kind, reason: result.reason });
+      if (result.value) handles[kind] = result.value;
+    }
+    const any = Object.keys(handles).length > 0;
+    await ctx.db.patch(profile._id, { payoutHandles: any ? handles : undefined, updatedAt: Date.now() });
+    return { ok: true as const, handles: any ? handles : null };
   },
 });

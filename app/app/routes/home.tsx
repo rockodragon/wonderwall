@@ -104,8 +104,11 @@ export default function Home() {
       {/* Hero — editorial left-aligned, 7fr/5fr grid */}
       <main className="relative pt-28 md:pt-32 pb-16 md:pb-24 px-6 md:px-14 max-w-[1280px] mx-auto">
         <div className="grid md:grid-cols-12 gap-10 md:gap-16 items-end">
-          {/* Left column — headline + subtext */}
-          <div className="md:col-span-7">
+          {/* Left column — headline + subtext. min-w-0 on both columns:
+              a grid item's default min-width is its content, and the
+              input + button row below pushed the column past a phone's
+              width, cutting off the button and this text with it. */}
+          <div className="md:col-span-7 min-w-0">
             <h1
               className="text-5xl sm:text-7xl md:text-8xl lg:text-[104px] text-[var(--garden-paper)] leading-[0.95] mb-6 md:mb-8"
               style={{
@@ -125,7 +128,7 @@ export default function Home() {
           </div>
 
           {/* Right column — waitlist + how the money works */}
-          <div className="md:col-span-5 flex flex-col gap-7 pb-1.5">
+          <div className="md:col-span-5 min-w-0 flex flex-col gap-7 pb-1.5">
             <div
               className="flex items-center gap-2 text-[var(--garden-dim)] text-xs tracking-[0.1em] uppercase"
               style={{ fontFamily: monoFont }}
@@ -178,20 +181,20 @@ export default function Home() {
                 onSubmit={handleWaitlistSubmit}
                 className="flex flex-col gap-2.5"
               >
-                <div className="flex gap-2.5">
+                <div className="flex flex-col sm:flex-row gap-2.5">
                   <input
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="your@email.com"
-                    className="flex-1 min-w-0 px-[18px] py-[15px] text-base border border-[var(--garden-hairline-raised)] rounded-[10px] bg-[var(--garden-ink-raised)] text-[var(--garden-paper)] placeholder-[var(--garden-muted)] outline-none focus:border-[var(--garden-citron)] transition-colors"
+                    className="w-full min-w-0 sm:flex-1 px-[18px] py-[15px] text-base border border-[var(--garden-hairline-raised)] rounded-[10px] bg-[var(--garden-ink-raised)] text-[var(--garden-paper)] placeholder-[var(--garden-muted)] outline-none focus:border-[var(--garden-citron)] transition-colors"
                     style={{ fontFamily: "inherit" }}
                     disabled={status === "loading"}
                   />
                   <button
                     type="submit"
                     disabled={status === "loading"}
-                    className="px-[18px] py-[15px] text-base bg-[var(--garden-citron)] text-[var(--garden-ink)] rounded-[10px] font-semibold hover:opacity-90 transition-all cursor-pointer whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full sm:w-auto px-[18px] py-[15px] text-base bg-[var(--garden-citron)] text-[var(--garden-ink)] rounded-[10px] font-semibold hover:opacity-90 transition-all cursor-pointer whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {status === "loading" ? "Joining..." : "Join the waitlist"}
                   </button>
@@ -360,7 +363,7 @@ export default function Home() {
                   textWrap: "balance",
                 }}
               >
-                Back someone you believe in.
+                Back someone or something you believe in.
               </h3>
               <p className="text-base md:text-lg leading-[1.6] text-[var(--garden-body)] mb-8" style={{ textWrap: "pretty" }}>
                 Sponsor a project you believe in. Gift memberships to the
@@ -373,7 +376,7 @@ export default function Home() {
                   to="/opportunities"
                   className="px-[22px] py-[13px] bg-[var(--garden-citron)] text-[var(--garden-ink)] rounded-[10px] font-semibold text-base hover:opacity-90 transition-all"
                 >
-                  Pick someone to back
+                  Explore people & projects
                 </Link>
                 <Link
                   to="/for/patrons"
@@ -393,57 +396,17 @@ export default function Home() {
             </Reveal>
           </div>
 
-          {/* Hosts — image left (5fr / 7fr) */}
+          {/* Community Partners — image left (5fr / 7fr) */}
           <div className="grid md:grid-cols-12 gap-8 md:gap-16 items-center">
             <Reveal className="md:col-span-5">
               <img
-                src={CAMPAIGN_IMAGES.june.src}
-                alt={CAMPAIGN_IMAGES.june.alt}
+                src={CAMPAIGN_IMAGES.opening.src}
+                alt={CAMPAIGN_IMAGES.opening.alt}
                 loading="lazy"
                 className="w-full aspect-[4/5] object-cover rounded-[10px] bg-[var(--garden-ink-raised)]"
               />
             </Reveal>
             <Reveal delay={150} className="md:col-span-7 max-w-[560px]">
-              <p className="text-[var(--garden-citron)] text-base md:text-lg font-semibold tracking-wide uppercase mb-5">
-                For hosts
-              </p>
-              <h3
-                className="text-2xl md:text-[40px] text-[var(--garden-paper)] leading-[1.1] mb-5"
-                style={{
-                  fontFamily: displayFont,
-                  fontWeight: 500,
-                  letterSpacing: "-0.025em",
-                  textWrap: "balance",
-                }}
-              >
-                Bring your community. Earn from what you teach.
-              </h3>
-              <p className="text-base md:text-lg leading-[1.6] text-[var(--garden-body)] mb-8" style={{ textWrap: "pretty" }}>
-                Run a paid or free community — a cohort, a class, a creative
-                table. Offer spiritual or creative coaching. You keep 90% of
-                what you sell, hosting is free, and your people can apply to
-                the Grant Fund.
-              </p>
-              <div className="flex items-center gap-3">
-                <Link
-                  to="/for/hosts"
-                  className="px-[22px] py-[13px] bg-[var(--garden-citron)] text-[var(--garden-ink)] rounded-[10px] font-semibold text-base hover:opacity-90 transition-all"
-                >
-                  Start hosting
-                </Link>
-                <Link
-                  to="/join?community=the-garden"
-                  className="px-2 py-[13px] font-medium text-base text-[var(--garden-body)] hover:text-[var(--garden-paper)] transition-colors"
-                >
-                  Join now →
-                </Link>
-              </div>
-            </Reveal>
-          </div>
-
-          {/* Community Partners — image right (7fr / 5fr) */}
-          <div className="grid md:grid-cols-12 gap-8 md:gap-16 items-center">
-            <Reveal delay={150} className="md:col-span-7 max-w-[560px] md:justify-self-end order-2 md:order-none">
               <p className="text-[var(--garden-citron)] text-base md:text-lg font-semibold tracking-wide uppercase mb-5">
                 For community partners
               </p>
@@ -472,10 +435,50 @@ export default function Home() {
                 </Link>
               </div>
             </Reveal>
+          </div>
+
+          {/* Hosts — image right (7fr / 5fr) */}
+          <div className="grid md:grid-cols-12 gap-8 md:gap-16 items-center">
+            <Reveal delay={150} className="md:col-span-7 max-w-[560px] md:justify-self-end order-2 md:order-none">
+              <p className="text-[var(--garden-citron)] text-base md:text-lg font-semibold tracking-wide uppercase mb-5">
+                For hosts
+              </p>
+              <h3
+                className="text-2xl md:text-[40px] text-[var(--garden-paper)] leading-[1.1] mb-5"
+                style={{
+                  fontFamily: displayFont,
+                  fontWeight: 500,
+                  letterSpacing: "-0.025em",
+                  textWrap: "balance",
+                }}
+              >
+                Bring your community. Earn from what you teach.
+              </h3>
+              <p className="text-base md:text-lg leading-[1.6] text-[var(--garden-body)] mb-8" style={{ textWrap: "pretty" }}>
+                Run a paid or free community — a cohort, a class, a creative
+                table. Offer spiritual or creative coaching. You keep 90% of
+                what you sell, hosting is free, and your people can apply to
+                a grant fund.
+              </p>
+              <div className="flex items-center gap-3">
+                <Link
+                  to="/for/hosts"
+                  className="px-[22px] py-[13px] bg-[var(--garden-citron)] text-[var(--garden-ink)] rounded-[10px] font-semibold text-base hover:opacity-90 transition-all"
+                >
+                  Start hosting
+                </Link>
+                <Link
+                  to="/join?community=the-garden"
+                  className="px-2 py-[13px] font-medium text-base text-[var(--garden-body)] hover:text-[var(--garden-paper)] transition-colors"
+                >
+                  Join now →
+                </Link>
+              </div>
+            </Reveal>
             <Reveal className="md:col-span-5 order-1 md:order-none">
               <img
-                src={CAMPAIGN_IMAGES.opening.src}
-                alt={CAMPAIGN_IMAGES.opening.alt}
+                src={CAMPAIGN_IMAGES.june.src}
+                alt={CAMPAIGN_IMAGES.june.alt}
                 loading="lazy"
                 className="w-full aspect-[4/5] object-cover rounded-[10px] bg-[var(--garden-ink-raised)]"
               />
@@ -496,18 +499,19 @@ export default function Home() {
                 letterSpacing: "-0.02em",
               }}
             >
-              Grant Program
+              Grant funds
             </h3>
             <p className="text-base leading-[1.6] text-[var(--garden-body)]" style={{ textWrap: "pretty" }}>
-              Projects get funded through active grants from Membership
-              and Patrons — every award is published on the public ledger.
+              Half of every membership feeds a project pool, and communities
+              can run funds of their own. Members propose, and every award
+              is published on a public ledger.
             </p>
           </div>
           <Link
             to="/grant-program"
             className="shrink-0 px-[22px] py-[13px] bg-[var(--garden-citron)] text-[var(--garden-ink)] rounded-[10px] font-semibold text-base hover:opacity-90 transition-all text-center"
           >
-            See the Grant Program
+            See how grants work
           </Link>
         </div>
       </section>

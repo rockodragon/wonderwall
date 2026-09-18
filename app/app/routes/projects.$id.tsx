@@ -18,11 +18,14 @@ import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { AnnouncementComposer } from "../components/AnnouncementComposer";
 import { FavoriteButton } from "../components/FavoriteButton";
+import { LocationAutocomplete, LocationVerifiedHint } from "../components/LocationAutocomplete";
 import { ProjectUpdates } from "../components/ProjectUpdates";
 import { RichContent } from "../components/RichContent";
 import { RichTextEditor } from "../components/RichTextEditor";
+import { useLocationField } from "../lib/useLocationField";
 import { isRichDocEmpty, toStoredDoc, type ResolvedRichBlock } from "../lib/richText";
 import { budgetAmountLabel, budgetKindLabel, budgetLabel } from "../lib/budgetLabel";
+import { GigSchedule } from "../components/GigSchedule";
 import { resolveStage, stageLabel } from "../lib/stage";
 import { INTERESTS } from "../constants/interests";
 import { errorMessage, STATUS_LABELS, StageSelect, SupportModal } from "./projects";
@@ -158,7 +161,10 @@ export default function ProjectDetail() {
 
   const isOwner = !!myProfile && project.userId === myProfile.userId;
   const kindWord = project.kind === "paid" ? budgetKindLabel(project) : "Passion";
-  const moneyWord = project.kind === "paid" ? budgetAmountLabel(project) : null;
+  const moneyAmount = project.kind === "paid" ? budgetAmountLabel(project) : null;
+  // Live booking (docs/features/live-booking.md): a gig's money is per date.
+  const isGig = !!project.gig;
+  const moneyWord = moneyAmount && isGig && project.budgetType === "amount" ? `${moneyAmount}/date` : moneyAmount;
   const hasMoney = project.kind === "paid" && kindWord === "Paid";
   const thumb = project.resolvedPhotoUrl || project.media.find((m: any) => m.resolvedMediaUrl)?.resolvedMediaUrl;
 
@@ -223,7 +229,14 @@ export default function ProjectDetail() {
 
       <InlineEditableStory project={project} isOwner={isOwner} />
 
-      <TeamCard project={project} isOwner={isOwner} myProfile={myProfile} />
+      {/* A gig is booked date by date, not staffed as a team — the schedule
+          card replaces the team/roles card, and the patron support widget
+          below stays off: a bar's Friday-night slot isn't backed, it's paid. */}
+      {isGig ? (
+        <GigSchedule project={project} isOwner={isOwner} myProfile={myProfile} />
+      ) : (
+        <TeamCard project={project} isOwner={isOwner} myProfile={myProfile} />
+      )}
 
       {project.benefitsNonprofit && (
         <DetailCard label="Nonprofit">
@@ -235,24 +248,28 @@ export default function ProjectDetail() {
 
       <InlineEditableLocation project={project} isOwner={isOwner} />
 
-      <div
-        className="flex items-center justify-between gap-2 pt-4"
-        style={{ borderTop: "1px solid var(--garden-hairline)" }}
-      >
-        <span className="text-sm" style={{ color: "var(--garden-dim)" }}>
-          {project.supportCount > 0
-            ? `${project.supportCount} ${project.supportCount === 1 ? "supporter" : "supporters"}`
-            : "Be the first to support"}
-        </span>
-        <button
-          onClick={() => setShowSupportModal(true)}
-          className="px-4 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition-opacity hover:opacity-90"
-          style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
-        >
-          Support
-        </button>
-      </div>
-      <SupportersList projectId={project._id} />
+      {!isGig && (
+        <>
+          <div
+            className="flex items-center justify-between gap-2 pt-4"
+            style={{ borderTop: "1px solid var(--garden-hairline)" }}
+          >
+            <span className="text-sm" style={{ color: "var(--garden-dim)" }}>
+              {project.supportCount > 0
+                ? `${project.supportCount} ${project.supportCount === 1 ? "supporter" : "supporters"}`
+                : "Be the first to support"}
+            </span>
+            <button
+              onClick={() => setShowSupportModal(true)}
+              className="px-4 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition-opacity hover:opacity-90"
+              style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
+            >
+              Support
+            </button>
+          </div>
+          <SupportersList projectId={project._id} />
+        </>
+      )}
 
       <div className="mt-8">
         <ProjectUpdates
@@ -275,7 +292,7 @@ export default function ProjectDetail() {
               <ArchiveButton project={project} />
             </div>
           </DetailCard>
-          <TierManager projectId={project._id} />
+          {!isGig && <TierManager projectId={project._id} />}
           <div className="mb-6">
             <AnnouncementComposer targetType="project" targetId={project._id} heading="Message team and supporters" />
           </div>
@@ -677,69 +694,100 @@ function InlineEditableStory({ project, isOwner }: { project: any; isOwner: bool
 function InlineEditableLocation({ project, isOwner }: { project: any; isOwner: boolean }) {
   const updateProject = useMutation((api as any).garden.projects.updateProject);
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(project.location ?? "");
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  // Same wiring as the create forms in projects.tsx: the shared picker
+  // resolves a Places suggestion (type/address/coordinates) alongside the
+  // display string, and drops it the moment the text is edited away from
+  // the pick. Seeded from the project so "open, don't touch, save" keeps
+  // what was there.
+  const location = useLocationField(project);
+  const [remote, setRemote] = useState<boolean>(project.remote !== false);
+
+  function open() {
+    location.hydrate(project);
+    setRemote(project.remote !== false);
+    setError(null);
+    setEditing(true);
+  }
+
+  function cancel() {
+    setEditing(false);
+    setError(null);
+  }
 
   async function save() {
-    const trimmed = draft.trim();
-    if (trimmed === (project.location ?? "")) {
-      setEditing(false);
+    const args = location.toArgs();
+    if (!remote && !args.location) {
+      setError('Pick a location, or check "This can be done remotely."');
       return;
     }
     setSaving(true);
+    setError(null);
     try {
-      await updateProject({ projectId: project._id, location: trimmed || undefined });
+      // `location: ""` (not undefined) tells updateProject to clear the
+      // whole location group when the field was emptied.
+      await updateProject({ projectId: project._id, ...args, location: args.location ?? "", remote });
       setEditing(false);
-    } catch {
-      setDraft(project.location ?? "");
-      setEditing(false);
+    } catch (err) {
+      setError(errorMessage(err));
     } finally {
       setSaving(false);
     }
   }
 
-  if (project.remote && !isOwner) return null;
-
   if (editing) {
     return (
       <DetailCard label="Location">
-        <div className="flex items-center gap-2">
-          <input
-            autoFocus
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") save(); if (e.key === "Escape") { setDraft(project.location ?? ""); setEditing(false); } }}
-            disabled={saving}
-            placeholder="City, State"
-            className="flex-1 px-3 py-2 rounded-lg border text-sm outline-none"
-            style={{ backgroundColor: "var(--garden-ink)", borderColor: "var(--garden-hairline-raised)", color: "var(--garden-paper)" }}
-          />
-          <button
-            onClick={save}
-            disabled={saving}
-            className="px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50"
-            style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
-          >
-            {saving ? "…" : "Save"}
-          </button>
-          <button
-            onClick={() => { setDraft(project.location ?? ""); setEditing(false); }}
-            className="text-xs hover:opacity-80"
-            style={{ color: "var(--garden-dim)" }}
-          >
-            Cancel
-          </button>
+        <div className="flex flex-col gap-3">
+          <label className="flex items-center gap-2 text-sm" style={{ color: "var(--garden-body)" }}>
+            <input type="checkbox" checked={remote} onChange={(e) => setRemote(e.target.checked)} disabled={saving} />
+            This can be done remotely
+          </label>
+          {!remote && (
+            <div>
+              <LocationAutocomplete
+                value={location.value}
+                onChange={location.onChange}
+                onSelect={location.onSelect}
+                placeholder="Search for a location, type 'Online', or 'TBD'"
+                disabled={saving}
+              />
+              <LocationVerifiedHint value={location.value} selected={location.selected} />
+            </div>
+          )}
+          {error && <p className="text-sm text-red-400">{error}</p>}
+          <div className="flex items-center gap-2 justify-end">
+            <button onClick={cancel} disabled={saving} className="text-xs hover:opacity-80" style={{ color: "var(--garden-dim)" }}>
+              Cancel
+            </button>
+            <button
+              onClick={save}
+              disabled={saving}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50"
+              style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
+            >
+              {saving ? "Saving…" : "Save"}
+            </button>
+          </div>
         </div>
       </DetailCard>
     );
   }
 
-  if (!project.remote && project.location) {
+  const isRemote = project.remote !== false;
+  const summary = isRemote
+    ? project.location
+      ? `${project.location} · remote-friendly`
+      : "Remote-friendly — anywhere"
+    : project.location || null;
+
+  if (summary) {
     return (
       <DetailCard label="Location">
         <div className="flex items-center gap-1">
-          <p className="text-sm flex-1" style={{ color: "var(--garden-body)" }}>{project.location}</p>
-          {isOwner && <EditButton onClick={() => { setDraft(project.location ?? ""); setEditing(true); }} label="Edit location" />}
+          <p className="text-sm flex-1" style={{ color: "var(--garden-body)" }}>{summary}</p>
+          {isOwner && <EditButton onClick={open} label="Edit location" />}
         </div>
       </DetailCard>
     );
@@ -750,7 +798,7 @@ function InlineEditableLocation({ project, isOwner }: { project: any; isOwner: b
       <DetailCard label="Location">
         <div className="flex items-center gap-1">
           <p className="text-sm flex-1" style={{ color: "var(--garden-dim)" }}>No location set</p>
-          <EditButton onClick={() => { setDraft(""); setEditing(true); }} label="Add location" />
+          <EditButton onClick={open} label="Add location" />
         </div>
       </DetailCard>
     );
@@ -1044,6 +1092,7 @@ function TeamCard({
         isOwner={isOwner}
         mine={team.mine}
         onApply={(role) => setJoinModal(role)}
+        apply={team.apply}
       />
 
       {!isOwner && (
@@ -1052,6 +1101,7 @@ function TeamCard({
           mine={team.mine}
           leadName={team.lead.name}
           onOpenJoinModal={() => setJoinModal({})}
+          apply={team.apply}
         />
       )}
 
@@ -1102,9 +1152,13 @@ function RolesSection({
   isOwner,
   mine,
   onApply,
+  apply,
 }: {
   project: any;
   isOwner: boolean;
+  /** Whether the viewer may apply — getTeam's read of the same
+   * project.applyPaid rule requestToJoin enforces. Absent while loading. */
+  apply?: { allowed: boolean; reason: string | null; upgradePath: string | null };
   mine: { memberId: string; status: string; role: string } | undefined;
   onApply: (role: { roleId: string; title: string }) => void;
 }) {
@@ -1270,6 +1324,14 @@ function RolesSection({
                     >
                       Close
                     </button>
+                  ) : !mine && apply && !apply.allowed ? (
+                    <Link
+                      to="/join"
+                      className="text-xs underline underline-offset-2 whitespace-nowrap pt-0.5"
+                      style={{ color: "var(--garden-citron)" }}
+                    >
+                      Join to apply
+                    </Link>
                   ) : !mine ? (
                     <button
                       onClick={() => onApply({ roleId: r.roleId, title: r.title })}
@@ -1465,10 +1527,13 @@ function ViewerTeamActions({
   mine,
   leadName,
   onOpenJoinModal,
+  apply,
 }: {
   project: any;
   mine: { memberId: string; status: string; role: string } | undefined;
   leadName: string;
+  /** See RolesSection's `apply`. */
+  apply?: { allowed: boolean; reason: string | null; upgradePath: string | null };
   /** Opens the shared JoinRequestModal TeamCard owns — with no preset,
    * this is the original free-text "propose your own role" flow. */
   onOpenJoinModal: () => void;
@@ -1493,7 +1558,16 @@ function ViewerTeamActions({
 
   return (
     <div className="pt-3 mt-2.5" style={{ borderTop: "1px solid var(--garden-hairline)" }}>
-      {!mine && (
+      {!mine && apply && !apply.allowed ? (
+        // Applying to paid work takes membership (docs/features/live-booking.md
+        // §8). The text is the server's own denial for project.applyPaid.
+        <p className="text-sm" style={{ color: "var(--garden-body)" }}>
+          {apply.reason ?? "Applying to paid work takes membership."}{" "}
+          <Link to="/join" className="underline underline-offset-2 font-medium" style={{ color: "var(--garden-citron)" }}>
+            {apply.upgradePath ?? "Join to apply"}
+          </Link>
+        </p>
+      ) : !mine ? (
         <button
           onClick={onOpenJoinModal}
           className="px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-opacity hover:opacity-90"
@@ -1501,7 +1575,7 @@ function ViewerTeamActions({
         >
           {project.kind === "paid" ? "Apply" : "Ask to join"}
         </button>
-      )}
+      ) : null}
 
       {mine?.status === "pending" && (
         <div className="flex items-center gap-3 text-sm" style={{ color: "var(--garden-body)" }}>

@@ -46,6 +46,15 @@ type ProjectCard = {
   // resolveStage() derives a sensible value when it's missing.
   stage?: string;
   community?: { name: string; slug: string } | null;
+  // Live booking (docs/features/live-booking.md §5): present on a recurring
+  // paid gig, null on everything else.
+  gig?: {
+    venueName: string | null;
+    schedule: string;
+    status: string;
+    nextDateLabel: string | null;
+    openCount: number;
+  } | null;
 };
 
 type TabId = "paid" | "passion" | "all";
@@ -157,6 +166,18 @@ function ProjectTile({ project }: { project: ProjectCard }) {
           {project.byName}
           {project.community ? ` · ${project.community.name}` : ""}
         </p>
+        {project.gig && (
+          <p className="text-[var(--garden-body)] text-sm mb-3">
+            {project.gig.venueName ? `${project.gig.venueName} · ` : ""}
+            {project.gig.schedule}
+            {project.gig.status === "open" && project.gig.nextDateLabel ? ` · next ${project.gig.nextDateLabel}` : ""}
+            {project.gig.status === "open" && project.gig.openCount > 0 && (
+              <span className="text-[var(--garden-citron)]">
+                {" "}· {project.gig.openCount} {project.gig.openCount === 1 ? "date" : "dates"} open
+              </span>
+            )}
+          </p>
+        )}
         {project.blurb && (
           <p className="text-[var(--garden-body)] leading-relaxed text-[15px] mb-4">
             {project.blurb.length > 200

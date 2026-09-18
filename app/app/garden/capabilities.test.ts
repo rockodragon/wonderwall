@@ -34,6 +34,7 @@ const MATRIX: [Capability, [boolean, boolean, boolean, boolean, boolean, boolean
   ["project.create.passion", [false, false, true,  true,  true,  false, false]],
   ["project.create.paid",    [false, false, true,  true,  true,  true,  true]],
   ["project.applyPaid",      [false, false, true,  true,  true,  false, false]],
+  ["gig.respond",            [false, false, true,  true,  true,  false, false]],
   ["pool.propose",           [false, false, true,  true,  true,  false, false]],
   ["event.create",           [false, false, true,  true,  true,  false, true]],
   ["table.join.open",        [true,  true,  true,  true,  true,  true,  true]],
@@ -102,6 +103,7 @@ describe("denial anatomy — every denial explains itself", () => {
     for (const cap of [
       "project.create.passion",
       "project.applyPaid",
+      "gig.respond",
       "pool.propose",
       "event.create",
       "table.join.member",

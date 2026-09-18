@@ -9,6 +9,7 @@ export type Capability =
   | "project.create.passion"
   | "project.create.paid"
   | "project.applyPaid"
+  | "gig.respond"
   | "pool.propose"
   | "event.create"
   | "table.join.open"
@@ -98,7 +99,22 @@ export function can(user: GardenUser, capability: Capability): CanResult {
       if (isPaidLevel(level)) return { allowed: true };
       return {
         allowed: false,
-        reason: "Applying to paid work requires a seat.",
+        reason: "Applying to paid work takes membership.",
+        upgradePath: SEAT_PATH,
+      };
+
+    case "gig.respond":
+      // Same rule as applying to paid work (the plan, §2: "job postings are
+      // public, applying takes membership"), with the gig's own words.
+      // Decided 2026-09-17 (Rick): free to look around, membership to
+      // respond — this overrules the Sept 15 "apply free, being hired
+      // takes membership" recommendation. Membership is per community in
+      // the plan; as coded a seat is platform-wide, so this reads the seat
+      // until the pricing reconcile pass. A covered seat counts.
+      if (isPaidLevel(level)) return { allowed: true };
+      return {
+        allowed: false,
+        reason: "Responding to a gig takes membership. Anyone can see the dates and what they pay.",
         upgradePath: SEAT_PATH,
       };
 

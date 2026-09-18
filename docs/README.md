@@ -14,6 +14,7 @@ The project is **creatives.exchange** (repo: wonderwall). Four documents are the
 ## Feature specs
 
 - [Phase 1B spec](phase-1b/spec.md) — the October build plan (money foundation, entitlements, coverage codes)
+- [Live booking](features/live-booking.md) — a venue posts recurring paid gigs, artists answer with clips, the venue picks and pays directly; includes the payment-linking research
 - [V1 PRD](the-exchange-v1-prd.md)
 - [Entitlements — live status](features/entitlements-live-status.md) — what the code enforces vs. the plan, the payout-rail gap, open decisions · [Seat, Pool, Payout](features/seat-pool-payout.html) — the money model on one page (open in a browser)
 - [Community groups](features/community-groups.md) · [Community grant pools](features/community-grant-pools.md) · [Paid community + media](features/paid-community-youtube-media.md)

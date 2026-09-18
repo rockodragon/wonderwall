@@ -14,6 +14,7 @@
 import { v } from "convex/values";
 import { query } from "../_generated/server";
 import { shapeCredits, type CreditEntry } from "./allocations";
+import { summarizeGig } from "./gigSummary";
 
 // ——————————————————————————————————————————————————————————————
 // Pure core
@@ -219,10 +220,17 @@ export const listProjects = query({
       if (org && org.kind === "community") communityById.set(String(org._id), { name: org.name, slug: org.slug });
     }
 
-    return newestFirst.map((p) => ({
-      ...shapeProjectCard(p, nameByUserId.get(String(p.userId)) ?? FALLBACK_OWNER_NAME),
-      community: p.hostOrgId ? communityById.get(String(p.hostOrgId)) ?? null : null,
-    }));
+    // Live booking (docs/features/live-booking.md §5): the public page is
+    // the front door for "what work is out there", so a gig's schedule
+    // line rides along. Null for every ordinary project.
+    const now = Date.now();
+    return Promise.all(
+      newestFirst.map(async (p) => ({
+        ...shapeProjectCard(p, nameByUserId.get(String(p.userId)) ?? FALLBACK_OWNER_NAME),
+        community: p.hostOrgId ? communityById.get(String(p.hostOrgId)) ?? null : null,
+        gig: await summarizeGig(ctx, p._id, now),
+      })),
+    );
   },
 });
 
@@ -256,6 +264,7 @@ export const getProject = query({
     return {
       ...shapeProjectCard(project, ownerProfile?.name ?? FALLBACK_OWNER_NAME),
       credits,
+      gig: await summarizeGig(ctx, project._id, Date.now()),
     };
   },
 });

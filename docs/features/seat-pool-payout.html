@@ -1,0 +1,564 @@
+<title>Seat, Pool, Payout</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --bg: #F6F7F4; --surface: #FFFFFF; --ink: #181C1F; --muted: #474F59; --line: #D5DAD3;
+    --seat: #2C4BD1; --seat-soft: #E3E8FB; --seat-text: #2140B8;
+    --host: #1B2E86; --host-soft: #D6DCF5;
+    --money: #C4901F; --money-soft: #F6ECD3; --money-text: #6E4E0C;
+    --bad: #C4482C; --bad-soft: #F8E3DD; --bad-text: #9E3620;
+    --good: #2E9A6E; --good-soft: #DDF0E6; --good-text: #1F5E43;
+    --display: "Bricolage Grotesque", "Helvetica Neue", Arial, sans-serif;
+    --body: "IBM Plex Sans", "Segoe UI", Helvetica, Arial, sans-serif;
+    --mono: "IBM Plex Mono", "SF Mono", Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #14171A; --surface: #1C2024; --ink: #ECEEE9; --muted: #B3BAC3; --line: #2E353C;
+      --seat: #8AA0F5; --seat-soft: #22305E; --seat-text: #A6B6F7;
+      --host: #B7C4FA; --host-soft: #2A3670;
+      --money: #E0B04A; --money-soft: #3A2F14; --money-text: #E8C063;
+      --bad: #E8846B; --bad-soft: #4A241B; --bad-text: #F0A08C;
+      --good: #66C596; --good-soft: #173A2B; --good-text: #8BD9B2;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #14171A; --surface: #1C2024; --ink: #ECEEE9; --muted: #B3BAC3; --line: #2E353C;
+    --seat: #8AA0F5; --seat-soft: #22305E; --seat-text: #A6B6F7;
+    --host: #B7C4FA; --host-soft: #2A3670;
+    --money: #E0B04A; --money-soft: #3A2F14; --money-text: #E8C063;
+    --bad: #E8846B; --bad-soft: #4A241B; --bad-text: #F0A08C;
+    --good: #66C596; --good-soft: #173A2B; --good-text: #8BD9B2;
+  }
+  * { box-sizing: border-box; }
+  body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 15px; line-height: 1.5;
+         padding-inline: 20px; padding-block: 32px 80px; }
+  .wrap { max-width: 980px; margin: 0 auto; }
+  h1, h2, h3 { font-family: var(--display); text-wrap: balance; letter-spacing: -0.01em; margin: 0; }
+  h1 { font-size: 40px; font-weight: 700; line-height: 1.05; }
+  h2 { font-size: 24px; font-weight: 700; margin-top: 56px; padding-top: 20px; border-top: 1px solid var(--line); }
+  h3 { font-size: 17px; font-weight: 700; margin-top: 24px; }
+  p { max-width: 68ch; margin: 10px 0; }
+  .eyebrow { font-family: var(--mono); font-size: 12.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+  .lede { font-size: 17px; max-width: 64ch; color: var(--ink); }
+  .meta { color: var(--muted); font-size: 13.5px; font-family: var(--mono); margin-top: 12px; }
+  .thesis { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; margin-top: 24px; }
+  .thesis > div { background: var(--surface); border: 1px solid var(--line); padding: 14px 16px; }
+  .thesis strong { display: block; font-family: var(--display); font-size: 15.5px; margin-bottom: 4px; }
+  .thesis span { color: var(--muted); font-size: 13.5px; }
+  figure { margin: 18px 0 0; }
+  .fig { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); padding: 12px; }
+  .fig svg { display: block; height: auto; }
+  figcaption { font-size: 13.5px; color: var(--muted); margin-top: 8px; max-width: 80ch; }
+  .controls { display: flex; flex-wrap: wrap; gap: 20px 36px; margin: 14px 0 6px; }
+  fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+  legend { font-family: var(--mono); font-size: 12.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); padding: 0; margin-bottom: 6px; }
+  .opts { display: flex; flex-wrap: wrap; gap: 6px; }
+  .opts label { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--surface); padding: 6px 10px; font-size: 13.5px; cursor: pointer; }
+  .opts label:has(input:checked) { border-color: var(--seat); background: var(--seat-soft); color: var(--ink); }
+  .opts input { margin: 0; accent-color: var(--seat); }
+  .opts label:focus-within { outline: 2px solid var(--seat); outline-offset: 1px; }
+  table { border-collapse: collapse; width: 100%; font-size: 13.5px; background: var(--surface); }
+  .tbl { overflow-x: auto; border: 1px solid var(--line); margin-top: 14px; }
+  th, td { text-align: left; vertical-align: top; padding: 9px 12px; border-bottom: 1px solid var(--line); }
+  th { font-family: var(--mono); font-size: 12px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); font-weight: 500; background: var(--bg); }
+  tr:last-child td { border-bottom: 0; }
+  td.num, th.num { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .chip { display: inline-block; font-family: var(--mono); font-size: 12px; padding: 2px 7px; border-radius: 3px; white-space: nowrap; }
+  .chip.seat { background: var(--seat-soft); color: var(--seat-text); }
+  .chip.host { background: var(--host-soft); color: var(--host); }
+  .chip.good { background: var(--good-soft); color: var(--good-text); }
+  .chip.bad { background: var(--bad-soft); color: var(--bad-text); }
+  .chip.money { background: var(--money-soft); color: var(--money-text); }
+  .chip.free { background: var(--bg); color: var(--muted); border: 1px solid var(--line); }
+  .verdicts { display: grid; grid-template-columns: 1fr; gap: 12px; margin-top: 14px; }
+  .verdict { background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--seat); padding: 14px 16px; }
+  .verdict h3 { margin-top: 0; }
+  .verdict .cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px 18px; margin-top: 8px; font-size: 13.5px; }
+  .verdict .cols b { font-family: var(--mono); font-size: 12px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); display: block; margin-bottom: 2px; font-weight: 500; }
+  .verdict .rec { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--line); }
+  .verdict .rec b { color: var(--seat-text); }
+  ul { padding-left: 20px; margin: 8px 0; max-width: 72ch; }
+  li { margin: 4px 0; }
+  .decisions li { margin: 8px 0; }
+  .decisions b { font-family: var(--display); }
+  .note { font-size: 13.5px; color: var(--muted); }
+  .kbd { font-family: var(--mono); font-size: 12.5px; background: var(--bg); border: 1px solid var(--line); padding: 1px 5px; }
+  @media (max-width: 640px) { h1 { font-size: 32px; } body { font-size: 14.5px; } }
+  @media (prefers-reduced-motion: no-preference) { .fig svg text, .fig svg rect, .fig svg line { transition: opacity .2s; } }
+</style>
+
+<div class="wrap">
+  <div class="eyebrow">creatives.exchange · business model on one page</div>
+  <h1 style="margin-top:8px">Seat, Pool, Payout</h1>
+  <p class="lede">Where the money gates, where it flows, and where it stops. Built from the code as it runs today, the plan docs, the beads tracker, a competitive pass on eleven platforms, and two independent pressure-tests (UX and PM). Meant to be argued with.</p>
+  <div class="meta">2026-09-15 · code-verified against app/convex/garden · live plan: creatives-exchange-discussion-brief.md v0.5 (2026-09-08) · the code implements the Aug 31 model · every delta is marked</div>
+
+  <div class="thesis">
+    <div><strong>Three canons, one code base.</strong><span>The plan (Sept 8), the build spec (Aug 31) and the product plan (Aug 9) disagree on whose the seat is, how dues split, and who pays card fees. The code built the middle one. That's the circle.</span></div>
+    <div><strong>Dues are the engine, not the revenue.</strong><span>Under the plan a $10 seat leaves the platform $1 — a real $1, processing paid by the payer. Under the code, ~$4.41. Either way the margin is in the 10% funding lanes.</span></div>
+    <div><strong>Two of three seat gates aren't enforced.</strong><span>Starting a project and applying to paid work are free today. The code that would gate them exists, tested, and is not called.</span></div>
+    <div><strong>Money in works. Money out barely exists.</strong><span>Backings have no payout tracking at all. Host earnings are a manual ledger. Stripe Connect: specified for Phase 3, no bead until today, no code.</span></div>
+  </div>
+
+  <!-- ============ 0. THREE CANONS ============ -->
+  <h2>0 · Why this goes in circles</h2>
+  <p>Three documents each claim to be canon, and the README says which one is: <b>the plan</b>. The code was built to the one in the middle. Everything below is drawn from the code as it runs, with the plan's position marked wherever it differs — because the plan is what you agreed, and the code is what you'd have to change.</p>
+  <div class="tbl">
+    <table>
+      <thead><tr><th>Layer</th><th>Whose seat</th><th>Dues split</th><th>Card fees</th><th>Ladder</th><th>Gathering word</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td><b>Product plan §2</b><br><span class="note">Aug 9</span></td><td>Platform, with a default host org</td><td>40% host org · 50% pool · 10% platform</td><td>Platform absorbs</td><td>Seat $10 · Five $25 · Host $50 (1/5/10 projects)</td><td>Table</td><td>Build spec. README: "lags the plan in spots"</td></tr>
+        <tr><td><b>Aug 31 model + community-groups.md</b><br><span class="note">Aug 31 / Sept 3</span></td><td>Platform-wide; "a seat is platform membership"</td><td>50% pool · 50% platform</td><td>Platform absorbs</td><td>Same 1/5/10 ladder</td><td>Table</td><td><span class="chip seat">what the code implements</span></td></tr>
+        <tr><td><b>The plan — discussion brief v0.5</b><br><span class="note">Sept 8</span></td><td><b>Per community</b>, at that community's price (The Garden: $10). Pay each community you join.</td><td><b>10% platform; 90% is the community's to divide.</b> The Garden: 40% runs the group · 50% pool · 10% platform</td><td><b>Payer covers</b>, added at checkout. "The platform's 10% is a real 10%."</td><td><b>No tiers.</b> Free member / Member / Host at $0</td><td>Class</td><td><span class="chip good">live plan — README: "start here"</span> · code waits until agreed</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="note">The plan also says "job postings are public, applying takes membership," and claims permission rules are "enforced on the server with 237 automated tests" — true of the tests, not of the three seat gates that nothing calls (§1).</p>
+
+  <!-- ============ 1. UPGRADE-TRIGGER MAP ============ -->
+  <h2>1 · The upgrade-trigger map</h2>
+  <p>A free account's path, left to right. A circle is a moment that stays free. A bar is a gate: the moment someone hits a paywall with intent. Solid bars are enforced in the running code; dashed bars are in the spec only, open to everyone today. Switch the two contested gates to see the options side by side.</p>
+
+  <div class="controls">
+    <fieldset>
+      <legend>Starting a project</legend>
+      <div class="opts" id="opt-project">
+        <label><input type="radio" name="project" value="spec" id="project-spec" checked> Spec: 0 free projects</label>
+        <label><input type="radio" name="project" value="draft" id="project-draft"> Draft free, publish with a seat</label>
+        <label><input type="radio" name="project" value="one" id="project-one"> 1 free project</label>
+      </div>
+    </fieldset>
+    <fieldset>
+      <legend>Paid work</legend>
+      <div class="opts" id="opt-paid">
+        <label><input type="radio" name="paid" value="apply" id="paid-apply" checked> Spec: gate at apply</label>
+        <label><input type="radio" name="paid" value="accept" id="paid-accept"> Gate at accept</label>
+        <label><input type="radio" name="paid" value="payout" id="paid-payout"> No gate · 10% at payout</label>
+      </div>
+    </fieldset>
+  </div>
+
+  <figure>
+    <div class="fig">
+      <svg viewBox="0 0 1200 330" style="min-width: 900px; width: 100%" role="img" aria-label="Free-account journey with six free moments followed by five gates: start a project, paid work, members-only class, propose to grant pool, create a class. The first two gates are dashed because they are not enforced today.">
+        <defs>
+          <marker id="arr-ink" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" style="fill:var(--muted)"/></marker>
+        </defs>
+        <!-- path line -->
+        <line x1="40" y1="190" x2="1175" y2="190" style="stroke:var(--muted);stroke-width:2" marker-end="url(#arr-ink)"/>
+        <text x="40" y="176" font-family="IBM Plex Mono, monospace" font-size="12" style="fill:var(--muted)">free account →</text>
+
+        <!-- free stations -->
+        <g font-family="IBM Plex Sans, sans-serif" font-size="12.5" text-anchor="middle" style="fill:var(--ink)">
+          <circle cx="75" cy="190" r="8" style="fill:var(--surface);stroke:var(--ink);stroke-width:2"/>
+          <text x="75" y="222">Sign up</text><text x="75" y="238" font-size="12" style="fill:var(--muted)">invite or Google</text>
+          <circle cx="175" cy="190" r="8" style="fill:var(--surface);stroke:var(--ink);stroke-width:2"/>
+          <text x="175" y="222">Browse</text><text x="175" y="238" font-size="12" style="fill:var(--muted)">even signed out</text>
+          <circle cx="275" cy="190" r="8" style="fill:var(--surface);stroke:var(--ink);stroke-width:2"/>
+          <text x="275" y="222">Post finished work</text><text x="275" y="238" font-size="12" style="fill:var(--muted)">portfolio</text>
+          <circle cx="375" cy="190" r="8" style="fill:var(--surface);stroke:var(--ink);stroke-width:2"/>
+          <text x="375" y="222">Back a project</text><text x="375" y="238" font-size="12" style="fill:var(--muted)">pledge · cover a seat</text>
+          <circle cx="475" cy="190" r="8" style="fill:var(--surface);stroke:var(--ink);stroke-width:2"/>
+          <text x="475" y="222">Volunteer</text><text x="475" y="238" font-size="12" style="fill:var(--muted)">unpaid role</text>
+          <circle cx="575" cy="190" r="8" style="fill:var(--surface);stroke:var(--ink);stroke-width:2"/>
+          <text x="575" y="222">Join an open table</text><text x="575" y="238" font-size="12" style="fill:var(--muted)">free room</text>
+        </g>
+
+        <!-- gates -->
+        <g font-family="IBM Plex Sans, sans-serif" font-size="12.5" text-anchor="middle" style="fill:var(--ink)">
+          <!-- g7 start a project -->
+          <rect id="g7-bar" x="687" y="110" width="6" height="160" rx="2" style="fill:var(--seat);stroke:var(--seat);stroke-width:1.5;stroke-dasharray:6 4;fill-opacity:.25"/>
+          <rect x="655" y="86" width="70" height="18" rx="3" style="fill:var(--seat-soft)"/>
+          <text id="g7-chip" x="690" y="99" font-family="IBM Plex Mono, monospace" font-size="12" style="fill:var(--seat-text)">SEAT $10</text>
+          <text id="g7-t1" x="690" y="288" font-weight="600">Start a project</text>
+          <text id="g7-t2" x="690" y="304" font-size="12" style="fill:var(--muted)">not enforced today</text>
+
+          <!-- g8 paid work -->
+          <rect id="g8-bar" x="787" y="110" width="6" height="160" rx="2" style="fill:var(--seat);stroke:var(--seat);stroke-width:1.5;stroke-dasharray:6 4;fill-opacity:.25"/>
+          <rect id="g8-chipbg" x="755" y="86" width="70" height="18" rx="3" style="fill:var(--seat-soft)"/>
+          <text id="g8-chip" x="790" y="99" font-family="IBM Plex Mono, monospace" font-size="12" style="fill:var(--seat-text)">SEAT $10</text>
+          <text id="g8-t1" x="790" y="288" font-weight="600">Apply to paid work</text>
+          <text id="g8-t2" x="790" y="304" font-size="12" style="fill:var(--muted)">not enforced today</text>
+
+          <!-- g9 members-only class -->
+          <rect x="887" y="110" width="6" height="160" rx="2" style="fill:var(--seat)"/>
+          <rect x="855" y="86" width="70" height="18" rx="3" style="fill:var(--seat-soft)"/>
+          <text x="890" y="99" font-family="IBM Plex Mono, monospace" font-size="12" style="fill:var(--seat-text)">SEAT $10</text>
+          <text x="890" y="288" font-weight="600">Members-only class</text>
+          <text x="890" y="304" font-size="12" style="fill:var(--good-text)">enforced</text>
+
+          <!-- g10 grant pool -->
+          <rect x="987" y="110" width="6" height="160" rx="2" style="fill:var(--seat)"/>
+          <rect x="955" y="86" width="70" height="18" rx="3" style="fill:var(--seat-soft)"/>
+          <text x="990" y="99" font-family="IBM Plex Mono, monospace" font-size="12" style="fill:var(--seat-text)">SEAT $10</text>
+          <text x="990" y="288" font-weight="600">Propose to the pool</text>
+          <text x="990" y="304" font-size="12" style="fill:var(--good-text)">enforced</text>
+
+          <!-- g11 host -->
+          <rect x="1097" y="110" width="6" height="160" rx="2" style="fill:var(--host)"/>
+          <rect x="1060" y="86" width="80" height="18" rx="3" style="fill:var(--host-soft)"/>
+          <text x="1100" y="99" font-family="IBM Plex Mono, monospace" font-size="12" style="fill:var(--host)">HOST $50</text>
+          <text x="1100" y="288" font-weight="600">Create a class</text>
+          <text x="1100" y="304" font-size="12" style="fill:var(--good-text)">enforced · programs need Connect</text>
+        </g>
+
+        <!-- legend -->
+        <g font-family="IBM Plex Sans, sans-serif" font-size="12" style="fill:var(--muted)">
+          <circle cx="60" cy="40" r="6" style="fill:var(--surface);stroke:var(--ink);stroke-width:2"/><text x="72" y="44" style="fill:var(--ink)">stays free</text>
+          <rect x="160" y="33" width="5" height="14" style="fill:var(--seat)"/><text x="172" y="44" style="fill:var(--ink)">gate, enforced in code</text>
+          <rect x="330" y="33" width="5" height="14" style="fill:var(--seat);fill-opacity:.25;stroke:var(--seat);stroke-dasharray:4 3"/><text x="342" y="44" style="fill:var(--ink)">gate in spec only — open to everyone today</text>
+        </g>
+      </svg>
+    </div>
+    <figcaption id="fig1-cap">Spec as written: six free moments, then five seat/host gates. The first two — start a project, apply to paid work — exist in <span class="kbd">capabilities.ts</span> but nothing calls them, so every signed-in account can do both right now.</figcaption>
+  </figure>
+
+  <div class="tbl">
+    <table>
+      <thead><tr><th>Gate</th><th>The job the person came to do</th><th>Tier</th><th>Enforced today</th><th>Denial line (plain voice)</th></tr></thead>
+      <tbody>
+        <tr><td>Start a project</td><td>Make something with community backing</td><td><span class="chip seat">Seat</span></td><td><span class="chip bad">no</span></td><td>"Take a seat to start it — one active project included, and half your dues fund someone else's."</td></tr>
+        <tr><td>Paid work</td><td>Get my work seen and funded — the #1 JTBD verbatim</td><td><span class="chip seat">Seat</span></td><td><span class="chip bad">no</span></td><td>At accept: "You got the role — take a seat to accept it."</td></tr>
+        <tr><td>Members-only class</td><td>Belong here, specifically</td><td><span class="chip seat">Seat</span></td><td><span class="chip good">yes</span></td><td>"This table's for members — take a seat to join."</td></tr>
+        <tr><td>Propose to the pool</td><td>Get funded by the community, not just by applying</td><td><span class="chip seat">Seat</span></td><td><span class="chip good">yes</span></td><td>"Members propose to the pool — it's their dues."</td></tr>
+        <tr><td>Second project</td><td>I have a second thing going</td><td><span class="chip seat">Five</span></td><td><span class="chip bad">no</span></td><td>"You're at your limit — Five gets you five, plus collaborators."</td></tr>
+        <tr><td>Create a class · run programs</td><td>Be the one who makes the room</td><td><span class="chip host">Host</span></td><td><span class="chip good">table yes · programs 0% built</span></td><td>"A class with a roster is run by a host."</td></tr>
+        <tr><td>Put on an event</td><td>Gather people for a night</td><td><span class="chip seat">Seat</span></td><td><span class="chip free">no mutation exists</span></td><td>UX flag: this taxes exactly the grassroots energy that seeds a community.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ============ 2. VALUE LADDER ============ -->
+  <h2>2 · The value ladder</h2>
+  <p>What each step newly unlocks. Read the flags: one rung has no reason to exist yet, and one is named after a thing that's free.</p>
+  <figure>
+    <div class="fig">
+      <svg viewBox="0 0 960 330" style="min-width: 760px; width: 100%" role="img" aria-label="Four steps rising left to right: Free $0, Seat $10, Five $25, Host $50, each listing what it newly unlocks. Five is flagged as the weakest rung; Host is flagged as distinct from free community hosting.">
+        <g font-family="IBM Plex Sans, sans-serif" font-size="12.5" style="fill:var(--ink)">
+          <!-- Free -->
+          <rect x="20" y="215" width="220" height="95" style="fill:var(--surface);stroke:var(--line);stroke-width:1.5"/>
+          <text x="34" y="240" font-family="Bricolage Grotesque, sans-serif" font-size="17" font-weight="700">Free</text>
+          <text x="34" y="260" font-family="IBM Plex Mono, monospace" font-size="13" style="fill:var(--muted)">$0 · joining stays free</text>
+          <text x="34" y="281">browse · post work · back projects</text>
+          <text x="34" y="297">volunteer · open tables · apply to host</text>
+          <!-- Seat -->
+          <rect x="240" y="160" width="220" height="150" style="fill:var(--seat-soft);stroke:var(--seat);stroke-width:1.5"/>
+          <text x="254" y="185" font-family="Bricolage Grotesque, sans-serif" font-size="17" font-weight="700">Seat</text>
+          <text x="254" y="205" font-family="IBM Plex Mono, monospace" font-size="13" style="fill:var(--seat-text)">$10/mo · $5 to the pool</text>
+          <text x="254" y="226">+ 1 active passion project</text>
+          <text x="254" y="242">+ paid work (accept)</text>
+          <text x="254" y="258">+ propose to the grant pool</text>
+          <text x="254" y="274">+ members-only classes</text>
+          <text x="254" y="296" font-size="12" style="fill:var(--muted)">covered seat = same seat, patron pays</text>
+          <!-- Five -->
+          <rect x="460" y="110" width="220" height="200" style="fill:var(--surface);stroke:var(--seat);stroke-width:1.5;stroke-dasharray:6 4"/>
+          <text x="474" y="135" font-family="Bricolage Grotesque, sans-serif" font-size="17" font-weight="700">Five</text>
+          <text x="474" y="155" font-family="IBM Plex Mono, monospace" font-size="13" style="fill:var(--seat-text)">$25/mo · $12.50 to the pool</text>
+          <text x="474" y="176">+ 5 active passion projects</text>
+          <text x="474" y="192">+ invite collaborators</text>
+          <text x="474" y="222" font-weight="600" style="fill:var(--money-text)">Weakest rung.</text>
+          <text x="474" y="238" font-size="12" style="fill:var(--money-text)">Nothing new unlocks — more of the same slot.</text>
+          <text x="474" y="254" font-size="12" style="fill:var(--money-text)">The plan calls it "a convenience tier, not a pillar."</text>
+          <text x="474" y="278" font-size="12" style="fill:var(--muted)">UX: sell slots as a $5 add-on.</text>
+          <text x="474" y="294" font-size="12" style="fill:var(--muted)">PM: test first — collapse if &lt;5% hit the cap.</text>
+          <!-- Host -->
+          <rect x="680" y="55" width="260" height="255" style="fill:var(--host-soft);stroke:var(--host);stroke-width:1.5"/>
+          <text x="694" y="80" font-family="Bricolage Grotesque, sans-serif" font-size="17" font-weight="700">Host</text>
+          <text x="694" y="100" font-family="IBM Plex Mono, monospace" font-size="13" style="fill:var(--host)">$50/mo · $25 to the pool</text>
+          <text x="694" y="121">+ 10 active passion projects</text>
+          <text x="694" y="137">+ create classes (rosters, cohorts)</text>
+          <text x="694" y="153">+ run grant programs for your community</text>
+          <text x="694" y="183" font-weight="600" style="fill:var(--bad-text)">Naming collision.</text>
+          <text x="694" y="199" font-size="12" style="fill:var(--bad-text)">Hosting a community is free. This tier is a</text>
+          <text x="694" y="215" font-size="12" style="fill:var(--bad-text)">personal membership that happens to say "Host."</text>
+          <text x="694" y="239" font-weight="600" style="fill:var(--bad-text)">Grant programs: 0% built.</text>
+          <text x="694" y="255" font-size="12" style="fill:var(--bad-text)">Needs Stripe Connect. Concierge-only today —</text>
+          <text x="694" y="271" font-size="12" style="fill:var(--bad-text)">a pilot pitch to AP/TAS, not a self-serve line.</text>
+          <text x="694" y="295" font-size="12" style="fill:var(--muted)">Aug 31 docs already call this "Leader."</text>
+        </g>
+      </svg>
+    </div>
+    <figcaption>This is the code's ladder (Aug 31 model, encoded in capabilities.ts). <b>The plan has no Five and no $50 tier</b>: Free member / Member at that community's price / Host at $0. Capacity tiers (1/5/10 projects) are unusual in the field — Skool, Circle and Patreon price on scale or fee-rate. If the ladder stays, the middle step has to earn its keep with a perk, not a bigger number.</figcaption>
+  </figure>
+
+  <!-- ============ 3. MONEY MAP ============ -->
+  <h2>3 · The money map — in, split, out</h2>
+  <p><b>As built.</b> Every split is computed on the gross, and the platform's share absorbs Stripe's fee. <b>The plan differs on two counts:</b> dues split 10% platform / 90% the community's to divide (The Garden: 40% runs the group · 50% its pool · 10% platform), and card processing is added at checkout and paid by the payer — "the platform's 10% is a real 10%," because the financial model shows small monthly charges would otherwise eat most of the platform's share. The pledge and class lanes match the plan. Then look at the right column: money in is live on all three lanes; money out is where the model stops.</p>
+  <figure>
+    <div class="fig">
+      <svg viewBox="0 0 1200 600" style="min-width: 900px; width: 100%" role="img" aria-label="Three money lanes. Dues: creative or church pays $10, split $5 to grant pool and $5 to platform; pool pays grants by operator-entered allocations. Pledges: patron pays $100, $90 to the creative's project and $10 to platform; payout to the creative has nothing built. Host sales: $100 class, $90 host earnings and $10 platform; payout to host is a manual ledger. Stripe Connect, the automated payout rail, is specified for Phase 3 with no bead and no code.">
+        <defs>
+          <marker id="arr-money" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" style="fill:var(--money)"/></marker>
+          <marker id="arr-mute" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" style="fill:var(--muted)"/></marker>
+          <marker id="arr-bad" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" style="fill:var(--bad)"/></marker>
+        </defs>
+        <g font-family="IBM Plex Sans, sans-serif" font-size="12.5" style="fill:var(--ink)">
+          <!-- column headers -->
+          <g font-family="IBM Plex Mono, monospace" font-size="12" style="fill:var(--muted)">
+            <text x="30" y="24">MONEY IN</text><text x="300" y="24">SPLIT</text><text x="430" y="24">WHERE IT LANDS</text><text x="740" y="24">MONEY OUT</text>
+          </g>
+
+          <!-- ===== Row A: dues ===== -->
+          <rect x="30" y="45" width="220" height="40" rx="3" style="fill:var(--surface);stroke:var(--ink);stroke-width:1.5"/>
+          <text x="40" y="62" font-weight="600">Creative takes a seat</text><text x="40" y="78" font-size="12" style="fill:var(--muted)">$10/mo · live</text>
+          <rect x="30" y="110" width="220" height="40" rx="3" style="fill:var(--surface);stroke:var(--ink);stroke-width:1.5"/>
+          <text x="40" y="127" font-weight="600">Church covers N seats</text><text x="40" y="143" font-size="12" style="fill:var(--muted)">$10/seat · coverage codes live</text>
+          <line x1="250" y1="65" x2="298" y2="82" style="stroke:var(--money);stroke-width:2" marker-end="url(#arr-money)"/>
+          <line x1="250" y1="130" x2="298" y2="100" style="stroke:var(--money);stroke-width:2" marker-end="url(#arr-money)"/>
+          <rect x="300" y="70" width="60" height="40" rx="20" style="fill:var(--money-soft);stroke:var(--money);stroke-width:1.5"/>
+          <text x="330" y="94" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="12.5" style="fill:var(--money-text)">50/50</text>
+          <line x1="360" y1="88" x2="428" y2="88" style="stroke:var(--money);stroke-width:2.5" marker-end="url(#arr-money)"/>
+          <text x="394" y="80" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="12" style="fill:var(--money-text)">$5</text>
+          <rect x="430" y="66" width="220" height="44" rx="3" style="fill:var(--money-soft);stroke:var(--money);stroke-width:1.5"/>
+          <text x="440" y="84" font-weight="600">Grant pool</text><text x="440" y="100" font-size="12" style="fill:var(--muted)">grantContributions · dues_share rows · live</text>
+          <line x1="360" y1="100" x2="428" y2="145" style="stroke:var(--muted);stroke-width:1.5" marker-end="url(#arr-mute)"/>
+          <text x="404" y="132" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="12" style="fill:var(--muted)">$5</text>
+          <rect x="430" y="135" width="220" height="36" rx="3" style="fill:var(--surface);stroke:var(--line);stroke-width:1.5"/>
+          <text x="440" y="151">Platform</text><text x="440" y="165" font-size="12" style="fill:var(--muted)">Stripe's ~$0.59 comes out of this half → nets ~$4.41</text>
+          <line x1="650" y1="88" x2="738" y2="88" style="stroke:var(--money);stroke-width:2" marker-end="url(#arr-money)"/>
+          <rect x="740" y="62" width="220" height="52" rx="3" style="fill:var(--surface);stroke:var(--good);stroke-width:1.5"/>
+          <text x="750" y="81" font-weight="600">Grants to other creatives</text>
+          <text x="750" y="98" font-size="12" style="fill:var(--good-text)">✓ built — operator enters allocations, public ledger</text>
+
+          <!-- ===== Row B: pledges ===== -->
+          <rect x="30" y="240" width="220" height="40" rx="3" style="fill:var(--surface);stroke:var(--ink);stroke-width:1.5"/>
+          <text x="40" y="257" font-weight="600">Patron backs a project</text><text x="40" y="273" font-size="12" style="fill:var(--muted)">$100 pledge · checkout live</text>
+          <line x1="250" y1="260" x2="298" y2="260" style="stroke:var(--money);stroke-width:2" marker-end="url(#arr-money)"/>
+          <rect x="300" y="240" width="60" height="40" rx="20" style="fill:var(--money-soft);stroke:var(--money);stroke-width:1.5"/>
+          <text x="330" y="264" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="12.5" style="fill:var(--money-text)">90/10</text>
+          <line x1="360" y1="258" x2="428" y2="258" style="stroke:var(--money);stroke-width:2.5" marker-end="url(#arr-money)"/>
+          <text x="394" y="250" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="12" style="fill:var(--money-text)">$90</text>
+          <rect x="430" y="236" width="220" height="44" rx="3" style="fill:var(--money-soft);stroke:var(--money);stroke-width:1.5"/>
+          <text x="440" y="254" font-weight="600">Creative's project balance</text><text x="440" y="270" font-size="12" style="fill:var(--muted)">projectSupport + raisedCents · live</text>
+          <line x1="360" y1="270" x2="428" y2="315" style="stroke:var(--muted);stroke-width:1.5" marker-end="url(#arr-mute)"/>
+          <text x="404" y="302" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="12" style="fill:var(--muted)">$10</text>
+          <rect x="430" y="305" width="220" height="36" rx="3" style="fill:var(--surface);stroke:var(--line);stroke-width:1.5"/>
+          <text x="440" y="321">Platform</text><text x="440" y="335" font-size="12" style="fill:var(--muted)">"one bite per dollar" — Stripe inside the 10%</text>
+          <line x1="650" y1="258" x2="738" y2="258" style="stroke:var(--bad);stroke-width:2;stroke-dasharray:6 4" marker-end="url(#arr-bad)"/>
+          <rect x="740" y="232" width="220" height="52" rx="3" style="fill:var(--bad-soft);stroke:var(--bad);stroke-width:1.5;stroke-dasharray:6 4"/>
+          <text x="750" y="251" font-weight="600">Payout to the creative</text>
+          <text x="750" y="268" font-size="12" style="fill:var(--bad-text)">✗ nothing built — not even a ledger row of what's owed</text>
+
+          <!-- ===== Row C: host sales ===== -->
+          <rect x="30" y="400" width="220" height="40" rx="3" style="fill:var(--surface);stroke:var(--ink);stroke-width:1.5"/>
+          <text x="40" y="417" font-weight="600">Host sells a class</text><text x="40" y="433" font-size="12" style="fill:var(--muted)">$100 · product checkout live</text>
+          <line x1="250" y1="420" x2="298" y2="420" style="stroke:var(--money);stroke-width:2" marker-end="url(#arr-money)"/>
+          <rect x="300" y="400" width="60" height="40" rx="20" style="fill:var(--money-soft);stroke:var(--money);stroke-width:1.5"/>
+          <text x="330" y="424" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="12.5" style="fill:var(--money-text)">90/10</text>
+          <line x1="360" y1="418" x2="428" y2="418" style="stroke:var(--money);stroke-width:2.5" marker-end="url(#arr-money)"/>
+          <text x="394" y="410" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="12" style="fill:var(--money-text)">$90</text>
+          <rect x="430" y="396" width="220" height="44" rx="3" style="fill:var(--money-soft);stroke:var(--money);stroke-width:1.5"/>
+          <text x="440" y="414" font-weight="600">Host earnings</text><text x="440" y="430" font-size="12" style="fill:var(--muted)">hostPayouts ledger · owed vs paid · live</text>
+          <line x1="360" y1="430" x2="428" y2="475" style="stroke:var(--muted);stroke-width:1.5" marker-end="url(#arr-mute)"/>
+          <text x="404" y="462" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="12" style="fill:var(--muted)">$10</text>
+          <rect x="430" y="465" width="220" height="36" rx="3" style="fill:var(--surface);stroke:var(--line);stroke-width:1.5"/>
+          <text x="440" y="481">Platform</text><text x="440" y="495" font-size="12" style="fill:var(--muted)">hosting itself is free — this is the only host fee</text>
+          <line x1="650" y1="418" x2="738" y2="418" style="stroke:var(--money);stroke-width:2;stroke-dasharray:6 4" marker-end="url(#arr-money)"/>
+          <rect x="740" y="392" width="220" height="52" rx="3" style="fill:var(--surface);stroke:var(--money);stroke-width:1.5"/>
+          <text x="750" y="411" font-weight="600">Payout to the host</text>
+          <text x="750" y="428" font-size="12" style="fill:var(--money-text)">△ manual — an operator pays by hand, records it</text>
+
+          <!-- Connect box -->
+          <rect x="740" y="520" width="430" height="60" rx="3" style="fill:none;stroke:var(--bad);stroke-width:1.5;stroke-dasharray:6 4"/>
+          <text x="752" y="541" font-weight="600" style="fill:var(--bad-text)">Stripe Connect Express — the automated money-out rail</text>
+          <text x="752" y="558" font-size="12" style="fill:var(--bad-text)">Specified for Phase 3 in spec.md and the product plan.</text>
+          <text x="752" y="573" font-size="12" style="fill:var(--bad-text)">Beads: no ticket of its own. Code: zero. All three rows above wait on it.</text>
+          <line x1="850" y1="444" x2="850" y2="518" style="stroke:var(--bad);stroke-width:1.5;stroke-dasharray:4 4" marker-end="url(#arr-bad)"/>
+          <line x1="850" y1="284" x2="850" y2="390" style="stroke:var(--bad);stroke-width:1.5;stroke-dasharray:4 4"/>
+        </g>
+      </svg>
+    </div>
+    <figcaption>Coverage-code, membership, pledge and product checkouts and the "add to the pool" button are all live. As built, the $5 lands in one platform-wide pool; in the plan it is The Garden's own pool, and $4 runs The Garden. What doesn't exist on any lane: a row that says how much of a pledge is owed to the creative, or an automated transfer to anyone.</figcaption>
+  </figure>
+
+  <h3>Unit economics of a $10 seat — as built vs. the plan</h3>
+  <div class="tbl">
+    <table>
+      <thead><tr><th class="num">Seats</th><th class="num">Gross / mo</th><th class="num">Code · pool</th><th class="num">Code · platform net</th><th class="num">Plan · community</th><th class="num">Plan · pool</th><th class="num">Plan · platform</th></tr></thead>
+      <tbody>
+        <tr><td class="num">100</td><td class="num">$1,000</td><td class="num">$500</td><td class="num">$441</td><td class="num">$400</td><td class="num">$500</td><td class="num">$100</td></tr>
+        <tr><td class="num">500</td><td class="num">$5,000</td><td class="num">$2,500</td><td class="num">$2,205</td><td class="num">$2,000</td><td class="num">$2,500</td><td class="num">$500</td></tr>
+        <tr><td class="num">2,000</td><td class="num">$20,000</td><td class="num">$10,000</td><td class="num">$8,820</td><td class="num">$8,000</td><td class="num">$10,000</td><td class="num">$2,000</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="note">Code columns: 50/50, Stripe's ~$0.59 out of the platform's half. Plan columns: 10% platform, The Garden's 40/50 on the rest, processing added at checkout so the $1 is a real $1. The plan's own line: "100 Garden members earn the platform $100 a month… one fellowship out-earns four members." Either way dues are the marketing engine; margin comes from the 10% funding lanes, and the pool share only earns its keep while it produces visible, frequent grants. If grants are rare, "half your dues funds another creative" reads as theater.</p>
+
+  <!-- ============ 4. COMPETITIVE ============ -->
+  <h2>4 · What the field does</h2>
+  <p>Eleven platforms, September 2026. The pattern: everybody lets you build and publish for free and gates <em>monetization</em>. Nobody but Upwork charges for the act of applying, and that's the single most-hated fee in the set.</p>
+  <div class="tbl">
+    <table>
+      <thead><tr><th>Platform</th><th>Free gets</th><th>Paid gets</th><th>Fee / price</th><th>Lesson for us</th></tr></thead>
+      <tbody>
+        <tr><td><b>Dribbble</b></td><td>Portfolio, discovery, can still send proposals</td><td>Leads, brief credits, ranking boost, 0% fee at $8+</td><td>$4–$99/mo</td><td>Killed its discovery paywall in 2024 — it "throttled lead flow to designers." Monetize visibility and success, not access.</td></tr>
+        <tr><td><b>Upwork</b></td><td>~10 Connects/mo ≈ one application</td><td>100 Connects, 0% on direct contracts</td><td>$19.99/mo + 0–15% fee</td><td>True pay-to-apply. Universally resented; punishes the newcomers who most need visibility.</td></tr>
+        <tr><td><b>Contra</b></td><td>Unlimited applying and hiring, "0% commission"</td><td>Lower per-payment fee, custom domain, boost</td><td>$19–29/mo or per-payment fee</td><td>Monetizes the successful transaction and the demand side, never the attempt.</td></tr>
+        <tr><td><b>Behance</b></td><td>Unlimited projects, full portfolio</td><td>0% fee on sales/hiring, analytics</td><td>$9.99/mo</td><td>Zero free projects is an outlier against every comparable here.</td></tr>
+        <tr><td><b>Patreon</b></td><td>Free page, unlimited member tiers</td><td>—</td><td>10% + processing (creator pays)</td><td>Multi-tier is the norm; the creator eats processing.</td></tr>
+        <tr><td><b>Skool</b></td><td>No free owner plan; one member price</td><td>Lower take-rate, same features</td><td>$9/mo + 10% or $99/mo + 2.9%</td><td>Two tiers differing only in take-rate — capacity caps are our invention.</td></tr>
+        <tr><td><b>Substack</b></td><td>Publish free; set free/paid/founding</td><td>—</td><td>10% + processing (writer pays)</td><td>"Founding" = pay-more-if-you-want, same as our pool button.</td></tr>
+        <tr><td><b>Beehiiv</b></td><td>Full publishing, zero monetization allowed</td><td>Paid subs at 0% take, ad network</td><td>$43+/mo</td><td>Even the harshest free tier gates earning, not creating.</td></tr>
+        <tr><td><b>Kickstarter</b></td><td>Free to launch</td><td>—</td><td>5% + 3–5% Stripe, creator absorbs both</td><td>We're more generous: our side eats Stripe.</td></tr>
+        <tr><td><b>Buy Me a Coffee</b></td><td>Everything</td><td>—</td><td>5% all-in</td><td>Closest to our fee posture. Borrow "all-in" as a trust line.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <ul>
+    <li><b>Zero free projects is an outlier.</b> Every comparable lets you create and publish free and gates monetization.</li>
+    <li><b>Gating "apply" outright mirrors Upwork Connects</b> — the most criticized mechanic in the set, and the one that punishes exactly who the pool is for.</li>
+    <li><b>"Apply free, seat to be accepted" has precedent</b> in Dribbble's ranking boosts and Fiverr's Top-Rated favoring — discovery open, monetization at the success moment.</li>
+    <li><b>No one else ties the paywall to a redistribution pool.</b> The $10 is doing double duty. Frame it the way Kickstarter frames its 5% — shared infrastructure — not as feature restriction.</li>
+  </ul>
+
+  <!-- ============ 5. PRESSURE TEST ============ -->
+  <h2>5 · Pressure test — where UX, PM and the field agree</h2>
+  <p>Two independent passes, no shared notes. Where they split, both positions are shown; the recommendation is mine.</p>
+  <div class="verdicts">
+    <div class="verdict">
+      <h3>Should a free account be able to start a project?</h3>
+      <div class="cols">
+        <div><b>UX analyst</b>"Draft free, publish with a seat." A profile isn't a taste; a project is. Converts at maximum sunk cost, keeps never-paying drafts out of the feed.</div>
+        <div><b>PM</b>Keep 0 as the standing rule — it's the second-clearest paywall moment. Time-box a free-creation exception through the Nov 6 launch to solve cold-start liquidity.</div>
+        <div><b>Field</b>0 free is an outlier. Behance, Beehiiv, Dribbble, Contra all let you build and publish free.</div>
+        <div><b>The plan (Sept 8)</b>"Asking for support requires you to pay or join first." Starting a project isn't named; seeking backing is. Draft-free fits that line as written.</div>
+      </div>
+      <div class="rec"><b>Recommend:</b> draft free, publish with a seat — as the permanent rule. It answers the liquidity worry (the work exists, the lead sees it), keeps the gate, and puts the ask at the moment someone has already invested. Add the launch-window exception on top only if the feed still looks empty in October.</div>
+    </div>
+    <div class="verdict">
+      <h3>Where does paid work gate — apply, accept, or payout?</h3>
+      <div class="cols">
+        <div><b>UX analyst</b>Accept-time is the <em>better</em> moment — highest intent in the whole funnel. Kill the sort-by-tier idea: it's pay-to-win <em>and</em> a silent gate nobody can see or act on.</div>
+        <div><b>PM</b>Gate at accept now; it grows the exact scarce thing (visible paid-project activity). Migrate to a % of payout once Connect ships — they aren't mutually exclusive.</div>
+        <div><b>Field</b>Dribbble reversed a discovery paywall for throttling lead flow. Upwork's pay-to-apply is the sector's most-hated fee.</div>
+        <div><b>The plan (Sept 8)</b>"Job postings are public. Applying takes membership. Seeing the work is the reason to join." — gate at apply, as written.</div>
+      </div>
+      <div class="rec"><b>Recommend:</b> move the plan's line one step later: anyone applies; rank by fit, never by payment status; membership is required to be <em>accepted</em> onto a paid job. Copy at that moment: "You got the job — join The Garden to accept it. $10 a month, half of it to the community's project pool." Revisit as a % of payout once Connect exists. The plan's version is defensible; the evidence leans this way. Your call, and it changes one sentence in the brief.</div>
+    </div>
+    <div class="verdict">
+      <h3>Does Five ($25) deserve to exist?</h3>
+      <div class="cols">
+        <div><b>UX analyst</b>A volume tier wearing a value tier's clothes. Cut it; sell extra slots as a $5/mo add-on. Free → Seat → Host is a cleaner ladder.</div>
+        <div><b>PM</b>Same diagnosis, don't cut blind: instrument it. If under 5% of seats hit the 1-project cap within 60 days, collapse it.</div>
+        <div><b>Field</b>Nobody prices on a concurrent-project count. Capacity tiers work when paired with a perk (Dribbble's brief credits), not alone.</div>
+        <div><b>The plan (Sept 8)</b>No Five, no $50 tier. Free member / Member at the community's price / Host at $0.</div>
+      </div>
+      <div class="rec"><b>Recommend:</b> follow the plan — one membership per community, no rungs. If a project cap is wanted, make it a Seat add-on ("+ more projects, $5/mo each") rather than a tier. If the code's 1/5/10 ladder is kept anyway, measure cap-hits for 60 days before selling it.</div>
+    </div>
+    <div class="verdict">
+      <h3>Host $50 vs. "hosting is free"</h3>
+      <div class="cols">
+        <div><b>UX analyst</b>A naming collision that's actively confusing today — the pricing page already needs a footnote every time the word appears.</div>
+        <div><b>PM</b>Two docs describe two products under one name. Aug 31 is canon: free + 10% on sales + $50 for programs. And "$50 to run a grant program" is vaporware before Connect — a pilot pitch to AP/TAS, not a self-serve line.</div>
+        <div><b>Field</b>Skool, Circle and Mighty charge the <em>owner</em> a SaaS fee for tools and take-rate. Charging hosts nothing and taking 10% is the cleaner story; keep it clean.</div>
+        <div><b>The plan (Sept 8)</b>"Hosting is never rented" — $0, 90% of what classes collect. There is no $50 tier in the plan at all.</div>
+      </div>
+      <div class="rec"><b>Recommend:</b> follow the plan: no $50 tier on the pricing page, and "Host" means the person who runs a class. If community grant programs ever need a SKU, name it "Leader" and hand-sell it until Connect exists. Retire the $50 level from the code's capability matrix when the reconcile pass happens.</div>
+    </div>
+    <div class="verdict">
+      <h3>Who pays card processing?</h3>
+      <div class="cols">
+        <div><b>The plan (Sept 8)</b>The payer, added at checkout (~3% + 30¢). "The platform's 10% is a real 10%." The financial model (Inputs!B9) shows the platform can't run on 10% minus card fees on small monthly charges.</div>
+        <div><b>The code (Aug 31)</b>The opposite: the platform absorbs Stripe out of its own share on every lane. Nets ~7% on a $100 pledge, ~4% on $10. The receipt copy "$5 funds… $5 runs the place" assumes this.</div>
+        <div><b>Field</b>Most pass processing to the <em>creator</em> (Kickstarter, Substack, Patreon, Fiverr). Payer-covers at checkout is the ticketing norm (Eventbrite-style) and common as a "cover the fee" line.</div>
+      </div>
+      <div class="rec"><b>Recommend:</b> the plan stands — it's the version with a financial model behind it. That means the code's <span class="kbd">duesSplit</span> and the split copy on receipts and the /for pages have to move to it in the reconcile pass; until then the site promises a split the plan has already rejected.</div>
+    </div>
+  </div>
+
+  <!-- ============ 6. PAYOUT RAIL ============ -->
+  <h2>6 · The payout rail — specified, untracked, unbuilt</h2>
+  <div class="tbl">
+    <table>
+      <thead><tr><th>Lane</th><th>Plan docs say</th><th>Beads say</th><th>Code has</th></tr></thead>
+      <tbody>
+        <tr><td><b>Stripe Connect</b></td><td>Phase 3. Manual transfers for October. "Never cut the payout ledger."</td><td><span class="chip bad">no dedicated bead</span> — a trailing "REMAINING: payout ledger" inside 7r4 and e1t</td><td><span class="chip bad">zero</span></td></tr>
+        <tr><td><b>Pledges → creative</b></td><td>"Money moves to the creative immediately, 90/10"</td><td>e1t: backing "end-to-end complete"</td><td>Money in only. No owed/paid row. Sits on the platform's Stripe balance.</td></tr>
+        <tr><td><b>Host earnings</b></td><td>"No host payouts in October"</td><td>6fw agrees</td><td><span class="chip good">manual ledger built</span> — hostPayouts + operator form. Docs' "0% built" is stale.</td></tr>
+        <tr><td><b>Paid project → hired creative</b></td><td>"Settles off-platform; ledger records the commitment"</td><td>nothing</td><td>The referenced <span class="kbd">project_contribution</span> ledger type doesn't exist in the schema.</td></tr>
+        <tr><td><b>Grant awards</b></td><td>Operator-entered, public</td><td>consistent</td><td><span class="chip good">built</span></td></tr>
+        <tr><td><b>Coverage codes</b></td><td>Church buys N seats</td><td>f5e still lists checkout as remaining</td><td><span class="chip good">live</span> — bead is stale</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p><b>Honesty gap to close now:</b> the hosts page says "you keep 90 cents of every dollar." Today that's an owed balance an operator pays by hand. Fine for pilot hosts; false at any volume. Minimum step before Connect: a ledger row for what each pledge owes the creative, and copy that says earnings are tracked and paid out by us until the rail ships.</p>
+
+  <!-- ============ 7. DECISIONS ============ -->
+  <h2>7 · Decisions on the table</h2>
+  <p>Each with a recommended default. Change the default, not the list.</p>
+  <ol class="decisions">
+    <li><b>Which canon.</b> The plan (per-community seat · 10% platform, 90% the community's · payer covers processing · no tiers) or the code (platform-wide seat · 50/50 · platform absorbs · 1/5/10). <span class="note">The README already answers this: the plan. Then the code, the receipts and the /for pages move — that's a scoped reconcile pass, not a copy tweak: memberships gain a required community, duesSplit changes, the pricing page loses two tiers.</span></li>
+    <li><b>Free project.</b> Draft free, publish with a seat. <span class="note">Fits the plan's "asking for support requires you to join first." Alternative: keep 0 with a launch-window exception.</span></li>
+    <li><b>Paid work.</b> Apply free, rank by fit, membership to be accepted. No tier sorting. <span class="note">Revises one sentence in the brief ("applying takes membership" → "being hired takes membership"). Wire the gate into decideRequest, not requestToJoin.</span></li>
+    <li><b>Tiers.</b> Follow the plan: none. If a project cap is wanted, a Seat add-on, not Five. <span class="note">If 1/5/10 is kept regardless, measure cap-hits for 60 days first.</span></li>
+    <li><b>The $50 tier.</b> Not in the plan. Off the pricing page; grant programs hand-sold until Connect. <span class="note">If it ever returns as a SKU, call it Leader — "Host" is the person who runs a class.</span></li>
+    <li><b>Events.</b> Free for informal gatherings; keep the membership gate for private/ticketed events. <span class="note">No create-event mutation exists today, so this costs nothing to decide.</span></li>
+    <li><b>Payout rail.</b> Bead wonderwall-7avu: owed-to-creative ledger row before Nov 6; Connect Express in Phase 3. <span class="note">Until then the hosts page's "you keep 90 cents" is an owed balance paid by hand — say so.</span></li>
+    <li><b>Card processing.</b> The plan's answer stands: the payer, at checkout. <span class="note">Code and receipt copy currently say the opposite.</span></li>
+  </ol>
+
+  <h3>Five assumptions most likely to be wrong — and the cheap test</h3>
+  <div class="tbl">
+    <table>
+      <thead><tr><th>Assumption</th><th>Cheap test</th></tr></thead>
+      <tbody>
+        <tr><td>The pool-funding sentence drives free → seat</td><td>A/B the landing copy with and without it; measure signup → seat</td></tr>
+        <tr><td>Five is a tier people reach</td><td>Track % of seats hitting the 1-project cap in 60 days</td></tr>
+        <tr><td>There's enough paid work to gate anything</td><td>Count live paid postings. Under 10, don't gate yet</td></tr>
+        <tr><td>Hosts will pay $50 for concierge-run programs</td><td>Sell it by hand to AP and TAS; watch renewal, not signup</td></tr>
+        <tr><td>Named asks ("cover Shua's seat") beat generic ones</td><td>Run the church coverage-code funnel; track redemption and idle-seat rate over 30 days</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+(function () {
+  var g7 = { bar: document.getElementById('g7-bar'), chip: document.getElementById('g7-chip'), t1: document.getElementById('g7-t1'), t2: document.getElementById('g7-t2') };
+  var g8 = { bar: document.getElementById('g8-bar'), chip: document.getElementById('g8-chip'), chipbg: document.getElementById('g8-chipbg'), t1: document.getElementById('g8-t1'), t2: document.getElementById('g8-t2') };
+  var cap = document.getElementById('fig1-cap');
+  var specBar = 'fill:var(--seat);stroke:var(--seat);stroke-width:1.5;stroke-dasharray:6 4;fill-opacity:.25';
+  var solidBar = 'fill:var(--seat)';
+  var moneyBar = 'fill:var(--money);stroke:var(--money);stroke-width:1.5;stroke-dasharray:6 4;fill-opacity:.25';
+
+  var projectOpts = {
+    spec:  { t1: 'Start a project', t2: 'not enforced today', bar: specBar },
+    draft: { t1: 'Publish a project', t2: 'drafting stays free', bar: solidBar },
+    one:   { t1: 'Second project', t2: 'the first one is free', bar: solidBar }
+  };
+  var paidOpts = {
+    apply:  { t1: 'Apply to paid work', t2: 'not enforced today', bar: specBar, chip: 'SEAT $10', chipfill: 'var(--seat-soft)', chipcolor: 'var(--seat-text)' },
+    accept: { t1: 'Accepted onto paid role', t2: 'applying stays free', bar: solidBar, chip: 'SEAT $10', chipfill: 'var(--seat-soft)', chipcolor: 'var(--seat-text)' },
+    payout: { t1: '10% at payout', t2: 'needs Stripe Connect', bar: moneyBar, chip: 'NO SEAT', chipfill: 'var(--money-soft)', chipcolor: 'var(--money-text)' }
+  };
+  var caps = {
+    'spec|apply':   'Spec as written: six free moments, then five seat/host gates. The first two exist in capabilities.ts but nothing calls them, so every signed-in account can do both right now.',
+    'spec|accept':  'Applying stays open; the seat is asked for at the moment a lead says yes. Same revenue moment, more visible activity on paid projects, and no silent burying of free applicants.',
+    'spec|payout':  'No gate on paid work at all — the platform takes 10% when money moves. Zero friction, but it needs Stripe Connect, which has no bead and no code today.',
+    'draft|apply':  'A free account can build a project in full; publishing asks for the seat. The ask lands after the work is done, not at signup.',
+    'draft|accept': 'The recommended shape: draft free, publish with a seat; apply free, seat to be accepted. Every gate sits at a moment of intent, and nothing on the free path is silently degraded.',
+    'draft|payout': 'Draft free, publish with a seat; paid work ungated until the payout rail exists. Coherent only once Connect ships.',
+    'one|apply':    'One free project as a taste; the second asks for a seat. The field\'s most common shape — and it moves the project gate one step later than the spec.',
+    'one|accept':   'One free project, apply free, seat to be accepted. The most generous free tier on this page; the seat then sells on the pool, members-only classes and getting hired.',
+    'one|payout':   'The maximal-adoption corner: free project, free applying, fee only at payout. Revenue arrives last and depends entirely on Connect.'
+  };
+
+  function apply() {
+    var p = document.querySelector('input[name="project"]:checked').value;
+    var w = document.querySelector('input[name="paid"]:checked').value;
+    var po = projectOpts[p], wo = paidOpts[w];
+    g7.t1.textContent = po.t1; g7.t2.textContent = po.t2; g7.bar.setAttribute('style', po.bar);
+    g7.t2.setAttribute('style', po.bar === specBar ? 'fill:var(--muted)' : 'fill:var(--good-text)');
+    g8.t1.textContent = wo.t1; g8.t2.textContent = wo.t2; g8.bar.setAttribute('style', wo.bar);
+    g8.t2.setAttribute('style', wo.bar === specBar ? 'fill:var(--muted)' : (wo.bar === moneyBar ? 'fill:var(--bad-text)' : 'fill:var(--good-text)'));
+    g8.chip.textContent = wo.chip; g8.chip.setAttribute('style', 'fill:' + wo.chipcolor); g8.chipbg.setAttribute('style', 'fill:' + wo.chipfill);
+    cap.textContent = caps[p + '|' + w];
+  }
+  var inputs = document.querySelectorAll('input[name="project"], input[name="paid"]');
+  for (var i = 0; i < inputs.length; i++) inputs[i].addEventListener('change', apply);
+  try { var saved = localStorage.getItem('spp-opts'); if (saved) { var s = JSON.parse(saved); var a = document.getElementById('project-' + s.p), b = document.getElementById('paid-' + s.w); if (a) a.checked = true; if (b) b.checked = true; } } catch (e) {}
+  for (var j = 0; j < inputs.length; j++) inputs[j].addEventListener('change', function () { try { localStorage.setItem('spp-opts', JSON.stringify({ p: document.querySelector('input[name="project"]:checked').value, w: document.querySelector('input[name="paid"]:checked').value })); } catch (e) {} });
+  apply();
+})();
+</script>
