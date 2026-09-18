@@ -15,6 +15,9 @@ import { Reveal } from "../hooks/useReveal";
 //     named person their project WILL be funded is not.
 //   - A backer covers the platform fee at checkout, so the creative keeps
 //     100%. Never claim a payout speed — no cadence is set.
+//   - Payouts are made by hand until the payout rail ships (bead
+//     wonderwall-7avu): say we track earnings and pay them out ourselves.
+//     Don't imply automatic or instant transfers.
 //   - Grant money: dues shares (50%) fill the PLATFORM project pool
 //     (/fund/creatives-exchange); operators decide proposals to it. Abiding
 //     Practice's 501(c)(3) fund is a separate, off-platform lane. Never say a
@@ -70,7 +73,7 @@ const AUDIENCES: Audience[] = [
     points: [
       {
         title: "You keep all of it",
-        body: "When someone gives you $100, you get $100. They cover our fee when they check out. Nothing comes out of your side.",
+        body: "When someone gives you $100, you get $100. They cover our fee when they check out. Nothing comes out of your side. For now we keep track of what you're owed and pay it out to you ourselves.",
       },
       {
         title: "There's money set aside for your work",
@@ -115,7 +118,7 @@ const AUDIENCES: Audience[] = [
       },
       {
         title: "You keep 90 cents of every dollar",
-        body: "Classes, cohorts, memberships, prints, downloads. One rate for all of it.",
+        body: "Classes, cohorts, memberships, prints, downloads. One rate for all of it. For now we keep track of what you've earned and pay it out to you ourselves.",
       },
       {
         title: "Hosting is free",

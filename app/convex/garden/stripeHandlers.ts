@@ -237,6 +237,24 @@ export interface ProjectSupportRow {
   tierName?: string;
 }
 
+/** One payment received on a backing (schema.ts's backingPayments) — the
+ * owed-to-creative row the payout rail's step 1 needs (bead
+ * wonderwall-7avu). A one-time backing writes one; a monthly backer writes
+ * one per paid invoice. workCents accrues as owed to payeeUserId until an
+ * operator records a creativePayouts row against it. */
+export interface BackingPaymentRow {
+  projectId: string;
+  supportId?: string;
+  payeeUserId?: string; // the project lead when the money arrived; absent if the project is gone
+  backerUserId?: string;
+  grossCents: number;
+  platformCents: number; // splitBacking — rate still being decided
+  workCents: number; // owed to the payee
+  billing: "one_time" | "first" | "renewal";
+  stripeRef: string; // checkout session id or invoice id — idempotency key
+  period: string; // "YYYY-MM"
+}
+
 export interface Db {
   getBillingCustomerByStripeId(stripeCustomerId: string): Promise<BillingCustomerRow | null>;
   upsertBillingCustomer(row: BillingCustomerRow): Promise<void>;
@@ -294,7 +312,17 @@ export interface Db {
     supportId: string,
     patch: Partial<Pick<ProjectSupportRow, "status" | "amountCents">>,
   ): Promise<void>;
-  insertProjectSupport(row: ProjectSupportRow): Promise<void>;
+  /** Returns the new row's id, so the payment recorded alongside it can
+   * point back at it. */
+  insertProjectSupport(row: ProjectSupportRow): Promise<string>;
+
+  /** Payout ledger (bead wonderwall-7avu). getBackingPaymentByRef is the
+   * lookup-before-insert idempotency check, keyed by stripeRef like
+   * getProductPurchaseByRef. getProjectLeadUserId resolves who a payment's
+   * work share is owed to — null when the project no longer exists. */
+  getBackingPaymentByRef(stripeRef: string): Promise<{ stripeRef: string } | null>;
+  insertBackingPayment(row: BackingPaymentRow): Promise<void>;
+  getProjectLeadUserId(projectId: string): Promise<string | null>;
 
   /** Atomically adds amountCents to the project's raisedCents running total.
    * Called once per confirmed backing — idempotency is the caller's job (the
@@ -586,6 +614,56 @@ async function handleProductCheckoutCompleted(
   });
 }
 
+/** The platform's share of a backing payment. UNDECIDED as of 2026-09-18:
+ * the brief (the plan) says 10% ("$500 fellowship → $450 to the creative");
+ * /for/creatives and the outreach playbook promise the creative keeps 100%
+ * with the backer covering our fee on top — which checkout doesn't do yet.
+ * Being settled separately. 0.1 is the brief's number, held here as a
+ * placeholder. This constant and splitBacking are the ONLY places the rate
+ * lives — the webhook and garden/payouts.ts's backfill both call it. */
+export const BACKING_PLATFORM_RATE = 0.1;
+
+/** Splits one backing payment into platform and work shares. The shares
+ * always add back to grossCents; rounding lands on the platform side, same
+ * as hostSaleSplit. */
+export function splitBacking(grossCents: number): { platformCents: number; workCents: number } {
+  const platformCents = Math.round(grossCents * BACKING_PLATFORM_RATE);
+  return { platformCents, workCents: grossCents - platformCents };
+}
+
+/** Writes the owed-to-creative row for one payment on a backing, split by
+ * splitBacking above (rate still being decided). Card processing is not in
+ * here — the plan has the payer cover it on top. Idempotent by stripeRef. */
+async function recordBackingPayment(
+  db: Db,
+  args: {
+    projectId: string;
+    supportId?: string;
+    backerUserId?: string;
+    grossCents: number;
+    billing: BackingPaymentRow["billing"];
+    stripeRef: string;
+    periodSeconds: number;
+  },
+): Promise<void> {
+  if (args.grossCents <= 0) return;
+  if (await db.getBackingPaymentByRef(args.stripeRef)) return; // idempotent replay
+  const { platformCents, workCents } = splitBacking(args.grossCents);
+  const payeeUserId = (await db.getProjectLeadUserId(args.projectId)) ?? undefined;
+  await db.insertBackingPayment({
+    projectId: args.projectId,
+    ...(args.supportId ? { supportId: args.supportId } : {}),
+    ...(payeeUserId ? { payeeUserId } : {}),
+    ...(args.backerUserId ? { backerUserId: args.backerUserId } : {}),
+    grossCents: args.grossCents,
+    platformCents,
+    workCents,
+    billing: args.billing,
+    stripeRef: args.stripeRef,
+    period: periodFromStripeSeconds(args.periodSeconds),
+  });
+}
+
 /** Backing a project — mode "payment" for "Give once", "subscription" for
  * "Give monthly" (kind "backing", created by garden/stripe.ts's
  * createBackingCheckout). The projectSupport row already exists as "pending"
@@ -608,11 +686,24 @@ async function handleBackingCheckoutCompleted(
   if (supportId) {
     const existing = await db.getProjectSupportById(supportId);
     if (existing) {
+      // A row already confirmed is a replay. That includes a pledge
+      // confirmed before backingPayments existed — deliberately NOT recorded
+      // here: garden/payouts.ts's backfillBackingPayments owns that history,
+      // and recording it on replay too would count it twice.
       if (existing.status === "confirmed") return; // idempotent replay
       // Only the status moves: amount/visibility/message were captured at
       // intent time and Stripe charged exactly that (no promotion codes).
       await db.updateProjectSupport(supportId, { status: "confirmed" });
       await db.incrementProjectRaisedCents(existing.projectId, existing.amountCents);
+      await recordBackingPayment(db, {
+        projectId: existing.projectId,
+        supportId,
+        backerUserId: userId || undefined,
+        grossCents: session.amount_total ?? existing.amountCents,
+        billing: session.mode === "subscription" ? "first" : "one_time",
+        stripeRef: session.id,
+        periodSeconds: session.created ?? Math.floor(Date.now() / 1000),
+      });
       return;
     }
   }
@@ -632,7 +723,7 @@ async function handleBackingCheckoutCompleted(
     return;
   }
 
-  await db.insertProjectSupport({
+  const newSupportId = await db.insertProjectSupport({
     projectId,
     supporterUserId: userId || undefined,
     supporterName: supporterName || "Someone",
@@ -645,6 +736,15 @@ async function handleBackingCheckoutCompleted(
     ...(tierId ? { tierId } : {}),
   });
   await db.incrementProjectRaisedCents(projectId, amountCents);
+  await recordBackingPayment(db, {
+    projectId,
+    supportId: newSupportId,
+    backerUserId: userId || undefined,
+    grossCents: amountCents,
+    billing: session.mode === "subscription" ? "first" : "one_time",
+    stripeRef: session.id,
+    periodSeconds: session.created ?? Math.floor(Date.now() / 1000),
+  });
 }
 
 /** Coverage — a sponsor (a church) buying N seats: mode "subscription",
@@ -975,6 +1075,38 @@ async function handleProductInvoicePaid(
   });
 }
 
+/** Renewal invoice on a monthly/annual backing. Until this existed only a
+ * recurring backer's FIRST charge was recorded anywhere; month two onward
+ * reached Stripe and nothing tracked the creative's share of it. Same shape
+ * as handleProductInvoicePaid: only "subscription_cycle" invoices, since the
+ * first invoice ("subscription_create") is recorded at checkout completion;
+ * idempotent by invoice id; quiet no-op on anything unresolvable.
+ *
+ * Owed-ledger only — raisedCents is untouched, so the public raised total
+ * still counts a recurring backer's first payment alone. Whether renewals
+ * should move it is a display decision, not a ledger one. */
+async function handleBackingInvoicePaid(
+  invoice: StripeInvoiceLike,
+  metadata: Record<string, string>,
+  db: Db,
+): Promise<void> {
+  if (invoice.billing_reason !== "subscription_cycle") return; // first invoice — recorded at checkout
+  const { projectId, supportId, userId } = metadata;
+  if (!projectId) {
+    console.warn("[stripe] backing invoice.paid missing projectId metadata", { invoiceId: invoice.id });
+    return;
+  }
+  await recordBackingPayment(db, {
+    projectId,
+    ...(supportId ? { supportId } : {}),
+    backerUserId: userId || undefined,
+    grossCents: invoice.amount_paid,
+    billing: "renewal",
+    stripeRef: invoice.id,
+    periodSeconds: invoice.period_start ?? invoice.created,
+  });
+}
+
 async function handleInvoicePaid(invoice: StripeInvoiceLike, db: Db): Promise<void> {
   if (!invoice.amount_paid || invoice.amount_paid <= 0) return; // $0 invoice (e.g. a trial) — nothing moved
 
@@ -983,6 +1115,10 @@ async function handleInvoicePaid(invoice: StripeInvoiceLike, db: Db): Promise<vo
 
   if (metadata.kind === "community_product") {
     return handleProductInvoicePaid(invoice, metadata, db);
+  }
+
+  if (metadata.kind === "backing") {
+    return handleBackingInvoicePaid(invoice, metadata, db);
   }
 
   if (metadata.kind !== "membership") return; // not a membership subscription's invoice

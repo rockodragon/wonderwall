@@ -120,6 +120,18 @@ type PlatformReport = {
     owedCents: number;
     activeProducts: number;
   }[];
+  creativeEarnings: {
+    payeeUserId: string; // or "unassigned"
+    name: string;
+    profileId: string | null;
+    projects: string[];
+    paymentsCount: number;
+    grossCents: number;
+    platformCents: number;
+    workCents: number;
+    paidOutCents: number;
+    owedCents: number;
+  }[];
   communities: {
     hostOrgId: string;
     name: string;
@@ -272,8 +284,16 @@ function PoolsSection({ pools }: { pools: PlatformReport["pools"] }) {
 
 // ————— 3. Host earnings —————
 
-function RecordPayoutForm({ hostOrgId, onDone }: { hostOrgId: Id<"hostOrgs">; onDone: () => void }) {
-  const recordHostPayout = useMutation(api.garden.products.recordHostPayout);
+/** The manual-transfer form, shared by host and creative rows — the caller
+ * passes the mutation to record with, so the two ledgers can't drift into
+ * two slightly different forms. */
+function RecordPayoutForm({
+  record,
+  onDone,
+}: {
+  record: (fields: { amountCents: number; reference?: string; note?: string }) => Promise<unknown>;
+  onDone: () => void;
+}) {
   const [amountDollars, setAmountDollars] = useState("");
   const [reference, setReference] = useState("");
   const [note, setNote] = useState("");
@@ -286,8 +306,7 @@ function RecordPayoutForm({ hostOrgId, onDone }: { hostOrgId: Id<"hostOrgs">; on
     setStatus(null);
     try {
       const amountCents = Math.round(parseFloat(amountDollars || "0") * 100);
-      await recordHostPayout({
-        hostOrgId,
+      await record({
         amountCents,
         reference: reference.trim() || undefined,
         note: note.trim() || undefined,
@@ -339,6 +358,7 @@ function RecordPayoutForm({ hostOrgId, onDone }: { hostOrgId: Id<"hostOrgs">; on
 }
 
 function HostEarningsRow({ row }: { row: PlatformReport["hostEarnings"][number] }) {
+  const recordHostPayout = useMutation(api.garden.products.recordHostPayout);
   const [open, setOpen] = useState(false);
   return (
     <div className="g-cell" style={{ padding: "12px 14px", marginTop: 8 }}>
@@ -356,7 +376,12 @@ function HostEarningsRow({ row }: { row: PlatformReport["hostEarnings"][number] 
       <button className="g-btn g-btn-ghost" style={{ marginTop: 10 }} onClick={() => setOpen((o) => !o)}>
         {open ? "Cancel" : "Record payout"}
       </button>
-      {open && <RecordPayoutForm hostOrgId={row.hostOrgId as Id<"hostOrgs">} onDone={() => setOpen(false)} />}
+      {open && (
+        <RecordPayoutForm
+          record={(f) => recordHostPayout({ hostOrgId: row.hostOrgId as Id<"hostOrgs">, ...f })}
+          onDone={() => setOpen(false)}
+        />
+      )}
     </div>
   );
 }
@@ -373,6 +398,79 @@ function HostEarningsSection({ hostEarnings }: { hostEarnings: PlatformReport["h
         <div>
           {hostEarnings.map((row) => (
             <HostEarningsRow key={row.hostOrgId} row={row} />
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function CreativeEarningsRow({ row }: { row: PlatformReport["creativeEarnings"][number] }) {
+  const recordCreativePayout = useMutation(api.garden.payouts.recordCreativePayout);
+  const [open, setOpen] = useState(false);
+  const unassigned = row.payeeUserId === "unassigned";
+  return (
+    <div className="g-cell" style={{ padding: "12px 14px", marginTop: 8 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+        {row.profileId ? (
+          <Link to={`/profile/${row.profileId}`} style={{ fontSize: 14.5, fontWeight: 600, color: "var(--g-paper)", textDecoration: "none" }}>
+            {row.name}
+          </Link>
+        ) : (
+          <span style={{ fontSize: 14.5, fontWeight: 600, color: "var(--g-paper)" }}>{row.name}</span>
+        )}
+        <span style={{ fontSize: 16, fontWeight: 600, color: "var(--g-citron)" }}>{formatMoney(row.owedCents)} owed</span>
+      </div>
+      {row.projects.length > 0 && (
+        <div style={{ marginTop: 4, fontSize: 13.5, color: "var(--g-body)" }}>
+          {row.projects.join(" · ")}
+        </div>
+      )}
+      <div className="g-hint" style={{ marginTop: 6 }}>
+        {row.paymentsCount} payment{row.paymentsCount === 1 ? "" : "s"} · gross {formatMoney(row.grossCents)} · platform{" "}
+        {formatMoney(row.platformCents)} · work {formatMoney(row.workCents)} · paid out {formatMoney(row.paidOutCents)}
+      </div>
+      {unassigned ? (
+        // No one to pay: the project was gone when the money arrived. Resolve
+        // by hand (refund the backer, or reassign) — there's no form for it.
+        <div className="g-hint" style={{ marginTop: 10 }}>
+          Resolve by hand: refund the backers or pay whoever took over the work.
+        </div>
+      ) : (
+        <>
+          <button className="g-btn g-btn-ghost" style={{ marginTop: 10 }} onClick={() => setOpen((o) => !o)}>
+            {open ? "Cancel" : "Record payout"}
+          </button>
+          {open && (
+            <RecordPayoutForm
+              record={(f) => recordCreativePayout({ payeeUserId: row.payeeUserId as Id<"users">, ...f })}
+              onDone={() => setOpen(false)}
+            />
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+/** Backings owed to creatives (bead wonderwall-7avu, step 1). Paid by hand
+ * until Stripe Connect ships; this is the list to pay from. */
+function CreativeEarningsSection({ creativeEarnings }: { creativeEarnings: PlatformReport["creativeEarnings"] }) {
+  const totalOwed = creativeEarnings.reduce((s, r) => s + r.owedCents, 0);
+  return (
+    <section style={{ marginTop: 40 }}>
+      <SectionLabel>Creative earnings</SectionLabel>
+      <p className="g-hint" style={{ marginTop: 8 }}>
+        90% of every backing, owed until paid by hand. {formatMoney(totalOwed)} owed in total.
+      </p>
+      {creativeEarnings.length === 0 ? (
+        <div style={{ marginTop: 12 }}>
+          <EmptyRow>No backings yet.</EmptyRow>
+        </div>
+      ) : (
+        <div>
+          {creativeEarnings.map((row) => (
+            <CreativeEarningsRow key={row.payeeUserId} row={row} />
           ))}
         </div>
       )}
@@ -555,6 +653,7 @@ export default function AdminLedgerPage() {
           <FeesSection fees={report.fees} periods={report.periods} />
           <PoolsSection pools={report.pools} />
           <HostEarningsSection hostEarnings={report.hostEarnings} />
+          <CreativeEarningsSection creativeEarnings={report.creativeEarnings ?? []} />
           <CommunitiesMembersSection communities={report.communities} />
           <MembershipsSection memberships={report.memberships} />
           <RecentSection recent={report.recent} />
