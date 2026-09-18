@@ -38,7 +38,6 @@ import type * as garden_coverage from "../garden/coverage.js";
 import type * as garden_devSeed from "../garden/devSeed.js";
 import type * as garden_entitlements from "../garden/entitlements.js";
 import type * as garden_eventRsvps from "../garden/eventRsvps.js";
-import type * as garden_gigDevCheck from "../garden/gigDevCheck.js";
 import type * as garden_gigRules from "../garden/gigRules.js";
 import type * as garden_gigSummary from "../garden/gigSummary.js";
 import type * as garden_gigs from "../garden/gigs.js";
@@ -121,7 +120,6 @@ declare const fullApi: ApiFromModules<{
   "garden/devSeed": typeof garden_devSeed;
   "garden/entitlements": typeof garden_entitlements;
   "garden/eventRsvps": typeof garden_eventRsvps;
-  "garden/gigDevCheck": typeof garden_gigDevCheck;
   "garden/gigRules": typeof garden_gigRules;
   "garden/gigSummary": typeof garden_gigSummary;
   "garden/gigs": typeof garden_gigs;
