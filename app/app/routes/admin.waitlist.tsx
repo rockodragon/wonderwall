@@ -253,7 +253,7 @@ export default function AdminWaitlistPage() {
                             <button
                               onClick={() => handleApprove(entry._id)}
                               disabled={isBusy(entry._id)}
-                              className="px-3 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                              className="px-3 py-1.5 text-sm bg-green-800 text-white rounded-lg hover:bg-green-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
                             >
                               {approving === entry._id
                                 ? "Approving…"
