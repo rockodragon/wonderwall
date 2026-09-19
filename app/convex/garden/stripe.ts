@@ -20,7 +20,12 @@ import { auth } from "../auth";
 // Pure money logic lives in the dependency-free handler file so the checkout
 // action and the webhook share one authority (and so it's unit-testable
 // without this file's node runtime / Stripe SDK).
-import { backingReturnPaths, resolveGuestSupporterName, validateBackingAmount } from "./stripeHandlers";
+import {
+  backingReturnPaths,
+  guestBackingRefusal,
+  resolveGuestSupporterName,
+  validateBackingAmount,
+} from "./stripeHandlers";
 
 // Matches the `stripe` package's pinned default (node_modules/stripe's
 // apiVersion.js) at install time — keep these in lockstep on upgrade.
@@ -485,7 +490,8 @@ export const createPoolContributionCheckout = action({
 // Open to guests as well as members (bead wonderwall-uh90): someone in the
 // room on Nov 6 has to be able to back a creative they just watched, and
 // signup is invite-only. A signed-in backer is named from their profile and
-// gets their reusable Stripe customer, exactly as before. A guest passes a
+// gets their reusable Stripe customer, exactly as before. A guest gives once
+// only (guestBackingRefusal — monthly needs an account) and passes a
 // display name (or backs anonymously — resolveGuestSupporterName); Stripe
 // Checkout collects their email and sends the receipt, and nothing about
 // them but that display name is stored here. A guest is returned to the
@@ -514,6 +520,10 @@ export const createBackingCheckout = action({
 
     let guestName: string | undefined;
     if (!userId) {
+      const refused = guestBackingRefusal({ recurring: args.recurring });
+      if (refused) {
+        throw new ConvexError({ reason: refused });
+      }
       const resolved = resolveGuestSupporterName(args.guestName, args.visible);
       if ("error" in resolved) {
         throw new ConvexError({ reason: resolved.error });

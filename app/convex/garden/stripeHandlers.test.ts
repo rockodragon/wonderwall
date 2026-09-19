@@ -6,8 +6,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   backingReturnPaths,
+  guestBackingRefusal,
   guestBackingThrottled,
   resolveGuestSupporterName,
+  GUEST_RECURRING_REASON,
   GUEST_NAME_MAX_LENGTH,
   GUEST_PENDING_PER_PROJECT_PER_HOUR,
   extractCurrentPeriodEnd,
@@ -1477,23 +1479,16 @@ describe("guest backing — someone with no account backs a project", () => {
     expect(row).toMatchObject({ grossCents: 2500, workCents: 2250, payeeUserId: "user_lead" });
     expect(row?.backerUserId).toBeUndefined();
   });
+});
 
-  it("a guest's monthly renewals are recorded with no account behind them", async () => {
-    const { db, backingPayments } = createFakeDb();
+describe("guestBackingRefusal — monthly needs an account", () => {
+  it("lets a guest give once", () => {
+    expect(guestBackingRefusal({ recurring: false })).toBeNull();
+  });
 
-    await handleStripeEvent(
-      event(
-        "invoice.paid",
-        backingInvoiceFixture({
-          parent: { subscription_details: { metadata: { ...GUEST_BACKING_METADATA } } },
-        }),
-      ),
-      db,
-    );
-
-    const row = backingPayments.get("in_backing_2");
-    expect(row).toMatchObject({ billing: "renewal", grossCents: 1000, workCents: 900 });
-    expect(row?.backerUserId).toBeUndefined();
+  it("turns a guest away from monthly (and yearly), pointing them to sign in", () => {
+    expect(guestBackingRefusal({ recurring: true })).toBe(GUEST_RECURRING_REASON);
+    expect(GUEST_RECURRING_REASON).toMatch(/account/);
   });
 });
 

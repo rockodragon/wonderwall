@@ -463,12 +463,25 @@ export function validateBackingAmount(amountCents: number): string | null {
 //
 // Someone in the room on Nov 6 has to be able to back the creative they
 // just watched without an account — signup is invite-only, so "sign in
-// first" meant "you can't". A guest gives a display name (or backs
-// anonymously); Stripe Checkout collects their email and sends the receipt.
+// first" meant "you can't". A guest gives ONCE (guestBackingRefusal): money
+// every month needs an account, so the backer can stop it from Settings. A
+// guest gives a display name (or backs anonymously); Stripe Checkout
+// collects their email and sends the receipt.
 // Their email is never stored on our side, same rule as a signed-in
 // backer's: the name is opt-in display copy, not a captured contact.
 
 export const GUEST_NAME_MAX_LENGTH = 60;
+
+/** Rick, 2026-09-18: anyone giving every month has an account. A monthly or
+ * yearly backing starts a charge that repeats until it's stopped, and a
+ * guest has nowhere to stop it — a member does (Settings → billing). So a
+ * guest gives once; this is the reason shown if a recurring one gets
+ * through anyway. */
+export const GUEST_RECURRING_REASON = "Giving monthly needs an account. Sign in, or give once.";
+
+export function guestBackingRefusal(args: { recurring: boolean }): string | null {
+  return args.recurring ? GUEST_RECURRING_REASON : null;
+}
 
 /**
  * The name a guest backing is stored under. A named backing needs a name —
