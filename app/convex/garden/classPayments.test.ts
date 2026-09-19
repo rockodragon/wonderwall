@@ -26,6 +26,7 @@ import {
   type StripeWebhookEvent,
 } from "./stripeHandlers";
 import { MAX_PRODUCT_PRICE_CENTS, MIN_PRODUCT_PRICE_CENTS, splitHostSale } from "./products";
+import { buildCreativeEarningsRows, classPaymentToEarningsPayment, UNASSIGNED } from "./payouts";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -461,5 +462,83 @@ describe("classCheckoutParts", () => {
       platformCents: 370,
       teacherCents: 3330,
     });
+  });
+});
+
+// ——— What a teacher is owed ———
+
+describe("owed to a creative, with class payments", () => {
+  const lookup = {
+    name: (id: string) => ({ u_ada: "Ada", u_bo: "Bo" })[id],
+    profileId: (id: string) => ({ u_ada: "p_ada", u_bo: "p_bo" })[id],
+    projectTitle: (id: string) => ({ proj_1: "Psalms for the 2AM" })[id],
+  };
+
+  const backing = { payeeUserId: "u_ada", projectId: "proj_1", grossCents: 1000, platformCents: 100, workCents: 900 };
+  const classPay = (over: Partial<Parameters<typeof classPaymentToEarningsPayment>[0]> = {}, title = "Portrait drawing") =>
+    classPaymentToEarningsPayment(
+      { offeringId: "offering_1", payeeUserId: "u_ada", grossCents: 3700, platformCents: 370, teacherCents: 3330, ...over },
+      title,
+    );
+
+  it("counts the teacher's share as work, never the gross", () => {
+    expect(classPay()).toMatchObject({ workCents: 3330, grossCents: 3700, platformCents: 370, title: "Portrait drawing" });
+  });
+
+  it("adds a teacher's class share to what they're owed for backings — one balance", () => {
+    const [row, ...rest] = buildCreativeEarningsRows([backing, classPay()], [], lookup);
+    expect(rest).toEqual([]);
+    expect(row).toMatchObject({
+      payeeUserId: "u_ada",
+      name: "Ada",
+      paymentsCount: 2,
+      grossCents: 4700,
+      platformCents: 470,
+      workCents: 4230,
+      paidOutCents: 0,
+      owedCents: 4230,
+    });
+    expect(row.projects).toEqual(["Psalms for the 2AM", "Portrait drawing"]);
+  });
+
+  it("a payout recorded against the creative reduces the combined balance", () => {
+    const [row] = buildCreativeEarningsRows(
+      [backing, classPay()],
+      [{ payeeUserId: "u_ada", amountCents: 1000 }],
+      lookup,
+    );
+    expect(row.owedCents).toBe(4230 - 1000);
+    expect(row.paidOutCents).toBe(1000);
+  });
+
+  it("gives a teacher with only class money a row of their own", () => {
+    const rows = buildCreativeEarningsRows([classPay({ payeeUserId: "u_bo" })], [], lookup);
+    expect(rows).toEqual([
+      expect.objectContaining({ payeeUserId: "u_bo", name: "Bo", owedCents: 3330, projects: ["Portrait drawing"] }),
+    ]);
+  });
+
+  it("keeps a class payment with no payee on the unassigned row rather than dropping it", () => {
+    // A deleted class has no teacher and no title to look up.
+    const orphan = classPaymentToEarningsPayment(
+      { offeringId: "offering_gone", grossCents: 3700, platformCents: 370, teacherCents: 3330 },
+      undefined,
+    );
+    const rows = buildCreativeEarningsRows([orphan], [], lookup);
+    expect(rows).toEqual([
+      expect.objectContaining({ payeeUserId: UNASSIGNED, owedCents: 3330, projects: ["A deleted class"] }),
+    ]);
+  });
+
+  it("orders people by what they're owed, classes included", () => {
+    const rows = buildCreativeEarningsRows(
+      [backing, classPay({ payeeUserId: "u_bo" })],
+      [],
+      lookup,
+    );
+    expect(rows.map((r) => [r.name, r.owedCents])).toEqual([
+      ["Bo", 3330],
+      ["Ada", 900],
+    ]);
   });
 });
