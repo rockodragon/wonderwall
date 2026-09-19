@@ -20,7 +20,7 @@ import { auth } from "../auth";
 // Pure money logic lives in the dependency-free handler file so the checkout
 // action and the webhook share one authority (and so it's unit-testable
 // without this file's node runtime / Stripe SDK).
-import { validateBackingAmount } from "./stripeHandlers";
+import { backingReturnPaths, resolveGuestSupporterName, validateBackingAmount } from "./stripeHandlers";
 
 // Matches the `stripe` package's pinned default (node_modules/stripe's
 // apiVersion.js) at install time — keep these in lockstep on upgrade.
@@ -482,9 +482,14 @@ export const createPoolContributionCheckout = action({
 // event has to be self-sufficient even if it beats
 // checkout.session.completed (stripeHandlers.ts's header).
 //
-// Auth required, unlike ticket/pool checkout: a backing row names a
-// supporter on a public project page, and garden/support.ts's row carries
-// supporterUserId.
+// Open to guests as well as members (bead wonderwall-uh90): someone in the
+// room on Nov 6 has to be able to back a creative they just watched, and
+// signup is invite-only. A signed-in backer is named from their profile and
+// gets their reusable Stripe customer, exactly as before. A guest passes a
+// display name (or backs anonymously — resolveGuestSupporterName); Stripe
+// Checkout collects their email and sends the receipt, and nothing about
+// them but that display name is stored here. A guest is returned to the
+// public story page afterwards, since /projects/:id is behind login.
 //
 // The projectSupport row is written FIRST (support.ts's startBacking,
 // status "pending") and its id rides on the metadata, because
@@ -501,11 +506,19 @@ export const createBackingCheckout = action({
     message: v.optional(v.string()),
     tierId: v.optional(v.string()),
     interval: v.optional(v.union(v.literal("month"), v.literal("year"))),
+    // Signed-out backers only; ignored when the caller is signed in.
+    guestName: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const userId = await auth.getUserId(ctx);
+
+    let guestName: string | undefined;
     if (!userId) {
-      throw new ConvexError({ reason: "Sign in to back a project." });
+      const resolved = resolveGuestSupporterName(args.guestName, args.visible);
+      if ("error" in resolved) {
+        throw new ConvexError({ reason: resolved.error });
+      }
+      guestName = resolved.name;
     }
 
     // $5 floor + whole-cents rule (community-groups.md §3) — the pure
@@ -517,7 +530,7 @@ export const createBackingCheckout = action({
 
     const started = await ctx.runMutation((internal as any).garden.support.startBacking, {
       projectId: args.projectId,
-      userId: String(userId),
+      ...(userId ? { userId: String(userId) } : { guestName }),
       amountCents: args.amountCents,
       recurring: args.recurring,
       visible: args.visible,
@@ -534,43 +547,56 @@ export const createBackingCheckout = action({
     // Reuse one Stripe customer per user across checkouts + the billing
     // portal (architect §3.4) — same as createMembershipCheckout. A monthly
     // backing NEEDS one (the subscription attaches to it); a one-time
-    // backing benefits from it (one customer, one portal).
-    const existing = await ctx.runQuery(
-      (internal as any).garden.memberships.getBillingCustomerForUser,
-      { userId: String(userId) },
-    );
-
-    let stripeCustomerId: string | undefined = existing?.stripeCustomerId;
-    if (!stripeCustomerId) {
-      const identity = await ctx.auth.getUserIdentity();
-      const customer = await stripe.customers.create({
-        email: identity?.email ?? undefined,
-        metadata: { userId: String(userId) },
-      });
-      stripeCustomerId = customer.id;
-      await ctx.runMutation((internal as any).garden.memberships.saveBillingCustomer, {
-        userId: String(userId),
-        stripeCustomerId,
-        email: identity?.email ?? undefined,
-      });
+    // backing benefits from it (one customer, one portal). A guest gets
+    // none of ours: Checkout creates the customer a monthly subscription
+    // needs from the email they type, and we keep no billing row for them.
+    let stripeCustomerId: string | undefined;
+    if (userId) {
+      const existing = await ctx.runQuery(
+        (internal as any).garden.memberships.getBillingCustomerForUser,
+        { userId: String(userId) },
+      );
+      stripeCustomerId = existing?.stripeCustomerId;
+      if (!stripeCustomerId) {
+        const identity = await ctx.auth.getUserIdentity();
+        const customer = await stripe.customers.create({
+          email: identity?.email ?? undefined,
+          metadata: { userId: String(userId) },
+        });
+        stripeCustomerId = customer.id;
+        await ctx.runMutation((internal as any).garden.memberships.saveBillingCustomer, {
+          userId: String(userId),
+          stripeCustomerId,
+          email: identity?.email ?? undefined,
+        });
+      }
     }
 
     const billingInterval = args.recurring ? (args.interval ?? "month") : undefined;
     const intervalLabel = billingInterval === "year" ? "Annual" : billingInterval === "month" ? "Monthly" : undefined;
 
+    // A guest's metadata has no userId key at all (rather than an empty
+    // string, which Stripe treats as "unset"); the webhook already reads a
+    // missing userId as a backing with no account behind it.
     const metadata: Record<string, string> = {
       kind: "backing",
       projectId: String(args.projectId),
-      userId: String(userId),
+      ...(userId ? { userId: String(userId) } : {}),
       visible: String(args.visible),
       supporterName: started.supporterName,
       supportId: String(started.supportId),
       ...(args.tierId ? { tierId: args.tierId } : {}),
     };
 
+    const returnTo = backingReturnPaths({
+      signedIn: Boolean(userId),
+      projectId: String(args.projectId),
+      storySlug: started.storySlug,
+    });
+
     const session = await stripe.checkout.sessions.create({
       mode: args.recurring ? "subscription" : "payment",
-      customer: stripeCustomerId,
+      ...(stripeCustomerId ? { customer: stripeCustomerId } : {}),
       line_items: [
         {
           quantity: 1,
@@ -588,8 +614,8 @@ export const createBackingCheckout = action({
       ],
       metadata,
       ...(args.recurring ? { subscription_data: { metadata } } : {}),
-      success_url: `${siteUrl()}/projects/${args.projectId}?backed=1`,
-      cancel_url: `${siteUrl()}/projects/${args.projectId}`,
+      success_url: `${siteUrl()}${returnTo.success}`,
+      cancel_url: `${siteUrl()}${returnTo.cancel}`,
       allow_promotion_codes: false,
     });
 

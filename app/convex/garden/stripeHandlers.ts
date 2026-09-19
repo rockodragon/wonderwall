@@ -459,6 +459,70 @@ export function validateBackingAmount(amountCents: number): string | null {
   return null;
 }
 
+// ——— Guest backing (bead wonderwall-uh90) ———
+//
+// Someone in the room on Nov 6 has to be able to back the creative they
+// just watched without an account — signup is invite-only, so "sign in
+// first" meant "you can't". A guest gives a display name (or backs
+// anonymously); Stripe Checkout collects their email and sends the receipt.
+// Their email is never stored on our side, same rule as a signed-in
+// backer's: the name is opt-in display copy, not a captured contact.
+
+export const GUEST_NAME_MAX_LENGTH = 60;
+
+/**
+ * The name a guest backing is stored under. A named backing needs a name —
+ * it's what appears on the project page. An anonymous one doesn't; it's
+ * stored as "Anonymous", and listSupportForProject hides stored names for
+ * anonymous rows anyway. Control characters are stripped and whitespace
+ * collapsed, so a pasted name can't break a layout.
+ */
+export function resolveGuestSupporterName(
+  rawName: string | undefined,
+  visible: boolean,
+): { name: string } | { error: string } {
+  const cleaned = (rawName ?? "")
+    .replace(/[\u0000-\u001f\u007f]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, GUEST_NAME_MAX_LENGTH)
+    .trim();
+  if (!visible) return { name: cleaned || "Anonymous" };
+  if (!cleaned) return { error: "Add your name, or choose to back anonymously." };
+  return { name: cleaned };
+}
+
+/** A ceiling on guest checkouts started (not completed) per project per
+ * hour. It exists to stop a script filling the table with pending rows —
+ * each abandoned checkout leaves one — and is set well above anything a
+ * room full of people could reach, because the room is the point. */
+export const GUEST_PENDING_PER_PROJECT_PER_HOUR = 300;
+
+export function guestBackingThrottled(guestCheckoutsLastHour: number): boolean {
+  return guestCheckoutsLastHour >= GUEST_PENDING_PER_PROJECT_PER_HOUR;
+}
+
+/**
+ * Where Stripe sends a backer after paying or cancelling. A signed-in backer
+ * goes back to /projects/:id as before. A guest can't — that page is behind
+ * login — so they go back to the public story page they came from. A
+ * project with no story link (one created before links were generated at
+ * creation) sends a guest home rather than to a sign-in wall.
+ */
+export function backingReturnPaths(args: {
+  signedIn: boolean;
+  projectId: string;
+  storySlug?: string;
+}): { success: string; cancel: string } {
+  if (args.signedIn) {
+    return { success: `/projects/${args.projectId}?backed=1`, cancel: `/projects/${args.projectId}` };
+  }
+  if (args.storySlug) {
+    return { success: `/story/${args.storySlug}?backed=1`, cancel: `/story/${args.storySlug}` };
+  }
+  return { success: "/?backed=1", cancel: "/" };
+}
+
 // ——— Coverage-code generation (garden/stripe.ts's createCoverageCheckout) ———
 //
 // Same alphabet and shape as convex/invites.ts's generateCode and
