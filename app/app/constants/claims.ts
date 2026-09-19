@@ -29,6 +29,7 @@ export const CLAIMS = {
   join: "Joining is free.",
   backing: "When someone backs you for $100, you get $90. The other $10 runs the platform.",
   backingShort: "You keep 90% of what a backer gives you.",
+  processingFee: "Card processing is added on top of your backing.",
   largeGift: "On the part of any gift over $1,000, we take 5%, not 10%.",
   payout: "For now we keep track of what you're owed and pay it out to you ourselves.",
   hostSplit: "Hosting is free. You keep 90% of what you sell.",

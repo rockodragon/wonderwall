@@ -6,18 +6,25 @@
 // this is an SPA route with no loader, so it cannot set them itself. Not
 // faking them here; see functions-spike for that piece.
 
-import { useQuery } from "convex/react";
-import { useParams, useRouteError } from "react-router";
+import { useState } from "react";
+import { useAction, useConvexAuth, useQuery } from "convex/react";
+import { ConvexError } from "convex/values";
+import { useLocation, useNavigate, useParams, useRouteError, useSearchParams } from "react-router";
 import { api } from "../../convex/_generated/api";
+import type { Id } from "../../convex/_generated/dataModel";
 import {
   GardenErrorState,
   GardenLoading,
   GardenPage,
   SectionLabel,
   formatDate,
+  formatMoney,
   formatPeriod,
+  joinNames,
 } from "../garden/ui";
 import { RichContent } from "../components/RichContent";
+import { CLAIMS } from "../constants/claims";
+import { setPendingIntent } from "../lib/pendingIntent";
 import "../garden/garden.css";
 
 export function meta() {
@@ -53,8 +60,320 @@ function SponsorCredit({ line }: { line: string }) {
   );
 }
 
+// ————— Support —————
+//
+// This page is where the QR code on stage lands (bead wonderwall-ke37), so
+// it's the one place someone without an account can back a creative. It
+// calls the same createBackingCheckout the signed-in Support modal does; a
+// guest types a name (or stays anonymous) and Stripe collects the card and
+// email. A guest gives once: monthly needs an account, so the backer can
+// stop it from Settings (stripeHandlers.ts's guestBackingRefusal is the
+// server's version of this rule). Money words follow stripe.ts:
+// "back"/"support", never "donate".
+
+const PRESETS_CENTS = [1000, 2500, 5000, 10000]; // $10 · $25 · $50 · $100
+// Twin of MIN_BACKING_CENTS in convex/garden/stripeHandlers.ts. The server is
+// the authority; this only catches an obvious miss before the round trip.
+const MIN_CENTS = 500;
+
+function reasonFor(err: unknown, fallback: string): string {
+  if (err instanceof ConvexError) {
+    const data = err.data as { reason?: string } | undefined;
+    if (data?.reason) return data.reason;
+  }
+  return fallback;
+}
+
+type StoryBackers = { count: number; names: string[]; otherCount: number };
+
+/** "Backed by Ana, Jo, and 3 others" — anonymous backers are only ever in
+    the count. */
+function backedByLine(backers: StoryBackers): string | null {
+  if (backers.names.length === 0) return null;
+  const others = backers.otherCount;
+  const parts = others > 0 ? [...backers.names, `${others} ${others === 1 ? "other" : "others"}`] : backers.names;
+  return `Backed by ${joinNames(parts)}`;
+}
+
+/** Two or more equal buttons where exactly one is on — once/monthly, and
+    the preset amounts. */
+function ChoiceButton({
+  on,
+  onClick,
+  children,
+}: {
+  on: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      className="g-btn g-btn-ghost"
+      aria-pressed={on}
+      onClick={onClick}
+      style={{
+        padding: "12px 0",
+        width: "100%",
+        textAlign: "center",
+        ...(on ? { borderColor: "var(--g-citron)", color: "var(--g-citron)" } : {}),
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+const LINK_BUTTON: React.CSSProperties = {
+  background: "none",
+  border: "none",
+  padding: 0,
+  cursor: "pointer",
+  textDecoration: "underline",
+};
+
+function SupportForm({ projectId, onCancel }: { projectId: Id<"projects">; onCancel: () => void }) {
+  const { isAuthenticated } = useConvexAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const createBackingCheckout = useAction(api.garden.stripe.createBackingCheckout);
+
+  const [monthlyChoice, setMonthly] = useState(false);
+  // Only a member can give monthly; a guest who signs out mid-form drops
+  // back to once rather than hitting the server's refusal.
+  const monthly = isAuthenticated && monthlyChoice;
+  const [preset, setPreset] = useState<number | null>(2500);
+  const [otherDollars, setOtherDollars] = useState("");
+  const [name, setName] = useState("");
+  const [anonymous, setAnonymous] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const amountCents = preset ?? Math.round(parseFloat(otherDollars || "0") * 100);
+  const amountReady = Number.isFinite(amountCents) && amountCents >= MIN_CENTS;
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    if (!amountReady) {
+      setError(`The smallest amount is ${formatMoney(MIN_CENTS)}.`);
+      return;
+    }
+    if (!isAuthenticated && !anonymous && !name.trim()) {
+      setError("Add your name, or check the box to stay anonymous.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const { url } = await createBackingCheckout({
+        projectId,
+        amountCents,
+        recurring: monthly,
+        visible: !anonymous,
+        from: "story",
+        ...(!isAuthenticated && !anonymous ? { guestName: name.trim() } : {}),
+      });
+      // Leaving for Stripe. The button stays disabled through the handoff.
+      window.location.assign(url);
+    } catch (err) {
+      setError(reasonFor(err, "Couldn't start checkout. Try again."));
+      setBusy(false);
+    }
+  }
+
+  const buttonAmount = amountReady ? `${formatMoney(amountCents)}${monthly ? " a month" : ""}` : "";
+
+  return (
+    <form onSubmit={handleSubmit} style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 14 }}>
+      {isAuthenticated && (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+          <ChoiceButton on={!monthly} onClick={() => setMonthly(false)}>Once</ChoiceButton>
+          <ChoiceButton on={monthly} onClick={() => setMonthly(true)}>Monthly</ChoiceButton>
+        </div>
+      )}
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
+        {PRESETS_CENTS.map((cents) => (
+          <ChoiceButton
+            key={cents}
+            on={preset === cents}
+            onClick={() => {
+              setPreset(cents);
+              setOtherDollars("");
+            }}
+          >
+            {formatMoney(cents)}
+          </ChoiceButton>
+        ))}
+      </div>
+      <input
+        className="g-input"
+        value={otherDollars}
+        onChange={(e) => {
+          setOtherDollars(e.target.value);
+          setPreset(null);
+        }}
+        onFocus={() => setPreset(null)}
+        inputMode="decimal"
+        placeholder="Other amount ($)"
+        aria-label="Other amount in dollars"
+        style={preset === null ? { borderColor: "var(--g-citron)" } : undefined}
+      />
+
+      {!isAuthenticated && !anonymous && (
+        <input
+          className="g-input"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          autoComplete="name"
+          maxLength={60}
+          placeholder="Your name, as it shows on this page"
+          aria-label="Your name"
+        />
+      )}
+      <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 15, color: "var(--g-body)", cursor: "pointer" }}>
+        <input
+          type="checkbox"
+          checked={anonymous}
+          onChange={(e) => setAnonymous(e.target.checked)}
+          style={{ width: 18, height: 18, accentColor: "var(--g-citron)" }}
+        />
+        Keep my name off this page
+      </label>
+
+      <button
+        type="submit"
+        className="g-btn g-btn-citron"
+        disabled={busy}
+        style={{ width: "100%", opacity: busy ? 0.7 : 1 }}
+      >
+        {busy ? "Opening checkout…" : buttonAmount ? `Continue · ${buttonAmount}` : "Continue"}
+      </button>
+      {error && (
+        <p role="alert" style={{ fontSize: 15, color: "var(--g-paper)" }}>
+          {error}
+        </p>
+      )}
+      <p className="g-hint" style={{ lineHeight: 1.5 }}>
+        {CLAIMS.patron} {formatMoney(MIN_CENTS)} minimum.
+        {monthly ? " Monthly renews until you cancel." : ""} {CLAIMS.processingFee} You pay on the next screen.
+      </p>
+      {!isAuthenticated && (
+        <p className="g-hint" style={{ lineHeight: 1.5 }}>
+          Giving monthly needs an account.{" "}
+          <button
+            type="button"
+            onClick={() => {
+              // Back to this story after signing in, where Monthly is on.
+              setPendingIntent(location.pathname);
+              navigate("/login");
+            }}
+            style={{ ...LINK_BUTTON, font: "inherit", color: "var(--g-paper)" }}
+          >
+            Sign in
+          </button>
+        </p>
+      )}
+      <button type="button" onClick={onCancel} className="g-hint" style={{ ...LINK_BUTTON, alignSelf: "flex-start" }}>
+        Not now
+      </button>
+    </form>
+  );
+}
+
+/** The money block near the top of the story: what's been raised, who
+    backed it, and the Support button. Everything past the button opens only
+    when it's pressed. */
+function SupportCard({
+  projectId,
+  acceptingSupport,
+  raisedCents,
+  goalCents,
+  backers,
+  justBacked,
+}: {
+  projectId: Id<"projects">;
+  acceptingSupport: boolean;
+  raisedCents: number;
+  goalCents: number | null;
+  backers: StoryBackers;
+  justBacked: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const byLine = backedByLine(backers);
+  const backerCount = `${backers.count} ${backers.count === 1 ? "backer" : "backers"}`;
+
+  if (!acceptingSupport && raisedCents === 0 && backers.count === 0) return null;
+
+  return (
+    <section className="g-card" style={{ marginTop: 24, padding: "18px 16px" }} aria-label="Support this project">
+      {justBacked && (
+        <p style={{ fontSize: 15, color: "var(--g-paper)", marginBottom: 14 }} role="status">
+          <span className="g-accent">Thank you.</span> The total here updates once your payment clears.
+        </p>
+      )}
+
+      {goalCents !== null ? (
+        <>
+          <SectionLabel>Goal</SectionLabel>
+          <div
+            style={{
+              marginTop: 8,
+              height: 6,
+              borderRadius: 3,
+              background: "var(--g-hairline)",
+              overflow: "hidden",
+              position: "relative",
+            }}
+          >
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                width: `${Math.min(100, (raisedCents / goalCents) * 100)}%`,
+                background: "var(--g-paper)",
+                borderRight: "2px solid var(--g-citron)",
+              }}
+            />
+          </div>
+          <p style={{ marginTop: 8, fontSize: 15, color: "var(--g-paper)" }}>
+            {formatMoney(raisedCents)} of {formatMoney(goalCents)}
+            {backers.count > 0 && <span style={{ color: "var(--g-body)" }}> · {backerCount}</span>}
+          </p>
+        </>
+      ) : raisedCents > 0 || backers.count > 0 ? (
+        <p style={{ fontSize: 15, color: "var(--g-body)" }}>
+          <span style={{ fontSize: 22, color: "var(--g-paper)", fontWeight: 600 }}>{formatMoney(raisedCents)}</span>{" "}
+          raised{backers.count > 0 ? ` · ${backerCount}` : ""}
+        </p>
+      ) : (
+        <p style={{ fontSize: 15, color: "var(--g-body)" }}>Be the first to back this.</p>
+      )}
+
+      {byLine && (
+        <p style={{ marginTop: 6, fontSize: 14.5, lineHeight: 1.5, color: "var(--g-body)" }}>{byLine}</p>
+      )}
+
+      {acceptingSupport &&
+        (open ? (
+          <SupportForm projectId={projectId} onCancel={() => setOpen(false)} />
+        ) : (
+          <button
+            type="button"
+            className="g-btn g-btn-citron"
+            onClick={() => setOpen(true)}
+            style={{ marginTop: 14, width: "100%" }}
+          >
+            Support
+          </button>
+        ))}
+    </section>
+  );
+}
+
 export default function StoryPage() {
   const { slug } = useParams();
+  const [searchParams] = useSearchParams();
   const data = useQuery(
     api.garden.stories.getStoryPage,
     slug ? { storySlug: slug } : "skip",
@@ -80,7 +399,7 @@ export default function StoryPage() {
     );
   }
 
-  const { project, updates, credits } = data;
+  const { project, updates, credits, backers } = data;
   const hasProgress = project.kind === "passion" && project.goal !== undefined && project.goal > 0;
   const raisedCents = project.raisedCents ?? 0;
   const goalCents = (project.goal ?? 0) * 100;
@@ -118,6 +437,14 @@ export default function StoryPage() {
             {project.blurb}
           </p>
         )}
+        <SupportCard
+          projectId={project.id}
+          acceptingSupport={project.acceptingSupport}
+          raisedCents={raisedCents}
+          goalCents={hasProgress ? goalCents : null}
+          backers={backers}
+          justBacked={searchParams.get("backed") === "1"}
+        />
         {/* The full page the creator composed on /projects/:id — the blurb
             above stays the lede (docs/features/rich-project-content.md §2). */}
         {project.body?.length ? (
@@ -126,35 +453,6 @@ export default function StoryPage() {
           </div>
         ) : null}
       </div>
-
-      {hasProgress && (
-        <div style={{ marginTop: 24, maxWidth: 360 }}>
-          <SectionLabel>Goal</SectionLabel>
-          <div
-            style={{
-              marginTop: 8,
-              height: 6,
-              borderRadius: 3,
-              background: "var(--g-hairline)",
-              overflow: "hidden",
-              position: "relative",
-            }}
-          >
-            <div
-              style={{
-                position: "absolute",
-                inset: 0,
-                width: `${Math.min(100, (raisedCents / goalCents) * 100)}%`,
-                background: "var(--g-paper)",
-                borderRight: "2px solid var(--g-citron)",
-              }}
-            />
-          </div>
-          <p style={{ marginTop: 8, fontSize: 15, color: "var(--g-paper)" }}>
-            ${(raisedCents / 100).toLocaleString()} of ${(goalCents / 100).toLocaleString()}
-          </p>
-        </div>
-      )}
 
       <div style={{ marginTop: 32 }}>
         <SectionLabel>Updates</SectionLabel>

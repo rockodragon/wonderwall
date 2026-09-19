@@ -2,8 +2,10 @@
 // off the waitlist. Approving sends the applicant an email with the
 // approving admin's fixed short code (profiles.adminCode); they sign up
 // at /signup/:code exactly like a peer invite (convex/invites.ts's
-// findInviterProfile resolves either kind of code). See convex/waitlist.ts
-// (listForAdmin, approveEntry) and convex/helpers.ts (ensureAdminCode).
+// findInviterProfile resolves either kind of code). Delete removes an entry
+// outright, pending or approved, to clear out test signups. See
+// convex/waitlist.ts (listForAdmin, approveEntry, deleteEntry) and
+// convex/helpers.ts (ensureAdminCode).
 //
 // Admin detection mirrors admin.garden.tsx: the client-checkable
 // profile.isAdmin flag, not admin.tsx's server-side requireAdmin() throw,
@@ -31,8 +33,10 @@ export default function AdminWaitlistPage() {
   const profile = useQuery(api.profiles.getMyProfile);
   const entries = useQuery(api.waitlist.listForAdmin);
   const approveEntry = useMutation(api.waitlist.approveEntry);
+  const deleteEntry = useMutation(api.waitlist.deleteEntry);
 
   const [approving, setApproving] = useState<Id<"waitlist"> | null>(null);
+  const [deleting, setDeleting] = useState<Id<"waitlist"> | null>(null);
   const [error, setError] = useState<string>("");
 
   if (profile === undefined) {
@@ -69,6 +73,28 @@ export default function AdminWaitlistPage() {
       setApproving(null);
     }
   };
+
+  const handleDelete = async (id: Id<"waitlist">, email: string) => {
+    if (
+      !window.confirm(
+        `Delete ${email} from the waitlist? This can't be undone.`,
+      )
+    ) {
+      return;
+    }
+    setDeleting(id);
+    setError("");
+    try {
+      await deleteEntry({ waitlistId: id });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete");
+    } finally {
+      setDeleting(null);
+    }
+  };
+
+  // A row's buttons are all disabled while either of its requests is in flight.
+  const isBusy = (id: Id<"waitlist">) => approving === id || deleting === id;
 
   const approvedCount = entries?.filter((e) => e.approved).length ?? 0;
 
@@ -211,28 +237,41 @@ export default function AdminWaitlistPage() {
                           )}
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap">
-                        {entry.approved ? (
-                          <div className="text-sm">
-                            <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-700">
-                              Approved
-                            </span>
-                            <div className="mt-1 text-xs text-gray-500">
-                              by {entry.approvedByName}
-                              {entry.approvedAt &&
-                                ` · ${new Date(entry.approvedAt).toLocaleDateString()}`}
+                        <div className="flex items-center gap-3">
+                          {entry.approved ? (
+                            <div className="text-sm">
+                              <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-700">
+                                Approved
+                              </span>
+                              <div className="mt-1 text-xs text-gray-500">
+                                by {entry.approvedByName}
+                                {entry.approvedAt &&
+                                  ` · ${new Date(entry.approvedAt).toLocaleDateString()}`}
+                              </div>
                             </div>
-                          </div>
-                        ) : (
+                          ) : (
+                            <button
+                              onClick={() => handleApprove(entry._id)}
+                              disabled={isBusy(entry._id)}
+                              className="px-3 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                            >
+                              {approving === entry._id
+                                ? "Approving…"
+                                : "Approve"}
+                            </button>
+                          )}
+                          {/* Secondary and destructive: an outline, not the
+                              primary fill. Label is red-900 on white (10:1).
+                              Disabled swaps to gray-700 on gray-100 instead of
+                              dimming the label, so it stays readable. */}
                           <button
-                            onClick={() => handleApprove(entry._id)}
-                            disabled={approving === entry._id}
-                            className="px-3 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                            onClick={() => handleDelete(entry._id, entry.email)}
+                            disabled={isBusy(entry._id)}
+                            className="px-3 py-1.5 text-sm text-red-900 bg-white border border-red-700 rounded-lg enabled:hover:bg-red-50 transition-colors disabled:cursor-not-allowed disabled:text-gray-700 disabled:bg-gray-100 disabled:border-gray-500 whitespace-nowrap"
                           >
-                            {approving === entry._id
-                              ? "Approving…"
-                              : "Approve"}
+                            {deleting === entry._id ? "Deleting…" : "Delete"}
                           </button>
-                        )}
+                        </div>
                       </td>
                     </tr>
                   ))}

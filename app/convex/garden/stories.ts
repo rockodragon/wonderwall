@@ -360,6 +360,59 @@ export const listProjectUpdates = query({
   },
 });
 
+/** The projectSupport fields the story page's backer line reads. */
+export type BackerRowForStory = {
+  type: string;
+  status: string;
+  visible: boolean;
+  supporterName: string;
+  supporterUserId?: string;
+  createdAt: number;
+};
+
+/** How many names the story page lists before it says "and N others". */
+export const STORY_BACKER_NAME_LIMIT = 24;
+
+/**
+ * Who has backed a project, as the public story page shows it. Money only,
+ * and only once Stripe says it moved ("confirmed") — a checkout someone
+ * abandoned never shows. Names appear only for people who chose to be named,
+ * newest first; everyone else is in `otherCount` and never named. A member
+ * who backs twice is one backer (keyed by their user id), and so is a guest
+ * who backs twice under the same name. Anonymous guests can't be told apart,
+ * so each of their backings counts once.
+ */
+export function summarizeStoryBackers(rows: BackerRowForStory[]): {
+  count: number;
+  names: string[];
+  otherCount: number;
+} {
+  const backers = new Map<string, { name: string | null; latest: number }>();
+  rows.forEach((row, i) => {
+    if (!row.type.startsWith("financial_") || row.status !== "confirmed") return;
+    const name = row.visible ? row.supporterName.trim() : "";
+    const key = row.supporterUserId
+      ? `user:${row.supporterUserId}`
+      : name
+        ? `guest:${name.toLowerCase()}`
+        : `anonymous:${i}`;
+    const seen = backers.get(key);
+    backers.set(key, {
+      // Named once is named: a member's anonymous second backing doesn't
+      // hide the name they already chose to show.
+      name: seen?.name ?? (name || null),
+      latest: Math.max(seen?.latest ?? 0, row.createdAt),
+    });
+  });
+
+  const named = [...backers.values()]
+    .filter((b): b is { name: string; latest: number } => b.name !== null)
+    .sort((a, b) => b.latest - a.latest)
+    .map((b) => b.name);
+  const names = named.slice(0, STORY_BACKER_NAME_LIMIT);
+  return { count: backers.size, names, otherCount: backers.size - names.length };
+}
+
 /**
  * Public, unauthenticated — the CF Pages Function's data source (architect
  * §5). Returns null for an unknown slug so the Function can 404 cleanly;
@@ -376,7 +429,7 @@ export const getStoryPage = query({
       .unique();
     if (!project) return null;
 
-    const [ownerProfile, updateRows, allocationRows, memberships] = await Promise.all([
+    const [ownerProfile, updateRows, allocationRows, memberships, supportRows, gigSeries] = await Promise.all([
       ctx.db
         .query("profiles")
         .withIndex("by_userId", (q) => q.eq("userId", project.userId))
@@ -393,6 +446,14 @@ export const getStoryPage = query({
         .query("memberships")
         .withIndex("by_userId", (q) => q.eq("userId", project.userId))
         .collect(),
+      ctx.db
+        .query("projectSupport")
+        .withIndex("by_projectId", (q) => q.eq("projectId", project._id))
+        .collect(),
+      ctx.db
+        .query("gigSeries")
+        .withIndex("by_projectId", (q) => q.eq("projectId", project._id))
+        .first(),
     ]);
 
     // Covered+active memberships' coverage codes, to resolve the sponsor line.
@@ -425,6 +486,13 @@ export const getStoryPage = query({
 
     return {
       project: {
+        // The Support panel needs the id to start a checkout. Project ids
+        // already appear in /projects/:id links, so this reveals nothing new.
+        id: project._id,
+        // Same rule startBacking enforces (archived is refused). A paid gig
+        // series is hiring, not asking for backing — /projects/:id hides its
+        // Support button the same way.
+        acceptingSupport: project.status !== "archived" && gigSeries === null,
         title: project.title,
         blurb: project.blurb,
         body: await resolveRichDocMedia(ctx.storage, project.body),
@@ -449,6 +517,7 @@ export const getStoryPage = query({
         allocations: shapeCredits(allocationRows, orgNameById),
         sponsorLine,
       },
+      backers: summarizeStoryBackers(supportRows),
     };
   },
 });

@@ -13,6 +13,9 @@ import {
   resolveAvailableSlug,
   shapeUpdateContent,
   slugifyTitle,
+  STORY_BACKER_NAME_LIMIT,
+  summarizeStoryBackers,
+  type BackerRowForStory,
   type CodeForSponsor,
   type MembershipForSponsor,
 } from "./stories";
@@ -168,5 +171,86 @@ describe("shapeUpdateContent", () => {
     expect(() => shapeUpdateContent({ bodyDoc: [{ type: "text", text: "  " }] })).toThrow(
       ConvexError,
     );
+  });
+});
+
+describe("summarizeStoryBackers (the backer line on /story/:slug)", () => {
+  let t = 0;
+  function row(over: Partial<BackerRowForStory>): BackerRowForStory {
+    t += 1;
+    return {
+      type: "financial_one_time",
+      status: "confirmed",
+      visible: true,
+      supporterName: "Someone",
+      createdAt: t,
+      ...over,
+    };
+  }
+
+  it("is empty when nobody has backed yet", () => {
+    expect(summarizeStoryBackers([])).toEqual({ count: 0, names: [], otherCount: 0 });
+  });
+
+  it("names people who chose to be named, newest first", () => {
+    const rows = [
+      row({ supporterName: "Ana", supporterUserId: "u1" }),
+      row({ supporterName: "Jo" }),
+      row({ supporterName: "Marcus", type: "financial_recurring" }),
+    ];
+    expect(summarizeStoryBackers(rows)).toEqual({ count: 3, names: ["Marcus", "Jo", "Ana"], otherCount: 0 });
+  });
+
+  it("counts anonymous backers without naming them, even with the name on the row", () => {
+    const rows = [
+      row({ supporterName: "Ana" }),
+      row({ supporterName: "Anonymous", visible: false }),
+      row({ supporterName: "Private Person", visible: false, supporterUserId: "u9" }),
+    ];
+    const summary = summarizeStoryBackers(rows);
+    expect(summary).toEqual({ count: 3, names: ["Ana"], otherCount: 2 });
+    expect(JSON.stringify(summary)).not.toContain("Private Person");
+  });
+
+  it("leaves out checkouts Stripe hasn't confirmed, and support that isn't money", () => {
+    const rows = [
+      row({ supporterName: "Pending Pat", status: "pending" }),
+      row({ supporterName: "Cheering Cy", type: "encouragement" }),
+      row({ supporterName: "Offering Oz", type: "resource" }),
+      row({ supporterName: "Ana" }),
+    ];
+    expect(summarizeStoryBackers(rows)).toEqual({ count: 1, names: ["Ana"], otherCount: 0 });
+  });
+
+  it("counts a member who backs twice once, and keeps their name if either backing was named", () => {
+    const rows = [
+      row({ supporterName: "Ana", supporterUserId: "u1" }),
+      row({ supporterName: "Ana", supporterUserId: "u1", visible: false }),
+    ];
+    expect(summarizeStoryBackers(rows)).toEqual({ count: 1, names: ["Ana"], otherCount: 0 });
+  });
+
+  it("counts a guest who backs twice under the same name once", () => {
+    const rows = [row({ supporterName: "Jo" }), row({ supporterName: "jo " })];
+    expect(summarizeStoryBackers(rows).count).toBe(1);
+  });
+
+  it("counts each anonymous guest backing, since they can't be told apart", () => {
+    const rows = [
+      row({ supporterName: "Anonymous", visible: false }),
+      row({ supporterName: "Anonymous", visible: false }),
+    ];
+    expect(summarizeStoryBackers(rows)).toEqual({ count: 2, names: [], otherCount: 2 });
+  });
+
+  it("lists at most the limit and folds the rest into otherCount", () => {
+    const rows = Array.from({ length: STORY_BACKER_NAME_LIMIT + 3 }, (_, i) =>
+      row({ supporterName: `Backer ${i}` }),
+    );
+    const summary = summarizeStoryBackers(rows);
+    expect(summary.names).toHaveLength(STORY_BACKER_NAME_LIMIT);
+    expect(summary.names[0]).toBe(`Backer ${STORY_BACKER_NAME_LIMIT + 2}`);
+    expect(summary.otherCount).toBe(3);
+    expect(summary.count).toBe(STORY_BACKER_NAME_LIMIT + 3);
   });
 });

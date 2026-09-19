@@ -226,3 +226,24 @@ export const approveEntry = mutation({
     return { alreadyApproved: false, code };
   },
 });
+
+// Deletes one waitlist entry, pending or already approved, so an admin can
+// clear out test signups. Removes only the waitlist row: no other table
+// stores a waitlist id (approveEntry patches this row and queues an email
+// keyed by address, and the emailed code is the admin's own fixed one), so
+// there is nothing to cascade. It cannot unsend an approval email that has
+// already gone out. Idempotent: a second call on a row that is already gone
+// returns { deleted: false } instead of throwing, so a double click or two
+// admins racing on the same row doesn't surface an error.
+export const deleteEntry = mutation({
+  args: { waitlistId: v.id("waitlist") },
+  handler: async (ctx, args) => {
+    await requireAdminCtx(ctx);
+
+    const entry = await ctx.db.get(args.waitlistId);
+    if (!entry) return { deleted: false };
+
+    await ctx.db.delete(entry._id);
+    return { deleted: true };
+  },
+});

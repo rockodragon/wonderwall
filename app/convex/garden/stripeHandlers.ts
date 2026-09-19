@@ -459,6 +459,88 @@ export function validateBackingAmount(amountCents: number): string | null {
   return null;
 }
 
+// ——— Guest backing (bead wonderwall-uh90) ———
+//
+// Someone in the room on Nov 6 has to be able to back the creative they
+// just watched without an account — signup is invite-only, so "sign in
+// first" meant "you can't". A guest gives ONCE (guestBackingRefusal): money
+// every month needs an account, so the backer can stop it from Settings. A
+// guest gives a display name (or backs anonymously); Stripe Checkout
+// collects their email and sends the receipt.
+// Their email is never stored on our side, same rule as a signed-in
+// backer's: the name is opt-in display copy, not a captured contact.
+
+export const GUEST_NAME_MAX_LENGTH = 60;
+
+/** Rick, 2026-09-18: anyone giving every month has an account. A monthly or
+ * yearly backing starts a charge that repeats until it's stopped, and a
+ * guest has nowhere to stop it — a member does (Settings → billing). So a
+ * guest gives once; this is the reason shown if a recurring one gets
+ * through anyway. */
+export const GUEST_RECURRING_REASON = "Giving monthly needs an account. Sign in, or give once.";
+
+export function guestBackingRefusal(args: { recurring: boolean }): string | null {
+  return args.recurring ? GUEST_RECURRING_REASON : null;
+}
+
+/**
+ * The name a guest backing is stored under. A named backing needs a name —
+ * it's what appears on the project page. An anonymous one doesn't; it's
+ * stored as "Anonymous", and listSupportForProject hides stored names for
+ * anonymous rows anyway. Control characters are stripped and whitespace
+ * collapsed, so a pasted name can't break a layout.
+ */
+export function resolveGuestSupporterName(
+  rawName: string | undefined,
+  visible: boolean,
+): { name: string } | { error: string } {
+  const cleaned = (rawName ?? "")
+    .replace(/[\u0000-\u001f\u007f]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, GUEST_NAME_MAX_LENGTH)
+    .trim();
+  if (!visible) return { name: cleaned || "Anonymous" };
+  if (!cleaned) return { error: "Add your name, or choose to back anonymously." };
+  return { name: cleaned };
+}
+
+/** A ceiling on guest checkouts started (not completed) per project per
+ * hour. It exists to stop a script filling the table with pending rows —
+ * each abandoned checkout leaves one — and is set well above anything a
+ * room full of people could reach, because the room is the point. */
+export const GUEST_PENDING_PER_PROJECT_PER_HOUR = 300;
+
+export function guestBackingThrottled(guestCheckoutsLastHour: number): boolean {
+  return guestCheckoutsLastHour >= GUEST_PENDING_PER_PROJECT_PER_HOUR;
+}
+
+/**
+ * Where Stripe sends a backer after paying or cancelling. Anyone who started
+ * on the public story page (from: "story") goes back to it, signed in or
+ * not. Otherwise a signed-in backer goes back to /projects/:id as before. A
+ * guest can't — that page is behind login — so they go to the story page. A
+ * project with no story link (one created before links were generated at
+ * creation) sends a guest home rather than to a sign-in wall.
+ */
+export function backingReturnPaths(args: {
+  signedIn: boolean;
+  projectId: string;
+  storySlug?: string;
+  from?: "story" | "project";
+}): { success: string; cancel: string } {
+  if (args.from === "story" && args.storySlug) {
+    return { success: `/story/${args.storySlug}?backed=1`, cancel: `/story/${args.storySlug}` };
+  }
+  if (args.signedIn) {
+    return { success: `/projects/${args.projectId}?backed=1`, cancel: `/projects/${args.projectId}` };
+  }
+  if (args.storySlug) {
+    return { success: `/story/${args.storySlug}?backed=1`, cancel: `/story/${args.storySlug}` };
+  }
+  return { success: "/?backed=1", cancel: "/" };
+}
+
 // ——— Coverage-code generation (garden/stripe.ts's createCoverageCheckout) ———
 //
 // Same alphabet and shape as convex/invites.ts's generateCode and
@@ -650,6 +732,29 @@ export function splitBacking(grossCents: number): { platformCents: number; workC
   return { platformCents, workCents: grossCents - platformCents };
 }
 
+/** DECIDED 2026-09-18 (bead wonderwall-p7uf): card processing is added ON
+ * TOP of a backing at checkout, paid by the backer — the plan's rule (§3,
+ * "the payer covers it"), and the reason splitBacking above never has to
+ * think about it. Stripe's card rate is 2.9% + 30¢; this is the standard
+ * gross-up so the backing lands intact regardless of Stripe's own cut:
+ * charging `amountCents + fee` and paying Stripe 2.9% + 30¢ off that total
+ * leaves exactly `amountCents` for splitBacking. Rounds the total up so the
+ * backing is never a cent short.
+ *
+ * garden/stripe.ts's createBackingCheckout adds this as its own line item
+ * (never folded into the backing line item) and puts the true `amountCents`
+ * in metadata — mirrored onto the subscription for a monthly backing — so
+ * every reader of a backing's gross amount (checkout completion, a renewal
+ * invoice) reads the pre-fee number, never Stripe's `amount_total` /
+ * `amount_paid`, which include this fee. */
+export const CARD_FEE_RATE = 0.029;
+export const CARD_FEE_FIXED_CENTS = 30;
+
+export function backingProcessingFeeCents(amountCents: number): number {
+  const total = Math.ceil((amountCents + CARD_FEE_FIXED_CENTS) / (1 - CARD_FEE_RATE));
+  return total - amountCents;
+}
+
 /** Writes the owed-to-creative row for one payment on a backing, split by
  * splitBacking above (10%, then 5% above $1,000). Card processing is not in
  * here — the plan has the payer cover it on top. Idempotent by stripeRef. */
@@ -701,6 +806,11 @@ async function handleBackingCheckoutCompleted(
   const metadata = session.metadata ?? {};
   const { projectId, supportId, userId, supporterName, visible, tierId } = metadata;
   const type = session.mode === "subscription" ? "financial_recurring" : "financial_one_time";
+  // The pre-fee amount the backer actually chose (createBackingCheckout puts
+  // it in metadata). session.amount_total includes the processing-fee line
+  // item and must never be used as a backing's gross — see
+  // backingProcessingFeeCents' comment.
+  const metadataAmountCents = metadata.amountCents ? Number(metadata.amountCents) : undefined;
 
   if (supportId) {
     const existing = await db.getProjectSupportById(supportId);
@@ -718,7 +828,10 @@ async function handleBackingCheckoutCompleted(
         projectId: existing.projectId,
         supportId,
         backerUserId: userId || undefined,
-        grossCents: session.amount_total ?? existing.amountCents,
+        // existing.amountCents is the projectSupport row's own pre-fee
+        // amount (set at checkout creation, garden/support.ts's
+        // startBacking) — always authoritative, never Stripe's total.
+        grossCents: existing.amountCents,
         billing: session.mode === "subscription" ? "first" : "one_time",
         stripeRef: session.id,
         periodSeconds: session.created ?? Math.floor(Date.now() / 1000),
@@ -734,7 +847,11 @@ async function handleBackingCheckoutCompleted(
     return;
   }
 
-  const amountCents = session.amount_total ?? 0;
+  // Defensive fallback for a session with no pending projectSupport row
+  // (shouldn't happen — createBackingCheckout always calls startBacking
+  // first): metadata.amountCents if it's there, else the pre-fee session
+  // total as a last resort for an old session created before this shipped.
+  const amountCents = metadataAmountCents ?? session.amount_total ?? 0;
   if (amountCents <= 0) {
     console.warn("[stripe] backing checkout.session.completed has no amount", {
       sessionId: session.id,
@@ -1115,11 +1232,19 @@ async function handleBackingInvoicePaid(
     console.warn("[stripe] backing invoice.paid missing projectId metadata", { invoiceId: invoice.id });
     return;
   }
+  // createBackingCheckout mirrors amountCents onto subscription_data.metadata
+  // for exactly this: invoice.amount_paid on a renewal includes the
+  // processing-fee line item every month, same as the first invoice would.
+  // Fall back to it only for a subscription created before this metadata
+  // existed (none should exist yet — nothing has been collected on backings
+  // as of 2026-09-18 — but a bare number is a safer failure than a warn-and-
+  // drop on a real renewal).
+  const grossCents = metadata.amountCents ? Number(metadata.amountCents) : invoice.amount_paid;
   await recordBackingPayment(db, {
     projectId,
     ...(supportId ? { supportId } : {}),
     backerUserId: userId || undefined,
-    grossCents: invoice.amount_paid,
+    grossCents,
     billing: "renewal",
     stripeRef: invoice.id,
     periodSeconds: invoice.period_start ?? invoice.created,
