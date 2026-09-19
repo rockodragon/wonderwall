@@ -232,7 +232,7 @@ function makeConvexDb(ctx: MutationCtx): Db {
     },
 
     async insertProjectSupport(row) {
-      await ctx.db.insert("projectSupport", {
+      const id = await ctx.db.insert("projectSupport", {
         projectId: row.projectId as Id<"projects">,
         supporterUserId: row.supporterUserId as Id<"users"> | undefined,
         supporterName: row.supporterName,
@@ -243,6 +243,7 @@ function makeConvexDb(ctx: MutationCtx): Db {
         status: row.status,
         createdAt: Date.now(),
       });
+      return String(id);
     },
 
     async incrementProjectRaisedCents(projectId: string, amountCents: number) {
@@ -252,6 +253,36 @@ function makeConvexDb(ctx: MutationCtx): Db {
         raisedCents: (project.raisedCents ?? 0) + amountCents,
         updatedAt: Date.now(),
       });
+    },
+
+    async getBackingPaymentByRef(stripeRef: string) {
+      const row = await ctx.db
+        .query("backingPayments")
+        .withIndex("by_stripeRef", (q) => q.eq("stripeRef", stripeRef))
+        .unique();
+      return row ? { stripeRef: row.stripeRef } : null;
+    },
+
+    async insertBackingPayment(row) {
+      await ctx.db.insert("backingPayments", {
+        projectId: row.projectId as Id<"projects">,
+        supportId: row.supportId as Id<"projectSupport"> | undefined,
+        payeeUserId: row.payeeUserId as Id<"users"> | undefined,
+        backerUserId: row.backerUserId as Id<"users"> | undefined,
+        grossCents: row.grossCents,
+        platformCents: row.platformCents,
+        workCents: row.workCents,
+        billing: row.billing,
+        stripeRef: row.stripeRef,
+        period: row.period,
+        createdAt: Date.now(),
+      });
+    },
+
+    async getProjectLeadUserId(projectId: string) {
+      const id = ctx.db.normalizeId("projects", projectId);
+      const project = id ? await ctx.db.get(id) : null;
+      return project ? String(project.userId) : null;
     },
 
     async getCodeByCode(code: string) {

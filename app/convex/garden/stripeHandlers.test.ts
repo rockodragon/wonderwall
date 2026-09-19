@@ -8,6 +8,7 @@ import {
   extractCurrentPeriodEnd,
   handleStripeEvent,
   mapSubscriptionStatus,
+  splitBacking,
   validateBackingAmount,
   MIN_BACKING_CENTS,
   type BillingCustomerRow,
@@ -22,6 +23,7 @@ import {
   type StripeSubscriptionLike,
   type StripeWebhookEvent,
   type TicketPurchaseRow,
+  type BackingPaymentRow,
 } from "./stripeHandlers";
 import { deriveGardenUser } from "./entitlements";
 
@@ -42,6 +44,10 @@ function createFakeDb() {
   const projectSupport = new Map<string, ProjectSupportRow & { id: string }>();
   let nextSupportId = 1;
   const projectRaisedCents = new Map<string, number>(); // projectId -> accumulated cents
+  const backingPayments = new Map<string, BackingPaymentRow>(); // keyed by stripeRef
+  // projectId -> lead's userId. project_1 exists by default; a test that
+  // needs the project gone deletes it.
+  const projectLeads = new Map<string, string>([["project_1", "user_lead"]]);
   // Only "creatives-exchange" is seeded by default — tests that need it
   // absent (the "missing platform row" case) delete it first.
   const hostOrgsBySlug = new Map<string, string>([["creatives-exchange", PLATFORM_HOST_ORG_ID]]);
@@ -114,6 +120,16 @@ function createFakeDb() {
     async insertProjectSupport(row) {
       const id = `support_${nextSupportId++}`;
       projectSupport.set(id, { ...row, id });
+      return id;
+    },
+    async getBackingPaymentByRef(stripeRef) {
+      return backingPayments.has(stripeRef) ? { stripeRef } : null;
+    },
+    async insertBackingPayment(row) {
+      backingPayments.set(row.stripeRef, row);
+    },
+    async getProjectLeadUserId(projectId) {
+      return projectLeads.get(projectId) ?? null;
     },
     async incrementProjectRaisedCents(projectId, amountCents) {
       projectRaisedCents.set(projectId, (projectRaisedCents.get(projectId) ?? 0) + amountCents);
@@ -140,6 +156,8 @@ function createFakeDb() {
     hostOrgsBySlug,
     projectSupport,
     projectRaisedCents,
+    backingPayments,
+    projectLeads,
   };
 }
 
@@ -1233,6 +1251,201 @@ describe("checkout.session.completed — backing a project", () => {
       db,
     );
     expect(projectSupport.size).toBe(0);
+  });
+});
+
+// ——— Owed-to-creative ledger (bead wonderwall-7avu, step 1) ———
+
+function backingInvoiceFixture(overrides: Partial<StripeInvoiceLike> = {}): StripeInvoiceLike {
+  return {
+    id: "in_backing_2",
+    amount_paid: 1000,
+    created: 1_702_600_000, // Dec 2023
+    customer: "cus_patron",
+    subscription: "sub_backing",
+    billing_reason: "subscription_cycle",
+    parent: { subscription_details: { metadata: { ...BACKING_METADATA } } },
+    period_start: 1_702_600_000,
+    ...overrides,
+  };
+}
+
+describe("splitBacking — 10% out of the backing, 5% on the part above $1,000", () => {
+  it("takes 10% of an ordinary backing", () => {
+    expect(splitBacking(2500)).toEqual({ platformCents: 250, workCents: 2250 });
+    expect(splitBacking(50_000)).toEqual({ platformCents: 5_000, workCents: 45_000 });
+  });
+
+  it("is still a flat 10% at exactly $1,000", () => {
+    expect(splitBacking(100_000)).toEqual({ platformCents: 10_000, workCents: 90_000 });
+  });
+
+  it("takes 5% of only the part above $1,000", () => {
+    // $5,000: $100 on the first $1,000 + $200 on the next $4,000 = $300 (6%).
+    expect(splitBacking(500_000)).toEqual({ platformCents: 30_000, workCents: 470_000 });
+    // $25,000: $100 + $1,200 = $1,300 (5.2%) — under an arts fiscal sponsor's 7–8%.
+    expect(splitBacking(2_500_000)).toEqual({ platformCents: 130_000, workCents: 2_370_000 });
+  });
+
+  it("always adds back to the gross, with rounding on the platform side", () => {
+    for (const gross of [1, 5, 505, 1_005, 99_999, 100_001, 123_457, 2_500_001]) {
+      const { platformCents, workCents } = splitBacking(gross);
+      expect(platformCents + workCents).toBe(gross);
+      expect(Number.isInteger(platformCents)).toBe(true);
+    }
+    expect(splitBacking(1_005).platformCents).toBe(101); // 100.5 rounds up, to the platform
+  });
+
+  it("treats each payment on its own — a $50 monthly renewal is always 10%", () => {
+    expect(splitBacking(5_000)).toEqual({ platformCents: 500, workCents: 4_500 });
+  });
+});
+
+describe("backing payments — what each creative is owed", () => {
+  it("a confirmed one-time backing writes one owed row, 90% to the work", async () => {
+    const { db, projectSupport, backingPayments } = createFakeDb();
+    seedPendingBacking(projectSupport);
+
+    await handleStripeEvent(event("checkout.session.completed", backingSessionFixture()), db);
+
+    expect(backingPayments.size).toBe(1);
+    expect(backingPayments.get("cs_backing")).toEqual({
+      projectId: "project_1",
+      supportId: "support_pending",
+      payeeUserId: "user_lead",
+      backerUserId: "user_patron",
+      grossCents: 2500,
+      platformCents: 250,
+      workCents: 2250,
+      billing: "one_time",
+      stripeRef: "cs_backing",
+      period: "2023-11",
+    });
+  });
+
+  it("replaying the checkout event records the money once", async () => {
+    const { db, projectSupport, backingPayments } = createFakeDb();
+    seedPendingBacking(projectSupport);
+    const evt = event("checkout.session.completed", backingSessionFixture());
+
+    await handleStripeEvent(evt, db);
+    await handleStripeEvent(evt, db);
+
+    expect(backingPayments.size).toBe(1);
+  });
+
+  it("a pledge confirmed before the ledger existed is left to the backfill, not recorded on replay", async () => {
+    const { db, projectSupport, backingPayments } = createFakeDb();
+    seedPendingBacking(projectSupport, { status: "confirmed" });
+
+    await handleStripeEvent(event("checkout.session.completed", backingSessionFixture()), db);
+
+    // Recording it here too would double-count it once
+    // backfillBackingPayments has run.
+    expect(backingPayments.size).toBe(0);
+  });
+
+  it("a monthly backing's first charge is billing 'first'", async () => {
+    const { db, projectSupport, backingPayments } = createFakeDb();
+    seedPendingBacking(projectSupport, { type: "financial_recurring", amountCents: 1000 });
+
+    await handleStripeEvent(
+      event(
+        "checkout.session.completed",
+        backingSessionFixture({ mode: "subscription", subscription: "sub_backing", amount_total: 1000 }),
+      ),
+      db,
+    );
+
+    expect(backingPayments.get("cs_backing")).toMatchObject({
+      billing: "first",
+      grossCents: 1000,
+      platformCents: 100,
+      workCents: 900,
+    });
+  });
+
+  it("the fallback insert path links the payment to the row it just created", async () => {
+    const { db, projectSupport, backingPayments } = createFakeDb();
+
+    await handleStripeEvent(event("checkout.session.completed", backingSessionFixture()), db);
+
+    const [supportId] = [...projectSupport.keys()];
+    expect(backingPayments.get("cs_backing")).toMatchObject({ supportId, workCents: 2250 });
+  });
+
+  it("each renewal of a monthly backing is owed too — month two onward used to go unrecorded", async () => {
+    const { db, backingPayments } = createFakeDb();
+
+    await handleStripeEvent(event("invoice.paid", backingInvoiceFixture()), db);
+    await handleStripeEvent(
+      event("invoice.paid", backingInvoiceFixture({ id: "in_backing_3", period_start: 1_705_300_000 })),
+      db,
+    );
+
+    expect(backingPayments.size).toBe(2);
+    expect(backingPayments.get("in_backing_2")).toMatchObject({
+      billing: "renewal",
+      supportId: "support_pending",
+      payeeUserId: "user_lead",
+      grossCents: 1000,
+      workCents: 900,
+      period: "2023-12",
+    });
+    expect(backingPayments.get("in_backing_3")?.period).toBe("2024-01");
+  });
+
+  it("a renewal replay records once", async () => {
+    const { db, backingPayments } = createFakeDb();
+    const evt = event("invoice.paid", backingInvoiceFixture());
+
+    await handleStripeEvent(evt, db);
+    await handleStripeEvent(evt, db);
+
+    expect(backingPayments.size).toBe(1);
+  });
+
+  it("skips the subscription's first invoice — checkout completion already recorded it", async () => {
+    const { db, backingPayments } = createFakeDb();
+
+    await handleStripeEvent(
+      event("invoice.paid", backingInvoiceFixture({ billing_reason: "subscription_create" })),
+      db,
+    );
+
+    expect(backingPayments.size).toBe(0);
+  });
+
+  it("a renewal leaves the public raised total alone", async () => {
+    const { db, projectRaisedCents } = createFakeDb();
+
+    await handleStripeEvent(event("invoice.paid", backingInvoiceFixture()), db);
+
+    expect(projectRaisedCents.get("project_1")).toBeUndefined();
+  });
+
+  it("money for a project that's gone is still recorded, with no payee", async () => {
+    const { db, backingPayments, projectLeads } = createFakeDb();
+    projectLeads.delete("project_1");
+
+    await handleStripeEvent(event("invoice.paid", backingInvoiceFixture()), db);
+
+    const row = backingPayments.get("in_backing_2");
+    expect(row).toMatchObject({ grossCents: 1000, workCents: 900 });
+    expect(row?.payeeUserId).toBeUndefined();
+  });
+
+  it("the two shares always add back up to what was paid", async () => {
+    const { db, backingPayments } = createFakeDb();
+    for (const [i, cents] of [999, 1001, 505, 3333].entries()) {
+      await handleStripeEvent(
+        event("invoice.paid", backingInvoiceFixture({ id: `in_round_${i}`, amount_paid: cents })),
+        db,
+      );
+    }
+    for (const row of backingPayments.values()) {
+      expect(row.platformCents + row.workCents).toBe(row.grossCents);
+    }
   });
 });
 

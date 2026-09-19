@@ -25,6 +25,7 @@ import {
   type ContributionLike,
 } from "./allocations";
 import { computeHostEarnings, type EarningsLike } from "./products";
+import { buildCreativeEarningsRows } from "./payouts";
 import { assertCanManageCommunity, normalizeCommunity, COMMUNITY_KIND } from "./communities";
 
 // ——————————————————————————————————————————————————————————————
@@ -416,6 +417,8 @@ export const getPlatformReport = query({
       hostPayouts,
       ticketPurchases,
       events,
+      backingPayments,
+      creativePayouts,
     ] = await Promise.all([
       ctx.db.query("hostOrgs").collect(),
       ctx.db.query("communityMembers").collect(),
@@ -429,6 +432,8 @@ export const getPlatformReport = query({
       ctx.db.query("hostPayouts").collect(),
       ctx.db.query("ticketPurchases").collect(),
       ctx.db.query("events").collect(),
+      ctx.db.query("backingPayments").collect(),
+      ctx.db.query("creativePayouts").collect(),
     ]);
 
     const hostOrgById = new Map(hostOrgs.map((o) => [String(o._id), o]));
@@ -545,6 +550,49 @@ export const getPlatformReport = query({
         activeProducts,
       );
     });
+
+    // ——— Creative earnings: owed vs paid on backings (bead wonderwall-7avu) ———
+    // Names and project titles are looked up only for the people and projects
+    // that actually appear on the ledger, not every profile on the platform.
+    const payeeIds = new Set<string>();
+    for (const p of backingPayments) if (p.payeeUserId) payeeIds.add(String(p.payeeUserId));
+    for (const p of creativePayouts) payeeIds.add(String(p.payeeUserId));
+    const projectIds = new Set(backingPayments.map((p) => String(p.projectId)));
+    const [payeeProfiles, ledgerProjects] = await Promise.all([
+      Promise.all(
+        [...payeeIds].map((id) =>
+          ctx.db
+            .query("profiles")
+            .withIndex("by_userId", (q) => q.eq("userId", id as Id<"users">))
+            .unique(),
+        ),
+      ),
+      Promise.all([...projectIds].map((id) => ctx.db.get(id as Id<"projects">))),
+    ]);
+    const payeeProfileById = new Map(
+      payeeProfiles.filter((pr) => pr !== null).map((pr) => [String(pr!.userId), pr!]),
+    );
+    const projectTitleById = new Map(
+      ledgerProjects.filter((pj) => pj !== null).map((pj) => [String(pj!._id), pj!.title]),
+    );
+    const creativeEarnings = buildCreativeEarningsRows(
+      backingPayments.map((p) => ({
+        payeeUserId: p.payeeUserId ? String(p.payeeUserId) : undefined,
+        projectId: String(p.projectId),
+        grossCents: p.grossCents,
+        platformCents: p.platformCents,
+        workCents: p.workCents,
+      })),
+      creativePayouts.map((p) => ({ payeeUserId: String(p.payeeUserId), amountCents: p.amountCents })),
+      {
+        name: (id) => payeeProfileById.get(id)?.name,
+        profileId: (id) => {
+          const pr = payeeProfileById.get(id);
+          return pr ? String(pr._id) : undefined;
+        },
+        projectTitle: (id) => projectTitleById.get(id),
+      },
+    );
 
     // ——— Communities: membership breakdown per community ———
     const membersByOrg = new Map<string, typeof communityMembers>();
@@ -699,6 +747,7 @@ export const getPlatformReport = query({
       fees,
       pools,
       hostEarnings,
+      creativeEarnings,
       communities,
       memberships: { ...membershipsSummary, coverageCodes: coverageCodesOut },
       recent,

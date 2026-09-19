@@ -1386,6 +1386,57 @@ export default defineSchema({
     createdAt: v.number(),
   }).index("by_hostOrgId", ["hostOrgId"]),
 
+  // Payout rail, step 1 (bead wonderwall-7avu; docs/features/entitlements-
+  // live-status.md § Payout rail). One row per PAYMENT received on a backing
+  // — a one-time backing writes one, a monthly backer writes one a month —
+  // carrying the split at the time of payment (stripeHandlers.ts's
+  // splitBacking — 10%, then 5% of the part above $1,000). `workCents` accrues as
+  // OWED to the payee until creativePayouts records it paid; what a creative
+  // is owed is sum(workCents) − sum(their creativePayouts). Separate from
+  // projectSupport on purpose: that table is one row per backer, and a
+  // recurring backer pays many times.
+  backingPayments: defineTable({
+    projectId: v.id("projects"),
+    // The projectSupport row this payment belongs to. Absent only on a
+    // payment whose support row was never created (a pre-pending-row
+    // session) — the money is still recorded.
+    supportId: v.optional(v.id("projectSupport")),
+    // Who the work's share is owed to: the project's lead at the time the
+    // money arrived. Absent when the project was gone by then — the payment
+    // is still on the ledger, unassigned, for an operator to resolve, never
+    // silently dropped.
+    payeeUserId: v.optional(v.id("users")),
+    backerUserId: v.optional(v.id("users")),
+    grossCents: v.number(), // what the backer paid for the backing itself
+    platformCents: v.number(), // splitBacking at the time of payment
+    workCents: v.number(), // owed until paid out
+    billing: v.string(), // "one_time" | "first" (a recurring backing's first charge) | "renewal" | "backfill"
+    // Idempotency key: checkout session id (first payment), invoice id
+    // (renewal), or "backfill:{supportId}" for a pledge collected before
+    // this table existed (garden/payouts.ts's backfillBackingPayments).
+    stripeRef: v.string(),
+    period: v.string(), // "YYYY-MM", UTC — same convention as productPurchases
+    createdAt: v.number(),
+  })
+    .index("by_stripeRef", ["stripeRef"])
+    .index("by_payeeUserId", ["payeeUserId"])
+    .index("by_supportId", ["supportId"])
+    .index("by_projectId", ["projectId"]),
+
+  // Manual transfers of a creative's owed backing share — the creative-side
+  // twin of hostPayouts above, recorded by an operator on /admin/ledger
+  // (garden/payouts.ts's recordCreativePayout) until Stripe Connect ships in
+  // Phase 3 (7avu step 2).
+  creativePayouts: defineTable({
+    payeeUserId: v.id("users"),
+    amountCents: v.number(),
+    reference: v.optional(v.string()), // Zelle/bank memo
+    note: v.optional(v.string()),
+    paidAt: v.number(),
+    recordedByUserId: v.id("users"),
+    createdAt: v.number(),
+  }).index("by_payeeUserId", ["payeeUserId"]),
+
   // Story updates (W3) — the credit-carrying timeline on public story pages.
   storyUpdates: defineTable({
     projectId: v.id("projects"),
