@@ -979,10 +979,12 @@ export function splitClassSale(priceCents: number): { platformCents: number; tea
   return { platformCents, teacherCents: hostCents };
 }
 
-export interface ClassCheckoutRefusal {
+// A type alias, not an interface: it is thrown as a ConvexError payload, and
+// an interface has no index signature so Convex's Value type rejects it.
+export type ClassCheckoutRefusal = {
   code: string;
   reason: string;
-}
+};
 
 /** Null when this student can start a checkout for this class; otherwise the
  * refusal to throw, its `reason` in plain words for the student. Pure so the
