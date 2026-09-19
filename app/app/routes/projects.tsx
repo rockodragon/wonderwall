@@ -15,6 +15,7 @@ import {
 } from "../components/CommunityFilter";
 import { resolveStage, stageLabel, STAGES } from "../lib/stage";
 import { ChevronDownIcon, FilterIcon } from "../components/icons";
+import { CLAIMS } from "../constants/claims";
 
 const KIND_FILTERS = [
   { label: "All", value: "" },
@@ -1639,8 +1640,8 @@ export function SupportModal({ project, onClose }: { project: any; onClose: () =
                   style={{ color: "var(--garden-citron)", backgroundColor: "rgba(215,242,90,0.1)" }}
                 >
                   ${MIN_BACKING_DOLLARS} minimum
-                  {type === "financial_recurring" ? ", charged monthly until you cancel" : type === "financial_annual" ? ", charged annually until you cancel" : ""}.
-                  Next step is secure checkout — your card is charged there, not here.
+                  {type === "financial_recurring" ? ", charged monthly until you cancel" : type === "financial_annual" ? ", charged annually until you cancel" : ""}.{" "}
+                  {CLAIMS.processingFee} Next step is secure checkout — your card is charged there, not here.
                 </p>
               </div>
             )}

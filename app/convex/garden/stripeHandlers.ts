@@ -650,6 +650,29 @@ export function splitBacking(grossCents: number): { platformCents: number; workC
   return { platformCents, workCents: grossCents - platformCents };
 }
 
+/** DECIDED 2026-09-18 (bead wonderwall-p7uf): card processing is added ON
+ * TOP of a backing at checkout, paid by the backer — the plan's rule (§3,
+ * "the payer covers it"), and the reason splitBacking above never has to
+ * think about it. Stripe's card rate is 2.9% + 30¢; this is the standard
+ * gross-up so the backing lands intact regardless of Stripe's own cut:
+ * charging `amountCents + fee` and paying Stripe 2.9% + 30¢ off that total
+ * leaves exactly `amountCents` for splitBacking. Rounds the total up so the
+ * backing is never a cent short.
+ *
+ * garden/stripe.ts's createBackingCheckout adds this as its own line item
+ * (never folded into the backing line item) and puts the true `amountCents`
+ * in metadata — mirrored onto the subscription for a monthly backing — so
+ * every reader of a backing's gross amount (checkout completion, a renewal
+ * invoice) reads the pre-fee number, never Stripe's `amount_total` /
+ * `amount_paid`, which include this fee. */
+export const CARD_FEE_RATE = 0.029;
+export const CARD_FEE_FIXED_CENTS = 30;
+
+export function backingProcessingFeeCents(amountCents: number): number {
+  const total = Math.ceil((amountCents + CARD_FEE_FIXED_CENTS) / (1 - CARD_FEE_RATE));
+  return total - amountCents;
+}
+
 /** Writes the owed-to-creative row for one payment on a backing, split by
  * splitBacking above (10%, then 5% above $1,000). Card processing is not in
  * here — the plan has the payer cover it on top. Idempotent by stripeRef. */
@@ -701,6 +724,11 @@ async function handleBackingCheckoutCompleted(
   const metadata = session.metadata ?? {};
   const { projectId, supportId, userId, supporterName, visible, tierId } = metadata;
   const type = session.mode === "subscription" ? "financial_recurring" : "financial_one_time";
+  // The pre-fee amount the backer actually chose (createBackingCheckout puts
+  // it in metadata). session.amount_total includes the processing-fee line
+  // item and must never be used as a backing's gross — see
+  // backingProcessingFeeCents' comment.
+  const metadataAmountCents = metadata.amountCents ? Number(metadata.amountCents) : undefined;
 
   if (supportId) {
     const existing = await db.getProjectSupportById(supportId);
@@ -718,7 +746,10 @@ async function handleBackingCheckoutCompleted(
         projectId: existing.projectId,
         supportId,
         backerUserId: userId || undefined,
-        grossCents: session.amount_total ?? existing.amountCents,
+        // existing.amountCents is the projectSupport row's own pre-fee
+        // amount (set at checkout creation, garden/support.ts's
+        // startBacking) — always authoritative, never Stripe's total.
+        grossCents: existing.amountCents,
         billing: session.mode === "subscription" ? "first" : "one_time",
         stripeRef: session.id,
         periodSeconds: session.created ?? Math.floor(Date.now() / 1000),
@@ -734,7 +765,11 @@ async function handleBackingCheckoutCompleted(
     return;
   }
 
-  const amountCents = session.amount_total ?? 0;
+  // Defensive fallback for a session with no pending projectSupport row
+  // (shouldn't happen — createBackingCheckout always calls startBacking
+  // first): metadata.amountCents if it's there, else the pre-fee session
+  // total as a last resort for an old session created before this shipped.
+  const amountCents = metadataAmountCents ?? session.amount_total ?? 0;
   if (amountCents <= 0) {
     console.warn("[stripe] backing checkout.session.completed has no amount", {
       sessionId: session.id,
@@ -1115,11 +1150,19 @@ async function handleBackingInvoicePaid(
     console.warn("[stripe] backing invoice.paid missing projectId metadata", { invoiceId: invoice.id });
     return;
   }
+  // createBackingCheckout mirrors amountCents onto subscription_data.metadata
+  // for exactly this: invoice.amount_paid on a renewal includes the
+  // processing-fee line item every month, same as the first invoice would.
+  // Fall back to it only for a subscription created before this metadata
+  // existed (none should exist yet — nothing has been collected on backings
+  // as of 2026-09-18 — but a bare number is a safer failure than a warn-and-
+  // drop on a real renewal).
+  const grossCents = metadata.amountCents ? Number(metadata.amountCents) : invoice.amount_paid;
   await recordBackingPayment(db, {
     projectId,
     ...(supportId ? { supportId } : {}),
     backerUserId: userId || undefined,
-    grossCents: invoice.amount_paid,
+    grossCents,
     billing: "renewal",
     stripeRef: invoice.id,
     periodSeconds: invoice.period_start ?? invoice.created,

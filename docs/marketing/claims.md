@@ -14,6 +14,7 @@ Every sentence we say about money is defined here, word for word. Do not write a
 | **join** | Joining is free. |
 | **backing** | When someone backs you for $100, you get $90. The other $10 runs the platform. |
 | **backing, short** | You keep 90% of what a backer gives you. |
+| **processing fee** | Card processing is added on top of your backing. |
 | **large gift** | On the part of any gift over $1,000, we take 5%, not 10%. |
 | **payout** | For now we keep track of what you're owed and pay it out to you ourselves. |
 | **host split** | Hosting is free. You keep 90% of what you sell. |
@@ -29,7 +30,7 @@ Every sentence we say about money is defined here, word for word. Do not write a
 
 ## Where these sentences live
 
-**Imported, so they change with `claims.ts`:** the home page, the `/for/...` audience pages, `/ia`, and the demo pages (`demo.create`, `demo.join`, `demo.host.dashboard`).
+**Imported, so they change with `claims.ts`:** the home page, the `/for/...` audience pages, `/ia`, the backing modal on `/projects`, and the demo pages (`demo.create`, `demo.join`, `demo.host.dashboard`).
 
 **Hand copies, because the file can't import anything.** Change these by hand when a claim changes:
 
