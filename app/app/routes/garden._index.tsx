@@ -220,9 +220,9 @@ export default function GardenIndex() {
         </div>
       </div>
 
-      {/* The money, in the open */}
+      {/* The grant fund */}
       <div style={{ marginTop: 56 }}>
-        <SectionLabel>The money, in the open</SectionLabel>
+        <SectionLabel>The grant fund</SectionLabel>
         {fund === undefined ? (
           <div style={{ marginTop: 12 }}>
             <GardenLoading />
@@ -239,13 +239,12 @@ export default function GardenIndex() {
               to="/fund/abiding-practice"
               style={{ display: "inline-block", marginTop: 14, fontSize: 14.5, color: "var(--g-citron)" }}
             >
-              See the ledger →
+              See the fund →
             </Link>
           </div>
         ) : (
           <p style={{ marginTop: 12, fontSize: 14.5, maxWidth: "50ch" }}>
-            Allocations are published in the open — the first ones land this
-            fall.
+            The first grants go out this fall.
           </p>
         )}
       </div>

@@ -7,6 +7,7 @@ import { SiteHeader } from "../components/SiteHeader";
 import { WaitlistFollowUpDark } from "../components/WaitlistFollowUpDark";
 import { CAMPAIGN_IMAGES, CAMPAIGN_QUOTES } from "../lib/campaign";
 import { Reveal } from "../hooks/useReveal";
+import { CLAIMS } from "../constants/claims";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -220,7 +221,7 @@ export default function Home() {
             <ul className="flex flex-col gap-3 text-[15px] leading-[1.5] text-[var(--garden-body)]">
               <li className="flex gap-3">
                 <span className="text-[var(--garden-citron)] shrink-0" aria-hidden="true">—</span>
-                <span>Free to join. When someone backs you, you keep all of it.</span>
+                <span>Free to join. {CLAIMS.backingShort}</span>
               </li>
             </ul>
 
@@ -328,8 +329,8 @@ export default function Home() {
               <p className="text-base md:text-lg leading-[1.6] text-[var(--garden-body)] mb-8" style={{ textWrap: "pretty" }}>
                 Get found by what you make and where you are. Post paid or
                 passion projects, find collaborators, and set crowdfunding
-                targets with real deadlines. Join a community. Find a coach.
-                When someone backs you, you keep all of it.
+                targets with real deadlines. Join a community. Find a coach.{" "}
+                {CLAIMS.backingShort}
               </p>
               <div className="flex items-center gap-3">
                 <Link
@@ -502,9 +503,7 @@ export default function Home() {
               Grant funds
             </h3>
             <p className="text-base leading-[1.6] text-[var(--garden-body)]" style={{ textWrap: "pretty" }}>
-              Half of every membership feeds a project pool, and communities
-              can run funds of their own. Members propose, and every award
-              is published on a public ledger.
+              {CLAIMS.pool} Communities can run funds of their own.
             </p>
           </div>
           <Link

@@ -269,7 +269,7 @@ export default function IAPage() {
         </div>
         <p style={{ marginTop: 14, fontSize: 14.5, color: "var(--g-dim)", lineHeight: 1.6, maxWidth: "62ch" }}>
           Money words (Seat, Patron, Project, Fellowship) stay the same
-          everywhere because they show up in receipts and public ledgers.
+          everywhere because they show up on receipts.
           Gathering words may vary by community — Abiding Practice says
           Cohorts, The Rabbit Room says Chapters. That's an open question,
           see below.

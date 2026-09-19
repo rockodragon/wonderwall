@@ -353,8 +353,8 @@ export default function PatronFlow() {
             <SplitBar who={door === "named" ? "his seat" : "one person's seat"} />
             <p className="g-hint" style={{ marginTop: 8 }}>
               Patronage splits {SPLITS.patronage.work * 100}/
-              {SPLITS.patronage.platform * 100}, published — ninety cents of
-              every dollar reaches the work.
+              {SPLITS.patronage.platform * 100}. Ninety cents of each dollar
+              reaches the work.
             </p>
 
             <Field label="Your name, as it will appear">

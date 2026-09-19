@@ -4,23 +4,25 @@ import { CampaignBand } from "../components/CampaignBand";
 import type { CampaignImageKey } from "../lib/campaign";
 import { SiteHeader } from "../components/SiteHeader";
 import { Reveal } from "../hooks/useReveal";
+import { CLAIMS } from "../constants/claims";
 
 // Public audience pages — one per constituent door in
 // docs/marketing/constituent-playbook.md. Deliberately OUTSIDE the _app.tsx
 // layout (which sends logged-out visitors to /login, routes/_app.tsx:42):
 // these exist to be handed to someone who has never heard of us.
 //
-// Copy rules the playbook fixes and this file must keep:
+// Copy rules this file must keep:
+//   - Every sentence about money comes from constants/claims.ts (twin of
+//     docs/marketing/claims.md). Don't write a new one here. The "never say"
+//     list lives in that doc; claims.test.ts enforces the dropped phrases.
 //   - "Get your work funded" describes the platform and is fine. Promising a
 //     named person their project WILL be funded is not.
 //   - A backing pays the creative 90%: the platform's 10% comes out of the
 //     backing (5% on the part of any single gift above $1,000). Decided
-//     2026-09-18 — the earlier "you keep 100%, the backer pays our fee on
-//     top" promise is dropped; never bring it back. Never claim a payout
-//     speed — no cadence is set.
+//     2026-09-18. Never claim a payout speed — no cadence is set.
 //   - Payouts are made by hand until the payout rail ships (bead
-//     wonderwall-7avu): say we track earnings and pay them out ourselves.
-//     Don't imply automatic or instant transfers.
+//     wonderwall-7avu): CLAIMS.payout says so. Don't imply automatic or
+//     instant transfers.
 //   - Grant money: dues shares (50%) fill the PLATFORM project pool
 //     (/fund/creatives-exchange); operators decide proposals to it. Abiding
 //     Practice's 501(c)(3) fund is a separate, off-platform lane. Never say a
@@ -76,11 +78,11 @@ const AUDIENCES: Audience[] = [
     points: [
       {
         title: "You keep 90%",
-        body: "When someone backs you for $100, you get $90. The other $10 runs the platform. On the part of any gift over $1,000, we take 5%, not 10%. For now we keep track of what you're owed and pay it out to you ourselves.",
+        body: `${CLAIMS.backing} ${CLAIMS.largeGift} ${CLAIMS.payout}`,
       },
       {
         title: "There's money set aside for your work",
-        body: "Half of every membership goes into a project pool. Paid members propose; operators review and every grant is posted publicly, so you can see who got what.",
+        body: CLAIMS.pool,
       },
       {
         title: "Real work, from people nearby",
@@ -96,7 +98,7 @@ const AUDIENCES: Audience[] = [
       },
     ],
     cost:
-      "Joining is free and stays free. A seat is $10 a month when you're ready to be funded. It lets you start projects, apply for work, and propose to a grant fund. Half of your $10 goes to fund another creative.",
+      `${CLAIMS.join} ${CLAIMS.membership} Half of your $10 goes to fund another creative.`,
     ctaLabel: "Find collaborators",
     ctaTo: "/join",
     ctaLabel2: "Find paid work",
@@ -106,7 +108,7 @@ const AUDIENCES: Audience[] = [
     bandImages: ["shua", "june"],
     metaTitle: "Find your people, get paid — creatives.exchange",
     metaDescription:
-      "Find paid work, get backed by people who believe in you, and apply for grants. Joining is free. When someone backs you for $100, you get $90.",
+      `Find paid work, get backed by people who believe in you, and apply for grants. ${CLAIMS.join} ${CLAIMS.backingShort}`,
   },
   {
     slug: "hosts",
@@ -157,7 +159,7 @@ const AUDIENCES: Audience[] = [
       },
       {
         title: "You watch it get made",
-        body: "Updates as the work comes together. The finished piece when it's done. Your name on it.",
+        body: "Updates as the work comes together. The finished piece when it's done. Your name on it, if you want it there.",
       },
       {
         title: "Back more than one way",
@@ -165,7 +167,7 @@ const AUDIENCES: Audience[] = [
       },
       {
         title: "Give to a grant fund",
-        body: "Every community can run one. The Garden's is administered by Abiding Practice, a 501(c)(3), so gifts there are tax-deductible. Every grant, from any fund, is posted publicly.",
+        body: `Every community can run one. ${CLAIMS.grantFund}`,
       },
     ],
     cost: "A patron account is free. You decide what to give, and when. Larger commitments to a grant fund are worth a conversation — those are the gifts a creative can plan around.",
@@ -183,7 +185,7 @@ const AUDIENCES: Audience[] = [
     eyebrow: "For churches",
     headline: "Support the creatives in your church.",
     subhead:
-      "$10 a month opens the door for one of them. You can see exactly what it did.",
+      CLAIMS.coverage,
     points: [
       {
         title: "They get everything, not a discount",
@@ -199,7 +201,7 @@ const AUDIENCES: Audience[] = [
       },
       {
         title: "Where it goes",
-        body: "Half of every seat funds the grant program. The other half keeps this running. Every grant that goes out is public.",
+        body: "Half of every seat funds the grant program. The other half keeps this running.",
       },
     ],
     cost:
@@ -209,12 +211,12 @@ const AUDIENCES: Audience[] = [
     // Dues shares land on the PLATFORM pool row (stripeHandlers.ts
     // handleInvoicePaid -> "creatives-exchange"), not on Abiding Practice's
     // off-platform fund — so "see what it pays for" must point at that ledger.
-    ctaLabel2: "See the project pool ledger",
+    ctaLabel2: "See the project pool",
     ctaTo2: "/fund/creatives-exchange",
     bandImages: ["church", "busker"],
     metaTitle: "For churches — creatives.exchange",
     metaDescription:
-      "Cover seats for the creatives in your church. $10 a month per seat, one code for your whole group, and a clear record of where it went.",
+      "Cover seats for the creatives in your church. $10 a month per seat, and one code for your whole group.",
   },
   {
     slug: "partners",
