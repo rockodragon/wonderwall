@@ -5,6 +5,13 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  backingReturnPaths,
+  guestBackingRefusal,
+  guestBackingThrottled,
+  resolveGuestSupporterName,
+  GUEST_RECURRING_REASON,
+  GUEST_NAME_MAX_LENGTH,
+  GUEST_PENDING_PER_PROJECT_PER_HOUR,
   extractCurrentPeriodEnd,
   handleStripeEvent,
   mapSubscriptionStatus,
@@ -1446,6 +1453,109 @@ describe("backing payments — what each creative is owed", () => {
     for (const row of backingPayments.values()) {
       expect(row.platformCents + row.workCents).toBe(row.grossCents);
     }
+  });
+});
+
+// ——— Guest backing (bead wonderwall-uh90) ———
+
+const { userId: _guestDropsUserId, ...GUEST_BACKING_METADATA } = BACKING_METADATA;
+
+describe("guest backing — someone with no account backs a project", () => {
+  it("a guest's pending row is confirmed and owed like any other", async () => {
+    const { db, projectSupport, backingPayments } = createFakeDb();
+    seedPendingBacking(projectSupport, { supporterUserId: undefined, supporterName: "Maya" });
+
+    await handleStripeEvent(
+      event(
+        "checkout.session.completed",
+        backingSessionFixture({ customer: null, metadata: { ...GUEST_BACKING_METADATA } }),
+      ),
+      db,
+    );
+
+    expect(projectSupport.get("support_pending")).toMatchObject({ status: "confirmed", supporterName: "Maya" });
+    expect(projectSupport.get("support_pending")?.supporterUserId).toBeUndefined();
+    const row = backingPayments.get("cs_backing");
+    expect(row).toMatchObject({ grossCents: 2500, workCents: 2250, payeeUserId: "user_lead" });
+    expect(row?.backerUserId).toBeUndefined();
+  });
+});
+
+describe("guestBackingRefusal — monthly needs an account", () => {
+  it("lets a guest give once", () => {
+    expect(guestBackingRefusal({ recurring: false })).toBeNull();
+  });
+
+  it("turns a guest away from monthly (and yearly), pointing them to sign in", () => {
+    expect(guestBackingRefusal({ recurring: true })).toBe(GUEST_RECURRING_REASON);
+    expect(GUEST_RECURRING_REASON).toMatch(/account/);
+  });
+});
+
+describe("resolveGuestSupporterName", () => {
+  it("keeps a real name, trimmed and with runs of spaces collapsed", () => {
+    expect(resolveGuestSupporterName("  Maya   Lopez ", true)).toEqual({ name: "Maya Lopez" });
+  });
+
+  it("needs a name for a named backing", () => {
+    expect(resolveGuestSupporterName("", true)).toEqual({
+      error: "Add your name, or choose to back anonymously.",
+    });
+    expect(resolveGuestSupporterName("   ", true)).toHaveProperty("error");
+    expect(resolveGuestSupporterName(undefined, true)).toHaveProperty("error");
+  });
+
+  it("doesn't need one to back anonymously", () => {
+    expect(resolveGuestSupporterName(undefined, false)).toEqual({ name: "Anonymous" });
+    expect(resolveGuestSupporterName("Maya", false)).toEqual({ name: "Maya" });
+  });
+
+  it("strips control characters so a pasted name can't break a layout", () => {
+    const nul = String.fromCharCode(0);
+    const newline = String.fromCharCode(10);
+    const del = String.fromCharCode(127);
+    expect(resolveGuestSupporterName(`Maya${nul}${newline}Lopez${del}`, true)).toEqual({ name: "Maya Lopez" });
+  });
+
+  it("caps the length", () => {
+    const long = "x".repeat(GUEST_NAME_MAX_LENGTH + 40);
+    const result = resolveGuestSupporterName(long, true);
+    expect("name" in result && result.name.length).toBe(GUEST_NAME_MAX_LENGTH);
+  });
+});
+
+describe("guestBackingThrottled", () => {
+  it("stops a flood of guest checkouts on one project", () => {
+    expect(guestBackingThrottled(GUEST_PENDING_PER_PROJECT_PER_HOUR)).toBe(true);
+    expect(guestBackingThrottled(GUEST_PENDING_PER_PROJECT_PER_HOUR + 50)).toBe(true);
+  });
+
+  it("never gets near a room full of people backing at once", () => {
+    expect(guestBackingThrottled(150)).toBe(false);
+    expect(guestBackingThrottled(GUEST_PENDING_PER_PROJECT_PER_HOUR - 1)).toBe(false);
+  });
+});
+
+describe("backingReturnPaths", () => {
+  it("a member goes back to the project page, as before", () => {
+    expect(backingReturnPaths({ signedIn: true, projectId: "p1", storySlug: "psalms" })).toEqual({
+      success: "/projects/p1?backed=1",
+      cancel: "/projects/p1",
+    });
+  });
+
+  it("a guest goes back to the public story page, not a sign-in wall", () => {
+    expect(backingReturnPaths({ signedIn: false, projectId: "p1", storySlug: "psalms" })).toEqual({
+      success: "/story/psalms?backed=1",
+      cancel: "/story/psalms",
+    });
+  });
+
+  it("a guest on a project with no story link goes home", () => {
+    expect(backingReturnPaths({ signedIn: false, projectId: "p1" })).toEqual({
+      success: "/?backed=1",
+      cancel: "/",
+    });
   });
 });
 
