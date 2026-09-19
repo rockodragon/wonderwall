@@ -9,7 +9,7 @@
 import { useState } from "react";
 import { useAction, useConvexAuth, useQuery } from "convex/react";
 import { ConvexError } from "convex/values";
-import { useParams, useRouteError, useSearchParams } from "react-router";
+import { useLocation, useNavigate, useParams, useRouteError, useSearchParams } from "react-router";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import {
@@ -24,6 +24,7 @@ import {
 } from "../garden/ui";
 import { RichContent } from "../components/RichContent";
 import { CLAIMS } from "../constants/claims";
+import { setPendingIntent } from "../lib/pendingIntent";
 import "../garden/garden.css";
 
 export function meta() {
@@ -65,7 +66,10 @@ function SponsorCredit({ line }: { line: string }) {
 // it's the one place someone without an account can back a creative. It
 // calls the same createBackingCheckout the signed-in Support modal does; a
 // guest types a name (or stays anonymous) and Stripe collects the card and
-// email. Money words follow stripe.ts: "back"/"support", never "donate".
+// email. A guest gives once: monthly needs an account, so the backer can
+// stop it from Settings (stripeHandlers.ts's guestBackingRefusal is the
+// server's version of this rule). Money words follow stripe.ts:
+// "back"/"support", never "donate".
 
 const PRESETS_CENTS = [1000, 2500, 5000, 10000]; // $10 · $25 · $50 · $100
 // Twin of MIN_BACKING_CENTS in convex/garden/stripeHandlers.ts. The server is
@@ -120,11 +124,24 @@ function ChoiceButton({
   );
 }
 
+const LINK_BUTTON: React.CSSProperties = {
+  background: "none",
+  border: "none",
+  padding: 0,
+  cursor: "pointer",
+  textDecoration: "underline",
+};
+
 function SupportForm({ projectId, onCancel }: { projectId: Id<"projects">; onCancel: () => void }) {
   const { isAuthenticated } = useConvexAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
   const createBackingCheckout = useAction(api.garden.stripe.createBackingCheckout);
 
-  const [monthly, setMonthly] = useState(false);
+  const [monthlyChoice, setMonthly] = useState(false);
+  // Only a member can give monthly; a guest who signs out mid-form drops
+  // back to once rather than hitting the server's refusal.
+  const monthly = isAuthenticated && monthlyChoice;
   const [preset, setPreset] = useState<number | null>(2500);
   const [otherDollars, setOtherDollars] = useState("");
   const [name, setName] = useState("");
@@ -168,10 +185,12 @@ function SupportForm({ projectId, onCancel }: { projectId: Id<"projects">; onCan
 
   return (
     <form onSubmit={handleSubmit} style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 14 }}>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-        <ChoiceButton on={!monthly} onClick={() => setMonthly(false)}>Once</ChoiceButton>
-        <ChoiceButton on={monthly} onClick={() => setMonthly(true)}>Monthly</ChoiceButton>
-      </div>
+      {isAuthenticated && (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+          <ChoiceButton on={!monthly} onClick={() => setMonthly(false)}>Once</ChoiceButton>
+          <ChoiceButton on={monthly} onClick={() => setMonthly(true)}>Monthly</ChoiceButton>
+        </div>
+      )}
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
         {PRESETS_CENTS.map((cents) => (
@@ -239,12 +258,23 @@ function SupportForm({ projectId, onCancel }: { projectId: Id<"projects">; onCan
         {CLAIMS.patron} {formatMoney(MIN_CENTS)} minimum.
         {monthly ? " Monthly renews until you cancel." : ""} You pay on the next screen.
       </p>
-      <button
-        type="button"
-        onClick={onCancel}
-        className="g-hint"
-        style={{ background: "none", border: "none", padding: 0, cursor: "pointer", alignSelf: "flex-start", textDecoration: "underline" }}
-      >
+      {!isAuthenticated && (
+        <p className="g-hint" style={{ lineHeight: 1.5 }}>
+          Giving monthly needs an account.{" "}
+          <button
+            type="button"
+            onClick={() => {
+              // Back to this story after signing in, where Monthly is on.
+              setPendingIntent(location.pathname);
+              navigate("/login");
+            }}
+            style={{ ...LINK_BUTTON, font: "inherit", color: "var(--g-paper)" }}
+          >
+            Sign in
+          </button>
+        </p>
+      )}
+      <button type="button" onClick={onCancel} className="g-hint" style={{ ...LINK_BUTTON, alignSelf: "flex-start" }}>
         Not now
       </button>
     </form>
