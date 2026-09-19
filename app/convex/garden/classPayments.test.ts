@@ -8,8 +8,10 @@
 // because it needs a deployment: the ctx.db adapter in memberships.ts, the
 // startClassCheckout mutation, and the Stripe call itself.
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { BANNED_PHRASES } from "../../app/constants/claims";
+import { BANNED_PHRASES, CLAIMS } from "../../app/constants/claims";
 import {
   MAX_CLASS_PRICE_CENTS,
   MIN_CLASS_PRICE_CENTS,
@@ -540,5 +542,30 @@ describe("owed to a creative, with class payments", () => {
       ["Bo", 3330],
       ["Ada", 900],
     ]);
+  });
+});
+
+// ——— Copy ———
+
+describe("the money sentence", () => {
+  it("class processing fee is defined once, in claims.ts, and word for word in claims.md", () => {
+    expect(CLAIMS.classProcessingFee).toBe("Card processing is added on top of the class price.");
+    const doc = readFileSync(join(__dirname, "..", "..", "..", "docs", "marketing", "claims.md"), "utf8");
+    expect(doc).toContain(`| **class processing fee** | ${CLAIMS.classProcessingFee} |`);
+  });
+});
+
+describe("the sign-up modal (source)", () => {
+  const source = readFileSync(join(__dirname, "..", "..", "app", "routes", "offerings.tsx"), "utf8");
+
+  it("no longer says a paid class is a pledge with no charge", () => {
+    expect(source).not.toContain("This is a pledge");
+    expect(source).not.toContain("Pledge recorded");
+    expect(source).not.toContain("Pledge to attend");
+  });
+
+  it("takes its processing sentence from CLAIMS, not inline", () => {
+    expect(source).toContain("CLAIMS.classProcessingFee");
+    expect(source).not.toMatch(/card processing/i);
   });
 });
