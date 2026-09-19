@@ -93,7 +93,7 @@ Your profile, portfolio, and funded work belong to you and travel with you acros
 
 **Backers choose whether to be named.** Patrons back a named person or project. A project page shows what it has raised and the backers who chose to be named. A fund page lists the grants it has made. We do not pitch public money as a selling point.
 
-**Every community keeps at least one open, free class** — a room anyone can walk into without paying. Required.
+**Any member can offer a class or coaching in a community they belong to.** No paid membership and no host status needed. A free class is free to offer; on a paid one we take 10% when the money goes through our checkout. The community's hosts can pause a class if people complain.
 
 **Why someone pays:** you can always show up free. You pay when you want your work funded. That pitch only works if money is actually moving — so we bring in patrons and partners first, members second.
 

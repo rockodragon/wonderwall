@@ -23,6 +23,7 @@ import { auth } from "../auth";
 import {
   backingProcessingFeeCents,
   backingReturnPaths,
+  classCheckoutParts,
   guestBackingRefusal,
   resolveGuestSupporterName,
   validateBackingAmount,
@@ -766,6 +767,105 @@ export const createProductCheckout = action({
 
     if (!session.url) {
       throw new ConvexError("Stripe did not return a checkout URL.");
+    }
+
+    return { url: session.url };
+  },
+});
+
+// ——— createClassCheckout — paying for a class or coaching ———
+//
+// docs/features/class-payments-and-moderation.md § Money. Before this, signing
+// up to a paid class with no outside payment link recorded a "pledged" row and
+// charged nothing. Now the student pays the class PRICE plus card processing on
+// top, as its own line item (the same rule and math as createBackingCheckout);
+// the webhook (stripeHandlers.ts's handleClassCheckoutCompleted) records the
+// payment into classPayments — teacher 90 / platform 10 of the price, owed to
+// the teacher until an operator records a payout — and confirms the sign-up.
+//
+// Only a paid class with NO outside payment link goes through here. A free
+// class needs no checkout, and a class with a link sends people to it and takes
+// nothing from us (offerings.ts's signUpForOffering records that sign-up).
+// Signed-in students only: a sign-up needs an account.
+//
+// The sign-up row is written FIRST (offerings.ts's startClassCheckout, status
+// "pledged") and its id rides on the metadata, the same order and reason as
+// createBackingCheckout's pending projectSupport row. An abandoned checkout
+// leaves a "pledged" row and nothing else.
+//
+// Everything that carries money or meaning — the line items, the metadata (with
+// amountCents = the TRUE pre-fee price, which the webhook reads instead of
+// Stripe's total) and the return paths — is built by stripeHandlers.ts's
+// classCheckoutParts so the tests can pin it.
+
+export const createClassCheckout = action({
+  args: {
+    offeringId: v.id("offerings"),
+  },
+  handler: async (ctx, args) => {
+    const userId = await auth.getUserId(ctx);
+    if (!userId) {
+      throw new ConvexError({ code: "unauthenticated", reason: "Sign in to sign up for a class." });
+    }
+
+    // Every "may this student pay?" rule lives in classCheckoutRefusal
+    // (stripeHandlers.ts), run inside the same mutation that writes the
+    // sign-up row, so nothing can change between the check and the write.
+    const started = await ctx.runMutation((internal as any).offerings.startClassCheckout, {
+      offeringId: args.offeringId,
+      userId: String(userId),
+    });
+    if (!started.ok) {
+      throw new ConvexError(started.refusal);
+    }
+
+    const stripe = getStripeClient();
+
+    // Reuse one Stripe customer per user across checkouts + the billing
+    // portal (architect §3.4) — same as createBackingCheckout.
+    const existing = await ctx.runQuery(
+      (internal as any).garden.memberships.getBillingCustomerForUser,
+      { userId: String(userId) },
+    );
+    let stripeCustomerId: string | undefined = existing?.stripeCustomerId;
+    if (!stripeCustomerId) {
+      const identity = await ctx.auth.getUserIdentity();
+      const customer = await stripe.customers.create({
+        email: identity?.email ?? undefined,
+        metadata: { userId: String(userId) },
+      });
+      stripeCustomerId = customer.id;
+      await ctx.runMutation((internal as any).garden.memberships.saveBillingCustomer, {
+        userId: String(userId),
+        stripeCustomerId,
+        email: identity?.email ?? undefined,
+      });
+    }
+
+    const parts = classCheckoutParts({
+      offeringId: String(args.offeringId),
+      title: started.title,
+      priceCents: started.priceCents,
+      buyerUserId: String(userId),
+      signupId: started.signupId,
+    });
+
+    const session = await stripe.checkout.sessions.create({
+      mode: "payment",
+      // Card only: the processing line is priced at the card rate, and a card
+      // payment is "paid" the moment checkout completes. A delayed method
+      // (bank debit) would complete unpaid and the webhook records nothing.
+      payment_method_types: ["card"],
+      customer: stripeCustomerId,
+      line_items: parts.lineItems,
+      metadata: parts.metadata,
+      success_url: `${siteUrl()}${parts.paths.success}`,
+      cancel_url: `${siteUrl()}${parts.paths.cancel}`,
+      allow_promotion_codes: false,
+    });
+
+    if (!session.url) {
+      throw new ConvexError({ code: "no_checkout_url", reason: "Stripe did not return a checkout URL." });
     }
 
     return { url: session.url };

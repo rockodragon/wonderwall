@@ -431,10 +431,10 @@ function CreativeEarningsRow({ row }: { row: PlatformReport["creativeEarnings"][
         {formatMoney(row.platformCents)} · work {formatMoney(row.workCents)} · paid out {formatMoney(row.paidOutCents)}
       </div>
       {unassigned ? (
-        // No one to pay: the project was gone when the money arrived. Resolve
-        // by hand (refund the backer, or reassign) — there's no form for it.
+        // No one to pay: the project or class was gone when the money arrived.
+        // Resolve by hand (refund the payer, or reassign) — there's no form for it.
         <div className="g-hint" style={{ marginTop: 10 }}>
-          Resolve by hand: refund the backers or pay whoever took over the work.
+          Resolve by hand: refund the people who paid, or pay whoever took over the work.
         </div>
       ) : (
         <>
@@ -453,19 +453,21 @@ function CreativeEarningsRow({ row }: { row: PlatformReport["creativeEarnings"][
   );
 }
 
-/** Backings owed to creatives (bead wonderwall-7avu, step 1). Paid by hand
- * until Stripe Connect ships; this is the list to pay from. */
+/** Backings and class payments owed to creatives (bead wonderwall-7avu,
+ * step 1). One balance per person: a teacher's share of a class counts here
+ * beside a backing's work share. Paid by hand until Stripe Connect ships;
+ * this is the list to pay from. */
 function CreativeEarningsSection({ creativeEarnings }: { creativeEarnings: PlatformReport["creativeEarnings"] }) {
   const totalOwed = creativeEarnings.reduce((s, r) => s + r.owedCents, 0);
   return (
     <section style={{ marginTop: 40 }}>
       <SectionLabel>Creative earnings</SectionLabel>
       <p className="g-hint" style={{ marginTop: 8 }}>
-        90% of every backing, owed until paid by hand. {formatMoney(totalOwed)} owed in total.
+        90% of every backing and every class, owed until paid by hand. {formatMoney(totalOwed)} owed in total.
       </p>
       {creativeEarnings.length === 0 ? (
         <div style={{ marginTop: 12 }}>
-          <EmptyRow>No backings yet.</EmptyRow>
+          <EmptyRow>No backings or classes yet.</EmptyRow>
         </div>
       ) : (
         <div>

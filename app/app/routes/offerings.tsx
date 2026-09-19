@@ -1,8 +1,9 @@
-import { useMutation, useQuery } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { Link } from "react-router";
 import { api } from "../../convex/_generated/api";
+import { CLAIMS } from "../constants/claims";
 import { INTERESTS } from "../constants/interests";
 import { LocationAutocomplete, LocationVerifiedHint } from "../components/LocationAutocomplete";
 import { useLocationField } from "../lib/useLocationField";
@@ -66,7 +67,12 @@ export function errorMessage(err: unknown): string {
 
 export function formatPrice(priceCents?: number): string {
   if (!priceCents) return "Free";
-  return `$${(priceCents / 100).toLocaleString()}`;
+  // Whole dollars stay bare ($25); anything else shows both cent digits
+  // ($12.50, never $12.5) — this string labels the Pay button.
+  return `$${(priceCents / 100).toLocaleString(undefined, {
+    minimumFractionDigits: priceCents % 100 === 0 ? 0 : 2,
+    maximumFractionDigits: 2,
+  })}`;
 }
 
 // Same display convention as event.tsx's datetime rendering.
@@ -378,6 +384,10 @@ export default function Offerings() {
 function OfferingCard({ offering, isOwner }: { offering: any; isOwner: boolean }) {
   const [showEditForm, setShowEditForm] = useState(false);
   const [showSignupModal, setShowSignupModal] = useState(false);
+  // Only the teacher, the community's hosts and admins are ever sent a
+  // paused class (listOfferings) — for them it's badged and can't be
+  // signed up for.
+  const paused = !!offering.pause?.paused;
 
   return (
     <>
@@ -400,7 +410,7 @@ function OfferingCard({ offering, isOwner }: { offering: any; isOwner: boolean }
             <img
               src={offering.photoUrl}
               alt={offering.title}
-              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+              className={`w-full h-full object-cover transition-transform duration-300 group-hover:scale-105 ${paused ? "opacity-50" : ""}`}
             />
           ) : (
             <svg
@@ -447,9 +457,24 @@ function OfferingCard({ offering, isOwner }: { offering: any; isOwner: boolean }
             >
               {offering.title}
             </h3>
-            {isOwner && (
-              <OfferingKebabMenu offering={offering} onEdit={() => setShowEditForm(true)} />
-            )}
+            <div className="flex items-center gap-1.5 shrink-0">
+              {paused && (
+                <span
+                  className="px-2 py-0.5 rounded-full border text-xs font-semibold uppercase tracking-[0.06em]"
+                  style={{
+                    fontFamily: "var(--garden-font-mono)",
+                    color: "var(--garden-body)",
+                    borderColor: "var(--garden-hairline-raised)",
+                    backgroundColor: "var(--garden-ink)",
+                  }}
+                >
+                  Paused
+                </span>
+              )}
+              {isOwner && (
+                <OfferingKebabMenu offering={offering} onEdit={() => setShowEditForm(true)} />
+              )}
+            </div>
           </div>
           {offering.interests && offering.interests.length > 0 && (
             <div className="flex flex-wrap gap-1 mb-2">
@@ -524,17 +549,23 @@ function OfferingCard({ offering, isOwner }: { offering: any; isOwner: boolean }
                 ? `${offering.signupCount} signed up`
                 : "Be the first to sign up"}
             </span>
-            <button
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setShowSignupModal(true);
-              }}
-              className="px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-opacity hover:opacity-90"
-              style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
-            >
-              Sign up
-            </button>
+            {paused ? (
+              <span className="text-xs" style={{ color: "var(--garden-body)" }}>
+                No new sign-ups
+              </span>
+            ) : (
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setShowSignupModal(true);
+                }}
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-opacity hover:opacity-90"
+                style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
+              >
+                Sign up
+              </button>
+            )}
           </div>
         </div>
       </Link>
@@ -542,7 +573,7 @@ function OfferingCard({ offering, isOwner }: { offering: any; isOwner: boolean }
       {showEditForm && (
         <PostOfferingForm offering={offering} onClose={() => setShowEditForm(false)} />
       )}
-      {showSignupModal && (
+      {showSignupModal && !paused && (
         <SignupModal offering={offering} onClose={() => setShowSignupModal(false)} />
       )}
     </>
@@ -679,14 +710,30 @@ function OfferingKebabMenu({ offering, onEdit }: { offering: any; onEdit: () => 
   );
 }
 
+// Three ways in, matching the server's classPaymentPath (stripeHandlers.ts):
+//   free            — Reserve a spot: signUpForOffering records it.
+//   external link   — the instructor takes payment elsewhere; clicking through
+//                     also records the sign-up here, and we take nothing.
+//   paid, no link   — Pay: createClassCheckout opens Stripe Checkout, and the
+//                     webhook confirms the sign-up when the payment lands. The
+//                     server refuses this case in signUpForOffering.
 export function SignupModal({ offering, onClose }: { offering: any; onClose: () => void }) {
   const signUp = useMutation(api.offerings.signUpForOffering);
+  const createClassCheckout = useAction(api.garden.stripe.createClassCheckout);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
 
   const isFree = !offering.priceCents || offering.priceCents <= 0;
   const hasExternalLink = !!offering.externalPaymentLinkUrl;
+  const paysHere = !isFree && !hasExternalLink;
+  // Only the pay path needs to know whether they're already in, so someone
+  // whose payment landed isn't offered Pay a second time.
+  const mySignup = useQuery(
+    api.offerings.getMySignup,
+    paysHere ? { offeringId: offering._id } : "skip",
+  );
+  const alreadyIn = mySignup?.status === "confirmed";
 
   async function handleSignUp() {
     setError("");
@@ -697,6 +744,20 @@ export function SignupModal({ offering, onClose }: { offering: any; onClose: () 
     } catch (err) {
       setError(errorMessage(err));
     } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handlePay() {
+    setError("");
+    setSubmitting(true);
+    try {
+      const { url } = await createClassCheckout({ offeringId: offering._id });
+      // Leaving for Stripe — deliberately no setSubmitting(false), so the
+      // button stays disabled through the handoff.
+      window.location.assign(url);
+    } catch (err) {
+      setError(errorMessage(err));
       setSubmitting(false);
     }
   }
@@ -724,14 +785,14 @@ export function SignupModal({ offering, onClose }: { offering: any; onClose: () 
           Sign up for "{offering.title}"
         </h2>
 
-        {done ? (
+        {done || alreadyIn ? (
           <div className="py-4">
             <p className="text-sm mb-4" style={{ color: "var(--garden-body)" }}>
-              {hasExternalLink
-                ? "You're recorded as signed up here — finish registering and paying on the external site if you haven't yet."
-                : isFree
-                  ? "You're in — see you there."
-                  : "Pledge recorded — thank you. We'll follow up when real checkout is live."}
+              {alreadyIn
+                ? "You're signed up."
+                : hasExternalLink
+                  ? "You're recorded as signed up here — finish registering and paying on the external site if you haven't yet."
+                  : "You're in — see you there."}
             </p>
             <button
               onClick={onClose}
@@ -770,16 +831,41 @@ export function SignupModal({ offering, onClose }: { offering: any; onClose: () 
               </button>
             </div>
           </div>
+        ) : paysHere ? (
+          <div className="flex flex-col gap-4">
+            <div>
+              <p
+                className="text-2xl font-semibold"
+                style={{ color: "var(--garden-paper)", fontFamily: "var(--garden-font-mono)" }}
+              >
+                {formatPrice(offering.priceCents)}
+              </p>
+              <p className="text-sm mt-1" style={{ color: "var(--garden-body)" }}>
+                {CLAIMS.classProcessingFee}
+              </p>
+            </div>
+            {error && <p className="text-sm text-red-200">{error}</p>}
+            <div className="flex gap-2 justify-end pt-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 rounded-lg text-[13.5px] font-medium"
+                style={{ color: "var(--garden-body)" }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handlePay}
+                disabled={submitting}
+                className="px-4 py-2 rounded-lg text-[13.5px] font-semibold disabled:opacity-50"
+                style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
+              >
+                {submitting ? "Opening checkout…" : `Pay ${formatPrice(offering.priceCents)}`}
+              </button>
+            </div>
+          </div>
         ) : (
           <div className="flex flex-col gap-4">
-            {!isFree && (
-              <p
-                className="text-xs px-2.5 py-1.5 rounded-md"
-                style={{ color: "var(--garden-citron)", backgroundColor: "rgba(215,242,90,0.1)" }}
-              >
-                This is a pledge — no checkout, no charge. Nothing is collected at this point.
-              </p>
-            )}
             {error && <p className="text-sm text-red-400">{error}</p>}
             <div className="flex gap-2 justify-end pt-2">
               <button
@@ -796,7 +882,7 @@ export function SignupModal({ offering, onClose }: { offering: any; onClose: () 
                 className="px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-50"
                 style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
               >
-                {submitting ? "Saving…" : isFree ? "Reserve a spot" : "Pledge to attend"}
+                {submitting ? "Saving…" : "Reserve a spot"}
               </button>
             </div>
           </div>
@@ -1152,7 +1238,16 @@ export function PostOfferingForm({
                 ))}
               </select>
             </div>
-            <CommunityPicker value={hostOrgId} onChange={setHostOrgId} defaultHostOrgId={defaultHostOrgId} />
+            {offering?.pause?.paused ? (
+              // The server refuses a community change on a paused class
+              // (convex/offerings.ts's resolveCommunityChange) — say so here
+              // rather than offering a select that can only fail.
+              <p className="text-sm" style={{ color: "var(--garden-body)" }}>
+                This class is paused, so its community can't be changed until it's restored.
+              </p>
+            ) : (
+              <CommunityPicker value={hostOrgId} onChange={setHostOrgId} defaultHostOrgId={defaultHostOrgId} />
+            )}
           </FormSection>
 
           <FormSection label="Schedule" defaultOpen={scheduleDefaultOpen} summaryExtra={scheduleSummary}>
