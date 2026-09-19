@@ -15,7 +15,12 @@ import { query, internalMutation, internalQuery } from "../_generated/server";
 import type { MutationCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 import { auth } from "../auth";
-import { handleStripeEvent, type Db, type StripeWebhookEvent } from "./stripeHandlers";
+import {
+  handleStripeEvent,
+  type ClassPaymentDb,
+  type Db,
+  type StripeWebhookEvent,
+} from "./stripeHandlers";
 
 const ENTITLED_STATUSES = new Set(["active", "past_due"]);
 const LEVEL_RANK: Record<string, number> = { seat: 1, five: 2, host: 3 };
@@ -23,8 +28,10 @@ const LEVEL_RANK: Record<string, number> = { seat: 1, five: 2, host: 3 };
 // ——— ctx.db adapter for the pure stripeHandlers.Db interface ———
 
 // Boundary adapter: the pure Db speaks plain strings; Convex speaks branded
-// Ids. Casts live HERE and only here (the type seam).
-function makeConvexDb(ctx: MutationCtx): Db {
+// Ids. Casts live HERE and only here (the type seam). Typed to REQUIRE the
+// class-payment methods, which the pure Db only lists as optional so a fake
+// written before classes existed still satisfies it.
+function makeConvexDb(ctx: MutationCtx): Db & ClassPaymentDb {
   return {
     async getBillingCustomerByStripeId(stripeCustomerId: string) {
       const row = await ctx.db
@@ -283,6 +290,63 @@ function makeConvexDb(ctx: MutationCtx): Db {
       const id = ctx.db.normalizeId("projects", projectId);
       const project = id ? await ctx.db.get(id) : null;
       return project ? String(project.userId) : null;
+    },
+
+    async getClassPaymentByRef(stripeRef: string) {
+      const row = await ctx.db
+        .query("classPayments")
+        .withIndex("by_stripeRef", (q) => q.eq("stripeRef", stripeRef))
+        .unique();
+      return row ? { stripeRef: row.stripeRef } : null;
+    },
+
+    async insertClassPayment(row) {
+      await ctx.db.insert("classPayments", {
+        offeringId: row.offeringId as Id<"offerings">,
+        payeeUserId: row.payeeUserId as Id<"users"> | undefined,
+        buyerUserId: row.buyerUserId as Id<"users">,
+        grossCents: row.grossCents,
+        platformCents: row.platformCents,
+        teacherCents: row.teacherCents,
+        stripeRef: row.stripeRef,
+        period: row.period,
+        createdAt: Date.now(),
+      });
+    },
+
+    async getOfferingTeacherUserId(offeringId: string) {
+      const id = ctx.db.normalizeId("offerings", offeringId);
+      const offering = id ? await ctx.db.get(id) : null;
+      return offering ? String(offering.userId) : null;
+    },
+
+    async confirmOfferingSignup(offeringId: string, userId: string) {
+      const id = ctx.db.normalizeId("offerings", offeringId);
+      if (!id) return;
+      const existing = await ctx.db
+        .query("offeringSignups")
+        .withIndex("by_offeringId_userId", (q) =>
+          q.eq("offeringId", id).eq("userId", userId as Id<"users">),
+        )
+        .unique();
+      if (existing) {
+        if (existing.status !== "confirmed") await ctx.db.patch(existing._id, { status: "confirmed" });
+        return;
+      }
+      // Row gone (or never written): create it, but not for a class that no
+      // longer exists — that sign-up would point at nothing.
+      if (!(await ctx.db.get(id))) return;
+      const profile = await ctx.db
+        .query("profiles")
+        .withIndex("by_userId", (q) => q.eq("userId", userId as Id<"users">))
+        .unique();
+      await ctx.db.insert("offeringSignups", {
+        offeringId: id,
+        userId: userId as Id<"users">,
+        name: profile?.name ?? "Someone",
+        status: "confirmed",
+        createdAt: Date.now(),
+      });
     },
 
     async getCodeByCode(code: string) {

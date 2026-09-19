@@ -1144,17 +1144,20 @@ export default defineSchema({
 
   // Offering sign-ups (fix for offerings.ts: previously no way to record
   // "someone joined this class," even when payment happened externally).
-  // Two payment paths, one record shape — mirrors garden/support.ts's
-  // projectSupport in spirit (pledge-only, no real charge, off-platform
-  // money leaves no direct signal so it's status-tracked by hand/by pattern
-  // rather than a webhook):
-  //   "pledged"   — a paid offering, no external link: real intent, no money
-  //                 actually moved (same "pledge, not charge" semantics as
-  //                 projectSupport's financial types).
+  // Three ways in, one record shape:
+  //   "pledged"   — a paid offering with no external link where the student
+  //                 has started checkout (garden/stripe.ts's
+  //                 createClassCheckout writes this row first) but the
+  //                 payment hasn't landed. Older rows are pledges recorded
+  //                 before checkout existed: intent, no money moved. The
+  //                 Stripe webhook moves the row to "confirmed" when the
+  //                 payment arrives (stripeHandlers.ts's
+  //                 handleClassCheckoutCompleted).
   //   "confirmed" — free offering (nothing to charge), OR a paid offering
   //                 with externalPaymentLinkUrl set (payment happens off-
   //                 platform; clicking the external link still records this
-  //                 row so the creator has one place to see who's coming).
+  //                 row so the creator has one place to see who's coming),
+  //                 OR a paid offering whose checkout payment landed.
   offeringSignups: defineTable({
     offeringId: v.id("offerings"),
     userId: v.id("users"),
@@ -1423,10 +1426,36 @@ export default defineSchema({
     .index("by_supportId", ["supportId"])
     .index("by_projectId", ["projectId"]),
 
-  // Manual transfers of a creative's owed backing share — the creative-side
-  // twin of hostPayouts above, recorded by an operator on /admin/ledger
-  // (garden/payouts.ts's recordCreativePayout) until Stripe Connect ships in
-  // Phase 3 (7avu step 2).
+  // One row per Stripe payment on a paid class (docs/features/class-payments-
+  // and-moderation.md § Money). The student pays the class price plus card
+  // processing on top; the price alone is split here (stripeHandlers.ts's
+  // splitClassSale — teacher 90 / platform 10). `teacherCents` accrues as
+  // OWED to the teacher until creativePayouts records it paid, the same
+  // ledger backingPayments feeds: what a creative is owed is sum(workCents on
+  // their backing payments) + sum(teacherCents on their class payments) −
+  // sum(their creativePayouts). Written only by the Stripe webhook.
+  classPayments: defineTable({
+    offeringId: v.id("offerings"),
+    // The teacher (offerings.userId) when the money arrived. Absent only when
+    // the class was deleted before the webhook landed — the payment is still
+    // on the ledger, unassigned, for an operator to resolve, never dropped.
+    payeeUserId: v.optional(v.id("users")),
+    buyerUserId: v.id("users"),
+    grossCents: v.number(), // the class PRICE only — never includes card processing
+    platformCents: v.number(), // 10%
+    teacherCents: v.number(), // 90% — owed until paid out
+    stripeRef: v.string(), // checkout session id — idempotency key
+    period: v.string(), // "YYYY-MM", UTC — same convention as backingPayments
+    createdAt: v.number(),
+  })
+    .index("by_offeringId", ["offeringId"])
+    .index("by_payeeUserId", ["payeeUserId"])
+    .index("by_stripeRef", ["stripeRef"]),
+
+  // Manual transfers of a creative's owed backing and class share — the
+  // creative-side twin of hostPayouts above, recorded by an operator on
+  // /admin/ledger (garden/payouts.ts's recordCreativePayout) until Stripe
+  // Connect ships in Phase 3 (7avu step 2).
   creativePayouts: defineTable({
     payeeUserId: v.id("users"),
     amountCents: v.number(),

@@ -11,11 +11,12 @@
 // profile.isAdmin (same pattern as garden/support.ts's confirmSupport).
 
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { internalMutation, mutation, query } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { ConvexError } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import { assertCommunityMember } from "./garden/communities";
+import { classCheckoutRefusal, classPaymentPath } from "./garden/stripeHandlers";
 
 const VALID_STATUSES = new Set(["active", "archived"]);
 
@@ -61,6 +62,14 @@ const offeringFields = {
   // owned by the creator, this only tags it; community-groups.md §0).
   hostOrgId: v.optional(v.id("hostOrgs")),
 };
+
+/** The public "N signed up" count: people who are actually in. A "pledged" row
+ * is a student who started checkout and hasn't paid (or a pledge from before
+ * checkout existed), so it isn't counted — the owner's roster
+ * (listSignupsForOffering) still lists every row with its status. */
+function confirmedCount(signups: { status: string }[]): number {
+  return signups.filter((s) => s.status === "confirmed").length;
+}
 
 /** Batches hostOrgs lookups into one Map keyed by hostOrgId string — used by
  * listOfferings/getOffering so N offerings sharing a community cost one
@@ -166,7 +175,7 @@ export const listOfferings = query({
         return {
           ...offering,
           photoUrl: resolvedPhotoUrl,
-          signupCount: signups.length,
+          signupCount: confirmedCount(signups),
           creator: user
             ? {
                 _id: user._id,
@@ -219,7 +228,7 @@ export const getOffering = query({
     return {
       ...offering,
       photoUrl: resolvedPhotoUrl,
-      signupCount: signups.length,
+      signupCount: confirmedCount(signups),
       creator: user
         ? {
             _id: user._id,
@@ -361,20 +370,21 @@ export const deleteOffering = mutation({
   },
 });
 
-// Sign-up — the pledge-only, no-checkout path (mirrors garden/support.ts's
-// supportProject: derive userId/name server-side from the authenticated
-// caller's profile, never trust a client-supplied identity) AND the
-// external-payment-link path ("Jenna's case"): even when the instructor
-// takes payment through an outside tool, clicking through still calls this
-// so the sign-up is recorded here too.
+// Sign-up for a free class, and the external-payment-link path ("Jenna's
+// case"): even when the instructor takes payment through an outside tool,
+// clicking through still calls this so the sign-up is recorded here too.
+// Derives userId/name server-side from the authenticated caller's profile,
+// never a client-supplied identity (mirrors garden/support.ts's
+// supportProject).
 //
-// Status:
-//   "confirmed" — free (no priceCents), or externalPaymentLinkUrl is set
-//                 (payment, if any, happens off-platform — this row is just
-//                 the record that they joined).
-//   "pledged"   — a paid offering with no external link: real intent, no
-//                 money actually moved yet, same "pledge" semantics as
-//                 projectSupport's financial types.
+// Status is always "confirmed": the class is free, or externalPaymentLinkUrl
+// is set (payment, if any, happens off-platform — this row is just the
+// record that they joined).
+//
+// A PAID class with no external link is refused (payment_required): its
+// money moves through checkout (garden/stripe.ts's createClassCheckout), and
+// the Stripe webhook confirms the sign-up when the payment lands. Rows that
+// were pledged before checkout existed stay as they are.
 //
 // Duplicate sign-ups no-op (checked via by_offeringId_userId) rather than
 // erroring — a double-click shouldn't surface a loud failure.
@@ -397,23 +407,111 @@ export const signUpForOffering = mutation({
       return { signupId: existing._id, alreadySignedUp: true };
     }
 
+    if (classPaymentPath(offering) === "checkout") {
+      throw new ConvexError({
+        code: "payment_required",
+        reason: "This class is paid. Use Pay to sign up.",
+      });
+    }
+
     const profile = await ctx.db
       .query("profiles")
       .withIndex("by_userId", (q) => q.eq("userId", userId))
       .unique();
 
-    const isFree = !offering.priceCents || offering.priceCents <= 0;
-    const status = isFree || offering.externalPaymentLinkUrl ? "confirmed" : "pledged";
-
     const signupId = await ctx.db.insert("offeringSignups", {
       offeringId: args.offeringId,
       userId,
       name: profile?.name ?? "Someone",
-      status,
+      status: "confirmed",
       createdAt: Date.now(),
     });
 
     return { signupId, alreadySignedUp: false };
+  },
+});
+
+// The signed-in caller's own sign-up on one offering — what the detail page
+// reads to tell a student whether their payment landed, and what the paid
+// sign-up modal reads so someone already in isn't offered Pay again. Null
+// when signed out, on a bad id, or with no row. `offeringId` is v.string()
+// for the same reason getOffering's is: a stale URL is a null, not a crash.
+export const getMySignup = query({
+  args: { offeringId: v.string() },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return null;
+    const id = ctx.db.normalizeId("offerings", args.offeringId);
+    if (!id) return null;
+
+    const row = await ctx.db
+      .query("offeringSignups")
+      .withIndex("by_offeringId_userId", (q) => q.eq("offeringId", id).eq("userId", userId))
+      .unique();
+    return row ? { status: row.status } : null;
+  },
+});
+
+// The database half of garden/stripe.ts's createClassCheckout (a "use node"
+// action, no ctx.db of its own). Decides whether this student may pay —
+// stripeHandlers.ts's classCheckoutRefusal is the one authority — and if so
+// makes sure they have a sign-up row to pay against: "pledged" until the
+// Stripe webhook confirms the payment. Idempotent: a second checkout or a
+// double click finds the same row. Returns the refusal rather than throwing,
+// so the action decides how it reaches the student, and writes nothing when
+// it refuses.
+export const startClassCheckout = internalMutation({
+  args: { offeringId: v.id("offerings"), userId: v.id("users") },
+  handler: async (ctx, args) => {
+    const offering = await ctx.db.get(args.offeringId);
+    const existing = offering
+      ? await ctx.db
+          .query("offeringSignups")
+          .withIndex("by_offeringId_userId", (q) =>
+            q.eq("offeringId", args.offeringId).eq("userId", args.userId),
+          )
+          .unique()
+      : null;
+
+    const refusal = classCheckoutRefusal({
+      offering: offering
+        ? {
+            userId: String(offering.userId),
+            status: offering.status,
+            priceCents: offering.priceCents,
+            externalPaymentLinkUrl: offering.externalPaymentLinkUrl,
+          }
+        : null,
+      buyerUserId: String(args.userId),
+      signupStatus: existing?.status,
+    });
+    if (refusal) return { ok: false as const, refusal };
+
+    // classCheckoutRefusal refuses a missing offering, so it exists from here
+    // on, and (having passed) has a whole-cent price inside the allowed range.
+    const found = offering!;
+
+    let signupId = existing?._id;
+    if (!signupId) {
+      const profile = await ctx.db
+        .query("profiles")
+        .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+        .unique();
+      signupId = await ctx.db.insert("offeringSignups", {
+        offeringId: args.offeringId,
+        userId: args.userId,
+        name: profile?.name ?? "Someone",
+        status: "pledged",
+        createdAt: Date.now(),
+      });
+    }
+
+    return {
+      ok: true as const,
+      title: found.title,
+      priceCents: found.priceCents!,
+      signupId: String(signupId),
+    };
   },
 });
 
