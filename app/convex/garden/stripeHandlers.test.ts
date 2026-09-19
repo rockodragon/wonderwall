@@ -8,6 +8,7 @@ import {
   extractCurrentPeriodEnd,
   handleStripeEvent,
   mapSubscriptionStatus,
+  splitBacking,
   validateBackingAmount,
   MIN_BACKING_CENTS,
   type BillingCustomerRow,
@@ -1268,6 +1269,37 @@ function backingInvoiceFixture(overrides: Partial<StripeInvoiceLike> = {}): Stri
     ...overrides,
   };
 }
+
+describe("splitBacking — 10% out of the backing, 5% on the part above $1,000", () => {
+  it("takes 10% of an ordinary backing", () => {
+    expect(splitBacking(2500)).toEqual({ platformCents: 250, workCents: 2250 });
+    expect(splitBacking(50_000)).toEqual({ platformCents: 5_000, workCents: 45_000 });
+  });
+
+  it("is still a flat 10% at exactly $1,000", () => {
+    expect(splitBacking(100_000)).toEqual({ platformCents: 10_000, workCents: 90_000 });
+  });
+
+  it("takes 5% of only the part above $1,000", () => {
+    // $5,000: $100 on the first $1,000 + $200 on the next $4,000 = $300 (6%).
+    expect(splitBacking(500_000)).toEqual({ platformCents: 30_000, workCents: 470_000 });
+    // $25,000: $100 + $1,200 = $1,300 (5.2%) — under an arts fiscal sponsor's 7–8%.
+    expect(splitBacking(2_500_000)).toEqual({ platformCents: 130_000, workCents: 2_370_000 });
+  });
+
+  it("always adds back to the gross, with rounding on the platform side", () => {
+    for (const gross of [1, 5, 505, 1_005, 99_999, 100_001, 123_457, 2_500_001]) {
+      const { platformCents, workCents } = splitBacking(gross);
+      expect(platformCents + workCents).toBe(gross);
+      expect(Number.isInteger(platformCents)).toBe(true);
+    }
+    expect(splitBacking(1_005).platformCents).toBe(101); // 100.5 rounds up, to the platform
+  });
+
+  it("treats each payment on its own — a $50 monthly renewal is always 10%", () => {
+    expect(splitBacking(5_000)).toEqual({ platformCents: 500, workCents: 4_500 });
+  });
+});
 
 describe("backing payments — what each creative is owed", () => {
   it("a confirmed one-time backing writes one owed row, 90% to the work", async () => {

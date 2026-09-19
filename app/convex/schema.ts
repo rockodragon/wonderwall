@@ -1416,7 +1416,7 @@ export default defineSchema({
   // live-status.md § Payout rail). One row per PAYMENT received on a backing
   // — a one-time backing writes one, a monthly backer writes one a month —
   // carrying the split at the time of payment (stripeHandlers.ts's
-  // splitBacking — the rate is still being decided). `workCents` accrues as
+  // splitBacking — 10%, then 5% of the part above $1,000). `workCents` accrues as
   // OWED to the payee until creativePayouts records it paid; what a creative
   // is owed is sum(workCents) − sum(their creativePayouts). Separate from
   // projectSupport on purpose: that table is one row per backer, and a

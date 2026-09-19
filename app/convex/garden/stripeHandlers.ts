@@ -248,7 +248,7 @@ export interface BackingPaymentRow {
   payeeUserId?: string; // the project lead when the money arrived; absent if the project is gone
   backerUserId?: string;
   grossCents: number;
-  platformCents: number; // splitBacking — rate still being decided
+  platformCents: number; // splitBacking — 10%, then 5% above $1,000
   workCents: number; // owed to the payee
   billing: "one_time" | "first" | "renewal";
   stripeRef: string; // checkout session id or invoice id — idempotency key
@@ -614,25 +614,44 @@ async function handleProductCheckoutCompleted(
   });
 }
 
-/** The platform's share of a backing payment. UNDECIDED as of 2026-09-18:
- * the brief (the plan) says 10% ("$500 fellowship → $450 to the creative");
- * /for/creatives and the outreach playbook promise the creative keeps 100%
- * with the backer covering our fee on top — which checkout doesn't do yet.
- * Being settled separately. 0.1 is the brief's number, held here as a
- * placeholder. This constant and splitBacking are the ONLY places the rate
- * lives — the webhook and garden/payouts.ts's backfill both call it. */
+/** The platform's share of a backing payment. DECIDED 2026-09-18 (Rick): it
+ * comes OUT of the backing, never on top of it — 10% of the first $1,000 of
+ * a single payment, 5% of the part above $1,000.
+ *
+ * Why 10%: it is what Patreon and Substack take for the same job, and the
+ * brief's own number ("$500 fellowship → $450 to the creative"). Why 5%
+ * above $1,000: a patron giving real money compares us to arts fiscal
+ * sponsors, who charge 5–8% (Film Independent 7%, Fractured Atlas 8%, The
+ * Gotham 5–8%); a $25,000 gift costs $1,300 here against $1,750–2,000 there.
+ * Research and sources: docs/partner-landscape.md §4a.
+ *
+ * The tier is per PAYMENT, not per backer or per project: each monthly
+ * renewal is its own payment, so a $50/month backing is always 10%.
+ *
+ * Card processing is NOT in here. The plan has the payer cover it on top at
+ * checkout, which backing checkout does not do yet — until it does, Stripe's
+ * 2.9% + 30¢ comes out of platformCents in real life, not out of workCents.
+ *
+ * These constants and splitBacking are the ONLY places the rate lives — the
+ * webhook and garden/payouts.ts's backfill both call it. The earlier
+ * "creative keeps 100%, backer pays our fee on top" promise on
+ * /for/creatives was dropped the same day. */
 export const BACKING_PLATFORM_RATE = 0.1;
+export const BACKING_LARGE_GIFT_RATE = 0.05;
+export const BACKING_LARGE_GIFT_THRESHOLD_CENTS = 100_000; // $1,000
 
 /** Splits one backing payment into platform and work shares. The shares
  * always add back to grossCents; rounding lands on the platform side, same
  * as hostSaleSplit. */
 export function splitBacking(grossCents: number): { platformCents: number; workCents: number } {
-  const platformCents = Math.round(grossCents * BACKING_PLATFORM_RATE);
+  const standard = Math.min(grossCents, BACKING_LARGE_GIFT_THRESHOLD_CENTS);
+  const above = Math.max(0, grossCents - BACKING_LARGE_GIFT_THRESHOLD_CENTS);
+  const platformCents = Math.round(standard * BACKING_PLATFORM_RATE + above * BACKING_LARGE_GIFT_RATE);
   return { platformCents, workCents: grossCents - platformCents };
 }
 
 /** Writes the owed-to-creative row for one payment on a backing, split by
- * splitBacking above (rate still being decided). Card processing is not in
+ * splitBacking above (10%, then 5% above $1,000). Card processing is not in
  * here — the plan has the payer cover it on top. Idempotent by stripeRef. */
 async function recordBackingPayment(
   db: Db,

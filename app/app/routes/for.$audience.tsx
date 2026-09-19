@@ -13,8 +13,11 @@ import { Reveal } from "../hooks/useReveal";
 // Copy rules the playbook fixes and this file must keep:
 //   - "Get your work funded" describes the platform and is fine. Promising a
 //     named person their project WILL be funded is not.
-//   - A backer covers the platform fee at checkout, so the creative keeps
-//     100%. Never claim a payout speed — no cadence is set.
+//   - A backing pays the creative 90%: the platform's 10% comes out of the
+//     backing (5% on the part of any single gift above $1,000). Decided
+//     2026-09-18 — the earlier "you keep 100%, the backer pays our fee on
+//     top" promise is dropped; never bring it back. Never claim a payout
+//     speed — no cadence is set.
 //   - Payouts are made by hand until the payout rail ships (bead
 //     wonderwall-7avu): say we track earnings and pay them out ourselves.
 //     Don't imply automatic or instant transfers.
@@ -72,8 +75,8 @@ const AUDIENCES: Audience[] = [
       "Work with other creatives, grow in your craft, find paid work, and get backed by people who believe in you. Joining is free.",
     points: [
       {
-        title: "You keep all of it",
-        body: "When someone gives you $100, you get $100. They cover our fee when they check out. Nothing comes out of your side. For now we keep track of what you're owed and pay it out to you ourselves.",
+        title: "You keep 90%",
+        body: "When someone backs you for $100, you get $90. The other $10 runs the platform. On the part of any gift over $1,000, we take 5%, not 10%. For now we keep track of what you're owed and pay it out to you ourselves.",
       },
       {
         title: "There's money set aside for your work",
@@ -103,7 +106,7 @@ const AUDIENCES: Audience[] = [
     bandImages: ["shua", "june"],
     metaTitle: "Find your people, get paid — creatives.exchange",
     metaDescription:
-      "Find paid work, get backed by people who believe in you, and apply for grants. Joining is free. When someone gives you $100, you get $100.",
+      "Find paid work, get backed by people who believe in you, and apply for grants. Joining is free. When someone backs you for $100, you get $90.",
   },
   {
     slug: "hosts",
