@@ -514,6 +514,8 @@ export const createBackingCheckout = action({
     interval: v.optional(v.union(v.literal("month"), v.literal("year"))),
     // Signed-out backers only; ignored when the caller is signed in.
     guestName: v.optional(v.string()),
+    // Which page the backer started on, so Stripe sends them back to it.
+    from: v.optional(v.union(v.literal("story"), v.literal("project"))),
   },
   handler: async (ctx, args) => {
     const userId = await auth.getUserId(ctx);
@@ -602,6 +604,7 @@ export const createBackingCheckout = action({
       signedIn: Boolean(userId),
       projectId: String(args.projectId),
       storySlug: started.storySlug,
+      from: args.from,
     });
 
     const session = await stripe.checkout.sessions.create({

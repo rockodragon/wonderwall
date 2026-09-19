@@ -516,9 +516,10 @@ export function guestBackingThrottled(guestCheckoutsLastHour: number): boolean {
 }
 
 /**
- * Where Stripe sends a backer after paying or cancelling. A signed-in backer
- * goes back to /projects/:id as before. A guest can't — that page is behind
- * login — so they go back to the public story page they came from. A
+ * Where Stripe sends a backer after paying or cancelling. Anyone who started
+ * on the public story page (from: "story") goes back to it, signed in or
+ * not. Otherwise a signed-in backer goes back to /projects/:id as before. A
+ * guest can't — that page is behind login — so they go to the story page. A
  * project with no story link (one created before links were generated at
  * creation) sends a guest home rather than to a sign-in wall.
  */
@@ -526,7 +527,11 @@ export function backingReturnPaths(args: {
   signedIn: boolean;
   projectId: string;
   storySlug?: string;
+  from?: "story" | "project";
 }): { success: string; cancel: string } {
+  if (args.from === "story" && args.storySlug) {
+    return { success: `/story/${args.storySlug}?backed=1`, cancel: `/story/${args.storySlug}` };
+  }
   if (args.signedIn) {
     return { success: `/projects/${args.projectId}?backed=1`, cancel: `/projects/${args.projectId}` };
   }
