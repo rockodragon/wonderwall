@@ -1135,12 +1135,46 @@ export default defineSchema({
     // to its creator; this is a tag, not ownership (community-groups.md).
     hostOrgId: v.optional(v.id("hostOrgs")),
     status: v.string(), // "active" | "archived"
+    // Pause — a community's hosts (or a platform admin) can pause a class
+    // after complaints (docs/features/class-payments-and-moderation.md). A
+    // paused class is hidden from everyone but its teacher, that community's
+    // hosts and admins, and takes no new sign-ups. Set and cleared ONLY by
+    // pauseOffering/restoreOffering in offerings.ts — updateOffering never
+    // touches these, so the teacher can't edit their way out of a pause.
+    pausedAt: v.optional(v.number()),
+    pausedBy: v.optional(v.id("users")),
+    pausedReason: v.optional(v.string()), // shown to the teacher; max 300 chars (enforced in mutation)
     createdAt: v.number(),
     updatedAt: v.number(),
   })
     .index("by_userId", ["userId"])
     .index("by_status", ["status"])
     .index("by_hostOrgId", ["hostOrgId"]),
+
+  // Reports on a class or coaching offering. Separate from `reports` above
+  // (that one is user/message reports, reviewed by platform admins): these go
+  // to the offering's community hosts, or to platform admins when the class
+  // has no community. One open report per reporter per offering — a second
+  // report from the same person updates it (reportOffering in offerings.ts).
+  offeringReports: defineTable({
+    offeringId: v.id("offerings"),
+    hostOrgId: v.optional(v.id("hostOrgs")), // the offering's community when reported
+    reporterId: v.id("users"),
+    reason: v.union(
+      v.literal("harassment"),
+      v.literal("spam"),
+      v.literal("unsafe"),
+      v.literal("misleading"),
+      v.literal("other"),
+    ),
+    details: v.optional(v.string()), // Max 500 chars (enforced in mutation)
+    status: v.union(v.literal("open"), v.literal("resolved"), v.literal("dismissed")),
+    createdAt: v.number(),
+    resolvedBy: v.optional(v.id("users")),
+    resolvedAt: v.optional(v.number()),
+  })
+    .index("by_offeringId", ["offeringId"])
+    .index("by_hostOrgId_status", ["hostOrgId", "status"]),
 
   // Offering sign-ups (fix for offerings.ts: previously no way to record
   // "someone joined this class," even when payment happened externally).
