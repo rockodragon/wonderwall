@@ -85,7 +85,8 @@ async function isTargetLive(
   }
   if (targetType === "offering") {
     const offering = await ctx.db.get(targetId as Id<"offerings">);
-    return offering?.status === "active";
+    // A class a community has paused stops sending "starts tomorrow".
+    return offering?.status === "active" && !offering.pausedAt;
   }
   return true;
 }
@@ -704,8 +705,10 @@ export const sendDueReminders = internalMutation({
       .query("offerings")
       .withIndex("by_status", (q) => q.eq("status", "active"))
       .collect();
+    // Not paused: a class a community has paused after complaints doesn't
+    // get an automatic "starts tomorrow" sent to its sign-ups.
     const dueOfferings = activeOfferings.filter(
-      (o) => o.startDate !== undefined && o.startDate > now && o.startDate <= windowEnd,
+      (o) => !o.pausedAt && o.startDate !== undefined && o.startDate > now && o.startDate <= windowEnd,
     );
 
     type DueTarget = { targetType: "event" | "offering"; targetId: string; startsAt: number };

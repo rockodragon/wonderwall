@@ -18,6 +18,7 @@ import { isAdminProfile } from "../helpers";
 import { can } from "./capabilities";
 import { getGardenUser, throwDenial } from "./entitlements";
 import { slugifyTitle, resolveAvailableSlug } from "./stories";
+import { canSeeOffering } from "../offerings";
 
 // ——————————————————————————————————————————————————————————————
 // Pure core
@@ -480,6 +481,15 @@ export const getCommunity = query({
 
     const decision = resolveCommunityJoin({ community: org, existing: mine });
 
+    // The viewer as offerings.ts's pause rules see them: every offering
+    // listed below belongs to THIS community, so `mine` is the one
+    // membership that can matter.
+    const viewerActor = {
+      userId: userId ?? undefined,
+      isAdmin: viewerIsOperator,
+      memberships: mine ? [{ hostOrgId: org._id, status: mine.status, role: mine.role }] : [],
+    };
+
     return {
       ...publicShape(org),
       hosts: hostIds.map((id) => names.get(String(id))).filter((n): n is string => !!n),
@@ -517,14 +527,17 @@ export const getCommunity = query({
           storySlug: p.storySlug,
           byName: creatorNames.get(String(p.userId)) ?? "A creative",
         })),
+      // A paused class is left out unless the viewer is its teacher, a host
+      // of this community, or an operator (offerings.ts's canSeeOffering).
       offerings: offerings
-        .filter((o) => o.status === "active")
+        .filter((o) => o.status === "active" && canSeeOffering(o, viewerActor))
         .map((o) => ({
           _id: o._id,
           title: o.title,
           format: o.format,
           cadence: o.cadence,
           priceCents: o.priceCents,
+          paused: !!o.pausedAt,
         })),
       viewer: {
         isSignedIn: !!userId,
