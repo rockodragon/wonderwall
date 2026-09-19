@@ -1,6 +1,6 @@
 # Entitlements — live status
 
-2026-09-15 · reality-check doc, code-verified. Supersedes `entitlements-paywall-foundation.md`
+2026-09-15 · reality-check doc, code-verified. **Gate rows corrected 2026-09-18** (`project.applyPaid`, `gig.respond`, `table.create`). Supersedes `entitlements-paywall-foundation.md`
 (deleted — pre-rebrand "TheCrossBoard" draft; its org tiers, `profiles.plan` field, and
 `organizations` schema were never built). Upstream canon is unchanged: tier ladder and capability
 names are `the-garden-product-plan.md` §2.1–§2.3; the money split is amended by the
@@ -22,7 +22,7 @@ earlier Aug 31 model, not the plan.** Where they differ:
 | Card processing | Payer covers, added at checkout | Platform absorbs from its share |
 | Ladder | None — Free member / Member / Host $0 | Seat $10 · Five $25 · Host $50, 1/5/10 projects |
 | Gathering word | Class | Table (`gardenTables`) |
-| Paid work | "Applying takes membership" | `project.applyPaid` defined, not enforced |
+| Paid work | "Applying takes membership" | Enforced since 2026-09-17: `project.applyPaid` on paid projects, `gig.respond` on gigs |
 
 The README's sequencing rule applies: agree the plan, then move the code. The tables below describe
 the code so the gap is visible; they are not an endorsement of the Aug 31 numbers.
@@ -54,6 +54,8 @@ Hosting a community is free, unconditionally — 10% is only ever taken on what 
 
 ## Free vs. paid — proposed 2026-09-15, not yet decided
 
+> **Update 2026-09-17:** Rick decided that applying to paid work and responding to a gig take membership. The "apply free" proposal in this section is overruled for paid work. The project draft / publish proposal is still open.
+
 The spec in `capabilities.ts` gates *applying* to paid work and *starting* a project at the seat.
 After the 2026-09-15 pressure test (UX + PM passes, eleven-platform competitive check — see
 `seat-pool-payout.html` §4–§5) the proposal on the table moves both gates one step later:
@@ -81,11 +83,12 @@ exists, the paid-work gate can become a 10% take at payout instead of a seat req
 |---|---|---|---|
 | `pool.propose` | seat+ only | ✅ enforced | `grantProposals.ts:217-218` |
 | `table.join.member` | seat+ only | ✅ enforced | `tables.ts:242` |
-| `table.create` | host only | ✅ enforced | `tables.ts` |
+| `table.create` | host only | ❌ **not enforced on the server** — nothing calls it outside the demo pages. Tables are created only by an operator (`operator.ts` `createTable`); no host-facing create exists. Bead wonderwall-jxho | — |
 | `community.create` | any signed-in account | ✅ enforced | `communities.ts:598` |
 | `project.create.passion` | seat+ only, capped 1/5/10 | ❌ **not wired — free today** | `projects.ts:92`, comment at :60-66 |
 | `project.create.paid` | seat+, or patron/partner role | ❌ **not wired — free today** | `projects.ts:575` |
-| `project.applyPaid` | seat+ only | ❌ **not wired — free today**, and `requestToJoin` doesn't yet distinguish paid vs. passion roles | `projectTeam.ts:617` (needs `project.kind === "paid"` check — field already exists) |
+| `project.applyPaid` | seat+ only | ✅ enforced 2026-09-17, on paid projects only (asking to join a passion project stays free) | `projectTeam.ts` `requestToJoin` |
+| `gig.respond` | seat+ only | ✅ enforced 2026-09-17 | `gigs.ts` `respondAvailable` |
 | `event.create` | seat+, or partner | ⚠️ no create-event mutation exists yet | — |
 
 **Heads-up before wiring the three ❌ rows:** `the-garden-product-plan.md` §2.5 names paid-project
@@ -125,8 +128,7 @@ until the rail ships.
    `duesSplit` changes, the pricing page loses two tiers).
 1. **Free project** — draft free, publish with a seat. Fits the plan's "asking for support requires
    you to join first." Alt: keep 0 with a launch-window exception.
-2. **Paid work** — apply free, rank by fit, membership to be accepted. No tier sorting. Revises one
-   sentence in the brief ("applying takes membership" → "being hired takes membership").
+2. **Paid work** — **decided 2026-09-17: applying takes membership**, which keeps the brief's sentence as written. The recommendation below (apply free, membership to be accepted) was overruled and is kept for its reasoning: apply free, rank by fit, membership to be accepted. No tier sorting.
 3. **Tiers** — follow the plan: none. If a project cap is wanted, a Seat add-on, not Five. If 1/5/10
    is kept regardless, measure cap-hits for 60 days first. Both reviewers called Five the weakest rung.
 4. **The $50 tier** — not in the plan. Off the pricing page; grant programs hand-sold until Connect.
@@ -134,8 +136,7 @@ until the rail ships.
 5. **Events** — free for informal gatherings, membership for private/ticketed. No create-event
    mutation exists, so this costs nothing to decide now.
 6. **Payout rail** — bead wonderwall-7avu step 1 before Nov 6; Connect in Phase 3.
-7. **Card processing** — the plan's answer stands: the payer, at checkout. Code and receipt copy
-   currently say the opposite.
+7. **Card processing** — the plan's answer stands: the payer, at checkout. Backings add it on top in PR #21 (bead wonderwall-p7uf); dues and every other checkout still don't.
 
 Unit economics of a $10 seat: as coded, the platform nets ~$4.41 after the pool's $5 and Stripe's
 ~$0.59 ($441/mo at 100 seats, $2,205 at 500, $8,820 at 2,000). Under the plan, $1 — a real $1, with
