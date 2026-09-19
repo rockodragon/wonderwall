@@ -1,6 +1,6 @@
 # Classes and coaching: who can offer, how the money moves, how a community steps in
 
-Spec, 2026-09-19. Decided by Rick on 2026-09-19 unless marked **open**. Not built until the PR that carries this doc merges.
+Spec, 2026-09-19. Decided by Rick on 2026-09-19 unless marked **open**. **Built** in the PR that carries this doc, and unit-tested. **Not live** until it is merged and the Convex backend is deployed to production (nothing deploys it automatically), and the money half has **not** been run through Stripe test mode.
 
 ## What this covers
 
@@ -43,3 +43,15 @@ Tables (`gardenTables`, `/tables`) are the older build of the same idea. This sp
 - What the person running a class is called. The brief says "host" (a person who runs a class). The code's community role "host" means the community's leader.
 - Community products (`createProductCheckout`) still take "10% including processing" and don't add card processing on top. Classes will, so the two will disagree until products are brought in line.
 - Should a teacher who is a paid member keep 100%, the way the gig board works? Not decided.
+
+## Known gaps in what was built
+
+- Refunds don't reduce what a teacher is owed, and a payout can't be negative. A refunded class payment stays owed until an operator adjusts it by hand.
+- Two checkouts opened and both paid by one student give two payment rows, both owed to the teacher. The "already signed up" check only stops one after the other.
+- Card only. A delayed method (bank debit) would complete unpaid and the webhook would record nothing, so class checkout asks Stripe for cards. Backings and community products don't restrict this.
+- The 10% on classes doesn't appear in the platform fee report on `/admin/ledger`. It counts toward what the teacher is owed and appears on the per-person rows, the same as backings today.
+- A payment that was already in flight when a class was paused is still recorded (the money was taken). An operator refunds it by hand.
+- "Message participants" still reaches people who started checkout and never paid (see `announcements-prd.md`).
+- `signupCount` on a class now counts confirmed sign-ups only, so old pledges and abandoned checkouts don't show as "signed up".
+- Hosts only see a report when they open the class page. There is no email and no report queue.
+- A teacher can post a new class after theirs was paused.

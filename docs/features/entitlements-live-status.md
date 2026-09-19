@@ -1,6 +1,6 @@
 # Entitlements — live status
 
-2026-09-15 · reality-check doc, code-verified. **Gate rows corrected 2026-09-18** (`project.applyPaid`, `gig.respond`, `table.create`). Supersedes `entitlements-paywall-foundation.md`
+2026-09-15 · reality-check doc, code-verified. **Gate rows corrected 2026-09-18, class rows added 2026-09-19** (`project.applyPaid`, `gig.respond`, `table.create`). Supersedes `entitlements-paywall-foundation.md`
 (deleted — pre-rebrand "TheCrossBoard" draft; its org tiers, `profiles.plan` field, and
 `organizations` schema were never built). Upstream canon is unchanged: tier ladder and capability
 names are `the-garden-product-plan.md` §2.1–§2.3; the money split is amended by the
@@ -89,6 +89,9 @@ exists, the paid-work gate can become a 10% take at payout instead of a seat req
 | `project.create.paid` | seat+, or patron/partner role | ❌ **not wired — free today** | `projects.ts:575` |
 | `project.applyPaid` | seat+ only | ✅ enforced 2026-09-17, on paid projects only (asking to join a passion project stays free) | `projectTeam.ts` `requestToJoin` |
 | `gig.respond` | seat+ only | ✅ enforced 2026-09-17 | `gigs.ts` `respondAvailable` |
+| `class.offer` | any signed-in member; a community they've joined if they tag one | ✅ enforced. No paid seat and no host status needed. Price bounds ($1 to $5,000) apply when the class is paid through our checkout | `offerings.ts` `createOffering`, `assertCommunityMember` |
+| `class.pause` | a community's hosts (or legacy moderators) and platform admins | ✅ built 2026-09-19, unit-tested on an in-memory ctx, **not deployed to production** | `offerings.ts` `pauseOffering`, `canModerateOffering` |
+| paid class money | student pays price + card processing; teacher owed 90% | ✅ built 2026-09-19, **not run through Stripe test mode, not deployed** | `stripe.ts` `createClassCheckout`, `stripeHandlers.ts` `handleClassCheckoutCompleted` |
 | `event.create` | seat+, or partner | ⚠️ no create-event mutation exists yet | — |
 
 **Heads-up before wiring the three ❌ rows:** `the-garden-product-plan.md` §2.5 names paid-project

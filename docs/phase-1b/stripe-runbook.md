@@ -51,7 +51,7 @@ Ordered by effort.
 
 **Church coverage checkout** — half a day. `createCoverageCheckout` is a commented-out stub in `stripe.ts`. The webhook side is already implemented and tested; what's outstanding is the checkout session (`mode: "subscription"`, `quantity = seats`, metadata `{kind: "coverage", hostOrgId, sponsorName}`) and issuing the `coverageCodes` row on completion.
 
-**Class and premium checkout** — half a day. `offerings` carries `priceCents`; `offeringSignups` records a signup but no charge. Needs a checkout action mirroring `createTicketCheckout`, a `checkout.session.completed` branch writing the signup as paid, and the buyer-pays-fee line item.
+**Class checkout** — built 2026-09-19 (`createClassCheckout` in `stripe.ts`, webhook branch `handleClassCheckoutCompleted`, `classPayments` table). The student pays the price plus card processing on top; the teacher is owed 90% of the price until an operator records a payout. Card only. It has **not** run through Stripe test mode, and it isn't live until the Convex backend is deployed. Spec: `docs/features/class-payments-and-moderation.md`. Premium tiers and bundles sold by a community use `createProductCheckout`, which is separate.
 
 **Project backing checkout** — about a day. `projectSupport` records intent only. Needs the checkout action, the fee-on-the-backer calculation (charge = (amount + 0.30) / 0.971 so the creative nets the full amount), a webhook branch, and a payout path to the creative.
 
