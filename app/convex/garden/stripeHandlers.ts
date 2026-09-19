@@ -953,6 +953,23 @@ export function classPaymentPath(offering: ClassPricing): ClassPaymentPath {
   return "checkout";
 }
 
+/** The teacher's side of the price rule, checked when a class is posted or
+ * edited. A class paid through our checkout has to carry a price the checkout
+ * accepts, or it can be posted but never paid for. A free class, and a class
+ * with an outside payment link, can carry any price. classCheckoutRefusal is
+ * the student's side of the same bounds. */
+export function classPriceProblem(offering: ClassPricing): ClassCheckoutRefusal | null {
+  if (classPaymentPath(offering) !== "checkout") return null;
+  const price = offering.priceCents ?? 0;
+  if (Number.isInteger(price) && price >= MIN_CLASS_PRICE_CENTS && price <= MAX_CLASS_PRICE_CENTS) return null;
+  return {
+    code: "invalid_price",
+    reason:
+      `A class paid on the site costs $${MIN_CLASS_PRICE_CENTS / 100} to ` +
+      `$${(MAX_CLASS_PRICE_CENTS / 100).toLocaleString("en-US")}. Change the price, or add your own payment link.`,
+  };
+}
+
 /** The teacher's and the platform's shares of a class PRICE (never the price
  * plus processing). Same rule and rounding as products.ts's splitHostSale,
  * reached through hostSaleSplit above — the shares always add back to the

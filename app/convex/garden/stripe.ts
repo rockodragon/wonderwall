@@ -852,6 +852,10 @@ export const createClassCheckout = action({
 
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
+      // Card only: the processing line is priced at the card rate, and a card
+      // payment is "paid" the moment checkout completes. A delayed method
+      // (bank debit) would complete unpaid and the webhook records nothing.
+      payment_method_types: ["card"],
       customer: stripeCustomerId,
       line_items: parts.lineItems,
       metadata: parts.metadata,

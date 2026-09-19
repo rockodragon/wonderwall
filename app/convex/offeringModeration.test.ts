@@ -24,7 +24,9 @@ import {
   resolveCommunityChange,
   resolveOfferingReport,
   restoreOffering,
+  createOffering,
   signUpForOffering,
+  startClassCheckout,
   signupBlock,
   updateOffering,
   updateOfferingStatus,
@@ -905,5 +907,64 @@ describe("reportOffering / listReportsForOffering / dismissReport", () => {
       expect(err.code).toBe("forbidden");
       expect(reports(ctx).find((r) => r._id === "offeringReports:1")?.status).toBe("open");
     }
+  });
+});
+
+// ——————————————————————————————————————————————————————————————
+// Paid classes: the two places the pause and the price rules meet checkout
+// ——————————————————————————————————————————————————————————————
+
+/** WORLD with "Beginner tap" turned into a paid class with no outside link. */
+const paidWorld = (over: Record<string, unknown> = {}) => {
+  const w = WORLD();
+  const tap = w.offerings.find((o) => o._id === "offerings:tap")!;
+  Object.assign(tap, { priceCents: 2500, ...over });
+  return w;
+};
+
+describe("startClassCheckout and a paused class", () => {
+  it("a paid class that isn't paused lets a student start checkout, with a pledged row to pay against", async () => {
+    const ctx = makeCtx(paidWorld(), HOST);
+    const out = await run(startClassCheckout, ctx, { offeringId: "offerings:tap", userId: HOST });
+    expect(out).toMatchObject({ ok: true, priceCents: 2500 });
+    const mine = ctx.store.offeringSignups.filter((r: Row) => r.userId === HOST);
+    expect(mine).toHaveLength(1);
+    expect(mine[0].status).toBe("pledged");
+  });
+
+  it("a paused class takes no payment: the student is refused and no row is written", async () => {
+    const ctx = makeCtx(paidWorld({ pausedAt: 5, pausedBy: HOST, pausedReason: "complaints" }), STRANGER);
+    const before = ctx.store.offeringSignups.length;
+    const out = await run(startClassCheckout, ctx, { offeringId: "offerings:tap", userId: HOST });
+    expect(out).toEqual({ ok: false, refusal: { code: "paused", reason: "This class is paused right now." } });
+    expect(ctx.store.offeringSignups).toHaveLength(before);
+  });
+});
+
+describe("the price rule when a class is posted or edited", () => {
+  const post = (viewer: string, over: Record<string, unknown>) =>
+    run(createOffering, makeCtx(WORLD(), viewer), { title: "Watercolor", format: "class", ...over });
+
+  it("refuses a price the checkout can't take, and posts nothing", async () => {
+    const ctx = makeCtx(WORLD(), TEACHER);
+    const err = await thrown(run(createOffering, ctx, { title: "Watercolor", format: "class", priceCents: 50 }));
+    expect(err.code).toBe("invalid_price");
+    expect(err.reason).toContain("$1 to $5,000");
+    expect(ctx.store.offerings).toHaveLength(2); // still just the two seeded classes
+  });
+
+  it("takes a price inside the range, a free class, and any price when the teacher uses their own link", async () => {
+    await expect(post(TEACHER, { priceCents: 2500 })).resolves.toBeTruthy();
+    await expect(post(TEACHER, {})).resolves.toBeTruthy();
+    await expect(
+      post(TEACHER, { priceCents: 50, externalPaymentLinkUrl: "https://example.com/pay" }),
+    ).resolves.toBeTruthy();
+  });
+
+  it("holds an edit to the same rule", async () => {
+    const ctx = makeCtx(WORLD(), TEACHER);
+    const err = await thrown(run(updateOffering, ctx, editArgs({ priceCents: 50 })));
+    expect(err.code).toBe("invalid_price");
+    await expect(run(updateOffering, makeCtx(WORLD(), TEACHER), editArgs({ priceCents: 4000 }))).resolves.toBeTruthy();
   });
 });

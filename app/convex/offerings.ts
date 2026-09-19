@@ -17,7 +17,7 @@ import { ConvexError } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { assertCommunityMember, canManageCommunity } from "./garden/communities";
-import { classCheckoutRefusal, classPaymentPath } from "./garden/stripeHandlers";
+import { classCheckoutRefusal, classPaymentPath, classPriceProblem } from "./garden/stripeHandlers";
 import { isAdminProfile } from "./helpers";
 
 const VALID_STATUSES = new Set(["active", "archived"]);
@@ -314,6 +314,11 @@ export const createOffering = mutation({
     if (!args.format.trim()) {
       throw new ConvexError({ code: "missing_format", reason: "Pick a format." });
     }
+    const priceProblem = classPriceProblem({
+      priceCents: args.priceCents,
+      externalPaymentLinkUrl: args.externalPaymentLinkUrl,
+    });
+    if (priceProblem) throw new ConvexError(priceProblem);
 
     if (args.hostOrgId) {
       await assertCommunityMember(ctx, args.hostOrgId, userId);
@@ -550,6 +555,11 @@ export const updateOffering = mutation({
     if (!args.format.trim()) {
       throw new ConvexError({ code: "missing_format", reason: "Pick a format." });
     }
+    const priceProblem = classPriceProblem({
+      priceCents: args.priceCents,
+      externalPaymentLinkUrl: args.externalPaymentLinkUrl,
+    });
+    if (priceProblem) throw new ConvexError(priceProblem);
 
     // A paused class can't be moved out of (or into) a community by editing
     // — see resolveCommunityChange. Everything else stays editable.
@@ -735,6 +745,13 @@ export const startClassCheckout = internalMutation({
           )
           .unique()
       : null;
+
+    // A paused class takes no payments either — the same block
+    // signUpForOffering applies (signupBlock). A payment that was already in
+    // flight when the pause landed still gets recorded by the webhook: the
+    // money was taken, so it is never dropped; the operator refunds by hand.
+    const paused = offering ? signupBlock(offering) : null;
+    if (paused) return { ok: false as const, refusal: paused };
 
     const refusal = classCheckoutRefusal({
       offering: offering

@@ -18,6 +18,7 @@ import {
   backingProcessingFeeCents,
   classCheckoutParts,
   classCheckoutRefusal,
+  classPriceProblem,
   classPaymentPath,
   handleStripeEvent,
   splitClassSale,
@@ -567,5 +568,35 @@ describe("the sign-up modal (source)", () => {
   it("takes its processing sentence from CLAIMS, not inline", () => {
     expect(source).toContain("CLAIMS.classProcessingFee");
     expect(source).not.toMatch(/card processing/i);
+  });
+});
+
+describe("classPriceProblem — the teacher's side of the price rule", () => {
+  it("passes both edges of the range and anything between", () => {
+    for (const priceCents of [MIN_CLASS_PRICE_CENTS, 2500, 12_345, MAX_CLASS_PRICE_CENTS]) {
+      expect(classPriceProblem({ priceCents }), String(priceCents)).toBeNull();
+    }
+  });
+
+  it("refuses a price under the minimum, over the maximum, or not a whole number of cents", () => {
+    for (const priceCents of [1, 50, MIN_CLASS_PRICE_CENTS - 1, MAX_CLASS_PRICE_CENTS + 1, 2500.5]) {
+      expect(classPriceProblem({ priceCents }), String(priceCents)).toMatchObject({ code: "invalid_price" });
+    }
+  });
+
+  it("leaves a free class and a class with an outside link alone, whatever the price", () => {
+    expect(classPriceProblem({})).toBeNull();
+    expect(classPriceProblem({ priceCents: 0 })).toBeNull();
+    expect(classPriceProblem({ priceCents: 50, externalPaymentLinkUrl: "https://example.com/pay" })).toBeNull();
+    expect(classPriceProblem({ priceCents: 99_999_999, externalPaymentLinkUrl: "https://example.com/pay" })).toBeNull();
+  });
+
+  it("says the range in plain words, from the same constants the checkout uses", () => {
+    const problem = classPriceProblem({ priceCents: 50 })!;
+    expect(problem.reason).toBe(
+      "A class paid on the site costs $1 to $5,000. Change the price, or add your own payment link.",
+    );
+    expect(MIN_CLASS_PRICE_CENTS).toBe(100);
+    expect(MAX_CLASS_PRICE_CENTS).toBe(500_000);
   });
 });
