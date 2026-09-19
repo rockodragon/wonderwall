@@ -63,7 +63,7 @@ export function meta() {
     {
       name: "description",
       content:
-        "How grants work on creatives.exchange: a platform project pool, community funds, who can propose, who decides, and a public ledger of every award. The Garden's fund is administered by Abiding Practice, a 501(c)(3).",
+        "How grants work on creatives.exchange: a platform project pool, community funds, who can propose, and who decides. The Garden's fund is administered by Abiding Practice, a 501(c)(3).",
     },
   ];
 }
@@ -766,8 +766,7 @@ export default function GrantProgramPage() {
           communities can run funds of their own. The first is The Garden's,
           administered by{" "}
           <strong style={{ color: "var(--g-paper)" }}>Abiding Practice</strong>,
-          a registered 501(c)(3). Every award from any fund is recorded on a
-          public ledger. How decisions get made is spelled out below.
+          a registered 501(c)(3). How decisions get made is spelled out below.
         </p>
 
         {/* Give CTA / thank-you — waits on fund data */}
@@ -833,8 +832,8 @@ export default function GrantProgramPage() {
                 }}
               >
                 Donate to The Garden's fund through Abiding Practice, a
-                501(c)(3). They decide their own awards — every dollar that
-                goes out is on the ledger below.
+                501(c)(3). They decide their own awards, and those awards are
+                listed below.
               </p>
               {canGive && (
                 <button
@@ -900,7 +899,7 @@ export default function GrantProgramPage() {
             </HowItem>
             <HowItem title="Run a fund on these rails">
               Any approved community can have its own pool today, with its
-              own public ledger and contribution button. A city program, a
+              own page and contribution button. A city program, a
               foundation or a nonprofit could publish its awards the same
               way. Percent-of-dues pledges to a community pool, award
               deadlines and host-run selection are planned, not built.

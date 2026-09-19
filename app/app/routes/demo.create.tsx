@@ -9,6 +9,7 @@ import type { CanResult, Capability } from "../garden/capabilities";
 import { useDemo } from "../garden/demo-context";
 import { PROJECTS } from "../garden/demo-data";
 import { IconSpark, IconTag, IconSeat, IconMake, IconCheck } from "../garden/icons";
+import { CLAIMS } from "../constants/claims";
 
 type Path = "chooser" | "passion" | "paid";
 
@@ -127,21 +128,21 @@ function DropZone({
   );
 }
 
-/** Two-cell dues split — $5 funds other creatives' projects, $5 runs the
-    place. Data cells, not buttons: citron stays a bottom-rule accent, never a fill. */
+/** Two-cell dues split — the two halves, labelled from CLAIMS
+    (constants/claims.ts). Data cells, not buttons: citron stays a bottom-rule accent, never a fill. */
 function SplitStrip() {
   return (
     <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
       <div className="g-cell g-cell-hot" style={{ flex: 1, textAlign: "center", padding: "10px 6px" }}>
         <span className="g-cell-v" style={{ fontSize: 18 }}>$5</span>
         <div className="g-mono" style={{ fontSize: 10.5, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--g-muted)", marginTop: 4 }}>
-          funds other creatives' projects
+          {CLAIMS.duesCellFunds}
         </div>
       </div>
       <div className="g-cell" style={{ flex: 1, textAlign: "center", padding: "10px 6px" }}>
         <span className="g-cell-v" style={{ fontSize: 18 }}>$5</span>
         <div className="g-mono" style={{ fontSize: 10.5, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--g-muted)", marginTop: 4 }}>
-          runs the place
+          {CLAIMS.duesCellRest}
         </div>
       </div>
     </div>

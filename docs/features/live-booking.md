@@ -114,7 +114,7 @@ The venue says it the way they think about it, and the platform stores it that w
 - `gigs.getSlotPayment` — for the venue or the booked artist only: the handles, the amount from the gig's pay, and the links (`venmo.com/<user>?txn=pay&amount=300&note=…`, `cash.app/$tag/300`, `paypal.me/name/300USD`).
 - `gigs.markSlotPaid` (venue) and `gigs.confirmSlotPaid` (artist) — the record on the date.
 
-**What comes later:** when we want the 10% on gig money, or a public ledger row per gig, the money has to move through us. That is Stripe ACH for the venue plus Connect for the artist. It is the same payout rail every other paid thing on the platform needs, tracked in bead wonderwall-7avu. Nothing here has to change for that; the pay panel gets a "Pay through the platform" option next to the handles.
+**What comes later:** when we want the 10% on gig money, the money has to move through us. That is Stripe ACH for the venue plus Connect for the artist. It is the same payout rail every other paid thing on the platform needs, tracked in bead wonderwall-7avu. Nothing here has to change for that; the pay panel gets a "Pay through the platform" option next to the handles.
 
 ### Who else books gigs, and what they charge
 

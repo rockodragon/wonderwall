@@ -51,7 +51,9 @@ const PASSION_CAPS: Record<Level, number> = {
 
 const SEAT_PATH = "Become a member — $10/mo";
 const FIVE_PATH = "Five projects — $25/mo";
-const HOST_PATH = "Community Host — $50/mo";
+// Hosting is not open for sign-up yet (Rick, 2026-09-18): hosts join a
+// waitlist, and no host price is shown anywhere — this path included.
+const HOST_PATH = "Join the host waitlist";
 
 const isPaidLevel = (l: Level) => l === "seat" || l === "five" || l === "host";
 
@@ -151,7 +153,7 @@ export function can(user: GardenUser, capability: Capability): CanResult {
       return {
         allowed: false,
         reason:
-          "Tables are ongoing rosters run by hosts. Creating one requires the Community Host tier.",
+          "Tables are ongoing rosters run by hosts. Hosting isn't open for sign-up yet.",
         upgradePath: HOST_PATH,
       };
 
@@ -186,14 +188,16 @@ export const LEVEL_LABEL: Record<Level, string> = {
   host: "Community Host · $50/mo",
 };
 
-/** Published splits — render these wherever money appears.
-    Dues split two ways, in the open: half funds other creatives' projects,
-    half runs the place. Anything a host sells (classes, cohorts, premium
+/** The splits — render these wherever money appears.
+    Dues split two ways: half funds grants for other creatives, half runs
+    the platform. Anything a host sells (classes, cohorts, premium
     tiers) splits like patronage: 90% theirs, 10% platform. */
 export const SPLITS = {
   dues: { pool: 0.5, platform: 0.5 },
   patronage: { work: 0.9, platform: 0.1 },
   sales: { host: 0.9, platform: 0.1 },
   duesSentence:
-    "Half of every membership funds another creative's project. From day one your money is supporting someone — instead of hoping to hear back.",
+    // Twin of CLAIMS.dues (app/app/constants/claims.ts, docs/marketing/
+    // claims.md) — convex/ can't import from app/, so keep the two identical.
+    "Half of your membership funds grants for other creatives.",
 } as const;

@@ -76,7 +76,7 @@ describe("passion-project caps (1 / 5 / 10)", () => {
     expect(can(five, "project.create.passion")).toMatchObject({ allowed: true, limit: 5, used: 3 });
     const denied = can(fiveAtCap, "project.create.passion");
     expect(denied.allowed).toBe(false);
-    expect(denied.upgradePath).toMatch(/Community Host/);
+    expect(denied.upgradePath).toMatch(/host waitlist/i);
   });
   it("host: cap 10; at-cap denial has no upgrade path — the ladder ends", () => {
     expect(can(host, "project.create.passion")).toMatchObject({ allowed: true, limit: 10 });
@@ -111,8 +111,9 @@ describe("denial anatomy — every denial explains itself", () => {
       expect(can(free, cap).upgradePath).toMatch(/member.*\$10\/mo/i);
     }
   });
-  it("table.create denial points at the Community Host tier", () => {
-    expect(can(free, "table.create").upgradePath).toMatch(/Community Host.*\$50\/mo/);
+  it("table.create denial points at the host waitlist, with no price", () => {
+    expect(can(free, "table.create").upgradePath).toMatch(/host waitlist/i);
+    expect(can(free, "table.create").upgradePath).not.toMatch(/\$/);
   });
   it("patron-act denials point at the free patron role, not a paid tier", () => {
     expect(can(free, "seat.cover").upgradePath).toMatch(/patron.*free/i);

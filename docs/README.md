@@ -23,6 +23,11 @@ The project is **creatives.exchange** (repo: wonderwall). Four documents are the
 - [Rich project content](features/rich-project-content.md) — the block model behind project pages and project updates (headings, images, video embeds)
 - Older PRDs: [jobs](jobs-feature-prd.md) · [messaging](messaging-feature-prd.md) · [event location](prd-event-location.md) · [announcements](announcements-prd.md) · [events video hosting](events-video-hosting-prd.md) · [gated event video](gated-event-video-prd.md)
 
+## Marketing
+
+- [What we say about money](marketing/claims.md) — every money sentence, word for word, and what we never say. The site reads the same sentences from `app/app/constants/claims.ts`.
+- [Outreach playbook](marketing/constituent-playbook.md) — six audiences; points at the claims by name
+
 ## Runbooks and research
 
 - [Step 0: go live in Stripe test mode](runbooks/step-0-go-live.md)
