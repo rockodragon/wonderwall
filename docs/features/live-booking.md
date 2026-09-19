@@ -116,6 +116,10 @@ The venue says it the way they think about it, and the platform stores it that w
 
 **What comes later:** when we want the 10% on gig money, or a public ledger row per gig, the money has to move through us. That is Stripe ACH for the venue plus Connect for the artist. It is the same payout rail every other paid thing on the platform needs, tracked in bead wonderwall-7avu. Nothing here has to change for that; the pay panel gets a "Pay through the platform" option next to the handles.
 
+### Who else books gigs, and what they charge
+
+Booking agents take 10–20% of the artist's fee. GigSalad takes 13–17% across both sides. GigTown, the San Diego agency based in Carlsbad, took 13% of each booking at last report and works resorts and restaurant groups, not small independent bars. The full comparison, the research on people paying around a platform, and our working prices for venues and artists are in [partner-landscape.md §4a](../partner-landscape.md).
+
 ## 7 · Data
 
 Three new tables and one new profile field (`convex/schema.ts`). The posting itself is a normal `projects` row, `kind: "paid"`, with the pay in the same four money states every paid post uses.
