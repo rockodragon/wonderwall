@@ -21,6 +21,7 @@ import { auth } from "../auth";
 // action and the webhook share one authority (and so it's unit-testable
 // without this file's node runtime / Stripe SDK).
 import {
+  backingProcessingFeeCents,
   backingReturnPaths,
   guestBackingRefusal,
   resolveGuestSupporterName,
@@ -597,6 +598,11 @@ export const createBackingCheckout = action({
       visible: String(args.visible),
       supporterName: started.supporterName,
       supportId: String(started.supportId),
+      // The backing's true, pre-fee amount. The webhook reads THIS as the
+      // backing's gross — never amount_total / amount_paid, which include the
+      // processing line item below. Mirrored onto the subscription with the
+      // rest of `metadata`, so each monthly renewal invoice carries it too.
+      amountCents: String(args.amountCents),
       ...(args.tierId ? { tierId: args.tierId } : {}),
     };
 
@@ -621,6 +627,20 @@ export const createBackingCheckout = action({
                 ? `${intervalLabel} backing — ${started.projectTitle}`
                 : `Backing — ${started.projectTitle}`,
             },
+            ...(args.recurring ? { recurring: { interval: billingInterval! } } : {}),
+          },
+        },
+        // Card processing, added on top and paid by the backer (the plan §3,
+        // decided 2026-09-18; bead wonderwall-p7uf). Its own line item, never
+        // folded into the backing, so Stripe's page shows it plainly and
+        // splitBacking never sees it. In subscription mode every line needs
+        // `recurring`, so the fee repeats each cycle just like the backing.
+        {
+          quantity: 1,
+          price_data: {
+            currency: "usd",
+            unit_amount: backingProcessingFeeCents(args.amountCents),
+            product_data: { name: "Card processing" },
             ...(args.recurring ? { recurring: { interval: billingInterval! } } : {}),
           },
         },

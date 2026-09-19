@@ -256,7 +256,7 @@ function SupportForm({ projectId, onCancel }: { projectId: Id<"projects">; onCan
       )}
       <p className="g-hint" style={{ lineHeight: 1.5 }}>
         {CLAIMS.patron} {formatMoney(MIN_CENTS)} minimum.
-        {monthly ? " Monthly renews until you cancel." : ""} You pay on the next screen.
+        {monthly ? " Monthly renews until you cancel." : ""} {CLAIMS.processingFee} You pay on the next screen.
       </p>
       {!isAuthenticated && (
         <p className="g-hint" style={{ lineHeight: 1.5 }}>

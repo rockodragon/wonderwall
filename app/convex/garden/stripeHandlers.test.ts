@@ -16,6 +16,9 @@ import {
   handleStripeEvent,
   mapSubscriptionStatus,
   splitBacking,
+  backingProcessingFeeCents,
+  CARD_FEE_RATE,
+  CARD_FEE_FIXED_CENTS,
   validateBackingAmount,
   MIN_BACKING_CENTS,
   type BillingCustomerRow,
@@ -1453,6 +1456,144 @@ describe("backing payments — what each creative is owed", () => {
     for (const row of backingPayments.values()) {
       expect(row.platformCents + row.workCents).toBe(row.grossCents);
     }
+  });
+});
+
+// ——— Card processing rides on top of a backing (bead wonderwall-p7uf) ———
+
+describe("backingProcessingFeeCents — the backer covers card processing, on top", () => {
+  it.each([
+    [500, 46],
+    [1000, 61],
+    [2500, 106],
+    [10_000, 330],
+    [100_000, 3018],
+    [250_000, 7498],
+  ])("a %i-cent backing adds a %i-cent processing line", (amount, fee) => {
+    expect(backingProcessingFeeCents(amount)).toBe(fee);
+  });
+
+  it("leaves the whole backing intact after Stripe's own 2.9% + 30¢, and overcharges by at most a cent", () => {
+    for (const amount of [500, 501, 999, 1000, 1234, 2500, 4999, 10_000, 99_999, 100_000, 250_000, 1_000_000]) {
+      const total = amount + backingProcessingFeeCents(amount);
+      // Stripe rounds its fee to the nearest cent.
+      const stripeTakes = Math.round(total * CARD_FEE_RATE + CARD_FEE_FIXED_CENTS);
+      const net = total - stripeTakes;
+      expect(net, `${amount}`).toBeGreaterThanOrEqual(amount);
+      expect(net - amount, `${amount}`).toBeLessThanOrEqual(1);
+    }
+  });
+});
+
+describe("backing payments — the processing fee is never part of the money", () => {
+  it("a one-time backing whose Stripe total includes the fee is owed on the backing alone", async () => {
+    const { db, projectSupport, backingPayments, projectRaisedCents } = createFakeDb();
+    seedPendingBacking(projectSupport); // 2500
+    const total = 2500 + backingProcessingFeeCents(2500); // 2606
+
+    await handleStripeEvent(
+      event(
+        "checkout.session.completed",
+        backingSessionFixture({
+          amount_total: total,
+          metadata: { ...BACKING_METADATA, amountCents: "2500" },
+        }),
+      ),
+      db,
+    );
+
+    expect(backingPayments.get("cs_backing")).toMatchObject({
+      grossCents: 2500,
+      platformCents: 250,
+      workCents: 2250,
+    });
+    expect(projectRaisedCents.get("project_1")).toBe(2500);
+  });
+
+  it("the pending row's own amount wins even when the session carries no amountCents metadata", async () => {
+    const { db, projectSupport, backingPayments } = createFakeDb();
+    seedPendingBacking(projectSupport);
+
+    await handleStripeEvent(
+      event("checkout.session.completed", backingSessionFixture({ amount_total: 2606 })),
+      db,
+    );
+
+    expect(backingPayments.get("cs_backing")).toMatchObject({ grossCents: 2500, workCents: 2250 });
+  });
+
+  it("a monthly backing's first payment is owed on the backing alone", async () => {
+    const { db, projectSupport, backingPayments } = createFakeDb();
+    seedPendingBacking(projectSupport, { type: "financial_recurring", amountCents: 1000 });
+
+    await handleStripeEvent(
+      event(
+        "checkout.session.completed",
+        backingSessionFixture({
+          mode: "subscription",
+          subscription: "sub_backing",
+          amount_total: 1000 + backingProcessingFeeCents(1000), // 1061
+          metadata: { ...BACKING_METADATA, amountCents: "1000" },
+        }),
+      ),
+      db,
+    );
+
+    expect(backingPayments.get("cs_backing")).toMatchObject({
+      billing: "first",
+      grossCents: 1000,
+      platformCents: 100,
+      workCents: 900,
+    });
+  });
+
+  it("each renewal reads the backing amount from the subscription metadata, not the fee-inclusive invoice", async () => {
+    const { db, backingPayments } = createFakeDb();
+
+    await handleStripeEvent(
+      event(
+        "invoice.paid",
+        backingInvoiceFixture({
+          amount_paid: 1000 + backingProcessingFeeCents(1000), // 1061 — what Stripe collected
+          parent: { subscription_details: { metadata: { ...BACKING_METADATA, amountCents: "1000" } } },
+        }),
+      ),
+      db,
+    );
+
+    expect(backingPayments.get("in_backing_2")).toMatchObject({
+      billing: "renewal",
+      grossCents: 1000,
+      platformCents: 100,
+      workCents: 900,
+    });
+  });
+
+  it("a renewal on a subscription with no amountCents metadata falls back to what Stripe reports paid", async () => {
+    const { db, backingPayments } = createFakeDb();
+
+    await handleStripeEvent(event("invoice.paid", backingInvoiceFixture({ amount_paid: 1000 })), db);
+
+    expect(backingPayments.get("in_backing_2")).toMatchObject({ grossCents: 1000, workCents: 900 });
+  });
+
+  it("with no pending row, the fallback insert records the metadata amount, not the fee-inclusive total", async () => {
+    const { db, projectSupport, backingPayments, projectRaisedCents } = createFakeDb();
+
+    await handleStripeEvent(
+      event(
+        "checkout.session.completed",
+        backingSessionFixture({
+          amount_total: 2606,
+          metadata: { ...BACKING_METADATA, amountCents: "2500" },
+        }),
+      ),
+      db,
+    );
+
+    expect([...projectSupport.values()][0]).toMatchObject({ amountCents: 2500, status: "confirmed" });
+    expect(projectRaisedCents.get("project_1")).toBe(2500);
+    expect(backingPayments.get("cs_backing")).toMatchObject({ grossCents: 2500, platformCents: 250, workCents: 2250 });
   });
 });
 
