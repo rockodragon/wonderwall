@@ -1557,6 +1557,19 @@ describe("backingReturnPaths", () => {
       cancel: "/",
     });
   });
+
+  it("a member who started on the story page goes back to the story page", () => {
+    expect(
+      backingReturnPaths({ signedIn: true, projectId: "p1", storySlug: "psalms", from: "story" }),
+    ).toEqual({ success: "/story/psalms?backed=1", cancel: "/story/psalms" });
+  });
+
+  it("from the story page with no story link, a member still lands on the project", () => {
+    expect(backingReturnPaths({ signedIn: true, projectId: "p1", from: "story" })).toEqual({
+      success: "/projects/p1?backed=1",
+      cancel: "/projects/p1",
+    });
+  });
 });
 
 describe("validateBackingAmount — the $5 floor (community-groups.md §3)", () => {
