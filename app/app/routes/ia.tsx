@@ -12,6 +12,7 @@
 import { Link, useRouteError } from "react-router";
 import { GardenErrorState, GardenPage, SectionLabel, FactRow } from "../garden/ui";
 import "../garden/garden.css";
+import { CLAIMS } from "../constants/claims";
 
 export function meta() {
   return [
@@ -379,8 +380,7 @@ export default function IAPage() {
               Where your dues go
             </div>
             <p style={{ fontSize: 14.5, lineHeight: 1.55, marginTop: 8 }}>
-              Half of your membership funds grants for other creatives. The
-              other half runs the platform.
+              {CLAIMS.dues} {CLAIMS.duesOtherHalf}
             </p>
           </div>
           <div className="g-card">

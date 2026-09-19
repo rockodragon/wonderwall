@@ -2,9 +2,9 @@
 
 v1 · 2026-09-18 · owner: Rick
 
-Every sentence we say about money lives here, word for word. The site reads the same sentences from `app/app/constants/claims.ts`. The outreach playbook points here by name.
+Every sentence we say about money is defined here, word for word. Do not write a new money sentence anywhere else.
 
-**To change a number or a promise:** change it here and in `claims.ts`, then search for the old sentence. Do not write a new money sentence anywhere else.
+**To change a number or a promise:** change it here and in `app/app/constants/claims.ts`, then fix the hand copies listed under "Where these sentences live." The test suite checks them.
 
 ## The claims
 
@@ -19,13 +19,30 @@ Every sentence we say about money lives here, word for word. The site reads the 
 | **host split** | Hosting is free. You keep 90% of what you sell. |
 | **membership** | Membership is $10 a month. It lets you apply to paid work, respond to gigs, and ask a grant fund to back your project. |
 | **dues** | Half of your membership funds grants for other creatives. |
-| **dues, other half** | The other half runs the platform. |
+| **dues, other half** | The other half keeps this running. |
 | **pool** | Half of every membership funds grants for other creatives. Members propose projects, and a review team decides. |
 | **grant fund** | The Garden's grant fund is run by Abiding Practice, a 501(c)(3), so gifts to it are tax-deductible. About 87% of each gift is granted. |
 | **patron** | Back a specific person or project. 90% goes to them. You can be named on the work, or stay anonymous. |
 | **coverage** | $10 a month covers one creative's membership. A covered membership is a full membership. |
 | **partner** | Post paid work with the pay stated up front, or offer your space. Creatives respond, and you pick. |
 | **the garden** | The platform is open to any creative. The Garden is the Christian creative community on it, and it is where this started. |
+
+## Where these sentences live
+
+**Imported, so they change with `claims.ts`:** the home page, the `/for/...` audience pages, `/ia`, and the demo pages (`demo.create`, `demo.join`, `demo.host.dashboard`).
+
+**Hand copies, because the file can't import anything.** Change these by hand when a claim changes:
+
+| Surface | What it carries |
+|---|---|
+| `app/public/about/` (static HTML: index, creatives, hosts, patrons, partners) | **dues**, **host split** |
+| `docs/flyers/` (creative, operator, patron) | **dues**, **host split** |
+| `app/convex/garden/capabilities.ts`, `SPLITS.duesSentence` | **dues** (the server can't import from the app) |
+| Emails and texts in the [outreach playbook](constituent-playbook.md) | whichever claim the message uses |
+
+**What the test checks** (`app/app/constants/claims.test.ts`): the server's dues sentence matches **dues** exactly; the static about pages that state the dues line use the canonical words; and no site source, static page, or flyer contains a phrase from "Never say," or a host price. The playbook's emails are not machine-checked.
+
+**On "dues, other half."** It is loose on purpose. The plan splits the other half between the community and the platform. The code today sends all of it to the platform (`duesSplit` in `stripeHandlers.ts`). "Keeps this running" is true either way and promises neither. Do not write "$4 runs your community" until the code sets that money aside.
 
 ## Never say
 

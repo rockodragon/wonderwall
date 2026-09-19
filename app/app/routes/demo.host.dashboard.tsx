@@ -17,6 +17,7 @@ import {
   IconPeople,
   IconQr,
 } from "../garden/icons";
+import { CLAIMS } from "../constants/claims";
 
 type Tab = "today" | "people" | "attendance" | "money" | "grow";
 type GardenIcon = ComponentType<{ size?: number; className?: string }>;
@@ -493,8 +494,7 @@ export default function DemoHostDashboard() {
               </div>
             </dl>
             <p className="g-hint" style={{ marginTop: 12 }}>
-              Half of every membership funds grants for other creatives.
-              The other half runs the platform. What you sell is yours:{" "}
+              {CLAIMS.duesEvery} {CLAIMS.duesOtherHalf} What you sell is yours:{" "}
               {SPLITS.sales.host * 100}% to you,{" "}
               {SPLITS.sales.platform * 100}% to the platform.{" "}
               {DASHBOARD.payoutNote}

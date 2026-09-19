@@ -1,8 +1,11 @@
-// What we say about money — the ONE place the site's money sentences live.
+// What we say about money — where the site's money sentences are defined.
 //
-// Twin of docs/marketing/claims.md, word for word. Pages import from here
-// instead of writing their own version, so a number or a promise changes in
-// one place. Before this file the same claim was hand-written on a dozen
+// Twin of docs/marketing/claims.md, word for word. Every React page imports
+// from here instead of writing its own version. Some surfaces CAN'T import
+// this file — the static /about pages, the print flyers, and the server's
+// SPLITS.duesSentence — so they carry hand copies. claims.md lists them, and
+// claims.test.ts checks them: the server twin must match exactly, and the
+// static files are scanned for the phrases we dropped. Before this file the same claim was hand-written on a dozen
 // surfaces, and when the backing split changed (2026-09-18: the platform's
 // 10% comes out of the backing) most of them kept promising "you keep all of
 // it." claims.test.ts scans the site for the phrases we dropped so they
@@ -33,7 +36,13 @@ export const CLAIMS = {
     "Membership is $10 a month. It lets you apply to paid work, respond to gigs, and ask a grant fund to back your project.",
   dues: DUES_YOURS,
   duesEvery: DUES_EVERY,
-  duesOtherHalf: "The other half runs the platform.",
+  // Deliberately loose. The plan splits the other half between the community
+  // and the platform (40/10); the code today sends all of it to the platform.
+  // "Keeps this running" is true both ways and promises neither.
+  duesOtherHalf: "The other half keeps this running.",
+  /** Short labels under the two halves wherever the split is drawn as two cells. */
+  duesCellFunds: "funds grants for other creatives",
+  duesCellRest: "keeps this running",
   pool: `${DUES_EVERY} Members propose projects, and a review team decides.`,
   grantFund:
     "The Garden's grant fund is run by Abiding Practice, a 501(c)(3), so gifts to it are tax-deductible. About 87% of each gift is granted.",
