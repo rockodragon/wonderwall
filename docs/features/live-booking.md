@@ -96,8 +96,9 @@ The venue says it the way they think about it, and the platform stores it that w
 |---|---|---|---|
 | **Pay handles + deep links** (Venmo, Cash App, PayPal.Me, Zelle) | $0 to the platform. Venmo: $0 on a personal profile, 1.9% + 10¢ to the artist on a business profile. Cash App and PayPal: similar or less for personal transfers. | No API. The link opens the payer's app with the amount and a note filled in. The venue taps Pay. | **Built. Use now.** |
 | Stripe ACH bank debit | 0.8% per charge, capped at $5. The payer covers it at checkout (plan §3). | Yes | Later — when money moves through our checkout and we take the 10%. |
-| Stripe Connect Express payouts | $2 per month per account that gets paid, plus 0.25% + 25¢ per payout, on top of the charge fee. | Yes | Later, with the above. Bead wonderwall-7avu. |
-| PayPal Payouts to Venmo | 2% per payout capped at $1 (a 25¢ flat rate is listed for the API). US only. We must hold the money first. | Yes | Only if we ever need to *send* to Venmo by API. Not now. |
+| Stripe Connect Express payouts | $2 per creative, only in a month Stripe deposits money to their bank (moving money into their Stripe balance is free), plus 0.25% + 25¢ per payout, on top of the charge fee. | Yes | Recommended for backings — see [backing-payouts.md](backing-payouts.md). Bead wonderwall-7avu. |
+| PayPal Payouts to Venmo | Flat 25¢ per payout (corrected 2026-09-18; this row used to say 2% capped at $1). US only. We must hold the money first. | Yes | Only if we ever need to *send* to Venmo by API. Not now. |
+| Stripe bank transfer (an account number per payer) | 0.5% per payment, capped at $5. Works with Stripe Connect. | Yes | Only if backers want to pay by bank transfer. Added 2026-09-18. |
 | Dwolla (bank to bank) | 0.5% per transfer, min 5¢, max $5, pay as you go. Plans from $250 a month. Everyone does identity checks. | Yes | No. Cheaper than cards, but it is a full payments integration for a stage where we don't move the money. |
 | Zelle | No public API. Banks only (JPMorgan, U.S. Bank). | No | No. We store the Zelle email or phone as a handle, nothing more. |
 

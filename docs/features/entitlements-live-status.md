@@ -99,6 +99,10 @@ first; under ten, don't gate anything yet.
 
 Bead: **wonderwall-7avu** (P1). Step 1 is pre-Nov 6 without Connect; step 2 is Phase 3.
 
+**Update 2026-09-18:** researched in [backing-payouts.md](backing-payouts.md). Decided: $50 minimum payout.
+Recommended, not decided: move Stripe Connect (step 2) ahead of Nov 6, because charging backings on the
+platform's own Stripe account is on Stripe's restricted list. Step 1's ledger is built in draft PR #15.
+
 | Lane | Plan docs say | Code has |
 |---|---|---|
 | Stripe Connect Express | Phase 3; manual transfers for October; "never cut the payout ledger" (`phase-1b/spec.md` §5) | Zero |
