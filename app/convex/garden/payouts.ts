@@ -15,6 +15,12 @@
 // What a creative is owed = sum(workCents) − sum(their creativePayouts).
 // Transfers stay manual until Stripe Connect (step 2, Phase 3).
 //
+// Class money rides the same ledger: a paid class's teacher share
+// (classPayments.teacherCents, written by the same webhook) counts toward the
+// teacher's balance exactly as workCents does, so a creative owed for
+// backings AND classes has one balance and one payout reduces both — see
+// classPaymentToEarningsPayment below.
+//
 // The split itself is NOT decided yet (2026-09-18) — see splitBacking in
 // stripeHandlers.ts, the one place the rate lives. Don't run the backfill
 // against production until it is: it writes rows at whatever rate is set.
@@ -71,11 +77,39 @@ export function computeCreativeEarnings(
  * never folded into someone's balance or dropped. */
 export const UNASSIGNED = "unassigned";
 
+export interface ClassPaymentLike {
+  offeringId: string;
+  payeeUserId?: string;
+  grossCents: number;
+  platformCents: number;
+  teacherCents: number;
+}
+
+/** A class payment as a line on the creative ledger. The teacher's share is
+ * what a creative is owed, exactly as a backing's workCents is, so it maps
+ * onto the same payment shape and lands on the same per-payee row. `title`
+ * names the class for the operator — without it buildCreativeEarningsRows
+ * would look the offering id up as a project. A payment whose class was
+ * deleted keeps a row (payee absent → UNASSIGNED) rather than dropping. */
+export function classPaymentToEarningsPayment(
+  p: ClassPaymentLike,
+  offeringTitle: string | undefined,
+): BackingPaymentLike & { payeeUserId?: string; projectId: string; title: string } {
+  return {
+    payeeUserId: p.payeeUserId,
+    projectId: p.offeringId,
+    title: offeringTitle ?? "A deleted class",
+    grossCents: p.grossCents,
+    platformCents: p.platformCents,
+    workCents: p.teacherCents,
+  };
+}
+
 export interface CreativeEarningsRow extends CreativeEarnings {
   payeeUserId: string; // or UNASSIGNED
   name: string;
   profileId: string | null;
-  projects: string[]; // titles, for the operator to recognise the work
+  projects: string[]; // titles (projects and classes), for the operator to recognise the work
 }
 
 /**
@@ -85,7 +119,7 @@ export interface CreativeEarningsRow extends CreativeEarnings {
  * negative, which an operator needs to see).
  */
 export function buildCreativeEarningsRows(
-  payments: (BackingPaymentLike & { payeeUserId?: string; projectId: string })[],
+  payments: (BackingPaymentLike & { payeeUserId?: string; projectId: string; title?: string })[],
   payouts: { payeeUserId: string; amountCents: number }[],
   lookup: {
     name: (payeeUserId: string) => string | undefined;
@@ -112,7 +146,7 @@ export function buildCreativeEarningsRows(
   for (const key of keys) {
     const mine = paymentsBy.get(key) ?? [];
     const titles = [
-      ...new Set(mine.map((p) => lookup.projectTitle(p.projectId) ?? "A deleted project")),
+      ...new Set(mine.map((p) => p.title ?? lookup.projectTitle(p.projectId) ?? "A deleted project")),
     ];
     rows.push({
       payeeUserId: key,

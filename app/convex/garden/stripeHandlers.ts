@@ -59,8 +59,13 @@ export interface StripeCheckoutSessionLike {
   customer_details?: { email?: string | null } | null;
   metadata?: Record<string, string> | null;
   /** Total charged in the smallest currency unit — present on one-time
-   * payment sessions (event tickets, pool contributions). */
+   * payment sessions (event tickets, pool contributions). For a backing or a
+   * class it INCLUDES the card-processing line, so those two never read it
+   * as the amount (they read metadata.amountCents). */
   amount_total?: number | null;
+  /** "paid" | "unpaid" | "no_payment_required". A class payment is recorded
+   * only when this is "paid" (handleClassCheckoutCompleted). */
+  payment_status?: string;
   /** Seconds since epoch. Used as the contribution `period` fallback for
    * one-time pool contributions, which (unlike invoices) carry no
    * period_start. */
@@ -255,7 +260,41 @@ export interface BackingPaymentRow {
   period: string; // "YYYY-MM"
 }
 
-export interface Db {
+/** One payment on a paid class (schema.ts's classPayments) — the owed-to-
+ * teacher row, the class twin of BackingPaymentRow. grossCents is the class
+ * PRICE only; the card-processing line the student also paid never lands
+ * here. teacherCents accrues as owed to payeeUserId until an operator records
+ * a creativePayouts row against it. Written by handleClassCheckoutCompleted. */
+export interface ClassPaymentRow {
+  offeringId: string;
+  payeeUserId?: string; // the class's teacher when the money arrived; absent if the class is gone
+  buyerUserId: string;
+  grossCents: number;
+  platformCents: number; // splitClassSale — 10%
+  teacherCents: number; // 90%, owed to the payee
+  stripeRef: string; // checkout session id — idempotency key
+  period: string; // "YYYY-MM"
+}
+
+/** The Db surface a class payment needs. Folded into Db only as Partial<>
+ * below, so a Db written before classes existed (a test fake that never sees
+ * a class session) still satisfies it; handleClassCheckoutCompleted throws
+ * rather than drop a paid payment when a method is missing, and
+ * garden/memberships.ts's adapter is typed to require every one. */
+export interface ClassPaymentDb {
+  /** Lookup-before-insert idempotency check, keyed by stripeRef (the
+   * checkout session id) — same pattern as getBackingPaymentByRef. */
+  getClassPaymentByRef(stripeRef: string): Promise<{ stripeRef: string } | null>;
+  insertClassPayment(row: ClassPaymentRow): Promise<void>;
+  /** Who a payment's teacher share is owed to (offerings.userId). Null when
+   * the class no longer exists. */
+  getOfferingTeacherUserId(offeringId: string): Promise<string | null>;
+  /** Moves the buyer's sign-up on this class to "confirmed", creating the row
+   * when it's gone. A class that no longer exists gets no new row. */
+  confirmOfferingSignup(offeringId: string, userId: string): Promise<void>;
+}
+
+export interface Db extends Partial<ClassPaymentDb> {
   getBillingCustomerByStripeId(stripeCustomerId: string): Promise<BillingCustomerRow | null>;
   upsertBillingCustomer(row: BillingCustomerRow): Promise<void>;
 
@@ -573,8 +612,8 @@ async function generateUniqueCoverageCode(db: Db): Promise<string> {
 }
 
 // ——— checkout.session.completed (membership, event tickets, pool
-// contributions, community products, project backing, and coverage-code
-// issuance; other kinds/modes are ignored defensively) ———
+// contributions, community products, project backing, paid classes, and
+// coverage-code issuance; other kinds/modes are ignored defensively) ———
 
 /** One-time payment session for an event ticket (mode "payment",
  * kind "event_ticket" — created by garden/stripe.ts's createTicketCheckout).
@@ -883,6 +922,237 @@ async function handleBackingCheckoutCompleted(
   });
 }
 
+// ——— Paid classes (garden/stripe.ts's createClassCheckout) ———
+//
+// docs/features/class-payments-and-moderation.md § Money. A student pays the
+// class PRICE plus card processing on top — its own line item, the same rule
+// and math as a backing (backingProcessingFeeCents). The platform keeps 10% of
+// the price and the teacher is owed 90% (splitClassSale). Only a paid class
+// with no outside payment link goes through here: a free class takes no money,
+// and a class with a link sends people to it and takes nothing from us.
+
+/** Twins of MIN_/MAX_PRODUCT_PRICE_CENTS (garden/products.ts). That file
+ * defines Convex functions, which this dependency-free one can't import;
+ * classPayments.test.ts pins the pair equal. */
+export const MIN_CLASS_PRICE_CENTS = 100; // $1
+export const MAX_CLASS_PRICE_CENTS = 500_000; // $5,000
+
+export interface ClassPricing {
+  priceCents?: number;
+  externalPaymentLinkUrl?: string;
+}
+
+/** How a class takes payment. Only "checkout" moves money through us. The
+ * same test the sign-up modal uses (free = no price; an outside link wins
+ * over a price), and the one signUpForOffering's payment_required rule reads. */
+export type ClassPaymentPath = "free" | "external" | "checkout";
+
+export function classPaymentPath(offering: ClassPricing): ClassPaymentPath {
+  if (!offering.priceCents || offering.priceCents <= 0) return "free";
+  if (offering.externalPaymentLinkUrl) return "external";
+  return "checkout";
+}
+
+/** The teacher's and the platform's shares of a class PRICE (never the price
+ * plus processing). Same rule and rounding as products.ts's splitHostSale,
+ * reached through hostSaleSplit above — the shares always add back to the
+ * price, with any odd cent landing on the platform side. */
+export function splitClassSale(priceCents: number): { platformCents: number; teacherCents: number } {
+  const { platformCents, hostCents } = hostSaleSplit(priceCents);
+  return { platformCents, teacherCents: hostCents };
+}
+
+export interface ClassCheckoutRefusal {
+  code: string;
+  reason: string;
+}
+
+/** Null when this student can start a checkout for this class; otherwise the
+ * refusal to throw, its `reason` in plain words for the student. Pure so the
+ * checkout action, the DB step behind it (offerings.ts's startClassCheckout)
+ * and the tests share one authority. A "pledged" sign-up does NOT refuse — it
+ * is a student who started checkout, or an old pledge, and paying is how it
+ * becomes real. */
+export function classCheckoutRefusal(args: {
+  offering: (ClassPricing & { userId: string; status: string }) | null;
+  buyerUserId: string;
+  /** The buyer's existing sign-up status on this class, if they have a row. */
+  signupStatus?: string;
+}): ClassCheckoutRefusal | null {
+  const { offering } = args;
+  if (!offering) return { code: "not_found", reason: "That class isn't here anymore." };
+  if (offering.status !== "active") {
+    return { code: "not_open", reason: "This class isn't taking sign-ups right now." };
+  }
+  const path = classPaymentPath(offering);
+  if (path === "free") {
+    return { code: "not_paid", reason: "This class is free, so there's nothing to pay." };
+  }
+  if (path === "external") {
+    return {
+      code: "external_payment",
+      reason: "This class takes payment on its own page. Use the link there to sign up.",
+    };
+  }
+  const price = offering.priceCents ?? 0;
+  if (!Number.isInteger(price)) {
+    return { code: "invalid_price", reason: "This class's price can't be paid here. Ask the teacher to fix it." };
+  }
+  if (price < MIN_CLASS_PRICE_CENTS) {
+    return {
+      code: "invalid_price",
+      reason: `Classes paid here start at $${MIN_CLASS_PRICE_CENTS / 100}. Ask the teacher to change the price.`,
+    };
+  }
+  if (price > MAX_CLASS_PRICE_CENTS) {
+    return {
+      code: "invalid_price",
+      reason: `Classes paid here top out at $${(MAX_CLASS_PRICE_CENTS / 100).toLocaleString("en-US")}. Ask the teacher to change the price.`,
+    };
+  }
+  if (offering.userId === args.buyerUserId) {
+    return { code: "own_class", reason: "You teach this class, so you can't sign up for it." };
+  }
+  if (args.signupStatus === "confirmed") {
+    return { code: "already_signed_up", reason: "You're already signed up." };
+  }
+  return null;
+}
+
+/** Everything createClassCheckout hands to Stripe that carries money or
+ * meaning, built here so the tests can pin it. Two line items: the class at
+ * its price, and card processing on its own line (never folded into the
+ * class, so the price splitClassSale sees is the price the teacher set).
+ * metadata.amountCents is the TRUE pre-fee price — the webhook reads that and
+ * never session.amount_total, which includes the processing line. */
+export function classCheckoutParts(args: {
+  offeringId: string;
+  title: string;
+  priceCents: number;
+  buyerUserId: string;
+  signupId: string;
+}) {
+  return {
+    lineItems: [
+      {
+        quantity: 1,
+        price_data: {
+          currency: "usd",
+          unit_amount: args.priceCents,
+          product_data: { name: args.title },
+        },
+      },
+      {
+        quantity: 1,
+        price_data: {
+          currency: "usd",
+          unit_amount: backingProcessingFeeCents(args.priceCents),
+          product_data: { name: "Card processing" },
+        },
+      },
+    ],
+    metadata: {
+      kind: "class",
+      offeringId: args.offeringId,
+      userId: args.buyerUserId,
+      signupId: args.signupId,
+      amountCents: String(args.priceCents),
+    } as Record<string, string>,
+    paths: {
+      success: `/offerings/${args.offeringId}?paid=1`,
+      cancel: `/offerings/${args.offeringId}`,
+    },
+  };
+}
+
+/** A whole number of cents out of a metadata string, or null when it isn't
+ * one. Stricter than Number(): "", "0", "-5", "12.5" and "1e3" all read as
+ * "not a price" — we wrote this string ourselves from a validated integer. */
+function parseMetadataCents(raw: string | undefined): number | null {
+  if (!raw || !/^[1-9]\d*$/.test(raw)) return null;
+  const cents = Number(raw);
+  return Number.isSafeInteger(cents) ? cents : null;
+}
+
+function hasClassPaymentDb(db: Db): db is Db & ClassPaymentDb {
+  return (
+    typeof db.getClassPaymentByRef === "function" &&
+    typeof db.insertClassPayment === "function" &&
+    typeof db.getOfferingTeacherUserId === "function" &&
+    typeof db.confirmOfferingSignup === "function"
+  );
+}
+
+/** A paid class — mode "payment", kind "class" (created by
+ * garden/stripe.ts's createClassCheckout). Records the payment, split
+ * teacher 90 / platform 10 of the PRICE, and moves the student's sign-up to
+ * "confirmed" (creating it if it's gone).
+ *
+ * Acts only on payment_status "paid". The price comes from
+ * metadata.amountCents, never session.amount_total — which also holds the
+ * card-processing line the student paid on top. If that is missing or not a
+ * whole positive number this writes NOTHING and logs; there is no fallback to
+ * the session total (no class checkout predates the metadata, and a wrong
+ * amount owed to a teacher is worse than a missing row an operator can see in
+ * the log and Stripe).
+ *
+ * Idempotent by session id. applyStripeEvent runs the whole event as one
+ * mutation, so the payment row and the sign-up flip commit together: a
+ * replay that finds the payment finds the flipped sign-up too. */
+async function handleClassCheckoutCompleted(
+  session: StripeCheckoutSessionLike,
+  db: Db,
+): Promise<void> {
+  if (session.payment_status !== "paid") {
+    console.warn("[stripe] class checkout.session.completed is not paid — nothing recorded", {
+      sessionId: session.id,
+      paymentStatus: session.payment_status,
+    });
+    return;
+  }
+
+  const metadata = session.metadata ?? {};
+  const { offeringId, userId } = metadata;
+  if (!offeringId || !userId) {
+    console.warn("[stripe] class checkout.session.completed missing offeringId or userId metadata", {
+      sessionId: session.id,
+    });
+    return;
+  }
+
+  const grossCents = parseMetadataCents(metadata.amountCents);
+  if (grossCents === null) {
+    console.warn("[stripe] class checkout.session.completed has no usable amountCents metadata — nothing recorded", {
+      sessionId: session.id,
+      amountCents: metadata.amountCents,
+    });
+    return;
+  }
+
+  if (!hasClassPaymentDb(db)) {
+    // A Db with no class support would silently drop a real payment. Throwing
+    // turns into a 500, which Stripe retries once the adapter is fixed.
+    throw new Error("[stripe] this Db adapter has no class payment support");
+  }
+
+  if (await db.getClassPaymentByRef(session.id)) return; // idempotent replay
+
+  const { platformCents, teacherCents } = splitClassSale(grossCents);
+  const payeeUserId = (await db.getOfferingTeacherUserId(offeringId)) ?? undefined;
+
+  await db.insertClassPayment({
+    offeringId,
+    ...(payeeUserId ? { payeeUserId } : {}),
+    buyerUserId: userId,
+    grossCents,
+    platformCents,
+    teacherCents,
+    stripeRef: session.id,
+    period: periodFromStripeSeconds(session.created ?? Math.floor(Date.now() / 1000)),
+  });
+  await db.confirmOfferingSignup(offeringId, userId);
+}
+
 /** Coverage — a sponsor (a church) buying N seats: mode "subscription",
  * kind "coverage", quantity = seats (created by garden/stripe.ts's
  * createCoverageCheckout). Issues the coverageCodes row a creative redeems
@@ -957,6 +1227,9 @@ async function handleCheckoutSessionCompleted(
     }
     if (metadata.kind === "pool_contribution") {
       return handlePoolContributionCompleted(session, db);
+    }
+    if (metadata.kind === "class") {
+      return handleClassCheckoutCompleted(session, db);
     }
     return; // unknown one-time payment kind — ignore defensively
   }

@@ -25,7 +25,7 @@ import {
   type ContributionLike,
 } from "./allocations";
 import { computeHostEarnings, type EarningsLike } from "./products";
-import { buildCreativeEarningsRows } from "./payouts";
+import { buildCreativeEarningsRows, classPaymentToEarningsPayment } from "./payouts";
 import { assertCanManageCommunity, normalizeCommunity, COMMUNITY_KIND } from "./communities";
 
 // ——————————————————————————————————————————————————————————————
@@ -419,6 +419,7 @@ export const getPlatformReport = query({
       events,
       backingPayments,
       creativePayouts,
+      classPayments,
     ] = await Promise.all([
       ctx.db.query("hostOrgs").collect(),
       ctx.db.query("communityMembers").collect(),
@@ -434,6 +435,7 @@ export const getPlatformReport = query({
       ctx.db.query("events").collect(),
       ctx.db.query("backingPayments").collect(),
       ctx.db.query("creativePayouts").collect(),
+      ctx.db.query("classPayments").collect(),
     ]);
 
     const hostOrgById = new Map(hostOrgs.map((o) => [String(o._id), o]));
@@ -551,14 +553,19 @@ export const getPlatformReport = query({
       );
     });
 
-    // ——— Creative earnings: owed vs paid on backings (bead wonderwall-7avu) ———
-    // Names and project titles are looked up only for the people and projects
-    // that actually appear on the ledger, not every profile on the platform.
+    // ——— Creative earnings: owed vs paid on backings and classes (bead wonderwall-7avu) ———
+    // A teacher's share of a class payment counts toward the same per-payee
+    // balance as a backing's work share, and a recorded payout reduces it.
+    // Names, project titles and class titles are looked up only for the people,
+    // projects and classes that actually appear on the ledger, not every
+    // profile on the platform.
     const payeeIds = new Set<string>();
     for (const p of backingPayments) if (p.payeeUserId) payeeIds.add(String(p.payeeUserId));
+    for (const p of classPayments) if (p.payeeUserId) payeeIds.add(String(p.payeeUserId));
     for (const p of creativePayouts) payeeIds.add(String(p.payeeUserId));
     const projectIds = new Set(backingPayments.map((p) => String(p.projectId)));
-    const [payeeProfiles, ledgerProjects] = await Promise.all([
+    const offeringIds = new Set(classPayments.map((p) => String(p.offeringId)));
+    const [payeeProfiles, ledgerProjects, ledgerOfferings] = await Promise.all([
       Promise.all(
         [...payeeIds].map((id) =>
           ctx.db
@@ -568,6 +575,7 @@ export const getPlatformReport = query({
         ),
       ),
       Promise.all([...projectIds].map((id) => ctx.db.get(id as Id<"projects">))),
+      Promise.all([...offeringIds].map((id) => ctx.db.get(id as Id<"offerings">))),
     ]);
     const payeeProfileById = new Map(
       payeeProfiles.filter((pr) => pr !== null).map((pr) => [String(pr!.userId), pr!]),
@@ -575,14 +583,31 @@ export const getPlatformReport = query({
     const projectTitleById = new Map(
       ledgerProjects.filter((pj) => pj !== null).map((pj) => [String(pj!._id), pj!.title]),
     );
+    const offeringTitleById = new Map(
+      ledgerOfferings.filter((o) => o !== null).map((o) => [String(o!._id), o!.title]),
+    );
     const creativeEarnings = buildCreativeEarningsRows(
-      backingPayments.map((p) => ({
-        payeeUserId: p.payeeUserId ? String(p.payeeUserId) : undefined,
-        projectId: String(p.projectId),
-        grossCents: p.grossCents,
-        platformCents: p.platformCents,
-        workCents: p.workCents,
-      })),
+      [
+        ...backingPayments.map((p) => ({
+          payeeUserId: p.payeeUserId ? String(p.payeeUserId) : undefined,
+          projectId: String(p.projectId),
+          grossCents: p.grossCents,
+          platformCents: p.platformCents,
+          workCents: p.workCents,
+        })),
+        ...classPayments.map((p) =>
+          classPaymentToEarningsPayment(
+            {
+              offeringId: String(p.offeringId),
+              payeeUserId: p.payeeUserId ? String(p.payeeUserId) : undefined,
+              grossCents: p.grossCents,
+              platformCents: p.platformCents,
+              teacherCents: p.teacherCents,
+            },
+            offeringTitleById.get(String(p.offeringId)),
+          ),
+        ),
+      ],
       creativePayouts.map((p) => ({ payeeUserId: String(p.payeeUserId), amountCents: p.amountCents })),
       {
         name: (id) => payeeProfileById.get(id)?.name,

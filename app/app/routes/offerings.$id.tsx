@@ -15,7 +15,7 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
 import { useMutation, useQuery } from "convex/react";
-import { Link, useNavigate, useParams, useRouteError } from "react-router";
+import { Link, useNavigate, useParams, useRouteError, useSearchParams } from "react-router";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { AnnouncementComposer } from "../components/AnnouncementComposer";
@@ -113,6 +113,18 @@ export default function OfferingDetail() {
   const [showEditForm, setShowEditForm] = useState(false);
   const [showSignupModal, setShowSignupModal] = useState(false);
 
+  // Stripe sends a student back here with ?paid=1 (createClassCheckout's
+  // success_url). The webhook can trail the redirect by a few seconds, so this
+  // reads the live sign-up: it says "signed up" once the payment is confirmed
+  // and, until then, only that the payment went out. No sign-up row means they
+  // didn't come from a checkout, so nothing is said.
+  const [searchParams] = useSearchParams();
+  const justPaid = searchParams.get("paid") === "1";
+  const mySignup = useQuery(
+    api.offerings.getMySignup,
+    justPaid && offeringId ? { offeringId } : "skip",
+  );
+
   if (offering === undefined) {
     return (
       <PageShell>
@@ -140,6 +152,21 @@ export default function OfferingDetail() {
       <BackLink />
 
       {offering.pause.paused && <PausedBanner offering={offering} isOwner={isOwner} />}
+      {justPaid && mySignup && (
+        <div
+          role="status"
+          className="rounded-2xl border p-4 mb-6 text-sm"
+          style={{
+            borderColor: "var(--garden-hairline)",
+            backgroundColor: "var(--garden-ink-raised)",
+            color: "var(--garden-body)",
+          }}
+        >
+          {mySignup.status === "confirmed"
+            ? "You're signed up."
+            : "Payment sent. Your spot shows here in a moment."}
+        </div>
+      )}
 
       <div
         className="relative rounded-2xl overflow-hidden border aspect-[16/9] flex items-center justify-center mb-6"
