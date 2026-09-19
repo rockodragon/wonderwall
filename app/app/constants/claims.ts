@@ -13,6 +13,13 @@
 //   - nothing that sells money being public (ledgers, "in the open")
 //   - no payout speed, no promise to a person, no claim we can't prove
 
+/** Where a member's dues go — the one line a member ever hears about the
+ * split (Rick, 2026-09-18). It replaced "$5 funds other creatives' projects ·
+ * $5 runs the place": a fixed dollar figure breaks the day a membership isn't
+ * $10. Server-side twin: SPLITS.duesSentence in convex/garden/capabilities.ts. */
+const DUES_YOURS = "Half of your membership funds grants for other creatives.";
+const DUES_EVERY = "Half of every membership funds grants for other creatives.";
+
 export const CLAIMS = {
   whatItIs:
     "creatives.exchange is where creatives find paid work, get backed by people who believe in them, and apply for grants.",
@@ -24,7 +31,10 @@ export const CLAIMS = {
   hostSplit: "Hosting is free. You keep 90% of what you sell.",
   membership:
     "Membership is $10 a month. It lets you apply to paid work, respond to gigs, and ask a grant fund to back your project.",
-  pool: "Half of every membership goes into a project pool. Members propose projects, and a review team decides.",
+  dues: DUES_YOURS,
+  duesEvery: DUES_EVERY,
+  duesOtherHalf: "The other half runs the platform.",
+  pool: `${DUES_EVERY} Members propose projects, and a review team decides.`,
   grantFund:
     "The Garden's grant fund is run by Abiding Practice, a 501(c)(3), so gifts to it are tax-deductible. About 87% of each gift is granted.",
   patron: "Back a specific person or project. 90% goes to them. You can be named on the work, or stay anonymous.",
@@ -48,4 +58,6 @@ export const BANNED_PHRASES: RegExp[] = [
   /see every dollar/i,
   /show the receipts/i,
   /free and stays free/i,
+  /runs the place/i,
+  /\$5 funds/i,
 ];

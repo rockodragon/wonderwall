@@ -379,9 +379,8 @@ export default function IAPage() {
               Where your dues go
             </div>
             <p style={{ fontSize: 14.5, lineHeight: 1.55, marginTop: 8 }}>
-              Every $10 seat splits two ways, published: $5 funds other
-              creatives' projects, $5 runs the place. From day one your money
-              is backing someone's work.
+              Half of your membership funds grants for other creatives. The
+              other half runs the platform.
             </p>
           </div>
           <div className="g-card">
@@ -389,9 +388,8 @@ export default function IAPage() {
               Hosting is free
             </div>
             <p style={{ fontSize: 14.5, lineHeight: 1.55, marginTop: 8 }}>
-              There is no fee to host, and no cut of a free table — ever. The
-              $50/mo Leader tier is for the tools: host tables, curate project
-              spaces, run grant programs.
+              There is no fee to host, and no cut of a free table. Hosting
+              is not open for sign-up yet; hosts join a waitlist.
             </p>
           </div>
           <div className="g-card">

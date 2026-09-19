@@ -18,7 +18,9 @@ Every sentence we say about money lives here, word for word. The site reads the 
 | **payout** | For now we keep track of what you're owed and pay it out to you ourselves. |
 | **host split** | Hosting is free. You keep 90% of what you sell. |
 | **membership** | Membership is $10 a month. It lets you apply to paid work, respond to gigs, and ask a grant fund to back your project. |
-| **pool** | Half of every membership goes into a project pool. Members propose projects, and a review team decides. |
+| **dues** | Half of your membership funds grants for other creatives. |
+| **dues, other half** | The other half runs the platform. |
+| **pool** | Half of every membership funds grants for other creatives. Members propose projects, and a review team decides. |
 | **grant fund** | The Garden's grant fund is run by Abiding Practice, a 501(c)(3), so gifts to it are tax-deductible. About 87% of each gift is granted. |
 | **patron** | Back a specific person or project. 90% goes to them. You can be named on the work, or stay anonymous. |
 | **coverage** | $10 a month covers one creative's membership. A covered membership is a full membership. |
@@ -35,5 +37,6 @@ Every sentence we say about money lives here, word for word. The site reads the 
 6. **"Donate,"** except for the grant fund. Everywhere else the words are **back** and **fund**. Backing a creative is not tax-deductible.
 7. **"Raffle," "drawing,"** or anything chance-based. Grants are judged or voted.
 8. **"Artist."** The word is **creative**.
-9. **Internal splits** beyond the one receipt line members see: "$5 funds other creatives' projects · $5 runs the place."
-10. **The membership as the way in.** The way in is free.
+9. **Internal splits** beyond **dues**. No fixed dollar amounts for the split, and no "runs the place." A membership will not always be $10.
+10. **Host pricing.** Hosting is not open for sign-up yet; hosts join a waitlist. Say **host split** and nothing about a paid host plan.
+11. **The membership as the way in.** The way in is free.

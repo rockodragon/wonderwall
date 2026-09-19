@@ -157,8 +157,8 @@ function AddToPoolPanel({ slug }: { slug: string }) {
         <p style={{ marginTop: 8, fontSize: 14, color: "var(--g-body)" }}>{error}</p>
       )}
       <p className="g-hint" style={{ marginTop: 10 }}>
-        10% runs the place; the rest goes into the pool. Not a donation —
-        allocations are published here.
+        10% runs the platform; the rest goes into the pool. Not a donation.
+        The grants this pool makes are listed on this page.
       </p>
     </div>
   );

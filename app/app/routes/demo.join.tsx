@@ -155,20 +155,20 @@ function StepDots({ current }: { current: Step }) {
     cell (raised ink + citron rule), never a citron fill. */
 function SplitStrip({ monthly }: { monthly: number }) {
   const pool = monthly * SPLITS.dues.pool;
-  const garden = monthly - pool; // the other half runs the place
+  const garden = monthly - pool; // the other half runs the platform
   const money = (n: number) => (Number.isInteger(n) ? `$${n}` : `$${n.toFixed(2)}`);
   return (
     <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
       <div className="g-cell g-cell-hot" style={{ flex: 1 }}>
         <span className="g-cell-v">{money(pool)}</span>
         <div className="g-label" style={{ marginTop: 6 }}>
-          funds other creatives' projects
+          funds grants for other creatives
         </div>
       </div>
       <div className="g-cell" style={{ flex: 1 }}>
         <span className="g-cell-v">{money(garden)}</span>
         <div className="g-label" style={{ marginTop: 6 }}>
-          runs the place
+          runs the platform
         </div>
       </div>
     </div>

@@ -98,7 +98,7 @@ const AUDIENCES: Audience[] = [
       },
     ],
     cost:
-      `${CLAIMS.join} ${CLAIMS.membership} Half of your $10 goes to fund another creative.`,
+      `${CLAIMS.join} ${CLAIMS.membership}`,
     ctaLabel: "Find collaborators",
     ctaTo: "/join",
     ctaLabel2: "Find paid work",
@@ -131,15 +131,15 @@ const AUDIENCES: Audience[] = [
       },
       {
         title: "Grants keep your community engaged",
-        body: "Half of every member's dues goes into a shared fund. Creatives in your community can apply and get funded directly — real support that gives them a reason to stay active here.",
+        body: `${CLAIMS.pool} The creatives in your community can apply.`,
       },
     ],
     cost:
-      "Free to host. We take 10% of what you sell. For $50 a month you can also run funding programs for your own community — contests, funded cohorts, and grant pools.",
-    // Hosting itself is free and lives at /communities/apply — /join is a
-    // paid $50/mo upgrade for a host who ALSO wants funding programs (see
-    // join.tsx's header comment), not how someone becomes a host at all.
-    ctaLabel: "Start earning from your community",
+      `${CLAIMS.hostSplit} We are opening hosting to a first group of communities. Join the waitlist and we will be in touch.`,
+    // Hosting is not open for sign-up yet (Rick, 2026-09-18): this page
+    // takes people to the host application, which is a waitlist for now, and
+    // shows NO host pricing. The paid host plan is hidden on /join too.
+    ctaLabel: "Join the host waitlist",
     ctaTo: "/communities/apply",
     bandImages: ["marta", "gallery"],
     metaTitle: "Earn from the community you lead — creatives.exchange",
@@ -201,7 +201,7 @@ const AUDIENCES: Audience[] = [
       },
       {
         title: "Where it goes",
-        body: "Half of every seat funds the grant program. The other half keeps this running.",
+        body: `${CLAIMS.duesEvery} ${CLAIMS.duesOtherHalf}`,
       },
     ],
     cost:

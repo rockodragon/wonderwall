@@ -73,7 +73,7 @@ Subject: **Your work deserves to be paid for**
 
 **What they want.** Fewer tools, and to be paid for the room they already run.
 
-**Lead with** **host split**. Then the tools: rosters, sign-ups, sessions, events, and payments in one place.
+**Lead with** **host split**. Then the tools: rosters, sign-ups, sessions, events, and payments in one place. Hosting is not open for sign-up yet. The ask is the host waitlist, and there is no host pricing to quote.
 
 **Email**
 
@@ -83,7 +83,7 @@ Subject: **You're running this out of Venmo and a spreadsheet**
 >
 > creatives.exchange lets you bring your group, keep your name and your way of doing things, and sell classes, cohorts, and memberships. Hosting is free. You keep 90% of what you sell.
 >
-> If you also give out money, such as contest prizes or a grant at the end of a cohort, there is a $50 a month plan that handles collecting it and paying it out, so you can stop doing that by hand.
+> We are opening hosting to a first group of communities, and I'd like {group} on that list.
 >
 > Could I get 20 minutes to walk you through it? I'd also love to have {group} at our November 6 showcase in Encinitas.
 >
@@ -93,6 +93,7 @@ Subject: **You're running this out of Venmo and a spreadsheet**
 
 **Don't say**
 - Never mention per-member host shares or dues splits. The host money story is **host split**, full stop.
+- Don't quote a price for any paid host plan. Nothing is for sale to hosts yet.
 
 ## 3 · Patrons
 

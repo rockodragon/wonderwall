@@ -127,21 +127,21 @@ function DropZone({
   );
 }
 
-/** Two-cell dues split — $5 funds other creatives' projects, $5 runs the
-    place. Data cells, not buttons: citron stays a bottom-rule accent, never a fill. */
+/** Two-cell dues split — half funds grants for other creatives, half runs
+    the platform. Data cells, not buttons: citron stays a bottom-rule accent, never a fill. */
 function SplitStrip() {
   return (
     <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
       <div className="g-cell g-cell-hot" style={{ flex: 1, textAlign: "center", padding: "10px 6px" }}>
         <span className="g-cell-v" style={{ fontSize: 18 }}>$5</span>
         <div className="g-mono" style={{ fontSize: 10.5, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--g-muted)", marginTop: 4 }}>
-          funds other creatives' projects
+          funds grants for other creatives
         </div>
       </div>
       <div className="g-cell" style={{ flex: 1, textAlign: "center", padding: "10px 6px" }}>
         <span className="g-cell-v" style={{ fontSize: 18 }}>$5</span>
         <div className="g-mono" style={{ fontSize: 10.5, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--g-muted)", marginTop: 4 }}>
-          runs the place
+          runs the platform
         </div>
       </div>
     </div>

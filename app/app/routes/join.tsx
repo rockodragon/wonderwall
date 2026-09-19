@@ -277,7 +277,11 @@ export default function JoinPage() {
             marginTop: 12,
           }}
         >
-          {LEVELS.map((level) => (
+          {/* The paid Community Host plan is hidden until hosting opens for
+              sign-up (Rick, 2026-09-18): hosts join a waitlist for now, and we
+              show no host pricing anywhere. The card and its checkout path
+              stay in LEVELS so turning it back on is deleting this filter. */}
+          {LEVELS.filter((level) => level.level !== "host").map((level) => (
             <div
               key={level.name}
               className="g-card"
