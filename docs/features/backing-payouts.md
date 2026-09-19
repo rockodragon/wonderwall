@@ -1,6 +1,7 @@
 # Backing payouts — how backer money reaches creatives
 
-Status as of **2026-09-18**. Nothing has been collected on backings yet. Each point below is marked:
+Status as of **2026-09-18**. Nothing has been collected on backings yet. Backings are a must-have for
+**Nov 6** — see the plan in [../handoff/nov6-backings.md](../handoff/nov6-backings.md). Each point below is marked:
 
 - **Decided** — Rick has made the call.
 - **Recommended** — the advice on the table, not decided.
@@ -17,7 +18,7 @@ builds on the pay-handle research in [live-booking.md](live-booking.md) §6.
 | Use **Stripe Connect, "separate charges and transfers"**: backers pay through the checkout we already run; a creative gets a Stripe signup link when their first backing lands. | **Recommended** |
 | Drop the idea of backers paying the platform's Venmo or Zelle with a reference code. | **Recommended** |
 | Keep "direct pay" (backer pays the creative's own Venmo etc., like gigs) only as a fallback for creatives who won't use Stripe. | **Recommended** |
-| The platform's cut, and whether it comes out of the backing or is added on top. | **Open** — `BACKING_PLATFORM_RATE` in draft PR #15 holds 10% as a placeholder |
+| The platform keeps **10% of the backing, 5% on any part above $1,000**; the backer pays card processing **on top** (bead wonderwall-p7uf; in PR #15 as `splitBacking`). | **Decided** 2026-09-18 |
 | Call Stripe before Nov 6 to say what we are (see "The problem today"). | **Recommended**, urgent |
 
 ## The problem today
@@ -126,7 +127,7 @@ amounts [S15]; Zelle doesn't send tax forms at all. [S22]
 - **Built, draft:** PR #15 (bead wonderwall-7avu step 1) — `backingPayments` records what each creative
   is owed per payment, including monthly renewals; `creativePayouts` records manual payouts;
   `/admin/ledger` shows owed vs paid. Under Connect this same ledger decides what to transfer.
-  Blocked only on the platform's cut (`BACKING_PLATFORM_RATE`).
+  The split is decided and in the PR (commit b1aae57).
 - **Next build (7avu step 2), if Connect is chosen:** Stripe Express signup link sent when a creative's
   first backing lands ("Somebody backed you $X — set up payouts to claim it"); transfers from the
   ledger; $50 minimum set on each connected account; a claim deadline (e.g. 90 days) after which an

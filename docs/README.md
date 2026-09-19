@@ -18,6 +18,7 @@ The project is **creatives.exchange** (repo: wonderwall). Four documents are the
 - [V1 PRD](the-exchange-v1-prd.md)
 - [Entitlements — live status](features/entitlements-live-status.md) — what the code enforces vs. the plan, the payout-rail gap, open decisions · [Seat, Pool, Payout](features/seat-pool-payout.html) — the money model on one page (open in a browser)
 - [Backing payouts](features/backing-payouts.md) — how backer money reaches creatives: Stripe Connect vs Venmo/Zelle vs direct pay, costs, legal risk, taxes, the $50 minimum, and what's decided vs open
+- [Handoff: backings for Nov 6](handoff/nov6-backings.md) — the plan to let people in the room back creatives on Nov 6: what's decided, built, missing, and the beads
 - [Community groups](features/community-groups.md) · [Community grant pools](features/community-grant-pools.md) · [Paid community + media](features/paid-community-youtube-media.md)
 - [Rich project content](features/rich-project-content.md) — the block model behind project pages and project updates (headings, images, video embeds)
 - Older PRDs: [jobs](jobs-feature-prd.md) · [messaging](messaging-feature-prd.md) · [event location](prd-event-location.md) · [announcements](announcements-prd.md) · [events video hosting](events-video-hosting-prd.md) · [gated event video](gated-event-video-prd.md)
