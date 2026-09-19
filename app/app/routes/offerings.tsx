@@ -378,6 +378,10 @@ export default function Offerings() {
 function OfferingCard({ offering, isOwner }: { offering: any; isOwner: boolean }) {
   const [showEditForm, setShowEditForm] = useState(false);
   const [showSignupModal, setShowSignupModal] = useState(false);
+  // Only the teacher, the community's hosts and admins are ever sent a
+  // paused class (listOfferings) — for them it's badged and can't be
+  // signed up for.
+  const paused = !!offering.pause?.paused;
 
   return (
     <>
@@ -400,7 +404,7 @@ function OfferingCard({ offering, isOwner }: { offering: any; isOwner: boolean }
             <img
               src={offering.photoUrl}
               alt={offering.title}
-              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+              className={`w-full h-full object-cover transition-transform duration-300 group-hover:scale-105 ${paused ? "opacity-50" : ""}`}
             />
           ) : (
             <svg
@@ -447,9 +451,24 @@ function OfferingCard({ offering, isOwner }: { offering: any; isOwner: boolean }
             >
               {offering.title}
             </h3>
-            {isOwner && (
-              <OfferingKebabMenu offering={offering} onEdit={() => setShowEditForm(true)} />
-            )}
+            <div className="flex items-center gap-1.5 shrink-0">
+              {paused && (
+                <span
+                  className="px-2 py-0.5 rounded-full border text-xs font-semibold uppercase tracking-[0.06em]"
+                  style={{
+                    fontFamily: "var(--garden-font-mono)",
+                    color: "var(--garden-body)",
+                    borderColor: "var(--garden-hairline-raised)",
+                    backgroundColor: "var(--garden-ink)",
+                  }}
+                >
+                  Paused
+                </span>
+              )}
+              {isOwner && (
+                <OfferingKebabMenu offering={offering} onEdit={() => setShowEditForm(true)} />
+              )}
+            </div>
           </div>
           {offering.interests && offering.interests.length > 0 && (
             <div className="flex flex-wrap gap-1 mb-2">
@@ -524,17 +543,23 @@ function OfferingCard({ offering, isOwner }: { offering: any; isOwner: boolean }
                 ? `${offering.signupCount} signed up`
                 : "Be the first to sign up"}
             </span>
-            <button
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setShowSignupModal(true);
-              }}
-              className="px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-opacity hover:opacity-90"
-              style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
-            >
-              Sign up
-            </button>
+            {paused ? (
+              <span className="text-xs" style={{ color: "var(--garden-body)" }}>
+                No new sign-ups
+              </span>
+            ) : (
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setShowSignupModal(true);
+                }}
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-opacity hover:opacity-90"
+                style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
+              >
+                Sign up
+              </button>
+            )}
           </div>
         </div>
       </Link>
@@ -542,7 +567,7 @@ function OfferingCard({ offering, isOwner }: { offering: any; isOwner: boolean }
       {showEditForm && (
         <PostOfferingForm offering={offering} onClose={() => setShowEditForm(false)} />
       )}
-      {showSignupModal && (
+      {showSignupModal && !paused && (
         <SignupModal offering={offering} onClose={() => setShowSignupModal(false)} />
       )}
     </>
@@ -1152,7 +1177,16 @@ export function PostOfferingForm({
                 ))}
               </select>
             </div>
-            <CommunityPicker value={hostOrgId} onChange={setHostOrgId} defaultHostOrgId={defaultHostOrgId} />
+            {offering?.pause?.paused ? (
+              // The server refuses a community change on a paused class
+              // (convex/offerings.ts's resolveCommunityChange) — say so here
+              // rather than offering a select that can only fail.
+              <p className="text-sm" style={{ color: "var(--garden-body)" }}>
+                This class is paused, so its community can't be changed until it's restored.
+              </p>
+            ) : (
+              <CommunityPicker value={hostOrgId} onChange={setHostOrgId} defaultHostOrgId={defaultHostOrgId} />
+            )}
           </FormSection>
 
           <FormSection label="Schedule" defaultOpen={scheduleDefaultOpen} summaryExtra={scheduleSummary}>

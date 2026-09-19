@@ -111,7 +111,7 @@ type Community = {
   tables: { _id: string; name: string; slug: string; mode: string; format?: string; cadence?: string }[];
   events: { _id: string; title: string; datetime: number; location?: string }[];
   projects: { _id: string; title: string; kind: string; blurb?: string; storySlug?: string; byName: string }[];
-  offerings: { _id: string; title: string; format?: string; cadence?: string; priceCents?: number }[];
+  offerings: { _id: string; title: string; format?: string; cadence?: string; priceCents?: number; paused?: boolean }[];
   viewer: {
     isSignedIn: boolean;
     membership: Membership;
