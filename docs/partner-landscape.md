@@ -86,8 +86,95 @@ Worth repeating in the room:
 - The Substack exodus is real and named (Roman, Highkin, Petersen), and the moderation scandal is unresolved as of Feb 2026 — a specific liability for faith communities.
 - Skool's strength is its Discovery flywheel; its weakness is everything Danny observed — an uncurated marketplace with a 1.7/5 Trustpilot and billing complaints.
 - Patreon relaunched discovery on Aug 20, 2026 (Niches, Clips) three weeks after laying off 20% of staff. It's patching under stress; its 13 years of payment trust ($8B+ paid out) remains the thing we can't match.
-- Nobody on the list moves money to named creative projects in the open. That lane is empty.
+- Nobody on the list moves money to named creative projects. That lane is empty.
 - Where we're honestly weaker — no discovery flywheel, no payment-trust history, no mobile app — the answer is curation and relationships, not feature parity.
+
+## 4a · What others charge to move money (researched Sept 18, 2026)
+
+Section 4 compares community platforms. This section compares the three money moves we price: backing a person or project, running a grant pool, and booking a paid gig. Every number below was checked on Sept 18, 2026. Items marked ⚠ rest on one secondary source; see §9.
+
+### Backing a person or a project
+
+| Who | Their cut | Card fee | Notes |
+|---|---|---|---|
+| Kickstarter | 5% | 3–5% on top | All-or-nothing. Has its own browsing crowd. |
+| Indiegogo | 5% | 3% + 20¢ | |
+| Patreon | 10% (new creators since Aug 4, 2025) | ~2.9% + 30¢ | Creator brings their own fans. Total lands at 13–17%. |
+| Substack | 10% | ~3% | |
+| Buy Me a Coffee | 5% | ~3% | |
+| Ko-fi | 0–5% | ~3% | |
+| GoFundMe | 0% | 2.9% + 30¢ | Earns on optional tips from the giver. |
+| Film Independent (fiscal sponsor) | 7% | included | Tax-deductible gifts to film projects. $45 to apply. |
+| Fractured Atlas (fiscal sponsor) | 8% | included | Tax-deductible gifts to artists. |
+| The Gotham (fiscal sponsor) | 5–8% | | Sliding by project size. |
+| CultureSource (fiscal sponsor) | 7% | | |
+
+- Fiscal sponsors are the ones a serious patron compares us to. About half charge a flat 5–10%. The other half slide down as the money grows, often to 5–7%. Sponsors handling government grants charge up to 15%.
+- Patreon only works if the creative already has an audience. That is the opening: we recruit the patrons, churches, and venues, and the creative walks into a room that already has them. Unproven until patrons are on the platform.
+
+### Running a grant pool
+
+- The federal default overhead rate on grants went from 10% to 15% on Oct 1, 2024. Funders may not force a lower one.
+- Fiscal sponsors charge 5–15% to hold money, pay it out, and keep the records.
+- Our 10% sits under the federal default and inside the fiscal-sponsor range.
+
+### Booking a paid gig
+
+| Who | What they take | From whom |
+|---|---|---|
+| Booking agents | 10–20%. Corporate and private events 15–25%. | The artist |
+| Event agencies with hidden markups | Documented cases of the band getting half of what the client paid | Both, without saying so |
+| Galleries (for comparison) | 50% is the standard split | The artist |
+| GigSalad | 2.5–5% from the performer, plus 10–12% added to the client's bill | Both. 13–17% in all. |
+| GigFinesse | About 10–15% ⚠. Free for venues. | The artist |
+| GigTown (San Diego) | 13% in 2016 press ⚠. Current price not public. | The booking |
+
+**GigTown is the local one.** Based in Carlsbad. Serves San Diego County and Orange County. Founded 2015 by a former Qualcomm president and his son; now run by working musicians as a booking agency that sells "weekly live music programs." Its site shows 13 artists with shows this month and 11 venues. Named clients are large accounts: Cohn Restaurant Group, Town and Country Resort, UCSD, Qualcomm, JC Resorts, Vigilucci's, Cape Rey Carlsbad. Never raised outside money. Claims about $500,000 in total bookings ⚠. It works resorts, restaurant groups, and corporate events. The small independent bar or restaurant looks like open ground, which matches what Haley hears. Two calls to small venues in Encinitas or Oceanside would confirm it.
+
+**GigFinesse is the funded national one.** Raised $15M. More than 1,000 shows a month at restaurants, hotels, and country clubs. Handles contracts and payment. We found no sign of it in San Diego.
+
+**People paying around the platform.** A weekly gig between the same bar and the same band is the easiest payment in the world to take off-platform. Homejoy died of this. TaskRabbit charged 30% on a first booking and 15% on repeats. Thumbtack charges for the introduction, not the job. The lesson: a cut of a repeat payment can be dodged; a fee for the introduction or for the tool cannot.
+
+**What a restaurant already pays for software:** Toast from $69 a month. OpenTable $149–$499 a month plus $1–1.50 per diner. BentoBox $199 a month.
+
+### Ways to take money in
+
+| Way in | Cost | Fit |
+|---|---|---|
+| Card | 2.9% + 30¢. On a $10 due that is 59¢, almost 6%. | Small one-time gifts |
+| Bank debit at checkout (Stripe) | 0.8%, capped at $5. $4 if it fails. | Dues and most backings |
+| Bank transfer the giver sends (through Stripe) | About $1 | Gifts over $1,000 |
+| Wire (through Stripe) | About $8 | Large gifts from churches and patrons |
+| Zelle | Free, by hand. Depends on the giver's bank. Send caps of $2,000–3,500 a day. | Gifts to the nonprofit grant fund only |
+| Venmo | 1.9% + 10¢, by hand | Not for money coming to us |
+
+A backing must never be sent to our own Venmo or Zelle and then passed on to a creative. It breaks Venmo's rules, it can't be automated, and it could make us a money transmitter. Backings go through Stripe. See `features/backing-payouts.md`.
+
+### How people give
+
+- 21% of GoFundMe donations are anonymous, and they carry 23% of the dollars (study of $44M in donations). Any page that shows backers needs an anonymous option.
+- Crowdfunding studies find that visible totals and named backers pull in more backers. That is social proof on one project's page. It is not a reason to publish money platform-wide, and we do not pitch that.
+
+### Rules that touch pricing
+
+- From 2026 a business must send a 1099 to any contractor it pays $2,000 or more in a year, up from $600. A venue paying one act $300 crosses that at seven gigs.
+- Payment apps send a 1099-K only above $20,000 and 200 payments a year.
+- California's Freelance Worker Protection Act (2025): freelance work of $250 or more needs a written contract and payment within 30 days. It names fine artists, designers, photographers, and writers. Whether it covers a musician playing a bar is not confirmed ⚠.
+- The musicians' union keeps an Unfair List of employers who don't pay: members only, tied to a real unpaid bill, lifted when it is paid. That is the model for blocking venues that don't pay.
+
+### Our working prices against the field
+
+Working model as of Sept 18, 2026. The backing row is decided and built (PR #15). The rest is not yet in the plan.
+
+| Money move | Our price | The field |
+|---|---|---|
+| Backing, up to $1,000 a gift | 10% out of the backing | Patreon and Substack 10%. Kickstarter 5%. |
+| Backing, the part above $1,000 | 5% | Arts fiscal sponsors 5–8%. A $25,000 gift costs $1,300 here, $1,750–2,000 there. |
+| Grant pool and dues | 10%, taken once on the way in | Federal default 15%. Fiscal sponsors 5–15%. |
+| Artist on the gig board | Artist picks: $10 a month and keep 100%, or nothing monthly and 10% of each booked gig | Agents 10–20%. GigTown 13% ⚠. GigSalad 13–17% in all. |
+| Venue on the gig board | $50 a month flat. First three months free. Founding venues discounted. | GigTown's 13% on a weekly $300 act is about $169 a month. Other restaurant software runs $69–$499. |
+
+Sources: [Kickstarter fees](https://fundpop.co/guides/kickstarter-fees) · [Patreon standard fee](https://support.patreon.com/hc/en-us/articles/36426991446797-A-standard-platform-fee-for-new-creators-effective-after-August-4-2025) · [Film Independent](https://www.filmindependent.org/programs/fiscal-sponsorship/) · [Fractured Atlas](https://www.fracturedatlas.org/fiscal-sponsorship) · [Fiscal Sponsor Directory](https://fiscalsponsordirectory.org/facts-and-stats2/) · [15% federal overhead rate](https://www.councilofnonprofits.org/trends-and-policy-issues/omb-uniform-guidance) · [Agent commissions](https://orphiq.com/resources/booking-agent-commission-contracts) · [Agency markups](https://tseentertainment.com/is-your-entertainment-booking-agency-ethical/) · [Gallery 50/50](https://hyperallergic.com/its-time-rethink-the-50-50-split-with-art-galleries/) · [GigSalad performer fee](https://help.gigsalad.com/article/97-vendor-service-fees) · [GigSalad client fee](https://help.gigsalad.com/article/75-event-planner-service-fee) · [GigFinesse raise](https://www.alleywatch.com/2022/12/gigfinesse-live-music-talent-booking-venue-artists-platform-mir-hwang/) · [GigTown](https://www.gigtown.com/) · [GigTown 13%](https://www.musicconnection.com/up-close-gigtown/) · [GigTown profile](https://tracxn.com/d/companies/gigtown/__IXLNJp7DxsEZ_BF8_sUzn_ijcc-ECbyxkV3f2MygPOE) · [Platform leakage](https://www.launchworks.co/insights/platform-pricing-disintermediation-controlling-customer-experience-pricing-evolution/) · [Marketplace leakage paper](https://andreihagiu.com/wp-content/uploads/2023/03/MS-Leakage-Final.pdf) · [OpenTable pricing](https://restaurant.eatapp.co/blog/opentable-pricing) · [Toast pricing](https://pos.toasttab.com/pricing) · [Stripe fees](https://www.nerdwallet.com/business/software/learn/stripe-fees) · [Zelle for nonprofits](https://www.charitycharge.com/nonprofit-resources/zelle-for-nonprofits/) · [GoFundMe anonymity study](https://www.nature.com/articles/s41467-019-11852-z) · [Crowdfunding herding study](https://link.springer.com/article/10.1007/s11187-020-00424-x) · [$2,000 1099 threshold](https://onpay.com/insights/1099-reporting-threshold-updates/) · [SB 988](https://www.lcwlegal.com/news/sb-988-the-freelance-worker-protection-act/) · [AFM Unfair List](https://www.afm.org/for-members/international-unfair-list/)
 
 ---
 
@@ -197,4 +284,4 @@ What already exists, so we're not pitching in the abstract:
 
 ## 9 · Verify before quoting externally (⚠ items)
 
-Habit/Roccas/White/Kingsnorth/Inkwell subscriber counts (check each Substack About page); Skool scale claims (170k communities / 25M users — no primary source); Circle and Substack scale claims; Jeff Miller "tens of thousands"; Creator Impact's existence (page 404'd); Substack-keeps-billing-after-migration mechanics; Belmont contact/leadership; Relevant's audience figure (reads as 2020 copy); Patreon "53%" stat (secondhand cite of their Feb 2025 report).
+Habit/Roccas/White/Kingsnorth/Inkwell subscriber counts (check each Substack About page); Skool scale claims (170k communities / 25M users — no primary source); Circle and Substack scale claims; Jeff Miller "tens of thousands"; Creator Impact's existence (page 404'd); Substack-keeps-billing-after-migration mechanics; Belmont contact/leadership; Relevant's audience figure (reads as 2020 copy); Patreon "53%" stat (secondhand cite of their Feb 2025 report). From §4a: GigFinesse's 10–15% artist commission (one secondary source; the Inc. profile was blocked); GigTown's 13% (2016 press) and its $500,000 total-bookings figure (directory listing, undated); whether California's Freelance Worker Protection Act covers live musicians.
