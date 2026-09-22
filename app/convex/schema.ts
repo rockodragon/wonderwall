@@ -1680,4 +1680,38 @@ export default defineSchema({
   })
     .index("by_userId", ["userId"])
     .index("by_unsubscribeToken", ["unsubscribeToken"]),
+
+  // One row per Resend send, updated in place as delivery events arrive on
+  // the /resend/webhook route (convex/resendWebhook.ts). Written by
+  // emails.sendNotificationEmail right after a successful send — the
+  // console provider returns no id, so nothing is recorded for it.
+  emailDeliveries: defineTable({
+    providerId: v.string(), // Resend email id
+    provider: v.string(),
+    to: v.string(), // normalized lowercase
+    subject: v.string(),
+    category: v.optional(v.string()),
+    status: v.union(
+      v.literal("sent"),
+      v.literal("delivered"),
+      v.literal("delayed"),
+      v.literal("bounced"),
+      v.literal("complained"),
+    ),
+    lastEventAt: v.number(),
+    detail: v.optional(v.string()), // bounce/complaint reason text, short
+    createdAt: v.number(),
+  })
+    .index("by_providerId", ["providerId"])
+    .index("by_to_createdAt", ["to", "createdAt"]),
+
+  // Addresses that have hard-bounced or complained — checked before every
+  // send (emails.sendNotificationEmail) so we stop mailing them. Written by
+  // the /resend/webhook route.
+  emailSuppressions: defineTable({
+    email: v.string(), // normalized lowercase
+    reason: v.union(v.literal("bounced"), v.literal("complained")),
+    providerId: v.optional(v.string()),
+    createdAt: v.number(),
+  }).index("by_email", ["email"]),
 });

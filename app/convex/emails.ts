@@ -2,6 +2,7 @@
 
 import { internalAction } from "./_generated/server";
 import { v } from "convex/values";
+import { internal } from "./_generated/api";
 import { getEmailProvider } from "./email/index";
 import { renderNotificationEmail } from "./email/template";
 
@@ -29,7 +30,15 @@ export const sendNotificationEmail = internalAction({
     category: v.optional(emailCategoryValidator),
     unsubscribeToken: v.optional(v.string()),
   },
-  handler: async (_ctx, args) => {
+  handler: async (ctx, args) => {
+    const to = args.to.trim().toLowerCase();
+
+    const suppressed = await ctx.runQuery(internal.emailDeliveries.isSuppressed, { email: to });
+    if (suppressed) {
+      console.log(`[email] skipping send to suppressed address: ${to}`);
+      return;
+    }
+
     const baseUrl = process.env.SITE_URL || "https://creatives.exchange";
 
     const unsubscribeUrl = args.unsubscribeToken
@@ -62,7 +71,7 @@ export const sendNotificationEmail = internalAction({
     const provider = getEmailProvider();
 
     const result = await provider.send({
-      to: args.to,
+      to,
       subject: args.subject,
       html,
       text,
@@ -71,6 +80,19 @@ export const sendNotificationEmail = internalAction({
 
     if (!result.ok) {
       console.error(`Failed to send email via ${provider.name}:`, result.error);
+      return;
+    }
+
+    // The console provider returns no id — nothing to track delivery events
+    // against, so skip recording it.
+    if (result.id) {
+      await ctx.runMutation(internal.emailDeliveries.recordSend, {
+        providerId: result.id,
+        provider: provider.name,
+        to,
+        subject: args.subject,
+        category: args.category,
+      });
     }
   },
 });
