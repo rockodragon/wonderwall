@@ -109,6 +109,44 @@ export const markAllAsRead = mutation({
   },
 });
 
+// Mark every unread notification whose linkUrl points at the page the user
+// just landed on — covers reaching that page any way other than clicking
+// the bell (email CTA, direct link, the conversation list), which otherwise
+// left the notification unread and the badge count drifting. Compares the
+// stored linkUrl and the given one both as-is and with a trailing query
+// string/hash stripped, since a stored link and the current pathname don't
+// always carry the same suffix.
+export const markReadByLinkUrl = mutation({
+  args: { linkUrl: v.string() },
+  handler: async (ctx, args) => {
+    const userId = await auth.getUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
+    const unread = await ctx.db
+      .query("notifications")
+      .withIndex("by_userId_readAt", (q) =>
+        q.eq("userId", userId).eq("readAt", undefined),
+      )
+      .collect();
+
+    const target = stripQueryAndHash(args.linkUrl);
+    const toMark = unread.filter(
+      (n) =>
+        n.linkUrl === args.linkUrl ||
+        (n.linkUrl !== undefined && stripQueryAndHash(n.linkUrl) === target),
+    );
+
+    const now = Date.now();
+    await Promise.all(toMark.map((n) => ctx.db.patch(n._id, { readAt: now })));
+
+    return toMark.length;
+  },
+});
+
+function stripQueryAndHash(url: string): string {
+  return url.split("?")[0].split("#")[0];
+}
+
 // Internal helper to create a notification (used by other mutations)
 export const createNotification = mutation({
   args: {

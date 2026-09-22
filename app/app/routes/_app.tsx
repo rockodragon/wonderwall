@@ -4,6 +4,7 @@ import { useEffect, useState, type CSSProperties } from "react";
 import { usePostHog } from "@posthog/react";
 import { api } from "../../convex/_generated/api";
 import { takePendingIntent } from "../lib/pendingIntent";
+import { useMarkNotificationsReadForPath } from "../lib/useMarkNotificationsReadForPath";
 import { InviteCTA } from "../components/InviteCTA";
 import { Wordmark } from "../components/Wordmark";
 import { CommunitySwitcher } from "../components/CommunitySwitcher";
@@ -78,6 +79,11 @@ export default function AppLayout() {
   const sidebarBadgeCount = unreadCount + notificationCount;
 
   const isPublicPath = isPublicPathname(location.pathname);
+
+  // Clears any unread notification pointing at wherever the user just
+  // navigated to, so reaching a page from an email CTA or a direct link
+  // clears the badge same as clicking the bell would.
+  useMarkNotificationsReadForPath();
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated && !isPublicPath) {

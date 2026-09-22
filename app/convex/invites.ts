@@ -453,9 +453,9 @@ export const redeemBySlug = mutation({
 
     const newUserName = newUserProfile?.name || "Someone";
     const newUserImageUrl = newUserProfile?.imageUrl;
-    const profileLinkUrl = newUserProfile?.inviteSlug
-      ? `/profile/${newUserProfile.inviteSlug}`
-      : undefined;
+    // /profile/:id takes a profile id, not the invite slug (favorites.ts
+    // and likesDigest.ts link the same way).
+    const profileLinkUrl = newUserProfile ? `/profile/${newUserProfile._id}` : undefined;
 
     // Create notification for the inviter
     await ctx.db.insert("notifications", {
