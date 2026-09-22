@@ -93,10 +93,6 @@ function TextButton({
 }
 
 /** id after "…/embed/<id>" — youtu.be thumbnails follow this same id. */
-function youtubeThumb(embedUrl: string): string | null {
-  const match = /\/embed\/([^/?]+)/.exec(embedUrl);
-  return match ? `https://img.youtube.com/vi/${match[1]}/default.jpg` : null;
-}
 
 // ——————————————————————————————————————————————————————————————
 // Payment panel — host or booked artist, per booked slot.
@@ -304,7 +300,11 @@ function ClipPreview({ clip }: { clip: any }) {
     return (
       <iframe
         src={embed.embedUrl}
-        className="w-full aspect-video rounded-lg"
+        className={
+          embed.aspect === "9/16"
+            ? "w-full max-w-[280px] aspect-[9/16] rounded-lg"
+            : "w-full aspect-video rounded-lg"
+        }
         allow="autoplay; encrypted-media"
         allowFullScreen
         title={clip.title ?? "Clip"}
@@ -554,7 +554,7 @@ function GigRespondModal({
                   {clips.map((clip: any) => {
                     const active = selectedClipIds.includes(clip._id);
                     const embed = toEmbedUrl(clip.mediaUrl ?? undefined);
-                    const thumb = clip.ogImageUrl ?? (embed?.kind === "youtube" ? youtubeThumb(embed.embedUrl) : null);
+                    const thumb = clip.ogImageUrl ?? embed?.thumbnailUrl ?? null;
                     return (
                       <button
                         key={clip._id}

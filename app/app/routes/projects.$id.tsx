@@ -15,6 +15,7 @@ import type { ReactNode } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { Link, useNavigate, useParams, useRouteError } from "react-router";
 import { api } from "../../convex/_generated/api";
+import { toEmbedUrl } from "../lib/videoEmbed";
 import type { Id } from "../../convex/_generated/dataModel";
 import { AnnouncementComposer } from "../components/AnnouncementComposer";
 import { FavoriteButton } from "../components/FavoriteButton";
@@ -133,6 +134,23 @@ function EditButton({ onClick, label }: { onClick: () => void; label: string }) 
   );
 }
 
+// The first attached media's still for the hero: a cover or fetched preview
+// (`ogImageUrl`), the provider's own thumbnail for a YouTube link, or the
+// file itself. A pasted reel's page URL is never an <img src>
+// (convex/videoEmbed.ts) — before this, a video link rendered a broken image.
+function mediaThumb(media: any[] | undefined): string | null {
+  for (const m of media ?? []) {
+    if (m.ogImageUrl) return m.ogImageUrl;
+    const embed = toEmbedUrl(m.mediaUrl ?? undefined);
+    if (embed) {
+      if (embed.thumbnailUrl) return embed.thumbnailUrl;
+      continue;
+    }
+    if (m.resolvedMediaUrl) return m.resolvedMediaUrl;
+  }
+  return null;
+}
+
 export default function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
   const project = useQuery(api.garden.projects.getProject, id ? { projectId: id } : "skip");
@@ -166,7 +184,7 @@ export default function ProjectDetail() {
   const isGig = !!project.gig;
   const moneyWord = moneyAmount && isGig && project.budgetType === "amount" ? `${moneyAmount}/date` : moneyAmount;
   const hasMoney = project.kind === "paid" && kindWord === "Paid";
-  const thumb = project.resolvedPhotoUrl || project.media.find((m: any) => m.resolvedMediaUrl)?.resolvedMediaUrl;
+  const thumb = project.resolvedPhotoUrl || mediaThumb(project.media);
 
   return (
     <PageShell>

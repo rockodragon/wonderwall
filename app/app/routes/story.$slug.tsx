@@ -23,6 +23,7 @@ import {
   joinNames,
 } from "../garden/ui";
 import { RichContent } from "../components/RichContent";
+import { toEmbedUrl } from "../lib/videoEmbed";
 import { CLAIMS } from "../constants/claims";
 import { setPendingIntent } from "../lib/pendingIntent";
 import "../garden/garden.css";
@@ -400,6 +401,10 @@ export default function StoryPage() {
   }
 
   const { project, updates, credits, backers } = data;
+  // A quick share of a reel or a YouTube link has no photo; the work itself
+  // is the hero, in the platform's player, inside this page. This is the
+  // page a creative points their bio at, so it opens on the work.
+  const heroEmbed = project.photoUrl ? null : toEmbedUrl(project.mediaUrl);
   const hasProgress = project.kind === "passion" && project.goal !== undefined && project.goal > 0;
   const raisedCents = project.raisedCents ?? 0;
   const goalCents = (project.goal ?? 0) * 100;
@@ -422,8 +427,31 @@ export default function StoryPage() {
           }}
         />
       )}
+      {heroEmbed && (
+        <iframe
+          src={heroEmbed.embedUrl}
+          title={project.title}
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowFullScreen
+          loading="lazy"
+          referrerPolicy="strict-origin-when-cross-origin"
+          style={{
+            display: "block",
+            width: "100%",
+            // A reel is portrait: phone width, centred. YouTube fills the column.
+            maxWidth: heroEmbed.aspect === "9/16" ? 420 : undefined,
+            aspectRatio: heroEmbed.aspect === "9/16" ? "9 / 16" : "16 / 9",
+            marginTop: 20,
+            marginLeft: "auto",
+            marginRight: "auto",
+            border: 0,
+            borderRadius: 8,
+            backgroundColor: "var(--garden-ink-raised)",
+          }}
+        />
+      )}
 
-      <div style={{ marginTop: project.photoUrl ? 20 : 28 }}>
+      <div style={{ marginTop: project.photoUrl || heroEmbed ? 20 : 28 }}>
         <h1 className="g-h" style={{ fontSize: "clamp(28px,5vw,40px)" }}>
           {project.title}
         </h1>

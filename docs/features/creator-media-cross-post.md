@@ -1,6 +1,8 @@
 # Cross-posting a reel: make it once, paste it once
 
-Proposal, 2026-09-22. Owner: Rick. Status: **not built**. Every "today" statement below was checked against the code on 2026-09-22; every "verified" statement was checked against the live Instagram and TikTok endpoints the same day.
+Spec, 2026-09-22. Owner: Rick. **Tier 1 (paste) is built** in the PR that carries this doc, unit-tested, and **not live** until it is merged and the Convex backend is deployed to production (nothing deploys it automatically; the schema gains one optional field). Tiers 2 and 3 are not built. Every "today" statement below describes the code before this PR, checked 2026-09-22; every "verified" statement was checked against the live Instagram and TikTok endpoints the same day.
+
+**Plain version.** A creative pastes the link to the reel they already made. The reel plays on their page here, in Instagram's or TikTok's own player, with our Follow, Back and story around it. Nobody is sent to Instagram. The only way to have zero Instagram on the page is for the creative to upload the actual video file, which means a second upload for them and real video hosting for us; that stays an option, not the default.
 
 ## What this covers
 
@@ -44,6 +46,14 @@ Verified 2026-09-22 against the example reel.
 - Both platforms' embed players answered 200 from the server (`instagram.com/reel/{code}/embed/captioned/`, `tiktok.com/player/v1/{id}`, `tiktok.com/embed/v2/{id}`). Instagram's response is the same JavaScript shell as the page, so the rendered player was not confirmed from a datacenter IP. It is the URL Instagram's own `embed.js` injects, so it is expected to work in a browser, and the first build should confirm it on a phone before anything else.
 
 ## Tier 1 · Paste
+
+Built as specified here, with these differences from the first draft:
+
+- The resolver moved to `app/convex/videoEmbed.ts` so the server can use it too, and reaches the client through the `app/app/lib/videoEmbed.ts` re-export shim (the same convention as `richText.ts`). Every import path is unchanged.
+- The TikTok still is copied into Convex storage and its URL written to the existing `ogImageUrl`, so no read path changed; `coverStorageId` exists only so `remove` can delete the file. A cover the creative uploads beside a pasted link is handled the same way, resolved to a URL at create.
+- The composer's upload caps were 5 MB for everything, a hard-coded check older than the project-page editor's 12 MB images and 64 MB video. They now match the editor. Convex itself takes files up to 1 GB; the cap is about a raw upload streaming to every visitor, not storage.
+- Uploaded video and audio files no longer also render as a broken `<img>` on the work page and the grid, which they did because "has a storage id" was read as "is an image".
+- TikTok short links (`vm.tiktok.com/…`, `tiktok.com/t/…`) are followed server-side and replaced with the permalink.
 
 ### One resolver, six call sites
 
@@ -90,7 +100,7 @@ Tests go in `videoEmbed.test.ts` beside the existing ones: each accepted form, t
 - **Instagram:** do nothing until Tier 3. The player carries its own image; only the grid card lacks one.
 - **Short links:** follow the redirect, store the destination as `mediaUrl`.
 
-One additive schema field on `artifacts`: `coverStorageId: v.optional(v.id("_storage"))`, resolved on read the way `mediaStorageId` is. Every reader prefers cover, then `ogImageUrl`, then a provider tile. No migration; old rows have none.
+One additive schema field on `artifacts`: `coverStorageId: v.optional(v.id("_storage"))`, the file behind `ogImageUrl` when we hold it ourselves. Readers never touch it; they read `ogImageUrl` as they always did, then the provider's own still (YouTube), then a provider tile. No migration; old rows have none.
 
 ### The surfaces
 
@@ -147,12 +157,14 @@ The principle is the same throughout: reduce what a creative has to do to be see
 
 | File | Change |
 |---|---|
-| `app/app/lib/videoEmbed.ts` | Instagram, TikTok, YouTube Shorts; `aspect` and `canonicalUrl` |
+| `app/convex/videoEmbed.ts` (was `app/app/lib/videoEmbed.ts`) | Instagram, TikTok, YouTube Shorts; `aspect`, `canonicalUrl`, `thumbnailUrl`; `isTikTokShortLink` |
+| `app/app/lib/videoEmbed.ts` | Re-export shim |
 | `app/app/lib/videoEmbed.test.ts` | Cases above |
 | `app/convex/schema.ts` | `artifacts.coverStorageId` |
-| `app/convex/artifacts.ts` | Store `canonicalUrl`; `enrichMediaLink` action; skip the scrape for the two hosts; resolve `coverStorageId` in the read queries |
-| `app/app/components/CreateWorkComposer.tsx` | Auto-detect via the resolver; placeholder; optional title prompt; cover label; `provider` in analytics |
+| `app/convex/artifacts.ts` | Store `canonicalUrl`; `schedulePreview` rule; `fetchTikTokPreview` internal action and `applyLinkPreview`; cover cleanup in `remove` |
+| `app/convex/garden/stories.ts` | `getStoryPage` returns the first attached media's link and still |
+| `app/app/components/CreateWorkComposer.tsx` | Auto-detect via the resolver; an uploaded image beside a link is the cover; placeholders; caps; `provider` in analytics |
 | `app/app/components/RichContent.tsx` | Portrait frame |
-| `app/app/routes/work.tsx`, `works.tsx`, `profile.tsx` | Replace the local regexes with the resolver; portrait cards; provider tile |
+| `app/app/routes/work.tsx`, `works.tsx`, `profile.tsx`, `settings.tsx`, `GigSchedule.tsx` | Local YouTube regexes replaced with the resolver; portrait cards; provider tile |
 | `app/app/routes/story.$slug.tsx` | Embed as hero when there is no photo |
-| `app/app/routes/projects.$id.tsx` | Prefer the cover for the thumbnail |
+| `app/app/routes/projects.$id.tsx` | Thumbnail from the cover or the provider's still, never a page URL |

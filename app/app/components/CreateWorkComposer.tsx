@@ -3,6 +3,13 @@ import { useMutation, useQuery } from "convex/react";
 import { useRef, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import confetti from "canvas-confetti";
+import { EMBED_PROVIDER_LABEL, toEmbedUrl } from "../lib/videoEmbed";
+
+// Same caps as the project-page editor (RichTextEditor.tsx): Convex takes
+// files up to 1GB, but a raw upload streams to every visitor, so video past
+// this belongs on a host — or, for a reel, is a pasted link that plays here.
+const MAX_IMAGE_BYTES = 12 * 1024 * 1024;
+const MAX_MEDIA_BYTES = 64 * 1024 * 1024;
 
 const WORK_TYPES = [
   { value: "image", label: "Image", icon: ImageIcon },
@@ -63,17 +70,23 @@ export function CreateWorkComposer({ onCreated }: { onCreated?: () => void }) {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 5 * 1024 * 1024) {
-      alert("File must be less than 5MB");
-      return;
-    }
-
     const isImage = file.type.startsWith("image/");
     const isVideo = file.type.startsWith("video/");
     const isAudio = file.type.startsWith("audio/");
 
     if (!isImage && !isVideo && !isAudio) {
       alert("Please select an image, video, or audio file");
+      return;
+    }
+
+    const cap = isImage ? MAX_IMAGE_BYTES : MAX_MEDIA_BYTES;
+    if (file.size > cap) {
+      const mb = (bytes: number) => Math.round(bytes / (1024 * 1024));
+      alert(
+        isImage
+          ? `That image is ${mb(file.size)}MB. Images need to be under ${mb(cap)}MB.`
+          : `That file is ${mb(file.size)}MB. Files need to be under ${mb(cap)}MB. For a reel or a longer video, paste its Instagram, TikTok or YouTube link instead and it plays here.`,
+      );
       return;
     }
 
@@ -109,21 +122,25 @@ export function CreateWorkComposer({ onCreated }: { onCreated?: () => void }) {
     }
   }
 
+  // A pasted Instagram, TikTok, YouTube or Vimeo link is a video however the
+  // pills are set — it plays here, in the platform's player, inside the work
+  // page (docs/features/creator-media-cross-post.md). An image uploaded
+  // beside it is its cover, not the work. Pure and cheap, so it runs on
+  // every render to drive the hint and the Post button.
+  const pastedEmbed = toEmbedUrl(normalizeUrl(mediaUrl));
+  const coverIsImage = !!uploadedStorageId && !!uploadedPreview;
+
   async function handleSubmit() {
     if (type === "text" && !content.trim()) return;
     if (type !== "text" && !mediaUrl.trim() && !uploadedStorageId) return;
-    if (type === "link" && !title.trim()) return;
+    if (type === "link" && !pastedEmbed && !title.trim()) return;
 
     const isFirstWork = !artifacts || artifacts.length === 0;
 
-    // Auto-detect YouTube/Vimeo URLs and treat them as video type
     const normalizedUrl = normalizeUrl(mediaUrl);
-    const isYouTubeUrl =
-      normalizedUrl.includes("youtube.com") ||
-      normalizedUrl.includes("youtu.be");
-    const isVimeoUrl = normalizedUrl.includes("vimeo.com");
-    const effectiveType =
-      type === "link" && (isYouTubeUrl || isVimeoUrl) ? "video" : type;
+    const embed = type !== "text" ? pastedEmbed : null;
+    const effectiveType = embed ? "video" : type;
+    const uploadIsCover = !!embed && coverIsImage;
 
     setSaving(true);
     try {
@@ -131,10 +148,15 @@ export function CreateWorkComposer({ onCreated }: { onCreated?: () => void }) {
         type: effectiveType,
         title: title.trim() || undefined,
         content: type === "text" ? content.trim() : undefined,
-        mediaUrl: type !== "text" && normalizedUrl ? normalizedUrl : undefined,
-        mediaStorageId: uploadedStorageId
-          ? (uploadedStorageId as any)
-          : undefined,
+        mediaUrl:
+          type !== "text" && normalizedUrl
+            ? (embed?.canonicalUrl ?? normalizedUrl)
+            : undefined,
+        mediaStorageId:
+          uploadedStorageId && !uploadIsCover
+            ? (uploadedStorageId as any)
+            : undefined,
+        coverStorageId: uploadIsCover ? (uploadedStorageId as any) : undefined,
       });
 
       if (isFirstWork) {
@@ -150,6 +172,8 @@ export function CreateWorkComposer({ onCreated }: { onCreated?: () => void }) {
         work_type: effectiveType,
         original_type: type,
         auto_detected_video: effectiveType !== type,
+        provider: embed?.kind ?? null,
+        has_cover: uploadIsCover,
         has_title: !!title.trim(),
         is_first_work: isFirstWork,
         has_uploaded_file: !!uploadedStorageId,
@@ -164,11 +188,13 @@ export function CreateWorkComposer({ onCreated }: { onCreated?: () => void }) {
 
   const hasMedia = mediaUrl.trim().length > 0 || uploadedStorageId;
   const hasTitle = title.trim().length > 0;
+  // A link needs a title so its card says something; an embedded video
+  // carries its own caption, so the title stays optional there.
   const canSubmit =
     type === "text"
       ? content.trim().length > 0
       : type === "link"
-        ? hasMedia && hasTitle
+        ? hasMedia && (hasTitle || !!pastedEmbed)
         : hasMedia;
 
   return (
@@ -384,7 +410,9 @@ export function CreateWorkComposer({ onCreated }: { onCreated?: () => void }) {
                       <span className="text-sm">
                         Drop a file or click to upload
                       </span>
-                      <span className="text-xs text-gray-400">Max 5MB</span>
+                      <span className="text-xs text-gray-400">
+                        Images to 12MB, video and audio to 64MB
+                      </span>
                     </div>
                   )}
                 </button>
@@ -403,21 +431,28 @@ export function CreateWorkComposer({ onCreated }: { onCreated?: () => void }) {
                     uploadedStorageId
                       ? "Add a link for the image to open..."
                       : type === "link"
-                        ? "Paste a link..."
+                        ? "Paste a link from Instagram, TikTok, YouTube, or any page..."
                         : type === "video"
-                          ? "Or paste a YouTube URL..."
+                          ? "Or paste a link from Instagram, TikTok, YouTube or Vimeo..."
                           : "Or paste a URL..."
                   }
                   className="w-full pl-10 pr-4 py-3 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
                 />
               </div>
+
+              {pastedEmbed && (
+                <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                  {EMBED_PROVIDER_LABEL[pastedEmbed.kind]} video. It plays here on
+                  your page{coverIsImage ? ", with your image as the cover" : ""}.
+                </p>
+              )}
             </div>
           )}
 
           {/* Footer */}
           {!canSubmit && !saving && (title.trim() || content.trim() || hasMedia) && (
             <p className="text-xs text-amber-600 dark:text-amber-400 mt-3">
-              {type === "link" && !hasTitle
+              {type === "link" && !hasTitle && !pastedEmbed
                 ? "Add a title to post this link."
                 : type === "link" && !hasMedia
                   ? "Paste a link to post."

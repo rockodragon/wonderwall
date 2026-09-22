@@ -1,7 +1,16 @@
 import { v } from "convex/values";
-import { action, internalMutation, mutation, query } from "./_generated/server";
+import {
+  action,
+  internalAction,
+  internalMutation,
+  mutation,
+  query,
+  type MutationCtx,
+} from "./_generated/server";
 import { api, internal } from "./_generated/api";
+import type { Doc, Id } from "./_generated/dataModel";
 import { auth } from "./auth";
+import { isTikTokShortLink, toEmbedUrl } from "./videoEmbed";
 import { deriveProjectTitle } from "./garden/artifactsMigration";
 import { slugifyTitle, resolveAvailableSlug } from "./garden/stories";
 
@@ -115,6 +124,34 @@ export const toggleLike = mutation({
   },
 });
 
+// What a link needs fetched so its card has a still (docs/features/
+// creator-media-cross-post.md). One place for the rule, called by create and
+// by refetchOgImage. Scheduled, never awaited: the post lands first.
+async function schedulePreview(
+  ctx: MutationCtx,
+  artifactId: Id<"artifacts">,
+  url: string | undefined,
+  type: string,
+) {
+  if (!url || (type !== "link" && type !== "video")) return;
+  const embed = toEmbedUrl(url);
+  // YouTube's still comes from the resolver (img.youtube.com); Vimeo has
+  // none we can reach without a key and embeds fine without one.
+  if (embed?.kind === "youtube" || embed?.kind === "vimeo") return;
+  // Instagram serves a server its app shell, not the page — 600KB of HTML
+  // with no og:image (checked 2026-09-22). Nothing to fetch without a Meta
+  // token; the player carries its own image and the creative can add a cover.
+  if (embed?.kind === "instagram") return;
+  if (embed?.kind === "tiktok" || isTikTokShortLink(url)) {
+    await ctx.scheduler.runAfter(0, internal.artifacts.fetchTikTokPreview, {
+      artifactId,
+      url,
+    });
+    return;
+  }
+  await ctx.scheduler.runAfter(0, api.artifacts.fetchOgImage, { artifactId, url });
+}
+
 export const create = mutation({
   args: {
     type: v.string(),
@@ -122,6 +159,10 @@ export const create = mutation({
     content: v.optional(v.string()),
     mediaUrl: v.optional(v.string()),
     mediaStorageId: v.optional(v.id("_storage")),
+    // An image the creative uploaded beside a pasted reel or video link — its
+    // cover, not the work (docs/features/creator-media-cross-post.md). Stored
+    // as `ogImageUrl` so every card reads it like any other preview.
+    coverStorageId: v.optional(v.id("_storage")),
     // Location for the companion passion project this mutation creates as a
     // side effect (docs/the-exchange-v1-prd.md §7). Optional and unused by
     // CreateWorkComposer.tsx / onboarding.tsx today — those composers stay
@@ -176,14 +217,26 @@ export const create = mutation({
     const maxOrder =
       existing.length > 0 ? Math.max(...existing.map((a) => a.order)) : -1;
 
+    // A pasted Instagram, TikTok, YouTube or Vimeo link is stored in its
+    // canonical form — share tokens (`?stkn=`, `?igsh=`) and mobile hosts
+    // stripped — so the same reel pasted by two people is the same string
+    // (convex/videoEmbed.ts).
+    const embed = toEmbedUrl(args.mediaUrl);
+    const mediaUrl = embed?.canonicalUrl ?? args.mediaUrl;
+    const coverUrl = args.coverStorageId
+      ? await ctx.storage.getUrl(args.coverStorageId)
+      : null;
+
     const createdAt = Date.now();
     const artifactId = await ctx.db.insert("artifacts", {
       profileId: profile._id,
       type: args.type,
       title: args.title,
       content: args.content,
-      mediaUrl: args.mediaUrl,
+      mediaUrl,
       mediaStorageId: args.mediaStorageId,
+      ogImageUrl: coverUrl ?? undefined,
+      coverStorageId: args.coverStorageId,
       order: maxOrder + 1,
       createdAt,
     });
@@ -210,7 +263,7 @@ export const create = mutation({
       title: projectTitle,
       blurb: args.type === "text" ? args.content : undefined,
       status: "active",
-      photoUrl: args.type === "image" ? args.mediaUrl : undefined,
+      photoUrl: args.type === "image" ? mediaUrl : undefined,
       storySlug,
       interests: args.interests,
       location: args.location,
@@ -231,23 +284,8 @@ export const create = mutation({
       });
     }
 
-    // Schedule og:image fetching for link and video-type artifacts (except YouTube/Vimeo which have thumbnails)
-    const isYouTubeOrVimeo =
-      args.mediaUrl &&
-      (args.mediaUrl.includes("youtube.com") ||
-        args.mediaUrl.includes("youtu.be") ||
-        args.mediaUrl.includes("vimeo.com"));
-
-    if (
-      (args.type === "link" || args.type === "video") &&
-      args.mediaUrl &&
-      !isYouTubeOrVimeo
-    ) {
-      await ctx.scheduler.runAfter(0, api.artifacts.fetchOgImage, {
-        artifactId,
-        url: args.mediaUrl,
-      });
-    }
+    // A still for the card, unless the resolver already has one.
+    await schedulePreview(ctx, artifactId, mediaUrl, args.type);
 
     return artifactId;
   },
@@ -312,9 +350,12 @@ export const remove = mutation({
       throw new Error("Not authorized");
     }
 
-    // Delete associated storage file
+    // Delete associated storage files — the work and any stored cover
     if (artifact.mediaStorageId) {
       await ctx.storage.delete(artifact.mediaStorageId);
+    }
+    if (artifact.coverStorageId) {
+      await ctx.storage.delete(artifact.coverStorageId);
     }
 
     await ctx.db.delete(args.artifactId);
@@ -597,12 +638,131 @@ export const refetchOgImage = mutation({
       throw new Error("Artifact has no URL to fetch og:image from");
     }
 
-    // Schedule og:image fetch
-    await ctx.scheduler.runAfter(0, api.artifacts.fetchOgImage, {
-      artifactId: args.artifactId,
-      url: artifact.mediaUrl,
-    });
+    await schedulePreview(ctx, args.artifactId, artifact.mediaUrl, artifact.type);
 
     return { success: true };
+  },
+});
+
+// ————— TikTok preview —————
+//
+// TikTok answers oEmbed with no key: the post's title, the creator's name
+// and a portrait still (checked 2026-09-22). The still's CDN URL carries an
+// x-expires a few days out, so it is copied into our storage rather than
+// linked. Internal, unlike fetchOgImage: nothing outside the scheduler
+// should be able to point it at an artifact.
+
+const BROWSER_UA =
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+
+export const fetchTikTokPreview = internalAction({
+  args: {
+    artifactId: v.id("artifacts"),
+    url: v.string(),
+  },
+  handler: async (ctx, args) => {
+    try {
+      let url = args.url;
+      if (isTikTokShortLink(url)) {
+        // vm.tiktok.com/… is a redirect the browser couldn't follow
+        // cross-origin; the server can. The body is not read.
+        const res = await fetch(url, {
+          redirect: "follow",
+          headers: { "User-Agent": BROWSER_UA },
+          signal: AbortSignal.timeout(10000),
+        });
+        url = res.url || url;
+      }
+      const embed = toEmbedUrl(url);
+      if (embed?.kind !== "tiktok") {
+        console.log(`Not a TikTok video after resolving ${args.url}: ${url}`);
+        return;
+      }
+
+      const res = await fetch(
+        `https://www.tiktok.com/oembed?url=${encodeURIComponent(embed.canonicalUrl)}`,
+        { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(15000) },
+      );
+      if (!res.ok) {
+        console.log(`TikTok oEmbed failed for ${embed.canonicalUrl}: ${res.status}`);
+        return;
+      }
+      const data = (await res.json()) as { title?: unknown; thumbnail_url?: unknown };
+      // TikTok titles are the caption, hashtags and all — enough for a card,
+      // clamped so a wall of tags doesn't become the project title.
+      const title =
+        typeof data.title === "string"
+          ? data.title.replace(/\s+/g, " ").trim().slice(0, 120)
+          : "";
+
+      let coverStorageId: Id<"_storage"> | undefined;
+      let coverUrl: string | null = null;
+      const thumb = typeof data.thumbnail_url === "string" ? data.thumbnail_url : "";
+      if (/^https:\/\//.test(thumb)) {
+        const img = await fetch(thumb, { signal: AbortSignal.timeout(15000) });
+        if (img.ok) {
+          coverStorageId = await ctx.storage.store(await img.blob());
+          coverUrl = await ctx.storage.getUrl(coverStorageId);
+        }
+      }
+
+      await ctx.runMutation(internal.artifacts.applyLinkPreview, {
+        artifactId: args.artifactId,
+        // A short link is replaced by the permalink it resolved to.
+        mediaUrl: embed.canonicalUrl !== args.url ? embed.canonicalUrl : undefined,
+        title: title || undefined,
+        ogImageUrl: coverUrl ?? undefined,
+        coverStorageId,
+      });
+    } catch (error) {
+      console.log(`Error fetching TikTok preview for ${args.url}:`, error);
+    }
+  },
+});
+
+// What fetchTikTokPreview learned, applied. A blank title is filled from the
+// post (and passed on to the companion project, which got the type's
+// fallback title at create); a title the creative typed is kept.
+export const applyLinkPreview = internalMutation({
+  args: {
+    artifactId: v.id("artifacts"),
+    mediaUrl: v.optional(v.string()),
+    title: v.optional(v.string()),
+    ogImageUrl: v.optional(v.string()),
+    coverStorageId: v.optional(v.id("_storage")),
+  },
+  handler: async (ctx, args) => {
+    const artifact = await ctx.db.get(args.artifactId);
+    if (!artifact) {
+      // Deleted while the fetch was in flight — don't leave the file behind.
+      if (args.coverStorageId) await ctx.storage.delete(args.coverStorageId);
+      return;
+    }
+
+    const patch: Partial<Doc<"artifacts">> = {};
+    if (args.mediaUrl) patch.mediaUrl = args.mediaUrl;
+    if (args.ogImageUrl && args.coverStorageId) {
+      if (artifact.coverStorageId && artifact.coverStorageId !== args.coverStorageId) {
+        await ctx.storage.delete(artifact.coverStorageId);
+      }
+      patch.ogImageUrl = args.ogImageUrl;
+      patch.coverStorageId = args.coverStorageId;
+    }
+    const fillTitle = !!args.title && !artifact.title?.trim();
+    if (fillTitle) patch.title = args.title;
+    await ctx.db.patch(args.artifactId, patch);
+
+    if (fillTitle && args.title) {
+      if (artifact.projectId) {
+        const project = await ctx.db.get(artifact.projectId);
+        if (project && /^Untitled( video| link)?$/.test(project.title)) {
+          await ctx.db.patch(project._id, { title: args.title, updatedAt: Date.now() });
+        }
+      }
+      // It has words now — index it, as create would have.
+      await ctx.scheduler.runAfter(0, api.embeddings.embedArtifact, {
+        artifactId: args.artifactId,
+      });
+    }
   },
 });

@@ -136,12 +136,23 @@ const FRAME: CSSProperties = {
   overflow: "hidden",
 };
 
+/** A reel, a TikTok or a Short is portrait. Full-width portrait video on a
+    desktop page is a wall, so it is capped at phone width and centred. */
+const PORTRAIT_FRAME: CSSProperties = {
+  ...FRAME,
+  aspectRatio: "9 / 16",
+  maxWidth: 420,
+  marginLeft: "auto",
+  marginRight: "auto",
+};
+
 function VideoBlock({ block }: { block: Extract<ResolvedRichBlock, { type: "video" }> }) {
   const src = block.resolvedUrl ?? block.url ?? null;
   if (!src || !isSafeHttpUrl(src)) return null;
 
   // An uploaded file plays natively; a pasted watch link goes through the
-  // existing YouTube/Vimeo resolver. Anything else it doesn't recognise
+  // shared resolver (YouTube, Vimeo, Instagram, TikTok — a reel plays here
+  // in the platform's own player). Anything else it doesn't recognise
   // fails closed to a link-out, exactly as it does on the event page —
   // Zoom, Meet and friends send frame-ancestors headers that would render
   // an empty box with no visible failure.
@@ -163,8 +174,9 @@ function VideoBlock({ block }: { block: Extract<ResolvedRichBlock, { type: "vide
           title={block.caption || "Embedded video"}
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
           allowFullScreen
+          loading="lazy"
           referrerPolicy="strict-origin-when-cross-origin"
-          style={FRAME}
+          style={embed.aspect === "9/16" ? PORTRAIT_FRAME : FRAME}
         />
         {block.caption && <Caption>{block.caption}</Caption>}
       </figure>

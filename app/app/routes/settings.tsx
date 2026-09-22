@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import confetti from "canvas-confetti";
 import { api } from "../../convex/_generated/api";
+import { toEmbedUrl } from "../lib/videoEmbed";
 import type { Id } from "../../convex/_generated/dataModel";
 import { LocationAutocomplete, LocationVerifiedHint } from "../components/LocationAutocomplete";
 import { useLocationField } from "../lib/useLocationField";
@@ -1420,49 +1421,6 @@ const ARTIFACT_TYPES = [
   },
 ];
 
-function getVideoEmbedUrl(mediaUrl: string): string | null {
-  try {
-    const url = new URL(mediaUrl);
-    const host = url.hostname.replace("www.", "");
-
-    if (host === "youtu.be") {
-      const id = url.pathname.slice(1);
-      return id ? `https://www.youtube.com/embed/${id}` : null;
-    }
-
-    if (
-      host === "youtube.com" ||
-      host === "m.youtube.com" ||
-      host === "youtube-nocookie.com"
-    ) {
-      if (url.pathname === "/watch") {
-        const id = url.searchParams.get("v");
-        return id ? `https://www.youtube.com/embed/${id}` : null;
-      }
-
-      if (
-        url.pathname.startsWith("/embed/") ||
-        url.pathname.startsWith("/shorts/") ||
-        url.pathname.startsWith("/live/")
-      ) {
-        const id = url.pathname.split("/")[2];
-        return id ? `https://www.youtube.com/embed/${id}` : null;
-      }
-    }
-
-    if (host === "vimeo.com" || host === "player.vimeo.com") {
-      const parts = url.pathname.split("/").filter(Boolean);
-      const id = parts[parts.length - 1];
-      if (id && /^[0-9]+$/.test(id)) {
-        return `https://player.vimeo.com/video/${id}`;
-      }
-    }
-  } catch {
-    return null;
-  }
-
-  return null;
-}
 
 function ArtifactsSection({
   editArtifactId,
@@ -1855,9 +1813,11 @@ function ArtifactsSection({
               (t) => t.value === artifact.type,
             );
             const mediaUrl = artifact.resolvedMediaUrl || artifact.mediaUrl;
+            // The shared resolver (convex/videoEmbed.ts) — a pasted reel
+            // or TikTok previews here the same way a YouTube link does.
             const videoEmbedUrl =
               artifact.type === "video" && mediaUrl
-                ? getVideoEmbedUrl(mediaUrl)
+                ? toEmbedUrl(artifact.mediaUrl ?? mediaUrl)?.embedUrl ?? null
                 : null;
 
             return (
