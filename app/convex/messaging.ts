@@ -229,6 +229,7 @@ export const sendMessage = mutation({
       body: `<strong>${senderName}</strong> sent you a message: "${trimmedContent.length > 200 ? trimmedContent.slice(0, 200) + "..." : trimmedContent}"`,
       ctaText: "View Message",
       ctaUrl: `/messages/${conversationId}`,
+      category: "activity",
     });
 
     return conversationId;

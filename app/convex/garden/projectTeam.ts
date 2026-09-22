@@ -212,7 +212,8 @@ export function buildClaimEmail(input: ClaimEmailInput, token: string): {
   return {
     subject: `${input.leadName} credited you on ${input.projectTitle}`,
     previewText: `You're listed as ${input.role} on ${input.projectTitle}.`,
-    heading: `${lead} credited you on ${title}`,
+    // Plain text — sendNotificationEmail's template HTML-escapes heading itself.
+    heading: `${input.leadName} credited you on ${input.projectTitle}`,
     body:
       `${lead} listed you as <strong>${role}</strong> on <strong>${title}</strong> at creatives.exchange.` +
       `${note}<br><br>Claim the credit to put it on your own profile — the link works for 30 days.`,
@@ -900,6 +901,7 @@ export const inviteMember = mutation({
       await ctx.scheduler.runAfter(0, internal.emails.sendNotificationEmail, {
         to: email,
         ...buildClaimEmail({ leadName, projectTitle: project.title, role, message }, claimToken),
+        category: "transactional",
       });
     }
     return { ok: true as const, changed: true as const, memberId, status: "invited" as const, emailed: email !== undefined };

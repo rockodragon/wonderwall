@@ -39,6 +39,10 @@ export default [
   // the _app layout below rather than bouncing them to /login.
   route("claim/:token", "routes/claim.$token.tsx"),
 
+  // Email unsubscribe links carry their own token, so this must work
+  // signed-out — same reasoning as claim/:token above.
+  route("unsubscribe/:token", "routes/unsubscribe.tsx"),
+
   // Public audience pages (/for/creatives, /for/hosts, …) — one page per
   // constituent door in docs/marketing/constituent-playbook.md. Outside the
   // _app layout on purpose: these are handed to people who have no account

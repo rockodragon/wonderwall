@@ -519,6 +519,7 @@ export const apply = mutation({
         body: `<strong>${applicantName}</strong> applied to your event "<strong>${event.title}</strong>".`,
         ctaText: "View Application",
         ctaUrl: `/events/${args.eventId}`,
+        category: "activity",
       });
     }
 

@@ -162,8 +162,10 @@ describe("buildClaimEmail", () => {
   it("subject is 'Name credited you on Title' (plain text, unescaped)", () => {
     expect(email.subject).toBe("Rick <script> credited you on Night & Day");
   });
-  it("heading and body are HTML-escaped", () => {
-    expect(email.heading).toBe("Rick &lt;script&gt; credited you on Night &amp; Day");
+  it("heading is plain text (sendNotificationEmail's template escapes it); body is HTML-escaped", () => {
+    // heading is interpolated into the email template's escapeHtml() call
+    // downstream — passing pre-escaped text here would double-escape it.
+    expect(email.heading).toBe("Rick <script> credited you on Night & Day");
     expect(email.body).not.toContain("<script>");
     expect(email.body).not.toContain("<join>");
     expect(email.body).toContain("&quot;DP&quot;");

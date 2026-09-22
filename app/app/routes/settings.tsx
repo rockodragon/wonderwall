@@ -161,6 +161,11 @@ export default function Settings() {
         />
       </div>
 
+      {/* Email preferences */}
+      <div className="mt-8 pt-6 border-t" style={{ borderColor: "var(--app-hairline)" }}>
+        <EmailSection />
+      </div>
+
       {/* Blocked people */}
       <div className="mt-8 pt-6 border-t" style={{ borderColor: "var(--app-hairline)" }}>
         <BlockedSection />
@@ -608,6 +613,87 @@ function MyGigsSection() {
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+const EMAIL_TOGGLES: {
+  category: "activity" | "digest" | "announcements";
+  label: string;
+  description: string;
+}[] = [
+  {
+    category: "activity",
+    label: "Activity",
+    description: "Messages, project interest, event sign-ups and bookings",
+  },
+  {
+    category: "digest",
+    label: "Digest",
+    description: "A summary of new likes, up to three times a day",
+  },
+  {
+    category: "announcements",
+    label: "Announcements",
+    description: "Updates and reminders from hosts of classes and projects you're in",
+  },
+];
+
+function EmailSection() {
+  const prefs = useQuery(api.emailPreferences.get);
+  const updatePref = useMutation(api.emailPreferences.update);
+  const [pendingCategory, setPendingCategory] = useState<string | null>(null);
+
+  // Still loading — render nothing rather than flash a default state.
+  if (prefs === undefined) return null;
+
+  async function handleToggle(
+    category: "activity" | "digest" | "announcements",
+    enabled: boolean,
+  ) {
+    setPendingCategory(category);
+    try {
+      await updatePref({ category, enabled });
+    } catch (err) {
+      console.error("Update email preference error:", err);
+    } finally {
+      setPendingCategory(null);
+    }
+  }
+
+  return (
+    <div>
+      <h2 className="text-lg font-semibold mb-4" style={{ color: "var(--app-text)" }}>
+        Email
+      </h2>
+      <div className="space-y-4">
+        {EMAIL_TOGGLES.map((toggle) => (
+          <label
+            key={toggle.category}
+            className="flex items-start gap-3 cursor-pointer"
+          >
+            <input
+              type="checkbox"
+              checked={Boolean(prefs?.[toggle.category])}
+              disabled={pendingCategory === toggle.category}
+              onChange={(e) => handleToggle(toggle.category, e.target.checked)}
+              className="mt-0.5 w-4 h-4 shrink-0 rounded"
+              style={{ accentColor: "var(--app-accent)" }}
+            />
+            <div>
+              <p className="text-sm font-medium" style={{ color: "var(--app-text)" }}>
+                {toggle.label}
+              </p>
+              <p className="text-xs" style={{ color: "var(--app-text-dim)" }}>
+                {toggle.description}
+              </p>
+            </div>
+          </label>
+        ))}
+      </div>
+      <p className="mt-4 text-xs" style={{ color: "var(--app-text-dim)" }}>
+        Receipts, approvals and invitations are always sent.
+      </p>
     </div>
   );
 }

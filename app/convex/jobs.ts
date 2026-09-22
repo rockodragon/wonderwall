@@ -677,6 +677,7 @@ export const expressInterest = mutation({
           body: `<strong>${profile.name}</strong> expressed interest in your job posting "<strong>${job.title}</strong>".`,
           ctaText: "View Applicant",
           ctaUrl: `/jobs/${args.jobId}`,
+          category: "activity",
         });
       }
     }

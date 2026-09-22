@@ -19,6 +19,7 @@ import { internal } from "./_generated/api";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import type { Id } from "./_generated/dataModel";
 import { getUserEmail, scheduleNotificationEmail } from "./emailHelpers";
+import { escapeHtml } from "./email/template";
 import { normalizeEmail } from "./garden/eventRsvps";
 import { normalizeUpdateBody } from "./garden/stories";
 
@@ -304,15 +305,6 @@ async function getSenderName(ctx: QueryCtx | MutationCtx, userId: Id<"users">): 
   return profile?.name || "Someone";
 }
 
-function escapeHtml(input: string): string {
-  return input
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
 /**
  * sendNotificationEmail (convex/emails.ts) interpolates `body` into the
  * email HTML unescaped — deliberate there (events.ts passes <strong>
@@ -577,7 +569,7 @@ export const deliverAnnouncementBatch = internalMutation({
     // (PRD, Reply routing #4).
     const emailBodyHtml =
       announcement.kind === "broadcast"
-        ? `${escapedBody}<br><br>${provenance}<br><br>To reply, message ${senderName ?? "the sender"} on The Exchange.`
+        ? `${escapedBody}<br><br>${provenance}<br><br>To reply, message ${senderName ?? "the sender"} on creatives.exchange.`
         : `${escapedBody}<br><br>${provenance}`;
     const previewText =
       announcement.kind === "reminder" ? announcement.body : announcement.body.slice(0, 120);
@@ -636,8 +628,11 @@ export const deliverAnnouncementBatch = internalMutation({
               body: emailBodyHtml,
               ctaText,
               ctaUrl,
+              category: "announcements",
             });
           } else {
+            // Guest (email-only) recipient — no userId, so no preferences
+            // row and no unsubscribe token to offer.
             await ctx.scheduler.runAfter(0, internal.emails.sendNotificationEmail, {
               to: normalizedEmail,
               subject: emailSubject,
@@ -646,6 +641,7 @@ export const deliverAnnouncementBatch = internalMutation({
               body: emailBodyHtml,
               ctaText,
               ctaUrl,
+              category: "announcements",
             });
           }
           emailQueuedAt = now;

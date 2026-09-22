@@ -1,6 +1,6 @@
 import { httpRouter } from "convex/server";
 import { httpAction } from "./_generated/server";
-import { internal } from "./_generated/api";
+import { internal, api } from "./_generated/api";
 import Stripe from "stripe";
 import { auth } from "./auth";
 import { autocomplete, autocompletePreflight } from "./location";
@@ -103,6 +103,30 @@ http.route({
   path: "/api/location/autocomplete",
   method: "OPTIONS",
   handler: autocompletePreflight,
+});
+
+// RFC 8058 one-click unsubscribe target (List-Unsubscribe-Post header sends
+// a plain POST with no body). Convex's http router has no path-param
+// syntax, so pathPrefix + parsing the token off the end of the URL is the
+// way to express "/unsubscribe/:token". Turns off all categories — this is
+// the automated-client target; a person visiting the same URL in a browser
+// (GET) hits the frontend unsubscribe page instead.
+http.route({
+  pathPrefix: "/unsubscribe/",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const url = new URL(request.url);
+    const token = decodeURIComponent(
+      url.pathname.slice(url.pathname.indexOf("/unsubscribe/") + "/unsubscribe/".length),
+    );
+
+    await ctx.runMutation(api.emailPreferences.unsubscribeByToken, { token });
+
+    return new Response("Unsubscribed", {
+      status: 200,
+      headers: { "Content-Type": "text/plain" },
+    });
+  }),
 });
 
 // PostHog proxy - bypasses ad blockers by routing through first-party domain
