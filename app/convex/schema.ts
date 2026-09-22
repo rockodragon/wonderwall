@@ -461,7 +461,11 @@ export default defineSchema({
     createdAt: v.number(),
   })
     .index("by_userId", ["userId"])
-    .index("by_userId_readAt", ["userId", "readAt"]),
+    .index("by_userId_readAt", ["userId", "readAt"])
+    // Global range scan for retention sweeps (notificationRetention.ts):
+    // find read notifications older than N days across all users. Neither
+    // existing index supports this — by_userId_readAt is scoped per user.
+    .index("by_readAt", ["readAt"]),
 
   // Content/user reports for admin review
   reports: defineTable({

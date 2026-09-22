@@ -8,6 +8,10 @@ import {
   buildBookedEmail,
   buildCancelledEmail,
   buildOfferedDatesEmail,
+  buildPaidEmail,
+  buildPaidConfirmedEmail,
+  buildTimeChangedEmail,
+  buildUnbookedEmail,
 } from "./gigs";
 
 describe("buildBookedEmail", () => {
@@ -115,5 +119,80 @@ describe("buildArtistWithdrewEmail", () => {
     expect(email.body).toContain("&lt;DJ&gt; Kay");
     expect(email.ctaText).toBe("See the gig");
     expect(email.subject).toBe("<DJ> Kay can't make Sun, Oct 5");
+  });
+});
+
+describe("buildPaidEmail", () => {
+  const input = {
+    venueName: `The <Blue> Room`,
+    gigTitle: `Fri & Sat Nights`,
+    dateLabel: "Fri, Oct 3",
+    amountCents: 15000,
+    method: `Venmo <@rick>`,
+    linkUrl: "/projects/abc",
+  };
+
+  it("escapes venue, title, and method; CTA is 'Confirm payment'", () => {
+    const email = buildPaidEmail(input);
+    expect(email.body).not.toContain("<Blue>");
+    expect(email.body).toContain("&lt;Blue&gt;");
+    expect(email.body).not.toContain("<@rick>");
+    expect(email.body).toContain("&lt;@rick&gt;");
+    expect(email.body).toContain("$150.00");
+    expect(email.ctaText).toBe("Confirm payment");
+    expect(email.subject).toBe("The <Blue> Room marked Fri & Sat Nights on Fri, Oct 3 as paid");
+  });
+});
+
+describe("buildPaidConfirmedEmail", () => {
+  const input = {
+    artistName: `Sam "Sax" <Reed>`,
+    gigTitle: `Jazz Night`,
+    dateLabel: "Fri, Oct 3",
+    linkUrl: "/projects/xyz",
+  };
+
+  it("escapes the artist name and title; CTA is 'See the gig'", () => {
+    const email = buildPaidConfirmedEmail(input);
+    expect(email.body).not.toContain("<Reed>");
+    expect(email.body).toContain("&lt;Reed&gt;");
+    expect(email.ctaText).toBe("See the gig");
+    expect(email.subject).toBe(`Sam "Sax" <Reed> confirmed payment for Fri, Oct 3`);
+  });
+});
+
+describe("buildTimeChangedEmail", () => {
+  const input = {
+    venueName: `Rick's & Sons`,
+    gigTitle: `House Band`,
+    dateLabel: "Sat, Oct 4",
+    newTimeRange: "9:00–11:00 PM",
+    linkUrl: "/projects/c1",
+  };
+
+  it("escapes venue and title, includes the new time, CTA is 'See the gig'", () => {
+    const email = buildTimeChangedEmail(input);
+    expect(email.body).toContain("&amp;");
+    expect(email.body).toContain("9:00–11:00 PM");
+    expect(email.ctaText).toBe("See the gig");
+    expect(email.subject).toBe("New time for House Band on Sat, Oct 4");
+  });
+});
+
+describe("buildUnbookedEmail", () => {
+  const input = {
+    venueName: `The <Blue> Room`,
+    gigTitle: `Fri & Sat Nights`,
+    dateLabel: "Fri, Oct 3",
+    linkUrl: "/projects/abc",
+  };
+
+  it("escapes venue and title, CTA is 'See the gig'", () => {
+    const email = buildUnbookedEmail(input);
+    expect(email.body).not.toContain("<Blue>");
+    expect(email.body).toContain("&lt;Blue&gt;");
+    expect(email.body).toContain("reopened");
+    expect(email.ctaText).toBe("See the gig");
+    expect(email.subject).toBe("The <Blue> Room reopened Fri, Oct 3");
   });
 });

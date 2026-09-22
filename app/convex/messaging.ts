@@ -193,6 +193,21 @@ export const sendMessage = mutation({
       conversationId = conversation._id;
     }
 
+    // One email per unread burst, not one per message: check (before
+    // inserting this message, so the check naturally excludes it) whether
+    // the recipient already has another unread message from this sender in
+    // this conversation. If so, they already got an email for this burst —
+    // this message still gets the in-app notification below, just no
+    // second email. No index covers (conversationId, senderId, readAt)
+    // together, so this filters on the by_conversationId index.
+    const earlierUnreadFromSender = await ctx.db
+      .query("messages")
+      .withIndex("by_conversationId", (q) => q.eq("conversationId", conversationId))
+      .filter((q) =>
+        q.and(q.eq(q.field("senderId"), userId), q.eq(q.field("readAt"), undefined)),
+      )
+      .first();
+
     // Create the message
     await ctx.db.insert("messages", {
       conversationId,
@@ -221,17 +236,22 @@ export const sendMessage = mutation({
       createdAt: now,
     });
 
-    // Send email notification
-    await scheduleNotificationEmail(ctx, {
-      userId: args.recipientId,
-      subject: `${senderName} sent you a message`,
-      previewText: trimmedContent.slice(0, 80),
-      heading: "New message",
-      body: `<strong>${escapeHtml(senderName)}</strong> sent you a message: "${escapeHtml(trimmedContent.length > 200 ? trimmedContent.slice(0, 200) + "..." : trimmedContent)}"`,
-      ctaText: "View Message",
-      ctaUrl: `/messages/${conversationId}`,
-      category: "activity",
-    });
+    // Send email notification — only for the first unread message in a
+    // burst (see earlierUnreadFromSender above). A recipient reading
+    // messages one at a time as they arrive still gets an email per burst,
+    // never per message.
+    if (!earlierUnreadFromSender) {
+      await scheduleNotificationEmail(ctx, {
+        userId: args.recipientId,
+        subject: `${senderName} sent you a message`,
+        previewText: trimmedContent.slice(0, 80),
+        heading: "New message",
+        body: `<strong>${escapeHtml(senderName)}</strong> sent you a message: "${escapeHtml(trimmedContent.length > 200 ? trimmedContent.slice(0, 200) + "..." : trimmedContent)}"`,
+        ctaText: "View Message",
+        ctaUrl: `/messages/${conversationId}`,
+        category: "activity",
+      });
+    }
 
     return conversationId;
   },

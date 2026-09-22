@@ -19,6 +19,7 @@ import { isAdminProfile } from "../helpers";
 import { isValidEmail, normalizeEmail } from "./eventRsvps";
 import { can } from "./capabilities";
 import { assertCanPure, getGardenUser } from "./entitlements";
+import { scheduleNotificationEmail } from "../emailHelpers";
 
 // ——————————————————————————————————————————————————————————————
 // Stage — TWIN of app/app/lib/stage.ts (STAGES, isStage, stageLabel,
@@ -219,6 +220,104 @@ export function buildClaimEmail(input: ClaimEmailInput, token: string): {
       `${note}<br><br>Claim the credit to put it on your own profile — the link works for 30 days.`,
     ctaText: "Claim your credit",
     ctaUrl: `/claim/${token}`,
+  };
+}
+
+export interface InviteEmailInput {
+  leadName: string;
+  projectTitle: string;
+  role: string;
+  message?: string;
+  linkUrl: string;
+}
+
+/** On-platform invite (project_invite). Same escaping/plain-text-heading
+ * shape as buildClaimEmail above. */
+export function buildInviteEmail(input: InviteEmailInput): {
+  subject: string;
+  previewText: string;
+  heading: string;
+  body: string;
+  ctaText: string;
+  ctaUrl: string;
+} {
+  const lead = escapeHtml(input.leadName);
+  const title = escapeHtml(input.projectTitle);
+  const role = escapeHtml(input.role);
+  const note = input.message?.trim() ? `<br><br>"${escapeHtml(input.message.trim())}"` : "";
+  return {
+    subject: `${input.leadName} invited you to ${input.projectTitle} as ${input.role}`,
+    previewText: `${input.leadName} invited you to join ${input.projectTitle}.`,
+    heading: `${input.leadName} invited you to ${input.projectTitle}`,
+    body: `${lead} invited you to <strong>${title}</strong> as <strong>${role}</strong>.${note}`,
+    ctaText: "Answer the invite",
+    ctaUrl: input.linkUrl,
+  };
+}
+
+export interface JoinRequestEmailInput {
+  requesterName: string;
+  projectTitle: string;
+  role: string;
+  message?: string;
+  linkUrl: string;
+}
+
+/** A visitor's "Ask to join" / "Apply" (project_join_request), to the lead. */
+export function buildJoinRequestEmail(input: JoinRequestEmailInput): {
+  subject: string;
+  previewText: string;
+  heading: string;
+  body: string;
+  ctaText: string;
+  ctaUrl: string;
+} {
+  const name = escapeHtml(input.requesterName);
+  const title = escapeHtml(input.projectTitle);
+  const role = escapeHtml(input.role);
+  const note = input.message?.trim() ? `<br><br>"${escapeHtml(input.message.trim())}"` : "";
+  return {
+    subject: `${input.requesterName} asked to join ${input.projectTitle}`,
+    previewText: `${input.requesterName} wants to join ${input.projectTitle} as ${input.role}.`,
+    heading: `${input.requesterName} wants to join ${input.projectTitle}`,
+    body: `${name} asked to join <strong>${title}</strong> as <strong>${role}</strong>.${note}`,
+    ctaText: "Review the request",
+    ctaUrl: input.linkUrl,
+  };
+}
+
+export interface RequestDecidedEmailInput {
+  projectTitle: string;
+  role: string;
+  accepted: boolean;
+  note?: string;
+  linkUrl: string;
+}
+
+/** The lead's decision on a join request (project_request_decided), to the
+ * requester — accepted or declined. */
+export function buildRequestDecidedEmail(input: RequestDecidedEmailInput): {
+  subject: string;
+  previewText: string;
+  heading: string;
+  body: string;
+  ctaText: string;
+  ctaUrl: string;
+} {
+  const title = escapeHtml(input.projectTitle);
+  const role = escapeHtml(input.role);
+  const noteBlock = input.note?.trim() ? `<br><br>"${escapeHtml(input.note.trim())}"` : "";
+  return {
+    subject: input.accepted ? `You're on ${input.projectTitle}` : `${input.projectTitle} didn't have room`,
+    previewText: input.accepted
+      ? `You're on ${input.projectTitle} as ${input.role}.`
+      : `${input.projectTitle} didn't have room for you right now.`,
+    heading: input.accepted ? `You're on ${input.projectTitle}` : `${input.projectTitle} didn't have room`,
+    body: input.accepted
+      ? `You're on <strong>${title}</strong> as <strong>${role}</strong>.${noteBlock}`
+      : `<strong>${title}</strong> didn't have room for you right now.${noteBlock}`,
+    ctaText: "See the project",
+    ctaUrl: input.linkUrl,
   };
 }
 
@@ -722,6 +821,17 @@ export const requestToJoin = mutation({
       linkUrl: projectLink(project._id),
       relatedUserId: userId,
     });
+    await scheduleNotificationEmail(ctx, {
+      userId: project.userId,
+      category: "activity",
+      ...buildJoinRequestEmail({
+        requesterName: name,
+        projectTitle: project.title,
+        role,
+        message,
+        linkUrl: projectLink(project._id),
+      }),
+    });
     return { ok: true as const, changed: true as const, memberId, status: "pending" as const };
   },
 });
@@ -842,6 +952,17 @@ export const inviteMember = mutation({
         message: withNote(role, message),
         linkUrl: projectLink(project._id),
         relatedUserId: actorId,
+      });
+      await scheduleNotificationEmail(ctx, {
+        userId: targetId,
+        category: "activity",
+        ...buildInviteEmail({
+          leadName,
+          projectTitle: project.title,
+          role,
+          message,
+          linkUrl: projectLink(project._id),
+        }),
       });
       return { ok: true as const, changed: true as const, memberId, status: "invited" as const, emailed: false };
     }
@@ -970,6 +1091,17 @@ export const decideRequest = mutation({
         message: withNote(row.role, note),
         linkUrl: projectLink(project._id),
         relatedUserId: actorId,
+      });
+      await scheduleNotificationEmail(ctx, {
+        userId: row.userId,
+        category: "activity",
+        ...buildRequestDecidedEmail({
+          projectTitle: project.title,
+          role: row.role,
+          accepted: args.accept,
+          note,
+          linkUrl: projectLink(project._id),
+        }),
       });
     }
     return { ok: true as const, changed: true as const, status };

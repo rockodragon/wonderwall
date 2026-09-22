@@ -80,6 +80,7 @@ import type * as likesDigest from "../likesDigest.js";
 import type * as links from "../links.js";
 import type * as location from "../location.js";
 import type * as messaging from "../messaging.js";
+import type * as notificationRetention from "../notificationRetention.js";
 import type * as notifications from "../notifications.js";
 import type * as offerings from "../offerings.js";
 import type * as posthog from "../posthog.js";
@@ -170,6 +171,7 @@ declare const fullApi: ApiFromModules<{
   links: typeof links;
   location: typeof location;
   messaging: typeof messaging;
+  notificationRetention: typeof notificationRetention;
   notifications: typeof notifications;
   offerings: typeof offerings;
   posthog: typeof posthog;
