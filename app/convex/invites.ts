@@ -475,7 +475,7 @@ export const redeemBySlug = mutation({
       category: "activity",
       subject: `${newUserName} joined using your invite`,
       previewText: `${newUserName} joined creatives.exchange using your invite link.`,
-      heading: `${escapedName} joined`,
+      heading: `${newUserName} joined`,
       body: `<strong>${escapedName}</strong> joined creatives.exchange using your invite link.`,
       ...(profileLinkUrl ? { ctaText: "See their profile", ctaUrl: profileLinkUrl } : {}),
     });

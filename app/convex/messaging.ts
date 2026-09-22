@@ -1,4 +1,5 @@
 import { v, ConvexError } from "convex/values";
+import { escapeHtml } from "./email/template";
 import { mutation, query } from "./_generated/server";
 import type { QueryCtx } from "./_generated/server";
 import { auth } from "./auth";
@@ -226,7 +227,7 @@ export const sendMessage = mutation({
       subject: `${senderName} sent you a message`,
       previewText: trimmedContent.slice(0, 80),
       heading: "New message",
-      body: `<strong>${senderName}</strong> sent you a message: "${trimmedContent.length > 200 ? trimmedContent.slice(0, 200) + "..." : trimmedContent}"`,
+      body: `<strong>${escapeHtml(senderName)}</strong> sent you a message: "${escapeHtml(trimmedContent.length > 200 ? trimmedContent.slice(0, 200) + "..." : trimmedContent)}"`,
       ctaText: "View Message",
       ctaUrl: `/messages/${conversationId}`,
       category: "activity",

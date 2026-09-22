@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { escapeHtml } from "./email/template";
 import { mutation, query } from "./_generated/server";
 import type { QueryCtx } from "./_generated/server";
 import { auth } from "./auth";
@@ -674,7 +675,7 @@ export const expressInterest = mutation({
           subject: `${profile.name} is interested in "${job.title}"`,
           previewText: `Someone expressed interest in your job posting`,
           heading: "New job interest",
-          body: `<strong>${profile.name}</strong> expressed interest in your job posting "<strong>${job.title}</strong>".`,
+          body: `<strong>${escapeHtml(profile.name)}</strong> expressed interest in your job posting "<strong>${escapeHtml(job.title)}</strong>".`,
           ctaText: "View Applicant",
           ctaUrl: `/jobs/${args.jobId}`,
           category: "activity",
