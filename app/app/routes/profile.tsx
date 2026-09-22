@@ -2,6 +2,7 @@ import { useMutation, useQuery } from "convex/react";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { api } from "../../convex/_generated/api";
+import { EMBED_PROVIDER_LABEL, toEmbedUrl } from "../lib/videoEmbed";
 import type { Id } from "../../convex/_generated/dataModel";
 import { FavoriteButton } from "../components/FavoriteButton";
 import { ShareButton } from "../components/ShareButton";
@@ -506,15 +507,16 @@ export default function Profile() {
           </h2>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             {profile.artifacts.map((artifact) => {
-              // Check if this is a YouTube URL (either as video type or link type)
-              const isYouTubeUrl =
-                artifact.mediaUrl &&
-                (artifact.mediaUrl.includes("youtube.com") ||
-                  artifact.mediaUrl.includes("youtu.be"));
-              const videoEmbedUrl =
-                (artifact.type === "video" || isYouTubeUrl) && artifact.mediaUrl
-                  ? getVideoEmbedUrl(artifact.mediaUrl)
-                  : null;
+              // A pasted Instagram, TikTok, YouTube or Vimeo link
+              // (convex/videoEmbed.ts). `linkUrl` is the stored link;
+              // `mediaUrl` may be an uploaded file's storage URL instead.
+              // An uploaded image with a video link keeps showing the image
+              // (the branch below comes first); a reel with a cover shows
+              // the cover from `ogImageUrl`.
+              const embed = toEmbedUrl(artifact.linkUrl ?? artifact.mediaUrl ?? undefined);
+              const embedThumb = embed
+                ? (artifact.ogImageUrl ?? embed.thumbnailUrl ?? null)
+                : null;
 
               return (
                 <Link
@@ -550,67 +552,54 @@ export default function Profile() {
                         </div>
                       )}
                     </div>
-                  ) : (artifact.type === "video" || isYouTubeUrl) &&
-                    artifact.mediaUrl ? (
-                    videoEmbedUrl ? (
-                      <div
-                        className="relative w-full h-full"
-                        style={{ backgroundColor: "var(--garden-ink)" }}
-                      >
-                        {getYoutubeThumbnail(artifact.mediaUrl) ? (
-                          <img
-                            src={getYoutubeThumbnail(artifact.mediaUrl)!}
-                            alt={artifact.title || "Video"}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <svg
-                              className="w-12 h-12"
-                              style={{ color: "var(--garden-hairline-raised)" }}
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={1.5}
-                                d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
-                              />
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={1.5}
-                                d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                              />
-                            </svg>
-                          </div>
-                        )}
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <div className="w-12 h-12 bg-red-600 rounded-full flex items-center justify-center">
-                            <svg
-                              className="w-6 h-6 text-white ml-0.5"
-                              fill="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path d="M8 5v14l11-7z" />
-                            </svg>
-                          </div>
+                  ) : embed ? (
+                    <div
+                      className="relative w-full h-full"
+                      style={{ backgroundColor: "var(--garden-ink)" }}
+                    >
+                      {embedThumb ? (
+                        <img
+                          src={embedThumb}
+                          alt={artifact.title || `${EMBED_PROVIDER_LABEL[embed.kind]} video`}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <span className="absolute top-2 left-3 text-[10px] uppercase tracking-wide text-white/70">
+                          {EMBED_PROVIDER_LABEL[embed.kind]}
+                        </span>
+                      )}
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div
+                          className={`w-12 h-12 rounded-full flex items-center justify-center ${
+                            embed.kind === "youtube" ? "bg-red-600" : "bg-black/70"
+                          }`}
+                        >
+                          <svg
+                            className="w-6 h-6 text-white ml-0.5"
+                            fill="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path d="M8 5v14l11-7z" />
+                          </svg>
                         </div>
                       </div>
-                    ) : (
-                      <div
-                        className="w-full h-full flex items-center justify-center"
-                        style={{ backgroundColor: "var(--garden-ink)" }}
-                      >
-                        <video
-                          src={artifact.mediaUrl}
-                          className="w-full h-full object-cover"
-                          muted
-                        />
-                      </div>
-                    )
+                      {!embedThumb && artifact.title && (
+                        <p className="absolute inset-x-0 bottom-0 p-3 text-white text-sm font-medium line-clamp-2">
+                          {artifact.title}
+                        </p>
+                      )}
+                    </div>
+                  ) : artifact.type === "video" && artifact.mediaUrl ? (
+                    <div
+                      className="w-full h-full flex items-center justify-center"
+                      style={{ backgroundColor: "var(--garden-ink)" }}
+                    >
+                      <video
+                        src={artifact.mediaUrl}
+                        className="w-full h-full object-cover"
+                        muted
+                      />
+                    </div>
                   ) : artifact.type === "text" && artifact.content ? (
                     <div
                       className="p-4 text-sm line-clamp-6"
@@ -733,80 +722,6 @@ function ProfileOverflowMenu({
       )}
     </div>
   );
-}
-
-function getVideoEmbedUrl(mediaUrl: string): string | null {
-  try {
-    const url = new URL(mediaUrl);
-    const host = url.hostname.replace("www.", "");
-
-    if (host === "youtu.be") {
-      const id = url.pathname.slice(1);
-      return id ? `https://www.youtube.com/embed/${id}` : null;
-    }
-
-    if (
-      host === "youtube.com" ||
-      host === "m.youtube.com" ||
-      host === "youtube-nocookie.com"
-    ) {
-      if (url.pathname === "/watch") {
-        const id = url.searchParams.get("v");
-        return id ? `https://www.youtube.com/embed/${id}` : null;
-      }
-
-      if (
-        url.pathname.startsWith("/embed/") ||
-        url.pathname.startsWith("/shorts/") ||
-        url.pathname.startsWith("/live/")
-      ) {
-        const id = url.pathname.split("/")[2];
-        return id ? `https://www.youtube.com/embed/${id}` : null;
-      }
-    }
-
-    if (host === "vimeo.com" || host === "player.vimeo.com") {
-      const parts = url.pathname.split("/").filter(Boolean);
-      const id = parts[parts.length - 1];
-      if (id && /^[0-9]+$/.test(id)) {
-        return `https://player.vimeo.com/video/${id}`;
-      }
-    }
-  } catch {
-    return null;
-  }
-
-  return null;
-}
-
-function getYoutubeThumbnail(mediaUrl: string): string | null {
-  try {
-    const url = new URL(mediaUrl);
-    const host = url.hostname.replace("www.", "");
-    let videoId: string | null = null;
-
-    if (host === "youtu.be") {
-      videoId = url.pathname.slice(1);
-    } else if (host === "youtube.com" || host === "m.youtube.com") {
-      if (url.pathname === "/watch") {
-        videoId = url.searchParams.get("v");
-      } else if (
-        url.pathname.startsWith("/embed/") ||
-        url.pathname.startsWith("/shorts/") ||
-        url.pathname.startsWith("/live/")
-      ) {
-        videoId = url.pathname.split("/")[2];
-      }
-    }
-
-    if (videoId) {
-      // Use mqdefault (320x180) - 16:9 aspect ratio without black letterbox bars
-      return `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`;
-    }
-  } catch {
-    return null;
-  }
-  return null;
 }
 
 function LinkFallbackCard({

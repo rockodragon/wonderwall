@@ -5,6 +5,7 @@ import Markdown from "react-markdown";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { ShareButton } from "../components/ShareButton";
+import { EMBED_PROVIDER_LABEL, toEmbedUrl } from "../lib/videoEmbed";
 
 export default function WorkDetail() {
   const { artifactId } = useParams();
@@ -70,23 +71,28 @@ export default function WorkDetail() {
     );
   }
 
-  // Check if URL is YouTube
-  const youtubeMatch = artifact.resolvedMediaUrl?.match(
-    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
-  );
-  const youtubeId = youtubeMatch?.[1];
+  // A pasted Instagram, TikTok, YouTube or Vimeo link plays in the
+  // platform's own player, inside this page (convex/videoEmbed.ts). The
+  // resolver reads the stored link, not the storage URL — an uploaded file
+  // is never an embed.
+  const embed = toEmbedUrl(artifact.mediaUrl);
 
   // Check if URL is an image
   const urlWithoutQuery = artifact.resolvedMediaUrl?.split("?")[0] || "";
   const isImageUrl = /\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i.test(
     urlWithoutQuery,
   );
-  // Also treat as image if it has a mediaStorageId (Convex storage URLs don't have extensions)
-  const hasStoredImage = !!artifact.mediaStorageId;
+  // An uploaded image has a mediaStorageId and no extension in its URL. An
+  // uploaded video or audio file has one too, and is not an image.
+  const hasStoredImage =
+    !!artifact.mediaStorageId &&
+    artifact.type !== "video" &&
+    artifact.type !== "audio";
   const showAsImage =
-    artifact.type === "image" ||
-    hasStoredImage ||
-    (artifact.type === "link" && isImageUrl);
+    !embed &&
+    (artifact.type === "image" ||
+      hasStoredImage ||
+      (artifact.type === "link" && isImageUrl));
 
   return (
     <div className="p-4 sm:p-6 max-w-5xl mx-auto">
@@ -125,20 +131,32 @@ export default function WorkDetail() {
             />
           </div>
 
-          {/* YouTube embed */}
-          {youtubeId && (
-            <div className="aspect-video">
+          {/* Embedded player — a reel or a TikTok is portrait, capped at
+              phone width and centred; YouTube and Vimeo fill the width */}
+          {embed && (
+            <div
+              className={
+                embed.aspect === "9/16"
+                  ? "mx-auto w-full max-w-[420px] aspect-[9/16]"
+                  : "aspect-video"
+              }
+            >
               <iframe
-                src={`https://www.youtube.com/embed/${youtubeId}`}
+                src={embed.embedUrl}
+                title={
+                  artifact.title || `${EMBED_PROVIDER_LABEL[embed.kind]} video`
+                }
                 className="w-full h-full"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowFullScreen
+                loading="lazy"
+                referrerPolicy="strict-origin-when-cross-origin"
               />
             </div>
           )}
 
           {/* Image */}
-          {showAsImage && artifact.resolvedMediaUrl && !youtubeId && (
+          {showAsImage && artifact.resolvedMediaUrl && (
             <div className="relative flex items-center justify-center min-h-[300px] max-h-[70vh]">
               <img
                 src={artifact.resolvedMediaUrl}
@@ -175,10 +193,10 @@ export default function WorkDetail() {
             </div>
           )}
 
-          {/* Video (non-YouTube) */}
+          {/* Video file (uploaded, or a direct link to one) */}
           {artifact.type === "video" &&
             artifact.resolvedMediaUrl &&
-            !youtubeId && (
+            !embed && (
               <div className="aspect-video">
                 <video
                   src={artifact.resolvedMediaUrl}
@@ -228,7 +246,7 @@ export default function WorkDetail() {
           {artifact.type === "link" &&
             !isImageUrl &&
             !hasStoredImage &&
-            !youtubeId &&
+            !embed &&
             artifact.mediaUrl && (
               <>
                 {artifact.ogImageUrl ? (
@@ -356,8 +374,9 @@ export default function WorkDetail() {
             {/* Owner controls */}
             {artifact.isOwner && (
               <>
-                {/* Refresh preview button for link-type artifacts */}
-                {artifact.type === "link" && artifact.mediaUrl && (
+                {/* Refresh preview — for a link's og:image, or a TikTok's still */}
+                {artifact.mediaUrl &&
+                  (artifact.type === "link" || embed?.kind === "tiktok") && (
                   <button
                     onClick={handleRefreshPreview}
                     disabled={refreshing}

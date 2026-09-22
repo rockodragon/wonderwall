@@ -429,7 +429,7 @@ export const getStoryPage = query({
       .unique();
     if (!project) return null;
 
-    const [ownerProfile, updateRows, allocationRows, memberships, supportRows, gigSeries] = await Promise.all([
+    const [ownerProfile, updateRows, allocationRows, memberships, supportRows, gigSeries, mediaRows] = await Promise.all([
       ctx.db
         .query("profiles")
         .withIndex("by_userId", (q) => q.eq("userId", project.userId))
@@ -454,7 +454,14 @@ export const getStoryPage = query({
         .query("gigSeries")
         .withIndex("by_projectId", (q) => q.eq("projectId", project._id))
         .first(),
+      // The work itself, when this project began as a quick share
+      // (artifacts.create's companion project).
+      ctx.db
+        .query("artifacts")
+        .withIndex("by_projectId", (q) => q.eq("projectId", project._id))
+        .collect(),
     ]);
+    const heroMedia = [...mediaRows].sort((a, b) => a.order - b.order)[0];
 
     // Covered+active memberships' coverage codes, to resolve the sponsor line.
     const codeIds = [
@@ -500,6 +507,12 @@ export const getStoryPage = query({
         goal: project.goal,
         raisedCents: project.raisedCents,
         photoUrl: project.photoUrl,
+        // A pasted reel or video link the page plays as its hero when there
+        // is no photo (docs/features/creator-media-cross-post.md), and the
+        // still behind it for a card. Undefined for a deliberately posted
+        // project, which has a photo or nothing.
+        mediaUrl: heroMedia?.mediaUrl,
+        coverUrl: heroMedia?.ogImageUrl,
         byName: ownerProfile?.name ?? "",
       },
       updates: await Promise.all(

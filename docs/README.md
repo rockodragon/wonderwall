@@ -22,6 +22,7 @@ The project is **creatives.exchange** (repo: wonderwall). Four documents are the
 - [Community groups](features/community-groups.md) · [Community grant pools](features/community-grant-pools.md) · [Paid community + media](features/paid-community-youtube-media.md)
 - [Class payments and moderation](features/class-payments-and-moderation.md) — who can offer a class or coaching, how class money is collected and owed, how a community pauses a class
 - [Rich project content](features/rich-project-content.md) — the block model behind project pages and project updates (headings, images, video embeds)
+- [Creator media cross-post](features/creator-media-cross-post.md) — how a reel made for Instagram or TikTok gets onto the Exchange with one paste (embed resolver, share sheet, account import), and the growth plays that ride on it
 - Older PRDs: [jobs](jobs-feature-prd.md) · [messaging](messaging-feature-prd.md) · [event location](prd-event-location.md) · [announcements](announcements-prd.md) · [events video hosting](events-video-hosting-prd.md) · [gated event video](gated-event-video-prd.md)
 
 ## Marketing

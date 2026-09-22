@@ -82,6 +82,7 @@ import type * as public_ from "../public.js";
 import type * as scraperService from "../scraperService.js";
 import type * as seed from "../seed.js";
 import type * as sourceParsers from "../sourceParsers.js";
+import type * as videoEmbed from "../videoEmbed.js";
 import type * as waitlist from "../waitlist.js";
 import type * as wonderings from "../wonderings.js";
 
@@ -166,6 +167,7 @@ declare const fullApi: ApiFromModules<{
   scraperService: typeof scraperService;
   seed: typeof seed;
   sourceParsers: typeof sourceParsers;
+  videoEmbed: typeof videoEmbed;
   waitlist: typeof waitlist;
   wonderings: typeof wonderings;
 }>;

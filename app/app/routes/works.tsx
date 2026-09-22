@@ -3,6 +3,12 @@ import { Link } from "react-router";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import { CreateWorkComposer } from "../components/CreateWorkComposer";
+import {
+  EMBED_PROVIDER_LABEL,
+  toEmbedUrl,
+  type EmbedAspect,
+  type EmbedKind,
+} from "../lib/videoEmbed";
 
 const TYPE_FILTERS = [
   { label: "All", value: "" },
@@ -204,10 +210,12 @@ function bentoSpanFor({
   featured,
   type,
   ratio,
+  aspect,
 }: {
   featured: boolean;
   type: string;
   ratio: number | null;
+  aspect: EmbedAspect | null;
 }): string {
   if (featured) return "col-span-2 row-span-2";
   if (ratio !== null) {
@@ -215,6 +223,10 @@ function bentoSpanFor({
     if (ratio <= 0.75) return "row-span-2"; // portrait
     return ""; // near-square
   }
+  // An embedded reel or TikTok is portrait; an embedded YouTube or Vimeo
+  // video is landscape. Known from the link itself, no probe needed.
+  if (aspect === "9/16") return "row-span-2";
+  if (aspect === "16/9") return "col-span-2 row-span-1";
   if (type === "video") return "col-span-2 row-span-1";
   if (type === "text") return "row-span-2";
   return "";
@@ -224,28 +236,31 @@ function BentoCard({ artifact, featured }: { artifact: any; featured: boolean })
   // Check if URL is an image (strip query string first)
   const urlWithoutQuery = artifact.resolvedMediaUrl?.split("?")[0] || "";
   const isImageUrl = /\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i.test(urlWithoutQuery);
-  // Also treat as image if it has a mediaStorageId (Convex storage URLs don't have extensions)
-  const hasStoredImage = !!artifact.mediaStorageId;
+  // An uploaded image has a mediaStorageId and no extension in its URL. An
+  // uploaded video or audio file has one too, and is not an image.
+  const hasStoredImage =
+    !!artifact.mediaStorageId && artifact.type !== "video" && artifact.type !== "audio";
 
-  // Check if URL is YouTube
-  const youtubeMatch = artifact.resolvedMediaUrl?.match(
-    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
-  );
-  const youtubeId = youtubeMatch?.[1];
-  const youtubeThumbnail = youtubeId
-    ? `https://img.youtube.com/vi/${youtubeId}/mqdefault.jpg`
-    : null;
+  // A pasted Instagram, TikTok, YouTube or Vimeo link (convex/videoEmbed.ts).
+  // The card shows a still — the cover the creative added or the server
+  // fetched (`ogImageUrl`), else the provider's own (YouTube) — and the
+  // player opens on the work page.
+  const embed = toEmbedUrl(artifact.mediaUrl);
+  const embedThumb = embed ? (artifact.ogImageUrl ?? embed.thumbnailUrl ?? null) : null;
 
   const showAsImage =
-    artifact.type === "image" ||
-    hasStoredImage ||
-    (artifact.type === "link" && isImageUrl);
+    !embed &&
+    (artifact.type === "image" || hasStoredImage || (artifact.type === "link" && isImageUrl));
 
-  // Only real photos get measured — a YouTube thumbnail is always 16:9
-  // (handled by the video-type default above) and doesn't need its own
-  // aspect probe.
+  // Only real photos get measured — an embed's shape is known from the link
+  // (portrait reel, landscape YouTube) and doesn't need its own aspect probe.
   const ratio = useImageAspect(showAsImage ? artifact.resolvedMediaUrl : null);
-  const sizeClass = bentoSpanFor({ featured, type: artifact.type, ratio });
+  const sizeClass = bentoSpanFor({
+    featured,
+    type: artifact.type,
+    ratio,
+    aspect: embed?.aspect ?? null,
+  });
 
   return (
     <Link
@@ -261,25 +276,22 @@ function BentoCard({ artifact, featured }: { artifact: any; featured: boolean })
         />
       )}
 
-      {/* YouTube video thumbnail */}
-      {youtubeThumbnail && !showAsImage && (
-        <div className="relative w-full h-full">
-          <img
-            src={youtubeThumbnail}
-            alt={artifact.title || "Video"}
-            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-          />
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="w-16 h-16 bg-red-600 rounded-full flex items-center justify-center shadow-lg">
-              <svg className="w-8 h-8 text-white ml-1" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M8 5v14l11-7z" />
-              </svg>
-            </div>
+      {/* Embedded video — a still with a play badge; the player is on the work page */}
+      {embed &&
+        (embedThumb ? (
+          <div className="relative w-full h-full">
+            <img
+              src={embedThumb}
+              alt={artifact.title || `${EMBED_PROVIDER_LABEL[embed.kind]} video`}
+              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+            />
+            <PlayBadge kind={embed.kind} />
           </div>
-        </div>
-      )}
+        ) : (
+          <EmbedTile kind={embed.kind} title={artifact.title} />
+        ))}
 
-      {artifact.type === "video" && artifact.resolvedMediaUrl && !youtubeId && (
+      {artifact.type === "video" && artifact.resolvedMediaUrl && !embed && (
         <video
           src={artifact.resolvedMediaUrl}
           className="w-full h-full object-cover"
@@ -307,7 +319,7 @@ function BentoCard({ artifact, featured }: { artifact: any; featured: boolean })
         </div>
       )}
 
-      {artifact.type === "link" && !isImageUrl && !youtubeId && (
+      {artifact.type === "link" && !isImageUrl && !embed && (
         <>
           {artifact.ogImageUrl ? (
             // Use og:image as background
@@ -393,6 +405,42 @@ function BentoCard({ artifact, featured }: { artifact: any; featured: boolean })
         )}
       </div>
     </Link>
+  );
+}
+
+// The play badge over an embed's still. YouTube red is the one colour people
+// recognise; every other provider gets a neutral badge so the card reads as
+// the creative's work, not an ad for the platform.
+function PlayBadge({ kind }: { kind: EmbedKind }) {
+  return (
+    <div className="absolute inset-0 flex items-center justify-center">
+      <div
+        className={`w-14 h-14 rounded-full flex items-center justify-center shadow-lg ${
+          kind === "youtube" ? "bg-red-600" : "bg-black/70"
+        }`}
+      >
+        <svg className="w-7 h-7 text-white ml-1" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M8 5v14l11-7z" />
+        </svg>
+      </div>
+    </div>
+  );
+}
+
+// An embed with no still yet — an Instagram reel (Instagram gives a server
+// nothing to fetch; the creative can add a cover) or a TikTok whose preview
+// hasn't landed. Dark, titled and clearly a video, not a grey link tile.
+function EmbedTile({ kind, title }: { kind: EmbedKind; title?: string | null }) {
+  return (
+    <div className="relative w-full h-full p-4 flex flex-col justify-between bg-gradient-to-br from-gray-900 to-gray-700">
+      <span className="text-xs uppercase tracking-wide text-white/70">
+        {EMBED_PROVIDER_LABEL[kind]}
+      </span>
+      <PlayBadge kind={kind} />
+      {title && (
+        <h3 className="relative text-white text-sm font-medium line-clamp-2">{title}</h3>
+      )}
+    </div>
   );
 }
 
