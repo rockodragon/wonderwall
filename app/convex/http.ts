@@ -8,6 +8,12 @@ import {
   proxy as posthogProxy,
   proxyPreflight as posthogPreflight,
 } from "./posthog";
+import {
+  handleResendEvent,
+  verifySvixSignature,
+  type ResendWebhookDb,
+  type ResendWebhookEvent,
+} from "./resendWebhook";
 
 const http = httpRouter();
 
@@ -125,6 +131,81 @@ http.route({
     return new Response("Unsubscribed", {
       status: 200,
       headers: { "Content-Type": "text/plain" },
+    });
+  }),
+});
+
+// ————————————————————————————————————————————————————————————————
+// Resend delivery-event webhook (know whether email landed; stop sending to
+// addresses that bounce or complain — see resendWebhook.ts's pure handler).
+//
+// Configure in the Resend dashboard: Webhooks → add endpoint
+//   URL:    <this deployment's .convex.site origin>/resend/webhook
+//   Events: email.sent, email.delivered, email.delivery_delayed,
+//           email.bounced, email.complained
+// Copy the endpoint's signing secret into this deployment's
+// RESEND_WEBHOOK_SECRET env var (starts with "whsec_").
+//
+// Resend signs webhooks the Svix way (svix-id / svix-timestamp /
+// svix-signature headers) — verifySvixSignature does the Web Crypto HMAC
+// check locally, no dependency, since this httpAction runs in Convex's V8
+// isolate (no "use node", same constraint as the Stripe route above).
+// ————————————————————————————————————————————————————————————————
+
+http.route({
+  path: "/resend/webhook",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const secret = process.env.RESEND_WEBHOOK_SECRET;
+    if (!secret) {
+      console.error("[resend webhook] RESEND_WEBHOOK_SECRET is not set");
+      return new Response("Webhook not configured", { status: 500 });
+    }
+
+    const rawBody = await request.text();
+    const svixHeaders = {
+      svixId: request.headers.get("svix-id"),
+      svixTimestamp: request.headers.get("svix-timestamp"),
+      svixSignature: request.headers.get("svix-signature"),
+    };
+
+    const verified = await verifySvixSignature(secret, svixHeaders, rawBody, Date.now());
+    if (!verified) {
+      console.error("[resend webhook] signature verification failed");
+      return new Response("Invalid signature", { status: 401 });
+    }
+
+    let event: ResendWebhookEvent;
+    try {
+      event = JSON.parse(rawBody);
+    } catch (err) {
+      console.error("[resend webhook] invalid JSON body", err);
+      return new Response("Invalid body", { status: 400 });
+    }
+
+    const db: ResendWebhookDb = {
+      async getDelivery(providerId) {
+        return await ctx.runQuery(internal.emailDeliveries.getDeliveryByProviderId, { providerId });
+      },
+      async updateDelivery(providerId, patch) {
+        return await ctx.runMutation(internal.emailDeliveries.applyDeliveryEvent, {
+          providerId,
+          ...patch,
+        });
+      },
+      async addSuppression(row) {
+        await ctx.runMutation(internal.emailDeliveries.addSuppression, row);
+      },
+    };
+
+    const result = await handleResendEvent(event, db, Date.now());
+    if ("unknown" in result && result.unknown) {
+      console.log("[resend webhook] unknown email_id — send predates delivery tracking", event.data.email_id);
+    }
+
+    return new Response(JSON.stringify({ ok: true }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
     });
   }),
 });
