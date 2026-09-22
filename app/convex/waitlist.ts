@@ -218,9 +218,10 @@ export const approveEntry = mutation({
       subject: "You're approved for creatives.exchange",
       previewText: "Your invite code is ready — come on in.",
       heading: "You're in!",
-      body: `Good news — you're approved to join The Exchange. Use invite code <strong>${code}</strong> when you sign up, or just tap the button below and it'll be filled in for you.`,
+      body: `Good news — you're approved to join creatives.exchange. Use invite code <strong>${code}</strong> when you sign up, or just tap the button below and it'll be filled in for you.`,
       ctaText: "Create your account",
       ctaUrl: `/signup/${code}`,
+      category: "transactional",
     });
 
     return { alreadyApproved: false, code };

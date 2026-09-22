@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { escapeHtml } from "./email/template";
 import { internalQuery, mutation, query } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { auth } from "./auth";
@@ -516,9 +517,10 @@ export const apply = mutation({
         subject: `${applicantName} applied to "${event.title}"`,
         previewText: `Someone applied to your event`,
         heading: "New event application",
-        body: `<strong>${applicantName}</strong> applied to your event "<strong>${event.title}</strong>".`,
+        body: `<strong>${escapeHtml(applicantName)}</strong> applied to your event "<strong>${escapeHtml(event.title)}</strong>".`,
         ctaText: "View Application",
         ctaUrl: `/events/${args.eventId}`,
+        category: "activity",
       });
     }
 

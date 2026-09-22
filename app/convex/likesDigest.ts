@@ -74,6 +74,7 @@ export const sendLikesDigest = internalMutation({
         body: `You received ${parts.join(" and ")} since your last update.`,
         ctaText: "View Your Profile",
         ctaUrl: `/profile/${profile._id}`,
+        category: "digest",
       });
 
       // Update last notified timestamp

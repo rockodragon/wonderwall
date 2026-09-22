@@ -2,6 +2,8 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import type { QueryCtx, MutationCtx } from "./_generated/server";
 import { auth } from "./auth";
+import { scheduleNotificationEmail } from "./emailHelpers";
+import { escapeHtml } from "./garden/projectTeam";
 
 // A pasted or emailed code can be either kind of invite: a member's own
 // inviteSlug, or an admin's fixed waitlist-approval code (adminCode, set by
@@ -451,19 +453,31 @@ export const redeemBySlug = mutation({
 
     const newUserName = newUserProfile?.name || "Someone";
     const newUserImageUrl = newUserProfile?.imageUrl;
+    // /profile/:id takes a profile id, not the invite slug (favorites.ts
+    // and likesDigest.ts link the same way).
+    const profileLinkUrl = newUserProfile ? `/profile/${newUserProfile._id}` : undefined;
 
     // Create notification for the inviter
     await ctx.db.insert("notifications", {
       userId: inviterProfile.userId,
       type: "invite_accepted",
       title: "New member joined!",
-      message: `${newUserName} joined Wonderwall using your invite link.`,
-      linkUrl: newUserProfile?.inviteSlug
-        ? `/profile/${newUserProfile.inviteSlug}`
-        : undefined,
+      message: `${newUserName} joined creatives.exchange using your invite link.`,
+      linkUrl: profileLinkUrl,
       imageUrl: newUserImageUrl,
       relatedUserId: userId,
       createdAt: Date.now(),
+    });
+
+    const escapedName = escapeHtml(newUserName);
+    await scheduleNotificationEmail(ctx, {
+      userId: inviterProfile.userId,
+      category: "activity",
+      subject: `${newUserName} joined using your invite`,
+      previewText: `${newUserName} joined creatives.exchange using your invite link.`,
+      heading: `${newUserName} joined`,
+      body: `<strong>${escapedName}</strong> joined creatives.exchange using your invite link.`,
+      ...(profileLinkUrl ? { ctaText: "See their profile", ctaUrl: profileLinkUrl } : {}),
     });
 
     return true;

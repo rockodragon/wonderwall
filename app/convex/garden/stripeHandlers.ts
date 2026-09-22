@@ -363,6 +363,21 @@ export interface Db extends Partial<ClassPaymentDb> {
   insertBackingPayment(row: BackingPaymentRow): Promise<void>;
   getProjectLeadUserId(projectId: string): Promise<string | null>;
 
+  /** In-app notification + email to the project's creator once a backing is
+   * CONFIRMED (never on checkout start, never to the creator about their own
+   * backing — the adapter, garden/memberships.ts, is the one that knows the
+   * creator's userId and skips the call when it matches backerUserId).
+   * Implemented in the adapter because it needs scheduleNotificationEmail, a
+   * Convex-only call this pure file never touches. */
+  notifyBackingConfirmed(args: {
+    projectId: string;
+    supporterName: string;
+    amountCents: number;
+    visible: boolean;
+    recurring: boolean;
+    backerUserId?: string;
+  }): Promise<void>;
+
   /** Atomically adds amountCents to the project's raisedCents running total.
    * Called once per confirmed backing — idempotency is the caller's job (the
    * "already confirmed" early return in handleBackingCheckoutCompleted). */
@@ -875,6 +890,14 @@ async function handleBackingCheckoutCompleted(
         stripeRef: session.id,
         periodSeconds: session.created ?? Math.floor(Date.now() / 1000),
       });
+      await db.notifyBackingConfirmed({
+        projectId: existing.projectId,
+        supporterName: supporterName || "Someone",
+        amountCents: existing.amountCents,
+        visible: visible === "true",
+        recurring: session.mode === "subscription",
+        backerUserId: userId || undefined,
+      });
       return;
     }
   }
@@ -919,6 +942,14 @@ async function handleBackingCheckoutCompleted(
     billing: session.mode === "subscription" ? "first" : "one_time",
     stripeRef: session.id,
     periodSeconds: session.created ?? Math.floor(Date.now() / 1000),
+  });
+  await db.notifyBackingConfirmed({
+    projectId,
+    supporterName: supporterName || "Someone",
+    amountCents,
+    visible: visible === "true",
+    recurring: session.mode === "subscription",
+    backerUserId: userId || undefined,
   });
 }
 

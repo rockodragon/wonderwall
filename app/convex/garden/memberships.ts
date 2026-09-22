@@ -15,12 +15,71 @@ import { query, internalMutation, internalQuery } from "../_generated/server";
 import type { MutationCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 import { auth } from "../auth";
+import { scheduleNotificationEmail } from "../emailHelpers";
+import { escapeHtml } from "../email/template";
 import {
   handleStripeEvent,
   type ClassPaymentDb,
   type Db,
   type StripeWebhookEvent,
 } from "./stripeHandlers";
+
+// ——— Backing-received email (docs/features live-booking-style pattern) ———
+//
+// Pure builder, same shape as gigs.ts's buildBookedEmail and projectTeam.ts's
+// buildClaimEmail — subject/previewText/heading are plain text (the
+// template escapes them itself), body is HTML with every user-typed value
+// through escapeHtml. Covered by memberships.test.ts.
+
+/** Class purchase notification to the teacher (memberships.ts's
+ * insertClassPayment adapter). Same shape as buildBackingReceivedEmail. */
+export function buildClassPurchasedEmail(input: {
+  buyerName: string;
+  classTitle: string;
+  amountCents: number;
+  linkUrl: string;
+}): { subject: string; previewText: string; heading: string; body: string; ctaText: string; ctaUrl: string } {
+  const name = escapeHtml(input.buyerName);
+  const title = escapeHtml(input.classTitle);
+  const amount = (input.amountCents / 100).toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+  return {
+    subject: `${input.buyerName} signed up for ${input.classTitle}`,
+    previewText: `${input.buyerName} signed up for ${input.classTitle} — $${amount}.`,
+    heading: `${input.buyerName} signed up for ${input.classTitle}`,
+    body: `<strong>${name}</strong> signed up for <strong>${title}</strong> and paid $${amount}.`,
+    ctaText: "See the class",
+    ctaUrl: input.linkUrl,
+  };
+}
+
+export function buildBackingReceivedEmail(input: {
+  supporterName: string;
+  visible: boolean;
+  projectTitle: string;
+  amountCents: number;
+  recurring: boolean;
+  linkUrl: string;
+}): { subject: string; previewText: string; heading: string; body: string; ctaText: string; ctaUrl: string } {
+  const displayName = input.visible ? input.supporterName : "Someone";
+  const name = escapeHtml(displayName);
+  const title = escapeHtml(input.projectTitle);
+  const amount = (input.amountCents / 100).toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+  const monthlyWord = input.recurring ? " a month" : "";
+  return {
+    subject: `${displayName} backed ${input.projectTitle}`,
+    previewText: `${displayName} backed ${input.projectTitle} with $${amount}${monthlyWord}.`,
+    heading: "New backing",
+    body: `<strong>${name}</strong> backed <strong>${title}</strong> with $${amount}${monthlyWord}.`,
+    ctaText: "See the project",
+    ctaUrl: input.linkUrl,
+  };
+}
 
 const ENTITLED_STATUSES = new Set(["active", "past_due"]);
 const LEVEL_RANK: Record<string, number> = { seat: 1, five: 2, host: 3 };
@@ -292,6 +351,44 @@ function makeConvexDb(ctx: MutationCtx): Db & ClassPaymentDb {
       return project ? String(project.userId) : null;
     },
 
+    async notifyBackingConfirmed(args) {
+      const project = await ctx.db.get(args.projectId as Id<"projects">);
+      if (!project) return;
+      // Never notify a creator about their own backing.
+      if (args.backerUserId && String(args.backerUserId) === String(project.userId)) return;
+
+      const displayName = args.visible ? args.supporterName : "Someone";
+      const amount = (args.amountCents / 100).toLocaleString("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+      const monthlyWord = args.recurring ? " a month" : "";
+      const linkUrl = project.storySlug ? `/story/${project.storySlug}` : `/projects/${project._id}`;
+
+      await ctx.db.insert("notifications", {
+        userId: project.userId,
+        type: "backing_received",
+        title: `${displayName} backed ${project.title}`,
+        message: `$${amount}${monthlyWord}`,
+        linkUrl,
+        relatedUserId: args.backerUserId as Id<"users"> | undefined,
+        createdAt: Date.now(),
+      });
+
+      await scheduleNotificationEmail(ctx, {
+        userId: project.userId,
+        category: "activity",
+        ...buildBackingReceivedEmail({
+          supporterName: args.supporterName,
+          visible: args.visible,
+          projectTitle: project.title,
+          amountCents: args.amountCents,
+          recurring: args.recurring,
+          linkUrl,
+        }),
+      });
+    },
+
     async getClassPaymentByRef(stripeRef: string) {
       const row = await ctx.db
         .query("classPayments")
@@ -312,6 +409,44 @@ function makeConvexDb(ctx: MutationCtx): Db & ClassPaymentDb {
         period: row.period,
         createdAt: Date.now(),
       });
+
+      // Notify the host — skip when the host is the buyer (shouldn't happen;
+      // classCheckoutRefusal's "own_class" refuses that checkout, but this
+      // stays defensive) and when the offering has no resolvable teacher.
+      if (row.payeeUserId && String(row.payeeUserId) !== String(row.buyerUserId)) {
+        const offering = await ctx.db.get(row.offeringId as Id<"offerings">);
+        const buyerProfile = await ctx.db
+          .query("profiles")
+          .withIndex("by_userId", (q) => q.eq("userId", row.buyerUserId as Id<"users">))
+          .unique();
+        const buyerName = buyerProfile?.name || "Someone";
+        const classTitle = offering?.title ?? "your class";
+        const linkUrl = `/offerings/${row.offeringId}`;
+
+        await ctx.db.insert("notifications", {
+          userId: row.payeeUserId as Id<"users">,
+          type: "class_purchased",
+          title: `${buyerName} signed up for ${classTitle}`,
+          message: `$${(row.grossCents / 100).toLocaleString("en-US", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })}`,
+          linkUrl,
+          relatedUserId: row.buyerUserId as Id<"users">,
+          createdAt: Date.now(),
+        });
+
+        await scheduleNotificationEmail(ctx, {
+          userId: row.payeeUserId as Id<"users">,
+          category: "activity",
+          ...buildClassPurchasedEmail({
+            buyerName,
+            classTitle,
+            amountCents: row.grossCents,
+            linkUrl,
+          }),
+        });
+      }
     },
 
     async getOfferingTeacherUserId(offeringId: string) {

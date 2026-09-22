@@ -16,12 +16,14 @@ import type { Doc, Id } from "../_generated/dataModel";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { isAdminProfile } from "../helpers";
 import { notifyFollowers } from "../follows";
+import { scheduleNotificationEmail } from "../emailHelpers";
 import { slugifyTitle, resolveAvailableSlug } from "./stories";
 import { assertCommunityMember } from "./communities";
 import { validateBudgetDeclaration } from "./projects";
 import { ruleOf, summarizeGig } from "./gigSummary";
 import { can } from "./capabilities";
 import { assertCanPure, getGardenUser } from "./entitlements";
+import { escapeHtml } from "./projectTeam";
 import {
   HORIZON_WEEKS,
   MAX_CLIPS,
@@ -159,6 +161,177 @@ function projectLink(projectId: Id<"projects">): string {
 
 function slotLabel(series: Doc<"gigSeries">, slot: Doc<"gigSlots">): string {
   return `${formatSlotDate(slot.date)} · ${formatTimeRange(series.startTime, series.endTime)}`;
+}
+
+// ——————————————————————————————————————————————————————————————
+// Email copy (live-booking.md §10) — pure builders so gigEmails.test.ts
+// can cover escaping and wording without Convex. venueName / gigTitle /
+// artistName / note are user-typed and go through escapeHtml; date/time
+// labels come from gigRules.ts formatters and don't need it.
+// ——————————————————————————————————————————————————————————————
+
+export function buildBookedEmail(input: {
+  venueName: string;
+  gigTitle: string;
+  dateLabel: string;
+  dateTimeLabel: string;
+  linkUrl: string;
+  hasPayout: boolean;
+}): { subject: string; previewText: string; heading: string; body: string; ctaText: string; ctaUrl: string } {
+  const venue = escapeHtml(input.venueName);
+  const title = escapeHtml(input.gigTitle);
+  const next = input.hasPayout ? "" : " Add how you get paid under Settings so the venue can pay you.";
+  return {
+    subject: `You're booked: ${input.gigTitle} on ${input.dateLabel}`,
+    previewText: `${input.venueName} booked you for ${input.gigTitle} on ${input.dateLabel}.`,
+    heading: "You're booked",
+    body: `<strong>${venue}</strong> booked you for <strong>${title}</strong> on ${input.dateTimeLabel}.${next}`,
+    ctaText: "See the date",
+    ctaUrl: input.linkUrl,
+  };
+}
+
+export function buildOfferedDatesEmail(input: {
+  artistName: string;
+  gigTitle: string;
+  dateLabels: string[];
+  note?: string;
+  linkUrl: string;
+}): { subject: string; previewText: string; heading: string; body: string; ctaText: string; ctaUrl: string } {
+  const artist = escapeHtml(input.artistName);
+  const title = escapeHtml(input.gigTitle);
+  const datesText = input.dateLabels.join(", ");
+  const trimmedNote = input.note?.trim();
+  const noteBlock = trimmedNote ? `<br><br>"${escapeHtml(trimmedNote)}"` : "";
+  const dateSentence = input.dateLabels.length
+    ? `for <strong>${title}</strong>: ${escapeHtml(datesText)}.`
+    : `for <strong>${title}</strong>.`;
+  return {
+    subject: `${input.artistName} offered dates for ${input.gigTitle}`,
+    previewText: input.dateLabels.length
+      ? `${input.artistName} can play ${datesText}.`
+      : `${input.artistName} offered dates for ${input.gigTitle}.`,
+    heading: `${artist} offered dates`,
+    body: `<strong>${artist}</strong> can play ${dateSentence}${noteBlock}`,
+    ctaText: "Review the offer",
+    ctaUrl: input.linkUrl,
+  };
+}
+
+export function buildCancelledEmail(input: {
+  venueName: string;
+  gigTitle: string;
+  dateLabel: string;
+  linkUrl: string;
+}): { subject: string; previewText: string; heading: string; body: string; ctaText: string; ctaUrl: string } {
+  const venue = escapeHtml(input.venueName);
+  const title = escapeHtml(input.gigTitle);
+  return {
+    subject: `${input.venueName} cancelled ${input.dateLabel}`,
+    previewText: "The venue cancelled that date. Your other dates aren't affected.",
+    heading: "A date was cancelled",
+    body: `<strong>${venue}</strong> cancelled <strong>${title}</strong> on ${input.dateLabel}. Your other dates aren't affected.`,
+    ctaText: "See the gig",
+    ctaUrl: input.linkUrl,
+  };
+}
+
+export function buildArtistWithdrewEmail(input: {
+  artistName: string;
+  gigTitle: string;
+  dateLabel: string;
+  linkUrl: string;
+}): { subject: string; previewText: string; heading: string; body: string; ctaText: string; ctaUrl: string } {
+  const artist = escapeHtml(input.artistName);
+  const title = escapeHtml(input.gigTitle);
+  return {
+    subject: `${input.artistName} can't make ${input.dateLabel}`,
+    previewText: `${input.gigTitle} — that date is open again.`,
+    heading: `${artist} withdrew`,
+    body: `<strong>${artist}</strong> can no longer play <strong>${title}</strong> on ${input.dateLabel}. That date is open again.`,
+    ctaText: "See the gig",
+    ctaUrl: input.linkUrl,
+  };
+}
+
+export function buildPaidEmail(input: {
+  venueName: string;
+  gigTitle: string;
+  dateLabel: string;
+  amountCents: number;
+  method: string;
+  linkUrl: string;
+}): { subject: string; previewText: string; heading: string; body: string; ctaText: string; ctaUrl: string } {
+  const venue = escapeHtml(input.venueName);
+  const title = escapeHtml(input.gigTitle);
+  const method = escapeHtml(input.method);
+  const amount = (input.amountCents / 100).toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+  return {
+    subject: `${input.venueName} marked ${input.gigTitle} on ${input.dateLabel} as paid`,
+    previewText: `$${amount} via ${input.method}. Confirm it once it lands.`,
+    heading: "Marked as paid",
+    body: `<strong>${venue}</strong> marked <strong>${title}</strong> on ${input.dateLabel} as paid: $${amount} via ${method}. Confirm it once it lands.`,
+    ctaText: "Confirm payment",
+    ctaUrl: input.linkUrl,
+  };
+}
+
+export function buildPaidConfirmedEmail(input: {
+  artistName: string;
+  gigTitle: string;
+  dateLabel: string;
+  linkUrl: string;
+}): { subject: string; previewText: string; heading: string; body: string; ctaText: string; ctaUrl: string } {
+  const artist = escapeHtml(input.artistName);
+  const title = escapeHtml(input.gigTitle);
+  return {
+    subject: `${input.artistName} confirmed payment for ${input.dateLabel}`,
+    previewText: `${input.artistName} confirmed payment for ${input.gigTitle} on ${input.dateLabel}.`,
+    heading: "Payment confirmed",
+    body: `<strong>${artist}</strong> confirmed payment for <strong>${title}</strong> on ${input.dateLabel}.`,
+    ctaText: "See the gig",
+    ctaUrl: input.linkUrl,
+  };
+}
+
+export function buildTimeChangedEmail(input: {
+  venueName: string;
+  gigTitle: string;
+  dateLabel: string;
+  newTimeRange: string;
+  linkUrl: string;
+}): { subject: string; previewText: string; heading: string; body: string; ctaText: string; ctaUrl: string } {
+  const venue = escapeHtml(input.venueName);
+  const title = escapeHtml(input.gigTitle);
+  return {
+    subject: `New time for ${input.gigTitle} on ${input.dateLabel}`,
+    previewText: `${input.dateLabel} is now ${input.newTimeRange}.`,
+    heading: "The time changed",
+    body: `<strong>${venue}</strong> changed the time for <strong>${title}</strong> on ${input.dateLabel}: now ${input.newTimeRange}.`,
+    ctaText: "See the gig",
+    ctaUrl: input.linkUrl,
+  };
+}
+
+export function buildUnbookedEmail(input: {
+  venueName: string;
+  gigTitle: string;
+  dateLabel: string;
+  linkUrl: string;
+}): { subject: string; previewText: string; heading: string; body: string; ctaText: string; ctaUrl: string } {
+  const venue = escapeHtml(input.venueName);
+  const title = escapeHtml(input.gigTitle);
+  return {
+    subject: `${input.venueName} reopened ${input.dateLabel}`,
+    previewText: "The venue reopened that date. You're still listed as available for it.",
+    heading: "That date reopened",
+    body: `<strong>${venue}</strong> reopened <strong>${title}</strong> on ${input.dateLabel}. You're still listed as available for it.`,
+    ctaText: "See the gig",
+    ctaUrl: input.linkUrl,
+  };
 }
 
 function validateNote(note: string | undefined): string | undefined {
@@ -494,6 +667,17 @@ export const updateGigSeries = mutation({
             linkUrl: projectLink(project._id),
             relatedUserId: userId,
           });
+          await scheduleNotificationEmail(ctx, {
+            userId: slot.bookedUserId,
+            category: "activity",
+            ...buildTimeChangedEmail({
+              venueName: series.venueName ?? project.title,
+              gigTitle: project.title,
+              dateLabel: formatSlotDate(slot.date),
+              newTimeRange: formatTimeRange(rule.startTime, rule.endTime),
+              linkUrl: projectLink(project._id),
+            }),
+          });
         }
       }
     }
@@ -613,6 +797,16 @@ export const cancelSlot = mutation({
         linkUrl: projectLink(project._id),
         relatedUserId: userId,
       });
+      await scheduleNotificationEmail(ctx, {
+        userId: slot.bookedUserId,
+        category: "activity",
+        ...buildCancelledEmail({
+          venueName: series.venueName ?? project.title,
+          gigTitle: project.title,
+          dateLabel: formatSlotDate(slot.date),
+          linkUrl: projectLink(project._id),
+        }),
+      });
     }
     return { ok: true as const, changed: true as const, deleted: false as const };
   },
@@ -687,6 +881,18 @@ export const bookSlot = mutation({
       linkUrl: projectLink(project._id),
       relatedUserId: userId,
     });
+    await scheduleNotificationEmail(ctx, {
+      userId: response.userId,
+      category: "activity",
+      ...buildBookedEmail({
+        venueName: series.venueName ?? project.title,
+        gigTitle: project.title,
+        dateLabel: formatSlotDate(slot.date),
+        dateTimeLabel: slotLabel(series, slot),
+        linkUrl: projectLink(project._id),
+        hasPayout,
+      }),
+    });
     return { ok: true as const };
   },
 });
@@ -719,6 +925,16 @@ export const unbookSlot = mutation({
       message: "The venue reopened that date. You're still listed as available for it.",
       linkUrl: projectLink(project._id),
       relatedUserId: userId,
+    });
+    await scheduleNotificationEmail(ctx, {
+      userId: slot.bookedUserId,
+      category: "activity",
+      ...buildUnbookedEmail({
+        venueName: series.venueName ?? project.title,
+        gigTitle: project.title,
+        dateLabel: formatSlotDate(slot.date),
+        linkUrl: projectLink(project._id),
+      }),
     });
     return { ok: true as const, changed: true as const };
   },
@@ -756,6 +972,18 @@ export const markSlotPaid = mutation({
       linkUrl: projectLink(project._id),
       relatedUserId: userId,
     });
+    await scheduleNotificationEmail(ctx, {
+      userId: slot.bookedUserId,
+      category: "activity",
+      ...buildPaidEmail({
+        venueName: series.venueName ?? project.title,
+        gigTitle: project.title,
+        dateLabel: formatSlotDate(slot.date),
+        amountCents: args.amountCents,
+        method: args.method,
+        linkUrl: projectLink(project._id),
+      }),
+    });
     return { ok: true as const };
   },
 });
@@ -782,6 +1010,16 @@ export const confirmSlotPaid = mutation({
       message: project.title,
       linkUrl: projectLink(project._id),
       relatedUserId: userId,
+    });
+    await scheduleNotificationEmail(ctx, {
+      userId: series.hostUserId,
+      category: "activity",
+      ...buildPaidConfirmedEmail({
+        artistName: artist?.name ?? "The artist",
+        gigTitle: project.title,
+        dateLabel: formatSlotDate(slot.date),
+        linkUrl: projectLink(project._id),
+      }),
     });
     return { ok: true as const, changed: true as const };
   },
@@ -830,6 +1068,7 @@ export const respondAvailable = mutation({
     let added = 0;
     let updated = 0;
     let firstDate: string | null = null;
+    const addedDates: string[] = [];
     const seen = new Set<string>();
     for (const slotId of args.slotIds) {
       if (seen.has(String(slotId))) continue;
@@ -857,9 +1096,11 @@ export const respondAvailable = mutation({
           updatedAt: now,
         });
         added++;
+        addedDates.push(slot.date);
       } else if (action === "reactivate") {
         await ctx.db.patch(existing!._id, { status: "available", note, clipIds, updatedAt: now });
         added++;
+        addedDates.push(slot.date);
       } else if (existing && existing.status === "available") {
         await ctx.db.patch(existing._id, { note, clipIds, updatedAt: now });
         updated++;
@@ -876,6 +1117,17 @@ export const respondAvailable = mutation({
         message: `${project.title}${note ? ` — "${note.slice(0, 120)}"` : ""}`,
         linkUrl: projectLink(project._id),
         relatedUserId: userId,
+      });
+      await scheduleNotificationEmail(ctx, {
+        userId: series.hostUserId,
+        category: "activity",
+        ...buildOfferedDatesEmail({
+          artistName: profile.name,
+          gigTitle: project.title,
+          dateLabels: [...addedDates].sort(compareDates).map(formatSlotDate),
+          note,
+          linkUrl: projectLink(project._id),
+        }),
       });
     }
     return { ok: true as const, added, updated };
@@ -911,6 +1163,16 @@ export const withdrawResponse = mutation({
         message: `${project.title} — that date is open again.`,
         linkUrl: projectLink(project._id),
         relatedUserId: userId,
+      });
+      await scheduleNotificationEmail(ctx, {
+        userId: series.hostUserId,
+        category: "activity",
+        ...buildArtistWithdrewEmail({
+          artistName: profile?.name ?? "Your artist",
+          gigTitle: project.title,
+          dateLabel: formatSlotDate(slot.date),
+          linkUrl: projectLink(project._id),
+        }),
       });
     }
     return { ok: true as const, changed: true as const, wasBooked };

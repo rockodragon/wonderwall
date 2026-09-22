@@ -468,7 +468,11 @@ export default defineSchema({
     createdAt: v.number(),
   })
     .index("by_userId", ["userId"])
-    .index("by_userId_readAt", ["userId", "readAt"]),
+    .index("by_userId_readAt", ["userId", "readAt"])
+    // Global range scan for retention sweeps (notificationRetention.ts):
+    // find read notifications older than N days across all users. Neither
+    // existing index supports this — by_userId_readAt is scoped per user.
+    .index("by_readAt", ["readAt"]),
 
   // Content/user reports for admin review
   reports: defineTable({
@@ -1661,4 +1665,19 @@ export default defineSchema({
     .index("by_slotId_userId", ["slotId", "userId"])
     .index("by_userId_status", ["userId", "status"])
     .index("by_seriesId_userId", ["seriesId", "userId"]),
+
+  // Per-user email opt-outs by category (convex/emailPreferences.ts). A
+  // missing row means all categories are on — this table only ever records
+  // an explicit choice. "transactional" (waitlist approval, team invite
+  // claim links) has no opt-out and never reads this table.
+  emailPreferences: defineTable({
+    userId: v.id("users"),
+    activity: v.boolean(), // messages, job interest, event applications, bookings
+    digest: v.boolean(), // likes digest
+    announcements: v.boolean(), // host announcements + reminders
+    unsubscribeToken: v.string(), // random, used in email footer links
+    updatedAt: v.number(),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_unsubscribeToken", ["unsubscribeToken"]),
 });

@@ -2,10 +2,19 @@
 
 import { internalAction } from "./_generated/server";
 import { v } from "convex/values";
-import { Resend } from "resend";
+import { getEmailProvider } from "./email/index";
+import { renderNotificationEmail } from "./email/template";
+
+const emailCategoryValidator = v.union(
+  v.literal("activity"),
+  v.literal("digest"),
+  v.literal("announcements"),
+  v.literal("transactional"),
+);
 
 /**
- * Send an email notification via Resend.
+ * Send an email notification via the configured provider (Resend, or the
+ * console provider when no API key is set — see convex/email/).
  * Called from mutations via ctx.scheduler.runAfter(0, ...).
  */
 export const sendNotificationEmail = internalAction({
@@ -17,55 +26,51 @@ export const sendNotificationEmail = internalAction({
     body: v.string(),
     ctaText: v.optional(v.string()),
     ctaUrl: v.optional(v.string()),
+    category: v.optional(emailCategoryValidator),
+    unsubscribeToken: v.optional(v.string()),
   },
   handler: async (_ctx, args) => {
-    const apiKey = process.env.RESEND_API_KEY;
-    if (!apiKey) {
-      console.log("RESEND_API_KEY not set, skipping email");
-      return;
-    }
-
-    const resend = new Resend(apiKey);
-
     const baseUrl = process.env.SITE_URL || "https://creatives.exchange";
-    const ctaHtml = args.ctaUrl
-      ? `<a href="${baseUrl}${args.ctaUrl}" style="display:inline-block;padding:12px 24px;background:#2563eb;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;margin-top:16px">${args.ctaText || "View on The Exchange"}</a>`
-      : "";
 
-    const html = `
-<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:0;background:#f3f4f6;font-family:system-ui,-apple-system,sans-serif">
-  <div style="max-width:480px;margin:0 auto;padding:32px 16px">
-    <!-- Header -->
-    <div style="text-align:center;margin-bottom:24px">
-      <span style="font-size:20px;font-weight:700;color:#111">creatives.exchange</span>
-    </div>
-    <!-- Card -->
-    <div style="background:#fff;border-radius:12px;padding:32px;border:1px solid #e5e7eb">
-      <h1 style="margin:0 0 12px;font-size:18px;color:#111">${args.heading}</h1>
-      <p style="margin:0;font-size:14px;color:#6b7280;line-height:1.6">${args.body}</p>
-      ${ctaHtml}
-    </div>
-    <!-- Footer -->
-    <p style="text-align:center;font-size:12px;color:#9ca3af;margin-top:24px">
-      creatives.exchange — Jobs, portfolios & collabs for creatives
-    </p>
-  </div>
-  <span style="display:none">${args.previewText}</span>
-</body>
-</html>`.trim();
+    const unsubscribeUrl = args.unsubscribeToken
+      ? `${baseUrl}/unsubscribe/${args.unsubscribeToken}`
+      : undefined;
 
-    const { error } = await resend.emails.send({
-      from: "The Exchange <hello@thecrossboard.org>",
-      to: [args.to],
-      subject: args.subject,
-      html,
+    const { html, text } = renderNotificationEmail({
+      heading: args.heading,
+      body: args.body,
+      previewText: args.previewText,
+      ctaText: args.ctaText,
+      ctaUrl: args.ctaUrl,
+      baseUrl,
+      unsubscribeUrl,
     });
 
-    if (error) {
-      console.error("Failed to send email:", error.message);
+    // The footer link is the frontend page (SITE_URL). The one-click POST
+    // target (RFC 8058) is the Convex HTTP route in http.ts, which lives on
+    // the deployment's .convex.site origin — CONVEX_SITE_URL is set by the
+    // runtime. The frontend can't answer a bodiless POST.
+    const httpBase = process.env.CONVEX_SITE_URL;
+    const headers: Record<string, string> | undefined =
+      args.unsubscribeToken && httpBase
+        ? {
+            "List-Unsubscribe": `<${httpBase}/unsubscribe/${args.unsubscribeToken}>`,
+            "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+          }
+        : undefined;
+
+    const provider = getEmailProvider();
+
+    const result = await provider.send({
+      to: args.to,
+      subject: args.subject,
+      html,
+      text,
+      headers,
+    });
+
+    if (!result.ok) {
+      console.error(`Failed to send email via ${provider.name}:`, result.error);
     }
   },
 });

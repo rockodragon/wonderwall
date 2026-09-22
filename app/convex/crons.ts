@@ -55,4 +55,14 @@ crons.daily(
   internal.garden.gigs.extendGigSeries,
 );
 
+// Notification retention: there's no archiving of in-app notifications
+// otherwise, so rows accumulate forever. Read notifications older than 30
+// days and unread notifications older than 90 days are deleted (see
+// notificationRetention.ts for the rule and index rationale).
+crons.daily(
+  "sweep-expired-notifications",
+  { hourUTC: 11, minuteUTC: 0 },
+  internal.notificationRetention.sweepExpiredNotifications,
+);
+
 export default crons;

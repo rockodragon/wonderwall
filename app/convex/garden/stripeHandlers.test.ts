@@ -55,6 +55,14 @@ function createFakeDb() {
   let nextSupportId = 1;
   const projectRaisedCents = new Map<string, number>(); // projectId -> accumulated cents
   const backingPayments = new Map<string, BackingPaymentRow>(); // keyed by stripeRef
+  const backingNotifications: Array<{
+    projectId: string;
+    supporterName: string;
+    amountCents: number;
+    visible: boolean;
+    recurring: boolean;
+    backerUserId?: string;
+  }> = [];
   // projectId -> lead's userId. project_1 exists by default; a test that
   // needs the project gone deletes it.
   const projectLeads = new Map<string, string>([["project_1", "user_lead"]]);
@@ -141,6 +149,9 @@ function createFakeDb() {
     async getProjectLeadUserId(projectId) {
       return projectLeads.get(projectId) ?? null;
     },
+    async notifyBackingConfirmed(args) {
+      backingNotifications.push(args);
+    },
     async incrementProjectRaisedCents(projectId, amountCents) {
       projectRaisedCents.set(projectId, (projectRaisedCents.get(projectId) ?? 0) + amountCents);
     },
@@ -168,6 +179,7 @@ function createFakeDb() {
     projectRaisedCents,
     backingPayments,
     projectLeads,
+    backingNotifications,
   };
 }
 
@@ -1261,6 +1273,45 @@ describe("checkout.session.completed — backing a project", () => {
       db,
     );
     expect(projectSupport.size).toBe(0);
+  });
+
+  it("notifies the creator once when a backing confirms, and not again on replay", async () => {
+    const { db, projectSupport, backingNotifications } = createFakeDb();
+    seedPendingBacking(projectSupport);
+    const evt = event("checkout.session.completed", backingSessionFixture());
+
+    await handleStripeEvent(evt, db);
+    expect(backingNotifications).toEqual([
+      {
+        projectId: "project_1",
+        supporterName: "Ada",
+        amountCents: 2500,
+        visible: true,
+        recurring: false,
+        backerUserId: "user_patron",
+      },
+    ]);
+
+    await handleStripeEvent(evt, db); // idempotent replay — no second notification
+    expect(backingNotifications).toHaveLength(1);
+  });
+
+  it("notifies on the fallback-insert path too (no pending row)", async () => {
+    const { db, backingNotifications } = createFakeDb();
+    await handleStripeEvent(
+      event("checkout.session.completed", backingSessionFixture({ mode: "subscription", subscription: "sub_backing" })),
+      db,
+    );
+    expect(backingNotifications).toEqual([
+      {
+        projectId: "project_1",
+        supporterName: "Ada",
+        amountCents: 2500,
+        visible: true,
+        recurring: true,
+        backerUserId: "user_patron",
+      },
+    ]);
   });
 });
 

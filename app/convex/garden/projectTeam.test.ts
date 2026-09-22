@@ -13,6 +13,9 @@ import {
   DECLINED_RETRY_MS,
   STAGES,
   buildClaimEmail,
+  buildInviteEmail,
+  buildJoinRequestEmail,
+  buildRequestDecidedEmail,
   canLeadReinvite,
   countInWindow,
   escapeHtml,
@@ -162,8 +165,10 @@ describe("buildClaimEmail", () => {
   it("subject is 'Name credited you on Title' (plain text, unescaped)", () => {
     expect(email.subject).toBe("Rick <script> credited you on Night & Day");
   });
-  it("heading and body are HTML-escaped", () => {
-    expect(email.heading).toBe("Rick &lt;script&gt; credited you on Night &amp; Day");
+  it("heading is plain text (sendNotificationEmail's template escapes it); body is HTML-escaped", () => {
+    // heading is interpolated into the email template's escapeHtml() call
+    // downstream — passing pre-escaped text here would double-escape it.
+    expect(email.heading).toBe("Rick <script> credited you on Night & Day");
     expect(email.body).not.toContain("<script>");
     expect(email.body).not.toContain("<join>");
     expect(email.body).toContain("&quot;DP&quot;");
@@ -175,6 +180,83 @@ describe("buildClaimEmail", () => {
   });
   it("omits the note block when there is no message", () => {
     expect(buildClaimEmail({ ...input, message: undefined }, "t").body).not.toContain('"');
+  });
+});
+
+describe("buildInviteEmail", () => {
+  const input = {
+    leadName: `Rick <script>`,
+    projectTitle: `Night & Day`,
+    role: `"DP"`,
+    message: `come <join> us`,
+    linkUrl: "/projects/abc",
+  };
+  const email = buildInviteEmail(input);
+
+  it("subject and heading are plain text (unescaped)", () => {
+    expect(email.subject).toBe(`Rick <script> invited you to Night & Day as "DP"`);
+    expect(email.heading).toBe("Rick <script> invited you to Night & Day");
+  });
+  it("escapes lead name, title, role, and message in the body", () => {
+    expect(email.body).not.toContain("<script>");
+    expect(email.body).not.toContain("<join>");
+    expect(email.body).toContain("&quot;DP&quot;");
+    expect(email.body).toContain("come &lt;join&gt; us");
+  });
+  it("CTA is 'Answer the invite'", () => {
+    expect(email.ctaText).toBe("Answer the invite");
+    expect(email.ctaUrl).toBe("/projects/abc");
+  });
+  it("omits the note block when there is no message", () => {
+    expect(buildInviteEmail({ ...input, message: undefined }).body).not.toContain('"');
+  });
+});
+
+describe("buildJoinRequestEmail", () => {
+  const input = {
+    requesterName: `Sam <script>`,
+    projectTitle: `Night & Day`,
+    role: `"Grip"`,
+    message: `I'd love to help <3`,
+    linkUrl: "/projects/xyz",
+  };
+  const email = buildJoinRequestEmail(input);
+
+  it("subject and heading are plain text (unescaped)", () => {
+    expect(email.subject).toBe("Sam <script> asked to join Night & Day");
+    expect(email.heading).toBe("Sam <script> wants to join Night & Day");
+  });
+  it("escapes requester name, title, role, and message in the body", () => {
+    expect(email.body).not.toContain("<script>");
+    expect(email.body).toContain("&quot;Grip&quot;");
+  });
+  it("CTA is 'Review the request'", () => {
+    expect(email.ctaText).toBe("Review the request");
+    expect(email.ctaUrl).toBe("/projects/xyz");
+  });
+});
+
+describe("buildRequestDecidedEmail", () => {
+  const input = {
+    projectTitle: `Night & Day`,
+    role: `"DP"`,
+    linkUrl: "/projects/abc",
+  };
+
+  it("accepted: subject/heading say you're on the project", () => {
+    const email = buildRequestDecidedEmail({ ...input, accepted: true });
+    expect(email.subject).toBe("You're on Night & Day");
+    expect(email.heading).toBe("You're on Night & Day");
+    expect(email.body).toContain("&quot;DP&quot;");
+  });
+  it("declined: subject/heading say there wasn't room, with an optional note", () => {
+    const email = buildRequestDecidedEmail({ ...input, accepted: false, note: `not right now <3` });
+    expect(email.subject).toBe("Night & Day didn't have room");
+    expect(email.body).not.toContain("<3");
+    expect(email.body).toContain("not right now &lt;3");
+  });
+  it("CTA is 'See the project'", () => {
+    expect(buildRequestDecidedEmail({ ...input, accepted: true }).ctaText).toBe("See the project");
   });
 });
 
