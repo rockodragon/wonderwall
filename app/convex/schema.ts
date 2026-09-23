@@ -407,11 +407,6 @@ export default defineSchema({
     // it. Plain string array, exactly like projects.interests: the list is
     // enforced by the client, not the validator.
     interests: v.optional(v.array(v.string())),
-    // DEPRECATED — the bespoke discipline enum this shipped with, replaced
-    // by `interests` above. Left declared, and never written by any
-    // mutation, only so rows stored before the switch stay schema-valid
-    // (same treatment as events.venueAddress).
-    discipline: v.optional(v.string()),
     portfolioUrl: v.optional(v.string()),
     workDescription: v.optional(v.string()),
     // What they want to DO on the night. A photographer offering to

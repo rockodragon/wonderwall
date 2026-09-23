@@ -164,14 +164,6 @@ export const answerApplication = mutation({
     city: v.optional(v.string()),
     instagram: v.optional(v.string()),
     interests: v.optional(v.array(v.string())),
-    // DEPRECATED, accepted and ignored. `interests` above replaced this.
-    // Convex ships the backend and the client separately, so during any
-    // deploy window a still-cached page WILL call this with the old
-    // argument — and a validator that rejects it turns a routine deploy
-    // into a stretch of failed applications at the exact moment we're
-    // driving traffic here. Accepting it costs nothing; it is never read
-    // and never written back to the row.
-    discipline: v.optional(v.string()),
     portfolioUrl: v.optional(v.string()),
     workDescription: v.optional(v.string()),
     participation: v.optional(v.array(participationValidator)),
