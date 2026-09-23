@@ -71,6 +71,7 @@ import type * as garden_stripe from "../garden/stripe.js";
 import type * as garden_stripeHandlers from "../garden/stripeHandlers.js";
 import type * as garden_support from "../garden/support.js";
 import type * as garden_tables from "../garden/tables.js";
+import type * as garden_ticketRouting from "../garden/ticketRouting.js";
 import type * as garden_waitlistHostFieldMigration from "../garden/waitlistHostFieldMigration.js";
 import type * as helpers from "../helpers.js";
 import type * as http from "../http.js";
@@ -167,6 +168,7 @@ declare const fullApi: ApiFromModules<{
   "garden/stripeHandlers": typeof garden_stripeHandlers;
   "garden/support": typeof garden_support;
   "garden/tables": typeof garden_tables;
+  "garden/ticketRouting": typeof garden_ticketRouting;
   "garden/waitlistHostFieldMigration": typeof garden_waitlistHostFieldMigration;
   helpers: typeof helpers;
   http: typeof http;
