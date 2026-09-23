@@ -28,10 +28,19 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { requireAdminCtx } from "./helpers";
 
-/** Applications close at 23:59 Pacific on 2026-10-10 (= 2026-10-11T06:59Z,
-    PDT is UTC-7). The date is also rendered on the page — both read this
-    constant so the copy and the gate cannot drift apart. */
-export const APPLICATIONS_CLOSE_AT = Date.parse("2026-10-11T06:59:00Z");
+/** Applications close at 23:59 Pacific on 2026-10-30 (= 2026-10-31T06:59Z;
+    still PDT, UTC-7 — DST ends 2026-11-01). The date is also rendered on
+    the page — both read this constant so the copy and the gate cannot
+    drift apart.
+
+    Deliberately late: a longer window maximizes total applications, which
+    is the point of the whole call. The cost is that it leaves only seven
+    days to the show, so selection is ROLLING — applications are read as
+    they arrive and decisions go out continuously, rather than everything
+    waiting on this date. The page says so; if this date moves again, the
+    rolling language has to hold or applicants get told they've been
+    selected after the night they were selected for. */
+export const APPLICATIONS_CLOSE_AT = Date.parse("2026-10-31T06:59:00Z");
 
 /** A deliberately permissive check: this is a marketing funnel, and a
     false negative here costs a real applicant. It rejects the obviously

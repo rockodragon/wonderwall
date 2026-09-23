@@ -34,13 +34,13 @@ export function meta() {
     {
       name: "description",
       content:
-        "Twenty Christian creatives will show work on November 6 in Encinitas. Free to apply, no membership required. Applications close October 10.",
+        "Twenty Christian creatives will show work on November 6 in Encinitas. Free to apply, no membership required. Rolling selection, applications close October 30.",
     },
     { property: "og:title", content: "Open call: show your work November 6" },
     {
       property: "og:description",
       content:
-        "Painters, apparel makers, musicians, photographers. Free to apply. Closes October 10.",
+        "Painters, apparel makers, musicians, photographers. Free to apply. Closes October 30.",
     },
     { property: "og:type", content: "website" },
     // Absolute, like every other route here — a relative og:image doesn't
@@ -58,7 +58,7 @@ export function meta() {
     {
       name: "twitter:description",
       content:
-        "Painters, apparel makers, musicians, photographers. Free to apply. Closes October 10.",
+        "Painters, apparel makers, musicians, photographers. Free to apply. Closes October 30.",
     },
     { name: "twitter:image", content: OG_IMAGE },
   ];
@@ -68,7 +68,14 @@ const OG_IMAGE = "https://creatives.exchange/showcase/table-drawing.jpg";
 
 const EVENT_DATE = "Friday, November 6, 2026";
 const EVENT_PLACE = "Lightchurch, Encinitas, California";
-const CLOSE_DATE = "October 10";
+const CLOSE_DATE = "October 30";
+/** Hard backstop for a decision. The late close (chosen to maximize total
+    applications) leaves only seven days to the show, so the page promises
+    ROLLING review — read on arrival, decided continuously — with this as
+    the outer bound. Without that, "we'll tell you the week after the
+    deadline" lands after the night itself. If CLOSE_DATE moves, this and
+    the rolling language move with it. */
+const DECISION_BY = "November 1";
 const SPOTS = 20;
 
 const DISCIPLINES = [
@@ -267,9 +274,10 @@ function ApplyForm({ id }: { id?: string }) {
           Application received.
         </p>
         <p style={{ fontSize: 15.5, lineHeight: 1.6, marginTop: 10 }}>
-          We read every one. You'll hear back by email in the week after{" "}
-          {CLOSE_DATE} — whether or not you're selected. If you want to add
-          more work later, reply to that email and send it.
+          We read every one as it comes in, so you'll hear back by email
+          within a few days — whether or not you're selected, and by{" "}
+          {DECISION_BY} at the latest. If you want to add more work before
+          then, reply to that email and send it.
         </p>
         <p style={{ fontSize: 15.5, lineHeight: 1.6, marginTop: 12 }}>
           In the meantime,{" "}
@@ -516,7 +524,10 @@ export default function Showcase() {
         <FactLine k="Where" v={EVENT_PLACE} />
         <FactLine k="Spots" v={`${SPOTS}, selected from applications`} />
         <FactLine k="Cost" v="Nothing, to apply or to show" />
-        <FactLine k="Closes" v={`${CLOSE_DATE} — then the jury reads`} />
+        <FactLine
+          k="Closes"
+          v={`${CLOSE_DATE} — but selection is rolling, so apply early`}
+        />
         <FactLine k="Also" v="Livestreamed free, and recorded" />
         {stats?.total != null && (
           <p className="g-hint" style={{ marginTop: 14 }}>
@@ -578,9 +589,14 @@ export default function Showcase() {
           apply. A link to an Instagram grid is a perfectly good submission.
         </P>
         <P>
-          Everyone hears back by email either way in the week after{" "}
-          {CLOSE_DATE}. A no on this one is not a no forever — the next call
-          opens in January, and we keep the work you sent.
+          Selection is rolling: we read applications as they arrive rather
+          than waiting for the deadline, so applying early means hearing back
+          early — and spots do fill. Everyone hears either way within a few
+          days, and by {DECISION_BY} at the latest.
+        </P>
+        <P>
+          A no on this one is not a no forever — the next call opens in
+          January, and we keep the work you sent.
         </P>
       </Section>
 
@@ -634,8 +650,10 @@ export default function Showcase() {
 
       <Section label="Apply">
         <P>
-          Applications close {CLOSE_DATE}. It takes about two minutes and the
-          first step is just your email.
+          Applications close {CLOSE_DATE}, but we select as they come in — so
+          the earlier you send it, the more of the {SPOTS} spots are still
+          open. It takes about two minutes and the first step is just your
+          email.
         </P>
         <ApplyForm />
       </Section>
