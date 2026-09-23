@@ -1043,6 +1043,65 @@ export default function Showcase() {
             </p>
           ))}
         </div>
+      </div>
+
+      {/* THE TICKET IS THE FIRST ASK, right under "Come and see." The two
+          people this night needs are creatives and patrons, and the two
+          tiers ARE those two people. The six lanes below are real, but they
+          open on vendors, volunteers and camera crew — the tail wagging the
+          dog on a fundraiser. */}
+      <Section label="Get your ticket">
+        <P>
+          Every ticket goes into the grant fund — the money that backs
+          creatives' projects. It's the simplest way to put something into the
+          creative economy on your way through the door.
+        </P>
+        <div style={{ display: "grid", gap: 12, marginTop: 16 }}>
+          {TICKET_TIERS.map((t) => (
+            <button
+              key={t.label}
+              type="button"
+              className="g-card sc-ticket"
+              onClick={() => openTicket(t)}
+              aria-label={`Get your ${t.label.toLowerCase()} ticket, ${t.price}`}
+              style={{
+                display: "flex",
+                gap: 16,
+                alignItems: "baseline",
+                width: "100%",
+                textAlign: "left",
+                background: "transparent",
+                color: "inherit",
+                fontFamily: "inherit",
+                fontSize: "inherit",
+                cursor: "pointer",
+              }}
+            >
+              <span
+                className="g-h"
+                style={{ fontSize: 26, color: "var(--g-citron)", flexShrink: 0 }}
+              >
+                {t.price}
+              </span>
+              <span style={{ flex: 1 }}>
+                <span style={{ color: "var(--g-paper)", display: "block" }}>
+                  {t.label}
+                </span>
+                <span className="g-hint" style={{ display: "block", marginTop: 4 }}>
+                  {t.note}
+                </span>
+              </span>
+              <span
+                className="g-badge g-badge-line"
+                style={{ flexShrink: 0, whiteSpace: "nowrap" }}
+              >
+                {TICKET_URL ? "Buy" : "Notify me"}
+              </span>
+            </button>
+          ))}
+        </div>
+        <P>Can't be in Encinitas? The livestream is free.</P>
+      </Section>
 
       {/* No instruction line under this grid. "Join us as…" already says the
           choice is one of these, and a sentence telling someone to pick one
@@ -1101,7 +1160,6 @@ export default function Showcase() {
         </div>
       </Section>
 
-      </div>
 
 
       {/* The positioning. Unpaid faith or faithless funding, and a third
@@ -1147,60 +1205,6 @@ export default function Showcase() {
           />
         </div>
 
-        <div style={{ marginTop: 22 }}>
-          <SectionLabel>Get your ticket</SectionLabel>
-          <P>
-            Every ticket goes into the grant fund — the money that backs
-            creatives' projects. It's the simplest way to put something into
-            the creative economy on your way through the door.
-          </P>
-          <div style={{ display: "grid", gap: 12, marginTop: 16 }}>
-            {TICKET_TIERS.map((t) => (
-              <button
-                key={t.label}
-                type="button"
-                className="g-card sc-ticket"
-                onClick={() => openTicket(t)}
-                aria-label={`Get your ${t.label.toLowerCase()} ticket, ${t.price}`}
-                style={{
-                  display: "flex",
-                  gap: 16,
-                  alignItems: "baseline",
-                  width: "100%",
-                  textAlign: "left",
-                  background: "transparent",
-                  color: "inherit",
-                  fontFamily: "inherit",
-                  fontSize: "inherit",
-                  cursor: "pointer",
-                }}
-              >
-                <span
-                  className="g-h"
-                  style={{ fontSize: 26, color: "var(--g-citron)", flexShrink: 0 }}
-                >
-                  {t.price}
-                </span>
-                <span style={{ flex: 1 }}>
-                  <span style={{ color: "var(--g-paper)", display: "block" }}>
-                    {t.label}
-                  </span>
-                  <span className="g-hint" style={{ display: "block", marginTop: 4 }}>
-                    {t.note}
-                  </span>
-                </span>
-                <span
-                  className="g-badge g-badge-line"
-                  aria-hidden="true"
-                  style={{ flexShrink: 0, whiteSpace: "nowrap" }}
-                >
-                  {TICKET_URL ? "Buy" : "Notify me"}
-                </span>
-              </button>
-            ))}
-          </div>
-        </div>
-        <P>Can't be in Encinitas? The livestream is free.</P>
       </Section>
 
       {/* Patrons first, beside the musician. See the header. */}
