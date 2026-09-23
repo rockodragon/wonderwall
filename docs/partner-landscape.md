@@ -2,6 +2,7 @@
 
 *Who to approach, what to say, and what the evidence supports. 2026-08-27.*
 *Sources: three web-research passes (platforms, orgs, creators) + the Aug 14–27 partner calls. Figures marked ⚠ came from secondary sources — verify before quoting to anyone outside the team. §9 lists them.*
+*The San Diego civic layer — Prebys, the City and County, foundations, venues, churches, and the people between them — lives in its own document: [civic-partners-social-graph.md](civic-partners-social-graph.md) (2026-09-16).*
 
 ---
 
