@@ -17,6 +17,7 @@ import Stripe from "stripe";
 import { action, internalAction } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { auth } from "../auth";
+import { routeTicketMoney } from "./ticketRouting";
 // Pure money logic lives in the dependency-free handler file so the checkout
 // action and the webhook share one authority (and so it's unit-testable
 // without this file's node runtime / Stripe SDK).
@@ -167,16 +168,48 @@ export const createTicketCheckout = action({
 
     const stripe = getStripeClient();
 
+    // Where this money settles. Refuses rather than falling back to the
+    // platform account when a named beneficiary isn't connected yet — see
+    // garden/ticketRouting.ts for why that matters.
+    const routing = routeTicketMoney(info.beneficiary);
+    if (!routing.ok) {
+      throw new ConvexError(routing.reason);
+    }
+
     const metadata: Record<string, string> = {
       kind: "event_ticket",
       eventId: String(args.eventId),
       tierName: tier.name,
       ...(userId ? { userId: String(userId) } : {}),
+      // Mirrored into metadata so the webhook records what the CHECKOUT
+      // decided, not what the event says by the time the hook runs.
+      ...(info.beneficiaryHostOrgId
+        ? { beneficiaryHostOrgId: String(info.beneficiaryHostOrgId) }
+        : {}),
+      ...(routing.destinationAccountId
+        ? { destinationAccountId: routing.destinationAccountId }
+        : {}),
+      ...(routing.beneficiaryTaxStatus
+        ? { beneficiaryTaxStatus: routing.beneficiaryTaxStatus }
+        : {}),
     };
 
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       customer_email: identity?.email ?? undefined,
+      // Destination charge: the connected account becomes merchant of
+      // record (on_behalf_of — statement descriptor and 1099 are theirs)
+      // and the funds settle there (transfer_data.destination). Omitted
+      // entirely for platform-account events, so those charges behave
+      // exactly as they did before this shipped.
+      ...(routing.destinationAccountId
+        ? {
+            payment_intent_data: {
+              on_behalf_of: routing.destinationAccountId,
+              transfer_data: { destination: routing.destinationAccountId },
+            },
+          }
+        : {}),
       line_items: [
         {
           quantity: 1,

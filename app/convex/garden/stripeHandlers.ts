@@ -192,6 +192,12 @@ export interface TicketPurchaseRow {
   userId?: string;
   stripeSessionId: string;
   status: string; // "paid"
+  // Where the money settled, as the checkout decided it — see
+  // garden/ticketRouting.ts. Recorded per purchase rather than read back
+  // off the event, which can be re-pointed later.
+  beneficiaryHostOrgId?: string;
+  destinationAccountId?: string;
+  beneficiaryTaxStatus?: string;
 }
 
 /** One row per PAYMENT on a community product (schema.ts's productPurchases
@@ -638,7 +644,14 @@ async function handleTicketCheckoutCompleted(
   db: Db,
 ): Promise<void> {
   const metadata = session.metadata ?? {};
-  const { eventId, tierName, userId } = metadata;
+  const {
+    eventId,
+    tierName,
+    userId,
+    beneficiaryHostOrgId,
+    destinationAccountId,
+    beneficiaryTaxStatus,
+  } = metadata;
   if (!eventId || !tierName) {
     console.warn("[stripe] event_ticket checkout.session.completed missing metadata", {
       sessionId: session.id,
@@ -654,6 +667,9 @@ async function handleTicketCheckoutCompleted(
     userId: userId || undefined,
     stripeSessionId: session.id,
     status: "paid",
+    beneficiaryHostOrgId: beneficiaryHostOrgId || undefined,
+    destinationAccountId: destinationAccountId || undefined,
+    beneficiaryTaxStatus: beneficiaryTaxStatus || undefined,
   });
 }
 

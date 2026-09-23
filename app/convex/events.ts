@@ -762,12 +762,26 @@ export const getEventForTicketCheckout = internalQuery({
       ).length;
     }
 
+    // The beneficiary org, if the event names one — garden/ticketRouting.ts
+    // turns this into a Stripe destination (or a refusal).
+    const beneficiaryOrg = event.beneficiaryHostOrgId
+      ? await ctx.db.get(event.beneficiaryHostOrgId)
+      : null;
+
     return {
       title: event.title,
       status: event.status,
       datetime: event.datetime,
       tier,
       sold,
+      beneficiaryHostOrgId: event.beneficiaryHostOrgId ?? null,
+      beneficiary: beneficiaryOrg
+        ? {
+            name: beneficiaryOrg.name,
+            stripeConnectAccountId: beneficiaryOrg.stripeConnectAccountId,
+            taxStatus: beneficiaryOrg.taxStatus,
+          }
+        : null,
     };
   },
 });

@@ -15,6 +15,7 @@ import { query, internalMutation, internalQuery } from "../_generated/server";
 import type { MutationCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 import { auth } from "../auth";
+import { internal } from "../_generated/api";
 import { scheduleNotificationEmail } from "../emailHelpers";
 import { escapeHtml } from "../email/template";
 import {
@@ -214,11 +215,45 @@ function makeConvexDb(ctx: MutationCtx): Db & ClassPaymentDb {
         userId: row.userId as Id<"users"> | undefined,
         stripeSessionId: row.stripeSessionId,
         status: row.status,
+        // Where this dollar settled (garden/ticketRouting.ts). Comes from
+        // the checkout session's metadata, so it records what the checkout
+        // decided rather than what the event says now.
+        beneficiaryHostOrgId: row.beneficiaryHostOrgId as
+          | Id<"hostOrgs">
+          | undefined,
+        destinationAccountId: row.destinationAccountId,
+        beneficiaryTaxStatus: row.beneficiaryTaxStatus,
       };
+      const isNew = !existing;
       if (existing) {
         await ctx.db.patch(existing._id, patch);
       } else {
         await ctx.db.insert("ticketPurchases", { ...patch, createdAt: Date.now() });
+      }
+
+      // The ticket itself. Sent once, on the insert only — Stripe retries
+      // checkout.session.completed, and a buyer getting four copies of their
+      // ticket is the most visible possible way to look amateur. Guests have
+      // no account, so this goes to the address Stripe collected.
+      if (isNew && row.buyerEmail) {
+        const event = await ctx.db.get(row.eventId as Id<"events">);
+        if (event) {
+          await ctx.scheduler.runAfter(0, internal.emails.sendNotificationEmail, {
+            to: row.buyerEmail,
+            subject: `Your ticket — ${event.title}`,
+            previewText: "You're in. Here are the details.",
+            heading: "You're in.",
+            body:
+              `<p>You have a <strong>${escapeHtml(row.tierName)}</strong> ticket to ` +
+              `<strong>${escapeHtml(event.title)}</strong>.</p>` +
+              `<p>${escapeHtml(formatEventWhen(event.datetime))}` +
+              (event.location ? `<br>${escapeHtml(event.location)}` : "") +
+              `</p><p>This email is your ticket — bring it on your phone.</p>`,
+            ctaText: "See the event",
+            ctaUrl: `/events/${String(event._id)}`,
+            category: "transactional",
+          });
+        }
       }
     },
 
@@ -519,6 +554,21 @@ function makeConvexDb(ctx: MutationCtx): Db & ClassPaymentDb {
 }
 
 // ——— Webhook entry point (called from http.ts after signature verification) ———
+
+/** "Friday, November 6 · 7:00 PM PT" for a ticket email. Pacific because
+    every event this platform runs is, and a ticket that says a time in the
+    server's zone is worse than one with no time at all. */
+function formatEventWhen(ms: number): string {
+  return new Intl.DateTimeFormat("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: "America/Los_Angeles",
+    timeZoneName: "short",
+  }).format(new Date(ms));
+}
 
 export const applyStripeEvent = internalMutation({
   args: { event: v.any() },

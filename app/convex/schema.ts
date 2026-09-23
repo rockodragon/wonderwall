@@ -177,6 +177,13 @@ export default defineSchema({
         }),
       ),
     ),
+    // Which org's Stripe account this event's ticket money settles into.
+    // Absent = the platform account (ordinary for-profit event revenue).
+    // Set it to a 501(c)(3) host org — Abiding Practice for a Garden
+    // fundraiser — and the money never touches the for-profit's balance.
+    // See garden/ticketRouting.ts for the rule and why it refuses rather
+    // than falling back.
+    beneficiaryHostOrgId: v.optional(v.id("hostOrgs")),
     // Location fields — one box: the same LocationAutocomplete/Google
     // Places pipeline resolves a venue name ("Tamarack State Beach") and a
     // searched street address ("123 Main St, Carlsbad, CA") alike, so
@@ -827,6 +834,18 @@ export default defineSchema({
     paymentLinkUrl: v.optional(v.string()),
     monthlyPaymentLinkUrl: v.optional(v.string()),
     stripeCustomerId: v.optional(v.string()), // set for orgs that buy coverage
+    // Stripe Connect account (acct_…) this org's event ticket money settles
+    // into, via destination charges — see garden/ticketRouting.ts. Distinct
+    // from stripeCustomerId above, which is this org BUYING coverage from
+    // us; this is this org RECEIVING money through us. Absent until the org
+    // finishes Connect onboarding, and while it's absent their events
+    // refuse to sell tickets rather than banking into the platform account.
+    stripeConnectAccountId: v.optional(v.string()),
+    // "501c3" | "for_profit". Recorded onto each ticket purchase so a
+    // receipt can carry the right language later. Which entity holds
+    // charitable money is the whole point of docs/entity-structure-
+    // research.md; this is the flag that makes it legible in the data.
+    taxStatus: v.optional(v.string()),
     // ——— Community layer ———
     tagline: v.optional(v.string()), // one line under the name
     description: v.optional(v.string()), // the community's own words (plain text)
@@ -1394,11 +1413,19 @@ export default defineSchema({
     userId: v.optional(v.id("users")), // absent for guest checkout
     stripeSessionId: v.string(),
     status: v.string(), // "paid" | "refunded" (refunds are operator bookkeeping)
+    // Where this specific dollar settled, captured AT PURCHASE TIME rather
+    // than read back off the event. An event's beneficiary can be changed
+    // later; what a given buyer's money did cannot, and a receipt reissued
+    // next April has to match what actually happened.
+    beneficiaryHostOrgId: v.optional(v.id("hostOrgs")),
+    destinationAccountId: v.optional(v.string()),
+    beneficiaryTaxStatus: v.optional(v.string()),
     createdAt: v.number(),
   })
     .index("by_eventId", ["eventId"])
     .index("by_stripeSessionId", ["stripeSessionId"])
-    .index("by_userId", ["userId"]),
+    .index("by_userId", ["userId"])
+    .index("by_beneficiaryHostOrgId", ["beneficiaryHostOrgId"]),
 
   // AP Fund public allocations ledger (W5; operator-entered, display-only lane).
   allocations: defineTable({
