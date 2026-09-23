@@ -16,6 +16,9 @@ import {
 import { resolveStage, stageLabel, STAGES } from "../lib/stage";
 import { ChevronDownIcon, FilterIcon } from "../components/icons";
 import { CLAIMS } from "../constants/claims";
+import { EMBED_PROVIDER_LABEL, isTikTokShortLink, toEmbedUrl, type EmbedKind } from "../lib/videoEmbed";
+import { normalizeUrl } from "../lib/richText";
+import { EmbedStill } from "../components/EmbedStill";
 
 const KIND_FILTERS = [
   { label: "All", value: "" },
@@ -449,7 +452,15 @@ function ProjectCard({
   onSupport: (project: any) => void;
   matched?: boolean;
 }) {
-  const thumb = project.media.find((m: any) => m.resolvedMediaUrl)?.resolvedMediaUrl ?? project.resolvedPhotoUrl;
+  // The photo first, then the pasted link's still, then the first attached
+  // artifact's file (docs/features/creator-media-cross-post.md, Round 2).
+  // The still is static — a grid never loads a player.
+  const photo = project.resolvedPhotoUrl ?? null;
+  const mediaEmbed = photo ? null : toEmbedUrl(project.mediaUrl);
+  const thumb =
+    photo ??
+    (mediaEmbed ? null : (project.media.find((m: any) => m.resolvedMediaUrl)?.resolvedMediaUrl ?? null));
+  const hasCover = !!thumb || !!mediaEmbed;
   // Passion-only campaign deadline (docs/the-exchange-v1-prd.md §7 review
   // follow-up) — a past raiseByDate just means the badge doesn't render;
   // building a distinct "expired" state is explicitly out of scope.
@@ -485,9 +496,9 @@ function ProjectCard({
           box from sm up, where cards sit side by side and rows must line up. */}
       <div
         className={`relative overflow-hidden flex items-center justify-center ${
-          thumb ? "aspect-[16/10]" : "h-11 sm:h-auto sm:aspect-[16/10]"
+          hasCover ? "aspect-[16/10]" : "h-11 sm:h-auto sm:aspect-[16/10]"
         }`}
-        style={thumb ? { backgroundColor: "var(--garden-ink)" } : EMPTY_COVER}
+        style={hasCover ? { backgroundColor: "var(--garden-ink)" } : EMPTY_COVER}
       >
         {thumb && (
           <img
@@ -495,6 +506,16 @@ function ProjectCard({
             alt={project.title}
             className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
           />
+        )}
+        {mediaEmbed && (
+          <div className="absolute inset-0">
+            <EmbedStill
+              embed={mediaEmbed}
+              previewUrl={project.mediaPreviewUrl}
+              title={project.title}
+              badgeSize="sm"
+            />
+          </div>
         )}
         <span
           className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[11px] font-semibold uppercase tracking-[0.06em]"
@@ -772,6 +793,75 @@ export function StageSelect({ project }: { project: any }) {
   );
 }
 
+// A hiring call or a passion project often already exists as an Instagram
+// post or reel; the poster pastes that instead of uploading a photo
+// (docs/features/creator-media-cross-post.md, Round 2). The project page
+// plays it, cards show its still. Pure and cheap, so the forms run it on
+// every keystroke for the hint under the input and once more on submit.
+const MEDIA_LINK_PROBLEM =
+  "That isn't a link we can show. Paste an Instagram, TikTok, YouTube or Vimeo link, or add a photo.";
+
+export function describeMediaLink(raw: string): {
+  /** What to send: the canonical link when recognised, "" for a blank field. */
+  url: string;
+  kind: EmbedKind | null;
+  problem: string | null;
+} {
+  const url = normalizeUrl(raw);
+  if (!url) return { url: "", kind: null, problem: null };
+  const embed = toEmbedUrl(url);
+  if (embed) return { url: embed.canonicalUrl, kind: embed.kind, problem: null };
+  // TikTok's in-app "Copy link" hands out vm.tiktok.com/…, which only the
+  // server can follow — convex/linkPreview.ts swaps in the permalink.
+  if (isTikTokShortLink(url)) return { url, kind: "tiktok", problem: null };
+  return { url, kind: null, problem: MEDIA_LINK_PROBLEM };
+}
+
+export function MediaLinkField({
+  value,
+  onChange,
+  label = "Or paste a link (optional)",
+  autoFocus,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  label?: string;
+  autoFocus?: boolean;
+}) {
+  const link = describeMediaLink(value);
+  return (
+    <div>
+      <label className="block text-xs uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
+        {label}
+      </label>
+      <input
+        type="text"
+        inputMode="url"
+        autoFocus={autoFocus}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="Instagram post or reel, TikTok, YouTube or Vimeo"
+        className="w-full px-3 py-2 rounded-lg border text-sm outline-none"
+        style={{
+          backgroundColor: "var(--garden-ink)",
+          borderColor: "var(--garden-hairline-raised)",
+          color: "var(--garden-paper)",
+        }}
+      />
+      {link.kind && (
+        <p className="text-xs mt-1.5" style={{ color: "var(--garden-dim)" }}>
+          {/* An Instagram post may be a photo, which Instagram's frame shows
+              rather than plays; the other three are always video. */}
+          {link.kind === "instagram"
+            ? "Instagram post. It shows here on your page."
+            : `${EMBED_PROVIDER_LABEL[link.kind]} video. It plays here on your page.`}
+        </p>
+      )}
+      {link.problem && <p className="text-xs mt-1.5 text-amber-400">{link.problem}</p>}
+    </div>
+  );
+}
+
 function PaidProjectForm({
   onClose,
   onSwitchToPassion,
@@ -785,6 +875,7 @@ function PaidProjectForm({
   const [budgetType, setBudgetType] = useState<string>("amount");
   const [budget, setBudget] = useState("");
   const [budgetMax, setBudgetMax] = useState("");
+  const [mediaUrl, setMediaUrl] = useState("");
   const location = useLocationField();
   const [remote, setRemote] = useState(true);
   const [interests, setInterests] = useState<string[]>([]);
@@ -839,11 +930,17 @@ function PaidProjectForm({
       setError("Pick a location, or check \"This can be done remotely.\"");
       return;
     }
+    const link = describeMediaLink(mediaUrl);
+    if (link.problem) {
+      setError(link.problem);
+      return;
+    }
     setSubmitting(true);
     try {
       await createPaidProject({
         title: title.trim(),
         blurb: blurb.trim() || undefined,
+        mediaUrl: link.url || undefined,
         // "proposals" and "volunteer" carry no numbers at all — the server
         // rejects a stray one rather than dropping it silently, so anything
         // typed before switching states is left behind here on purpose.
@@ -920,6 +1017,7 @@ function PaidProjectForm({
               }}
             />
           </div>
+          <MediaLinkField value={mediaUrl} onChange={setMediaUrl} />
           <div>
             <label className="block text-xs uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
               What it pays
@@ -1102,6 +1200,7 @@ function PassionProjectForm({ onClose }: { onClose: () => void }) {
   const [title, setTitle] = useState("");
   const [blurb, setBlurb] = useState("");
   const [goal, setGoal] = useState("");
+  const [mediaUrl, setMediaUrl] = useState("");
   const location = useLocationField();
   const [remote, setRemote] = useState(true);
   const [interests, setInterests] = useState<string[]>([]);
@@ -1141,11 +1240,17 @@ function PassionProjectForm({ onClose }: { onClose: () => void }) {
       setError("Add the nonprofit's name, or uncheck if you're not sure yet.");
       return;
     }
+    const link = describeMediaLink(mediaUrl);
+    if (link.problem) {
+      setError(link.problem);
+      return;
+    }
     setSubmitting(true);
     try {
       await createPassionProject({
         title: title.trim(),
         blurb: blurb.trim() || undefined,
+        mediaUrl: link.url || undefined,
         goal: goalNum,
         ...location.toArgs(),
         remote,
@@ -1212,6 +1317,7 @@ function PassionProjectForm({ onClose }: { onClose: () => void }) {
               }}
             />
           </div>
+          <MediaLinkField value={mediaUrl} onChange={setMediaUrl} />
           <div>
             <label className="block text-xs uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
               Support goal (USD, optional)

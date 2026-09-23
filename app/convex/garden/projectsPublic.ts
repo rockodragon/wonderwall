@@ -28,6 +28,8 @@ export interface ProjectLike {
   title: string;
   blurb?: string;
   photoUrl?: string;
+  mediaUrl?: string;
+  mediaPreviewUrl?: string;
   budgetType?: string;
   budget?: number;
   budgetMax?: number;
@@ -46,6 +48,11 @@ export interface ProjectCard {
   blurb?: string;
   byName: string;
   photoUrl?: string;
+  // A pasted Instagram/TikTok/YouTube/Vimeo link and the still fetched for
+  // it (docs/features/creator-media-cross-post.md). The card shows the
+  // still, never a player; the photo wins when both exist.
+  mediaUrl?: string;
+  mediaPreviewUrl?: string;
   budgetType?: string;
   budget?: number;
   budgetMax?: number;
@@ -128,6 +135,8 @@ export function shapeProjectCard(project: ProjectLike, ownerName: string): Proje
     blurb: project.blurb,
     byName: ownerName,
     photoUrl: project.photoUrl,
+    mediaUrl: project.mediaUrl,
+    mediaPreviewUrl: project.mediaPreviewUrl,
     budgetType: project.budgetType,
     budget: project.budget,
     budgetMax: project.budgetMax,

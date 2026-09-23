@@ -23,6 +23,7 @@ import {
   formatPeriod,
   joinNames,
 } from "../garden/ui";
+import { EmbedPlayer } from "../components/EmbedPlayer";
 import { RichContent } from "../components/RichContent";
 import { toEmbedUrl } from "../lib/videoEmbed";
 import { CLAIMS } from "../constants/claims";
@@ -511,24 +512,15 @@ export default function StoryPage() {
         />
       )}
       {heroEmbed && (
-        <iframe
-          src={heroEmbed.embedUrl}
+        // The shared player (a reel is portrait: phone width, centred;
+        // YouTube fills the column). Only the frame is styled here.
+        <EmbedPlayer
+          embed={heroEmbed}
           title={project.title}
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-          allowFullScreen
-          loading="lazy"
-          referrerPolicy="strict-origin-when-cross-origin"
           style={{
-            display: "block",
-            width: "100%",
-            // A reel is portrait: phone width, centred. YouTube fills the column.
-            maxWidth: heroEmbed.aspect === "9/16" ? 420 : undefined,
-            aspectRatio: heroEmbed.aspect === "9/16" ? "9 / 16" : "16 / 9",
             marginTop: 20,
-            marginLeft: "auto",
-            marginRight: "auto",
-            border: 0,
             borderRadius: 8,
+            overflow: "hidden",
             backgroundColor: "var(--garden-ink-raised)",
           }}
         />

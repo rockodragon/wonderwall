@@ -15,9 +15,10 @@ import type { ReactNode } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { Link, useNavigate, useParams, useRouteError } from "react-router";
 import { api } from "../../convex/_generated/api";
-import { toEmbedUrl } from "../lib/videoEmbed";
+import { EMBED_PROVIDER_LABEL, toEmbedUrl } from "../lib/videoEmbed";
 import type { Id } from "../../convex/_generated/dataModel";
 import { AnnouncementComposer } from "../components/AnnouncementComposer";
+import { EmbedPlayer } from "../components/EmbedPlayer";
 import { FavoriteButton } from "../components/FavoriteButton";
 import { LocationAutocomplete, LocationVerifiedHint } from "../components/LocationAutocomplete";
 import { ProjectUpdates } from "../components/ProjectUpdates";
@@ -29,7 +30,14 @@ import { budgetAmountLabel, budgetKindLabel, budgetLabel } from "../lib/budgetLa
 import { GigSchedule } from "../components/GigSchedule";
 import { resolveStage, stageLabel } from "../lib/stage";
 import { INTERESTS } from "../constants/interests";
-import { errorMessage, STATUS_LABELS, StageSelect, SupportModal } from "./projects";
+import {
+  describeMediaLink,
+  errorMessage,
+  MediaLinkField,
+  STATUS_LABELS,
+  StageSelect,
+  SupportModal,
+} from "./projects";
 
 // Loader-less (client-only useQuery, same as communities.$slug.tsx and
 // offerings.$id.tsx) — `data` is never actually populated; this just
@@ -134,12 +142,15 @@ function EditButton({ onClick, label }: { onClick: () => void; label: string }) 
   );
 }
 
-// The first attached media's still for the hero: a cover or fetched preview
-// (`ogImageUrl`), the provider's own thumbnail for a YouTube link, or the
-// file itself. A pasted reel's page URL is never an <img src>
-// (convex/videoEmbed.ts) — before this, a video link rendered a broken image.
-function mediaThumb(media: any[] | undefined): string | null {
-  for (const m of media ?? []) {
+// A still for the hero when the page has nothing to play: the pasted link's
+// fetched still (`mediaPreviewUrl`, convex/linkPreview.ts), else the first
+// attached media's cover or fetched preview (`ogImageUrl`), the provider's
+// own thumbnail for a YouTube link, or the file itself. A pasted reel's page
+// URL is never an <img src> (convex/videoEmbed.ts) — before this, a video
+// link rendered a broken image.
+function mediaThumb(project: { mediaPreviewUrl?: string | null; media?: any[] }): string | null {
+  if (project.mediaPreviewUrl) return project.mediaPreviewUrl;
+  for (const m of project.media ?? []) {
     if (m.ogImageUrl) return m.ogImageUrl;
     const embed = toEmbedUrl(m.mediaUrl ?? undefined);
     if (embed) {
@@ -184,7 +195,11 @@ export default function ProjectDetail() {
   const isGig = !!project.gig;
   const moneyWord = moneyAmount && isGig && project.budgetType === "amount" ? `${moneyAmount}/date` : moneyAmount;
   const hasMoney = project.kind === "paid" && kindWord === "Paid";
-  const thumb = project.resolvedPhotoUrl || mediaThumb(project.media);
+  // A pasted link plays on the page itself (docs/features/creator-media-
+  // cross-post.md, Round 2): beneath the photo when there is one, in the
+  // hero's place when there isn't. Its still is for cards, not for here.
+  const mediaEmbed = toEmbedUrl(project.mediaUrl);
+  const thumb = project.resolvedPhotoUrl || (mediaEmbed ? null : mediaThumb(project));
 
   return (
     <PageShell>
@@ -199,6 +214,17 @@ export default function ProjectDetail() {
         projectId={project._id}
         isOwner={isOwner}
       />
+
+      {mediaEmbed && (
+        <EmbedPlayer
+          embed={mediaEmbed}
+          title={project.title}
+          className="mb-6 rounded-2xl overflow-hidden"
+          style={{ backgroundColor: "var(--garden-ink-raised)" }}
+        />
+      )}
+
+      {isOwner && <InlineEditableMediaLink project={project} />}
 
       <InlineEditableTitle project={project} isOwner={isOwner} />
 
@@ -475,6 +501,111 @@ function ProjectHero({
         </>
       )}
     </div>
+  );
+}
+
+// The pasted link, edited in place like the title and blurb below, by the
+// owner only — a visitor sees the player (or nothing), never this row. The
+// image button in ProjectHero stays the way to add a photo; this is the
+// "or paste a link" beside it. Saving a blank field clears the link:
+// updateProject reads "" as clear, and takes the fetched still with it.
+function InlineEditableMediaLink({ project }: { project: any }) {
+  const updateProject = useMutation((api as any).garden.projects.updateProject);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(project.mediaUrl ?? "");
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const hasLink = !!project.mediaUrl;
+  const current = toEmbedUrl(project.mediaUrl);
+
+  function open() {
+    setDraft(project.mediaUrl ?? "");
+    setError("");
+    setEditing(true);
+  }
+
+  async function save(next: string) {
+    const link = describeMediaLink(next);
+    if (link.problem) {
+      setError(link.problem);
+      return;
+    }
+    setSaving(true);
+    setError("");
+    try {
+      await updateProject({ projectId: project._id, mediaUrl: link.url });
+      setEditing(false);
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!editing) {
+    return (
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        {hasLink ? (
+          <>
+            <span className="text-xs" style={{ color: "var(--garden-dim)" }}>
+              {current ? `${EMBED_PROVIDER_LABEL[current.kind]} link` : "Link"}
+            </span>
+            <EditButton onClick={open} label="Change link" />
+            <button
+              onClick={() => save("")}
+              disabled={saving}
+              title="Remove link"
+              className="inline-flex items-center justify-center w-6 h-6 rounded-md hover:bg-[rgba(198,198,190,0.15)] transition-colors disabled:opacity-50"
+              style={{ color: "var(--garden-dim)" }}
+            >
+              <TrashIcon size={13} />
+            </button>
+          </>
+        ) : (
+          <button
+            type="button"
+            onClick={open}
+            className="text-xs underline underline-offset-2 hover:opacity-80"
+            style={{ color: "var(--garden-citron)" }}
+          >
+            + Paste a link (Instagram post or reel, TikTok, YouTube or Vimeo)
+          </button>
+        )}
+        {error && <span className="text-xs text-red-400">{error}</span>}
+      </div>
+    );
+  }
+
+  return (
+    <form
+      className="mb-4"
+      onSubmit={(e) => {
+        e.preventDefault();
+        save(draft);
+      }}
+    >
+      <MediaLinkField label="Link" value={draft} onChange={setDraft} autoFocus />
+      {error && <p className="text-xs text-red-400 mt-1.5">{error}</p>}
+      <div className="flex gap-2 mt-2">
+        <button
+          type="submit"
+          disabled={saving}
+          className="px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50"
+          style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
+        >
+          {saving ? "Saving…" : "Save"}
+        </button>
+        <button
+          type="button"
+          onClick={() => setEditing(false)}
+          disabled={saving}
+          className="px-3 py-1.5 rounded-lg text-xs font-medium"
+          style={{ color: "var(--garden-dim)" }}
+        >
+          Cancel
+        </button>
+      </div>
+    </form>
   );
 }
 
