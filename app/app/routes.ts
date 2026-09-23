@@ -106,6 +106,9 @@ export default [
     route("admin/garden", "routes/admin.garden.tsx"),
     route("admin/ledger", "routes/admin.ledger.tsx"),
     route("admin/waitlist", "routes/admin.waitlist.tsx"),
+    // Jury sheet for the November 6 open call — any admin votes, an admin
+    // decides. See convex/showcase.ts.
+    route("admin/showcase", "routes/admin.showcase.tsx"),
     route("messages", "routes/messages._index.tsx"),
     route("messages/:conversationId", "routes/messages.$conversationId.tsx"),
     // Spaces. Was outside this layout (its own GardenPage/SiteHeader

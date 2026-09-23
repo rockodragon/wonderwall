@@ -26,6 +26,7 @@
 
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { requireAdminCtx } from "./helpers";
 
 /** Applications close at 23:59 Pacific on Thursday 2026-10-22 (=
@@ -42,8 +43,9 @@ export const APPLICATIONS_CLOSE_AT = Date.parse("2026-10-23T06:59:00Z");
 
 /** A deliberately permissive check: this is a marketing funnel, and a
     false negative here costs a real applicant. It rejects the obviously
-    broken (no @, no dot, whitespace) and nothing else. */
-function normalizeEmail(raw: string): string {
+    broken (no @, no dot, whitespace) and nothing else.
+    Exported for showcase.test.ts — house pure-logic testing style. */
+export function normalizeEmail(raw: string): string {
   const email = raw.toLowerCase().trim();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     throw new Error("That doesn't look like an email address.");
@@ -55,10 +57,45 @@ function normalizeEmail(raw: string): string {
 /** Free-text fields are trimmed and capped rather than validated — an
     unauthenticated public endpoint should never store an unbounded string,
     but it also shouldn't lecture someone about their own bio. */
-function clamp(value: string | undefined, max: number): string | undefined {
+export function clamp(value: string | undefined, max: number): string | undefined {
   const trimmed = value?.trim();
   if (!trimmed) return undefined;
   return trimmed.slice(0, max);
+}
+
+/** An Instagram handle arrives as "@name", "name", "instagram.com/name",
+    or a full profile URL with a trailing path or query, depending on where
+    the applicant copied it from. Reduce all of those to the bare handle so
+    the jury sheet is scannable and two forms of the same person collapse to
+    one. Returns undefined for anything that reduces to nothing. */
+export function normalizeInstagram(raw: string | undefined): string | undefined {
+  const handle = clamp(raw, 120)
+    ?.replace(/^https?:\/\//i, "")
+    .replace(/^www\./i, "")
+    .replace(/^instagram\.com\//i, "")
+    .replace(/^@/, "")
+    // Everything from the first /, ? or # on is path or tracking, not handle.
+    .replace(/[/?#].*$/, "")
+    .trim();
+  return handle || undefined;
+}
+
+/** Jury sheet order: applications with actual work attached first, then the
+    ones the jury likes best, then newest. A bare email capture has nothing
+    to read, so it sorts last however enthusiastic nobody has been about it.
+    A "yes" counts double a "maybe"; a "no" doesn't subtract, because a
+    single dissent shouldn't bury a piece nobody else has looked at yet. */
+export type JurySortable = {
+  answeredAt?: number;
+  createdAt: number;
+  tally: { yes: number; maybe: number; no: number };
+};
+
+export function compareForJury(a: JurySortable, b: JurySortable): number {
+  if (!!a.answeredAt !== !!b.answeredAt) return a.answeredAt ? -1 : 1;
+  const score = (row: JurySortable) => row.tally.yes * 2 + row.tally.maybe;
+  if (score(a) !== score(b)) return score(b) - score(a);
+  return b.createdAt - a.createdAt;
 }
 
 const disciplineValidator = v.union(
@@ -145,18 +182,12 @@ export const answerApplication = mutation({
       throw new Error("We couldn't find that application. Start at step one.");
     }
 
-    // An Instagram handle arrives as "@name", "name", or a full profile URL
-    // depending on where the person copied it from. Store the bare handle so
-    // the jury sheet is scannable and two forms of the same person collapse.
-    const instagram = clamp(args.instagram, 120)
-      ?.replace(/^https?:\/\/(www\.)?instagram\.com\//i, "")
-      .replace(/^@/, "")
-      .replace(/\/.*$/, "");
+    const instagram = normalizeInstagram(args.instagram);
 
     await ctx.db.patch(existing._id, {
       name: clamp(args.name, 120),
       city: clamp(args.city, 120),
-      instagram: instagram || undefined,
+      instagram,
       discipline: args.discipline,
       portfolioUrl: clamp(args.portfolioUrl, 500),
       workDescription: clamp(args.workDescription, 2000),
@@ -165,6 +196,38 @@ export const answerApplication = mutation({
       participation: args.participation?.length ? args.participation : undefined,
       answeredAt: Date.now(),
     });
+
+    // Confirmation goes out on the FIRST completed application only, not on
+    // every revision — someone who comes back to swap in better photos
+    // shouldn't get a second "we got it." `apply` (step one) sends nothing:
+    // at that point we hold an email and no work, and confirming an
+    // application they haven't made yet would be a lie.
+    //
+    // Transactional, so no unsubscribe token and no preference lookup: this
+    // is the receipt for a thing they just did. The applicant has no account
+    // (that's the whole design), so this schedules the action directly with
+    // an address rather than going through emailHelpers' userId path.
+    if (!existing.confirmationSentAt) {
+      await ctx.db.patch(existing._id, { confirmationSentAt: Date.now() });
+      const firstName = clamp(args.name, 120)?.split(/\s+/)[0];
+      await ctx.scheduler.runAfter(0, internal.emails.sendNotificationEmail, {
+        to: email,
+        subject: "We've got your showcase application",
+        previewText: "Selection is rolling — you'll hear back within a few days.",
+        // `heading` is plain text by the template's contract — it escapes
+        // this itself, so the applicant's own name must NOT be pre-escaped.
+        // `body` below is trusted HTML and interpolates nothing they typed.
+        heading: firstName ? `Thanks, ${firstName}.` : "Application received.",
+        body:
+          `<p>Your application for the November 6 showcase is in, and a real person reads every one.</p>` +
+          `<p>We review applications as they arrive rather than waiting for the deadline, so you'll hear back within a few days either way — and by October 26 at the latest.</p>` +
+          `<p>Want to add or change what you sent? Just reply to this email.</p>`,
+        ctaText: "See what's being made",
+        ctaUrl: "/opportunities",
+        category: "transactional",
+      });
+    }
+
     return { success: true };
   },
 });
@@ -192,20 +255,123 @@ export const publicStats = query({
 
 // ————— Admin —————
 
+/** The jury sheet. Every application, each with its vote tally, who voted
+    which way, and the caller's own vote so the UI can show it selected.
+
+    O(applications x votes) with a profile lookup per voter — fine at the
+    scale this runs at (one showcase, hundreds of applications, a handful of
+    admins) and not worth a denormalized counter that could drift from the
+    votes themselves. */
 export const adminList = query({
   args: {},
   handler: async (ctx) => {
-    await requireAdminCtx(ctx);
+    const me = await requireAdminCtx(ctx);
+
     const rows = await ctx.db.query("showcaseApplications").collect();
-    // Completed applications first, then newest — the jury reads the ones
-    // with actual work attached before the bare email captures.
-    return rows.sort((a, b) => {
-      if (!!a.answeredAt !== !!b.answeredAt) return a.answeredAt ? -1 : 1;
-      return b.createdAt - a.createdAt;
+    const votes = await ctx.db.query("showcaseVotes").collect();
+
+    // One profile read per DISTINCT voter, not per vote.
+    const voterNames = new Map<string, string>();
+    for (const userId of new Set(votes.map((vote) => vote.userId))) {
+      const profile = await ctx.db
+        .query("profiles")
+        .withIndex("by_userId", (q) => q.eq("userId", userId))
+        .first();
+      voterNames.set(userId, profile?.name ?? "An admin");
+    }
+
+    const byApplication = new Map<string, typeof votes>();
+    for (const vote of votes) {
+      const list = byApplication.get(vote.applicationId) ?? [];
+      list.push(vote);
+      byApplication.set(vote.applicationId, list);
+    }
+
+    const withVotes = rows.map((row) => {
+      const cast = byApplication.get(row._id) ?? [];
+      return {
+        ...row,
+        tally: {
+          yes: cast.filter((vote) => vote.vote === "yes").length,
+          maybe: cast.filter((vote) => vote.vote === "maybe").length,
+          no: cast.filter((vote) => vote.vote === "no").length,
+        },
+        votes: cast.map((vote) => ({
+          userId: vote.userId,
+          voter: voterNames.get(vote.userId) ?? "An admin",
+          vote: vote.vote,
+          note: vote.note,
+        })),
+        myVote: cast.find((vote) => vote.userId === me)?.vote ?? null,
+      };
     });
+
+    return withVotes.sort(compareForJury);
   },
 });
 
+/** Cast or change one admin's vote. Upsert keyed on (application, admin),
+    so voting twice revises rather than stacking. Any admin may vote —
+    "whoever's admin in the Garden," same gate as every other admin
+    surface. */
+export const castVote = mutation({
+  args: {
+    applicationId: v.id("showcaseApplications"),
+    vote: v.union(v.literal("yes"), v.literal("maybe"), v.literal("no")),
+    note: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const userId = await requireAdminCtx(ctx);
+
+    const application = await ctx.db.get(args.applicationId);
+    if (!application) throw new Error("That application no longer exists.");
+
+    const existing = await ctx.db
+      .query("showcaseVotes")
+      .withIndex("by_application_and_user", (q) =>
+        q.eq("applicationId", args.applicationId).eq("userId", userId),
+      )
+      .first();
+
+    const note = clamp(args.note, 1000);
+    const now = Date.now();
+
+    if (existing) {
+      await ctx.db.patch(existing._id, { vote: args.vote, note, updatedAt: now });
+    } else {
+      await ctx.db.insert("showcaseVotes", {
+        applicationId: args.applicationId,
+        userId,
+        vote: args.vote,
+        note,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+    return { success: true };
+  },
+});
+
+/** Withdraw the caller's own vote. An admin can only clear their own —
+    there is no path here to delete someone else's. */
+export const clearVote = mutation({
+  args: { applicationId: v.id("showcaseApplications") },
+  handler: async (ctx, args) => {
+    const userId = await requireAdminCtx(ctx);
+    const existing = await ctx.db
+      .query("showcaseVotes")
+      .withIndex("by_application_and_user", (q) =>
+        q.eq("applicationId", args.applicationId).eq("userId", userId),
+      )
+      .first();
+    if (!existing) return { cleared: false };
+    await ctx.db.delete(existing._id);
+    return { cleared: true };
+  },
+});
+
+/** The decision itself, which stays separate from the vote tally — see the
+    showcaseVotes comment in schema.ts. */
 export const setStatus = mutation({
   args: {
     id: v.id("showcaseApplications"),

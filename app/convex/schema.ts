@@ -429,9 +429,34 @@ export default defineSchema({
     ),
     decidedAt: v.optional(v.number()),
     decidedBy: v.optional(v.id("users")),
+    // Set once, when the applicant is first told we received a completed
+    // application. Guards the confirmation email against re-sending every
+    // time they come back and revise their submission.
+    confirmationSentAt: v.optional(v.number()),
   })
     .index("by_email", ["email"])
     .index("by_status", ["status"]),
+
+  // One admin's vote on one showcase application (/admin/showcase). A row
+  // per (application, admin) rather than a tally on the application itself,
+  // so the sheet can show WHO thought what and an admin can change their
+  // mind without racing anyone else's write.
+  //
+  // Voting does not decide anything on its own — it informs the `status`
+  // an admin sets on the application. That separation is deliberate: a
+  // vote count is an opinion, selection is a commitment to give someone
+  // wall space, and the second should stay a person's explicit act.
+  showcaseVotes: defineTable({
+    applicationId: v.id("showcaseApplications"),
+    userId: v.id("users"),
+    vote: v.union(v.literal("yes"), v.literal("maybe"), v.literal("no")),
+    note: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_application", ["applicationId"])
+    // Upsert lookup: an admin has at most one vote per application.
+    .index("by_application_and_user", ["applicationId", "userId"]),
 
   // Jobs board
   jobs: defineTable({
