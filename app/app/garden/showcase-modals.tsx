@@ -127,14 +127,20 @@ const MAX_INTERESTS = 8;
     harder as they go, so the cheapest one (your name) is the one that earns
     the commitment to keep going, and the open-ended one (what would you
     bring) lands after two screens of momentum. */
+// The lane card opens this overlay directly, so the email now lives HERE as
+// step one rather than in a panel on the page. Same rule as the ticket
+// overlay: it is one field, it submits on its own, and nothing after it is
+// batched with it. Someone who closes at step two is already on the list.
+//
+// There is no "how would you take part" step any more. The card they clicked
+// IS that answer and the choice is single, so asking again inside was asking
+// a question we had already been told the answer to.
 const STEPS = [
+  { key: "email", label: "Email", heading: "Where do we reach you?" },
   { key: "you", label: "You", heading: "Start with who you are." },
   { key: "make", label: "What you make", heading: "What do you make?" },
   { key: "work", label: "Your work", heading: "Show us something." },
-  { key: "night", label: "The night", heading: "How would you take part?" },
 ] as const;
-
-const STEP_COUNT = STEPS.length;
 
 /** What the person at this door is actually trying to do.
     The application used to run one fixed script for everyone, so a
@@ -161,12 +167,14 @@ function isLastStep(step: number, count: number): boolean {
   return Math.min(step, count - 1) === count - 1;
 }
 
-/** The steps this intent actually needs. */
-function stepsFor(intent?: ApplyIntent) {
-  if (intent && !intent.asksAboutWork) {
-    return STEPS.filter((s) => s.key !== "work");
-  }
-  return STEPS;
+/** The steps this lane actually needs. Drops the work step for lanes with
+    nothing to submit, and the email step once we already hold one. */
+function stepsFor(intent: ApplyIntent | undefined, hasEmail: boolean) {
+  return STEPS.filter((s) => {
+    if (s.key === "work") return intent ? intent.asksAboutWork : true;
+    if (s.key === "email") return !hasEmail;
+    return true;
+  });
 }
 
 /** The ticket's three steps. Deliberately one fewer than the application and
@@ -554,6 +562,8 @@ function ErrorLine({ error }: { error: string | null }) {
 export function ApplyModal({
   open,
   email,
+  emailSaved,
+  onEmail,
   returning,
   participationOptions,
   intent,
@@ -565,7 +575,14 @@ export function ApplyModal({
   onClose,
 }: {
   open: boolean;
+  /** The address already banked, or "" when this overlay must collect it. */
   email: string;
+  /** True once the parent has saved the email. Gates the advance off step
+      one — a failed save must leave them on that step, not walk them
+      forward into questions attached to nothing. */
+  emailSaved: boolean;
+  /** Saves the email, alone. Called from step one and nowhere else. */
+  onEmail: (email: string) => void;
   /** true when they already completed an application before */
   returning: boolean;
   participationOptions: readonly ParticipationOption[];
@@ -594,6 +611,15 @@ export function ApplyModal({
   const [portfolioUrl, setPortfolioUrl] = useState("");
   const [workDescription, setWorkDescription] = useState("");
   const [participation, setParticipation] = useState<string[]>([]);
+  const [draftEmail, setDraftEmail] = useState("");
+  // Whether THIS visit submitted the email, so the advance below fires once
+  // on a real save rather than every time a returning visitor opens the box.
+  const [emailSent, setEmailSent] = useState(false);
+
+  // Move off step one only when the parent confirms the write.
+  useEffect(() => {
+    if (open && emailSent && emailSaved && step === 0) setStep(1);
+  }, [open, emailSent, emailSaved, step]);
 
   // Tick the lane they arrived through. Runs on open rather than on mount:
   // the component stays mounted across close/reopen so typed answers
@@ -668,13 +694,32 @@ export function ApplyModal({
   // dialog without scrolling — if you add a field here, take one out or add a
   // fifth step.
   let body: ReactNode = null;
-  const steps = stepsFor(intent);
+  const steps = stepsFor(intent, Boolean(email));
   const last = isLastStep(step, steps.length);
   // Clamp: switching into a shorter lane must not leave `step` past the end.
   const safeStep = Math.min(step, steps.length - 1);
   const stepKey = steps[safeStep].key;
 
-  if (stepKey === "you") {
+  if (stepKey === "email") {
+    body = (
+      <div>
+        <input
+          className="g-input"
+          type="email"
+          inputMode="email"
+          autoComplete="email"
+          aria-label="Your email"
+          placeholder="you@email.com"
+          value={draftEmail}
+          onChange={(e) => setDraftEmail(e.target.value)}
+        />
+        <p className="g-hint" style={{ marginTop: 10 }}>
+          Saved on its own, before anything else — so you can stop here and
+          still be on the list.
+        </p>
+      </div>
+    );
+  } else if (stepKey === "you") {
     body = (
       <div style={{ display: "grid", gap: 12 }}>
         <input
@@ -724,41 +769,6 @@ export function ApplyModal({
           value={workDescription}
           onChange={(e) => setWorkDescription(e.target.value)}
         />
-      </div>
-    );
-  } else {
-    body = (
-      <div>
-        <p className="g-hint" style={{ marginBottom: 10 }}>
-          Pick any that fit. Most people pick one.
-        </p>
-        <div style={{ display: "grid", gap: 8, maxHeight: "40vh", overflow: "auto" }}>
-          {participationOptions.map((p) => (
-            <label
-              key={p.value}
-              style={{
-                display: "flex",
-                gap: 10,
-                alignItems: "flex-start",
-                cursor: "pointer",
-                fontSize: 15,
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={participation.includes(p.value)}
-                onChange={() => toggleParticipation(p.value)}
-                style={{ marginTop: 5, accentColor: "var(--g-citron)" }}
-              />
-              <span>
-                <span style={{ color: "var(--g-paper)" }}>{p.label}</span>
-                <span className="g-hint" style={{ display: "block", fontSize: 14 }}>
-                  {p.note}
-                </span>
-              </span>
-            </label>
-          ))}
-        </div>
       </div>
     );
   }

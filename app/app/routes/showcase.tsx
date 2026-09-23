@@ -897,20 +897,30 @@ export default function Showcase() {
   }
 
   /** Step one, and the only thing on the page that must not fail quietly. */
-  async function submitEmail(e: React.FormEvent) {
-    e.preventDefault();
+  /** Saves one address, alone. Both doors call this: the panel's form and
+      step one of the overlay. It is the only place the email is written, so
+      the two entry points cannot drift apart on what "saved" means. */
+  async function submitEmailValue(value: string) {
+    const address = value.trim();
+    if (!address) return;
     setApplyBusy(true);
     setApplyError(null);
     try {
-      const result = await apply({ email });
+      const result = await apply({ email: address });
+      setEmail(address);
       setReturning(result.answered);
       setEmailSaved(true);
-      setApplyOpen(true);
     } catch (err) {
       setApplyError(errorText(err));
     } finally {
       setApplyBusy(false);
     }
+  }
+
+  async function submitEmail(e: React.FormEvent) {
+    e.preventDefault();
+    await submitEmailValue(email);
+    setApplyOpen(true);
   }
 
   /** Steps two through four, handed back in one object by the stepper. */
@@ -983,16 +993,10 @@ export default function Showcase() {
       lane is remembered either way and ticked once the modal opens. */
   function startLane(value: string) {
     setLane(value);
-    if (emailSaved) {
-      setApplyOpen(true);
-      return;
-    }
-    const panel = document.getElementById("apply");
-    panel?.scrollIntoView({ behavior: "smooth", block: "center" });
-    panel?.querySelector<HTMLInputElement>('input[type="email"]')?.focus({
-      preventScroll: true,
-    });
+    setApplyError(null);
+    setApplyOpen(true);
   }
+
 
   function openTicket(next: { label: string; price: string; note: string }) {
     setTier(next);
@@ -1006,6 +1010,20 @@ export default function Showcase() {
 
       {/* Hero */}
       <div style={{ marginTop: 18 }}>
+        {/* The drawing opens the page. It is the only thing here that says
+            what the night looks like before a word is read. */}
+        <img
+          src="/showcase/table-drawing.jpg"
+          alt="Line drawing of people around a long table making things — playing guitar, throwing pottery, working with tools, reading."
+          style={{
+            width: "100%",
+            marginBottom: 26,
+            borderRadius: 6,
+            filter: "invert(1)",
+            display: "block",
+          }}
+        />
+
         <span className="g-badge g-badge-citron">Open call</span>
         <h1 className="g-h" style={{ marginTop: 16 }}>
           Friends, neighbors&hellip;
@@ -1026,139 +1044,10 @@ export default function Showcase() {
           ))}
         </div>
 
-        <img
-          src="/showcase/table-drawing.jpg"
-          alt="Line drawing of people around a long table making things — playing guitar, throwing pottery, working with tools, reading."
-          style={{
-            width: "100%",
-            marginTop: 28,
-            borderRadius: 6,
-            filter: "invert(1)",
-            display: "block",
-          }}
-        />
-      </div>
-
-      {/* The ask, first and on its own surface. Lighter than the page and
-          citron-edged so it reads as a panel laid on top rather than as the
-          next paragraph. */}
-      <section
-        id="apply"
-        aria-labelledby={applyHeadingId}
-        style={{
-          marginTop: 28,
-          padding: "24px 24px 26px",
-          borderRadius: 10,
-          border: "1px solid var(--g-citron)",
-          background: "rgba(247, 247, 244, 0.05)",
-          boxShadow: "0 14px 38px rgba(0, 0, 0, 0.45)",
-        }}
-      >
-        {emailSaved ? (
-          // The email is banked. This stays as the way back into the stepper
-          // if they dismissed it, and as proof we have their address.
-          <div>
-            <div className="g-label" style={{ color: "var(--g-citron)" }}>
-              {applyDone ? "Application received" : "Email saved"}
-            </div>
-            <p
-              className="g-h"
-              id={applyHeadingId}
-              style={{ fontSize: 22, marginTop: 10 }}
-            >
-              {applyDone
-                ? `We'll be in touch by ${DECISION_BY}.`
-                : `You're on the list as ${email}.`}
-            </p>
-            <p className="g-hint" style={{ marginTop: 8 }}>
-              {applyDone
-                ? "Want to change what you sent? Open it again and resubmit."
-                : laneCopy.saved}
-            </p>
-            <button
-              className="g-btn g-btn-ghost"
-              type="button"
-              onClick={() => setApplyOpen(true)}
-              style={{ marginTop: 14 }}
-            >
-              {applyDone ? "Review answers" : "Finish application"}
-            </button>
-          </div>
-        ) : (
-          <form onSubmit={submitEmail}>
-            <div className="g-label">Free · no account · 20 seconds</div>
-            <p
-              className="g-h"
-              id={applyHeadingId}
-              style={{ fontSize: 24, marginTop: 10 }}
-            >
-              {laneCopy.heading}
-            </p>
-            <p className="g-hint" style={{ marginTop: 8 }}>
-              {laneCopy.hint}
-            </p>
-            <div
-              style={{ display: "flex", gap: 10, marginTop: 16, flexWrap: "wrap" }}
-            >
-              <input
-                className="g-input"
-                style={{ flex: "1 1 240px" }}
-                type="email"
-                required
-                autoComplete="email"
-                aria-label="Your email"
-                placeholder="you@email.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-              <button
-                className="g-btn g-btn-citron"
-                type="submit"
-                disabled={applyBusy}
-                style={{ opacity: applyBusy ? 0.6 : 1 }}
-              >
-                {applyBusy ? "Saving…" : laneCopy.cta}
-              </button>
-            </div>
-            {applyError && (
-              <p style={{ color: "var(--g-citron)", fontSize: 14, marginTop: 10 }}>
-                {applyError}
-              </p>
-            )}
-          </form>
-        )}
-      </section>
-
-      {/* Below the panel on purpose — a deadline is a reason to finish, not
-          a hurdle to read before starting. */}
-      <p className="g-hint" style={{ marginTop: 12 }}>
-        Applications close {CLOSE_DATE}. Selection is rolling, so the earlier
-        you send yours, the more of the {SPOTS} spots are left.
-      </p>
-
-      {/* The positioning. Unpaid faith or faithless funding, and a third
-          option. Five short sentences, and it does not get longer. */}
-      {/* Facts before persuasion — a creative deciding whether to apply is
-          scanning for the date, the cost and the catch. */}
-      <Section label="The details">
-        <FactLine k="When" v={EVENT_DATE} />
-        <FactLine k="Where" v={EVENT_PLACE} />
-        <FactLine k="Spots" v={`${SPOTS}, selected from applications`} />
-        <FactLine k="To apply" v="Free" />
-        <FactLine k="Admission" v={TICKET_SUMMARY} />
-        <FactLine k="Closes" v={`${CLOSE_DATE}, but selection is rolling`} />
-        <FactLine k="Also" v="Livestreamed free, and recorded" />
-        {/* Decorative, and behind its own boundary for exactly that reason.
-            If publicStats throws, this line disappears and nothing else on
-            the page changes. See the header. */}
-        <QuietBoundary>
-          <AppliedCount />
-        </QuietBoundary>
-      </Section>
-
-      {/* Show your craft | Back the work in the first row. See the header. */}
-      <Section label="Six ways to take part">
-        <P>Pick any that fit. Most people pick one.</P>
+      {/* No instruction line under this grid. "Join us as…" already says the
+          choice is one of these, and a sentence telling someone to pick one
+          is a sentence explaining a grid of six buttons. */}
+      <Section label="Join us as…">
         <div style={{ marginTop: 18 }}>
           <CardGrid>
             {PARTICIPATION.map((p) => (
@@ -1211,6 +1100,31 @@ export default function Showcase() {
           </CardGrid>
         </div>
       </Section>
+
+      </div>
+
+
+      {/* The positioning. Unpaid faith or faithless funding, and a third
+          option. Five short sentences, and it does not get longer. */}
+      {/* Facts before persuasion — a creative deciding whether to apply is
+          scanning for the date, the cost and the catch. */}
+      <Section label="The details">
+        <FactLine k="When" v={EVENT_DATE} />
+        <FactLine k="Where" v={EVENT_PLACE} />
+        <FactLine k="Spots" v={`${SPOTS}, selected from applications`} />
+        <FactLine k="To apply" v="Free" />
+        <FactLine k="Admission" v={TICKET_SUMMARY} />
+        <FactLine k="Closes" v={`${CLOSE_DATE}, but selection is rolling`} />
+        <FactLine k="Also" v="Livestreamed free, and recorded" />
+        {/* Decorative, and behind its own boundary for exactly that reason.
+            If publicStats throws, this line disappears and nothing else on
+            the page changes. See the header. */}
+        <QuietBoundary>
+          <AppliedCount />
+        </QuietBoundary>
+      </Section>
+
+      {/* Show your craft | Back the work in the first row. See the header. */}
 
       {/* The economy, in the site's own tagline. This sits high on the page
           on purpose: an applicant who finds out at acceptance that they have
@@ -1328,6 +1242,103 @@ export default function Showcase() {
       {/* Below the apply area on purpose. An FAQ above the ask answers
           objections nobody has yet; below it, it catches the people who
           scrolled past. */}
+      {/* The ask, first and on its own surface. Lighter than the page and
+          citron-edged so it reads as a panel laid on top rather than as the
+          next paragraph. */}
+      <section
+        id="apply"
+        aria-labelledby={applyHeadingId}
+        style={{
+          marginTop: 28,
+          padding: "24px 24px 26px",
+          borderRadius: 10,
+          border: "1px solid var(--g-citron)",
+          background: "rgba(247, 247, 244, 0.05)",
+          boxShadow: "0 14px 38px rgba(0, 0, 0, 0.45)",
+        }}
+      >
+        {emailSaved ? (
+          // The email is banked. This stays as the way back into the stepper
+          // if they dismissed it, and as proof we have their address.
+          <div>
+            <div className="g-label" style={{ color: "var(--g-citron)" }}>
+              {applyDone ? "Application received" : "Email saved"}
+            </div>
+            <p
+              className="g-h"
+              id={applyHeadingId}
+              style={{ fontSize: 22, marginTop: 10 }}
+            >
+              {applyDone
+                ? `We'll be in touch by ${DECISION_BY}.`
+                : `You're on the list as ${email}.`}
+            </p>
+            <p className="g-hint" style={{ marginTop: 8 }}>
+              {applyDone
+                ? "Want to change what you sent? Open it again and resubmit."
+                : laneCopy.saved}
+            </p>
+            <button
+              className="g-btn g-btn-ghost"
+              type="button"
+              onClick={() => setApplyOpen(true)}
+              style={{ marginTop: 14 }}
+            >
+              {applyDone ? "Review answers" : "Finish application"}
+            </button>
+          </div>
+        ) : (
+          <form onSubmit={submitEmail}>
+            <div className="g-label">Free · no account · 20 seconds</div>
+            <p
+              className="g-h"
+              id={applyHeadingId}
+              style={{ fontSize: 24, marginTop: 10 }}
+            >
+              {laneCopy.heading}
+            </p>
+            <p className="g-hint" style={{ marginTop: 8 }}>
+              {laneCopy.hint}
+            </p>
+            <div
+              style={{ display: "flex", gap: 10, marginTop: 16, flexWrap: "wrap" }}
+            >
+              <input
+                className="g-input"
+                style={{ flex: "1 1 240px" }}
+                type="email"
+                required
+                autoComplete="email"
+                aria-label="Your email"
+                placeholder="you@email.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+              <button
+                className="g-btn g-btn-citron"
+                type="submit"
+                disabled={applyBusy}
+                style={{ opacity: applyBusy ? 0.6 : 1 }}
+              >
+                {applyBusy ? "Saving…" : laneCopy.cta}
+              </button>
+            </div>
+            {applyError && (
+              <p style={{ color: "var(--g-citron)", fontSize: 14, marginTop: 10 }}>
+                {applyError}
+              </p>
+            )}
+          </form>
+        )}
+      </section>
+
+      {/* Below the panel on purpose — a deadline is a reason to finish, not
+          a hurdle to read before starting. */}
+      <p className="g-hint" style={{ marginTop: 12 }}>
+        Applications close {CLOSE_DATE}. Selection is rolling, so the earlier
+        you send yours, the more of the {SPOTS} spots are left.
+      </p>
+
       <Section label="Questions people ask">
         <div style={{ display: "grid", gap: 10 }}>
           <Faq q="How does selection work?">
@@ -1425,6 +1436,8 @@ export default function Showcase() {
         open={applyOpen}
         email={email}
         returning={returning}
+        emailSaved={emailSaved}
+        onEmail={submitEmailValue}
         participationOptions={PARTICIPATION}
         intent={{
           key: lane,
