@@ -82,11 +82,35 @@ const SPOTS = 20;
 // buy a ticket like everyone else, and the page has to say so plainly rather
 // than let an applicant discover it after they've been accepted.
 //
-// TICKET_PRICE and TICKET_URL are unset until the price is decided. While
-// TICKET_URL is null the page still states that admission is ticketed and
-// that waiting is a real risk; it just can't sell one yet. Fill both in and
-// the CTA appears — nothing else has to change.
-const TICKET_PRICE: string | null = null;
+// Two prices, one room. The creatives this call recruits are the people
+// least able to absorb a benefit ticket, and the patrons are who the
+// fundraiser is actually aimed at — one flat price would either price out
+// the applicants or leave donor money on the table.
+const TICKET_TIERS = [
+  {
+    label: "Creative",
+    price: "$25",
+    note: "If you're showing, playing, selling or just make things.",
+  },
+  {
+    label: "Patron",
+    price: "$75",
+    note: "Covers your seat and helps cover someone else's.",
+  },
+] as const;
+
+/** Short form for the facts table. */
+const TICKET_SUMMARY = "$25 creative · $75 patron";
+
+/** The table fee. Named rather than inlined because it appears in three
+    places (the participation card, the apparel persona, the FAQ) and they
+    must not drift. */
+const TABLE_FEE = "$50";
+
+// Per-event ticketing isn't built — docs/events-video-hosting-prd.md keeps it
+// out of scope, and events use an off-platform payment link instead. So this
+// stays null until there's a real checkout URL to point at. Prices above show
+// either way; only the button waits on this.
 const TICKET_URL: string | null = null;
 
 const DISCIPLINES = [
@@ -115,7 +139,7 @@ const PARTICIPATION = [
   {
     value: "vend",
     label: "Sell at a table",
-    note: "Tables cost a fee and there aren't many. You keep what you sell.",
+    note: `${TABLE_FEE}, and there aren't many. You keep what you sell.`,
   },
   {
     value: "document",
@@ -581,14 +605,7 @@ export default function Showcase() {
         <FactLine k="Where" v={EVENT_PLACE} />
         <FactLine k="Spots" v={`${SPOTS}, selected from applications`} />
         <FactLine k="To apply" v="Free" />
-        <FactLine
-          k="Admission"
-          v={
-            TICKET_PRICE
-              ? `${TICKET_PRICE} — everyone, including the creatives showing`
-              : "Ticketed — everyone, including the creatives showing"
-          }
-        />
+        <FactLine k="Admission" v={TICKET_SUMMARY} />
         <FactLine
           k="Closes"
           v={`${CLOSE_DATE} — but selection is rolling, so apply early`}
@@ -646,6 +663,30 @@ export default function Showcase() {
           creatives' projects. So everyone in the room holds a ticket. That
           includes us, and it includes the {SPOTS} people showing work.
         </P>
+        <div style={{ display: "grid", gap: 12, marginTop: 20 }}>
+          {TICKET_TIERS.map((tier) => (
+            <div
+              key={tier.label}
+              className="g-card"
+              style={{ display: "flex", gap: 16, alignItems: "baseline" }}
+            >
+              <span
+                className="g-h"
+                style={{ fontSize: 26, color: "var(--g-citron)", flexShrink: 0 }}
+              >
+                {tier.price}
+              </span>
+              <span>
+                <span style={{ color: "var(--g-paper)", display: "block" }}>
+                  {tier.label}
+                </span>
+                <span className="g-hint" style={{ display: "block", marginTop: 4 }}>
+                  {tier.note}
+                </span>
+              </span>
+            </div>
+          ))}
+        </div>
         <P>
           The room is small. You can wait and buy later, but if it sells out
           before you do, being selected won't get you in. Buy early if you
@@ -655,14 +696,14 @@ export default function Showcase() {
           <a
             className="g-btn g-btn-citron"
             href={TICKET_URL}
-            style={{ marginTop: 18 }}
+            style={{ marginTop: 8 }}
           >
-            {TICKET_PRICE ? `Get a ticket — ${TICKET_PRICE}` : "Get a ticket"}
+            Get a ticket
           </a>
         ) : (
-          <p className="g-hint" style={{ marginTop: 16 }}>
-            Tickets aren't on sale yet. Apply and we'll send you the link
-            before they go public.
+          <p className="g-hint" style={{ marginTop: 8 }}>
+            Tickets go on sale shortly. Apply and we'll send you the link
+            before they're public.
           </p>
         )}
         <P>
@@ -675,7 +716,7 @@ export default function Showcase() {
         <WhoCard
           who="Apparel"
           quote="I'm a designer. I'm not a Jesus-merch guy."
-          body="Your drops go out to a feed that won't show them to anyone who'd wear them. Tables are limited and cost a fee, but what you sell is yours."
+          body={`Your drops go out to a feed that won't show them to anyone who'd wear them. A table is ${TABLE_FEE} and there aren't many, but what you sell is yours.`}
         />
         <WhoCard
           who="Painters"
@@ -722,9 +763,9 @@ export default function Showcase() {
             </div>
             <P>
               Applying is free, and showing work is free. Two things aren't:
-              tables cost a fee, and everyone in the room has a ticket —
-              including the creatives showing. It's a fundraiser for the grant
-              fund, so nobody goes free, us included.
+              a table is {TABLE_FEE}, and everyone in the room has a ticket —
+              {" "}{TICKET_SUMMARY}, creatives included. It's a fundraiser for
+              the grant fund, so nobody goes free, us included.
             </P>
           </div>
           <div>
