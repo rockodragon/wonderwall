@@ -678,6 +678,20 @@ export function ApplyModal({
     );
   }
 
+  /** What the primary control does: advance, or finish. Enter and the
+      button both call THIS, so a keyboard user and a mouse user can never
+      end up doing different things on the same step. */
+  function advance() {
+    if (submitting) return;
+    if (stepKey === "email") {
+      onEmail(draftEmail);
+      setEmailSent(true);
+      return;
+    }
+    if (last) send();
+    else setStep((prev) => Math.min(steps.length - 1, prev + 1));
+  }
+
   if (done) {
     return (
       <ModalShell labelledBy={headingId} onClose={onClose}>
@@ -719,6 +733,10 @@ export function ApplyModal({
         <input
           className="g-input"
           type="email"
+          // Required only HERE. Everything after this step is optional, but
+          // an empty submit on the email step would otherwise no-op in the
+          // parent and leave them staring at an unchanged dialog.
+          required
           inputMode="email"
           autoComplete="email"
           aria-label="Your email"
@@ -799,19 +817,30 @@ export function ApplyModal({
           : `Saved as ${email}. Everything here is optional — skip anything you'd rather not answer.`}
       </p>
 
-      {/* A floor under the step body so the dialog doesn't jump between a
-          three-field step and a two-field one. */}
-      <div style={{ minHeight: 190 }}>{body}</div>
-
-      <div
-        style={{
-          display: "flex",
-          gap: 10,
-          alignItems: "center",
-          flexWrap: "wrap",
-          marginTop: 20,
+      {/* A real <form>, so Enter in any field does the obvious thing:
+          advance a step, and submit on the last one. Without it the only way
+          forward was the mouse, which on a four-field form is the difference
+          between finishing and closing the tab. Back and Skip stay
+          type="button" so they can never be what Enter triggers. */}
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          advance();
         }}
       >
+        {/* A floor under the step body so the dialog doesn't jump between a
+            three-field step and a two-field one. */}
+        <div style={{ minHeight: 190 }}>{body}</div>
+
+        <div
+          style={{
+            display: "flex",
+            gap: 10,
+            alignItems: "center",
+            flexWrap: "wrap",
+            marginTop: 20,
+          }}
+        >
         <button
           className="g-btn g-btn-ghost"
           type="button"
@@ -823,12 +852,9 @@ export function ApplyModal({
         </button>
         <button
           className="g-btn g-btn-citron"
-          type="button"
           // Never blocked. There is no validation here on purpose: a half
           // answer that arrives beats a whole one that doesn't.
-          onClick={() =>
-            last ? send() : setStep((s) => Math.min(steps.length - 1, s + 1))
-          }
+          type="submit"
           disabled={submitting}
           style={{ opacity: submitting ? 0.6 : 1 }}
         >
@@ -842,20 +868,25 @@ export function ApplyModal({
 
       {/* The escape hatch. Someone who came to give a name and a link should
           never have to walk three more screens to get out of the form. */}
-      {!last && (
-        <div style={{ marginTop: 14 }}>
-          <button
-            type="button"
-            className="sc-skip"
-            onClick={send}
-            disabled={submitting}
-          >
-            Skip the rest and send
-          </button>
-        </div>
-      )}
+        {/* No skip on the email step: "skip the rest and send" there would
+            submit answers against an application that was never created,
+            and the applicant would watch a form fail for no reason they
+            could see. */}
+        {!last && stepKey !== "email" && (
+          <div style={{ marginTop: 14 }}>
+            <button
+              type="button"
+              className="sc-skip"
+              onClick={send}
+              disabled={submitting}
+            >
+              Skip the rest and send
+            </button>
+          </div>
+        )}
 
-      <ErrorLine error={error} />
+        <ErrorLine error={error} />
+      </form>
     </ModalShell>
   );
 }
@@ -1049,47 +1080,49 @@ export function TicketModal({
               ? "Saved. Two quick ones, both optional."
               : "Two quick ones, both optional."}
           </p>
-          <div style={{ display: "grid", gap: 12 }}>
-            <input
-              className="g-input"
-              placeholder="Your name"
-              autoComplete="name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
-            <input
-              className="g-input"
-              placeholder="City"
-              autoComplete="address-level2"
-              value={city}
-              onChange={(e) => setCity(e.target.value)}
-            />
-          </div>
           <TicketActions
             primaryLabel="Next"
             onPrimary={() => setStep(2)}
             onSkip={() => setStep(2)}
-          />
+          >
+            <div style={{ display: "grid", gap: 12 }}>
+              <input
+                className="g-input"
+                placeholder="Your name"
+                autoComplete="name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
+              <input
+                className="g-input"
+                placeholder="City"
+                autoComplete="address-level2"
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+              />
+            </div>
+          </TicketActions>
         </>
       ) : step === 2 ? (
         <>
-          <div style={{ marginTop: 16 }}>
-            {/* The application's chip grid, verbatim — same cap, same live
-                counter, same bounded scroll — with only the question above
-                it changed for the tier. */}
-            <InterestChips
-              label={interestQuestion}
-              selected={interests}
-              onToggle={(value) =>
-                setInterests((prev) => toggleCapped(prev, value))
-              }
-            />
-          </div>
           <TicketActions
             primaryLabel="Done"
             onPrimary={finishDetails}
             onSkip={finishDetails}
-          />
+          >
+            <div style={{ marginTop: 16 }}>
+              {/* The application's chip grid, verbatim — same cap, same live
+                  counter, same bounded scroll — with only the question above
+                  it changed for the tier. */}
+              <InterestChips
+                label={interestQuestion}
+                selected={interests}
+                onToggle={(value) =>
+                  setInterests((prev) => toggleCapped(prev, value))
+                }
+              />
+            </div>
+          </TicketActions>
         </>
       ) : done ? (
         <>
@@ -1167,28 +1200,42 @@ function TicketActions({
   primaryLabel,
   onPrimary,
   onSkip,
+  children,
 }: {
   primaryLabel: string;
   onPrimary: () => void;
   onSkip: () => void;
+  /** The step's fields. They live INSIDE this form so Enter in any of them
+      does what the primary button does — the email step already worked that
+      way and the two steps after it did not, which made the keyboard stop
+      working halfway through the dialog. */
+  children?: ReactNode;
 }) {
   return (
-    <div
-      style={{
-        display: "flex",
-        gap: 14,
-        alignItems: "center",
-        flexWrap: "wrap",
-        marginTop: 20,
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        onPrimary();
       }}
     >
-      <button className="g-btn g-btn-citron" type="button" onClick={onPrimary}>
-        {primaryLabel}
-      </button>
-      <button type="button" className="sc-skip" onClick={onSkip}>
-        Skip
-      </button>
-    </div>
+      {children}
+      <div
+        style={{
+          display: "flex",
+          gap: 14,
+          alignItems: "center",
+          flexWrap: "wrap",
+          marginTop: 20,
+        }}
+      >
+        <button className="g-btn g-btn-citron" type="submit">
+          {primaryLabel}
+        </button>
+        <button type="button" className="sc-skip" onClick={onSkip}>
+          Skip
+        </button>
+      </div>
+    </form>
   );
 }
 

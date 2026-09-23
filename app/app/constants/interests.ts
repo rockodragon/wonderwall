@@ -24,14 +24,16 @@ export const INTERESTS = [
   "Production",
   "Audio",
   "Technology",
+  "Software",
+  "Product",
   "Content Creation",
   "Ministry",
   "Leadership",
   "Teaching",
   "Public Speaking",
   "Entrepreneurship",
+  "Business",
   "Marketing",
-  "Product Management",
   "Other",
 ] as const;
 
