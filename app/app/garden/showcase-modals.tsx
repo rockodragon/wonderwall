@@ -523,6 +523,7 @@ export function ApplyModal({
   email,
   returning,
   participationOptions,
+  preselect,
   submitting,
   error,
   done,
@@ -534,6 +535,11 @@ export function ApplyModal({
   /** true when they already completed an application before */
   returning: boolean;
   participationOptions: readonly ParticipationOption[];
+  /** A participation value to tick when the modal opens — set when someone
+      enters from a specific card ("Volunteer on the night") rather than the
+      generic apply panel. Additive: it never clears a choice they already
+      made, because arriving via a second card shouldn't undo the first. */
+  preselect?: string;
   submitting: boolean;
   error: string | null;
   /** render the success state instead of the form */
@@ -551,6 +557,17 @@ export function ApplyModal({
   const [portfolioUrl, setPortfolioUrl] = useState("");
   const [workDescription, setWorkDescription] = useState("");
   const [participation, setParticipation] = useState<string[]>([]);
+
+  // Tick the lane they arrived through. Runs on open rather than on mount:
+  // the component stays mounted across close/reopen so typed answers
+  // survive, which means mount-time initialisation would only ever fire
+  // once and the second card someone clicked would do nothing.
+  useEffect(() => {
+    if (!open || !preselect) return;
+    setParticipation((prev) =>
+      prev.includes(preselect) ? prev : [...prev, preselect],
+    );
+  }, [open, preselect]);
 
   // Every hook above runs whether or not the dialog is showing — that is the
   // point. `open` is the parent's business; the answers are ours and they

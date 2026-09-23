@@ -204,9 +204,13 @@ const DECISION_BY = "October 26";
 const SPOTS = 20;
 
 // Admission. November 6 is a ticketed fundraiser for the Grant Fund
-// (docs/handoff/nov6-backings.md), so NOBODY is comped — selected creatives
-// buy a ticket like everyone else, and the page has to say so plainly rather
-// than let an applicant discover it after they've been accepted.
+// (docs/handoff/nov6-backings.md). The page states the prices plainly so
+// nobody discovers them after being accepted — but it does NOT argue about
+// who has to pay. An earlier draft leant on "nobody goes free, us included",
+// which closes a loophole nobody was trying to use and answers generosity
+// with a rule. Giving here has to be willful, not extracted: say what the
+// money does (it becomes grants for creatives) and let people choose it.
+// If a line here starts justifying the fee, it has already lost.
 //
 // Two prices, one room. The creatives this call recruits are the people
 // least able to absorb a benefit ticket, and the patrons are who the
@@ -347,13 +351,13 @@ const PARTICIPATION = [
   {
     value: "document",
     label: "Shoot the night",
-    note: "Photo or video. Credited, and your footage stays yours. You still buy a ticket.",
+    note: "Photo or video. Credited, and your footage stays yours.",
     ink: INK_CAMERA,
   },
   {
     value: "volunteer",
     label: "Volunteer on the night",
-    note: "We need hands for setup, the door and teardown. You still buy a ticket.",
+    note: "Hands for setup, the door and teardown.",
     ink: INK_HAND,
   },
 ] as const;
@@ -394,6 +398,13 @@ const PAGE_CSS = `
    WhoCard computes so the last sentence lands at ~5s no matter how many
    sentences a card has. */
 .sc-who { position: relative; }
+/* The lane cards are buttons now, so they have to read as pressable. Same
+   citron-edge treatment the ticket badges use, for the same reason. */
+.sc-lane { transition: border-color 160ms ease, transform 160ms ease; }
+.sc-lane:hover, .sc-lane:focus-visible { border-color: var(--g-citron); }
+@media (prefers-reduced-motion: no-preference) {
+  .sc-lane:hover { transform: translateY(-1px); }
+}
 .sc-who:focus-visible { outline: 2px solid var(--g-citron); outline-offset: 3px; }
 .sc-who-line { display: block; }
 .sc-who-line + .sc-who-line { margin-top: 7px; }
@@ -738,6 +749,8 @@ export default function Showcase() {
   const [ticketDone, setTicketDone] = useState(false);
   // The address the ticket overlay actually saved — see notifyTicket.
   const [ticketEmail, setTicketEmail] = useState("");
+  // The lane someone entered through, ticked for them in the application.
+  const [preselect, setPreselect] = useState<string | undefined>();
 
   const applyHeadingId = useId();
 
@@ -827,6 +840,24 @@ export default function Showcase() {
     } catch (err) {
       console.warn("[showcase] ticket details not saved", err);
     }
+  }
+
+  /** Entering the application from a specific lane card.
+      The application is keyed on an email we don't have yet unless they've
+      already given one, so an unsaved visitor is sent to the panel that
+      collects it rather than into a modal that would fail on submit. Their
+      lane is remembered either way and ticked once the modal opens. */
+  function startLane(value: string) {
+    setPreselect(value);
+    if (emailSaved) {
+      setApplyOpen(true);
+      return;
+    }
+    const panel = document.getElementById("apply");
+    panel?.scrollIntoView({ behavior: "smooth", block: "center" });
+    panel?.querySelector<HTMLInputElement>('input[type="email"]')?.focus({
+      preventScroll: true,
+    });
   }
 
   function openTicket(next: { label: string; price: string; note: string }) {
@@ -1013,14 +1044,29 @@ export default function Showcase() {
         <div style={{ marginTop: 18 }}>
           <CardGrid>
             {PARTICIPATION.map((p) => (
-              <div
+              // The whole card is the button. Every lane on this grid was a
+              // dead <div> — someone read "Volunteer on the night", agreed,
+              // and had nowhere to click. Entering here ticks that lane in
+              // the application, so the card and the form agree about what
+              // they just said yes to.
+              <button
                 key={p.value}
-                className="g-card"
+                type="button"
+                className="g-card sc-lane"
+                onClick={() => startLane(p.value)}
+                aria-label={`Take part: ${p.label}`}
                 style={{
                   height: "100%",
                   display: "flex",
                   gap: 16,
                   alignItems: "flex-start",
+                  width: "100%",
+                  textAlign: "left",
+                  background: "transparent",
+                  color: "inherit",
+                  fontFamily: "inherit",
+                  fontSize: "inherit",
+                  cursor: "pointer",
                 }}
               >
                 <span
@@ -1042,7 +1088,7 @@ export default function Showcase() {
                     {p.note}
                   </span>
                 </span>
-              </div>
+              </button>
             ))}
           </CardGrid>
         </div>
@@ -1072,8 +1118,9 @@ export default function Showcase() {
         <div style={{ marginTop: 22 }}>
           <SectionLabel>Get your ticket</SectionLabel>
           <P>
-            Everyone in the room holds one. That includes us, and it includes
-            the {SPOTS} people showing work.
+            Every ticket goes into the grant fund — the money that backs
+            creatives' projects. It's the simplest way to put something into
+            the creative economy on your way through the door.
           </P>
           <div style={{ display: "grid", gap: 12, marginTop: 16 }}>
             {TICKET_TIERS.map((t) => (
@@ -1180,16 +1227,16 @@ export default function Showcase() {
             The next call opens in January.
           </Faq>
           <Faq q="What does it cost?">
-            Applying is free and showing work is free. Two things aren't: a
-            table is {TABLE_FEE}, and everyone in the room holds a ticket at{" "}
-            {TICKET_SUMMARY}, creatives included. It's a fundraiser for the
-            grant fund, so nobody goes free, us included.
+            Applying is free and showing work is free. Admission is{" "}
+            {TICKET_SUMMARY}, and a table is {TABLE_FEE}. It's a benefit for
+            the grant fund, so what you pay at the door goes back out to
+            creatives as project money.
           </Faq>
           <Faq q="Can I volunteer instead of showing work?">
             Yes. We need hands for setup, the door and teardown, and it's the
             easiest way in if you'd rather be useful than hang something.
-            Pick "volunteer on the night" on your application. You still buy a
-            ticket — nobody in the room is comped, us included.
+            Pick "volunteer on the night" on your application and we'll be
+            in touch about the shift.
           </Faq>
           <Faq q="I'm not a creative. Can I come?">
             Yes, and it's the reason the night works. Buy a patron ticket.
@@ -1217,11 +1264,51 @@ export default function Showcase() {
         </div>
       </Section>
 
+      {/* Repeat the asks at the end. Someone who read the whole page is the
+          most convinced reader it has, and until now the last thing they
+          met was an FAQ item — the page simply stopped. Both primary paths
+          appear again, in the same words, so nobody has to scroll back up
+          hunting for the thing they just decided to do. */}
+      <Section label="Ready?">
+        <div
+          style={{
+            display: "flex",
+            gap: 12,
+            flexWrap: "wrap",
+            alignItems: "center",
+          }}
+        >
+          <button
+            type="button"
+            className="g-btn g-btn-citron"
+            onClick={() => startLane("exhibit")}
+          >
+            Apply to show your craft
+          </button>
+          {TICKET_TIERS.map((t) => (
+            <button
+              key={t.label}
+              type="button"
+              className="g-btn g-btn-ghost"
+              onClick={() => openTicket(t)}
+              aria-label={`Get your ${t.label.toLowerCase()} ticket, ${t.price}`}
+            >
+              {t.label} ticket · {t.price}
+            </button>
+          ))}
+        </div>
+        <p className="g-hint" style={{ marginTop: 14 }}>
+          Applications close {CLOSE_DATE}. Selection is rolling, so the
+          earlier you send yours, the more of the {SPOTS} spots are left.
+        </p>
+      </Section>
+
       <ApplyModal
         open={applyOpen}
         email={email}
         returning={returning}
         participationOptions={PARTICIPATION}
+        preselect={preselect}
         submitting={applyBusy}
         error={applyError}
         done={applyDone}
