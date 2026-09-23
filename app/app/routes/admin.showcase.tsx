@@ -43,7 +43,7 @@ const PARTICIPATION_LABEL: Record<string, string> = {
   exhibit: "Wants to hang work",
   perform: "Wants to play (paid slot)",
   vend: "Wants a table",
-  document: "Offers to photograph",
+  document: "Offers to shoot photo/video",
   back: "Wants to back creatives",
   volunteer: "Offers to volunteer",
 };

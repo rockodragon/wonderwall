@@ -346,8 +346,8 @@ const PARTICIPATION = [
   },
   {
     value: "document",
-    label: "Photograph the night",
-    note: "Credited, and your shots stay yours. You still buy a ticket.",
+    label: "Shoot the night",
+    note: "Photo or video. Credited, and your footage stays yours. You still buy a ticket.",
     ink: INK_CAMERA,
   },
   {
@@ -1143,7 +1143,7 @@ export default function Showcase() {
             who="Photographers"
             ink={INK_CAMERA}
             quote="My portfolio is full of other people's weddings."
-            body="Hang your own work, or shoot the night and get credited. Either way the frames stay yours."
+            body="Hang your own work, or shoot the night — photo or video — and get credited. Either way it stays yours."
           />
           <WhoCard
             who="Painters"
