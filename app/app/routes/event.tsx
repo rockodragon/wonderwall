@@ -54,6 +54,8 @@ import {
 } from "../components/TicketTierEditor";
 import { AnnouncementComposer } from "../components/AnnouncementComposer";
 import { AddToCalendar } from "../components/AddToCalendar";
+import { describeMediaLink, MediaLinkField } from "../components/MediaLinkField";
+import { EmbedPlayer } from "../components/EmbedPlayer";
 import { joinProxyUrl } from "../lib/eventCalendar";
 import { toEmbedUrl } from "../lib/videoEmbed";
 
@@ -362,6 +364,16 @@ export default function EventDetail() {
     event.coverImageUrl ||
     (event.galleryImageUrls && event.galleryImageUrls[0]);
 
+  // A pasted Instagram, TikTok, YouTube or Vimeo link plays here, in the
+  // platform's own player (docs/features/creator-media-cross-post.md). An
+  // uploaded image stays the banner and the player sits directly under it;
+  // with no image the player is the first thing on the page and the title
+  // block drops below it, off the overlay — text can't sit on an iframe.
+  // This is the event's own media, public by design; the gated join and
+  // recording links are a different thing (EventVideoSection below).
+  const mediaEmbed = toEmbedUrl(event.mediaUrl);
+  const playerIsHero = !!mediaEmbed && !bannerImageUrl;
+
   return (
     <div className="max-w-4xl mx-auto">
       {/* Garden design tokens — this file is otherwise plain Tailwind, but
@@ -380,9 +392,18 @@ export default function EventDetail() {
         <EventsBackLink isGuest={isGuest} />
       </div>
 
-      {/* Cover Image */}
-      <div className="relative h-56 md:h-72 overflow-hidden">
-        {bannerImageUrl ? (
+      {/* Cover Image — or the player, when a pasted link stands in for one */}
+      {playerIsHero && mediaEmbed && (
+        <div className="px-6 pt-6">
+          <EmbedPlayer embed={mediaEmbed} title={event.title} />
+        </div>
+      )}
+      <div
+        className={
+          playerIsHero ? "relative" : "relative h-56 md:h-72 overflow-hidden"
+        }
+      >
+        {playerIsHero ? null : bannerImageUrl ? (
           <img
             src={bannerImageUrl}
             alt={event.title}
@@ -391,17 +412,31 @@ export default function EventDetail() {
         ) : (
           <div className={`w-full h-full bg-gradient-to-br ${coverGradient}`} />
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-        <div className="absolute bottom-0 left-0 right-0 p-6">
+        {!playerIsHero && (
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+        )}
+        <div
+          className={
+            playerIsHero ? "px-6 pt-5" : "absolute bottom-0 left-0 right-0 p-6"
+          }
+        >
           <div className="flex items-center gap-3 mb-2">
-            <h1 className="text-2xl md:text-3xl font-bold text-white">
+            <h1
+              className={`text-2xl md:text-3xl font-bold ${
+                playerIsHero ? "text-gray-900 dark:text-white" : "text-white"
+              }`}
+            >
               {event.title}
             </h1>
             {event.isOrganizer && (
               <>
                 <button
                   onClick={() => setShowEditForm(true)}
-                  className="px-3 py-1 bg-white/20 backdrop-blur-sm text-white rounded-lg text-sm font-medium hover:bg-white/30 transition-colors"
+                  className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                    playerIsHero
+                      ? "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"
+                      : "bg-white/20 backdrop-blur-sm text-white hover:bg-white/30"
+                  }`}
                 >
                   Edit
                 </button>
@@ -417,7 +452,11 @@ export default function EventDetail() {
               </>
             )}
           </div>
-          <div className="flex flex-wrap items-center gap-4 text-white/80 text-sm">
+          <div
+            className={`flex flex-wrap items-center gap-4 text-sm ${
+              playerIsHero ? "text-gray-600 dark:text-gray-400" : "text-white/80"
+            }`}
+          >
             <span className="flex items-center gap-1">
               <svg
                 className="w-4 h-4"
@@ -461,6 +500,13 @@ export default function EventDetail() {
           </div>
         </div>
       </div>
+
+      {/* The player under an uploaded cover (the no-cover case is above) */}
+      {mediaEmbed && !playerIsHero && (
+        <div className="px-6 pt-6">
+          <EmbedPlayer embed={mediaEmbed} title={event.title} />
+        </div>
+      )}
 
       <div className="p-6">
         {/* Tags and Actions Row */}
@@ -952,6 +998,7 @@ export default function EventDetail() {
             placeId: event.placeId,
             tags: event.tags,
             requiresApproval: event.requiresApproval,
+            mediaUrl: event.mediaUrl,
           }}
           onClose={() => setShowEditForm(false)}
         />
@@ -1819,6 +1866,7 @@ function EditEventModal({
     placeId?: string;
     tags: string[];
     requiresApproval: boolean;
+    mediaUrl?: string;
   };
   onClose: () => void;
 }) {
@@ -1850,6 +1898,7 @@ function EditEventModal({
   const [requiresApproval, setRequiresApproval] = useState(
     initialValues.requiresApproval,
   );
+  const [mediaUrl, setMediaUrl] = useState(initialValues.mediaUrl ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -1886,6 +1935,13 @@ function EditEventModal({
       return;
     }
 
+    // Same rule as CreateEventModal: a link we can't show is never saved.
+    const mediaLink = describeMediaLink(mediaUrl);
+    if (mediaLink.state === "invalid") {
+      setError(mediaLink.message);
+      return;
+    }
+
     setSaving(true);
     try {
       await updateEvent({
@@ -1898,6 +1954,9 @@ function EditEventModal({
         ...location.toArgs(),
         tags,
         requiresApproval,
+        // Always sent: an emptied field clears the stored link (and its
+        // still) — events.update treats only an absent field as "untouched".
+        mediaUrl: mediaLink.state === "ok" ? mediaLink.url : "",
       });
       onClose();
     } catch (err) {
@@ -2016,6 +2075,8 @@ function EditEventModal({
               />
               <LocationVerifiedHint value={location.value} selected={location.selected} />
             </div>
+
+            <MediaLinkField value={mediaUrl} onChange={setMediaUrl} />
 
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">

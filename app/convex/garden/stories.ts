@@ -509,10 +509,11 @@ export const getStoryPage = query({
         photoUrl: project.photoUrl,
         // A pasted reel or video link the page plays as its hero when there
         // is no photo (docs/features/creator-media-cross-post.md), and the
-        // still behind it for a card. Undefined for a deliberately posted
-        // project, which has a photo or nothing.
-        mediaUrl: heroMedia?.mediaUrl,
-        coverUrl: heroMedia?.ogImageUrl,
+        // still behind it for a card. The project's own pasted link (Round
+        // 2: posted from /projects) wins over the companion artifact's,
+        // which only a quick share from /works has.
+        mediaUrl: project.mediaUrl ?? heroMedia?.mediaUrl,
+        coverUrl: project.mediaPreviewUrl ?? heroMedia?.ogImageUrl,
         byName: ownerProfile?.name ?? "",
       },
       updates: await Promise.all(

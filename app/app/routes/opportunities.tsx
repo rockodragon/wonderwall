@@ -5,6 +5,8 @@ import { api } from "../../convex/_generated/api";
 import { budgetKindLabel } from "../lib/budgetLabel";
 import { setPendingIntent } from "../lib/pendingIntent";
 import { resolveStage, stageLabel } from "../lib/stage";
+import { toEmbedUrl } from "../lib/videoEmbed";
+import { EmbedStill } from "../components/EmbedStill";
 import { SiteHeader } from "../components/SiteHeader";
 
 // /opportunities — the public browse surface. Deliberately OUTSIDE the
@@ -34,6 +36,10 @@ type ProjectCard = {
   blurb?: string;
   byName: string;
   photoUrl?: string;
+  // A pasted Instagram/TikTok/YouTube/Vimeo link and its fetched still
+  // (docs/features/creator-media-cross-post.md). Cards show the still only.
+  mediaUrl?: string;
+  mediaPreviewUrl?: string;
   budgetType?: string;
   budget?: number;
   budgetMax?: number;
@@ -139,16 +145,28 @@ function fundedPercent(project: ProjectCard): number | null {
 
 function ProjectTile({ project }: { project: ProjectCard }) {
   const percent = fundedPercent(project);
+  // The photo wins; else a pasted link's still — never a player, a grid
+  // stays quiet while someone browses (creator-media-cross-post.md, Round 2).
+  const mediaEmbed = project.photoUrl ? null : toEmbedUrl(project.mediaUrl);
   return (
     <article className="flex flex-col rounded-2xl border border-[var(--garden-hairline-raised)] bg-[var(--garden-ink-raised)]/80 overflow-hidden">
-      {project.photoUrl && (
+      {project.photoUrl ? (
         <img
           src={project.photoUrl}
           alt=""
           className="w-full h-40 object-cover"
           loading="lazy"
         />
-      )}
+      ) : mediaEmbed ? (
+        <div className="w-full h-40">
+          <EmbedStill
+            embed={mediaEmbed}
+            previewUrl={project.mediaPreviewUrl}
+            title={project.title}
+            badgeSize="sm"
+          />
+        </div>
+      ) : null}
       <div className="flex flex-col flex-1 p-6">
         <p className="text-sm mb-2">
           <span className="text-[var(--garden-citron)] font-semibold">

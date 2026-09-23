@@ -1,4 +1,6 @@
 import { Link } from "react-router";
+import { toEmbedUrl } from "../lib/videoEmbed";
+import { EmbedStill } from "./EmbedStill";
 import { FavoriteButton } from "./FavoriteButton";
 
 // The one event card. Both /events (routes/events.tsx) and the Events section
@@ -65,6 +67,12 @@ export type EventCardEvent = {
   tags: string[];
   requiresApproval: boolean;
   coverImageUrl?: string | null;
+  /** A pasted Instagram/TikTok/YouTube/Vimeo link standing in for a cover,
+   * and the still fetched for it (docs/features/creator-media-cross-post.md).
+   * The card shows the still, never a player. Absent from the favorites
+   * projection, same as description/accessType/priceCents below. */
+  mediaUrl?: string | null;
+  mediaPreviewUrl?: string | null;
   attendeeCount?: number;
   description?: string | null;
   accessType?: string;
@@ -116,6 +124,11 @@ export function EventCard({
     day: "numeric",
   });
 
+  // An uploaded image wins; a pasted link fills the cover only when there is
+  // none. A grid of reels stays quiet — the still is a picture with a play
+  // badge, and the event page is where it plays.
+  const mediaEmbed = event.coverImageUrl ? null : toEmbedUrl(event.mediaUrl ?? undefined);
+
   return (
     <Link
       to={`/events/${event._id}`}
@@ -131,9 +144,10 @@ export function EventCard({
         <div
           className="relative aspect-[16/10] overflow-hidden flex items-center justify-center"
           style={{
-            background: event.coverImageUrl
-              ? "var(--garden-ink)"
-              : coverFallback(event._id),
+            background:
+              event.coverImageUrl || mediaEmbed
+                ? "var(--garden-ink)"
+                : coverFallback(event._id),
           }}
         >
           {event.coverImageUrl ? (
@@ -141,6 +155,13 @@ export function EventCard({
               src={event.coverImageUrl}
               alt={event.title}
               className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+            />
+          ) : mediaEmbed ? (
+            <EmbedStill
+              embed={mediaEmbed}
+              previewUrl={event.mediaPreviewUrl}
+              title={event.title}
+              badgeSize="sm"
             />
           ) : (
             <svg

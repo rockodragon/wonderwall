@@ -1,11 +1,12 @@
 import { v } from "convex/values";
 import { escapeHtml } from "./email/template";
 import { internalQuery, mutation, query } from "./_generated/server";
-import type { Id } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import { auth } from "./auth";
 import { scheduleNotificationEmail } from "./emailHelpers";
 import { assertCommunityMember } from "./garden/communities";
 import { formatFollowedEventDate, notifyFollowers } from "./follows";
+import { canonicalMediaUrl, schedulePreviewFetch } from "./linkPreview";
 
 // ——— Pure validation helpers (unit-tested in events.test.ts) ———
 
@@ -307,6 +308,10 @@ export const create = mutation({
     // The community this event is posted INTO (optional — content stays
     // owned by the organizer, this only tags it; community-groups.md §0).
     hostOrgId: v.optional(v.id("hostOrgs")),
+    // A pasted Instagram, TikTok, YouTube or Vimeo link in place of a cover
+    // image (docs/features/creator-media-cross-post.md). Stored the way every
+    // table stores one — see canonicalMediaUrl in convex/linkPreview.ts.
+    mediaUrl: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const userId = await auth.getUserId(ctx);
@@ -317,6 +322,8 @@ export const create = mutation({
 
     const { tiers, error: tiersError } = normalizeTicketTiers(args.ticketTiers);
     if (tiersError) throw new Error(tiersError);
+
+    const mediaUrl = canonicalMediaUrl(args.mediaUrl);
 
     if (args.hostOrgId) {
       await assertCommunityMember(ctx, args.hostOrgId, userId);
@@ -340,10 +347,16 @@ export const create = mutation({
       tags: args.tags,
       requiresApproval: args.requiresApproval,
       hostOrgId: args.hostOrgId,
+      mediaUrl,
       status: "published",
       createdAt: now,
       updatedAt: now,
     });
+
+    // The still cards show for the link. Only Instagram and TikTok need a
+    // fetch (a no-op for the rest), and it runs off the request so create
+    // returns at once; convex/linkPreview.ts patches the row when it lands.
+    await schedulePreviewFetch(ctx, "event", eventId, mediaUrl);
 
     // Following fan-out (docs/features/following.md §1 #6): events are born
     // `published`, so create is the moment. Same linkUrl convention as the
@@ -402,6 +415,10 @@ export const update = mutation({
     // instead to remove an already-set hostOrgId. See createPassionProject's
     // hostOrgId comment for what this field means.
     clearCommunity: v.optional(v.boolean()),
+    // The pasted media link (see create). Left out = untouched, so a caller
+    // that doesn't know the field can't wipe it; an empty string clears it —
+    // the same v.optional-takes-no-null reason clearCommunity exists.
+    mediaUrl: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const userId = await auth.getUserId(ctx);
@@ -419,6 +436,32 @@ export const update = mutation({
 
     if (args.hostOrgId) {
       await assertCommunityMember(ctx, args.hostOrgId, userId);
+    }
+
+    // A changed or cleared link takes its still with it: the file is deleted
+    // rather than left orphaned in storage, and both preview columns are
+    // cleared in the same patch so a card never shows the old reel's picture
+    // over the new link while the new fetch (Instagram/TikTok) is in flight.
+    let mediaPatch: Pick<
+      Doc<"events">,
+      "mediaUrl" | "mediaPreviewUrl" | "mediaPreviewStorageId"
+    > = {};
+    let fetchMediaUrl: string | undefined;
+    if (args.mediaUrl !== undefined) {
+      const mediaUrl = canonicalMediaUrl(args.mediaUrl);
+      if (mediaUrl !== event.mediaUrl) {
+        if (event.mediaPreviewStorageId) {
+          // Best-effort, as garden/projects.ts's updateProject treats the same
+          // delete: a file already gone must not fail the whole edit.
+          try {
+            await ctx.storage.delete(event.mediaPreviewStorageId);
+          } catch {
+            // already gone
+          }
+        }
+        mediaPatch = { mediaUrl, mediaPreviewUrl: undefined, mediaPreviewStorageId: undefined };
+        fetchMediaUrl = mediaUrl;
+      }
     }
 
     // venueAddress (deprecated, schema.ts) is deliberately left out of this
@@ -439,8 +482,11 @@ export const update = mutation({
       tags: args.tags,
       requiresApproval: args.requiresApproval,
       hostOrgId: args.clearCommunity ? undefined : (args.hostOrgId ?? event.hostOrgId),
+      ...mediaPatch,
       updatedAt: Date.now(),
     });
+
+    await schedulePreviewFetch(ctx, "event", args.eventId, fetchMediaUrl);
   },
 });
 

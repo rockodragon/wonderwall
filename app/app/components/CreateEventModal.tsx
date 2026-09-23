@@ -13,6 +13,7 @@ import {
   draftsToTiers,
   type TicketTierDraft,
 } from "./TicketTierEditor";
+import { describeMediaLink, MediaLinkField } from "./MediaLinkField";
 
 export function CreateEventModal({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate();
@@ -29,6 +30,7 @@ export function CreateEventModal({ onClose }: { onClose: () => void }) {
   const [tags, setTags] = useState<string[]>([]);
   const [requiresApproval, setRequiresApproval] = useState(false);
   const [hostOrgId, setHostOrgId] = useState("");
+  const [mediaUrl, setMediaUrl] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   // Pre-fill from the sidebar switcher's current context (community-ux.md
@@ -73,6 +75,14 @@ export function CreateEventModal({ onClose }: { onClose: () => void }) {
       return;
     }
 
+    // A link we can't show is never submitted — the field already says so
+    // inline; this repeats it where a failed submit is looked for.
+    const mediaLink = describeMediaLink(mediaUrl);
+    if (mediaLink.state === "invalid") {
+      setError(mediaLink.message);
+      return;
+    }
+
     setSaving(true);
     try {
       const eventId = await createEvent({
@@ -85,6 +95,7 @@ export function CreateEventModal({ onClose }: { onClose: () => void }) {
         tags,
         requiresApproval,
         hostOrgId: hostOrgId ? (hostOrgId as any) : undefined,
+        mediaUrl: mediaLink.state === "ok" ? mediaLink.url : undefined,
       });
 
       // Track event created
@@ -94,6 +105,14 @@ export function CreateEventModal({ onClose }: { onClose: () => void }) {
         has_coordinates: !!location.selected?.coordinates,
         tags_count: tags.length,
         requires_approval: requiresApproval,
+        // A short link the server still has to follow is TikTok to the
+        // dashboard, same as a permalink.
+        media_provider:
+          mediaLink.state !== "ok"
+            ? null
+            : mediaLink.kind === "tiktok-short"
+              ? "tiktok"
+              : mediaLink.kind,
       });
 
       navigate(`/events/${eventId}`);
@@ -213,6 +232,8 @@ export function CreateEventModal({ onClose }: { onClose: () => void }) {
               />
               <LocationVerifiedHint value={location.value} selected={location.selected} />
             </div>
+
+            <MediaLinkField value={mediaUrl} onChange={setMediaUrl} />
 
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">

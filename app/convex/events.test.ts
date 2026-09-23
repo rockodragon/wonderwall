@@ -10,6 +10,9 @@ import {
   type TicketTierInput,
 } from "./events";
 
+// The pasted media link's canonical form is shared with artifacts and
+// projects, so its cases live with the helper: linkPreview.test.ts.
+
 const START = new Date("2026-11-06T18:00:00").getTime();
 
 describe("validateEndTime", () => {

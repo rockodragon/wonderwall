@@ -117,8 +117,9 @@ export default defineSchema({
     mediaStorageId: v.optional(v.id("_storage")), // Convex file storage
     ogImageUrl: v.optional(v.string()), // fetched og:image for link types
     // The stored still behind `ogImageUrl` when we hold the file ourselves: a
-    // TikTok thumbnail copied in by artifacts.fetchTikTokPreview (the CDN URL
-    // expires in days) or a cover the creative uploaded beside a pasted reel.
+    // TikTok or Instagram still copied in by convex/linkPreview.ts (the CDN
+    // URL expires in days) or a cover the creative uploaded beside a pasted
+    // reel.
     // Read paths never need it — `ogImageUrl` already carries its URL. It
     // exists so `remove` can delete the file (docs/features/creator-media-
     // cross-post.md).
@@ -210,6 +211,15 @@ export default defineSchema({
     requiresApproval: v.boolean(),
     status: v.string(), // "draft" | "published" | "cancelled" | "completed"
     coverImageStorageId: v.optional(v.id("_storage")), // cover/background image
+    // A pasted Instagram, TikTok, YouTube or Vimeo link that IS the event's
+    // media — stored canonical (convex/videoEmbed.ts), played on the event
+    // page, shown as a still on cards. `mediaPreviewUrl` is that still
+    // (fetched by convex/linkPreview.ts, copied into our storage because
+    // every provider's image URL expires); the storage id exists so the
+    // file can be deleted. All optional: rows before this have none.
+    mediaUrl: v.optional(v.string()),
+    mediaPreviewUrl: v.optional(v.string()),
+    mediaPreviewStorageId: v.optional(v.id("_storage")),
     coverColor: v.optional(v.string()), // fallback gradient color (e.g. "blue", "purple")
     imageStorageIds: v.optional(v.array(v.id("_storage"))), // up to 3 gallery images
     // ——— Gated event video (docs/gated-event-video-prd.md) ———
@@ -864,6 +874,14 @@ export default defineSchema({
     status: v.string(), // "pending" | "active" | "in_progress" | "completed" | "archived"
     photoUrl: v.optional(v.string()),
     photoStorageId: v.optional(v.id("_storage")),
+    // A pasted Instagram, TikTok, YouTube or Vimeo link that IS the
+    // project's media — the Instagram post a poster is hiring from, the
+    // reel a passion project is. Same three fields and the same fetch as
+    // `events` above (convex/linkPreview.ts). The photo stays the photo;
+    // cards use the photo when there is one, else this preview.
+    mediaUrl: v.optional(v.string()),
+    mediaPreviewUrl: v.optional(v.string()),
+    mediaPreviewStorageId: v.optional(v.id("_storage")),
     storySlug: v.optional(v.string()), // public story page (W3)
     legacyJobId: v.optional(v.id("jobs")),
     // V1 support widget (docs/the-exchange-v1-prd.md §9): set once by the

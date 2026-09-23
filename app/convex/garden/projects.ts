@@ -21,6 +21,11 @@ import {
   richDocValidator,
 } from "./richText";
 import { summarizeGig } from "./gigSummary";
+// A pasted Instagram, TikTok, YouTube or Vimeo link that IS the project's
+// media — the Instagram post a poster is hiring from, the reel a passion
+// project is (docs/features/creator-media-cross-post.md, Round 2) — is
+// checked and stored the way artifacts and events store one.
+import { canonicalMediaUrl, schedulePreviewFetch } from "../linkPreview";
 
 // Following fan-out (docs/features/following.md §1 #5): "Name posted Title"
 // to everyone following the poster, once per created row. `userId` is a
@@ -102,6 +107,9 @@ export const createPassionProject = mutation({
     blurb: v.optional(v.string()),
     goal: v.optional(v.number()),
     photoUrl: v.optional(v.string()),
+    // A pasted link instead of (or as well as) a photo — see canonicalMediaUrl
+    // in convex/linkPreview.ts.
+    mediaUrl: v.optional(v.string()),
     // Passion-only campaign fields (review follow-up) — deliberately not on
     // createPaidProject, see the schema comment on `projects.raiseByDate`.
     raiseByDate: v.optional(v.number()),
@@ -132,6 +140,7 @@ export const createPassionProject = mutation({
       await assertCommunityMember(ctx, args.hostOrgId, userId);
     }
 
+    const mediaUrl = canonicalMediaUrl(args.mediaUrl);
     const now = Date.now();
     const storySlug = await generateStorySlug(ctx, args.title);
     const id = await ctx.db.insert("projects", {
@@ -147,6 +156,7 @@ export const createPassionProject = mutation({
       stage: "planning",
       stageChangedAt: now,
       photoUrl: args.photoUrl,
+      mediaUrl,
       storySlug,
       raiseByDate: args.raiseByDate,
       benefitsNonprofit: args.benefitsNonprofit,
@@ -162,6 +172,8 @@ export const createPassionProject = mutation({
       createdAt: now,
       updatedAt: now,
     });
+    // The still for the card (Instagram, TikTok); a no-op for the rest.
+    await schedulePreviewFetch(ctx, "project", id, mediaUrl);
     await notifyFollowersOfProject(ctx, userId, id, args.title);
     return { projectId: id, storySlug };
   },
@@ -177,6 +189,9 @@ export const updateProject = mutation({
     // editor can say "I deleted everything".
     body: v.optional(richDocValidator),
     photoUrl: v.optional(v.string()),
+    // The pasted link. An empty string clears it — same convention as
+    // `location` below, since v.optional means "omitted = leave it alone".
+    mediaUrl: v.optional(v.string()),
     interests: v.optional(v.array(v.string())),
     benefitsNonprofit: v.optional(v.boolean()),
     nonprofitName: v.optional(v.string()),
@@ -219,6 +234,29 @@ export const updateProject = mutation({
       }
     }
     if (args.photoUrl !== undefined) patch.photoUrl = args.photoUrl;
+    // A changed or cleared link takes its still with it: the still was
+    // fetched for the OLD link, and a card showing the previous reel's cover
+    // over the new one would be wrong until the new fetch lands. Deleting
+    // the file is best-effort, same as the body's orphans above. The fetch
+    // for the new link is scheduled after the patch, so it finds the row
+    // already pointing at the new link.
+    let fetchPreviewFor: string | undefined;
+    if (args.mediaUrl !== undefined) {
+      const next = canonicalMediaUrl(args.mediaUrl);
+      if (next !== project.mediaUrl) {
+        if (project.mediaPreviewStorageId) {
+          try {
+            await ctx.storage.delete(project.mediaPreviewStorageId);
+          } catch {
+            // already gone
+          }
+        }
+        patch.mediaUrl = next;
+        patch.mediaPreviewUrl = undefined;
+        patch.mediaPreviewStorageId = undefined;
+        fetchPreviewFor = next;
+      }
+    }
     if (args.interests !== undefined) patch.interests = args.interests;
     if (args.benefitsNonprofit !== undefined) patch.benefitsNonprofit = args.benefitsNonprofit;
     if (args.nonprofitName !== undefined) patch.nonprofitName = args.nonprofitName;
@@ -240,6 +278,7 @@ export const updateProject = mutation({
     if (args.remote !== undefined) patch.remote = args.remote;
 
     await ctx.db.patch(args.projectId, patch);
+    await schedulePreviewFetch(ctx, "project", args.projectId, fetchPreviewFor);
     return { ok: true };
   },
 });
@@ -633,6 +672,9 @@ export const createPaidProject = mutation({
     budget: v.optional(v.number()),
     budgetMax: v.optional(v.number()),
     photoUrl: v.optional(v.string()),
+    // A pasted link instead of (or as well as) a photo — see canonicalMediaUrl
+    // in convex/linkPreview.ts.
+    mediaUrl: v.optional(v.string()),
     // The project's own declared topics (canonical INTERESTS list) —
     // independent of the creator's profile interests. See the schema
     // comment on `projects.interests`.
@@ -652,6 +694,7 @@ export const createPaidProject = mutation({
       await assertCommunityMember(ctx, args.hostOrgId, userId);
     }
 
+    const mediaUrl = canonicalMediaUrl(args.mediaUrl);
     const now = Date.now();
     const storySlug = await generateStorySlug(ctx, args.title);
     const id = await ctx.db.insert("projects", {
@@ -669,6 +712,7 @@ export const createPaidProject = mutation({
       stage: "forming",
       stageChangedAt: now,
       photoUrl: args.photoUrl,
+      mediaUrl,
       storySlug,
       interests: args.interests,
       hostOrgId: args.hostOrgId,
@@ -681,6 +725,8 @@ export const createPaidProject = mutation({
       createdAt: now,
       updatedAt: now,
     });
+    // The still for the card (Instagram, TikTok); a no-op for the rest.
+    await schedulePreviewFetch(ctx, "project", id, mediaUrl);
     await notifyFollowersOfProject(ctx, userId, id, args.title);
     return { projectId: id, storySlug };
   },

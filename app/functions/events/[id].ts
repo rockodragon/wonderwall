@@ -31,7 +31,10 @@ async function fetchEvent(convexUrl: string, eventId: string) {
   return data?.value ?? null;
 }
 
-function injectHead(html: string, tags: { title: string; description: string; url: string }) {
+function injectHead(
+  html: string,
+  tags: { title: string; description: string; url: string; image?: string },
+) {
   const t = esc(tags.title);
   const d = esc(tags.description);
   const block = [
@@ -40,7 +43,11 @@ function injectHead(html: string, tags: { title: string; description: string; ur
     `<meta property="og:description" content="${d}">`,
     `<meta property="og:type" content="website">`,
     `<meta property="og:url" content="${esc(tags.url)}">`,
-    `<meta name="twitter:card" content="summary">`,
+    // The uploaded cover, else the still of a pasted reel/TikTok (both
+    // Convex storage URLs from events:get), makes the link unfurl as a
+    // picture; without either the text-only summary card stays.
+    ...(tags.image ? [`<meta property="og:image" content="${esc(tags.image)}">`] : []),
+    `<meta name="twitter:card" content="${tags.image ? "summary_large_image" : "summary"}">`,
     `<meta name="description" content="${d}">`,
   ].join("\n");
   // Strip the shell's own title/OG/description tags, then inject ours.
@@ -73,11 +80,14 @@ export const onRequestGet = async (context: {
     // Convex unreachable or invalid id — serve the shell; client router handles it.
   }
 
+  // The uploaded cover wins on every card and page, so it wins here too.
+  const image = event?.coverImageUrl ?? event?.mediaPreviewUrl;
   const html = event
     ? injectHead(shell, {
         title: `${event.title} — TheCrossBoard`,
         description: (event.description ?? "").slice(0, 200) || "A community event.",
         url: request.url,
+        image: typeof image === "string" && /^https:\/\//.test(image) ? image : undefined,
       })
     : shell;
 

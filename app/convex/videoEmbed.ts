@@ -71,7 +71,7 @@ const INSTAGRAM_HOSTS = new Set(["instagram.com", "m.instagram.com"]);
 const TIKTOK_HOSTS = new Set(["tiktok.com", "m.tiktok.com"]);
 // TikTok's in-app "Copy link" on Android hands out vm.tiktok.com/XXXX, a
 // redirect the browser can't follow cross-origin. The server can (see
-// artifacts.fetchTikTokPreview), so these are recognised as "TikTok, not yet
+// convex/linkPreview.ts), so these are recognised as "TikTok, not yet
 // resolved" rather than treated as an unknown host.
 const TIKTOK_SHORT_HOSTS = new Set(["vm.tiktok.com", "vt.tiktok.com"]);
 
@@ -259,8 +259,8 @@ export function toEmbedUrl(rawUrl: string | undefined): VideoEmbed | null {
 /**
  * True for a TikTok short link (vm.tiktok.com/…, tiktok.com/t/…) that has to
  * be followed server-side before toEmbedUrl can read it. Display code treats
- * these as an ordinary link until artifacts.fetchTikTokPreview has swapped in
- * the permalink.
+ * these as an ordinary link until convex/linkPreview.ts has swapped in the
+ * permalink.
  */
 export function isTikTokShortLink(rawUrl: string | undefined): boolean {
   const url = parseHttpUrl(rawUrl);
