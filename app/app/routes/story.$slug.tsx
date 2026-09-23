@@ -6,7 +6,8 @@
 // this is an SPA route with no loader, so it cannot set them itself. Not
 // faking them here; see functions-spike for that piece.
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useAuthActions } from "@convex-dev/auth/react";
 import { useAction, useConvexAuth, useQuery } from "convex/react";
 import { ConvexError } from "convex/values";
 import { useLocation, useNavigate, useParams, useRouteError, useSearchParams } from "react-router";
@@ -26,6 +27,7 @@ import { RichContent } from "../components/RichContent";
 import { toEmbedUrl } from "../lib/videoEmbed";
 import { CLAIMS } from "../constants/claims";
 import { setPendingIntent } from "../lib/pendingIntent";
+import { MIN_PASSWORD_LENGTH, needsAccount, supportFormProblem } from "../lib/storySupport";
 import "../garden/garden.css";
 
 export function meta() {
@@ -67,10 +69,15 @@ function SponsorCredit({ line }: { line: string }) {
 // it's the one place someone without an account can back a creative. It
 // calls the same createBackingCheckout the signed-in Support modal does; a
 // guest types a name (or stays anonymous) and Stripe collects the card and
-// email. A guest gives once: monthly needs an account, so the backer can
-// stop it from Settings (stripeHandlers.ts's guestBackingRefusal is the
-// server's version of this rule). Money words follow stripe.ts:
-// "back"/"support", never "donate".
+// email.
+//
+// Giving once needs no account. Giving MONTHLY does (Rick, 2026-09-18), so
+// that the backer can stop it themselves from Settings — and the form makes
+// that account right here rather than sending them away to sign up: pick
+// Monthly, add an email and a password, and the same submit signs them up
+// and then starts the checkout as a member. stripeHandlers.ts's
+// guestBackingRefusal is the server's half of the rule. Money words follow
+// stripe.ts: "back"/"support", never "donate".
 
 const PRESETS_CENTS = [1000, 2500, 5000, 10000]; // $10 · $25 · $50 · $100
 // Twin of MIN_BACKING_CENTS in convex/garden/stripeHandlers.ts. The server is
@@ -133,38 +140,83 @@ const LINK_BUTTON: React.CSSProperties = {
   textDecoration: "underline",
 };
 
+/** How long to wait for a just-created session to reach this component
+    before starting checkout anyway. signIn resolves before the Convex
+    client is holding the new token, and the server refuses a monthly
+    backing from someone it still reads as signed out. */
+const SESSION_WAIT_MS = 6000;
+
 function SupportForm({ projectId, onCancel }: { projectId: Id<"projects">; onCancel: () => void }) {
   const { isAuthenticated } = useConvexAuth();
+  const { signIn } = useAuthActions();
+  // Read inside the submit handler, which can't see a later render's
+  // isAuthenticated.
+  const signedInRef = useRef(isAuthenticated);
+  useEffect(() => {
+    signedInRef.current = isAuthenticated;
+  }, [isAuthenticated]);
   const location = useLocation();
   const navigate = useNavigate();
   const createBackingCheckout = useAction(api.garden.stripe.createBackingCheckout);
 
-  const [monthlyChoice, setMonthly] = useState(false);
-  // Only a member can give monthly; a guest who signs out mid-form drops
-  // back to once rather than hitting the server's refusal.
-  const monthly = isAuthenticated && monthlyChoice;
+  const [monthly, setMonthly] = useState(false);
   const [preset, setPreset] = useState<number | null>(2500);
   const [otherDollars, setOtherDollars] = useState("");
   const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [anonymous, setAnonymous] = useState(false);
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<null | "account" | "checkout">(null);
   const [error, setError] = useState<string | null>(null);
 
   const amountCents = preset ?? Math.round(parseFloat(otherDollars || "0") * 100);
   const amountReady = Number.isFinite(amountCents) && amountCents >= MIN_CENTS;
+  const signingUp = needsAccount({ signedIn: isAuthenticated, monthly });
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    if (!amountReady) {
-      setError(`The smallest amount is ${formatMoney(MIN_CENTS)}.`);
+    const problem = supportFormProblem({
+      amountCents,
+      minCents: MIN_CENTS,
+      signedIn: isAuthenticated,
+      monthly,
+      anonymous,
+      name,
+      email,
+      password,
+    });
+    if (problem) {
+      setError(problem);
       return;
     }
-    if (!isAuthenticated && !anonymous && !name.trim()) {
-      setError("Add your name, or check the box to stay anonymous.");
-      return;
+
+    if (signingUp) {
+      setBusy("account");
+      try {
+        await signIn("password", {
+          email: email.trim(),
+          password,
+          name: name.trim(),
+          flow: "signUp",
+        });
+        // Wait for the session to actually land, rather than firing the
+        // checkout early and leaving a stray pending backing behind.
+        const deadline = Date.now() + SESSION_WAIT_MS;
+        while (!signedInRef.current && Date.now() < deadline) {
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+      } catch {
+        // A duplicate email throws "Account … already exists" on the server,
+        // but production hides server error text, so one message covers both
+        // that and a password the provider rejects.
+        setError("Couldn't make that account. If you already have one, sign in instead.");
+        setBusy(null);
+        return;
+      }
     }
-    setBusy(true);
+
+    setBusy("checkout");
     try {
       const { url } = await createBackingCheckout({
         projectId,
@@ -172,13 +224,15 @@ function SupportForm({ projectId, onCancel }: { projectId: Id<"projects">; onCan
         recurring: monthly,
         visible: !anonymous,
         from: "story",
-        ...(!isAuthenticated && !anonymous ? { guestName: name.trim() } : {}),
+        // A brand-new member is named from the profile the signup just
+        // created, so guestName is only for someone staying signed out.
+        ...(!isAuthenticated && !signingUp && !anonymous ? { guestName: name.trim() } : {}),
       });
       // Leaving for Stripe. The button stays disabled through the handoff.
       window.location.assign(url);
     } catch (err) {
       setError(reasonFor(err, "Couldn't start checkout. Try again."));
-      setBusy(false);
+      setBusy(null);
     }
   }
 
@@ -186,12 +240,10 @@ function SupportForm({ projectId, onCancel }: { projectId: Id<"projects">; onCan
 
   return (
     <form onSubmit={handleSubmit} style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 14 }}>
-      {isAuthenticated && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-          <ChoiceButton on={!monthly} onClick={() => setMonthly(false)}>Once</ChoiceButton>
-          <ChoiceButton on={monthly} onClick={() => setMonthly(true)}>Monthly</ChoiceButton>
-        </div>
-      )}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+        <ChoiceButton on={!monthly} onClick={() => setMonthly(false)}>Once</ChoiceButton>
+        <ChoiceButton on={monthly} onClick={() => setMonthly(true)}>Monthly</ChoiceButton>
+      </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
         {PRESETS_CENTS.map((cents) => (
@@ -221,16 +273,57 @@ function SupportForm({ projectId, onCancel }: { projectId: Id<"projects">; onCan
         style={preset === null ? { borderColor: "var(--g-citron)" } : undefined}
       />
 
-      {!isAuthenticated && !anonymous && (
+      {signingUp && (
+        <p className="g-hint" style={{ lineHeight: 1.5 }}>
+          Giving monthly comes with an account, so you can change or stop it any time.{" "}
+          {CLAIMS.join} Already have one?{" "}
+          <button
+            type="button"
+            onClick={() => {
+              // Back to this story once they're signed in.
+              setPendingIntent(location.pathname);
+              navigate("/login");
+            }}
+            style={{ ...LINK_BUTTON, font: "inherit", color: "var(--g-paper)" }}
+          >
+            Sign in
+          </button>
+        </p>
+      )}
+
+      {!isAuthenticated && (!anonymous || signingUp) && (
         <input
           className="g-input"
           value={name}
           onChange={(e) => setName(e.target.value)}
           autoComplete="name"
           maxLength={60}
-          placeholder="Your name, as it shows on this page"
+          placeholder={signingUp ? "Your name" : "Your name, as it shows on this page"}
           aria-label="Your name"
         />
+      )}
+      {signingUp && (
+        <>
+          <input
+            className="g-input"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            type="email"
+            autoComplete="email"
+            inputMode="email"
+            placeholder="Email"
+            aria-label="Email"
+          />
+          <input
+            className="g-input"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            type="password"
+            autoComplete="new-password"
+            placeholder={`Password (${MIN_PASSWORD_LENGTH} characters or more)`}
+            aria-label="Password"
+          />
+        </>
       )}
       <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 15, color: "var(--g-body)", cursor: "pointer" }}>
         <input
@@ -245,10 +338,16 @@ function SupportForm({ projectId, onCancel }: { projectId: Id<"projects">; onCan
       <button
         type="submit"
         className="g-btn g-btn-citron"
-        disabled={busy}
-        style={{ width: "100%", opacity: busy ? 0.7 : 1 }}
+        disabled={busy !== null}
+        style={{ width: "100%", opacity: busy !== null ? 0.7 : 1 }}
       >
-        {busy ? "Opening checkout…" : buttonAmount ? `Continue · ${buttonAmount}` : "Continue"}
+        {busy === "account"
+          ? "Making your account…"
+          : busy === "checkout"
+            ? "Opening checkout…"
+            : buttonAmount
+              ? `Continue · ${buttonAmount}`
+              : "Continue"}
       </button>
       {error && (
         <p role="alert" style={{ fontSize: 15, color: "var(--g-paper)" }}>
@@ -259,22 +358,6 @@ function SupportForm({ projectId, onCancel }: { projectId: Id<"projects">; onCan
         {CLAIMS.patron} {formatMoney(MIN_CENTS)} minimum.
         {monthly ? " Monthly renews until you cancel." : ""} {CLAIMS.processingFee} You pay on the next screen.
       </p>
-      {!isAuthenticated && (
-        <p className="g-hint" style={{ lineHeight: 1.5 }}>
-          Giving monthly needs an account.{" "}
-          <button
-            type="button"
-            onClick={() => {
-              // Back to this story after signing in, where Monthly is on.
-              setPendingIntent(location.pathname);
-              navigate("/login");
-            }}
-            style={{ ...LINK_BUTTON, font: "inherit", color: "var(--g-paper)" }}
-          >
-            Sign in
-          </button>
-        </p>
-      )}
       <button type="button" onClick={onCancel} className="g-hint" style={{ ...LINK_BUTTON, alignSelf: "flex-start" }}>
         Not now
       </button>
