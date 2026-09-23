@@ -345,8 +345,8 @@ const OPENING = [
   ],
   [
     "So we're building the third way.",
-    "Makers. Backers.",
-    "A community that shows up for both.",
+    "Makers. Backers. Partners.",
+    "And a community that shows up for all.",
   ],
   [
     "November 6 is the first night.",
