@@ -45,6 +45,7 @@ const PARTICIPATION_LABEL: Record<string, string> = {
   vend: "Wants a table",
   document: "Offers to photograph",
   back: "Wants to back creatives",
+  volunteer: "Offers to volunteer",
 };
 
 const STATUSES: { value: Status; label: string }[] = [

@@ -11,6 +11,17 @@
 // someone edits this page toward "sign up for The Garden," the conversion
 // mechanic is gone; keep the call the subject.
 //
+// THE APPLICATION LEADS. It is the first thing under the hero, on its own
+// raised, citron-edged surface, because the traffic here is cold, mobile and
+// one swipe deep: the ask has to be reachable without a scroll, and a panel
+// that is visibly a different surface from the page reads as the thing to do
+// rather than as more page. Everything that used to sit between the hero and
+// the form — the pitch, the facts, the ways to take part — is persuasion for
+// people who didn't convert on sight, so it belongs after the ask, not in
+// front of it. The "closes CLOSE_DATE, rolling selection" line sits BELOW the
+// panel for the same reason: a deadline is a reason to finish, not a hurdle
+// to read before starting.
+//
 // LENGTH IS A FEATURE OF THE FAILURE MODE. Every rewrite of this page has
 // grown it, and a long page on cold mobile traffic is a page nobody reaches
 // the bottom of. The prose here has been cut to roughly half of what it was
@@ -18,51 +29,74 @@
 // "not X but Y" reversals. If a paragraph explains the same thing a FAQ
 // item already answers, delete the paragraph, not the FAQ.
 //
-// The pitch is one frame and it must not be softened back into poetry: a
-// creative's only two offers are unpaid faith (the church wants it donated)
-// or faithless funding (the gallery wants the faith left out). November 6 is
-// a third offer. Earlier drafts described the night as "one night, a wall,
-// people who came to look" — that got cut for sounding like an apology.
+// GRIDS, NOT LISTS, for the two card sets. A vertical stack of five or six
+// cards is five or six screens of thumb travel on a phone and buries whatever
+// is last; a two-column grid halves the height, and a grid has a FIRST ROW,
+// which is the only piece of hierarchy this page needs. auto-fit collapses it
+// to one column on narrow phones, so nothing is lost where the stack was
+// fine. Order in the source is order on screen — treat the first two entries
+// of each grid as the positioning decision they are.
 //
 // PATRONS ARE HALF THE ROOM, not a footnote. The fundraiser only works if
 // people with money show up, so they get their own way to take part
 // ("back"), their own persona card, and the Give · Receive · Grow section
-// frames the whole economy in the site's own tagline. Anything that pushes
-// patrons back below the fold is a regression.
+// frames the whole economy in the site's own tagline. Both grids now put the
+// patron in the TOP ROW, beside the creative it pays for: "Back the work"
+// sits next to "Show work," and the patron persona sits next to the musician.
+// A patron who has to scroll past four creative cards to find themselves has
+// already read the page as not-for-them. Anything that pushes patrons back
+// down either grid is a regression.
 //
-// The form is two steps for one reason: the email saves on step one, alone,
-// before any other question. An abandoned application still leaves a
-// contactable person, and the list is the only asset Meta cannot delete.
-// convex/showcase.ts's `apply` also writes that email to the waitlist.
-// Step two is a MODAL rather than more page: by the time the email is saved
-// the only thing that matters is finishing, and a centered overlay with the
-// page blurred behind it removes every other thing to click. Closing it is
-// safe by construction — the email is already stored — so Escape and a
-// scrim click both dismiss without a confirm.
+// The form's first step is still the email, saved alone, before any other
+// question. An abandoned application still leaves a contactable person, and
+// the list is the only asset Meta cannot delete. convex/showcase.ts's `apply`
+// also writes that email to the waitlist. The rest is a four-step stepper in
+// a MODAL (../garden/showcase-modals): by the time the email is saved the
+// only thing that matters is finishing, and a centered overlay with the page
+// blurred behind it removes every other thing to click, while four small
+// steps ask less at once than one long form does. Closing it is safe by
+// construction — the email is already stored — so Escape and a scrim click
+// both dismiss without a confirm, and the panel here stays as the way back in.
+//
+// THE MODALS LIVE IN THEIR OWN MODULE and this route owns all the state:
+// the email, which overlay is open, submitting/error/done, and every Convex
+// call. The modals are given props and hand back answers; they never touch
+// `api`. That split is what lets the ticket overlay reuse `showcase.apply` —
+// "tell me when tickets open" is the same list write as step one of an
+// application — without two components racing to own the same email.
+//
+// The price badges are BUTTONS that open the ticket overlay, not links to
+// the form. There is no checkout yet (TICKET_URL is null), and a patron who
+// taps "$75" and lands on a dead div is gone; the overlay takes their email
+// and promises the link, which is worth more than the sale we can't take.
+// They stay real <button>s with their price and tier in the accessible name.
 //
 // The FAQ uses native <details>/<summary> rather than a React accordion.
 // Collapsed markup that a crawler (or an answer engine) can't read is worse
 // than no FAQ at all, and <details> keeps every answer in the prerendered
 // HTML while still rendering closed, with keyboard support we'd otherwise
-// have to write. Don't "upgrade" it to JS.
+// have to write. Don't "upgrade" it to JS. It stays below the apply area:
+// an FAQ above the ask answers objections nobody has yet.
 //
 // "What do you make?" uses the canonical INTERESTS vocabulary from
 // constants/interests.ts, the same axis People, Projects and Offerings use.
 // This page used to invent its own nine-item discipline list, which meant an
 // applicant who became a member had to describe themselves twice and the two
-// answers could never be joined. One vocabulary, everywhere.
+// answers could never be joined. One vocabulary, everywhere. The chips
+// themselves now render inside ApplyModal.
 //
 // The hero drawing is inverted (filter: invert(1)) rather than re-exported:
 // it's ink on white paper, and the Garden shell is paper on ink. Inversion
 // turns the pen lines into light on dark and costs nothing at build time.
 
-import { useEffect, useId, useState } from "react";
-import type { CSSProperties, ReactNode } from "react";
+import { useId, useState } from "react";
+import type { ReactNode } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { Link } from "react-router";
 import { api } from "../../convex/_generated/api";
-import { INTERESTS } from "../constants/interests";
 import { GardenPage, SectionLabel } from "../garden/ui";
+import { ApplyModal, TicketModal } from "../garden/showcase-modals";
+import type { ApplyAnswers } from "../garden/showcase-modals";
 import "../garden/garden.css";
 
 export function meta() {
@@ -147,54 +181,9 @@ const TABLE_FEE = "$50";
 // Per-event ticketing isn't built — docs/events-video-hosting-prd.md keeps it
 // out of scope, and events use an off-platform payment link instead. So this
 // stays null until there's a real checkout URL to point at. Prices above show
-// either way; only the button waits on this.
+// either way; only the button waits on this. The ticket overlay reads it: with
+// a URL it sends people to checkout, without one it takes their email.
 const TICKET_URL: string | null = null;
-
-/** Where a price badge sends someone. The badges are CLICKABLE even with no
-    checkout: a patron who taps "$75" and lands on a dead div is gone, while
-    one who lands on the email field is on the list and gets the link the day
-    it exists. Falling back to the form is worth more than the ticket sale we
-    can't take yet. */
-const TICKET_HREF = TICKET_URL ?? "#apply";
-
-/** How many canonical interests one applicant may claim. Mirrors
-    MAX_INTERESTS in convex/showcase.ts — the server is the real limit, this
-    only stops someone hitting it by surprise. */
-const MAX_INTERESTS = 8;
-
-// The ways to take part. "back" is the patron lane and it lives in the same
-// list as the four creative ones on purpose: a patron is a participant, not
-// an audience member, and splitting the lists into "make" and "give" put
-// the money on the other side of a wall from the work.
-const PARTICIPATION = [
-  {
-    value: "exhibit",
-    label: "Show work",
-    note: "Physical or digital. Not all of it has to be in the room.",
-  },
-  {
-    value: "perform",
-    label: "Play or read",
-    note: "Music and spoken word both. Paid. Set length depends on how many play.",
-  },
-  {
-    value: "vend",
-    label: "Sell at a table",
-    note: `${TABLE_FEE}, and there aren't many. You keep what you sell.`,
-  },
-  {
-    value: "document",
-    label: "Photograph the night",
-    note: "Credited, and your shots stay yours. You still buy a ticket.",
-  },
-  {
-    value: "back",
-    label: "Back the work",
-    note: "Patron ticket, a commission, or money into the grant fund. You meet who it goes to.",
-  },
-] as const;
-
-type Participation = (typeof PARTICIPATION)[number]["value"];
 
 // ————— Line drawings —————
 //
@@ -254,20 +243,77 @@ const INK_BRUSH =
 /** Two hands cupped under a sprout — give, and what grows out of it. */
 const INK_HANDS =
   "M11 34 C11 46 20 55 32 55 C44 55 53 46 53 34 M32 31 C32 22 26 17 19 18 C20 26 25 31 32 31 M32 31 C32 21 39 16 46 17 C45 26 39 31 32 31 M32 31 L32 44";
+/** One hand up, offered — the volunteer's answer. Fingers uneven on
+    purpose, like the rest of these. */
+const INK_HAND =
+  "M20 55 C15 47 12 40 13 34 C14 29 20 30 21 35 L23 41 L23 16 C23 12 29 12 29 16 L29 33 M29 23 C29 19 35 19 35 23 L35 33 M35 26 C35 22 41 22 41 26 L41 34 M41 30 C41 26 47 26 47 30 C47 41 45 49 39 54";
 
-const PARTICIPATION_INK: Record<Participation, string> = {
-  exhibit: INK_FRAME,
-  perform: INK_PLAY,
-  vend: INK_TABLE,
-  document: INK_CAMERA,
-  back: INK_HANDS,
-};
+// The ways to take part. "back" is the patron lane and it lives in the same
+// grid as the creative ones on purpose: a patron is a participant, not an
+// audience member, and splitting the lists into "make" and "give" put the
+// money on the other side of a wall from the work. It is SECOND in the
+// array, which is the right half of the first row — see the header.
+//
+// Six entries, not five: "volunteer" is a real lane (we need hands before
+// and after the doors) and it also squares the grid, so no row is left with
+// an orphan card. Structurally a ParticipationOption from
+// ../garden/showcase-modals, plus an `ink` the modal ignores.
+const PARTICIPATION = [
+  {
+    value: "exhibit",
+    label: "Show work",
+    note: "Physical or digital. Not all of it has to be in the room.",
+    ink: INK_FRAME,
+  },
+  {
+    value: "back",
+    label: "Back the work",
+    note: "Patron ticket, a commission, or money into the grant fund. You meet who it goes to.",
+    ink: INK_HANDS,
+  },
+  {
+    value: "perform",
+    label: "Play or read",
+    note: "Music and spoken word both. Paid. Set length depends on how many play.",
+    ink: INK_PLAY,
+  },
+  {
+    value: "vend",
+    label: "Sell at a table",
+    note: `${TABLE_FEE}, and there aren't many. You keep what you sell.`,
+    ink: INK_TABLE,
+  },
+  {
+    value: "document",
+    label: "Photograph the night",
+    note: "Credited, and your shots stay yours. You still buy a ticket.",
+    ink: INK_CAMERA,
+  },
+  {
+    value: "volunteer",
+    label: "Volunteer on the night",
+    note: "We need hands for setup, the door and teardown. You still buy a ticket.",
+    ink: INK_HAND,
+  },
+] as const;
+
+type Participation = (typeof PARTICIPATION)[number]["value"];
+
+/** The modal hands back plain strings. Narrow them here — this is the edge
+    where the page's vocabulary meets the mutation's union, and an unknown
+    value should be dropped on the client rather than rejected by Convex
+    after the applicant has already hit send. */
+function asParticipation(values: string[] | undefined): Participation[] {
+  return (values ?? []).filter((v): v is Participation =>
+    PARTICIPATION.some((p) => p.value === v),
+  );
+}
 
 // ————— Page-local CSS —————
 //
-// Two things inline styles genuinely can't express: the ::marker pseudo-
-// elements that hide the browser's default <details> triangle, and the
-// [open] state that flips + to −. Kept here rather than in garden.css
+// Three things inline styles genuinely can't express: the ::marker pseudo-
+// elements that hide the browser's default <details> triangle, the [open]
+// state that flips + to −, and hover. Kept here rather than in garden.css
 // because nothing else in the system uses a disclosure yet; promote it the
 // second a second page needs one.
 const PAGE_CSS = `
@@ -304,11 +350,30 @@ function P({ children }: { children: ReactNode }) {
   );
 }
 
+/** Both card grids: two columns where there's room, one on a narrow phone.
+    auto-fit rather than a media query so the breakpoint is the content's,
+    not a guess about devices. */
+function CardGrid({ children }: { children: ReactNode }) {
+  return (
+    <div
+      style={{
+        display: "grid",
+        gap: 12,
+        gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
 /** One of the "who this is for" cards. The heading is the person's own
     sentence about themselves, not our description of them — that's the line
     that makes a stranger stop scrolling and think "that's me." The drawing
-    is there so the five cards can be told apart at a glance on a phone,
-    where they otherwise read as one grey wall of quotes. */
+    is there so the cards can be told apart at a glance on a phone, where
+    they otherwise read as one grey wall of quotes. Stacked rather than
+    side-by-side now that two sit in a row: at half width there isn't room
+    for a drawing in the gutter. */
 function WhoCard({
   quote,
   who,
@@ -321,23 +386,17 @@ function WhoCard({
   ink: string;
 }) {
   return (
-    <div
-      className="g-card"
-      style={{ marginTop: 14, display: "flex", gap: 16, alignItems: "flex-start" }}
-    >
-      <span style={{ color: "var(--g-citron)", flexShrink: 0, marginTop: 2 }}>
+    <div className="g-card" style={{ height: "100%" }}>
+      <span
+        style={{ color: "var(--g-citron)", display: "block", marginBottom: 12 }}
+      >
         <Ink d={ink} label={who} size={38} />
       </span>
-      <div>
-        <div className="g-label" style={{ color: "var(--g-citron)" }}>{who}</div>
-        <p
-          className="g-h"
-          style={{ fontSize: 19, marginTop: 8, lineHeight: 1.3 }}
-        >
-          “{quote}”
-        </p>
-        <p style={{ fontSize: 15.5, lineHeight: 1.6, marginTop: 10 }}>{body}</p>
-      </div>
+      <div className="g-label" style={{ color: "var(--g-citron)" }}>{who}</div>
+      <p className="g-h" style={{ fontSize: 19, marginTop: 8, lineHeight: 1.3 }}>
+        “{quote}”
+      </p>
+      <p style={{ fontSize: 15.5, lineHeight: 1.6, marginTop: 10 }}>{body}</p>
     </div>
   );
 }
@@ -424,75 +483,38 @@ function Faq({ q, children }: { q: string; children: ReactNode }) {
   );
 }
 
-/** Interest chips reuse the participation-checkbox affordance rather than a
-    <select>: a multi-select native control is unusable on a phone, and the
-    canonical list is 26 items long. */
-function chipStyle(on: boolean, locked: boolean): CSSProperties {
-  return {
-    fontFamily: '"JetBrains Mono", monospace',
-    fontSize: 12.5,
-    letterSpacing: "0.06em",
-    padding: "7px 11px",
-    borderRadius: 3,
-    border: `1px solid ${on ? "var(--g-citron)" : "var(--g-hairline)"}`,
-    background: on ? "var(--g-citron)" : "transparent",
-    color: on ? "var(--g-ink)" : "var(--g-body)",
-    cursor: locked ? "default" : "pointer",
-    opacity: locked ? 0.35 : 1,
-  };
-}
+// ————— Page —————
 
-// ————— The form —————
-
-function ApplyForm({ id }: { id?: string }) {
+export default function Showcase() {
+  const stats = useQuery(api.showcase.publicStats);
   const apply = useMutation(api.showcase.apply);
   const answer = useMutation(api.showcase.answerApplication);
 
-  const [step, setStep] = useState<"email" | "details" | "done">("email");
-  /** Separate from `step` so dismissing the overlay doesn't throw away the
-      answers already typed into it — reopening lands back on the same form,
-      and the inline card below keeps a way back in. */
-  const [modalOpen, setModalOpen] = useState(false);
+  // The application. `email` is banked the moment step one submits, which is
+  // why every other flag here can be thrown away without losing anything.
   const [email, setEmail] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  /** Someone coming back to a finished application. They still land on step
-      two — re-submitting overwrites, which is how you add the better photo
-      you took last week — but the copy shouldn't pretend we've never met. */
+  const [applyOpen, setApplyOpen] = useState(false);
+  const [applyBusy, setApplyBusy] = useState(false);
+  const [applyError, setApplyError] = useState<string | null>(null);
+  const [applyDone, setApplyDone] = useState(false);
+  const [emailSaved, setEmailSaved] = useState(false);
+  /** Someone coming back to a finished application. They still get the
+      stepper — re-submitting overwrites, which is how you add the better
+      photo you took last week — but the copy shouldn't pretend we've never
+      met. */
   const [returning, setReturning] = useState(false);
 
-  const [name, setName] = useState("");
-  const [city, setCity] = useState("");
-  const [instagram, setInstagram] = useState("");
-  const [interests, setInterests] = useState<string[]>([]);
-  const [portfolioUrl, setPortfolioUrl] = useState("");
-  const [workDescription, setWorkDescription] = useState("");
-  const [participation, setParticipation] = useState<Participation[]>([]);
+  // The ticket overlay. Its own flags: a patron mid-ticket and an applicant
+  // mid-application are two different people on two different pages, and
+  // sharing one `busy` would spin both.
+  const [tier, setTier] = useState<
+    { label: string; price: string; note: string } | null
+  >(null);
+  const [ticketBusy, setTicketBusy] = useState(false);
+  const [ticketError, setTicketError] = useState<string | null>(null);
+  const [ticketDone, setTicketDone] = useState(false);
 
-  const headingId = useId();
-
-  // Escape closes. The email is already saved by the time this renders, so
-  // there is nothing to confirm and nothing to lose.
-  useEffect(() => {
-    if (!modalOpen) return;
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setModalOpen(false);
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [modalOpen]);
-
-  // Lock the page behind the overlay. Restoring the previous value rather
-  // than clearing it matters because two ApplyForms render on this page and
-  // either can own the lock.
-  useEffect(() => {
-    if (!modalOpen) return;
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = previous;
-    };
-  }, [modalOpen]);
+  const applyHeadingId = useId();
 
   function errorText(err: unknown): string {
     const raw = err instanceof Error ? err.message : String(err);
@@ -502,351 +524,68 @@ function ApplyForm({ id }: { id?: string }) {
     return (match?.[1] ?? raw).slice(0, 200);
   }
 
+  /** Step one, and the only thing on the page that must not fail quietly. */
   async function submitEmail(e: React.FormEvent) {
     e.preventDefault();
-    setBusy(true);
-    setError(null);
+    setApplyBusy(true);
+    setApplyError(null);
     try {
       const result = await apply({ email });
       setReturning(result.answered);
-      setStep("details");
-      setModalOpen(true);
+      setEmailSaved(true);
+      setApplyOpen(true);
     } catch (err) {
-      setError(errorText(err));
+      setApplyError(errorText(err));
     } finally {
-      setBusy(false);
+      setApplyBusy(false);
     }
   }
 
-  async function submitDetails(e: React.FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    setError(null);
+  /** Steps two through four, handed back in one object by the stepper. */
+  async function submitAnswers(answers: ApplyAnswers) {
+    setApplyBusy(true);
+    setApplyError(null);
     try {
+      const participation = asParticipation(answers.participation);
       await answer({
         email,
-        name: name || undefined,
-        city: city || undefined,
-        instagram: instagram || undefined,
-        interests: interests.length ? interests : undefined,
-        portfolioUrl: portfolioUrl || undefined,
-        workDescription: workDescription || undefined,
+        name: answers.name || undefined,
+        city: answers.city || undefined,
+        instagram: answers.instagram || undefined,
+        interests: answers.interests?.length ? answers.interests : undefined,
+        portfolioUrl: answers.portfolioUrl || undefined,
+        workDescription: answers.workDescription || undefined,
         participation: participation.length ? participation : undefined,
       });
-      setStep("done");
+      setApplyDone(true);
     } catch (err) {
-      setError(errorText(err));
+      setApplyError(errorText(err));
     } finally {
-      setBusy(false);
+      setApplyBusy(false);
     }
   }
 
-  function toggle(value: Participation) {
-    setParticipation((prev) =>
-      prev.includes(value)
-        ? prev.filter((p) => p !== value)
-        : [...prev, value],
-    );
+  /** "Tell me when tickets open" is the same write as step one — the email
+      lands on the waitlist and in the application table, and whoever left it
+      gets the link the day there is one. */
+  async function notifyTicket(value: string) {
+    setTicketBusy(true);
+    setTicketError(null);
+    try {
+      await apply({ email: value });
+      setTicketDone(true);
+    } catch (err) {
+      setTicketError(errorText(err));
+    } finally {
+      setTicketBusy(false);
+    }
   }
 
-  function toggleInterest(value: string) {
-    setInterests((prev) =>
-      prev.includes(value)
-        ? prev.filter((i) => i !== value)
-        : prev.length >= MAX_INTERESTS
-          ? prev
-          : [...prev, value],
-    );
+  function openTicket(next: { label: string; price: string; note: string }) {
+    setTier(next);
+    setTicketError(null);
+    setTicketDone(false);
   }
-
-  const atCap = interests.length >= MAX_INTERESTS;
-
-  const doneBody = (
-    <>
-      <div className="g-label" style={{ color: "var(--g-citron)" }}>
-        You're in
-      </div>
-      <p className="g-h" id={headingId} style={{ fontSize: 22, marginTop: 10 }}>
-        Application received.
-      </p>
-      <p style={{ fontSize: 15.5, lineHeight: 1.6, marginTop: 10 }}>
-        We read every one as it comes in. You'll hear by email within a few
-        days either way, and by {DECISION_BY} at the latest.
-      </p>
-      <p style={{ fontSize: 15.5, lineHeight: 1.6, marginTop: 12 }}>
-        In the meantime,{" "}
-        <Link to="/opportunities" style={{ color: "var(--g-citron)" }}>
-          see what's being made
-        </Link>
-        .
-      </p>
-    </>
-  );
-
-  const detailsBody = (
-    <form onSubmit={submitDetails}>
-      <div className="g-label">
-        {returning ? "You've already applied" : "Step 2 of 2 — the work"}
-      </div>
-      <p className="g-h" id={headingId} style={{ fontSize: 22, marginTop: 10 }}>
-        Tell us what you'd bring.
-      </p>
-      <p className="g-hint" style={{ marginTop: 8 }}>
-        {returning
-          ? `We already have an application for ${email}. Filling this in again replaces it.`
-          : `Saved as ${email}. All optional, but the jury can only go on what you give them.`}
-      </p>
-
-      <div style={{ display: "grid", gap: 12, marginTop: 18 }}>
-        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-          <input
-            className="g-input"
-            style={{ flex: "1 1 180px" }}
-            placeholder="Your name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
-          <input
-            className="g-input"
-            style={{ flex: "1 1 140px" }}
-            placeholder="City"
-            value={city}
-            onChange={(e) => setCity(e.target.value)}
-          />
-        </div>
-
-        <input
-          className="g-input"
-          placeholder="Instagram handle"
-          value={instagram}
-          onChange={(e) => setInstagram(e.target.value)}
-        />
-
-        <input
-          className="g-input"
-          placeholder="Link to your work (site, IG, Bandcamp, Drive folder…)"
-          value={portfolioUrl}
-          onChange={(e) => setPortfolioUrl(e.target.value)}
-        />
-
-        <textarea
-          className="g-input"
-          rows={4}
-          placeholder="What would you bring, and why this piece?"
-          value={workDescription}
-          onChange={(e) => setWorkDescription(e.target.value)}
-        />
-      </div>
-
-      <div style={{ marginTop: 20 }}>
-        <SectionLabel>What do you make?</SectionLabel>
-        <p className="g-hint" style={{ marginTop: 6 }}>
-          Pick up to {MAX_INTERESTS}. {interests.length}/{MAX_INTERESTS}{" "}
-          chosen.
-        </p>
-        <div
-          role="group"
-          aria-label="What do you make?"
-          style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 10 }}
-        >
-          {INTERESTS.map((interest) => {
-            const on = interests.includes(interest);
-            return (
-              <button
-                key={interest}
-                type="button"
-                aria-pressed={on}
-                disabled={!on && atCap}
-                onClick={() => toggleInterest(interest)}
-                style={chipStyle(on, !on && atCap)}
-              >
-                {interest}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      <div style={{ marginTop: 20 }}>
-        <SectionLabel>How you'd take part</SectionLabel>
-        <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
-          {PARTICIPATION.map((p) => (
-            <label
-              key={p.value}
-              style={{
-                display: "flex",
-                gap: 10,
-                alignItems: "flex-start",
-                cursor: "pointer",
-                fontSize: 15,
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={participation.includes(p.value)}
-                onChange={() => toggle(p.value)}
-                style={{ marginTop: 5, accentColor: "var(--g-citron)" }}
-              />
-              <span>
-                <span style={{ color: "var(--g-paper)" }}>{p.label}</span>
-                <span className="g-hint" style={{ display: "block", fontSize: 14 }}>
-                  {p.note}
-                </span>
-              </span>
-            </label>
-          ))}
-        </div>
-      </div>
-
-      <button
-        className="g-btn g-btn-citron"
-        type="submit"
-        disabled={busy}
-        style={{ marginTop: 20, opacity: busy ? 0.6 : 1 }}
-      >
-        {busy ? "Sending…" : "Send application"}
-      </button>
-      {error && (
-        <p style={{ color: "var(--g-citron)", fontSize: 14, marginTop: 10 }}>
-          {error}
-        </p>
-      )}
-    </form>
-  );
-
-  return (
-    <>
-      <div className="g-card" id={id} style={{ marginTop: 18 }}>
-        {step === "email" ? (
-          <form onSubmit={submitEmail}>
-            <div className="g-label">Step 1 of 2 — takes 20 seconds</div>
-            <p className="g-h" style={{ fontSize: 22, marginTop: 10 }}>
-              Apply to show your work.
-            </p>
-            <p className="g-hint" style={{ marginTop: 8 }}>
-              Free. No account. Your email saves first, so you can finish the
-              rest whenever.
-            </p>
-            <div style={{ display: "flex", gap: 10, marginTop: 16, flexWrap: "wrap" }}>
-              <input
-                className="g-input"
-                style={{ flex: "1 1 240px" }}
-                type="email"
-                required
-                autoComplete="email"
-                placeholder="you@email.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-              <button
-                className="g-btn g-btn-citron"
-                type="submit"
-                disabled={busy}
-                style={{ opacity: busy ? 0.6 : 1 }}
-              >
-                {busy ? "Saving…" : "Start"}
-              </button>
-            </div>
-            {error && (
-              <p style={{ color: "var(--g-citron)", fontSize: 14, marginTop: 10 }}>
-                {error}
-              </p>
-            )}
-          </form>
-        ) : (
-          // The email is banked. This card stays as the way back into the
-          // overlay if they dismissed it, and as proof we have their address.
-          <div>
-            <div className="g-label" style={{ color: "var(--g-citron)" }}>
-              {step === "done" ? "Application received" : "Email saved"}
-            </div>
-            <p className="g-h" style={{ fontSize: 20, marginTop: 10 }}>
-              {step === "done"
-                ? "We'll be in touch by " + DECISION_BY + "."
-                : "You're on the list as " + email + "."}
-            </p>
-            <p className="g-hint" style={{ marginTop: 8 }}>
-              {step === "done"
-                ? "Want to change what you sent? Open it again and resubmit."
-                : "One more step and the jury has something to read."}
-            </p>
-            <button
-              className="g-btn g-btn-ghost"
-              type="button"
-              onClick={() => setModalOpen(true)}
-              style={{ marginTop: 14 }}
-            >
-              {step === "done" ? "Review answers" : "Finish application"}
-            </button>
-          </div>
-        )}
-      </div>
-
-      {modalOpen && (
-        <div
-          onClick={() => setModalOpen(false)}
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 100,
-            background: "rgba(8,8,8,0.72)",
-            backdropFilter: "blur(10px)",
-            WebkitBackdropFilter: "blur(10px)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: 16,
-          }}
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby={headingId}
-            onClick={(e) => e.stopPropagation()}
-            className="g-card"
-            style={{
-              background: "var(--g-ink)",
-              width: "100%",
-              maxWidth: 560,
-              // A phone in landscape has ~340px of height to spare; the form
-              // has to scroll inside the dialog or the submit button is
-              // unreachable.
-              maxHeight: "90vh",
-              overflow: "auto",
-              position: "relative",
-            }}
-          >
-            <button
-              type="button"
-              aria-label="Close"
-              onClick={() => setModalOpen(false)}
-              style={{
-                position: "absolute",
-                top: 10,
-                right: 12,
-                background: "transparent",
-                border: "none",
-                color: "var(--g-dim)",
-                fontSize: 22,
-                lineHeight: 1,
-                cursor: "pointer",
-                padding: 6,
-              }}
-            >
-              ×
-            </button>
-            {step === "done" ? doneBody : detailsBody}
-          </div>
-        </div>
-      )}
-    </>
-  );
-}
-
-// ————— Page —————
-
-export default function Showcase() {
-  const stats = useQuery(api.showcase.publicStats);
 
   return (
     <GardenPage>
@@ -883,7 +622,102 @@ export default function Showcase() {
         />
       </div>
 
-      <ApplyForm id="apply" />
+      {/* The ask, first and on its own surface. Lighter than the page and
+          citron-edged so it reads as a panel laid on top rather than as the
+          next paragraph. */}
+      <section
+        id="apply"
+        aria-labelledby={applyHeadingId}
+        style={{
+          marginTop: 28,
+          padding: "24px 24px 26px",
+          borderRadius: 10,
+          border: "1px solid var(--g-citron)",
+          background: "rgba(247, 247, 244, 0.05)",
+          boxShadow: "0 14px 38px rgba(0, 0, 0, 0.45)",
+        }}
+      >
+        {emailSaved ? (
+          // The email is banked. This stays as the way back into the stepper
+          // if they dismissed it, and as proof we have their address.
+          <div>
+            <div className="g-label" style={{ color: "var(--g-citron)" }}>
+              {applyDone ? "Application received" : "Email saved"}
+            </div>
+            <p
+              className="g-h"
+              id={applyHeadingId}
+              style={{ fontSize: 22, marginTop: 10 }}
+            >
+              {applyDone
+                ? `We'll be in touch by ${DECISION_BY}.`
+                : `You're on the list as ${email}.`}
+            </p>
+            <p className="g-hint" style={{ marginTop: 8 }}>
+              {applyDone
+                ? "Want to change what you sent? Open it again and resubmit."
+                : "A few more questions and the jury has something to read."}
+            </p>
+            <button
+              className="g-btn g-btn-ghost"
+              type="button"
+              onClick={() => setApplyOpen(true)}
+              style={{ marginTop: 14 }}
+            >
+              {applyDone ? "Review answers" : "Finish application"}
+            </button>
+          </div>
+        ) : (
+          <form onSubmit={submitEmail}>
+            <div className="g-label">Free · no account · 20 seconds</div>
+            <p
+              className="g-h"
+              id={applyHeadingId}
+              style={{ fontSize: 24, marginTop: 10 }}
+            >
+              Apply to show your work.
+            </p>
+            <p className="g-hint" style={{ marginTop: 8 }}>
+              Your email saves first, so you can finish the rest whenever.
+            </p>
+            <div
+              style={{ display: "flex", gap: 10, marginTop: 16, flexWrap: "wrap" }}
+            >
+              <input
+                className="g-input"
+                style={{ flex: "1 1 240px" }}
+                type="email"
+                required
+                autoComplete="email"
+                aria-label="Your email"
+                placeholder="you@email.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+              <button
+                className="g-btn g-btn-citron"
+                type="submit"
+                disabled={applyBusy}
+                style={{ opacity: applyBusy ? 0.6 : 1 }}
+              >
+                {applyBusy ? "Saving…" : "Start"}
+              </button>
+            </div>
+            {applyError && (
+              <p style={{ color: "var(--g-citron)", fontSize: 14, marginTop: 10 }}>
+                {applyError}
+              </p>
+            )}
+          </form>
+        )}
+      </section>
+
+      {/* Below the panel on purpose — a deadline is a reason to finish, not
+          a hurdle to read before starting. */}
+      <p className="g-hint" style={{ marginTop: 12 }}>
+        Applications close {CLOSE_DATE}. Selection is rolling, so the earlier
+        you send yours, the more of the {SPOTS} spots are left.
+      </p>
 
       {/* The positioning. Unpaid faith or faithless funding, and a third
           option. Five short sentences, and it does not get longer. */}
@@ -924,36 +758,44 @@ export default function Showcase() {
         )}
       </Section>
 
-      <Section label="Five ways to take part">
+      {/* Show work | Back the work in the first row. See the header. */}
+      <Section label="Six ways to take part">
         <P>Pick any that fit. Most people pick one.</P>
-        <div style={{ display: "grid", gap: 12, marginTop: 18 }}>
-          {PARTICIPATION.map((p) => (
-            <div
-              key={p.value}
-              className="g-card"
-              style={{ display: "flex", gap: 16, alignItems: "flex-start" }}
-            >
-              <span
-                style={{ color: "var(--g-citron)", flexShrink: 0, marginTop: 2 }}
+        <div style={{ marginTop: 18 }}>
+          <CardGrid>
+            {PARTICIPATION.map((p) => (
+              <div
+                key={p.value}
+                className="g-card"
+                style={{
+                  height: "100%",
+                  display: "flex",
+                  gap: 16,
+                  alignItems: "flex-start",
+                }}
               >
-                <Ink d={PARTICIPATION_INK[p.value]} label={p.label} />
-              </span>
-              <span>
                 <span
-                  style={{
-                    color: "var(--g-paper)",
-                    fontSize: 16.5,
-                    display: "block",
-                  }}
+                  style={{ color: "var(--g-citron)", flexShrink: 0, marginTop: 2 }}
                 >
-                  {p.label}
+                  <Ink d={p.ink} label={p.label} size={38} />
                 </span>
-                <span className="g-hint" style={{ display: "block", marginTop: 6 }}>
-                  {p.note}
+                <span>
+                  <span
+                    style={{
+                      color: "var(--g-paper)",
+                      fontSize: 16.5,
+                      display: "block",
+                    }}
+                  >
+                    {p.label}
+                  </span>
+                  <span className="g-hint" style={{ display: "block", marginTop: 6 }}>
+                    {p.note}
+                  </span>
                 </span>
-              </span>
-            </div>
-          ))}
+              </div>
+            ))}
+          </CardGrid>
         </div>
       </Section>
 
@@ -977,98 +819,101 @@ export default function Showcase() {
             line="What's left goes into the grant fund, which backs the next projects."
           />
         </div>
-        <P>
-          So everyone in the room holds a ticket. That includes us, and it
-          includes the {SPOTS} people showing work.
-        </P>
-        <div style={{ display: "grid", gap: 12, marginTop: 18 }}>
-          {TICKET_TIERS.map((tier) => (
-            <a
-              key={tier.label}
-              href={TICKET_HREF}
-              className="g-card sc-ticket"
-              style={{
-                display: "flex",
-                gap: 16,
-                alignItems: "baseline",
-                textDecoration: "none",
-                color: "inherit",
-              }}
-            >
-              <span
-                className="g-h"
-                style={{ fontSize: 26, color: "var(--g-citron)", flexShrink: 0 }}
+
+        <div style={{ marginTop: 22 }}>
+          <SectionLabel>Get your ticket</SectionLabel>
+          <P>
+            Everyone in the room holds one. That includes us, and it includes
+            the {SPOTS} people showing work.
+          </P>
+          <div style={{ display: "grid", gap: 12, marginTop: 16 }}>
+            {TICKET_TIERS.map((t) => (
+              <button
+                key={t.label}
+                type="button"
+                className="g-card sc-ticket"
+                onClick={() => openTicket(t)}
+                aria-label={`Get your ${t.label.toLowerCase()} ticket, ${t.price}`}
+                style={{
+                  display: "flex",
+                  gap: 16,
+                  alignItems: "baseline",
+                  width: "100%",
+                  textAlign: "left",
+                  background: "transparent",
+                  color: "inherit",
+                  fontFamily: "inherit",
+                  fontSize: "inherit",
+                  cursor: "pointer",
+                }}
               >
-                {tier.price}
-              </span>
-              <span style={{ flex: 1 }}>
-                <span style={{ color: "var(--g-paper)", display: "block" }}>
-                  {tier.label}
+                <span
+                  className="g-h"
+                  style={{ fontSize: 26, color: "var(--g-citron)", flexShrink: 0 }}
+                >
+                  {t.price}
                 </span>
-                <span className="g-hint" style={{ display: "block", marginTop: 4 }}>
-                  {tier.note}
+                <span style={{ flex: 1 }}>
+                  <span style={{ color: "var(--g-paper)", display: "block" }}>
+                    {t.label}
+                  </span>
+                  <span className="g-hint" style={{ display: "block", marginTop: 4 }}>
+                    {t.note}
+                  </span>
                 </span>
-              </span>
-              <span
-                className="g-badge g-badge-line"
-                style={{ flexShrink: 0, whiteSpace: "nowrap" }}
-              >
-                {TICKET_URL ? "Buy" : "Coming soon"}
-              </span>
-            </a>
-          ))}
+                <span
+                  className="g-badge g-badge-line"
+                  aria-hidden="true"
+                  style={{ flexShrink: 0, whiteSpace: "nowrap" }}
+                >
+                  {TICKET_URL ? "Buy" : "Notify me"}
+                </span>
+              </button>
+            ))}
+          </div>
         </div>
-        <P>
-          {TICKET_URL
-            ? "The room is small. If it sells out, being selected won't get you in."
-            : "Tickets aren't on sale yet. Leave your email and you'll get the link before it's public."}
-        </P>
         <P>Can't be in Encinitas? The livestream is free.</P>
       </Section>
 
+      {/* Patrons first, beside the musician. See the header. */}
       <Section label="Who this is for">
-        <WhoCard
-          who="Apparel"
-          ink={INK_SHIRT}
-          quote="I'm a designer. I'm not a Jesus-merch guy."
-          body={`Your drops go out to a feed that won't show them to anyone who'd wear them. A table is ${TABLE_FEE} and there aren't many. What you sell is yours.`}
-        />
-        <WhoCard
-          who="Painters"
-          ink={INK_BRUSH}
-          quote="I don't want to be collected for my subject matter."
-          body="Galleries won't hang it. The church asks you to donate it. Bring the piece you can't place anywhere."
-        />
-        <WhoCard
-          who="Musicians"
-          ink={INK_PLAY}
-          quote="I'm not allowed to write anything that isn't a worship song."
-          body="Play the songs nobody will program, to a room that came to listen. Sets are paid. Spoken word counts."
-        />
-        <WhoCard
-          who="Photographers"
-          ink={INK_CAMERA}
-          quote="My portfolio is full of other people's weddings."
-          body="Hang your own work, or shoot the night and get credited. Either way the frames stay yours."
-        />
-        <WhoCard
-          who="Patrons"
-          ink={INK_HANDS}
-          quote="I want to back someone specific, not a cause."
-          body="Buy a patron ticket and you'll meet the twenty, see what they made and know where your money went. Buy the piece off the wall if you want it."
-        />
+        <CardGrid>
+          <WhoCard
+            who="Patrons"
+            ink={INK_HANDS}
+            quote="I want to back someone specific, not a cause."
+            body="Buy a patron ticket and you'll meet the twenty, see what they made and know where your money went. Buy the piece off the wall if you want it."
+          />
+          <WhoCard
+            who="Musicians"
+            ink={INK_PLAY}
+            quote="I'm not allowed to write anything that isn't a worship song."
+            body="Play the songs nobody will program, to a room that came to listen. Sets are paid. Spoken word counts."
+          />
+          <WhoCard
+            who="Photographers"
+            ink={INK_CAMERA}
+            quote="My portfolio is full of other people's weddings."
+            body="Hang your own work, or shoot the night and get credited. Either way the frames stay yours."
+          />
+          <WhoCard
+            who="Painters"
+            ink={INK_BRUSH}
+            quote="I don't want to be collected for my subject matter."
+            body="Galleries won't hang it. The church asks you to donate it. Bring the piece you can't place anywhere."
+          />
+          <WhoCard
+            who="Apparel"
+            ink={INK_SHIRT}
+            quote="I'm a designer. I'm not a Jesus-merch guy."
+            body={`Your drops go out to a feed that won't show them to anyone who'd wear them. A table is ${TABLE_FEE} and there aren't many. What you sell is yours.`}
+          />
+        </CardGrid>
       </Section>
 
-      <Section label="Apply">
-        <P>
-          Applications close {CLOSE_DATE}, and we pick as they come in. The
-          earlier you send yours, the more of the {SPOTS} spots are left.
-        </P>
-        <ApplyForm />
-      </Section>
-
-      {/* Below the form on purpose. An FAQ above the ask answers objections
-          nobody has yet; below it, it catches the people who scrolled past. */}
+      {/* Below the apply area on purpose. An FAQ above the ask answers
+          objections nobody has yet; below it, it catches the people who
+          scrolled past. */}
       <Section label="Questions people ask">
         <div style={{ display: "grid", gap: 10 }}>
           <Faq q="How does selection work?">
@@ -1090,6 +935,12 @@ export default function Showcase() {
             table is {TABLE_FEE}, and everyone in the room holds a ticket at{" "}
             {TICKET_SUMMARY}, creatives included. It's a fundraiser for the
             grant fund, so nobody goes free, us included.
+          </Faq>
+          <Faq q="Can I volunteer instead of showing work?">
+            Yes. We need hands for setup, the door and teardown, and it's the
+            easiest way in if you'd rather be useful than hang something.
+            Pick "volunteer on the night" on your application. You still buy a
+            ticket — nobody in the room is comped, us included.
           </Faq>
           <Faq q="I'm not a creative. Can I come?">
             Yes, and it's the reason the night works. Buy a patron ticket.
@@ -1116,6 +967,29 @@ export default function Showcase() {
           </Faq>
         </div>
       </Section>
+
+      <ApplyModal
+        open={applyOpen}
+        email={email}
+        returning={returning}
+        participationOptions={PARTICIPATION}
+        submitting={applyBusy}
+        error={applyError}
+        done={applyDone}
+        onSubmit={submitAnswers}
+        onClose={() => setApplyOpen(false)}
+      />
+
+      <TicketModal
+        open={tier != null}
+        tier={tier}
+        ticketUrl={TICKET_URL}
+        submitting={ticketBusy}
+        error={ticketError}
+        done={ticketDone}
+        onNotify={notifyTicket}
+        onClose={() => setTier(null)}
+      />
     </GardenPage>
   );
 }

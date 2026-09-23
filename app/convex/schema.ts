@@ -431,6 +431,10 @@ export default defineSchema({
           v.literal("vend"),
           v.literal("document"),
           v.literal("back"),
+          // Hands on the night — setup, door, teardown. Like `back`, not a
+          // "show my work" answer, and a volunteer still buys a ticket;
+          // nobody is comped (docs/handoff/nov6-backings.md).
+          v.literal("volunteer"),
         ),
       ),
     ),

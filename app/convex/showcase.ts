@@ -109,6 +109,7 @@ const participationValidator = v.union(
   v.literal("document"),
   // See schema.ts: `back` is the patron answer, not a creative one.
   v.literal("back"),
+  v.literal("volunteer"),
 );
 
 // ————— Step 1: the email —————
