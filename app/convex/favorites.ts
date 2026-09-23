@@ -192,6 +192,10 @@ export const getMyFavorites = query({
             status: event.status,
             requiresApproval: event.requiresApproval,
             coverImageUrl,
+            // A pasted reel's link and still, so the card can show it when
+            // there is no cover (docs/features/creator-media-cross-post.md).
+            mediaUrl: event.mediaUrl,
+            mediaPreviewUrl: event.mediaPreviewUrl,
             attendeeCount: applications.length,
           },
         };

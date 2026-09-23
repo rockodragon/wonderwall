@@ -31,7 +31,10 @@ async function fetchEvent(convexUrl: string, eventId: string) {
   return data?.value ?? null;
 }
 
-function injectHead(html: string, tags: { title: string; description: string; url: string }) {
+function injectHead(
+  html: string,
+  tags: { title: string; description: string; url: string; image?: string },
+) {
   const t = esc(tags.title);
   const d = esc(tags.description);
   const block = [
@@ -40,7 +43,11 @@ function injectHead(html: string, tags: { title: string; description: string; ur
     `<meta property="og:description" content="${d}">`,
     `<meta property="og:type" content="website">`,
     `<meta property="og:url" content="${esc(tags.url)}">`,
-    `<meta name="twitter:card" content="summary">`,
+    // The still of a pasted reel/TikTok (events.mediaPreviewUrl, a Convex
+    // storage URL) makes the link unfurl as a picture; without one the
+    // text-only summary card stays.
+    ...(tags.image ? [`<meta property="og:image" content="${esc(tags.image)}">`] : []),
+    `<meta name="twitter:card" content="${tags.image ? "summary_large_image" : "summary"}">`,
     `<meta name="description" content="${d}">`,
   ].join("\n");
   // Strip the shell's own title/OG/description tags, then inject ours.
@@ -78,6 +85,10 @@ export const onRequestGet = async (context: {
         title: `${event.title} — TheCrossBoard`,
         description: (event.description ?? "").slice(0, 200) || "A community event.",
         url: request.url,
+        image:
+          typeof event.mediaPreviewUrl === "string" && /^https:\/\//.test(event.mediaPreviewUrl)
+            ? event.mediaPreviewUrl
+            : undefined,
       })
     : shell;
 

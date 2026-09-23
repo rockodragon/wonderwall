@@ -1,11 +1,14 @@
 import { v } from "convex/values";
 import { escapeHtml } from "./email/template";
 import { internalQuery, mutation, query } from "./_generated/server";
-import type { Id } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import { auth } from "./auth";
 import { scheduleNotificationEmail } from "./emailHelpers";
 import { assertCommunityMember } from "./garden/communities";
+import { isSafeHttpUrl, normalizeUrl } from "./garden/richText";
 import { formatFollowedEventDate, notifyFollowers } from "./follows";
+import { schedulePreviewFetch } from "./linkPreview";
+import { toEmbedUrl } from "./videoEmbed";
 
 // ——— Pure validation helpers (unit-tested in events.test.ts) ———
 
@@ -77,6 +80,26 @@ export function normalizeTicketTiers(
     });
   }
   return { tiers: normalized };
+}
+
+/** The pasted media link as it is stored
+ * (docs/features/creator-media-cross-post.md). Blank means "no link". A bare
+ * host ("youtube.com/watch?v=…") is given https:// first; anything that then
+ * isn't http(s) is refused, as every stored URL here is (garden/richText.ts's
+ * isSafeHttpUrl). A recognised Instagram, TikTok, YouTube or Vimeo link is
+ * reduced to its canonical form — share tokens and mobile hosts stripped —
+ * so two organizers pasting the same reel store the same string
+ * (convex/videoEmbed.ts). Returns { mediaUrl } (undefined = none) or
+ * { error } with a user-facing message. */
+export function normalizeMediaUrl(
+  raw: string | undefined,
+): { mediaUrl?: string; error?: string } {
+  const url = normalizeUrl(raw ?? "");
+  if (!url) return { mediaUrl: undefined };
+  if (!isSafeHttpUrl(url)) {
+    return { error: "The media link must be a web address (http:// or https://)" };
+  }
+  return { mediaUrl: toEmbedUrl(url)?.canonicalUrl ?? url };
 }
 
 const ticketTiersValidator = v.optional(
@@ -307,6 +330,9 @@ export const create = mutation({
     // The community this event is posted INTO (optional — content stays
     // owned by the organizer, this only tags it; community-groups.md §0).
     hostOrgId: v.optional(v.id("hostOrgs")),
+    // A pasted Instagram, TikTok, YouTube or Vimeo link in place of a cover
+    // image (docs/features/creator-media-cross-post.md). See normalizeMediaUrl.
+    mediaUrl: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const userId = await auth.getUserId(ctx);
@@ -317,6 +343,9 @@ export const create = mutation({
 
     const { tiers, error: tiersError } = normalizeTicketTiers(args.ticketTiers);
     if (tiersError) throw new Error(tiersError);
+
+    const { mediaUrl, error: mediaUrlError } = normalizeMediaUrl(args.mediaUrl);
+    if (mediaUrlError) throw new Error(mediaUrlError);
 
     if (args.hostOrgId) {
       await assertCommunityMember(ctx, args.hostOrgId, userId);
@@ -340,10 +369,16 @@ export const create = mutation({
       tags: args.tags,
       requiresApproval: args.requiresApproval,
       hostOrgId: args.hostOrgId,
+      mediaUrl,
       status: "published",
       createdAt: now,
       updatedAt: now,
     });
+
+    // The still cards show for the link. Only Instagram and TikTok need a
+    // fetch (a no-op for the rest), and it runs off the request so create
+    // returns at once; convex/linkPreview.ts patches the row when it lands.
+    await schedulePreviewFetch(ctx, "event", eventId, mediaUrl);
 
     // Following fan-out (docs/features/following.md §1 #6): events are born
     // `published`, so create is the moment. Same linkUrl convention as the
@@ -402,6 +437,10 @@ export const update = mutation({
     // instead to remove an already-set hostOrgId. See createPassionProject's
     // hostOrgId comment for what this field means.
     clearCommunity: v.optional(v.boolean()),
+    // The pasted media link (see create). Left out = untouched, so a caller
+    // that doesn't know the field can't wipe it; an empty string clears it —
+    // the same v.optional-takes-no-null reason clearCommunity exists.
+    mediaUrl: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const userId = await auth.getUserId(ctx);
@@ -419,6 +458,27 @@ export const update = mutation({
 
     if (args.hostOrgId) {
       await assertCommunityMember(ctx, args.hostOrgId, userId);
+    }
+
+    // A changed or cleared link takes its still with it: the file is deleted
+    // rather than left orphaned in storage, and both preview columns are
+    // cleared in the same patch so a card never shows the old reel's picture
+    // over the new link while the new fetch (Instagram/TikTok) is in flight.
+    let mediaPatch: Pick<
+      Doc<"events">,
+      "mediaUrl" | "mediaPreviewUrl" | "mediaPreviewStorageId"
+    > = {};
+    let fetchMediaUrl: string | undefined;
+    if (args.mediaUrl !== undefined) {
+      const { mediaUrl, error: mediaUrlError } = normalizeMediaUrl(args.mediaUrl);
+      if (mediaUrlError) throw new Error(mediaUrlError);
+      if (mediaUrl !== event.mediaUrl) {
+        if (event.mediaPreviewStorageId) {
+          await ctx.storage.delete(event.mediaPreviewStorageId);
+        }
+        mediaPatch = { mediaUrl, mediaPreviewUrl: undefined, mediaPreviewStorageId: undefined };
+        fetchMediaUrl = mediaUrl;
+      }
     }
 
     // venueAddress (deprecated, schema.ts) is deliberately left out of this
@@ -439,8 +499,11 @@ export const update = mutation({
       tags: args.tags,
       requiresApproval: args.requiresApproval,
       hostOrgId: args.clearCommunity ? undefined : (args.hostOrgId ?? event.hostOrgId),
+      ...mediaPatch,
       updatedAt: Date.now(),
     });
+
+    await schedulePreviewFetch(ctx, "event", args.eventId, fetchMediaUrl);
   },
 });
 

@@ -195,6 +195,7 @@ export const fetchPreview = internalAction({
       await ctx.runMutation(internal.linkPreview.apply, {
         target: args.target,
         id: args.id,
+        sourceUrl: args.url,
         canonicalUrl: preview.canonicalUrl,
         title: preview.title,
         imageUrl,
@@ -210,10 +211,17 @@ export const fetchPreview = internalAction({
 // filled from the post (and passed on to its companion project, which got
 // the type's fallback title at create); a title someone typed is kept.
 // Events and projects keep their own titles — only the media fields move.
+//
+// A row whose link changed while this fetch was in flight is left alone:
+// the still belongs to the old link, and the new link's own fetch is
+// already scheduled. `sourceUrl` is the link the fetch started from (a
+// short link, before apply swaps in the permalink), so either spelling
+// of the same link counts as unchanged.
 export const apply = internalMutation({
   args: {
     target: previewTargetValidator,
     id: v.string(),
+    sourceUrl: v.string(),
     canonicalUrl: v.string(),
     title: v.optional(v.string()),
     imageUrl: v.optional(v.string()),
@@ -224,11 +232,13 @@ export const apply = internalMutation({
       if (args.imageStorageId) await ctx.storage.delete(args.imageStorageId);
     };
     const hasImage = !!args.imageUrl && !!args.imageStorageId;
+    const linkChanged = (current: string | undefined) =>
+      !!current && current !== args.sourceUrl && current !== args.canonicalUrl;
 
     if (args.target === "artifact") {
       const id = ctx.db.normalizeId("artifacts", args.id);
       const artifact = id ? await ctx.db.get(id) : null;
-      if (!id || !artifact) return dropImage(); // deleted mid-fetch
+      if (!id || !artifact || linkChanged(artifact.mediaUrl)) return dropImage();
       const patch: Partial<Doc<"artifacts">> = {};
       if (artifact.mediaUrl !== args.canonicalUrl) patch.mediaUrl = args.canonicalUrl;
       if (hasImage) {
@@ -257,7 +267,7 @@ export const apply = internalMutation({
     if (args.target === "event") {
       const id = ctx.db.normalizeId("events", args.id);
       const event = id ? await ctx.db.get(id) : null;
-      if (!id || !event) return dropImage();
+      if (!id || !event || linkChanged(event.mediaUrl)) return dropImage();
       const patch: Partial<Doc<"events">> = {};
       if (event.mediaUrl !== args.canonicalUrl) patch.mediaUrl = args.canonicalUrl;
       if (hasImage) {
@@ -274,7 +284,7 @@ export const apply = internalMutation({
     // project
     const id = ctx.db.normalizeId("projects", args.id);
     const project = id ? await ctx.db.get(id) : null;
-    if (!id || !project) return dropImage();
+    if (!id || !project || linkChanged(project.mediaUrl)) return dropImage();
     const patch: Partial<Doc<"projects">> = {};
     if (project.mediaUrl !== args.canonicalUrl) patch.mediaUrl = args.canonicalUrl;
     if (hasImage) {
