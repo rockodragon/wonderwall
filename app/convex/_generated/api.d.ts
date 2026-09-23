@@ -91,6 +91,7 @@ import type * as public_ from "../public.js";
 import type * as resendWebhook from "../resendWebhook.js";
 import type * as scraperService from "../scraperService.js";
 import type * as seed from "../seed.js";
+import type * as showcase from "../showcase.js";
 import type * as sourceParsers from "../sourceParsers.js";
 import type * as videoEmbed from "../videoEmbed.js";
 import type * as waitlist from "../waitlist.js";
@@ -186,6 +187,7 @@ declare const fullApi: ApiFromModules<{
   resendWebhook: typeof resendWebhook;
   scraperService: typeof scraperService;
   seed: typeof seed;
+  showcase: typeof showcase;
   sourceParsers: typeof sourceParsers;
   videoEmbed: typeof videoEmbed;
   waitlist: typeof waitlist;

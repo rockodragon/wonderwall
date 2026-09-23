@@ -57,6 +57,13 @@ export default [
   // to /join.
   route("opportunities", "routes/opportunities.tsx"),
 
+  // The November 6 showcase open call — the destination for the Instagram
+  // acquisition push (docs/marketing/showcase-open-call.md). Public and
+  // outside the _app layout for the same reason the audience pages are:
+  // it is handed to people who have no account, and the entire point is
+  // that applying requires nothing of them up front.
+  route("showcase", "routes/showcase.tsx"),
+
   // App routes (with nav layout)
   layout("routes/_app.tsx", [
     route("search", "routes/search.tsx"),

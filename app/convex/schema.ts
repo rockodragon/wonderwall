@@ -373,6 +373,66 @@ export default defineSchema({
     approvedAt: v.optional(v.number()),
   }).index("by_email", ["email"]),
 
+  // Applications to the November 6 showcase open call (/showcase, backed by
+  // convex/showcase.ts). Separate from `waitlist` above rather than folded
+  // into it: the waitlist is the standing list of people who want in, this
+  // is a dated campaign with a jury and a decision per row. Every applicant
+  // lands in BOTH — showcase.ts's `apply` writes the waitlist entry too, so
+  // an applicant who isn't selected is still someone we can reach in
+  // January.
+  //
+  // Everything past `email` is optional because the form saves the email on
+  // step one and the work on step two. A row with only an email is an
+  // abandoned application, which is still a lead.
+  showcaseApplications: defineTable({
+    email: v.string(),
+    createdAt: v.number(),
+    answeredAt: v.optional(v.number()),
+    name: v.optional(v.string()),
+    city: v.optional(v.string()),
+    // Bare handle, no "@" and no URL — normalized on write in showcase.ts
+    // so the jury sheet is scannable.
+    instagram: v.optional(v.string()),
+    discipline: v.optional(
+      v.union(
+        v.literal("apparel"),
+        v.literal("visual"),
+        v.literal("music"),
+        v.literal("photography"),
+        v.literal("film"),
+        v.literal("writing"),
+        v.literal("design"),
+        v.literal("other"),
+      ),
+    ),
+    portfolioUrl: v.optional(v.string()),
+    workDescription: v.optional(v.string()),
+    // What they want to DO on the night. A photographer offering to
+    // document and an apparel maker wanting a table are different asks and
+    // different costs to us, so they're captured rather than inferred.
+    participation: v.optional(
+      v.array(
+        v.union(
+          v.literal("exhibit"),
+          v.literal("perform"),
+          v.literal("vend"),
+          v.literal("document"),
+        ),
+      ),
+    ),
+    // Jury decision. No computed score on purpose — people read these.
+    status: v.union(
+      v.literal("new"),
+      v.literal("shortlisted"),
+      v.literal("selected"),
+      v.literal("declined"),
+    ),
+    decidedAt: v.optional(v.number()),
+    decidedBy: v.optional(v.id("users")),
+  })
+    .index("by_email", ["email"])
+    .index("by_status", ["status"]),
+
   // Jobs board
   jobs: defineTable({
     posterId: v.id("users"),

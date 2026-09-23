@@ -30,6 +30,10 @@ export default {
     // Public browse — prerendered for its own title/description/OG tags; the
     // postings themselves load client-side from Convex after hydration.
     "/opportunities",
+    // The open call is the landing page for paid and organic social, so it
+    // needs real HTML for link unfurls (the OG image is the hero drawing).
+    // The application form hydrates and posts to Convex after load.
+    "/showcase",
     "/grant-program",
     "/legal/credits",
   ],
