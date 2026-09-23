@@ -47,6 +47,30 @@
 // `{open && ...}` in the parent — any of the three silently turns a dismissal
 // into data loss.
 //
+// WHY THE TICKET'S FIRST STEP STANDS ALONE. The ticket ask is the same
+// principle pointed the other way. Someone who taps "$75 Patron" has already
+// decided; the only thing that can go wrong is us making them work for it.
+// So step 1 is one field and it SUBMITS ON ITS OWN — `onNotify` fires the
+// instant they press the button, before we have asked them a single other
+// question. The email is not batched with the answers that follow, because
+// batching would mean that every person who closes the dialog at step 2, or
+// whose phone rings, or who simply changes their mind about telling us their
+// city, is a person we lose entirely. Banked first, curiosity second.
+//
+// Everything after step 1 is a bonus and must behave like one: each step is
+// optional, each has a visible Skip, the close button is never trapped, and
+// nothing later can block, gate, validate or delay the address. The step
+// indicator only appears once they are IN the bonus (step 2 of 3), for the
+// same reason: answering a tap on a price badge with "Step 1 of 3" turns a
+// 15-second yes into a form, which is exactly the failure the application's
+// step count was invented to prevent. The counter is a reassurance for
+// someone already walking, not a toll gate at the door.
+//
+// And the questions bend to the tier. A Creative is asked what they make; a
+// Patron is asked what they want to see. A patron is not necessarily a maker,
+// and asking them as if they were is how you teach someone that the form was
+// not written for them.
+//
 // These render inside <GardenPage> (i.e. under .garden-root) so the g-* design
 // system classes apply; the fixed overlay is positioned against the viewport
 // regardless of where in that tree it sits.
@@ -72,6 +96,17 @@ export type ApplyAnswers = {
   portfolioUrl?: string;
   workDescription?: string;
   participation?: string[];
+};
+
+/** What TicketModal collects AFTER the email is already banked. Optional for
+    the same reason ApplyAnswers is — an empty answer is absence, not an error
+    — and doubly so here, where every one of these fields is a bonus on top of
+    a conversion we have already completed. Blanks are normalised away before
+    onSubmitDetails fires, so the caller never has to decide what "" means. */
+export type TicketDetails = {
+  name?: string;
+  city?: string;
+  interests?: string[];
 };
 
 /** One row of step 4. The route owns this list (PARTICIPATION in
@@ -100,6 +135,30 @@ const STEPS = [
 ] as const;
 
 const STEP_COUNT = STEPS.length;
+
+/** The ticket's three steps. Deliberately one fewer than the application and
+    in the opposite order of cost: the step that pays for the whole dialog is
+    FIRST and is a single field, and the two that follow only ever run with
+    someone who has already said yes. */
+const TICKET_STEPS = [
+  { key: "email", label: "Your ticket" },
+  { key: "you", label: "You" },
+  { key: "interests", label: "Interests" },
+] as const;
+
+/** Blank means absent. Shared by both modals so neither can decide on its own
+    that "  " is an answer. */
+function trimmed(value: string): string | undefined {
+  const v = value.trim();
+  return v.length ? v : undefined;
+}
+
+/** Add or remove one interest, refusing to grow past the cap. Shared so the
+    ticket's chips and the application's obey the same limit the same way. */
+function toggleCapped(list: string[], value: string): string[] {
+  if (list.includes(value)) return list.filter((v) => v !== value);
+  return list.length >= MAX_INTERESTS ? list : [...list, value];
+}
 
 // ————— Local CSS —————
 //
@@ -299,18 +358,33 @@ function ModalShell({
   );
 }
 
-/** "Step 2 of 4" plus four bars. The entire point of the rewrite: a person
-    must be able to see how much is left before they decide to start, and
-    again at every step so the end stays in view. The bars are buttons so a
-    step you have already seen is one tap away — going back to fix your city
-    shouldn't cost three presses of Back. */
+/** "Step 2 of 4" plus one bar per step. The entire point of the rewrite: a
+    person must be able to see how much is left before they decide to start,
+    and again at every step so the end stays in view. The bars are buttons so
+    a step you have already seen is one tap away — going back to fix your city
+    shouldn't cost three presses of Back.
+
+    Takes its steps as a prop so the ticket's three-step flow gets the same
+    indicator rather than a lookalike: the two modals have to feel like one
+    system, and the surest way to guarantee that is one implementation. The
+    count it prints is the length of the list it was handed, so a 3-step flow
+    says "of 3". */
 function StepBar({
+  steps,
   step,
   onGo,
+  minStep = 0,
 }: {
+  steps: readonly { key: string; label: string }[];
   step: number;
   onGo: (next: number) => void;
+  /** Steps before this one are inert. The application needs none of this —
+      every one of its steps is revisitable — but the ticket's first step is
+      a submitted email, and offering a jump back to it would land someone on
+      a form they have already sent. */
+  minStep?: number;
 }) {
+  const count = steps.length;
   return (
     <div style={{ marginBottom: 16 }}>
       <div
@@ -322,18 +396,18 @@ function StepBar({
         }}
       >
         <span className="g-label">
-          Step {step + 1} of {STEP_COUNT}
+          Step {step + 1} of {count}
         </span>
         <span className="g-label" style={{ color: "var(--g-citron)" }}>
-          {STEPS[step].label}
+          {steps[step].label}
         </span>
       </div>
       <div
         role="group"
-        aria-label={`Step ${step + 1} of ${STEP_COUNT}`}
+        aria-label={`Step ${step + 1} of ${count}`}
         style={{ display: "flex", gap: 6, marginTop: 8 }}
       >
-        {STEPS.map((s, i) => (
+        {steps.map((s, i) => (
           <button
             key={s.key}
             type="button"
@@ -341,7 +415,7 @@ function StepBar({
             // Forward jumps are allowed too — every field is optional, so
             // there is no state a later step depends on.
             onClick={() => onGo(i)}
-            disabled={i === step}
+            disabled={i === step || i < minStep}
             aria-label={`Step ${i + 1}: ${s.label}`}
             aria-current={i === step ? "step" : undefined}
             style={{ flex: 1 }}
@@ -361,6 +435,70 @@ function StepBar({
             />
           </button>
         ))}
+      </div>
+    </div>
+  );
+}
+
+/** The canonical interest chips, cap and live counter, in the bounded box
+    that keeps the dialog one size (see WHY THE CHIP GRID SCROLLS, above).
+    One component rather than two copies because both modals ask this same
+    question of the same 26-item list — only the wording of the question
+    changes, which is what `label` is for. */
+function InterestChips({
+  label,
+  selected,
+  onToggle,
+}: {
+  /** The question this grid answers, for a screen reader: "What do you
+      make?" for a creative, "What do you want to see?" for a patron. */
+  label: string;
+  selected: string[];
+  onToggle: (interest: string) => void;
+}) {
+  const atCap = selected.length >= MAX_INTERESTS;
+  return (
+    <div>
+      <p className="g-hint" style={{ marginBottom: 10 }}>
+        Pick up to {MAX_INTERESTS}.{" "}
+        <span className="g-mono" style={{ color: "var(--g-citron)" }}>
+          {selected.length}/{MAX_INTERESTS}
+        </span>{" "}
+        chosen.
+      </p>
+      {/* The bounded box that keeps the dialog one size. 26 chips is the
+          biggest thing in either form by a factor of three; it scrolls HERE
+          rather than making the modal itself a tall page. */}
+      <div
+        role="group"
+        aria-label={label}
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          gap: 8,
+          maxHeight: "40vh",
+          overflow: "auto",
+          padding: 12,
+          border: "1px solid var(--g-hairline)",
+          borderRadius: 6,
+        }}
+      >
+        {INTERESTS.map((interest) => {
+          const on = selected.includes(interest);
+          return (
+            <button
+              key={interest}
+              type="button"
+              className="sc-chip"
+              aria-pressed={on}
+              disabled={!on && atCap}
+              onClick={() => onToggle(interest)}
+              style={chipStyle(on, !on && atCap)}
+            >
+              {interest}
+            </button>
+          );
+        })}
       </div>
     </div>
   );
@@ -419,11 +557,6 @@ export function ApplyModal({
   // outlive it.
   if (!open) return null;
 
-  function trimmed(value: string): string | undefined {
-    const v = value.trim();
-    return v.length ? v : undefined;
-  }
-
   function answers(): ApplyAnswers {
     return {
       name: trimmed(name),
@@ -441,13 +574,7 @@ export function ApplyModal({
   }
 
   function toggleInterest(value: string) {
-    setInterests((prev) =>
-      prev.includes(value)
-        ? prev.filter((i) => i !== value)
-        : prev.length >= MAX_INTERESTS
-          ? prev
-          : [...prev, value],
-    );
+    setInterests((prev) => toggleCapped(prev, value));
   }
 
   function toggleParticipation(value: string) {
@@ -458,7 +585,6 @@ export function ApplyModal({
     );
   }
 
-  const atCap = interests.length >= MAX_INTERESTS;
   const last = step === STEP_COUNT - 1;
 
   if (done) {
@@ -517,49 +643,11 @@ export function ApplyModal({
     );
   } else if (step === 1) {
     body = (
-      <div>
-        <p className="g-hint" style={{ marginBottom: 10 }}>
-          Pick up to {MAX_INTERESTS}.{" "}
-          <span className="g-mono" style={{ color: "var(--g-citron)" }}>
-            {interests.length}/{MAX_INTERESTS}
-          </span>{" "}
-          chosen.
-        </p>
-        {/* The bounded box that keeps the dialog one size. 26 chips is the
-            biggest thing in this form by a factor of three; it scrolls HERE
-            rather than making the modal itself a tall page. */}
-        <div
-          role="group"
-          aria-label="What do you make?"
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: 8,
-            maxHeight: "40vh",
-            overflow: "auto",
-            padding: 12,
-            border: "1px solid var(--g-hairline)",
-            borderRadius: 6,
-          }}
-        >
-          {INTERESTS.map((interest) => {
-            const on = interests.includes(interest);
-            return (
-              <button
-                key={interest}
-                type="button"
-                className="sc-chip"
-                aria-pressed={on}
-                disabled={!on && atCap}
-                onClick={() => toggleInterest(interest)}
-                style={chipStyle(on, !on && atCap)}
-              >
-                {interest}
-              </button>
-            );
-          })}
-        </div>
-      </div>
+      <InterestChips
+        label="What do you make?"
+        selected={interests}
+        onToggle={toggleInterest}
+      />
     );
   } else if (step === 2) {
     body = (
@@ -619,7 +707,7 @@ export function ApplyModal({
 
   return (
     <ModalShell labelledBy={headingId} onClose={onClose}>
-      <StepBar step={step} onGo={setStep} />
+      <StepBar steps={STEPS} step={step} onGo={setStep} />
 
       <p className="g-h" id={headingId} style={{ fontSize: 22, lineHeight: 1.2 }}>
         {STEPS[step].heading}
@@ -687,16 +775,29 @@ export function ApplyModal({
 
 // ————— The ticket —————
 
-/** Opened by tapping a price badge. Deliberately tiny: this is a 15-second
-    interaction for someone who has already decided, and the fastest way to
-    lose them is to answer a tap on "$75" with a form.
+/** Opened by tapping a price badge. Step 1 is deliberately tiny: this is a
+    15-second interaction for someone who has already decided, and the fastest
+    way to lose them is to answer a tap on "$75" with a form.
 
     "Get your ticket" is the founder's framing and it is the heading whether
     or not there is anything to buy yet — the person tapped a price, so the
     page owes them the ticket conversation, not an apology. With no checkout
     live (see TICKET_URL in routes/showcase.tsx), the one thing worth taking
     is an email, because a patron who lands on a dead button is gone and one
-    who lands on the list gets the link the day it exists. */
+    who lands on the list gets the link the day it exists.
+
+    What used to happen next was nothing, and that was the bug: we learned an
+    address and not one thing about the person behind it, while they were
+    still in the room and still willing. So the email step now hands off to
+    two optional ones — who they are, and what they make or want to see. They
+    run AFTER the address is banked, never before and never as a condition of
+    it; see WHY THE TICKET'S FIRST STEP STANDS ALONE at the top of this file.
+    Every answer there is free upside and every skip costs us nothing we had.
+
+    `onSubmitDetails` is what turns them on. Without it this is exactly the
+    email ask it has always been — one field, onNotify, done — because the
+    route that stores the answers is wired separately and this component has
+    to be correct on either side of that. */
 export function TicketModal({
   open,
   tier,
@@ -705,6 +806,7 @@ export function TicketModal({
   error,
   done,
   onNotify,
+  onSubmitDetails,
   onClose,
 }: {
   open: boolean;
@@ -716,23 +818,100 @@ export function TicketModal({
   done: boolean;
   /** capture an email to notify when tickets open */
   onNotify: (email: string) => void;
+  /** Optional second act: fires once, when they finish or skip past the last
+      step. Omit it and steps 2 and 3 never appear. */
+  onSubmitDetails?: (details: TicketDetails) => void;
   onClose: () => void;
 }): ReactElement | null {
   const headingId = useId();
   // Same rule as the application: a typed address survives a mistaken tap on
-  // the scrim, because the parent owns `open` and this state doesn't.
+  // the scrim, because the parent owns `open` and this state doesn't. That
+  // now covers the later answers too — someone halfway through naming their
+  // city who fat-fingers the scrim comes back to their city still there.
   const [email, setEmail] = useState("");
+  const [emailSent, setEmailSent] = useState(false);
+  const [step, setStep] = useState(0);
+  const [name, setName] = useState("");
+  const [city, setCity] = useState("");
+  const [interests, setInterests] = useState<string[]>([]);
+  const [detailsDone, setDetailsDone] = useState(false);
 
+  const collects = onSubmitDetails != null;
+
+  // The one place the two halves of this dialog touch, and it only ever
+  // points forwards. The parent flips `done` when the address is actually
+  // banked; until it does, we stay on step 1 with whatever error it gave us.
+  // `emailSent` keeps this to THIS visit: someone who signed up last week and
+  // reopens the modal gets today's confirmation, not an ambush of questions.
+  useEffect(() => {
+    if (collects && emailSent && done && step === 0) setStep(1);
+  }, [collects, emailSent, done, step]);
+
+  // Every hook above runs whether or not the dialog is showing, exactly as in
+  // ApplyModal — `open` is the parent's business, the answers are ours.
   if (!open) return null;
+
+  function details(): TicketDetails {
+    return {
+      name: trimmed(name),
+      city: trimmed(city),
+      interests: interests.length ? interests : undefined,
+    };
+  }
+
+  /** Finish or skip past the last step — the same call either way, because a
+      skip is an answer ("nothing") and the route would rather hear it than
+      wait for it. Moving to the confirmation is what makes this fire once. */
+  function finishDetails() {
+    onSubmitDetails?.(details());
+    setDetailsDone(true);
+  }
+
+  // The tier decides the question. "Creative" is buying their way into a room
+  // they might show work in; "Patron" is buying the room for other people.
+  // Asking a patron what they make assumes something about them that the $75
+  // badge never claimed.
+  const tierLabel = tier ? tier.label.toLowerCase() : "";
+  const interestQuestion = tierLabel.includes("patron")
+    ? "What do you want to see?"
+    : tierLabel.includes("creative")
+      ? "What do you make?"
+      : "What are you into?";
+
+  const heading = detailsDone
+    ? "Thank you."
+    : step === 1
+      ? "Who's coming?"
+      : step === 2
+        ? interestQuestion
+        : "Get your ticket";
+
+  // The tier block rides along on the first step and on the confirmation, so
+  // tapping a second price badge after finishing still shows what that tier
+  // is rather than only a receipt for the last one.
+  const showTier = tier != null && (step === 0 || detailsDone);
 
   return (
     <ModalShell labelledBy={headingId} onClose={onClose} maxWidth={440}>
+      {/* Deliberately absent on step 1. A counter over a single email field
+          advertises a form to someone who came to say yes; a counter on the
+          steps AFTER it reassures someone already walking that the walk is
+          short. Same component as the application's, three bars not four. */}
+      {collects && step > 0 && !detailsDone && (
+        <StepBar
+          steps={TICKET_STEPS}
+          step={step}
+          onGo={setStep}
+          minStep={emailSent ? 1 : 0}
+        />
+      )}
+
       <SectionLabel>November 6</SectionLabel>
       <p className="g-h" id={headingId} style={{ fontSize: 24, marginTop: 8 }}>
-        Get your ticket
+        {heading}
       </p>
 
-      {tier && (
+      {showTier && (
         <div
           style={{
             display: "flex",
@@ -760,10 +939,78 @@ export function TicketModal({
         </div>
       )}
 
-      {done ? (
-        <p style={{ fontSize: 15.5, lineHeight: 1.6, marginTop: 18 }}>
-          You're on the list. You'll get the link before it's public.
-        </p>
+      {detailsDone ? (
+        <>
+          <p style={{ fontSize: 15.5, lineHeight: 1.6, marginTop: 18 }}>
+            {emailSent || done
+              ? "You're on the list, and now we know a little about who's coming. You'll get the link before it's public."
+              : "Noted — that helps us build the night around the people actually in the room."}
+          </p>
+          <button
+            className="g-btn g-btn-citron"
+            type="button"
+            onClick={onClose}
+            style={{ marginTop: 18 }}
+          >
+            Done
+          </button>
+        </>
+      ) : step === 1 ? (
+        <>
+          <p className="g-hint" style={{ marginTop: 10, marginBottom: 14 }}>
+            {emailSent || done
+              ? "Saved. Two quick ones, both optional."
+              : "Two quick ones, both optional."}
+          </p>
+          <div style={{ display: "grid", gap: 12 }}>
+            <input
+              className="g-input"
+              placeholder="Your name"
+              autoComplete="name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+            <input
+              className="g-input"
+              placeholder="City"
+              autoComplete="address-level2"
+              value={city}
+              onChange={(e) => setCity(e.target.value)}
+            />
+          </div>
+          <TicketActions
+            primaryLabel="Next"
+            onPrimary={() => setStep(2)}
+            onSkip={() => setStep(2)}
+          />
+        </>
+      ) : step === 2 ? (
+        <>
+          <div style={{ marginTop: 16 }}>
+            {/* The application's chip grid, verbatim — same cap, same live
+                counter, same bounded scroll — with only the question above
+                it changed for the tier. */}
+            <InterestChips
+              label={interestQuestion}
+              selected={interests}
+              onToggle={(value) =>
+                setInterests((prev) => toggleCapped(prev, value))
+              }
+            />
+          </div>
+          <TicketActions
+            primaryLabel="Done"
+            onPrimary={finishDetails}
+            onSkip={finishDetails}
+          />
+        </>
+      ) : done ? (
+        <>
+          <p style={{ fontSize: 15.5, lineHeight: 1.6, marginTop: 18 }}>
+            You're on the list. You'll get the link before it's public.
+          </p>
+          <MoreLink show={collects} onClick={() => setStep(1)} />
+        </>
       ) : ticketUrl ? (
         <>
           <a
@@ -776,11 +1023,20 @@ export function TicketModal({
           <p className="g-hint" style={{ marginTop: 12 }}>
             The room is small. If it sells out, being selected won't get you in.
           </p>
+          {/* Someone who just bought is the best-qualified person on the page
+              to tell us who they are, and the link stays the loudest thing
+              here — this is an offer under it, never a step in front of it. */}
+          <MoreLink show={collects} onClick={() => setStep(1)} />
         </>
       ) : (
         <form
+          // Fires on its own, the instant they press the button. Nothing
+          // below this step is allowed to batch with it: an address that
+          // waits for two optional questions is an address we lose the
+          // moment anything interrupts them.
           onSubmit={(e) => {
             e.preventDefault();
+            setEmailSent(true);
             onNotify(email.trim());
           }}
         >
@@ -813,5 +1069,52 @@ export function TicketModal({
 
       <ErrorLine error={error} />
     </ModalShell>
+  );
+}
+
+/** The footer of an optional ticket step: one primary and one plainly
+    visible way past it. Skip is a real, labelled control rather than a
+    gesture or a guess, because every question after the email is a favour
+    and a favour you can't decline is a toll. */
+function TicketActions({
+  primaryLabel,
+  onPrimary,
+  onSkip,
+}: {
+  primaryLabel: string;
+  onPrimary: () => void;
+  onSkip: () => void;
+}) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        gap: 14,
+        alignItems: "center",
+        flexWrap: "wrap",
+        marginTop: 20,
+      }}
+    >
+      <button className="g-btn g-btn-citron" type="button" onClick={onPrimary}>
+        {primaryLabel}
+      </button>
+      <button type="button" className="sc-skip" onClick={onSkip}>
+        Skip
+      </button>
+    </div>
+  );
+}
+
+/** The invitation into the optional half, shown under a banked email or a
+    live buy link. Quiet on purpose: the ticket is the point of this dialog
+    and this is the thing you can ignore. */
+function MoreLink({ show, onClick }: { show: boolean; onClick: () => void }) {
+  if (!show) return null;
+  return (
+    <div style={{ marginTop: 14 }}>
+      <button type="button" className="sc-skip" onClick={onClick}>
+        Tell us who's coming — two quick questions
+      </button>
+    </div>
   );
 }

@@ -135,7 +135,7 @@ import { Link, useRouteError } from "react-router";
 import { api } from "../../convex/_generated/api";
 import { GardenErrorState, GardenPage, SectionLabel } from "../garden/ui";
 import { ApplyModal, TicketModal } from "../garden/showcase-modals";
-import type { ApplyAnswers } from "../garden/showcase-modals";
+import type { ApplyAnswers, TicketDetails } from "../garden/showcase-modals";
 import "../garden/garden.css";
 
 export function meta() {
@@ -736,6 +736,8 @@ export default function Showcase() {
   const [ticketBusy, setTicketBusy] = useState(false);
   const [ticketError, setTicketError] = useState<string | null>(null);
   const [ticketDone, setTicketDone] = useState(false);
+  // The address the ticket overlay actually saved — see notifyTicket.
+  const [ticketEmail, setTicketEmail] = useState("");
 
   const applyHeadingId = useId();
 
@@ -796,11 +798,34 @@ export default function Showcase() {
     setTicketError(null);
     try {
       await apply({ email: value });
+      // Remember WHICH address this overlay saved. The page-level `email`
+      // belongs to the application panel and may be blank or somebody
+      // else's; writing the follow-up answers against that would attach a
+      // ticket-buyer's name to the wrong row, or throw because no such
+      // application exists.
+      setTicketEmail(value.trim());
       setTicketDone(true);
     } catch (err) {
       setTicketError(errorText(err));
     } finally {
       setTicketBusy(false);
+    }
+  }
+
+  /** Steps 2 and 3 of the ticket overlay. These are pure upside: the email
+      is already saved by the time this can run, so a failure here must
+      never look like the signup failed. It is recorded and swallowed. */
+  async function submitTicketDetails(details: TicketDetails) {
+    if (!ticketEmail) return;
+    try {
+      await answer({
+        email: ticketEmail,
+        name: details.name || undefined,
+        city: details.city || undefined,
+        interests: details.interests?.length ? details.interests : undefined,
+      });
+    } catch (err) {
+      console.warn("[showcase] ticket details not saved", err);
     }
   }
 
@@ -1212,6 +1237,7 @@ export default function Showcase() {
         error={ticketError}
         done={ticketDone}
         onNotify={notifyTicket}
+        onSubmitDetails={submitTicketDetails}
         onClose={() => setTier(null)}
       />
     </GardenPage>
