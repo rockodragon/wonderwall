@@ -140,17 +140,28 @@ import "../garden/garden.css";
 
 export function meta() {
   return [
-    { title: "Open call — show your work November 6 | creatives.exchange" },
+    // The unfurl is NOT the open call. This link gets pasted at patrons,
+    // churches, partners and press as often as at creatives, and "open call
+    // — show your work" tells every one of them the page is for somebody
+    // else. The event's own name (docs/civic-partners-social-graph.md) is
+    // the thing that works on all of them.
+    {
+      title:
+        "The Creative Economy We All Need — November 6, Encinitas | creatives.exchange",
+    },
     {
       name: "description",
       content:
-        "Twenty Christian creatives will show work on November 6 in Encinitas. Free to apply, no membership required. Rolling selection, applications close October 22.",
+        "A night of funded creative work at Lightchurch, Encinitas. Creatives show, patrons back the work, and every ticket goes into the grant fund. November 6, 2026.",
     },
-    { property: "og:title", content: "Open call: show your work November 6" },
+    {
+      property: "og:title",
+      content: "The Creative Economy We All Need — November 6, Encinitas",
+    },
     {
       property: "og:description",
       content:
-        "Painters, apparel makers, musicians, photographers. Free to apply. Closes October 22.",
+        "Creatives show, patrons back the work, and every ticket goes into the grant fund. Lightchurch, Encinitas.",
     },
     { property: "og:type", content: "website" },
     // Absolute, like every other route here — a relative og:image doesn't
@@ -163,12 +174,12 @@ export function meta() {
     { name: "twitter:card", content: "summary_large_image" },
     {
       name: "twitter:title",
-      content: "Open call: show your work November 6",
+      content: "The Creative Economy We All Need — November 6, Encinitas",
     },
     {
       name: "twitter:description",
       content:
-        "Painters, apparel makers, musicians, photographers. Free to apply. Closes October 22.",
+        "Creatives show, patrons back the work, and every ticket goes into the grant fund. Lightchurch, Encinitas.",
     },
     { name: "twitter:image", content: OG_IMAGE },
   ];
