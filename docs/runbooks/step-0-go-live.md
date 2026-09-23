@@ -86,11 +86,12 @@ schema validation off — change the last line of `convex/schema.ts` from
 npx convex dev --once
 npx convex run garden/profileInterestsFieldMigration:migrateProfileInterestsField
 npx convex run garden/waitlistHostFieldMigration:migrateWaitlistHostField
+npx convex run garden/showcaseDisciplineMigration:migrateShowcaseDiscipline
 ```
 
 Restore the last line to `});` and run `npx convex dev` again. Repeat for
 any other table it names (there is a migration per rename under
-`convex/garden/*Migration.ts`). Run the same two migrations with `--prod`
+`convex/garden/*Migration.ts`). Run the same migrations with `--prod`
 before the first production deploy of this branch.
 
 ## 5. Confirm the webhook
