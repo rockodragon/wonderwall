@@ -46,6 +46,7 @@ const DISCIPLINE_LABEL: Record<string, string> = {
   photography: "Photography",
   film: "Film / video",
   writing: "Writing / poetry",
+  spokenword: "Spoken word",
   design: "Design / objects",
   other: "Other",
 };

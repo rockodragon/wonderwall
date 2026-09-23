@@ -105,6 +105,7 @@ const disciplineValidator = v.union(
   v.literal("photography"),
   v.literal("film"),
   v.literal("writing"),
+  v.literal("spokenword"),
   v.literal("design"),
   v.literal("other"),
 );

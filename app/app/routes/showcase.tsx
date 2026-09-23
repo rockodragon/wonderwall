@@ -77,6 +77,18 @@ const CLOSE_DATE = "October 22";
 const DECISION_BY = "October 26";
 const SPOTS = 20;
 
+// Admission. November 6 is a ticketed fundraiser for the Grant Fund
+// (docs/handoff/nov6-backings.md), so NOBODY is comped — selected creatives
+// buy a ticket like everyone else, and the page has to say so plainly rather
+// than let an applicant discover it after they've been accepted.
+//
+// TICKET_PRICE and TICKET_URL are unset until the price is decided. While
+// TICKET_URL is null the page still states that admission is ticketed and
+// that waiting is a real risk; it just can't sell one yet. Fill both in and
+// the CTA appears — nothing else has to change.
+const TICKET_PRICE: string | null = null;
+const TICKET_URL: string | null = null;
+
 const DISCIPLINES = [
   { value: "apparel", label: "Apparel / textiles" },
   { value: "visual", label: "Painting / illustration" },
@@ -84,6 +96,7 @@ const DISCIPLINES = [
   { value: "photography", label: "Photography" },
   { value: "film", label: "Film / video" },
   { value: "writing", label: "Writing / poetry" },
+  { value: "spokenword", label: "Spoken word" },
   { value: "design", label: "Design / objects" },
   { value: "other", label: "Something else" },
 ] as const;
@@ -91,23 +104,23 @@ const DISCIPLINES = [
 const PARTICIPATION = [
   {
     value: "exhibit",
-    label: "Hang or display work",
-    note: "Wall space and plinths. The default for most people.",
+    label: "Show work",
+    note: "Physical or digital. Not all of it has to be in the room.",
   },
   {
     value: "perform",
-    label: "Play a set",
-    note: "20 minutes. These slots are paid.",
+    label: "Play or read",
+    note: "Music and spoken word both. Paid. Set length depends on how many play.",
   },
   {
     value: "vend",
     label: "Sell at a table",
-    note: "A table is free. You keep everything you make.",
+    note: "Tables cost a fee and there aren't many. You keep what you sell.",
   },
   {
     value: "document",
     label: "Photograph the night",
-    note: "Free pass, full credit, your shots stay yours.",
+    note: "Credited, and your shots stay yours. You still buy a ticket.",
   },
 ] as const;
 
@@ -116,6 +129,55 @@ type Participation = (typeof PARTICIPATION)[number]["value"];
 
 /** Native <option> doesn't inherit the dark shell — see the select below. */
 const OPTION_STYLE = { background: "#121212", color: "#f7f7f4" };
+
+// ————— Line drawings —————
+//
+// Inline SVG in the same continuous-pen style as the hero drawing, rather
+// than icons from a set: this page's whole visual language is one unbroken
+// ink line, and a geometric icon font next to that drawing reads as a
+// different product. Loose, slightly-off curves on purpose — a perfect
+// circle looks machine-made beside a hand-drawn table.
+//
+// currentColor throughout, so they inherit whatever the surrounding text is
+// and need no dark-mode variant.
+
+function Ink({ d, label }: { d: string; label: string }) {
+  return (
+    <svg
+      viewBox="0 0 64 64"
+      role="img"
+      aria-label={label}
+      style={{ width: 44, height: 44, display: "block" }}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.6}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d={d} />
+    </svg>
+  );
+}
+
+/** A framed piece on a wall, hung slightly crooked. */
+const INK_FRAME =
+  "M13 17 L50 14 L52 44 L15 47 Z M13 17 C22 23 30 21 36 28 C40 33 46 30 52 36 M8 54 L57 51";
+/** A guitar body with a neck, and a mic stand behind it. */
+const INK_PLAY =
+  "M22 52 C13 52 10 43 15 37 C19 32 26 34 28 28 C30 22 27 17 31 14 M31 14 C36 17 33 23 34 29 C36 36 43 36 44 43 C45 50 37 55 30 53 M22 41 C25 38 30 38 33 41 M46 50 L46 22 M41 18 C41 13 51 13 51 18 C51 23 41 23 41 18";
+/** A table with things on it. */
+const INK_TABLE =
+  "M8 34 L56 31 M12 34 L14 52 M52 31 L54 49 M20 33 L20 25 L29 24 L30 32 M35 32 C35 26 44 26 44 31";
+/** A camera, held. */
+const INK_CAMERA =
+  "M11 24 L24 22 L27 17 L40 16 L44 21 L55 20 L57 45 L13 49 Z M34 25 C41 25 44 31 42 36 C40 41 32 42 29 37 C26 32 29 25 34 25 M17 28 L21 28";
+
+const PARTICIPATION_INK: Record<string, string> = {
+  exhibit: INK_FRAME,
+  perform: INK_PLAY,
+  vend: INK_TABLE,
+  document: INK_CAMERA,
+};
 
 // ————— Small presentational pieces —————
 
@@ -470,8 +532,7 @@ export default function Showcase() {
             maxWidth: "34ch",
           }}
         >
-          {SPOTS} Christian creatives. One room in Encinitas. Free to apply,
-          free to show.
+          {SPOTS} Christian creatives. One room in Encinitas. Free to apply.
         </p>
 
         <img
@@ -496,23 +557,20 @@ export default function Showcase() {
           className="g-h"
           style={{ fontSize: "clamp(21px,3.6vw,27px)", lineHeight: 1.25 }}
         >
-          You have been posting your work and waiting for it to reach the
-          people it was made for.
+          You keep posting the work and hoping the right people see it.
         </p>
         <P>
-          That is the whole problem. Not your craft — your distribution. The
-          feed will not hand your work to the people who would actually want
-          it, and the two rooms available to you both ask you to cut something
-          off: the gallery wants the faith out of it, the church wants it for
-          free.
+          They don't. The feed doesn't work like that. And the two rooms that
+          will have you each want something cut out first — galleries want the
+          faith gone, churches want the invoice gone.
         </P>
         <P>
+          So we're making a third room.{" "}
           <span style={{ color: "var(--g-paper)" }}>
-            We are the target audience.
+            We're the audience you've been posting at.
           </span>{" "}
-          That's the entire offer. A room of people who came specifically to
-          see what you made, and a platform underneath it where the work keeps
-          being visible after everyone goes home.
+          One night, a wall, people who came to look. The work stays up here
+          afterward.
         </P>
       </Section>
 
@@ -522,7 +580,15 @@ export default function Showcase() {
         <FactLine k="When" v={EVENT_DATE} />
         <FactLine k="Where" v={EVENT_PLACE} />
         <FactLine k="Spots" v={`${SPOTS}, selected from applications`} />
-        <FactLine k="Cost" v="Nothing, to apply or to show" />
+        <FactLine k="To apply" v="Free" />
+        <FactLine
+          k="Admission"
+          v={
+            TICKET_PRICE
+              ? `${TICKET_PRICE} — everyone, including the creatives showing`
+              : "Ticketed — everyone, including the creatives showing"
+          }
+        />
         <FactLine
           k="Closes"
           v={`${CLOSE_DATE} — but selection is rolling, so apply early`}
@@ -537,65 +603,114 @@ export default function Showcase() {
 
       <Section label="Four ways to take part">
         <P>
-          Pick any that fit — most people pick one, some pick two. There is no
-          fee for any of them.
+          Pick any that fit. Most people pick one.
         </P>
         <div style={{ display: "grid", gap: 12, marginTop: 18 }}>
           {PARTICIPATION.map((p) => (
-            <div key={p.value} className="g-card">
-              <div style={{ color: "var(--g-paper)", fontSize: 16.5 }}>
-                {p.label}
-              </div>
-              <div className="g-hint" style={{ marginTop: 6 }}>
-                {p.note}
-              </div>
+            <div
+              key={p.value}
+              className="g-card"
+              style={{ display: "flex", gap: 16, alignItems: "flex-start" }}
+            >
+              <span
+                style={{ color: "var(--g-citron)", flexShrink: 0, marginTop: 2 }}
+              >
+                <Ink d={PARTICIPATION_INK[p.value]} label={p.label} />
+              </span>
+              <span>
+                <span
+                  style={{
+                    color: "var(--g-paper)",
+                    fontSize: 16.5,
+                    display: "block",
+                  }}
+                >
+                  {p.label}
+                </span>
+                <span className="g-hint" style={{ display: "block", marginTop: 6 }}>
+                  {p.note}
+                </span>
+              </span>
             </div>
           ))}
         </div>
+      </Section>
+
+      {/* Admission. This sits high on the page on purpose — an applicant
+          who finds out at acceptance that they have to buy a ticket feels
+          bait-and-switched, and it's a fundraiser, so there is no version of
+          this where we hide it. */}
+      <Section label="Getting in">
+        <P>
+          November 6 is a fundraiser for the grant fund — the money that backs
+          creatives' projects. So everyone in the room holds a ticket. That
+          includes us, and it includes the {SPOTS} people showing work.
+        </P>
+        <P>
+          The room is small. You can wait and buy later, but if it sells out
+          before you do, being selected won't get you in. Buy early if you
+          intend to come.
+        </P>
+        {TICKET_URL ? (
+          <a
+            className="g-btn g-btn-citron"
+            href={TICKET_URL}
+            style={{ marginTop: 18 }}
+          >
+            {TICKET_PRICE ? `Get a ticket — ${TICKET_PRICE}` : "Get a ticket"}
+          </a>
+        ) : (
+          <p className="g-hint" style={{ marginTop: 16 }}>
+            Tickets aren't on sale yet. Apply and we'll send you the link
+            before they go public.
+          </p>
+        )}
+        <P>
+          Can't be in Encinitas? The livestream is free and there's no ticket
+          for it.
+        </P>
       </Section>
 
       <Section label="Who this is for">
         <WhoCard
           who="Apparel"
           quote="I'm a designer. I'm not a Jesus-merch guy."
-          body="You've been carrying inventory on a card and posting drops into a feed that won't show them to anyone who'd wear them. Take a table. Keep everything you sell."
+          body="Your drops go out to a feed that won't show them to anyone who'd wear them. Tables are limited and cost a fee, but what you sell is yours."
         />
         <WhoCard
           who="Painters"
           quote="I don't want to be collected for my subject matter."
-          body="The gallery won't hang it and the church wants it donated. Bring the piece you can't place. The wall is yours for the night and it costs you nothing."
+          body="Galleries won't hang it. The church asks you to donate it. Bring the piece you can't place anywhere."
         />
         <WhoCard
           who="Musicians"
           quote="I'm not allowed to write anything that isn't a worship song."
-          body="Play the songs nobody will program, for a room that came to listen rather than sing along. The performance slots are paid."
+          body="Play the songs nobody will program, to a room that came to listen instead of sing along. Sets are paid. Spoken word counts."
         />
         <WhoCard
           who="Photographers"
           quote="My portfolio is full of other people's weddings."
-          body="Two ways in: hang your own personal work, or shoot the night with a free pass and full credit. Your frames stay yours either way."
+          body="Hang your own work, or shoot the night and get credited. Either way the frames stay yours."
         />
       </Section>
 
       <Section label="How selection works">
         <P>
-          A small group reads every application and picks {SPOTS}. We're
-          looking for work that's actually made — finished, specific, yours.
-          Not follower counts, not a résumé, not how long you've been at it.
+          A few of us read every application and pick {SPOTS}. We care that
+          the work is finished and that it's yours. Follower counts don't
+          come into it.
         </P>
         <P>
-          You do not need an account, a membership, or a portfolio site to
-          apply. A link to an Instagram grid is a perfectly good submission.
+          You don't need an account, a membership, or a portfolio site. A link
+          to your Instagram grid is a fine submission.
         </P>
         <P>
-          Selection is rolling: we read applications as they arrive rather
-          than waiting for the deadline, so applying early means hearing back
-          early — and spots do fill. Everyone hears either way within a few
-          days, and by {DECISION_BY} at the latest.
+          We read them as they arrive rather than waiting for the deadline, so
+          applying early means hearing early — and spots do fill. You'll hear
+          either way within a few days, and by {DECISION_BY} at the latest.
         </P>
         <P>
-          A no on this one is not a no forever — the next call opens in
-          January, and we keep the work you sent.
+          If it's a no, we keep what you sent. The next call opens in January.
         </P>
       </Section>
 
@@ -603,11 +718,13 @@ export default function Showcase() {
         <div style={{ display: "grid", gap: 18 }}>
           <div>
             <div style={{ color: "var(--g-paper)", fontSize: 16.5 }}>
-              Is there a fee?
+              What does it cost?
             </div>
             <P>
-              No. Not to apply, not to show, not to sell. If you take a table,
-              what you make is yours.
+              Applying is free, and showing work is free. Two things aren't:
+              tables cost a fee, and everyone in the room has a ticket —
+              including the creatives showing. It's a fundraiser for the grant
+              fund, so nobody goes free, us included.
             </P>
           </div>
           <div>
@@ -619,20 +736,19 @@ export default function Showcase() {
               <Link to="/join" style={{ color: "var(--g-citron)" }}>
                 Membership
               </Link>{" "}
-              is a separate thing you can look at later or never — half of it
-              funds other creatives' projects, which is worth reading about,
-              but it has nothing to do with whether you're selected.
+              is separate and has nothing to do with whether you're selected.
             </P>
           </div>
           <div>
             <div style={{ color: "var(--g-paper)", fontSize: 16.5 }}>
-              I'm not local. Can I still apply?
+              Does the work have to be physical?
             </div>
             <P>
-              Yes, but the work has to physically get to Encinitas for
-              November 6, and we can't cover shipping or travel. Musicians and
-              photographers: tell us where you are and we'll be honest about
-              whether it can work.
+              No. The night is a mix of physical and digital, and not
+              everything has to be in the room. If it's an object, it has to
+              reach Encinitas by November 6 and we can't cover shipping. If
+              it's a screen, a recording or a file, distance stops mattering —
+              tell us what it is and we'll work it out.
             </P>
           </div>
           <div>
@@ -640,8 +756,9 @@ export default function Showcase() {
               Does my work have to be religious?
             </div>
             <P>
-              No. Bring the best thing you've made. Some of it will be about
-              faith directly and most of it won't, which is how it should be.
+              No. What we want to platform is redemptive work — work that
+              embodies truth, goodness and beauty. Sometimes that includes
+              church hurt. Bring the honest thing, not the safe one.
             </P>
           </div>
         </div>
@@ -649,10 +766,9 @@ export default function Showcase() {
 
       <Section label="Apply">
         <P>
-          Applications close {CLOSE_DATE}, but we select as they come in — so
-          the earlier you send it, the more of the {SPOTS} spots are still
-          open. It takes about two minutes and the first step is just your
-          email.
+          Applications close {CLOSE_DATE}, but we pick as they come in. The
+          earlier you send yours, the more of the {SPOTS} spots are left. Two
+          minutes, and the first step is just your email.
         </P>
         <ApplyForm />
       </Section>
