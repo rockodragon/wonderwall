@@ -34,13 +34,13 @@ export function meta() {
     {
       name: "description",
       content:
-        "Twenty Christian creatives will show work on November 6 in Encinitas. Free to apply, no membership required. Rolling selection, applications close October 30.",
+        "Twenty Christian creatives will show work on November 6 in Encinitas. Free to apply, no membership required. Rolling selection, applications close October 22.",
     },
     { property: "og:title", content: "Open call: show your work November 6" },
     {
       property: "og:description",
       content:
-        "Painters, apparel makers, musicians, photographers. Free to apply. Closes October 30.",
+        "Painters, apparel makers, musicians, photographers. Free to apply. Closes October 22.",
     },
     { property: "og:type", content: "website" },
     // Absolute, like every other route here — a relative og:image doesn't
@@ -58,7 +58,7 @@ export function meta() {
     {
       name: "twitter:description",
       content:
-        "Painters, apparel makers, musicians, photographers. Free to apply. Closes October 30.",
+        "Painters, apparel makers, musicians, photographers. Free to apply. Closes October 22.",
     },
     { name: "twitter:image", content: OG_IMAGE },
   ];
@@ -68,14 +68,13 @@ const OG_IMAGE = "https://creatives.exchange/showcase/table-drawing.jpg";
 
 const EVENT_DATE = "Friday, November 6, 2026";
 const EVENT_PLACE = "Lightchurch, Encinitas, California";
-const CLOSE_DATE = "October 30";
-/** Hard backstop for a decision. The late close (chosen to maximize total
-    applications) leaves only seven days to the show, so the page promises
-    ROLLING review — read on arrival, decided continuously — with this as
-    the outer bound. Without that, "we'll tell you the week after the
-    deadline" lands after the night itself. If CLOSE_DATE moves, this and
-    the rolling language move with it. */
-const DECISION_BY = "November 1";
+const CLOSE_DATE = "October 22";
+/** Hard backstop for a decision — a few days after CLOSE_DATE, and well
+    clear of the show so selected work has time to actually get here. The
+    page promises ROLLING review (read on arrival, decided continuously)
+    with this as the outer bound. If CLOSE_DATE moves, move this with it and
+    keep it before EVENT_DATE. */
+const DECISION_BY = "October 26";
 const SPOTS = 20;
 
 const DISCIPLINES = [
