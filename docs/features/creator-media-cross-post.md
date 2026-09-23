@@ -45,6 +45,16 @@ Verified 2026-09-22 against the example reel.
 - TikTok is the same on the card, but TikTok has a public oEmbed endpoint that returns the title, the creator's name and a portrait thumbnail with no key (verified: `https://www.tiktok.com/oembed?url=…`). The thumbnail URL carries an `x-expires` about three days out, so it has to be copied, not linked.
 - Both platforms' embed players answered 200 from the server (`instagram.com/reel/{code}/embed/captioned/`, `tiktok.com/player/v1/{id}`, `tiktok.com/embed/v2/{id}`). Instagram's response is the same JavaScript shell as the page, so the rendered player was not confirmed from a datacenter IP. It is the URL Instagram's own `embed.js` injects, so it is expected to work in a browser, and the first build should confirm it on a phone before anything else.
 
+## Round 2 · 2026-09-23 · stills, events, projects
+
+Rick's review of the first deploy, and what changed:
+
+- **Instagram cards had no picture.** The player worked, the grid showed a dark tile. Instagram refuses a browser UA from a server, but it serves Open Graph tags to link crawlers so a reel unfurls on WhatsApp and Messenger. Checked 2026-09-23: the Googlebot UA gets `og:image` and `og:title` for reels and posts; Twitterbot and facebookexternalhit each answer for one and rate-limit the other. `convex/linkPreview.ts` asks with those UAs in turn, copies the image into our storage (the CDN URL expires), and the card shows the reel's real cover. Titles come from the caption's first line. Tier 3's Meta app is no longer needed for thumbnails.
+- **One preview fetcher for every table.** `linkPreview.ts` replaces the TikTok-only action: `schedulePreviewFetch(ctx, "artifact" | "event" | "project", id, url)` from any mutation that stored a pasted link; an internal action resolves the still and patches the row's own fields. Artifacts keep `ogImageUrl` + `coverStorageId`; events and projects gain `mediaUrl`, `mediaPreviewUrl`, `mediaPreviewStorageId`. A one-shot `linkPreview:backfillArtifactPreviews` gives reels pasted before this a still.
+- **Cards are static.** A grid never loads a player and never plays on hover, the way Instagram's own grid is still until you tap. One shared `EmbedStill` (still + play badge, or a dark provider tile) on the works grid, the profile grid, the settings grid, event cards and project cards; one shared `EmbedPlayer` on the detail pages. Uploaded video files show a poster frame with a play badge instead of playing on hover; the settings grid no longer renders a live iframe per video.
+- **Events take a pasted link.** Creating or editing an event, the organizer can paste an Instagram, TikTok, YouTube or Vimeo link instead of uploading a cover. The event page plays it; cards show its still; an uploaded cover still wins when both exist.
+- **Projects take a pasted link.** A hiring call or a passion project posted as an Instagram post or reel: paste it when posting. The project page plays it, /projects and /opportunities cards show its still, and the story page uses it as the hero. A photo still wins on cards when both exist.
+
 ## Tier 1 · Paste
 
 Built as specified here, with these differences from the first draft:
@@ -124,7 +134,7 @@ The paste is still a paste. This tier removes the copy.
 
 This is the "import your whole grid in thirty seconds" onboarding, and the only way to get Instagram thumbnails without the creative uploading a cover. It is gated by review on both sides.
 
-- **Instagram:** the Instagram API with Instagram Login. Scope `instagram_business_basic`; `GET /me/media` returns `permalink`, `media_type`, `thumbnail_url`, `caption` and `timestamp`. Professional (creator or business) accounts only; the Basic Display API for personal accounts shut down in December 2024. Switching an account to creator is free and most working creatives already have, so the onboarding copy says so. Needs a Meta app, App Review, and business verification, which means the legal entity question (`docs/entity-structure-research.md`) has to be settled first. The same app can request oEmbed Read, which gives Tier 1 real Instagram thumbnails.
+- **Instagram:** the Instagram API with Instagram Login. Scope `instagram_business_basic`; `GET /me/media` returns `permalink`, `media_type`, `thumbnail_url`, `caption` and `timestamp`. Professional (creator or business) accounts only; the Basic Display API for personal accounts shut down in December 2024. Switching an account to creator is free and most working creatives already have, so the onboarding copy says so. Needs a Meta app, App Review, and business verification, which means the legal entity question (`docs/entity-structure-research.md`) has to be settled first. (Thumbnails no longer depend on this: see Round 2.)
 - **TikTok:** Login Kit plus the Display API, scopes `user.info.basic` and `video.list`. Needs a TikTok for Developers app and review; a sandbox is available first.
 - **Product shape, open:** an imported batch should not create one passion project and story slug per post the way `artifacts.create` does for a single share, or a thirty-post import floods `/works` and mints thirty story pages. Decide between "imported items are artifacts without companion projects" and "one project per import, many media". Decide also whether new posts keep flowing in automatically (with a hide control) or wait for a tap.
 
@@ -161,7 +171,9 @@ The principle is the same throughout: reduce what a creative has to do to be see
 | `app/app/lib/videoEmbed.ts` | Re-export shim |
 | `app/app/lib/videoEmbed.test.ts` | Cases above |
 | `app/convex/schema.ts` | `artifacts.coverStorageId` |
-| `app/convex/artifacts.ts` | Store `canonicalUrl`; `schedulePreview` rule; `fetchTikTokPreview` internal action and `applyLinkPreview`; cover cleanup in `remove` |
+| `app/convex/artifacts.ts` | Store `canonicalUrl`; `schedulePreview` rule; cover cleanup in `remove` |
+| `app/convex/linkPreview.ts` (round 2) | `schedulePreviewFetch` for any table; `fetchPreview` internal action (Instagram via crawler UAs, TikTok via oEmbed); `apply` per table; `backfillArtifactPreviews` |
+| `app/app/components/EmbedStill.tsx`, `EmbedPlayer.tsx` (round 2) | The one static card face and the one player, shared by every surface |
 | `app/convex/garden/stories.ts` | `getStoryPage` returns the first attached media's link and still |
 | `app/app/components/CreateWorkComposer.tsx` | Auto-detect via the resolver; an uploaded image beside a link is the cover; placeholders; caps; `provider` in analytics |
 | `app/app/components/RichContent.tsx` | Portrait frame |
