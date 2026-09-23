@@ -5,38 +5,13 @@
 import { describe, expect, it } from "vitest";
 import {
   MAX_TICKET_TIERS,
-  normalizeMediaUrl,
   normalizeTicketTiers,
   validateEndTime,
   type TicketTierInput,
 } from "./events";
 
-describe("normalizeMediaUrl", () => {
-  it("treats blank as no link", () => {
-    expect(normalizeMediaUrl(undefined)).toEqual({ mediaUrl: undefined });
-    expect(normalizeMediaUrl("   ")).toEqual({ mediaUrl: undefined });
-  });
-
-  it("stores a pasted reel in its canonical form, share token dropped", () => {
-    expect(
-      normalizeMediaUrl("https://www.instagram.com/reel/DdSHmHWSDFn/?stkn=bG0xZ2VsM2dmMDM0"),
-    ).toEqual({ mediaUrl: "https://www.instagram.com/reel/DdSHmHWSDFn/" });
-  });
-
-  it("gives a bare host its scheme and keeps an ordinary page as typed", () => {
-    expect(normalizeMediaUrl("vimeo.com/123456789")).toEqual({
-      mediaUrl: "https://vimeo.com/123456789",
-    });
-    expect(normalizeMediaUrl("https://example.com/flyer")).toEqual({
-      mediaUrl: "https://example.com/flyer",
-    });
-  });
-
-  it("refuses a link that is not a web address", () => {
-    expect(normalizeMediaUrl("javascript:alert(1)").error).toBeTruthy();
-    expect(normalizeMediaUrl("javascript:alert(1)").mediaUrl).toBeUndefined();
-  });
-});
+// The pasted media link's canonical form is shared with artifacts and
+// projects, so its cases live with the helper: linkPreview.test.ts.
 
 const START = new Date("2026-11-06T18:00:00").getTime();
 

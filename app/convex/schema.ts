@@ -117,8 +117,9 @@ export default defineSchema({
     mediaStorageId: v.optional(v.id("_storage")), // Convex file storage
     ogImageUrl: v.optional(v.string()), // fetched og:image for link types
     // The stored still behind `ogImageUrl` when we hold the file ourselves: a
-    // TikTok thumbnail copied in by artifacts.fetchTikTokPreview (the CDN URL
-    // expires in days) or a cover the creative uploaded beside a pasted reel.
+    // TikTok or Instagram still copied in by convex/linkPreview.ts (the CDN
+    // URL expires in days) or a cover the creative uploaded beside a pasted
+    // reel.
     // Read paths never need it — `ogImageUrl` already carries its URL. It
     // exists so `remove` can delete the file (docs/features/creator-media-
     // cross-post.md).

@@ -21,10 +21,16 @@
 // so the bytes are copied into Convex storage and the storage URL is what
 // gets stored.
 
-import { v } from "convex/values";
-import { internalAction, internalMutation, type MutationCtx } from "./_generated/server";
+import { ConvexError, v } from "convex/values";
+import {
+  internalAction,
+  internalMutation,
+  type ActionCtx,
+  type MutationCtx,
+} from "./_generated/server";
 import { api, internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
+import { isSafeHttpUrl, normalizeUrl } from "./garden/richText";
 import { isTikTokShortLink, toEmbedUrl } from "./videoEmbed";
 
 export type PreviewTarget = "artifact" | "event" | "project";
@@ -34,6 +40,29 @@ export const previewTargetValidator = v.union(
   v.literal("event"),
   v.literal("project"),
 );
+
+/**
+ * A pasted link as every table stores it, or undefined for no link. A bare
+ * host ("vimeo.com/123") is given https:// first; anything that then isn't
+ * http(s) is refused, because a `javascript:` URL parses fine and must never
+ * reach an href. A recognised Instagram, TikTok, YouTube or Vimeo link is
+ * reduced to its canonical form — share tokens and mobile hosts stripped —
+ * so two people pasting the same reel store the same string and the preview
+ * fetch can find its row. Anything else is kept as pasted, a TikTok short
+ * link included (the server follows it when the still is fetched): the
+ * client is the one that refuses those, the server only refuses harm.
+ */
+export function canonicalMediaUrl(raw: string | undefined): string | undefined {
+  const url = normalizeUrl(raw ?? "");
+  if (!url) return undefined;
+  if (!isSafeHttpUrl(url)) {
+    throw new ConvexError({
+      code: "invalid_media_url",
+      reason: "That isn't a link we can show. Paste an Instagram, TikTok, YouTube or Vimeo link.",
+    });
+  }
+  return toEmbedUrl(url)?.canonicalUrl ?? url;
+}
 
 /** True when a link is one this module can fetch a still for. YouTube and
     Vimeo are embeds too, but need nothing from the server. */
@@ -74,31 +103,44 @@ const CRAWLER_UAS = [
 const BROWSER_UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
+// A double-quoted value and a single-quoted one are separate branches, so
+// the apostrophe in a caption ("Don't miss Friday's show") or in an image
+// URL doesn't end the value early.
+const ATTR_VALUE = `(?:"([^"]*)"|'([^']*)')`;
+
 function metaContent(html: string, property: string): string | undefined {
   const re = new RegExp(
-    `<meta[^>]*(?:property|name)\\s*=\\s*["']${property}["'][^>]*content\\s*=\\s*["']([^"']+)["']|<meta[^>]*content\\s*=\\s*["']([^"']+)["'][^>]*(?:property|name)\\s*=\\s*["']${property}["']`,
+    `<meta[^>]*(?:property|name)\\s*=\\s*["']${property}["'][^>]*content\\s*=\\s*${ATTR_VALUE}|<meta[^>]*content\\s*=\\s*${ATTR_VALUE}[^>]*(?:property|name)\\s*=\\s*["']${property}["']`,
     "i",
   );
   const m = html.match(re);
-  const raw = m?.[1] ?? m?.[2];
+  const raw = m?.[1] ?? m?.[2] ?? m?.[3] ?? m?.[4];
   return raw ? decodeEntities(raw) : undefined;
 }
 
+// `&amp;` goes last: a caption that literally contained `&quot;` arrives as
+// `&amp;quot;` and must come out as `&quot;`, not decoded twice into a quote.
 function decodeEntities(s: string): string {
   return s
-    .replace(/&amp;/g, "&")
     .replace(/&quot;/g, '"')
     .replace(/&#x27;|&#39;/g, "'")
     .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">");
+    .replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&");
 }
 
 /** Instagram's og:title reads `Name on Instagram: "caption…"`. The caption's
-    first line is the title a card wants; the rest is noise. */
+    first line with words on it is the title a card wants; the rest is noise.
+    A captionless post's og:title is just `Name on Instagram`, which is
+    nobody's title: undefined, so the row keeps the title it had. */
 function instagramTitle(html: string): string | undefined {
   const og = metaContent(html, "og:title") ?? "";
-  const quoted = og.match(/on Instagram: "([\s\S]*)"\s*$/)?.[1] ?? og;
-  const firstLine = quoted.split(/\r?\n/)[0]?.trim() ?? "";
+  const caption = og.match(/on Instagram: "([\s\S]*)"\s*$/)?.[1];
+  if (caption === undefined) return undefined;
+  const firstLine = caption
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .find(Boolean);
   return firstLine ? firstLine.slice(0, 120) : undefined;
 }
 
@@ -174,6 +216,24 @@ export async function resolveLinkPreview(url: string): Promise<ResolvedPreview |
 
 // ————— the action and its apply —————
 
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+
+/** The bytes at an image URL copied into storage, or undefined when what is
+    there isn't an image of a sane size. A provider that answers 200 with an
+    HTML error page, or a CDN URL already expired into something else, must
+    not become a "still" that every card then tries to render. */
+async function storeImage(ctx: ActionCtx, url: string): Promise<Id<"_storage"> | undefined> {
+  const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
+  if (!res.ok) return undefined;
+  if (!res.headers.get("content-type")?.toLowerCase().startsWith("image/")) return undefined;
+  // content-length is a hint, not a promise (a chunked response has none), so
+  // the blob is measured too.
+  if (Number(res.headers.get("content-length")) > MAX_IMAGE_BYTES) return undefined;
+  const blob = await res.blob();
+  if (blob.size > MAX_IMAGE_BYTES) return undefined;
+  return ctx.storage.store(blob);
+}
+
 export const fetchPreview = internalAction({
   args: { target: previewTargetValidator, id: v.string(), url: v.string() },
   handler: async (ctx, args) => {
@@ -186,9 +246,8 @@ export const fetchPreview = internalAction({
       let imageStorageId: Id<"_storage"> | undefined;
       let imageUrl: string | undefined;
       if (preview.imageUrl) {
-        const img = await fetch(preview.imageUrl, { signal: AbortSignal.timeout(15000) });
-        if (img.ok) {
-          imageStorageId = await ctx.storage.store(await img.blob());
+        imageStorageId = await storeImage(ctx, preview.imageUrl);
+        if (imageStorageId) {
           imageUrl = (await ctx.storage.getUrl(imageStorageId)) ?? undefined;
         }
       }
@@ -212,11 +271,11 @@ export const fetchPreview = internalAction({
 // the type's fallback title at create); a title someone typed is kept.
 // Events and projects keep their own titles — only the media fields move.
 //
-// A row whose link changed while this fetch was in flight is left alone:
-// the still belongs to the old link, and the new link's own fetch is
-// already scheduled. `sourceUrl` is the link the fetch started from (a
-// short link, before apply swaps in the permalink), so either spelling
-// of the same link counts as unchanged.
+// A row whose link changed — or was cleared — while this fetch was in
+// flight is left alone: the still belongs to the old link, and the new
+// link's own fetch is already scheduled. `sourceUrl` is the link the fetch
+// started from (a short link, before apply swaps in the permalink), so
+// either spelling of the same link counts as unchanged.
 export const apply = internalMutation({
   args: {
     target: previewTargetValidator,
@@ -232,8 +291,10 @@ export const apply = internalMutation({
       if (args.imageStorageId) await ctx.storage.delete(args.imageStorageId);
     };
     const hasImage = !!args.imageUrl && !!args.imageStorageId;
+    // An absent link counts as changed: the user removed it while the fetch
+    // was in flight, and applying anyway would bring it back.
     const linkChanged = (current: string | undefined) =>
-      !!current && current !== args.sourceUrl && current !== args.canonicalUrl;
+      current !== args.sourceUrl && current !== args.canonicalUrl;
 
     if (args.target === "artifact") {
       const id = ctx.db.normalizeId("artifacts", args.id);
@@ -264,32 +325,19 @@ export const apply = internalMutation({
       return;
     }
 
-    if (args.target === "event") {
-      const id = ctx.db.normalizeId("events", args.id);
-      const event = id ? await ctx.db.get(id) : null;
-      if (!id || !event || linkChanged(event.mediaUrl)) return dropImage();
-      const patch: Partial<Doc<"events">> = {};
-      if (event.mediaUrl !== args.canonicalUrl) patch.mediaUrl = args.canonicalUrl;
-      if (hasImage) {
-        if (event.mediaPreviewStorageId && event.mediaPreviewStorageId !== args.imageStorageId) {
-          await ctx.storage.delete(event.mediaPreviewStorageId);
-        }
-        patch.mediaPreviewUrl = args.imageUrl;
-        patch.mediaPreviewStorageId = args.imageStorageId;
-      }
-      await ctx.db.patch(id, patch);
-      return;
-    }
-
-    // project
-    const id = ctx.db.normalizeId("projects", args.id);
-    const project = id ? await ctx.db.get(id) : null;
-    if (!id || !project || linkChanged(project.mediaUrl)) return dropImage();
-    const patch: Partial<Doc<"projects">> = {};
-    if (project.mediaUrl !== args.canonicalUrl) patch.mediaUrl = args.canonicalUrl;
+    // Events and projects carry the same three media columns, so one body
+    // serves both and only the table differs.
+    const table = args.target === "event" ? "events" : "projects";
+    const id = ctx.db.normalizeId(table, args.id);
+    const row = id ? await ctx.db.get(id) : null;
+    if (!id || !row || linkChanged(row.mediaUrl)) return dropImage();
+    const patch: Partial<
+      Pick<Doc<"events">, "mediaUrl" | "mediaPreviewUrl" | "mediaPreviewStorageId">
+    > = {};
+    if (row.mediaUrl !== args.canonicalUrl) patch.mediaUrl = args.canonicalUrl;
     if (hasImage) {
-      if (project.mediaPreviewStorageId && project.mediaPreviewStorageId !== args.imageStorageId) {
-        await ctx.storage.delete(project.mediaPreviewStorageId);
+      if (row.mediaPreviewStorageId && row.mediaPreviewStorageId !== args.imageStorageId) {
+        await ctx.storage.delete(row.mediaPreviewStorageId);
       }
       patch.mediaPreviewUrl = args.imageUrl;
       patch.mediaPreviewStorageId = args.imageStorageId;

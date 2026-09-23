@@ -15,36 +15,17 @@ import { assertCommunityMember } from "./communities";
 import { notifyFollowers } from "../follows";
 import { isStage, stageLabel, shouldNotifyStageChange } from "./projectTeam";
 import {
-  isSafeHttpUrl,
   normalizeRichDoc,
-  normalizeUrl,
   orphanedStorageIds,
   resolveRichDocMedia,
   richDocValidator,
 } from "./richText";
 import { summarizeGig } from "./gigSummary";
-import { schedulePreviewFetch } from "../linkPreview";
-import { toEmbedUrl } from "../videoEmbed";
-
 // A pasted Instagram, TikTok, YouTube or Vimeo link that IS the project's
 // media — the Instagram post a poster is hiring from, the reel a passion
-// project is (docs/features/creator-media-cross-post.md, Round 2). Checked
-// and stored the way artifacts.create stores one: http(s) only, because a
-// `javascript:` URL parses fine and must never reach an href; then the
-// canonical form, so two people pasting the same reel store the same string
-// and the preview fetch can find its row. Anything that isn't a recognised
-// embed is kept as pasted — the client is the one that refuses those, the
-// server only refuses what could do harm.
-function canonicalMediaUrl(raw: string): string {
-  const url = normalizeUrl(raw);
-  if (!isSafeHttpUrl(url)) {
-    throw new ConvexError({
-      code: "invalid_media_url",
-      reason: "That isn't a link we can show. Paste an Instagram, TikTok, YouTube or Vimeo link.",
-    });
-  }
-  return toEmbedUrl(url)?.canonicalUrl ?? url;
-}
+// project is (docs/features/creator-media-cross-post.md, Round 2) — is
+// checked and stored the way artifacts and events store one.
+import { canonicalMediaUrl, schedulePreviewFetch } from "../linkPreview";
 
 // Following fan-out (docs/features/following.md §1 #5): "Name posted Title"
 // to everyone following the poster, once per created row. `userId` is a
@@ -126,7 +107,8 @@ export const createPassionProject = mutation({
     blurb: v.optional(v.string()),
     goal: v.optional(v.number()),
     photoUrl: v.optional(v.string()),
-    // A pasted link instead of (or as well as) a photo — see canonicalMediaUrl.
+    // A pasted link instead of (or as well as) a photo — see canonicalMediaUrl
+    // in convex/linkPreview.ts.
     mediaUrl: v.optional(v.string()),
     // Passion-only campaign fields (review follow-up) — deliberately not on
     // createPaidProject, see the schema comment on `projects.raiseByDate`.
@@ -158,7 +140,7 @@ export const createPassionProject = mutation({
       await assertCommunityMember(ctx, args.hostOrgId, userId);
     }
 
-    const mediaUrl = args.mediaUrl?.trim() ? canonicalMediaUrl(args.mediaUrl) : undefined;
+    const mediaUrl = canonicalMediaUrl(args.mediaUrl);
     const now = Date.now();
     const storySlug = await generateStorySlug(ctx, args.title);
     const id = await ctx.db.insert("projects", {
@@ -260,7 +242,7 @@ export const updateProject = mutation({
     // already pointing at the new link.
     let fetchPreviewFor: string | undefined;
     if (args.mediaUrl !== undefined) {
-      const next = args.mediaUrl.trim() ? canonicalMediaUrl(args.mediaUrl) : undefined;
+      const next = canonicalMediaUrl(args.mediaUrl);
       if (next !== project.mediaUrl) {
         if (project.mediaPreviewStorageId) {
           try {
@@ -690,7 +672,8 @@ export const createPaidProject = mutation({
     budget: v.optional(v.number()),
     budgetMax: v.optional(v.number()),
     photoUrl: v.optional(v.string()),
-    // A pasted link instead of (or as well as) a photo — see canonicalMediaUrl.
+    // A pasted link instead of (or as well as) a photo — see canonicalMediaUrl
+    // in convex/linkPreview.ts.
     mediaUrl: v.optional(v.string()),
     // The project's own declared topics (canonical INTERESTS list) —
     // independent of the creator's profile interests. See the schema
@@ -711,7 +694,7 @@ export const createPaidProject = mutation({
       await assertCommunityMember(ctx, args.hostOrgId, userId);
     }
 
-    const mediaUrl = args.mediaUrl?.trim() ? canonicalMediaUrl(args.mediaUrl) : undefined;
+    const mediaUrl = canonicalMediaUrl(args.mediaUrl);
     const now = Date.now();
     const storySlug = await generateStorySlug(ctx, args.title);
     const id = await ctx.db.insert("projects", {

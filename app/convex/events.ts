@@ -5,10 +5,8 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { auth } from "./auth";
 import { scheduleNotificationEmail } from "./emailHelpers";
 import { assertCommunityMember } from "./garden/communities";
-import { isSafeHttpUrl, normalizeUrl } from "./garden/richText";
 import { formatFollowedEventDate, notifyFollowers } from "./follows";
-import { schedulePreviewFetch } from "./linkPreview";
-import { toEmbedUrl } from "./videoEmbed";
+import { canonicalMediaUrl, schedulePreviewFetch } from "./linkPreview";
 
 // ——— Pure validation helpers (unit-tested in events.test.ts) ———
 
@@ -80,26 +78,6 @@ export function normalizeTicketTiers(
     });
   }
   return { tiers: normalized };
-}
-
-/** The pasted media link as it is stored
- * (docs/features/creator-media-cross-post.md). Blank means "no link". A bare
- * host ("youtube.com/watch?v=…") is given https:// first; anything that then
- * isn't http(s) is refused, as every stored URL here is (garden/richText.ts's
- * isSafeHttpUrl). A recognised Instagram, TikTok, YouTube or Vimeo link is
- * reduced to its canonical form — share tokens and mobile hosts stripped —
- * so two organizers pasting the same reel store the same string
- * (convex/videoEmbed.ts). Returns { mediaUrl } (undefined = none) or
- * { error } with a user-facing message. */
-export function normalizeMediaUrl(
-  raw: string | undefined,
-): { mediaUrl?: string; error?: string } {
-  const url = normalizeUrl(raw ?? "");
-  if (!url) return { mediaUrl: undefined };
-  if (!isSafeHttpUrl(url)) {
-    return { error: "The media link must be a web address (http:// or https://)" };
-  }
-  return { mediaUrl: toEmbedUrl(url)?.canonicalUrl ?? url };
 }
 
 const ticketTiersValidator = v.optional(
@@ -331,7 +309,8 @@ export const create = mutation({
     // owned by the organizer, this only tags it; community-groups.md §0).
     hostOrgId: v.optional(v.id("hostOrgs")),
     // A pasted Instagram, TikTok, YouTube or Vimeo link in place of a cover
-    // image (docs/features/creator-media-cross-post.md). See normalizeMediaUrl.
+    // image (docs/features/creator-media-cross-post.md). Stored the way every
+    // table stores one — see canonicalMediaUrl in convex/linkPreview.ts.
     mediaUrl: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -344,8 +323,7 @@ export const create = mutation({
     const { tiers, error: tiersError } = normalizeTicketTiers(args.ticketTiers);
     if (tiersError) throw new Error(tiersError);
 
-    const { mediaUrl, error: mediaUrlError } = normalizeMediaUrl(args.mediaUrl);
-    if (mediaUrlError) throw new Error(mediaUrlError);
+    const mediaUrl = canonicalMediaUrl(args.mediaUrl);
 
     if (args.hostOrgId) {
       await assertCommunityMember(ctx, args.hostOrgId, userId);
@@ -470,11 +448,16 @@ export const update = mutation({
     > = {};
     let fetchMediaUrl: string | undefined;
     if (args.mediaUrl !== undefined) {
-      const { mediaUrl, error: mediaUrlError } = normalizeMediaUrl(args.mediaUrl);
-      if (mediaUrlError) throw new Error(mediaUrlError);
+      const mediaUrl = canonicalMediaUrl(args.mediaUrl);
       if (mediaUrl !== event.mediaUrl) {
         if (event.mediaPreviewStorageId) {
-          await ctx.storage.delete(event.mediaPreviewStorageId);
+          // Best-effort, as garden/projects.ts's updateProject treats the same
+          // delete: a file already gone must not fail the whole edit.
+          try {
+            await ctx.storage.delete(event.mediaPreviewStorageId);
+          } catch {
+            // already gone
+          }
         }
         mediaPatch = { mediaUrl, mediaPreviewUrl: undefined, mediaPreviewStorageId: undefined };
         fetchMediaUrl = mediaUrl;

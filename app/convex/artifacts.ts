@@ -3,7 +3,7 @@ import { action, internalMutation, mutation, query, type MutationCtx } from "./_
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { auth } from "./auth";
-import { schedulePreviewFetch, wantsPreviewFetch } from "./linkPreview";
+import { canonicalMediaUrl, schedulePreviewFetch, wantsPreviewFetch } from "./linkPreview";
 import { toEmbedUrl } from "./videoEmbed";
 import { deriveProjectTitle } from "./garden/artifactsMigration";
 import { slugifyTitle, resolveAvailableSlug } from "./garden/stories";
@@ -208,10 +208,9 @@ export const create = mutation({
 
     // A pasted Instagram, TikTok, YouTube or Vimeo link is stored in its
     // canonical form — share tokens (`?stkn=`, `?igsh=`) and mobile hosts
-    // stripped — so the same reel pasted by two people is the same string
-    // (convex/videoEmbed.ts).
-    const embed = toEmbedUrl(args.mediaUrl);
-    const mediaUrl = embed?.canonicalUrl ?? args.mediaUrl;
+    // stripped — so the same reel pasted by two people is the same string,
+    // and anything that isn't http(s) is refused (convex/linkPreview.ts).
+    const mediaUrl = canonicalMediaUrl(args.mediaUrl);
     const coverUrl = args.coverStorageId
       ? await ctx.storage.getUrl(args.coverStorageId)
       : null;
@@ -273,8 +272,13 @@ export const create = mutation({
       });
     }
 
-    // A still for the card, unless the resolver already has one.
-    await schedulePreview(ctx, artifactId, mediaUrl, args.type);
+    // A still for the card, unless the resolver already has one — or the
+    // creative uploaded a cover beside the link, which is the picture they
+    // chose: a fetched still would delete it and take its place. The owner's
+    // explicit Refresh Preview (refetchOgImage) may still do that.
+    if (!args.coverStorageId) {
+      await schedulePreview(ctx, artifactId, mediaUrl, args.type);
+    }
 
     return artifactId;
   },
