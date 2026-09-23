@@ -3,12 +3,8 @@ import { Link } from "react-router";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import { CreateWorkComposer } from "../components/CreateWorkComposer";
-import {
-  EMBED_PROVIDER_LABEL,
-  toEmbedUrl,
-  type EmbedAspect,
-  type EmbedKind,
-} from "../lib/videoEmbed";
+import { EmbedStill, PlayBadge } from "../components/EmbedStill";
+import { toEmbedUrl, type EmbedAspect } from "../lib/videoEmbed";
 
 const TYPE_FILTERS = [
   { label: "All", value: "" },
@@ -246,7 +242,6 @@ function BentoCard({ artifact, featured }: { artifact: any; featured: boolean })
   // fetched (`ogImageUrl`), else the provider's own (YouTube) — and the
   // player opens on the work page.
   const embed = toEmbedUrl(artifact.mediaUrl);
-  const embedThumb = embed ? (artifact.ogImageUrl ?? embed.thumbnailUrl ?? null) : null;
 
   const showAsImage =
     !embed &&
@@ -277,33 +272,26 @@ function BentoCard({ artifact, featured }: { artifact: any; featured: boolean })
       )}
 
       {/* Embedded video — a still with a play badge; the player is on the work page */}
-      {embed &&
-        (embedThumb ? (
-          <div className="relative w-full h-full">
-            <img
-              src={embedThumb}
-              alt={artifact.title || `${EMBED_PROVIDER_LABEL[embed.kind]} video`}
-              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-            />
-            <PlayBadge kind={embed.kind} />
-          </div>
-        ) : (
-          <EmbedTile kind={embed.kind} title={artifact.title} />
-        ))}
+      {embed && (
+        <EmbedStill embed={embed} previewUrl={artifact.ogImageUrl} title={artifact.title} />
+      )}
 
+      {/* Uploaded video file — a static poster. It used to play on hover;
+          the rule now is that nothing plays in a grid, only on the work page.
+          The `#t=0.1` fragment makes Safari and Chrome paint a frame instead
+          of black; the badge is the neutral one (Vimeo's colour) because this
+          is the creative's own file, not a platform's. */}
       {artifact.type === "video" && artifact.resolvedMediaUrl && !embed && (
-        <video
-          src={artifact.resolvedMediaUrl}
-          className="w-full h-full object-cover"
-          muted
-          loop
-          playsInline
-          onMouseEnter={(e) => e.currentTarget.play()}
-          onMouseLeave={(e) => {
-            e.currentTarget.pause();
-            e.currentTarget.currentTime = 0;
-          }}
-        />
+        <div className="relative w-full h-full">
+          <video
+            src={`${artifact.resolvedMediaUrl}#t=0.1`}
+            className="w-full h-full object-cover"
+            preload="metadata"
+            muted
+            playsInline
+          />
+          <PlayBadge kind="vimeo" />
+        </div>
       )}
 
       {artifact.type === "text" && (
@@ -405,42 +393,6 @@ function BentoCard({ artifact, featured }: { artifact: any; featured: boolean })
         )}
       </div>
     </Link>
-  );
-}
-
-// The play badge over an embed's still. YouTube red is the one colour people
-// recognise; every other provider gets a neutral badge so the card reads as
-// the creative's work, not an ad for the platform.
-function PlayBadge({ kind }: { kind: EmbedKind }) {
-  return (
-    <div className="absolute inset-0 flex items-center justify-center">
-      <div
-        className={`w-14 h-14 rounded-full flex items-center justify-center shadow-lg ${
-          kind === "youtube" ? "bg-red-600" : "bg-black/70"
-        }`}
-      >
-        <svg className="w-7 h-7 text-white ml-1" fill="currentColor" viewBox="0 0 24 24">
-          <path d="M8 5v14l11-7z" />
-        </svg>
-      </div>
-    </div>
-  );
-}
-
-// An embed with no still yet — an Instagram reel (Instagram gives a server
-// nothing to fetch; the creative can add a cover) or a TikTok whose preview
-// hasn't landed. Dark, titled and clearly a video, not a grey link tile.
-function EmbedTile({ kind, title }: { kind: EmbedKind; title?: string | null }) {
-  return (
-    <div className="relative w-full h-full p-4 flex flex-col justify-between bg-gradient-to-br from-gray-900 to-gray-700">
-      <span className="text-xs uppercase tracking-wide text-white/70">
-        {EMBED_PROVIDER_LABEL[kind]}
-      </span>
-      <PlayBadge kind={kind} />
-      {title && (
-        <h3 className="relative text-white text-sm font-medium line-clamp-2">{title}</h3>
-      )}
-    </div>
   );
 }
 

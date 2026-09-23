@@ -2,8 +2,9 @@ import { useMutation, useQuery } from "convex/react";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { api } from "../../convex/_generated/api";
-import { EMBED_PROVIDER_LABEL, toEmbedUrl } from "../lib/videoEmbed";
+import { toEmbedUrl } from "../lib/videoEmbed";
 import type { Id } from "../../convex/_generated/dataModel";
+import { EmbedStill, PlayBadge } from "../components/EmbedStill";
 import { FavoriteButton } from "../components/FavoriteButton";
 import { ShareButton } from "../components/ShareButton";
 import { usePostHog } from "@posthog/react";
@@ -514,9 +515,6 @@ export default function Profile() {
               // (the branch below comes first); a reel with a cover shows
               // the cover from `ogImageUrl`.
               const embed = toEmbedUrl(artifact.linkUrl ?? artifact.mediaUrl ?? undefined);
-              const embedThumb = embed
-                ? (artifact.ogImageUrl ?? embed.thumbnailUrl ?? null)
-                : null;
 
               return (
                 <Link
@@ -553,52 +551,29 @@ export default function Profile() {
                       )}
                     </div>
                   ) : embed ? (
+                    <EmbedStill
+                      embed={embed}
+                      previewUrl={artifact.ogImageUrl}
+                      title={artifact.title}
+                      badgeSize="sm"
+                    />
+                  ) : artifact.type === "video" && artifact.mediaUrl ? (
+                    // An uploaded video file — a static poster. The `#t=0.1`
+                    // fragment makes Safari and Chrome paint a frame instead
+                    // of black; the badge is the neutral one (Vimeo's colour)
+                    // because this is the creative's own file, not a platform's.
                     <div
                       className="relative w-full h-full"
                       style={{ backgroundColor: "var(--garden-ink)" }}
                     >
-                      {embedThumb ? (
-                        <img
-                          src={embedThumb}
-                          alt={artifact.title || `${EMBED_PROVIDER_LABEL[embed.kind]} video`}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <span className="absolute top-2 left-3 text-[10px] uppercase tracking-wide text-white/70">
-                          {EMBED_PROVIDER_LABEL[embed.kind]}
-                        </span>
-                      )}
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <div
-                          className={`w-12 h-12 rounded-full flex items-center justify-center ${
-                            embed.kind === "youtube" ? "bg-red-600" : "bg-black/70"
-                          }`}
-                        >
-                          <svg
-                            className="w-6 h-6 text-white ml-0.5"
-                            fill="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path d="M8 5v14l11-7z" />
-                          </svg>
-                        </div>
-                      </div>
-                      {!embedThumb && artifact.title && (
-                        <p className="absolute inset-x-0 bottom-0 p-3 text-white text-sm font-medium line-clamp-2">
-                          {artifact.title}
-                        </p>
-                      )}
-                    </div>
-                  ) : artifact.type === "video" && artifact.mediaUrl ? (
-                    <div
-                      className="w-full h-full flex items-center justify-center"
-                      style={{ backgroundColor: "var(--garden-ink)" }}
-                    >
                       <video
-                        src={artifact.mediaUrl}
+                        src={`${artifact.mediaUrl}#t=0.1`}
                         className="w-full h-full object-cover"
+                        preload="metadata"
                         muted
+                        playsInline
                       />
+                      <PlayBadge kind="vimeo" size="sm" />
                     </div>
                   ) : artifact.type === "text" && artifact.content ? (
                     <div

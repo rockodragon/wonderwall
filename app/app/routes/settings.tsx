@@ -8,6 +8,7 @@ import confetti from "canvas-confetti";
 import { api } from "../../convex/_generated/api";
 import { toEmbedUrl } from "../lib/videoEmbed";
 import type { Id } from "../../convex/_generated/dataModel";
+import { EmbedStill, PlayBadge } from "../components/EmbedStill";
 import { LocationAutocomplete, LocationVerifiedHint } from "../components/LocationAutocomplete";
 import { useLocationField } from "../lib/useLocationField";
 import { INTERESTS } from "../constants/interests";
@@ -1899,12 +1900,11 @@ function ArtifactsSection({
               (t) => t.value === artifact.type,
             );
             const mediaUrl = artifact.resolvedMediaUrl || artifact.mediaUrl;
-            // The shared resolver (convex/videoEmbed.ts) — a pasted reel
-            // or TikTok previews here the same way a YouTube link does.
-            const videoEmbedUrl =
-              artifact.type === "video" && mediaUrl
-                ? toEmbedUrl(artifact.mediaUrl ?? mediaUrl)?.embedUrl ?? null
-                : null;
+            // A pasted reel, TikTok, YouTube or Vimeo link (convex/videoEmbed.ts),
+            // resolved from the stored link — an uploaded file's storage URL
+            // is never an embed. The tile shows a still, never a player: this
+            // grid used to render one live Instagram player per reel.
+            const embed = toEmbedUrl(artifact.mediaUrl);
 
             return (
               <div
@@ -1919,22 +1919,27 @@ function ArtifactsSection({
                     className="w-full h-full object-cover"
                   />
                 ) : artifact.type === "video" && mediaUrl ? (
-                  videoEmbedUrl ? (
-                    <iframe
-                      src={videoEmbedUrl}
-                      title={artifact.title || "Video"}
-                      className="w-full h-full"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
-                      loading="lazy"
+                  embed ? (
+                    <EmbedStill
+                      embed={embed}
+                      previewUrl={artifact.ogImageUrl}
+                      title={artifact.title}
+                      badgeSize="sm"
                     />
                   ) : (
-                    <div className="w-full h-full bg-gray-900 flex items-center justify-center">
+                    // An uploaded video file — a static poster. The `#t=0.1`
+                    // fragment makes Safari and Chrome paint a frame instead
+                    // of black; the badge is the neutral one (Vimeo's colour)
+                    // because this is the creative's own file, not a platform's.
+                    <div className="relative w-full h-full bg-gray-900">
                       <video
-                        src={mediaUrl}
+                        src={`${mediaUrl}#t=0.1`}
                         className="w-full h-full object-cover"
+                        preload="metadata"
                         muted
+                        playsInline
                       />
+                      <PlayBadge kind="vimeo" size="sm" />
                     </div>
                   )
                 ) : (

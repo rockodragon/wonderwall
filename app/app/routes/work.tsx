@@ -4,8 +4,9 @@ import { Link, useNavigate, useParams } from "react-router";
 import Markdown from "react-markdown";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
+import { EmbedPlayer } from "../components/EmbedPlayer";
 import { ShareButton } from "../components/ShareButton";
-import { EMBED_PROVIDER_LABEL, toEmbedUrl } from "../lib/videoEmbed";
+import { toEmbedUrl } from "../lib/videoEmbed";
 
 export default function WorkDetail() {
   const { artifactId } = useParams();
@@ -133,27 +134,7 @@ export default function WorkDetail() {
 
           {/* Embedded player — a reel or a TikTok is portrait, capped at
               phone width and centred; YouTube and Vimeo fill the width */}
-          {embed && (
-            <div
-              className={
-                embed.aspect === "9/16"
-                  ? "mx-auto w-full max-w-[420px] aspect-[9/16]"
-                  : "aspect-video"
-              }
-            >
-              <iframe
-                src={embed.embedUrl}
-                title={
-                  artifact.title || `${EMBED_PROVIDER_LABEL[embed.kind]} video`
-                }
-                className="w-full h-full"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-                loading="lazy"
-                referrerPolicy="strict-origin-when-cross-origin"
-              />
-            </div>
-          )}
+          {embed && <EmbedPlayer embed={embed} title={artifact.title} />}
 
           {/* Image */}
           {showAsImage && artifact.resolvedMediaUrl && (
@@ -374,9 +355,12 @@ export default function WorkDetail() {
             {/* Owner controls */}
             {artifact.isOwner && (
               <>
-                {/* Refresh preview — for a link's og:image, or a TikTok's still */}
+                {/* Refresh preview — for a link's og:image, or a TikTok's or
+                    Instagram reel's still (convex/linkPreview.ts fetches both) */}
                 {artifact.mediaUrl &&
-                  (artifact.type === "link" || embed?.kind === "tiktok") && (
+                  (artifact.type === "link" ||
+                    embed?.kind === "tiktok" ||
+                    embed?.kind === "instagram") && (
                   <button
                     onClick={handleRefreshPreview}
                     disabled={refreshing}
