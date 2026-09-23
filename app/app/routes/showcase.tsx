@@ -321,6 +321,40 @@ const LANE_COPY: Record<string, LaneCopy> = {
 
 const DEFAULT_LANE = "exhibit";
 
+// The opening is a poem, and it is set as one: stanzas, and line breaks
+// where the writer put them. That is the whole reason it exists as an array
+// of arrays rather than a paragraph — prose reflows, verse does not, and a
+// line landing in the wrong place is the difference between a reading and a
+// shrug. Never let a build tool or a "tidy-up" collapse these into
+// sentences.
+//
+// It replaced a "Why this exists" section that said the same things in
+// worse order. The argument is identical (creatives can't reach the people
+// who'd pay; the two rooms available each demand an amputation); the poem
+// just refuses to explain itself, which is why it lands.
+const OPENING = [
+  [
+    "Creatives keep making work no one sees.",
+    "Patrons keep looking for work worth backing.",
+  ],
+  [
+    "The church wants it donated.",
+    "The gallery wants the faith left out.",
+    "And the people who'd pay for the honest thing",
+    "can't find the person who made it.",
+  ],
+  [
+    "So we're building the third way.",
+    "Makers. Backers.",
+    "A community that shows up for both.",
+  ],
+  [
+    "November 6 is the first night.",
+    "It's just the beginning.",
+    "Come and see.",
+  ],
+] as const;
+
 // ————— Line drawings —————
 //
 // Inline SVG in the same continuous-pen style as the hero drawing, rather
@@ -470,6 +504,30 @@ const PAGE_CSS = `
    by a screen reader); per-line timing rides in on --sc-delay/--sc-dur, which
    WhoCard computes so the last sentence lands at ~5s no matter how many
    sentences a card has. */
+/* Verse. Each line is a block so the writer's break is the one you see; the
+   hanging indent means a line too long for a phone wraps INTO itself rather
+   than looking like a new line. text-wrap: balance would re-break the lines
+   on our behalf, which is exactly what poetry must not allow. */
+.sc-verse .sc-stanza {
+  margin: 0 0 1.15em;
+  max-width: 46ch;
+}
+.sc-verse .sc-stanza:last-child { margin-bottom: 0; }
+.sc-verse .sc-stanza > span {
+  display: block;
+  padding-left: 1.1em;
+  text-indent: -1.1em;
+  /* Deliberately NOT text-wrap: nowrap (overflows a phone) and NOT balance
+     (re-breaks the writer's lines). Default wrapping plus the hanging
+     indent above: a line too long to fit continues, visibly indented, and
+     still reads as one line. */
+  font-size: clamp(16.5px, 3.6vw, 20px);
+  line-height: 1.55;
+  color: var(--g-paper);
+}
+/* The closing stanza is the invitation; let it carry the accent. */
+.sc-verse .sc-stanza:last-child > span:last-child { color: var(--g-citron); }
+
 .sc-who { position: relative; }
 /* The lane cards are buttons now, so they have to read as pressable. Same
    citron-edge treatment the ticket badges use, for the same reason. */
@@ -950,19 +1008,23 @@ export default function Showcase() {
       <div style={{ marginTop: 18 }}>
         <span className="g-badge g-badge-citron">Open call</span>
         <h1 className="g-h" style={{ marginTop: 16 }}>
-          Show your work on November 6.
+          Friends, neighbors&hellip;
         </h1>
-        <p
-          style={{
-            fontSize: 19,
-            lineHeight: 1.5,
-            marginTop: 16,
-            color: "var(--g-paper)",
-            maxWidth: "34ch",
-          }}
-        >
-          {SPOTS} Christian creatives. One room in Encinitas. Free to apply.
-        </p>
+
+        {/* Verse, not prose. Each line is its own element so the break is
+            the writer's and not the viewport's; on a narrow phone a line too
+            long to fit wraps with a hanging indent (see .sc-verse in
+            PAGE_CSS) so a wrap still reads as one line continuing rather
+            than as a new one starting. */}
+        <div className="sc-verse" style={{ marginTop: 20 }}>
+          {OPENING.map((stanza, i) => (
+            <p key={i} className="sc-stanza">
+              {stanza.map((line) => (
+                <span key={line}>{line}</span>
+              ))}
+            </p>
+          ))}
+        </div>
 
         <img
           src="/showcase/table-drawing.jpg"
@@ -1076,26 +1138,6 @@ export default function Showcase() {
 
       {/* The positioning. Unpaid faith or faithless funding, and a third
           option. Five short sentences, and it does not get longer. */}
-      <Section label="Why this exists">
-        <p
-          className="g-h"
-          style={{ fontSize: "clamp(21px,3.6vw,27px)", lineHeight: 1.25 }}
-        >
-          You keep posting the work and hoping the right people see it.
-        </p>
-        <P>They don't.</P>
-        <P>
-          The only two offers you get are unpaid faith or faithless funding.
-          The church wants it donated. The gallery wants the faith left out.
-        </P>
-        <P>
-          <span style={{ color: "var(--g-paper)" }}>
-            So we made a third one. A room that wants both.
-          </span>{" "}
-          Everyone in it paid to be there. The work stays up here afterward.
-        </P>
-      </Section>
-
       {/* Facts before persuasion — a creative deciding whether to apply is
           scanning for the date, the cost and the catch. */}
       <Section label="The details">
