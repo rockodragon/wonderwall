@@ -39,23 +39,12 @@ type Application = Applications[number];
 type Vote = "yes" | "maybe" | "no";
 type Status = "new" | "shortlisted" | "selected" | "declined";
 
-const DISCIPLINE_LABEL: Record<string, string> = {
-  apparel: "Apparel / textiles",
-  visual: "Painting / illustration",
-  music: "Music / sound",
-  photography: "Photography",
-  film: "Film / video",
-  writing: "Writing / poetry",
-  spokenword: "Spoken word",
-  design: "Design / objects",
-  other: "Other",
-};
-
 const PARTICIPATION_LABEL: Record<string, string> = {
   exhibit: "Wants to hang work",
   perform: "Wants to play (paid slot)",
   vend: "Wants a table",
   document: "Offers to photograph",
+  back: "Wants to back creatives",
 };
 
 const STATUSES: { value: Status; label: string }[] = [
@@ -163,7 +152,7 @@ function ApplicationCard({
           <p className="text-sm text-gray-500 mt-1">
             {a.email}
             {a.city ? ` · ${a.city}` : ""}
-            {a.discipline ? ` · ${DISCIPLINE_LABEL[a.discipline]}` : ""}
+            {a.interests?.length ? ` · ${a.interests.join(", ")}` : ""}
           </p>
           {a.instagram && (
             <p className="text-sm mt-1">

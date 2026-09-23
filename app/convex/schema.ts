@@ -400,24 +400,29 @@ export default defineSchema({
     // Bare handle, no "@" and no URL — normalized on write in showcase.ts
     // so the jury sheet is scannable.
     instagram: v.optional(v.string()),
-    discipline: v.optional(
-      v.union(
-        v.literal("apparel"),
-        v.literal("visual"),
-        v.literal("music"),
-        v.literal("photography"),
-        v.literal("film"),
-        v.literal("writing"),
-        v.literal("spokenword"),
-        v.literal("design"),
-        v.literal("other"),
-      ),
-    ),
+    // What they make, on the canonical INTERESTS axis
+    // (app/constants/interests.ts) — the same vocabulary profiles, projects
+    // and offerings already use, so an applicant's answer here means the
+    // same thing as their answer everywhere else and can be matched against
+    // it. Plain string array, exactly like projects.interests: the list is
+    // enforced by the client, not the validator.
+    interests: v.optional(v.array(v.string())),
+    // DEPRECATED — the bespoke discipline enum this shipped with, replaced
+    // by `interests` above. Left declared, and never written by any
+    // mutation, only so rows stored before the switch stay schema-valid
+    // (same treatment as events.venueAddress).
+    discipline: v.optional(v.string()),
     portfolioUrl: v.optional(v.string()),
     workDescription: v.optional(v.string()),
     // What they want to DO on the night. A photographer offering to
     // document and an apparel maker wanting a table are different asks and
     // different costs to us, so they're captured rather than inferred.
+    //
+    // `back` is the one value that is NOT about showing work — a patron
+    // offering to support the night and the people in it. It lives in this
+    // same list rather than a field of its own because the form asks one
+    // question ("how do you want to take part?") and the jury reads one
+    // answer; someone who both shows and backs picks both.
     participation: v.optional(
       v.array(
         v.union(
@@ -425,6 +430,7 @@ export default defineSchema({
           v.literal("perform"),
           v.literal("vend"),
           v.literal("document"),
+          v.literal("back"),
         ),
       ),
     ),

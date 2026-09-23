@@ -98,23 +98,17 @@ export function compareForJury(a: JurySortable, b: JurySortable): number {
   return b.createdAt - a.createdAt;
 }
 
-const disciplineValidator = v.union(
-  v.literal("apparel"),
-  v.literal("visual"),
-  v.literal("music"),
-  v.literal("photography"),
-  v.literal("film"),
-  v.literal("writing"),
-  v.literal("spokenword"),
-  v.literal("design"),
-  v.literal("other"),
-);
+/** How many interests one applicant may claim. A cap, not a rule about
+    taste — it stops a scripted submission storing a thousand strings. */
+const MAX_INTERESTS = 8;
 
 const participationValidator = v.union(
   v.literal("exhibit"),
   v.literal("perform"),
   v.literal("vend"),
   v.literal("document"),
+  // See schema.ts: `back` is the patron answer, not a creative one.
+  v.literal("back"),
 );
 
 // ————— Step 1: the email —————
@@ -168,7 +162,15 @@ export const answerApplication = mutation({
     name: v.optional(v.string()),
     city: v.optional(v.string()),
     instagram: v.optional(v.string()),
-    discipline: v.optional(disciplineValidator),
+    interests: v.optional(v.array(v.string())),
+    // DEPRECATED, accepted and ignored. `interests` above replaced this.
+    // Convex ships the backend and the client separately, so during any
+    // deploy window a still-cached page WILL call this with the old
+    // argument — and a validator that rejects it turns a routine deploy
+    // into a stretch of failed applications at the exact moment we're
+    // driving traffic here. Accepting it costs nothing; it is never read
+    // and never written back to the row.
+    discipline: v.optional(v.string()),
     portfolioUrl: v.optional(v.string()),
     workDescription: v.optional(v.string()),
     participation: v.optional(v.array(participationValidator)),
@@ -189,7 +191,12 @@ export const answerApplication = mutation({
       name: clamp(args.name, 120),
       city: clamp(args.city, 120),
       instagram,
-      discipline: args.discipline,
+      interests: args.interests?.length
+        ? args.interests
+            .map((interest) => clamp(interest, 60))
+            .filter((interest): interest is string => Boolean(interest))
+            .slice(0, MAX_INTERESTS)
+        : undefined,
       portfolioUrl: clamp(args.portfolioUrl, 500),
       workDescription: clamp(args.workDescription, 2000),
       // An empty selection is stored as undefined, not [], so "didn't
