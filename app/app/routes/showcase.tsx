@@ -42,7 +42,8 @@
 // ("back"), their own persona card, and the Give · Receive · Grow section
 // frames the whole economy in the site's own tagline. Both grids now put the
 // patron in the TOP ROW, beside the creative it pays for: "Back the work"
-// sits next to "Show work," and the patron persona sits next to the musician.
+// sits next to "Show your craft," and the patron persona sits next to the
+// musician.
 // A patron who has to scroll past four creative cards to find themselves has
 // already read the page as not-for-them. Anything that pushes patrons back
 // down either grid is a regression.
@@ -88,13 +89,51 @@
 // The hero drawing is inverted (filter: invert(1)) rather than re-exported:
 // it's ink on white paper, and the Garden shell is paper on ink. Inversion
 // turns the pen lines into light on dark and costs nothing at build time.
+//
+// NOTHING DECORATIVE MAY TAKE THIS PAGE DOWN. Convex's useQuery THROWS during
+// render when its query cannot be served — the function not pushed yet to the
+// deployment this client points at, a renamed export, a bad deploy. Called in
+// the body of this component, that throw is a throw from the whole route: the
+// page is replaced by React Router's error boundary, and the way it actually
+// presented on localhost was worse than a blank screen — the markup was still
+// on screen and every button was dead, including the ticket overlay, because
+// the component that owns all the modal state had crashed. The applied-so-far
+// count is a vanity number on a fundraiser page. It now lives in its own
+// component (AppliedCount) which makes its own useQuery call, wrapped in a
+// class error boundary (QuietBoundary) that renders null, so the blast radius
+// of a broken publicStats is one line of grey text instead of the application
+// form. Any future query that the page is complete without belongs in the
+// same shape: its own component, behind its own boundary, never in the body
+// of Showcase. The test is one question — if this query dies, can a stranger
+// still leave their email? The answer has to stay yes.
+//
+// The route-level ErrorBoundary below is the SECOND line of defence, not the
+// first. It follows join.tsx's pattern (useRouteError + GardenErrorState
+// inside GardenPage) so that an unexpected throw shows a designed sentence
+// rather than the router's raw error screen. It is a net, not a plan:
+// anything we can scope to a boundary of its own gets scoped there instead,
+// because a net still costs the whole page.
+//
+// THE "WHO THIS IS FOR" CARDS TELL THEIR STORY. On hover the card lifts and
+// its body arrives one sentence at a time over about five seconds, so someone
+// browsing watches a card talk to them instead of skimming five grey quotes.
+// It is CSS, not a JS timer: per-line transition-delay off :hover and
+// :focus-within (see PAGE_CSS). That matters for more than elegance — a
+// JS-driven reveal would have to decide what the server renders, and for a
+// prerendered page whose whole job is being read by crawlers and unfurlers
+// the answer has to be "all of it." Every sentence is in the DOM and in the
+// prerendered HTML at all times; only opacity and transform move, so a screen
+// reader reads the card whether or not a pointer is anywhere near it.
+// Anything without hover (the inverse of @media (hover: none)) and anyone who
+// asked for prefers-reduced-motion gets the whole card immediately, and the
+// cards take focus so a keyboard gets the same reveal a mouse does.
 
-import { useId, useState } from "react";
+import { Component, useId, useState } from "react";
 import type { ReactNode } from "react";
 import { useMutation, useQuery } from "convex/react";
-import { Link } from "react-router";
+import { Link, useRouteError } from "react-router";
 import { api } from "../../convex/_generated/api";
-import { GardenPage, SectionLabel } from "../garden/ui";
+import { GardenErrorState, GardenPage, SectionLabel } from "../garden/ui";
 import { ApplyModal, TicketModal } from "../garden/showcase-modals";
 import type { ApplyAnswers } from "../garden/showcase-modals";
 import "../garden/garden.css";
@@ -135,6 +174,22 @@ export function meta() {
   ];
 }
 
+/** The backstop. Same shape as join.tsx's: a designed sentence and a way
+    home, never a stack frame. Every throw we can anticipate should be caught
+    closer to where it happens — see the header — but a route with an
+    application form on it must never be able to render the router's default
+    error page. */
+export function ErrorBoundary() {
+  useRouteError();
+  return (
+    <GardenPage>
+      <div style={{ marginTop: 28 }}>
+        <GardenErrorState message="This page isn't loading right now — try again in a moment." />
+      </div>
+    </GardenPage>
+  );
+}
+
 const OG_IMAGE = "https://creatives.exchange/showcase/table-drawing.jpg";
 
 const EVENT_DATE = "Friday, November 6, 2026";
@@ -161,7 +216,11 @@ const TICKET_TIERS = [
   {
     label: "Creative",
     price: "$25",
-    note: "If you're showing, playing, selling or just make things.",
+    // Identity, not a checklist of activities. The old line listed what
+    // you'd be DOING on the night ("showing, playing, selling"), so anyone
+    // who makes things but isn't in the show read it as not-for-them and
+    // priced themselves into the patron tier or out of the room.
+    note: "For anyone who makes things.",
   },
   {
     label: "Patron",
@@ -261,7 +320,9 @@ const INK_HAND =
 const PARTICIPATION = [
   {
     value: "exhibit",
-    label: "Show work",
+    // The LABEL is copy and moves freely; the VALUE is stored data, written
+    // into applications by convex/showcase.ts, and does not.
+    label: "Show your craft",
     note: "Physical or digital. Not all of it has to be in the room.",
     ink: INK_FRAME,
   },
@@ -311,11 +372,12 @@ function asParticipation(values: string[] | undefined): Participation[] {
 
 // ————— Page-local CSS —————
 //
-// Three things inline styles genuinely can't express: the ::marker pseudo-
+// The things inline styles genuinely can't express: the ::marker pseudo-
 // elements that hide the browser's default <details> triangle, the [open]
-// state that flips + to −, and hover. Kept here rather than in garden.css
-// because nothing else in the system uses a disclosure yet; promote it the
-// second a second page needs one.
+// state that flips + to −, hover, and — since the who-cards learned to tell
+// their story — media queries and per-line transition-delay. Kept here rather
+// than in garden.css because nothing else in the system uses a disclosure or
+// a staggered reveal yet; promote either the second a second page needs it.
 const PAGE_CSS = `
 .sc-faq > summary { list-style: none; cursor: pointer; }
 .sc-faq > summary::-webkit-details-marker { display: none; }
@@ -324,7 +386,120 @@ const PAGE_CSS = `
 .sc-faq > summary .sc-faq-mark::after { content: "+"; }
 .sc-faq[open] > summary .sc-faq-mark::after { content: "–"; }
 .sc-ticket:hover { border-color: var(--g-citron); }
+
+/* "Who this is for" — the card grows and tells its story one line at a time.
+   The reveal is nothing but opacity/transform on elements that are ALWAYS in
+   the DOM (and therefore always in the prerendered HTML and always readable
+   by a screen reader); per-line timing rides in on --sc-delay/--sc-dur, which
+   WhoCard computes so the last sentence lands at ~5s no matter how many
+   sentences a card has. */
+.sc-who { position: relative; }
+.sc-who:focus-visible { outline: 2px solid var(--g-citron); outline-offset: 3px; }
+.sc-who-line { display: block; }
+.sc-who-line + .sc-who-line { margin-top: 7px; }
+
+/* Gated on a real hovering pointer, which is the inverse of
+   @media (hover: none): a phone can never hover, so a phone is never shown a
+   card it has to hover to read. Everything below is additive to a card that
+   already reads correctly without it. */
+@media (hover: hover) and (pointer: fine) {
+  .sc-who {
+    transition: transform 320ms ease, box-shadow 320ms ease, border-color 320ms ease;
+  }
+  /* transform, not width/height/padding: the grid keeps its geometry and the
+     neighbours stay where they were. z-index so the grown card sits over them. */
+  .sc-who:hover,
+  .sc-who:focus-within {
+    transform: scale(1.03);
+    box-shadow: 0 18px 44px rgba(0, 0, 0, 0.5);
+    border-color: var(--g-citron);
+    z-index: 2;
+  }
+  .sc-who .sc-who-line {
+    opacity: 0;
+    transform: translateY(6px);
+    /* No delay on the way OUT, so leaving resets every line together and the
+       next hover replays the whole story from the first sentence. */
+    transition: opacity 180ms ease, transform 180ms ease;
+  }
+  .sc-who:hover .sc-who-line,
+  .sc-who:focus-within .sc-who-line {
+    opacity: 1;
+    transform: none;
+    transition-duration: var(--sc-dur, 1200ms);
+    transition-delay: var(--sc-delay, 0ms);
+  }
+}
+
+/* Non-negotiable, and last so it wins on equal specificity: someone who asked
+   for less motion gets the card whole and still, hover or not. */
+@media (prefers-reduced-motion: reduce) {
+  .sc-who,
+  .sc-who:hover,
+  .sc-who:focus-within {
+    transition: none;
+    transform: none;
+    box-shadow: none;
+  }
+  .sc-who .sc-who-line,
+  .sc-who:hover .sc-who-line,
+  .sc-who:focus-within .sc-who-line {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
 `;
+
+// ————— Keeping a decoration from killing the page —————
+
+/** An error boundary that swallows. Its only job is to stop a decorative
+    subtree taking the route with it (see the header). It renders NOTHING on
+    failure rather than a "couldn't load" strip, because the thing it wraps is
+    a thing the page is complete without, and a visible apology for a missing
+    vanity number is worse than silence.
+
+    A class, because React has no hook equivalent of componentDidCatch /
+    getDerivedStateFromError and has said it isn't adding one. This is the one
+    place in the file where a class is the correct tool. */
+class QuietBoundary extends Component<
+  { children: ReactNode },
+  { failed: boolean }
+> {
+  state = { failed: false };
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  componentDidCatch(error: unknown) {
+    // Swallowed for the visitor, not for us — a publicStats that throws
+    // usually means the functions aren't deployed, and whoever has the
+    // console open should be told once.
+    console.warn(
+      "showcase: a decorative subtree failed and was dropped",
+      error,
+    );
+  }
+
+  render() {
+    return this.state.failed ? null : this.props.children;
+  }
+}
+
+/** The vanity counter, isolated. It makes the useQuery call ITSELF, which is
+    the whole point: the throw has somewhere small to land. Renders nothing
+    while the query is in flight, nothing if the count is missing, and nothing
+    at all if the query is dead — the rest of the page never notices. */
+function AppliedCount() {
+  const stats = useQuery(api.showcase.publicStats);
+  if (stats?.total == null) return null;
+  return (
+    <p className="g-hint" style={{ marginTop: 14 }}>
+      {stats.total} creatives have applied so far.
+    </p>
+  );
+}
 
 // ————— Small presentational pieces —————
 
@@ -367,6 +542,23 @@ function CardGrid({ children }: { children: ReactNode }) {
   );
 }
 
+/** How long the whole body takes to arrive on hover — the founder's number,
+    "should take like five seconds." It is the TOTAL, divided across whatever
+    sentences a card happens to have, not a per-line delay. */
+const WHO_REVEAL_MS = 5000;
+
+/** One sentence per revealed line. The bodies below stay single strings
+    because that is how prose should read in source and how it should land in
+    the prerendered HTML; the split happens here, at render, purely so the CSS
+    has something to stagger. Falls back to the whole body as one line if a
+    body ever arrives without sentence punctuation. */
+function sentences(body: string): string[] {
+  const parts = (body.match(/[^.!?]+[.!?]*\s*/g) ?? [])
+    .map((part) => part.trim())
+    .filter(Boolean);
+  return parts.length ? parts : [body];
+}
+
 /** One of the "who this is for" cards. The heading is the person's own
     sentence about themselves, not our description of them — that's the line
     that makes a stranger stop scrolling and think "that's me." The drawing
@@ -385,8 +577,22 @@ function WhoCard({
   body: string;
   ink: string;
 }) {
+  // Split evenly rather than at a fixed step: a two-sentence card and a
+  // three-sentence one both finish at WHO_REVEAL_MS, and neither sits there
+  // doing nothing for two seconds waiting for its last line.
+  const lines = sentences(body);
+  const slot = Math.round(WHO_REVEAL_MS / lines.length);
+
   return (
-    <div className="g-card" style={{ height: "100%" }}>
+    <div
+      className="g-card sc-who"
+      /* Focusable so that :focus-within gives a keyboard the same reveal a
+         mouse gets. Nothing in here is a control, so there is no role to
+         give it; a tab stop on a paragraph is the cost of not making the
+         paragraph mouse-only. */
+      tabIndex={0}
+      style={{ height: "100%" }}
+    >
       <span
         style={{ color: "var(--g-citron)", display: "block", marginBottom: 12 }}
       >
@@ -396,7 +602,25 @@ function WhoCard({
       <p className="g-h" style={{ fontSize: 19, marginTop: 8, lineHeight: 1.3 }}>
         “{quote}”
       </p>
-      <p style={{ fontSize: 15.5, lineHeight: 1.6, marginTop: 10 }}>{body}</p>
+      {/* Every sentence is rendered, always. The animation is CSS on top of
+          markup that is already correct — never a condition on whether the
+          text exists. */}
+      <p style={{ fontSize: 15.5, lineHeight: 1.6, marginTop: 10 }}>
+        {lines.map((line, i) => (
+          <span
+            key={line}
+            className="sc-who-line"
+            style={
+              {
+                "--sc-delay": `${i * slot}ms`,
+                "--sc-dur": `${slot}ms`,
+              } as React.CSSProperties
+            }
+          >
+            {line}
+          </span>
+        ))}
+      </p>
     </div>
   );
 }
@@ -486,7 +710,6 @@ function Faq({ q, children }: { q: string; children: ReactNode }) {
 // ————— Page —————
 
 export default function Showcase() {
-  const stats = useQuery(api.showcase.publicStats);
   const apply = useMutation(api.showcase.apply);
   const answer = useMutation(api.showcase.answerApplication);
 
@@ -751,14 +974,15 @@ export default function Showcase() {
         <FactLine k="Admission" v={TICKET_SUMMARY} />
         <FactLine k="Closes" v={`${CLOSE_DATE}, but selection is rolling`} />
         <FactLine k="Also" v="Livestreamed free, and recorded" />
-        {stats?.total != null && (
-          <p className="g-hint" style={{ marginTop: 14 }}>
-            {stats.total} creatives have applied so far.
-          </p>
-        )}
+        {/* Decorative, and behind its own boundary for exactly that reason.
+            If publicStats throws, this line disappears and nothing else on
+            the page changes. See the header. */}
+        <QuietBoundary>
+          <AppliedCount />
+        </QuietBoundary>
       </Section>
 
-      {/* Show work | Back the work in the first row. See the header. */}
+      {/* Show your craft | Back the work in the first row. See the header. */}
       <Section label="Six ways to take part">
         <P>Pick any that fit. Most people pick one.</P>
         <div style={{ marginTop: 18 }}>
