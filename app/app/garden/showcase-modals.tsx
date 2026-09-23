@@ -136,6 +136,39 @@ const STEPS = [
 
 const STEP_COUNT = STEPS.length;
 
+/** What the person at this door is actually trying to do.
+    The application used to run one fixed script for everyone, so a
+    volunteer, a photographer and a patron were all asked to submit work and
+    told a jury would read it. The caller passes the intent and the dialog
+    adapts: its title, its submit verb, and — the part that matters — whether
+    it asks about work at all. A lane with nothing to submit drops that step
+    entirely rather than showing it and hoping people skip. */
+export type ApplyIntent = {
+  /** The participation value this entry point represents. */
+  key: string;
+  /** Dialog title, in the language of that lane. */
+  title: string;
+  /** Verb on the final button — "Send application" reads wrong to someone
+      signing up for a shift. */
+  submitLabel: string;
+  /** False for lanes with no submitted work (volunteer, patron): the "Your
+      work" step is removed and the stepper is one shorter. */
+  asksAboutWork: boolean;
+};
+
+/** True when this index is the final step of a lane's list. */
+function isLastStep(step: number, count: number): boolean {
+  return Math.min(step, count - 1) === count - 1;
+}
+
+/** The steps this intent actually needs. */
+function stepsFor(intent?: ApplyIntent) {
+  if (intent && !intent.asksAboutWork) {
+    return STEPS.filter((s) => s.key !== "work");
+  }
+  return STEPS;
+}
+
 /** The ticket's three steps. Deliberately one fewer than the application and
     in the opposite order of cost: the step that pays for the whole dialog is
     FIRST and is a single field, and the two that follow only ever run with
@@ -399,7 +432,7 @@ function StepBar({
           Step {step + 1} of {count}
         </span>
         <span className="g-label" style={{ color: "var(--g-citron)" }}>
-          {steps[step].label}
+          {steps[Math.min(step, steps.length - 1)].label}
         </span>
       </div>
       <div
@@ -523,6 +556,7 @@ export function ApplyModal({
   email,
   returning,
   participationOptions,
+  intent,
   preselect,
   submitting,
   error,
@@ -535,6 +569,9 @@ export function ApplyModal({
   /** true when they already completed an application before */
   returning: boolean;
   participationOptions: readonly ParticipationOption[];
+  /** What they came here to do — see ApplyIntent. Absent falls back to the
+      full application, which is the page's headline ask. */
+  intent?: ApplyIntent;
   /** A participation value to tick when the modal opens — set when someone
       enters from a specific card ("Volunteer on the night") rather than the
       generic apply panel. Additive: it never clears a choice they already
@@ -602,8 +639,6 @@ export function ApplyModal({
     );
   }
 
-  const last = step === STEP_COUNT - 1;
-
   if (done) {
     return (
       <ModalShell labelledBy={headingId} onClose={onClose}>
@@ -633,7 +668,13 @@ export function ApplyModal({
   // dialog without scrolling — if you add a field here, take one out or add a
   // fifth step.
   let body: ReactNode = null;
-  if (step === 0) {
+  const steps = stepsFor(intent);
+  const last = isLastStep(step, steps.length);
+  // Clamp: switching into a shorter lane must not leave `step` past the end.
+  const safeStep = Math.min(step, steps.length - 1);
+  const stepKey = steps[safeStep].key;
+
+  if (stepKey === "you") {
     body = (
       <div style={{ display: "grid", gap: 12 }}>
         <input
@@ -658,7 +699,7 @@ export function ApplyModal({
         />
       </div>
     );
-  } else if (step === 1) {
+  } else if (stepKey === "make") {
     body = (
       <InterestChips
         label="What do you make?"
@@ -666,7 +707,7 @@ export function ApplyModal({
         onToggle={toggleInterest}
       />
     );
-  } else if (step === 2) {
+  } else if (stepKey === "work") {
     body = (
       <div style={{ display: "grid", gap: 12 }}>
         <input
@@ -724,10 +765,10 @@ export function ApplyModal({
 
   return (
     <ModalShell labelledBy={headingId} onClose={onClose}>
-      <StepBar steps={STEPS} step={step} onGo={setStep} />
+      <StepBar steps={steps} step={step} onGo={setStep} />
 
       <p className="g-h" id={headingId} style={{ fontSize: 22, lineHeight: 1.2 }}>
-        {STEPS[step].heading}
+        {safeStep === 0 && intent ? intent.title : steps[safeStep].heading}
       </p>
       <p className="g-hint" style={{ marginTop: 8, marginBottom: 16 }}>
         {returning
@@ -762,11 +803,17 @@ export function ApplyModal({
           type="button"
           // Never blocked. There is no validation here on purpose: a half
           // answer that arrives beats a whole one that doesn't.
-          onClick={() => (last ? send() : setStep((s) => Math.min(STEP_COUNT - 1, s + 1)))}
+          onClick={() =>
+            last ? send() : setStep((s) => Math.min(steps.length - 1, s + 1))
+          }
           disabled={submitting}
           style={{ opacity: submitting ? 0.6 : 1 }}
         >
-          {submitting ? "Sending…" : last ? "Send application" : "Next"}
+          {submitting
+            ? "Sending…"
+            : last
+              ? (intent?.submitLabel ?? "Send application")
+              : "Next"}
         </button>
       </div>
 

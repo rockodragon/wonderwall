@@ -203,6 +203,7 @@ const CLOSE_DATE = "October 22";
 const DECISION_BY = "October 26";
 const SPOTS = 20;
 
+
 // Admission. November 6 is a ticketed fundraiser for the Grant Fund
 // (docs/handoff/nov6-backings.md). The page states the prices plainly so
 // nobody discovers them after being accepted — but it does NOT argue about
@@ -247,6 +248,78 @@ const TABLE_FEE = "$50";
 // either way; only the button waits on this. The ticket overlay reads it: with
 // a URL it sends people to checkout, without one it takes their email.
 const TICKET_URL: string | null = null;
+
+// THE DOOR HAS TO SAY WHO IT IS FOR. Every lane card used to open the same
+// panel headed "Apply to show your work" — so a volunteer offering to work
+// the door, a photographer offering to shoot, and a patron offering money
+// were all told to submit work for judging. The click target was right and
+// the destination was a lie.
+//
+// `lane` is the entry point someone used; this map is what the panel says
+// back to them. Three things vary, and all three matter: the VERB (a patron
+// doesn't "apply", a volunteer doesn't "submit"), whether a jury is
+// mentioned at all (only the lanes that are actually juried), and whether
+// the application asks about work (a volunteer has no piece to describe).
+//
+// `exhibit` is the default because the page's headline ask is the open call;
+// anyone arriving without a lane is answering that.
+type LaneCopy = {
+  heading: string;
+  hint: string;
+  cta: string;
+  /** What the panel says once the email is banked. */
+  saved: string;
+  /** Whether the stepper asks for a portfolio link and "what would you
+      bring" — false for lanes where there is no submitted work. */
+  asksAboutWork: boolean;
+};
+
+const LANE_COPY: Record<string, LaneCopy> = {
+  exhibit: {
+    heading: "Apply to show your craft.",
+    hint: "Your email saves first, so you can finish the rest whenever.",
+    cta: "Start",
+    saved: "A few more questions and the jury has something to read.",
+    asksAboutWork: true,
+  },
+  perform: {
+    heading: "Apply to play or read.",
+    hint: "Music and spoken word both. Sets are paid.",
+    cta: "Start",
+    saved: "Tell us what you'd play and we'll sort the running order.",
+    asksAboutWork: true,
+  },
+  vend: {
+    heading: "Ask for a table.",
+    hint: `Tables are ${TABLE_FEE} and there aren't many.`,
+    cta: "Start",
+    saved: "Tell us what you'd sell and we'll come back about a table.",
+    asksAboutWork: true,
+  },
+  document: {
+    heading: "Offer to shoot the night.",
+    hint: "Photo or video. Credited, and your footage stays yours.",
+    cta: "Count me in",
+    saved: "Tell us what you shoot and we'll be in touch about access.",
+    asksAboutWork: true,
+  },
+  volunteer: {
+    heading: "Sign up to volunteer.",
+    hint: "Setup, the door, teardown. No application, no jury.",
+    cta: "Count me in",
+    saved: "We'll be in touch about the shift.",
+    asksAboutWork: false,
+  },
+  back: {
+    heading: "Back the work.",
+    hint: "Patron tickets, commissions, or money straight into the grant fund.",
+    cta: "Count me in",
+    saved: "We'll be in touch about how you'd like to back it.",
+    asksAboutWork: false,
+  },
+};
+
+const DEFAULT_LANE = "exhibit";
 
 // ————— Line drawings —————
 //
@@ -749,8 +822,11 @@ export default function Showcase() {
   const [ticketDone, setTicketDone] = useState(false);
   // The address the ticket overlay actually saved — see notifyTicket.
   const [ticketEmail, setTicketEmail] = useState("");
-  // The lane someone entered through, ticked for them in the application.
-  const [preselect, setPreselect] = useState<string | undefined>();
+  // The lane someone entered through. It drives BOTH the ticked box in the
+  // application and every word on the panel and in the modal — the door has
+  // to say who it's for, not just open.
+  const [lane, setLane] = useState<string>(DEFAULT_LANE);
+  const laneCopy = LANE_COPY[lane] ?? LANE_COPY[DEFAULT_LANE];
 
   const applyHeadingId = useId();
 
@@ -848,7 +924,7 @@ export default function Showcase() {
       collects it rather than into a modal that would fail on submit. Their
       lane is remembered either way and ticked once the modal opens. */
   function startLane(value: string) {
-    setPreselect(value);
+    setLane(value);
     if (emailSaved) {
       setApplyOpen(true);
       return;
@@ -935,7 +1011,7 @@ export default function Showcase() {
             <p className="g-hint" style={{ marginTop: 8 }}>
               {applyDone
                 ? "Want to change what you sent? Open it again and resubmit."
-                : "A few more questions and the jury has something to read."}
+                : laneCopy.saved}
             </p>
             <button
               className="g-btn g-btn-ghost"
@@ -954,10 +1030,10 @@ export default function Showcase() {
               id={applyHeadingId}
               style={{ fontSize: 24, marginTop: 10 }}
             >
-              Apply to show your work.
+              {laneCopy.heading}
             </p>
             <p className="g-hint" style={{ marginTop: 8 }}>
-              Your email saves first, so you can finish the rest whenever.
+              {laneCopy.hint}
             </p>
             <div
               style={{ display: "flex", gap: 10, marginTop: 16, flexWrap: "wrap" }}
@@ -979,7 +1055,7 @@ export default function Showcase() {
                 disabled={applyBusy}
                 style={{ opacity: applyBusy ? 0.6 : 1 }}
               >
-                {applyBusy ? "Saving…" : "Start"}
+                {applyBusy ? "Saving…" : laneCopy.cta}
               </button>
             </div>
             {applyError && (
@@ -1308,7 +1384,13 @@ export default function Showcase() {
         email={email}
         returning={returning}
         participationOptions={PARTICIPATION}
-        preselect={preselect}
+        intent={{
+          key: lane,
+          title: laneCopy.heading,
+          submitLabel: laneCopy.cta === "Start" ? "Send application" : "Count me in",
+          asksAboutWork: laneCopy.asksAboutWork,
+        }}
+        preselect={lane}
         submitting={applyBusy}
         error={applyError}
         done={applyDone}
