@@ -54,11 +54,7 @@ import {
 } from "../components/TicketTierEditor";
 import { AnnouncementComposer } from "../components/AnnouncementComposer";
 import { AddToCalendar } from "../components/AddToCalendar";
-import {
-  EventMediaLinkField,
-  MEDIA_LINK_INVALID,
-  readMediaLink,
-} from "../components/CreateEventModal";
+import { describeMediaLink, MediaLinkField } from "../components/MediaLinkField";
 import { EmbedPlayer } from "../components/EmbedPlayer";
 import { joinProxyUrl } from "../lib/eventCalendar";
 import { toEmbedUrl } from "../lib/videoEmbed";
@@ -1939,10 +1935,10 @@ function EditEventModal({
       return;
     }
 
-    // Same rule as CreateEventModal: a link we can't play is never saved.
-    const mediaLink = readMediaLink(mediaUrl);
-    if (mediaLink.status === "invalid") {
-      setError(MEDIA_LINK_INVALID);
+    // Same rule as CreateEventModal: a link we can't show is never saved.
+    const mediaLink = describeMediaLink(mediaUrl);
+    if (mediaLink.state === "invalid") {
+      setError(mediaLink.message);
       return;
     }
 
@@ -1960,7 +1956,7 @@ function EditEventModal({
         requiresApproval,
         // Always sent: an emptied field clears the stored link (and its
         // still) — events.update treats only an absent field as "untouched".
-        mediaUrl: mediaLink.status === "ok" ? mediaLink.url : "",
+        mediaUrl: mediaLink.state === "ok" ? mediaLink.url : "",
       });
       onClose();
     } catch (err) {
@@ -2080,7 +2076,7 @@ function EditEventModal({
               <LocationVerifiedHint value={location.value} selected={location.selected} />
             </div>
 
-            <EventMediaLinkField value={mediaUrl} onChange={setMediaUrl} />
+            <MediaLinkField value={mediaUrl} onChange={setMediaUrl} />
 
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">

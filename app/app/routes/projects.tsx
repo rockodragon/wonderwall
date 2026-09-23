@@ -16,8 +16,8 @@ import {
 import { resolveStage, stageLabel, STAGES } from "../lib/stage";
 import { ChevronDownIcon, FilterIcon } from "../components/icons";
 import { CLAIMS } from "../constants/claims";
-import { EMBED_PROVIDER_LABEL, isTikTokShortLink, toEmbedUrl, type EmbedKind } from "../lib/videoEmbed";
-import { normalizeUrl } from "../lib/richText";
+import { toEmbedUrl } from "../lib/videoEmbed";
+import { describeMediaLink, MediaLinkField } from "../components/MediaLinkField";
 import { EmbedStill } from "../components/EmbedStill";
 
 const KIND_FILTERS = [
@@ -793,75 +793,6 @@ export function StageSelect({ project }: { project: any }) {
   );
 }
 
-// A hiring call or a passion project often already exists as an Instagram
-// post or reel; the poster pastes that instead of uploading a photo
-// (docs/features/creator-media-cross-post.md, Round 2). The project page
-// plays it, cards show its still. Pure and cheap, so the forms run it on
-// every keystroke for the hint under the input and once more on submit.
-const MEDIA_LINK_PROBLEM =
-  "That isn't a link we can show. Paste an Instagram, TikTok, YouTube or Vimeo link, or add a photo.";
-
-export function describeMediaLink(raw: string): {
-  /** What to send: the canonical link when recognised, "" for a blank field. */
-  url: string;
-  kind: EmbedKind | null;
-  problem: string | null;
-} {
-  const url = normalizeUrl(raw);
-  if (!url) return { url: "", kind: null, problem: null };
-  const embed = toEmbedUrl(url);
-  if (embed) return { url: embed.canonicalUrl, kind: embed.kind, problem: null };
-  // TikTok's in-app "Copy link" hands out vm.tiktok.com/…, which only the
-  // server can follow — convex/linkPreview.ts swaps in the permalink.
-  if (isTikTokShortLink(url)) return { url, kind: "tiktok", problem: null };
-  return { url, kind: null, problem: MEDIA_LINK_PROBLEM };
-}
-
-export function MediaLinkField({
-  value,
-  onChange,
-  label = "Or paste a link (optional)",
-  autoFocus,
-}: {
-  value: string;
-  onChange: (value: string) => void;
-  label?: string;
-  autoFocus?: boolean;
-}) {
-  const link = describeMediaLink(value);
-  return (
-    <div>
-      <label className="block text-xs uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
-        {label}
-      </label>
-      <input
-        type="text"
-        inputMode="url"
-        autoFocus={autoFocus}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder="Instagram post or reel, TikTok, YouTube or Vimeo"
-        className="w-full px-3 py-2 rounded-lg border text-sm outline-none"
-        style={{
-          backgroundColor: "var(--garden-ink)",
-          borderColor: "var(--garden-hairline-raised)",
-          color: "var(--garden-paper)",
-        }}
-      />
-      {link.kind && (
-        <p className="text-xs mt-1.5" style={{ color: "var(--garden-dim)" }}>
-          {/* An Instagram post may be a photo, which Instagram's frame shows
-              rather than plays; the other three are always video. */}
-          {link.kind === "instagram"
-            ? "Instagram post. It shows here on your page."
-            : `${EMBED_PROVIDER_LABEL[link.kind]} video. It plays here on your page.`}
-        </p>
-      )}
-      {link.problem && <p className="text-xs mt-1.5 text-amber-400">{link.problem}</p>}
-    </div>
-  );
-}
-
 function PaidProjectForm({
   onClose,
   onSwitchToPassion,
@@ -931,8 +862,8 @@ function PaidProjectForm({
       return;
     }
     const link = describeMediaLink(mediaUrl);
-    if (link.problem) {
-      setError(link.problem);
+    if (link.state === "invalid") {
+      setError(link.message);
       return;
     }
     setSubmitting(true);
@@ -940,7 +871,7 @@ function PaidProjectForm({
       await createPaidProject({
         title: title.trim(),
         blurb: blurb.trim() || undefined,
-        mediaUrl: link.url || undefined,
+        mediaUrl: link.state === "ok" ? link.url : undefined,
         // "proposals" and "volunteer" carry no numbers at all — the server
         // rejects a stray one rather than dropping it silently, so anything
         // typed before switching states is left behind here on purpose.
@@ -1017,7 +948,13 @@ function PaidProjectForm({
               }}
             />
           </div>
-          <MediaLinkField value={mediaUrl} onChange={setMediaUrl} />
+          <MediaLinkField
+            variant="garden"
+            label="Or paste a link (optional)"
+            placeholder="Instagram post or reel, TikTok, YouTube or Vimeo"
+            value={mediaUrl}
+            onChange={setMediaUrl}
+          />
           <div>
             <label className="block text-xs uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
               What it pays
@@ -1241,8 +1178,8 @@ function PassionProjectForm({ onClose }: { onClose: () => void }) {
       return;
     }
     const link = describeMediaLink(mediaUrl);
-    if (link.problem) {
-      setError(link.problem);
+    if (link.state === "invalid") {
+      setError(link.message);
       return;
     }
     setSubmitting(true);
@@ -1250,7 +1187,7 @@ function PassionProjectForm({ onClose }: { onClose: () => void }) {
       await createPassionProject({
         title: title.trim(),
         blurb: blurb.trim() || undefined,
-        mediaUrl: link.url || undefined,
+        mediaUrl: link.state === "ok" ? link.url : undefined,
         goal: goalNum,
         ...location.toArgs(),
         remote,
@@ -1317,7 +1254,13 @@ function PassionProjectForm({ onClose }: { onClose: () => void }) {
               }}
             />
           </div>
-          <MediaLinkField value={mediaUrl} onChange={setMediaUrl} />
+          <MediaLinkField
+            variant="garden"
+            label="Or paste a link (optional)"
+            placeholder="Instagram post or reel, TikTok, YouTube or Vimeo"
+            value={mediaUrl}
+            onChange={setMediaUrl}
+          />
           <div>
             <label className="block text-xs uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
               Support goal (USD, optional)

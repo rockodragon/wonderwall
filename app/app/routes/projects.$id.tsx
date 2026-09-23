@@ -19,6 +19,7 @@ import { EMBED_PROVIDER_LABEL, toEmbedUrl } from "../lib/videoEmbed";
 import type { Id } from "../../convex/_generated/dataModel";
 import { AnnouncementComposer } from "../components/AnnouncementComposer";
 import { EmbedPlayer } from "../components/EmbedPlayer";
+import { describeMediaLink, MediaLinkField } from "../components/MediaLinkField";
 import { FavoriteButton } from "../components/FavoriteButton";
 import { LocationAutocomplete, LocationVerifiedHint } from "../components/LocationAutocomplete";
 import { ProjectUpdates } from "../components/ProjectUpdates";
@@ -31,9 +32,7 @@ import { GigSchedule } from "../components/GigSchedule";
 import { resolveStage, stageLabel } from "../lib/stage";
 import { INTERESTS } from "../constants/interests";
 import {
-  describeMediaLink,
   errorMessage,
-  MediaLinkField,
   STATUS_LABELS,
   StageSelect,
   SupportModal,
@@ -526,14 +525,17 @@ function InlineEditableMediaLink({ project }: { project: any }) {
 
   async function save(next: string) {
     const link = describeMediaLink(next);
-    if (link.problem) {
-      setError(link.problem);
+    if (link.state === "invalid") {
+      setError(link.message);
       return;
     }
     setSaving(true);
     setError("");
     try {
-      await updateProject({ projectId: project._id, mediaUrl: link.url });
+      await updateProject({
+        projectId: project._id,
+        mediaUrl: link.state === "ok" ? link.url : "",
+      });
       setEditing(false);
     } catch (err) {
       setError(errorMessage(err));
@@ -584,7 +586,14 @@ function InlineEditableMediaLink({ project }: { project: any }) {
         save(draft);
       }}
     >
-      <MediaLinkField label="Link" value={draft} onChange={setDraft} autoFocus />
+      <MediaLinkField
+        variant="garden"
+        label="Link"
+        placeholder="Instagram post or reel, TikTok, YouTube or Vimeo"
+        value={draft}
+        onChange={setDraft}
+        autoFocus
+      />
       {error && <p className="text-xs text-red-400 mt-1.5">{error}</p>}
       <div className="flex gap-2 mt-2">
         <button

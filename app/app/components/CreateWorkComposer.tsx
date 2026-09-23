@@ -3,7 +3,8 @@ import { useMutation, useQuery } from "convex/react";
 import { useRef, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import confetti from "canvas-confetti";
-import { EMBED_PROVIDER_LABEL, toEmbedUrl } from "../lib/videoEmbed";
+import { toEmbedUrl } from "../lib/videoEmbed";
+import { mediaLinkHint } from "../lib/mediaLink";
 
 // Same caps as the project-page editor (RichTextEditor.tsx): Convex takes
 // files up to 1GB, but a raw upload streams to every visitor, so video past
@@ -442,8 +443,11 @@ export function CreateWorkComposer({ onCreated }: { onCreated?: () => void }) {
 
               {pastedEmbed && (
                 <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                  {EMBED_PROVIDER_LABEL[pastedEmbed.kind]} video. It plays here on
-                  your page{coverIsImage ? ", with your image as the cover" : ""}.
+                  {/* The same words as the event and project link fields,
+                      minus their full stop: the cover clause belongs inside
+                      that sentence. */}
+                  {mediaLinkHint(pastedEmbed.kind, pastedEmbed.canonicalUrl).replace(/\.$/, "")}
+                  {coverIsImage ? ", with your image as the cover" : ""}.
                 </p>
               )}
             </div>

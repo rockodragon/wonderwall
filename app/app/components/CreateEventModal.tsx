@@ -13,78 +13,7 @@ import {
   draftsToTiers,
   type TicketTierDraft,
 } from "./TicketTierEditor";
-import { normalizeUrl } from "../lib/richText";
-import {
-  EMBED_PROVIDER_LABEL,
-  type EmbedKind,
-  isTikTokShortLink,
-  toEmbedUrl,
-} from "../lib/videoEmbed";
-
-// ——— Pasted media link (docs/features/creator-media-cross-post.md) ———
-//
-// An organizer can paste an Instagram, TikTok, YouTube or Vimeo link instead
-// of uploading a cover image: the event page plays it in the platform's own
-// player, cards show a still. The field and the rule for what it accepts
-// live here and are shared with the edit form in routes/event.tsx, so the two
-// forms can't drift on copy or on what counts as playable.
-
-export type MediaLinkState =
-  | { status: "empty" }
-  | { status: "ok"; url: string; kind: EmbedKind }
-  | { status: "invalid" };
-
-/** What the field holds right now. A bare host gets https:// so the check
-    judges what was meant. A TikTok "Copy link" from the app
-    (vm.tiktok.com/…) can't be read client-side, but the server follows it
-    to the permalink (convex/linkPreview.ts), so it counts as TikTok. */
-export function readMediaLink(value: string): MediaLinkState {
-  const url = normalizeUrl(value);
-  if (!url) return { status: "empty" };
-  const embed = toEmbedUrl(url);
-  if (embed) return { status: "ok", url: embed.canonicalUrl, kind: embed.kind };
-  if (isTikTokShortLink(url)) return { status: "ok", url, kind: "tiktok" };
-  return { status: "invalid" };
-}
-
-export const MEDIA_LINK_INVALID =
-  "That isn't a link we can play. Paste an Instagram, TikTok, YouTube or Vimeo link, or upload an image.";
-
-export function EventMediaLinkField({
-  value,
-  onChange,
-}: {
-  value: string;
-  onChange: (value: string) => void;
-}) {
-  const link = readMediaLink(value);
-  return (
-    <div>
-      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-        Video or reel link (Instagram, TikTok, YouTube or Vimeo)
-      </label>
-      {/* type="text", not "url": the browser's own url check would refuse a
-          bare host the normalizer is about to accept. */}
-      <input
-        type="text"
-        inputMode="url"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder="https://www.instagram.com/reel/…"
-        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
-      />
-      {link.status === "ok" && (
-        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-          {EMBED_PROVIDER_LABEL[link.kind]} video. It plays here on your event page; cards show a
-          still.
-        </p>
-      )}
-      {link.status === "invalid" && (
-        <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">{MEDIA_LINK_INVALID}</p>
-      )}
-    </div>
-  );
-}
+import { describeMediaLink, MediaLinkField } from "./MediaLinkField";
 
 export function CreateEventModal({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate();
@@ -146,11 +75,11 @@ export function CreateEventModal({ onClose }: { onClose: () => void }) {
       return;
     }
 
-    // A link we can't play is never submitted — the field already says so
+    // A link we can't show is never submitted — the field already says so
     // inline; this repeats it where a failed submit is looked for.
-    const mediaLink = readMediaLink(mediaUrl);
-    if (mediaLink.status === "invalid") {
-      setError(MEDIA_LINK_INVALID);
+    const mediaLink = describeMediaLink(mediaUrl);
+    if (mediaLink.state === "invalid") {
+      setError(mediaLink.message);
       return;
     }
 
@@ -166,7 +95,7 @@ export function CreateEventModal({ onClose }: { onClose: () => void }) {
         tags,
         requiresApproval,
         hostOrgId: hostOrgId ? (hostOrgId as any) : undefined,
-        mediaUrl: mediaLink.status === "ok" ? mediaLink.url : undefined,
+        mediaUrl: mediaLink.state === "ok" ? mediaLink.url : undefined,
       });
 
       // Track event created
@@ -176,7 +105,14 @@ export function CreateEventModal({ onClose }: { onClose: () => void }) {
         has_coordinates: !!location.selected?.coordinates,
         tags_count: tags.length,
         requires_approval: requiresApproval,
-        media_provider: mediaLink.status === "ok" ? mediaLink.kind : null,
+        // A short link the server still has to follow is TikTok to the
+        // dashboard, same as a permalink.
+        media_provider:
+          mediaLink.state !== "ok"
+            ? null
+            : mediaLink.kind === "tiktok-short"
+              ? "tiktok"
+              : mediaLink.kind,
       });
 
       navigate(`/events/${eventId}`);
@@ -297,7 +233,7 @@ export function CreateEventModal({ onClose }: { onClose: () => void }) {
               <LocationVerifiedHint value={location.value} selected={location.selected} />
             </div>
 
-            <EventMediaLinkField value={mediaUrl} onChange={setMediaUrl} />
+            <MediaLinkField value={mediaUrl} onChange={setMediaUrl} />
 
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
