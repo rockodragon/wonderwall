@@ -160,6 +160,14 @@ export type ApplyIntent = {
   /** False for lanes with no submitted work (volunteer, patron): the "Your
       work" step is removed and the stepper is one shorter. */
   asksAboutWork: boolean;
+  /** The interests question, in this lane's language. "What do you make?"
+      is the right question for someone showing a painting and the wrong one
+      for a patron, who makes nothing and is here to back what others make —
+      asked that way, the honest answer is "nothing", and the chips read as a
+      test they failed. Same list either way; only the question changes. */
+  interestsHeading: string;
+  /** Its step-bar label, which has to be short. */
+  interestsLabel: string;
 };
 
 /** True when this index is the final step of a lane's list. */
@@ -168,13 +176,18 @@ function isLastStep(step: number, count: number): boolean {
 }
 
 /** The steps this lane actually needs. Drops the work step for lanes with
-    nothing to submit, and the email step once we already hold one. */
+    nothing to submit, drops the email step once we already hold one, and
+    rewrites the interests step in the lane's own words. */
 function stepsFor(intent: ApplyIntent | undefined, hasEmail: boolean) {
   return STEPS.filter((s) => {
     if (s.key === "work") return intent ? intent.asksAboutWork : true;
     if (s.key === "email") return !hasEmail;
     return true;
-  });
+  }).map((s) =>
+    s.key === "make" && intent
+      ? { ...s, label: intent.interestsLabel, heading: intent.interestsHeading }
+      : s,
+  );
 }
 
 /** The ticket's three steps. Deliberately one fewer than the application and
@@ -747,7 +760,7 @@ export function ApplyModal({
   } else if (stepKey === "make") {
     body = (
       <InterestChips
-        label="What do you make?"
+        label={intent?.interestsHeading ?? "What do you make?"}
         selected={interests}
         onToggle={toggleInterest}
       />
@@ -1135,7 +1148,7 @@ export function TicketModal({
               disabled={submitting}
               style={{ opacity: submitting ? 0.6 : 1 }}
             >
-              {submitting ? "Saving…" : "Notify me"}
+              {submitting ? "Saving…" : "Save your space"}
             </button>
           </div>
         </form>

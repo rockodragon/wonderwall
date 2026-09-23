@@ -272,6 +272,13 @@ type LaneCopy = {
   /** Whether the stepper asks for a portfolio link and "what would you
       bring" — false for lanes where there is no submitted work. */
   asksAboutWork: boolean;
+  /** The interests question in this lane's language, and its short label
+      for the step bar. A patron makes nothing; asked "what do you make?"
+      the honest answer is "nothing" and the chip list reads as a test they
+      just failed. The list is the same canonical vocabulary either way —
+      only the question changes. */
+  interestsHeading: string;
+  interestsLabel: string;
 };
 
 const LANE_COPY: Record<string, LaneCopy> = {
@@ -280,6 +287,8 @@ const LANE_COPY: Record<string, LaneCopy> = {
     hint: "Your email saves first, so you can finish the rest whenever.",
     cta: "Start",
     saved: "A few more questions and the jury has something to read.",
+    interestsHeading: "What do you make?",
+    interestsLabel: "What you make",
     asksAboutWork: true,
   },
   perform: {
@@ -287,6 +296,8 @@ const LANE_COPY: Record<string, LaneCopy> = {
     hint: "Music and spoken word both. Sets are paid.",
     cta: "Start",
     saved: "Tell us what you'd play and we'll sort the running order.",
+    interestsHeading: "What do you play or write?",
+    interestsLabel: "What you play",
     asksAboutWork: true,
   },
   vend: {
@@ -294,6 +305,8 @@ const LANE_COPY: Record<string, LaneCopy> = {
     hint: `Tables are ${TABLE_FEE} and there aren't many.`,
     cta: "Start",
     saved: "Tell us what you'd sell and we'll come back about a table.",
+    interestsHeading: "What do you make?",
+    interestsLabel: "What you make",
     asksAboutWork: true,
   },
   document: {
@@ -301,6 +314,8 @@ const LANE_COPY: Record<string, LaneCopy> = {
     hint: "Photo or video. Credited, and your footage stays yours.",
     cta: "Count me in",
     saved: "Tell us what you shoot and we'll be in touch about access.",
+    interestsHeading: "What do you shoot?",
+    interestsLabel: "What you shoot",
     asksAboutWork: true,
   },
   volunteer: {
@@ -308,6 +323,8 @@ const LANE_COPY: Record<string, LaneCopy> = {
     hint: "Setup, the door, teardown. No application, no jury.",
     cta: "Count me in",
     saved: "We'll be in touch about the shift.",
+    interestsHeading: "What are you into?",
+    interestsLabel: "Your interests",
     asksAboutWork: false,
   },
   back: {
@@ -315,6 +332,8 @@ const LANE_COPY: Record<string, LaneCopy> = {
     hint: "Patron tickets, commissions, or money straight into the grant fund.",
     cta: "Count me in",
     saved: "We'll be in touch about how you'd like to back it.",
+    interestsHeading: "What do you want to back?",
+    interestsLabel: "What you back",
     asksAboutWork: false,
   },
 };
@@ -1095,7 +1114,11 @@ export default function Showcase() {
                 className="g-badge g-badge-line"
                 style={{ flexShrink: 0, whiteSpace: "nowrap" }}
               >
-                {TICKET_URL ? "Buy" : "Notify me"}
+                {/* One label either way. "Notify me" made the card read as
+                    a mailing-list sign-up during the weeks before checkout
+                    exists, which is the wrong promise for a ticket tier —
+                    "Save your space" is true now AND once it sells. */}
+                Save your space
               </span>
             </button>
           ))}
@@ -1448,6 +1471,8 @@ export default function Showcase() {
           title: laneCopy.heading,
           submitLabel: laneCopy.cta === "Start" ? "Send application" : "Count me in",
           asksAboutWork: laneCopy.asksAboutWork,
+          interestsHeading: laneCopy.interestsHeading,
+          interestsLabel: laneCopy.interestsLabel,
         }}
         preselect={lane}
         submitting={applyBusy}
