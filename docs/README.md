@@ -21,6 +21,7 @@ The project is **creatives.exchange** (repo: wonderwall). Four documents are the
 - [Backing payouts](features/backing-payouts.md) — how backer money reaches creatives: Stripe Connect vs Venmo/Zelle vs direct pay, costs, legal risk, taxes, the $50 minimum, and what's decided vs open
 - [Handoff: backings for Nov 6](handoff/nov6-backings.md) — the plan to let people in the room back creatives on Nov 6: what's decided, built, missing, and the beads
 - [Community groups](features/community-groups.md) · [Community grant pools](features/community-grant-pools.md) · [Paid community + media](features/paid-community-youtube-media.md)
+- [Garden-first IA](features/garden-first-ia.md) — exploration: why the shell feels confusing and The Garden subordinate, and an alternate IA where the home community is the shell and the platform recedes to receipts. Mocked in [mocks/garden-first-ia.html](mocks/garden-first-ia.html)
 - [Class payments and moderation](features/class-payments-and-moderation.md) — who can offer a class or coaching, how class money is collected and owed, how a community pauses a class
 - [Rich project content](features/rich-project-content.md) — the block model behind project pages and project updates (headings, images, video embeds)
 - [Creator media cross-post](features/creator-media-cross-post.md) — how a reel made for Instagram or TikTok gets onto the Exchange with one paste (embed resolver, share sheet, account import), and the growth plays that ride on it
