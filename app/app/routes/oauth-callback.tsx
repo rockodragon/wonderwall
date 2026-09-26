@@ -34,8 +34,8 @@ export default function OAuthCallback() {
     }
 
     if (!inviteSlug) {
-      // No invite slug, just go to search (existing user login via Google)
-      navigate("/search", { replace: true });
+      // No invite slug — existing user signing in with Google goes home
+      navigate("/today", { replace: true });
       return;
     }
 

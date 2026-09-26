@@ -66,6 +66,8 @@ export default [
 
   // App routes (with nav layout)
   layout("routes/_app.tsx", [
+    // The signed-in home — where sign-in, OAuth and onboarding land.
+    route("today", "routes/today.tsx"),
     route("search", "routes/search.tsx"),
     route("projects", "routes/projects.tsx"),
     route("projects/:id", "routes/projects.$id.tsx"),

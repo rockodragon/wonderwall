@@ -1,14 +1,24 @@
 import { useConvexAuth, useQuery } from "convex/react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router";
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { usePostHog } from "@posthog/react";
 import { api } from "../../convex/_generated/api";
 import { takePendingIntent } from "../lib/pendingIntent";
 import { useMarkNotificationsReadForPath } from "../lib/useMarkNotificationsReadForPath";
 import { InviteCTA } from "../components/InviteCTA";
-import { Wordmark } from "../components/Wordmark";
-import { CommunitySwitcher } from "../components/CommunitySwitcher";
+import { Mark } from "../components/Wordmark";
 import { NAV_ITEMS } from "../garden/ui";
+
+// The Garden holds the top of the rail (garden-first-ia mock, screen 2):
+// the community you're in takes the wordmark slot, the platform moves to the
+// foot of the rail, and the old "All communities" lens switcher becomes a
+// short list of other places you can visit, down at the bottom left. The
+// ?community= filter state (useCommunityContext) is untouched — the rail
+// just stops presenting it as a lens. A lens is now set by visiting: each
+// community page links into Projects/Events/Classes filtered to it, and the
+// browse pages' CommunityContextLine clears it.
+const HOME_COMMUNITY_SLUG = "the-garden";
+const VISIT_LIMIT = 3;
 
 // Public paths (community-ux.md §2/§6): a signed-out visitor may browse
 // these without being redirected to /login — the directory, the apply page,
@@ -41,8 +51,8 @@ function isPublicPathname(pathname: string): boolean {
 // (/works) drops from nav — the page itself stays live, un-linked rather
 // than deleted, same pattern as /organizations. Everything else (Favorites,
 // Profile, Messages, admin Crawler) is real but secondary — the desktop
-// sidebar visually demotes it below a divider so the primary pitch stays to
-// five things; mobile's bottom bar has no room for that hierarchy, so it
+// sidebar folds it into the account row at the foot of the rail so the
+// primary list stays short; mobile's bottom bar has no room for that, so it
 // shows the full set too, but only for a signed-in viewer (a signed-out
 // visitor on a public path gets primary items only, same as the desktop
 // sidebar — there's nothing behind Following/Profile/Messages for them to
@@ -74,6 +84,7 @@ export default function AppLayout() {
   const profile = useQuery(api.profiles.getMyProfile);
   const unreadCount = useQuery(api.messaging.getUnreadCount) ?? 0;
   const notificationCount = useQuery(api.notifications.getUnreadCount) ?? 0;
+  const allCommunities = useQuery(api.garden.communities.listCommunities);
   // Notifications don't get their own nav row — the count folds into the
   // Messages badge instead (2026-08-30, on request).
   const sidebarBadgeCount = unreadCount + notificationCount;
@@ -144,11 +155,23 @@ export default function AppLayout() {
   // Signed in → each item's real destination; signed out → its public
   // fallback where NAV_ITEMS declares one (Projects, Events), otherwise the
   // same destination (People/Spaces/Learn are already public routes).
-  const primaryNavItems = NAV_ITEMS.map((item) => ({
-    path: isAuthenticated || !("publicTo" in item) ? item.to : item.publicTo,
-    label: item.label,
-    icon: NAV_ICONS[item.to],
-  }));
+  // Today is the signed-in home (routes/today.tsx) and leads the list; a
+  // signed-out visitor has no Today to see, so it drops out for them.
+  const primaryNavItems = [
+    ...(isAuthenticated ? [{ path: "/today", label: "Today", icon: SunIcon }] : []),
+    ...NAV_ITEMS.map((item) => ({
+      path: isAuthenticated || !("publicTo" in item) ? item.to : item.publicTo,
+      label: item.label,
+      icon: NAV_ICONS[item.to],
+    })),
+  ];
+  // Other places on the platform — every listed community except the one
+  // whose name is on the rail, biggest first, a few at most; "All →" is
+  // the directory.
+  const otherCommunities = (allCommunities ?? [])
+    .filter((c) => c.slug !== HOME_COMMUNITY_SLUG)
+    .sort((a, b) => b.memberCount - a.memberCount)
+    .slice(0, VISIT_LIMIT);
   // Following/Profile/Messages all require an account — nothing behind them
   // for a signed-out visitor, so the mobile bar drops to primary items only,
   // matching the desktop sidebar's secondaryNavItems block below.
@@ -254,26 +277,40 @@ export default function AppLayout() {
         </div>
       </nav>
 
-      {/* Desktop sidebar */}
+      {/* Desktop sidebar — The Garden's name on top, the places you can
+          visit and your account at the foot, the platform last. */}
       <aside
-        className="hidden md:flex md:flex-col md:fixed md:inset-y-0 md:w-64 border-r"
+        className="hidden md:flex md:flex-col md:fixed md:inset-y-0 md:w-64 border-r overflow-y-auto"
         style={{ backgroundColor: "var(--app-surface-raised)", borderColor: "var(--app-hairline)" }}
       >
-        <div className="p-6 space-y-4">
-          <Link to="/">
-            <Wordmark size="sm" tone="adaptive" />
-          </Link>
-          <CommunitySwitcher />
-        </div>
+        <Link
+          to={isAuthenticated ? "/today" : "/garden"}
+          className="block px-6 pt-7 pb-5"
+          aria-label="The Garden — home"
+        >
+          <span
+            className="block text-[15px] uppercase tracking-[0.3em]"
+            style={{ fontFamily: "var(--garden-font-mono)", color: "var(--app-text)" }}
+          >
+            The Garden
+          </span>
+          <span
+            className="block mt-1.5 text-xs uppercase tracking-[0.12em]"
+            style={{ fontFamily: "var(--garden-font-mono)", color: "var(--app-text-dim)" }}
+          >
+            San Diego · Online
+          </span>
+        </Link>
 
-        <nav className="px-4 space-y-1">
+        <nav className="px-4 space-y-1" aria-label="The Garden">
           {primaryNavItems.map((item) => {
             const isActive = location.pathname.startsWith(item.path);
             return (
               <Link
                 key={item.path}
                 to={item.path}
-                className="flex items-center gap-3 px-4 py-3 rounded-lg transition-colors hover:bg-[var(--app-hairline)]"
+                aria-current={isActive ? "page" : undefined}
+                className="flex items-center gap-3 px-4 py-3 rounded-lg text-[15px] transition-colors hover:bg-[var(--app-hairline)]"
                 style={navLinkStyle(isActive)}
               >
                 <item.icon className="w-5 h-5" />
@@ -283,94 +320,161 @@ export default function AppLayout() {
           })}
         </nav>
 
-        {/* Secondary — real destinations, just not the three-item pitch.
-            Pushed to the bottom of the rail (mt-auto), not just below a
-            divider, so they read as genuinely lower-priority. Hidden for a
-            signed-out visitor on a public path (community-ux.md §6): every
-            item here needs an account, so there's nothing useful behind it. */}
-        {isAuthenticated && (
-        <nav
-          className="mt-auto px-4 py-3 space-y-1 border-t"
-          style={{ borderColor: "var(--app-hairline)" }}
-        >
-          {secondaryNavItems.map((item) => {
-            const isActive = location.pathname.startsWith(item.path);
-            const isProfileItem = item.path === "/settings";
-            return (
+        <div className="mt-auto pt-6">
+          {isAuthenticated && (
+            <div className="px-4 pb-4">
+              <InviteCTA />
+            </div>
+          )}
+
+          {/* Other communities are places you go, not a lens over this
+              one. Each chip opens that community's page; with none listed
+              yet the block still holds the way to the directory. */}
+          <div className="px-6 py-4 border-t" style={{ borderColor: "var(--app-hairline)" }}>
+            <p
+              className="text-xs uppercase tracking-[0.12em] mb-3"
+              style={{ fontFamily: "var(--garden-font-mono)", color: "var(--app-text-dim)" }}
+            >
+              Also on creatives.exchange
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              {otherCommunities.map((c) => (
+                <Link
+                  key={c._id}
+                  to={`/communities/${c.slug}`}
+                  className="px-2.5 py-1.5 rounded border text-[13.5px] transition-colors hover:bg-[var(--app-hairline)]"
+                  style={{
+                    borderColor: "var(--app-hairline-raised)",
+                    color: location.pathname === `/communities/${c.slug}` ? "var(--app-accent-ink)" : "var(--app-text-muted)",
+                  }}
+                >
+                  {c.name}
+                </Link>
+              ))}
               <Link
-                key={item.path}
-                to={item.path}
-                className="flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm transition-colors hover:bg-[var(--app-hairline)]"
-                style={navLinkStyle(isActive)}
+                to="/communities"
+                className="px-1 py-1.5 text-xs uppercase tracking-[0.1em] hover:underline"
+                style={{ fontFamily: "var(--garden-font-mono)", color: "var(--app-accent-ink)" }}
               >
-                {isProfileItem && profile?.imageUrl ? (
-                  <img
-                    src={profile.imageUrl}
-                    alt={profile.name}
-                    className="w-4.5 h-4.5 rounded-full object-cover"
-                  />
-                ) : (
-                  <item.icon className="w-4.5 h-4.5" />
-                )}
-                {item.label}
+                {otherCommunities.length > 0 ? "All →" : "Browse communities →"}
               </Link>
-            );
-          })}
-          <Link
-            to="/messages"
-            className="flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm transition-colors hover:bg-[var(--app-hairline)]"
-            style={navLinkStyle(location.pathname.startsWith("/messages"))}
-          >
-            <div className="relative">
-              <EnvelopeIcon className="w-4.5 h-4.5" />
-              {sidebarBadgeCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 min-w-5 flex items-center justify-center px-1">
-                  {sidebarBadgeCount > 99 ? "99+" : sidebarBadgeCount}
-                </span>
+              {isAuthenticated && (
+                <Link
+                  to="/communities/apply"
+                  className="px-1 py-1.5 text-xs uppercase tracking-[0.1em] hover:underline"
+                  style={{ fontFamily: "var(--garden-font-mono)", color: "var(--app-text-dim)" }}
+                >
+                  Host your own →
+                </Link>
               )}
             </div>
-            Messages
-          </Link>
-          {/* Admin-only: Crawler link */}
-          {profile?.isAdmin && (
-            <Link
-              to="/admin/crawler"
-              className="flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm transition-colors hover:bg-[var(--app-hairline)]"
-              style={navLinkStyle(location.pathname.startsWith("/admin/crawler"))}
-            >
-              <CrawlerIcon className="w-4.5 h-4.5" />
-              Crawler
-            </Link>
-          )}
-          {/* Admin-only: Waitlist link */}
-          {profile?.isAdmin && (
-            <Link
-              to="/admin/waitlist"
-              className="flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm transition-colors hover:bg-[var(--app-hairline)]"
-              style={navLinkStyle(location.pathname.startsWith("/admin/waitlist"))}
-            >
-              <WaitlistIcon className="w-4.5 h-4.5" />
-              Waitlist
-            </Link>
-          )}
-        </nav>
-        )}
+          </div>
 
-        {isAuthenticated ? (
-        <div className="p-4">
-          <InviteCTA />
+          {isAuthenticated ? (
+            <div className="px-4 py-3 border-t" style={{ borderColor: "var(--app-hairline)" }}>
+              <div className="flex items-center gap-2">
+                <Link
+                  to="/settings"
+                  className="flex min-w-0 flex-1 items-center gap-3 px-2 py-2 rounded-lg transition-colors hover:bg-[var(--app-hairline)]"
+                  style={navLinkStyle(location.pathname.startsWith("/settings"))}
+                  aria-label="Profile and settings"
+                >
+                  {profile?.imageUrl ? (
+                    <img
+                      src={profile.imageUrl}
+                      alt=""
+                      className="w-8 h-8 rounded-full object-cover shrink-0"
+                    />
+                  ) : (
+                    <span
+                      className="w-8 h-8 rounded-full shrink-0 flex items-center justify-center text-xs border"
+                      style={{
+                        fontFamily: "var(--garden-font-mono)",
+                        borderColor: "var(--app-hairline-raised)",
+                        color: "var(--app-text-muted)",
+                      }}
+                    >
+                      {initialsOf(profile?.name)}
+                    </span>
+                  )}
+                  <span className="truncate text-sm" style={{ color: "var(--app-text)" }}>
+                    {profile?.name ?? "Your profile"}
+                  </span>
+                </Link>
+                <RailIconLink
+                  to="/favorites"
+                  label="Following"
+                  active={location.pathname.startsWith("/favorites")}
+                >
+                  <HeartIcon className="w-4.5 h-4.5" />
+                </RailIconLink>
+                <RailIconLink
+                  to="/messages"
+                  label="Messages"
+                  active={location.pathname.startsWith("/messages")}
+                >
+                  <span className="relative">
+                    <EnvelopeIcon className="w-4.5 h-4.5" />
+                    {sidebarBadgeCount > 0 && (
+                      <span className="absolute -top-2 -right-2.5 bg-red-500 text-white text-xs rounded-full h-4.5 min-w-4.5 flex items-center justify-center px-1">
+                        {sidebarBadgeCount > 99 ? "99+" : sidebarBadgeCount}
+                      </span>
+                    )}
+                  </span>
+                </RailIconLink>
+              </div>
+              {profile?.isAdmin && (
+                <div className="flex gap-1 mt-1">
+                  <RailIconLink
+                    to="/admin/crawler"
+                    label="Crawler"
+                    active={location.pathname.startsWith("/admin/crawler")}
+                  >
+                    <CrawlerIcon className="w-4.5 h-4.5" />
+                  </RailIconLink>
+                  <RailIconLink
+                    to="/admin/waitlist"
+                    label="Waitlist"
+                    active={location.pathname.startsWith("/admin/waitlist")}
+                  >
+                    <WaitlistIcon className="w-4.5 h-4.5" />
+                  </RailIconLink>
+                </div>
+              )}
+            </div>
+          ) : isPublicPath ? (
+            <div className="px-4 py-3 border-t" style={{ borderColor: "var(--app-hairline)" }}>
+              <Link
+                to={`/login?redirect=${encodeURIComponent(location.pathname + location.search)}`}
+                className="flex items-center justify-center px-3 py-2 rounded-lg text-[13.5px] font-medium transition-colors hover:bg-[var(--app-hairline)]"
+                style={{ color: "var(--app-text-muted)" }}
+              >
+                Sign in
+              </Link>
+            </div>
+          ) : null}
+
+          {/* The platform, where the brief puts it: one line at the foot. */}
+          <div className="px-6 pt-1 pb-5 flex items-center justify-between gap-2">
+            <Link
+              to="/"
+              className="flex items-center gap-2 text-xs uppercase tracking-[0.08em] hover:underline"
+              style={{ fontFamily: "var(--garden-font-mono)", color: "var(--app-text-dim)" }}
+            >
+              <Mark size={14} tone="adaptive" />
+              creatives.exchange
+            </Link>
+            {isAuthenticated && (
+              <Link
+                to="/settings"
+                className="text-xs uppercase tracking-[0.08em] hover:underline"
+                style={{ fontFamily: "var(--garden-font-mono)", color: "var(--app-text-dim)" }}
+              >
+                Account →
+              </Link>
+            )}
+          </div>
         </div>
-        ) : isPublicPath ? (
-        <div className="mt-auto px-4 py-4 border-t" style={{ borderColor: "var(--app-hairline)" }}>
-          <Link
-            to={`/login?redirect=${encodeURIComponent(location.pathname + location.search)}`}
-            className="flex items-center justify-center px-3 py-2 rounded-lg text-sm font-medium transition-colors hover:bg-[var(--app-hairline)]"
-            style={{ color: "var(--app-text-dim)" }}
-          >
-            Sign in
-          </Link>
-        </div>
-        ) : null}
       </aside>
     </div>
   );
@@ -570,6 +674,48 @@ function GardenIcon({ className }: { className?: string }) {
     >
       <path d="M12 21v-8" />
       <path d="M12 13c0-3.5-2.5-6-6-6 0 3.5 2.5 6 6 6zM12 10c0-3 2.2-5 5.5-5 0 3-2.2 5-5.5 5z" />
+    </svg>
+  );
+}
+
+/** An icon-only destination in the account row at the foot of the rail. */
+function RailIconLink({
+  to,
+  label,
+  active,
+  children,
+}: {
+  to: string;
+  label: string;
+  active: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <Link
+      to={to}
+      aria-label={label}
+      title={label}
+      aria-current={active ? "page" : undefined}
+      className="flex items-center justify-center w-9 h-9 shrink-0 rounded-lg transition-colors hover:bg-[var(--app-hairline)]"
+      style={{ color: active ? "var(--app-accent-ink)" : "var(--app-text-muted)" }}
+    >
+      {children}
+    </Link>
+  );
+}
+
+function initialsOf(name: string | undefined): string {
+  if (!name) return "·";
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  const letters = parts.length > 1 ? parts[0][0] + parts[parts.length - 1][0] : (parts[0] ?? "").slice(0, 2);
+  return letters.toUpperCase() || "·";
+}
+
+function SunIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
     </svg>
   );
 }

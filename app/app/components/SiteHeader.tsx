@@ -47,7 +47,7 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
         </nav>
         {isAuthenticated ? (
           <Link
-            to="/search"
+            to="/today"
             className="px-4 py-2 sm:px-6 sm:py-2.5 text-[14px] sm:text-base whitespace-nowrap bg-[var(--garden-citron)] text-[var(--garden-ink)] rounded-xl font-semibold hover:opacity-90 transition-all"
           >
             Go to App

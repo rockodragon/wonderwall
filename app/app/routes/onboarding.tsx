@@ -696,7 +696,7 @@ export default function Onboarding() {
             title="You're all set!"
             body="Your profile is complete. Time to explore and connect with the community."
             cta="Explore The Exchange"
-            onFinish={() => finish("/search")}
+            onFinish={() => finish("/today")}
           />
         )}
       </div>

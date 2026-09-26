@@ -57,7 +57,7 @@ export default function Login() {
     if (!authLoading && isAuthenticated) {
       const redirect = new URLSearchParams(window.location.search).get("redirect");
       const safe = redirect && redirect.startsWith("/") && !redirect.startsWith("//");
-      navigate(safe ? redirect : "/search");
+      navigate(safe ? redirect : "/today");
     }
   }, [isAuthenticated, authLoading, navigate]);
 
