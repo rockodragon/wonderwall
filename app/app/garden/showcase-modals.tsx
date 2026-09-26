@@ -48,7 +48,7 @@
 // into data loss.
 //
 // WHY THE TICKET'S FIRST STEP STANDS ALONE. The ticket ask is the same
-// principle pointed the other way. Someone who taps "$75 Patron" has already
+// principle pointed the other way. Someone who taps the ticket price has already
 // decided; the only thing that can go wrong is us making them work for it.
 // So step 1 is one field and it SUBMITS ON ITS OWN — `onNotify` fires the
 // instant they press the button, before we have asked them a single other
@@ -66,10 +66,9 @@
 // step count was invented to prevent. The counter is a reassurance for
 // someone already walking, not a toll gate at the door.
 //
-// And the questions bend to the tier. A Creative is asked what they make; a
-// Patron is asked what they want to see. A patron is not necessarily a maker,
-// and asking them as if they were is how you teach someone that the form was
-// not written for them.
+// There is one ticket now, the same for everyone (2026-09-25), so the
+// questions no longer bend to a tier: everyone is asked what they're into,
+// which assumes nothing about whether they make things.
 //
 // These render inside <GardenPage> (i.e. under .garden-root) so the g-* design
 // system classes apply; the fixed overlay is positioned against the viewport
@@ -895,7 +894,7 @@ export function ApplyModal({
 
 /** Opened by tapping a price badge. Step 1 is deliberately tiny: this is a
     15-second interaction for someone who has already decided, and the fastest
-    way to lose them is to answer a tap on "$75" with a form.
+    way to lose them is to answer a tap on the price with a form.
 
     "Get your ticket" is the founder's framing and it is the heading whether
     or not there is anything to buy yet — the person tapped a price, so the
@@ -985,16 +984,8 @@ export function TicketModal({
     setDetailsDone(true);
   }
 
-  // The tier decides the question. "Creative" is buying their way into a room
-  // they might show work in; "Patron" is buying the room for other people.
-  // Asking a patron what they make assumes something about them that the $75
-  // badge never claimed.
-  const tierLabel = tier ? tier.label.toLowerCase() : "";
-  const interestQuestion = tierLabel.includes("patron")
-    ? "What do you want to see?"
-    : tierLabel.includes("creative")
-      ? "What do you make?"
-      : "What are you into?";
+  // One ticket for everyone, so one question for everyone.
+  const interestQuestion = "What are you into?";
 
   const heading = detailsDone
     ? "Thank you."
@@ -1138,10 +1129,10 @@ export function TicketModal({
             href={ticketUrl}
             style={{ marginTop: 20 }}
           >
-            Buy {tier ? tier.label.toLowerCase() : ""} ticket
+            Buy your ticket
           </a>
           <p className="g-hint" style={{ marginTop: 12 }}>
-            The room is small. If it sells out, being selected won't get you in.
+            The room is small, so it can sell out.
           </p>
           {/* Someone who just bought is the best-qualified person on the page
               to tell us who they are, and the link stays the loudest thing
