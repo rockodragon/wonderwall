@@ -209,7 +209,10 @@ export default function ProjectDetail() {
   // cross-post.md, Round 2): beneath the photo when there is one, in the
   // hero's place when there isn't. Its still is for cards, not for here.
   const mediaEmbed = toEmbedUrl(project.mediaUrl);
-  const thumb = project.resolvedPhotoUrl || (mediaEmbed ? null : mediaThumb(project));
+  // Attached pieces play in their own section below, so a still of the
+  // first one isn't repeated as the hero.
+  const hasPieces = (project.media?.length ?? 0) > 0;
+  const thumb = project.resolvedPhotoUrl || (mediaEmbed || hasPieces ? null : mediaThumb(project));
 
   return (
     <PageShell>
@@ -233,6 +236,8 @@ export default function ProjectDetail() {
           style={{ backgroundColor: "var(--garden-ink-raised)" }}
         />
       )}
+
+      {hasPieces && <AttachedPieces project={project} />}
 
       {isOwner && <InlineEditableMediaLink project={project} />}
 
@@ -382,6 +387,97 @@ export default function ProjectDetail() {
         <SupportModal project={project} mode={supportMode} onClose={() => setSupportMode(null)} />
       )}
     </PageShell>
+  );
+}
+
+function ensureHttps(url: string): string {
+  return /^https?:\/\//i.test(url) ? url : `https://${url}`;
+}
+
+function hostOf(url: string): string {
+  try {
+    return new URL(ensureHttps(url)).hostname.replace(/^www\./, "");
+  } catch {
+    return url;
+  }
+}
+
+// The pieces attached to a project (artifacts.projectId) — the work itself,
+// shown here now that a shared piece IS a project and /works/:id redirects
+// to it (docs/features/project-ia.md). What the hero or the blurb already
+// shows is skipped: a shared image is also the project's photo, and a
+// shared text post is also its blurb.
+function AttachedPieces({ project }: { project: any }) {
+  const pieces = (project.media ?? []).filter((m: any) => {
+    if (m.type === "image" && m.resolvedMediaUrl && m.resolvedMediaUrl === project.resolvedPhotoUrl) return false;
+    if (m.type === "text" && (m.content ?? "").trim() === (project.blurb ?? "").trim()) return false;
+    return true;
+  });
+  if (pieces.length === 0) return null;
+  const frame = { backgroundColor: "var(--garden-ink-raised)" };
+  return (
+    <div className="flex flex-col gap-4 mb-6">
+      {pieces.map((m: any) => {
+        const embed = toEmbedUrl(m.mediaUrl ?? undefined);
+        if (embed) {
+          return (
+            <EmbedPlayer key={m._id} embed={embed} title={m.title ?? project.title} className="rounded-2xl overflow-hidden" style={frame} />
+          );
+        }
+        if (m.type === "video" && m.resolvedMediaUrl) {
+          return (
+            <video key={m._id} src={m.resolvedMediaUrl} controls playsInline className="w-full rounded-2xl" style={frame} />
+          );
+        }
+        if (m.type === "audio" && m.resolvedMediaUrl) {
+          return (
+            <div key={m._id} className="rounded-2xl p-4" style={frame}>
+              {m.title && (
+                <p className="text-sm mb-2" style={{ color: "var(--garden-paper)" }}>
+                  {m.title}
+                </p>
+              )}
+              <audio src={m.resolvedMediaUrl} controls className="w-full" />
+            </div>
+          );
+        }
+        if (m.type === "image" && m.resolvedMediaUrl) {
+          return (
+            <img key={m._id} src={m.resolvedMediaUrl} alt={m.title ?? ""} className="w-full max-h-[70vh] object-contain rounded-2xl" style={frame} />
+          );
+        }
+        if (m.type === "text" && m.content) {
+          return (
+            <div key={m._id} className="rounded-2xl p-5 text-[15px] whitespace-pre-wrap" style={{ ...frame, color: "var(--garden-body)" }}>
+              {m.content}
+            </div>
+          );
+        }
+        if (m.mediaUrl) {
+          return (
+            <a
+              key={m._id}
+              href={ensureHttps(m.mediaUrl)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-3 rounded-2xl p-3 hover:opacity-90"
+              style={frame}
+            >
+              {m.ogImageUrl && <img src={m.ogImageUrl} alt="" className="w-20 h-20 rounded-lg object-cover shrink-0" />}
+              <span className="min-w-0">
+                <span className="block text-sm font-medium break-words" style={{ color: "var(--garden-paper)" }}>
+                  {m.title || hostOf(m.mediaUrl)}
+                </span>
+                <span className="block text-[13px]" style={{ color: "var(--garden-muted)" }}>
+                  {hostOf(m.mediaUrl)} ↗
+                </span>
+              </span>
+            </a>
+          );
+        }
+        return null;
+      })}
+    </div>
   );
 }
 

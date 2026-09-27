@@ -152,6 +152,10 @@ export const create = mutation({
     // cover, not the work (docs/features/creator-media-cross-post.md). Stored
     // as `ogImageUrl` so every card reads it like any other preview.
     coverStorageId: v.optional(v.id("_storage")),
+    // "Still working on it" in the composer. A shared piece is finished
+    // work by default, so its project lands in the profile's Portfolio
+    // (docs/features/project-ia.md); true leaves the project in progress.
+    inProgress: v.optional(v.boolean()),
     // Location for the companion passion project this mutation creates as a
     // side effect (docs/the-exchange-v1-prd.md §7). Optional and unused by
     // CreateWorkComposer.tsx / onboarding.tsx today — those composers stay
@@ -260,6 +264,8 @@ export const create = mutation({
       coordinates: args.coordinates,
       placeId: args.placeId,
       remote: args.remote ?? true,
+      stage: args.inProgress ? undefined : "completed",
+      stageChangedAt: args.inProgress ? undefined : createdAt,
       createdAt,
       updatedAt: createdAt,
     });

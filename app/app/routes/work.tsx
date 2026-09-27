@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "convex/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import Markdown from "react-markdown";
 import { api } from "../../convex/_generated/api";
@@ -20,6 +20,11 @@ export default function WorkDetail() {
   const toggleLike = useMutation(api.artifacts.toggleLike);
   const removeArtifact = useMutation(api.artifacts.remove);
   const refetchOgImage = useMutation(api.artifacts.refetchOgImage);
+  // A piece is a project now (docs/features/project-ia.md): its page is the
+  // project's page, which plays the piece. Old /works/:id links land there.
+  useEffect(() => {
+    if (artifact?.projectId) navigate(`/projects/${artifact.projectId}`, { replace: true });
+  }, [artifact?.projectId, navigate]);
   const [deleting, setDeleting] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 

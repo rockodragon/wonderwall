@@ -20,6 +20,7 @@ import { isValidEmail, normalizeEmail } from "./eventRsvps";
 import { can } from "./capabilities";
 import { assertCanPure, getGardenUser } from "./entitlements";
 import { scheduleNotificationEmail } from "../emailHelpers";
+import { toEmbedUrl } from "../videoEmbed";
 
 // ——————————————————————————————————————————————————————————————
 // Stage — TWIN of app/app/lib/stage.ts (STAGES, isStage, stageLabel,
@@ -1550,13 +1551,35 @@ export const listRoles = query({
 });
 
 /** Public: projects a person leads or is accepted on, for the profile's
- * Projects and Portfolio sections (docs/features/project-ia.md). Archived
- * projects excluded; newest first. Portfolio-origin rows are left out: they
- * are the silent companion of a single shared piece (artifacts.create), and
- * the piece itself already shows in the Portfolio grid — listing both is
- * the duplicate the profile used to show. Each row carries what a visitor
- * needs to see at a glance: done or not, hiring (open roles, or a paid
- * posting), raising, gig dates. */
+ * "Working on" and "Portfolio" sections (docs/features/project-ia.md) —
+ * one list, split by `completed`. Archived projects excluded; newest first.
+ * A shared piece of work IS a project (V1 PRD §7), so portfolio-origin rows
+ * are included like any other; their attached media supplies the cover.
+ * Each row carries what a visitor needs to see at a glance: done or not,
+ * hiring (open roles, or a paid posting), raising, gig dates. */
+// The one picture that stands for a project on a profile: its own photo,
+// else its pasted link's still, else the first attached piece's — an
+// uploaded image, a fetched/uploaded cover, or a video provider's thumbnail.
+async function projectCover(ctx: QueryCtx, project: Doc<"projects">): Promise<string | null> {
+  if (project.photoStorageId) return await ctx.storage.getUrl(project.photoStorageId);
+  if (project.photoUrl) return project.photoUrl;
+  if (project.mediaPreviewUrl) return project.mediaPreviewUrl;
+  const pieces = await ctx.db
+    .query("artifacts")
+    .withIndex("by_projectId", (q) => q.eq("projectId", project._id))
+    .collect();
+  for (const piece of pieces) {
+    if (piece.ogImageUrl) return piece.ogImageUrl;
+    if (piece.type === "image") {
+      if (piece.mediaStorageId) return await ctx.storage.getUrl(piece.mediaStorageId);
+      if (piece.mediaUrl) return piece.mediaUrl;
+    }
+    const embed = toEmbedUrl(piece.mediaUrl);
+    if (embed?.thumbnailUrl) return embed.thumbnailUrl;
+  }
+  return null;
+}
+
 export const listAffiliations = query({
   args: { profileId: v.id("profiles") },
   handler: async (ctx, args) => {
@@ -1577,7 +1600,7 @@ export const listAffiliations = query({
     const rows: { project: Doc<"projects">; role: string }[] = [];
     const seen = new Set<string>();
     const keep = (project: Doc<"projects"> | null): project is Doc<"projects"> =>
-      !!project && project.status !== "archived" && project.origin !== "portfolio";
+      !!project && project.status !== "archived";
     for (const project of owned) {
       if (!keep(project)) continue;
       seen.add(String(project._id));
@@ -1595,9 +1618,7 @@ export const listAffiliations = query({
     return await Promise.all(
       rows.map(async ({ project, role }) => {
         const [imageUrl, openRoles, gig, tiers] = await Promise.all([
-          project.photoStorageId
-            ? ctx.storage.getUrl(project.photoStorageId)
-            : Promise.resolve(project.photoUrl ?? project.mediaPreviewUrl ?? null),
+          projectCover(ctx, project),
           ctx.db
             .query("projectRoles")
             .withIndex("by_projectId_status", (q) => q.eq("projectId", project._id).eq("status", "open"))
@@ -1615,6 +1636,7 @@ export const listAffiliations = query({
         return {
           projectId: project._id,
           title: project.title,
+          blurb: project.blurb ?? null,
           role,
           stage,
           kind: project.kind,

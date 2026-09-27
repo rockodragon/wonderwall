@@ -38,8 +38,13 @@ export default function Profile() {
     api.garden.projectTeam.listAffiliations,
     profile?._id ? { profileId: profile._id } : "skip",
   );
+  // One list, two sections (docs/features/project-ia.md): a shared piece is
+  // a project, so "Working on" and "Portfolio" are the same projects split
+  // by done-or-not. Pieces with no project (from before every piece got
+  // one) still show in Portfolio on their own.
   const openProjects = (affiliations ?? []).filter((a: any) => !a.completed);
   const completedProjects = (affiliations ?? []).filter((a: any) => a.completed);
+  const loosePieces = (profile?.artifacts ?? []).filter((a: any) => !a.projectId);
   const getOrCreateConversation = useMutation(
     api.messaging.getOrCreateConversation,
   );
@@ -402,13 +407,13 @@ export default function Profile() {
       )}
 
       {/* Open projects this person leads or is on (docs/features/
-          project-ia.md). Completed ones move down into Portfolio, so this
+          project-ia.md). Completed ones are the Portfolio below, so this
           section is what they're working on NOW — and whether they're
           hiring or raising, which is what a visitor came to find out. */}
       {openProjects.length > 0 && (
         <div className="mb-8">
           <h2 className="text-lg font-semibold mb-4" style={{ color: "var(--app-text)" }}>
-            Projects
+            Working on
           </h2>
           <div className="divide-y divide-[var(--app-hairline)]">
             {openProjects.map((a: any) => (
@@ -456,9 +461,9 @@ export default function Profile() {
         </div>
       )}
 
-      {/* Portfolio: finished work — completed projects first, then the
-          individual pieces. */}
-      {(completedProjects.length > 0 || (profile.artifacts && profile.artifacts.length > 0)) && (
+      {/* Portfolio: finished work — completed projects, then any loose
+          pieces that never got a project. */}
+      {(completedProjects.length > 0 || loosePieces.length > 0) && (
         <>
           <h2 className="text-lg font-semibold mb-4" style={{ color: "var(--app-text)" }}>
             Portfolio
@@ -471,26 +476,38 @@ export default function Profile() {
                 className="relative aspect-square rounded-xl overflow-hidden block hover:ring-2 hover:ring-[var(--app-accent)] transition-all"
                 style={{ backgroundColor: "var(--app-hairline-raised)" }}
               >
-                {a.imageUrl && (
+                {a.imageUrl ? (
                   <img src={a.imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
+                ) : (
+                  // No picture: the words are the work (a shared text post).
+                  a.blurb && a.blurb.trim() !== a.title.trim() && (
+                    <p
+                      className="absolute inset-x-0 top-0 p-4 text-sm line-clamp-5"
+                      style={{ color: "var(--app-text-muted)" }}
+                    >
+                      {a.blurb}
+                    </p>
+                  )
                 )}
                 <div
                   className="absolute inset-x-0 bottom-0 p-3"
                   style={{ background: "linear-gradient(transparent, rgba(0,0,0,0.78))" }}
                 >
-                  <span
-                    className="inline-block mb-1 px-2 py-0.5 rounded-full text-[11px] font-semibold uppercase tracking-[0.06em]"
-                    style={{ backgroundColor: "rgba(20,20,18,0.72)", color: "#f7f7f4" }}
-                  >
-                    Project · {a.role || "Lead"}
-                  </span>
+                  {a.role && a.role !== "Lead" && (
+                    <span
+                      className="inline-block mb-1 px-2 py-0.5 rounded-full text-[11px] font-semibold uppercase tracking-[0.06em]"
+                      style={{ backgroundColor: "rgba(20,20,18,0.72)", color: "#f7f7f4" }}
+                    >
+                      {a.role}
+                    </span>
+                  )}
                   <p className="text-sm font-medium line-clamp-2" style={{ color: "#f7f7f4" }}>
                     {a.title}
                   </p>
                 </div>
               </Link>
             ))}
-            {profile.artifacts.map((artifact) => {
+            {loosePieces.map((artifact: any) => {
               // A pasted Instagram, TikTok, YouTube or Vimeo link
               // (convex/videoEmbed.ts). `linkUrl` is the stored link;
               // `mediaUrl` may be an uploaded file's storage URL instead.
@@ -620,7 +637,7 @@ export default function Profile() {
       )}
 
       {/* Empty state for no artifacts - only show for other profiles */}
-      {(!profile.artifacts || profile.artifacts.length === 0) &&
+      {loosePieces.length === 0 &&
         (!affiliations || affiliations.length === 0) &&
         !profileNeedsSetup && (
           <div className="text-center py-12" style={{ color: "var(--app-text-dim)" }}>

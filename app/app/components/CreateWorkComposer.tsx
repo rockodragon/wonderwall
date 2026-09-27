@@ -34,6 +34,10 @@ export function CreateWorkComposer({ onCreated }: { onCreated?: () => void }) {
   const profile = useQuery(api.profiles.getMyProfile);
   const artifacts = useQuery(api.artifacts.getMyArtifacts);
   const createArtifact = useMutation(api.artifacts.create);
+  // Every shared piece is a project (docs/features/project-ia.md) — finished
+  // by default, so it lands in the profile's Portfolio. Checked, it stays
+  // an open project instead.
+  const [inProgress, setInProgress] = useState(false);
   const generateUploadUrl = useMutation(api.files.generateUploadUrl);
 
   const [isExpanded, setIsExpanded] = useState(false);
@@ -59,6 +63,7 @@ export function CreateWorkComposer({ onCreated }: { onCreated?: () => void }) {
     setMediaUrl("");
     setUploadedStorageId(null);
     setUploadedPreview(null);
+    setInProgress(false);
     setIsExpanded(false);
   }
 
@@ -158,6 +163,7 @@ export function CreateWorkComposer({ onCreated }: { onCreated?: () => void }) {
             ? (uploadedStorageId as any)
             : undefined,
         coverStorageId: uploadIsCover ? (uploadedStorageId as any) : undefined,
+        inProgress: inProgress || undefined,
       });
 
       if (isFirstWork) {
@@ -488,6 +494,14 @@ export function CreateWorkComposer({ onCreated }: { onCreated?: () => void }) {
               </button>
             </div>
 
+            <label className="ml-auto mr-3 flex items-center gap-2 text-[13px] text-gray-600 dark:text-gray-300 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={inProgress}
+                onChange={(e) => setInProgress(e.target.checked)}
+              />
+              Still working on it
+            </label>
             <button
               onClick={handleSubmit}
               disabled={!canSubmit || saving}

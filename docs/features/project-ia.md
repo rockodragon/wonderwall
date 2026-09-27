@@ -46,12 +46,16 @@ On projects (never on jobs or gigs):
 - **Cheer them on** — always shown, free. A message or an offer of help or gear (`encouragement` / `resource`).
 - **Back this** — only when the project is raising. Money, once / monthly / yearly, through the existing checkout.
 
-## Profile: Projects vs Portfolio
+## Projects, not Portfolios
 
-These are different things: a **piece** (artifact) is one finished thing you made, and a **project** is an effort with a stage, a team, roles and money. They looked duplicated because every quick share of a piece silently creates a companion project (`origin: "portfolio"`), and the profile's Projects list didn't filter those out.
+A shared piece of work **is** a project (V1 PRD §7). "Add work" creates the piece (an `artifacts` row) and its project (`origin: "portfolio"`), and the piece is that project's media. Past work is a **completed project**, and Portfolio is simply a person's completed projects. It is not a separate thing.
 
-- **Projects** on a profile lists only open, deliberately posted projects (`listAffiliations` skips `origin: "portfolio"`). Each row shows its stage, plus **Hiring** (open roles with pay, or a paid posting's pay), **Booking** (gig dates), and **Raising** ($ of goal). Visitors see there that someone is hiring.
-- **Portfolio** is finished work: completed projects (tagged "Project · role") first, then the individual pieces.
+- **New pieces** land as completed. The composer's "Still working on it" leaves them open instead (`artifacts.create` `inProgress`).
+- **Existing pieces**: `garden/portfolioCompletedMigration:completePortfolioProjects` marks every never-staged portfolio-origin project completed. It's idempotent, dry run by default, and patches directly so no follower notifications go out.
+- **One person's cleanup**: `completeProjectsForProfile` marks all of a person's projects completed except the ids passed in `keep`. Dry run by default; the dry run lists titles and ids.
+- **Profile**: **Working on** lists the open projects, with Hiring / Booking / Raising lines; **Portfolio** lists the completed projects. Both come from `listAffiliations`. Pieces that never got a project still show in Portfolio on their own.
+- **Project page** plays or shows its attached pieces: embeds, video, audio, images, text and links. It skips whatever the hero or blurb already shows.
+- **`/works/:id`** redirects to the piece's project. `/works` itself stays for now; it's where clips for gig responses are added.
 
 ## Back links
 
