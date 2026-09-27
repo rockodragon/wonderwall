@@ -76,6 +76,22 @@ describe("toEmbedUrl — YouTube", () => {
 
   it("has no id on a channel or bare host URL", () => {
     expect(toEmbedUrl("https://www.youtube.com/@somechannel")).toBeNull();
+  });
+
+  it("embeds a known channel's /live link as its live-stream player", () => {
+    expect(toEmbedUrl("https://www.youtube.com/@creatives.exchange/live")).toMatchObject({
+      kind: "youtube",
+      embedUrl: "https://www.youtube.com/embed/live_stream?channel=UC0qxp0WScw_yUChPat7_YSA",
+      aspect: "16/9",
+    });
+    expect(
+      toEmbedUrl("https://www.youtube.com/channel/UC0qxp0WScw_yUChPat7_YSA/live")?.embedUrl,
+    ).toBe("https://www.youtube.com/embed/live_stream?channel=UC0qxp0WScw_yUChPat7_YSA");
+  });
+
+  it("leaves an unknown handle's /live link as a plain link", () => {
+    expect(toEmbedUrl("https://www.youtube.com/@somechannel/live")).toBeNull();
+    expect(toEmbedUrl("https://www.youtube.com/channel/not-a-channel-id/live")).toBeNull();
     expect(toEmbedUrl("https://www.youtube.com/")).toBeNull();
     expect(toEmbedUrl("https://www.youtube.com/watch")).toBeNull();
   });

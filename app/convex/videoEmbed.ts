@@ -104,9 +104,40 @@ function parseHttpUrl(rawUrl: string | undefined): URL | null {
 
 // ————— YouTube —————
 
+/** Channels whose "/live" link we can embed. A channel's live URL
+    (youtube.com/@handle/live) always points at whatever it's streaming now,
+    which is what an event is set up with weeks ahead — but the embeddable
+    form of it needs the channel's id, and a handle can't be turned into one
+    without calling YouTube. So the channels we stream from are listed here.
+    Looked up from the channel page's externalId. */
+const YOUTUBE_CHANNEL_IDS: Record<string, string> = {
+  "@creatives.exchange": "UC0qxp0WScw_yUChPat7_YSA",
+};
+const YOUTUBE_CHANNEL_ID = /^UC[A-Za-z0-9_-]{22}$/;
+
+/** youtube.com/@handle/live (a listed handle) or youtube.com/channel/UC…/live
+    → the channel's live-stream player. Null for anything else. */
+function youtubeChannelLive(parts: string[]): VideoEmbed | null {
+  let channelId: string | undefined;
+  if (parts.length === 2 && parts[1] === "live" && parts[0].startsWith("@")) {
+    channelId = YOUTUBE_CHANNEL_IDS[parts[0].toLowerCase()];
+  } else if (parts.length === 3 && parts[0] === "channel" && parts[2] === "live") {
+    channelId = parts[1];
+  }
+  if (!channelId || !YOUTUBE_CHANNEL_ID.test(channelId)) return null;
+  return {
+    kind: "youtube",
+    embedUrl: `https://www.youtube.com/embed/live_stream?channel=${channelId}`,
+    aspect: "16/9",
+    canonicalUrl: `https://www.youtube.com/channel/${channelId}/live`,
+  };
+}
+
 function youtube(url: URL): VideoEmbed | null {
   const host = normalizeHost(url.hostname);
   const parts = segments(url.pathname);
+  const channelLive = youtubeChannelLive(parts);
+  if (channelLive) return channelLive;
   let id: string | null = null;
   let short = false;
 

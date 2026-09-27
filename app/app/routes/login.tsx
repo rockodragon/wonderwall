@@ -297,10 +297,13 @@ export default function Login() {
           {googleLoading ? "Signing in..." : "Google"}
         </button>
 
-        <details className="text-[13.5px]">
-          <summary className="cursor-pointer text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white select-none">
-            Other ways to sign in
-          </summary>
+        {/* Email and password sit in plain view: members who signed up that
+
+            way shouldn't have to hunt for it (Rick, 2026-09-27). */}
+
+        <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+
+          <p className="mb-3 text-[13.5px] font-medium text-gray-700 dark:text-gray-300">Or use your email and password</p>
 
           <form onSubmit={handleSubmit} className="mt-4 space-y-6">
             {error && (
@@ -353,7 +356,9 @@ export default function Login() {
               {loading ? "Signing in..." : "Sign in"}
             </button>
           </form>
-        </details>
+        
+
+        </div>
 
         <p className="text-center text-[13.5px] text-gray-600 dark:text-gray-400">
           Don't have an account?{" "}

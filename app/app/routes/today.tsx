@@ -206,6 +206,10 @@ function CreatorNotes({ episode }: { episode: Episode }) {
   }
 
   const live = !!episode?.live;
+  // With an episode on the calendar, everything opens its event page, which
+  // plays the stream in place (videoEmbed.ts embeds the channel's /live
+  // link). YouTube is only the fallback when nothing is scheduled.
+  const episodePath = episode ? `/events/${episode.event._id}` : null;
   const watchUrl = live ? YOUTUBE_LIVE_URL : YOUTUBE_CHANNEL_URL;
   const when = episode && !live ? formatShowTime(episode.event.datetime) : null;
 
@@ -220,9 +224,15 @@ function CreatorNotes({ episode }: { episode: Episode }) {
           </span>
         )}
         <span className="ml-auto flex items-center gap-3">
-          <a href={watchUrl} target="_blank" rel="noopener noreferrer" className="text-xs uppercase tracking-[0.1em] hover:underline" style={{ ...MONO, color: "var(--app-accent-ink)" }}>
-            {live ? "Watch live →" : "YouTube →"}
-          </a>
+          {episodePath ? (
+            <Link to={episodePath} className="text-xs uppercase tracking-[0.1em] hover:underline" style={{ ...MONO, color: "var(--app-accent-ink)" }}>
+              {live ? "Watch live →" : "Episode →"}
+            </Link>
+          ) : (
+            <a href={watchUrl} target="_blank" rel="noopener noreferrer" className="text-xs uppercase tracking-[0.1em] hover:underline" style={{ ...MONO, color: "var(--app-accent-ink)" }}>
+              YouTube →
+            </a>
+          )}
           <GhostButton onClick={() => setAndStore(false)}>Expand</GhostButton>
         </span>
       </div>
@@ -244,10 +254,15 @@ function CreatorNotes({ episode }: { episode: Episode }) {
           creatives, and get behind the motivations, struggles and aspirations of the community.
         </p>
         <div className="mt-7 flex flex-wrap gap-2">
-          <PrimaryLink href={watchUrl} external>
-            <PlayGlyph /> {live ? "Watch live on YouTube" : "Watch on YouTube"}
-          </PrimaryLink>
-          {episode && <SecondaryLink to={`/events/${episode.event._id}`}>Episode page</SecondaryLink>}
+          {episodePath ? (
+            <PrimaryLink to={episodePath}>
+              <PlayGlyph /> {live ? "Watch live" : "See the next episode"}
+            </PrimaryLink>
+          ) : (
+            <PrimaryLink href={watchUrl} external>
+              <PlayGlyph /> Watch on YouTube
+            </PrimaryLink>
+          )}
         </div>
       </div>
 
@@ -261,12 +276,11 @@ function CreatorNotes({ episode }: { episode: Episode }) {
             the point of the card, and a frame grab would put a face on the
             home page nobody asked to be there. */}
         <a
-          href={watchUrl}
-          target="_blank"
-          rel="noopener noreferrer"
+          href={episodePath ?? watchUrl}
+          {...(episodePath ? {} : { target: "_blank", rel: "noopener noreferrer" })}
           className="group relative block aspect-video overflow-hidden rounded-xl border"
           style={{ backgroundColor: "var(--app-surface-raised)", borderColor: live ? "var(--app-accent)" : "var(--app-hairline)" }}
-          aria-label={live ? "Watch Creator Notes live on YouTube" : "Creator Notes on YouTube"}
+          aria-label={episodePath ? (live ? "Watch Creator Notes live" : "The next Creator Notes episode") : "Creator Notes on YouTube"}
         >
           <NotebookDrawing />
           <div className="absolute top-3 left-3 flex items-center gap-2">
