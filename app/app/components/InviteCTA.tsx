@@ -161,6 +161,17 @@ export function InviteCTA() {
               </div>
             ) : (
               <>
+                {/* Short code — the thing to read out loud or text someone */}
+                <div className="p-3 rounded-xl" style={{ backgroundColor: "var(--garden-ink)" }}>
+                  <p className="text-xs mb-1.5" style={{ color: "var(--garden-dim)" }}>Your invite code</p>
+                  <p
+                    className="text-2xl font-bold tracking-[0.15em]"
+                    style={{ fontFamily: "var(--garden-font-mono)", color: "var(--garden-citron)" }}
+                  >
+                    {inviteLink.slug}
+                  </p>
+                </div>
+
                 {/* Invite link */}
                 <div className="p-3 rounded-xl" style={{ backgroundColor: "var(--garden-ink)" }}>
                   <p className="text-xs mb-2" style={{ color: "var(--garden-dim)" }}>Your invite link</p>

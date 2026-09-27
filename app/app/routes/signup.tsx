@@ -5,6 +5,8 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import confetti from "canvas-confetti";
 import { api } from "../../convex/_generated/api";
+import { normalizePhone } from "../../convex/phone";
+import { normalizeInviteCode } from "../../convex/inviteCode";
 
 export function meta() {
   return [
@@ -51,6 +53,13 @@ export default function Signup() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
 
+  // Phone sign-up: mobile number -> text a code -> enter the code.
+  const [phone, setPhone] = useState("");
+  const [code, setCode] = useState("");
+  const [phoneStep, setPhoneStep] = useState<"phone" | "code">("phone");
+  const [phoneError, setPhoneError] = useState("");
+  const [phoneLoading, setPhoneLoading] = useState(false);
+
   // Get inviter information if arriving via invite link
   const inviterInfo = useQuery(
     api.invites.getInviterInfo,
@@ -59,6 +68,100 @@ export default function Signup() {
 
   const redeemInvite = useMutation(api.invites.redeemBySlug);
   const generateSlug = useMutation(api.invites.generateInviteSlug);
+
+  // Shared by every sign-up path (password, Google, phone): the invite
+  // must exist, be loaded, and still have room. Returns the error message
+  // to show, or null when it's fine to proceed.
+  function inviteGateError(): string | null {
+    if (!inviteSlug) return "Invite link is required";
+    if (!inviterInfo) return "Loading invite information...";
+    if (!inviterInfo.canAcceptMore) return "This invite link has reached its maximum uses (3)";
+    return null;
+  }
+
+  // After a successful phone code verification, redeem the invite exactly
+  // the way oauth-callback.tsx does for Google: redeemInvite then
+  // generateInviteSlug, then on to onboarding — reusing those mutations
+  // rather than inventing new ones.
+  async function redeemInviteAfterSignIn() {
+    try {
+      await redeemInvite({ slug: inviteSlug! });
+    } catch (err) {
+      posthog?.capture("invite_redemption_failed", {
+        error: err instanceof Error ? err.message : "Unknown error",
+        invite_slug: inviteSlug,
+      });
+    }
+    try {
+      await generateSlug({});
+    } catch (err) {
+      posthog?.capture("invite_slug_generation_failed", {
+        error: err instanceof Error ? err.message : "Unknown error",
+      });
+    }
+  }
+
+  async function handleSendCode(e: React.FormEvent) {
+    e.preventDefault();
+    setPhoneError("");
+
+    const gateError = inviteGateError();
+    if (gateError) {
+      setPhoneError(gateError);
+      return;
+    }
+
+    const normalized = normalizePhone(phone);
+    if (!normalized.ok) {
+      setPhoneError(normalized.reason);
+      return;
+    }
+
+    setPhoneLoading(true);
+    try {
+      await signIn("phone", { phone: normalized.value });
+      setPhone(normalized.value);
+      setPhoneStep("code");
+      posthog?.capture("phone_signup_code_sent", { invite_slug: inviteSlug });
+    } catch (err) {
+      setPhoneError(
+        err instanceof Error ? err.message : "Couldn't send a code. Try again.",
+      );
+      posthog?.capture("phone_signup_code_send_error", {
+        error: err instanceof Error ? err.message : "Unknown error",
+        invite_slug: inviteSlug,
+      });
+    } finally {
+      setPhoneLoading(false);
+    }
+  }
+
+  async function handleVerifyCode(e: React.FormEvent) {
+    e.preventDefault();
+    setPhoneError("");
+    setPhoneLoading(true);
+
+    try {
+      await signIn("phone", { phone, code });
+
+      await redeemInviteAfterSignIn();
+
+      posthog?.capture("user_signed_up", {
+        method: "phone",
+        invite_slug: inviteSlug,
+        inviter_name: inviterInfo?.name,
+      });
+
+      setShowWelcome(true);
+    } catch (err) {
+      setPhoneError("That code didn't work. Check it and try again.");
+      posthog?.capture("phone_signup_verify_error", {
+        error: err instanceof Error ? err.message : "Unknown error",
+        invite_slug: inviteSlug,
+      });
+      setPhoneLoading(false);
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -310,81 +413,101 @@ export default function Signup() {
             Create your account
           </h1>
 
-          {error && (
-            <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg text-sm">
-              {error}
-            </div>
+          {phoneStep === "phone" ? (
+            <form onSubmit={handleSendCode} className="space-y-4">
+              {phoneError && (
+                <div className="p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg text-[13.5px]">
+                  {phoneError}
+                </div>
+              )}
+
+              <div>
+                <label
+                  htmlFor="phone"
+                  className="block text-[13.5px] font-medium text-gray-700 dark:text-gray-300 mb-1"
+                >
+                  Mobile number
+                </label>
+                <input
+                  id="phone"
+                  type="tel"
+                  autoComplete="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  className="w-full px-4 py-3 text-[13.5px] border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="(619) 555-0100"
+                  required
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={phoneLoading}
+                className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg font-medium text-[13.5px] hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {phoneLoading ? "Sending..." : "Text me a code"}
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={handleVerifyCode} className="space-y-4">
+              {phoneError && (
+                <div className="p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg text-[13.5px]">
+                  {phoneError}
+                </div>
+              )}
+
+              <p className="text-[13.5px] text-gray-600 dark:text-gray-400">
+                We texted a code to {phone}.{" "}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPhoneStep("phone");
+                    setCode("");
+                    setPhoneError("");
+                  }}
+                  className="text-blue-600 hover:text-blue-500 font-medium"
+                >
+                  Use a different number
+                </button>
+              </p>
+
+              <div>
+                <label
+                  htmlFor="code"
+                  className="block text-[13.5px] font-medium text-gray-700 dark:text-gray-300 mb-1"
+                >
+                  6-digit code
+                </label>
+                <input
+                  id="code"
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  pattern="[0-9]*"
+                  maxLength={6}
+                  autoFocus
+                  value={code}
+                  onChange={(e) => setCode(e.target.value.replace(/[^0-9]/g, ""))}
+                  className="w-full px-4 py-3 text-[13.5px] tracking-[0.3em] border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  required
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={phoneLoading || code.length !== 6}
+                className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg font-medium text-[13.5px] hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {phoneLoading ? "Signing in..." : "Sign in"}
+              </button>
+            </form>
           )}
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label
-                htmlFor="name"
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-              >
-                Full Name
-              </label>
-              <input
-                id="name"
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="John Doe"
-                required
-              />
-            </div>
-
-            <div>
-              <label
-                htmlFor="email"
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-              >
-                Email
-              </label>
-              <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="you@example.com"
-                required
-              />
-            </div>
-
-            <div>
-              <label
-                htmlFor="password"
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-              >
-                Password
-              </label>
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="At least 8 characters"
-                required
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {loading ? "Creating account..." : "Sign Up"}
-            </button>
-          </form>
 
           <div className="relative my-6">
             <div className="absolute inset-0 flex items-center">
               <div className="w-full border-t border-gray-300 dark:border-gray-600" />
             </div>
-            <div className="relative flex justify-center text-sm">
+            <div className="relative flex justify-center text-[13.5px]">
               <span className="px-2 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400">
                 or continue with
               </span>
@@ -394,7 +517,7 @@ export default function Signup() {
           <button
             onClick={handleGoogleSignUp}
             disabled={googleLoading}
-            className="w-full flex items-center justify-center gap-3 py-3 px-4 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full flex items-center justify-center gap-3 py-3 px-4 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm text-[13.5px] font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
               <path
@@ -417,7 +540,83 @@ export default function Signup() {
             {googleLoading ? "Signing up..." : "Google"}
           </button>
 
-          {/* Sits below BOTH signup paths — the password form above and the
+          <details className="mt-4 text-[13.5px]">
+            <summary className="cursor-pointer text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white select-none">
+              Other ways to sign up
+            </summary>
+
+            <form onSubmit={handleSubmit} className="mt-4 space-y-4">
+              {error && (
+                <div className="p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg text-[13.5px]">
+                  {error}
+                </div>
+              )}
+
+              <div>
+                <label
+                  htmlFor="name"
+                  className="block text-[13.5px] font-medium text-gray-700 dark:text-gray-300 mb-1"
+                >
+                  Full Name
+                </label>
+                <input
+                  id="name"
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="w-full px-4 py-3 text-[13.5px] border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="John Doe"
+                  required
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="email"
+                  className="block text-[13.5px] font-medium text-gray-700 dark:text-gray-300 mb-1"
+                >
+                  Email
+                </label>
+                <input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full px-4 py-3 text-[13.5px] border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="you@example.com"
+                  required
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="password"
+                  className="block text-[13.5px] font-medium text-gray-700 dark:text-gray-300 mb-1"
+                >
+                  Password
+                </label>
+                <input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full px-4 py-3 text-[13.5px] border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="At least 8 characters"
+                  required
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg font-medium text-[13.5px] hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {loading ? "Creating account..." : "Sign Up"}
+              </button>
+            </form>
+          </details>
+
+          {/* Sits below every signup path — phone, the password form, and the
               Google button — because it has to cover whichever one is used.
               Links are public routes on purpose: there is no account yet to
               authenticate, see routes.ts. */}
@@ -481,14 +680,9 @@ function InviteEntry() {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const slug = input
-      .trim()
-      .replace(/^.*\/signup\//, "")
-      .replace(/^.*[?&]invite=/, "")
-      .replace(/[?&#].*$/, "")
-      .replace(/\/+$/, "");
+    const slug = normalizeInviteCode(input);
     if (!slug) {
-      setError("Paste your invite link or code.");
+      setError("Paste your invite code.");
       return;
     }
     setError(null);
@@ -515,8 +709,8 @@ function InviteEntry() {
             Create your account
           </h1>
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
-            The Exchange is invite-only right now. Paste the invite link or
-            code an existing member gave you.
+            The Exchange is invite-only right now. Enter the invite code an
+            existing member gave you.
           </p>
 
           {error && (
@@ -531,7 +725,7 @@ function InviteEntry() {
                 htmlFor="invite"
                 className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
               >
-                Invite link or code
+                Invite code
               </label>
               <input
                 id="invite"
@@ -541,8 +735,11 @@ function InviteEntry() {
                   setInput(e.target.value);
                   setError(null);
                 }}
-                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="creatives.exchange/signup/…"
+                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent uppercase tracking-wider"
+                placeholder="K7M4QD"
+                autoCapitalize="characters"
+                autoCorrect="off"
+                spellCheck={false}
                 autoFocus
                 required
               />
@@ -560,9 +757,9 @@ function InviteEntry() {
             <p>
               No invite yet?{" "}
               <Link to="/" className="text-blue-600 hover:text-blue-500 font-medium">
-                Join the waitlist
+                Request to join
               </Link>
-              , or ask a member — they can share their link from Settings.
+              , or ask a member — they can share their code from Settings.
             </p>
             <p>
               Covered by a sponsor? Use the link they gave you — it starts

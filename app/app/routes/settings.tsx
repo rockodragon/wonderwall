@@ -128,6 +128,7 @@ export default function Settings() {
             )}
           </div>
         )}
+        <InviteLinkPanel />
       </div>
 
       {/* Billing */}
@@ -210,6 +211,64 @@ function billingErrorMessage(err: unknown): string {
     }
   }
   return "Couldn't open billing — try again.";
+}
+
+// Short invite code + link, inline in "Your Network" — the rail's
+// InviteCTA (app/components/InviteCTA.tsx) shows the same data as a bigger
+// standalone card; this is the compact settings-page version.
+function InviteLinkPanel() {
+  const inviteLink = useQuery(api.invites.getMyInviteLink);
+  const generateSlug = useMutation(api.invites.generateInviteSlug);
+  const [generating, setGenerating] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (inviteLink && !inviteLink.slug && !generating) {
+      setGenerating(true);
+      generateSlug({})
+        .catch((err) => console.error("Failed to generate invite code:", err))
+        .finally(() => setGenerating(false));
+    }
+  }, [inviteLink, generateSlug, generating]);
+
+  if (!inviteLink || !inviteLink.slug) return null;
+
+  const inviteUrl = `${window.location.origin}/signup/${inviteLink.slug}`;
+
+  function copyLink() {
+    navigator.clipboard.writeText(inviteUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  return (
+    <div
+      className="mt-4 flex flex-wrap items-center gap-3 p-3 rounded-lg"
+      style={{ backgroundColor: "var(--app-surface, var(--app-hairline))" }}
+    >
+      <div>
+        <p className="text-xs mb-0.5" style={{ color: "var(--app-text-dim)" }}>
+          Your invite code
+        </p>
+        <p
+          className="text-lg font-bold tracking-[0.15em]"
+          style={{ fontFamily: "var(--garden-font-mono, monospace)", color: "var(--app-text)" }}
+        >
+          {inviteLink.slug}
+        </p>
+      </div>
+      <button
+        onClick={copyLink}
+        className="ml-auto px-3 py-2 text-[13.5px] font-medium rounded-lg transition-colors"
+        style={{
+          backgroundColor: copied ? "var(--garden-citron, #d7f25a)" : "var(--app-hairline)",
+          color: copied ? "var(--garden-ink, #111)" : "var(--app-text)",
+        }}
+      >
+        {copied ? "Copied!" : "Copy invite link"}
+      </button>
+    </div>
+  );
 }
 
 function BillingSection() {

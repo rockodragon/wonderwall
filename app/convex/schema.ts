@@ -126,6 +126,14 @@ export default defineSchema({
     // cross-post.md).
     coverStorageId: v.optional(v.id("_storage")),
     title: v.optional(v.string()), // optional title for the artifact
+    // Site-supplied metadata for a plain "link" artifact, fetched alongside
+    // ogImageUrl (convex/artifacts.ts:fetchOgImage). ogTitle is the site's
+    // own title (og:title, falling back to <title>) and is never used to
+    // overwrite a title the creative typed — profile.tsx shows it only when
+    // `title` is unset. ogDescription is the site's og:description, for a
+    // one-line subtitle under the domain.
+    ogTitle: v.optional(v.string()),
+    ogDescription: v.optional(v.string()),
     order: v.number(),
     createdAt: v.number(),
     projectId: v.optional(v.id("projects")), // set once migrated (V1 pivot)
@@ -1853,4 +1861,16 @@ export default defineSchema({
     providerId: v.optional(v.string()),
     createdAt: v.number(),
   }).index("by_email", ["email"]),
+
+  // SMS-pumping guard (convex/auth.ts Phone provider): one row per code we
+  // actually SEND to a number, so we can cap how many go out per hour.
+  // Separate from @convex-dev/auth's own authRateLimits table, which only
+  // throttles *failed verification attempts* on an identifier — nothing in
+  // that library limits how many codes get sent to a number in the first
+  // place, which is exactly the SMS-pumping surface (a script requesting
+  // codes to run up someone's Telnyx bill or spam a number).
+  phoneSendLimits: defineTable({
+    phone: v.string(), // normalized E.164, e.g. "+16195550100"
+    sentAt: v.number(),
+  }).index("by_phone_sentAt", ["phone", "sentAt"]),
 }, { schemaValidation: false });

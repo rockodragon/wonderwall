@@ -83,4 +83,16 @@ describe("mapArtifactToProject", () => {
     const p = mapArtifactToProject({ ...base, type: "audio" }, userId);
     expect(p.photoUrl).toBeUndefined();
   });
+
+  it("link type never uses its own mediaUrl as photoUrl (that's the page, not an image)", () => {
+    // Regression: this used to fall back to `mediaUrl` when there was no
+    // ogImageUrl yet, which for a legacy schemeless URL like
+    // "abidingpractice.com" produced a photoUrl that rendered as a broken
+    // <img> on the profile page.
+    const p = mapArtifactToProject(
+      { ...base, type: "link", mediaUrl: "abidingpractice.com" },
+      userId,
+    );
+    expect(p.photoUrl).toBeUndefined();
+  });
 });

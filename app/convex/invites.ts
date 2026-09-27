@@ -4,18 +4,37 @@ import type { QueryCtx, MutationCtx } from "./_generated/server";
 import { auth } from "./auth";
 import { scheduleNotificationEmail } from "./emailHelpers";
 import { escapeHtml } from "./garden/projectTeam";
+import { generateInviteCode } from "./inviteCode";
 
 // A pasted or emailed code can be either kind of invite: a member's own
 // inviteSlug, or an admin's fixed waitlist-approval code (adminCode, set by
 // waitlist.ts's approveEntry). Both live on the profiles table and both
 // land at /signup/:code, so every lookup here tries inviteSlug first —
 // the far more common case — and falls back to adminCode.
+//
+// Old invites got a name-based inviteSlug ("rick-moy"); new ones get a
+// short generated code ("K7M4QD", see generateInviteSlug below and
+// convex/inviteCode.ts). Both are stored as-is in the same field, so the
+// exact-match lookup finds either one — every link already shared keeps
+// redeeming forever, nothing was migrated. The uppercased retry only helps
+// a short code typed in a different case; it can never accidentally match
+// an old lowercase, dashed slug, since uppercasing one of those doesn't
+// produce another real slug.
 async function findInviterProfile(ctx: QueryCtx | MutationCtx, code: string) {
   const bySlug = await ctx.db
     .query("profiles")
     .withIndex("by_inviteSlug", (q) => q.eq("inviteSlug", code))
     .first();
   if (bySlug) return bySlug;
+
+  const upper = code.toUpperCase();
+  if (upper !== code) {
+    const byUpperSlug = await ctx.db
+      .query("profiles")
+      .withIndex("by_inviteSlug", (q) => q.eq("inviteSlug", upper))
+      .first();
+    if (byUpperSlug) return byUpperSlug;
+  }
 
   return await ctx.db
     .query("profiles")
@@ -30,14 +49,6 @@ function generateCode(): string {
     code += chars[Math.floor(Math.random() * chars.length)];
   }
   return code;
-}
-
-// Generate a URL-friendly slug from a name
-function generateSlugFromName(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
 }
 
 const MAX_UNUSED_INVITES = 3;
@@ -269,13 +280,11 @@ export const generateInviteSlug = mutation({
     if (!profile) throw new Error("Profile not found");
     if (profile.inviteSlug) return profile.inviteSlug; // Already has one
 
-    // Generate slug from name
-    let slug = generateSlugFromName(profile.name);
-
-    // Check if slug is unique, add number if not
-    let attempt = 0;
-    let finalSlug = slug;
-    while (true) {
+    // Short, shareable code (6 chars, no look-alikes — see inviteCode.ts).
+    // Retry on the rare collision; a few dozen attempts is effectively
+    // unbounded odds against ever looping meaningfully.
+    let finalSlug = generateInviteCode();
+    for (let attempt = 0; attempt < 20; attempt++) {
       const existing = await ctx.db
         .query("profiles")
         .withIndex("by_inviteSlug", (q) => q.eq("inviteSlug", finalSlug))
@@ -283,8 +292,7 @@ export const generateInviteSlug = mutation({
 
       if (!existing) break;
 
-      attempt++;
-      finalSlug = `${slug}-${attempt}`;
+      finalSlug = generateInviteCode();
     }
 
     // Update profile with slug

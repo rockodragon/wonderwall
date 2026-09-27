@@ -45,8 +45,16 @@ export const getMyProfile = query({
       .withIndex("by_profileId", (q) => q.eq("profileId", profile._id))
       .collect();
 
+    // A phone-only sign-in has no email on the `users` table (@convex-dev/
+    // auth's authTables) — onboarding.tsx uses this to decide whether to
+    // ask for one (Stripe receipts and notifications need an email even
+    // for a phone user).
+    const user = await ctx.db.get(userId);
+    const email = (user as { email?: string } | null)?.email ?? null;
+
     return {
       ...profile,
+      email,
       imageUrl,
       attributes: Object.fromEntries(attributes.map((a) => [a.key, a.value])),
       links: links.sort((a, b) => a.order - b.order),
@@ -159,10 +167,31 @@ export const upsertProfile = mutation({
     orgName: v.optional(v.string()),
     supportInterests: v.optional(v.array(v.string())),
     partnerOfferings: v.optional(v.array(v.string())),
+    // Onboarding-only: a phone sign-in has no email, but Stripe receipts
+    // and notifications need one. Lives on the `users` table (authTables'
+    // own `email` field), not on this profiles document — there's no email
+    // column here to mirror it into — so this patches that table instead
+    // of `existing`/the insert below.
+    email: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const userId = await auth.getUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
+
+    if (args.email !== undefined) {
+      const trimmedEmail = args.email.trim();
+      if (trimmedEmail) {
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+          throw new ConvexError("That doesn't look like a valid email.");
+        }
+        const user = await ctx.db.get(userId);
+        // Never overwrite an email a user already signed in with (Google,
+        // password) — this is only for filling in a missing one.
+        if (!(user as { email?: string } | null)?.email) {
+          await ctx.db.patch(userId, { email: trimmedEmail.toLowerCase() });
+        }
+      }
+    }
 
     const existing = await ctx.db
       .query("profiles")
