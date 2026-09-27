@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, type CSSProperties, type ReactNode } from "react";
 
 export function useReveal<T extends HTMLElement = HTMLDivElement>(
   delay = 0,
@@ -53,6 +53,50 @@ export function Reveal({
   const ref = useReveal(delay);
   return (
     <div ref={ref} className={className}>
+      {children}
+    </div>
+  );
+}
+
+/** Dissolves its children in — opacity only, no movement — the first time
+    they scroll into view. For images: a picture that fades up reads as
+    placed on purpose; one that slides reads as loading. Slow by design
+    (1.4s); reduced-motion gets the image at once. */
+export function Dissolve({
+  children,
+  className,
+  style,
+  duration = 1400,
+}: {
+  children: ReactNode;
+  className?: string;
+  style?: CSSProperties;
+  duration?: number;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      el.style.opacity = "1";
+      return;
+    }
+    el.style.opacity = "0";
+    el.style.transition = `opacity ${duration}ms ease-out`;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          el.style.opacity = "1";
+          observer.unobserve(el);
+        }
+      },
+      { threshold: 0.2 },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [duration]);
+  return (
+    <div ref={ref} className={className} style={style}>
       {children}
     </div>
   );

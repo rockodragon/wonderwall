@@ -6,8 +6,8 @@ import { api } from "../../convex/_generated/api";
 import { takePendingIntent } from "../lib/pendingIntent";
 import { useMarkNotificationsReadForPath } from "../lib/useMarkNotificationsReadForPath";
 import { InviteCTA } from "../components/InviteCTA";
-import { Mark } from "../components/Wordmark";
 import { NAV_ITEMS } from "../garden/ui";
+import { FF_V2 } from "../lib/featureFlags";
 
 // The Garden holds the top of the rail (garden-first-ia mock, screen 2):
 // the community you're in takes the wordmark slot, the platform moves to the
@@ -18,6 +18,12 @@ import { NAV_ITEMS } from "../garden/ui";
 // community page links into Projects/Events/Classes filtered to it, and the
 // browse pages' CommunityContextLine clears it.
 const HOME_COMMUNITY_SLUG = "the-garden";
+// Dropped from the app shell (Rick, 2026-09-26): "Spaces" is what the
+// Garden/Exchange switcher at the foot of the rail now does, and "Learn"
+// (classes) is held back with it so the rail is four things. Both routes
+// stay live and the public header (GardenNav/SiteHeader) still lists
+// them; this only trims the signed-in rail and the mobile bar.
+const APP_NAV_HIDDEN = new Set<string>(["/communities", "/offerings"]);
 const VISIT_LIMIT = 3;
 
 // Public paths (community-ux.md §2/§6): a signed-out visitor may browse
@@ -90,6 +96,7 @@ export default function AppLayout() {
   const sidebarBadgeCount = unreadCount + notificationCount;
 
   const isPublicPath = isPublicPathname(location.pathname);
+  const [inviteOpen, setInviteOpen] = useState(false);
 
   // Clears any unread notification pointing at wherever the user just
   // navigated to, so reaching a page from an email CTA or a direct link
@@ -159,7 +166,7 @@ export default function AppLayout() {
   // signed-out visitor has no Today to see, so it drops out for them.
   const primaryNavItems = [
     ...(isAuthenticated ? [{ path: "/today", label: "Today", icon: SunIcon }] : []),
-    ...NAV_ITEMS.map((item) => ({
+    ...NAV_ITEMS.filter((item) => !APP_NAV_HIDDEN.has(item.to)).map((item) => ({
       path: isAuthenticated || !("publicTo" in item) ? item.to : item.publicTo,
       label: item.label,
       icon: NAV_ICONS[item.to],
@@ -168,6 +175,9 @@ export default function AppLayout() {
   // Other places on the platform — every listed community except the one
   // whose name is on the rail, biggest first, a few at most; "All →" is
   // the directory.
+  // "The Exchange" in the switcher is lit on any platform-level page: the
+  // directory and community pages, and the apply form.
+  const onExchange = location.pathname.startsWith("/communities");
   const otherCommunities = (allCommunities ?? [])
     .filter((c) => c.slug !== HOME_COMMUNITY_SLUG)
     .sort((a, b) => b.memberCount - a.memberCount)
@@ -320,45 +330,80 @@ export default function AppLayout() {
           })}
         </nav>
 
+        {/* The foot of the rail, in three rows: a way to invite, the
+            switch between The Garden and the exchange, and your account.
+            The chips of other communities, "Host your own", the wordmark
+            link to the marketing home and a separate "Account →" all lived
+            here too and read as the same thing said three ways; they're
+            behind FF_V2 until there's more than one community to switch to. */}
         <div className="mt-auto pt-6">
           {isAuthenticated && (
-            <div className="px-4 pb-4">
-              <InviteCTA />
+            <div className="px-4 pb-3">
+              {/* One quiet row; the card with the link opens under it on
+                  request. Sign-up is invite-only, so this stays reachable. */}
+              {FF_V2 || inviteOpen ? (
+                <InviteCTA />
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setInviteOpen(true)}
+                  className="flex w-full items-center gap-3 px-4 py-2.5 rounded-lg text-[15px] text-left transition-colors hover:bg-[var(--app-hairline)]"
+                  style={{ color: "var(--app-text-muted)" }}
+                >
+                  <InviteIcon className="w-5 h-5" />
+                  Invite someone
+                </button>
+              )}
             </div>
           )}
 
-          {/* Other communities are places you go, not a lens over this
-              one. Each chip opens that community's page; with none listed
-              yet the block still holds the way to the directory. */}
-          <div className="px-6 py-4 border-t" style={{ borderColor: "var(--app-hairline)" }}>
-            <p
-              className="text-xs uppercase tracking-[0.12em] mb-3"
-              style={{ fontFamily: "var(--garden-font-mono)", color: "var(--app-text-dim)" }}
+          {/* Where am I: The Garden, or the exchange it sits on. Two
+              places, one control. The exchange side is the directory of
+              every community on the platform. */}
+          <div className="px-4 py-3 border-t" style={{ borderColor: "var(--app-hairline)" }}>
+            <div
+              className="grid grid-cols-2 gap-1 rounded-lg p-1"
+              style={{ backgroundColor: "var(--app-surface)" }}
+              role="group"
+              aria-label="Switch between The Garden and creatives.exchange"
             >
-              Also on creatives.exchange
-            </p>
-            <div className="flex flex-wrap items-center gap-2">
-              {otherCommunities.map((c) => (
-                <Link
-                  key={c._id}
-                  to={`/communities/${c.slug}`}
-                  className="px-2.5 py-1.5 rounded border text-[13.5px] transition-colors hover:bg-[var(--app-hairline)]"
-                  style={{
-                    borderColor: "var(--app-hairline-raised)",
-                    color: location.pathname === `/communities/${c.slug}` ? "var(--app-accent-ink)" : "var(--app-text-muted)",
-                  }}
-                >
-                  {c.name}
-                </Link>
-              ))}
+              <Link
+                to={isAuthenticated ? "/today" : "/garden"}
+                aria-current={!onExchange ? "page" : undefined}
+                className="rounded-md px-1 py-2 text-center text-[13px] font-medium whitespace-nowrap transition-colors"
+                style={
+                  !onExchange
+                    ? { backgroundColor: "var(--app-accent-wash)", color: "var(--app-accent-ink)" }
+                    : { color: "var(--app-text-muted)" }
+                }
+              >
+                The Garden
+              </Link>
               <Link
                 to="/communities"
-                className="px-1 py-1.5 text-xs uppercase tracking-[0.1em] hover:underline"
-                style={{ fontFamily: "var(--garden-font-mono)", color: "var(--app-accent-ink)" }}
+                aria-current={onExchange ? "page" : undefined}
+                className="rounded-md px-1 py-2 text-center text-[13px] font-medium whitespace-nowrap transition-colors"
+                style={
+                  onExchange
+                    ? { backgroundColor: "var(--app-accent-wash)", color: "var(--app-accent-ink)" }
+                    : { color: "var(--app-text-muted)" }
+                }
               >
-                {otherCommunities.length > 0 ? "All →" : "Browse communities →"}
+                The Exchange
               </Link>
-              {isAuthenticated && (
+            </div>
+            {FF_V2 && otherCommunities.length > 0 && (
+              <div className="mt-3 flex flex-wrap items-center gap-2 px-2">
+                {otherCommunities.map((c) => (
+                  <Link
+                    key={c._id}
+                    to={`/communities/${c.slug}`}
+                    className="px-2.5 py-1.5 rounded border text-[13.5px] transition-colors hover:bg-[var(--app-hairline)]"
+                    style={{ borderColor: "var(--app-hairline-raised)", color: "var(--app-text-muted)" }}
+                  >
+                    {c.name}
+                  </Link>
+                ))}
                 <Link
                   to="/communities/apply"
                   className="px-1 py-1.5 text-xs uppercase tracking-[0.1em] hover:underline"
@@ -366,8 +411,8 @@ export default function AppLayout() {
                 >
                   Host your own →
                 </Link>
-              )}
-            </div>
+              </div>
+            )}
           </div>
 
           {isAuthenticated ? (
@@ -377,14 +422,11 @@ export default function AppLayout() {
                   to="/settings"
                   className="flex min-w-0 flex-1 items-center gap-3 px-2 py-2 rounded-lg transition-colors hover:bg-[var(--app-hairline)]"
                   style={navLinkStyle(location.pathname.startsWith("/settings"))}
-                  aria-label="Profile and settings"
+                  aria-label="Your account"
+                  title="Your account"
                 >
                   {profile?.imageUrl ? (
-                    <img
-                      src={profile.imageUrl}
-                      alt=""
-                      className="w-8 h-8 rounded-full object-cover shrink-0"
-                    />
+                    <img src={profile.imageUrl} alt="" className="w-8 h-8 rounded-full object-cover shrink-0" />
                   ) : (
                     <span
                       className="w-8 h-8 rounded-full shrink-0 flex items-center justify-center text-xs border"
@@ -398,21 +440,13 @@ export default function AppLayout() {
                     </span>
                   )}
                   <span className="truncate text-sm" style={{ color: "var(--app-text)" }}>
-                    {profile?.name ?? "Your profile"}
+                    {profile?.name ?? "Your account"}
                   </span>
                 </Link>
-                <RailIconLink
-                  to="/favorites"
-                  label="Following"
-                  active={location.pathname.startsWith("/favorites")}
-                >
+                <RailIconLink to="/favorites" label="Following" active={location.pathname.startsWith("/favorites")}>
                   <HeartIcon className="w-4.5 h-4.5" />
                 </RailIconLink>
-                <RailIconLink
-                  to="/messages"
-                  label="Messages"
-                  active={location.pathname.startsWith("/messages")}
-                >
+                <RailIconLink to="/messages" label="Messages" active={location.pathname.startsWith("/messages")}>
                   <span className="relative">
                     <EnvelopeIcon className="w-4.5 h-4.5" />
                     {sidebarBadgeCount > 0 && (
@@ -425,18 +459,10 @@ export default function AppLayout() {
               </div>
               {profile?.isAdmin && (
                 <div className="flex gap-1 mt-1">
-                  <RailIconLink
-                    to="/admin/crawler"
-                    label="Crawler"
-                    active={location.pathname.startsWith("/admin/crawler")}
-                  >
+                  <RailIconLink to="/admin/crawler" label="Crawler" active={location.pathname.startsWith("/admin/crawler")}>
                     <CrawlerIcon className="w-4.5 h-4.5" />
                   </RailIconLink>
-                  <RailIconLink
-                    to="/admin/waitlist"
-                    label="Waitlist"
-                    active={location.pathname.startsWith("/admin/waitlist")}
-                  >
+                  <RailIconLink to="/admin/waitlist" label="Waitlist" active={location.pathname.startsWith("/admin/waitlist")}>
                     <WaitlistIcon className="w-4.5 h-4.5" />
                   </RailIconLink>
                 </div>
@@ -454,25 +480,15 @@ export default function AppLayout() {
             </div>
           ) : null}
 
-          {/* The platform, where the brief puts it: one line at the foot. */}
-          <div className="px-6 pt-1 pb-5 flex items-center justify-between gap-2">
-            <Link
-              to="/"
-              className="flex items-center gap-2 text-xs uppercase tracking-[0.08em] hover:underline"
+          {/* What this all is. One line; the page it opens says the rest. */}
+          <div className="px-4 pt-1 pb-5">
+            <a
+              href="/about/index.html"
+              className="text-xs uppercase tracking-[0.04em] whitespace-nowrap hover:underline"
               style={{ fontFamily: "var(--garden-font-mono)", color: "var(--app-text-dim)" }}
             >
-              <Mark size={14} tone="adaptive" />
-              creatives.exchange
-            </Link>
-            {isAuthenticated && (
-              <Link
-                to="/settings"
-                className="text-xs uppercase tracking-[0.08em] hover:underline"
-                style={{ fontFamily: "var(--garden-font-mono)", color: "var(--app-text-dim)" }}
-              >
-                Account →
-              </Link>
-            )}
+              About creatives.exchange →
+            </a>
           </div>
         </div>
       </aside>
@@ -709,6 +725,15 @@ function initialsOf(name: string | undefined): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   const letters = parts.length > 1 ? parts[0][0] + parts[parts.length - 1][0] : (parts[0] ?? "").slice(0, 2);
   return letters.toUpperCase() || "·";
+}
+
+function InviteIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="9" cy="8" r="4" />
+      <path d="M2 21a7 7 0 0114 0M19 8v6M16 11h6" />
+    </svg>
+  );
 }
 
 function SunIcon({ className }: { className?: string }) {

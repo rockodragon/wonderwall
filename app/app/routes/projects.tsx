@@ -18,6 +18,7 @@ import { ChevronDownIcon, FilterIcon } from "../components/icons";
 import { CLAIMS } from "../constants/claims";
 import { toEmbedUrl } from "../lib/videoEmbed";
 import { describeMediaLink, MediaLinkField } from "../components/MediaLinkField";
+import { Dissolve } from "../hooks/useReveal";
 import { EmbedStill } from "../components/EmbedStill";
 
 const KIND_FILTERS = [
@@ -512,22 +513,26 @@ function ProjectCard({
         }`}
         style={hasCover ? { backgroundColor: "var(--garden-ink)" } : EMPTY_COVER}
       >
+        {/* The picture dissolves in as the card scrolls into view; the
+            badges over it don't, so the card's facts are readable at once. */}
         {thumb && (
-          <img
-            src={thumb}
-            alt={project.title}
-            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-          />
+          <Dissolve className="w-full h-full">
+            <img
+              src={thumb}
+              alt={project.title}
+              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+            />
+          </Dissolve>
         )}
         {mediaEmbed && (
-          <div className="absolute inset-0">
+          <Dissolve className="absolute inset-0">
             <EmbedStill
               embed={mediaEmbed}
               previewUrl={project.mediaPreviewUrl}
               title={project.title}
               badgeSize="sm"
             />
-          </div>
+          </Dissolve>
         )}
         <span
           className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[11px] font-semibold uppercase tracking-[0.06em]"

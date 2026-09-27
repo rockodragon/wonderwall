@@ -21,6 +21,7 @@ import { formatMoney } from "../garden/ui";
 import { budgetAmountLabel, budgetKindLabel } from "../lib/budgetLabel";
 import { CLAIMS } from "../constants/claims";
 import { resolveStage, stageLabel } from "../lib/stage";
+import { Dissolve } from "../hooks/useReveal";
 import { YOUTUBE_CHANNEL_URL, YOUTUBE_LIVE_URL } from "../constants/broadcast";
 
 export function meta() {
@@ -371,7 +372,9 @@ function FeaturedProject({ project }: { project: Project }) {
   return (
     <article className="grid overflow-hidden rounded-xl border md:grid-cols-[2fr_3fr]" style={CARD}>
       <Link to={`/projects/${project._id}`} className="block aspect-[16/9] md:aspect-auto md:min-h-[240px]" style={{ backgroundColor: "#121212" }} tabIndex={-1} aria-hidden>
-        {cover ? <img src={cover} alt="" className="h-full w-full object-cover" /> : <AbstractCover seed={project._id} />}
+        <Dissolve className="h-full w-full">
+          {cover ? <img src={cover} alt="" className="h-full w-full object-cover" /> : <AbstractCover seed={project._id} />}
+        </Dissolve>
       </Link>
       <div className="flex flex-col p-7 md:p-10">
         {/* Badges get their own line. Sharing the title's line squeezed
@@ -438,12 +441,12 @@ function ProjectRow({ project, flip }: { project: Project; flip: boolean }) {
       to={`/projects/${project._id}`}
       className="group grid items-center gap-8 md:grid-cols-2 md:gap-14"
     >
-      <div
+      <Dissolve
         className={`aspect-[4/3] overflow-hidden rounded-xl transition-transform duration-300 group-hover:scale-[1.01] ${flip ? "md:order-2" : ""}`}
         style={{ backgroundColor: "#121212" }}
       >
         {cover ? <img src={cover} alt="" className="h-full w-full object-cover" /> : <AbstractCover seed={project._id} />}
-      </div>
+      </Dissolve>
       <div className={`min-w-0 ${flip ? "md:order-1" : ""}`}>
         <Badges project={project} />
         <h3 className="mt-4 text-[26px] md:text-[30px] leading-tight font-semibold tracking-[-0.01em] group-hover:underline" style={DISPLAY}>
