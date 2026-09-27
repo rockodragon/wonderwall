@@ -20,6 +20,7 @@ import { api } from "../../convex/_generated/api";
 import { formatMoney } from "../garden/ui";
 import { budgetAmountLabel, budgetKindLabel } from "../lib/budgetLabel";
 import { CLAIMS } from "../constants/claims";
+import { resolveStage, stageLabel } from "../lib/stage";
 import { YOUTUBE_CHANNEL_URL, YOUTUBE_LIVE_URL } from "../constants/broadcast";
 
 export function meta() {
@@ -32,16 +33,9 @@ const CARD: CSSProperties = {
   backgroundColor: "var(--app-surface-raised)",
   borderColor: "var(--app-hairline)",
 };
-// The empty-cover hatch from the garden-first mocks: a picture-shaped space
-// that says "no picture yet" without pretending to be one.
-const HATCH: CSSProperties = {
-  backgroundColor: "var(--app-surface-raised)",
-  backgroundImage:
-    "repeating-linear-gradient(135deg, var(--app-hairline) 0 14px, transparent 14px 28px)",
-};
 
 const COLLAPSE_KEY = "today.creatorNotes.collapsed";
-const LIST_LIMIT = 6;
+const LIST_LIMIT = 5;
 // An event with no end time is treated as running this long after it starts.
 const DEFAULT_EPISODE_MS = 2 * 60 * 60 * 1000;
 
@@ -55,7 +49,6 @@ export default function Today() {
   const projects = useProjects();
   const events = useQuery(api.events.list, {});
   const profile = useQuery(api.profiles.getMyProfile);
-  const [genre, setGenre] = useState<string>("all");
 
   const episode = useMemo(() => pickEpisode(events ?? []), [events]);
 
@@ -82,21 +75,15 @@ export default function Today() {
     };
   }, [projects]);
 
-  // Genre chips come from the tags the open projects actually carry — a
-  // chip that filters to nothing is never offered.
-  const genres = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const p of open) for (const t of topicsOf(p)) counts.set(t, (counts.get(t) ?? 0) + 1);
-    return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([t]) => t);
-  }, [open]);
-  const shownOpen = (genre === "all" ? open : open.filter((p) => topicsOf(p).includes(genre))).slice(0, LIST_LIMIT);
+  const shownOpen = open.slice(0, LIST_LIMIT);
+  const shownGigs = gigs.slice(0, LIST_LIMIT);
 
   const profileEmpty = profile !== undefined && profile !== null && !profile.bio && !profile.imageUrl;
   const loading = projects === undefined;
 
   return (
-    <div className="mx-auto max-w-5xl px-4 md:px-10 pt-6 md:pt-10 pb-16" style={{ color: "var(--app-text)" }}>
-      <div className="flex items-baseline justify-between gap-4 mb-6">
+    <div className="mx-auto max-w-5xl px-4 md:px-10 pt-8 md:pt-14 pb-24" style={{ color: "var(--app-text)" }}>
+      <div className="flex items-baseline justify-between gap-4 mb-14">
         <MonoLabel as="h1">Today in The Garden</MonoLabel>
         <MonoLabel>{formatToday()}</MonoLabel>
       </div>
@@ -119,50 +106,54 @@ export default function Today() {
         )}
       </Section>
 
-      {(loading || open.length > 0) && (
-        <Section
-          title="Open projects"
-          action={
-            genres.length > 1 ? (
-              <div className="flex flex-wrap gap-2" role="group" aria-label="Filter by discipline">
-                {["all", ...genres].map((g) => (
-                  <Chip key={g} active={genre === g} onClick={() => setGenre(g)}>
-                    {g === "all" ? "All" : g}
-                  </Chip>
-                ))}
-              </div>
-            ) : undefined
-          }
-        >
-          {loading ? (
-            <Skeleton height={140} />
-          ) : shownOpen.length > 0 ? (
-            <div className="space-y-3">
-              {shownOpen.map((p) => (
-                <ProjectRow key={p._id} project={p} />
-              ))}
-            </div>
-          ) : (
-            <EmptyNote>No open projects in {genre} yet.</EmptyNote>
-          )}
-        </Section>
-      )}
+      {/* Browsing, not acting (today-page-ux-review-2026-09-26.md): a
+          short list, every row a link that says "See →", and the section
+          stays on the page when it's empty so a new member learns it
+          exists. Backing and responding live on the project page. */}
+      <Section title="Open projects" action={<SectionLink to="/projects?kind=passion">{countLabel("project", open.length)} →</SectionLink>}>
+        {loading ? (
+          <Skeleton height={140} />
+        ) : shownOpen.length > 0 ? (
+          <div className="space-y-16 md:space-y-20">
+            {shownOpen.map((p, i) => (
+              <ProjectRow key={p._id} project={p} flip={i % 2 === 1} />
+            ))}
+          </div>
+        ) : (
+          <EmptyNote>
+            No open projects yet.{" "}
+            <Link to="/projects" className="underline">
+              Post one
+            </Link>
+            .
+          </EmptyNote>
+        )}
+      </Section>
 
-      {(loading || gigs.length > 0) && (
-        <Section title="Paid gigs" action={<SectionLink to="/projects">All gigs →</SectionLink>}>
-          {loading ? (
-            <Skeleton height={64} />
-          ) : (
-            <div className="rounded-xl border divide-y" style={{ ...CARD, borderColor: "var(--app-hairline)" }}>
-              {gigs.slice(0, LIST_LIMIT).map((p) => (
-                <GigRow key={p._id} project={p} />
-              ))}
-            </div>
-          )}
-        </Section>
-      )}
+      {/* ?kind=paid, not ?kind=gigs: on /projects "gigs" means a recurring
+          live-booking series, and this list is every paid posting, series
+          or not. The link has to land on the same rows the list showed. */}
+      <Section title="Paid gigs" action={<SectionLink to="/projects?kind=paid">{countLabel("gig", gigs.length)} →</SectionLink>}>
+        {loading ? (
+          <Skeleton height={64} />
+        ) : shownGigs.length > 0 ? (
+          <div className="rounded-xl border divide-y" style={{ ...CARD, borderColor: "var(--app-hairline)" }}>
+            {shownGigs.map((p) => (
+              <GigRow key={p._id} project={p} />
+            ))}
+          </div>
+        ) : (
+          <EmptyNote>
+            No paid gigs yet.{" "}
+            <Link to="/projects" className="underline">
+              Post one
+            </Link>
+            .
+          </EmptyNote>
+        )}
+      </Section>
 
-      <div className={`mt-14 grid gap-4 ${profileEmpty ? "md:grid-cols-2" : ""}`}>
+      <div className={`mt-32 grid gap-8 ${profileEmpty ? "md:grid-cols-2" : ""}`}>
         {profileEmpty && <EmptyProfileCard />}
         <BackersCard />
       </div>
@@ -216,7 +207,6 @@ function CreatorNotes({ episode }: { episode: Episode }) {
   const live = !!episode?.live;
   const watchUrl = live ? YOUTUBE_LIVE_URL : YOUTUBE_CHANNEL_URL;
   const when = episode && !live ? formatShowTime(episode.event.datetime) : null;
-  const cover = episode ? (episode.event.coverImageUrl ?? episode.event.mediaPreviewUrl ?? null) : null;
 
   if (collapsed) {
     return (
@@ -239,71 +229,101 @@ function CreatorNotes({ episode }: { episode: Episode }) {
   }
 
   return (
-    <section className="grid gap-8 md:grid-cols-2 md:items-center" aria-label="Creator Notes">
+    <section className="grid gap-10 md:grid-cols-[3fr_2fr] md:items-center" aria-label="Creator Notes">
       <div>
         <div className="flex flex-wrap items-center gap-2 mb-5">
           <StatusPill live={live} when={when} />
-          <MonoLabel>Creator Notes</MonoLabel>
+          <MonoLabel>Video podcast</MonoLabel>
         </div>
-        <h2 className="text-[40px] md:text-[52px] leading-[1.02] font-semibold tracking-[-0.02em]" style={DISPLAY}>
-          Building in public. <span style={{ color: "var(--app-accent-ink)" }}>Join us.</span>
+        <h2 className="text-[44px] md:text-[60px] leading-[1] font-semibold tracking-[-0.02em]" style={DISPLAY}>
+          Creator Notes
         </h2>
-        <p className="mt-5 text-base leading-relaxed max-w-md" style={{ color: "var(--app-text-muted)" }}>
-          Creator Notes is our video podcast. We talk with filmmakers, musicians and artists, and we work
-          out loud on what we're making together, live, with the community in the room.
+        <p className="mt-5 text-[17px] leading-relaxed max-w-xl">
+          Join us as we sit down for frank discussions with filmmakers, musicians, artists and other
+          creatives, and get behind the motivations, struggles and aspirations of the community.
         </p>
-        <div className="mt-6 flex flex-wrap gap-2">
+        <div className="mt-7 flex flex-wrap gap-2">
           <PrimaryLink href={watchUrl} external>
             <PlayGlyph /> {live ? "Watch live on YouTube" : "Watch on YouTube"}
           </PrimaryLink>
-          <SecondaryLink href={`${YOUTUBE_CHANNEL_URL}/streams`} external>
-            Past episodes
-          </SecondaryLink>
           {episode && <SecondaryLink to={`/events/${episode.event._id}`}>Episode page</SecondaryLink>}
         </div>
       </div>
 
-      <div className="relative">
+      <div className="relative w-full max-w-sm md:justify-self-end">
         <div className="flex justify-end mb-2">
           <GhostButton onClick={() => setAndStore(true)} label="Close Creator Notes">
             × Close
           </GhostButton>
         </div>
+        {/* A drawing of the show's notebook, not a photo: the hosts aren't
+            the point of the card, and a frame grab would put a face on the
+            home page nobody asked to be there. */}
         <a
           href={watchUrl}
           target="_blank"
           rel="noopener noreferrer"
           className="group relative block aspect-video overflow-hidden rounded-xl border"
-          style={{ ...(cover ? { backgroundColor: "#121212" } : HATCH), borderColor: live ? "var(--app-accent)" : "var(--app-hairline)" }}
+          style={{ backgroundColor: "var(--app-surface-raised)", borderColor: live ? "var(--app-accent)" : "var(--app-hairline)" }}
           aria-label={live ? "Watch Creator Notes live on YouTube" : "Creator Notes on YouTube"}
         >
-          {cover && <img src={cover} alt="" className="absolute inset-0 h-full w-full object-cover" />}
-          <div className="absolute inset-0" style={{ background: "linear-gradient(180deg, rgba(0,0,0,0.45) 0%, transparent 35%, transparent 60%, rgba(0,0,0,0.7) 100%)" }} />
+          <NotebookDrawing />
           <div className="absolute top-3 left-3 flex items-center gap-2">
             {live ? (
               <span className="flex items-center gap-1.5 rounded px-2 py-1 text-xs font-semibold uppercase tracking-[0.1em]" style={{ ...MONO, backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}>
                 <span className="h-1.5 w-1.5 rounded-full bg-current animate-pulse" /> Live
               </span>
             ) : (
-              <span className="rounded px-2 py-1 text-xs uppercase tracking-[0.1em]" style={{ ...MONO, backgroundColor: "rgba(18,18,18,0.8)", color: "#f7f7f4" }}>
+              <span className="rounded border px-2 py-1 text-xs uppercase tracking-[0.1em]" style={{ ...MONO, borderColor: "var(--app-hairline-raised)", backgroundColor: "var(--app-surface)", color: "var(--app-text-muted)" }}>
                 {when ? `Starts ${when}` : "On YouTube"}
               </span>
             )}
           </div>
           <div className="absolute inset-x-3 bottom-3 flex items-center gap-3">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-transform group-hover:scale-105" style={{ backgroundColor: "rgba(247,247,244,0.92)", color: "#121212" }}>
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-transform group-hover:scale-105" style={{ backgroundColor: "var(--app-text)", color: "var(--app-surface)" }}>
               <PlayGlyph />
             </span>
-            <span className="h-1 flex-1 rounded-full overflow-hidden" style={{ backgroundColor: "rgba(247,247,244,0.25)" }}>
+            <span className="h-1 flex-1 rounded-full overflow-hidden" style={{ backgroundColor: "var(--app-hairline-raised)" }}>
               <span className="block h-full" style={{ width: live ? "100%" : "0%", backgroundColor: "var(--garden-citron)" }} />
-            </span>
-            <span className="text-xs uppercase tracking-[0.1em]" style={{ ...MONO, color: "#f7f7f4" }}>
-              {live ? "Live" : episode ? "Up next" : "Watch"}
             </span>
           </div>
         </a>
       </div>
     </section>
+  );
+}
+
+/** An open production notebook beside a clapperboard, in hairline strokes —
+    muted on purpose, so it reads as the show's placeholder, not as artwork. */
+function NotebookDrawing() {
+  return (
+    <svg
+      viewBox="0 0 320 180"
+      className="absolute inset-0 h-full w-full"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.5}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      style={{ color: "var(--app-text-dim)" }}
+    >
+      {/* notebook, open, two pages and a spiral */}
+      <path d="M58 44h78v96H58zM140 44h78v96h-78z" />
+      {[52, 62, 72, 82, 92, 102, 112, 122, 132].map((y) => (
+        <circle key={y} cx="138" cy={y} r="2.2" />
+      ))}
+      {[62, 74, 86, 98, 110].map((y) => (
+        <path key={`l${y}`} d={`M68 ${y}h${y === 62 ? 40 : 58}`} opacity="0.7" />
+      ))}
+      {/* a shot list on the right page: boxes and scribbles */}
+      <path d="M150 58h24v16h-24zM180 62h28M180 68h20M150 82h24v16h-24zM180 86h28M180 92h16M150 106h24v16h-24zM180 110h24" opacity="0.7" />
+      {/* clapperboard */}
+      <path d="M232 88h52v44h-52z" />
+      <path d="M232 88l6-16 52 -6 -6 16" />
+      <path d="M246 70l-4 16M260 68l-4 16M274 67l-4 16" opacity="0.7" />
+      <path d="M240 100h36M240 110h26M240 120h30" opacity="0.6" />
+    </svg>
   );
 }
 
@@ -328,24 +348,35 @@ function StatusPill({ live, when }: { live: boolean; when: string | null }) {
 // ——————————————————————————————————————————————————————————————
 
 function FeaturedProject({ project }: { project: Project }) {
+  // The team and its open roles are what someone deciding whether to join
+  // needs; only the featured card pays for these two lookups.
+  const team = useQuery(api.garden.projectTeam.getTeam, { projectId: project._id });
+  const roles = useQuery(api.garden.projectTeam.listRoles, { projectId: project._id });
   const cover = coverOf(project);
   const funded = fundingOf(project);
-  const deadline = project.kind === "passion" && project.raiseByDate && project.raiseByDate > Date.now() ? project.raiseByDate : null;
-  const facts: { label: string; value: string }[] = [];
-  if (deadline) facts.push({ label: "Deadline", value: formatDay(deadline) });
-  if (project.supportCount > 0) facts.push({ label: "Backers", value: String(project.supportCount) });
-  if (project.creator) facts.push({ label: "By", value: project.creator.name });
+  const deadline = project.raiseByDate && project.raiseByDate > Date.now() ? project.raiseByDate : null;
+  const openRoles = roles ? roles.filter((r) => r.status === "open").length : null;
+
+  const facts: { label: string; value: string }[] = [{ label: "Stage", value: stageLabel(resolveStage(project)) }];
   if (project.kind === "paid") {
     const money = moneyOf(project);
-    if (money) facts.unshift({ label: "Pay", value: money });
+    if (money) facts.push({ label: "Pay", value: money });
   }
+  if (deadline) facts.push({ label: "Deadline", value: formatDay(deadline) });
+  if (team) facts.push({ label: "Team", value: String(1 + team.accepted.length) });
+  if (openRoles) facts.push({ label: "Open roles", value: String(openRoles) });
+  if (project.supportCount > 0) facts.push({ label: "Backers", value: String(project.supportCount) });
+  if (project.creator) facts.push({ label: "Lead", value: project.creator.name });
 
   return (
-    <article className="grid overflow-hidden rounded-xl border md:grid-cols-2" style={CARD}>
-      <Link to={`/projects/${project._id}`} className="block aspect-[4/3] md:aspect-auto md:min-h-[320px]" style={cover ? { backgroundColor: "#121212" } : HATCH} tabIndex={-1} aria-hidden>
-        {cover && <img src={cover} alt="" className="h-full w-full object-cover" />}
+    <article className="grid overflow-hidden rounded-xl border md:grid-cols-[2fr_3fr]" style={CARD}>
+      <Link to={`/projects/${project._id}`} className="block aspect-[16/9] md:aspect-auto md:min-h-[240px]" style={{ backgroundColor: "#121212" }} tabIndex={-1} aria-hidden>
+        {cover ? <img src={cover} alt="" className="h-full w-full object-cover" /> : <AbstractCover seed={project._id} />}
       </Link>
-      <div className="flex flex-col p-6 md:p-8">
+      <div className="flex flex-col p-7 md:p-10">
+        {/* Badges get their own line. Sharing the title's line squeezed
+            "Small Acts: Neighbors" onto two lines for the sake of two pills;
+            the title is the thing, the badges are incidental to it. */}
         <Badges project={project} />
         <h3 className="mt-4 text-[32px] leading-tight font-semibold tracking-[-0.01em]" style={DISPLAY}>
           <Link to={`/projects/${project._id}`} className="hover:underline">
@@ -353,12 +384,12 @@ function FeaturedProject({ project }: { project: Project }) {
           </Link>
         </h3>
         {project.blurb && (
-          <p className="mt-3 text-[15px] leading-relaxed" style={{ color: "var(--app-text-muted)" }}>
+          <p className="mt-4 text-[15px] leading-relaxed" style={{ color: "var(--app-text-muted)" }}>
             {project.blurb}
           </p>
         )}
         {funded && (
-          <div className="mt-5">
+          <div className="mt-7">
             <div className="flex justify-between text-xs mb-2" style={{ ...MONO, color: "var(--app-text-dim)" }}>
               <span>
                 {funded.raised} of {funded.goal} raised
@@ -370,60 +401,65 @@ function FeaturedProject({ project }: { project: Project }) {
             </div>
           </div>
         )}
-        {facts.length > 0 && (
-          <dl className="mt-5 grid grid-cols-3 gap-4">
-            {facts.slice(0, 3).map((f) => (
-              <div key={f.label} className="min-w-0">
-                <dt className="text-xs uppercase tracking-[0.1em]" style={{ ...MONO, color: "var(--app-text-dim)" }}>
-                  {f.label}
-                </dt>
-                <dd className="mt-1 text-[15px] truncate">{f.value}</dd>
-              </div>
-            ))}
-          </dl>
-        )}
-        <div className="mt-auto pt-6 flex flex-wrap gap-2">
-          <PrimaryLink to={`/projects/${project._id}`}>{ctaOf(project)}</PrimaryLink>
-          {project.creator && <SecondaryLink to={`/profile/${project.creator._id}`}>About {firstName(project.creator.name)}</SecondaryLink>}
+        <dl className="mt-7 grid grid-cols-2 sm:grid-cols-3 gap-x-8 gap-y-5">
+          {facts.map((f) => (
+            <div key={f.label} className="min-w-0">
+              <dt className="text-xs uppercase tracking-[0.1em]" style={{ ...MONO, color: "var(--app-text-dim)" }}>
+                {f.label}
+              </dt>
+              <dd className="mt-1 text-[15px] truncate">{f.value}</dd>
+            </div>
+          ))}
+        </dl>
+        <div className="mt-auto pt-8">
+          <PrimaryLink to={`/projects/${project._id}`}>See the project</PrimaryLink>
         </div>
       </div>
     </article>
   );
 }
 
-function ProjectRow({ project }: { project: Project }) {
+/** One open project, set wide: image on one side, words on the other, and
+    the sides swap on every other row so a short list reads as a walk past
+    a few things rather than a stack of identical cards. No card border —
+    the space between rows is the separator. The whole row is the link. */
+function ProjectRow({ project, flip }: { project: Project; flip: boolean }) {
   const cover = coverOf(project);
   const funded = fundingOf(project);
   const daysLeft = project.raiseByDate && project.raiseByDate > Date.now() ? Math.max(1, Math.ceil((project.raiseByDate - Date.now()) / 86400000)) : null;
+  const meta = [
+    stageLabel(resolveStage(project)),
+    project.creator?.name ?? "A Garden creative",
+    funded ? `${funded.raised} of ${funded.goal}` : null,
+    daysLeft ? `${daysLeft} ${daysLeft === 1 ? "day" : "days"} left` : null,
+  ].filter(Boolean);
   return (
     <Link
       to={`/projects/${project._id}`}
-      className="group grid gap-4 rounded-xl border p-3 transition-colors hover:border-[var(--app-hairline-raised)] sm:grid-cols-[180px_1fr]"
-      style={CARD}
+      className="group grid items-center gap-8 md:grid-cols-2 md:gap-14"
     >
-      <div className="hidden sm:block aspect-[16/10] overflow-hidden rounded-lg" style={cover ? { backgroundColor: "#121212" } : HATCH}>
-        {cover && <img src={cover} alt="" className="h-full w-full object-cover" />}
+      <div
+        className={`aspect-[4/3] overflow-hidden rounded-xl transition-transform duration-300 group-hover:scale-[1.01] ${flip ? "md:order-2" : ""}`}
+        style={{ backgroundColor: "#121212" }}
+      >
+        {cover ? <img src={cover} alt="" className="h-full w-full object-cover" /> : <AbstractCover seed={project._id} />}
       </div>
-      <div className="flex min-w-0 flex-col py-1 pr-1">
-        <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
-          <h3 className="text-lg font-semibold leading-snug group-hover:underline" style={DISPLAY}>
-            {project.title}
-          </h3>
-          <Badges project={project} />
-        </div>
+      <div className={`min-w-0 ${flip ? "md:order-1" : ""}`}>
+        <Badges project={project} />
+        <h3 className="mt-4 text-[26px] md:text-[30px] leading-tight font-semibold tracking-[-0.01em] group-hover:underline" style={DISPLAY}>
+          {project.title}
+        </h3>
         {project.blurb && (
-          <p className="mt-1 text-sm line-clamp-2" style={{ color: "var(--app-text-muted)" }}>
+          <p className="mt-3 text-[15px] leading-relaxed line-clamp-3" style={{ color: "var(--app-text-muted)" }}>
             {project.blurb}
           </p>
         )}
-        <div className="mt-auto pt-3 flex flex-wrap items-center justify-between gap-2 text-xs uppercase tracking-[0.08em]" style={{ ...MONO, color: "var(--app-text-dim)" }}>
-          <span>
-            {project.creator?.name ?? "A Garden creative"}
-            {funded ? ` · ${funded.raised} of ${funded.goal}` : ""}
-            {daysLeft ? ` · ${daysLeft} ${daysLeft === 1 ? "day" : "days"} left` : ""}
-          </span>
-          <span style={{ color: "var(--app-accent-ink)" }}>{ctaOf(project)} →</span>
-        </div>
+        <p className="mt-5 text-xs uppercase tracking-[0.08em]" style={{ ...MONO, color: "var(--app-text-dim)" }}>
+          {meta.join(" · ")}
+        </p>
+        <span className="mt-6 inline-block text-xs uppercase tracking-[0.1em]" style={{ ...MONO, color: "var(--app-accent-ink)" }}>
+          See →
+        </span>
       </div>
     </Link>
   );
@@ -434,11 +470,13 @@ function GigRow({ project }: { project: Project }) {
   const when = project.gig ? (project.gig.nextDateLabel ? `${project.gig.schedule} · next ${project.gig.nextDateLabel}` : project.gig.schedule) : project.location;
   const money = moneyOf(project);
   return (
-    <div className="grid items-center gap-3 px-4 py-3.5 sm:grid-cols-[1fr_auto_auto_auto]" style={{ borderColor: "var(--app-hairline)" }}>
+    <Link
+      to={`/projects/${project._id}`}
+      className="group grid items-center gap-4 px-5 py-5 transition-colors hover:bg-[var(--app-hairline)] sm:grid-cols-[1fr_auto_auto_auto]"
+      style={{ borderColor: "var(--app-hairline)" }}
+    >
       <div className="min-w-0">
-        <Link to={`/projects/${project._id}`} className="block truncate text-[15px] font-medium hover:underline">
-          {project.title}
-        </Link>
+        <span className="block truncate text-[15px] font-medium group-hover:underline">{project.title}</span>
         <p className="truncate text-[13px]" style={{ color: "var(--app-text-dim)" }}>
           {[project.creator?.name, when].filter(Boolean).join(" · ")}
         </p>
@@ -450,10 +488,10 @@ function GigRow({ project }: { project: Project }) {
       <span className="text-lg font-semibold whitespace-nowrap sm:text-right" style={{ ...DISPLAY, color: "var(--app-accent-ink)" }}>
         {money ?? ""}
       </span>
-      <SecondaryLink to={`/projects/${project._id}`} small>
-        {project.gig ? "Respond" : "Apply"}
-      </SecondaryLink>
-    </div>
+      <span className="text-xs uppercase tracking-[0.08em] whitespace-nowrap" style={{ ...MONO, color: "var(--app-accent-ink)" }}>
+        See →
+      </span>
+    </Link>
   );
 }
 
@@ -461,7 +499,7 @@ function Badges({ project }: { project: Project }) {
   const topic = topicsOf(project)[0];
   return (
     <div className="flex flex-wrap gap-1.5">
-      <Tag accent={project.kind === "paid"}>{project.kind === "paid" ? (project.gig ? "Gig" : "Paid") : "Passion"}</Tag>
+      <Tag accent>{project.kind === "paid" ? (project.gig ? "Gig" : "Paid") : "Passion"}</Tag>
       {topic && <Tag>{topic}</Tag>}
       {project.community && <Tag>{project.community.name}</Tag>}
     </div>
@@ -528,8 +566,8 @@ function BackersCard() {
 
 function Section({ title, mono, action, children }: { title: string; mono?: boolean; action?: ReactNode; children: ReactNode }) {
   return (
-    <section className="mt-14">
-      <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+    <section className="mt-32">
+      <div className="mb-8 flex flex-wrap items-end justify-between gap-3">
         {mono ? (
           <MonoLabel as="h2">{title}</MonoLabel>
         ) : (
@@ -561,37 +599,19 @@ function SectionLink({ to, children }: { to: string; children: ReactNode }) {
   );
 }
 
+/** A filled pill, so it reads as a badge and not as a bordered label. */
 function Tag({ children, accent }: { children: ReactNode; accent?: boolean }) {
   return (
     <span
-      className="rounded px-2 py-0.5 text-xs uppercase tracking-[0.08em] whitespace-nowrap border"
+      className="rounded-full px-2.5 py-1 text-xs font-medium uppercase tracking-[0.06em] whitespace-nowrap"
       style={{
         ...MONO,
-        borderColor: accent ? "transparent" : "var(--app-hairline-raised)",
-        backgroundColor: accent ? "var(--app-accent-wash)" : "transparent",
-        color: accent ? "var(--app-accent-ink)" : "var(--app-text-muted)",
+        backgroundColor: accent ? "var(--app-accent-wash)" : "var(--app-hairline)",
+        color: accent ? "var(--app-accent-ink)" : "var(--app-text)",
       }}
     >
       {children}
     </span>
-  );
-}
-
-function Chip({ active, onClick, children }: { active: boolean; onClick: () => void; children: ReactNode }) {
-  return (
-    <button
-      type="button"
-      aria-pressed={active}
-      onClick={onClick}
-      className="rounded-full border px-3 py-1.5 text-[13.5px] transition-colors"
-      style={{
-        borderColor: active ? "var(--app-accent)" : "var(--app-hairline-raised)",
-        backgroundColor: active ? "var(--app-accent-wash)" : "transparent",
-        color: active ? "var(--app-accent-ink)" : "var(--app-text-muted)",
-      }}
-    >
-      {children}
-    </button>
   );
 }
 
@@ -657,6 +677,63 @@ function Skeleton({ height }: { height: number }) {
   return <div className="rounded-xl border animate-pulse" style={{ ...CARD, height }} aria-hidden />;
 }
 
+// Covers for projects with no photo: flat shapes in a muted palette —
+// charcoal grounds, a dull amber and a bone white. Picked from the project
+// id so a project keeps the same cover everywhere. Deliberately plain
+// geometry (rings, bands, a split field, blocks): it has to read as "no
+// picture yet," never as someone's artwork.
+const COVER_GROUNDS = ["#1c1c19", "#23231f", "#2a2926"];
+const COVER_AMBER = "#9c8456";
+const COVER_BONE = "#cfcabd";
+
+function hashSeed(seed: string): number {
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+  return h;
+}
+
+function AbstractCover({ seed }: { seed: string }) {
+  const h = hashSeed(seed);
+  const ground = COVER_GROUNDS[h % COVER_GROUNDS.length];
+  const shade = COVER_GROUNDS[(h + 1) % COVER_GROUNDS.length];
+  const variant = (h >>> 3) % 4;
+  return (
+    <svg viewBox="0 0 160 100" preserveAspectRatio="xMidYMid slice" className="h-full w-full" aria-hidden>
+      <rect width="160" height="100" fill={ground} />
+      {variant === 0 && (
+        <g fill="none">
+          <circle cx="80" cy="50" r="34" stroke={shade} strokeWidth="10" />
+          <circle cx="80" cy="50" r="18" stroke={COVER_AMBER} strokeWidth="1.5" opacity="0.7" />
+          <circle cx="80" cy="50" r="5" fill={COVER_BONE} opacity="0.5" />
+        </g>
+      )}
+      {variant === 1 && (
+        <g>
+          <path d="M0 64 C40 52 80 76 160 58 V100 H0 Z" fill={shade} />
+          <path d="M0 76 C50 66 100 88 160 72 V100 H0 Z" fill={COVER_AMBER} opacity="0.45" />
+          <path d="M0 88 C50 80 110 98 160 86 V100 H0 Z" fill={COVER_BONE} opacity="0.35" />
+          <circle cx="122" cy="26" r="8" fill={COVER_BONE} opacity="0.4" />
+        </g>
+      )}
+      {variant === 2 && (
+        <g>
+          <path d="M0 100 L80 10 L160 100 Z" fill={shade} />
+          <path d="M0 100 L0 58 L34 100 Z" fill={COVER_AMBER} opacity="0.5" />
+          <path d="M160 100 L160 64 L130 100 Z" fill={COVER_BONE} opacity="0.35" />
+        </g>
+      )}
+      {variant === 3 && (
+        <g>
+          <rect x="22" y="18" width="52" height="64" fill={shade} />
+          <rect x="30" y="26" width="36" height="22" fill={COVER_AMBER} opacity="0.5" />
+          <rect x="86" y="18" width="52" height="30" fill={shade} />
+          <path d="M86 58h52M86 66h40M86 74h46" stroke={COVER_BONE} strokeWidth="2" opacity="0.35" />
+        </g>
+      )}
+    </svg>
+  );
+}
+
 function PlayGlyph() {
   return (
     <svg viewBox="0 0 12 12" width="12" height="12" fill="currentColor" aria-hidden>
@@ -693,13 +770,9 @@ function moneyOf(p: Project): string | null {
   return amount && p.gig && p.budgetType === "amount" ? `${amount}/date` : amount;
 }
 
-function ctaOf(p: Project): string {
-  if (p.kind === "paid") return p.gig ? "Respond to the gig" : "Apply";
-  return p.goal && p.goal > 0 ? "Back this project" : "See the project";
-}
-
-function firstName(name: string): string {
-  return name.trim().split(/\s+/)[0] ?? name;
+/** "All 12 projects" / "All gigs" while loading or empty. */
+function countLabel(noun: string, n: number): string {
+  return n > 0 ? `All ${n} ${noun}${n === 1 ? "" : "s"}` : `All ${noun}s`;
 }
 
 function formatToday(): string {

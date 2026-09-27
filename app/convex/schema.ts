@@ -854,6 +854,8 @@ export default defineSchema({
     // ——— Community layer ———
     tagline: v.optional(v.string()), // one line under the name
     description: v.optional(v.string()), // the community's own words (plain text)
+    whyHere: v.optional(v.string()), // plain text, paragraphs separated by blank lines
+    agreements: v.optional(v.array(v.string())), // one agreement per entry
     coverUrl: v.optional(v.string()),
     websiteUrl: v.optional(v.string()),
     locationLabel: v.optional(v.string()), // "San Diego" / "Online" — display only

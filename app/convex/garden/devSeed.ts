@@ -470,9 +470,17 @@ export const seedCommunityLaunch = internalMutation({
     const gardenPatch = {
       name: "The Garden",
       kind: COMMUNITY_KIND,
-      tagline: "Love our neighbors through our craft.",
+      tagline: "A Christian creative community in San Diego. Anyone is welcome.",
       description:
         "The Garden is creatives.exchange's first community — creatives who get their work funded, find collaborators, and gather around real tables, in San Diego and wherever the next table opens. Join free: browse projects, sit in on open tables, show your portfolio. Money is never the only door. When you want your work funded, a seat is $10 a month, and half of every membership funds another creative's project.",
+      whyHere:
+        "Creating faithfully and making a living shouldn't be at odds, and for most of us they have been. We started The Garden so they don't have to be.\n\nWe'd rather back each other's work with our time, our feedback and our money than with likes in a feed, and we'd rather do it in person.",
+      agreements: [
+        "Critique the work, not the person.",
+        "Show up when you said you would.",
+        "Respect people of every faith, and people with none.",
+        "A host can ask anyone who breaks these to leave.",
+      ],
       locationLabel: "San Diego · online",
       status: "active",
       visibility: "public",
@@ -480,7 +488,12 @@ export const seedCommunityLaunch = internalMutation({
     } as const;
     let gardenId;
     if (!garden) {
-      gardenId = await ctx.db.insert("hostOrgs", { ...gardenPatch, slug: "the-garden", createdAt: now });
+      gardenId = await ctx.db.insert("hostOrgs", {
+        ...gardenPatch,
+        agreements: [...gardenPatch.agreements],
+        slug: "the-garden",
+        createdAt: now,
+      });
       created.push("hostOrgs:the-garden");
     } else {
       gardenId = garden._id;
@@ -494,13 +507,15 @@ export const seedCommunityLaunch = internalMutation({
         visibility: gardenPatch.visibility,
         joinPolicy: garden.joinPolicy ?? gardenPatch.joinPolicy,
         tagline:
-          garden.tagline && garden.tagline !== "Kingdom creatives" && !garden.tagline.startsWith("Kingdom creatives —") && garden.tagline !== "Kingdom-minded creatives, funded in the open." && garden.tagline !== "Creatives and the people who back them, gathering in the open."
+          garden.tagline && garden.tagline !== "Kingdom creatives" && !garden.tagline.startsWith("Kingdom creatives —") && garden.tagline !== "Kingdom-minded creatives, funded in the open." && garden.tagline !== "Creatives and the people who back them, gathering in the open." && garden.tagline !== "Love our neighbors through our craft."
             ? garden.tagline
             : gardenPatch.tagline,
         description:
           garden.description && !garden.description.startsWith("A community of Kingdom-minded creatives") && !garden.description.includes("Kingdom-minded creatives who get their work funded")
             ? garden.description
             : gardenPatch.description,
+        whyHere: garden.whyHere ?? gardenPatch.whyHere,
+        agreements: garden.agreements ?? [...gardenPatch.agreements],
         locationLabel: garden.locationLabel ?? gardenPatch.locationLabel,
       });
       found.push("hostOrgs:the-garden");
