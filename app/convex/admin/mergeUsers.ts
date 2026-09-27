@@ -269,3 +269,44 @@ export const mergeUsers = internalMutation({
     return { targetUserId, results };
   },
 });
+
+/**
+ * Sign-in records whose user no longer exists (accounts deleted before
+ * deletion cleaned these up). Someone trying one of those emails gets an
+ * error instead of a sign-up, so they're removed along with anything that
+ * hangs off them. Internal only; `dryRun` reports without deleting. Reports
+ * provider and creation date — never the email.
+ */
+export const deleteOrphanAuthAccounts = internalMutation({
+  args: { dryRun: v.boolean() },
+  handler: async (ctx, { dryRun }) => {
+    const accounts = await ctx.db.query("authAccounts").collect();
+    const orphans: Doc<"authAccounts">[] = [];
+    for (const account of accounts) {
+      if (!(await ctx.db.get(account.userId))) orphans.push(account);
+    }
+    let codes = 0;
+    if (!dryRun) {
+      for (const account of orphans) {
+        const pending = await ctx.db
+          .query("authVerificationCodes")
+          .withIndex("accountId", (q) => q.eq("accountId", account._id))
+          .collect();
+        for (const code of pending) {
+          await ctx.db.delete(code._id);
+          codes++;
+        }
+        await ctx.db.delete(account._id);
+      }
+    }
+    return {
+      dryRun,
+      orphanCount: orphans.length,
+      verificationCodesDeleted: codes,
+      orphans: orphans.map((a) => ({
+        provider: a.provider,
+        created: new Date(a._creationTime).toISOString().slice(0, 10),
+      })),
+    };
+  },
+});

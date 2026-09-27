@@ -65,8 +65,8 @@ function isPublicPathname(pathname: string): boolean {
 // "Spaces" is /communities (2026-09-14, product decision) — see NAV_ITEMS'
 // own comment for the full history.
 const NAV_ICONS = {
-  "/people": SearchIcon,
-  "/projects": BriefcaseIcon,
+  "/people": PersonIcon,
+  "/projects": BrushIcon,
   "/events": CalendarIcon,
   "/communities": GridIcon,
   "/offerings": ClassesIcon,
@@ -495,24 +495,6 @@ export default function AppLayout() {
   );
 }
 
-function SearchIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke="currentColor"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-      />
-    </svg>
-  );
-}
-
 function CalendarIcon({ className }: { className?: string }) {
   return (
     <svg
@@ -548,7 +530,6 @@ function ClassesIcon({ className }: { className?: string }) {
     </svg>
   );
 }
-
 
 function UserIcon({ className }: { className?: string }) {
   return (
@@ -599,24 +580,6 @@ function GridIcon({ className }: { className?: string }) {
         strokeLinejoin="round"
         strokeWidth={2}
         d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"
-      />
-    </svg>
-  );
-}
-
-function BriefcaseIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke="currentColor"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
       />
     </svg>
   );
@@ -731,6 +694,27 @@ function SunIcon({ className }: { className?: string }) {
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
       <circle cx="12" cy="12" r="4" />
       <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
+    </svg>
+  );
+}
+
+/** People: a stick figure — the page is people, not a search box. */
+function PersonIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="4.5" r="2.5" />
+      <path d="M12 7v7M12 14l-4 7M12 14l4 7M6 10.5h12" />
+    </svg>
+  );
+}
+
+/** Projects: a paintbrush — work being made, not a job board. */
+function BrushIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20.5 3.5 11 13" />
+      <path d="M9.5 11.5 12.5 14.5" />
+      <path d="M10 14c-2 0-3.5 1.5-3.5 3.5S5 21 3 21c2.5 1 7 .5 7.5-3 .2-1.5-.2-2.8-.5-4z" />
     </svg>
   );
 }
