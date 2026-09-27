@@ -364,7 +364,7 @@ export default function Onboarding() {
 
             <div className="mb-6">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                What do you do? <span className="text-red-500">*</span>
+                Interests <span className="text-red-500">*</span>
               </label>
               <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">Select all that apply</p>
               <div className="grid grid-cols-2 gap-2">
@@ -706,9 +706,9 @@ export default function Onboarding() {
         {step === 4 && primaryRole === "creative" && (
           <FinishScreen
             title="You're all set!"
-            body="Your profile is complete. Time to explore and connect with the community."
-            cta="Explore The Exchange"
-            onFinish={() => finish("/today")}
+            body="Next, add your work and a photo so people can see what you make."
+            cta="Go to your profile"
+            onFinish={() => finish("/settings")}
           />
         )}
       </div>

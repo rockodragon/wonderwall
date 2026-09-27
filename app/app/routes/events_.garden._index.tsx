@@ -53,6 +53,10 @@ type EventRow = {
   tags: string[];
   priceCents?: number;
   community?: { name: string; slug: string } | null;
+  /** Resolved by events.list: the uploaded cover, else the first gallery image. */
+  coverImageUrl?: string | null;
+  /** The still fetched for a pasted Instagram/YouTube/etc. link. */
+  mediaPreviewUrl?: string;
 };
 
 /** The `events` table has no dedicated price field today — if one lands
@@ -75,8 +79,24 @@ function EventCard({ event }: { event: EventRow }) {
       to={`/garden/events/${event._id}`}
       aria-label={event.title}
       className="g-card"
-      style={{ display: "block", textDecoration: "none", color: "inherit" }}
+      style={{ display: "block", textDecoration: "none", color: "inherit", overflow: "hidden" }}
     >
+      {(event.coverImageUrl || event.mediaPreviewUrl) && (
+        <img
+          src={event.coverImageUrl ?? event.mediaPreviewUrl}
+          alt=""
+          loading="lazy"
+          style={{
+            display: "block",
+            // Bleeds to the card's edges: .g-card pads 20px / 24px.
+            width: "calc(100% + 48px)",
+            margin: "-20px -24px 14px",
+            aspectRatio: "16 / 9",
+            objectFit: "cover",
+            background: "var(--g-ink)",
+          }}
+        />
+      )}
       <div className="g-h" style={{ fontSize: 17 }}>
         {event.title}
       </div>

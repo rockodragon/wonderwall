@@ -60,5 +60,13 @@ export function normalizeInviteCode(raw: string | undefined | null): string {
     return decodeURIComponent(inviteParamMatch[1]);
   }
 
-  return trimmed.toUpperCase().replace(/[\s-]+/g, "");
+  // A typed new-style code ("k7m4-qd", "k7m4 qd") → "K7M4QD". Anything
+  // else is an older name-based code ("RICK-MOY", "Rick Moy") — those were
+  // stored lowercase with dashes, so keep the dashes and lowercase it
+  // rather than stripping it into something that can never match.
+  const compact = trimmed.toUpperCase().replace(/[\s-]+/g, "");
+  if (compact.length === CODE_LENGTH && [...compact].every((c) => CODE_ALPHABET.includes(c))) {
+    return compact;
+  }
+  return trimmed.toLowerCase().replace(/\s+/g, "-");
 }

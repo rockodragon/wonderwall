@@ -1873,4 +1873,28 @@ export default defineSchema({
     phone: v.string(), // normalized E.164, e.g. "+16195550100"
     sentAt: v.number(),
   }).index("by_phone_sentAt", ["phone", "sentAt"]),
+
+  // Settings → "Phone number" (convex/phoneLink.ts): a pending code for
+  // attaching a phone number to an ALREADY signed-in account, so they can
+  // later sign in by phone into the same account. One row per user — a new
+  // startAddPhone call replaces whatever was pending. Never stores the
+  // code itself, only a SHA-256 hash of it (codeHash), so a database read
+  // can't recover a live code.
+  phoneLinkCodes: defineTable({
+    userId: v.id("users"),
+    phone: v.string(), // normalized E.164 being added
+    codeHash: v.string(), // sha256 hex of the 6-digit code
+    expiresAt: v.number(),
+    attempts: v.number(),
+  }).index("by_userId", ["userId"]),
+
+  // Anti-abuse cap alongside phoneSendLimits' per-number cap: also limits
+  // how many "text me a code" *starts* one signed-in user can trigger per
+  // hour, regardless of how many different numbers they try. One row per
+  // start (mirrors phoneSendLimits' log-of-events shape, rather than a
+  // single counter, so the window can slide).
+  phoneLinkStarts: defineTable({
+    userId: v.id("users"),
+    startedAt: v.number(),
+  }).index("by_userId_startedAt", ["userId", "startedAt"]),
 }, { schemaValidation: false });

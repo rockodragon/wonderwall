@@ -139,25 +139,6 @@ export default function Home() {
 
           {/* Right column — waitlist + how the money works */}
           <div className="md:col-span-5 min-w-0 flex flex-col gap-7 pb-1.5">
-            <div
-              className="flex items-center gap-2 text-[var(--garden-dim)] text-xs tracking-[0.1em] uppercase"
-              style={{ fontFamily: monoFont }}
-            >
-              <svg
-                className="w-3.5 h-3.5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-                />
-              </svg>
-              Closed beta · invite only
-            </div>
 
             {/* Row 1 — have an invite code: the more prominent path */}
             <form
@@ -248,12 +229,12 @@ export default function Home() {
               }}
             />
 
-            {/* How the money works — the one line a creative wants before
-                scrolling. */}
+            {/* One line, no splits: how the money works is explained once
+                someone is in, not on the front door. */}
             <ul className="flex flex-col gap-3 text-[15px] leading-[1.5] text-[var(--garden-body)]">
               <li className="flex gap-3">
                 <span className="text-[var(--garden-citron)] shrink-0" aria-hidden="true">—</span>
-                <span>Free to join. {CLAIMS.backingShort}</span>
+                <span>{CLAIMS.join}</span>
               </li>
             </ul>
           </div>

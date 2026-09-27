@@ -23,25 +23,26 @@ import { followEachOther } from "./follows";
 // an old lowercase, dashed slug, since uppercasing one of those doesn't
 // produce another real slug.
 async function findInviterProfile(ctx: QueryCtx | MutationCtx, code: string) {
-  const bySlug = await ctx.db
-    .query("profiles")
-    .withIndex("by_inviteSlug", (q) => q.eq("inviteSlug", code))
-    .first();
-  if (bySlug) return bySlug;
-
-  const upper = code.toUpperCase();
-  if (upper !== code) {
-    const byUpperSlug = await ctx.db
+  // However the code arrived — typed, pasted, any case — try the shapes it
+  // could be stored in: as given, lowercase (old name-based slugs like
+  // "rick-moy"), and uppercase without dashes (new 6-character codes and
+  // admin codes). Each is one indexed lookup.
+  const candidates = [...new Set([code, code.toLowerCase(), code.toUpperCase().replace(/[\s-]+/g, "")])];
+  for (const candidate of candidates) {
+    const bySlug = await ctx.db
       .query("profiles")
-      .withIndex("by_inviteSlug", (q) => q.eq("inviteSlug", upper))
+      .withIndex("by_inviteSlug", (q) => q.eq("inviteSlug", candidate))
       .first();
-    if (byUpperSlug) return byUpperSlug;
+    if (bySlug) return bySlug;
   }
-
-  return await ctx.db
-    .query("profiles")
-    .withIndex("by_adminCode", (q) => q.eq("adminCode", code))
-    .first();
+  for (const candidate of [...new Set([code, code.toUpperCase()])]) {
+    const byAdmin = await ctx.db
+      .query("profiles")
+      .withIndex("by_adminCode", (q) => q.eq("adminCode", candidate))
+      .first();
+    if (byAdmin) return byAdmin;
+  }
+  return null;
 }
 
 function generateCode(): string {

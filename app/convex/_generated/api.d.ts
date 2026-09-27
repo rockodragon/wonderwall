@@ -9,11 +9,13 @@
  */
 
 import type * as admin from "../admin.js";
+import type * as admin_mergeUsers from "../admin/mergeUsers.js";
 import type * as adminEmails from "../adminEmails.js";
 import type * as analytics from "../analytics.js";
 import type * as announcements from "../announcements.js";
 import type * as artifacts from "../artifacts.js";
 import type * as auth from "../auth.js";
+import type * as authLinking from "../authLinking.js";
 import type * as crawler from "../crawler.js";
 import type * as crawlerClassifier from "../crawlerClassifier.js";
 import type * as crawlerExport from "../crawlerExport.js";
@@ -91,6 +93,8 @@ import type * as notifications from "../notifications.js";
 import type * as offerings from "../offerings.js";
 import type * as ogParse from "../ogParse.js";
 import type * as phone from "../phone.js";
+import type * as phoneLink from "../phoneLink.js";
+import type * as phoneLinkCore from "../phoneLinkCore.js";
 import type * as posthog from "../posthog.js";
 import type * as profiles from "../profiles.js";
 import type * as public_ from "../public.js";
@@ -98,6 +102,7 @@ import type * as resendWebhook from "../resendWebhook.js";
 import type * as scraperService from "../scraperService.js";
 import type * as seed from "../seed.js";
 import type * as showcase from "../showcase.js";
+import type * as smsSender from "../smsSender.js";
 import type * as sourceParsers from "../sourceParsers.js";
 import type * as videoEmbed from "../videoEmbed.js";
 import type * as waitlist from "../waitlist.js";
@@ -111,11 +116,13 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   admin: typeof admin;
+  "admin/mergeUsers": typeof admin_mergeUsers;
   adminEmails: typeof adminEmails;
   analytics: typeof analytics;
   announcements: typeof announcements;
   artifacts: typeof artifacts;
   auth: typeof auth;
+  authLinking: typeof authLinking;
   crawler: typeof crawler;
   crawlerClassifier: typeof crawlerClassifier;
   crawlerExport: typeof crawlerExport;
@@ -193,6 +200,8 @@ declare const fullApi: ApiFromModules<{
   offerings: typeof offerings;
   ogParse: typeof ogParse;
   phone: typeof phone;
+  phoneLink: typeof phoneLink;
+  phoneLinkCore: typeof phoneLinkCore;
   posthog: typeof posthog;
   profiles: typeof profiles;
   public: typeof public_;
@@ -200,6 +209,7 @@ declare const fullApi: ApiFromModules<{
   scraperService: typeof scraperService;
   seed: typeof seed;
   showcase: typeof showcase;
+  smsSender: typeof smsSender;
   sourceParsers: typeof sourceParsers;
   videoEmbed: typeof videoEmbed;
   waitlist: typeof waitlist;

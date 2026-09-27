@@ -57,6 +57,10 @@ export default function Signup() {
   const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");
   const [phoneStep, setPhoneStep] = useState<"phone" | "code">("phone");
+  // Phone code or password — both visible, both ask for name and email
+  // first, because every account needs an email (receipts, notifications)
+  // no matter how the person signs in.
+  const [method, setMethod] = useState<"phone" | "password">("phone");
   const [phoneError, setPhoneError] = useState("");
   const [phoneLoading, setPhoneLoading] = useState(false);
 
@@ -68,6 +72,7 @@ export default function Signup() {
 
   const redeemInvite = useMutation(api.invites.redeemBySlug);
   const generateSlug = useMutation(api.invites.generateInviteSlug);
+  const upsertProfile = useMutation(api.profiles.upsertProfile);
 
   // Shared by every sign-up path (password, Google, phone): the invite
   // must exist, be loaded, and still have room. Returns the error message
@@ -111,6 +116,15 @@ export default function Signup() {
       return;
     }
 
+    if (!name.trim()) {
+      setPhoneError("Add your name.");
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setPhoneError("Add an email we can reach you at.");
+      return;
+    }
+
     const normalized = normalizePhone(phone);
     if (!normalized.ok) {
       setPhoneError(normalized.reason);
@@ -143,6 +157,15 @@ export default function Signup() {
 
     try {
       await signIn("phone", { phone, code });
+
+      // A phone sign-in carries no email or name; save the ones they typed.
+      try {
+        await upsertProfile({ name: name.trim(), email: email.trim() });
+      } catch (err) {
+        posthog?.capture("phone_signup_profile_error", {
+          error: err instanceof Error ? err.message : "Unknown error",
+        });
+      }
 
       await redeemInviteAfterSignIn();
 
@@ -413,7 +436,67 @@ export default function Signup() {
             Create your account
           </h1>
 
-          {phoneStep === "phone" ? (
+          {phoneStep === "phone" && (
+            <div className="space-y-4 mb-5">
+              <div>
+                <label htmlFor="name" className="block text-[13.5px] font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Name
+                </label>
+                <input
+                  id="name"
+                  type="text"
+                  autoComplete="name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="w-full px-4 py-3 text-[13.5px] border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Your name"
+                  required
+                />
+              </div>
+              <div>
+                <label htmlFor="email" className="block text-[13.5px] font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Email
+                </label>
+                <input
+                  id="email"
+                  type="email"
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full px-4 py-3 text-[13.5px] border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="you@example.com"
+                  required
+                />
+              </div>
+              <div
+                className="grid grid-cols-2 gap-1 rounded-lg p-1 bg-gray-100 dark:bg-gray-900"
+                role="group"
+                aria-label="How do you want to sign in?"
+              >
+                {(["phone", "password"] as const).map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    aria-pressed={method === m}
+                    onClick={() => {
+                      setMethod(m);
+                      setError("");
+                      setPhoneError("");
+                    }}
+                    className={`rounded-md px-3 py-2.5 text-[13.5px] font-medium transition-colors ${
+                      method === m
+                        ? "bg-white text-gray-900 shadow-sm dark:bg-gray-700 dark:text-white"
+                        : "text-gray-600 dark:text-gray-400"
+                    }`}
+                  >
+                    {m === "phone" ? "Text me a code" : "Use a password"}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {method === "password" && phoneStep === "phone" ? null : phoneStep === "phone" ? (
             <form onSubmit={handleSendCode} className="space-y-4">
               {phoneError && (
                 <div className="p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg text-[13.5px]">
@@ -503,6 +586,46 @@ export default function Signup() {
             </form>
           )}
 
+          {method === "password" && phoneStep === "phone" && (
+            <form onSubmit={handleSubmit} className="mt-4 space-y-4">
+                {error && (
+                  <div className="p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg text-[13.5px]">
+                    {error}
+                  </div>
+                )}
+  
+                
+  
+                
+  
+                <div>
+                  <label
+                    htmlFor="password"
+                    className="block text-[13.5px] font-medium text-gray-700 dark:text-gray-300 mb-1"
+                  >
+                    Password
+                  </label>
+                  <input
+                    id="password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full px-4 py-3 text-[13.5px] border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="At least 8 characters"
+                    required
+                  />
+                </div>
+  
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg font-medium text-[13.5px] hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {loading ? "Creating account..." : "Sign Up"}
+                </button>
+              </form>
+          )}
+
           <div className="relative my-6">
             <div className="absolute inset-0 flex items-center">
               <div className="w-full border-t border-gray-300 dark:border-gray-600" />
@@ -540,81 +663,7 @@ export default function Signup() {
             {googleLoading ? "Signing up..." : "Google"}
           </button>
 
-          <details className="mt-4 text-[13.5px]">
-            <summary className="cursor-pointer text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white select-none">
-              Other ways to sign up
-            </summary>
 
-            <form onSubmit={handleSubmit} className="mt-4 space-y-4">
-              {error && (
-                <div className="p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg text-[13.5px]">
-                  {error}
-                </div>
-              )}
-
-              <div>
-                <label
-                  htmlFor="name"
-                  className="block text-[13.5px] font-medium text-gray-700 dark:text-gray-300 mb-1"
-                >
-                  Full Name
-                </label>
-                <input
-                  id="name"
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full px-4 py-3 text-[13.5px] border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="John Doe"
-                  required
-                />
-              </div>
-
-              <div>
-                <label
-                  htmlFor="email"
-                  className="block text-[13.5px] font-medium text-gray-700 dark:text-gray-300 mb-1"
-                >
-                  Email
-                </label>
-                <input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-4 py-3 text-[13.5px] border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="you@example.com"
-                  required
-                />
-              </div>
-
-              <div>
-                <label
-                  htmlFor="password"
-                  className="block text-[13.5px] font-medium text-gray-700 dark:text-gray-300 mb-1"
-                >
-                  Password
-                </label>
-                <input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-4 py-3 text-[13.5px] border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="At least 8 characters"
-                  required
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg font-medium text-[13.5px] hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                {loading ? "Creating account..." : "Sign Up"}
-              </button>
-            </form>
-          </details>
 
           {/* Sits below every signup path — phone, the password form, and the
               Google button — because it has to cover whichever one is used.
@@ -651,6 +700,68 @@ export default function Signup() {
 // Accepts a bare code or a pasted /signup/<code> link, validates it with
 // the same query the form uses, then lands on /signup/<code> so the
 // inviter card and the form render as if the link had been clicked.
+
+function RequestToJoin() {
+  const addToWaitlist = useMutation(api.waitlist.addToWaitlist);
+  const [email, setEmail] = useState("");
+  const [status, setStatus] = useState<"idle" | "saving" | "done" | "error">("idle");
+  const [message, setMessage] = useState("");
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setStatus("error");
+      setMessage("Enter an email we can reach you at.");
+      return;
+    }
+    setStatus("saving");
+    try {
+      await addToWaitlist({ email: email.trim() });
+      setStatus("done");
+    } catch (err) {
+      setStatus("error");
+      setMessage(err instanceof Error ? err.message : "That didn't go through. Try again.");
+    }
+  }
+
+  if (status === "done") {
+    return (
+      <p className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700 text-sm text-gray-700 dark:text-gray-300">
+        You're on the list. We'll email {email.trim()} when there's a spot.
+      </p>
+    );
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+      <label htmlFor="waitlist-email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+        No code yet?
+      </label>
+      <div className="flex gap-2">
+        <input
+          id="waitlist-email"
+          type="email"
+          autoComplete="email"
+          value={email}
+          onChange={(e) => {
+            setEmail(e.target.value);
+            if (status === "error") setStatus("idle");
+          }}
+          className="min-w-0 flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          placeholder="you@example.com"
+        />
+        <button
+          type="submit"
+          disabled={status === "saving"}
+          className="shrink-0 px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 text-[13.5px] font-medium text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
+        >
+          {status === "saving" ? "Saving…" : "Request to join"}
+        </button>
+      </div>
+      {status === "error" && <p className="mt-2 text-sm text-red-600 dark:text-red-400">{message}</p>}
+    </form>
+  );
+}
 
 function InviteEntry() {
   const navigate = useNavigate();
@@ -708,10 +819,6 @@ function InviteEntry() {
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
             Create your account
           </h1>
-          <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
-            The Exchange is invite-only right now. Enter the invite code an
-            existing member gave you.
-          </p>
 
           {error && (
             <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg text-sm">
@@ -753,14 +860,10 @@ function InviteEntry() {
             </button>
           </form>
 
+          {/* No code yet: same waitlist as the home page's second row. */}
+          <RequestToJoin />
+
           <div className="mt-6 space-y-2 text-sm text-gray-600 dark:text-gray-400">
-            <p>
-              No invite yet?{" "}
-              <Link to="/" className="text-blue-600 hover:text-blue-500 font-medium">
-                Request to join
-              </Link>
-              , or ask a member — they can share their code from Settings.
-            </p>
             <p>
               Covered by a sponsor? Use the link they gave you — it starts
               with /c/.

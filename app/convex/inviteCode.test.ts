@@ -60,6 +60,13 @@ describe("normalizeInviteCode", () => {
 
   it("returns an empty string for empty input", () => {
     expect(normalizeInviteCode("")).toBe("");
+  });
+
+  it("keeps a typed old name-based code matchable (the RICK-MOY bug)", () => {
+    expect(normalizeInviteCode("RICK-MOY")).toBe("rick-moy");
+    expect(normalizeInviteCode("rick-moy")).toBe("rick-moy");
+    expect(normalizeInviteCode("Rick Moy")).toBe("rick-moy");
+    expect(normalizeInviteCode("rick-moy-2")).toBe("rick-moy-2");
     expect(normalizeInviteCode(undefined)).toBe("");
     expect(normalizeInviteCode(null)).toBe("");
     expect(normalizeInviteCode("   ")).toBe("");

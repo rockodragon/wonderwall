@@ -248,6 +248,10 @@ function EmptyState({ tab }: { tab: TabId }) {
   );
 }
 
+// A visitor sees a handful, not the whole board: enough to show what's being
+// made, with the rest behind an account. People stay fully public on /search.
+const PREVIEW_LIMIT = 6;
+
 export default function Opportunities() {
   const [tab, setTab] = useState<TabId>("paid");
   const projects = useQuery(
@@ -301,11 +305,26 @@ export default function Opportunities() {
         ) : projects.length === 0 ? (
           <EmptyState tab={tab} />
         ) : (
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {projects.map((project) => (
-              <ProjectTile key={project.id} project={project} />
-            ))}
-          </div>
+          <>
+            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {projects.slice(0, PREVIEW_LIMIT).map((project) => (
+                <ProjectTile key={project.id} project={project} />
+              ))}
+            </div>
+            {projects.length > PREVIEW_LIMIT && (
+              <p className="mt-8 text-[var(--garden-body)]">
+                {projects.length - PREVIEW_LIMIT} more once you're in.{" "}
+                <Link to="/login?redirect=%2Fprojects" className="text-[var(--garden-citron)] hover:underline">
+                  Sign in
+                </Link>{" "}
+                or{" "}
+                <Link to="/signup" className="text-[var(--garden-citron)] hover:underline">
+                  create an account
+                </Link>
+                .
+              </p>
+            )}
+          </>
         )}
 
         <div className="mt-16 pt-10 border-t border-[var(--garden-hairline)] max-w-3xl">

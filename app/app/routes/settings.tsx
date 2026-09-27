@@ -161,6 +161,9 @@ export default function Settings() {
         <>
           <EmailSection />
           <div className="mt-8 pt-6 border-t" style={{ borderColor: "var(--app-hairline)" }}>
+            <PhoneSection />
+          </div>
+          <div className="mt-8 pt-6 border-t" style={{ borderColor: "var(--app-hairline)" }}>
             <BlockedSection />
           </div>
           <div className="mt-12 pt-6 border-t" style={{ borderColor: "var(--app-hairline)" }}>
@@ -691,6 +694,183 @@ function EmailSection() {
   );
 }
 
+// Settings → "Phone number" (convex/phoneLink.ts). Lets an already
+// signed-in member attach a number so they can later sign in with a text
+// code, without creating a second account the way sign-in-by-phone alone
+// would (that path only ever creates or matches an account by phone).
+function PhoneSection() {
+  const myPhone = useQuery(api.phoneLink.getMyPhone);
+  const startAddPhone = useMutation(api.phoneLink.startAddPhone);
+  const confirmAddPhone = useMutation(api.phoneLink.confirmAddPhone);
+  const removePhone = useMutation(api.phoneLink.removePhone);
+
+  const [step, setStep] = useState<"idle" | "enterPhone" | "enterCode">("idle");
+  const [phoneInput, setPhoneInput] = useState("");
+  const [codeInput, setCodeInput] = useState("");
+  const [error, setError] = useState("");
+  const [pending, setPending] = useState(false);
+  const [removing, setRemoving] = useState(false);
+
+  if (myPhone === undefined) return null;
+
+  function reset() {
+    setStep("idle");
+    setPhoneInput("");
+    setCodeInput("");
+    setError("");
+  }
+
+  async function handleSendCode(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    setPending(true);
+    try {
+      await startAddPhone({ phone: phoneInput });
+      setStep("enterCode");
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function handleConfirmCode(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    setPending(true);
+    try {
+      await confirmAddPhone({ code: codeInput });
+      reset();
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function handleRemove() {
+    if (!confirm("Remove this phone number? You won't be able to sign in with it anymore.")) return;
+    setRemoving(true);
+    setError("");
+    try {
+      await removePhone();
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setRemoving(false);
+    }
+  }
+
+  return (
+    <div>
+      <h2 className="text-lg font-semibold mb-2" style={{ color: "var(--app-text)" }}>
+        Phone number
+      </h2>
+
+      {myPhone && step === "idle" ? (
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-sm" style={{ color: "var(--app-text-muted)" }}>
+            {myPhone} — you can sign in with a text code.
+          </p>
+          <button
+            onClick={handleRemove}
+            disabled={removing}
+            className="text-sm font-medium disabled:opacity-50 shrink-0 hover:opacity-80"
+            style={{ color: "var(--app-text-dim)" }}
+          >
+            {removing ? "Removing…" : "Remove"}
+          </button>
+        </div>
+      ) : null}
+
+      {!myPhone && step === "idle" && (
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-sm" style={{ color: "var(--app-text-dim)" }}>
+            Add a phone number to sign in with a text code.
+          </p>
+          <button
+            onClick={() => setStep("enterPhone")}
+            className="text-sm font-medium hover:opacity-80 shrink-0"
+            style={{ color: "var(--app-accent-ink)" }}
+          >
+            Add
+          </button>
+        </div>
+      )}
+
+      {myPhone && step === "idle" ? null : step === "enterPhone" ? (
+        <form onSubmit={handleSendCode} className="flex flex-col gap-3 max-w-sm mt-3">
+          <input
+            type="tel"
+            inputMode="tel"
+            autoComplete="tel"
+            value={phoneInput}
+            onChange={(e) => setPhoneInput(e.target.value)}
+            placeholder="(555) 123-4567"
+            className="w-full px-3 py-2 border rounded-lg text-sm outline-none focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent"
+            style={{ borderColor: "var(--app-hairline)", backgroundColor: "var(--app-surface-raised)", color: "var(--app-text)" }}
+          />
+          {error && <p className="text-sm text-red-400">{error}</p>}
+          <div className="flex gap-2">
+            <button
+              type="submit"
+              disabled={pending || !phoneInput.trim()}
+              className="px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 disabled:opacity-50"
+              style={{ backgroundColor: "var(--app-accent)", color: "var(--garden-ink)" }}
+            >
+              {pending ? "Sending…" : "Text me a code"}
+            </button>
+            <button
+              type="button"
+              onClick={reset}
+              className="px-4 py-2 text-sm"
+              style={{ color: "var(--app-text-dim)" }}
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      ) : step === "enterCode" ? (
+        <form onSubmit={handleConfirmCode} className="flex flex-col gap-3 max-w-sm mt-3">
+          <p className="text-sm" style={{ color: "var(--app-text-dim)" }}>
+            We texted a 6-digit code to {phoneInput}.
+          </p>
+          <input
+            type="text"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            maxLength={6}
+            value={codeInput}
+            onChange={(e) => setCodeInput(e.target.value.replace(/\D/g, ""))}
+            placeholder="123456"
+            className="w-full px-3 py-2 border rounded-lg text-sm tracking-widest outline-none focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent"
+            style={{ borderColor: "var(--app-hairline)", backgroundColor: "var(--app-surface-raised)", color: "var(--app-text)" }}
+          />
+          {error && <p className="text-sm text-red-400">{error}</p>}
+          <div className="flex gap-2">
+            <button
+              type="submit"
+              disabled={pending || codeInput.length !== 6}
+              className="px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 disabled:opacity-50"
+              style={{ backgroundColor: "var(--app-accent)", color: "var(--garden-ink)" }}
+            >
+              {pending ? "Confirming…" : "Confirm"}
+            </button>
+            <button
+              type="button"
+              onClick={reset}
+              className="px-4 py-2 text-sm"
+              style={{ color: "var(--app-text-dim)" }}
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      ) : null}
+    </div>
+  );
+}
+
 function BlockedSection() {
   const blocked = useQuery(api.messaging.listBlocked, {});
   const unblockUser = useMutation(api.messaging.unblockUser);
@@ -1132,7 +1312,7 @@ function ProfileEditForm({
         {/* Interests */}
         <div>
           <label className="block text-sm font-medium mb-2" style={{ color: "var(--app-text-muted)" }}>
-            What do you do?
+            Interests
           </label>
           <div className="flex flex-wrap gap-2">
             {INTERESTS.map((fn) => (

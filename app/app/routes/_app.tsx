@@ -122,6 +122,23 @@ export default function AppLayout() {
     if (intent) navigate(intent);
   }, [isAuthenticated, navigate]);
 
+  // A brand-new account goes through onboarding before anything else. The
+  // auth callback (convex/auth.ts afterUserCreatedOrUpdated) creates the
+  // profile as "New User" with nothing filled in; onboarding sets
+  // primaryRole. Requiring BOTH (no role AND an empty profile) keeps members
+  // who joined before primaryRole existed — they have bios and interests —
+  // from being sent back through it. Phone sign-in made this reachable: a
+  // new number lands here with an empty profile and nowhere to go.
+  const needsOnboarding =
+    !!profile &&
+    !profile.primaryRole &&
+    !profile.bio?.trim() &&
+    !(profile.interests?.length) &&
+    (!profile.name?.trim() || profile.name === "New User");
+  useEffect(() => {
+    if (isAuthenticated && needsOnboarding) navigate("/onboarding", { replace: true });
+  }, [isAuthenticated, needsOnboarding, navigate]);
+
   // Identify user in PostHog when authenticated and profile loaded
   useEffect(() => {
     if (isAuthenticated && profile && posthog) {
