@@ -67,12 +67,12 @@ export function GardenWordmark() {
     who's looking: /projects and /events both live inside the _app layout
     and redirect a logged-out visitor to /login, so on a mostly-public page
     — or in the app shell's own sidebar, for a signed-out visitor on one of
-    its public paths (/search, /communities, /offerings, /tables, an event
+    its public paths (/people, /communities, /offerings, /tables, an event
     detail) — the nav was walking strangers into a wall. Signed in → the
     real page; signed out → the public guest equivalent of the same
     content (/opportunities, /garden/events). */
 const ALL_NAV_ITEMS = [
-  { to: "/search", label: "People" },
+  { to: "/people", label: "People" },
   { to: "/projects", publicTo: "/opportunities", label: "Projects" },
   { to: "/events", publicTo: "/garden/events", label: "Events" },
   // "Spaces" is /communities (2026-09-14, product decision) — the directory

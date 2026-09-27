@@ -26,7 +26,7 @@ const VISIT_LIMIT = 3;
 // (Sign in CTAs, no partial forms) rather than being gated at the shell.
 // Prefix match is correct here: /communities, /communities/apply, and every
 // /communities/:slug should all be public.
-const PUBLIC_PATH_PREFIXES = ["/communities", "/search", "/offerings", "/tables"];
+const PUBLIC_PATH_PREFIXES = ["/communities", "/people", "/search", "/offerings", "/tables"];
 
 // /events/:eventId is public too — a calendar invite goes to a guest with
 // no account by design (eventRsvps.userId is optional), and event.tsx's own
@@ -65,7 +65,7 @@ function isPublicPathname(pathname: string): boolean {
 // "Spaces" is /communities (2026-09-14, product decision) — see NAV_ITEMS'
 // own comment for the full history.
 const NAV_ICONS = {
-  "/search": SearchIcon,
+  "/people": SearchIcon,
   "/projects": BriefcaseIcon,
   "/events": CalendarIcon,
   "/communities": GridIcon,

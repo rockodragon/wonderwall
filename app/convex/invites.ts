@@ -531,6 +531,24 @@ export const getMyNetwork = query({
       }
     }
 
+    // Everyone downstream of `id` (their invitees, theirs, and so on),
+    // memoized; `path` guards against cycles in hand-linked data.
+    const subgraphMemo = new Map<string, number>();
+    function subgraphSize(id: string, path = new Set<string>()): number {
+      const cached = subgraphMemo.get(id);
+      if (cached !== undefined) return cached;
+      if (path.has(id)) return 0;
+      path.add(id);
+      let total = 0;
+      for (const child of children.get(id) ?? []) {
+        if (path.has(child)) continue;
+        total += 1 + subgraphSize(child, path);
+      }
+      path.delete(id);
+      subgraphMemo.set(id, total);
+      return total;
+    }
+
     async function person(id: Id<"users">) {
       const profile = await ctx.db
         .query("profiles")
@@ -548,6 +566,8 @@ export const getMyNetwork = query({
         interests: profile.interests.slice(0, 3),
         joinedAt: joinedAt.get(id) ?? profile.createdAt,
         invitedCount: (children.get(id) ?? []).length,
+        // Everyone they brought in, directly or further down.
+        networkCount: subgraphSize(id),
       };
     }
 

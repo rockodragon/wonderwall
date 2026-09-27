@@ -1,76 +1,63 @@
 import { Link } from "react-router";
-import { inviteAllowanceLabel, useInviteLink } from "../lib/useInviteLink";
+import { useInviteLink } from "../lib/useInviteLink";
 
-// Lives in the sidebar (docs/the-exchange-v1-prd.md §5 nav note). Always
-// open, one click to copy: the link is shown in full (wrapping, no
-// truncation) so you can see what you're sending, and "Your network" goes
-// to the Settings tab with the people behind it.
+/** Person-with-a-plus: the invite glyph, shared by the sidebar row and
+ * the People page's "Invite" button. */
+export function InviteIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <circle cx="9" cy="8" r="4" />
+      <path d="M2 21a7 7 0 0114 0M19 8v6M16 11h6" />
+    </svg>
+  );
+}
+
+// Sidebar (docs/the-exchange-v1-prd.md §5 nav note): one row, one click
+// copies your invite link. The full link, Share and the people you've
+// invited live on Settings → Network, which the row falls back to when
+// there's no link to copy (still generating, or out of invites).
 export function InviteCTA() {
-  const { loading, inviteLink, url, displayUrl, hasUsesLeft, copied, copy } =
-    useInviteLink("sidebar");
+  const { loading, url, hasUsesLeft, copied, copy } = useInviteLink("sidebar");
+  const rowClass =
+    "flex w-full items-center gap-3 px-4 py-2.5 rounded-lg text-[15px] text-left transition-colors hover:bg-[var(--app-hairline)]";
+
+  if (loading || !hasUsesLeft || !url) {
+    return (
+      <Link to="/settings?tab=network" className={rowClass} style={{ color: "var(--app-text-muted)" }}>
+        <InviteIcon className="w-5 h-5" />
+        Invite someone
+      </Link>
+    );
+  }
 
   return (
-    <div
-      className="rounded-2xl border p-4"
-      style={{
-        background:
-          "radial-gradient(120% 100% at 0% 0%, rgba(215,242,90,0.12) 0%, var(--garden-ink-raised) 60%)",
-        borderColor: "rgba(215,242,90,0.24)",
-      }}
+    <button
+      type="button"
+      onClick={copy}
+      title={`Copy ${url}`}
+      className={rowClass}
+      style={{ color: copied ? "var(--app-accent-ink)" : "var(--app-text-muted)" }}
     >
-      <h3 className="text-[15px] font-semibold mb-2" style={{ color: "var(--garden-paper)" }}>
-        Invite someone
-      </h3>
+      <InviteIcon className="w-5 h-5" />
+      {copied ? "Invite link copied" : "Invite someone"}
+    </button>
+  );
+}
 
-      {loading ? (
-        <p className="text-xs" style={{ color: "var(--garden-dim)" }}>
-          Getting your link…
-        </p>
-      ) : !hasUsesLeft ? (
-        <p className="text-xs" style={{ color: "var(--garden-dim)" }}>
-          You've used all {inviteLink?.currentLimit} invites. More unlock as
-          the people you invited join and invite others.
-        </p>
-      ) : (
-        <>
-          <button
-            type="button"
-            onClick={copy}
-            title="Copy your invite link"
-            className="block w-full text-left text-xs leading-snug break-all rounded-lg px-2.5 py-2 mb-2 transition-colors hover:opacity-90"
-            style={{
-              fontFamily: "var(--garden-font-mono)",
-              color: "var(--garden-muted)",
-              backgroundColor: "var(--garden-ink)",
-            }}
-          >
-            {displayUrl}
-          </button>
-          <button
-            type="button"
-            onClick={copy}
-            disabled={!url}
-            className="w-full rounded-lg py-2 text-sm font-medium transition-colors"
-            style={{
-              backgroundColor: copied ? "var(--garden-citron)" : "var(--garden-hairline)",
-              color: copied ? "var(--garden-ink)" : "var(--garden-paper)",
-            }}
-          >
-            {copied ? "Copied!" : "Copy invite link"}
-          </button>
-        </>
-      )}
-
-      <div className="mt-2 flex items-center justify-between text-xs" style={{ color: "var(--garden-dim)" }}>
-        <span>{inviteAllowanceLabel(inviteLink)}</span>
-        <Link
-          to="/settings?tab=network"
-          className="font-medium hover:underline"
-          style={{ color: "var(--garden-citron)" }}
-        >
-          Your network →
-        </Link>
-      </div>
-    </div>
+/** "+ Invite" for a page header (People): copies your link in one click. */
+export function InviteButton() {
+  const { loading, url, hasUsesLeft, copied, copy } = useInviteLink("people");
+  if (loading || !hasUsesLeft || !url) return null;
+  return (
+    <button
+      type="button"
+      onClick={copy}
+      title={`Copy ${url}`}
+      className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border shrink-0 transition-colors hover:bg-[var(--app-hairline)]"
+      style={{ borderColor: "var(--app-hairline-raised)", color: "var(--app-text)" }}
+    >
+      <InviteIcon className="w-4 h-4" />
+      {copied ? "Link copied" : "Invite"}
+    </button>
   );
 }
