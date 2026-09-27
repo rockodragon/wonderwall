@@ -8,8 +8,8 @@ import { v } from "convex/values";
 import { mutation, query } from "../_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { ConvexError } from "convex/values";
-import type { MutationCtx } from "../_generated/server";
-import type { Id } from "../_generated/dataModel";
+import type { MutationCtx, QueryCtx } from "../_generated/server";
+import type { Doc, Id } from "../_generated/dataModel";
 import { slugifyTitle, resolveAvailableSlug } from "./stories";
 import { assertCommunityMember } from "./communities";
 import { notifyFollowers } from "../follows";
@@ -193,6 +193,11 @@ export const updateProject = mutation({
     // `location` below, since v.optional means "omitted = leave it alone".
     mediaUrl: v.optional(v.string()),
     interests: v.optional(v.array(v.string())),
+    // "Ask for support" is a step after posting, not part of it (docs/
+    // features/project-ia.md) — so the goal and deadline are editable here.
+    // null clears: omitted already means "leave it alone".
+    goal: v.optional(v.union(v.number(), v.null())),
+    raiseByDate: v.optional(v.union(v.number(), v.null())),
     benefitsNonprofit: v.optional(v.boolean()),
     nonprofitName: v.optional(v.string()),
     ...locationArgs,
@@ -258,6 +263,16 @@ export const updateProject = mutation({
       }
     }
     if (args.interests !== undefined) patch.interests = args.interests;
+    if (args.goal !== undefined) {
+      if (args.goal !== null && (!Number.isFinite(args.goal) || args.goal <= 0)) {
+        throw new ConvexError({
+          code: "invalid_goal",
+          reason: "If you set a support goal, it needs to be a real positive amount.",
+        });
+      }
+      patch.goal = args.goal ?? undefined;
+    }
+    if (args.raiseByDate !== undefined) patch.raiseByDate = args.raiseByDate ?? undefined;
     if (args.benefitsNonprofit !== undefined) patch.benefitsNonprofit = args.benefitsNonprofit;
     if (args.nonprofitName !== undefined) patch.nonprofitName = args.nonprofitName;
     // Location is one group, not five independent fields. When a caller
@@ -403,6 +418,41 @@ export const setStage = mutation({
 // default browse view on purpose.
 const VISIBLE_STATUSES = new Set(["active", "in_progress", "completed"]);
 
+// What a project is asking for, for the two browse views (docs/features/
+// project-ia.md): Projects shows what's raising, Work shows what's hiring.
+// `raising` is the owner's own opt-in — a goal, the "raising" stage, or a
+// live patron tier — never inferred from kind; a gig is paid, never backed.
+// `openRoles` is the open postings only, with just enough to label pay.
+async function summarizeAsks(
+  ctx: QueryCtx,
+  project: Doc<"projects">,
+  hasGig: boolean,
+) {
+  const [roles, tiers] = await Promise.all([
+    ctx.db
+      .query("projectRoles")
+      .withIndex("by_projectId_status", (q) => q.eq("projectId", project._id).eq("status", "open"))
+      .collect(),
+    ctx.db
+      .query("patronTiers")
+      .withIndex("by_projectId", (q) => q.eq("projectId", project._id))
+      .collect(),
+  ]);
+  const raising =
+    !hasGig &&
+    ((project.goal ?? 0) > 0 || project.stage === "raising" || tiers.some((t) => t.isActive));
+  return {
+    raising,
+    openRoles: roles.map((r) => ({
+      roleId: r._id,
+      title: r.title,
+      budgetType: r.budgetType ?? null,
+      budget: r.budget ?? null,
+      budgetMax: r.budgetMax ?? null,
+    })),
+  };
+}
+
 export const listProjects = query({
   args: {},
   handler: async (ctx) => {
@@ -478,6 +528,7 @@ export const listProjects = query({
           supportCount: support.length,
           community: project.hostOrgId ? (communityById.get(String(project.hostOrgId)) ?? null) : null,
           gig,
+          ...(await summarizeAsks(ctx, project, !!gig)),
         };
       }),
     );
@@ -553,6 +604,7 @@ export const getProject = query({
       supportCount: support.length,
       community: communityOrg && communityOrg.kind === "community" ? { name: communityOrg.name, slug: communityOrg.slug } : null,
       gig,
+      ...(await summarizeAsks(ctx, project, !!gig)),
     };
   },
 });
