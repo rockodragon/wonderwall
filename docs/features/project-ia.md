@@ -46,6 +46,17 @@ On projects (never on jobs or gigs):
 - **Cheer them on** — always shown, free. A message or an offer of help or gear (`encouragement` / `resource`).
 - **Back this** — only when the project is raising. Money, once / monthly / yearly, through the existing checkout.
 
+## Profile: Projects vs Portfolio
+
+These are different things: a **piece** (artifact) is one finished thing you made, and a **project** is an effort with a stage, a team, roles and money. They looked duplicated because every quick share of a piece silently creates a companion project (`origin: "portfolio"`), and the profile's Projects list didn't filter those out.
+
+- **Projects** on a profile lists only open, deliberately posted projects (`listAffiliations` skips `origin: "portfolio"`). Each row shows its stage, plus **Hiring** (open roles with pay, or a paid posting's pay), **Booking** (gig dates), and **Raising** ($ of goal). Visitors see there that someone is hiring.
+- **Portfolio** is finished work: completed projects (tagged "Project · role") first, then the individual pieces.
+
+## Back links
+
+The project and work detail pages go **back to the previous page** (a profile, Today, search). On a cold shared link, with no in-app history, they fall back to /projects or /works (`app/lib/useBack.ts`).
+
 ## Not changed
 
 - `kind: "paid"` rows stay as they are. A job is still a paid project with project-level pay, not a project plus one role. Folding jobs into roles is possible later and isn't needed for this change.

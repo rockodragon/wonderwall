@@ -9,6 +9,7 @@ import { FavoriteButton } from "../components/FavoriteButton";
 import { ShareButton } from "../components/ShareButton";
 import { usePostHog } from "@posthog/react";
 import { stageLabel, type Stage } from "../lib/stage";
+import { budgetAmountLabel, budgetKindLabel } from "../lib/budgetLabel";
 
 // Matches listAffiliations's return shape (project-teams.md §4). Annotated
 // explicitly here — not inferred from the query — so this section still
@@ -37,6 +38,8 @@ export default function Profile() {
     api.garden.projectTeam.listAffiliations,
     profile?._id ? { profileId: profile._id } : "skip",
   );
+  const openProjects = (affiliations ?? []).filter((a: any) => !a.completed);
+  const completedProjects = (affiliations ?? []).filter((a: any) => a.completed);
   const getOrCreateConversation = useMutation(
     api.messaging.getOrCreateConversation,
   );
@@ -398,115 +401,95 @@ export default function Profile() {
         </div>
       )}
 
-      {/* Projects this person leads or is on the team of. Above Work —
-          project-teams.md §7 — hidden entirely when there are none.
-          ≤ 3 projects → card grid with thumbnails. ≥ 4 → compact list. */}
-      {affiliations && affiliations.length > 0 && (
+      {/* Open projects this person leads or is on (docs/features/
+          project-ia.md). Completed ones move down into Portfolio, so this
+          section is what they're working on NOW — and whether they're
+          hiring or raising, which is what a visitor came to find out. */}
+      {openProjects.length > 0 && (
         <div className="mb-8">
           <h2 className="text-lg font-semibold mb-4" style={{ color: "var(--app-text)" }}>
             Projects
           </h2>
-          {affiliations.length <= 3 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-              {affiliations.map((a: any) => (
-                <Link
-                  key={a.projectId}
-                  to={`/projects/${a.projectId}`}
-                  className="group block rounded-xl border transition-colors hover:border-[var(--app-accent)] overflow-hidden"
-                  style={{ borderColor: "var(--app-hairline)", backgroundColor: "var(--app-surface-raised)" }}
-                >
+          <div className="divide-y divide-[var(--app-hairline)]">
+            {openProjects.map((a: any) => (
+              <Link
+                key={a.projectId}
+                to={`/projects/${a.projectId}`}
+                className="group flex items-start gap-3 py-3"
+              >
+                {a.imageUrl ? (
+                  <img
+                    src={a.imageUrl}
+                    alt=""
+                    className="w-12 h-12 rounded-lg object-cover shrink-0"
+                  />
+                ) : (
                   <div
-                    className="aspect-[16/10] relative overflow-hidden"
-                    style={{ backgroundColor: "var(--app-hairline-raised)" }}
+                    className="w-12 h-12 rounded-lg shrink-0 flex items-center justify-center text-sm font-semibold"
+                    style={{ backgroundColor: "var(--app-accent-wash)", color: "var(--app-accent-ink)" }}
                   >
-                    {a.imageUrl ? (
-                      <img
-                        src={a.imageUrl}
-                        alt={a.title}
-                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                      />
-                    ) : (
-                      <div
-                        className="w-full h-full flex items-center justify-center"
-                        style={{ backgroundColor: "var(--app-accent-wash)" }}
-                      >
-                        <span
-                          className="text-2xl font-semibold"
-                          style={{ color: "var(--app-accent-ink)" }}
-                        >
-                          {a.title?.charAt(0)}
-                        </span>
-                      </div>
-                    )}
+                    {a.title?.charAt(0)}
                   </div>
-                  <div className="p-4">
-                    <h3 className="font-medium line-clamp-1" style={{ color: "var(--app-text)" }}>
-                      {a.title}
-                    </h3>
-                    <div className="flex items-center justify-between mt-1">
-                      <span className="text-sm" style={{ color: "var(--app-text-muted)" }}>
-                        {a.role || "Lead"}
-                      </span>
-                      <span className="text-xs" style={{ color: "var(--app-text-dim)" }}>
-                        {stageLabel(a.stage as Stage)}
-                      </span>
-                    </div>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          ) : (
-            <div className="divide-y divide-[var(--app-hairline)]">
-              {affiliations.map((a: any) => (
-                <div
-                  key={a.projectId}
-                  className="flex items-center gap-3 py-3"
-                >
-                  {a.imageUrl ? (
-                    <img
-                      src={a.imageUrl}
-                      alt={a.title}
-                      className="w-10 h-10 rounded-lg object-cover shrink-0"
-                    />
-                  ) : (
-                    <div
-                      className="w-10 h-10 rounded-lg shrink-0 flex items-center justify-center text-sm font-semibold"
-                      style={{ backgroundColor: "var(--app-accent-wash)", color: "var(--app-accent-ink)" }}
-                    >
-                      {a.title?.charAt(0)}
-                    </div>
-                  )}
-                  <div className="flex items-baseline justify-between gap-3 flex-wrap flex-1 min-w-0">
+                )}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-baseline justify-between gap-3 flex-wrap">
                     <div className="flex items-baseline gap-2 flex-wrap min-w-0">
-                      <Link
-                        to={`/projects/${a.projectId}`}
-                        className="font-medium hover:underline truncate"
+                      <span
+                        className="font-medium group-hover:underline break-words"
                         style={{ color: "var(--app-text)" }}
                       >
                         {a.title}
-                      </Link>
+                      </span>
                       <span className="text-sm" style={{ color: "var(--app-text-muted)" }}>
                         {a.role || "Lead"}
                       </span>
                     </div>
-                    <span className="text-sm shrink-0" style={{ color: "var(--app-text-dim)" }}>
+                    <span className="text-sm shrink-0" style={{ color: "var(--app-text-muted)" }}>
                       {stageLabel(a.stage as Stage)}
                     </span>
                   </div>
+                  <ProjectStatusLine project={a} />
                 </div>
-              ))}
-            </div>
-          )}
+              </Link>
+            ))}
+          </div>
         </div>
       )}
 
-      {/* Artifacts grid */}
-      {profile.artifacts && profile.artifacts.length > 0 && (
+      {/* Portfolio: finished work — completed projects first, then the
+          individual pieces. */}
+      {(completedProjects.length > 0 || (profile.artifacts && profile.artifacts.length > 0)) && (
         <>
           <h2 className="text-lg font-semibold mb-4" style={{ color: "var(--app-text)" }}>
             Portfolio
           </h2>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            {completedProjects.map((a: any) => (
+              <Link
+                key={a.projectId}
+                to={`/projects/${a.projectId}`}
+                className="relative aspect-square rounded-xl overflow-hidden block hover:ring-2 hover:ring-[var(--app-accent)] transition-all"
+                style={{ backgroundColor: "var(--app-hairline-raised)" }}
+              >
+                {a.imageUrl && (
+                  <img src={a.imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
+                )}
+                <div
+                  className="absolute inset-x-0 bottom-0 p-3"
+                  style={{ background: "linear-gradient(transparent, rgba(0,0,0,0.78))" }}
+                >
+                  <span
+                    className="inline-block mb-1 px-2 py-0.5 rounded-full text-[11px] font-semibold uppercase tracking-[0.06em]"
+                    style={{ backgroundColor: "rgba(20,20,18,0.72)", color: "#f7f7f4" }}
+                  >
+                    Project · {a.role || "Lead"}
+                  </span>
+                  <p className="text-sm font-medium line-clamp-2" style={{ color: "#f7f7f4" }}>
+                    {a.title}
+                  </p>
+                </div>
+              </Link>
+            ))}
             {profile.artifacts.map((artifact) => {
               // A pasted Instagram, TikTok, YouTube or Vimeo link
               // (convex/videoEmbed.ts). `linkUrl` is the stored link;
@@ -638,11 +621,60 @@ export default function Profile() {
 
       {/* Empty state for no artifacts - only show for other profiles */}
       {(!profile.artifacts || profile.artifacts.length === 0) &&
+        (!affiliations || affiliations.length === 0) &&
         !profileNeedsSetup && (
           <div className="text-center py-12" style={{ color: "var(--app-text-dim)" }}>
             <p>This profile doesn't have any content yet</p>
           </div>
         )}
+    </div>
+  );
+}
+
+// One line of what an open project is asking for — hiring (its open roles,
+// or a paid posting's own pay), gig dates, raising. Nothing when it's
+// asking for nothing: the stage beside the title already says enough.
+function ProjectStatusLine({ project: a }: { project: any }) {
+  const chips: { label: string; detail: string }[] = [];
+  if (a.gig) {
+    chips.push({ label: "Booking", detail: a.gig.venueName ? `dates at ${a.gig.venueName}` : "dates open" });
+  } else if (a.kind === "paid") {
+    const pay = a.budgetType ? budgetAmountLabel(a) ?? budgetKindLabel(a) : null;
+    chips.push({ label: "Hiring", detail: pay ?? "" });
+  }
+  if (a.openRoles?.length > 0) {
+    const roles = a.openRoles
+      .slice(0, 3)
+      .map((r: any) => {
+        const pay = r.budgetType ? (budgetAmountLabel(r) ?? budgetKindLabel(r)) : null;
+        return pay ? `${r.title} (${pay})` : r.title;
+      })
+      .join(", ");
+    const more = a.openRoles.length > 3 ? ` +${a.openRoles.length - 3} more` : "";
+    chips.push({ label: "Hiring", detail: roles + more });
+  }
+  if (a.raising) {
+    chips.push({
+      label: "Raising",
+      detail: a.goal
+        ? `$${(a.raisedCents / 100).toLocaleString("en-US")} of $${a.goal.toLocaleString("en-US")}`
+        : "",
+    });
+  }
+  if (chips.length === 0) return null;
+  return (
+    <div className="flex flex-col gap-1 mt-1.5">
+      {chips.map((c, i) => (
+        <p key={i} className="text-[13px]" style={{ color: "var(--app-text-muted)" }}>
+          <span
+            className="inline-block mr-2 px-2 py-0.5 rounded-full text-[11px] font-semibold uppercase tracking-[0.06em]"
+            style={{ backgroundColor: "var(--app-accent-wash)", color: "var(--app-accent-ink)" }}
+          >
+            {c.label}
+          </span>
+          {c.detail}
+        </p>
+      ))}
     </div>
   );
 }

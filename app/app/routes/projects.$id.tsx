@@ -29,6 +29,7 @@ import { useLocationField } from "../lib/useLocationField";
 import { isRichDocEmpty, toStoredDoc, type ResolvedRichBlock } from "../lib/richText";
 import { budgetAmountLabel, budgetKindLabel, budgetLabel } from "../lib/budgetLabel";
 import { GigSchedule } from "../components/GigSchedule";
+import { useBack } from "../lib/useBack";
 import { resolveStage, stageLabel } from "../lib/stage";
 import { INTERESTS } from "../constants/interests";
 import {
@@ -85,13 +86,14 @@ function Loading() {
 }
 
 function BackLink() {
+  const back = useBack("/projects");
   return (
     <Link
-      to="/projects"
+      {...back}
       className="inline-block text-sm mb-5 hover:opacity-80"
       style={{ color: "var(--garden-citron)" }}
     >
-      ← Projects
+      ← Back
     </Link>
   );
 }
