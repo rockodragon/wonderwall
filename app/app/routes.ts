@@ -68,6 +68,9 @@ export default [
   layout("routes/_app.tsx", [
     // The signed-in home — where sign-in, OAuth and onboarding land.
     route("today", "routes/today.tsx"),
+    // People. /search was its address before it was called People; it
+    // stays mounted (same page) so old links keep working.
+    route("people", "routes/search.tsx", { id: "routes/people" }),
     route("search", "routes/search.tsx"),
     route("projects", "routes/projects.tsx"),
     route("projects/:id", "routes/projects.$id.tsx"),

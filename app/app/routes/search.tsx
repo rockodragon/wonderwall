@@ -1,4 +1,4 @@
-import { useQuery } from "convex/react";
+import { useConvexAuth, useQuery } from "convex/react";
 import { useMemo, useState } from "react";
 import { Link } from "react-router";
 import { api } from "../../convex/_generated/api";
@@ -11,6 +11,7 @@ import { useFilterState } from "../lib/useFilterState";
 import { CommunityContextLine, useCommunityContext } from "../components/CommunityFilter";
 import { haversineDistance, NEAR_ME_RADIUS_OPTIONS, useNearMe } from "../lib/useNearMe";
 import { LocationIcon } from "../components/icons";
+import { InviteButton } from "../components/InviteCTA";
 
 // Derived directly from the canonical INTERESTS list so this can never
 // drift from it again (it previously did — see git history). Label and
@@ -29,6 +30,7 @@ type ProfileResult = {
 };
 
 export default function Search() {
+  const { isAuthenticated } = useConvexAuth();
   const [filterExpanded, setFilterExpanded] = useState(false);
   const {
     nearMe,
@@ -97,9 +99,12 @@ export default function Search() {
 
   return (
     <div className="max-w-6xl mx-auto p-6">
-      <h2 className="text-2xl font-bold mb-2" style={{ color: "var(--app-text)" }}>
-        People
-      </h2>
+      <div className="flex items-start justify-between gap-4 mb-2">
+        <h2 className="text-2xl font-bold" style={{ color: "var(--app-text)" }}>
+          People
+        </h2>
+        {isAuthenticated && <InviteButton />}
+      </div>
       <p className="mb-4" style={{ color: "var(--app-text-dim)" }}>
         Find creatives by interest, location and see what they're up to
       </p>

@@ -108,6 +108,15 @@ export default function Settings() {
             </button>
           );
         })}
+        {profile?.isAdmin && (
+          <Link
+            to="/admin"
+            className="px-4 py-2.5 -mb-px text-sm font-medium whitespace-nowrap border-b-2 border-transparent transition-colors hover:opacity-80"
+            style={{ color: "var(--app-text-dim)" }}
+          >
+            Admin
+          </Link>
+        )}
       </div>
 
       {activeTab === "profile" && (
