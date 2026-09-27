@@ -109,3 +109,84 @@ export const followsMe = query({
     return follow !== null;
   },
 });
+
+/**
+ * Accepting an invite makes the inviter and the new member follow each
+ * other, so the people a community lead brings in hear about their next
+ * project or event without having to find the Follow button first. Called
+ * from invites.redeemBySlug and admin.manuallyLinkInvite in the same
+ * transaction as the invite row, and by admin.backfillInviteFollows for
+ * invites accepted before this existed.
+ *
+ * Silent — no "is following your work" notification either way: the
+ * inviter already gets "X joined using your invite", and a backfill
+ * shouldn't wake everyone up. Idempotent: an existing follow in either
+ * direction is left alone. Same id catch as everything else here — the
+ * follow row's `targetId` is the followed person's PROFILE id. Returns
+ * the number of follow rows created (0–2); 0 when either side has no
+ * profile or the two ids are the same person.
+ */
+export async function followEachOther(
+  ctx: MutationCtx,
+  aUserId: Id<"users">,
+  bUserId: Id<"users">,
+): Promise<number> {
+  if (aUserId === bUserId) return 0;
+
+  const [aProfile, bProfile] = await Promise.all(
+    [aUserId, bUserId].map((userId) =>
+      ctx.db
+        .query("profiles")
+        .withIndex("by_userId", (q) => q.eq("userId", userId))
+        .first(),
+    ),
+  );
+  if (!aProfile || !bProfile) return 0;
+
+  const now = Date.now();
+  let created = 0;
+  for (const [followerId, followed] of [
+    [aUserId, bProfile],
+    [bUserId, aProfile],
+  ] as const) {
+    const existing = await ctx.db
+      .query("favorites")
+      .withIndex("by_userId_target", (q) =>
+        q
+          .eq("userId", followerId)
+          .eq("targetType", "profile")
+          .eq("targetId", followed._id),
+      )
+      .first();
+    if (existing) continue;
+    await ctx.db.insert("favorites", {
+      userId: followerId,
+      targetType: "profile",
+      targetId: followed._id,
+      createdAt: now,
+    });
+    created++;
+  }
+  return created;
+}
+
+/**
+ * The distinct inviter ↔ invitee pairs among accepted invites, for the
+ * backfill. Unused invites and self-invites are dropped, and a pair that
+ * appears more than once (a re-clicked link, a manual relink) or in both
+ * directions is returned once. Pure so it can be unit-tested.
+ */
+export function inviteFollowPairs<T extends string>(
+  invites: ReadonlyArray<{ inviterId: T; usedBy?: T }>,
+): Array<[T, T]> {
+  const seen = new Set<string>();
+  const pairs: Array<[T, T]> = [];
+  for (const { inviterId, usedBy } of invites) {
+    if (!usedBy || usedBy === inviterId) continue;
+    const key = [inviterId, usedBy].sort().join("|");
+    if (seen.has(key)) continue;
+    seen.add(key);
+    pairs.push([inviterId, usedBy]);
+  }
+  return pairs;
+}

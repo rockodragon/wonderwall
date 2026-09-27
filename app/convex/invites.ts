@@ -1,21 +1,42 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import type { QueryCtx, MutationCtx } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
 import { auth } from "./auth";
 import { scheduleNotificationEmail } from "./emailHelpers";
 import { escapeHtml } from "./garden/projectTeam";
+import { generateInviteCode } from "./inviteCode";
+import { followEachOther } from "./follows";
 
 // A pasted or emailed code can be either kind of invite: a member's own
 // inviteSlug, or an admin's fixed waitlist-approval code (adminCode, set by
 // waitlist.ts's approveEntry). Both live on the profiles table and both
 // land at /signup/:code, so every lookup here tries inviteSlug first —
 // the far more common case — and falls back to adminCode.
+//
+// Old invites got a name-based inviteSlug ("rick-moy"); new ones get a
+// short generated code ("K7M4QD", see generateInviteSlug below and
+// convex/inviteCode.ts). Both are stored as-is in the same field, so the
+// exact-match lookup finds either one — every link already shared keeps
+// redeeming forever, nothing was migrated. The uppercased retry only helps
+// a short code typed in a different case; it can never accidentally match
+// an old lowercase, dashed slug, since uppercasing one of those doesn't
+// produce another real slug.
 async function findInviterProfile(ctx: QueryCtx | MutationCtx, code: string) {
   const bySlug = await ctx.db
     .query("profiles")
     .withIndex("by_inviteSlug", (q) => q.eq("inviteSlug", code))
     .first();
   if (bySlug) return bySlug;
+
+  const upper = code.toUpperCase();
+  if (upper !== code) {
+    const byUpperSlug = await ctx.db
+      .query("profiles")
+      .withIndex("by_inviteSlug", (q) => q.eq("inviteSlug", upper))
+      .first();
+    if (byUpperSlug) return byUpperSlug;
+  }
 
   return await ctx.db
     .query("profiles")
@@ -30,14 +51,6 @@ function generateCode(): string {
     code += chars[Math.floor(Math.random() * chars.length)];
   }
   return code;
-}
-
-// Generate a URL-friendly slug from a name
-function generateSlugFromName(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
 }
 
 const MAX_UNUSED_INVITES = 3;
@@ -269,13 +282,11 @@ export const generateInviteSlug = mutation({
     if (!profile) throw new Error("Profile not found");
     if (profile.inviteSlug) return profile.inviteSlug; // Already has one
 
-    // Generate slug from name
-    let slug = generateSlugFromName(profile.name);
-
-    // Check if slug is unique, add number if not
-    let attempt = 0;
-    let finalSlug = slug;
-    while (true) {
+    // Short, shareable code (6 chars, no look-alikes — see inviteCode.ts).
+    // Retry on the rare collision; a few dozen attempts is effectively
+    // unbounded odds against ever looping meaningfully.
+    let finalSlug = generateInviteCode();
+    for (let attempt = 0; attempt < 20; attempt++) {
       const existing = await ctx.db
         .query("profiles")
         .withIndex("by_inviteSlug", (q) => q.eq("inviteSlug", finalSlug))
@@ -283,8 +294,7 @@ export const generateInviteSlug = mutation({
 
       if (!existing) break;
 
-      attempt++;
-      finalSlug = `${slug}-${attempt}`;
+      finalSlug = generateInviteCode();
     }
 
     // Update profile with slug
@@ -444,6 +454,10 @@ export const redeemBySlug = mutation({
       inviteUsageCount: usageCount + 1,
     });
 
+    // Accepting an invite is also a mutual follow, so the new member hears
+    // about the inviter's next project or event (follows.ts).
+    await followEachOther(ctx, inviterProfile.userId, userId);
+
     // Get the new user's profile info for the notification
     // Note: Profile may not exist yet at signup time, so we'll get it later or use user info
     const newUserProfile = await ctx.db
@@ -481,5 +495,123 @@ export const redeemBySlug = mutation({
     });
 
     return true;
+  },
+});
+
+// The people behind the "N in network" count, for the Network tab in
+// Settings: who invited me, everyone I invited, and everyone downstream of
+// them, each with enough to render a clickable row. Walks the same
+// `invites` rows getInviteStats counts (a repeat redemption of the same
+// pair is shown once). The full-table read is the same trade getInviteStats
+// already makes; fine at community scale.
+export const getMyNetwork = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await auth.getUserId(ctx);
+    if (!userId) return null;
+
+    const usedInvites = (await ctx.db.query("invites").collect()).filter(
+      (i) => i.usedBy && i.usedBy !== i.inviterId,
+    );
+
+    // inviter -> invitees (deduped), and invitee -> first inviter.
+    const children = new Map<string, Id<"users">[]>();
+    const joinedAt = new Map<string, number>();
+    let invitedById: Id<"users"> | null = null;
+    for (const inv of usedInvites) {
+      const invitee = inv.usedBy!;
+      if (invitee === userId && !invitedById) invitedById = inv.inviterId;
+      const list = children.get(inv.inviterId) ?? [];
+      if (!list.includes(invitee)) list.push(invitee);
+      children.set(inv.inviterId, list);
+      const at = inv.usedAt ?? inv.createdAt;
+      if (!joinedAt.has(invitee) || at < joinedAt.get(invitee)!) {
+        joinedAt.set(invitee, at);
+      }
+    }
+
+    // Everyone downstream of `id` (their invitees, theirs, and so on),
+    // memoized; `path` guards against cycles in hand-linked data.
+    const subgraphMemo = new Map<string, number>();
+    function subgraphSize(id: string, path = new Set<string>()): number {
+      const cached = subgraphMemo.get(id);
+      if (cached !== undefined) return cached;
+      if (path.has(id)) return 0;
+      path.add(id);
+      let total = 0;
+      for (const child of children.get(id) ?? []) {
+        if (path.has(child)) continue;
+        total += 1 + subgraphSize(child, path);
+      }
+      path.delete(id);
+      subgraphMemo.set(id, total);
+      return total;
+    }
+
+    async function person(id: Id<"users">) {
+      const profile = await ctx.db
+        .query("profiles")
+        .withIndex("by_userId", (q) => q.eq("userId", id))
+        .first();
+      if (!profile) return null;
+      const imageUrl = profile.imageStorageId
+        ? await ctx.storage.getUrl(profile.imageStorageId)
+        : profile.imageUrl || null;
+      return {
+        userId: id,
+        profileId: profile._id,
+        name: profile.name,
+        imageUrl,
+        interests: profile.interests.slice(0, 3),
+        joinedAt: joinedAt.get(id) ?? profile.createdAt,
+        invitedCount: (children.get(id) ?? []).length,
+        // Everyone they brought in, directly or further down.
+        networkCount: subgraphSize(id),
+      };
+    }
+
+    // Breadth-first from me; `seen` guards against cycles in hand-linked data.
+    const seen = new Set<string>([userId]);
+    const direct: NonNullable<Awaited<ReturnType<typeof person>>>[] = [];
+    const downstream: (NonNullable<Awaited<ReturnType<typeof person>>> & {
+      depth: number;
+      viaName: string;
+      viaProfileId: Id<"profiles">;
+    })[] = [];
+
+    let frontier: { id: Id<"users">; depth: number; via: typeof direct[number] | null }[] =
+      (children.get(userId) ?? []).map((id) => ({ id, depth: 1, via: null }));
+    while (frontier.length > 0) {
+      const next: typeof frontier = [];
+      for (const { id, depth, via } of frontier) {
+        if (seen.has(id)) continue;
+        seen.add(id);
+        const p = await person(id);
+        if (!p) continue;
+        if (depth === 1) direct.push(p);
+        else
+          downstream.push({
+            ...p,
+            depth,
+            viaName: via!.name,
+            viaProfileId: via!.profileId,
+          });
+        for (const child of children.get(id) ?? []) {
+          next.push({ id: child, depth: depth + 1, via: p });
+        }
+      }
+      frontier = next;
+    }
+
+    const newestFirst = (a: { joinedAt: number }, b: { joinedAt: number }) =>
+      b.joinedAt - a.joinedAt;
+    direct.sort(newestFirst);
+    downstream.sort((a, b) => a.depth - b.depth || newestFirst(a, b));
+
+    return {
+      invitedBy: invitedById ? await person(invitedById) : null,
+      direct,
+      downstream,
+    };
   },
 });

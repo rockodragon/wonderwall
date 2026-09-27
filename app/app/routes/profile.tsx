@@ -589,9 +589,25 @@ export default function Profile() {
                     >
                       <img
                         src={artifact.ogImageUrl}
-                        alt={artifact.title || "Link preview"}
-                        className="w-full h-full object-contain"
+                        alt={artifact.title || artifact.ogTitle || "Link preview"}
+                        className="w-full h-full object-cover"
                       />
+                      {/* Title (the creative's own, else the site's) + domain,
+                          same footer treatment as the fallback card below —
+                          the cover shouldn't be a bare picture with no idea
+                          what site it's from. */}
+                      <div className="absolute inset-x-0 bottom-0 p-2 bg-gradient-to-t from-black/70 to-transparent">
+                        {(artifact.title || artifact.ogTitle) && (
+                          <p className="text-white text-xs font-medium line-clamp-1">
+                            {artifact.title || artifact.ogTitle}
+                          </p>
+                        )}
+                        {domainOf(artifact.mediaUrl) && (
+                          <p className="text-white/70 text-xs truncate">
+                            {domainOf(artifact.mediaUrl)}
+                          </p>
+                        )}
+                      </div>
                       <div className="absolute top-2 right-2 w-6 h-6 bg-white/90 dark:bg-black/70 rounded-full flex items-center justify-center">
                         <svg
                           className="w-3 h-3"
@@ -611,7 +627,8 @@ export default function Profile() {
                     </div>
                   ) : artifact.type === "link" ? (
                     <LinkFallbackCard
-                      title={artifact.title}
+                      title={artifact.title || artifact.ogTitle}
+                      description={artifact.ogDescription}
                       url={artifact.mediaUrl}
                     />
                   ) : (
@@ -748,56 +765,54 @@ function ProfileOverflowMenu({
   );
 }
 
+// A bare host the creative pasted ("abidingpractice.com") has no scheme, so
+// `new URL()` throws on it directly — same reasoning as convex/garden/
+// richText.ts's normalizeUrl, duplicated here since this is a small pure
+// helper on the client rather than a Convex import.
+function domainOf(url?: string | null): string | null {
+  if (!url) return null;
+  const withScheme = /^[a-z][a-z0-9+.-]*:/i.test(url) ? url : `https://${url}`;
+  try {
+    return new URL(withScheme).hostname.replace(/^www\./, "");
+  } catch {
+    return null;
+  }
+}
+
+// Shown when a link artifact has no fetched cover yet (still pending, or the
+// site gave us nothing to work with) — a muted placeholder with whatever we
+// do know (title/domain/description), not a bare icon floating in an empty
+// box.
 function LinkFallbackCard({
   title,
+  description,
   url,
 }: {
   title?: string | null;
+  description?: string | null;
   url?: string | null;
 }) {
-  // Extract domain from URL for display
-  const domain = url
-    ? (() => {
-        try {
-          const parsed = new URL(url);
-          return parsed.hostname.replace("www.", "");
-        } catch {
-          return null;
-        }
-      })()
-    : null;
+  const domain = domainOf(url);
 
   return (
-    <div className="w-full h-full p-4 flex flex-col justify-between bg-gradient-to-br from-emerald-50 to-cyan-50 dark:from-emerald-900/30 dark:to-cyan-900/30">
-      {/* Link icon */}
-      <div className="flex justify-between items-start">
-        <svg
-          className="w-8 h-8 text-emerald-600 dark:text-emerald-400"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
-          />
-        </svg>
-        <svg
-          className="w-4 h-4 text-emerald-500/50 dark:text-emerald-400/50"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-          />
-        </svg>
-      </div>
+    <div
+      className="w-full h-full p-4 flex flex-col justify-between"
+      style={{ backgroundColor: "var(--app-hairline-raised)" }}
+    >
+      <svg
+        className="w-8 h-8"
+        style={{ color: "var(--app-text-dim)" }}
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+        />
+      </svg>
 
       {/* Title and domain */}
       <div>
@@ -809,8 +824,16 @@ function LinkFallbackCard({
             {title}
           </h3>
         )}
+        {!title && description && (
+          <p
+            className="text-xs line-clamp-2 mb-1"
+            style={{ color: "var(--app-text-muted)" }}
+          >
+            {description}
+          </p>
+        )}
         {domain && (
-          <p className="text-xs text-emerald-600 dark:text-emerald-400 truncate">
+          <p className="text-xs truncate" style={{ color: "var(--app-text-muted)" }}>
             {domain}
           </p>
         )}

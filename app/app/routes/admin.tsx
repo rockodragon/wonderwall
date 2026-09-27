@@ -11,6 +11,7 @@ export default function AdminPage() {
   const manuallyLinkInvite = useMutation(api.admin.manuallyLinkInvite);
   const deleteUser = useMutation(api.admin.deleteUser);
   const syncAdminGroup = useMutation(api.admin.syncAdminGroup);
+  const backfillInviteFollows = useMutation(api.admin.backfillInviteFollows);
 
   const [linkingUser, setLinkingUser] = useState<string | null>(null);
   const [selectedInviter, setSelectedInviter] = useState<string>("");
@@ -19,6 +20,25 @@ export default function AdminPage() {
   const [deleteStatus, setDeleteStatus] = useState<string>("");
   const [syncingAdmins, setSyncingAdmins] = useState(false);
   const [syncStatus, setSyncStatus] = useState<string>("");
+  const [backfilling, setBackfilling] = useState(false);
+  const [backfillStatus, setBackfillStatus] = useState<string>("");
+
+  const handleBackfillInviteFollows = async () => {
+    setBackfilling(true);
+    setBackfillStatus("");
+    try {
+      const result = await backfillInviteFollows({});
+      setBackfillStatus(
+        `${result.pairs} inviter/invitee pairs · ${result.followsCreated} follows created`,
+      );
+    } catch (err) {
+      setBackfillStatus(
+        err instanceof Error ? err.message : "Failed to backfill follows",
+      );
+    } finally {
+      setBackfilling(false);
+    }
+  };
 
   const handleSyncAdminGroup = async () => {
     setSyncingAdmins(true);
@@ -204,6 +224,34 @@ export default function AdminPage() {
           {syncStatus && (
             <div className="mt-4 p-3 bg-blue-50 text-blue-700 rounded-lg text-sm">
               {syncStatus}
+            </div>
+          )}
+        </div>
+
+        <div className="mb-8 bg-white shadow-md rounded-lg p-6">
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">
+                Invite Follows
+              </h2>
+              <p className="mt-1 text-sm text-gray-600 max-w-2xl">
+                Accepting an invite now makes the inviter and the new member
+                follow each other. This does the same for invites accepted
+                before that — run it once; a re-run re-follows anyone who
+                has since unfollowed their inviter.
+              </p>
+            </div>
+            <button
+              onClick={handleBackfillInviteFollows}
+              disabled={backfilling}
+              className="px-4 py-2 bg-gray-800 text-white rounded-lg text-sm hover:bg-gray-900 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {backfilling ? "Backfilling…" : "Backfill Invite Follows"}
+            </button>
+          </div>
+          {backfillStatus && (
+            <div className="mt-4 p-3 bg-blue-50 text-blue-700 rounded-lg text-sm">
+              {backfillStatus}
             </div>
           )}
         </div>

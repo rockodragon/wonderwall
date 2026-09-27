@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router";
 import { useEffect, useState } from "react";
 import type { Route } from "./+types/home";
 import { api } from "../../convex/_generated/api";
+import { normalizeInviteCode } from "../../convex/inviteCode";
 import { SiteHeader } from "../components/SiteHeader";
 import { WaitlistFollowUpDark } from "../components/WaitlistFollowUpDark";
 import { CAMPAIGN_IMAGES, CAMPAIGN_QUOTES } from "../lib/campaign";
@@ -61,6 +62,14 @@ export default function Home() {
   const [submittedEmail, setSubmittedEmail] = useState("");
   const [waitlistPosition, setWaitlistPosition] = useState<number | null>(null);
   const addToWaitlist = useMutation(api.waitlist.addToWaitlist);
+
+  const [inviteCode, setInviteCode] = useState("");
+
+  function handleCreateAccount(e: React.FormEvent) {
+    e.preventDefault();
+    const code = normalizeInviteCode(inviteCode);
+    navigate(code ? `/signup/${encodeURIComponent(code)}` : "/signup");
+  }
 
   // /?invite=slug used to open an invite preview here; the invite code is
   // collected on /signup now, so an old link of that shape lands there.
@@ -150,7 +159,31 @@ export default function Home() {
               Closed beta · invite only
             </div>
 
-            {/* Waitlist form */}
+            {/* Row 1 — have an invite code: the more prominent path */}
+            <form
+              onSubmit={handleCreateAccount}
+              className="flex flex-col sm:flex-row gap-2.5"
+            >
+              <input
+                type="text"
+                value={inviteCode}
+                onChange={(e) => setInviteCode(e.target.value)}
+                placeholder="Invite code"
+                autoCapitalize="characters"
+                autoCorrect="off"
+                spellCheck={false}
+                className="w-full min-w-0 sm:flex-1 px-[18px] py-[15px] text-base border border-[var(--garden-hairline-raised)] rounded-[10px] bg-[var(--garden-ink-raised)] text-[var(--garden-paper)] placeholder-[var(--garden-muted)] outline-none focus:border-[var(--garden-citron)] transition-colors uppercase tracking-wider"
+                style={{ fontFamily: "inherit" }}
+              />
+              <button
+                type="submit"
+                className="w-full sm:w-auto px-[18px] py-[15px] text-base bg-[var(--garden-citron)] text-[var(--garden-ink)] rounded-[10px] font-semibold hover:opacity-90 transition-all cursor-pointer whitespace-nowrap"
+              >
+                Create account
+              </button>
+            </form>
+
+            {/* Row 2 — no code yet: join the waitlist */}
             {status === "success" ? (
               <div>
                 <div className="flex items-center gap-2 text-green-400">
@@ -188,16 +221,16 @@ export default function Home() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="your@email.com"
-                    className="w-full min-w-0 sm:flex-1 px-[18px] py-[15px] text-base border border-[var(--garden-hairline-raised)] rounded-[10px] bg-[var(--garden-ink-raised)] text-[var(--garden-paper)] placeholder-[var(--garden-muted)] outline-none focus:border-[var(--garden-citron)] transition-colors"
+                    className="w-full min-w-0 sm:flex-1 px-[18px] py-[15px] text-base border border-[var(--garden-hairline-raised)] rounded-[10px] bg-transparent text-[var(--garden-paper)] placeholder-[var(--garden-muted)] outline-none focus:border-[var(--garden-citron)] transition-colors"
                     style={{ fontFamily: "inherit" }}
                     disabled={status === "loading"}
                   />
                   <button
                     type="submit"
                     disabled={status === "loading"}
-                    className="w-full sm:w-auto px-[18px] py-[15px] text-base bg-[var(--garden-citron)] text-[var(--garden-ink)] rounded-[10px] font-semibold hover:opacity-90 transition-all cursor-pointer whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full sm:w-auto px-[18px] py-[15px] text-[13.5px] font-semibold border border-[var(--garden-hairline-raised)] text-[var(--garden-paper)] rounded-[10px] hover:border-[var(--garden-citron)] hover:text-[var(--garden-citron)] transition-all cursor-pointer whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {status === "loading" ? "Joining..." : "Join the waitlist"}
+                    {status === "loading" ? "Joining..." : "Request to join"}
                   </button>
                 </div>
                 {status === "error" && (
@@ -216,24 +249,13 @@ export default function Home() {
             />
 
             {/* How the money works — the one line a creative wants before
-                scrolling. The invite-code form that sat here moved to
-                /signup, the one place that needs it. */}
+                scrolling. */}
             <ul className="flex flex-col gap-3 text-[15px] leading-[1.5] text-[var(--garden-body)]">
               <li className="flex gap-3">
                 <span className="text-[var(--garden-citron)] shrink-0" aria-hidden="true">—</span>
                 <span>Free to join. {CLAIMS.backingShort}</span>
               </li>
             </ul>
-
-            <p className="text-sm text-[var(--garden-dim)]">
-              Have an invite?{" "}
-              <Link
-                to="/signup"
-                className="text-[var(--garden-paper)] font-medium hover:text-[var(--garden-citron)] transition-colors"
-              >
-                Create your account →
-              </Link>
-            </p>
           </div>
         </div>
       </main>

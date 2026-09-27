@@ -37,6 +37,9 @@ export default function Onboarding() {
   // Shared
   const location = useLocationField();
   const [bio, setBio] = useState("");
+  // Only asked when the account has no email (a phone sign-in) — Stripe
+  // receipts and notifications need one even then.
+  const [email, setEmail] = useState("");
   const [uploading, setUploading] = useState(false);
   const [profileImageUrl, setProfileImageUrl] = useState("");
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -61,6 +64,7 @@ export default function Onboarding() {
   const workImageInputRef = useRef<HTMLInputElement>(null);
 
   const profile = useQuery(api.profiles.getMyProfile);
+  const needsEmail = profile !== null && profile !== undefined && !profile.email;
 
   // Re-entering onboarding (a second role, back button, a bookmark — nothing
   // guards against it, and re-adding roles is an intended flow) must not
@@ -108,6 +112,10 @@ export default function Onboarding() {
       alert("Select at least one — helps people find you.");
       return;
     }
+    if (needsEmail && !email.trim()) {
+      alert("Enter an email — we need it for receipts and notifications.");
+      return;
+    }
 
     setUploading(true);
     try {
@@ -115,6 +123,7 @@ export default function Onboarding() {
         name: profile.name,
         interests: primaryRole === "creative" ? selectedJobFunctions : undefined,
         bio: bio.trim() || undefined,
+        email: needsEmail ? email.trim() : undefined,
         ...location.toArgs(),
         primaryRole,
         orgName:
@@ -375,6 +384,7 @@ export default function Onboarding() {
               </div>
             </div>
 
+            {needsEmail && <EmailField email={email} setEmail={setEmail} />}
             <LocationField location={location} />
             <BioField bio={bio} setBio={setBio} placeholder="Tell us a bit about yourself..." />
 
@@ -458,6 +468,7 @@ export default function Onboarding() {
               </div>
             </div>
 
+            {needsEmail && <EmailField email={email} setEmail={setEmail} />}
             <LocationField location={location} />
             <BioField bio={bio} setBio={setBio} placeholder="Why do you support creatives? (optional)" />
 
@@ -515,6 +526,7 @@ export default function Onboarding() {
               </div>
             </div>
 
+            {needsEmail && <EmailField email={email} setEmail={setEmail} />}
             <LocationField
               location={location}
               helpText="Helps creatives nearby find you"
@@ -724,6 +736,33 @@ function LocationField({
       />
       <LocationVerifiedHint value={location.value} selected={location.selected} />
       {helpText && <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{helpText}</p>}
+    </div>
+  );
+}
+
+function EmailField({
+  email,
+  setEmail,
+}: {
+  email: string;
+  setEmail: (v: string) => void;
+}) {
+  return (
+    <div className="mb-6">
+      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+        Email <span className="text-red-500">*</span>
+      </label>
+      <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+        For receipts and notifications — you signed up with a phone number.
+      </p>
+      <input
+        type="email"
+        required
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        placeholder="you@example.com"
+        className="w-full px-4 py-3 border border-gray-300 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
+      />
     </div>
   );
 }

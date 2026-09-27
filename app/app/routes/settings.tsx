@@ -15,6 +15,15 @@ import { INTERESTS } from "../constants/interests";
 import { LEVEL_LABEL } from "../garden/capabilities";
 import { normalizeHandle, type PayoutKind } from "../../convex/garden/gigRules";
 import { errorMessage } from "./projects";
+import { NetworkTab } from "../components/NetworkTab";
+
+const SETTINGS_TABS = [
+  { id: "profile", label: "Profile" },
+  { id: "network", label: "Network" },
+  { id: "money", label: "Money" },
+  { id: "account", label: "Account" },
+] as const;
+type SettingsTab = (typeof SETTINGS_TABS)[number]["id"];
 
 // Normalize URL by adding https:// if missing
 function normalizeUrl(url: string): string {
@@ -32,10 +41,6 @@ export default function Settings() {
   const posthog = usePostHog();
   const [searchParams, setSearchParams] = useSearchParams();
   const profile = useQuery(api.profiles.getMyProfile);
-  const inviteStats = useQuery(
-    api.invites.getInviteStats,
-    profile?.userId ? { userId: profile.userId } : "skip",
-  );
   const [showProfileEdit, setShowProfileEdit] = useState(false);
 
   // Check for editArtifact query param
@@ -62,126 +67,121 @@ export default function Settings() {
       !profile?.location?.trim());
   const isEditingProfile = showProfileEdit || profileNeedsSetup;
 
+  const activeTab: SettingsTab = editArtifactId
+    ? "profile"
+    : (SETTINGS_TABS.find((t) => t.id === searchParams.get("tab"))?.id ??
+      "profile");
+
+  function selectTab(tab: SettingsTab) {
+    const next = new URLSearchParams(searchParams);
+    if (tab === "profile") next.delete("tab");
+    else next.set("tab", tab);
+    setSearchParams(next, { replace: true });
+  }
+
   return (
     <div className="p-4 sm:p-6 max-w-2xl mx-auto text-base sm:text-sm">
-      {/* Profile section - at top */}
-      <div className="mb-8">
-        {hasProfile && !isEditingProfile ? (
-          <ProfileSummary
-            profile={profile}
-            onEdit={() => setShowProfileEdit(true)}
-          />
-        ) : (
-          <ProfileEditForm
-            profile={profile}
-            onDone={() => setShowProfileEdit(false)}
-            isNewProfile={profileNeedsSetup}
-          />
+      {/* Tabs across the top: the page had grown to ten stacked sections.
+          ?tab= deep-links (the sidebar invite card opens ?tab=network). */}
+      <div
+        role="tablist"
+        aria-label="Settings"
+        className="flex gap-1 mb-8 border-b overflow-x-auto"
+        style={{ borderColor: "var(--app-hairline)" }}
+      >
+        {SETTINGS_TABS.map((tab) => {
+          const active = tab.id === activeTab;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              onClick={() => selectTab(tab.id)}
+              className="px-4 py-2.5 -mb-px text-sm font-medium whitespace-nowrap border-b-2 transition-colors"
+              style={{
+                borderColor: active ? "var(--app-accent-ink)" : "transparent",
+                color: active ? "var(--app-text)" : "var(--app-text-dim)",
+              }}
+            >
+              {tab.label}
+            </button>
+          );
+        })}
+        {profile?.isAdmin && (
+          <Link
+            to="/admin"
+            className="px-4 py-2.5 -mb-px text-sm font-medium whitespace-nowrap border-b-2 border-transparent transition-colors hover:opacity-80"
+            style={{ color: "var(--app-text-dim)" }}
+          >
+            Admin
+          </Link>
         )}
       </div>
 
-      {/* Network stats & Invite */}
-      <div className="mt-8 pt-6 border-t" style={{ borderColor: "var(--app-hairline)" }}>
-        <h2 className="text-lg font-semibold mb-4" style={{ color: "var(--app-text)" }}>
-          Your Network
-        </h2>
-        {inviteStats && (
-          <div className="flex flex-wrap items-center gap-3 mb-4 text-sm">
-            {inviteStats.invitedBy && (
-              <Link
-                to={`/profile/${inviteStats.invitedBy.profileId}`}
-                className="hover:opacity-80"
-                style={{ color: "var(--app-text-dim)" }}
-              >
-                Invited by{" "}
-                <span className="font-medium">
-                  {inviteStats.invitedBy.name}
-                </span>
-              </Link>
-            )}
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded-full">
-              <svg
-                className="w-3.5 h-3.5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"
-                />
-              </svg>
-              <span className="font-semibold">{inviteStats.networkSize}</span>
-              <span className="text-emerald-600 dark:text-emerald-500">
-                in network
-              </span>
-            </span>
-            {inviteStats.directInvitees > 0 && (
-              <span className="text-xs" style={{ color: "var(--app-text-dim)" }}>
-                ({inviteStats.directInvitees} invited
-                {inviteStats.downstreamCount > 0 &&
-                  `, +${inviteStats.downstreamCount} downstream`}
-                )
-              </span>
+      {activeTab === "profile" && (
+        <>
+          <div className="mb-8">
+            {hasProfile && !isEditingProfile ? (
+              <ProfileSummary
+                profile={profile}
+                onEdit={() => setShowProfileEdit(true)}
+              />
+            ) : (
+              <ProfileEditForm
+                profile={profile}
+                onDone={() => setShowProfileEdit(false)}
+                isNewProfile={profileNeedsSetup}
+              />
             )}
           </div>
-        )}
-      </div>
 
-      {/* Billing */}
-      <div className="mt-8 pt-6 border-t" style={{ borderColor: "var(--app-hairline)" }}>
-        <BillingSection />
-      </div>
+          {/* Work & Portfolio */}
+          <div className="mt-8 pt-6 border-t" style={{ borderColor: "var(--app-hairline)" }}>
+            <ArtifactsSection
+              editArtifactId={editArtifactId}
+              onEditComplete={clearEditParam}
+            />
+          </div>
+        </>
+      )}
 
-      {/* Your purchases */}
-      <div className="mt-8 pt-6 border-t" style={{ borderColor: "var(--app-hairline)" }}>
-        <PurchasesSection />
-      </div>
+      {activeTab === "network" && <NetworkTab />}
 
-      {/* My backings */}
-      <div className="mt-8 pt-6 border-t" style={{ borderColor: "var(--app-hairline)" }}>
-        <BackingsSection />
-      </div>
+      {activeTab === "money" && (
+        <>
+          <BillingSection />
+          <div className="mt-8 pt-6 border-t" style={{ borderColor: "var(--app-hairline)" }}>
+            <PurchasesSection />
+          </div>
+          <div className="mt-8 pt-6 border-t" style={{ borderColor: "var(--app-hairline)" }}>
+            <BackingsSection />
+          </div>
+          <div className="mt-8 pt-6 border-t" style={{ borderColor: "var(--app-hairline)" }}>
+            <PayoutHandlesSection />
+          </div>
+          <div className="mt-8 pt-6 border-t" style={{ borderColor: "var(--app-hairline)" }}>
+            <MyGigsSection />
+          </div>
+        </>
+      )}
 
-      {/* Getting paid (live booking) */}
-      <div className="mt-8 pt-6 border-t" style={{ borderColor: "var(--app-hairline)" }}>
-        <PayoutHandlesSection />
-      </div>
-
-      {/* Your gigs (live booking) */}
-      <div className="mt-8 pt-6 border-t" style={{ borderColor: "var(--app-hairline)" }}>
-        <MyGigsSection />
-      </div>
-
-      {/* Artifacts section */}
-      <div className="mt-8 pt-6 border-t" style={{ borderColor: "var(--app-hairline)" }}>
-        <ArtifactsSection
-          editArtifactId={editArtifactId}
-          onEditComplete={clearEditParam}
-        />
-      </div>
-
-      {/* Email preferences */}
-      <div className="mt-8 pt-6 border-t" style={{ borderColor: "var(--app-hairline)" }}>
-        <EmailSection />
-      </div>
-
-      {/* Blocked people */}
-      <div className="mt-8 pt-6 border-t" style={{ borderColor: "var(--app-hairline)" }}>
-        <BlockedSection />
-      </div>
-
-      {/* Sign out */}
-      <div className="mt-12 pt-6 border-t" style={{ borderColor: "var(--app-hairline)" }}>
-        <button
-          onClick={handleSignOut}
-          className="text-red-600 hover:text-red-500 font-medium"
-        >
-          Sign out
-        </button>
-      </div>
+      {activeTab === "account" && (
+        <>
+          <EmailSection />
+          <div className="mt-8 pt-6 border-t" style={{ borderColor: "var(--app-hairline)" }}>
+            <BlockedSection />
+          </div>
+          <div className="mt-12 pt-6 border-t" style={{ borderColor: "var(--app-hairline)" }}>
+            <button
+              onClick={handleSignOut}
+              className="text-red-600 hover:text-red-500 font-medium"
+            >
+              Sign out
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 }

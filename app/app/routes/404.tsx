@@ -61,7 +61,7 @@ export default function NotFound() {
             Go Home
           </Link>
           <Link
-            to="/search"
+            to="/people"
             className="px-6 py-3 bg-gray-800 text-gray-300 rounded-xl font-semibold hover:bg-gray-700 transition-colors border border-gray-700"
           >
             Discover Creatives

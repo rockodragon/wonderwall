@@ -26,7 +26,7 @@ const VISIT_LIMIT = 3;
 // (Sign in CTAs, no partial forms) rather than being gated at the shell.
 // Prefix match is correct here: /communities, /communities/apply, and every
 // /communities/:slug should all be public.
-const PUBLIC_PATH_PREFIXES = ["/communities", "/search", "/offerings", "/tables"];
+const PUBLIC_PATH_PREFIXES = ["/communities", "/people", "/search", "/offerings", "/tables"];
 
 // /events/:eventId is public too — a calendar invite goes to a guest with
 // no account by design (eventRsvps.userId is optional), and event.tsx's own
@@ -65,7 +65,7 @@ function isPublicPathname(pathname: string): boolean {
 // "Spaces" is /communities (2026-09-14, product decision) — see NAV_ITEMS'
 // own comment for the full history.
 const NAV_ICONS = {
-  "/search": SearchIcon,
+  "/people": SearchIcon,
   "/projects": BriefcaseIcon,
   "/events": CalendarIcon,
   "/communities": GridIcon,
@@ -90,7 +90,6 @@ export default function AppLayout() {
   const sidebarBadgeCount = unreadCount + notificationCount;
 
   const isPublicPath = isPublicPathname(location.pathname);
-  const [inviteOpen, setInviteOpen] = useState(false);
 
   // Clears any unread notification pointing at wherever the user just
   // navigated to, so reaching a page from an email CTA or a direct link
@@ -333,21 +332,10 @@ export default function AppLayout() {
         <div className="mt-auto pt-6">
           {isAuthenticated && (
             <div className="px-4 pb-3">
-              {/* One quiet row; the card with the link opens under it on
-                  request. Sign-up is invite-only, so this stays reachable. */}
-              {FF_V2 || inviteOpen ? (
-                <InviteCTA />
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setInviteOpen(true)}
-                  className="flex w-full items-center gap-3 px-4 py-2.5 rounded-lg text-[15px] text-left transition-colors hover:bg-[var(--app-hairline)]"
-                  style={{ color: "var(--app-text-muted)" }}
-                >
-                  <InviteIcon className="w-5 h-5" />
-                  Invite someone
-                </button>
-              )}
+              {/* Always open, one click to copy — the link used to sit
+                  behind a row and an expand, three clicks deep. Sign-up
+                  is invite-only, so this stays reachable. */}
+              <InviteCTA />
             </div>
           )}
 
@@ -719,15 +707,6 @@ function initialsOf(name: string | undefined): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   const letters = parts.length > 1 ? parts[0][0] + parts[parts.length - 1][0] : (parts[0] ?? "").slice(0, 2);
   return letters.toUpperCase() || "·";
-}
-
-function InviteIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="9" cy="8" r="4" />
-      <path d="M2 21a7 7 0 0114 0M19 8v6M16 11h6" />
-    </svg>
-  );
 }
 
 function SunIcon({ className }: { className?: string }) {
