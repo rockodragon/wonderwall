@@ -196,7 +196,7 @@ export default function CoverageIndex() {
 
         <p className="g-hint" style={{ marginTop: 20 }}>
           Cancel any time in{" "}
-          <Link to="/settings" style={{ textDecoration: "underline" }}>
+          <Link to="/settings?tab=money" style={{ textDecoration: "underline" }}>
             Settings
           </Link>
           . Seats nobody has claimed stop billing when you cancel.

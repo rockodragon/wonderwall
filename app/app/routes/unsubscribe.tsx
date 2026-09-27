@@ -99,7 +99,7 @@ export default function Unsubscribe() {
               This link is no longer valid.
             </h1>
             <Link
-              to="/settings"
+              to="/settings?tab=account"
               className="text-[var(--garden-body)] hover:text-[var(--garden-citron)] font-medium text-sm"
             >
               Go to settings →
@@ -138,7 +138,7 @@ export default function Unsubscribe() {
                         <p className="text-xs text-[var(--garden-dim)] mt-1">
                           Off ·{" "}
                           <Link
-                            to="/settings"
+                            to="/settings?tab=account"
                             className="hover:text-[var(--garden-citron)] underline"
                           >
                             sign in to turn back on

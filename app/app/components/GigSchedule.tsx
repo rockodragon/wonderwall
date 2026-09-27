@@ -1011,7 +1011,7 @@ export function GigSchedule({ project, isOwner, myProfile }: { project: any; isO
       {!viewer.hasPayoutHandles && hasBookedSlot && (
         <p className="text-sm mb-3" style={{ color: "var(--garden-body)" }}>
           Add how you get paid under{" "}
-          <Link to="/settings" className="underline underline-offset-2" style={{ color: "var(--garden-citron)" }}>
+          <Link to="/settings?tab=money" className="underline underline-offset-2" style={{ color: "var(--garden-citron)" }}>
             Settings
           </Link>{" "}
           so the venue can pay you.
@@ -1020,7 +1020,7 @@ export function GigSchedule({ project, isOwner, myProfile }: { project: any; isO
 
       {!isOwner && viewer.isSignedIn && !viewer.hasProfile && (
         <p className="text-sm mb-3" style={{ color: "var(--garden-body)" }}>
-          <Link to="/settings" className="underline underline-offset-2" style={{ color: "var(--garden-citron)" }}>
+          <Link to="/settings?tab=money" className="underline underline-offset-2" style={{ color: "var(--garden-citron)" }}>
             Finish your profile
           </Link>{" "}
           to respond.
