@@ -65,6 +65,7 @@ import type * as garden_reports from "../garden/reports.js";
 import type * as garden_richText from "../garden/richText.js";
 import type * as garden_seedNeighborsProject from "../garden/seedNeighborsProject.js";
 import type * as garden_seedPaidPostings from "../garden/seedPaidPostings.js";
+import type * as garden_showcaseDisciplineMigration from "../garden/showcaseDisciplineMigration.js";
 import type * as garden_stats from "../garden/stats.js";
 import type * as garden_stories from "../garden/stories.js";
 import type * as garden_stripe from "../garden/stripe.js";
@@ -162,6 +163,7 @@ declare const fullApi: ApiFromModules<{
   "garden/richText": typeof garden_richText;
   "garden/seedNeighborsProject": typeof garden_seedNeighborsProject;
   "garden/seedPaidPostings": typeof garden_seedPaidPostings;
+  "garden/showcaseDisciplineMigration": typeof garden_showcaseDisciplineMigration;
   "garden/stats": typeof garden_stats;
   "garden/stories": typeof garden_stories;
   "garden/stripe": typeof garden_stripe;
