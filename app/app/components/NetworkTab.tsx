@@ -1,4 +1,5 @@
 import { useQuery } from "convex/react";
+import { useState } from "react";
 import { Link } from "react-router";
 import { api } from "../../convex/_generated/api";
 import { inviteAllowanceLabel, useInviteLink } from "../lib/useInviteLink";
@@ -6,8 +7,22 @@ import { inviteAllowanceLabel, useInviteLink } from "../lib/useInviteLink";
 // Settings → Network: your invite link (in full, copy/share) and the
 // people behind the "N in network" count — who invited you, who you
 // invited, and who they brought in — each row a link to their profile.
+type SortKey = "newest" | "network";
+
+// Biggest subgraph first; ties go to more direct invites, then newest.
+function sortPeople<T extends NetworkPerson>(people: T[], key: SortKey): T[] {
+  if (key === "newest") return people;
+  return [...people].sort(
+    (a, b) =>
+      b.networkCount - a.networkCount ||
+      b.invitedCount - a.invitedCount ||
+      b.joinedAt - a.joinedAt,
+  );
+}
+
 export function NetworkTab() {
   const network = useQuery(api.invites.getMyNetwork);
+  const [sort, setSort] = useState<SortKey>("newest");
 
   return (
     <div className="space-y-10">
@@ -30,6 +45,10 @@ export function NetworkTab() {
             </PeopleSection>
           )}
 
+          {network.direct.length + network.downstream.length > 1 && (
+            <SortToggle value={sort} onChange={setSort} />
+          )}
+
           <PeopleSection
             title="You invited"
             empty={
@@ -38,14 +57,14 @@ export function NetworkTab() {
                 : undefined
             }
           >
-            {network.direct.map((p) => (
+            {sortPeople(network.direct, sort).map((p) => (
               <PersonRow key={p.profileId} person={p} />
             ))}
           </PeopleSection>
 
           {network.downstream.length > 0 && (
             <PeopleSection title="Who they invited">
-              {network.downstream.map((p) => (
+              {sortPeople(network.downstream, sort).map((p) => (
                 <PersonRow
                   key={p.profileId}
                   person={p}
@@ -108,21 +127,20 @@ function InviteLinkPanel() {
             <button
               type="button"
               onClick={copy}
-              className="px-4 py-2 rounded-lg text-sm font-medium"
-              style={{
-                backgroundColor: "var(--app-accent)",
-                color: "var(--app-accent-ink)",
-              }}
+              className={BUTTON_CLASS}
+              style={BUTTON_STYLE}
             >
+              {copied ? <CheckIcon /> : <CopyIcon />}
               {copied ? "Copied!" : "Copy link"}
             </button>
             {canShare && (
               <button
                 type="button"
                 onClick={share}
-                className="px-4 py-2 rounded-lg text-sm font-medium border"
-                style={{ borderColor: "var(--app-hairline-raised)", color: "var(--app-text)" }}
+                className={BUTTON_CLASS}
+                style={BUTTON_STYLE}
               >
+                <ShareIcon />
                 Share…
               </button>
             )}
@@ -133,6 +151,80 @@ function InviteLinkPanel() {
         </>
       )}
     </section>
+  );
+}
+
+const BUTTON_CLASS =
+  "inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border transition-colors hover:bg-[var(--app-hairline)]";
+const BUTTON_STYLE = {
+  borderColor: "var(--app-hairline-raised)",
+  color: "var(--app-text)",
+};
+
+function CopyIcon() {
+  return (
+    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <rect x="9" y="9" width="12" height="12" rx="2" />
+      <path d="M5 15H4a1 1 0 01-1-1V4a1 1 0 011-1h10a1 1 0 011 1v1" />
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M5 13l4 4L19 7" />
+    </svg>
+  );
+}
+
+function ShareIcon() {
+  return (
+    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M12 3v12M7 8l5-5 5 5" />
+      <path d="M5 13v6a2 2 0 002 2h10a2 2 0 002-2v-6" />
+    </svg>
+  );
+}
+
+function SortToggle({
+  value,
+  onChange,
+}: {
+  value: SortKey;
+  onChange: (key: SortKey) => void;
+}) {
+  const options: { key: SortKey; label: string }[] = [
+    { key: "newest", label: "Newest" },
+    { key: "network", label: "Biggest network" },
+  ];
+  return (
+    <div className="flex items-center gap-2 text-xs" style={{ color: "var(--app-text-dim)" }}>
+      <span>Sort</span>
+      <div
+        className="inline-flex rounded-lg p-0.5"
+        style={{ backgroundColor: "var(--app-surface-raised)" }}
+        role="group"
+        aria-label="Sort people"
+      >
+        {options.map((o) => (
+          <button
+            key={o.key}
+            type="button"
+            aria-pressed={value === o.key}
+            onClick={() => onChange(o.key)}
+            className="px-3 py-1 rounded-md font-medium transition-colors"
+            style={
+              value === o.key
+                ? { backgroundColor: "var(--app-hairline-raised)", color: "var(--app-text)" }
+                : { color: "var(--app-text-dim)" }
+            }
+          >
+            {o.label}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -186,6 +278,7 @@ type NetworkPerson = {
   interests: string[];
   joinedAt: number;
   invitedCount: number;
+  networkCount: number;
 };
 
 function PersonRow({
@@ -197,7 +290,6 @@ function PersonRow({
 }) {
   const details = [
     person.interests.join(" · "),
-    person.invitedCount > 0 ? `invited ${person.invitedCount}` : "",
     `joined ${new Date(person.joinedAt).toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
@@ -234,10 +326,34 @@ function PersonRow({
             {details.join(" · ")}
           </div>
         </div>
+        <NetworkCount direct={person.invitedCount} total={person.networkCount} />
         <span aria-hidden style={{ color: "var(--app-text-dim)" }}>
           →
         </span>
       </Link>
     </li>
+  );
+}
+
+// "3 +5": people they invited directly, then everyone further downstream.
+function NetworkCount({ direct, total }: { direct: number; total: number }) {
+  if (total === 0) return null;
+  const further = total - direct;
+  return (
+    <span
+      className="shrink-0 text-right text-xs tabular-nums"
+      title={`${direct} invited directly${further > 0 ? `, ${further} more through them` : ""}`}
+      style={{ color: "var(--app-text-dim)" }}
+    >
+      <span className="font-semibold text-sm" style={{ color: "var(--app-text)" }}>
+        {direct}
+      </span>{" "}
+      direct
+      {further > 0 && (
+        <span className="ml-1.5" style={{ color: "var(--app-text-muted)" }}>
+          +{further}
+        </span>
+      )}
+    </span>
   );
 }
