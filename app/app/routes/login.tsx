@@ -87,7 +87,11 @@ export default function Login() {
     setGoogleLoading(true);
 
     try {
-      await signIn("google");
+      // Come back to THIS page, ?redirect= and all. Without a redirectTo,
+      // Convex Auth returns to SITE_URL — the marketing home, which doesn't
+      // forward signed-in people — so a successful Google sign-in looked
+      // like nothing happened. The effect above takes it from here.
+      await signIn("google", { redirectTo: window.location.pathname + window.location.search });
       posthog?.capture("google_sign_in_initiated");
       // Redirect happens automatically via useEffect when auth state updates
     } catch (err) {
