@@ -361,6 +361,8 @@ function publicShape(org: Doc<"hostOrgs">) {
     slug: org.slug,
     tagline: org.tagline,
     description: org.description,
+    whyHere: org.whyHere,
+    agreements: org.agreements,
     coverUrl: org.coverUrl,
     websiteUrl: org.websiteUrl,
     locationLabel: org.locationLabel,
@@ -762,6 +764,8 @@ export const updateCommunity = mutation({
     name: v.optional(v.string()),
     tagline: v.optional(v.string()),
     description: v.optional(v.string()),
+    whyHere: v.optional(v.string()),
+    agreements: v.optional(v.array(v.string())),
     coverUrl: v.optional(v.string()),
     websiteUrl: v.optional(v.string()),
     locationLabel: v.optional(v.string()),
@@ -781,6 +785,12 @@ export const updateCommunity = mutation({
       joinPolicy: args.joinPolicy,
     });
     if (invalid) throw new ConvexError(invalid);
+    if ((args.whyHere?.trim().length ?? 0) > DESCRIPTION_MAX) {
+      throw new ConvexError({
+        code: "invalid_why_here",
+        reason: `Keep "why we're here" under ${DESCRIPTION_MAX} characters.`,
+      });
+    }
     if (args.visibility !== undefined && args.visibility !== "public" && args.visibility !== "unlisted") {
       throw new ConvexError({ code: "invalid_visibility", reason: 'Visibility is "public" or "unlisted".' });
     }
@@ -789,6 +799,11 @@ export const updateCommunity = mutation({
     if (args.name !== undefined) patch.name = args.name.trim();
     if (args.tagline !== undefined) patch.tagline = args.tagline.trim() || undefined;
     if (args.description !== undefined) patch.description = args.description.trim() || undefined;
+    if (args.whyHere !== undefined) patch.whyHere = args.whyHere.trim() || undefined;
+    if (args.agreements !== undefined) {
+      const cleaned = args.agreements.map((a) => a.trim()).filter(Boolean);
+      patch.agreements = cleaned.length ? cleaned : undefined;
+    }
     if (args.coverUrl !== undefined) patch.coverUrl = args.coverUrl.trim() || undefined;
     if (args.websiteUrl !== undefined) patch.websiteUrl = args.websiteUrl.trim() || undefined;
     if (args.locationLabel !== undefined) patch.locationLabel = args.locationLabel.trim() || undefined;

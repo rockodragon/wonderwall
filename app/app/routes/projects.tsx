@@ -83,7 +83,6 @@ export function errorMessage(err: unknown): string {
 
 export default function Projects() {
   const projects = useQuery(api.garden.projects.listProjects);
-  const [kindFilter, setKindFilter] = useState("");
   const [showPaidForm, setShowPaidForm] = useState(false);
   const [showGigForm, setShowGigForm] = useState(false);
   const navigate = useNavigate();
@@ -102,6 +101,19 @@ export default function Projects() {
   );
   const locationFilter = (searchParams.get("location") || "").trim();
   const hasMatchFilter = interestFilter.length > 0 || !!locationFilter;
+
+  // The kind filter lives in the URL (?kind=passion|paid|gigs), not in
+  // component state, so a link can land on "Paid gigs" — Today's "All gigs →"
+  // depends on it, and the back button and a shared link both keep it. An
+  // unknown value reads as "All".
+  const kindParam = searchParams.get("kind") || "";
+  const kindFilter = KIND_FILTERS.some((f) => f.value === kindParam) ? kindParam : "";
+  function setKindFilter(value: string) {
+    const next = new URLSearchParams(searchParams);
+    if (value) next.set("kind", value);
+    else next.delete("kind");
+    setSearchParams(next, { replace: true });
+  }
 
   // Manual hashtag pills, separate from the soft interests/location match
   // above (which only sorts). Clicking a tag is a deliberate "show me only

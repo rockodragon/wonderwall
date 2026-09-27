@@ -98,6 +98,8 @@ type Community = {
   slug: string;
   tagline?: string;
   description?: string;
+  whyHere?: string;
+  agreements?: string[];
   websiteUrl?: string;
   locationLabel?: string;
   status: string;
@@ -246,6 +248,8 @@ function EditCommunityForm({ community }: { community: Community }) {
   const updateCommunity = useMutation(api.garden.communities.updateCommunity);
   const [tagline, setTagline] = useState(community.tagline ?? "");
   const [description, setDescription] = useState(community.description ?? "");
+  const [whyHere, setWhyHere] = useState(community.whyHere ?? "");
+  const [agreements, setAgreements] = useState((community.agreements ?? []).join("\n"));
   const [locationLabel, setLocationLabel] = useState(community.locationLabel ?? "");
   const [websiteUrl, setWebsiteUrl] = useState(community.websiteUrl ?? "");
   const [joinPolicy, setJoinPolicy] = useState(community.joinPolicy);
@@ -262,6 +266,11 @@ function EditCommunityForm({ community }: { community: Community }) {
         hostOrgId: community._id,
         tagline: tagline.trim() || undefined,
         description: description.trim() || undefined,
+        whyHere: whyHere.trim() || undefined,
+        agreements: agreements
+          .split("\n")
+          .map((a) => a.trim())
+          .filter(Boolean),
         locationLabel: locationLabel.trim() || undefined,
         websiteUrl: websiteUrl.trim() || undefined,
         joinPolicy,
@@ -290,6 +299,28 @@ function EditCommunityForm({ community }: { community: Community }) {
           onChange={(e) => setDescription(e.target.value)}
           rows={4}
         />
+      </div>
+      <div className="mt-3.5">
+        <label className={labelClass} style={labelStyle}>Why we're here</label>
+        <textarea
+          className={`${inputClass} resize-y`}
+          style={inputStyle}
+          value={whyHere}
+          onChange={(e) => setWhyHere(e.target.value)}
+          rows={6}
+        />
+        <Hint>Paragraphs separated by a blank line.</Hint>
+      </div>
+      <div className="mt-3.5">
+        <label className={labelClass} style={labelStyle}>Community agreements</label>
+        <textarea
+          className={`${inputClass} resize-y`}
+          style={inputStyle}
+          value={agreements}
+          onChange={(e) => setAgreements(e.target.value)}
+          rows={6}
+        />
+        <Hint>One agreement per line.</Hint>
       </div>
       <div className="mt-3.5">
         <label className={labelClass} style={labelStyle}>Location</label>
@@ -1041,6 +1072,39 @@ export default function CommunityDetailPage() {
         <p className="mt-4 text-[15px] leading-relaxed max-w-[62ch]" style={{ color: "var(--garden-body)" }}>
           {community.description}
         </p>
+      )}
+
+      {community.whyHere && (
+        <div className="mt-7 max-w-[62ch]">
+          <SectionLabel>Why we're here</SectionLabel>
+          <div className="mt-2.5 space-y-3">
+            {community.whyHere.split(/\n\s*\n/).map((para, i) => (
+              <p key={i} className="text-[15px] leading-relaxed" style={{ color: "var(--garden-body)" }}>
+                {para}
+              </p>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {community.agreements && community.agreements.length > 0 && (
+        <div className="mt-7 max-w-[62ch]">
+          <SectionLabel>Community agreements</SectionLabel>
+          <ul className="mt-2.5 list-disc pl-5 space-y-1.5">
+            {community.agreements.map((a, i) => (
+              <li key={i} className="text-[15px] leading-relaxed" style={{ color: "var(--garden-body)" }}>
+                {a}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2.5 text-[15px] leading-relaxed" style={{ color: "var(--garden-body)" }}>
+            You also agree to{" "}
+            <a href="/about/agreements.html" style={{ color: "var(--garden-citron)" }}>
+              creatives.exchange's agreements
+            </a>
+            .
+          </p>
+        </div>
       )}
 
       {/* One row: the membership action, then where to browse. The per-
