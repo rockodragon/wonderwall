@@ -1,5 +1,7 @@
 # Live booking — paid gigs on a schedule
 
+> **2026-09-27:** posting and browse copy moved. Gigs are posted through "+ Post → Hire someone → On set dates", and browsed under **Work → Gigs**. See [project-ia.md](project-ia.md). The gig mechanics below are unchanged.
+
 v0.1 · 2026-09-17 · owner: Rick · status: **built on the `live-booking` branch, not merged**. The spec and the code were written together; every section below says what the code does today. Open questions are at the end.
 
 ## 0 · What this is

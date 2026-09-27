@@ -20,6 +20,7 @@ import { isValidEmail, normalizeEmail } from "./eventRsvps";
 import { can } from "./capabilities";
 import { assertCanPure, getGardenUser } from "./entitlements";
 import { scheduleNotificationEmail } from "../emailHelpers";
+import { toEmbedUrl } from "../videoEmbed";
 
 // ——————————————————————————————————————————————————————————————
 // Stage — TWIN of app/app/lib/stage.ts (STAGES, isStage, stageLabel,
@@ -1550,7 +1551,35 @@ export const listRoles = query({
 });
 
 /** Public: projects a person leads or is accepted on, for the profile's
- * Projects section. Archived projects excluded; newest project first. */
+ * "Working on" and "Portfolio" sections (docs/features/project-ia.md) —
+ * one list, split by `completed`. Archived projects excluded; newest first.
+ * A shared piece of work IS a project (V1 PRD §7), so portfolio-origin rows
+ * are included like any other; their attached media supplies the cover.
+ * Each row carries what a visitor needs to see at a glance: done or not,
+ * hiring (open roles, or a paid posting), raising, gig dates. */
+// The one picture that stands for a project on a profile: its own photo,
+// else its pasted link's still, else the first attached piece's — an
+// uploaded image, a fetched/uploaded cover, or a video provider's thumbnail.
+async function projectCover(ctx: QueryCtx, project: Doc<"projects">): Promise<string | null> {
+  if (project.photoStorageId) return await ctx.storage.getUrl(project.photoStorageId);
+  if (project.photoUrl) return project.photoUrl;
+  if (project.mediaPreviewUrl) return project.mediaPreviewUrl;
+  const pieces = await ctx.db
+    .query("artifacts")
+    .withIndex("by_projectId", (q) => q.eq("projectId", project._id))
+    .collect();
+  for (const piece of pieces) {
+    if (piece.ogImageUrl) return piece.ogImageUrl;
+    if (piece.type === "image") {
+      if (piece.mediaStorageId) return await ctx.storage.getUrl(piece.mediaStorageId);
+      if (piece.mediaUrl) return piece.mediaUrl;
+    }
+    const embed = toEmbedUrl(piece.mediaUrl);
+    if (embed?.thumbnailUrl) return embed.thumbnailUrl;
+  }
+  return null;
+}
+
 export const listAffiliations = query({
   args: { profileId: v.id("profiles") },
   handler: async (ctx, args) => {
@@ -1568,47 +1597,71 @@ export const listAffiliations = query({
         .collect(),
     ]);
 
-    type Row = { projectId: Id<"projects">; title: string; role: string; stage: Stage; kind: string; createdAt: number; photoStorageId?: Id<"_storage">; photoUrl?: string };
-    const out: Row[] = [];
+    const rows: { project: Doc<"projects">; role: string }[] = [];
     const seen = new Set<string>();
+    const keep = (project: Doc<"projects"> | null): project is Doc<"projects"> =>
+      !!project && project.status !== "archived";
     for (const project of owned) {
-      if (project.status === "archived") continue;
+      if (!keep(project)) continue;
       seen.add(String(project._id));
-      out.push({
-        projectId: project._id,
-        title: project.title,
-        role: "Lead",
-        stage: resolveStage(project),
-        kind: project.kind,
-        createdAt: project.createdAt,
-        photoStorageId: project.photoStorageId,
-        photoUrl: project.photoUrl,
-      });
+      rows.push({ project, role: "Lead" });
     }
     for (const row of acceptedRows) {
       if (seen.has(String(row.projectId))) continue;
       const project = await ctx.db.get(row.projectId);
-      if (!project || project.status === "archived") continue;
+      if (!keep(project)) continue;
       seen.add(String(project._id));
-      out.push({
-        projectId: project._id,
-        title: project.title,
-        role: row.role,
-        stage: resolveStage(project),
-        kind: project.kind,
-        createdAt: project.createdAt,
-        photoStorageId: project.photoStorageId,
-        photoUrl: project.photoUrl,
-      });
+      rows.push({ project, role: row.role });
     }
-    out.sort((a, b) => b.createdAt - a.createdAt);
-    const resolved = await Promise.all(
-      out.map(async ({ projectId, title, role, stage, kind, photoStorageId, photoUrl }) => {
-        const imageUrl = photoStorageId ? await ctx.storage.getUrl(photoStorageId) : photoUrl ?? null;
-        return { projectId, title, role, stage, kind, imageUrl };
+    rows.sort((a, b) => b.project.createdAt - a.project.createdAt);
+
+    return await Promise.all(
+      rows.map(async ({ project, role }) => {
+        const [imageUrl, openRoles, gig, tiers] = await Promise.all([
+          projectCover(ctx, project),
+          ctx.db
+            .query("projectRoles")
+            .withIndex("by_projectId_status", (q) => q.eq("projectId", project._id).eq("status", "open"))
+            .collect(),
+          ctx.db
+            .query("gigSeries")
+            .withIndex("by_projectId", (q) => q.eq("projectId", project._id))
+            .first(),
+          ctx.db
+            .query("patronTiers")
+            .withIndex("by_projectId", (q) => q.eq("projectId", project._id))
+            .collect(),
+        ]);
+        const stage = resolveStage(project);
+        return {
+          projectId: project._id,
+          title: project.title,
+          blurb: project.blurb ?? null,
+          role,
+          stage,
+          kind: project.kind,
+          imageUrl,
+          completed: stage === "completed" || project.status === "completed",
+          openRoles: openRoles.map((r) => ({
+            roleId: r._id,
+            title: r.title,
+            budgetType: r.budgetType ?? null,
+            budget: r.budget ?? null,
+            budgetMax: r.budgetMax ?? null,
+          })),
+          // A paid posting is itself a hire; its pay is the project's own.
+          budgetType: project.kind === "paid" ? (project.budgetType ?? null) : null,
+          budget: project.kind === "paid" ? (project.budget ?? null) : null,
+          budgetMax: project.kind === "paid" ? (project.budgetMax ?? null) : null,
+          gig: gig ? { status: gig.status, venueName: gig.venueName ?? null } : null,
+          raising:
+            !gig &&
+            ((project.goal ?? 0) > 0 || project.stage === "raising" || tiers.some((t) => t.isActive)),
+          goal: project.goal ?? null,
+          raisedCents: project.raisedCents ?? 0,
+        };
       }),
     );
-    return resolved;
   },
 });
 

@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "convex/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import Markdown from "react-markdown";
 import { api } from "../../convex/_generated/api";
@@ -7,10 +7,12 @@ import type { Id } from "../../convex/_generated/dataModel";
 import { EmbedPlayer } from "../components/EmbedPlayer";
 import { ShareButton } from "../components/ShareButton";
 import { toEmbedUrl } from "../lib/videoEmbed";
+import { useBack } from "../lib/useBack";
 
 export default function WorkDetail() {
   const { artifactId } = useParams();
   const navigate = useNavigate();
+  const back = useBack("/works");
   const artifact = useQuery(
     api.artifacts.get,
     artifactId ? { artifactId: artifactId as Id<"artifacts"> } : "skip",
@@ -18,6 +20,11 @@ export default function WorkDetail() {
   const toggleLike = useMutation(api.artifacts.toggleLike);
   const removeArtifact = useMutation(api.artifacts.remove);
   const refetchOgImage = useMutation(api.artifacts.refetchOgImage);
+  // A piece is a project now (docs/features/project-ia.md): its page is the
+  // project's page, which plays the piece. Old /works/:id links land there.
+  useEffect(() => {
+    if (artifact?.projectId) navigate(`/projects/${artifact.projectId}`, { replace: true });
+  }, [artifact?.projectId, navigate]);
   const [deleting, setDeleting] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -97,9 +104,10 @@ export default function WorkDetail() {
 
   return (
     <div className="p-4 sm:p-6 max-w-5xl mx-auto">
-      {/* Back link */}
+      {/* Back link — to wherever they came from (a profile, a project),
+          falling back to Works on a cold shared link. */}
       <Link
-        to="/works"
+        {...back}
         className="inline-flex items-center gap-2 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white mb-6 text-sm"
       >
         <svg
@@ -115,7 +123,7 @@ export default function WorkDetail() {
             d="M15 19l-7-7 7-7"
           />
         </svg>
-        Back to Works
+        Back
       </Link>
 
       {/* Main content */}
