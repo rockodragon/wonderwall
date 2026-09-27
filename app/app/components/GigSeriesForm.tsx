@@ -1,4 +1,4 @@
-// "Post paid gigs" — a recurring booking (docs/features/live-booking.md).
+// "Hire someone → On set dates" — a recurring booking (docs/features/live-booking.md).
 // Same modal shell, pill styling, and validation conventions as
 // PaidProjectForm (routes/projects.tsx), extended with the schedule fields
 // a one-off paid posting doesn't need: days of the week, a repeat cadence,
@@ -18,6 +18,7 @@ import { useLocationField } from "../lib/useLocationField";
 import { CommunityPicker } from "./CommunityPicker";
 import { useCommunityContext } from "./CommunityFilter";
 import { errorMessage } from "../routes/projects";
+import { HireWhenToggle, type HireDraft } from "./HireWhenToggle";
 import { HORIZON_WEEKS, MAX_COUNT, WEEKDAY_SHORT, compareDates } from "../../convex/garden/gigRules";
 
 // Same four money states PaidProjectForm offers, mirrored here rather than
@@ -104,9 +105,15 @@ function Pill({ active, onClick, children }: { active: boolean; onClick: () => v
 export function GigSeriesForm({
   onClose,
   onCreated,
+  initial,
+  onSwitchToJob,
 }: {
   onClose: () => void;
   onCreated: (projectId: string) => void;
+  /** Carried over when the poster flips from "One job" to "On set dates". */
+  initial?: HireDraft;
+  /** Present when opened from "Hire someone" — shows the When toggle. */
+  onSwitchToJob?: (draft: HireDraft) => void;
 }) {
   const createGigSeries = useMutation(api.garden.gigs.createGigSeries);
   const myProfile = useQuery(api.profiles.getMyProfile);
@@ -120,8 +127,8 @@ export function GigSeriesForm({
     }
   }, [myProfile?.orgName]);
 
-  const [title, setTitle] = useState("");
-  const [blurb, setBlurb] = useState("");
+  const [title, setTitle] = useState(initial?.title ?? "");
+  const [blurb, setBlurb] = useState(initial?.blurb ?? "");
   const [weekdays, setWeekdays] = useState<number[]>(DEFAULT_WEEKDAYS);
   const [repeat, setRepeat] = useState<1 | 2 | 4 | "once">(1);
   const isOnce = repeat === "once";
@@ -270,12 +277,14 @@ export function GigSeriesForm({
           className="text-xl font-semibold mb-1"
           style={{ color: "var(--garden-paper)", fontFamily: "var(--garden-font-display)" }}
         >
-          Post paid gigs
+          Hire someone
         </h2>
         <p className="text-sm mb-5" style={{ color: "var(--garden-dim)" }}>
-          A recurring booking — say the day, the time, and what each date pays. Artists mark the dates they can
-          play; you pick who plays.
+          Say the day, the time, and what each date pays.
         </p>
+        {onSwitchToJob && (
+          <HireWhenToggle value="dates" onChange={() => onSwitchToJob({ title, blurb })} />
+        )}
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div>
             <FieldLabel>Venue name (optional)</FieldLabel>
@@ -529,7 +538,7 @@ export function GigSeriesForm({
               className="px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-50"
               style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
             >
-              {submitting ? "Posting…" : "Post gigs"}
+              {submitting ? "Posting…" : "Post dates"}
             </button>
           </div>
         </form>

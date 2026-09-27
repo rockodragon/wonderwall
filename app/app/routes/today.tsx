@@ -111,7 +111,7 @@ export default function Today() {
           short list, every row a link that says "See →", and the section
           stays on the page when it's empty so a new member learns it
           exists. Backing and responding live on the project page. */}
-      <Section title="Open projects" action={<SectionLink to="/projects?kind=passion">{countLabel("project", open.length)} →</SectionLink>}>
+      <Section title="Open projects" action={<SectionLink to="/projects">{countLabel("project", open.length)} →</SectionLink>}>
         {loading ? (
           <Skeleton height={140} />
         ) : shownOpen.length > 0 ? (
@@ -131,10 +131,10 @@ export default function Today() {
         )}
       </Section>
 
-      {/* ?kind=paid, not ?kind=gigs: on /projects "gigs" means a recurring
-          live-booking series, and this list is every paid posting, series
-          or not. The link has to land on the same rows the list showed. */}
-      <Section title="Paid gigs" action={<SectionLink to="/projects?kind=paid">{countLabel("gig", gigs.length)} →</SectionLink>}>
+      {/* The Work view, not its Gigs filter: on /projects "gigs" means a
+          recurring live-booking series, and this list is every paid
+          posting, series or not. */}
+      <Section title="Paid gigs" action={<SectionLink to="/projects?view=work">{countLabel("gig", gigs.length)} →</SectionLink>}>
         {loading ? (
           <Skeleton height={64} />
         ) : shownGigs.length > 0 ? (
