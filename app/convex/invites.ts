@@ -4,6 +4,7 @@ import type { QueryCtx, MutationCtx } from "./_generated/server";
 import { auth } from "./auth";
 import { scheduleNotificationEmail } from "./emailHelpers";
 import { escapeHtml } from "./garden/projectTeam";
+import { followEachOther } from "./follows";
 
 // A pasted or emailed code can be either kind of invite: a member's own
 // inviteSlug, or an admin's fixed waitlist-approval code (adminCode, set by
@@ -443,6 +444,10 @@ export const redeemBySlug = mutation({
     await ctx.db.patch(inviterProfile._id, {
       inviteUsageCount: usageCount + 1,
     });
+
+    // Accepting an invite is also a mutual follow, so the new member hears
+    // about the inviter's next project or event (follows.ts).
+    await followEachOther(ctx, inviterProfile.userId, userId);
 
     // Get the new user's profile info for the notification
     // Note: Profile may not exist yet at signup time, so we'll get it later or use user info
