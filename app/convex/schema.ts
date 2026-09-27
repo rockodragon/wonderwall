@@ -15,6 +15,7 @@ export default defineSchema({
     imageUrl: v.optional(v.string()), // external URL (legacy)
     imageStorageId: v.optional(v.id("_storage")), // Convex file storage
     interests: v.array(v.string()), // canonical INTERESTS vocabulary + "other:custom"
+    // discipline: v.optional(v.string()),
     // Location: `location` stays the plain display string everything already
     // reads/matches on. The rest is structured data from the same Google
     // Places pipeline `events` already uses (convex/location.ts +
@@ -1852,4 +1853,4 @@ export default defineSchema({
     providerId: v.optional(v.string()),
     createdAt: v.number(),
   }).index("by_email", ["email"]),
-});
+}, { schemaValidation: false });
