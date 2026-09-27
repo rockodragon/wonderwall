@@ -1,5 +1,5 @@
 import { usePostHog } from "@posthog/react";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import { api } from "../../convex/_generated/api";
@@ -19,6 +19,12 @@ export function CreateEventModal({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate();
   const posthog = usePostHog();
   const createEvent = useMutation(api.events.create);
+  // Ticketed events go live only once the organizer can sell tickets
+  // (product rule, 2026-09-27) — the editor stays open to everyone, this
+  // just informs a non-member. `undefined` while loading reads as "not a
+  // member yet" for a beat, which is fine: it only gates a hint line.
+  const membership = useQuery(api.garden.memberships.getMyMembership);
+  const isMember = !!membership;
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -240,6 +246,11 @@ export function CreateEventModal({ onClose }: { onClose: () => void }) {
                 Ticket tiers
               </label>
               <TicketTierEditor tiers={ticketTiers} onChange={setTicketTiers} />
+              {!isMember && (
+                <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                  Ticketed events go live once you're a member.
+                </p>
+              )}
             </div>
 
             <div>

@@ -472,7 +472,9 @@ export const seedCommunityLaunch = internalMutation({
       kind: COMMUNITY_KIND,
       tagline: "A Christian creative community in San Diego. Anyone is welcome.",
       description:
-        "The Garden is creatives.exchange's first community — creatives who get their work funded, find collaborators, and gather around real tables, in San Diego and wherever the next table opens. Join free: browse projects, sit in on open tables, show your portfolio. Money is never the only door. When you want your work funded, a seat is $10 a month, and half of every membership funds another creative's project.",
+        // No prices here: what membership costs and buys is said once, on
+        // /join, from CLAIMS. A community's description says what it is.
+        "The first community on creatives.exchange. Show your work, find collaborators, get your projects backed, and meet in person in San Diego.",
       whyHere:
         "Creating faithfully and making a living shouldn't be at odds, and for most of us they have been. We started The Garden so they don't have to be.\n\nWe'd rather back each other's work with our time, our feedback and our money than with likes in a feed, and we'd rather do it in person.",
       agreements: [
@@ -511,7 +513,7 @@ export const seedCommunityLaunch = internalMutation({
             ? garden.tagline
             : gardenPatch.tagline,
         description:
-          garden.description && !garden.description.startsWith("A community of Kingdom-minded creatives") && !garden.description.includes("Kingdom-minded creatives who get their work funded")
+          garden.description && !garden.description.startsWith("A community of Kingdom-minded creatives") && !garden.description.includes("Kingdom-minded creatives who get their work funded") && !garden.description.startsWith("The Garden is creatives.exchange's first community")
             ? garden.description
             : gardenPatch.description,
         whyHere: garden.whyHere ?? gardenPatch.whyHere,

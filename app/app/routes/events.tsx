@@ -5,6 +5,7 @@ import { CreateEventModal } from "../components/CreateEventModal";
 import { EventCard } from "../components/EventCard";
 import { SearchInput } from "../components/SearchInput";
 import { TagFilterPills } from "../components/TagFilterPills";
+import { FilterButton, FilterPanel, filterButtonLabel } from "../components/FilterMenu";
 import { useFilterState } from "../lib/useFilterState";
 import { EVENT_TAGS } from "../constants/eventTags";
 import {
@@ -13,7 +14,7 @@ import {
   useCommunityContext,
 } from "../components/CommunityFilter";
 import { haversineDistance, NEAR_ME_RADIUS_OPTIONS, useNearMe } from "../lib/useNearMe";
-import { ChevronDownIcon, FilterIcon, LocationIcon } from "../components/icons";
+import { LocationIcon } from "../components/icons";
 
 // The card itself lives in components/EventCard.tsx — /favorites renders the
 // same component, so the treatment can only be changed in one place.
@@ -287,31 +288,22 @@ export default function Events() {
 
         {tagOptions.length > 0 && (
           <div className="mb-6">
-            <button
-              type="button"
+            <FilterButton
+              open={tagsExpanded}
               onClick={() => setTagsExpanded((v) => !v)}
-              className="sm:hidden flex items-center gap-2 px-3 py-1.5 rounded-lg text-[13px] font-medium mb-2 transition-colors"
-              style={{
-                fontFamily: "var(--garden-font-body)",
-                backgroundColor:
-                  tagFilters.length > 0 ? "var(--app-accent)" : "var(--app-surface-raised)",
-                color: tagFilters.length > 0 ? "var(--garden-ink)" : "var(--app-text-muted)",
-              }}
-            >
-              <FilterIcon className="w-3.5 h-3.5" />
-              Filter{tagFilters.length > 0 ? ` (${tagFilters.length})` : ""}
-              <ChevronDownIcon
-                className={`w-3.5 h-3.5 transition-transform ${tagsExpanded ? "rotate-180" : ""}`}
-              />
-            </button>
-            <div className={tagsExpanded ? "block sm:block" : "hidden sm:block"}>
-              <TagFilterPills
-                options={tagOptions}
-                active={tagFilters}
-                onToggle={toggleTag}
-                onClear={clearTags}
-              />
-            </div>
+              label={filterButtonLabel(tagOptions, tagFilters)}
+              active={tagFilters.length > 0}
+            />
+            {tagsExpanded && (
+              <FilterPanel className="mt-3">
+                <TagFilterPills
+                  options={tagOptions}
+                  active={tagFilters}
+                  onToggle={toggleTag}
+                  onClear={clearTags}
+                />
+              </FilterPanel>
+            )}
           </div>
         )}
 

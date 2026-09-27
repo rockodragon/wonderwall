@@ -14,7 +14,8 @@ import {
   useCommunityContext,
 } from "../components/CommunityFilter";
 import { resolveStage, stageLabel, STAGES } from "../lib/stage";
-import { ChevronDownIcon, FilterIcon } from "../components/icons";
+import { FilterButton, FilterPanel, filterButtonLabel } from "../components/FilterMenu";
+import { TagFilterPills } from "../components/TagFilterPills";
 import { CLAIMS } from "../constants/claims";
 import { toEmbedUrl } from "../lib/videoEmbed";
 import { describeMediaLink, MediaLinkField } from "../components/MediaLinkField";
@@ -123,11 +124,12 @@ export default function Projects() {
   // from whoever happens to have posted a project) so this list is always
   // identical to People's, regardless of current creator/project data.
   const [tagFilter, setTagFilter] = useState<string[]>([]);
-  // The full interest-tag row (20+ pills) ate most of a mobile screen
-  // before any project showed. Collapsed behind a toggle on mobile only —
-  // sm+ has the horizontal room to show it inline as before.
+  // The full interest-tag row (28 pills) lives behind one Filter button now
+  // (the /search affordance — components/FilterMenu.tsx), not inline, so it
+  // doesn't clutter the page next to the kind row above.
   const [tagsExpanded, setTagsExpanded] = useState(false);
   const allTags: readonly string[] = INTERESTS;
+  const tagOptions = useMemo(() => allTags.map((tag) => ({ label: tag, value: tag })), [allTags]);
   function toggleTag(tag: string) {
     setTagFilter((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
   }
@@ -259,53 +261,22 @@ export default function Projects() {
 
         {allTags.length > 0 && (
           <div className="mb-6">
-            <button
-              type="button"
+            <FilterButton
+              open={tagsExpanded}
               onClick={() => setTagsExpanded((v) => !v)}
-              className="sm:hidden flex items-center gap-2 px-3 py-1.5 rounded-lg text-[13px] font-medium mb-2 transition-colors"
-              style={{
-                fontFamily: "var(--garden-font-body)",
-                backgroundColor:
-                  tagFilter.length > 0 ? "var(--garden-citron)" : "var(--garden-ink-raised)",
-                color: tagFilter.length > 0 ? "var(--garden-ink)" : "var(--garden-muted)",
-              }}
-            >
-              <FilterIcon className="w-3.5 h-3.5" />
-              Filter{tagFilter.length > 0 ? ` (${tagFilter.length})` : ""}
-              <ChevronDownIcon
-                className={`w-3.5 h-3.5 transition-transform ${tagsExpanded ? "rotate-180" : ""}`}
-              />
-            </button>
-            <div
-              className={`${tagsExpanded ? "flex" : "hidden"} sm:flex flex-wrap items-center gap-2`}
-            >
-              {allTags.map((tag) => {
-                const active = tagFilter.includes(tag);
-                return (
-                  <button
-                    key={tag}
-                    onClick={() => toggleTag(tag)}
-                    className="px-3 py-1 rounded-full text-xs font-medium transition-colors"
-                    style={{
-                      fontFamily: "var(--garden-font-body)",
-                      backgroundColor: active ? "var(--garden-citron)" : "var(--garden-ink-raised)",
-                      color: active ? "var(--garden-ink)" : "var(--garden-muted)",
-                    }}
-                  >
-                    {tag}
-                  </button>
-                );
-              })}
-              {tagFilter.length > 0 && (
-                <button
-                  onClick={() => setTagFilter([])}
-                  className="text-xs underline underline-offset-2 hover:opacity-80"
-                  style={{ color: "var(--garden-citron)" }}
-                >
-                  Clear
-                </button>
-              )}
-            </div>
+              label={filterButtonLabel(tagOptions, tagFilter)}
+              active={tagFilter.length > 0}
+            />
+            {tagsExpanded && (
+              <FilterPanel className="mt-3">
+                <TagFilterPills
+                  options={tagOptions}
+                  active={tagFilter}
+                  onToggle={toggleTag}
+                  onClear={() => setTagFilter([])}
+                />
+              </FilterPanel>
+            )}
           </div>
         )}
 

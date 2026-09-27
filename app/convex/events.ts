@@ -7,6 +7,7 @@ import { scheduleNotificationEmail } from "./emailHelpers";
 import { assertCommunityMember } from "./garden/communities";
 import { formatFollowedEventDate, notifyFollowers } from "./follows";
 import { canonicalMediaUrl, schedulePreviewFetch } from "./linkPreview";
+import { canSeeEvent, eventVisibilityChecker, isFreeEvent } from "./garden/eventVisibility";
 
 // ——— Pure validation helpers (unit-tested in events.test.ts) ———
 
@@ -91,6 +92,12 @@ const ticketTiersValidator = v.optional(
   ),
 );
 
+// Ticket-gated visibility (isFreeEvent / eventVisibilityChecker) lives in
+// garden/eventVisibility.ts — re-exported here so existing/expected imports
+// from "./events" keep working, and so events.test.ts can test the pure
+// part alongside this file's other pure helpers.
+export { isFreeEvent, eventVisibilityChecker } from "./garden/eventVisibility";
+
 // Batches hostOrgs lookups for a set of events into a single Map keyed by
 // hostOrgId string — never one ctx.db.get per event (several events can
 // share a community). Used by both `list` and `get`.
@@ -141,6 +148,12 @@ export const list = query({
       const now = Date.now();
       events = events.filter((e) => e.datetime <= now);
     }
+
+    // A ticketed event stays off every public browse surface until its
+    // organizer can sell tickets (see eventVisibilityChecker above).
+    const isPublic = eventVisibilityChecker(ctx);
+    const visibility = await Promise.all(events.map((e) => isPublic(e)));
+    events = events.filter((_, i) => visibility[i]);
 
     // Sort by date — the archive reads newest-first, everything else reads
     // next-up-first.
@@ -201,6 +214,14 @@ export const get = query({
     const event = await ctx.db.get(args.eventId);
     if (!event) return null;
 
+    const userId = await auth.getUserId(ctx);
+    const isOrganizer = userId === event.organizerId;
+    const isPublic = await eventVisibilityChecker(ctx)(event);
+    // A ticketed event whose organizer can't sell tickets is not-found to
+    // everyone except the organizer (same anatomy as a missing event, so a
+    // hidden event can't be distinguished from one that never existed).
+    if (!isPublic && !isOrganizer) return null;
+
     // Get organizer profile
     const profile = await ctx.db
       .query("profiles")
@@ -232,7 +253,6 @@ export const get = query({
       .collect();
 
     // Check if current user has applied
-    const userId = await auth.getUserId(ctx);
     const userApplication = userId
       ? applications.find((a) => a.applicantId === userId)
       : null;
@@ -270,7 +290,11 @@ export const get = query({
         : null,
       applicationCount: applications.length,
       userApplication,
-      isOrganizer: userId === event.organizerId,
+      isOrganizer,
+      // Lets the organizer's own view show the "only you can see this"
+      // notice; never true for anyone else, since a non-public event
+      // already returned null above.
+      hiddenUntilMembership: isOrganizer && !isPublic,
       community,
     };
   },
@@ -369,12 +393,21 @@ export const create = mutation({
       .withIndex("by_userId", (q) => q.eq("userId", userId))
       .first();
     const organizerName = organizerProfile?.name || "Someone";
-    await notifyFollowers(ctx, userId, {
-      type: "followed_created_event",
-      title: `${organizerName} is hosting ${title}`,
-      message: formatFollowedEventDate(args.datetime),
-      linkUrl: `/events/${eventId}`,
+    // Skip the fan-out when the new event is ticketed and not public yet —
+    // followers would get a link to a page that 404s for them until the
+    // organizer becomes a member (product rule, 2026-09-27).
+    const isPublic = await eventVisibilityChecker(ctx)({
+      ticketTiers: tiers,
+      organizerId: userId,
     });
+    if (isPublic) {
+      await notifyFollowers(ctx, userId, {
+        type: "followed_created_event",
+        title: `${organizerName} is hosting ${title}`,
+        message: formatFollowedEventDate(args.datetime),
+        linkUrl: `/events/${eventId}`,
+      });
+    }
 
     return eventId;
   },
@@ -517,7 +550,8 @@ export const apply = mutation({
     if (!userId) throw new Error("Not authenticated");
 
     const event = await ctx.db.get(args.eventId);
-    if (!event) throw new Error("Event not found");
+    // A hidden ticketed event reads as missing, same as its page does.
+    if (!event || !(await canSeeEvent(ctx, event, userId))) throw new Error("Event not found");
     if (event.status !== "published")
       throw new Error("Event is not accepting applications");
 
@@ -643,6 +677,8 @@ export const updateApplicationStatus = mutation({
 export const getAttendees = query({
   args: { eventId: v.id("events") },
   handler: async (ctx, args) => {
+    const event = await ctx.db.get(args.eventId);
+    if (!event || !(await canSeeEvent(ctx, event, await auth.getUserId(ctx)))) return [];
     const acceptedApplications = await ctx.db
       .query("eventApplications")
       .withIndex("by_eventId", (q) => q.eq("eventId", args.eventId))
@@ -714,9 +750,16 @@ export const search = query({
     // Sort by date
     filtered.sort((a, b) => a.datetime - b.datetime);
 
+    // A ticketed event stays off search until its organizer can sell
+    // tickets. Checked before the slice so a page of hidden events can't
+    // starve out visible results.
+    const isPublic = eventVisibilityChecker(ctx);
+    const visibility = await Promise.all(filtered.map((e) => isPublic(e)));
+    const visible = filtered.filter((_, i) => visibility[i]);
+
     // Resolve cover images
     const eventsWithImages = await Promise.all(
-      filtered.slice(0, 20).map(async (event) => {
+      visible.slice(0, 20).map(async (event) => {
         let coverImageUrl: string | null = null;
 
         if (event.coverImageStorageId) {
@@ -746,6 +789,11 @@ export const getEventForTicketCheckout = internalQuery({
   handler: async (ctx, args) => {
     const event = await ctx.db.get(args.eventId);
     if (!event) return null;
+
+    // A ticketed event whose organizer can't sell tickets refuses checkout
+    // the same way a deleted event does ("isn't there anymore" —
+    // createTicketCheckout in garden/stripe.ts).
+    if (!(await eventVisibilityChecker(ctx)(event))) return null;
 
     const tier =
       event.ticketTiers?.find((t) => t.name === args.tierName) ?? null;

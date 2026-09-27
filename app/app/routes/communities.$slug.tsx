@@ -11,6 +11,7 @@ import type { FormEvent, ReactNode } from "react";
 import { useAction, useConvexAuth, useMutation, useQuery } from "convex/react";
 import { ConvexError } from "convex/values";
 import { Link, useParams, useRouteError, useSearchParams } from "react-router";
+import { FF_V2 } from "../lib/featureFlags";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { formatDateTime, formatMoney } from "../garden/ui";
@@ -1011,8 +1012,11 @@ function HostToolsPanel({ community }: { community: Community }) {
 
 // ————— Page —————
 
-export default function CommunityDetailPage() {
-  const { slug } = useParams();
+/** The full community page body: header, why-we're-here, agreements, join/
+ * browse row, products, fund link, and (for hosts) the host tools panel.
+ * Used both by /communities/:slug (below) and by /communities, which shows
+ * The Garden's page directly and appends its own `footer` links. */
+export function CommunityPage({ slug, footer }: { slug: string; footer?: ReactNode }) {
   const [searchParams] = useSearchParams();
   const purchased = searchParams.get("purchased") === "1";
   const community = useQuery(
@@ -1117,16 +1121,22 @@ export default function CommunityDetailPage() {
           <span style={{ color: "var(--garden-muted)" }}>or browse</span>
           <Link to={`/projects?community=${community.slug}`} style={{ color: "var(--garden-citron)" }}>Projects →</Link>
           <Link to={`/events?community=${community.slug}`} style={{ color: "var(--garden-citron)" }}>Events →</Link>
-          <Link to={`/offerings?community=${community.slug}`} style={{ color: "var(--garden-citron)" }}>Classes →</Link>
+          {FF_V2 && (
+            <Link to={`/offerings?community=${community.slug}`} style={{ color: "var(--garden-citron)" }}>Classes →</Link>
+          )}
         </div>
       </div>
 
-      <ProductsSection
-        hostOrgId={community._id}
-        slug={community.slug}
-        canManage={community.viewer.canManage}
-        purchased={purchased}
-      />
+      {/* Member products are classes and paid extras — not in the launch
+          (projects, people, profiles, events). Behind FF_V2. */}
+      {FF_V2 && (
+        <ProductsSection
+          hostOrgId={community._id}
+          slug={community.slug}
+          canManage={community.viewer.canManage}
+          purchased={purchased}
+        />
+      )}
 
       {community.hasFund && (
         <div className="mt-7">
@@ -1138,6 +1148,22 @@ export default function CommunityDetailPage() {
       )}
 
       {community.viewer.canManage && <HostToolsPanel community={community} />}
+
+      {footer}
     </PageShell>
   );
+}
+
+export default function CommunityDetailPage() {
+  const { slug } = useParams();
+
+  if (!slug) {
+    return (
+      <PageShell>
+        <Loading />
+      </PageShell>
+    );
+  }
+
+  return <CommunityPage slug={slug} />;
 }

@@ -222,6 +222,9 @@ h1 {
   background: var(--citron);
 }
 .col li strong { font-weight: 600; }
+/* On the ink page the list text has to be body-light, not ink — ink on ink
+   rendered every bullet with nothing after it. */
+.on-ink .col li { color: var(--body); }
 
 /* ---------- CTAs ---------- */
 .cta-row {

@@ -7,6 +7,7 @@ import type { ReactNode } from "react";
 import { useConvexAuth } from "convex/react";
 import { Link } from "react-router";
 import { SiteHeader } from "../components/SiteHeader";
+import { FF_V2 } from "../lib/featureFlags";
 
 // ————— Page shell —————
 
@@ -70,7 +71,7 @@ export function GardenWordmark() {
     detail) — the nav was walking strangers into a wall. Signed in → the
     real page; signed out → the public guest equivalent of the same
     content (/opportunities, /garden/events). */
-export const NAV_ITEMS = [
+const ALL_NAV_ITEMS = [
   { to: "/search", label: "People" },
   { to: "/projects", publicTo: "/opportunities", label: "Projects" },
   { to: "/events", publicTo: "/garden/events", label: "Events" },
@@ -81,6 +82,13 @@ export const NAV_ITEMS = [
   { to: "/communities", label: "Spaces" },
   { to: "/offerings", label: "Learn" },
 ] as const;
+
+// The launch is people, projects, profiles and events (Rick, 2026-09-27):
+// no self-hosted communities and no classes yet, so Spaces and Learn sit
+// behind FF_V2 everywhere this list is read — the public header, the app
+// rail and the mobile bar. The routes themselves stay live.
+const V2_NAV = new Set<string>(["/communities", "/offerings"]);
+export const NAV_ITEMS = ALL_NAV_ITEMS.filter((item) => FF_V2 || !V2_NAV.has(item.to));
 
 export function GardenNav({ active }: { active?: string }) {
   // During prerender and the first paint this reads false, so the markup a

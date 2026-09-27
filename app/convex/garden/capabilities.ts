@@ -12,6 +12,7 @@ export type Capability =
   | "gig.respond"
   | "pool.propose"
   | "event.create"
+  | "event.sellTickets"
   | "table.join.open"
   | "table.join.member"
   | "table.create"
@@ -130,10 +131,22 @@ export function can(user: GardenUser, capability: Capability): CanResult {
       };
 
     case "event.create":
+      // Rick, 2026-09-27 (final): anyone signed in can post an event,
+      // including one with paid ticket tiers — a ticketed event just stays
+      // hidden until its organizer can sell tickets (see
+      // "event.sellTickets" and convex/events.ts's isEventPublic).
+      if (level !== "visitor") return { allowed: true };
+      return {
+        allowed: false,
+        reason: "Sign in to post an event.",
+        upgradePath: "Create a free account",
+      };
+
+    case "event.sellTickets":
       if (isPaidLevel(level) || user.partnerRole) return { allowed: true };
       return {
         allowed: false,
-        reason: "Putting on an event takes a seat — or a partner listing.",
+        reason: "Selling tickets takes membership.",
         upgradePath: SEAT_PATH,
       };
 

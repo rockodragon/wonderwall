@@ -58,7 +58,7 @@ Your profile, portfolio, and funded work belong to you and travel with you acros
 |---|---|---|
 | Free member | $0 | — |
 | Member | That community's price, per community they join (The Garden: $10/mo) | Backings, fellowships, and paid jobs — 90% to them |
-| Host | $0 — hosting is never rented | 90% of what their classes collect |
+| Host | $0 | 90% of what their classes collect |
 
 **Where every dollar goes:**
 
@@ -93,7 +93,9 @@ Your profile, portfolio, and funded work belong to you and travel with you acros
 
 **Backers choose whether to be named.** Patrons back a named person or project. A project page shows what it has raised and the backers who chose to be named. A fund page lists the grants it has made. We do not pitch public money as a selling point.
 
-**Any member can offer a class or coaching in a community they belong to.** No paid membership and no host status needed. A free class is free to offer; on a paid one we take 10% when the money goes through our checkout. The community's hosts can pause a class if people complain.
+**Offering a class or coaching takes membership in that community** (2026-09-27). A class is a standing promise made under the community's name, so it needs the oversight a paid account brings. Host status isn't needed. On a paid class we take 10% when the money goes through our checkout. The community's hosts can pause a class if people complain.
+
+**Anyone can post an event. Selling tickets takes membership** (2026-09-27). A free account can create any event, ticketed or not. A free event is public as soon as it's posted. A ticketed event stays visible only to its organizer until they're a member, then goes live on its own.
 
 **Why someone pays:** you can always show up free. You pay when you want your work funded. That pitch only works if money is actually moving — so we bring in patrons and partners first, members second.
 

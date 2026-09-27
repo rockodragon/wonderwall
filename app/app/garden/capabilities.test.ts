@@ -36,7 +36,8 @@ const MATRIX: [Capability, [boolean, boolean, boolean, boolean, boolean, boolean
   ["project.applyPaid",      [false, false, true,  true,  true,  false, false]],
   ["gig.respond",            [false, false, true,  true,  true,  false, false]],
   ["pool.propose",           [false, false, true,  true,  true,  false, false]],
-  ["event.create",           [false, false, true,  true,  true,  false, true]],
+  ["event.create",           [false, true,  true,  true,  true,  true,  true]],
+  ["event.sellTickets",      [false, false, true,  true,  true,  false, true]],
   ["table.join.open",        [true,  true,  true,  true,  true,  true,  true]],
   ["table.join.member",      [false, false, true,  true,  true,  false, false]],
   ["table.create",           [false, false, false, false, true,  false, false]],
@@ -105,7 +106,7 @@ describe("denial anatomy — every denial explains itself", () => {
       "project.applyPaid",
       "gig.respond",
       "pool.propose",
-      "event.create",
+      "event.sellTickets",
       "table.join.member",
     ] as Capability[]) {
       expect(can(free, cap).upgradePath).toMatch(/member.*\$10\/mo/i);

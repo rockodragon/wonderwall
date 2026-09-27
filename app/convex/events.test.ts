@@ -7,6 +7,7 @@ import {
   MAX_TICKET_TIERS,
   normalizeTicketTiers,
   validateEndTime,
+  isFreeEvent,
   type TicketTierInput,
 } from "./events";
 
@@ -99,5 +100,31 @@ describe("normalizeTicketTiers", () => {
       priceCents: 2500,
     }));
     expect(normalizeTicketTiers(many).error).toMatch(/At most/);
+  });
+});
+
+// isEventPublic's pure half (garden/eventVisibility.ts): a free event (no
+// tiers) is always public and needs no membership lookup at all. The
+// membership-dependent half (a ticketed event's organizer must be able to
+// sell tickets) hits the DB via getGardenUser/can, so it isn't covered
+// here — there's no convex-test harness in this repo (grep turned up
+// nothing under convex/), only this pure-function style. See
+// garden/capabilities.test.ts for the event.sellTickets matrix row that
+// half relies on.
+describe("isFreeEvent (ticket-gated visibility, garden/eventVisibility.ts)", () => {
+  it("no ticketTiers field at all is free", () => {
+    expect(isFreeEvent({ ticketTiers: undefined })).toBe(true);
+  });
+
+  it("an empty ticketTiers array is free", () => {
+    expect(isFreeEvent({ ticketTiers: [] })).toBe(true);
+  });
+
+  it("any ticket tier makes it not free", () => {
+    expect(
+      isFreeEvent({
+        ticketTiers: [{ name: "General", priceCents: 2500 }],
+      }),
+    ).toBe(false);
   });
 });

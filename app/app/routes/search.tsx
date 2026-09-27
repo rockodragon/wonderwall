@@ -6,10 +6,11 @@ import { INTERESTS } from "../constants/interests";
 import { EventCard } from "../components/EventCard";
 import { SearchInput } from "../components/SearchInput";
 import { TagFilterPills } from "../components/TagFilterPills";
+import { FilterButton, FilterPanel, filterButtonLabel } from "../components/FilterMenu";
 import { useFilterState } from "../lib/useFilterState";
 import { CommunityContextLine, useCommunityContext } from "../components/CommunityFilter";
 import { haversineDistance, NEAR_ME_RADIUS_OPTIONS, useNearMe } from "../lib/useNearMe";
-import { ChevronDownIcon, FilterIcon, LocationIcon } from "../components/icons";
+import { LocationIcon } from "../components/icons";
 
 // Derived directly from the canonical INTERESTS list so this can never
 // drift from it again (it previously did — see git history). Label and
@@ -49,12 +50,7 @@ export default function Search() {
   } = useFilterState({ tagsParam: "interests" });
 
   // Get filter label for button
-  const filterLabel =
-    activeFilters.length === 0
-      ? "All"
-      : activeFilters.length === 1
-        ? FILTERS.find((f) => f.value === activeFilters[0])?.label || "1 filter"
-        : `${activeFilters.length} filters`;
+  const filterLabel = filterButtonLabel(FILTERS, activeFilters);
 
   // Text-based search for profiles (includes name, bio, interests).
   // No interest is passed server-side — at friend-group scale the whole
@@ -135,21 +131,12 @@ export default function Search() {
           <LocationIcon className="w-4 h-4" />
           <span className="font-medium hidden sm:inline">{geoLoading ? "Locating..." : "Near me"}</span>
         </button>
-        <button
+        <FilterButton
+          open={filterExpanded}
           onClick={() => setFilterExpanded(!filterExpanded)}
-          className="flex items-center gap-2 px-4 py-3 rounded-xl border transition-colors shrink-0"
-          style={
-            activeFilters.length > 0
-              ? { borderColor: "var(--app-accent)", backgroundColor: "var(--app-accent-wash)", color: "var(--app-accent-ink)" }
-              : { borderColor: "var(--app-hairline)", backgroundColor: "var(--app-surface-raised)", color: "var(--app-text)" }
-          }
-        >
-          <FilterIcon className="w-4 h-4" />
-          <span className="font-medium hidden sm:inline">{filterLabel}</span>
-          <ChevronDownIcon
-            className={`w-4 h-4 transition-transform ${filterExpanded ? "rotate-180" : ""}`}
-          />
-        </button>
+          label={filterLabel}
+          active={activeFilters.length > 0}
+        />
       </div>
 
       {/* Near me radius selector */}
@@ -177,19 +164,16 @@ export default function Search() {
         <p className="text-sm text-red-500 mb-4">{geoError}</p>
       )}
 
-      {/* Filter accordion content */}
+      {/* Filter panel content */}
       {filterExpanded && (
-        <div
-          className="mb-6 p-4 border rounded-xl"
-          style={{ backgroundColor: "var(--app-surface-raised)", borderColor: "var(--app-hairline)" }}
-        >
+        <FilterPanel>
           <TagFilterPills
             options={FILTERS}
             active={activeFilters}
             onToggle={toggleTag}
             onClear={clearTags}
           />
-        </div>
+        </FilterPanel>
       )}
 
       {/* Results */}

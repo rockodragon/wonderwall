@@ -37,16 +37,14 @@ import { Link, useNavigate, useRouteError, useSearchParams } from "react-router"
 import { api } from "../../convex/_generated/api";
 import { setPendingIntent } from "../lib/pendingIntent";
 import { GardenErrorState, GardenPage, SectionLabel } from "../garden/ui";
+import { CLAIMS } from "../constants/claims";
+import { FF_V2 } from "../lib/featureFlags";
 import "../garden/garden.css";
 
 export function meta() {
   return [
-    { title: "Become a member — $10 a month, half funds a member's project" },
-    {
-      name: "description",
-      content:
-        "Membership is $10 a month: start projects, apply to paid work, sit at member tables. Half of it goes into the Grant Fund, so your membership funds another creative's project too.",
-    },
+    { title: "Become a member — creatives.exchange" },
+    { name: "description", content: `${CLAIMS.membership} ${CLAIMS.dues}` },
   ];
 }
 
@@ -82,9 +80,10 @@ const LEVELS: LevelCard[] = [
     recommended: false,
     perks: [
       "Profile and portfolio",
-      "Join open tables",
-      "RSVP to public events",
-      "Support or join projects",
+      "Browse people, projects and events",
+      "RSVP to events",
+      "Post events",
+      "Join a project team",
     ],
   },
   {
@@ -93,11 +92,10 @@ const LEVELS: LevelCard[] = [
     recommended: true,
     level: "seat",
     perks: [
-      "One active passion project",
-      "Apply to paid work",
-      "Put on events",
-      "Join member tables",
-      "Propose to the Grant Fund",
+      "Post a project and get backed",
+      "Apply to paid work and respond to gigs",
+      "Sell tickets to your events",
+      "Ask the grant fund to back your project",
     ],
   },
   {
@@ -241,9 +239,7 @@ export default function JoinPage() {
           {communityName ? `Join ${communityName}.` : "Become a member."}
         </h1>
         <p style={{ marginTop: 12, fontSize: 15, lineHeight: 1.6 }}>
-          Membership is $10 a month. Start projects, apply to paid work, sit
-          at member tables. Half of it goes into the Grant Fund, so your
-          membership funds another creative's project too.
+          {CLAIMS.membership} {CLAIMS.dues}
         </p>
       </div>
 
@@ -277,11 +273,11 @@ export default function JoinPage() {
             marginTop: 12,
           }}
         >
-          {/* The paid Community Host plan is hidden until hosting opens for
-              sign-up (Rick, 2026-09-18): hosts join a waitlist for now, and we
-              show no host pricing anywhere. The card and its checkout path
-              stay in LEVELS so turning it back on is deleting this filter. */}
-          {LEVELS.filter((level) => level.level !== "host").map((level) => (
+          {/* Launch is two levels, Free and Member (Rick, 2026-09-27): no
+              self-hosted communities and no classes yet, so the "Five
+              projects" and "Community Host" cards stay in LEVELS behind
+              FF_V2 with their checkout paths intact. */}
+          {LEVELS.filter((level) => FF_V2 || !level.level || level.level === "seat").map((level) => (
             <div
               key={level.name}
               className="g-card"

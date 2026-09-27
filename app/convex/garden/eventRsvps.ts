@@ -10,6 +10,7 @@ import type { Id } from "../_generated/dataModel";
 import { ConvexError } from "convex/values";
 import { mutation, query } from "../_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { canSeeEvent } from "./eventVisibility";
 
 // ——— Pure core ———
 
@@ -102,7 +103,8 @@ export const rsvpToEvent = mutation({
   },
   handler: async (ctx, args) => {
     const event = await ctx.db.get(args.eventId);
-    if (!event) {
+    // A hidden ticketed event reads as missing, same as its page does.
+    if (!event || !(await canSeeEvent(ctx, event, await getAuthUserId(ctx)))) {
       throw new ConvexError({
         code: "not_found",
         reason: "That event isn't there anymore — check the link and try again.",
@@ -185,7 +187,7 @@ export const getEventRsvps = query({
   args: { eventId: v.id("events") },
   handler: async (ctx, args) => {
     const event = await ctx.db.get(args.eventId);
-    if (!event) return { count: 0, names: [] };
+    if (!event || !(await canSeeEvent(ctx, event, await getAuthUserId(ctx)))) return { count: 0, names: [] };
 
     const userId = await getAuthUserId(ctx);
     let canViewFull = false;

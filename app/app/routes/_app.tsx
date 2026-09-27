@@ -18,12 +18,6 @@ import { FF_V2 } from "../lib/featureFlags";
 // community page links into Projects/Events/Classes filtered to it, and the
 // browse pages' CommunityContextLine clears it.
 const HOME_COMMUNITY_SLUG = "the-garden";
-// Dropped from the app shell (Rick, 2026-09-26): "Spaces" is what the
-// Garden/Exchange switcher at the foot of the rail now does, and "Learn"
-// (classes) is held back with it so the rail is four things. Both routes
-// stay live and the public header (GardenNav/SiteHeader) still lists
-// them; this only trims the signed-in rail and the mobile bar.
-const APP_NAV_HIDDEN = new Set<string>(["/communities", "/offerings"]);
 const VISIT_LIMIT = 3;
 
 // Public paths (community-ux.md §2/§6): a signed-out visitor may browse
@@ -166,7 +160,7 @@ export default function AppLayout() {
   // signed-out visitor has no Today to see, so it drops out for them.
   const primaryNavItems = [
     ...(isAuthenticated ? [{ path: "/today", label: "Today", icon: SunIcon }] : []),
-    ...NAV_ITEMS.filter((item) => !APP_NAV_HIDDEN.has(item.to)).map((item) => ({
+    ...NAV_ITEMS.map((item) => ({
       path: isAuthenticated || !("publicTo" in item) ? item.to : item.publicTo,
       label: item.label,
       icon: NAV_ICONS[item.to],

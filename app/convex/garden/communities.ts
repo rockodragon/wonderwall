@@ -17,6 +17,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { isAdminProfile } from "../helpers";
 import { can } from "./capabilities";
 import { getGardenUser, throwDenial } from "./entitlements";
+import { eventVisibilityChecker } from "./eventVisibility";
 import { slugifyTitle, resolveAvailableSlug } from "./stories";
 import { canSeeOffering } from "../offerings";
 
@@ -483,6 +484,13 @@ export const getCommunity = query({
 
     const decision = resolveCommunityJoin({ community: org, existing: mine });
 
+    // A ticketed event stays off the community page until its organizer
+    // can sell tickets (product rule, 2026-09-27).
+    const upcomingEvents = events.filter((e) => e.status === "published" && e.datetime > now);
+    const isEventPublic = eventVisibilityChecker(ctx);
+    const upcomingVisibility = await Promise.all(upcomingEvents.map((e) => isEventPublic(e)));
+    const visibleEvents = upcomingEvents.filter((_, i) => upcomingVisibility[i]);
+
     // The viewer as offerings.ts's pause rules see them: every offering
     // listed below belongs to THIS community, so `mine` is the one
     // membership that can matter.
@@ -509,8 +517,7 @@ export const getCommunity = query({
           format: t.format,
           cadence: t.cadence,
         })),
-      events: events
-        .filter((e) => e.status === "published" && e.datetime > now)
+      events: visibleEvents
         .sort((a, b) => a.datetime - b.datetime)
         .map((e) => ({
           _id: e._id,

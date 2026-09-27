@@ -392,6 +392,31 @@ export default function EventDetail() {
         <EventsBackLink isGuest={isGuest} />
       </div>
 
+      {/* Ticketed events stay hidden from everyone but their organizer
+          until the organizer can sell tickets (product rule, 2026-09-27).
+          Only the organizer's own view ever sees hiddenUntilMembership. */}
+      {event.hiddenUntilMembership && (
+        <div className="px-6 pt-4">
+          <div
+            className="rounded-xl px-4 py-3"
+            style={{
+              backgroundColor: "var(--garden-ink-raised)",
+              border: "1px solid var(--garden-hairline-raised)",
+            }}
+          >
+            <p style={{ color: "var(--garden-paper)", fontSize: 15, margin: 0 }}>
+              Only you can see this. Selling tickets takes membership.{" "}
+              <Link
+                to="/join"
+                style={{ color: "var(--garden-citron)", fontWeight: 600 }}
+              >
+                Become a member and it goes live →
+              </Link>
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Cover Image — or the player, when a pasted link stands in for one */}
       {playerIsHero && mediaEmbed && (
         <div className="px-6 pt-6">
@@ -1871,6 +1896,11 @@ function EditEventModal({
   onClose: () => void;
 }) {
   const updateEvent = useMutation(api.events.update);
+  // Ticketed events go live only once the organizer can sell tickets
+  // (product rule, 2026-09-27) — this just informs the editor, the
+  // TicketTierEditor itself stays open to everyone.
+  const membership = useQuery(api.garden.memberships.getMyMembership);
+  const isMember = !!membership;
 
   // Parse datetime into date and time strings
   const initialDate = new Date(initialValues.datetime);
@@ -2083,6 +2113,11 @@ function EditEventModal({
                 Ticket tiers
               </label>
               <TicketTierEditor tiers={ticketTiers} onChange={setTicketTiers} />
+              {!isMember && (
+                <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                  Ticketed events go live once you're a member.
+                </p>
+              )}
             </div>
 
             <div>
