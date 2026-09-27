@@ -246,7 +246,7 @@ export default function JoinPage() {
       {membership && (
         <p className="g-hint" style={{ marginTop: 16 }}>
           You're already a member.{" "}
-          <Link to="/settings" style={{ textDecoration: "underline" }}>
+          <Link to="/settings?tab=money" style={{ textDecoration: "underline" }}>
             Manage billing in Settings.
           </Link>
         </p>

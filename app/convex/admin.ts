@@ -2,6 +2,7 @@ import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { auth } from "./auth";
 import { requireAdmin, requireAdminCtx, ensureAdminCode } from "./helpers";
+import { followEachOther, inviteFollowPairs } from "./follows";
 import { ADMIN_EMAILS } from "./adminEmails";
 
 // Bootstrap admin - only works if no admins exist yet
@@ -198,7 +199,32 @@ export const manuallyLinkInvite = mutation({
       inviteUsageCount: currentCount + 1,
     });
 
+    // Same mutual follow a real redemption gets (follows.ts).
+    await followEachOther(ctx, args.inviterUserId, args.inviteeUserId);
+
     return { message: "Successfully linked invite", existing: false };
+  },
+});
+
+// One-off backfill for invites accepted before redemption started making
+// the inviter and invitee follow each other (follows.ts followEachOther).
+// Safe to run again — existing follows are skipped — but a re-run will
+// re-follow anyone who has since unfollowed their inviter, so it's meant
+// to be run once. Button on /admin.
+export const backfillInviteFollows = mutation({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdminCtx(ctx);
+
+    const invites = await ctx.db.query("invites").collect();
+    const pairs = inviteFollowPairs(invites);
+
+    let followsCreated = 0;
+    for (const [inviterId, inviteeId] of pairs) {
+      followsCreated += await followEachOther(ctx, inviterId, inviteeId);
+    }
+
+    return { pairs: pairs.length, followsCreated };
   },
 });
 

@@ -1,10 +1,12 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import type { QueryCtx, MutationCtx } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
 import { auth } from "./auth";
 import { scheduleNotificationEmail } from "./emailHelpers";
 import { escapeHtml } from "./garden/projectTeam";
 import { generateInviteCode } from "./inviteCode";
+import { followEachOther } from "./follows";
 
 // A pasted or emailed code can be either kind of invite: a member's own
 // inviteSlug, or an admin's fixed waitlist-approval code (adminCode, set by
@@ -452,6 +454,10 @@ export const redeemBySlug = mutation({
       inviteUsageCount: usageCount + 1,
     });
 
+    // Accepting an invite is also a mutual follow, so the new member hears
+    // about the inviter's next project or event (follows.ts).
+    await followEachOther(ctx, inviterProfile.userId, userId);
+
     // Get the new user's profile info for the notification
     // Note: Profile may not exist yet at signup time, so we'll get it later or use user info
     const newUserProfile = await ctx.db
@@ -489,5 +495,103 @@ export const redeemBySlug = mutation({
     });
 
     return true;
+  },
+});
+
+// The people behind the "N in network" count, for the Network tab in
+// Settings: who invited me, everyone I invited, and everyone downstream of
+// them, each with enough to render a clickable row. Walks the same
+// `invites` rows getInviteStats counts (a repeat redemption of the same
+// pair is shown once). The full-table read is the same trade getInviteStats
+// already makes; fine at community scale.
+export const getMyNetwork = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await auth.getUserId(ctx);
+    if (!userId) return null;
+
+    const usedInvites = (await ctx.db.query("invites").collect()).filter(
+      (i) => i.usedBy && i.usedBy !== i.inviterId,
+    );
+
+    // inviter -> invitees (deduped), and invitee -> first inviter.
+    const children = new Map<string, Id<"users">[]>();
+    const joinedAt = new Map<string, number>();
+    let invitedById: Id<"users"> | null = null;
+    for (const inv of usedInvites) {
+      const invitee = inv.usedBy!;
+      if (invitee === userId && !invitedById) invitedById = inv.inviterId;
+      const list = children.get(inv.inviterId) ?? [];
+      if (!list.includes(invitee)) list.push(invitee);
+      children.set(inv.inviterId, list);
+      const at = inv.usedAt ?? inv.createdAt;
+      if (!joinedAt.has(invitee) || at < joinedAt.get(invitee)!) {
+        joinedAt.set(invitee, at);
+      }
+    }
+
+    async function person(id: Id<"users">) {
+      const profile = await ctx.db
+        .query("profiles")
+        .withIndex("by_userId", (q) => q.eq("userId", id))
+        .first();
+      if (!profile) return null;
+      const imageUrl = profile.imageStorageId
+        ? await ctx.storage.getUrl(profile.imageStorageId)
+        : profile.imageUrl || null;
+      return {
+        userId: id,
+        profileId: profile._id,
+        name: profile.name,
+        imageUrl,
+        interests: profile.interests.slice(0, 3),
+        joinedAt: joinedAt.get(id) ?? profile.createdAt,
+        invitedCount: (children.get(id) ?? []).length,
+      };
+    }
+
+    // Breadth-first from me; `seen` guards against cycles in hand-linked data.
+    const seen = new Set<string>([userId]);
+    const direct: NonNullable<Awaited<ReturnType<typeof person>>>[] = [];
+    const downstream: (NonNullable<Awaited<ReturnType<typeof person>>> & {
+      depth: number;
+      viaName: string;
+      viaProfileId: Id<"profiles">;
+    })[] = [];
+
+    let frontier: { id: Id<"users">; depth: number; via: typeof direct[number] | null }[] =
+      (children.get(userId) ?? []).map((id) => ({ id, depth: 1, via: null }));
+    while (frontier.length > 0) {
+      const next: typeof frontier = [];
+      for (const { id, depth, via } of frontier) {
+        if (seen.has(id)) continue;
+        seen.add(id);
+        const p = await person(id);
+        if (!p) continue;
+        if (depth === 1) direct.push(p);
+        else
+          downstream.push({
+            ...p,
+            depth,
+            viaName: via!.name,
+            viaProfileId: via!.profileId,
+          });
+        for (const child of children.get(id) ?? []) {
+          next.push({ id: child, depth: depth + 1, via: p });
+        }
+      }
+      frontier = next;
+    }
+
+    const newestFirst = (a: { joinedAt: number }, b: { joinedAt: number }) =>
+      b.joinedAt - a.joinedAt;
+    direct.sort(newestFirst);
+    downstream.sort((a, b) => a.depth - b.depth || newestFirst(a, b));
+
+    return {
+      invitedBy: invitedById ? await person(invitedById) : null,
+      direct,
+      downstream,
+    };
   },
 });

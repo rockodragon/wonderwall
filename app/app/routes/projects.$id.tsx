@@ -36,6 +36,10 @@ import {
   STATUS_LABELS,
   StageSelect,
   SupportModal,
+  SupportButtons,
+  GoalProgress,
+  isRaising,
+  type SupportMode,
 } from "./projects";
 
 // Loader-less (client-only useQuery, same as communities.$slug.tsx and
@@ -165,7 +169,9 @@ export default function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
   const project = useQuery(api.garden.projects.getProject, id ? { projectId: id } : "skip");
   const myProfile = useQuery(api.profiles.getMyProfile);
-  const [showSupportModal, setShowSupportModal] = useState(false);
+  const [supportMode, setSupportMode] = useState<SupportMode | null>(null);
+  // Lifted so the owner's "Next steps" nudge can open the support editor.
+  const [editingSupport, setEditingSupport] = useState(false);
 
   if (project === undefined) {
     return (
@@ -188,7 +194,10 @@ export default function ProjectDetail() {
   }
 
   const isOwner = !!myProfile && project.userId === myProfile.userId;
-  const kindWord = project.kind === "paid" ? budgetKindLabel(project) : "Passion";
+  const raising = isRaising(project);
+  const isPassion = project.kind === "passion";
+  const kindWord =
+    project.kind === "paid" ? budgetKindLabel(project) : raising ? "Raising" : "Project";
   const moneyAmount = project.kind === "paid" ? budgetAmountLabel(project) : null;
   // Live booking (docs/features/live-booking.md): a gig's money is per date.
   const isGig = !!project.gig;
@@ -275,10 +284,25 @@ export default function ProjectDetail() {
       {/* A gig is booked date by date, not staffed as a team — the schedule
           card replaces the team/roles card, and the patron support widget
           below stays off: a bar's Friday-night slot isn't backed, it's paid. */}
+      {isOwner && isPassion && !raising && (project.openRoles?.length ?? 0) === 0 && (
+        <NextSteps
+          onFindPeople={() => document.getElementById("team")?.scrollIntoView({ behavior: "smooth" })}
+          onAskForSupport={() => {
+            setEditingSupport(true);
+            // After the editor mounts, so there's something to scroll to.
+            requestAnimationFrame(() =>
+              document.getElementById("support")?.scrollIntoView({ behavior: "smooth" }),
+            );
+          }}
+        />
+      )}
+
       {isGig ? (
         <GigSchedule project={project} isOwner={isOwner} myProfile={myProfile} />
       ) : (
-        <TeamCard project={project} isOwner={isOwner} myProfile={myProfile} />
+        <div id="team">
+          <TeamCard project={project} isOwner={isOwner} myProfile={myProfile} />
+        </div>
       )}
 
       {project.benefitsNonprofit && (
@@ -291,27 +315,37 @@ export default function ProjectDetail() {
 
       <InlineEditableLocation project={project} isOwner={isOwner} />
 
-      {!isGig && (
-        <>
+      {/* Support is for projects, not hires: a job or a gig is paid, not
+          backed (docs/features/project-ia.md). */}
+      {isPassion && (
+        <div id="support" className="pt-4" style={{ borderTop: "1px solid var(--garden-hairline)" }}>
           <div
-            className="flex items-center justify-between gap-2 pt-4"
-            style={{ borderTop: "1px solid var(--garden-hairline)" }}
+            className="text-[11px] font-semibold uppercase tracking-[0.08em] mb-3"
+            style={{ color: "var(--garden-dim)", fontFamily: "var(--garden-font-mono)" }}
           >
+            Support
+          </div>
+          {isOwner && (
+            <AskForSupport
+              project={project}
+              raising={raising}
+              editing={editingSupport}
+              setEditing={setEditingSupport}
+            />
+          )}
+          {!isOwner && raising && (project.goal ?? 0) > 0 && (
+            <GoalProgress raisedCents={project.raisedCents ?? 0} goal={project.goal!} />
+          )}
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <span className="text-sm" style={{ color: "var(--garden-dim)" }}>
               {project.supportCount > 0
                 ? `${project.supportCount} ${project.supportCount === 1 ? "supporter" : "supporters"}`
-                : "Be the first to support"}
+                : "No supporters yet"}
             </span>
-            <button
-              onClick={() => setShowSupportModal(true)}
-              className="px-4 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition-opacity hover:opacity-90"
-              style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
-            >
-              Support
-            </button>
+            {!isOwner && <SupportButtons raising={raising} onSupport={setSupportMode} />}
           </div>
           <SupportersList projectId={project._id} />
-        </>
+        </div>
       )}
 
       <div className="mt-8">
@@ -335,15 +369,261 @@ export default function ProjectDetail() {
               <ArchiveButton project={project} />
             </div>
           </DetailCard>
-          {!isGig && <TierManager projectId={project._id} />}
+          {isPassion && raising && <TierManager projectId={project._id} />}
           <div className="mb-6">
             <AnnouncementComposer targetType="project" targetId={project._id} heading="Message team and supporters" />
           </div>
         </>
       )}
 
-      {showSupportModal && <SupportModal project={project} onClose={() => setShowSupportModal(false)} />}
+      {supportMode && (
+        <SupportModal project={project} mode={supportMode} onClose={() => setSupportMode(null)} />
+      )}
     </PageShell>
+  );
+}
+
+// Shown to the owner of a fresh project that has asked for nothing yet —
+// posting is step one, and these are the two optional steps after it
+// (docs/features/project-ia.md).
+function NextSteps({
+  onFindPeople,
+  onAskForSupport,
+}: {
+  onFindPeople: () => void;
+  onAskForSupport: () => void;
+}) {
+  const steps = [
+    { label: "Find people", hint: "Post the roles you need, paid or volunteer.", onClick: onFindPeople },
+    { label: "Ask for support", hint: "Set a goal so people can back it.", onClick: onAskForSupport },
+  ];
+  return (
+    <DetailCard label="Next steps">
+      <p className="text-sm mb-3" style={{ color: "var(--garden-body)" }}>
+        Your project is up. Both of these are optional.
+      </p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        {steps.map((step) => (
+          <button
+            key={step.label}
+            type="button"
+            onClick={step.onClick}
+            className="text-left rounded-xl border p-3 transition-colors hover:opacity-90"
+            style={{ borderColor: "var(--garden-hairline-raised)", backgroundColor: "var(--garden-ink)" }}
+          >
+            <span className="block text-sm font-semibold" style={{ color: "var(--garden-paper)" }}>
+              {step.label}
+            </span>
+            <span className="block text-[13px] mt-0.5" style={{ color: "var(--garden-body)" }}>
+              {step.hint}
+            </span>
+          </button>
+        ))}
+      </div>
+    </DetailCard>
+  );
+}
+
+function toDateInput(ms: number | undefined): string {
+  if (!ms) return "";
+  const d = new Date(ms);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+// The owner's side of support: step three of posting, done here rather than
+// in the create form. Setting a goal is what turns the "Back this" button on.
+function AskForSupport({
+  project,
+  raising,
+  editing,
+  setEditing,
+}: {
+  project: any;
+  raising: boolean;
+  editing: boolean;
+  setEditing: (v: boolean) => void;
+}) {
+  const updateProject = useMutation((api as any).garden.projects.updateProject);
+  const [goal, setGoal] = useState(project.goal ? String(project.goal) : "");
+  const [raiseBy, setRaiseBy] = useState(toDateInput(project.raiseByDate));
+  const [benefitsNonprofit, setBenefitsNonprofit] = useState(!!project.benefitsNonprofit);
+  const [nonprofitName, setNonprofitName] = useState(project.nonprofitName ?? "");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  const inputStyle = {
+    backgroundColor: "var(--garden-ink)",
+    borderColor: "var(--garden-hairline-raised)",
+    color: "var(--garden-paper)",
+  };
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    const goalNum = Number(goal);
+    if (!goal.trim() || !Number.isFinite(goalNum) || goalNum <= 0) {
+      setError("A goal needs a real number bigger than zero.");
+      return;
+    }
+    if (benefitsNonprofit && !nonprofitName.trim()) {
+      setError("Add the nonprofit's name, or uncheck if you're not sure yet.");
+      return;
+    }
+    setBusy(true);
+    try {
+      await updateProject({
+        projectId: project._id,
+        goal: goalNum,
+        // Noon local, so the date reads the same in every US time zone.
+        raiseByDate: raiseBy ? new Date(`${raiseBy}T12:00:00`).getTime() : null,
+        benefitsNonprofit,
+        nonprofitName: benefitsNonprofit ? nonprofitName.trim() : "",
+      });
+      setEditing(false);
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function stop() {
+    setBusy(true);
+    setError("");
+    try {
+      await updateProject({ projectId: project._id, goal: null, raiseByDate: null });
+      setGoal("");
+      setRaiseBy("");
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (editing) {
+    return (
+      <form onSubmit={save} className="flex flex-col gap-3 mb-5">
+        <div>
+          <label className="block text-xs uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
+            Goal (USD)
+          </label>
+          <input
+            type="number"
+            min="1"
+            value={goal}
+            onChange={(e) => setGoal(e.target.value)}
+            placeholder="1000"
+            className="w-full px-3 py-2 rounded-lg border text-sm outline-none"
+            style={{ ...inputStyle, fontFamily: "var(--garden-font-mono)" }}
+          />
+        </div>
+        <div>
+          <label className="block text-xs uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
+            Raise by (optional)
+          </label>
+          <input
+            type="date"
+            value={raiseBy}
+            onChange={(e) => setRaiseBy(e.target.value)}
+            className="w-full px-3 py-2 rounded-lg border text-sm outline-none"
+            style={inputStyle}
+          />
+        </div>
+        <label className="flex items-center gap-2 text-sm" style={{ color: "var(--garden-body)" }}>
+          <input
+            type="checkbox"
+            checked={benefitsNonprofit}
+            onChange={(e) => setBenefitsNonprofit(e.target.checked)}
+          />
+          This supports a registered nonprofit
+        </label>
+        {benefitsNonprofit && (
+          <div>
+            <input
+              type="text"
+              value={nonprofitName}
+              onChange={(e) => setNonprofitName(e.target.value)}
+              placeholder="Nonprofit name, e.g. Second Harvest Food Bank"
+              aria-label="Nonprofit name"
+              className="w-full px-3 py-2 rounded-lg border text-sm outline-none"
+              style={inputStyle}
+            />
+            <p className="text-xs mt-1.5" style={{ color: "var(--garden-dim)" }}>
+              Self-declared, not verified.
+            </p>
+          </div>
+        )}
+        {error && <p className="text-sm text-red-400">{error}</p>}
+        <div className="flex gap-2 justify-end">
+          <button
+            type="button"
+            onClick={() => setEditing(false)}
+            className="px-4 py-2 rounded-lg text-[13.5px] font-medium"
+            style={{ color: "var(--garden-muted)" }}
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={busy}
+            className="px-4 py-2 rounded-lg text-[13.5px] font-semibold disabled:opacity-50"
+            style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
+          >
+            {busy ? "Saving…" : raising ? "Save" : "Start asking"}
+          </button>
+        </div>
+      </form>
+    );
+  }
+
+  if (!raising) {
+    return (
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
+        <p className="text-sm" style={{ color: "var(--garden-body)" }}>
+          Want money toward this? Set a goal and people can back it.
+        </p>
+        <button
+          type="button"
+          onClick={() => setEditing(true)}
+          className="px-4 py-2 rounded-lg text-[13.5px] font-semibold whitespace-nowrap"
+          style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
+        >
+          Ask for support
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mb-5">
+      {(project.goal ?? 0) > 0 && (
+        <GoalProgress raisedCents={project.raisedCents ?? 0} goal={project.goal!} />
+      )}
+      <div className="flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          onClick={() => setEditing(true)}
+          className="text-[13.5px] underline underline-offset-2 hover:opacity-80"
+          style={{ color: "var(--garden-citron)" }}
+        >
+          Edit goal
+        </button>
+        {(project.goal ?? 0) > 0 && (
+          <button
+            type="button"
+            onClick={stop}
+            disabled={busy}
+            className="text-[13.5px] underline underline-offset-2 hover:opacity-80 disabled:opacity-50"
+            style={{ color: "var(--garden-muted)" }}
+          >
+            Stop asking
+          </button>
+        )}
+      </div>
+      {error && <p className="text-sm text-red-400 mt-2">{error}</p>}
+    </div>
   );
 }
 
