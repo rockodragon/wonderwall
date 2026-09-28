@@ -113,25 +113,26 @@ const TICKET_URL: string | null = null;
 // sentences.
 const OPENING = [
   [
-    "Creatives keep making work no one sees.",
-    "Patrons keep looking for work worth backing.",
+    "The Church is re-awakening to the power of the arts",
+    "And learning how to become her patron again",
   ],
   [
-    "The church wants it donated.",
-    "The gallery wants the faith left out.",
-    "And the people who'd pay for the honest thing",
-    "can't find the person who made it.",
+    "Seeing creatives as our missionaries of Beauty,",
+    "Revealing the Heart of The Creator to our culture",
   ],
   [
-    "So we're building the third way.",
-    "Makers. Backers. Partners.",
-    "And a community that shows up for all.",
+    "The time to build bridges is now",
+    "And artists are the evangelists",
   ],
   [
-    "November 6 is the first night.",
-    "It's just the beginning.",
-    "Come and see.",
+    "A new creative community is forming",
+    "A Garden for: Makers. Backers. And Partners.",
   ],
+  [
+    "November 6th is the first night.",
+    "Come and See.",
+  ],
+  ["The Renaissance is waiting"],
 ] as const;
 
 // ————— Page-local CSS —————
@@ -315,7 +316,7 @@ export default function Showcase() {
 
         <span className="g-badge g-badge-citron">November 6 · Encinitas</span>
         <h1 className="g-h" style={{ marginTop: 16 }}>
-          Friends, neighbors&hellip;
+          A Creative Renaissance is Beginning
         </h1>
 
         <div className="sc-verse" style={{ marginTop: 20 }}>
@@ -338,6 +339,7 @@ export default function Showcase() {
           aria-label={`Get your ticket, ${TICKET.price}`}
           style={{
             display: "flex",
+            flexWrap: "wrap",
             gap: 16,
             alignItems: "baseline",
             width: "100%",
@@ -355,7 +357,7 @@ export default function Showcase() {
           >
             {TICKET.price}
           </span>
-          <span style={{ flex: 1 }}>
+          <span style={{ flex: "1 1 160px" }}>
             <span style={{ color: "var(--g-paper)", display: "block" }}>
               One ticket
             </span>
@@ -371,9 +373,24 @@ export default function Showcase() {
           </span>
         </button>
         <P>
-          Every ticket goes into the grant fund, the money that backs
+          Every ticket goes into the artist grant fund, the money that backs
           creatives' projects. Can't be in Encinitas? The livestream is free.
         </P>
+      </Section>
+
+      {/* Art is submitted from a profile in the app, not a form here — and it
+          gets its own button up top rather than living in the FAQ (Rick,
+          2026-09-28). A signed-out visitor goes through sign-in first. */}
+      <Section label="Show your work">
+        <P>
+          Art for November 6 comes from profiles. Add your work to your
+          profile and we'll see it there.
+        </P>
+        <div style={{ marginTop: 16 }}>
+          <Link to="/settings" className="g-btn g-btn-citron">
+            Submit your work →
+          </Link>
+        </div>
       </Section>
 
       <Section label="The details">
@@ -409,7 +426,7 @@ export default function Showcase() {
           </Faq>
           <Faq q="Is the work all religious?">
             No. What we want to platform is redemptive work: work that embodies
-            truth, goodness and beauty. Sometimes that includes church hurt.
+            truth, goodness and beauty.
           </Faq>
         </div>
       </Section>
