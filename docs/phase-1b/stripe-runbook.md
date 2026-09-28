@@ -59,6 +59,21 @@ Ordered by effort.
 
 **On-site donations to the grant fund** — a day of integration, plus AP's own onboarding. AP connects their Stripe account; donations are created as charges on AP's connected account so AP stays merchant of record and issues the receipt with their EIN. Our 5% comes out as a Stripe `application_fee_amount`, automatically. The donor designates the Grant Fund on our checkout, so the gift is designated rather than landing in AP's general giving. Replaces the outbound link in `app/routes/fund.$slug.tsx`.
 
+*Interim step, built 2026-09-28:* until that on-site checkout exists, AP keeps donating through their own existing Stripe setup (their own Payment Links, their own site) and we just record a designated gift when one comes in. A second, independent webhook route — `https://<deployment>.convex.site/stripe/ap/webhook` — listens on AP's own Stripe account, separate from our `/stripe/webhook` above. Enable `checkout.session.completed` and `checkout.session.async_payment_succeeded` on it.
+
+Env vars for this route (separate from section 1's — this is a different Stripe account):
+
+| Variable | What it is |
+|---|---|
+| `AP_STRIPE_WEBHOOK_SECRET` | Required. Signing secret for the `/stripe/ap/webhook` endpoint, from AP's own Stripe dashboard. Missing → the route answers 400 and does nothing. |
+| `AP_GRANT_PAYMENT_LINK_IDS` | Optional. Comma-separated `plink_…` ids — AP's dedicated grant-fund Payment Links, if they use fixed links instead of per-checkout metadata. |
+
+How a gift gets marked for the grant fund: either AP's checkout sets `metadata.fund = "grant-fund"` on the session, or the session came from one of the Payment Links listed in `AP_GRANT_PAYMENT_LINK_IDS`. Anything else on AP's account (their general giving, unrelated payments) is ignored — the route still answers 200 so Stripe doesn't retry it.
+
+Because AP stays merchant of record and the money never touches our account, we record the **full amount** into `grantContributions` with **no platform share** (`platformCents: 0`) — we didn't move it, so we don't take a cut of it. The row is idempotent on `stripeRef` (`ap:<checkout session id>`, prefixed so it can never collide with our own account's session/invoice ids), and the `abiding-practice` hostOrg row must already be seeded (`garden/devSeed:seedApOrg`) or the webhook fails loudly (500, so Stripe retries) rather than silently dropping a gift.
+
+Refunds are not handled by this route yet. If AP refunds a gift, an operator records an `adjustment` row against `grantContributions` by hand (same table, negative `poolCents`) — see `garden/allocations.ts`'s `recordContribution`.
+
 ## 6 · Testing
 
 Use Stripe test mode with card `4242 4242 4242 4242`, any future expiry, any CVC. `stripe listen --forward-to https://<deployment>.convex.site/stripe/webhook` replays events locally. Every webhook handler has a replay test in `stripeHandlers.test.ts` — keep it that way.

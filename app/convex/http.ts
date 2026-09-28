@@ -98,6 +98,71 @@ http.route({
   }),
 });
 
+// ————————————————————————————————————————————————————————————————
+// Abiding Practice's OWN Stripe webhook (docs/phase-1b/stripe-runbook.md §5
+// "On-site donations to the grant fund", interim step). A second, entirely
+// independent Stripe account from the platform's own /stripe/webhook above
+// — AP's donations settle into AP's account, not ours, so this route only
+// RECORDS a designated gift into grantContributions; it never moves money.
+// Same verification pattern as /stripe/webhook (raw body,
+// constructEventAsync + the SubtleCrypto provider, since this httpAction
+// runs in Convex's V8 isolate, not Node), but its own secret and its own
+// dispatcher (garden/apGifts.ts), because these are unrelated Stripe
+// accounts whose event ids could otherwise collide.
+//
+// Events to enable on this endpoint in the Stripe dashboard:
+//   checkout.session.completed
+//   checkout.session.async_payment_succeeded
+// ————————————————————————————————————————————————————————————————
+
+http.route({
+  path: "/stripe/ap/webhook",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const signature = request.headers.get("stripe-signature");
+    const webhookSecret = process.env.AP_STRIPE_WEBHOOK_SECRET;
+
+    if (!signature || !webhookSecret) {
+      console.error("[ap stripe webhook] missing signature header or AP_STRIPE_WEBHOOK_SECRET");
+      return new Response("Webhook not configured", { status: 400 });
+    }
+
+    const payload = await request.text();
+    // Verification needs no network call and no real key — this route never
+    // calls the Stripe API, only checks the signature locally.
+    const stripe = new Stripe("sk_not_configured", { apiVersion: STRIPE_API_VERSION });
+
+    let event: Stripe.Event;
+    try {
+      event = await stripe.webhooks.constructEventAsync(
+        payload,
+        signature,
+        webhookSecret,
+        undefined,
+        Stripe.createSubtleCryptoProvider(),
+      );
+    } catch (err) {
+      console.error("[ap stripe webhook] signature verification failed", err);
+      return new Response("Invalid signature", { status: 400 });
+    }
+
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await ctx.runMutation((internal as any).garden.apGifts.applyApStripeEvent, { event });
+    } catch (err) {
+      // Same reasoning as /stripe/webhook: 500 so Stripe retries rather than
+      // silently dropping a gift (e.g. abiding-practice not seeded yet).
+      console.error("[ap stripe webhook] handler failed", event.type, event.id, err);
+      return new Response("Handler error", { status: 500 });
+    }
+
+    return new Response(JSON.stringify({ received: true }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  }),
+});
+
 // Location autocomplete API
 http.route({
   path: "/api/location/autocomplete",
