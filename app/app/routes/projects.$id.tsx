@@ -1388,7 +1388,7 @@ function InlineEditableInterests({ project, isOwner }: { project: any; isOwner: 
                 className="px-2.5 py-1 rounded-full text-xs font-medium transition-colors"
                 style={{
                   fontFamily: "var(--garden-font-body)",
-                  backgroundColor: active ? "rgba(215,242,90,0.2)" : "rgba(198,198,190,0.1)",
+                  backgroundColor: active ? "rgba(254,226,104,0.2)" : "rgba(198,198,190,0.1)",
                   color: active ? "var(--garden-citron)" : "var(--garden-muted)",
                   border: active ? "1px solid var(--garden-citron)" : "1px solid transparent",
                 }}
@@ -1811,7 +1811,7 @@ function RolesSection({
                           className="px-1.5 py-0.5 rounded-full text-[10px] font-medium uppercase tracking-[0.06em]"
                           style={{
                             fontFamily: "var(--garden-font-mono)",
-                            backgroundColor: "rgba(215,242,90,0.14)",
+                            backgroundColor: "rgba(254,226,104,0.14)",
                             color: "var(--garden-citron)",
                           }}
                         >
@@ -2002,7 +2002,7 @@ function RolesSection({
                       onClick={() => toggleInterest(tag)}
                       className="px-2 py-0.5 rounded-full text-xs font-medium transition-colors"
                       style={{
-                        backgroundColor: active ? "rgba(215,242,90,0.2)" : "rgba(198,198,190,0.1)",
+                        backgroundColor: active ? "rgba(254,226,104,0.2)" : "rgba(198,198,190,0.1)",
                         color: active ? "var(--garden-citron)" : "var(--garden-muted)",
                         border: active ? "1px solid var(--garden-citron)" : "1px solid transparent",
                       }}
@@ -3134,7 +3134,7 @@ function TierManager({ projectId }: { projectId: Id<"projects"> }) {
                   className="px-2 py-0.5 rounded-full text-[10px] font-medium uppercase tracking-[0.06em]"
                   style={{
                     fontFamily: "var(--garden-font-mono)",
-                    backgroundColor: tier.isActive ? "rgba(215,242,90,0.15)" : "rgba(198,198,190,0.1)",
+                    backgroundColor: tier.isActive ? "rgba(254,226,104,0.15)" : "rgba(198,198,190,0.1)",
                     color: tier.isActive ? "var(--garden-citron)" : "var(--garden-dim)",
                   }}
                 >

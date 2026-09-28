@@ -378,26 +378,41 @@ export default function Showcase() {
         </P>
       </Section>
 
-      {/* Art is submitted from a profile in the app, not a form here — and it
-          gets its own button up top rather than living in the FAQ (Rick,
-          2026-09-28). A signed-out visitor goes through sign-in first. */}
-      <Section label="Show your work">
-        <P>
-          Art for November 6 comes from profiles. Add your work to your
-          profile and we'll see it there.
-        </P>
-        <div style={{ marginTop: 16 }}>
-          <Link to="/settings" className="g-btn g-btn-citron">
-            Submit your work →
-          </Link>
-        </div>
-      </Section>
 
       <Section label="The details">
         <FactLine k="When" v={EVENT_DATE} />
         <FactLine k="Where" v={EVENT_PLACE} />
-        <FactLine k="Admission" v={`${TICKET.price}, the same for everyone`} />
+        <FactLine k="Admission" v={TICKET.price} />
         <FactLine k="Also" v="Livestreamed free, and recorded" />
+      </Section>
+
+      {/* Art is submitted from a profile in the app, not a form here. Its
+          own section with the steps spelled out, below the details (Rick,
+          2026-09-28). A signed-out visitor goes through sign-in first. */}
+      <Section label="Show your work">
+        <P>
+          Art for November 6 comes from profiles on creatives.exchange. To be
+          considered:
+        </P>
+        <ol style={{ margin: "14px 0 0", paddingLeft: 22, display: "grid", gap: 8, fontSize: 16.5, lineHeight: 1.6 }}>
+          <li>
+            <Link to="/signup" style={{ color: "var(--g-citron)" }}>
+              Create an account
+            </Link>
+            . You'll need an invite code, or you can request to join.
+          </li>
+          <li>Open your profile and find <strong style={{ color: "var(--g-paper)" }}>Work &amp; Portfolio</strong>.</li>
+          <li>
+            Press <strong style={{ color: "var(--g-paper)" }}>+ Add</strong> and add the pieces you'd want
+            shown: a photo, a video or a link, with a line about each.
+          </li>
+        </ol>
+        <P>We'll see your work there. There's no separate form.</P>
+        <div style={{ marginTop: 18 }}>
+          <Link to="/settings" className="g-btn g-btn-citron">
+            Submit your work →
+          </Link>
+        </div>
       </Section>
 
       <Section label="Questions people ask">

@@ -541,7 +541,7 @@ function ProductCard({ product, slug }: { product: Product; slug: string }) {
         {product.viewer.hasAccess && (
           <span
             className="inline-block px-2 py-0.5 rounded-full text-[11px] font-medium uppercase tracking-[0.06em] h-fit"
-            style={{ backgroundColor: "rgba(215,242,90,0.14)", color: "var(--garden-citron)", fontFamily: "var(--garden-font-mono)" }}
+            style={{ backgroundColor: "rgba(254,226,104,0.14)", color: "var(--garden-citron)", fontFamily: "var(--garden-font-mono)" }}
           >
             You're in
           </span>

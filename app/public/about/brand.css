@@ -10,7 +10,7 @@
   --dim: var(--garden-dim, #94948C);
   --muted: var(--garden-muted, #ACACA4);
   --body: var(--garden-body, #C6C6BE);          /* body copy on ink */
-  --citron: var(--garden-citron, #D7F25A);
+  --citron: var(--garden-citron, #FEE268);
   --rule-light: rgba(18, 18, 18, 0.16);  /* hairline on paper */
   --dim-light: #5C5C57;     /* metadata on paper — AA at 11px+ */
 }

@@ -24,7 +24,7 @@ export type WordmarkSize = keyof typeof SIZES;
 // tone drives color via className instead.
 export type WordmarkTone = "paper" | "adaptive";
 
-const CITRON = "#d7f25a";
+const CITRON = "#fee268";
 const TEXT_CLASS = {
   paper: "",
   adaptive: "text-gray-900 dark:text-white",

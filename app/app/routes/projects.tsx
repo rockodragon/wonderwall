@@ -332,7 +332,7 @@ export default function Projects() {
               style={{
                 fontFamily: "var(--garden-font-body)",
                 backgroundColor:
-                  showFilter === f.value ? "rgba(215,242,90,0.14)" : "var(--garden-ink-raised)",
+                  showFilter === f.value ? "rgba(254,226,104,0.14)" : "var(--garden-ink-raised)",
                 color: showFilter === f.value ? "var(--garden-citron)" : "var(--garden-muted)",
               }}
             >
@@ -662,7 +662,7 @@ function ProjectCard({
               className="self-start px-2 py-0.5 rounded-full text-[11px] font-medium uppercase tracking-[0.06em]"
               style={{
                 fontFamily: "var(--garden-font-mono)",
-                backgroundColor: "rgba(215,242,90,0.14)",
+                backgroundColor: "rgba(254,226,104,0.14)",
                 color: "var(--garden-citron)",
               }}
             >
@@ -1688,7 +1688,7 @@ export function SupportModal({
                   {e.tierName && (
                     <span
                       className="ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-medium uppercase tracking-[0.04em]"
-                      style={{ backgroundColor: "rgba(215,242,90,0.12)", color: "var(--garden-citron)" }}
+                      style={{ backgroundColor: "rgba(254,226,104,0.12)", color: "var(--garden-citron)" }}
                     >
                       {e.tierName}
                     </span>
@@ -1761,7 +1761,7 @@ export function SupportModal({
                     className="text-left rounded-xl border p-3 transition-colors"
                     style={{
                       borderColor: selectedTierId === tier._id ? "var(--garden-citron)" : "var(--garden-hairline)",
-                      backgroundColor: selectedTierId === tier._id ? "rgba(215,242,90,0.08)" : "var(--garden-ink)",
+                      backgroundColor: selectedTierId === tier._id ? "rgba(254,226,104,0.08)" : "var(--garden-ink)",
                     }}
                   >
                     <div className="flex items-baseline justify-between gap-2 mb-1">
@@ -1826,7 +1826,7 @@ export function SupportModal({
                 />
                 <p
                   className="text-xs mt-1.5 px-2.5 py-1.5 rounded-md"
-                  style={{ color: "var(--garden-citron)", backgroundColor: "rgba(215,242,90,0.1)" }}
+                  style={{ color: "var(--garden-citron)", backgroundColor: "rgba(254,226,104,0.1)" }}
                 >
                   ${MIN_BACKING_DOLLARS} minimum
                   {type === "financial_recurring" ? ", charged monthly until you cancel" : type === "financial_annual" ? ", charged annually until you cancel" : ""}.{" "}

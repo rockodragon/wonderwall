@@ -27,7 +27,7 @@
   --garden-body: #c6c6be;   /* body text — ~11:1 */
 
   /* Accent */
-  --garden-citron: #d7f25a;
+  --garden-citron: #fee268;
 
   /* Type */
   --garden-font-hero: "Archivo Black", "Archivo", sans-serif;
@@ -73,7 +73,7 @@
   --app-text-muted: var(--garden-muted);
   --app-accent: var(--garden-citron);
   --app-accent-ink: var(--garden-citron);
-  --app-accent-wash: rgba(215, 242, 90, 0.14);
+  --app-accent-wash: rgba(254, 226, 104, 0.14);
 }
 
 :root[data-theme="light"] {
@@ -86,5 +86,5 @@
   --app-text-muted: #514f43;
   --app-accent: var(--garden-citron);
   --app-accent-ink: #4d7c0f;
-  --app-accent-wash: rgba(215, 242, 90, 0.22);
+  --app-accent-wash: rgba(254, 226, 104, 0.22);
 }

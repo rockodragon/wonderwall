@@ -36,7 +36,7 @@ function coverFallback(id: string): string {
 // Chip styles, matched to routes/projects.tsx's Paid/Passion badge: the
 // exceptional state gets the citron tint, the default state stays neutral.
 const CHIP_ACCENT = {
-  backgroundColor: "rgba(215,242,90,0.14)",
+  backgroundColor: "rgba(254,226,104,0.14)",
   color: "var(--garden-citron)",
 } as const;
 const CHIP_NEUTRAL = {

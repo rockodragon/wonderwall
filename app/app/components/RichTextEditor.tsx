@@ -92,7 +92,7 @@ function TinyButton({
         padding: "4px 9px",
         borderRadius: 6,
         border: `1px solid ${active ? "var(--garden-citron)" : "var(--garden-hairline-raised)"}`,
-        backgroundColor: active ? "rgba(215,242,90,0.12)" : "transparent",
+        backgroundColor: active ? "rgba(254,226,104,0.12)" : "transparent",
         color: active ? "var(--garden-citron)" : "var(--garden-body)",
         fontSize: 13.5,
         lineHeight: 1.2,
