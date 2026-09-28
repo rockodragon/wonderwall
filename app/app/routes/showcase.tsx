@@ -12,11 +12,11 @@
 // extract. If this page starts growing roles, tiers or an application again,
 // that is a product decision to take back to Rick, not a copy edit.
 //
-// The ask is the ticket, right under the poem. With no checkout yet
-// (TICKET_URL is null) the ticket overlay takes an email and promises the
-// link — the address is saved on its own before any optional question
-// (see TicketModal in ../garden/showcase-modals). convex/showcase.ts's
-// `apply` is that write; it also lands the email on the waitlist.
+// The ask is the ticket, right under the poem. It goes to the event's own
+// page (EVENT_PATH), which takes the RSVP and the payment through Abiding
+// Practice's Stripe Payment Link; the AP webhook adds the buyer to the event.
+// The old email-capture overlay (TicketModal in ../garden/showcase-modals)
+// is no longer used here.
 //
 // The FAQ uses native <details>/<summary> rather than a React accordion:
 // every answer stays in the prerendered HTML for crawlers and answer engines,
@@ -29,14 +29,9 @@
 // may make a query the page can't live without. If a decorative query ever
 // comes back, give it its own component behind its own error boundary.
 
-import { useState } from "react";
 import type { ReactNode } from "react";
-import { useMutation } from "convex/react";
-import { Link, useRouteError } from "react-router";
-import { api } from "../../convex/_generated/api";
+import { Link, useNavigate, useRouteError } from "react-router";
 import { GardenErrorState, GardenPage, SectionLabel } from "../garden/ui";
-import { TicketModal } from "../garden/showcase-modals";
-import type { TicketDetails } from "../garden/showcase-modals";
 import "../garden/garden.css";
 
 export function meta() {
@@ -63,8 +58,8 @@ export function meta() {
     // Absolute — a relative og:image doesn't unfurl on Instagram, iMessage
     // or Slack. The drawing is 1330x795; large-summary cards letterbox it.
     { property: "og:image", content: OG_IMAGE },
-    { property: "og:image:width", content: "1330" },
-    { property: "og:image:height", content: "795" },
+    { property: "og:image:width", content: "1200" },
+    { property: "og:image:height", content: "630" },
     { name: "twitter:card", content: "summary_large_image" },
     {
       name: "twitter:title",
@@ -91,7 +86,7 @@ export function ErrorBoundary() {
   );
 }
 
-const OG_IMAGE = "https://creatives.exchange/showcase/table-drawing.jpg";
+const OG_IMAGE = "https://creatives.exchange/showcase/abiding-creatives-og.jpg";
 
 const EVENT_DATE = "Friday, November 6, 2026";
 const EVENT_PLACE = "Lightchurch, Encinitas, California";
@@ -103,10 +98,8 @@ const TICKET = {
   note: "The same ticket for everyone.",
 } as const;
 
-// Per-event ticketing isn't built — events use an off-platform payment link
-// (docs/events-video-hosting-prd.md). Null until there's a real checkout URL;
-// the ticket overlay takes an email until then.
-const TICKET_URL: string | null = null;
+// The November 6 event on the platform. Its page sells the ticket.
+const EVENT_PATH = "/events/kd7atbz3s1t2rccgt4pn10pvd98cdz62";
 
 // The opening is a poem, and it is set as one: stanzas, and line breaks
 // where the writer put them. Never let a tidy-up collapse these into
@@ -246,60 +239,12 @@ function Faq({ q, children }: { q: string; children: ReactNode }) {
 // ————— Page —————
 
 export default function Showcase() {
-  const apply = useMutation(api.showcase.apply);
-  const answer = useMutation(api.showcase.answerApplication);
-
-  const [ticketOpen, setTicketOpen] = useState(false);
-  const [ticketBusy, setTicketBusy] = useState(false);
-  const [ticketError, setTicketError] = useState<string | null>(null);
-  const [ticketDone, setTicketDone] = useState(false);
-  // The address the overlay actually saved, so the optional answers after it
-  // attach to the right row.
-  const [ticketEmail, setTicketEmail] = useState("");
-
-  function errorText(err: unknown): string {
-    const raw = err instanceof Error ? err.message : String(err);
-    // Convex prefixes thrown errors with its own framing; the visitor should
-    // read the sentence we wrote, not a stack frame.
-    const match = raw.match(/Uncaught Error:\s*(.+?)(\n|$)/);
-    return (match?.[1] ?? raw).slice(0, 200);
-  }
-
-  /** Saves the address, alone, before anything else is asked. */
-  async function notifyTicket(value: string) {
-    setTicketBusy(true);
-    setTicketError(null);
-    try {
-      await apply({ email: value });
-      setTicketEmail(value.trim());
-      setTicketDone(true);
-    } catch (err) {
-      setTicketError(errorText(err));
-    } finally {
-      setTicketBusy(false);
-    }
-  }
-
-  /** The optional name/city/interests after the email. Pure upside: the
-      email is already saved, so a failure here is recorded and swallowed. */
-  async function submitTicketDetails(details: TicketDetails) {
-    if (!ticketEmail) return;
-    try {
-      await answer({
-        email: ticketEmail,
-        name: details.name || undefined,
-        city: details.city || undefined,
-        interests: details.interests?.length ? details.interests : undefined,
-      });
-    } catch (err) {
-      console.warn("[showcase] ticket details not saved", err);
-    }
-  }
-
+  const navigate = useNavigate();
+  // Tickets are sold on the event itself: its page takes the RSVP and the
+  // payment (AP's Stripe Payment Link), and the AP webhook adds the buyer to
+  // the event. This page only sends people there.
   function openTicket() {
-    setTicketError(null);
-    setTicketDone(false);
-    setTicketOpen(true);
+    navigate(EVENT_PATH);
   }
 
   return (
@@ -463,17 +408,6 @@ export default function Showcase() {
         </button>
       </Section>
 
-      <TicketModal
-        open={ticketOpen}
-        tier={TICKET}
-        ticketUrl={TICKET_URL}
-        submitting={ticketBusy}
-        error={ticketError}
-        done={ticketDone}
-        onNotify={notifyTicket}
-        onSubmitDetails={submitTicketDetails}
-        onClose={() => setTicketOpen(false)}
-      />
     </GardenPage>
   );
 }
