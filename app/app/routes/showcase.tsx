@@ -154,7 +154,13 @@ const PAGE_CSS = `
    the writer's lines. */
 .sc-verse .sc-stanza {
   margin: 0 0 1.15em;
-  max-width: 46ch;
+}
+/* Wherever a line fits, it stays one line — the writer's breaks, not the
+   column's (Rick, 2026-09-28: "The Church is re-awakening…" was wrapping
+   under the old 46ch cap). A phone is too narrow for the longest lines at a
+   readable size, so there they wrap with the hanging indent below. */
+@media (min-width: 600px) {
+  .sc-verse .sc-stanza > span { white-space: nowrap; }
 }
 .sc-verse .sc-stanza:last-child { margin-bottom: 0; }
 .sc-verse .sc-stanza > span {
