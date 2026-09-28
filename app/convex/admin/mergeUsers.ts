@@ -149,7 +149,7 @@ type SourceReport =
       sourceUserId: Id<"users">;
       merged: true;
       movedAccountCount: number;
-      movedGoogleVerifiedEmail: boolean;
+      copiedEmailVerification: boolean;
       movedPhoneMasked: string | null;
       forced: boolean;
     };
@@ -195,7 +195,6 @@ export const mergeUsers = internalMutation({
         .withIndex("userIdAndProvider", (q) => q.eq("userId", sourceUserId))
         .collect();
 
-      let movedGoogleVerifiedEmail = false;
       let movedPhone: string | null = null;
 
       for (const account of sourceAccounts) {
@@ -217,16 +216,29 @@ export const mergeUsers = internalMutation({
         }
 
         await ctx.db.patch(account._id, { userId: targetUserId });
-        if (account.provider === "google" && account.emailVerified) {
-          movedGoogleVerifiedEmail = true;
-        }
         if (account.provider === "phone") {
           movedPhone = account.providerAccountId;
         }
       }
 
+      // Carry the source's verified email over when it's the same address
+      // as the target's. Read from the source's users row, not the moved
+      // account: Convex Auth leaves authAccounts.emailVerified empty for
+      // Google sign-ins, so checking the account never fired.
       const targetPatch: Record<string, unknown> = {};
-      if (movedGoogleVerifiedEmail) targetPatch.emailVerificationTime = Date.now();
+      const [sourceUser, targetUser] = await Promise.all([
+        ctx.db.get(sourceUserId),
+        ctx.db.get(targetUserId),
+      ]);
+      const copiedEmailVerification = Boolean(
+        sourceUser?.emailVerificationTime &&
+          !targetUser?.emailVerificationTime &&
+          sourceUser.email &&
+          sourceUser.email.toLowerCase() === targetUser?.email?.toLowerCase(),
+      );
+      if (copiedEmailVerification) {
+        targetPatch.emailVerificationTime = sourceUser!.emailVerificationTime;
+      }
       if (movedPhone) {
         targetPatch.phone = movedPhone;
         targetPatch.phoneVerificationTime = Date.now();
@@ -260,7 +272,7 @@ export const mergeUsers = internalMutation({
         sourceUserId,
         merged: true,
         movedAccountCount: sourceAccounts.length,
-        movedGoogleVerifiedEmail,
+        copiedEmailVerification,
         movedPhoneMasked: movedPhone ? maskPhone(movedPhone) : null,
         forced: hasContent,
       });
