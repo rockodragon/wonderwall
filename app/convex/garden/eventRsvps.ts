@@ -8,7 +8,7 @@
 import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import { ConvexError } from "convex/values";
-import { mutation, query } from "../_generated/server";
+import { mutation, query, type MutationCtx } from "../_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { canSeeEvent } from "./eventVisibility";
 
@@ -92,6 +92,80 @@ function firstName(name: string): string {
   return trimmed.split(/\s+/)[0];
 }
 
+// ——— Shared insert/dedupe core ———
+//
+// Both the guest-facing `rsvpToEvent` mutation below and garden/apGifts.ts's
+// AP ticket-webhook branch need the exact same "find-by-normalized-email,
+// patch-or-insert" behavior — a ticket buyer is just an RSVP with money
+// attached, and duplicating this logic in apGifts.ts would let the two
+// silently drift (e.g. a fixed dedupe bug applied to only one path). Callers
+// that already know the buyer's userId/email (the webhook resolves both from
+// the Stripe session) skip straight to this; `rsvpToEvent` resolves them
+// first and then calls through.
+
+export interface UpsertRsvpArgs {
+  eventId: Id<"events">;
+  name: string;
+  email: string;
+  invitedBy?: string;
+  userId?: Id<"users">;
+  /** Set by a paid ticket purchase only — a free RSVP never passes these. */
+  paidCents?: number;
+  stripeRef?: string;
+}
+
+export async function upsertEventRsvp(
+  ctx: MutationCtx,
+  args: UpsertRsvpArgs,
+): Promise<{ ok: true; alreadyRsvpd: boolean; rsvpId: Id<"eventRsvps"> }> {
+  const existing = await ctx.db
+    .query("eventRsvps")
+    .withIndex("by_eventId_email", (q) =>
+      q.eq("eventId", args.eventId).eq("email", normalizeEmail(args.email)),
+    )
+    .unique();
+
+  const plan = planRsvp(
+    { name: args.name, email: args.email, invitedBy: args.invitedBy, userId: args.userId ? String(args.userId) : undefined },
+    existing
+      ? {
+          name: existing.name,
+          email: existing.email,
+          invitedBy: existing.invitedBy,
+          userId: existing.userId ? String(existing.userId) : undefined,
+        }
+      : null,
+  );
+
+  let rsvpId: Id<"eventRsvps">;
+  if (existing) {
+    await ctx.db.patch(existing._id, {
+      name: plan.patch.name,
+      invitedBy: plan.patch.invitedBy,
+      userId: (plan.patch.userId as Id<"users"> | undefined) ?? existing.userId,
+      // A ticket purchase upgrades a prior free RSVP to paid; never
+      // downgrades one that's already paid (undefined args here just means
+      // "no new payment info", not "clear the old one").
+      ...(args.paidCents !== undefined ? { paidCents: args.paidCents } : {}),
+      ...(args.stripeRef !== undefined ? { stripeRef: args.stripeRef } : {}),
+    });
+    rsvpId = existing._id;
+  } else {
+    rsvpId = await ctx.db.insert("eventRsvps", {
+      eventId: args.eventId,
+      userId: args.userId ?? undefined,
+      name: plan.patch.name,
+      email: plan.normalizedEmail,
+      invitedBy: plan.patch.invitedBy,
+      paidCents: args.paidCents,
+      stripeRef: args.stripeRef,
+      createdAt: Date.now(),
+    });
+  }
+
+  return { ok: true, alreadyRsvpd: plan.alreadyRsvpd, rsvpId };
+}
+
 // ——— Convex wrappers ———
 
 export const rsvpToEvent = mutation({
@@ -142,44 +216,39 @@ export const rsvpToEvent = mutation({
       });
     }
 
-    const normalizedEmail = normalizeEmail(email);
-    const existing = await ctx.db
+    const result = await upsertEventRsvp(ctx, {
+      eventId: args.eventId,
+      name,
+      email,
+      invitedBy: args.invitedBy,
+      userId: userId ?? undefined,
+    });
+
+    return { ok: true, alreadyRsvpd: result.alreadyRsvpd };
+  },
+});
+
+/** For the event page's external-ticket card: does the signed-in viewer
+ * already have a paid RSVP here (from AP's Payment Link, garden/apGifts.ts)?
+ * Guest viewers (no account) resolve to null — we have no way to identify
+ * "them" from a query alone, and the `?paid=1` return-from-Stripe notice
+ * covers that case instead. `eventRsvps` has no by_eventId_userId index
+ * (eventAccess.ts's comment: rosters are small), same collect-and-filter
+ * eventAccess.ts already does. */
+export const getMyRsvpStatus = query({
+  args: { eventId: v.id("events") },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return null;
+
+    const rows = await ctx.db
       .query("eventRsvps")
-      .withIndex("by_eventId_email", (q) =>
-        q.eq("eventId", args.eventId).eq("email", normalizedEmail),
-      )
-      .unique();
+      .withIndex("by_eventId", (q) => q.eq("eventId", args.eventId))
+      .collect();
+    const mine = rows.find((r) => r.userId && String(r.userId) === String(userId));
+    if (!mine) return null;
 
-    const plan = planRsvp(
-      { name, email, invitedBy: args.invitedBy, userId: userId ?? undefined },
-      existing
-        ? {
-            name: existing.name,
-            email: existing.email,
-            invitedBy: existing.invitedBy,
-            userId: existing.userId ? String(existing.userId) : undefined,
-          }
-        : null,
-    );
-
-    if (existing) {
-      await ctx.db.patch(existing._id, {
-        name: plan.patch.name,
-        invitedBy: plan.patch.invitedBy,
-        userId: (plan.patch.userId as Id<"users"> | undefined) ?? existing.userId,
-      });
-    } else {
-      await ctx.db.insert("eventRsvps", {
-        eventId: args.eventId,
-        userId: userId ?? undefined,
-        name: plan.patch.name,
-        email: plan.normalizedEmail,
-        invitedBy: plan.patch.invitedBy,
-        createdAt: Date.now(),
-      });
-    }
-
-    return { ok: true, alreadyRsvpd: plan.alreadyRsvpd };
+    return { paidCents: mine.paidCents ?? null };
   },
 });
 

@@ -5,6 +5,9 @@ import { describe, expect, it } from "vitest";
 import {
   isApGrantFundGift,
   buildApGrantContributionRow,
+  buildApTicketContributionRow,
+  buildTicketLink,
+  parseTicketRef,
   type ApCheckoutSessionLike,
 } from "./apGifts";
 
@@ -118,5 +121,136 @@ describe("buildApGrantContributionRow", () => {
     expect(result.row.type).toBe("contribution_in");
     expect(result.row.note).toBe("Gift through Abiding Practice");
     expect(result.row.hostOrgId).toBe("hostOrg_ap");
+  });
+});
+
+describe("buildTicketLink", () => {
+  const url = "https://buy.stripe.com/test_abc123";
+
+  it("appends a guest ref with no client_reference_id suffix", () => {
+    const link = buildTicketLink(url, "event123");
+    const parsed = new URL(link);
+    expect(parsed.origin + parsed.pathname).toBe(url);
+    expect(parsed.searchParams.get("client_reference_id")).toBe("evt-event123");
+    expect(parsed.searchParams.has("prefilled_email")).toBe(false);
+  });
+
+  it("includes the userId when signed in", () => {
+    const link = buildTicketLink(url, "event123", { userId: "user456" });
+    const parsed = new URL(link);
+    expect(parsed.searchParams.get("client_reference_id")).toBe("evt-event123-u-user456");
+  });
+
+  it("prefills the email when known", () => {
+    const link = buildTicketLink(url, "event123", { email: "diane@example.com" });
+    const parsed = new URL(link);
+    expect(parsed.searchParams.get("prefilled_email")).toBe("diane@example.com");
+  });
+
+  it("preserves existing query params on the payment link", () => {
+    const link = buildTicketLink("https://buy.stripe.com/test_abc123?locale=en", "event123");
+    const parsed = new URL(link);
+    expect(parsed.searchParams.get("locale")).toBe("en");
+    expect(parsed.searchParams.get("client_reference_id")).toBe("evt-event123");
+  });
+});
+
+describe("parseTicketRef", () => {
+  it("parses a guest ref", () => {
+    expect(parseTicketRef("evt-event123")).toEqual({ eventId: "event123", userId: undefined });
+  });
+
+  it("parses a signed-in ref", () => {
+    expect(parseTicketRef("evt-event123-u-user456")).toEqual({
+      eventId: "event123",
+      userId: "user456",
+    });
+  });
+
+  it("round-trips through buildTicketLink", () => {
+    const link = buildTicketLink("https://buy.stripe.com/test_abc123", "event123", {
+      userId: "user456",
+    });
+    const ref = new URL(link).searchParams.get("client_reference_id");
+    expect(parseTicketRef(ref)).toEqual({ eventId: "event123", userId: "user456" });
+  });
+
+  it.each([null, undefined, "", "not-a-ticket-ref", "evt-", "evt-event123-u-", "evt-ev$ent-u-user"])(
+    "returns null for %j",
+    (ref) => {
+      expect(parseTicketRef(ref)).toBeNull();
+    },
+  );
+
+  it("returns null for a ref with more than one -u- split point", () => {
+    expect(parseTicketRef("evt-event123-u-user456-u-extra")).toBeNull();
+  });
+});
+
+describe("buildApTicketContributionRow", () => {
+  it("records the full ticket amount as ticket_in, with the event title in the note", () => {
+    const session = makeSession({ amount_total: 2500 });
+    const result = buildApTicketContributionRow({
+      session,
+      hostOrgId: "hostOrg_ap",
+      eventTitle: "Fall Gathering",
+      now: 0,
+    });
+    if (!("row" in result)) throw new Error("expected a row");
+    expect(result.row.type).toBe("ticket_in");
+    expect(result.row.grossCents).toBe(2500);
+    expect(result.row.poolCents).toBe(2500);
+    expect(result.row.platformCents).toBe(0);
+    expect(result.row.note).toBe("Ticket: Fall Gathering");
+  });
+
+  it("carries the buyer's userId when the ref resolved a signed-in user", () => {
+    const session = makeSession();
+    const result = buildApTicketContributionRow({
+      session,
+      hostOrgId: "hostOrg_ap",
+      eventTitle: "Fall Gathering",
+      userId: "user456",
+      now: 0,
+    });
+    if (!("row" in result)) throw new Error("expected a row");
+    expect(result.row.userId).toBe("user456");
+  });
+
+  it("leaves userId undefined for a guest buyer", () => {
+    const session = makeSession();
+    const result = buildApTicketContributionRow({
+      session,
+      hostOrgId: "hostOrg_ap",
+      eventTitle: "Fall Gathering",
+      now: 0,
+    });
+    if (!("row" in result)) throw new Error("expected a row");
+    expect(result.row.userId).toBeUndefined();
+  });
+
+  it("skips a non-usd session", () => {
+    const session = makeSession({ currency: "eur" });
+    const result = buildApTicketContributionRow({
+      session,
+      hostOrgId: "hostOrg_ap",
+      eventTitle: "Fall Gathering",
+      now: 0,
+    });
+    expect("skipped" in result).toBe(true);
+  });
+
+  it("never carries the payer's email", () => {
+    const session = makeSession({
+      customer_details: { name: "Jordan Rivers", email: "jordan@example.com" },
+    });
+    const result = buildApTicketContributionRow({
+      session,
+      hostOrgId: "hostOrg_ap",
+      eventTitle: "Fall Gathering",
+      now: 0,
+    });
+    if (!("row" in result)) throw new Error("expected a row");
+    expect(JSON.stringify(result.row)).not.toContain("jordan@example.com");
   });
 });

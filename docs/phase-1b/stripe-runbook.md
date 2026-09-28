@@ -74,6 +74,14 @@ Because AP stays merchant of record and the money never touches our account, we 
 
 Refunds are not handled by this route yet. If AP refunds a gift, an operator records an `adjustment` row against `grantContributions` by hand (same table, negative `poolCents`) — see `garden/allocations.ts`'s `recordContribution`.
 
+**Event tickets through the same AP Payment Link (2026-09-28).** An event can sell tickets through an AP Payment Link instead of (or alongside) the platform's own ticket tiers — set the link on the event ("Ticket link (Stripe Payment Link)" in the create/edit form). The event page appends `client_reference_id` (`evt-<eventId>`, or `evt-<eventId>-u-<userId>` for a signed-in buyer) and, when known, `prefilled_email` to the link before sending the buyer to Stripe (`garden/apGifts.ts`'s `buildTicketLink`).
+
+In the Stripe dashboard, set that Payment Link's **"After payment" redirect** to `https://creatives.exchange/events/<id>?paid=1` so the buyer lands back on the event page with the "payment received" notice.
+
+The same `/stripe/ap/webhook` route handles this: `client_reference_id` is checked *before* the gift-designation check, so a ticket sale is never mistaken for an undesignated gift. On a match, the buyer is added to the event through the same insert/dedupe path a free RSVP uses (`garden/eventRsvps.ts`'s `upsertEventRsvp` — signed-in buyer by userId, guest by the name/email Stripe collected at checkout), and the ticket is recorded into `grantContributions` as `type: "ticket_in"` at the full amount, `platformCents: 0` — same reasoning as a gift: AP is merchant of record, the money never touches our account, and it's a benefit for the artist grant fund. Idempotent on `stripeRef` (`ap:<checkout session id>`), checked against both `grantContributions` and `eventRsvps`. A ref for an event that no longer exists is logged and ignored (200), not retried.
+
+Refunds on a ticket are manual, same as a gift — an operator handles them by hand; this route never processes a refund event.
+
 ## 6 · Testing
 
 Use Stripe test mode with card `4242 4242 4242 4242`, any future expiry, any CVC. `stripe listen --forward-to https://<deployment>.convex.site/stripe/webhook` replays events locally. Every webhook handler has a replay test in `stripeHandlers.test.ts` — keep it that way.

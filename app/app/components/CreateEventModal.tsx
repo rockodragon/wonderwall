@@ -32,6 +32,8 @@ export function CreateEventModal({ onClose }: { onClose: () => void }) {
   const [time, setTime] = useState("");
   const [endTimeStr, setEndTimeStr] = useState("");
   const [ticketTiers, setTicketTiers] = useState<TicketTierDraft[]>([]);
+  const [externalTicketUrl, setExternalTicketUrl] = useState("");
+  const [externalTicketPrice, setExternalTicketPrice] = useState("");
   const location = useLocationField();
   const [tags, setTags] = useState<string[]>([]);
   const [requiresApproval, setRequiresApproval] = useState(false);
@@ -97,6 +99,10 @@ export function CreateEventModal({ onClose }: { onClose: () => void }) {
         datetime,
         endTime,
         ticketTiers: tiers,
+        externalTicketUrl: externalTicketUrl.trim() || undefined,
+        externalTicketPriceCents: externalTicketPrice.trim()
+          ? Math.round(parseFloat(externalTicketPrice) * 100)
+          : undefined,
         ...location.toArgs(),
         tags,
         requiresApproval,
@@ -251,6 +257,35 @@ export function CreateEventModal({ onClose }: { onClose: () => void }) {
                   Ticketed events go live once you're a member.
                 </p>
               )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Ticket link (Stripe Payment Link)
+                </label>
+                <input
+                  type="text"
+                  value={externalTicketUrl}
+                  onChange={(e) => setExternalTicketUrl(e.target.value)}
+                  placeholder="https://buy.stripe.com/..."
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Ticket price ($)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={externalTicketPrice}
+                  onChange={(e) => setExternalTicketPrice(e.target.value)}
+                  placeholder="25"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
+                />
+              </div>
             </div>
 
             <div>

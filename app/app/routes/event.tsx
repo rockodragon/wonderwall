@@ -33,7 +33,7 @@
 import { useAction, useConvexAuth, useMutation, useQuery } from "convex/react";
 import { ConvexError } from "convex/values";
 import { type FormEvent, useRef, useState } from "react";
-import { Link, useParams } from "react-router";
+import { Link, useParams, useSearchParams } from "react-router";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { YOUTUBE_LIVE_LABEL, YOUTUBE_LIVE_URL } from "../constants/broadcast";
@@ -58,6 +58,7 @@ import { describeMediaLink, MediaLinkField } from "../components/MediaLinkField"
 import { EmbedPlayer } from "../components/EmbedPlayer";
 import { joinProxyUrl } from "../lib/eventCalendar";
 import { toEmbedUrl } from "../lib/videoEmbed";
+import { buildTicketLink } from "../../convex/garden/apGifts";
 
 const COVER_COLORS = [
   { name: "Blue", value: "blue", gradient: "from-blue-500 to-blue-600" },
@@ -911,6 +912,18 @@ export default function EventDetail() {
           />
         )}
 
+        {/* External ticket link (AP's own Stripe Payment Link — see
+            garden/apGifts.ts). Independent of the ticketTiers card above;
+            an event could in principle have both, though in practice it's
+            one or the other. */}
+        {event.externalTicketUrl && !isPast && (
+          <ExternalTicketCard
+            eventId={event._id}
+            url={event.externalTicketUrl}
+            priceCents={event.externalTicketPriceCents}
+          />
+        )}
+
         {/* Location Map */}
         {event.location && event.locationType !== "online" && (
           <div className="mb-8">
@@ -1017,6 +1030,8 @@ export default function EventDetail() {
             endTime: event.endTime,
             location: event.location,
             ticketTiers: event.ticketTiers,
+            externalTicketUrl: event.externalTicketUrl,
+            externalTicketPriceCents: event.externalTicketPriceCents,
             locationType: event.locationType,
             address: event.address,
             coordinates: event.coordinates,
@@ -1615,6 +1630,63 @@ function TicketsCard({
   );
 }
 
+// ——————————————————————————————————————————————————————————————
+// External ticket card — sells through an AP Payment Link instead of the
+// platform's own checkout (garden/apGifts.ts). The link carries the
+// signed-in viewer's userId/email when known (buildTicketLink) so AP's
+// webhook can add them to the event without asking them to type anything
+// on Stripe's page; a guest just gets a plain link and RSVPs by whatever
+// email they enter at checkout. Opens in the same tab — the Payment Link's
+// own "After payment" redirect (set in the Stripe dashboard, see
+// docs/phase-1b/stripe-runbook.md) brings them back here with `?paid=1`.
+// ——————————————————————————————————————————————————————————————
+
+function ExternalTicketCard({
+  eventId,
+  url,
+  priceCents,
+}: {
+  eventId: Id<"events">;
+  url: string;
+  priceCents?: number;
+}) {
+  const profile = useQuery(api.profiles.getMyProfile);
+  const myRsvp = useQuery(api.garden.eventRsvps.getMyRsvpStatus, { eventId });
+  const [searchParams] = useSearchParams();
+  const justPaid = searchParams.get("paid") === "1";
+
+  if (myRsvp?.paidCents) {
+    return (
+      <div className="mb-8 p-4 rounded-xl bg-green-50 dark:bg-green-900/20">
+        <p className="font-medium text-green-800 dark:text-green-200">
+          You're in — ticket confirmed
+        </p>
+      </div>
+    );
+  }
+
+  const href = buildTicketLink(url, eventId, {
+    userId: profile?.userId ? String(profile.userId) : undefined,
+    email: profile?.email ?? undefined,
+  });
+
+  return (
+    <div className="mb-8">
+      {justPaid && (
+        <div className="mb-3 p-3 bg-blue-50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-200 rounded-lg text-sm">
+          Payment received. You'll be on the list within a minute — refresh if you don't see it.
+        </div>
+      )}
+      <a
+        href={href}
+        className="block w-full text-center py-3 bg-green-600 text-white rounded-xl font-medium hover:bg-green-700 transition-colors"
+      >
+        Get your ticket{priceCents ? ` — ${formatTierPrice(priceCents)}` : ""}
+      </a>
+    </div>
+  );
+}
+
 function EventImageManager({
   eventId,
   event,
@@ -1885,6 +1957,8 @@ function EditEventModal({
     endTime?: number;
     location?: string;
     ticketTiers?: TicketTier[];
+    externalTicketUrl?: string;
+    externalTicketPriceCents?: number;
     locationType?: string;
     address?: LocationSuggestion["address"];
     coordinates?: LocationSuggestion["coordinates"];
@@ -1917,6 +1991,14 @@ function EditEventModal({
   const [endTimeStr, setEndTimeStr] = useState(endTimeInit);
   const [ticketTiers, setTicketTiers] = useState<TicketTierDraft[]>(
     tiersToDrafts(initialValues.ticketTiers),
+  );
+  const [externalTicketUrl, setExternalTicketUrl] = useState(
+    initialValues.externalTicketUrl ?? "",
+  );
+  const [externalTicketPrice, setExternalTicketPrice] = useState(
+    initialValues.externalTicketPriceCents !== undefined
+      ? String(initialValues.externalTicketPriceCents / 100)
+      : "",
   );
   // Seeded from the event being edited (including its structured fields) so
   // saving without re-picking a location doesn't wipe locationType/address/
@@ -1981,6 +2063,10 @@ function EditEventModal({
         datetime,
         endTime,
         ticketTiers: tiers,
+        externalTicketUrl: externalTicketUrl.trim() || undefined,
+        externalTicketPriceCents: externalTicketPrice.trim()
+          ? Math.round(parseFloat(externalTicketPrice) * 100)
+          : undefined,
         ...location.toArgs(),
         tags,
         requiresApproval,
@@ -2118,6 +2204,35 @@ function EditEventModal({
                   Ticketed events go live once you're a member.
                 </p>
               )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Ticket link (Stripe Payment Link)
+                </label>
+                <input
+                  type="text"
+                  value={externalTicketUrl}
+                  onChange={(e) => setExternalTicketUrl(e.target.value)}
+                  placeholder="https://buy.stripe.com/..."
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Ticket price ($)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={externalTicketPrice}
+                  onChange={(e) => setExternalTicketPrice(e.target.value)}
+                  placeholder="25"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
+                />
+              </div>
             </div>
 
             <div>

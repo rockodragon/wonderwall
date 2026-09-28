@@ -8,15 +8,30 @@
 // /stripe/webhook (garden/stripeHandlers.ts + garden/memberships.ts), whose
 // events describe money moving through OUR account.
 //
-// Pure logic (the designation rule + the row shaper) is split out and
-// exported so it's unit-testable with no Convex/Stripe import, same
-// reasoning as stripeHandlers.ts's header. The Convex glue below it is a
-// single small mutation, not a whole adapter — this integration is one
-// event shape, not the dozen the platform webhook dispatches.
+// Same account, second use (2026-09-28): an event can also sell tickets
+// through an AP Payment Link instead of the platform's own ticketTiers/
+// Connect checkout (events.externalTicketUrl, schema.ts). A ticket sale is
+// distinguished from a designated gift by `client_reference_id` — set by
+// buildTicketLink below when the event page builds the link a buyer clicks
+// — rather than by metadata/payment_link id the way a gift is, because the
+// ref also needs to carry WHICH event (and, when known, which signed-in
+// user) the purchase is for. The buyer is added to the event via the same
+// insert/dedupe path as a free RSVP (garden/eventRsvps.ts's upsertEventRsvp)
+// and the ticket is recorded into grantContributions as `ticket_in` — a
+// benefit for the artist grant fund, same as a gift, because AP is still
+// merchant of record and the money still never touches our account.
+//
+// Pure logic (the designation rule, the ticket-ref format, and the row
+// shapers) is split out and exported so it's unit-testable with no Convex/
+// Stripe import, same reasoning as stripeHandlers.ts's header. The Convex
+// glue below it is a single small mutation, not a whole adapter — this
+// integration is a couple of event shapes, not the dozen the platform
+// webhook dispatches.
 
 import { v } from "convex/values";
 import { internalMutation } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
+import { upsertEventRsvp } from "./eventRsvps";
 
 const AP_HOST_ORG_SLUG = "abiding-practice";
 
@@ -34,6 +49,10 @@ export interface ApCheckoutSessionLike {
    * it, which this integration doesn't request. */
   payment_link?: string | { id: string } | null;
   customer_details?: { name?: string | null; email?: string | null } | null;
+  /** Set by buildTicketLink below when the session came from an event's
+   * ticket link, rather than by AP's own checkout (a gift has no client
+   * reference id). Absent on anything unrelated to this integration. */
+  client_reference_id?: string | null;
   /** Seconds since epoch — same "period" fallback stripeHandlers.ts uses for
    * one-time payment sessions, which carry no period_start. */
   created?: number;
@@ -48,14 +67,15 @@ export type ApStripeWebhookEvent =
   | { id: string; type: string; data: { object: unknown } };
 
 /** Shape of the row this file writes — a subset of schema.ts's
- * grantContributions, always `type: "contribution_in"`, always
- * `platformCents: 0` (we don't move the money, so we take no cut). */
+ * grantContributions, always `platformCents: 0` (we don't move the money,
+ * so we take no cut) whether it's a gift or a ticket. */
 export interface ApGrantContributionRow {
   hostOrgId: string;
-  type: "contribution_in";
+  type: "contribution_in" | "ticket_in";
   grossCents: number;
   platformCents: 0;
   poolCents: number;
+  userId?: string; // the buyer, when a ticket purchase resolved a signed-in user
   payerName?: string;
   stripeRef: string; // "ap:<session id>" — prefixed so it can never collide
   // with the platform account's own checkout session / invoice ids.
@@ -144,7 +164,219 @@ export function buildApGrantContributionRow(args: {
   };
 }
 
+/** Shapes a `grantContributions` row from a paid AP ticket-purchase session
+ * (buildTicketLink/parseTicketRef below). Same currency guard and shape as
+ * buildApGrantContributionRow, but type "ticket_in", the event's title in
+ * the note instead of generic gift copy, and userId carried through when
+ * the ref resolved a signed-in buyer. */
+export function buildApTicketContributionRow(args: {
+  session: ApCheckoutSessionLike;
+  hostOrgId: string;
+  eventTitle: string;
+  userId?: string;
+  now: number;
+}): BuildApGrantRowResult {
+  const { session, hostOrgId, eventTitle, userId, now } = args;
+
+  const currency = (session.currency ?? "usd").toLowerCase();
+  if (currency !== "usd") {
+    return { skipped: true, reason: `non-usd currency (${currency}), skipping` };
+  }
+
+  const grossCents = session.amount_total ?? 0;
+  const periodSeconds = session.created ?? Math.floor(now / 1000);
+
+  return {
+    row: {
+      hostOrgId,
+      type: "ticket_in",
+      grossCents,
+      platformCents: 0,
+      poolCents: grossCents,
+      userId,
+      // NEVER session.customer_details?.email — same rule as the gift row.
+      payerName: session.customer_details?.name || undefined,
+      stripeRef: `ap:${session.id}`,
+      period: periodFromStripeSeconds(periodSeconds),
+      note: `Ticket: ${eventTitle}`,
+      createdAt: now,
+    },
+  };
+}
+
+// ——— Ticket link: builds the URL a buyer clicks, and parses what comes
+// back on `client_reference_id` ———
+
+const TICKET_REF_ID_RE = /^[A-Za-z0-9_-]+$/;
+const TICKET_REF_MAX_LENGTH = 200; // Stripe's client_reference_id limit
+
+export interface TicketRef {
+  eventId: string;
+  userId?: string;
+}
+
+/** Appends `client_reference_id` (and `prefilled_email` when known) to an
+ * event's externalTicketUrl (events.ts's normalizeExternalTicket already
+ * verified it's a buy.stripe.com link). The ref format is
+ * `evt-<eventId>` or `evt-<eventId>-u-<userId>` — Convex ids are already
+ * alphanumeric with no hyphens, so splitting on the first `-u-` is
+ * unambiguous; parseTicketRef below is the inverse. */
+export function buildTicketLink(
+  externalTicketUrl: string,
+  eventId: string,
+  opts: { userId?: string; email?: string } = {},
+): string {
+  const ref = (opts.userId ? `evt-${eventId}-u-${opts.userId}` : `evt-${eventId}`).slice(
+    0,
+    TICKET_REF_MAX_LENGTH,
+  );
+  const url = new URL(externalTicketUrl);
+  url.searchParams.set("client_reference_id", ref);
+  if (opts.email) url.searchParams.set("prefilled_email", opts.email);
+  return url.toString();
+}
+
+/** Inverse of buildTicketLink. Anything that isn't exactly that shape
+ * (a ref from an unrelated Payment Link, or a malformed one) returns null
+ * so the webhook treats the session as none of its business rather than
+ * guessing at a partial match. */
+export function parseTicketRef(ref: string | null | undefined): TicketRef | null {
+  if (!ref || !ref.startsWith("evt-")) return null;
+
+  const rest = ref.slice(4);
+  const parts = rest.split("-u-");
+  if (parts.length > 2) return null;
+
+  const [eventId, userId] = parts;
+  if (!eventId || !TICKET_REF_ID_RE.test(eventId)) return null;
+  if (userId !== undefined && !TICKET_REF_ID_RE.test(userId)) return null;
+
+  return { eventId, userId };
+}
+
 // ——— Convex glue: the one mutation the /stripe/ap/webhook route calls ———
+
+// Thrown (not logged-and-returned) so the route answers 500 and Stripe
+// retries until abiding-practice is seeded — a gift or ticket sale must
+// never be silently dropped just because the org row isn't there yet.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function getApHostOrg(ctx: any) {
+  const org = await ctx.db
+    .query("hostOrgs")
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .withIndex("by_slug", (q: any) => q.eq("slug", AP_HOST_ORG_SLUG))
+    .unique();
+  if (!org) {
+    throw new Error(
+      `[ap stripe webhook] "${AP_HOST_ORG_SLUG}" hostOrg not seeded — run garden/devSeed:seedApOrg`,
+    );
+  }
+  return org;
+}
+
+/** The ticket branch: session.client_reference_id resolved to an event via
+ * parseTicketRef. Adds the buyer to the event (through the same
+ * insert/dedupe helper a free RSVP uses) and records the ticket into
+ * grantContributions. Never throws on a bad/stale ref — Stripe would just
+ * retry forever for a session this route can never make sense of. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function applyApTicketSession(ctx: any, event: ApStripeWebhookEvent, session: ApCheckoutSessionLike, ref: TicketRef) {
+  const stripeRef = `ap:${session.id}`;
+
+  // Idempotent on ap:<session id> — checked on BOTH tables a replay could
+  // have already written (the RSVP and the money land in one call below,
+  // but a retried webhook after a partial prior failure should still be
+  // caught by either one already being there).
+  const [existingContribution, existingRsvp] = await Promise.all([
+    ctx.db
+      .query("grantContributions")
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .withIndex("by_stripeRef", (q: any) => q.eq("stripeRef", stripeRef))
+      .unique(),
+    ctx.db
+      .query("eventRsvps")
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .withIndex("by_stripeRef", (q: any) => q.eq("stripeRef", stripeRef))
+      .unique(),
+  ]);
+  if (existingContribution || existingRsvp) {
+    console.log("[ap stripe webhook] ticket session already applied, ignoring replay", event.id, session.id);
+    return;
+  }
+
+  const normalizedEventId = ctx.db.normalizeId("events", ref.eventId) as Id<"events"> | null;
+  if (!normalizedEventId) {
+    console.log("[ap stripe webhook] ticket ref has a malformed event id, ignoring", event.id, ref.eventId);
+    return;
+  }
+  const eventDoc = await ctx.db.get(normalizedEventId);
+  if (!eventDoc) {
+    console.log("[ap stripe webhook] ticket ref's event no longer exists, ignoring", event.id, ref.eventId);
+    return;
+  }
+
+  let userId: Id<"users"> | undefined;
+  if (ref.userId) {
+    const normalizedUserId = ctx.db.normalizeId("users", ref.userId) as Id<"users"> | null;
+    if (normalizedUserId && (await ctx.db.get(normalizedUserId))) {
+      userId = normalizedUserId;
+    }
+  }
+
+  let name: string | undefined;
+  let email: string | undefined;
+  if (userId) {
+    const [profile, userDoc] = await Promise.all([
+      ctx.db
+        .query("profiles")
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .withIndex("by_userId", (q: any) => q.eq("userId", userId))
+        .unique(),
+      ctx.db.get(userId),
+    ]);
+    name = profile?.name ?? (userDoc as { name?: string } | null)?.name ?? session.customer_details?.name ?? undefined;
+    email = (userDoc as { email?: string } | null)?.email ?? session.customer_details?.email ?? undefined;
+  } else {
+    name = session.customer_details?.name ?? undefined;
+    email = session.customer_details?.email ?? undefined;
+  }
+
+  if (!email) {
+    console.log("[ap stripe webhook] ticket session has no email to RSVP with, ignoring", event.id, session.id);
+    return;
+  }
+
+  const grossCents = session.amount_total ?? 0;
+
+  await upsertEventRsvp(ctx, {
+    eventId: normalizedEventId,
+    userId,
+    name: name || "Guest",
+    email,
+    paidCents: grossCents,
+    stripeRef,
+  });
+
+  const org = await getApHostOrg(ctx);
+  const result = buildApTicketContributionRow({
+    session,
+    hostOrgId: String(org._id),
+    eventTitle: eventDoc.title,
+    userId: userId ? String(userId) : undefined,
+    now: Date.now(),
+  });
+  if ("skipped" in result) {
+    console.log("[ap stripe webhook]", result.reason, event.id);
+    return;
+  }
+
+  const { hostOrgId: _hostOrgId, userId: _userId, ...rest } = result.row;
+  await ctx.db.insert("grantContributions", {
+    ...rest,
+    userId,
+    hostOrgId: org._id as Id<"hostOrgs">,
+  });
+}
 
 export const applyApStripeEvent = internalMutation({
   args: { event: v.any() },
@@ -165,6 +397,18 @@ export const applyApStripeEvent = internalMutation({
       return;
     }
 
+    // Ticket purchases are told apart from designated gifts by
+    // client_reference_id (buildTicketLink/parseTicketRef above) — a gift
+    // checkout never sets one, so this only ever matches an event's ticket
+    // link, and it's checked first so a ticket sale is never mistaken for
+    // an undesignated gift just because it also happened to come from one
+    // of AP_GRANT_PAYMENT_LINK_IDS.
+    const ticketRef = parseTicketRef(session.client_reference_id);
+    if (ticketRef) {
+      await applyApTicketSession(ctx, event, session, ticketRef);
+      return;
+    }
+
     const grantPaymentLinkIds = (process.env.AP_GRANT_PAYMENT_LINK_IDS ?? "")
       .split(",")
       .map((id) => id.trim())
@@ -175,19 +419,7 @@ export const applyApStripeEvent = internalMutation({
       return;
     }
 
-    // Thrown (not logged-and-returned) so the route answers 500 and Stripe
-    // retries until abiding-practice is seeded — a grant-fund gift must
-    // never be silently dropped just because the org row isn't there yet.
-    const org = await ctx.db
-      .query("hostOrgs")
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .withIndex("by_slug", (q: any) => q.eq("slug", AP_HOST_ORG_SLUG))
-      .unique();
-    if (!org) {
-      throw new Error(
-        `[ap stripe webhook] "${AP_HOST_ORG_SLUG}" hostOrg not seeded — run garden/devSeed:seedApOrg`,
-      );
-    }
+    const org = await getApHostOrg(ctx);
 
     const stripeRef = `ap:${session.id}`;
     const existing = await ctx.db
@@ -203,7 +435,11 @@ export const applyApStripeEvent = internalMutation({
       return;
     }
 
-    const { hostOrgId: _hostOrgId, ...rest } = result.row;
+    // A gift never carries userId (buildApGrantContributionRow doesn't set
+    // it) — dropped here too so `rest`'s type lines up with the schema's
+    // Id<"users"> rather than the plain string the ticket row's userId is
+    // shaped from.
+    const { hostOrgId: _hostOrgId, userId: _userId, ...rest } = result.row;
     await ctx.db.insert("grantContributions", {
       ...rest,
       hostOrgId: org._id as Id<"hostOrgs">,

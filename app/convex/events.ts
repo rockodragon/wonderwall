@@ -92,6 +92,53 @@ const ticketTiersValidator = v.optional(
   ),
 );
 
+// ——— External ticketing (schema.ts's events.externalTicketUrl comment) ———
+
+const STRIPE_PAYMENT_LINK_HOST = "buy.stripe.com";
+
+export interface ExternalTicketInput {
+  url?: string;
+  priceCents?: number;
+}
+
+export interface ExternalTicketResult {
+  externalTicketUrl?: string;
+  externalTicketPriceCents?: number;
+  error?: string;
+}
+
+/** Validates + normalizes the external-ticket fields together, since a
+ * price with no link is meaningless: an empty/absent url clears BOTH
+ * fields, regardless of what priceCents was. The url must be a Stripe
+ * Payment Link — nothing else, because AP's webhook (garden/apGifts.ts)
+ * is the only thing watching for a purchase to come back, and it only
+ * knows how to read a checkout.session event off that one Stripe account. */
+export function normalizeExternalTicket(
+  input: ExternalTicketInput,
+): ExternalTicketResult {
+  const trimmed = input.url?.trim();
+  if (!trimmed) return {};
+
+  let parsed: URL;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    return { error: "Use a Stripe Payment Link (buy.stripe.com/…)." };
+  }
+  if (parsed.protocol !== "https:" || parsed.hostname !== STRIPE_PAYMENT_LINK_HOST) {
+    return { error: "Use a Stripe Payment Link (buy.stripe.com/…)." };
+  }
+
+  if (
+    input.priceCents !== undefined &&
+    (!Number.isInteger(input.priceCents) || input.priceCents <= 0)
+  ) {
+    return { error: "Ticket price must be a whole number of cents greater than zero" };
+  }
+
+  return { externalTicketUrl: trimmed, externalTicketPriceCents: input.priceCents };
+}
+
 // Ticket-gated visibility (isFreeEvent / eventVisibilityChecker) lives in
 // garden/eventVisibility.ts — re-exported here so existing/expected imports
 // from "./events" keep working, and so events.test.ts can test the pure
@@ -307,6 +354,8 @@ export const create = mutation({
     datetime: v.number(),
     endTime: v.optional(v.number()),
     ticketTiers: ticketTiersValidator,
+    externalTicketUrl: v.optional(v.string()),
+    externalTicketPriceCents: v.optional(v.number()),
     location: v.optional(v.string()),
     locationType: v.optional(v.string()),
     address: v.optional(
@@ -347,6 +396,16 @@ export const create = mutation({
     const { tiers, error: tiersError } = normalizeTicketTiers(args.ticketTiers);
     if (tiersError) throw new Error(tiersError);
 
+    const {
+      externalTicketUrl,
+      externalTicketPriceCents,
+      error: ticketLinkError,
+    } = normalizeExternalTicket({
+      url: args.externalTicketUrl,
+      priceCents: args.externalTicketPriceCents,
+    });
+    if (ticketLinkError) throw new Error(ticketLinkError);
+
     const mediaUrl = canonicalMediaUrl(args.mediaUrl);
 
     if (args.hostOrgId) {
@@ -363,6 +422,8 @@ export const create = mutation({
       datetime: args.datetime,
       endTime: args.endTime,
       ticketTiers: tiers,
+      externalTicketUrl,
+      externalTicketPriceCents,
       location: args.location?.trim(),
       locationType: args.locationType,
       address: args.address,
@@ -421,6 +482,8 @@ export const update = mutation({
     datetime: v.number(),
     endTime: v.optional(v.number()),
     ticketTiers: ticketTiersValidator,
+    externalTicketUrl: v.optional(v.string()),
+    externalTicketPriceCents: v.optional(v.number()),
     location: v.optional(v.string()),
     locationType: v.optional(v.string()),
     address: v.optional(
@@ -467,6 +530,16 @@ export const update = mutation({
     const { tiers, error: tiersError } = normalizeTicketTiers(args.ticketTiers);
     if (tiersError) throw new Error(tiersError);
 
+    const {
+      externalTicketUrl,
+      externalTicketPriceCents,
+      error: ticketLinkError,
+    } = normalizeExternalTicket({
+      url: args.externalTicketUrl,
+      priceCents: args.externalTicketPriceCents,
+    });
+    if (ticketLinkError) throw new Error(ticketLinkError);
+
     if (args.hostOrgId) {
       await assertCommunityMember(ctx, args.hostOrgId, userId);
     }
@@ -507,6 +580,8 @@ export const update = mutation({
       datetime: args.datetime,
       endTime: args.endTime,
       ticketTiers: tiers,
+      externalTicketUrl,
+      externalTicketPriceCents,
       location: args.location?.trim(),
       locationType: args.locationType,
       address: args.address,

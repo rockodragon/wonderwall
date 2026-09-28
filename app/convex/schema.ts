@@ -193,6 +193,19 @@ export default defineSchema({
     // See garden/ticketRouting.ts for the rule and why it refuses rather
     // than falling back.
     beneficiaryHostOrgId: v.optional(v.id("hostOrgs")),
+    // An external ticketing path (docs/phase-1b/stripe-runbook.md §5 "On-site
+    // donations to the grant fund" interim step, extended to tickets):
+    // instead of the platform's own ticketTiers/Stripe Connect checkout
+    // above, sell through a Payment Link on Abiding Practice's OWN Stripe
+    // account (buy.stripe.com/... only — enforced in events.ts) and let AP's
+    // existing /stripe/ap/webhook (garden/apGifts.ts) add the buyer to this
+    // event and record the ticket into grantContributions as a benefit for
+    // the artist grant fund. Coexists with ticketTiers; most events use one
+    // or the other. externalTicketPriceCents is display-only copy (the real
+    // price lives on the Payment Link itself) — optional because a link
+    // whose price varies (donor's choice) has none to show.
+    externalTicketUrl: v.optional(v.string()),
+    externalTicketPriceCents: v.optional(v.number()),
     // Location fields — one box: the same LocationAutocomplete/Google
     // Places pipeline resolves a venue name ("Tamarack State Beach") and a
     // searched street address ("123 Main St, Carlsbad, CA") alike, so
@@ -1412,10 +1425,18 @@ export default defineSchema({
     // never a credential (docs/gated-event-video-prd.md, Criticism #3).
     // No UI writes this yet — the paid path is deferred (PRD "Build order").
     paymentStatus: v.optional(v.string()),
+    // Set when this RSVP came from a paid external-ticket purchase (AP's
+    // Payment Link, garden/apGifts.ts) rather than a free RSVP — the amount
+    // actually paid, and `ap:<checkout session id>` for idempotency (same
+    // prefix convention as grantContributions.stripeRef; can't collide with
+    // the platform account's own ids).
+    paidCents: v.optional(v.number()),
+    stripeRef: v.optional(v.string()),
     createdAt: v.number(),
   })
     .index("by_eventId", ["eventId"])
-    .index("by_eventId_email", ["eventId", "email"]),
+    .index("by_eventId_email", ["eventId", "email"])
+    .index("by_stripeRef", ["stripeRef"]),
 
   // Completed event-ticket purchases — written exclusively by the Stripe
   // webhook (checkout.session.completed, mode "payment", kind "event_ticket";
@@ -1468,7 +1489,7 @@ export default defineSchema({
   // is 50/50; for direct inflows, 10% platform. Awards out are 0%.
   grantContributions: defineTable({
     hostOrgId: v.id("hostOrgs"), // the pool owner: the platform row, or a community
-    type: v.string(), // "dues_share" | "contribution_in" | "topup_in" | "sponsor_in" | "entry_fee_in" | "adjustment"
+    type: v.string(), // "dues_share" | "contribution_in" | "topup_in" | "sponsor_in" | "entry_fee_in" | "adjustment" | "ticket_in"
     grossCents: v.number(),
     platformCents: v.number(),
     poolCents: v.number(), // may be negative on an adjustment (refund/chargeback clawback)
