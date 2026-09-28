@@ -22,8 +22,8 @@
 // every answer stays in the prerendered HTML for crawlers and answer engines,
 // and the keyboard support comes free. Don't "upgrade" it to JS.
 //
-// The hero drawing is inverted (filter: invert(1)) rather than re-exported:
-// it's ink on white paper, and the Garden shell is paper on ink.
+// The hero is the Abiding Creatives poster, used as is (it's already
+// light-on-dark).
 //
 // The route-level ErrorBoundary is a net, not a plan: nothing on this page
 // may make a query the page can't live without. If a decorative query ever
@@ -308,14 +308,19 @@ export default function Showcase() {
 
       {/* Hero */}
       <div style={{ marginTop: 18 }}>
+        {/* The event poster (Rick, 2026-09-28). Already light-on-dark, so no
+            invert; capped so a portrait poster doesn't push the page down. */}
         <img
-          src="/showcase/table-drawing.jpg"
-          alt="Line drawing of people around a long table making things — playing guitar, throwing pottery, working with tools, reading."
+          src="/showcase/abiding-creatives-poster.jpg"
+          alt="Abiding Creatives — an evening to showcase and support creative communities. Music by Shua and John Van Deusen. November 6, 6pm, Light Church Encinitas. Best Pizza & Brew."
+          width={792}
+          height={1118}
           style={{
             width: "100%",
+            maxWidth: 520,
+            height: "auto",
             marginBottom: 26,
             borderRadius: 6,
-            filter: "invert(1)",
             display: "block",
           }}
         />
