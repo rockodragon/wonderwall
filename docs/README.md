@@ -20,6 +20,12 @@ The project is **creatives.exchange** (repo: wonderwall). Four documents are the
 - [Community groups](features/community-groups.md) · [Community grant pools](features/community-grant-pools.md) · [Paid community + media](features/paid-community-youtube-media.md)
 - Older PRDs: [jobs](jobs-feature-prd.md) · [messaging](messaging-feature-prd.md) · [event location](prd-event-location.md) · [announcements](announcements-prd.md) · [events video hosting](events-video-hosting-prd.md) · [gated event video](gated-event-video-prd.md)
 
+## Funding
+
+- [Prebys Creative Industry Survey — our response](funding/prebys-creative-industry-survey-response.md) — draft answers, positioning, follow-up email; survey closes Sept 30, 2026
+- [Impact capital positioning](funding/impact-capital-positioning.md) — how a for-profit infrastructure company with nonprofit partners pursues impact investment; sources ranked by fit; what has to be true before pitching
+- Pitch deck (Slides artifact, 16 slides): https://claude.ai/artifact/VVTMpZMN4cz6vyYkx5ksyo — the numbers follow `marketing/claims.md`, the business model and the financial model; the capital figure is a bracketed placeholder
+
 ## Runbooks and research
 
 - [Step 0: go live in Stripe test mode](runbooks/step-0-go-live.md)
