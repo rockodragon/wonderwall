@@ -58,7 +58,7 @@ import { describeMediaLink, MediaLinkField } from "../components/MediaLinkField"
 import { EmbedPlayer } from "../components/EmbedPlayer";
 import { joinProxyUrl } from "../lib/eventCalendar";
 import { toEmbedUrl } from "../lib/videoEmbed";
-import { buildTicketLink } from "../../convex/garden/apGifts";
+import { buildTicketLink } from "../../convex/garden/ticketLink";
 
 const COVER_COLORS = [
   { name: "Blue", value: "blue", gradient: "from-blue-500 to-blue-600" },
@@ -260,6 +260,7 @@ export default function EventDetail() {
   const [joining, setJoining] = useState(false);
   const [showEditForm, setShowEditForm] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [showOptions, setShowOptions] = useState(false);
   // Held here rather than inside the card so the desktop and mobile render
   // sites stay in sync — the same reason `message`/`showApplyForm` above are
   // parent state and not local to each button.
@@ -347,6 +348,10 @@ export default function EventDetail() {
   }
 
   const isPast = event.datetime < Date.now();
+  // AP's own Stripe Payment Link (garden/apGifts.ts). When set, the ticket
+  // card takes the join button's place, above the video section.
+  const ticketUrl =
+    event.externalTicketUrl && !isPast ? event.externalTicketUrl : null;
   const cancelled = event.status === "cancelled";
   // events.apply throws "Not authenticated", so the Apply/Join buttons are
   // for signed-in visitors only. A guest gets showGuestRsvp instead — never
@@ -467,13 +472,44 @@ export default function EventDetail() {
                   Edit
                 </button>
                 {event.status !== "cancelled" && (
-                  <button
-                    onClick={handleCancelEvent}
-                    disabled={cancelling}
-                    className="px-3 py-1 bg-red-500/80 backdrop-blur-sm text-white rounded-lg text-sm font-medium hover:bg-red-600/80 transition-colors disabled:opacity-50"
-                  >
-                    {cancelling ? "Cancelling..." : "Cancel Event"}
-                  </button>
+                  <div className="relative">
+                    <button
+                      onClick={() => setShowOptions((v) => !v)}
+                      aria-label="More options"
+                      aria-expanded={showOptions}
+                      className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${
+                        playerIsHero
+                          ? "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+                          : "text-white hover:bg-white/20"
+                      }`}
+                    >
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                        <circle cx="12" cy="5" r="2" />
+                        <circle cx="12" cy="12" r="2" />
+                        <circle cx="12" cy="19" r="2" />
+                      </svg>
+                    </button>
+                    {showOptions && (
+                      <>
+                        <div
+                          className="fixed inset-0 z-10"
+                          onClick={() => setShowOptions(false)}
+                        />
+                        <div className="absolute left-0 top-full mt-1 z-20 min-w-40 rounded-lg py-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-lg">
+                          <button
+                            onClick={() => {
+                              setShowOptions(false);
+                              handleCancelEvent();
+                            }}
+                            disabled={cancelling}
+                            className="w-full text-left px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-50"
+                          >
+                            {cancelling ? "Cancelling..." : "Cancel event"}
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
                 )}
               </>
             )}
@@ -618,9 +654,18 @@ export default function EventDetail() {
             </div>
           </div>
 
-          {/* Right: Join Button (desktop) */}
-          <div className="hidden md:block flex-shrink-0 w-56">
-            {isPast ? (
+          {/* Right: Join Button (desktop) — or the ticket card, when the
+              event sells through a Payment Link */}
+          <div
+            className={`hidden md:block flex-shrink-0 ${ticketUrl ? "w-72" : "w-56"}`}
+          >
+            {ticketUrl ? (
+              <ExternalTicketCard
+                eventId={event._id}
+                url={ticketUrl}
+                priceCents={event.externalTicketPriceCents}
+              />
+            ) : isPast ? (
               <div className="p-3 bg-gray-100 dark:bg-gray-800 rounded-xl text-center">
                 <p className="text-sm text-gray-500 dark:text-gray-400">
                   Event ended
@@ -739,6 +784,16 @@ export default function EventDetail() {
             The URLs live in the separate eventVideo table and arrive only
             through api.eventVideo.get, which resolves a role first — they
             are never on the event document this page already has. */}
+        {ticketUrl && (
+          <div className="md:hidden mb-8">
+            <ExternalTicketCard
+              eventId={event._id}
+              url={ticketUrl}
+              priceCents={event.externalTicketPriceCents}
+            />
+          </div>
+        )}
+
         <EventVideoSection
           eventId={event._id}
           title={event.title}
@@ -786,8 +841,9 @@ export default function EventDetail() {
             </div>
           )}
 
-        {/* Mobile Join Button - between description/gallery and location */}
-        <div className="md:hidden mb-8">
+        {/* Mobile Join Button - between description/gallery and location.
+            A ticketed event shows its ticket card above the video instead. */}
+        <div className={ticketUrl ? "hidden" : "md:hidden mb-8"}>
           {isPast ? (
             <div className="p-4 bg-gray-100 dark:bg-gray-800 rounded-xl text-center">
               <p className="text-gray-500 dark:text-gray-400">
@@ -909,18 +965,6 @@ export default function EventDetail() {
             tiers={event.ticketTiers}
             soldByTier={event.ticketsSoldByTier}
             isPast={isPast}
-          />
-        )}
-
-        {/* External ticket link (AP's own Stripe Payment Link — see
-            garden/apGifts.ts). Independent of the ticketTiers card above;
-            an event could in principle have both, though in practice it's
-            one or the other. */}
-        {event.externalTicketUrl && !isPast && (
-          <ExternalTicketCard
-            eventId={event._id}
-            url={event.externalTicketUrl}
-            priceCents={event.externalTicketPriceCents}
           />
         )}
 
@@ -1655,11 +1699,19 @@ function ExternalTicketCard({
   const [searchParams] = useSearchParams();
   const justPaid = searchParams.get("paid") === "1";
 
+  const cardStyle = {
+    backgroundColor: "var(--garden-ink-raised)",
+    border: "1px solid var(--garden-hairline-raised)",
+  };
+
   if (myRsvp?.paidCents) {
     return (
-      <div className="mb-8 p-4 rounded-xl bg-green-50 dark:bg-green-900/20">
-        <p className="font-medium text-green-800 dark:text-green-200">
-          You're in — ticket confirmed
+      <div className="p-5 rounded-xl" style={cardStyle}>
+        <p style={{ color: "var(--garden-citron)", fontSize: 17, fontWeight: 600, margin: 0 }}>
+          You're in
+        </p>
+        <p style={{ color: "var(--garden-body)", fontSize: 14, margin: "4px 0 0" }}>
+          Ticket confirmed. See you there.
         </p>
       </div>
     );
@@ -1671,18 +1723,50 @@ function ExternalTicketCard({
   });
 
   return (
-    <div className="mb-8">
-      {justPaid && (
-        <div className="mb-3 p-3 bg-blue-50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-200 rounded-lg text-sm">
-          Payment received. You'll be on the list within a minute — refresh if you don't see it.
-        </div>
+    <div className="p-5 rounded-xl" style={cardStyle}>
+      {justPaid ? (
+        <p style={{ color: "var(--garden-paper)", fontSize: 15, margin: 0 }}>
+          Payment received. You'll be on the list within a minute. Refresh
+          if you don't see it.
+        </p>
+      ) : (
+        <>
+          <p style={{ color: "var(--garden-dim)", fontSize: 13, margin: 0 }}>
+            Admission
+          </p>
+          {priceCents ? (
+            <p
+              style={{
+                color: "var(--garden-paper)",
+                fontSize: 32,
+                fontWeight: 700,
+                lineHeight: 1.1,
+                margin: "2px 0 16px",
+              }}
+            >
+              {formatTierPrice(priceCents)}
+            </p>
+          ) : (
+            <div style={{ height: 12 }} />
+          )}
+          <a
+            href={href}
+            className="block w-full text-center rounded-lg transition-opacity hover:opacity-90"
+            style={{
+              backgroundColor: "var(--garden-citron)",
+              color: "#141414",
+              fontSize: 16,
+              fontWeight: 700,
+              padding: "14px 16px",
+            }}
+          >
+            Buy ticket
+          </a>
+          <p style={{ color: "var(--garden-dim)", fontSize: 13, margin: "10px 0 0" }}>
+            Secure checkout with Stripe.
+          </p>
+        </>
       )}
-      <a
-        href={href}
-        className="block w-full text-center py-3 bg-green-600 text-white rounded-xl font-medium hover:bg-green-700 transition-colors"
-      >
-        Get your ticket{priceCents ? ` — ${formatTierPrice(priceCents)}` : ""}
-      </a>
     </div>
   );
 }
