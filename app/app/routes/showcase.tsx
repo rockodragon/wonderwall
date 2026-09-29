@@ -33,6 +33,7 @@ import type { ReactNode } from "react";
 import { Link, useNavigate, useRouteError } from "react-router";
 import { GardenErrorState, GardenPage, SectionLabel } from "../garden/ui";
 import "../garden/garden.css";
+import { CLAIMS } from "../constants/claims";
 
 export function meta() {
   return [
@@ -329,8 +330,10 @@ export default function Showcase() {
           </span>
         </button>
         <P>
-          Every ticket goes into the artist grant fund, the money that backs
-          creatives' projects. Can't be in Encinitas? The livestream is free.
+          {CLAIMS.ticketFund}{" "}
+          <Link to="/fund/abiding-practice" style={{ color: "var(--g-citron)" }}>
+            About the grant fund →
+          </Link>
         </P>
       </Section>
 
@@ -339,7 +342,6 @@ export default function Showcase() {
         <FactLine k="When" v={EVENT_DATE} />
         <FactLine k="Where" v={EVENT_PLACE} />
         <FactLine k="Admission" v={TICKET.price} />
-        <FactLine k="Also" v="Livestreamed free, and recorded" />
       </Section>
 
       {/* Art is submitted from a profile in the app, not a form here. Its
@@ -374,9 +376,12 @@ export default function Showcase() {
       <Section label="Questions people ask">
         <div style={{ display: "grid", gap: 10 }}>
           <Faq q="What does it cost?">
-            {TICKET.price}, and it's the same ticket for everyone. It's a
-            benefit for the grant fund, so what you pay at the door goes back
-            out to creatives as project money. The livestream is free.
+            {TICKET.price}, and it's the same ticket for everyone. It goes into
+            the artist grant fund, which backs projects by creatives in the
+            community.{" "}
+            <Link to="/fund/abiding-practice" style={{ color: "var(--g-citron)" }}>
+              About the grant fund →
+            </Link>
           </Faq>
           <Faq q="Do I have to be a creative to come?">
             No. Anyone can come, and everyone buys the same ticket.

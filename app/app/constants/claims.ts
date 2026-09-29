@@ -48,6 +48,8 @@ export const CLAIMS = {
   pool: `${DUES_EVERY} Members propose projects, and a review team decides.`,
   grantFund:
     "The Garden's grant fund is run by Abiding Practice, a 501(c)(3), so gifts to it are tax-deductible. About 87% of each gift is granted.",
+  ticketFund:
+    "Every ticket goes into the artist grant fund, which backs projects by creatives in the community. Creatives propose projects, and a review team decides.",
   patron: "Back a specific person or project. 90% goes to them. You can be named on the work, or stay anonymous.",
   coverage: "$10 a month covers one creative's membership. A covered membership is a full membership.",
   partner: "Post paid work with the pay stated up front, or offer your space. Creatives respond, and you pick.",
