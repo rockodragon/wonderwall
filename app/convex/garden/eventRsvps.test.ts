@@ -5,6 +5,8 @@
 import { describe, expect, it } from "vitest";
 import {
   findMyRsvp,
+  isCheckoutSessionId,
+  planTicketClaim,
   buildRsvpVisibility,
   isValidEmail,
   normalizeEmail,
@@ -145,5 +147,32 @@ describe("findMyRsvp", () => {
 
   it("returns null with no match or no emails", () => {
     expect(findMyRsvp(rows, "u9", [undefined, null])).toBeNull();
+  });
+});
+
+describe("isCheckoutSessionId", () => {
+  it("accepts live and test session ids", () => {
+    expect(isCheckoutSessionId("cs_live_a1B2c3D4e5F6g7")).toBe(true);
+    expect(isCheckoutSessionId("cs_test_a1B2c3D4e5F6g7")).toBe(true);
+  });
+  it("rejects the unfilled template and anything else", () => {
+    expect(isCheckoutSessionId("{CHECKOUT_SESSION_ID}")).toBe(false);
+    expect(isCheckoutSessionId("pi_live_a1B2c3D4e5F6g7")).toBe(false);
+    expect(isCheckoutSessionId(undefined)).toBe(false);
+  });
+});
+
+describe("planTicketClaim", () => {
+  it("claims a ticket with no account", () => {
+    expect(planTicketClaim({}, "u1")).toBe("claimed");
+  });
+  it("leaves a ticket already on this account alone", () => {
+    expect(planTicketClaim({ userId: "u1" }, "u1")).toBe("already_yours");
+  });
+  it("never moves a ticket off another account", () => {
+    expect(planTicketClaim({ userId: "u2" }, "u1")).toBe("taken");
+  });
+  it("waits when the webhook hasn't saved the ticket yet", () => {
+    expect(planTicketClaim(null, "u1")).toBe("not_found");
   });
 });
