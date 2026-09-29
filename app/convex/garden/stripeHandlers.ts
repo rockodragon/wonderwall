@@ -150,10 +150,22 @@ export interface MembershipRow {
    * groups.md §0) — new self-paid seats leave this unset. Still set for
    * covered seats (coverage.ts writes ctx.db directly, bypassing this Db). */
   hostOrgId?: string;
+  /** The community this seat's tier applies in (2026-09-29). Set from the
+   * checkout's metadata.communityId; a row without one is a Garden seat. */
+  communityId?: string;
   stripeSubscriptionId: string;
   stripePriceId?: string;
   currentPeriodEnd?: number;
   coveredByCodeId?: string;
+}
+
+/** How a community splits its dues (the brief: 10% platform; the
+ * community splits the other 90% between running the group and its project
+ * pool). The Garden: 40 group / 50 pool. */
+export interface CommunityDues {
+  hostOrgId: string;
+  groupPct: number;
+  poolPct: number;
 }
 
 /** Money IN to a grant pool — the mirror of `allocations` (money OUT).
@@ -168,6 +180,9 @@ export interface ContributionRow {
   grossCents: number;
   platformCents: number;
   poolCents: number;
+  /** Dues only: the community's share for running the group (the rest of
+   * the 90% after its pool share). gross = platform + group + pool. */
+  groupCents?: number;
   userId?: string;
   payerName?: string;
   membershipId?: string;
@@ -322,6 +337,11 @@ export interface Db extends Partial<ClassPaymentDb> {
    * don't name a community. */
   getHostOrgIdBySlug(slug: string): Promise<string | null>;
 
+  /** A community's dues settings — the named community, or The Garden when
+   * communityId is unset. null when neither exists (a fresh deployment),
+   * in which case dues fall back to the platform pool. */
+  getCommunityDues(communityId?: string): Promise<CommunityDues | null>;
+
   /** Idempotency check for grantContributions, keyed by stripeRef (an
    * invoice id or checkout session id) — same convergence pattern as
    * upsertMembership/upsertTicketPurchase, but contributions are
@@ -453,6 +473,20 @@ function expandedSubscription(session: StripeCheckoutSessionLike): StripeSubscri
 function duesSplit(grossCents: number): { platformCents: number; poolCents: number } {
   const poolCents = Math.round(grossCents * 0.5);
   return { platformCents: grossCents - poolCents, poolCents };
+}
+
+/** Per-community dues (2026-09-29, the brief's money table): platform 10%,
+ * then the community's pool share; the group gets the remainder, so the
+ * three always add up to the gross. Percentages that don't fit in the 90%
+ * are clamped so the platform's 10% is never eaten. */
+export function communityDuesSplit(
+  grossCents: number,
+  dues: Pick<CommunityDues, "poolPct">,
+): { platformCents: number; groupCents: number; poolCents: number } {
+  const platformCents = Math.round(grossCents * 0.1);
+  const poolPct = Math.min(Math.max(dues.poolPct, 0), 90);
+  const poolCents = Math.min(Math.round((grossCents * poolPct) / 100), grossCents - platformCents);
+  return { platformCents, poolCents, groupCents: grossCents - platformCents - poolCents };
 }
 
 /** One-time pool contributions ("one bite per dollar"): platform 10%
@@ -1349,6 +1383,7 @@ async function handleCheckoutSessionCompleted(
     // arrival after a covered/legacy row was written directly by
     // coverage.ts).
     hostOrgId: existing?.hostOrgId,
+    communityId: metadata.communityId || existing?.communityId,
     stripeSubscriptionId: subId,
     stripePriceId: sub ? extractPriceId(sub) : undefined,
     currentPeriodEnd: sub ? extractCurrentPeriodEnd(sub) : undefined,
@@ -1389,6 +1424,7 @@ async function handleMembershipSubscriptionUpdate(
     level,
     status,
     hostOrgId,
+    communityId: metadata.communityId || existing?.communityId,
     stripeSubscriptionId: sub.id,
     stripePriceId: extractPriceId(sub),
     currentPeriodEnd: extractCurrentPeriodEnd(sub),
@@ -1608,6 +1644,32 @@ async function handleInvoicePaid(invoice: StripeInvoiceLike, db: Db): Promise<vo
 
   if (await db.getContributionByStripeRef(invoice.id)) return; // idempotent replay
 
+  const grossCents = invoice.amount_paid;
+  const subId = subscriptionIdFromInvoice(invoice);
+  const membership = subId ? await db.getMembershipBySubscription(subId) : null;
+
+  // Dues belong to the seat's community (2026-09-29): 10% platform, the
+  // rest split by that community between the group and its pool.
+  const dues = await db.getCommunityDues(metadata.communityId || membership?.communityId);
+  if (dues) {
+    const { platformCents, groupCents, poolCents } = communityDuesSplit(grossCents, dues);
+    await db.insertContribution({
+      hostOrgId: dues.hostOrgId,
+      type: "dues_share",
+      grossCents,
+      platformCents,
+      groupCents,
+      poolCents,
+      userId: metadata.userId || undefined,
+      membershipId: membership?.id,
+      stripeRef: invoice.id,
+      period: periodFromStripeSeconds(invoice.period_start ?? invoice.created),
+    });
+    return;
+  }
+
+  // No community at all (a deployment without The Garden seeded): the
+  // original platform-pool 50/50.
   const hostOrgId = await db.getHostOrgIdBySlug(PLATFORM_HOST_ORG_SLUG);
   if (!hostOrgId) {
     console.warn("[stripe] invoice.paid: platform host org row is missing — has 'creatives-exchange' been seeded?", {
@@ -1616,11 +1678,7 @@ async function handleInvoicePaid(invoice: StripeInvoiceLike, db: Db): Promise<vo
     return;
   }
 
-  const grossCents = invoice.amount_paid;
   const { platformCents, poolCents } = duesSplit(grossCents);
-
-  const subId = subscriptionIdFromInvoice(invoice);
-  const membership = subId ? await db.getMembershipBySubscription(subId) : null;
 
   await db.insertContribution({
     hostOrgId,

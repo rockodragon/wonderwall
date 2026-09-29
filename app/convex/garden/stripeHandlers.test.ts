@@ -5,6 +5,8 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  communityDuesSplit,
+  type CommunityDues,
   backingReturnPaths,
   guestBackingRefusal,
   guestBackingThrottled,
@@ -71,6 +73,10 @@ function createFakeDb() {
   const hostOrgsBySlug = new Map<string, string>([["creatives-exchange", PLATFORM_HOST_ORG_ID]]);
   let nextMembershipId = 1;
   const membershipIds = new Map<string, string>(); // stripeSubscriptionId -> id
+  // Community dues by communityId; "" is the default community (The
+  // Garden). Empty by default, so dues fall back to the platform 50/50 —
+  // tests of per-community dues seed it.
+  const communityDues = new Map<string, CommunityDues>();
 
   const db: Db = {
     async getBillingCustomerByStripeId(stripeCustomerId) {
@@ -104,6 +110,9 @@ function createFakeDb() {
     },
     async getHostOrgIdBySlug(slug) {
       return hostOrgsBySlug.get(slug) ?? null;
+    },
+    async getCommunityDues(communityId) {
+      return communityDues.get(communityId ?? "") ?? null;
     },
     async getContributionByStripeRef(stripeRef) {
       const row = contributions.get(stripeRef);
@@ -175,6 +184,7 @@ function createFakeDb() {
     contributions,
     productPurchases,
     hostOrgsBySlug,
+    communityDues,
     projectSupport,
     projectRaisedCents,
     backingPayments,
@@ -1902,5 +1912,73 @@ describe("checkout.session.completed — coverage code issuance", () => {
       db,
     );
     expect(codes.size).toBe(0);
+  });
+});
+
+// Dues per community (2026-09-29, the brief's money table): 10% platform,
+// the community splits the rest between the group and its project pool.
+describe("invoice.paid (per-community dues)", () => {
+  const GARDEN = { hostOrgId: "org_garden", groupPct: 40, poolPct: 50 };
+  const CREATE_SD = { hostOrgId: "org_create_sd", groupPct: 70, poolPct: 20 };
+
+  it("splits $10 Garden dues 40/50/10 and books them to The Garden", async () => {
+    const { db, contributions, communityDues } = createFakeDb();
+    communityDues.set("", GARDEN);
+    await handleStripeEvent(event("invoice.paid", invoiceFixture()), db);
+    expect(contributions.get("in_123")).toMatchObject({
+      hostOrgId: "org_garden",
+      type: "dues_share",
+      grossCents: 1000,
+      platformCents: 100,
+      groupCents: 400,
+      poolCents: 500,
+    });
+  });
+
+  it("a seat bought in another community books to that community with its split", async () => {
+    const { db, contributions, communityDues } = createFakeDb();
+    communityDues.set("", GARDEN);
+    communityDues.set("org_create_sd", CREATE_SD);
+    const metadata = { ...MEMBERSHIP_METADATA, communityId: "org_create_sd" };
+    await handleStripeEvent(
+      event("invoice.paid", invoiceFixture({ parent: { subscription_details: { metadata } } })),
+      db,
+    );
+    expect(contributions.get("in_123")).toMatchObject({
+      hostOrgId: "org_create_sd",
+      platformCents: 100,
+      groupCents: 700,
+      poolCents: 200,
+    });
+  });
+
+  it("the seat records its community from the checkout", async () => {
+    const { db, memberships } = createFakeDb();
+    const sub = subscriptionFixture();
+    await handleStripeEvent(
+      event("customer.subscription.updated", {
+        ...sub,
+        metadata: { ...sub.metadata, communityId: "org_create_sd" },
+      }),
+      db,
+    );
+    expect(memberships.get(sub.id)?.communityId).toBe("org_create_sd");
+  });
+});
+
+describe("communityDuesSplit", () => {
+  it("always adds up to the gross, with odd cents", () => {
+    for (const gross of [999, 1000, 1001, 2500, 1]) {
+      const s = communityDuesSplit(gross, { poolPct: 50 });
+      expect(s.platformCents + s.groupCents + s.poolCents).toBe(gross);
+    }
+  });
+
+  it("a community with no pool keeps 90% for the group", () => {
+    expect(communityDuesSplit(1000, { poolPct: 0 })).toEqual({ platformCents: 100, groupCents: 900, poolCents: 0 });
+  });
+
+  it("a pool share over 90% can't eat the platform's 10%", () => {
+    expect(communityDuesSplit(1000, { poolPct: 120 })).toEqual({ platformCents: 100, groupCents: 0, poolCents: 900 });
   });
 });

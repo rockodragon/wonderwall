@@ -24,7 +24,7 @@ import {
   type Db,
   type StripeWebhookEvent,
 } from "./stripeHandlers";
-import { getDefaultCommunity } from "./defaultCommunity";
+import { DEFAULT_DUES, getDefaultCommunity } from "./defaultCommunity";
 import { resolveTierCommunity, seatAppliesIn } from "./entitlements";
 
 // ——— Backing-received email (docs/features live-booking-style pattern) ———
@@ -142,6 +142,7 @@ function makeConvexDb(ctx: MutationCtx): Db & ClassPaymentDb {
         // membership (community-groups.md §0); only covered/legacy rows
         // carry one.
         hostOrgId: row.hostOrgId ? String(row.hostOrgId) : undefined,
+        communityId: row.communityId ? String(row.communityId) : undefined,
         stripeSubscriptionId: row.stripeSubscriptionId,
         stripePriceId: row.stripePriceId,
         currentPeriodEnd: row.currentPeriodEnd,
@@ -168,12 +169,19 @@ function makeConvexDb(ctx: MutationCtx): Db & ClassPaymentDb {
         updatedAt: Date.now(),
       };
       if (existing) {
-        await ctx.db.patch(existing._id, patch);
+        // Never move a seat between communities, and never unset one.
+        await ctx.db.patch(existing._id, {
+          ...patch,
+          ...(!existing.communityId && row.communityId
+            ? { communityId: row.communityId as Id<"hostOrgs"> }
+            : {}),
+        });
       } else {
-        // Tiers are per community (2026-09-29). Checkout doesn't name one
-        // yet, so a new seat is a Garden seat; renewals and status changes
-        // above never move a seat between communities.
-        const communityId = (await getDefaultCommunity(ctx))?._id;
+        // Tiers are per community (2026-09-29): the checkout names the
+        // community; a seat bought without one is a Garden seat.
+        const communityId =
+          (row.communityId as Id<"hostOrgs"> | undefined) ??
+          (await getDefaultCommunity(ctx))?._id;
         await ctx.db.insert("memberships", {
           ...patch,
           ...(communityId ? { communityId } : {}),
@@ -267,6 +275,18 @@ function makeConvexDb(ctx: MutationCtx): Db & ClassPaymentDb {
       }
     },
 
+    async getCommunityDues(communityId?: string) {
+      const org = communityId
+        ? await ctx.db.get(communityId as Id<"hostOrgs">)
+        : await getDefaultCommunity(ctx);
+      if (!org) return null;
+      return {
+        hostOrgId: String(org._id),
+        groupPct: org.duesGroupPct ?? DEFAULT_DUES.groupPct,
+        poolPct: org.duesPoolPct ?? DEFAULT_DUES.poolPct,
+      };
+    },
+
     async getHostOrgIdBySlug(slug: string) {
       const row = await ctx.db
         .query("hostOrgs")
@@ -290,6 +310,7 @@ function makeConvexDb(ctx: MutationCtx): Db & ClassPaymentDb {
         grossCents: row.grossCents,
         platformCents: row.platformCents,
         poolCents: row.poolCents,
+        ...(row.groupCents !== undefined ? { groupCents: row.groupCents } : {}),
         userId: row.userId as Id<"users"> | undefined,
         payerName: row.payerName,
         membershipId: row.membershipId as Id<"memberships"> | undefined,

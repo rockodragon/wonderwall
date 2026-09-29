@@ -57,6 +57,9 @@ const PRICE_ENV_BY_LEVEL: Record<string, string | undefined> = {
 export const createMembershipCheckout = action({
   args: {
     level: v.union(v.literal("seat"), v.literal("five"), v.literal("host")),
+    /** The community the seat is in (2026-09-29: tiers are per community).
+     * Omitted = The Garden. */
+    communityId: v.optional(v.id("hostOrgs")),
   },
   handler: async (ctx, args) => {
     const userId = await auth.getUserId(ctx);
@@ -64,7 +67,24 @@ export const createMembershipCheckout = action({
       throw new ConvexError("Sign in to become a member.");
     }
 
-    const priceId = PRICE_ENV_BY_LEVEL[args.level];
+    const community = await ctx.runQuery(
+      (internal as any).garden.defaultCommunity.getCheckoutCommunity,
+      args.communityId ? { communityId: args.communityId } : {},
+    );
+    if (!community.ok) throw new ConvexError(community.reason);
+
+    // A community's own Stripe price wins for a seat; only The Garden falls
+    // back to the platform's env prices (and is the only one with the
+    // legacy five/host levels).
+    const priceId =
+      args.level === "seat" && community.seatStripePriceId
+        ? community.seatStripePriceId
+        : community.isDefault
+          ? PRICE_ENV_BY_LEVEL[args.level]
+          : undefined;
+    if (!priceId && !community.isDefault) {
+      throw new ConvexError(`Membership in ${community.name} isn't set up yet.`);
+    }
     if (!priceId) {
       throw new ConvexError(
         `Stripe price env var for level "${args.level}" is not set (STRIPE_PRICE_${args.level.toUpperCase()}).`,
@@ -99,12 +119,14 @@ export const createMembershipCheckout = action({
     // every customer.subscription.* webhook is self-sufficient even if it
     // arrives before checkout.session.completed — see stripeHandlers.ts's
     // header comment for why this matters for idempotent convergence.
-    // No hostOrgId: a seat is platform membership, not community membership
-    // (community-groups.md §0).
+    // communityId: the community this seat's tier and dues belong to
+    // (stripeHandlers.ts handleInvoicePaid). No hostOrgId — that's the
+    // sponsor on a covered seat.
     const metadata: Record<string, string> = {
       kind: "membership",
       level: args.level,
       userId: String(userId),
+      communityId: String(community.communityId),
     };
 
     const session = await stripe.checkout.sessions.create({

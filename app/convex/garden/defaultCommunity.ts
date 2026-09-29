@@ -4,13 +4,22 @@
 // backfillDefaultCommunity below:
 //   npx convex run garden/defaultCommunity:backfillDefaultCommunity '{"dryRun":true}' [--prod]
 //   npx convex run garden/defaultCommunity:backfillSeatCommunity '{"dryRun":true}' [--prod]
+//   npx convex run garden/defaultCommunity:seedCreateSd [--prod]
 
 import { v } from "convex/values";
-import { internalMutation } from "../_generated/server";
+import { internalMutation, internalQuery } from "../_generated/server";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 
 export const DEFAULT_COMMUNITY_SLUG = "the-garden";
+export const CREATE_SD_SLUG = "create-sd";
+
+/** The Garden's membership terms — also the default for any community that
+ * hasn't set its own (hostOrgs.seatPriceCents / duesGroupPct / duesPoolPct).
+ * The brief's money table: 40% runs the group, 50% project pool, 10%
+ * platform. */
+export const DEFAULT_SEAT_PRICE_CENTS = 1000;
+export const DEFAULT_DUES = { groupPct: 40, poolPct: 50 } as const;
 
 export async function getDefaultCommunity(ctx: QueryCtx | MutationCtx) {
   return ctx.db
@@ -106,5 +115,66 @@ export const backfillSeatCommunity = internalMutation({
       seats: rows.length,
       [args.dryRun ? "wouldTag" : "tagged"]: missing.length,
     };
+  },
+});
+
+/** What membership checkout (stripe.ts createMembershipCheckout) needs to
+ * sell a seat in a community: The Garden when communityId is unset. Refuses
+ * a community that isn't open yet (e.g. Create SD before launch), and one
+ * with no Stripe price of its own — only The Garden falls back to the
+ * platform's STRIPE_PRICE_SEAT. */
+export const getCheckoutCommunity = internalQuery({
+  args: { communityId: v.optional(v.id("hostOrgs")) },
+  handler: async (ctx, args) => {
+    const garden = await getDefaultCommunity(ctx);
+    const org = args.communityId ? await ctx.db.get(args.communityId) : garden;
+    if (!org || org.kind !== "community") {
+      return { ok: false as const, reason: "That community isn't there." };
+    }
+    if (org.status && org.status !== "active") {
+      return { ok: false as const, reason: `${org.name} isn't open to members yet.` };
+    }
+    const isDefault = !!garden && org._id === garden._id;
+    return {
+      ok: true as const,
+      communityId: org._id,
+      name: org.name,
+      isDefault,
+      seatStripePriceId: org.seatStripePriceId,
+    };
+  },
+});
+
+/** Seeds Create SD — San Diego's city-wide creative community, for
+ * creatives of any faith or none and for funders that can't back a
+ * religious group — as a pending, unlisted placeholder (Rick, 2026-09-29:
+ * build it now, launch later). Pending means it isn't listed, nobody can
+ * join, and checkout refuses it. To launch: set status "active" and
+ * visibility "public", create its Stripe price, set seatStripePriceId.
+ *   npx convex run garden/defaultCommunity:seedCreateSd [--prod] */
+export const seedCreateSd = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const existing = await ctx.db
+      .query("hostOrgs")
+      .withIndex("by_slug", (q) => q.eq("slug", CREATE_SD_SLUG))
+      .unique();
+    if (existing) return { created: false, id: existing._id };
+    const id = await ctx.db.insert("hostOrgs", {
+      name: "Create SD",
+      slug: CREATE_SD_SLUG,
+      kind: "community",
+      tagline: "San Diego's creative community.",
+      locationLabel: "San Diego",
+      websiteUrl: "https://createsd.org",
+      status: "pending",
+      visibility: "unlisted",
+      joinPolicy: "open",
+      seatPriceCents: DEFAULT_SEAT_PRICE_CENTS,
+      duesGroupPct: DEFAULT_DUES.groupPct,
+      duesPoolPct: DEFAULT_DUES.poolPct,
+      createdAt: Date.now(),
+    });
+    return { created: true, id };
   },
 });

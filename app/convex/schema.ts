@@ -887,6 +887,13 @@ export default defineSchema({
     joinPolicy: v.optional(v.string()), // "open" | "apply"
     applicantNote: v.optional(v.string()), // "what you already gather" — from the apply form
     approvedAt: v.optional(v.number()),
+    // Membership in this community (2026-09-29: tiers and dues are per
+    // community). Unset = The Garden's defaults: $10/mo, the platform's
+    // STRIPE_PRICE_SEAT env price, and 40 group / 50 pool / 10 platform.
+    seatPriceCents: v.optional(v.number()), // display price per month
+    seatStripePriceId: v.optional(v.string()), // this community's Stripe price
+    duesGroupPct: v.optional(v.number()), // share for running the group
+    duesPoolPct: v.optional(v.number()), // share into its project pool
     createdAt: v.number(),
   })
     .index("by_slug", ["slug"])
@@ -1499,6 +1506,9 @@ export default defineSchema({
     grossCents: v.number(),
     platformCents: v.number(),
     poolCents: v.number(), // may be negative on an adjustment (refund/chargeback clawback)
+    // Dues rows only: the community's share for running the group.
+    // gross = platform + group + pool (stripeHandlers.ts communityDuesSplit).
+    groupCents: v.optional(v.number()),
     userId: v.optional(v.id("users")), // the payer, when known
     payerName: v.optional(v.string()), // display name for public credit (never email)
     membershipId: v.optional(v.id("memberships")),
