@@ -24,6 +24,8 @@ import {
   type Db,
   type StripeWebhookEvent,
 } from "./stripeHandlers";
+import { getDefaultCommunity } from "./defaultCommunity";
+import { resolveTierCommunity, seatAppliesIn } from "./entitlements";
 
 // ——— Backing-received email (docs/features live-booking-style pattern) ———
 //
@@ -168,7 +170,15 @@ function makeConvexDb(ctx: MutationCtx): Db & ClassPaymentDb {
       if (existing) {
         await ctx.db.patch(existing._id, patch);
       } else {
-        await ctx.db.insert("memberships", { ...patch, createdAt: Date.now() });
+        // Tiers are per community (2026-09-29). Checkout doesn't name one
+        // yet, so a new seat is a Garden seat; renewals and status changes
+        // above never move a seat between communities.
+        const communityId = (await getDefaultCommunity(ctx))?._id;
+        await ctx.db.insert("memberships", {
+          ...patch,
+          ...(communityId ? { communityId } : {}),
+          createdAt: Date.now(),
+        });
       }
     },
 
@@ -688,10 +698,15 @@ export const getMyMembership = query({
       .withIndex("by_userId", (q) => q.eq("userId", userId))
       .collect();
 
+    // The viewer's tier in The Garden (tiers are per community since
+    // 2026-09-29; no page shows another community's tier yet).
+    const community = await resolveTierCommunity(ctx);
+
     let best: any = null;
     let bestRank = 0;
     for (const row of rows) {
       if (!ENTITLED_STATUSES.has(row.status)) continue;
+      if (!seatAppliesIn(row, community)) continue;
       const rank = LEVEL_RANK[row.level] ?? 0;
       if (rank > bestRank) {
         bestRank = rank;

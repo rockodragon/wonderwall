@@ -45,6 +45,7 @@ import type * as garden_artifactsMigration from "../garden/artifactsMigration.js
 import type * as garden_capabilities from "../garden/capabilities.js";
 import type * as garden_communities from "../garden/communities.js";
 import type * as garden_coverage from "../garden/coverage.js";
+import type * as garden_defaultCommunity from "../garden/defaultCommunity.js";
 import type * as garden_devSeed from "../garden/devSeed.js";
 import type * as garden_entitlements from "../garden/entitlements.js";
 import type * as garden_eventRsvps from "../garden/eventRsvps.js";
@@ -77,6 +78,7 @@ import type * as garden_stripe from "../garden/stripe.js";
 import type * as garden_stripeHandlers from "../garden/stripeHandlers.js";
 import type * as garden_support from "../garden/support.js";
 import type * as garden_tables from "../garden/tables.js";
+import type * as garden_ticketLink from "../garden/ticketLink.js";
 import type * as garden_ticketRouting from "../garden/ticketRouting.js";
 import type * as garden_waitlistHostFieldMigration from "../garden/waitlistHostFieldMigration.js";
 import type * as helpers from "../helpers.js";
@@ -154,6 +156,7 @@ declare const fullApi: ApiFromModules<{
   "garden/capabilities": typeof garden_capabilities;
   "garden/communities": typeof garden_communities;
   "garden/coverage": typeof garden_coverage;
+  "garden/defaultCommunity": typeof garden_defaultCommunity;
   "garden/devSeed": typeof garden_devSeed;
   "garden/entitlements": typeof garden_entitlements;
   "garden/eventRsvps": typeof garden_eventRsvps;
@@ -186,6 +189,7 @@ declare const fullApi: ApiFromModules<{
   "garden/stripeHandlers": typeof garden_stripeHandlers;
   "garden/support": typeof garden_support;
   "garden/tables": typeof garden_tables;
+  "garden/ticketLink": typeof garden_ticketLink;
   "garden/ticketRouting": typeof garden_ticketRouting;
   "garden/waitlistHostFieldMigration": typeof garden_waitlistHostFieldMigration;
   helpers: typeof helpers;

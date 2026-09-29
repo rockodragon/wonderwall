@@ -943,6 +943,12 @@ export default defineSchema({
     // this unset. Still written for covered seats (the sponsoring org) and
     // kept on legacy rows; entitlements never read it.
     hostOrgId: v.optional(v.id("hostOrgs")),
+    // The community this tier applies in (2026-09-29: tiers are per
+    // community — paid in The Garden can be free in SD Creatives). Unset on
+    // rows written before then, which count as The Garden
+    // (entitlements.ts's seatAppliesIn). Not the same as hostOrgId, which
+    // on a covered seat is the sponsoring church/org.
+    communityId: v.optional(v.id("hostOrgs")),
     stripeSubscriptionId: v.string(),
     stripePriceId: v.optional(v.string()),
     currentPeriodEnd: v.optional(v.number()),

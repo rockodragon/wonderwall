@@ -242,7 +242,7 @@ export const submitProposal = mutation({
   },
   handler: async (ctx, args) => {
     const userId = await requireUser(ctx);
-    const gardenUser = await getGardenUser(ctx, userId);
+    const gardenUser = await getGardenUser(ctx, userId, args.hostOrgId);
     assertCanPure(gardenUser, "pool.propose");
 
     const title = validateProposalTitle(args.title);
@@ -472,7 +472,7 @@ export const getProposeAccess = query({
     const userId = await getAuthUserId(ctx);
     if (!userId) return { hostOrgId: hostOrg._id, allowed: false as const };
 
-    const gardenUser = await getGardenUser(ctx, userId);
+    const gardenUser = await getGardenUser(ctx, userId, hostOrg._id);
     const result = can(gardenUser, "pool.propose");
     return {
       hostOrgId: hostOrg._id,

@@ -758,7 +758,7 @@ export const requestToJoin = mutation({
     // §8). Asking to join a passion project stays free. First real caller
     // of project.applyPaid, which capabilities.ts had defined all along.
     if (project.kind === "paid") {
-      assertCanPure(await getGardenUser(ctx, userId), "project.applyPaid");
+      assertCanPure(await getGardenUser(ctx, userId, project.hostOrgId), "project.applyPaid");
     }
     const postedRoleTitle = await resolveRoleForRequest(ctx, args.projectId, args.roleId);
     const role = postedRoleTitle ?? validateRole(args.role);
@@ -1451,7 +1451,7 @@ export const getTeam = query({
     // May this viewer apply? The same can() requestToJoin enforces, so the
     // page swaps Apply for "Join to apply" instead of letting someone hit
     // the server's refusal. Passion projects are always open to ask.
-    const applyResult = project.kind === "paid" && !isLead ? can(await getGardenUser(ctx, userId), "project.applyPaid") : { allowed: true as const };
+    const applyResult = project.kind === "paid" && !isLead ? can(await getGardenUser(ctx, userId, project.hostOrgId), "project.applyPaid") : { allowed: true as const };
     const apply = applyResult.allowed
       ? { allowed: true as const, reason: null, upgradePath: null }
       : { allowed: false as const, reason: applyResult.reason ?? "Applying to paid work takes membership.", upgradePath: applyResult.upgradePath ?? null };

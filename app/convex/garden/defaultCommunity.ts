@@ -3,15 +3,16 @@
 // afterUserCreatedOrUpdated; accounts that predate this are added once by
 // backfillDefaultCommunity below:
 //   npx convex run garden/defaultCommunity:backfillDefaultCommunity '{"dryRun":true}' [--prod]
+//   npx convex run garden/defaultCommunity:backfillSeatCommunity '{"dryRun":true}' [--prod]
 
 import { v } from "convex/values";
 import { internalMutation } from "../_generated/server";
-import type { MutationCtx } from "../_generated/server";
+import type { MutationCtx, QueryCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 
 export const DEFAULT_COMMUNITY_SLUG = "the-garden";
 
-async function getDefaultCommunity(ctx: MutationCtx) {
+export async function getDefaultCommunity(ctx: QueryCtx | MutationCtx) {
   return ctx.db
     .query("hostOrgs")
     .withIndex("by_slug", (q) => q.eq("slug", DEFAULT_COMMUNITY_SLUG))
@@ -82,6 +83,28 @@ export const backfillDefaultCommunity = internalMutation({
       alreadyIn,
       isDone: page.isDone,
       cursor: page.continueCursor,
+    };
+  },
+});
+
+/** Records The Garden on every paid seat that predates per-community tiers
+ * (2026-09-29). Behavior doesn't change — a seat with no communityId
+ * already counts as The Garden — this just makes the record explicit.
+ * Covered seats keep their sponsor in hostOrgId. */
+export const backfillSeatCommunity = internalMutation({
+  args: { dryRun: v.boolean() },
+  handler: async (ctx, args) => {
+    const org = await getDefaultCommunity(ctx);
+    if (!org) throw new Error(`"${DEFAULT_COMMUNITY_SLUG}" isn't seeded`);
+    const rows = await ctx.db.query("memberships").collect();
+    const missing = rows.filter((m) => m.communityId === undefined);
+    if (!args.dryRun) {
+      for (const m of missing) await ctx.db.patch(m._id, { communityId: org._id });
+    }
+    return {
+      dryRun: args.dryRun,
+      seats: rows.length,
+      [args.dryRun ? "wouldTag" : "tagged"]: missing.length,
     };
   },
 });

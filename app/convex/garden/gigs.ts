@@ -1059,7 +1059,8 @@ export const respondAvailable = mutation({
     }
     // The gate (docs/features/live-booking.md §8): free to look, membership
     // to respond. Same denial anatomy every other enforced capability throws.
-    assertCanPure(await getGardenUser(ctx, userId), "gig.respond");
+    const gigProject = await ctx.db.get(series.projectId);
+    assertCanPure(await getGardenUser(ctx, userId, gigProject?.hostOrgId), "gig.respond");
     await assertNotBlocked(ctx, userId, series.hostUserId);
     const note = validateNote(args.note);
     const clipIds = await validateClips(ctx, profile._id, args.clipIds);
@@ -1202,7 +1203,12 @@ export const getSchedule = query({
     // mutation enforces — so the UI never offers a checkbox the server
     // would refuse, and the denial text on the page is the server's own.
     const respond =
-      userId && !isHost ? can(await getGardenUser(ctx, userId), "gig.respond") : { allowed: false as const };
+      userId && !isHost
+        ? can(
+            await getGardenUser(ctx, userId, (await ctx.db.get(args.projectId))?.hostOrgId),
+            "gig.respond",
+          )
+        : { allowed: false as const };
 
     const rows = await ctx.db
       .query("gigSlots")

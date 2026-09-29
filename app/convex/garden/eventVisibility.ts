@@ -21,6 +21,8 @@ import { getGardenUser } from "./entitlements";
 export interface TicketedEventLike {
   ticketTiers?: unknown[];
   organizerId: Id<"users">;
+  /** The tier that counts is the organizer's in this event's community. */
+  hostOrgId?: Id<"hostOrgs">;
 }
 
 /** Pure part (unit-tested in events.test.ts): true when the event has no
@@ -54,11 +56,11 @@ export function eventVisibilityChecker(ctx: QueryCtx) {
   const cache = new Map<string, Promise<boolean>>();
   return function isEventPublic(event: TicketedEventLike): Promise<boolean> {
     if (isFreeEvent(event)) return Promise.resolve(true);
-    const key = String(event.organizerId);
+    const key = `${event.organizerId}:${event.hostOrgId ?? ""}`;
     let result = cache.get(key);
     if (!result) {
       result = (async () => {
-        const organizer = await getGardenUser(ctx, event.organizerId);
+        const organizer = await getGardenUser(ctx, event.organizerId, event.hostOrgId);
         return can(organizer, "event.sellTickets").allowed;
       })();
       cache.set(key, result);
