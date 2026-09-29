@@ -7,6 +7,7 @@ import confetti from "canvas-confetti";
 import { api } from "../../convex/_generated/api";
 import { normalizePhone } from "../../convex/phone";
 import { normalizeInviteCode } from "../../convex/inviteCode";
+import { entryCommunityArgs } from "../lib/entryCommunity";
 
 export function meta() {
   return [
@@ -716,7 +717,7 @@ function RequestToJoin() {
     }
     setStatus("saving");
     try {
-      await addToWaitlist({ email: email.trim() });
+      await addToWaitlist({ email: email.trim(), ...entryCommunityArgs() });
       setStatus("done");
     } catch (err) {
       setStatus("error");
