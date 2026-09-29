@@ -32,8 +32,8 @@
 
 import { useAction, useConvexAuth, useMutation, useQuery } from "convex/react";
 import { ConvexError } from "convex/values";
-import { type FormEvent, useRef, useState } from "react";
-import { Link, useParams, useSearchParams } from "react-router";
+import { type FormEvent, useEffect, useRef, useState } from "react";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { YOUTUBE_LIVE_LABEL, YOUTUBE_LIVE_URL } from "../constants/broadcast";
@@ -58,7 +58,10 @@ import { describeMediaLink, MediaLinkField } from "../components/MediaLinkField"
 import { EmbedPlayer } from "../components/EmbedPlayer";
 import { joinProxyUrl } from "../lib/eventCalendar";
 import { toEmbedUrl } from "../lib/videoEmbed";
-import { buildTicketLink } from "../../convex/garden/ticketLink";
+import { buildTicketLink, isCheckoutSessionId } from "../../convex/garden/ticketLink";
+import { claimPendingTickets, stashTicketSession } from "../lib/pendingTicket";
+import { setPendingIntent } from "../lib/pendingIntent";
+import { CommunityPicker, useDefaultEventCommunity } from "../components/CommunityPicker";
 
 const COVER_COLORS = [
   { name: "Blue", value: "blue", gradient: "from-blue-500 to-blue-600" },
@@ -775,6 +778,7 @@ export default function EventDetail() {
             The URLs live in the separate eventVideo table and arrive only
             through api.eventVideo.get, which resolves a role first — they
             are never on the event document this page already has. */}
+        {ticketUrl && <TicketSessionClaimer />}
         {ticketUrl && (
           <div className="md:hidden mb-8">
             <ExternalTicketCard
@@ -1074,6 +1078,7 @@ export default function EventDetail() {
             tags: event.tags,
             requiresApproval: event.requiresApproval,
             mediaUrl: event.mediaUrl,
+            hostOrgId: event.hostOrgId,
           }}
           onClose={() => setShowEditForm(false)}
         />
@@ -1676,6 +1681,40 @@ function TicketsCard({
 // docs/phase-1b/stripe-runbook.md) brings them back here with `?paid=1`.
 // ——————————————————————————————————————————————————————————————
 
+// Back from Stripe with ?session=<checkout session id>: remember it, and
+// once signed in hand it to claimTicketBySession so the ticket lands on
+// this account whatever email was used to pay. The webhook can arrive a
+// few seconds after the redirect, so a not-yet-saved ticket is retried
+// for about half a minute (and again on the next signed-in page load —
+// see _app.tsx).
+function TicketSessionClaimer() {
+  const { isAuthenticated } = useConvexAuth();
+  const claim = useMutation(api.garden.eventRsvps.claimTicketBySession);
+  const [searchParams] = useSearchParams();
+  const sessionId = searchParams.get("session");
+
+  useEffect(() => {
+    if (sessionId) stashTicketSession(sessionId);
+  }, [sessionId]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    let cancelled = false;
+    let tries = 0;
+    async function run() {
+      const waiting = await claimPendingTickets(claim);
+      tries += 1;
+      if (waiting && !cancelled && tries < 10) setTimeout(run, 3000);
+    }
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated, claim]);
+
+  return null;
+}
+
 function ExternalTicketCard({
   eventId,
   url,
@@ -1687,6 +1726,8 @@ function ExternalTicketCard({
 }) {
   const profile = useQuery(api.profiles.getMyProfile);
   const myRsvp = useQuery(api.garden.eventRsvps.getMyRsvpStatus, { eventId });
+  const { isAuthenticated } = useConvexAuth();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const justPaid = searchParams.get("paid") === "1";
 
@@ -1715,10 +1756,37 @@ function ExternalTicketCard({
 
   return (
     <div className="p-5 rounded-xl" style={cardStyle}>
-      {justPaid ? (
+      {justPaid && !isAuthenticated ? (
+        <>
+          <p style={{ color: "var(--garden-citron)", fontSize: 17, fontWeight: 600, margin: 0 }}>
+            You're in
+          </p>
+          <p style={{ color: "var(--garden-body)", fontSize: 14, margin: "4px 0 16px" }}>
+            Payment received. Stripe is emailing your receipt.
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              setPendingIntent(`/events/${eventId}`);
+              // The ticket stands in for an invite (signup.tsx).
+              const session = searchParams.get("session");
+              navigate(isCheckoutSessionId(session) ? `/signup/${session}` : "/signup");
+            }}
+            className="block w-full text-center rounded-lg transition-opacity hover:opacity-90"
+            style={{
+              backgroundColor: "var(--garden-citron)",
+              color: "#141414",
+              fontSize: 15,
+              fontWeight: 700,
+              padding: "12px 16px",
+            }}
+          >
+            Make an account to see who's going
+          </button>
+        </>
+      ) : justPaid ? (
         <p style={{ color: "var(--garden-paper)", fontSize: 15, margin: 0 }}>
-          Payment received. You'll be on the list within a minute. Refresh
-          if you don't see it.
+          Payment received. Your ticket will show here within a minute.
         </p>
       ) : (
         <>
@@ -2041,10 +2109,15 @@ function EditEventModal({
     tags: string[];
     requiresApproval: boolean;
     mediaUrl?: string;
+    hostOrgId?: Id<"hostOrgs">;
   };
   onClose: () => void;
 }) {
   const updateEvent = useMutation(api.events.update);
+  // An event with no community yet pre-fills The Garden (or the switcher's
+  // community); one already in a community keeps it.
+  const [hostOrgId, setHostOrgId] = useState<string>(initialValues.hostOrgId ?? "");
+  const defaultHostOrgId = useDefaultEventCommunity();
   // Ticketed events go live only once the organizer can sell tickets
   // (product rule, 2026-09-27) — this just informs the editor, the
   // TicketTierEditor itself stays open to everyone.
@@ -2148,6 +2221,9 @@ function EditEventModal({
         // Always sent: an emptied field clears the stored link (and its
         // still) — events.update treats only an absent field as "untouched".
         mediaUrl: mediaLink.state === "ok" ? mediaLink.url : "",
+        ...(hostOrgId
+          ? { hostOrgId: hostOrgId as Id<"hostOrgs"> }
+          : { clearCommunity: true }),
       });
       onClose();
     } catch (err) {
@@ -2331,6 +2407,13 @@ function EditEventModal({
                 ))}
               </div>
             </div>
+
+            <CommunityPicker
+              value={hostOrgId}
+              onChange={setHostOrgId}
+              variant="tailwind"
+              defaultHostOrgId={defaultHostOrgId}
+            />
 
             <div className="flex items-center gap-3">
               <input

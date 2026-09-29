@@ -51,3 +51,17 @@ export function parseTicketRef(ref: string | null | undefined): TicketRef | null
 
   return { eventId, userId };
 }
+
+// ——— Checkout session ids (the claim-by-session flow in eventRsvps.ts) ———
+
+const CHECKOUT_SESSION_RE = /^cs_(live|test)_[A-Za-z0-9]{10,200}$/;
+
+export function isCheckoutSessionId(id: unknown): id is string {
+  return typeof id === "string" && CHECKOUT_SESSION_RE.test(id);
+}
+
+export type TicketClaimResult =
+  | "claimed" // attached to this account now
+  | "already_yours"
+  | "not_found" // webhook hasn't landed yet (or never will) — try again later
+  | "taken"; // on another account

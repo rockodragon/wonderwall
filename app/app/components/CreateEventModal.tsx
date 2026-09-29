@@ -6,8 +6,7 @@ import { api } from "../../convex/_generated/api";
 import { LocationAutocomplete, LocationVerifiedHint } from "./LocationAutocomplete";
 import { useLocationField } from "../lib/useLocationField";
 import { EVENT_TAGS } from "../constants/eventTags";
-import { CommunityPicker } from "./CommunityPicker";
-import { useCommunityContext } from "./CommunityFilter";
+import { CommunityPicker, useDefaultEventCommunity } from "./CommunityPicker";
 import {
   TicketTierEditor,
   draftsToTiers,
@@ -41,10 +40,9 @@ export function CreateEventModal({ onClose }: { onClose: () => void }) {
   const [mediaUrl, setMediaUrl] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  // Pre-fill from the sidebar switcher's current context (community-ux.md
-  // §2/§6) — still changeable to "No community — just me" via CommunityPicker.
-  const { selected: switcherCommunitySlug, communities: myCommunities } = useCommunityContext();
-  const defaultHostOrgId = myCommunities.find((c) => c.slug === switcherCommunitySlug)?._id;
+  // Pre-fill from the sidebar switcher's community, else The Garden —
+  // still changeable to "No community — just me" via CommunityPicker.
+  const defaultHostOrgId = useDefaultEventCommunity();
 
   function toggleTag(tag: string) {
     setTags((prev) =>

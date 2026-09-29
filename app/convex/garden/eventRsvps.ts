@@ -11,6 +11,7 @@ import { ConvexError } from "convex/values";
 import { mutation, query, type MutationCtx } from "../_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { canSeeEvent } from "./eventVisibility";
+import { isCheckoutSessionId, type TicketClaimResult } from "./ticketLink";
 
 // ——— Pure core ———
 
@@ -235,17 +236,39 @@ export const rsvpToEvent = mutation({
  * covers that case instead. `eventRsvps` has no by_eventId_userId index
  * (eventAccess.ts's comment: rosters are small), same collect-and-filter
  * eventAccess.ts already does. */
+/** Which RSVP on an event is the viewer's. Their own account's row wins;
+ * failing that, a row with no account whose email is one of the viewer's —
+ * that's a ticket bought while signed out, then the buyer made an account
+ * with the same email. Read-only: nothing is attached to the row, so
+ * putting someone else's email on your profile can't take their ticket
+ * away from them. */
+export function findMyRsvp<R extends { userId?: unknown; email: string }>(
+  rows: R[],
+  userId: string,
+  myEmails: (string | undefined | null)[],
+): R | null {
+  const own = rows.find((r) => r.userId && String(r.userId) === userId);
+  if (own) return own;
+  const emails = new Set(
+    myEmails.filter((e): e is string => !!e).map(normalizeEmail),
+  );
+  return rows.find((r) => !r.userId && emails.has(normalizeEmail(r.email))) ?? null;
+}
+
 export const getMyRsvpStatus = query({
   args: { eventId: v.id("events") },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) return null;
 
-    const rows = await ctx.db
-      .query("eventRsvps")
-      .withIndex("by_eventId", (q) => q.eq("eventId", args.eventId))
-      .collect();
-    const mine = rows.find((r) => r.userId && String(r.userId) === String(userId));
+    const [rows, user] = await Promise.all([
+      ctx.db
+        .query("eventRsvps")
+        .withIndex("by_eventId", (q) => q.eq("eventId", args.eventId))
+        .collect(),
+      ctx.db.get(userId),
+    ]);
+    const mine = findMyRsvp(rows, String(userId), [user?.email]);
     if (!mine) return null;
 
     return { paidCents: mine.paidCents ?? null };
@@ -286,5 +309,67 @@ export const getEventRsvps = query({
       })),
       canViewFull,
     });
+  },
+});
+
+// ——— Claim a ticket by its Stripe checkout session ———
+//
+// AP's Payment Link redirects back with `?session={CHECKOUT_SESSION_ID}`
+// (Stripe fills it in). The webhook saved that same id on the RSVP as
+// stripeRef `ap:<session id>` (garden/apGifts.ts), so whoever holds the
+// redirect URL — the buyer — can attach the ticket to the account they're
+// signed in with, whatever email they paid with. Only an RSVP with no
+// account yet is ever claimed; one already on an account stays put.
+
+export { isCheckoutSessionId, type TicketClaimResult } from "./ticketLink";
+
+export function planTicketClaim(
+  row: { userId?: unknown } | null,
+  userId: string,
+): TicketClaimResult {
+  if (!row) return "not_found";
+  if (!row.userId) return "claimed";
+  return String(row.userId) === userId ? "already_yours" : "taken";
+}
+
+export const claimTicketBySession = mutation({
+  args: { sessionId: v.string() },
+  handler: async (ctx, args): Promise<TicketClaimResult> => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new ConvexError("Sign in to claim a ticket");
+    if (!isCheckoutSessionId(args.sessionId)) return "not_found";
+
+    const stripeRef = `ap:${args.sessionId}`;
+    const rsvp = await ctx.db
+      .query("eventRsvps")
+      .withIndex("by_stripeRef", (q) => q.eq("stripeRef", stripeRef))
+      .unique();
+    const result = planTicketClaim(rsvp, String(userId));
+    if (result !== "claimed" || !rsvp) return result;
+
+    await ctx.db.patch(rsvp._id, { userId });
+    const contribution = await ctx.db
+      .query("grantContributions")
+      .withIndex("by_stripeRef", (q) => q.eq("stripeRef", stripeRef))
+      .unique();
+    if (contribution && !contribution.userId) {
+      await ctx.db.patch(contribution._id, { userId });
+    }
+    return "claimed";
+  },
+});
+
+/** A paid ticket stands in for an invite (signup.tsx, /signup/<session
+ * id>): true while the RSVP bought in that checkout session exists and
+ * isn't on an account yet — so one ticket opens one account. */
+export const ticketSessionOpensSignup = query({
+  args: { sessionId: v.string() },
+  handler: async (ctx, args): Promise<boolean> => {
+    if (!isCheckoutSessionId(args.sessionId)) return false;
+    const rsvp = await ctx.db
+      .query("eventRsvps")
+      .withIndex("by_stripeRef", (q) => q.eq("stripeRef", `ap:${args.sessionId}`))
+      .unique();
+    return !!rsvp && !rsvp.userId && !!rsvp.paidCents;
   },
 });

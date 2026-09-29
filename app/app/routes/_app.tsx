@@ -1,9 +1,10 @@
-import { useConvexAuth, useQuery } from "convex/react";
+import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router";
 import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { usePostHog } from "@posthog/react";
 import { api } from "../../convex/_generated/api";
 import { takePendingIntent } from "../lib/pendingIntent";
+import { claimPendingTickets } from "../lib/pendingTicket";
 import { useMarkNotificationsReadForPath } from "../lib/useMarkNotificationsReadForPath";
 import { InviteCTA } from "../components/InviteCTA";
 import { NAV_ITEMS } from "../garden/ui";
@@ -121,6 +122,13 @@ export default function AppLayout() {
     const intent = takePendingIntent();
     if (intent) navigate(intent);
   }, [isAuthenticated, navigate]);
+
+  // A ticket paid for while signed out (event.tsx stashed its Stripe
+  // session): attach it to this account now that there is one.
+  const claimTicket = useMutation(api.garden.eventRsvps.claimTicketBySession);
+  useEffect(() => {
+    if (isAuthenticated) void claimPendingTickets(claimTicket);
+  }, [isAuthenticated, claimTicket]);
 
   // A brand-new account goes through onboarding before anything else. The
   // auth callback (convex/auth.ts afterUserCreatedOrUpdated) creates the
