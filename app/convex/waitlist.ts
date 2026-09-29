@@ -4,6 +4,7 @@ import { mutation, query } from "./_generated/server";
 import type { QueryCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { requireAdminCtx, ensureAdminCode } from "./helpers";
+import { resolveEntryCommunity } from "./garden/communityDomains";
 
 function computePriorityScore(a: {
   role?: string;
@@ -40,9 +41,18 @@ async function rankOf(ctx: QueryCtx, entry: Doc<"waitlist">) {
 export const addToWaitlist = mutation({
   args: {
     email: v.string(),
+    // The page's hostname and any ?community=<slug> — which community's
+    // waitlist this is (garden/communityDomains.ts). Both optional: the
+    // neutral hub tags nothing.
+    host: v.optional(v.string()),
+    communitySlug: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const email = args.email.toLowerCase().trim();
+    const community = await resolveEntryCommunity(ctx, {
+      host: args.host,
+      communitySlug: args.communitySlug,
+    });
 
     // Check if email already exists
     const existing = await ctx.db
@@ -51,6 +61,12 @@ export const addToWaitlist = mutation({
       .first();
 
     if (existing) {
+      // Already waiting — add this community if it's a new one for them.
+      if (community && !(existing.communityIds ?? []).includes(community._id)) {
+        await ctx.db.patch(existing._id, {
+          communityIds: [...(existing.communityIds ?? []), community._id],
+        });
+      }
       return {
         success: true,
         message: "You're already on the waitlist!",
@@ -63,6 +79,7 @@ export const addToWaitlist = mutation({
       email,
       createdAt: Date.now(),
       priorityScore: 0,
+      ...(community ? { communityIds: [community._id] } : {}),
     });
     const entry = await ctx.db.get(id);
 
@@ -157,9 +174,16 @@ export const listForAdmin = query({
       if (profile) approverNames.set(id, profile.name);
     }
 
+    const communityNames = new Map(
+      (await ctx.db.query("hostOrgs").collect()).map((o) => [o._id, o.name]),
+    );
+
     return sorted.map((w, i) => ({
       _id: w._id,
       email: w.email,
+      communities: (w.communityIds ?? [])
+        .map((id) => communityNames.get(id))
+        .filter((n): n is string => !!n),
       createdAt: w.createdAt,
       answeredAt: w.answeredAt,
       rank: i + 1,

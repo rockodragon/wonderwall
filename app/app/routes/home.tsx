@@ -9,6 +9,7 @@ import { WaitlistFollowUpDark } from "../components/WaitlistFollowUpDark";
 import { CAMPAIGN_IMAGES, CAMPAIGN_QUOTES } from "../lib/campaign";
 import { Reveal } from "../hooks/useReveal";
 import { CLAIMS } from "../constants/claims";
+import { entryCommunityArgs } from "../lib/entryCommunity";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -90,7 +91,7 @@ export default function Home() {
 
     setStatus("loading");
     try {
-      const result = await addToWaitlist({ email });
+      const result = await addToWaitlist({ email, ...entryCommunityArgs() });
       setStatus("success");
       setMessage(result.message);
       setWaitlistPosition(result.position ?? null);

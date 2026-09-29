@@ -403,6 +403,10 @@ export default defineSchema({
     // account doesn't leave a dangling code string behind.
     approvedBy: v.optional(v.id("users")),
     approvedAt: v.optional(v.number()),
+    // Communities this person asked to join, from the domain or
+    // ?community= link they came in on (communityDomains.ts). Unset = the
+    // neutral hub (creatives.exchange).
+    communityIds: v.optional(v.array(v.id("hostOrgs"))),
   }).index("by_email", ["email"]),
 
   // Applications to the November 6 showcase open call (/showcase, backed by
@@ -897,6 +901,9 @@ export default defineSchema({
     seatStripePriceId: v.optional(v.string()), // this community's Stripe price
     duesGroupPct: v.optional(v.number()), // share for running the group
     duesPoolPct: v.optional(v.number()), // share into its project pool
+    // Front-door domains ("createsd.org"), lowercase, no www — a visitor
+    // arriving on one is tagged to this community (communityDomains.ts).
+    domains: v.optional(v.array(v.string())),
     createdAt: v.number(),
   })
     .index("by_slug", ["slug"])

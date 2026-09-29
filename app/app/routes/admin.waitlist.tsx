@@ -172,6 +172,18 @@ export default function AdminWaitlistPage() {
         ),
       },
       {
+        id: "community",
+        header: "Community",
+        accessorFn: (entry) => entry.communities.join(", ") || undefined,
+        sortUndefined: "last",
+        sortingFn: "alphanumeric",
+        cell: ({ row }) => (
+          <span className="text-sm text-gray-600 whitespace-nowrap">
+            {row.original.communities.join(", ") || "—"}
+          </span>
+        ),
+      },
+      {
         id: "role",
         header: "Role",
         // Missing role sorts last regardless of direction (sortUndefined).

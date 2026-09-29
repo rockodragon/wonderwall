@@ -44,6 +44,7 @@ import type * as garden_apGifts from "../garden/apGifts.js";
 import type * as garden_artifactsMigration from "../garden/artifactsMigration.js";
 import type * as garden_capabilities from "../garden/capabilities.js";
 import type * as garden_communities from "../garden/communities.js";
+import type * as garden_communityDomains from "../garden/communityDomains.js";
 import type * as garden_coverage from "../garden/coverage.js";
 import type * as garden_defaultCommunity from "../garden/defaultCommunity.js";
 import type * as garden_devSeed from "../garden/devSeed.js";
@@ -155,6 +156,7 @@ declare const fullApi: ApiFromModules<{
   "garden/artifactsMigration": typeof garden_artifactsMigration;
   "garden/capabilities": typeof garden_capabilities;
   "garden/communities": typeof garden_communities;
+  "garden/communityDomains": typeof garden_communityDomains;
   "garden/coverage": typeof garden_coverage;
   "garden/defaultCommunity": typeof garden_defaultCommunity;
   "garden/devSeed": typeof garden_devSeed;
