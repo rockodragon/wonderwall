@@ -58,7 +58,7 @@ import { describeMediaLink, MediaLinkField } from "../components/MediaLinkField"
 import { EmbedPlayer } from "../components/EmbedPlayer";
 import { joinProxyUrl } from "../lib/eventCalendar";
 import { toEmbedUrl } from "../lib/videoEmbed";
-import { buildTicketLink } from "../../convex/garden/ticketLink";
+import { buildTicketLink, isCheckoutSessionId } from "../../convex/garden/ticketLink";
 import { claimPendingTickets, stashTicketSession } from "../lib/pendingTicket";
 import { setPendingIntent } from "../lib/pendingIntent";
 import { CommunityPicker, useDefaultEventCommunity } from "../components/CommunityPicker";
@@ -1768,7 +1768,9 @@ function ExternalTicketCard({
             type="button"
             onClick={() => {
               setPendingIntent(`/events/${eventId}`);
-              navigate("/signup");
+              // The ticket stands in for an invite (signup.tsx).
+              const session = searchParams.get("session");
+              navigate(isCheckoutSessionId(session) ? `/signup/${session}` : "/signup");
             }}
             className="block w-full text-center rounded-lg transition-opacity hover:opacity-90"
             style={{

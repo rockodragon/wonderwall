@@ -7,6 +7,7 @@ import confetti from "canvas-confetti";
 import { api } from "../../convex/_generated/api";
 import { normalizePhone } from "../../convex/phone";
 import { normalizeInviteCode } from "../../convex/inviteCode";
+import { isCheckoutSessionId } from "../../convex/garden/ticketLink";
 
 export function meta() {
   return [
@@ -65,9 +66,17 @@ export default function Signup() {
   const [phoneLoading, setPhoneLoading] = useState(false);
 
   // Get inviter information if arriving via invite link
+  // A paid ticket's Stripe checkout session id stands in for an invite
+  // (event.tsx sends ticket buyers to /signup/<session id>) — one account
+  // per ticket, checked by ticketSessionOpensSignup.
+  const ticketSession = isCheckoutSessionId(inviteSlug) ? inviteSlug : null;
   const inviterInfo = useQuery(
     api.invites.getInviterInfo,
-    inviteSlug ? { slug: inviteSlug } : "skip",
+    inviteSlug && !ticketSession ? { slug: inviteSlug } : "skip",
+  );
+  const ticketOpensSignup = useQuery(
+    api.garden.eventRsvps.ticketSessionOpensSignup,
+    ticketSession ? { sessionId: ticketSession } : "skip",
   );
 
   const redeemInvite = useMutation(api.invites.redeemBySlug);
@@ -79,6 +88,12 @@ export default function Signup() {
   // to show, or null when it's fine to proceed.
   function inviteGateError(): string | null {
     if (!inviteSlug) return "Invite link is required";
+    if (ticketSession) {
+      if (ticketOpensSignup === undefined) return "Checking your ticket...";
+      return ticketOpensSignup
+        ? null
+        : "We couldn't find an unclaimed ticket for this link. If you just paid, wait a minute and try again.";
+    }
     if (!inviterInfo) return "Loading invite information...";
     if (!inviterInfo.canAcceptMore) return "This invite link has reached its maximum uses (3)";
     return null;
@@ -90,7 +105,7 @@ export default function Signup() {
   // rather than inventing new ones.
   async function redeemInviteAfterSignIn() {
     try {
-      await redeemInvite({ slug: inviteSlug! });
+      if (!ticketSession) await redeemInvite({ slug: inviteSlug! });
     } catch (err) {
       posthog?.capture("invite_redemption_failed", {
         error: err instanceof Error ? err.message : "Unknown error",
@@ -190,18 +205,9 @@ export default function Signup() {
     e.preventDefault();
     setError("");
 
-    if (!inviteSlug) {
-      setError("Invite link is required");
-      return;
-    }
-
-    if (!inviterInfo) {
-      setError("Loading invite information...");
-      return;
-    }
-
-    if (!inviterInfo.canAcceptMore) {
-      setError("This invite link has reached its maximum uses (3)");
+    const gateError = inviteGateError();
+    if (gateError) {
+      setError(gateError);
       return;
     }
 
@@ -231,7 +237,7 @@ export default function Signup() {
 
       // Redeem the invite link after successful signup
       try {
-        await redeemInvite({ slug: inviteSlug });
+        if (!ticketSession) await redeemInvite({ slug: inviteSlug! });
         console.log("✅ Successfully redeemed invite:", inviteSlug);
       } catch (err) {
         console.error("❌ Failed to redeem invite:", err);
@@ -277,18 +283,9 @@ export default function Signup() {
   async function handleGoogleSignUp() {
     setError("");
 
-    if (!inviteSlug) {
-      setError("Invite link is required");
-      return;
-    }
-
-    if (!inviterInfo) {
-      setError("Loading invite information...");
-      return;
-    }
-
-    if (!inviterInfo.canAcceptMore) {
-      setError("This invite link has reached its maximum uses (3)");
+    const gateError = inviteGateError();
+    if (gateError) {
+      setError(gateError);
       return;
     }
 
@@ -302,7 +299,7 @@ export default function Signup() {
 
       // Pass invite slug via redirectTo URL param so it survives OAuth redirect
       await signIn("google", {
-        redirectTo: `/oauth-callback?invite=${encodeURIComponent(inviteSlug)}`,
+        redirectTo: `/oauth-callback?invite=${encodeURIComponent(inviteSlug!)}`,
       });
     } catch (err) {
       setError("Failed to sign up with Google");
@@ -351,6 +348,21 @@ export default function Signup() {
             Sign in
           </Link>
         </div>
+
+        {ticketSession && (
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg border border-gray-200 dark:border-gray-700">
+            <p className="font-semibold text-gray-900 dark:text-white">
+              {ticketOpensSignup === false
+                ? "We couldn't find an unclaimed ticket for this link."
+                : "Your ticket is saved."}
+            </p>
+            <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+              {ticketOpensSignup === false
+                ? "If you just paid, wait a minute and refresh. Your ticket is still good either way."
+                : "Make an account and it goes on your profile, with everyone else who's going."}
+            </p>
+          </div>
+        )}
 
         {/* Inviter Card */}
         {inviterInfo && (

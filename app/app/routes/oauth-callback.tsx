@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { useConvexAuth } from "convex/react";
 import { usePostHog } from "@posthog/react";
+import { isCheckoutSessionId } from "../../convex/garden/ticketLink";
 import { api } from "../../convex/_generated/api";
 
 /**
@@ -45,7 +46,8 @@ export default function OAuthCallback() {
 
       try {
         // Redeem the invite
-        await redeemInvite({ slug: inviteSlug! });
+        // A ticket's checkout session (signup.tsx) isn't an invite to redeem.
+        if (!isCheckoutSessionId(inviteSlug)) await redeemInvite({ slug: inviteSlug! });
         console.log("✅ OAuth: Redeemed invite:", inviteSlug);
 
         // Generate user's own invite slug

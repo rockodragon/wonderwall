@@ -358,3 +358,18 @@ export const claimTicketBySession = mutation({
     return "claimed";
   },
 });
+
+/** A paid ticket stands in for an invite (signup.tsx, /signup/<session
+ * id>): true while the RSVP bought in that checkout session exists and
+ * isn't on an account yet — so one ticket opens one account. */
+export const ticketSessionOpensSignup = query({
+  args: { sessionId: v.string() },
+  handler: async (ctx, args): Promise<boolean> => {
+    if (!isCheckoutSessionId(args.sessionId)) return false;
+    const rsvp = await ctx.db
+      .query("eventRsvps")
+      .withIndex("by_stripeRef", (q) => q.eq("stripeRef", `ap:${args.sessionId}`))
+      .unique();
+    return !!rsvp && !rsvp.userId && !!rsvp.paidCents;
+  },
+});
