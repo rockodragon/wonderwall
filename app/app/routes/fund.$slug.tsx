@@ -53,11 +53,22 @@ const CONTRIBUTION_TYPE_LABELS: Record<string, string> = {
   adjustment: "Adjustments",
 };
 
+// A fund can carry its own name and a short note about it, and a short
+// address that points at the org's slug (/fund/sophia → abiding-practice).
+const FUND_ALIASES: Record<string, string> = { sophia: "abiding-practice" };
+const NAMED_FUNDS: Record<string, { name: string; about: string }> = {
+  "abiding-practice": {
+    name: "The Sophia Fund",
+    about:
+      "Sophia means wisdom in Greek. The fund carries the name of Sophia, a young Christian creative whose life was lost in a car accident this year.",
+  },
+};
+
 const PRESET_AMOUNTS_CENTS = [1000, 2500, 5000, 10000]; // $10 · $25 · $50 · $100
 
 export function meta() {
   return [
-    { title: "Grant Fund — creatives.exchange" },
+    { title: "The Sophia Fund — creatives.exchange" },
     { name: "robots", content: "noindex" },
   ];
 }
@@ -413,7 +424,8 @@ function ProposeGrantSection({ slug }: { slug: string }) {
 }
 
 export default function FundPage() {
-  const { slug } = useParams();
+  const { slug: rawSlug } = useParams();
+  const slug = rawSlug ? (FUND_ALIASES[rawSlug] ?? rawSlug) : rawSlug;
   // Hooks stay above every early return (React rules-of-hooks).
   const [searchParams] = useSearchParams();
   const data = useQuery(
@@ -455,11 +467,15 @@ export default function FundPage() {
 
       <div style={{ marginTop: 28 }}>
         <h1 className="g-h" style={{ fontSize: "clamp(28px,5vw,40px)" }}>
-          Grant Fund
+          {NAMED_FUNDS[org.slug]?.name ?? "Grant Fund"}
         </h1>
+        {NAMED_FUNDS[org.slug] && (
+          <p style={{ marginTop: 12, fontSize: 16, lineHeight: 1.6, maxWidth: "58ch", color: "var(--g-paper)" }}>
+            {NAMED_FUNDS[org.slug].about}
+          </p>
+        )}
         <p style={{ marginTop: 12, fontSize: 15, lineHeight: 1.6, maxWidth: "58ch" }}>
-          Grants to creatives, administered by {org.name}. Every grant is
-          published on this page.
+          Grants to creatives, administered by {org.name}.
         </p>
 
         {isPool && (
@@ -468,8 +484,8 @@ export default function FundPage() {
               <div className="g-card" style={{ marginTop: 18, borderColor: "var(--g-citron)", maxWidth: "50ch" }}>
                 <div className="g-label" style={{ color: "var(--g-citron)" }}>Received</div>
                 <p style={{ marginTop: 8, fontSize: 15 }}>
-                  Received. Your contribution is in the pool — allocations are
-                  published on this page.
+                  Received. Your contribution is in the pool. Grants from it are
+                  listed on this page as they're made.
                 </p>
               </div>
             )}
@@ -484,7 +500,7 @@ export default function FundPage() {
                 <div className="g-label" style={{ color: "var(--g-citron)" }}>Received</div>
                 <p style={{ marginTop: 8, fontSize: 15 }}>
                   Thank you. Your gift goes to {org.name}, and your receipt comes
-                  from them. Allocations from the fund are published on this page.
+                  from them. Grants from the fund are listed on this page as they're made.
                 </p>
               </div>
             )}
@@ -498,7 +514,7 @@ export default function FundPage() {
                 className="g-btn g-btn-citron"
                 style={{ marginTop: 18, display: "inline-block" }}
               >
-                Give to the Grant Fund
+                Give to {NAMED_FUNDS[org.slug]?.name ?? "the Grant Fund"}
               </a>
             )}
             <p className="g-hint" style={{ marginTop: 10 }}>
@@ -583,7 +599,7 @@ export default function FundPage() {
         <SectionLabel>Ledger</SectionLabel>
         {ledger.length === 0 ? (
           <p style={{ marginTop: 12, fontSize: 14.5, maxWidth: "50ch" }}>
-            Allocations will be published here as they're made.
+            Grants will be listed here as they're made.
           </p>
         ) : (
           <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 0 }}>

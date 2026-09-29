@@ -10,6 +10,7 @@ import type { Id } from "../_generated/dataModel";
 import { ConvexError } from "convex/values";
 import { mutation, query, type MutationCtx } from "../_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { isEventHost } from "../eventHosts";
 import { canSeeEvent } from "./eventVisibility";
 import { isCheckoutSessionId, type TicketClaimResult } from "./ticketLink";
 
@@ -73,6 +74,7 @@ export interface RsvpRow {
   email: string;
   invitedBy?: string;
   createdAt?: number;
+  paidCents?: number;
 }
 
 /** organizer/admin see the full list (name + email + provenance); everyone
@@ -284,7 +286,7 @@ export const getEventRsvps = query({
     const userId = await getAuthUserId(ctx);
     let canViewFull = false;
     if (userId) {
-      if (String(event.organizerId) === String(userId)) {
+      if (isEventHost(event, userId)) {
         canViewFull = true;
       } else {
         const profile = await ctx.db
@@ -306,6 +308,7 @@ export const getEventRsvps = query({
         email: r.email,
         invitedBy: r.invitedBy,
         createdAt: r.createdAt,
+        paidCents: r.paidCents,
       })),
       canViewFull,
     });

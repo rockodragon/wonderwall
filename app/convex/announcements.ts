@@ -45,6 +45,8 @@ const MAX_REMINDER_TARGETS_PER_RUN = 20;
 
 interface TargetInfo {
   ownerId: Id<"users">;
+  /** Event co-hosts: may read/send like the owner. */
+  coHostIds?: Id<"users">[];
   title: string;
 }
 
@@ -62,7 +64,7 @@ async function loadTarget(
     case "event": {
       const doc = await ctx.db.get(targetId as Id<"events">);
       if (!doc) return null;
-      return { ownerId: doc.organizerId, title: doc.title };
+      return { ownerId: doc.organizerId, coHostIds: doc.coHostIds, title: doc.title };
     }
     case "offering": {
       const doc = await ctx.db.get(targetId as Id<"offerings">);
@@ -102,8 +104,10 @@ async function assertOwnerOrAdmin(
   ctx: QueryCtx | MutationCtx,
   userId: Id<"users">,
   ownerId: Id<"users">,
+  coHostIds?: Id<"users">[],
 ): Promise<void> {
   if (userId === ownerId) return;
+  if (coHostIds?.some((c) => c === userId)) return;
   const profile = await ctx.db
     .query("profiles")
     .withIndex("by_userId", (q) => q.eq("userId", userId))
@@ -351,7 +355,7 @@ export const getAnnouncementAudience = query({
 
     const target = await loadTarget(ctx, args.targetType, args.targetId);
     if (!target) throw new ConvexError({ code: "not_found", reason: "That doesn't exist." });
-    await assertOwnerOrAdmin(ctx, userId, target.ownerId);
+    await assertOwnerOrAdmin(ctx, userId, target.ownerId, target.coHostIds);
 
     const audience = await resolveAudience(ctx, args.targetType, args.targetId);
     const ownerEmail = await getUserEmail(ctx, target.ownerId);
@@ -396,7 +400,7 @@ export const listAnnouncementsForTarget = query({
 
     const target = await loadTarget(ctx, args.targetType, args.targetId);
     if (!target) throw new ConvexError({ code: "not_found", reason: "That doesn't exist." });
-    await assertOwnerOrAdmin(ctx, userId, target.ownerId);
+    await assertOwnerOrAdmin(ctx, userId, target.ownerId, target.coHostIds);
 
     const rows = await ctx.db
       .query("announcements")
@@ -437,7 +441,7 @@ export const sendAnnouncement = mutation({
     const target = await loadTarget(ctx, args.targetType, args.targetId);
     if (!target) throw new ConvexError({ code: "not_found", reason: "That doesn't exist." });
 
-    if (target.ownerId !== userId) {
+    if (target.ownerId !== userId && !target.coHostIds?.some((c) => c === userId)) {
       throw new ConvexError({
         code: "forbidden",
         reason: "Only the owner can send announcements here.",

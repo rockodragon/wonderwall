@@ -44,7 +44,7 @@ export function meta() {
     {
       name: "description",
       content:
-        "A night of creative work at Lightchurch, Encinitas. One ticket, $25, and every ticket goes into the grant fund. November 6, 2026.",
+        "A night of creative work at Lightchurch, Encinitas. One ticket, $25, and every ticket goes into the Sophia Fund. November 6, 2026.",
     },
     {
       property: "og:title",
@@ -53,7 +53,7 @@ export function meta() {
     {
       property: "og:description",
       content:
-        "A night of creative work at Lightchurch, Encinitas. One ticket, $25. Every ticket goes into the grant fund.",
+        "A night of creative work at Lightchurch, Encinitas. One ticket, $25. Every ticket goes into the Sophia Fund.",
     },
     { property: "og:type", content: "website" },
     // Absolute — a relative og:image doesn't unfurl on Instagram, iMessage
@@ -69,7 +69,7 @@ export function meta() {
     {
       name: "twitter:description",
       content:
-        "A night of creative work at Lightchurch, Encinitas. One ticket, $25. Every ticket goes into the grant fund.",
+        "A night of creative work at Lightchurch, Encinitas. One ticket, $25. Every ticket goes into the Sophia Fund.",
     },
     { name: "twitter:image", content: OG_IMAGE },
   ];
@@ -331,8 +331,8 @@ export default function Showcase() {
         </button>
         <P>
           {CLAIMS.ticketFund}{" "}
-          <Link to="/fund/abiding-practice" style={{ color: "var(--g-citron)" }}>
-            About the grant fund →
+          <Link to="/fund/sophia" style={{ color: "var(--g-citron)" }}>
+            About the Sophia Fund →
           </Link>
         </P>
       </Section>
@@ -377,10 +377,10 @@ export default function Showcase() {
         <div style={{ display: "grid", gap: 10 }}>
           <Faq q="What does it cost?">
             {TICKET.price}, and it's the same ticket for everyone. It goes into
-            the artist grant fund, which backs projects by creatives in the
-            community.{" "}
-            <Link to="/fund/abiding-practice" style={{ color: "var(--g-citron)" }}>
-              About the grant fund →
+            the Sophia Fund, an artist grant fund that backs projects by
+            creatives in the community.{" "}
+            <Link to="/fund/sophia" style={{ color: "var(--g-citron)" }}>
+              About the Sophia Fund →
             </Link>
           </Faq>
           <Faq q="Do I have to be a creative to come?">

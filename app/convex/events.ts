@@ -1,12 +1,15 @@
 import { v } from "convex/values";
 import { escapeHtml } from "./email/template";
-import { internalQuery, mutation, query } from "./_generated/server";
+import { internalQuery, mutation, query, type MutationCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { auth } from "./auth";
 import { scheduleNotificationEmail } from "./emailHelpers";
 import { assertCommunityMember } from "./garden/communities";
 import { formatFollowedEventDate, notifyFollowers } from "./follows";
 import { canonicalMediaUrl, schedulePreviewFetch } from "./linkPreview";
+import { mergeGuests, type GuestInput } from "./eventGuests";
+import { getUserEmail } from "./emailHelpers";
+import { isEventHost, planAddCoHost, planRemoveCoHost } from "./eventHosts";
 import { canSeeEvent, eventVisibilityChecker, isFreeEvent } from "./garden/eventVisibility";
 
 // ——— Pure validation helpers (unit-tested in events.test.ts) ———
@@ -263,11 +266,12 @@ export const get = query({
 
     const userId = await auth.getUserId(ctx);
     const isOrganizer = userId === event.organizerId;
+    const isHost = isEventHost(event, userId);
     const isPublic = await eventVisibilityChecker(ctx)(event);
     // A ticketed event whose organizer can't sell tickets is not-found to
     // everyone except the organizer (same anatomy as a missing event, so a
     // hidden event can't be distinguished from one that never existed).
-    if (!isPublic && !isOrganizer) return null;
+    if (!isPublic && !isHost) return null;
 
     // Get organizer profile
     const profile = await ctx.db
@@ -323,8 +327,31 @@ export const get = query({
       ? (await resolveCommunities(ctx, [event.hostOrgId])).get(String(event.hostOrgId)) ?? null
       : null;
 
+    const coHosts: {
+      userId: Id<"users">;
+      name: string;
+      imageUrl: string | null;
+      profileId: Id<"profiles"> | null;
+    }[] = [];
+    for (const coId of event.coHostIds ?? []) {
+      const p = await ctx.db
+        .query("profiles")
+        .withIndex("by_userId", (q) => q.eq("userId", coId))
+        .first();
+      let img = p?.imageUrl || null;
+      if (p?.imageStorageId) img = await ctx.storage.getUrl(p.imageStorageId);
+      coHosts.push({
+        userId: coId,
+        name: p?.name ?? "Someone",
+        imageUrl: img,
+        profileId: p?._id ?? null,
+      });
+    }
+
     return {
       ...event,
+      coHosts,
+      isHost,
       ticketsSoldByTier,
       coverImageUrl,
       galleryImageUrls: galleryImageUrls.filter(Boolean) as string[],
@@ -522,7 +549,7 @@ export const update = mutation({
 
     const event = await ctx.db.get(args.eventId);
     if (!event) throw new Error("Event not found");
-    if (event.organizerId !== userId) throw new Error("Not authorized");
+    if (!isEventHost(event, userId)) throw new Error("Not authorized");
 
     const endTimeError = validateEndTime(args.datetime, args.endTime);
     if (endTimeError) throw new Error(endTimeError);
@@ -579,9 +606,11 @@ export const update = mutation({
       description: args.description.trim(),
       datetime: args.datetime,
       endTime: args.endTime,
-      ticketTiers: tiers,
-      externalTicketUrl,
-      externalTicketPriceCents,
+      // Tickets are the organizer's: a co-host's save keeps them as they
+      // were, so a co-host can't point the ticket link at their own Stripe.
+      ...(event.organizerId === userId
+        ? { ticketTiers: tiers, externalTicketUrl, externalTicketPriceCents }
+        : {}),
       location: args.location?.trim(),
       locationType: args.locationType,
       address: args.address,
@@ -610,6 +639,51 @@ export const cancel = mutation({
 
     await ctx.db.patch(args.eventId, {
       status: "cancelled",
+      updatedAt: Date.now(),
+    });
+  },
+});
+
+async function requireOrganizerOf(ctx: MutationCtx, eventId: Id<"events">) {
+  const userId = await auth.getUserId(ctx);
+  if (!userId) throw new Error("Not authenticated");
+  const event = await ctx.db.get(eventId);
+  if (!event) throw new Error("Event not found");
+  if (event.organizerId !== userId) throw new Error("Only the organizer can change co-hosts");
+  return event;
+}
+
+export const addCoHost = mutation({
+  args: { eventId: v.id("events"), userId: v.id("users") },
+  handler: async (ctx, args) => {
+    const event = await requireOrganizerOf(ctx, args.eventId);
+    const plan = planAddCoHost(event, String(args.userId));
+    if (!plan.ok) {
+      throw new Error(
+        plan.reason === "is_organizer"
+          ? "The organizer is already a host"
+          : plan.reason === "duplicate"
+            ? "Already a co-host"
+            : "An event can have at most 10 co-hosts",
+      );
+    }
+    const target = await ctx.db.get(args.userId);
+    if (!target) throw new Error("User not found");
+    await ctx.db.patch(args.eventId, {
+      coHostIds: plan.coHostIds as Id<"users">[],
+      updatedAt: Date.now(),
+    });
+  },
+});
+
+export const removeCoHost = mutation({
+  args: { eventId: v.id("events"), userId: v.id("users") },
+  handler: async (ctx, args) => {
+    const event = await requireOrganizerOf(ctx, args.eventId);
+    const plan = planRemoveCoHost(event, String(args.userId));
+    if (!plan.ok) throw new Error("Not a co-host");
+    await ctx.db.patch(args.eventId, {
+      coHostIds: plan.coHostIds as Id<"users">[],
       updatedAt: Date.now(),
     });
   },
@@ -690,7 +764,7 @@ export const getApplications = query({
     if (!userId) return [];
 
     const event = await ctx.db.get(args.eventId);
-    if (!event || event.organizerId !== userId) return [];
+    if (!event || !isEventHost(event, userId)) return [];
 
     const applications = await ctx.db
       .query("eventApplications")
@@ -721,6 +795,82 @@ export const getApplications = query({
   },
 });
 
+// Host-only guest list: applications, RSVPs and paid tickets, one row per
+// person. Emails are host-visible only (same rule as getEventRsvps).
+export const getGuestList = query({
+  args: { eventId: v.id("events") },
+  handler: async (ctx, args) => {
+    const userId = await auth.getUserId(ctx);
+    if (!userId) return [];
+    const event = await ctx.db.get(args.eventId);
+    if (!event || !isEventHost(event, userId)) return [];
+
+    const inputs: GuestInput[] = [];
+
+    const applications = await ctx.db
+      .query("eventApplications")
+      .withIndex("by_eventId", (q) => q.eq("eventId", args.eventId))
+      .collect();
+    for (const app of applications) {
+      const profile = await ctx.db
+        .query("profiles")
+        .withIndex("by_userId", (q) => q.eq("userId", app.applicantId))
+        .first();
+      inputs.push({
+        userId: String(app.applicantId),
+        name: profile?.name ?? "Anonymous",
+        email: await getUserEmail(ctx, app.applicantId),
+        status:
+          app.status === "accepted" ? "going" : app.status === "declined" ? "declined" : "pending",
+        addedAt: app.createdAt,
+      });
+    }
+
+    const rsvps = await ctx.db
+      .query("eventRsvps")
+      .withIndex("by_eventId", (q) => q.eq("eventId", args.eventId))
+      .collect();
+    for (const r of rsvps) {
+      inputs.push({
+        userId: r.userId ? String(r.userId) : null,
+        name: r.name,
+        email: r.email,
+        status: "going",
+        paidCents: r.paidCents ?? null,
+        addedAt: r.createdAt,
+      });
+    }
+
+    const purchases = await ctx.db
+      .query("ticketPurchases")
+      .withIndex("by_eventId", (q) => q.eq("eventId", args.eventId))
+      .collect();
+    for (const p of purchases) {
+      if (p.status !== "paid") continue;
+      let name = p.buyerEmail ?? "Ticket buyer";
+      let email = p.buyerEmail ?? null;
+      if (p.userId) {
+        const profile = await ctx.db
+          .query("profiles")
+          .withIndex("by_userId", (q) => q.eq("userId", p.userId!))
+          .first();
+        if (profile?.name) name = profile.name;
+        email = email ?? (await getUserEmail(ctx, p.userId));
+      }
+      inputs.push({
+        userId: p.userId ? String(p.userId) : null,
+        name,
+        email,
+        status: "going",
+        paidCents: p.amountCents,
+        addedAt: p.createdAt,
+      });
+    }
+
+    return mergeGuests(inputs);
+  },
+});
+
 export const updateApplicationStatus = mutation({
   args: {
     applicationId: v.id("eventApplications"),
@@ -734,7 +884,7 @@ export const updateApplicationStatus = mutation({
     if (!application) throw new Error("Application not found");
 
     const event = await ctx.db.get(application.eventId);
-    if (!event || event.organizerId !== userId) {
+    if (!event || !isEventHost(event, userId)) {
       throw new Error("Not authorized");
     }
 

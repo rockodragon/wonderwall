@@ -170,6 +170,9 @@ export default defineSchema({
   // Community events
   events: defineTable({
     organizerId: v.id("users"),
+    // Co-hosts: can edit the event and see the guest list; only the organizer
+    // can cancel it or change this list. See eventHosts.ts.
+    coHostIds: v.optional(v.array(v.id("users"))),
     title: v.string(),
     description: v.string(),
     datetime: v.number(),
