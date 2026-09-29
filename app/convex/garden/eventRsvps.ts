@@ -235,17 +235,39 @@ export const rsvpToEvent = mutation({
  * covers that case instead. `eventRsvps` has no by_eventId_userId index
  * (eventAccess.ts's comment: rosters are small), same collect-and-filter
  * eventAccess.ts already does. */
+/** Which RSVP on an event is the viewer's. Their own account's row wins;
+ * failing that, a row with no account whose email is one of the viewer's —
+ * that's a ticket bought while signed out, then the buyer made an account
+ * with the same email. Read-only: nothing is attached to the row, so
+ * putting someone else's email on your profile can't take their ticket
+ * away from them. */
+export function findMyRsvp<R extends { userId?: unknown; email: string }>(
+  rows: R[],
+  userId: string,
+  myEmails: (string | undefined | null)[],
+): R | null {
+  const own = rows.find((r) => r.userId && String(r.userId) === userId);
+  if (own) return own;
+  const emails = new Set(
+    myEmails.filter((e): e is string => !!e).map(normalizeEmail),
+  );
+  return rows.find((r) => !r.userId && emails.has(normalizeEmail(r.email))) ?? null;
+}
+
 export const getMyRsvpStatus = query({
   args: { eventId: v.id("events") },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) return null;
 
-    const rows = await ctx.db
-      .query("eventRsvps")
-      .withIndex("by_eventId", (q) => q.eq("eventId", args.eventId))
-      .collect();
-    const mine = rows.find((r) => r.userId && String(r.userId) === String(userId));
+    const [rows, user] = await Promise.all([
+      ctx.db
+        .query("eventRsvps")
+        .withIndex("by_eventId", (q) => q.eq("eventId", args.eventId))
+        .collect(),
+      ctx.db.get(userId),
+    ]);
+    const mine = findMyRsvp(rows, String(userId), [user?.email]);
     if (!mine) return null;
 
     return { paidCents: mine.paidCents ?? null };

@@ -4,6 +4,7 @@
 
 import { describe, expect, it } from "vitest";
 import {
+  findMyRsvp,
   buildRsvpVisibility,
   isValidEmail,
   normalizeEmail,
@@ -120,5 +121,29 @@ describe("buildRsvpVisibility", () => {
   it("empty state for organizer view mirrors the same shape with rsvps []", () => {
     const result = buildRsvpVisibility({ rows: [], canViewFull: true });
     expect(result).toEqual({ count: 0, rsvps: [] });
+  });
+});
+
+describe("findMyRsvp", () => {
+  const rows = [
+    { id: "a", userId: "u1", email: "one@example.com" },
+    { id: "b", email: "guest@example.com" },
+    { id: "c", userId: "u2", email: "taken@example.com" },
+  ];
+
+  it("finds the row on the viewer's own account", () => {
+    expect(findMyRsvp(rows, "u1", [])?.id).toBe("a");
+  });
+
+  it("finds a signed-out ticket bought with the viewer's email", () => {
+    expect(findMyRsvp(rows, "u9", [" Guest@Example.com "])?.id).toBe("b");
+  });
+
+  it("never matches a row that belongs to another account", () => {
+    expect(findMyRsvp(rows, "u9", ["taken@example.com"])).toBeNull();
+  });
+
+  it("returns null with no match or no emails", () => {
+    expect(findMyRsvp(rows, "u9", [undefined, null])).toBeNull();
   });
 });
