@@ -429,32 +429,27 @@ export default function EventDetail() {
           <EmbedPlayer embed={mediaEmbed} title={event.title} />
         </div>
       )}
-      <div
-        className={
-          playerIsHero ? "relative" : "relative h-56 md:h-72 overflow-hidden"
-        }
-      >
-        {playerIsHero ? null : bannerImageUrl ? (
-          <img
-            src={bannerImageUrl}
-            alt={event.title}
-            className="w-full h-full object-cover"
-          />
-        ) : (
-          <div className={`w-full h-full bg-gradient-to-br ${coverGradient}`} />
-        )}
-        {!playerIsHero && (
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-        )}
-        <div
-          className={
-            playerIsHero ? "px-6 pt-5" : "absolute bottom-0 left-0 right-0 p-6"
-          }
-        >
+      {/* The cover stands alone — posters carry their own type, so the
+          title sits below it rather than on top. */}
+      {!playerIsHero && (
+        <div className="h-56 md:h-72 overflow-hidden">
+          {bannerImageUrl ? (
+            <img
+              src={bannerImageUrl}
+              alt={event.title}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div className={`w-full h-full bg-gradient-to-br ${coverGradient}`} />
+          )}
+        </div>
+      )}
+      <div>
+        <div className="px-6 pt-5">
           <div className="flex items-center gap-3 mb-2">
             <h1
               className={`text-2xl md:text-3xl font-bold ${
-                playerIsHero ? "text-gray-900 dark:text-white" : "text-white"
+                "text-gray-900 dark:text-white"
               }`}
             >
               {event.title}
@@ -464,9 +459,7 @@ export default function EventDetail() {
                 <button
                   onClick={() => setShowEditForm(true)}
                   className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
-                    playerIsHero
-                      ? "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"
-                      : "bg-white/20 backdrop-blur-sm text-white hover:bg-white/30"
+                    "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"
                   }`}
                 >
                   Edit
@@ -478,9 +471,7 @@ export default function EventDetail() {
                       aria-label="More options"
                       aria-expanded={showOptions}
                       className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${
-                        playerIsHero
-                          ? "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
-                          : "text-white hover:bg-white/20"
+                        "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
                       }`}
                     >
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -516,7 +507,7 @@ export default function EventDetail() {
           </div>
           <div
             className={`flex flex-wrap items-center gap-4 text-sm ${
-              playerIsHero ? "text-gray-600 dark:text-gray-400" : "text-white/80"
+              "text-gray-600 dark:text-gray-400"
             }`}
           >
             <span className="flex items-center gap-1">
