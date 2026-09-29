@@ -11,6 +11,7 @@ import { isAdminEmail } from "./adminEmails";
 import { normalizePhone } from "./phone";
 import { sendSms } from "./smsSender";
 import { decideCreateOrUpdateUser } from "./authLinking";
+import { joinDefaultCommunity } from "./garden/defaultCommunity";
 
 const CODE_MAX_AGE_SECONDS = 10 * 60; // 10 minutes
 
@@ -110,6 +111,9 @@ async function afterUserCreatedOrUpdated(
       updatedAt: now,
     });
   }
+
+  // Every account is a member of The Garden (garden/defaultCommunity.ts).
+  await joinDefaultCommunity(ctx, userId);
 }
 
 async function uniqueUserWithVerifiedEmail(ctx: MutationCtx, email: string) {
