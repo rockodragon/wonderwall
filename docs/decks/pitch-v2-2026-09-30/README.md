@@ -19,7 +19,7 @@ These are the slide sources (`deck.json` plus one HTML file per slide), saved so
 
 | # | id | Headline |
 |---|---|---|
-| 1 | cover | Arts funding was built for institutions, so we are building the infrastructure that works for creatives. |
+| 1 | cover | We are building the infrastructure that makes the creative economy work for creatives and the community. |
 | 2 | problem | Creatives in San Diego are working three jobs and posting into the void. |
 | 3 | solution | We enable creative communities to support themselves and step up to their opportunities. |
 | 4 | creative-class | Flourishing is three things you can measure in a person's life. |
