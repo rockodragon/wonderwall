@@ -51,8 +51,8 @@ export const CLAIMS = {
   /** The Sophia Fund's open call (Rick, 2026-09-29). The amount itself is
    * computed on the page (fund.$slug.tsx NAMED_FUNDS seedCents). Proposing
    * takes a paid membership (capabilities.ts pool.propose). */
-  sophiaSchedule:
-    "Grants are made from it at the end of each month. Register your project at least 7 days before the month ends so there's time to review it.",
+  sophiaSchedule: "The first grants go out in November, from projects submitted in October.",
+  grantFundDeductible: "Abiding Practice is a 501(c)(3), so your gift is tax-deductible.",
   ticketFund:
     "Every ticket goes into the Sophia Fund, an artist grant fund that backs projects by creatives in the community. Creatives propose projects, and a review team decides.",
   patron: "Back a specific person or project. 90% goes to them. You can be named on the work, or stay anonymous.",

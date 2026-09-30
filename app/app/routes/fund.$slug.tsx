@@ -19,7 +19,7 @@
 // undeployed backend (both read as "isn't live yet").
 
 import { useState } from "react";
-import type { FormEvent } from "react";
+import type { FormEvent, ReactNode } from "react";
 import { useAction, useConvexAuth, useMutation, useQuery } from "convex/react";
 import { ConvexError } from "convex/values";
 import { Link, useParams, useRouteError, useSearchParams } from "react-router";
@@ -479,18 +479,9 @@ export default function FundPage() {
   // to their giving page until the link exists.
   const givingHref = org.paymentLinkUrl ?? org.givingUrl;
 
-  // Named funds (the Sophia Fund) get a calmer page: two separate sections,
-  // Grants then Give, in one column, with small sentence-case buttons.
+  // Named funds (the Sophia Fund) get their own page, SophiaFundView below
+  // (from the Claude Design file "Sophia Fund", 2026-09-29).
   const named = seedCents !== undefined;
-  const calmBtn = {
-    display: "inline-block",
-    fontFamily: "inherit",
-    textTransform: "none",
-    letterSpacing: 0,
-    fontSize: 14,
-    fontWeight: 600,
-    padding: "9px 16px",
-  } as const;
   const ledgerList = (ledger.length === 0 ? (
           <p style={{ marginTop: 12, fontSize: 14.5, maxWidth: "50ch" }}>
             Grants will be listed here as they're made.
@@ -542,6 +533,25 @@ export default function FundPage() {
           </div>
         ));
 
+  if (named) {
+    return (
+      <GardenPage wide>
+        <SophiaFundView
+          name={NAMED_FUNDS[org.slug]?.name ?? "Grant Fund"}
+          about={NAMED_FUNDS[org.slug]?.about}
+          orgName={org.name}
+          availableCents={availableCents}
+          grantedCents={totals.allTimeCents}
+          schedule={NAMED_FUNDS[org.slug]?.openCall}
+          ledgerList={ledger.length === 0 ? null : ledgerList}
+          oneTimeHref={givingHref ?? null}
+          monthlyHref={org.monthlyPaymentLinkUrl ?? null}
+          gaveThanks={gaveThanks}
+        />
+      </GardenPage>
+    );
+  }
+
   return (
     <GardenPage wide>
 
@@ -557,31 +567,6 @@ export default function FundPage() {
         <p style={{ marginTop: 12, fontSize: 15, lineHeight: 1.6, maxWidth: "58ch" }}>
           Grants to creatives, administered by {org.name}.
         </p>
-        {named && (
-          <section style={{ marginTop: 36, paddingTop: 28, borderTop: "1px solid var(--g-hairline)", maxWidth: "60ch" }}>
-            <SectionLabel>Grants</SectionLabel>
-            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: "6px 14px", marginTop: 12 }}>
-              <span className="g-h" style={{ fontSize: 32, lineHeight: 1 }}>
-                {formatMoney(availableCents)}
-              </span>
-              <span style={{ fontSize: 15, color: "var(--g-body)" }}>
-                available · {formatMoney(totals.allTimeCents)} granted so far
-              </span>
-            </div>
-            {NAMED_FUNDS[org.slug]?.openCall && (
-              <p style={{ fontSize: 16, lineHeight: 1.6, color: "var(--g-paper)", margin: "14px 0 0" }}>
-                {NAMED_FUNDS[org.slug].openCall}
-              </p>
-            )}
-            <Link to="/join" className="g-btn g-btn-ghost" style={{ ...calmBtn, marginTop: 16, color: "var(--g-paper)" }}>
-              Become a member and create a project →
-            </Link>
-            <div style={{ marginTop: 24 }}>
-              <div style={{ fontSize: 14, fontWeight: 600, color: "var(--g-paper)" }}>Grants made</div>
-              {ledgerList}
-            </div>
-          </section>
-        )}
 
         {isPool && (
           <>
@@ -599,21 +584,7 @@ export default function FundPage() {
         )}
 
         {isOutLink && (
-          <section
-            style={
-              named
-                ? { marginTop: 36, paddingTop: 28, borderTop: "1px solid var(--g-hairline)", maxWidth: "60ch" }
-                : undefined
-            }
-          >
-            {named && (
-              <>
-                <SectionLabel>Give</SectionLabel>
-                <p style={{ fontSize: 16, lineHeight: 1.6, color: "var(--g-paper)", margin: "12px 0 0" }}>
-                  {CLAIMS.grantFund}
-                </p>
-              </>
-            )}
+          <section>
             {gaveThanks && (
               <div className="g-card" style={{ marginTop: 18, borderColor: "var(--g-citron)", maxWidth: "50ch" }}>
                 <div className="g-label" style={{ color: "var(--g-citron)" }}>Received</div>
@@ -664,7 +635,7 @@ export default function FundPage() {
                   <a
                     href={giveMonthly && org.monthlyPaymentLinkUrl ? org.monthlyPaymentLinkUrl : givingHref}
                     className="g-btn g-btn-citron"
-                    style={named ? calmBtn : { display: "inline-block" }}
+                    style={{ display: "inline-block" }}
                   >
                     {giveMonthly ? "Give monthly to" : "Give to"} {NAMED_FUNDS[org.slug]?.name ?? "the Grant Fund"}
                   </a>
@@ -763,5 +734,322 @@ export default function FundPage() {
 
       <ProposeGrantSection slug={org.slug} />
     </GardenPage>
+  );
+}
+
+// ——— The Sophia Fund page (Claude Design "Sophia Fund.dc.html") ———
+// One column: header, The fund (available / granted / total), Upcoming, Grants
+// made, then a Give panel. Colors are the design's, mapped to garden tokens
+// where they match (citron = its accent). Money copy comes from CLAIMS.
+
+const SF = {
+  text: "#F4F4F2",
+  n200: "#D6D6D6",
+  n300: "#B3B3B3",
+  n400: "#8F8F8F",
+  n700: "#3A3A3A",
+  n800: "#262626",
+  section: "#1A1A1A",
+  glow: "#2A2515",
+  ghost: "#333333",
+  accent800: "#2E2812",
+  accent700: "#6B5A1E",
+  mono: "ui-monospace, 'JetBrains Mono', Menlo, monospace",
+};
+
+function SfLabel({ children, accent }: { children: ReactNode; accent?: boolean }) {
+  return (
+    <h2
+      style={{
+        margin: 0,
+        fontSize: 13,
+        fontWeight: 500,
+        letterSpacing: "0.2em",
+        textTransform: "uppercase",
+        fontFamily: SF.mono,
+        color: accent ? "var(--g-citron)" : SF.n400,
+      }}
+    >
+      {children}
+    </h2>
+  );
+}
+
+function formatDollars(cents: number): string {
+  return (cents / 100).toLocaleString("en-US", { style: "currency", currency: "USD" });
+}
+
+function SophiaFundView({
+  name,
+  about,
+  orgName,
+  availableCents,
+  grantedCents,
+  schedule,
+  ledgerList,
+  oneTimeHref,
+  monthlyHref,
+  gaveThanks,
+}: {
+  name: string;
+  about?: string;
+  orgName: string;
+  availableCents: number;
+  grantedCents: number;
+  schedule?: string;
+  ledgerList: ReactNode | null;
+  oneTimeHref: string | null;
+  monthlyHref: string | null;
+  gaveThanks: boolean;
+}) {
+  const [monthly, setMonthly] = useState(false);
+  const href = monthly && monthlyHref ? monthlyHref : oneTimeHref;
+  const row = {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "baseline",
+    gap: 22,
+    padding: "22px 0",
+  } as const;
+
+  return (
+    <main
+      style={{
+        maxWidth: 1120,
+        margin: "0 auto",
+        padding: "72px 0 120px",
+        display: "flex",
+        flexDirection: "column",
+        gap: 96,
+        color: SF.text,
+        fontVariantNumeric: "tabular-nums",
+      }}
+    >
+      <header style={{ display: "flex", flexDirection: "column", gap: 22, maxWidth: 720 }}>
+        <span
+          style={{
+            fontSize: 12,
+            letterSpacing: "0.2em",
+            textTransform: "uppercase",
+            fontFamily: SF.mono,
+            color: "var(--g-citron)",
+          }}
+        >
+          Grant fund
+        </span>
+        <h1
+          style={{
+            margin: 0,
+            fontSize: "clamp(44px, 9vw, 72px)",
+            fontWeight: 500,
+            letterSpacing: "-0.03em",
+            lineHeight: 1,
+            color: SF.text,
+          }}
+        >
+          {name}
+        </h1>
+        {about && (
+          <p style={{ margin: 0, fontSize: 19, lineHeight: 1.65, color: SF.n200, maxWidth: "54ch" }}>
+            {about}
+          </p>
+        )}
+        <p style={{ margin: 0, fontSize: 15, color: SF.n400 }}>
+          Grants to creatives, administered by {orgName}.
+        </p>
+      </header>
+
+      <section style={{ display: "flex", flexDirection: "column", gap: 33, maxWidth: 720 }}>
+        <SfLabel>The fund</SfLabel>
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          <div
+            style={{
+              ...row,
+              background: `linear-gradient(to right, transparent, ${SF.n800} 48px, ${SF.n800} calc(100% - 48px), transparent) no-repeat bottom / 100% 1px`,
+            }}
+          >
+            <span style={{ fontSize: 17, color: SF.n200 }}>Available to grant</span>
+            <span style={{ fontSize: 22, fontWeight: 500 }}>{formatDollars(availableCents)}</span>
+          </div>
+          <div style={row}>
+            <span style={{ fontSize: 17, color: SF.n200 }}>Granted to date</span>
+            <span style={{ fontSize: 22, fontWeight: 500, color: SF.n300 }}>{formatDollars(grantedCents)}</span>
+          </div>
+          <div
+            style={{
+              ...row,
+              alignItems: "center",
+              paddingTop: 28,
+              background: `linear-gradient(to right, var(--g-citron), ${SF.accent700} 60%, transparent) no-repeat top / 100% 1px`,
+            }}
+          >
+            <span
+              style={{
+                fontSize: 13,
+                letterSpacing: "0.2em",
+                textTransform: "uppercase",
+                fontFamily: SF.mono,
+                color: SF.n300,
+              }}
+            >
+              Total
+            </span>
+            <span style={{ fontSize: "clamp(32px, 7vw, 48px)", fontWeight: 500, letterSpacing: "-0.02em", lineHeight: 1 }}>
+              {formatDollars(availableCents + grantedCents)}
+            </span>
+          </div>
+        </div>
+      </section>
+
+      {schedule && (
+        <section style={{ display: "flex", flexDirection: "column", gap: 22, maxWidth: 720 }}>
+          <SfLabel>Upcoming</SfLabel>
+          <p
+            style={{
+              margin: 0,
+              fontSize: "clamp(24px, 5vw, 32px)",
+              fontWeight: 500,
+              letterSpacing: "-0.015em",
+              lineHeight: 1.25,
+              textWrap: "balance",
+              color: SF.text,
+            }}
+          >
+            {schedule}
+          </p>
+          <div style={{ marginTop: 11 }}>
+            <Link
+              to="/join"
+              style={{
+                display: "inline-block",
+                padding: "11px 22px",
+                borderRadius: 8,
+                border: `1px solid ${SF.n700}`,
+                color: SF.text,
+                fontSize: 15,
+                fontWeight: 500,
+                textDecoration: "none",
+              }}
+            >
+              Become a member and create a project →
+            </Link>
+          </div>
+        </section>
+      )}
+
+      <section style={{ display: "flex", flexDirection: "column", gap: 33, maxWidth: 720 }}>
+        <SfLabel>Grants made</SfLabel>
+        {ledgerList ?? (
+          <p style={{ margin: 0, fontSize: 17, lineHeight: 1.6, color: SF.n300 }}>
+            None yet. Grants will be listed here as they're made.
+          </p>
+        )}
+      </section>
+
+      <section
+        id="give"
+        style={{
+          borderRadius: 14,
+          background: `radial-gradient(800px 420px at 85% 0%, ${SF.glow}, transparent 70%), ${SF.section}`,
+          padding: "clamp(40px, 8vw, 78px) clamp(20px, 5vw, 56px)",
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 400px), 1fr))",
+          gap: "clamp(32px, 6vw, 67px)",
+          alignItems: "center",
+        }}
+      >
+        <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
+          <SfLabel accent>Give</SfLabel>
+          <p
+            style={{
+              margin: 0,
+              fontSize: "clamp(32px, 6vw, 44px)",
+              fontWeight: 500,
+              letterSpacing: "-0.02em",
+              lineHeight: 1.08,
+              textWrap: "balance",
+              color: SF.text,
+            }}
+          >
+            Fund the next creative in Sophia's name.
+          </p>
+          <p style={{ margin: 0, fontSize: 16, lineHeight: 1.65, color: SF.n200, maxWidth: "44ch" }}>
+            {CLAIMS.grantFundDeductible}
+          </p>
+        </div>
+
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 22,
+            padding: 33,
+            borderRadius: 14,
+            background: "rgba(18,18,18,0.7)",
+            boxShadow: `0 16px 40px rgba(0,0,0,0.65), inset 0 0 0 1px ${SF.ghost}`,
+          }}
+        >
+          {gaveThanks ? (
+            <p style={{ margin: 0, fontSize: 17, lineHeight: 1.6, color: SF.text }}>
+              Thank you. Your receipt comes from {orgName}.
+            </p>
+          ) : href ? (
+            <>
+              {monthlyHref && (
+                <div role="radiogroup" aria-label="How often" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 11 }}>
+                  {[
+                    { on: !monthly, label: "One time", pick: () => setMonthly(false) },
+                    { on: monthly, label: "Monthly", pick: () => setMonthly(true) },
+                  ].map((o) => (
+                    <button
+                      key={o.label}
+                      type="button"
+                      role="radio"
+                      aria-checked={o.on}
+                      onClick={o.pick}
+                      style={{
+                        height: 48,
+                        borderRadius: 8,
+                        cursor: "pointer",
+                        fontSize: 16,
+                        fontWeight: 500,
+                        color: o.on ? "var(--g-citron)" : SF.n200,
+                        background: o.on ? SF.accent800 : "transparent",
+                        border: `1px solid ${o.on ? "var(--g-citron)" : SF.n700}`,
+                      }}
+                    >
+                      {o.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <a
+                href={href}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  height: 60,
+                  borderRadius: 8,
+                  color: "#121212",
+                  background: "var(--g-citron)",
+                  fontSize: 18,
+                  fontWeight: 600,
+                  textDecoration: "none",
+                  boxShadow: "0 10px 40px rgba(254,226,104,0.25)",
+                }}
+              >
+                {monthly ? "Give monthly →" : "Give →"}
+              </a>
+              <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.6, color: SF.n300 }}>
+                Secure checkout on {orgName}'s Stripe page. Your receipt comes from them, then you return here.
+              </p>
+            </>
+          ) : (
+            <p style={{ margin: 0, fontSize: 16, color: SF.n300 }}>Giving opens soon.</p>
+          )}
+        </div>
+      </section>
+    </main>
   );
 }
