@@ -85,10 +85,9 @@ describe("the hand copies", () => {
     expect(hits).toEqual([]);
   });
 
-  it("static pages that state the dues line use the canonical words", () => {
-    for (const file of ["public/about/creatives/index.html", "public/about/index.html"]) {
-      const text = readFileSync(join(APP_DIR, "..", file), "utf8").replace(/<[^>]+>/g, "").replace(/\s+/g, " ");
-      expect(text, file).toContain(CLAIMS.dues);
-    }
+  it("the about pages state the dues line from CLAIMS", () => {
+    // Were static HTML (public/about/); now app routes that read CLAIMS.
+    const text = readFileSync(join(APP_DIR, "routes/about.$audience.tsx"), "utf8");
+    expect(text).toContain("CLAIMS.dues");
   });
 });

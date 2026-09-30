@@ -1103,7 +1103,7 @@ export function CommunityPage({ slug, footer }: { slug: string; footer?: ReactNo
           </ul>
           <p className="mt-2.5 text-[15px] leading-relaxed" style={{ color: "var(--garden-body)" }}>
             You also agree to{" "}
-            <a href="/about/agreements.html" style={{ color: "var(--garden-citron)" }}>
+            <a href="/about/agreements" style={{ color: "var(--garden-citron)" }}>
               TheCreative.exchange's agreements
             </a>
             .

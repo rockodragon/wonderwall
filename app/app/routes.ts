@@ -68,6 +68,11 @@ export default [
   layout("routes/_app.tsx", [
     // The signed-in home — where sign-in, OAuth and onboarding land.
     route("today", "routes/today.tsx"),
+    // About pages, public, inside the shell (2026-09-29; were static files
+    // in public/about/). _app.tsx lists "/about" as a public path.
+    route("about", "routes/about.tsx"),
+    route("about/agreements", "routes/about.agreements.tsx"),
+    route("about/:audience", "routes/about.$audience.tsx"),
     // People. /search was its address before it was called People; it
     // stays mounted (same page) so old links keep working.
     route("people", "routes/search.tsx", { id: "routes/people" }),
