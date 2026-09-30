@@ -6,6 +6,7 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router";
 import { CLAIMS } from "../constants/claims";
+import { FF_V2 } from "../lib/featureFlags";
 
 export function meta() {
   return [
@@ -49,6 +50,7 @@ const AUDIENCES = [
     name: "For hosts",
     desc: "You're a creative who leads a community. Get paid to gather the people you already gather.",
     go: "Host a table →",
+    v2: true, // hosting your own community is held back for launch
   },
   {
     href: "/about/partners",
@@ -126,7 +128,7 @@ export default function About() {
       </p>
 
       <nav className="grid grid-cols-1 sm:grid-cols-2 gap-3" style={{ marginTop: 36 }}>
-        {AUDIENCES.map((a) => (
+        {AUDIENCES.filter((a) => FF_V2 || !("v2" in a && a.v2)).map((a) => (
           <Link
             key={a.href}
             to={a.href}

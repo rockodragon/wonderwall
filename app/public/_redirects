@@ -1,5 +1,5 @@
-/about/leaders /about/hosts 301
-/about/leaders/* /about/hosts 301
+/about/leaders /about 301
+/about/leaders/* /about 301
 /about/index.html /about 301
 /about/agreements.html /about/agreements 301
 /about/creatives/index.html /about/creatives 301

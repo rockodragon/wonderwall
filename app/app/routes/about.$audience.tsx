@@ -7,11 +7,13 @@
 import type { ReactNode } from "react";
 import { Link, useParams } from "react-router";
 import { CLAIMS } from "../constants/claims";
+import { FF_V2 } from "../lib/featureFlags";
 import { AboutShell, SectionLabel } from "./about";
 import NotFound from "./404";
 
 type Line = { lead?: string; rest?: string };
-type Row = Line & { name: string; price?: string };
+// v2: held back for launch — shown only when FF_V2 is on (lib/featureFlags).
+type Row = Line & { name: string; price?: string; v2?: boolean };
 type Section = { label: string; rows: Row[] };
 type Page = {
   title: string;
@@ -21,7 +23,7 @@ type Page = {
   quote?: { text: string; creditLead: string; credit: string };
   statement?: ReactNode;
   cols?: { title: string; items: Line[] }[];
-  ctas: { label: string; to: string; primary?: boolean }[];
+  ctas: { label: string; to: string; primary?: boolean; v2?: boolean }[];
   footer: string;
 };
 
@@ -37,8 +39,9 @@ const PAGES: Record<string, Page> = {
         label: "Ways to sit down",
         rows: [
           { name: "A seat", price: "$10/mo", lead: "Post one passion project", rest: "and let the community and its patrons support it. One active project at a time." },
-          { name: "Five seats", price: "$25/mo", lead: "For the prolific", rest: "— run several projects at once, invite collaborators, keep momentum." },
+          { v2: true, name: "Five seats", price: "$25/mo", lead: "For the prolific", rest: "— run several projects at once, invite collaborators, keep momentum." },
           {
+            v2: true,
             name: "Host a table",
             price: "Free",
             lead: "Gather your people and curate their project space — hosting is free.",
@@ -90,10 +93,10 @@ const PAGES: Record<string, Page> = {
       {
         label: "Ways to build",
         rows: [
-          { name: "Cover one seat", price: "$10/mo", lead: "Pay for one creative's place at a table.", rest: "You'll get their story updates, with your name in the credit line." },
+          { name: "Cover one seat", price: "$10/mo", lead: "Pay for one creative's place in a community.", rest: "You'll get their story updates, with your name in the credit line." },
           { name: "A Fellowship", price: "$500+/mo", lead: "Ongoing support for a named creative", rest: "doing outward-facing work. Your name stands on their public story page." },
           { name: "A Project", price: "$25–$5,000", lead: "One-time funding for a specific work", rest: "— a mural, an album, a film, an event — proposed by a creative or commissioned by you." },
-          { name: "Seats at the table", price: "10 or 25 seats", lead: "Cover participation for creatives", rest: "in a community your organization cares about." },
+          { name: "Seats in a community", price: "10 or 25 seats", lead: "Cover participation for creatives", rest: "in a community your organization cares about." },
           {
             name: "Your whole organization",
             price: "Contact us",
@@ -183,7 +186,7 @@ const PAGES: Record<string, Page> = {
             lead: "Your feed, your feature slot, your foot traffic",
             rest: "— a podcast episode, a channel spotlight, a mailing list. Put local work in front of the people who already follow you, online or in the room.",
           },
-          { name: "Money", lead: "Sponsor a table or a show", rest: "— when you want to fund the scene directly, that door is open too." },
+          { name: "Money", lead: "Sponsor a show", rest: "— when you want to fund the scene directly, that door is open too." },
         ],
       },
     ],
@@ -212,14 +215,15 @@ const PAGES: Record<string, Page> = {
     ],
     ctas: [
       { label: "Offer a night", to: "/", primary: true },
-      { label: "Talk to a host near you", to: "/about/hosts" },
+      { label: "Talk to a host near you", to: "/about/hosts", v2: true },
     ],
     footer: "Where creatives find the people who support their work.",
   },
 };
 
 export function meta({ params }: { params: { audience?: string } }) {
-  const page = params.audience ? PAGES[params.audience] : undefined;
+  const hidden = params.audience === "hosts" && !FF_V2;
+  const page = params.audience && !hidden ? PAGES[params.audience] : undefined;
   return [{ title: page ? `${page.title} — TheCreative.exchange` : "TheCreative.exchange" }];
 }
 
@@ -236,7 +240,9 @@ function Text({ line }: { line: Line }) {
 export default function AboutAudience() {
   const { audience = "" } = useParams();
   const page = PAGES[audience];
-  if (!page) return <NotFound />;
+  // Hosting your own community is held back for launch (FF_V2).
+  if (!page || (audience === "hosts" && !FF_V2)) return <NotFound />;
+  const shown = <T extends { v2?: boolean }>(items: T[]) => items.filter((i) => FF_V2 || !i.v2);
 
   return (
     <AboutShell>
@@ -269,7 +275,7 @@ export default function AboutAudience() {
             className="rounded-xl overflow-hidden"
             style={{ border: "1px solid var(--garden-hairline-raised)" }}
           >
-            {section.rows.map((row, i) => (
+            {shown(section.rows).map((row, i) => (
               <div
                 key={row.name}
                 className="p-5"
@@ -348,7 +354,7 @@ export default function AboutAudience() {
       )}
 
       <div className="flex flex-wrap gap-3" style={{ marginTop: 40 }}>
-        {page.ctas.map((cta) => (
+        {shown(page.ctas).map((cta) => (
           <Link
             key={cta.label}
             to={cta.to}
