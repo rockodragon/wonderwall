@@ -1013,6 +1013,7 @@ export const getAttendees = query({
         imageUrl: null,
         message: null,
         joinedAt: a.joinedAt,
+        extraTickets: a.extraTickets, // counts toward "N going"; no names
       }));
     }
     return attendees;
