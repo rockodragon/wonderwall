@@ -91,7 +91,7 @@ First 18 months, Base case (the Use of Funds sheet):
 | Function | 18-month spend | Share | What is in it |
 |---|---|---|---|
 | Founders | $204k | 47% | Both founders' pay from the close ($51k each in year one, $78k in year two, loaded); Haley's sits in programs and Rick's in engineering on the model's function view |
-| Marketing & launch | $97k | 22% | A part-time launch and content helper from month 1 ($41k over the window), November 6 ($12k), the film series ($10k), content and outreach, partnerships travel |
+| Marketing & launch | $97k | 22% | A part-time launch and content helper from month 1 ($41k over the window), the 2027 community launches ($12k of events; November 6 itself is five weeks out and comes from current cash and sponsorships), the film series ($10k), content and outreach, partnerships travel |
 | Programs & community (excluding founder pay) | $66k | 15% | The community lead at half time from month 18, part-time coordinator hours, gathering stipends and venues, fellowship program administration |
 | Operations & G&A | $35k | 8% | Legal (formation, agreements), accounting, insurance, admin |
 | Engineering & platform (excluding founder pay) | $25k | 6% | Hosting and tools, contractors for design and QA, payments compliance; Rick is the engineering team |
@@ -101,7 +101,7 @@ First 18 months, Base case (the Use of Funds sheet):
 | Revenue in the window | $103k | | |
 | **Net cash need** | **$335k** | | |
 
-Year one alone is $228k of spend against $36k of revenue: $114k of loaded founder pay, $21k of part-time marketing help, $12k for November 6, $10k of film, $12k of legal, $8k of contractors, $8k of gathering stipends, and the rest in tools, insurance, accounting and payments. That is Haley's $45k list plus the founders plus the legal and payments work an investment requires.
+Year one alone is $228k of spend against $36k of revenue: $114k of loaded founder pay, $21k of part-time marketing help, $12k of launch events after November 6, $10k of film, $12k of legal, $8k of contractors, $8k of gathering stipends, and the rest in tools, insurance, accounting and payments. That is Haley's $45k list plus the founders plus the legal and payments work an investment requires.
 
 ## 6. The ask, and whether $350k fits the checks we can expect
 
