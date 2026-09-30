@@ -25,7 +25,7 @@ These are the slide sources (`deck.json` plus one HTML file per slide), saved so
 | 4 | creative-class | Flourishing is three things you can measure in a person's life. |
 | 5 | ecosystem | The infrastructure and engine for the arts and business in a city. |
 | 6 | revenue-model | The platform keeps 10 percent of what moves. The rest reaches creatives, communities and programs. |
-| 7 | market | Over four million creatives nationwide. Thirty-five thousand in reach. A thousand paying in three years. |
+| 7 | market | Millions of creatives. We start with 35,000. |
 | 8 | business | Two tracks. $1.4M platform revenue and breakeven in year five, on today's prices. |
 | 9 | traction | Soft-launched September 28. Public kickoff November 6. |
 | 10 | impact | We report on creatives, communities and the local economy every six months. |
