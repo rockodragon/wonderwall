@@ -21,22 +21,22 @@
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://creatives.exchange/about/creatives/</loc>
+    <loc>https://creatives.exchange/about/creatives</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://creatives.exchange/about/hosts/</loc>
+    <loc>https://creatives.exchange/about/hosts</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://creatives.exchange/about/partners/</loc>
+    <loc>https://creatives.exchange/about/partners</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://creatives.exchange/about/patrons/</loc>
+    <loc>https://creatives.exchange/about/patrons</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>

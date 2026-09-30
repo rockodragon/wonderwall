@@ -1,3 +1,9 @@
-/about/leaders /about/hosts/ 301
-/about/leaders/* /about/hosts/:splat 301
+/about/leaders /about 301
+/about/leaders/* /about 301
+/about/index.html /about 301
+/about/agreements.html /about/agreements 301
+/about/creatives/index.html /about/creatives 301
+/about/patrons/index.html /about/patrons 301
+/about/hosts/index.html /about/hosts 301
+/about/partners/index.html /about/partners 301
 /* /index.html 200

@@ -27,7 +27,7 @@ const VISIT_LIMIT = 3;
 // (Sign in CTAs, no partial forms) rather than being gated at the shell.
 // Prefix match is correct here: /communities, /communities/apply, and every
 // /communities/:slug should all be public.
-const PUBLIC_PATH_PREFIXES = ["/communities", "/people", "/search", "/offerings", "/tables"];
+const PUBLIC_PATH_PREFIXES = ["/about", "/communities", "/people", "/search", "/offerings", "/tables"];
 
 // /events/:eventId is public too — a calendar invite goes to a guest with
 // no account by design (eventRsvps.userId is optional), and event.tsx's own
@@ -495,13 +495,13 @@ export default function AppLayout() {
 
           {/* What this all is. One line; the page it opens says the rest. */}
           <div className="px-4 pt-1 pb-5">
-            <a
-              href="/about/index.html"
+            <Link
+              to="/about"
               className="text-xs uppercase tracking-[0.04em] whitespace-nowrap hover:underline"
               style={{ fontFamily: "var(--garden-font-mono)", color: "var(--app-text-dim)" }}
             >
               About TheCreative.exchange →
-            </a>
+            </Link>
           </div>
         </div>
       </aside>

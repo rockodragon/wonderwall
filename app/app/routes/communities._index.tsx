@@ -39,9 +39,9 @@ export function ErrorBoundary() {
 function IndexFooter() {
   return (
     <div className="mt-10 pt-6 border-t flex flex-col gap-2" style={{ borderColor: "var(--garden-hairline)" }}>
-      <a href="/about/index.html" className="text-[15px]" style={{ color: "var(--garden-citron)" }}>
+      <Link to="/about" className="text-[15px]" style={{ color: "var(--garden-citron)" }}>
         About TheCreative.exchange →
-      </a>
+      </Link>
       {FF_V2 && (
         <Link to="/communities/apply" className="text-[13.5px]" style={{ color: "var(--garden-dim)" }}>
           Apply to host your own community →
