@@ -60,6 +60,13 @@ export const CLAIMS = {
   partner: "Post paid work with the pay stated up front, or offer your space. Creatives respond, and you pick.",
   theGarden:
     "The platform is open to any creative. The Garden is the Christian creative community on it, and it is where this started.",
+  /** Member-directed giving (docs/features/member-directed-giving.md). The
+   * dollar amount is never in a claim: the page computes it from the
+   * member's own invoice. Server twins: GIVING_SENTENCES in
+   * convex/garden/giving.ts, checked by claims.test.ts. */
+  memberDirected: "Each month you pick which creative gets your half, or leave it in the grant fund.",
+  memberDirectedDefault: "If you don't pick by your next payment, it stays in the grant fund.",
+  memberDirectedFull: "What you give this way goes to them in full.",
 } as const;
 
 /** Phrases we dropped. claims.test.ts fails if any shows up in site source —

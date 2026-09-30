@@ -32,6 +32,7 @@ import { v } from "convex/values";
 import { internalMutation } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 import { upsertEventRsvp } from "./eventRsvps";
+import { parseGiftRef } from "./givingLink";
 
 const AP_HOST_ORG_SLUG = "abiding-practice";
 
@@ -90,9 +91,11 @@ export function buildApRenewalRow(args: {
   invoice: ApInvoiceLike;
   hostOrgId: string;
   payerName?: string;
+  userId?: string;
+  memberGiftId?: string;
   now: number;
 }): BuildApGrantRowResult {
-  const { invoice, hostOrgId, payerName, now } = args;
+  const { invoice, hostOrgId, payerName, userId, memberGiftId, now } = args;
   if (invoice.billing_reason === "subscription_create") {
     return { skipped: true, reason: "first invoice — recorded by its checkout" };
   }
@@ -108,6 +111,8 @@ export function buildApRenewalRow(args: {
       platformCents: 0,
       poolCents: grossCents,
       payerName: payerName || invoice.customer_name || undefined,
+      ...(userId ? { userId } : {}),
+      ...(memberGiftId ? { memberGiftId } : {}),
       stripeRef: `ap:${invoice.id}`,
       period: periodFromStripeSeconds(invoice.period_start ?? invoice.created ?? Math.floor(now / 1000)),
       note: "Monthly gift through Abiding Practice",
@@ -134,7 +139,10 @@ export interface ApGrantContributionRow {
   grossCents: number;
   platformCents: 0;
   poolCents: number;
-  userId?: string; // the buyer, when a ticket purchase resolved a signed-in user
+  userId?: string; // the buyer, when a ticket purchase resolved a signed-in user; or the member behind a /give plus-up
+  // A member's plus-up to the fund from /give (givingLink.ts): the monthly
+  // amount that prompted it. The behavior-change report reads this.
+  memberGiftId?: string;
   payerName?: string;
   stripeRef: string; // "ap:<session id>" — prefixed so it can never collide
   // with the platform account's own checkout session / invoice ids.
@@ -192,9 +200,11 @@ export type BuildApGrantRowResult =
 export function buildApGrantContributionRow(args: {
   session: ApCheckoutSessionLike;
   hostOrgId: string;
+  /** From the /give plus-up link's client_reference_id (parseGiftRef). */
+  attribution?: { userId: string; memberGiftId: string };
   now: number;
 }): BuildApGrantRowResult {
-  const { session, hostOrgId, now } = args;
+  const { session, hostOrgId, attribution, now } = args;
 
   const currency = (session.currency ?? "usd").toLowerCase();
   if (currency !== "usd") {
@@ -215,9 +225,12 @@ export function buildApGrantContributionRow(args: {
       // display copy, not a captured email (same rule as stripeHandlers.ts's
       // handlePoolContributionCompleted).
       payerName: session.customer_details?.name || undefined,
+      ...(attribution ? { userId: attribution.userId, memberGiftId: attribution.memberGiftId } : {}),
       stripeRef: `ap:${session.id}`,
       period: periodFromStripeSeconds(periodSeconds),
-      note: "Gift through Abiding Practice",
+      note: attribution
+        ? (session.subscription ? "Monthly gift through Abiding Practice, added from a member's monthly amount" : "Gift through Abiding Practice, added from a member's monthly amount")
+        : "Gift through Abiding Practice",
       createdAt: now,
     },
   };
@@ -442,7 +455,22 @@ export const applyApStripeEvent = internalMutation({
       .map((id) => id.trim())
       .filter(Boolean);
 
-    if (!isApGrantFundGift(session, grantPaymentLinkIds)) {
+    // A plus-up from /give carries `gift-<memberGiftId>-u-<userId>`
+    // (givingLink.ts). The link is one of the fund's own, so the ref alone
+    // designates it; the ids are checked against real rows before they are
+    // written, and a stale ref falls back to an unattributed gift.
+    const giftRef = parseGiftRef(session.client_reference_id);
+    let attribution: { userId: Id<"users">; memberGiftId: Id<"memberGifts"> } | undefined;
+    if (giftRef) {
+      const userId = ctx.db.normalizeId("users", giftRef.userId);
+      const memberGiftId = ctx.db.normalizeId("memberGifts", giftRef.memberGiftId);
+      const gift = memberGiftId ? await ctx.db.get(memberGiftId) : null;
+      if (userId && memberGiftId && gift && String(gift.userId) === String(userId)) {
+        attribution = { userId, memberGiftId };
+      }
+    }
+
+    if (!attribution && !isApGrantFundGift(session, grantPaymentLinkIds)) {
       console.log("[ap stripe webhook] not a grant-fund gift", event.id);
       return;
     }
@@ -457,20 +485,24 @@ export const applyApStripeEvent = internalMutation({
       .unique();
     if (existing) return; // idempotent replay
 
-    const result = buildApGrantContributionRow({ session, hostOrgId: String(org._id), now: Date.now() });
+    const result = buildApGrantContributionRow({
+      session,
+      hostOrgId: String(org._id),
+      ...(attribution ? { attribution: { userId: String(attribution.userId), memberGiftId: String(attribution.memberGiftId) } } : {}),
+      now: Date.now(),
+    });
     if ("skipped" in result) {
       console.log("[ap stripe webhook]", result.reason, event.id);
       return;
     }
 
-    // A gift never carries userId (buildApGrantContributionRow doesn't set
-    // it) — dropped here too so `rest`'s type lines up with the schema's
-    // Id<"users"> rather than the plain string the ticket row's userId is
-    // shaped from.
-    const { hostOrgId: _hostOrgId, userId: _userId, ...rest } = result.row;
+    // The row's userId/memberGiftId are plain strings; the typed ids come
+    // from `attribution` (already resolved against real rows above).
+    const { hostOrgId: _hostOrgId, userId: _userId, memberGiftId: _memberGiftId, ...rest } = result.row;
     await ctx.db.insert("grantContributions", {
       ...rest,
       hostOrgId: org._id as Id<"hostOrgs">,
+      ...(attribution ? { userId: attribution.userId, memberGiftId: attribution.memberGiftId } : {}),
     });
 
     // A monthly gift: remember its subscription so renewals are recognized.
@@ -486,6 +518,7 @@ export const applyApStripeEvent = internalMutation({
           subscriptionId,
           hostOrgId: org._id as Id<"hostOrgs">,
           payerName: session.customer_details?.name || undefined,
+          ...(attribution ? { userId: attribution.userId, memberGiftId: attribution.memberGiftId } : {}),
           createdAt: Date.now(),
         });
       }
@@ -519,13 +552,20 @@ async function applyApRenewal(ctx: any, eventId: string, invoice: ApInvoiceLike)
     invoice,
     hostOrgId: String(gift.hostOrgId),
     payerName: gift.payerName,
+    ...(gift.userId ? { userId: String(gift.userId) } : {}),
+    ...(gift.memberGiftId ? { memberGiftId: String(gift.memberGiftId) } : {}),
     now: Date.now(),
   });
   if ("skipped" in result) {
     console.log("[ap stripe webhook]", result.reason, eventId);
     return;
   }
-  const { hostOrgId: _h, userId: _u, ...rest } = result.row;
-  await ctx.db.insert("grantContributions", { ...rest, hostOrgId: gift.hostOrgId });
+  const { hostOrgId: _h, userId: _u, memberGiftId: _g, ...rest } = result.row;
+  await ctx.db.insert("grantContributions", {
+    ...rest,
+    hostOrgId: gift.hostOrgId,
+    ...(gift.userId ? { userId: gift.userId } : {}),
+    ...(gift.memberGiftId ? { memberGiftId: gift.memberGiftId } : {}),
+  });
 }
 

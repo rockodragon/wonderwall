@@ -47,6 +47,8 @@ import type * as garden_artifactsMigration from "../garden/artifactsMigration.js
 import type * as garden_capabilities from "../garden/capabilities.js";
 import type * as garden_communities from "../garden/communities.js";
 import type * as garden_communityDomains from "../garden/communityDomains.js";
+import type * as garden_connect from "../garden/connect.js";
+import type * as garden_connectState from "../garden/connectState.js";
 import type * as garden_coverage from "../garden/coverage.js";
 import type * as garden_defaultCommunity from "../garden/defaultCommunity.js";
 import type * as garden_devSeed from "../garden/devSeed.js";
@@ -56,6 +58,8 @@ import type * as garden_eventVisibility from "../garden/eventVisibility.js";
 import type * as garden_gigRules from "../garden/gigRules.js";
 import type * as garden_gigSummary from "../garden/gigSummary.js";
 import type * as garden_gigs from "../garden/gigs.js";
+import type * as garden_giving from "../garden/giving.js";
+import type * as garden_givingLink from "../garden/givingLink.js";
 import type * as garden_givingLinks from "../garden/givingLinks.js";
 import type * as garden_grantProposals from "../garden/grantProposals.js";
 import type * as garden_interestsMigration from "../garden/interestsMigration.js";
@@ -162,6 +166,8 @@ declare const fullApi: ApiFromModules<{
   "garden/capabilities": typeof garden_capabilities;
   "garden/communities": typeof garden_communities;
   "garden/communityDomains": typeof garden_communityDomains;
+  "garden/connect": typeof garden_connect;
+  "garden/connectState": typeof garden_connectState;
   "garden/coverage": typeof garden_coverage;
   "garden/defaultCommunity": typeof garden_defaultCommunity;
   "garden/devSeed": typeof garden_devSeed;
@@ -171,6 +177,8 @@ declare const fullApi: ApiFromModules<{
   "garden/gigRules": typeof garden_gigRules;
   "garden/gigSummary": typeof garden_gigSummary;
   "garden/gigs": typeof garden_gigs;
+  "garden/giving": typeof garden_giving;
+  "garden/givingLink": typeof garden_givingLink;
   "garden/givingLinks": typeof garden_givingLinks;
   "garden/grantProposals": typeof garden_grantProposals;
   "garden/interestsMigration": typeof garden_interestsMigration;
