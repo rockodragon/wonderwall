@@ -113,6 +113,7 @@ http.route({
 // Events to enable on this endpoint in the Stripe dashboard:
 //   checkout.session.completed
 //   checkout.session.async_payment_succeeded
+//   invoice.paid  (renewals of monthly grant-fund gifts)
 // ————————————————————————————————————————————————————————————————
 
 http.route({

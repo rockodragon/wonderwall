@@ -56,12 +56,68 @@ export interface ApCheckoutSessionLike {
   /** The Payment Link's custom fields — AP's has one optional text box for
    * the other guests' names (ticketLink.ts guestNamesFrom). */
   custom_fields?: StripeCustomFieldLike[] | null;
+  /** Set when the Payment Link sells a subscription (a monthly gift). */
+  subscription?: string | { id: string } | null;
   /** Seconds since epoch — same "period" fallback stripeHandlers.ts uses for
    * one-time payment sessions, which carry no period_start. */
   created?: number;
 }
 
+/** The parts of a Stripe invoice a monthly gift's renewal needs. Where the
+ * subscription id lives has moved across API versions, so both places. */
+export interface ApInvoiceLike {
+  id: string;
+  billing_reason?: string | null; // "subscription_create" | "subscription_cycle" | …
+  amount_paid?: number | null;
+  currency?: string | null;
+  created?: number;
+  period_start?: number;
+  customer_name?: string | null;
+  subscription?: string | { id: string } | null;
+  parent?: { subscription_details?: { subscription?: string | { id: string } | null } | null } | null;
+}
+
+export function invoiceSubscriptionId(invoice: ApInvoiceLike): string | null {
+  const s = invoice.parent?.subscription_details?.subscription ?? invoice.subscription;
+  if (!s) return null;
+  return typeof s === "string" ? s : s.id;
+}
+
+/** A renewal of a monthly gift → one contribution row. The first invoice
+ * ("subscription_create") is skipped: its checkout session already
+ * recorded that payment. */
+export function buildApRenewalRow(args: {
+  invoice: ApInvoiceLike;
+  hostOrgId: string;
+  payerName?: string;
+  now: number;
+}): BuildApGrantRowResult {
+  const { invoice, hostOrgId, payerName, now } = args;
+  if (invoice.billing_reason === "subscription_create") {
+    return { skipped: true, reason: "first invoice — recorded by its checkout" };
+  }
+  const currency = (invoice.currency ?? "usd").toLowerCase();
+  if (currency !== "usd") return { skipped: true, reason: `non-usd currency (${currency}), skipping` };
+  const grossCents = invoice.amount_paid ?? 0;
+  if (grossCents <= 0) return { skipped: true, reason: "nothing paid" };
+  return {
+    row: {
+      hostOrgId,
+      type: "contribution_in",
+      grossCents,
+      platformCents: 0,
+      poolCents: grossCents,
+      payerName: payerName || invoice.customer_name || undefined,
+      stripeRef: `ap:${invoice.id}`,
+      period: periodFromStripeSeconds(invoice.period_start ?? invoice.created ?? Math.floor(now / 1000)),
+      note: "Monthly gift through Abiding Practice",
+      createdAt: now,
+    },
+  };
+}
+
 export type ApStripeWebhookEvent =
+  | { id: string; type: "invoice.paid"; data: { object: ApInvoiceLike } }
   | {
       id: string;
       type: "checkout.session.completed" | "checkout.session.async_payment_succeeded";
@@ -350,6 +406,11 @@ export const applyApStripeEvent = internalMutation({
   handler: async (ctx, args) => {
     const event = args.event as ApStripeWebhookEvent;
 
+    if (event.type === "invoice.paid") {
+      await applyApRenewal(ctx, event.id, event.data.object as ApInvoiceLike);
+      return;
+    }
+
     if (
       event.type !== "checkout.session.completed" &&
       event.type !== "checkout.session.async_payment_succeeded"
@@ -411,6 +472,60 @@ export const applyApStripeEvent = internalMutation({
       ...rest,
       hostOrgId: org._id as Id<"hostOrgs">,
     });
+
+    // A monthly gift: remember its subscription so renewals are recognized.
+    const subscriptionId =
+      typeof session.subscription === "string" ? session.subscription : session.subscription?.id;
+    if (subscriptionId) {
+      const known = await ctx.db
+        .query("apGiftSubscriptions")
+        .withIndex("by_subscriptionId", (q) => q.eq("subscriptionId", subscriptionId))
+        .unique();
+      if (!known) {
+        await ctx.db.insert("apGiftSubscriptions", {
+          subscriptionId,
+          hostOrgId: org._id as Id<"hostOrgs">,
+          payerName: session.customer_details?.name || undefined,
+          createdAt: Date.now(),
+        });
+      }
+    }
   },
 });
+
+/** invoice.paid on AP's account: a renewal of a monthly grant-fund gift adds
+ * to the fund; any other subscription of AP's is none of our business. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function applyApRenewal(ctx: any, eventId: string, invoice: ApInvoiceLike) {
+  const subscriptionId = invoiceSubscriptionId(invoice);
+  if (!subscriptionId) return;
+  const gift = await ctx.db
+    .query("apGiftSubscriptions")
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .withIndex("by_subscriptionId", (q: any) => q.eq("subscriptionId", subscriptionId))
+    .unique();
+  if (!gift) {
+    console.log("[ap stripe webhook] invoice for a subscription that isn't a grant-fund gift", eventId);
+    return;
+  }
+  const stripeRef = `ap:${invoice.id}`;
+  const existing = await ctx.db
+    .query("grantContributions")
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .withIndex("by_stripeRef", (q: any) => q.eq("stripeRef", stripeRef))
+    .unique();
+  if (existing) return; // idempotent replay
+  const result = buildApRenewalRow({
+    invoice,
+    hostOrgId: String(gift.hostOrgId),
+    payerName: gift.payerName,
+    now: Date.now(),
+  });
+  if ("skipped" in result) {
+    console.log("[ap stripe webhook]", result.reason, eventId);
+    return;
+  }
+  const { hostOrgId: _h, userId: _u, ...rest } = result.row;
+  await ctx.db.insert("grantContributions", { ...rest, hostOrgId: gift.hostOrgId });
+}
 

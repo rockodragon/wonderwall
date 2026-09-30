@@ -1515,6 +1515,17 @@ export default defineSchema({
   // payer paid; platformCents is the platform's share INCLUDING processing;
   // poolCents is what the pool actually holds. For dues, the receipt split
   // is 50/50; for direct inflows, 10% platform. Awards out are 0%.
+  // Monthly gifts to AP's grant fund (garden/apGifts.ts): the subscription
+  // a gift checkout started, so its later invoice.paid renewals — which
+  // carry the subscription id but nothing saying "grant fund" — are
+  // recognized and added to the fund's ledger.
+  apGiftSubscriptions: defineTable({
+    subscriptionId: v.string(),
+    hostOrgId: v.id("hostOrgs"),
+    payerName: v.optional(v.string()),
+    createdAt: v.number(),
+  }).index("by_subscriptionId", ["subscriptionId"]),
+
   grantContributions: defineTable({
     hostOrgId: v.id("hostOrgs"), // the pool owner: the platform row, or a community
     type: v.string(), // "dues_share" | "contribution_in" | "topup_in" | "sponsor_in" | "entry_fee_in" | "adjustment" | "ticket_in"

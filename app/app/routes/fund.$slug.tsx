@@ -441,6 +441,8 @@ export default function FundPage() {
   const slug = rawSlug ? (FUND_ALIASES[rawSlug] ?? rawSlug) : rawSlug;
   // Hooks stay above every early return (React rules-of-hooks).
   const [searchParams] = useSearchParams();
+  // One-time or monthly, when the org has both Payment Links.
+  const [giveMonthly, setGiveMonthly] = useState(false);
   const data = useQuery(
     api.garden.allocations.getFundPage,
     slug ? { hostOrgSlug: slug } : "skip",
@@ -540,13 +542,48 @@ export default function FundPage() {
                 takes the gift in THEIR account, and returns the giver right here
                 (after_completion redirect → ?gave=1). We process nothing (D3). */}
             {givingHref && !gaveThanks && (
-              <a
-                href={givingHref}
-                className="g-btn g-btn-citron"
-                style={{ marginTop: 18, display: "inline-block" }}
-              >
-                Give to {NAMED_FUNDS[org.slug]?.name ?? "the Grant Fund"}
-              </a>
+              <div style={{ marginTop: 18 }}>
+                {org.monthlyPaymentLinkUrl && (
+                  <div
+                    role="radiogroup"
+                    aria-label="How often"
+                    className="inline-flex rounded-lg"
+                    style={{ border: "1px solid var(--g-hairline)", padding: 3, marginBottom: 12 }}
+                  >
+                    {[
+                      { monthly: false, label: "One-time" },
+                      { monthly: true, label: "Monthly" },
+                    ].map((o) => (
+                      <button
+                        key={o.label}
+                        type="button"
+                        role="radio"
+                        aria-checked={giveMonthly === o.monthly}
+                        onClick={() => setGiveMonthly(o.monthly)}
+                        className="rounded-md"
+                        style={{
+                          padding: "8px 16px",
+                          fontSize: 13.5,
+                          fontWeight: 600,
+                          background: giveMonthly === o.monthly ? "var(--g-paper)" : "transparent",
+                          color: giveMonthly === o.monthly ? "#141414" : "var(--g-paper)",
+                        }}
+                      >
+                        {o.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <div>
+                  <a
+                    href={giveMonthly && org.monthlyPaymentLinkUrl ? org.monthlyPaymentLinkUrl : givingHref}
+                    className="g-btn g-btn-citron"
+                    style={{ display: "inline-block" }}
+                  >
+                    {giveMonthly ? "Give monthly to" : "Give to"} {NAMED_FUNDS[org.slug]?.name ?? "the Grant Fund"}
+                  </a>
+                </div>
+              </div>
             )}
             <p className="g-hint" style={{ marginTop: 10 }}>
               Gifts go to {org.name}, a nonprofit — your receipt comes from them.

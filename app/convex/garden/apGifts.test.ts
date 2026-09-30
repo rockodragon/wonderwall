@@ -3,6 +3,8 @@
 
 import { describe, expect, it } from "vitest";
 import {
+  buildApRenewalRow,
+  invoiceSubscriptionId,
   isApGrantFundGift,
   buildApGrantContributionRow,
   buildApTicketContributionRow,
@@ -252,5 +254,44 @@ describe("buildApTicketContributionRow", () => {
     });
     if (!("row" in result)) throw new Error("expected a row");
     expect(JSON.stringify(result.row)).not.toContain("jordan@example.com");
+  });
+});
+
+describe("monthly gift renewals (invoice.paid)", () => {
+  const base = { id: "in_1", amount_paid: 2500, currency: "usd", period_start: 1_790_000_000 };
+
+  it("finds the subscription in either place Stripe puts it", () => {
+    expect(invoiceSubscriptionId({ id: "in_1", subscription: "sub_old" })).toBe("sub_old");
+    expect(
+      invoiceSubscriptionId({ id: "in_1", parent: { subscription_details: { subscription: "sub_new" } } }),
+    ).toBe("sub_new");
+    expect(invoiceSubscriptionId({ id: "in_1" })).toBeNull();
+  });
+
+  it("a renewal becomes a gift row keyed on the invoice", () => {
+    const r = buildApRenewalRow({
+      invoice: { ...base, billing_reason: "subscription_cycle" },
+      hostOrgId: "org_ap",
+      payerName: "Dana",
+      now: 0,
+    });
+    expect("row" in r && r.row).toMatchObject({
+      type: "contribution_in",
+      grossCents: 2500,
+      poolCents: 2500,
+      platformCents: 0,
+      payerName: "Dana",
+      stripeRef: "ap:in_1",
+    });
+  });
+
+  it("skips the first invoice, which its checkout already recorded", () => {
+    const r = buildApRenewalRow({ invoice: { ...base, billing_reason: "subscription_create" }, hostOrgId: "org_ap", now: 0 });
+    expect("skipped" in r).toBe(true);
+  });
+
+  it("skips non-usd and zero-amount invoices", () => {
+    expect("skipped" in buildApRenewalRow({ invoice: { ...base, currency: "eur" }, hostOrgId: "o", now: 0 })).toBe(true);
+    expect("skipped" in buildApRenewalRow({ invoice: { ...base, amount_paid: 0 }, hostOrgId: "o", now: 0 })).toBe(true);
   });
 });

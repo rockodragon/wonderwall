@@ -56,6 +56,7 @@ import type * as garden_eventVisibility from "../garden/eventVisibility.js";
 import type * as garden_gigRules from "../garden/gigRules.js";
 import type * as garden_gigSummary from "../garden/gigSummary.js";
 import type * as garden_gigs from "../garden/gigs.js";
+import type * as garden_givingLinks from "../garden/givingLinks.js";
 import type * as garden_grantProposals from "../garden/grantProposals.js";
 import type * as garden_interestsMigration from "../garden/interestsMigration.js";
 import type * as garden_jobsMigration from "../garden/jobsMigration.js";
@@ -170,6 +171,7 @@ declare const fullApi: ApiFromModules<{
   "garden/gigRules": typeof garden_gigRules;
   "garden/gigSummary": typeof garden_gigSummary;
   "garden/gigs": typeof garden_gigs;
+  "garden/givingLinks": typeof garden_givingLinks;
   "garden/grantProposals": typeof garden_grantProposals;
   "garden/interestsMigration": typeof garden_interestsMigration;
   "garden/jobsMigration": typeof garden_jobsMigration;
