@@ -29,8 +29,8 @@ These are the slide sources (`deck.json` plus one HTML file per slide), saved so
 | 8 | business | Two tracks. $1.5M platform revenue in year five, on today's prices. |
 | 9 | traction | Soft-launched September 28. Kickoff November 6. |
 | 10 | impact | How we validate impact, every six months. (preliminary model) |
-| 11 | ask | $350,000 on a convertible note. |
-| 12 | use-of-funds | Eighteen months: founders full time before any hire. |
+| 11 | ask | $350,000 pre-seed. First close $150k. |
+| 12 | use-of-funds | Eighteen months: founders paid from the first close, one hire. |
 | 13 | team | Two founders and an advisor with a record of building businesses and communities. |
 
 ## Before sharing

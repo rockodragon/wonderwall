@@ -1,31 +1,76 @@
-# CFO memo: the entity, how Prebys can fund a for-profit, the ask, and the spend
+# CFO memo: the entity, founder pay, the team, how Prebys can fund a for-profit, the ask, and the spend
 
-2026-09-30. Companion: `docs/financial-model-5yr-v2.xlsx` (Inputs, Combined, Use of Funds sheets). Written as the frank version, not the pitch version.
+2026-09-30, revised the same day after the founders' pushback (pay from the close, no team of ten, is $350k too much up front, and there is no entity yet). Companion: `docs/financial-model-5yr-v2.xlsx` (Inputs, Combined, Use of Funds sheets). Written as the frank version, not the pitch version.
 
-## 1. Entity: LLC or C-corp
+## 1. Entity: there is no entity yet, so form a Delaware C-corp now
 
-**Recommendation: convert to a Delaware C-corp before the first outside money closes.** Until that is done, take money on a convertible note, not a SAFE.
+**Status.** There is no LLC. The product, the domain and the spending to date run through Rick's S-corp. That is fine for a prototype and wrong for a raise: an S-corp cannot take an investor (one class of stock, no entity shareholders, a 100-shareholder cap, and no preferred stock for a SAFE to convert into), and the company's IP sits inside a business that also does Rick's other work.
 
-Why a SAFE does not work today: a SAFE converts into preferred stock, and an LLC has membership units, not stock. There are LLC-flavored SAFEs, but investors do not know them, their lawyers redline them, and they still leave the tax problem below unsolved.
+**Recommendation: incorporate theCreative.exchange, Inc. as a Delaware C-corp in October, before the November 6 room and before the first check.** Nothing exists, so this is a formation, not a conversion: no statutory merger, no LLC to unwind, no K-1 history. It is a two-week job.
 
-Why the C-corp, in order of weight:
+What it costs and what it takes:
 
-1. **Foundations and other tax-exempt investors avoid LLC equity.** An LLC taxed as a partnership passes its operating income through to each owner. For a private foundation that income is unrelated business taxable income, and every year it gets a K-1. Prebys, a donor-advised fund, or a university endowment will either decline or require a blocker. Interest on a loan to an LLC does not have this problem, which is why the PRI loan route below works with either entity.
-2. **Qualified small business stock.** Investors in a C-corp that meets the tests (under $50M in assets, active business) can exclude 100% of the federal capital gain on stock held five years, capped at the greater of $10M or ten times basis. Angels price this in. An LLC cannot offer it, and the five-year clock starts at the stock's issue date, which is one more reason to convert before the first check.
-3. **Instruments and hiring.** SAFEs, priced rounds, an option pool for the first hires, and every impact fund's standard documents assume a corporation.
+1. **Filing and setup.** Delaware certificate of incorporation, registered agent, EIN, bank account, California foreign qualification (the $800 minimum franchise tax applies from the first year the corporation does business here). A standard startup formation package (charter with 10 million authorized common shares, bylaws, founder stock purchase agreements, IP assignments, board and stockholder consents, 83(b) elections) runs a few hundred dollars through Clerky or Stripe Atlas and a few thousand through a startup lawyer. Budgeted in Operations, year one.
+2. **Founder stock.** Both founders buy common at par with four-year vesting, a one-year cliff and double-trigger acceleration, and file 83(b) elections within 30 days. Investors expect this and it protects each founder from the other. Decide the split between Rick and Haley in writing now; the older docs mention a stake for David, so settle that too.
+3. **Move the IP out of the S-corp.** An IP assignment from the S-corp to the corporation covering the code, the brand, the domains and the data, before any investor diligence. The S-corp's spending to date becomes either a capital contribution or a documented founder loan; that is a CPA question, decide it once and paper it.
+4. **The S-corp keeps doing what it does** (Rick's other work). It does not invoice the startup for pre-formation costs unless the arrangement is arm's length and written down; simpler to contribute.
+5. **Governance.** A board of the two founders. No option pool until the seed; an option pool now only dilutes the founders ahead of the people it is meant for.
+6. **Cap table in Carta or Pulley from day one.** Every SAFE, note and grant goes in the day it is signed.
 
-Cost of converting: a California LLC can convert to a Delaware corporation by statutory conversion, roughly $5,000 to $10,000 in legal fees plus Delaware and California filings, two to four weeks. Ongoing: Delaware franchise tax (a few hundred dollars a year on the assumed-par-value method while the company is small), California foreign qualification and the $800 minimum franchise tax, and corporate tax on profits, which is not a concern for several years. The public benefit corporation question is separate: a Delaware PBC is a C-corp with a stated public benefit, it can be chosen at conversion or later by charter amendment, and no funder in the pipeline requires it. Decide it when a term sheet asks.
+Why it is worth doing now rather than at the seed:
 
-If money arrives before the conversion is done: a convertible note that converts into equity of the successor corporation, with a covenant to complete the conversion within a set period. Do not sell LLC units to a group of small investors; each one gets a K-1 every year and the cap table becomes unmanageable.
+- **Qualified small business stock.** The five-year clock for the 100% federal capital-gain exclusion starts when the stock is issued, and it applies to the founders' own shares, not only the investors'. Every month of delay is a month off the clock.
+- **The SAFE comes back.** With a corporation, the standard post-money SAFE is available again, and it is the instrument the November 6 room, Faith Driven angels and Praxis know. Convertible notes stay useful for a lender who needs a maturity date and interest.
+- **Foundations can buy equity.** No UBTI, no K-1, no blocker. The Prebys equity route in section 4 needs the corporation to exist.
+- **Hires can get options**, and Praxis requires a US C-corp to apply.
 
-## 2. How Prebys can put money into a for-profit
+The public benefit corporation question stays open, as the founders asked. It is a one-clause choice at formation and can be added later by charter amendment; no funder in the pipeline requires it and some investors still redline it. Form a plain Delaware corporation unless a term sheet asks otherwise.
+
+## 2. Founder pay: from the first close, on a ramp, conditional on the money
+
+The earlier version of this memo started founder pay at month 10. The founders are right that this is self-inflicted: investors are funding two people to work on this full time, and unpaid founders with day jobs are the risk the money is meant to remove. Every pre-seed budget pays its founders modestly; what investors object to is market pay, not pay.
+
+The model now pays both founders **from the month after a first close of at least $150,000**, on this ladder (cash pay per founder; the model loads it 12 to 20% for payroll taxes and benefits):
+
+| Period | Monthly, each | Annual, each | Share of market ($175k) | Condition |
+|---|---|---|---|---|
+| Month 1 | $0 | | | before the first close |
+| Months 2 to 7 | $4,000 | | 27% | first close of $150k or more |
+| Months 8 to 12 | $5,500 | $51k in year one | 38% | the round reaches $250k, or annualized revenue passes $50k |
+| Year two | $6,000 rising to $7,000 | $78k | 45% | annualized revenue past $100k and 12 communities live |
+| Year three | | $105k | 60% | the seed closes |
+| Year four | | $125k | 71% | revenue per FTE past $100k |
+| Year five | | $140k | 80% | |
+
+Two rules travel with the ladder. **Both founders are full time before anyone else is hired full time**, and **a step happens only when its condition is met**; if the round or the revenue lags, pay holds at the current step. Put the ladder in the founders' offer letters and on the use-of-funds slide, not in the SAFE; investors read it, they do not sign it.
+
+What it costs: paying from the close instead of month 10 adds about $84k of spend to the 18-month window and takes runway on $350k from 24 months to 21. Founders are $204k of the $396k window (52%). That share is normal for a pre-seed; the money is buying the two people, the launch and the first hire. Each $1,000 a month of pay per founder is about $14k a year loaded, or one month of year-one runway, which is the sensitivity to use if the round comes in light.
+
+## 3. The team: eight people in year five, not ten, and only two for the first eighteen months
+
+The plan is founders first and hires gated on revenue. Headcount by year, full-time equivalents including both founders (the Headcount plan on the Use of Funds sheet):
+
+| Role | Year 1 | Year 2 | Year 3 | Year 4 | Year 5 | Trigger |
+|---|---|---|---|---|---|---|
+| Founders (Rick: product and engineering; Haley: community and programs) | 2 | 2 | 2 | 2 | 2 | paid from the first close, section 2 |
+| Community and partnerships lead | | 0.5 | 1 | 1.5 | 2 | month 18, when there are 12 communities to serve; a second person past 60 communities |
+| Member support | | | 0.5 | 1 | 1 | members past 4,000 |
+| Marketing | | | 0.5 | 1 | 1 | contractors before that; a person when non-payroll marketing passes $100k a year |
+| Engineering | | | 0.5 | 1 | 1.5 | Rick is the engineering team through year two |
+| Operations and finance | | | | 0.5 | 0.5 | bookkeeping outsourced before that |
+| **Total FTE** | **2** | **2.5** | **4.5** | **7** | **8** | |
+| Revenue per FTE | $18k | $53k | $86k | $116k | $184k | no hire while it is under $100k, from year three on |
+
+What this does to the Base plan: costs are $207k, $377k, $732k, $1.15M and $1.48M against revenue of $36k, $133k, $385k, $810k and $1.47M, so EBITDA is −$171k, −$244k, −$346k, −$340k and −$7k. The Base plan reaches breakeven at the end of year five on a team of eight with founders at 80% of market, and needs about $1.1M of capital over two rounds to get there. The plan that pays a bigger team sooner is the Fundable one: 3, 7, 10, 14 and 18 people, $5.3M of revenue in year five, EBITDA positive in year four, $1.4M of capital repaid from year five. That is the seed's plan, not this round's.
+
+## 4. How Prebys can put money into a for-profit
 
 The Creative Industry Survey exists because Prebys wants to invest in, not grant to, San Diego creative businesses. The routes, in order of how well they fit us now:
 
 | Route | What it is | Entity needed | Fit today |
 |---|---|---|---|
 | **Program-related investment, loan** | A below-market loan (1 to 3%, five to seven years, sometimes with deferred principal) made for a charitable purpose; the foundation documents that purpose and does expenditure responsibility | Either | Best fit. Interest is not UBTI, the purpose (inclusive economic opportunity for San Diego creatives) is squarely theirs, and it does not price the company |
-| **Program-related or mission-related investment, equity** | Prebys buys stock, directly or through the fund Upstart Co-Lab is scouting for | C-corp | Good fit after conversion. This is what the survey pipeline leads to; expect a 12 to 18 month path |
+| **Program-related or mission-related investment, equity** | Prebys buys stock, directly or through the fund Upstart Co-Lab is scouting for | C-corp | Good fit once the corporation exists. This is what the survey pipeline leads to; expect a 12 to 18 month path |
 | **Grant to the 501(c)(3) partner for the fellowship program and covered seats** | Prebys funds Abiding Practice; Abiding Practice pays the platform its administration fee and buys seat packs at the same price anyone pays | Either | Available now and fully in character for a foundation. The platform's fees must be at fair market value, the agreement at arm's length, and the money is earned revenue, not investment |
 | **Sponsorship** | Prebys underwrites the November 6 kickoff or the "Creative Economy We All Need" series, hosted by the nonprofit partner | Either | Available now; small, but it starts the relationship and puts their name in the room |
 | **Recoverable grant or grant to the company** | A grant to a for-profit for a defined charitable project, with expenditure responsibility | Either | Rare and paperwork-heavy for the foundation; they will prefer to route it through the nonprofit |
@@ -33,64 +78,69 @@ The Creative Industry Survey exists because Prebys wants to invest in, not grant
 
 The practical sequence: sponsorship and a program grant to Abiding Practice this quarter (they are decisions a program officer can make), the survey and Upstart conversation for the investment pipeline, and a PRI loan as the first investment instrument if it comes before the equity vehicle exists.
 
-## 3. What the money is for
+## 5. What the money is for
 
-Haley's year-one list ($45k: launch event $12k, testimonial film series $10k, part-time community staff $15k to $22k, gathering stipends, platform infrastructure under $2k, legal and accounting $4k to $5k) is a program budget. It funds the community's activity and nobody's salary. It is the right list for the months when both founders still have day jobs, and it is close to what the model's Conservative case spends.
+Haley's year-one list ($45k: launch event $12k, testimonial film series $10k, part-time community staff $15k to $22k, gathering stipends, platform infrastructure under $2k, legal and accounting $4k to $5k) is a program budget. It funds the community's activity and nobody's salary. It is close to what the model's Conservative case spends, and it is inside the Base numbers below as the non-payroll part of programs and marketing.
 
-The model now budgets by function on the founders-first rule: **no full-time employee until both founders are full time, and founder pay starts when there is money for it and ramps.** Base case: founders draw from month 10 at $60k a year each, ramp to $90k through year two, then $110k, $135k and $150k; the first employee, a community and partnerships lead, starts at month 18. First 18 months (the Use of Funds sheet):
+First 18 months, Base case (the Use of Funds sheet):
 
 | Function | 18-month spend | Share | What is in it |
 |---|---|---|---|
-| Programs & community | $126k | 38% | Haley's pay from month 10 ($60k, ramping), the community lead at half time from month 18, part-time coordinator hours, gathering stipends and venues, fellowship program administration |
-| Engineering & platform | $84k | 26% | Rick's pay from month 10 (same ladder), hosting and tools, contractors for design and QA, payments compliance |
-| Marketing & launch | $55k | 17% | November 6 ($12k), the film series ($10k), content and outreach, partnerships travel |
-| Operations & G&A | $35k | 11% | Legal (entity conversion, agreements), accounting, insurance, admin |
-| Support | $21k | 6% | Part-time coverage, then a half-time support hire in year two |
+| Programs & community | $168k | 42% | Haley's pay from the close ($51k year one, $78k year two, loaded), the community lead at half time from month 18, part-time coordinator hours, gathering stipends and venues, fellowship program administration |
+| Engineering & platform | $126k | 32% | Rick's pay from the close (same ladder), hosting and tools, contractors for design and QA, payments compliance |
+| Marketing & launch | $55k | 14% | November 6 ($12k), the film series ($10k), content and outreach, partnerships travel |
+| Operations & G&A | $35k | 9% | Legal (formation, agreements), accounting, insurance, admin |
 | Payments | $7k | 2% | Card processing absorbed and payout costs |
-| **Total spend** | **$327k** | | Founders are $120k of it (37%) |
+| Support | $5k | 1% | Part-time coverage; the first support hire waits for year three |
+| **Total spend** | **$396k** | | Founders are $204k of it (52%) |
 | Revenue in the window | $103k | | |
-| **Net cash need** | **$225k** | | |
+| **Net cash need** | **$293k** | | |
 
-Year one alone is $127k of spend against $36k of revenue: $34k of loaded founder pay for the last quarter, $12k for November 6, $10k of film, $12k of legal, $8k of contractors, $8k of gathering stipends, and the rest in tools, insurance, accounting and payments. That is Haley's $45k list plus the founders' first quarter of pay plus the legal and payments work an investment requires.
+Year one alone is $207k of spend against $36k of revenue: $114k of loaded founder pay, $12k for November 6, $10k of film, $12k of legal, $8k of contractors, $8k of gathering stipends, and the rest in tools, insurance, accounting and payments. That is Haley's $45k list plus the founders plus the legal and payments work an investment requires.
 
-## 4. The ask, frankly
+## 6. The ask, and whether $350k fits the checks we can expect
 
-**$350,000 covers the Base plan for 24 months, with $125k of cushion over the 18-month need.** Net need in the first 18 months is $225k; runway at Base burn is 24 months on $350k, 28 on $500k, 33 on $650k. Founder pay is 37% of the window, and it is the lever: every quarter the founders delay their draw adds about $30k of runway.
+**The number is right; the shape was wrong.** $350k is what the Base plan needs to reach the 18-month checkpoint with founders paid: net need $293k, runway 21 months. Less does not get there: $250k is 16 months, $150k is 11. But nobody writes a $350k check at this stage, so the round should not be built as if someone will.
 
-What the $350k buys: November 6 and the film series, both founders full time from month 10, the community and partnerships lead at month 18, the entity conversion and the payments and legal work, and the 18-month checkpoint (about 1,100 paying individuals, 12 communities, roughly $130k of annualized revenue) with six months left to raise the next round on those numbers.
+Where pre-seed money for a company like this actually comes from, and in what sizes:
 
-What it does not buy: the year-three proof points (30 communities, 3,000 paying individuals). Those sit in year three of the Base plan, which spends $776k against $385k of revenue.
+| Source | Typical check | What to expect here |
+|---|---|---|
+| Individual angels (the November 6 room, the founders' networks, patrons of the communities) | $10k to $50k, $25k a common size | 8 to 12 checks, $200k to $250k, over three to six months |
+| Faith Driven angel networks, Praxis Business Accelerator | Praxis invests $100k in each cohort company on a SAFE and requires a C-corp; angel networks write $25k to $100k | one of these, $100k, spring at the earliest |
+| A foundation PRI loan | $50k to $250k for a regional foundation; larger for Prebys | 12 to 18 months out; not first-close money |
+| Program grant to Abiding Practice, sponsorship of November 6 | $10k to $50k | not company money, but it buys seats and pays the platform's fee: revenue, not investment |
 
-The fact the rebuild surfaced: **the Base revenue plan ($1.47M in year five) does not pay for the team the Base plan hires.** With two founders at $150k and eight staff by year five, Base loses money every year (−$90k, −$268k, −$391k, −$403k, −$145k) and needs about $1.3M of cumulative capital. The earlier version of the model showed breakeven in year five only because it paid one founder and carried a thin team. Two ways to read it, both true:
+So $350k is a round of a dozen small checks plus one institutional check, and that takes months. The fix is to structure it that way:
 
-- A $1.5M-revenue platform supports about five or six people at modest pay. If the growth plan is Base, the team stays at that size and founder pay stays under market.
-- The plan that pays a real team is the Fundable one: $5.3M revenue in year five, EBITDA positive in year four, about $1.35M of capital over two rounds, repaid from year five.
+1. **Form the corporation in October and raise on post-money SAFEs**, one valuation cap for everyone, with a most-favored-nation clause for the first close so early money is not disadvantaged by later terms. A cap in the $3.5M to $5M range keeps the round at roughly 7 to 10% of the company; set it with counsel and against what the first two or three committed investors will accept. A convertible note only for a lender who needs a maturity date.
+2. **A first close at $150k**, targeted before or in the week of November 6. That is the trigger for founder pay and covers about 11 months on its own. Two or three committed angels at $25k to $50k plus the founders' own networks get there.
+3. **Rolling closes to $350k by the end of March**, with the same documents. Announce the round as $350k with $150k closed; a round that is already partly closed is easier to join than one that is not.
+4. **The PRI loan and the Praxis money are additive**, not part of the $350k count. If either lands, it extends runway toward the seed, and the seed can then be raised on 18 months of data instead of 15.
+5. **If the round stalls at $250k**, the plan holds by keeping founder pay at the $4k step (each step waits for its condition) and moving the community lead's start out a quarter. Each $1,000 a month of founder pay held back, per founder, is a month of year-one runway. Never November 6, never the film series; they are the proof.
 
-**Recommendation.** Keep the ask at $350,000, take it on convertible notes, and say plainly that it is the first of two rounds.
+**The seed at 18 months: $1M to $1.2M** from the Prebys and Upstart pipeline and impact funds, on the metrics: 1,100 paying individuals, 12 communities, 90% net revenue retention, 200 organization seats sold, revenue per member at $70 or better. That round funds the year-three hires and, if the numbers are there, the Fundable hiring plan, the one that reaches profitability in year four.
 
-1. **Now: $350,000 on convertible notes** (angels, patrons in the November 6 room, Faith Driven angels), converting at the first priced round into the Delaware C-corp. Add, in parallel, a program grant to Abiding Practice that buys seats and funds fellowships, and a Prebys sponsorship of November 6; neither is dilutive and both start the foundation relationship. A PRI loan is the fallback if the notes come in under $250k.
-2. **At 18 months: a $1M to $1.2M seed** from the Prebys and Upstart pipeline and impact funds, on the metrics: 1,100 paying individuals, 12 communities, 90% net revenue retention, 200 organization seats sold, revenue per member at $70 or better. That round funds the Fundable hiring plan, the one that reaches profitability.
+## 7. Spend discipline
 
-If notes come in light, the order of cuts is in section 5; the founders' draw date is the first lever and the community lead's start date is the second.
-## 5. Spend discipline
-
-- **Gate every hire on revenue per FTE.** Do not add a person while revenue per full-time equivalent is under $100k a year (Base crosses it in year four). The first hire after the founders is the community and partnerships lead, because that is where the revenue comes from.
-- **Founder pay starts when there is money for it and steps on revenue, not on the calendar.** Month 10 in the plan, or the close of the notes if later; $60k each to start, $90k when annualized revenue passes $150k, $120k when it passes $400k. Both founders are full time before anyone else is hired full time.
+- **Gate every hire on revenue per FTE.** From year three on, do not add a person while revenue per full-time equivalent is under $100k a year (Base crosses it in year four). The first hire after the founders is the community and partnerships lead, because that is where the revenue comes from.
+- **Founder pay steps on conditions, not on the calendar.** The ladder in section 2: $4k a month from the first close, $5.5k when the round reaches $250k or annualized revenue passes $50k, $6k to $7k in year two on $100k of annualized revenue and 12 communities, $105k at the seed. Both founders are full time before anyone else is hired full time.
 - **Marketing non-payroll at 20 to 25% of revenue after year two**, with November 6 and the film series as fixed year-one bets.
 - **Keep three months of burn in reserve** and report monthly: cash, burn, months of runway, paying individuals, seats sold, revenue per member.
 - **Keep program money and company money separate.** Gifts and grants go to Abiding Practice; the platform invoices its administration fee and seat sales at list price. Investors will ask, and the answer has to be boring.
 - **Cut order if revenue lags:** contractors and content first, then the marketing hire, then founder pay steps. Never the community lead, never November 6.
 
-## 6. Numbers to carry into the room
+## 8. Numbers to carry into the room
 
 | | Conservative | Base | Fundable |
 |---|---|---|---|
-| Founders paid from | year 3, part-time | month 10, $60k each, ramping | month 7, $60k each, ramping faster |
+| Founders paid from | year 3, part-time | month after a $150k first close: $4k/mo each, ramping | month after the close: $5k/mo each, ramping faster |
+| Team (FTE incl. founders), years 1 to 5 | 2 / 2 / 2 / 4 / 5 | 2 / 2.5 / 4.5 / 7 / 8 | 3 / 7 / 10 / 14 / 18 |
 | First employee | year 3, half time | month 18 (community & partnerships lead) | month 1, half time; 5 by year two |
-| Year-one spend / revenue | $68k / $17k | $127k / $36k | $276k / $80k |
-| 18-month net cash need | $77k | $225k | $508k |
-| Runway on $350k | 43 months | 24 months | 15 months |
+| Year-one spend / revenue | $68k / $17k | $207k / $36k | $356k / $80k |
+| 18-month net cash need | $77k | $293k | $589k |
+| Runway on $350k | 43 months | 21 months | 13 months |
 | Year-five revenue | $264k | $1.47M | $5.32M |
-| Year-five EBITDA | −$333k | −$145k | +$1.9M |
-| Cumulative capital need | $761k and rising | $1.3M | $1.35M, repaid from year five |
-| What it is | a side project | a paid team on a Base revenue plan: loses money for five years | the only plan that pays a team and turns profitable |
+| Year-five EBITDA | −$333k | −$7k (breakeven) | +$1.9M |
+| Cumulative capital need | $761k and rising | $1.1M over two rounds | $1.4M, repaid from year five |
+| What it is | a side project | a paid team of eight on a Base revenue plan: breakeven at the end of year five | the only plan that pays a bigger team and turns profitable |

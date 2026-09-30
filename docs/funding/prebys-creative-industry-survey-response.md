@@ -32,7 +32,7 @@ Who they want, in their words, and where we stand:
 
 | Their criterion | Us | How to say it |
 |---|---|---|
-| For-profit creative business in San Diego County | Yes. theCreative.exchange is a for-profit company (LLC `[confirm legal name / state]`) based in San Diego. | "A San Diego software company serving creative communities." |
+| For-profit creative business in San Diego County | Yes. theCreative.exchange is a for-profit company based in San Diego (Delaware C-corp forming October 2026 `[confirm legal name]`). | "A San Diego software company serving creative communities." |
 | Operating in a creative industry (140+ fields: visual and performing arts, design, media, digital content, publishing…) | Yes. We are digital infrastructure for creative work: memberships, classes, events, projects, paid gigs, backing and grants for creatives across every discipline. | Pick the closest category (likely "digital content / platforms" or "creative services"); name the disciplines we serve. |
 | Seeking investment capital within 18 months | Yes, if we say so with a number. See §3. | State the range and the instrument; do not leave it vague. |
 | Generating financial returns for investors | Yes: 10% of money moved, $10 memberships, host splits, sponsorships. | Lead with the fee model; it is a marketplace take rate, which impact investors understand. |
@@ -101,7 +101,7 @@ Answer "which impact areas apply" with all five, and name a primary. Suggested p
 | **"Public ledger"** | Donor-privacy risk (and our own claims file bans selling it) | Say: fund pages list their grants; project pages show totals and backers who chose to be named. Do not say "public ledger," "in the open," or "every dollar." |
 | **Returns** | Impact investors still need a return path | 10% of money moved plus $10 seats; the model's Medium case reaches $135k platform revenue on $1.35M moved in year three; the entity form we choose will let us weigh mission against profit without giving up either. |
 | **Stage** | Pre-revenue platforms are a bet on the founder and the wedge | Point to what is built and live, the founding communities, the Nov 6 event, and the civic map. Don't inflate. |
-| **Entity** | An LLC is fine for a survey; investors may want a C-corp or PBC | Say "LLC today; entity form decided at the first priced investment." |
+| **Entity** | Investors and foundations want a C-corp | Say "a Delaware C-corp, formed before our first outside check; the public benefit election is open." |
 | **Compliance** | Money movement invites questions | Stripe processes and Stripe Connect pays out; we hold no customer funds; no chance-based mechanics; 1099s at $600. |
 | **AI** | Upstart's "ethical production" lens | "Made by humans, for humans" is a house rule with disclosure on every work; it is a differentiator, not a limitation. |
 | **Measurement** | They will fund what they can count | Commit to the five metrics and a quarterly report; offer to align with Artists Count. |

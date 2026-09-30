@@ -1,6 +1,6 @@
 # The financial model, a fresh look
 
-> **Cost side rebuilt 2026-09-30.** The budget is now by function (programs and community, marketing and launch, support, engineering and platform, operations), with both founders full time before any employee and founder pay starting when there is money for it (month 10 in Base) and ramping. Revenue is unchanged; costs, EBITDA and cash need below are updated to the rebuilt model. The ask and spend discussion is in [the CFO memo](cfo-memo-ask-and-spend.md).
+> **Cost side rebuilt 2026-09-30.** The budget is now by function (programs and community, marketing and launch, support, engineering and platform, operations), with both founders full time before any employee and founder pay starting the month after a first close of at least $150k, on a ramp ($4k a month each, stepping up on conditions). Revenue is unchanged; costs, EBITDA and cash need below are updated to the rebuilt model. The ask and spend discussion is in [the CFO memo](cfo-memo-ask-and-spend.md).
 
 Prepared 2026-09-30. Companion files: `docs/financial-model-5yr-v2.xlsx` (the model), `docs/funding/market-sizing.md` (how many creatives are out there), `docs/financial-model-3yr.xlsx` (the Aug 28 model this replaces).
 
@@ -103,7 +103,7 @@ Nothing in any scenario assumes a price increase, a public-arts grant to the com
 3. **Sign three partner communities outside San Diego in year one.** The civic graph and partner landscape already name them. One a quarter is the Base case; that pace is what turns a house community into an exchange.
 4. **Fund the program through the nonprofit partner, as a managed program.** Foundations fund a managed fellowship program; they do not fund regranting. The platform earns 5% administering it and the program dollars grow the impact numbers.
 5. **Count the impact every quarter.** The metrics below. A pre-revenue company with counted outcomes raises on the outcomes.
-6. **Raise in two steps.** An 18-month window of the Base plan needs $225k of cash net of revenue, so $350k on convertible notes gives 24 months of runway with founders paid from month 10; then a $1M to $1.2M seed at 18 months on the metrics. See the CFO memo.
+6. **Raise in two steps.** An 18-month window of the Base plan needs $293k of cash net of revenue with founders paid from the first close, so $350k gives 21 months of runway; raise it as a $150k first close and rolling closes to $350k on post-money SAFEs (Delaware C-corp formed first), then a $1M to $1.2M seed at 18 months on the metrics. See the CFO memo.
 
 ## Metrics to validate, first 18 months
 
@@ -133,8 +133,8 @@ These are the numbers that price the next round. Everything on the table comes f
 | Geography | San Diego | San Diego plus partner communities nationally |
 | Members, year 3 | 4,500 | 1,270 / 5,700 / 12,700 by scenario |
 | Platform revenue, year 3 | $135k | $100k / $385k / $996k |
-| Cumulative cash need through year 3 | $321k | $228k / $749k / $1.35M (founders paid from month 10 in Base, month 7 in Fundable) |
-| Founder pay through year 3 | sweat equity (~$93k) | two founders from month 10: $15k / $75k / $110k each in Base |
+| Cumulative cash need through year 3 | $321k | $228k / $761k / $1.40M (founders paid from the first close in Base and Fundable) |
+| Founder pay through year 3 | sweat equity (~$93k) | two founders from the first close: $51k / $78k / $105k each in Base |
 | Market check | none | a sized ladder with sources, and the scenario's share of it |
 
 ## Caveats

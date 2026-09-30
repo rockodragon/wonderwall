@@ -25,9 +25,9 @@ The project is **theCreative.exchange** (repo: wonderwall). Four documents are t
 - [Prebys Creative Industry Survey — our response](funding/prebys-creative-industry-survey-response.md) — draft answers, positioning, follow-up email; survey closes Sept 30, 2026
 - [Impact capital positioning](funding/impact-capital-positioning.md) — how a for-profit infrastructure company with nonprofit partners pursues impact investment; sources ranked by fit; what has to be true before pitching
 - [The financial model, a fresh look](funding/model-fresh-look.md) — too conservative or too narrow; the two tracks; three scenarios with results; what makes it fundable; metrics to validate
-- [CFO memo: entity, how Prebys can fund a for-profit, the ask and the spend](funding/cfo-memo-ask-and-spend.md) — convert to a Delaware C-corp before the first check, PRI loan and program-grant routes, an 18-month budget by function with both founders paid, and a two-step raise
+- [CFO memo: entity, how Prebys can fund a for-profit, the ask and the spend](funding/cfo-memo-ask-and-spend.md) — form a Delaware C-corp now (there is no entity yet), founder pay from the first close on a conditional ramp, a team of eight by year five, PRI loan and program-grant routes, an 18-month budget by function, and a $350k round raised as a $150k first close plus rolling closes
 - [Market sizing](funding/market-sizing.md) — how many creatives are out there (San Diego, California, US, churches, Christian networks), willingness-to-pay benchmarks, the TAM/SAM/SOM ladder with sources
-- Pitch deck v2 (Slides artifact, 12 slides, diagrams): https://claude.ai/artifact/LNyg8n2CZTRUEuJbjz8CWn — sources in [decks/pitch-v2-2026-09-30/](decks/pitch-v2-2026-09-30/)
+- Pitch deck v2 (Slides artifact, 13 slides, diagrams): https://claude.ai/artifact/LNyg8n2CZTRUEuJbjz8CWn — sources in [decks/pitch-v2-2026-09-30/](decks/pitch-v2-2026-09-30/)
 - Pitch deck v1 (16 slides, preserved): https://claude.ai/artifact/VVTMpZMN4cz6vyYkx5ksyo — sources in [decks/pitch-v1-2026-09-29/](decks/pitch-v1-2026-09-29/)
 
 ## Runbooks and research
