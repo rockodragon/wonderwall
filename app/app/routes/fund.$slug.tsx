@@ -479,6 +479,69 @@ export default function FundPage() {
   // to their giving page until the link exists.
   const givingHref = org.paymentLinkUrl ?? org.givingUrl;
 
+  // Named funds (the Sophia Fund) get a calmer page: two separate sections,
+  // Grants then Give, in one column, with small sentence-case buttons.
+  const named = seedCents !== undefined;
+  const calmBtn = {
+    display: "inline-block",
+    fontFamily: "inherit",
+    textTransform: "none",
+    letterSpacing: 0,
+    fontSize: 14,
+    fontWeight: 600,
+    padding: "9px 16px",
+  } as const;
+  const ledgerList = (ledger.length === 0 ? (
+          <p style={{ marginTop: 12, fontSize: 14.5, maxWidth: "50ch" }}>
+            Grants will be listed here as they're made.
+          </p>
+        ) : (
+          <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 0 }}>
+            {ledger.map((entry, i) => (
+              <div
+                key={`${entry.period}-${entry.recipientName}-${i}`}
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  alignItems: "baseline",
+                  gap: 12,
+                  padding: "14px 0",
+                  borderBottom: "1px solid var(--g-hairline)",
+                }}
+              >
+                <span className="g-mono" style={{ fontSize: 12.5, color: "var(--g-dim)", minWidth: 68 }}>
+                  {formatPeriod(entry.period)}
+                </span>
+                <span className="g-h" style={{ fontSize: 15 }}>
+                  {formatMoney(entry.amount * 100)}
+                </span>
+                <span style={{ fontSize: 14.5, color: "var(--g-paper)" }}>
+                  {entry.recipientName}
+                </span>
+                {entry.projectTitle && (
+                  entry.projectSlug ? (
+                    <Link
+                      to={`/story/${entry.projectSlug}`}
+                      style={{ fontSize: 14.5, color: "var(--g-citron)" }}
+                    >
+                      {entry.projectTitle}
+                    </Link>
+                  ) : (
+                    <span style={{ fontSize: 14.5, color: "var(--g-muted)" }}>
+                      {entry.projectTitle}
+                    </span>
+                  )
+                )}
+                {entry.note && (
+                  <span style={{ fontSize: 14.5, color: "var(--g-muted)", flexBasis: "100%" }}>
+                    {entry.note}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        ));
+
   return (
     <GardenPage wide>
 
@@ -494,21 +557,30 @@ export default function FundPage() {
         <p style={{ marginTop: 12, fontSize: 15, lineHeight: 1.6, maxWidth: "58ch" }}>
           Grants to creatives, administered by {org.name}.
         </p>
-        {NAMED_FUNDS[org.slug]?.openCall && (
-          <div className="g-card" style={{ marginTop: 18, borderColor: "var(--g-citron)", maxWidth: "58ch" }}>
-            <div className="g-h" style={{ fontSize: "clamp(36px,6vw,48px)", color: "var(--g-citron)", lineHeight: 1 }}>
-              {formatMoney(availableCents)}
+        {named && (
+          <section style={{ marginTop: 36, paddingTop: 28, borderTop: "1px solid var(--g-hairline)", maxWidth: "60ch" }}>
+            <SectionLabel>Grants</SectionLabel>
+            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: "6px 14px", marginTop: 12 }}>
+              <span className="g-h" style={{ fontSize: 32, lineHeight: 1 }}>
+                {formatMoney(availableCents)}
+              </span>
+              <span style={{ fontSize: 15, color: "var(--g-body)" }}>
+                available · {formatMoney(totals.allTimeCents)} granted so far
+              </span>
             </div>
-            <div className="g-label" style={{ marginTop: 6 }}>
-              Available for grants
-            </div>
-            <p style={{ fontSize: 16, lineHeight: 1.6, color: "var(--g-paper)", margin: "14px 0 0" }}>
-              {NAMED_FUNDS[org.slug].openCall}
-            </p>
-            <Link to="/join" className="g-btn g-btn-citron" style={{ marginTop: 14, display: "inline-block" }}>
-              Become a member and create a project
+            {NAMED_FUNDS[org.slug]?.openCall && (
+              <p style={{ fontSize: 16, lineHeight: 1.6, color: "var(--g-paper)", margin: "14px 0 0" }}>
+                {NAMED_FUNDS[org.slug].openCall}
+              </p>
+            )}
+            <Link to="/join" className="g-btn g-btn-ghost" style={{ ...calmBtn, marginTop: 16, color: "var(--g-paper)" }}>
+              Become a member and create a project →
             </Link>
-          </div>
+            <div style={{ marginTop: 24 }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "var(--g-paper)" }}>Grants made</div>
+              {ledgerList}
+            </div>
+          </section>
         )}
 
         {isPool && (
@@ -527,7 +599,21 @@ export default function FundPage() {
         )}
 
         {isOutLink && (
-          <>
+          <section
+            style={
+              named
+                ? { marginTop: 36, paddingTop: 28, borderTop: "1px solid var(--g-hairline)", maxWidth: "60ch" }
+                : undefined
+            }
+          >
+            {named && (
+              <>
+                <SectionLabel>Give</SectionLabel>
+                <p style={{ fontSize: 16, lineHeight: 1.6, color: "var(--g-paper)", margin: "12px 0 0" }}>
+                  {CLAIMS.grantFund}
+                </p>
+              </>
+            )}
             {gaveThanks && (
               <div className="g-card" style={{ marginTop: 18, borderColor: "var(--g-citron)", maxWidth: "50ch" }}>
                 <div className="g-label" style={{ color: "var(--g-citron)" }}>Received</div>
@@ -578,21 +664,22 @@ export default function FundPage() {
                   <a
                     href={giveMonthly && org.monthlyPaymentLinkUrl ? org.monthlyPaymentLinkUrl : givingHref}
                     className="g-btn g-btn-citron"
-                    style={{ display: "inline-block" }}
+                    style={named ? calmBtn : { display: "inline-block" }}
                   >
                     {giveMonthly ? "Give monthly to" : "Give to"} {NAMED_FUNDS[org.slug]?.name ?? "the Grant Fund"}
                   </a>
                 </div>
               </div>
             )}
-            <p className="g-hint" style={{ marginTop: 10 }}>
-              Gifts go to {org.name}, a nonprofit — your receipt comes from them.
-              Payment runs on their secure Stripe page and returns you right here.
+            <p style={{ marginTop: 10, fontSize: 14, lineHeight: 1.6, color: "var(--g-body)" }}>
+              Gifts go to {org.name}, a nonprofit. Payment runs on their secure
+              Stripe page, your receipt comes from them, and it returns you here.
             </p>
-          </>
+          </section>
         )}
       </div>
 
+      {!named && (
       <div style={{ marginTop: 32 }}>
         <SectionLabel>Totals</SectionLabel>
         <div
@@ -630,6 +717,8 @@ export default function FundPage() {
         </div>
       </div>
 
+      )}
+
       {isPool && (
         <div style={{ marginTop: 32 }}>
           <SectionLabel>Money in</SectionLabel>
@@ -665,59 +754,12 @@ export default function FundPage() {
         </div>
       )}
 
-      <div style={{ marginTop: 36 }}>
-        <SectionLabel>Ledger</SectionLabel>
-        {ledger.length === 0 ? (
-          <p style={{ marginTop: 12, fontSize: 14.5, maxWidth: "50ch" }}>
-            Grants will be listed here as they're made.
-          </p>
-        ) : (
-          <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 0 }}>
-            {ledger.map((entry, i) => (
-              <div
-                key={`${entry.period}-${entry.recipientName}-${i}`}
-                style={{
-                  display: "flex",
-                  flexWrap: "wrap",
-                  alignItems: "baseline",
-                  gap: 12,
-                  padding: "14px 0",
-                  borderBottom: "1px solid var(--g-hairline)",
-                }}
-              >
-                <span className="g-mono" style={{ fontSize: 12.5, color: "var(--g-dim)", minWidth: 68 }}>
-                  {formatPeriod(entry.period)}
-                </span>
-                <span className="g-h" style={{ fontSize: 15 }}>
-                  {formatMoney(entry.amount * 100)}
-                </span>
-                <span style={{ fontSize: 14.5, color: "var(--g-paper)" }}>
-                  {entry.recipientName}
-                </span>
-                {entry.projectTitle && (
-                  entry.projectSlug ? (
-                    <Link
-                      to={`/story/${entry.projectSlug}`}
-                      style={{ fontSize: 14.5, color: "var(--g-citron)" }}
-                    >
-                      {entry.projectTitle}
-                    </Link>
-                  ) : (
-                    <span style={{ fontSize: 14.5, color: "var(--g-muted)" }}>
-                      {entry.projectTitle}
-                    </span>
-                  )
-                )}
-                {entry.note && (
-                  <span style={{ fontSize: 14.5, color: "var(--g-muted)", flexBasis: "100%" }}>
-                    {entry.note}
-                  </span>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+      {!named && (
+        <div style={{ marginTop: 36 }}>
+          <SectionLabel>Grants made</SectionLabel>
+          {ledgerList}
+        </div>
+      )}
 
       <ProposeGrantSection slug={org.slug} />
     </GardenPage>

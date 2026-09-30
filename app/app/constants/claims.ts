@@ -47,7 +47,7 @@ export const CLAIMS = {
   duesCellRest: "keeps this running",
   pool: `${DUES_EVERY} Members propose projects, and a review team decides.`,
   grantFund:
-    "The Garden's grant fund is run by Abiding Practice, a 501(c)(3), so gifts to it are tax-deductible. About 87% of each gift is granted.",
+    "The Sophia Fund, The Garden's grant fund, is run by Abiding Practice, a 501(c)(3), so gifts to it are tax-deductible. About 87% of each gift is granted.",
   /** The Sophia Fund's open call (Rick, 2026-09-29). The amount itself is
    * computed on the page (fund.$slug.tsx NAMED_FUNDS seedCents). Proposing
    * takes a paid membership (capabilities.ts pool.propose). */
