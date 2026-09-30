@@ -6,11 +6,11 @@
 
 **Status.** There is no LLC. The product, the domain and the spending to date run through Rick's S-corp. That is fine for a prototype and wrong for a raise: an S-corp cannot take an investor (one class of stock, no entity shareholders, a 100-shareholder cap, and no preferred stock for a SAFE to convert into), and the company's IP sits inside a business that also does Rick's other work.
 
-**Recommendation: incorporate theCreative.exchange, Inc. as a Delaware C-corp in October, before the November 6 room and before the first check.** Nothing exists, so this is a formation, not a conversion: no statutory merger, no LLC to unwind, no K-1 history. It is a two-week job.
+**Recommendation: incorporate theCreative.exchange, Inc. as a Delaware C-corp in October, before the November 6 room and before the first check.** Nothing exists, so this is a formation, not a conversion: no statutory merger, no LLC to unwind, no K-1 history. Delaware takes days; the California qualification is the slow part at two to four weeks.
 
 What it costs and what it takes:
 
-1. **Filing and setup.** Delaware certificate of incorporation, registered agent, EIN, bank account, California foreign qualification (the $800 minimum franchise tax applies from the first year the corporation does business here). A standard startup formation package (charter with 10 million authorized common shares, bylaws, founder stock purchase agreements, IP assignments, board and stockholder consents, 83(b) elections) runs a few hundred dollars through Clerky or Stripe Atlas and a few thousand through a startup lawyer. Budgeted in Operations, year one.
+1. **Filing and setup.** Delaware certificate of incorporation, registered agent, EIN, bank account, California foreign qualification (the $800 minimum franchise tax applies from the first year the corporation does business here). A standard startup formation package (charter with 10 million authorized common shares, bylaws, founder stock purchase agreements, IP assignments, board and stockholder consents, 83(b) elections) costs, from the providers' own pages: Stripe Atlas $500 or Clerky about $430, including the Delaware filing and the first-year registered agent, in two to three business days; a lawyer's flat-fee package $1,000 to $3,500 if you want counsel on the founder terms; Delaware franchise tax about $400 a year at the minimum under the assumed-par-value method, annual report due March 1; California foreign qualification $100 and two to four weeks, with the $800 minimum franchise tax waived for a new corporation's first taxable year and due from year two. All of it is inside the $12k of year-one legal in the budget.
 2. **Founder stock.** Both founders buy common at par with four-year vesting, a one-year cliff and double-trigger acceleration, and file 83(b) elections within 30 days. Investors expect this and it protects each founder from the other. Decide the split between Rick and Haley in writing now; the older docs mention a stake for David, so settle that too.
 3. **Move the IP out of the S-corp.** An IP assignment from the S-corp to the corporation covering the code, the brand, the domains and the data, before any investor diligence. The S-corp's spending to date becomes either a capital contribution or a documented founder loan; that is a CPA question, decide it once and paper it.
 4. **The S-corp keeps doing what it does** (Rick's other work). It does not invoice the startup for pre-formation costs unless the arrangement is arm's length and written down; simpler to contribute.
@@ -42,6 +42,8 @@ The model now pays both founders **from the month after a first close of at leas
 | Year four | | $125k | 71% | revenue per FTE past $100k |
 | Year five | | $140k | 80% | |
 
+Benchmarks: Pilot's 2024 founder salary report puts the median at $90k for founders who have raised $100k to $1M, and its 2025 report's overall median is $75k, with 60% of founders under $100k. The ladder sits under both through year two, which is where a $350k round should sit.
+
 Two rules travel with the ladder. **Both founders are full time before anyone else is hired full time**, and **a step happens only when its condition is met**; if the round or the revenue lags, pay holds at the current step. Put the ladder in the founders' offer letters and on the use-of-funds slide, not in the SAFE; investors read it, they do not sign it.
 
 What it costs: paying from the close instead of month 10 adds about $84k of spend to the 18-month window and takes runway on $350k from 24 months to 21. Founders are $204k of the $396k window (52%). That share is normal for a pre-seed; the money is buying the two people, the launch and the first hire. Each $1,000 a month of pay per founder is about $14k a year loaded, or one month of year-one runway, which is the sensitivity to use if the round comes in light.
@@ -70,11 +72,13 @@ The Creative Industry Survey exists because Prebys wants to invest in, not grant
 | Route | What it is | Entity needed | Fit today |
 |---|---|---|---|
 | **Program-related investment, loan** | A below-market loan (1 to 3%, five to seven years, sometimes with deferred principal) made for a charitable purpose; the foundation documents that purpose and does expenditure responsibility | Either | Best fit. Interest is not UBTI, the purpose (inclusive economic opportunity for San Diego creatives) is squarely theirs, and it does not price the company |
-| **Program-related or mission-related investment, equity** | Prebys buys stock, directly or through the fund Upstart Co-Lab is scouting for | C-corp | Good fit once the corporation exists. This is what the survey pipeline leads to; expect a 12 to 18 month path |
+| **Program-related or mission-related investment, equity** | Prebys buys stock, directly or through the fund Upstart Co-Lab is scouting for | C-corp | Possible once the corporation exists, but Upstart's published pipeline criteria are seed or Series A, more than $500k of trailing revenue and a qualified lead investor, so this is a year-two (Fundable) or year-three (Base) conversation. Start the relationship now through the rows below |
 | **Grant to the 501(c)(3) partner for the fellowship program and covered seats** | Prebys funds Abiding Practice; Abiding Practice pays the platform its administration fee and buys seat packs at the same price anyone pays | Either | Available now and fully in character for a foundation. The platform's fees must be at fair market value, the agreement at arm's length, and the money is earned revenue, not investment |
 | **Sponsorship** | Prebys underwrites the November 6 kickoff or the "Creative Economy We All Need" series, hosted by the nonprofit partner | Either | Available now; small, but it starts the relationship and puts their name in the room |
 | **Recoverable grant or grant to the company** | A grant to a for-profit for a defined charitable project, with expenditure responsibility | Either | Rare and paperwork-heavy for the foundation; they will prefer to route it through the nonprofit |
 | **Revenue-based financing** | A loan repaid as a percentage of monthly revenue until a 1.5 to 2x cap; local impact lenders and CDFIs offer it | Either | Poor fit until revenue clears costs; the Base case loses money for four years, so revenue-share payments would come out of the raise |
+
+Prebys also launched a $50M venture fund in 2025 for early-stage tech and life sciences; the creative economy is not in its stated scope, but a San Diego software platform with an economic-growth story can ask, once the corporation exists.
 
 The practical sequence: sponsorship and a program grant to Abiding Practice this quarter (they are decisions a program officer can make), the survey and Upstart conversation for the investment pipeline, and a PRI loan as the first investment instrument if it comes before the equity vehicle exists.
 
@@ -106,20 +110,20 @@ Where pre-seed money for a company like this actually comes from, and in what si
 
 | Source | Typical check | What to expect here |
 |---|---|---|
-| Individual angels (the November 6 room, the founders' networks, patrons of the communities) | $10k to $50k, $25k a common size | 8 to 12 checks, $200k to $250k, over three to six months |
-| Faith Driven angel networks, Praxis Business Accelerator | Praxis invests $100k in each cohort company on a SAFE and requires a C-corp; angel networks write $25k to $100k | one of these, $100k, spring at the earliest |
-| A foundation PRI loan | $50k to $250k for a regional foundation; larger for Prebys | 12 to 18 months out; not first-close money |
+| Individual angels (the November 6 room, the founders' networks, patrons of the communities) | $10k to $50k; the median angel puts about $30k into a deal (Angel Capital Association figure, as cited in 2025) | 8 to 12 checks, $200k to $250k, over three to six months |
+| Faith Driven angel networks, Praxis Business Accelerator | Angel networks write $25k to $100k. Praxis invests $50k on an uncapped SAFE with a 20% discount, at most a third of any round, requires a US C-corp and an $8k program fee, and is faith-aligned by design; its next application window opens April 2027 for the 2028 cohort | one angel-network check is realistic; Praxis is not this round's money |
+| A foundation PRI loan | Published foundation PRIs commonly run $250k to $1M over three to ten years at 0 to 4%; a San Diego community-foundation loan program ran $150k to $300k; Prebys publishes no sizes | a year-two conversation at the earliest; not first-close money |
 | Program grant to Abiding Practice, sponsorship of November 6 | $10k to $50k | not company money, but it buys seats and pays the platform's fee: revenue, not investment |
 
-So $350k is a round of a dozen small checks plus one institutional check, and that takes months. The fix is to structure it that way:
+So $350k is a round of a dozen small checks plus, at best, one angel-network check, and that takes months. The fix is to structure it that way:
 
-1. **Form the corporation in October and raise on post-money SAFEs**, one valuation cap for everyone, with a most-favored-nation clause for the first close so early money is not disadvantaged by later terms. A cap in the $3.5M to $5M range keeps the round at roughly 7 to 10% of the company; set it with counsel and against what the first two or three committed investors will accept. A convertible note only for a lender who needs a maturity date.
+1. **Form the corporation in October and raise on post-money SAFEs**, one valuation cap for everyone, with a most-favored-nation clause for the first close so early money is not disadvantaged by later terms. Carta's median post-money cap for rounds of $250k to $500k is about $10M, on a tech-heavy sample. A cap of $5M to $8M is defensible for a live product with no revenue yet and keeps the round at 4 to 7% of the company ($350k at $6M is 5.8%); set it with counsel and against what the first two or three committed investors will accept. A convertible note only for a lender who needs a maturity date.
 2. **A first close at $150k**, targeted before or in the week of November 6. That is the trigger for founder pay and covers about 11 months on its own. Two or three committed angels at $25k to $50k plus the founders' own networks get there.
 3. **Rolling closes to $350k by the end of March**, with the same documents. Announce the round as $350k with $150k closed; a round that is already partly closed is easier to join than one that is not.
-4. **The PRI loan and the Praxis money are additive**, not part of the $350k count. If either lands, it extends runway toward the seed, and the seed can then be raised on 18 months of data instead of 15.
+4. **A PRI loan or an angel-network check is additive**, not part of the $350k count. If either lands, it extends runway toward the seed. Praxis is a 2027 application for a 2028 cohort at $50k; do not plan on it.
 5. **If the round stalls at $250k**, the plan holds by keeping founder pay at the $4k step (each step waits for its condition) and moving the community lead's start out a quarter. Each $1,000 a month of founder pay held back, per founder, is a month of year-one runway. Never November 6, never the film series; they are the proof.
 
-**The seed at 18 months: $1M to $1.2M** from the Prebys and Upstart pipeline and impact funds, on the metrics: 1,100 paying individuals, 12 communities, 90% net revenue retention, 200 organization seats sold, revenue per member at $70 or better. That round funds the year-three hires and, if the numbers are there, the Fundable hiring plan, the one that reaches profitability in year four.
+**The seed at 18 months: $1M to $1.2M** from the Prebys and Upstart pipeline and impact funds, on the metrics: 1,100 paying individuals, 12 communities, 90% net revenue retention, 200 organization seats sold, revenue per member at $70 or better. That round funds the year-three hires and, if the numbers are there, the Fundable hiring plan, the one that reaches profitability in year four. Upstart's pipeline wants a qualified lead investor and $500k of trailing revenue, so the seed's lead will be an angel group or an impact fund, and the Prebys equity conversation is more likely at the round after; the relationship starts now through the grant and sponsorship routes.
 
 ## 7. Spend discipline
 
@@ -144,3 +148,15 @@ So $350k is a round of a dozen small checks plus one institutional check, and th
 | Year-five EBITDA | −$333k | −$7k (breakeven) | +$1.9M |
 | Cumulative capital need | $761k and rising | $1.1M over two rounds | $1.4M, repaid from year five |
 | What it is | a side project | a paid team of eight on a Base revenue plan: breakeven at the end of year five | the only plan that pays a bigger team and turns profitable |
+
+## Sources
+
+Checked 2026-09-30. Where a primary report was not readable, the figure is from a secondary summary and marked as such.
+
+- Angel check size: Angel Capital Association median of about $30k per angel per deal, as cited by Keiretsu Forum Northwest (2025): https://www.k4northwest.com/articles/early-stage-investing-in-2025-the-data-the-shifts-and-the-signals-you-cant-ignore ; angel groups' median $88k per deal at sub-$2.5M valuations, ACA (2024): https://angelcapitalassociation.org/blog/the-early-stage-valuation-disconnect/
+- SAFE caps: Carta State of Pre-seed, median post-money cap about $10M for $250k to $499k rounds, via a secondary summary (Q4 2025): https://vclens.substack.com/p/carta-state-of-preseed-2025-explained
+- PRIs: CDFI Fund FAQ on program-related investments ($1,000 to several million): https://www.cdfifund.gov/system/files/documents/(19)-faqs-about-program-related-investments.pdf ; Gates Family Foundation PRIs $250k to $1M, 3 to 10 years, 0 to 4% (2026): https://gatesfamilyfoundation.org/types-of-support/impact-investments/ ; San Diego Foundation loans of $150k to $300k (2020): https://www.sdfoundation.org/news-events/sdf-news/first-1-5m-deployed-to-san-diego-county-nonprofits-hit-by-covid-19/
+- Prebys: impact investment page (no PRI sizes published): https://www.prebysfdn.org/making-a-difference/impact-investment ; $50M venture fund (Feb 2025): https://www.prnewswire.com/news-releases/prebys-foundation-launches-50m-venture-fund-to-fuel-innovation-and-economic-growth-in-san-diego-302374346.html ; Creative Industry Survey: https://www.prebysfdn.org/making-a-difference/san-diego-creative-industry-survey ; Upstart Co-Lab pipeline criteria: https://upstartco-lab.org/pipeline/
+- Praxis Business Accelerator terms (2026): https://www.praxis.co/business-accelerator and https://www.praxis.co/business-accelerator-faqs
+- Formation: Stripe Atlas $500: https://stripe.com/atlas ; Clerky pricing: https://www.clerky.com/pricing ; Delaware franchise tax calculator (assumed par value minimum $400): https://corp.delaware.gov/frtaxcalc/ ; California foreign qualification: https://capbase.com/california-business-entity-registration-for-delaware-corporations/ ; first-year minimum tax waiver, Cal. Rev. & Tax. Code §23153: https://codes.findlaw.com/ca/revenue-and-taxation-code/rtc-sect-23153/ (confirm with a CPA that it applies to a Delaware corporation qualifying in California)
+- Founder pay: Pilot founder salary report 2024: https://pilot.com/founder-salary-report-2024 ; 2025: https://pilot.com/report/founder-salary-2025
