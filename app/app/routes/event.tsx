@@ -1014,7 +1014,15 @@ export default function EventDetail() {
             {attendees ? "No one yet." : "Loading..."}
           </p>
         )}
-        {tab === "going" && attendees && attendees.length > 0 && (
+        {tab === "going" && isGuest && attendees && attendees.length > 0 && (
+          <p className="text-[15px] text-gray-700 dark:text-gray-200 mb-8">
+            {attendees.length} going.{" "}
+            <Link to="/login" className="text-blue-600 dark:text-blue-400 hover:underline">
+              Sign in to see who
+            </Link>
+          </p>
+        )}
+        {tab === "going" && !isGuest && attendees && attendees.length > 0 && (
           <div className="mb-8">
             <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
               Going ({attendees.length})
