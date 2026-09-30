@@ -11,11 +11,21 @@ The company is a two-week-old soft launch with no revenue and a 2x to 5x return 
 | Source | What we can expect | Requirement | Action |
 |---|---|---|---|
 | **Customers** | $20k to $40k: annual seat packs pre-sold to churches and organizations; sponsors of November 6 | a price list and a signed order | price the packs; call ten organizations; put sponsorship tiers on paper |
-| **The room** | $150k first close from patrons of the communities, church members with money, the founders' networks, at $10k to $50k each on post-money SAFEs | the Delaware C-corp exists; a one-page terms summary | form the corporation in October; write the list of every person who could write a check and who introduces us |
+| **The room** | $150k first close from patrons of the communities, church members with money, the founders' networks, at $10k to $50k each on post-money SAFEs; a donor with a donor-advised fund can invest DAF money in the company through Impact Foundation (3% origination, returns go back to the DAF) | the Delaware C-corp exists; a one-page terms summary; Impact Foundation confirms it will hold a SAFE | form the corporation in October; write the list of every person who could write a check and who introduces us; get both nonprofit partners approved as NCF grantees so DAF holders can give to the program the same night |
 | **Wefunder community round** | $100k to $200k from members and patrons at $250 to $5,000 each; the 2025 median Reg CF equity raise was $194k | C-corp (not an S-corp), a Form C, financial statements certified by the CEO up to $124k raised in twelve months and CPA-reviewed above that, 21 days after filing before funds release, 7.9% success fee | file the Form C in December on the November numbers; run January to March; same SAFE as the room |
 | **Kiva** | up to $15k at 0%, no fees | a business, a story, 20 to 25 days to approve and 30 to 45 to fund from the crowd | apply this week; it is also community proof |
 
 That is the list. Four sources, all of them people who already care or will after November 6. Together they reach $350k by March. Anything else that arrives is a bonus and is not in the budget.
+
+### List A2: program money for the nonprofit partners, with dates
+
+This is not company money. It funds fellowships, stipends and covered seats at the partners; the platform is a vendor at list price. Two Christian arts programs have real money and a date (details and the rest of the field in [Christian arts funding](christian-arts-funding.md)):
+
+| Source | Amount | Deadline | Who applies |
+|---|---|---|---|
+| **Calvin Institute of Christian Worship, Vital Worship grants** (Lilly-funded) | $8k to $25k; worship-arts projects in a worshiping community; no one-time events, staff pay capped at 20% | **October 15, 2026** | Abiding Practice, for The Garden's gatherings |
+| **Creative Arts Collective** (Belmont University; $32M from Lilly) | Artist in Context $50k to $80k a year; Create, Educate & Network $75k to $250k a year; 17 awards in 2026 | **LOI November 2, 2026**; proposal March 15, 2027; awards May 2027 | the partner best placed, for its fellowship or cohort program; ask first whether a fiscally sponsored program and a founder-affiliated vendor are acceptable |
+| Fredericks Family Grant (Jewish Community Foundation of San Diego) | up to $25k to faith-based Christian 501(c)(3)s | closed for 2026; watch 2027 | a partner |
 
 ## List B: gated. Do not look at this list until the requirement is met
 
@@ -32,6 +42,7 @@ That is the list. Four sources, all of them people who already care or will afte
 | **City of San Diego OSP** (nonprofit operating support, $10k minimum, 1:1 match) | a 501(c)(3) headquartered in San Diego, two years old, its own board, not fiscally sponsored; applications in the fall | our nonprofit partners may not qualify (Abiding Practice's IRS record lists Paradise, CA) | fall 2027 if a partner qualifies | confirm which partner qualifies; CCSD project grants ($5k minimum, fiscal sponsors allowed) are the nearer door |
 | **County Community Enhancement** ($10k to $100k, rolling by district) | a nonprofit applicant | the partner applies, not us | now, through a partner, for its own program | one letter from the partner |
 | **California Arts Council** ($25k to $30k programs, fiscal sponsors allowed) | a nonprofit or fiscally sponsored program; 2026 deadline passed | partner | 2027 cycle | calendar it |
+| **Lion's Den DFW** (faith-driven pitch competition) | stage, revenue and prize terms not published | unknown | 2027 dates, if they fit | visibility only |
 | **Praxis** ($50k on an uncapped SAFE with a 20% discount, at most a third of a round) | US C-corp, an $8k program fee, a faith screen on the founders and the model; the next application window opens April 2027 for the 2028 cohort | the founders have decided against it | April 2027, if that changes | nothing |
 
 ## List C: not a match, at this stage or at all
@@ -55,6 +66,11 @@ That is the list. Four sources, all of them people who already care or will afte
 | **Candide Group, RSF Social Finance** | later-stage; RSF wants about $1M of revenue and three years |
 | **Patronicity, Community Investment Trust** | Michigan matching; real estate |
 | **Kickstarter** | reward-based, all-or-nothing, 8 to 10% all in; not company capital |
+| **Lilly Endowment (Religion), Templeton Religion Trust, Maclellan, Kern** | invitation only; Lilly takes a mailed letter and declines arts outside Indianapolis |
+| **Murdock, Stewardship, Bolthouse, Crowell, Mustard Seed, Chatlos, Windgate** | Northwest only; no media; spent down; evangelism; churches; arts "non-receptive"; craft in Arkansas |
+| **DeVos, Green, Prince, Cathy family foundations** | no public Christian arts program |
+| **CIVA, Anselm Society, Rabbit Room, IAM, Image, Brehm Center, Duke DITA** | ceased, guilds, publishers, conferences, scholarships; no grants to programs like ours |
+| **Sovereign's Capital, Kingdom Capital, Eventide, Talanton, 7Bridges** | venture-scale tech, biotech, East Africa, Florida and post-revenue |
 
 ## Prebys, plainly
 
@@ -67,7 +83,9 @@ That is the list. Four sources, all of them people who already care or will afte
 
 | When | Do |
 |---|---|
-| This week | Prebys survey and inquiry; start the corporation; price the seat packs; write the list of the room; open Kiva |
+| This week | Prebys survey and inquiry; start the corporation; price the seat packs; write the list of the room; open Kiva; Haley starts the Calvin application |
+| October 15 | Calvin Vital Worship application in (Abiding Practice) |
+| November 2 | Creative Arts Collective LOI in (the partner); NCF approval of both partners and the Impact Foundation answer before November 6 |
 | October | corporation formed; terms summary; first SAFE conversations; ten organization calls; sponsorship tiers out |
 | November 6 | first close of $150k in and around the room; pay starts the month after |
 | December | Form C filed on the November numbers |
