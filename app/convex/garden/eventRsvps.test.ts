@@ -5,6 +5,7 @@
 import { describe, expect, it } from "vitest";
 import {
   findMyRsvp,
+  nextPaidCents,
   isCheckoutSessionId,
   planTicketClaim,
   buildRsvpVisibility,
@@ -174,5 +175,14 @@ describe("planTicketClaim", () => {
   });
   it("waits when the webhook hasn't saved the ticket yet", () => {
     expect(planTicketClaim(null, "u1")).toBe("not_found");
+  });
+});
+
+describe("nextPaidCents", () => {
+  it("starts a free RSVP at the ticket price", () => {
+    expect(nextPaidCents(undefined, 2500)).toBe(2500);
+  });
+  it("adds a second purchase by the same email", () => {
+    expect(nextPaidCents(2500, 2500)).toBe(5000);
   });
 });
