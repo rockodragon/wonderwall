@@ -2421,7 +2421,11 @@ function EditEventModal({
 
   // Parse datetime into date and time strings
   const initialDate = new Date(initialValues.datetime);
-  const dateStr = initialDate.toISOString().split("T")[0];
+  // Local calendar day, not toISOString() (UTC): an evening event in
+  // Pacific time is already tomorrow in UTC, and saving that back moved the
+  // event a day later on every edit (same fix as offerings.tsx).
+  const pad2 = (n: number) => String(n).padStart(2, "0");
+  const dateStr = `${initialDate.getFullYear()}-${pad2(initialDate.getMonth() + 1)}-${pad2(initialDate.getDate())}`;
   const timeStr = initialDate.toTimeString().slice(0, 5);
   const endTimeInit = initialValues.endTime
     ? new Date(initialValues.endTime).toTimeString().slice(0, 5)

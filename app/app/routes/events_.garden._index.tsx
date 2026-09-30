@@ -52,6 +52,8 @@ type EventRow = {
   location?: string;
   tags: string[];
   priceCents?: number;
+  externalTicketPriceCents?: number;
+  ticketTiers?: { priceCents: number }[];
   community?: { name: string; slug: string } | null;
   /** Resolved by events.list: the uploaded cover, else the first gallery image. */
   coverImageUrl?: string | null;
@@ -63,6 +65,14 @@ type EventRow = {
     later (priceCents, or a "$"-style tag) this picks it up; until then
     every event reads as free, which is also just the truth right now. */
 function costLine(event: EventRow): string {
+  // A ticketed event shows its ticket price (the Payment Link's, else the
+  // cheapest tier), never "Free".
+  const ticketCents =
+    event.externalTicketPriceCents ??
+    (event.ticketTiers?.length ? Math.min(...event.ticketTiers.map((t) => t.priceCents)) : undefined);
+  if (ticketCents && ticketCents > 0) {
+    return `$${(ticketCents / 100).toLocaleString("en-US", { minimumFractionDigits: 0 })}`;
+  }
   if (typeof event.priceCents === "number") {
     return event.priceCents > 0
       ? `$${(event.priceCents / 100).toLocaleString("en-US", { minimumFractionDigits: 0 })}`
@@ -76,7 +86,7 @@ function costLine(event: EventRow): string {
 function EventCard({ event }: { event: EventRow }) {
   return (
     <Link
-      to={`/garden/events/${event._id}`}
+      to={`/events/${event._id}`}
       aria-label={event.title}
       className="g-card"
       style={{ display: "block", textDecoration: "none", color: "inherit", overflow: "hidden" }}
