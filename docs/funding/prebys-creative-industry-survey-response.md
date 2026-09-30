@@ -14,7 +14,7 @@ Who they want, in their words, and where we stand:
 
 | Their criterion | Us | How to say it |
 |---|---|---|
-| For-profit creative business in San Diego County | Yes. creatives.exchange is a for-profit company (LLC `[confirm legal name / state]`) based in San Diego. | "A San Diego software company serving creative communities." |
+| For-profit creative business in San Diego County | Yes. theCreative.exchange is a for-profit company (LLC `[confirm legal name / state]`) based in San Diego. | "A San Diego software company serving creative communities." |
 | Operating in a creative industry (140+ fields: visual and performing arts, design, media, digital content, publishing…) | Yes. We are digital infrastructure for creative work: memberships, classes, events, projects, paid gigs, backing and grants for creatives across every discipline. | Pick the closest category (likely "digital content / platforms" or "creative services"); name the disciplines we serve. |
 | Seeking investment capital within 18 months | Yes, if we say so with a number. See §3. | State the range and the instrument; do not leave it vague. |
 | Generating financial returns for investors | Yes: 10% of money moved, $10 memberships, host splits, sponsorships. | Lead with the fee model; it is a marketplace take rate, which impact investors understand. |
@@ -23,14 +23,14 @@ Who they want, in their words, and where we stand:
 
 **The one-paragraph positioning** (use wherever they ask "describe your business"):
 
-> creatives.exchange is building the infrastructure that enables a flourishing creative economy, so that individual creatives improve their financial, social and cultural outcomes. It is where creatives find paid work, get backed by people who believe in them, and apply for grants. Communities run on top of it: a Christian creative community in San Diego (The Garden), two founding partners (Abiding Practice, The Table Art Society), and, next, churches and civic groups that buy seats for their people. Joining is free; membership is $10 a month and half of it funds grants for other creatives. When a patron backs a creative, 90% goes to the creative. When a host sells a class, the host keeps 90%. Fellowships, commissions and cohorts are run as programs by a 501(c)(3) partner, so gifts are tax-deductible and every award a program makes is listed on its page. We earn 10% of the money that moves. Our purpose is human creativity in service of human flourishing, and our rule is "made by humans, for humans": every work says whether AI made any part of it.
+> theCreative.exchange is building the infrastructure that enables a flourishing creative economy, so that individual creatives improve their financial, social and cultural outcomes. It is where creatives find paid work, get backed by people who believe in them, and apply for grants. Communities run on top of it: a Christian creative community in San Diego (The Garden), two founding partners (Abiding Practice, The Table Art Society), and, next, churches and civic groups that buy seats for their people. Joining is free; membership is $10 a month and half of it funds grants for other creatives. When a patron backs a creative, 90% goes to the creative. When a host sells a class, the host keeps 90%. Fellowships, commissions and cohorts are run as programs by a 501(c)(3) partner, so gifts are tax-deductible and every award a program makes is listed on its page. We earn 10% of the money that moves. Our purpose is human creativity in service of human flourishing, and our rule is "made by humans, for humans": every work says whether AI made any part of it.
 
 ---
 
 ## 2 · Draft answers by section
 
 ### A · The business
-- **Company name:** creatives.exchange `[legal entity name]` · **Website:** https://creatives.exchange · **Year founded:** 2026 (the current company; two earlier versions of the idea since ~2016) · **Legal form:** `[LLC, California]`; we intend to convert to a Delaware public benefit corporation at the first priced investment · **Location:** San Diego, CA (North County / La Mesa / Little Italy communities) · **Team:** 1 founder full-time (unpaid), community and film contractors; two founding community partners.
+- **Company name:** theCreative.exchange `[legal entity name]` · **Website:** https://creatives.exchange · **Year founded:** 2026 (the current company; two earlier versions of the idea since ~2016) · **Legal form:** `[LLC, California]`; we intend to convert to a Delaware public benefit corporation at the first priced investment · **Location:** San Diego, CA (North County / La Mesa / Little Italy communities) · **Team:** 1 founder full-time (unpaid), community and film contractors; two founding community partners.
 - **Creative industry:** digital platform serving creatives in music, film, visual art, writing, design, photography, performance and worship arts. Category on the form: `[Digital content / platforms]` if offered, otherwise `[Creative services]`.
 - **Stage:** live in production (accounts, profiles, projects, jobs, events, communities, classes, sponsored seats, fund pages, backing checkout on Stripe); first paid memberships and backings in Q4 2026; public launch event Nov 6, 2026 (Lightchurch, Encinitas).
 - **Revenue to date:** `[$__ — likely pre-revenue or first hundreds]`. Say pre-revenue plainly; the model matters more than the number.
@@ -92,17 +92,17 @@ Answer "which impact areas apply" with all five, and name a primary. Suggested p
 
 ## 4 · Follow-up email (send after submitting)
 
-> **Subject:** creatives.exchange — San Diego Creative Industry Survey submitted
+> **Subject:** theCreative.exchange — San Diego Creative Industry Survey submitted
 >
 > Ward, Prebys team —
 >
-> We submitted the Creative Industry Survey today for creatives.exchange, a San Diego platform where creatives find paid work, get backed by people who believe in them, and apply for grants. Communities run on top of it; our grant fund is administered by a 501(c)(3) partner so gifts are tax-deductible and every grant is listed. We earn 10% of the money that moves.
+> We submitted the Creative Industry Survey today for theCreative.exchange, a San Diego platform where creatives find paid work, get backed by people who believe in them, and apply for grants. Communities run on top of it; our grant fund is administered by a 501(c)(3) partner so gifts are tax-deductible and every grant is listed. We earn 10% of the money that moves.
 >
 > Two things you may find useful as you shape the initiative: we already record the impact numbers an investor would ask for (dollars to creatives, creatives paid, grants made, covered seats), and we are launching in public on **November 6 at Lightchurch in Encinitas** with an evening of funded work. You would be welcome.
 >
 > If a follow-up conversation is part of your process, I'd value 20 minutes. Jonathon Glus knows our work through the Art + Design District conversations.
 >
-> Rick Moy · creatives.exchange · `[phone]`
+> Rick Moy · theCreative.exchange · `[phone]`
 
 ---
 

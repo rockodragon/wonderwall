@@ -1,6 +1,6 @@
 # Docs index
 
-The project is **creatives.exchange** (repo: wonderwall). Four documents are the live set. Agree on these before changing code this cycle; everything else is a spec or history.
+The project is **theCreative.exchange** (repo: wonderwall). Four documents are the live set. Agree on these before changing code this cycle; everything else is a spec or history.
 
 ## The live set
 

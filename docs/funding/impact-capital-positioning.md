@@ -1,6 +1,6 @@
 # Impact capital for a for-profit infrastructure company that partners with nonprofits
 
-*How well creatives.exchange can pursue Prebys-style impact investment and adjacent money; what has to be true first. 2026-09-29, owner: Rick. Companion to [prebys-creative-industry-survey-response.md](prebys-creative-industry-survey-response.md) and the [civic partners social graph](../civic-partners-social-graph.md).*
+*How well theCreative.exchange can pursue Prebys-style impact investment and adjacent money; what has to be true first. 2026-09-29, owner: Rick. Companion to [prebys-creative-industry-survey-response.md](prebys-creative-industry-survey-response.md) and the [civic partners social graph](../civic-partners-social-graph.md).*
 
 ## The short answer
 

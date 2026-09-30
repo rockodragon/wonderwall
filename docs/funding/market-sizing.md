@@ -1,6 +1,6 @@
 # Market sizing: how many creatives would take part
 
-Prepared 2026-09-30 for the fresh look at the creatives.exchange financial model. Every figure is cited. ⚠ marks a figure that is secondary, derived, or not yet checked at the source page. "Est." rows are our arithmetic, not published counts. The companion workbook is `docs/financial-model-5yr-v2.xlsx` (Market sheet).
+Prepared 2026-09-30 for the fresh look at the theCreative.exchange financial model. Every figure is cited. ⚠ marks a figure that is secondary, derived, or not yet checked at the source page. "Est." rows are our arithmetic, not published counts. The companion workbook is `docs/financial-model-5yr-v2.xlsx` (Market sheet).
 
 **Short answer.** San Diego County has roughly 22,000 to 30,000 people whose primary occupation is creative (central estimate 26,000), and a wider pool of 45,000 or more with any paid creative activity. Adding church creative volunteers and the mapped Christian creative networks gives a serviceable market of about 26,000 to 45,000 people (central 35,000). At benchmark conversion rates for paid communities, that supports roughly 500 to 1,750 paying individual members in three years, central about 1,000. That is the honest ceiling for a San Diego-only, individual-seat business. The larger numbers in the model come from three things the old model did not count: organizations buying seats in packs, hosts and partners paying for the platform, and a second and third metro reached through partner networks.
 
