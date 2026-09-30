@@ -1,0 +1,20 @@
+{
+  "v": 4,
+  "createdOnFiles": {"v": 1, "at": "2026-09-30T17:30:00Z"},
+  "lists": "css",
+  "title": "creatives.exchange pitch deck v2",
+  "cover": "cover",
+  "order": ["cover", "status-quo", "shift", "money", "benefit", "impact", "communities", "market", "business", "traction", "ask", "team"],
+  "sections": {
+    "s1": {"description": "The goal, the status quo, and the shift we are building", "start": "cover"},
+    "s2": {"description": "How the money moves and what changes for the creative class", "start": "money"},
+    "s3": {"description": "Communities, market, business model and traction", "start": "communities"},
+    "s4": {"description": "The ask and the team", "start": "ask"}
+  },
+  "faces": {
+    "bricolage-grotesque": {"family": "Bricolage Grotesque", "href": "https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&display=swap"},
+    "archivo": {"family": "Archivo", "href": "https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&display=swap"},
+    "jetbrains-mono": {"family": "JetBrains Mono", "href": "https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap"}
+  },
+  "designSystems": []
+}
