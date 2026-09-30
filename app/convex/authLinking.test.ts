@@ -37,4 +37,36 @@ describe("decideCreateOrUpdateUser", () => {
   it("only applies to Google sign-in", () => {
     expect(decideCreateOrUpdateUser({ ...base, isGoogleOAuth: false })).toBe("create");
   });
+
+  describe("email one-time code", () => {
+    const otp = { ...base, isGoogleOAuth: false, isEmailOtp: true };
+
+    it("links an email-otp sign-in to a password-only account registered with the same email", () => {
+      expect(decideCreateOrUpdateUser(otp)).toBe("link");
+    });
+
+    it("never links email-otp into an account that can also sign in another way", () => {
+      expect(
+        decideCreateOrUpdateUser({ ...otp, matchIsPasswordOnlyForThisEmail: false }),
+      ).toBe("create");
+    });
+
+    it("creates for email-otp when no account has the email", () => {
+      expect(decideCreateOrUpdateUser({ ...otp, matchingUserCount: 0 })).toBe("create");
+    });
+
+    it("never links email-otp when more than one account has the email", () => {
+      expect(decideCreateOrUpdateUser({ ...otp, matchingUserCount: 2 })).toBe("create");
+    });
+
+    it("does not link email-otp unless the email is vouched for", () => {
+      expect(decideCreateOrUpdateUser({ ...otp, emailVerified: false })).toBe("create");
+    });
+
+    it("neither flag set means no link", () => {
+      expect(
+        decideCreateOrUpdateUser({ ...otp, isEmailOtp: false, isGoogleOAuth: false }),
+      ).toBe("create");
+    });
+  });
 });

@@ -1444,8 +1444,8 @@ export default defineSchema({
     email: v.string(),
     invitedBy: v.optional(v.string()), // "bring someone" provenance
     // "pending" | "confirmed" — absent on free events. Organizer-set only:
-    // rsvpToEvent is unauthenticated, so the existence of an RSVP row is
-    // never a credential (docs/gated-event-video-prd.md, Criticism #3).
+    // RSVPs are free for anyone with an account to make, so the existence
+    // of an RSVP row is never a credential (docs/gated-event-video-prd.md, Criticism #3).
     // No UI writes this yet — the paid path is deferred (PRD "Build order").
     paymentStatus: v.optional(v.string()),
     // Set when this RSVP came from a paid external-ticket purchase (AP's
@@ -1920,6 +1920,15 @@ export default defineSchema({
     phone: v.string(), // normalized E.164, e.g. "+16195550100"
     sentAt: v.number(),
   }).index("by_phone_sentAt", ["phone", "sentAt"]),
+
+  // Same cap for the emailed sign-in code (convex/auth.ts's "email-otp"
+  // provider, used by the event RSVP form): 5 sends per address per hour,
+  // so the form can't be used to mail-bomb someone else's inbox. Library
+  // rate limits only cover failed verification attempts, not sends.
+  emailSendLimits: defineTable({
+    email: v.string(), // lowercased address
+    sentAt: v.number(),
+  }).index("by_email_sentAt", ["email", "sentAt"]),
 
   // Settings → "Phone number" (convex/phoneLink.ts): a pending code for
   // attaching a phone number to an ALREADY signed-in account, so they can

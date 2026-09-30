@@ -1,8 +1,10 @@
 import { convexAuth } from "@convex-dev/auth/server";
 import { Password } from "@convex-dev/auth/providers/Password";
 import { Phone } from "@convex-dev/auth/providers/Phone";
+import { Email } from "@convex-dev/auth/providers/Email";
 import Google from "@auth/core/providers/google";
 import { ConvexError, v } from "convex/values";
+import type { GenericActionCtx } from "convex/server";
 import type { DataModel, Doc, Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 import { internalMutation } from "./_generated/server";
@@ -41,6 +43,26 @@ export const recordAndCheckPhoneSendLimit = internalMutation({
       return false;
     }
     await ctx.db.insert("phoneSendLimits", { phone, sentAt: Date.now() });
+    return true;
+  },
+});
+
+// Same guard for the emailed sign-in code ("email-otp" provider below).
+const MAX_EMAIL_SENDS_PER_HOUR = 5;
+
+export const recordAndCheckEmailSendLimit = internalMutation({
+  args: { email: v.string() },
+  handler: async (ctx, { email }) => {
+    const address = email.trim().toLowerCase();
+    const since = Date.now() - SMS_SEND_WINDOW_MS;
+    const recent = await ctx.db
+      .query("emailSendLimits")
+      .withIndex("by_email_sentAt", (q) => q.eq("email", address).gt("sentAt", since))
+      .collect();
+    if (recent.length >= MAX_EMAIL_SENDS_PER_HOUR) {
+      return false;
+    }
+    await ctx.db.insert("emailSendLimits", { email: address, sentAt: Date.now() });
     return true;
   },
 });
@@ -218,105 +240,144 @@ async function defaultLikeCreateOrUpdateUser(
   return userId;
 }
 
+// Deletes every password sign-in on a user. Used when a sign-in that proves
+// control of the email (Google, or the emailed code) lands on an account whose
+// email was never verified: the unproven password could belong to someone who
+// registered with a stolen email (the classic pre-account-takeover).
+async function revokePasswordAccounts(ctx: MutationCtx, userId: Id<"users">) {
+  const passwordAccounts = await ctx.db
+    .query("authAccounts")
+    .withIndex("userIdAndProvider", (q) => q.eq("userId", userId).eq("provider", "password"))
+    .collect();
+  for (const account of passwordAccounts) {
+    await ctx.db.delete(account._id);
+  }
+}
+
+const EMAIL_OTP_PROVIDER_ID = "email-otp";
+
 async function createOrUpdateUser(
   ctx: MutationCtx,
   args: CreateOrUpdateUserArgs,
 ): Promise<Id<"users">> {
+  const provider = args.provider;
+  const isGoogleOAuth = provider?.type === "oauth" && provider?.id === "google";
+  const isEmailOtp = provider?.type === "email" && provider?.id === EMAIL_OTP_PROVIDER_ID;
+  const email =
+    typeof args.profile.email === "string" ? args.profile.email : undefined;
+
+  // Email one-time code, second half: the person just entered the code, so
+  // the address is now proven (args.type === "verification"). If the account
+  // they land on never had a verified email (a password-only account linked
+  // at code-send time below), that password is now suspect — revoke it, same
+  // as Google does. The plain update path below then stamps
+  // emailVerificationTime.
+  if (
+    isEmailOtp &&
+    args.type === "verification" &&
+    args.existingUserId !== null &&
+    args.profile.emailVerified
+  ) {
+    const user = await ctx.db.get(args.existingUserId);
+    if (user && user.emailVerificationTime === undefined) {
+      await revokePasswordAccounts(ctx, args.existingUserId);
+    }
+  }
+
   // Only the "new sign-in, no linked account yet" path is eligible for the
-  // Google/password-takeover-prevention link below — an existing account
-  // (existingUserId set) already goes through the plain update path exactly
-  // like the default implementation.
-  if (args.existingUserId === null) {
-    const provider = args.provider;
-    const isGoogleOAuth = provider?.type === "oauth" && provider?.id === "google";
-    const email =
-      typeof args.profile.email === "string" ? args.profile.email : undefined;
+  // takeover-safe link below — an existing account (existingUserId set)
+  // already goes through the plain update path exactly like the default
+  // implementation. For email-otp this is the code-SEND step (the library
+  // creates the account when it sends the code); linking there is safe
+  // because it changes nothing on the existing user and the account can't
+  // sign in until the code is entered.
+  if (args.existingUserId === null && (isGoogleOAuth || isEmailOtp) && email) {
+    // Google normally sets `profile.emailVerified` itself from the
+    // `email_verified` claim (same default as the library's own computation
+    // in users.ts if absent). An email-otp account is always treated as
+    // verified here: see above.
+    const emailVerified = isEmailOtp
+      ? true
+      : (args.profile.emailVerified ??
+        (provider.allowDangerousEmailAccountLinking !== false));
 
-    if (isGoogleOAuth && email) {
-      // Same default as the library's own emailVerified computation
-      // (users.ts) — Google normally sets `profile.emailVerified` itself
-      // from the `email_verified` claim, this only covers the (rare) case
-      // it's absent.
-      const emailVerified =
-        args.profile.emailVerified ??
-        (provider.allowDangerousEmailAccountLinking !== false);
+    if (emailVerified) {
+      const matches = await ctx.db
+        .query("users")
+        .withIndex("email", (q) => q.eq("email", email))
+        .take(5);
 
-      if (emailVerified) {
-        const matches = await ctx.db
-          .query("users")
-          .withIndex("email", (q) => q.eq("email", email))
-          .take(5);
+      // Every way the single match can sign in today. Linking is only
+      // safe when that's a password set up with this very email — see
+      // matchIsPasswordOnlyForThisEmail in authLinking.ts.
+      const matchAccounts =
+        matches.length === 1
+          ? await ctx.db
+              .query("authAccounts")
+              .withIndex("userIdAndProvider", (q) => q.eq("userId", matches[0]._id))
+              .collect()
+          : [];
+      const matchIsPasswordOnlyForThisEmail =
+        matchAccounts.length > 0 &&
+        matchAccounts.every((a) => a.provider === "password") &&
+        matchAccounts.some((a) => a.providerAccountId.toLowerCase() === email.toLowerCase());
 
-        // Every way the single match can sign in today. Linking is only
-        // safe when that's a password set up with this very email — see
-        // matchIsPasswordOnlyForThisEmail in authLinking.ts.
-        const matchAccounts =
-          matches.length === 1
-            ? await ctx.db
-                .query("authAccounts")
-                .withIndex("userIdAndProvider", (q) => q.eq("userId", matches[0]._id))
-                .collect()
-            : [];
-        const matchIsPasswordOnlyForThisEmail =
-          matchAccounts.length > 0 &&
-          matchAccounts.every((a) => a.provider === "password") &&
-          matchAccounts.some((a) => a.providerAccountId.toLowerCase() === email.toLowerCase());
+      const decision = decideCreateOrUpdateUser({
+        isGoogleOAuth,
+        isEmailOtp,
+        emailVerified: true,
+        matchingUserCount: matches.length,
+        matchIsPasswordOnlyForThisEmail,
+      });
 
-        const decision = decideCreateOrUpdateUser({
-          isGoogleOAuth: true,
-          emailVerified: true,
-          matchingUserCount: matches.length,
-          matchIsPasswordOnlyForThisEmail,
-        });
+      if (decision === "link") {
+        const existing = matches[0] as Doc<"users">;
 
-        if (decision === "link") {
-          const existing = matches[0] as Doc<"users">;
-
-          // Google has proven ownership of this email — the unproven
-          // password could belong to someone who registered with a stolen
-          // email (the classic pre-account-takeover), so it's revoked
-          // rather than left to coexist.
-          const passwordAccounts = await ctx.db
-            .query("authAccounts")
-            .withIndex("userIdAndProvider", (q) =>
-              q.eq("userId", existing._id).eq("provider", "password"),
-            )
-            .collect();
-          for (const account of passwordAccounts) {
-            await ctx.db.delete(account._id);
-          }
-
-          const patch: Record<string, unknown> = {};
-          if (existing.emailVerificationTime === undefined) {
-            patch.emailVerificationTime = Date.now();
-          }
-          if (!existing.name && typeof args.profile.name === "string") {
-            patch.name = args.profile.name;
-          }
-          if (!(existing as any).image && typeof args.profile.image === "string") {
-            patch.image = args.profile.image;
-          }
-          if (Object.keys(patch).length > 0) {
-            await ctx.db.patch(existing._id, patch);
-          }
-
+        if (isEmailOtp) {
+          // Attach only. Verification (above) revokes the password and
+          // stamps emailVerificationTime once the code is entered.
           await afterUserCreatedOrUpdated(ctx, {
             userId: existing._id,
             existingUserId: existing._id,
           });
-
           return existing._id;
         }
 
-        if (matches.length > 1) {
-          // Don't guess which of several same-email accounts is "the"
-          // account — surface it for a human instead. User ids only: never
-          // log email or phone alongside them.
-          console.warn(
-            "[auth] createOrUpdateUser: multiple users share an email for a Google sign-in; not auto-linking.",
-            { userIds: matches.map((u) => u._id) },
-          );
+        // Google has proven ownership of this email — the unproven
+        // password could belong to someone who registered with a stolen
+        // email, so it's revoked rather than left to coexist.
+        await revokePasswordAccounts(ctx, existing._id);
+
+        const patch: Record<string, unknown> = {};
+        if (existing.emailVerificationTime === undefined) {
+          patch.emailVerificationTime = Date.now();
         }
+        if (!existing.name && typeof args.profile.name === "string") {
+          patch.name = args.profile.name;
+        }
+        if (!(existing as any).image && typeof args.profile.image === "string") {
+          patch.image = args.profile.image;
+        }
+        if (Object.keys(patch).length > 0) {
+          await ctx.db.patch(existing._id, patch);
+        }
+
+        await afterUserCreatedOrUpdated(ctx, {
+          userId: existing._id,
+          existingUserId: existing._id,
+        });
+
+        return existing._id;
+      }
+
+      if (matches.length > 1) {
+        // Don't guess which of several same-email accounts is "the"
+        // account — surface it for a human instead. User ids only: never
+        // log email or phone alongside them.
+        console.warn(
+          "[auth] createOrUpdateUser: multiple users share an email for a verified-email sign-in; not auto-linking.",
+          { userIds: matches.map((u) => u._id) },
+        );
       }
     }
   }
@@ -372,6 +433,39 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
 
         const message = `TheCreative.exchange sign-in code: ${token}. It expires in 10 minutes.`;
         await sendSms(identifier, message);
+      },
+    }),
+    // Emailed one-time code — the event RSVP form's sign-up (event.tsx). Same
+    // shape as the phone provider above: 6 digits, 10 minutes, capped sends.
+    // signIn("email-otp", { email }) sends; signIn("email-otp", { email, code })
+    // verifies. Email() checks the code is entered with the same `email`
+    // (exact match), so the client lowercases and trims it for both calls.
+    Email({
+      id: EMAIL_OTP_PROVIDER_ID,
+      maxAge: CODE_MAX_AGE_SECONDS,
+      async generateVerificationToken() {
+        const array = new Uint32Array(1);
+        crypto.getRandomValues(array);
+        const code = array[0] % 1_000_000;
+        return code.toString().padStart(6, "0");
+      },
+      // The library passes the action ctx as a second argument to email
+      // providers too (signIn.js), but Email()'s type only declares one.
+      async sendVerificationRequest({ identifier, token }, actionCtx?: unknown) {
+        const ctx = actionCtx as GenericActionCtx<DataModel>;
+        const allowed = await ctx.runMutation(
+          internal.auth.recordAndCheckEmailSendLimit,
+          { email: identifier },
+        );
+        if (!allowed) {
+          throw new ConvexError(
+            "Too many codes requested for this address. Try again in an hour.",
+          );
+        }
+        await ctx.runAction(internal.emails.sendSignInCode, {
+          to: identifier,
+          code: token,
+        });
       },
     }),
   ],

@@ -96,3 +96,36 @@ export const sendNotificationEmail = internalAction({
     }
   },
 });
+
+/**
+ * The one-time sign-in code email (convex/auth.ts's "email-otp" provider).
+ * Transactional and user-initiated: no unsubscribe footer and no suppression
+ * check. Unlike sendNotificationEmail it throws when the provider fails, so
+ * the person sees "couldn't send" instead of waiting for a code that isn't
+ * coming. With no email key configured it logs the message (console provider),
+ * code included, so local sign-in works.
+ */
+export const sendSignInCode = internalAction({
+  args: { to: v.string(), code: v.string() },
+  handler: async (_ctx, { to, code }) => {
+    const baseUrl = process.env.SITE_URL || "https://creatives.exchange";
+    const line = `Your TheCreative.exchange code is ${code}. It expires in 10 minutes. If you didn't ask for it, ignore this email.`;
+    const { html } = renderNotificationEmail({
+      heading: `Your code: ${code}`,
+      body: `<p style="margin:0">Your TheCreative.exchange code is <strong>${code}</strong>. It expires in 10 minutes. If you didn't ask for it, ignore this email.</p>`,
+      previewText: `Your code: ${code}`,
+      baseUrl,
+    });
+    const provider = getEmailProvider();
+    const result = await provider.send({
+      to: to.trim().toLowerCase(),
+      subject: `Your code: ${code}`,
+      html,
+      text: line,
+    });
+    if (!result.ok) {
+      console.error(`Failed to send sign-in code via ${provider.name}:`, result.error);
+      throw new Error("Couldn't send the email.");
+    }
+  },
+});

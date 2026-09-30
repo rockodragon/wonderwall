@@ -20,8 +20,16 @@ export function decideCreateOrUpdateUser(params: {
   /** True only for Google's OAuth sign-in (the only OAuth provider this app
    * has); false for password, phone, or any other provider type. */
   isGoogleOAuth: boolean;
+  /** True for the "email-otp" provider (a 6-digit code sent to the address,
+   * used by the event RSVP form). Entering the code proves the person
+   * controls the address, exactly as Google's email_verified claim does, so
+   * it follows the same linking rules. Optional so existing callers stay
+   * valid. */
+  isEmailOtp?: boolean;
   /** Whether the identity provider itself vouches the email is real —
-   * for Google this is the `email_verified` claim. */
+   * for Google this is the `email_verified` claim; for email-otp it is true
+   * because the account is unusable until the code is entered (see
+   * auth.ts). */
   emailVerified: boolean;
   /** How many existing `users` rows have this email address, regardless of
    * their own emailVerificationTime. */
@@ -34,8 +42,11 @@ export function decideCreateOrUpdateUser(params: {
    * phone. So those never auto-link — a human merges them if they're real. */
   matchIsPasswordOnlyForThisEmail: boolean;
 }): AuthLinkDecision {
+  // A sign-in method that proves control of the email address: Google with a
+  // verified email, or an emailed one-time code.
+  const isVerifiedEmailSignIn = params.isGoogleOAuth || params.isEmailOtp === true;
   if (
-    params.isGoogleOAuth &&
+    isVerifiedEmailSignIn &&
     params.emailVerified &&
     params.matchingUserCount === 1 &&
     params.matchIsPasswordOnlyForThisEmail

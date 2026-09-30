@@ -11,6 +11,7 @@ import {
   buildRsvpVisibility,
   isValidEmail,
   normalizeEmail,
+  pickRsvpName,
   planRsvp,
   type ExistingRsvp,
 } from "./eventRsvps";
@@ -184,5 +185,21 @@ describe("nextPaidCents", () => {
   });
   it("adds a second purchase by the same email", () => {
     expect(nextPaidCents(2500, 2500)).toBe(5000);
+  });
+});
+
+describe("pickRsvpName", () => {
+  it("prefers what was typed", () => {
+    expect(pickRsvpName(" Diane ", "Di", "Diane R")).toBe("Diane");
+  });
+
+  it("falls back to the profile, then the account", () => {
+    expect(pickRsvpName(undefined, "Di", "Diane R")).toBe("Di");
+    expect(pickRsvpName("", "", "Diane R")).toBe("Diane R");
+  });
+
+  it("treats the new-account placeholder as no name", () => {
+    expect(pickRsvpName(undefined, "New User", undefined)).toBeUndefined();
+    expect(pickRsvpName(undefined, "New User", "Diane R")).toBe("Diane R");
   });
 });

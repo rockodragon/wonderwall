@@ -143,9 +143,15 @@ export default function AppLayout() {
     !profile.bio?.trim() &&
     !(profile.interests?.length) &&
     (!profile.name?.trim() || profile.name === "New User");
+  // Except on an event page: someone who just signed up through the RSVP
+  // form there (event.tsx) stays put to see "You're in". They go through
+  // onboarding on their next visit anywhere else.
+  const onEventPage = location.pathname.startsWith("/events/");
   useEffect(() => {
-    if (isAuthenticated && needsOnboarding) navigate("/onboarding", { replace: true });
-  }, [isAuthenticated, needsOnboarding, navigate]);
+    if (isAuthenticated && needsOnboarding && !onEventPage) {
+      navigate("/onboarding", { replace: true });
+    }
+  }, [isAuthenticated, needsOnboarding, onEventPage, navigate]);
 
   // Identify user in PostHog when authenticated and profile loaded
   useEffect(() => {
