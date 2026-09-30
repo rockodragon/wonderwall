@@ -3,7 +3,7 @@
 import { Resend } from "resend";
 import type { EmailMessage, EmailProvider, EmailSendResult } from "./types";
 
-const DEFAULT_FROM = "TheCreative.exchange <hello@creatives.exchange>";
+const DEFAULT_FROM = "TheCreative.exchange <hello@thecreative.exchange>";
 
 export function createResendProvider(apiKey: string): EmailProvider {
   const resend = new Resend(apiKey);
