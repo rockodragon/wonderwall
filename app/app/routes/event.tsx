@@ -1198,6 +1198,11 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function useGuestRsvp(eventId: Id<"events"> | undefined) {
   const { signIn } = useAuthActions();
+  // The code sign-in resolves before the Convex client is sending the new
+  // token, so saving waits until the client reports it's authenticated.
+  const { isAuthenticated } = useConvexAuth();
+  const isAuthenticatedRef = useRef(isAuthenticated);
+  isAuthenticatedRef.current = isAuthenticated;
   const rsvpToEvent = useMutation(api.garden.eventRsvps.rsvpToEvent);
   const fillMissingBasics = useMutation(api.profiles.fillMissingBasics);
   const [name, setName] = useState("");
@@ -1259,8 +1264,9 @@ function useGuestRsvp(eventId: Id<"events"> | undefined) {
 
   async function saveRsvp() {
     if (!eventId) return;
-    // Right after sign-in the Convex client can take a beat to start
-    // sending the new token; retry briefly instead of failing the RSVP.
+    // Wait (up to ~8s) for the client to be sending the new sign-in.
+    for (let i = 0; i < 80 && !isAuthenticatedRef.current; i++) await sleep(100);
+    // Then retry briefly on "not signed in" in case the server lags a beat.
     for (let attempt = 0; ; attempt++) {
       try {
         // Only fills a blank name / missing email; never overwrites a
@@ -1274,8 +1280,8 @@ function useGuestRsvp(eventId: Id<"events"> | undefined) {
         const notReady =
           isNotSignedInError(err) ||
           (err instanceof Error && err.message.includes("Not authenticated"));
-        if (notReady && attempt < 4) {
-          await sleep(400);
+        if (notReady && attempt < 6) {
+          await sleep(500);
           continue;
         }
         throw err;
