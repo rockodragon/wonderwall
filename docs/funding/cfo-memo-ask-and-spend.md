@@ -46,7 +46,7 @@ Benchmarks: Pilot's 2024 founder salary report puts the median at $90k for found
 
 Two rules travel with the ladder. **Both founders are full time before anyone else is hired full time**, and **a step happens only when its condition is met**; if the round or the revenue lags, pay holds at the current step. Put the ladder in the founders' offer letters and on the use-of-funds slide, not in the SAFE; investors read it, they do not sign it.
 
-What it costs: paying from the close instead of month 10 adds about $84k of spend to the 18-month window and takes runway on $350k from 24 months to 21. Founders are $204k of the $396k window (52%). That share is normal for a pre-seed; the money is buying the two people, the launch and the first hire. Each $1,000 a month of pay per founder is about $14k a year loaded, or one month of year-one runway, which is the sensitivity to use if the round comes in light.
+What it costs: paying from the close instead of month 10 adds about $84k of spend to the 18-month window. Founders are $204k of the $438k window (47%); the rest of the window is launches, programs and the part-time help that gets them done. That share is normal for a pre-seed; the money is buying the two people, the launch and the first hire. Each $1,000 a month of pay per founder is about $14k a year loaded, or one month of year-one runway, which is the sensitivity to use if the round comes in light.
 
 ## 3. The team: eight people in year five, not ten, and only two for the first eighteen months
 
@@ -55,15 +55,15 @@ The plan is founders first and hires gated on revenue. Headcount by year, full-t
 | Role | Year 1 | Year 2 | Year 3 | Year 4 | Year 5 | Trigger |
 |---|---|---|---|---|---|---|
 | Founders (Rick: product and engineering; Haley: community and programs) | 2 | 2 | 2 | 2 | 2 | paid from the first close, section 2 |
+| Marketing and launch help (part-time) | 0.25 | 0.5 | 0.5 | 1 | 1 | from month 1; a quarter-time launch and content helper, half-time from year two, a full-time marketer in year four |
 | Community and partnerships lead | | 0.5 | 1 | 1.5 | 2 | month 18, when there are 12 communities to serve; a second person past 60 communities |
 | Member support | | | 0.5 | 1 | 1 | members past 4,000 |
-| Marketing | | | 0.5 | 1 | 1 | contractors before that; a person when non-payroll marketing passes $100k a year |
 | Engineering | | | 0.5 | 1 | 1.5 | Rick is the engineering team through year two |
 | Operations and finance | | | | 0.5 | 0.5 | bookkeeping outsourced before that |
-| **Total FTE** | **2** | **2.5** | **4.5** | **7** | **8** | |
-| Revenue per FTE | $18k | $53k | $86k | $116k | $184k | no hire while it is under $100k, from year three on |
+| **Total FTE** | **2.25** | **3** | **4.5** | **7** | **8** | |
+| Revenue per FTE | $16k | $44k | $86k | $116k | $184k | no full-time hire while it is under $100k, from year three on |
 
-What this does to the Base plan: costs are $207k, $377k, $732k, $1.15M and $1.48M against revenue of $36k, $133k, $385k, $810k and $1.47M, so EBITDA is −$171k, −$244k, −$346k, −$340k and −$7k. The Base plan reaches breakeven at the end of year five on a team of eight with founders at 80% of market, and needs about $1.1M of capital over two rounds to get there. The plan that pays a bigger team sooner is the Fundable one: 3, 7, 10, 14 and 18 people, $5.3M of revenue in year five, EBITDA positive in year four, $1.4M of capital repaid from year five. That is the seed's plan, not this round's.
+What this does to the Base plan: costs are $228k, $420k, $732k, $1.15M and $1.48M against revenue of $36k, $133k, $385k, $810k and $1.47M, so EBITDA is −$192k, −$287k, −$346k, −$340k and −$7k. The Base plan reaches breakeven at the end of year five on a team of eight with founders at 80% of market, and needs about $1.2M of capital over two rounds to get there. The plan that pays a bigger team sooner is the Fundable one: 3, 7, 10, 14 and 18 people, $5.3M of revenue in year five, EBITDA positive in year four, $1.4M of capital repaid from year five. That is the seed's plan, not this round's.
 
 ## 4. How Prebys can put money into a for-profit
 
@@ -90,21 +90,22 @@ First 18 months, Base case (the Use of Funds sheet):
 
 | Function | 18-month spend | Share | What is in it |
 |---|---|---|---|
-| Programs & community | $168k | 42% | Haley's pay from the close ($51k year one, $78k year two, loaded), the community lead at half time from month 18, part-time coordinator hours, gathering stipends and venues, fellowship program administration |
-| Engineering & platform | $126k | 32% | Rick's pay from the close (same ladder), hosting and tools, contractors for design and QA, payments compliance |
-| Marketing & launch | $55k | 14% | November 6 ($12k), the film series ($10k), content and outreach, partnerships travel |
-| Operations & G&A | $35k | 9% | Legal (formation, agreements), accounting, insurance, admin |
+| Founders | $204k | 47% | Both founders' pay from the close ($51k each in year one, $78k in year two, loaded); Haley's sits in programs and Rick's in engineering on the model's function view |
+| Marketing & launch | $97k | 22% | A part-time launch and content helper from month 1 ($41k over the window), November 6 ($12k), the film series ($10k), content and outreach, partnerships travel |
+| Programs & community (excluding founder pay) | $66k | 15% | The community lead at half time from month 18, part-time coordinator hours, gathering stipends and venues, fellowship program administration |
+| Operations & G&A | $35k | 8% | Legal (formation, agreements), accounting, insurance, admin |
+| Engineering & platform (excluding founder pay) | $25k | 6% | Hosting and tools, contractors for design and QA, payments compliance; Rick is the engineering team |
 | Payments | $7k | 2% | Card processing absorbed and payout costs |
 | Support | $5k | 1% | Part-time coverage; the first support hire waits for year three |
-| **Total spend** | **$396k** | | Founders are $204k of it (52%) |
+| **Total spend** | **$438k** | | Marketing is more than engineering on purpose: the product is built and the next eighteen months are launches |
 | Revenue in the window | $103k | | |
-| **Net cash need** | **$293k** | | |
+| **Net cash need** | **$335k** | | |
 
-Year one alone is $207k of spend against $36k of revenue: $114k of loaded founder pay, $12k for November 6, $10k of film, $12k of legal, $8k of contractors, $8k of gathering stipends, and the rest in tools, insurance, accounting and payments. That is Haley's $45k list plus the founders plus the legal and payments work an investment requires.
+Year one alone is $228k of spend against $36k of revenue: $114k of loaded founder pay, $21k of part-time marketing help, $12k for November 6, $10k of film, $12k of legal, $8k of contractors, $8k of gathering stipends, and the rest in tools, insurance, accounting and payments. That is Haley's $45k list plus the founders plus the legal and payments work an investment requires.
 
 ## 6. The ask, and whether $350k fits the checks we can expect
 
-**The number is right; the shape was wrong.** $350k is what the Base plan needs to reach the 18-month checkpoint with founders paid: net need $293k, runway 21 months. Less does not get there: $250k is 16 months, $150k is 11. But nobody writes a $350k check at this stage, so the round should not be built as if someone will.
+**The number is right; the shape was wrong.** $350k is what the Base plan needs to reach the 18-month checkpoint with founders paid and part-time help: net need $335k, runway 19 months, about $15k of cushion. Less does not get there: $250k is 14 months, $150k is 9. But nobody writes a $350k check at this stage, so the round should not be built as if someone will.
 
 Where pre-seed money for a company like this actually comes from, and in what sizes:
 
@@ -119,7 +120,7 @@ Where pre-seed money for a company like this actually comes from, and in what si
 So $350k is the room plus a community round, and that takes months. The local angel groups (NuFund, the SDSU angel conference) fund biotech and software on 10x odds and are not a match. The lists are in the [funding strategy](funding-strategy.md); the sources are in [Where the money is](where-the-money-is.md). The fix is to structure it that way:
 
 1. **Form the corporation in October and raise on post-money SAFEs**, one valuation cap for everyone, with a most-favored-nation clause for the first close so early money is not disadvantaged by later terms. Carta's median post-money cap for rounds of $250k to $500k is about $10M, on a tech-heavy sample. A cap of $5M to $8M is defensible for a live product with no revenue yet and keeps the round at 4 to 7% of the company ($350k at $6M is 5.8%); set it with counsel and against what the first two or three committed investors will accept. A convertible note only for a lender who needs a maturity date.
-2. **A first close at $150k**, targeted before or in the week of November 6. That is the trigger for founder pay and covers about 11 months on its own. Two or three committed angels at $25k to $50k plus the founders' own networks get there.
+2. **A first close at $150k**, targeted before or in the week of November 6. That is the trigger for founder pay and covers about 9 months on its own. Two or three committed angels at $25k to $50k plus the founders' own networks get there.
 3. **Rolling closes to $350k by the end of March**, with the same documents: a Wefunder community round for members and patrons (Form C filed in December on the November numbers). Announce the round as $350k with $150k closed; a round that is already partly closed is easier to join than one that is not.
 4. **Kiva, an Accessity loan in year two and any Prebys program money to a partner are additive**, not part of the $350k count. Praxis is a 2027 application for a 2028 cohort at $50k; do not plan on it. A foundation PRI loan is a year-two conversation.
 5. **If the round stalls at $250k**, the plan holds by keeping founder pay at the $4k step (each step waits for its condition) and moving the community lead's start out a quarter. Each $1,000 a month of founder pay held back, per founder, is a month of year-one runway. Never November 6, never the film series; they are the proof.
@@ -140,14 +141,14 @@ So $350k is the room plus a community round, and that takes months. The local an
 | | Conservative | Base | Fundable |
 |---|---|---|---|
 | Founders paid from | year 3, part-time | month after a $150k first close: $4k/mo each, ramping | month after the close: $5k/mo each, ramping faster |
-| Team (FTE incl. founders), years 1 to 5 | 2 / 2 / 2 / 4 / 5 | 2 / 2.5 / 4.5 / 7 / 8 | 3 / 7 / 10 / 14 / 18 |
+| Team (FTE incl. founders), years 1 to 5 | 2 / 2 / 2 / 4 / 5 | 2.25 / 3 / 4.5 / 7 / 8 | 3.5 / 7 / 10 / 14 / 18 |
 | First employee | year 3, half time | month 18 (community & partnerships lead) | month 1, half time; 5 by year two |
-| Year-one spend / revenue | $68k / $17k | $207k / $36k | $356k / $80k |
-| 18-month net cash need | $77k | $293k | $589k |
-| Runway on $350k | 43 months | 21 months | 13 months |
+| Year-one spend / revenue | $68k / $17k | $228k / $36k | $377k / $80k |
+| 18-month net cash need | $77k | $335k | $610k |
+| Runway on $350k | 43 months | 19 months | 13 months |
 | Year-five revenue | $264k | $1.47M | $5.32M |
 | Year-five EBITDA | −$333k | −$7k (breakeven) | +$1.9M |
-| Cumulative capital need | $761k and rising | $1.1M over two rounds | $1.4M, repaid from year five |
+| Cumulative capital need | $761k and rising | $1.2M over two rounds | $1.4M, repaid from year five |
 | What it is | a side project | a paid team of eight on a Base revenue plan: breakeven at the end of year five | the only plan that pays a bigger team and turns profitable |
 
 ## Sources

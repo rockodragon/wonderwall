@@ -50,6 +50,28 @@ Not found: an Artists Count participant count, an NEA metro table for San Diego,
 
 The "creator economy" figures are mostly social-media hobbyists (about 4% full time) and are not used in the ladder.
 
+## 2b. The franchise footprint: San Diego plus nine metros
+
+The deck's SAM row counts the metros where the same model runs as a community led by its own people on our infrastructure. BLS Occupational Employment and Wage Statistics, SOC 27-0000 (arts, design, entertainment, sports and media), May 2023 metro tables (`https://www.bls.gov/oes/2023/may/oes_{CBSA}.htm`); the May 2025 metro tables sit behind a JavaScript tool and were not retrievable when this was written, so re-check them at data.bls.gov/oes. BLS counts payroll jobs and leaves out the self-employed, who are about a third of artists (NEA 2015-19), so the "with self-employed" column is the BLS count times 1.5, our arithmetic.
+
+| Metro (CBSA) | SOC 27-0000 payroll jobs, May 2023 | Share of metro jobs | With self-employed (×1.5) | Congregations, 2020 (ARDA, all faiths incl. LDS/JW) |
+|---|---|---|---|---|
+| Los Angeles-Long Beach-Anaheim (31080) | 201,640 | 3.26% (2.9% in the May 2025 release) | ~302,000 | 7,156 |
+| Dallas-Fort Worth-Arlington (19100) | 44,720 | 1.13% | ~67,000 | |
+| Atlanta-Sandy Springs-Roswell (12060) | 41,040 | 1.46% | ~62,000 | |
+| Seattle-Tacoma-Bellevue (42660) | 35,900 | 1.73% | ~54,000 | |
+| Phoenix-Mesa-Chandler (38060) | 27,600 | 1.21% | ~41,000 | |
+| Denver-Aurora-Lakewood (19740) | 23,620 | 1.49% | ~35,000 | |
+| San Diego-Chula Vista-Carlsbad (41740) | 21,760 | 1.43% | ~33,000 | 1,749 |
+| Austin-Round Rock (12420) | 19,600 | 1.59% | ~29,000 | |
+| Las Vegas-Henderson-Paradise (29820) | 17,720 | 1.64% | ~27,000 | 951 |
+| Nashville-Davidson-Murfreesboro-Franklin (34980) | 17,040 | 1.59% | ~26,000 | 2,733 |
+| **Ten metros** | **450,640** | | **~676,000** | |
+
+Broader counts exist for some metros but use different definitions and are not comparable: San Diego's 2024 creative-economy report counts 82,467 direct creative-economy jobs in 2022 across 71 industries and 76 occupations, including the self-employed (https://www.sandiego.gov/sites/default/files/2024-01/2024-1-9%20Creative%20Economy%20Report.pdf); the Atlanta Regional Commission cites 89,000+ creative-industry jobs (2021); Dallas-Fort Worth 98,639 (2016). National: BLS May 2025 SOC 27-0000 is 2,046,290 (https://www.bls.gov/news.release/ocwage.t01.htm); BEA's arts and cultural production satellite account counts 5.4 million payroll jobs in 2023 (state payroll totals: California 821,183; Texas 360,964; Tennessee 108,773; Nevada 46,761; Georgia 164,919; Arizona 95,294; Colorado 121,228; Washington 190,684).
+
+What this does to the ladder: the SAM becomes about 675,000 creatives across ten metros, the San Diego 35,000 becomes the beachhead, and the SOM stays 5,000 to 10,000 members in three years because the model adds metros from year three (Base) and year four (Fundable). Each franchise metro is a partner community, not an office: its own leaders, its own gatherings, its own faith institutions and organizations buying seats, on the shared platform.
+
 ## 3. Christian creatives and churches
 
 | Number | Definition | Source | Year |

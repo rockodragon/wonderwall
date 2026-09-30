@@ -25,12 +25,12 @@ These are the slide sources (`deck.json` plus one HTML file per slide), saved so
 | 4 | creative-class | Flourishing is three things you can measure in a person's life. |
 | 5 | ecosystem | The infrastructure and engine for the arts and business in a city. |
 | 6 | revenue-model | Multiple commerce streams. |
-| 7 | market | Millions of creatives. We start with 35,000. |
+| 7 | market | Millions of creatives. We start with 35,000, then franchise city by city. |
 | 8 | business | Two tracks. $1.5M platform revenue in year five, on today's prices. |
 | 9 | traction | Soft-launched September 28. Kickoff November 6. |
 | 10 | impact | How we validate impact, every six months. (preliminary model) |
 | 11 | ask | $350,000 pre-seed. First close $150k. |
-| 12 | use-of-funds | Eighteen months: founders paid from the first close, one hire. |
+| 12 | use-of-funds | Eighteen months: where the money goes. |
 | 13 | team | Two founders and an advisor with a record of building businesses and communities. |
 
 ## Before sharing
