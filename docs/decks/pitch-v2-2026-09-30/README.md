@@ -24,12 +24,12 @@ These are the slide sources (`deck.json` plus one HTML file per slide), saved so
 | 3 | solution | We enable creative communities to support themselves and step up to their opportunities. |
 | 4 | creative-class | Flourishing is three things you can measure in a person's life. |
 | 5 | ecosystem | The infrastructure and engine for the arts and business in a city. |
-| 6 | revenue-model | Multiple commerce streams. Creatives and communities keep 90 percent of what they earn. |
+| 6 | revenue-model | Multiple commerce streams. |
 | 7 | market | Millions of creatives. We start with 35,000. |
 | 8 | business | Two tracks. $1.5M platform revenue and breakeven in year five, on today's prices. |
 | 9 | traction | Soft-launched September 28. Public kickoff November 6. |
-| 10 | impact | We report on creatives, communities and the local economy every six months. |
-| 11 | ask | $350,000 on a SAFE that converts when the company becomes a public benefit corporation. |
+| 10 | impact | How we validate impact, every six months. (preliminary model) |
+| 11 | ask | $350,000 SAFE. |
 | 12 | team | Two founders and an advisor with a record of building businesses and communities. |
 
 ## Before sharing

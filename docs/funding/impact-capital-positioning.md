@@ -41,7 +41,7 @@ What we are missing is not a structure but the paperwork and proof that make the
 | "Is the company skimming donations?" | Two pots. Business money: dues, backings, class fees. Charity money: gifts to a fund, received by AP, ~87–90% granted, AP takes 5% for administration and the platform 5% as a fee. The two never mix, and backing a creative is never called a donation. |
 | "Where is the moat?" | Curation and relationships, not features: provisioned communities, a review team for grants, in-person tables, and a disclosure rule ("made by humans") no incumbent will adopt. |
 | Payments and compliance | Stripe processes; Stripe Connect pays out; no customer funds held; 1099s at $600; no chance-based mechanics; $50 payout minimum. |
-| Entity | LLC now; Delaware PBC at the first priced investment (the PBC lets us weigh mission against profit and is the form impact investors expect). |
+| Entity | LLC now; entity form (C-corp or Delaware PBC) decided at the first priced investment. A PBC lets us weigh mission against profit and is a form impact investors often expect, but the decision is open. |
 | Founder equity to partners | Haley and David hold stakes in the company, never the nonprofit; documented in People and Pay. |
 
 ## What has to be true before we pitch (October)
@@ -51,7 +51,7 @@ What we are missing is not a structure but the paperwork and proof that make the
 3. **The impact-measurement plan, one page.** Five metrics, definitions, cadence (quarterly), and where each comes from in the app. Offer to align with Artists Count.
 4. **The deck** (the Slides artifact) and a **data room**: the plan, the business model, the financial model, claims.md, the partner and civic maps, the AP agreement, the cap table, and the Nov 6 program.
 5. **Language discipline.** Everything we say about money comes from `docs/marketing/claims.md`. No "public ledger," no "you keep 100%," no promises to a person.
-6. **The PBC decision** on paper, even if the conversion waits for a term sheet.
+6. **The entity decision** (C-corp or PBC) on paper, even if any conversion waits for a term sheet.
 7. **A 90-day proof plan:** Nov 6 backings and covered seats; first grants listed on a fund page; three hosts paid; one church seat purchase.
 
 ## Timeline

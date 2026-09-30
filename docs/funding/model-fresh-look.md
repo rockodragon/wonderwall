@@ -32,7 +32,7 @@ The full sizing with sources is in `market-sizing.md`. The ladder:
 
 So the honest ceiling for a San Diego-only, individual-seat business is about a thousand paying people in three years, or roughly $120k a year in seats. That is the Conservative case, and it is the case that happens by default if nothing else is built.
 
-The founder estimate is higher: **5,000 to 10,000 members in three years** once schools, universities, churches and other organizations buy seats for their people. That estimate is not yet sourced. It is consistent with the model: the Base case reaches 5,700 paying and covered members in year three, inside the range, and Fundable reaches 12,700, above it. To source it, count San Diego universities, school districts, churches and organizations and multiply by a realistic seat-pack size.
+The founder targets are higher: **at least 3,000 paying individuals in three years**, and **5,000 to 10,000 members** once schools, universities, churches and other organizations buy seats for their stakeholders. Neither is sourced yet. The model meets both in the Base case: 3,200 paying individuals and 5,700 members in year three (Fundable 9,200 and 12,700; Conservative 950 and 1,270). Note the tension: 3,000 individuals is three times what the individual-conversion benchmark supports for San Diego alone, so it depends on partner communities outside San Diego (30 by year three in Base). Organization-bought seats are about 2,500 of the 5,700 members and about 20% of year-three revenue (18% in year five). To source the targets, count San Diego universities, school districts, churches and organizations and multiply by a realistic seat-pack size.
 
 ## The three scenarios
 
@@ -110,9 +110,9 @@ Nothing in any scenario assumes a price increase, a public-arts grant to the com
 | Financial flourishing | Dollars paid to creatives, hosts and programs | $300k cumulative |
 | | Creatives paid at least once | 300 |
 | | Fellowships and commissions awarded through the program | 100 |
-| Belonging | Paying and covered members active | 1,500 |
+| Belonging | Paying individuals active (about 18 months in) | 1,100, growing about 3x a year to 3,000+ by year three |
 | | Covered seats sold, and the share used | 200 sold, 70% used |
-| | Twelve-month retention of paying members | 70% or better |
+| | Net revenue retention | 90% (target); belonging survey score up from baseline |
 | Diversity and agency | Communities led by their own people, by neighborhood and discipline | 12 communities, 6 disciplines |
 | | Share of awards and paid work by creatives outside the founding communities | rising each quarter |
 | Company | Revenue per member per year | $75 or better |
