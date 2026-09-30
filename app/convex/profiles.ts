@@ -151,7 +151,10 @@ export const fillMissingBasics = mutation({
   args: { name: v.optional(v.string()), email: v.optional(v.string()) },
   handler: async (ctx, args) => {
     const userId = await auth.getUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
+    // A ConvexError, not a plain Error: production hides plain error
+    // messages, and the RSVP form retries on exactly this code while a
+    // fresh sign-in settles (event.tsx useGuestRsvp).
+    if (!userId) throw new ConvexError({ code: "not_signed_in" });
 
     const email = args.email?.trim().toLowerCase();
     if (email) {
