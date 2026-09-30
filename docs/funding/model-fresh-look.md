@@ -32,6 +32,8 @@ The full sizing with sources is in `market-sizing.md`. The ladder:
 
 So the honest ceiling for a San Diego-only, individual-seat business is about a thousand paying people in three years, or roughly $120k a year in seats. That is the Conservative case, and it is the case that happens by default if nothing else is built.
 
+The founder estimate is higher: **5,000 to 10,000 members in three years** once schools, universities, churches and other organizations buy seats for their people. That estimate is not yet sourced. It is consistent with the model: the Base case reaches 5,700 paying and covered members in year three, inside the range, and Fundable reaches 12,700, above it. To source it, count San Diego universities, school districts, churches and organizations and multiply by a realistic seat-pack size.
+
 ## The three scenarios
 
 Each scenario is a different business, not a different mood.
@@ -40,8 +42,8 @@ Each scenario is a different business, not a different mood.
 |---|---|---|---|
 | What it is | A San Diego house community with a few churches | San Diego plus partner communities nationally through the mapped networks, plus organization seats | The Base with a funded team from day one and three metros by year four |
 | Partner communities, year 3 / year 5 | 10 / 24 | 30 / 100 | 70 / 300 |
-| Paying and covered members, year 3 / year 5 | 1,270 / 3,530 | 4,500 / 19,000 | 12,700 / 69,500 |
-| Organization seats, year 5 | 700 | 4,000 | 10,000 |
+| Paying and covered members, year 3 / year 5 | 1,270 / 3,530 | 5,700 / 21,000 | 12,700 / 69,500 |
+| Organization seats (schools, churches, organizations), year 3 / year 5 | 200 / 700 | 2,000 / 6,000 | 2,000 / 10,000 |
 | Full-time staff by year 5, excluding founder | 2 | 6 | 10 |
 | Founder pay, years 1 to 5 | $0 / $0 / $24k / $48k / $60k | $0 / $48k / $96k / $144k / $160k | $48k / $96k / $144k / $180k / $200k |
 
@@ -51,43 +53,43 @@ Platform revenue is company revenue: what the platform keeps after creatives, ho
 
 | Base case | Y1 | Y2 | Y3 | Y4 | Y5 |
 |---|---|---|---|---|---|
-| Platform revenue | $36k | $132k | $361k | $777k | $1.42M |
+| Platform revenue | $36k | $133k | $385k | $810k | $1.47M |
 | of which the Garden | $26k | $71k | $158k | $263k | $381k |
-| of which the Exchange | $10k | $61k | $204k | $514k | $1.04M |
-| Money moved through the rail | $154k | $631k | $1.9M | $4.5M | $8.8M |
-| Reaching creatives, hosts and programs | $81k | $358k | $1.1M | $2.7M | $5.4M |
-| Total costs | $54k | $240k | $477k | $875k | $1.28M |
-| EBITDA | −$18k | −$108k | −$116k | −$97k | +$142k |
-| Cumulative cash need | −$18k | −$127k | −$242k | −$339k | −$198k |
+| of which the Exchange | $10k | $62k | $228k | $547k | $1.09M |
+| Money moved through the rail | $154k | $649k | $2.1M | $4.8M | $9.3M |
+| Reaching creatives, hosts and programs | $81k | $365k | $1.2M | $2.8M | $5.6M |
+| Total costs | $54k | $240k | $479k | $878k | $1.29M |
+| EBITDA | −$18k | −$107k | −$94k | −$67k | +$185k |
+| Cumulative cash need | −$18k | −$125k | −$219k | −$286k | −$101k |
 | Headcount including founder | 1 | 2 | 3 | 5 | 7 |
 
 | Platform revenue by scenario | Y1 | Y2 | Y3 | Y4 | Y5 | Breakeven | Peak cash need |
 |---|---|---|---|---|---|---|---|
 | Conservative | $17k | $49k | $100k | $173k | $264k | never | $328k (it hires in Y3 and cannot afford to) |
-| Base | $36k | $132k | $361k | $777k | $1.42M | Y5 | $339k |
+| Base | $36k | $133k | $385k | $810k | $1.47M | Y5 | $286k |
 | Fundable | $80k | $310k | $996k | $2.44M | $5.32M | Y3 | $314k |
 
-Two things stand out. The peak cash need is about the same in every scenario, roughly $325k, because costs scale with ambition. And the Base case reaches by year three what the old model reached by year five, on the same prices, because it stops selling one seat at a time.
+Two things stand out. The peak cash need is $286k to $328k in every scenario, because costs scale with ambition. And members are not revenue: an organization-bought seat earns the platform about $10 a year in fees plus the backings and classes its holder buys, so raising the Base case from 800 to 2,000 organization seats in year three added about 1,200 members but only about $24k of year-three revenue (and cut the peak cash need from $339k to $286k). Revenue is driven by backing and class volume, partner plans and sponsorships.
 
 ## Revenue by source, Base case, year five
 
 | Source | Y5 revenue | Share | Note |
 |---|---|---|---|
-| Membership dues kept (Garden house share plus 10% of partner dues and org seats) | $361k | 25% | the Garden keeps half of its seats; partner communities keep 90% of theirs |
-| Backing fees, 10% | $277k | 19% | patrons backing named creatives |
-| Partner plans for those who post paid work, $79/mo | $284k | 20% | PROPOSED; the most speculative line |
-| Class and premium fees, 10% | $242k | 17% | hosts keep 90% |
-| Sponsorships | $180k | 13% | gatherings and program sponsors, company revenue |
+| Membership dues kept (Garden house share plus 10% of partner dues and org seats) | $381k | 26% | the Garden keeps half of its seats; partner communities keep 90% of theirs |
+| Backing fees, 10% | $305k | 21% | patrons backing named creatives |
+| Partner plans for those who post paid work, $79/mo | $284k | 19% | PROPOSED; the most speculative line |
+| Class and premium fees, 10% | $242k | 16% | hosts keep 90% |
+| Sponsorships | $180k | 12% | gatherings and program sponsors, company revenue |
 | Host and organization plans, $50/mo | $30k | 2% | PROPOSED |
 | Program platform fee, 5% of gifts | $30k | 2% | gifts to nonprofit-run programs |
 | Event ticket fee, 5% | $20k | 1% | PROPOSED; cheaper than Eventbrite's 10 to 14 percent |
 
-Revenue per paying or covered member is $75 to $100 a year in every scenario, and the effective take on money moved falls from 24 percent to 16 percent as partner communities grow. For comparison, Patreon's average paid membership is about $80 a year gross and it keeps 8 to 12 percent; Skool charges each community $1,188 a year plus 2.9 percent, and our Base case earns $2,500 to $10,000 a year per partner community across all lines.
+Revenue per paying or covered member is $70 to $100 a year in every scenario, and the effective take on money moved falls from 24 percent to 16 percent as partner communities grow. For comparison, Patreon's average paid membership is about $80 a year gross and it keeps 8 to 12 percent; Skool charges each community $1,188 a year plus 2.9 percent, and our Base case earns $2,500 to $10,000 a year per partner community across all lines.
 
 ## Is it realistic
 
 - **Conservative: yes.** It matches the research ladder almost exactly (1,270 paying and covered members in year three against a sized 1,000). It is also the case where everyone stays poor. It is the default.
-- **Base: yes, if three things happen.** Thirty partner communities by year three and a hundred by year five, most of them outside San Diego. Organization seat packs sold to churches and universities from year two (800 seats by year three, 4,000 by year five). The two PROPOSED plans built and priced. A hundred communities is small next to Skool or Circle, and thirty by year three is one signed a month from the mapped networks. The four thousand org seats is the bet to watch: it is forty organizations at a hundred seats.
+- **Base: yes, if three things happen.** Thirty partner communities by year three and a hundred by year five, most of them outside San Diego. Organization seat packs sold to schools, universities and churches from year two (2,000 seats by year three, 6,000 by year five). The two PROPOSED plans built and priced. A hundred communities is small next to Skool or Circle, and thirty by year three is one signed a month from the mapped networks. The six thousand org seats is the bet to watch: it is sixty organizations at a hundred seats, and the founder estimate of schools and organizations is the unsourced assumption under it.
 - **Fundable: only with a team.** Seventy communities by year three needs a partnerships hire in year one and a second metro by year two. It is the case an impact investor is actually buying, and it is profitable in year three.
 
 Nothing in any scenario assumes a price increase, a public-arts grant to the company, or a single community above 170 paying members. The largest single-community assumption (170 paying members by year five in the Fundable case) is a twentieth of Hope*Writers.
@@ -99,7 +101,7 @@ Nothing in any scenario assumes a price increase, a public-arts grant to the com
 3. **Sign three partner communities outside San Diego in year one.** The civic graph and partner landscape already name them. One a quarter is the Base case; that pace is what turns a house community into an exchange.
 4. **Fund the program through the nonprofit partner, as a managed program.** Foundations fund a managed fellowship program; they do not fund regranting. The platform earns 5% administering it and the program dollars grow the impact numbers.
 5. **Count the impact every quarter.** The metrics below. A pre-revenue company with counted outcomes raises on the outcomes.
-6. **Raise the full amount.** Every scenario needs about $325k before breakeven. A $150k raise buys the Conservative case with extra steps. $350k carries the Base case through year three with a cushion; total to breakeven is about $425k.
+6. **Raise the full amount.** Peak cash need is $286k (Base) to $328k (Conservative) before the business pays for itself. A $150k raise buys the Conservative case with extra steps. $350k covers the Base case's peak with about a 22 percent cushion.
 
 ## Metrics to validate, first 18 months
 
@@ -127,9 +129,9 @@ These are the numbers that price the next round. Everything on the table comes f
 | Structure | one track, one member count | two tracks (Garden, Exchange), each with its own drivers |
 | Revenue lines | seat share, backing fee, class fee, program fee | plus org seat packs, host and org plans, partner plans, event fees, sponsorships |
 | Geography | San Diego | San Diego plus partner communities nationally |
-| Members, year 3 | 4,500 | 1,270 / 4,500 / 12,700 by scenario |
-| Platform revenue, year 3 | $135k | $100k / $361k / $996k |
-| Cumulative cash need through year 3 | $321k | $127k / $242k / $272k |
+| Members, year 3 | 4,500 | 1,270 / 5,700 / 12,700 by scenario |
+| Platform revenue, year 3 | $135k | $100k / $385k / $996k |
+| Cumulative cash need through year 3 | $321k | $127k / $219k / $272k |
 | Founder pay through year 3 | sweat equity (~$93k) | $0 to $144k a year depending on the raise |
 | Market check | none | a sized ladder with sources, and the scenario's share of it |
 
