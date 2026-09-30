@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>/admin/ledger — Member-directed giving — member-directed giving mock</title>
+<style>
+/* Spine sections governing these mocks: EXPERIENCE.md > Information
+   Architecture, Voice and Tone (microcopy table), Component Patterns, State
+   Patterns; DESIGN.md > Colors, Typography, Components. Tokens are copies of
+   garden.css / tokens.css (--garden-*). Type floor: nothing under 12px. */
+:root{
+  --ink:#121212;--ink-raised:#1c1c19;--paper:#f7f7f4;--body:#c6c6be;--muted:#acaca4;
+  --dim:#94948c;--hair:#2a2a28;--hair-r:#3a3a36;--citron:#fee268;
+  --mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+  --display:"Bricolage Grotesque","Archivo",-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+  --sans:"Archivo",-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:#0c0c0c;color:var(--body);font-family:var(--sans);font-size:17px;line-height:1.6;-webkit-font-smoothing:antialiased}
+p{margin:0}
+a{color:inherit}
+.mock-head{padding:22px 24px 18px;border-bottom:1px solid var(--hair)}
+.mock-head h1{font-family:var(--display);font-size:22px;color:var(--paper);margin:0;font-weight:600;letter-spacing:-.02em}
+.mock-head p{margin:6px 0 0;font-size:14.5px;color:var(--body);max-width:88ch}
+.mock-head .k{font-family:var(--mono);font-size:12.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin-bottom:6px}
+.frames{display:flex;flex-wrap:wrap;gap:32px;padding:28px 24px 8px;align-items:flex-start}
+.frame{background:var(--ink);border:1px solid var(--hair);border-radius:10px;overflow:hidden;flex:0 0 auto}
+.frame.desktop{width:760px;max-width:100%}
+.frame.wide{width:1060px;max-width:100%}
+.frame.mobile{width:375px;max-width:100%}
+.frame .bar{display:flex;align-items:center;gap:6px;padding:10px 14px;border-bottom:1px solid var(--hair);background:#0f0f0e}
+.frame .bar i{width:10px;height:10px;border-radius:50%;background:var(--hair-r);display:block}
+.frame .bar span{margin-left:auto;font-family:var(--mono);font-size:12.5px;color:var(--dim);letter-spacing:.06em}
+.ann{padding:8px 24px 32px;font-size:14.5px;color:var(--body);max-width:96ch}
+.ann b{color:var(--paper);font-weight:600}
+.ann ul{margin:8px 0 0;padding-left:20px}
+.ann li{margin:4px 0}
+/* garden.css, copied */
+.g-wrap{max-width:680px;margin:0 auto;padding:32px 40px 72px}
+.mobile .g-wrap{padding:24px 20px 56px}
+.g-header{display:flex;justify-content:space-between;align-items:baseline;gap:16px;flex-wrap:wrap}
+.g-wordmark{font-family:var(--mono);font-weight:500;font-size:15px;letter-spacing:.28em;text-transform:uppercase;color:var(--paper);text-decoration:none}
+.g-nav{display:flex;gap:22px;flex-wrap:wrap;margin-top:14px}
+.g-nav a{font-family:var(--mono);font-size:15px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);text-decoration:none;padding-bottom:5px}
+.g-nav a.on{color:var(--citron);border-bottom:2px solid var(--citron)}
+.g-rule-heavy{height:2px;background:var(--paper);border:none;margin:12px 0 0}
+.g-rule{height:1px;background:var(--hair);border:none;margin:0}
+.g-label{font-family:var(--mono);font-size:12.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.g-label.citron{color:var(--citron)}
+.g-h{font-family:var(--display);font-weight:600;letter-spacing:-.02em;color:var(--paper);line-height:1.05;margin:0}
+h1.g-h{font-size:40px;letter-spacing:-.03em;text-wrap:balance}
+.mobile h1.g-h{font-size:30px}
+.g-h2{font-size:22px;line-height:1.15}
+.g-body{font-size:17px;color:var(--body);line-height:1.6}
+.g-hint{font-size:14.5px;color:var(--dim);line-height:1.55}
+.g-hint-body{font-size:14.5px;color:var(--body);line-height:1.55}
+.g-btn{display:inline-block;font-family:var(--mono);font-size:13.5px;letter-spacing:.08em;text-transform:uppercase;padding:13px 22px;border-radius:3px;text-decoration:none;border:none;cursor:pointer;line-height:1.2;text-align:center}
+.g-btn-citron{background:var(--citron);color:var(--ink)}
+.g-btn-ghost{border:1px solid var(--hair);color:var(--body);background:transparent}
+.g-btn.off{opacity:.5}
+.mobile .g-btn.full{display:block;width:100%}
+.g-badge{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;border-radius:3px;padding:4px 8px;display:inline-block;line-height:1.3}
+.g-badge-citron{background:var(--citron);color:var(--ink)}
+.g-badge-line{border:1px solid var(--hair);color:var(--body)}
+.g-card{border:1px solid var(--hair);border-radius:10px;padding:20px 24px}
+.g-cell{border:1px solid var(--hair);border-radius:3px;padding:12px 14px}
+.g-cell-v{font-family:var(--display);font-weight:600;font-size:22px;letter-spacing:-.02em;color:var(--paper)}
+.g-input{width:100%;background:transparent;border:1px solid var(--hair);border-radius:3px;color:var(--paper);font-family:var(--sans);font-size:16px;padding:12px 14px;line-height:1.4}
+.g-input.ph{color:var(--dim)}
+.g-mono{font-family:var(--mono)}
+.stack>*+*{margin-top:12px}
+.sec{margin-top:36px}
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+/* feature deltas (DESIGN.md > Components) */
+.gv-choice{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;border:1px solid var(--hair);border-radius:10px;padding:16px 18px;min-height:44px;cursor:pointer}
+.gv-choice[aria-checked="true"]{border-color:var(--citron)}
+.gv-choice b{display:block;color:var(--paper);font-size:17px;font-weight:600;line-height:1.3}
+.gv-choice span{display:block;font-size:14.5px;color:var(--body);margin-top:3px;line-height:1.5}
+.gv-check{color:var(--citron);flex-shrink:0;font-family:var(--mono);font-size:15px;line-height:1.5}
+.gv-list{border-top:1px solid var(--hair);margin-top:12px}
+.gv-row{display:flex;align-items:center;gap:12px;padding:12px 10px;border-bottom:1px solid var(--hair);min-height:44px}
+.gv-row[aria-checked="true"]{border:1px solid var(--citron);border-radius:3px}
+.gv-av{width:36px;height:36px;border-radius:9999px;background:var(--hair-r);color:var(--paper);font-family:var(--mono);font-size:13.5px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.gv-row .t{flex:1;min-width:0}
+.gv-row b{display:block;color:var(--paper);font-size:15px;font-weight:600;line-height:1.3}
+.gv-row span{display:block;font-size:14.5px;color:var(--dim);line-height:1.4}
+.gv-amts{display:flex;gap:8px;flex-wrap:wrap}
+.gv-amts .g-btn{min-width:72px}
+.gv-amts .on{border-color:var(--citron);color:var(--citron)}
+.gv-seg{display:inline-flex;border:1px solid var(--hair);border-radius:10px;padding:3px}
+.gv-seg span{font-family:var(--mono);font-size:13.5px;letter-spacing:.08em;text-transform:uppercase;padding:8px 16px;border-radius:8px;color:var(--paper);cursor:pointer}
+.gv-seg span.on{background:var(--paper);color:var(--ink)}
+.gv-done{border-left:2px solid var(--citron);padding-left:16px}
+.gv-hist{display:flex;flex-wrap:wrap;align-items:baseline;gap:12px;padding:14px 0;border-bottom:1px solid var(--hair)}
+.gv-hist .p{font-family:var(--mono);font-size:12.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);min-width:72px}
+.gv-hist .d{color:var(--paper);font-size:15px}
+.gv-hist .a{color:var(--muted);font-size:14.5px}
+.mobile .gv-hist .p,.mobile .gv-hist .a{flex-basis:100%}
+.gv-owed{font-family:var(--display);font-size:22px;font-weight:600;color:var(--paper);letter-spacing:-.02em}
+.chk{display:flex;align-items:center;gap:10px;font-size:15px;color:var(--body)}
+.chk i{width:18px;height:18px;border:1px solid var(--muted);border-radius:3px;display:inline-block;flex-shrink:0}
+.chk i.on{background:var(--citron);border-color:var(--citron)}
+.counter{font-size:14.5px;color:var(--dim);text-align:right;margin-top:5px}
+/* app shell (today, settings, notifications) — same tokens via --app-* */
+.app{max-width:680px;margin:0 auto;padding:32px 40px 56px}
+.mobile .app{padding:24px 20px 48px}
+.app-card{background:var(--ink-raised);border:1px solid var(--hair);border-radius:12px;padding:24px 28px}
+.mobile .app-card{padding:20px}
+.app-label{font-family:var(--mono);font-size:12.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+.app-h{font-family:var(--display);font-size:28px;font-weight:600;letter-spacing:-.01em;color:var(--paper);line-height:1.15;margin:10px 0 0}
+.mobile .app-h{font-size:24px}
+.app-btn{display:inline-flex;align-items:center;gap:8px;border-radius:8px;font-weight:600;font-size:13.5px;padding:10px 16px;background:var(--citron);color:var(--ink);text-decoration:none;font-family:var(--sans)}
+.app-btn.ghost{background:transparent;border:1px solid var(--hair-r);color:var(--paper);font-weight:500}
+.n-list{background:var(--ink-raised);border:1px solid var(--hair);border-radius:16px;overflow:hidden}
+.n-row{display:flex;align-items:flex-start;gap:12px;padding:12px 16px;border-left:2px solid transparent;border-bottom:1px solid var(--hair)}
+.n-row:last-child{border-bottom:none}
+.n-row.unread{border-left-color:var(--citron)}
+.n-row .t{flex:1;min-width:0}
+.n-row .h{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.n-row .h b{font-size:15px;color:var(--paper);font-weight:600}
+.n-row .h span{font-size:12.5px;color:var(--muted);flex-shrink:0}
+.n-row p{font-size:14.5px;color:var(--muted);margin-top:2px}
+.n-av{width:40px;height:40px;border-radius:9999px;background:var(--hair-r);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:13.5px;color:var(--paper)}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;border-bottom:1px solid var(--hair);padding-bottom:0;margin-bottom:28px}
+.tabs span{font-size:15px;font-weight:500;padding:10px 14px;color:var(--muted);border-bottom:2px solid transparent}
+.tabs span.on{color:var(--paper);border-bottom-color:var(--citron)}
+.set-h{font-size:19px;font-weight:600;color:var(--paper);margin:0 0 14px;font-family:var(--sans)}
+.set-p{font-size:14.5px;color:var(--body);line-height:1.6}
+/* email (email/template.ts, copied) */
+.em-page{background:#f4f4f2;padding:32px 16px;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+.em-wrap{max-width:520px;margin:0 auto}
+.em-brand{font-size:16px;font-weight:700;color:#111111;margin-bottom:20px}
+.em-card{background:#ffffff;border-radius:12px;padding:32px;border:1px solid #e5e5e0}
+.mobile .em-card{padding:24px 20px}
+.em-card h1{margin:0 0 14px;font-size:19px;line-height:1.4;color:#111111;font-family:inherit;font-weight:700}
+.em-card .b{font-size:15px;color:#111111;line-height:1.6}
+.em-card .b p+p{margin-top:14px}
+.em-btn{display:inline-block;padding:12px 24px;background:#111111;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:600;font-size:15px;margin-top:20px}
+.em-foot{margin-top:24px;font-size:13px;color:#444444;line-height:1.6}
+.em-foot a{color:#444444}
+.em-meta{font-family:var(--mono);font-size:12.5px;color:var(--dim);letter-spacing:.04em;padding:12px 16px;border-bottom:1px solid var(--hair);line-height:1.7}
+.em-meta b{color:var(--muted);font-weight:500}
+/* report table */
+.tbl-wrap{overflow-x:auto;margin-top:14px;-webkit-overflow-scrolling:touch}
+table.rep{border-collapse:collapse;min-width:100%;font-variant-numeric:tabular-nums}
+table.rep th{font-family:var(--mono);font-size:12.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);font-weight:500;text-align:right;padding:8px 12px;border-bottom:2px solid var(--paper);white-space:nowrap;vertical-align:bottom}
+table.rep th:first-child,table.rep td:first-child{text-align:left;position:sticky;left:0;background:var(--ink)}
+table.rep td{font-size:15px;color:var(--body);text-align:right;padding:10px 12px;border-bottom:1px solid var(--hair);white-space:nowrap}
+table.rep td:first-child{font-family:var(--mono);font-size:12.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--paper)}
+table.rep td.hot{color:var(--paper);font-weight:600}
+.led{display:flex;flex-wrap:wrap;align-items:baseline;gap:12px;padding:12px 0;border-bottom:1px solid var(--hair)}
+.led .n{font-size:14.5px;color:var(--paper);font-weight:600;min-width:160px}
+.led .m{font-size:14.5px;color:var(--dim)}
+.led .v{font-size:15px;color:var(--paper);margin-left:auto}
+</style>
+</head>
+<body>
+<div class="mock-head"><div class="k">Key screen · member-directed giving · 2026-09-30</div><h1>/admin/ledger — Member-directed giving</h1><p>The per-month table with the spec's columns, and the per-member rows.</p></div>
+<div class="frames">
+<div class="frame wide"><div class="bar"><i></i><i></i><i></i><span>/admin/ledger — Member-directed giving section (980px wide column)</span></div><div class="g-wrap" style="max-width:980px"><div class="g-header"><div><span class="g-label">TheCreative.exchange</span><h1 class="g-h" style="font-size:36px;margin-top:6px">Platform ledger</h1></div><span class="g-mono" style="font-size:12.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)">← Back to admin</span></div><p class="g-hint" style="margin-top:10px">Generated Oct 5, 2026, 9:02 AM</p><section style="margin-top:40px"><span class="g-label">Grant pools</span><div class="g-card" style="margin-top:12px"><div class="row" style="justify-content:space-between"><span class="g-h" style="font-size:17px">The Garden</span><span class="g-badge g-badge-line">community</span></div><div class="row" style="margin-top:14px"><div class="g-cell"><div class="g-cell-v">$410</div><div class="g-label" style="margin-top:4px">Inflow (pool)</div></div><div class="g-cell"><div class="g-cell-v">−$135</div><div class="g-label" style="margin-top:4px">member_gift_out</div></div><div class="g-cell"><div class="g-cell-v">$275</div><div class="g-label" style="margin-top:4px">Balance</div></div></div></div></section><section style="margin-top:40px"><span class="g-label">Member-directed giving</span><p class="g-hint" style="margin-top:8px">From getGivingReport. Plus-up rate = months plussed up ÷ months directed to a creative or project. Repeat = did it last month and this month. Plus-up $ includes renewals of monthly plus-ups; plus-ups and monthly started count them once.</p><div class="row" style="margin-top:12px;gap:10px"><div class="g-cell" style="min-width:120px"><div class="g-cell-v">85</div><div class="g-label" style="margin-top:4px">Opened</div></div><div class="g-cell" style="min-width:120px"><div class="g-cell-v">51</div><div class="g-label" style="margin-top:4px">Directed</div></div><div class="g-cell" style="min-width:120px"><div class="g-cell-v">$255</div><div class="g-label" style="margin-top:4px">Directed $</div></div><div class="g-cell" style="min-width:120px"><div class="g-cell-v">$540</div><div class="g-label" style="margin-top:4px">Plus-up $</div></div><div class="g-cell" style="min-width:120px"><div class="g-cell-v">20</div><div class="g-label" style="margin-top:4px">Plussed up</div></div></div><div class="tbl-wrap"><table class="rep"><thead><tr><th>Month</th><th>Opened</th><th>Still open</th><th>To a creative</th><th>To a project</th><th>Left in fund</th><th>Defaulted</th><th>Directed $</th><th>Decided ≤ 7 days</th><th>Distinct recipients</th><th>Plus-ups</th><th>Plus-up $</th><th>Monthly started</th><th>Plus-up rate</th><th>Repeat givers</th><th>Repeat plus-ups</th></tr></thead><tbody><tr><td>Oct 2026</td><td class="hot">12</td><td>4</td><td>5</td><td>2</td><td>1</td><td>0</td><td>$35</td><td>7</td><td class="hot">7</td><td>3</td><td>$85</td><td>1</td><td class="hot">43%</td><td>6</td><td>2</td></tr><tr><td>Sep 2026</td><td class="hot">42</td><td>0</td><td>18</td><td>9</td><td>6</td><td>9</td><td>$135</td><td>25</td><td class="hot">21</td><td>11</td><td>$310</td><td>4</td><td class="hot">41%</td><td>13</td><td>4</td></tr><tr><td>Aug 2026</td><td class="hot">31</td><td>0</td><td>12</td><td>5</td><td>4</td><td>10</td><td>$85</td><td>17</td><td class="hot">14</td><td>6</td><td>$145</td><td>2</td><td class="hot">35%</td><td>0</td><td>0</td></tr></tbody></table></div><div style="margin-top:28px"><div class="g-label" style="margin-bottom:6px">Per member · largest plus-up total first, then months in a row</div><div class="led"><span class="n">Dana Whitfield</span><span class="m">3 months in a row · 3 of 3 directed · 3 plus-ups · last Oct 2026</span><span class="v">$85</span></div><div class="led"><span class="n">Theo Park</span><span class="m">2 months in a row · 2 of 3 directed · 2 plus-ups · last Oct 2026</span><span class="v">$50</span></div><div class="led"><span class="n">Priya Natarajan</span><span class="m">1 month in a row · 2 of 3 directed · 1 plus-up · last Sep 2026</span><span class="v">$25</span></div><div class="led"><span class="n">Ines Moreno</span><span class="m">0 months in a row · 0 of 3 directed · 0 plus-ups · last Oct 2026</span><span class="v">$0</span></div></div></section></div></div><div class="frame mobile"><div class="bar"><i></i><i></i><i></i><span>/admin/ledger · 375px — table scrolls sideways, month column pinned</span></div><div class="g-wrap"><div class="g-header"><div><span class="g-label">TheCreative.exchange</span><h1 class="g-h" style="font-size:28px;margin-top:6px">Platform ledger</h1></div></div><section style="margin-top:40px"><span class="g-label">Member-directed giving</span><p class="g-hint" style="margin-top:8px">From getGivingReport. Plus-up rate = months plussed up ÷ months directed to a creative or project. Repeat = did it last month and this month. Plus-up $ includes renewals of monthly plus-ups; plus-ups and monthly started count them once.</p><div class="row" style="margin-top:12px;gap:10px"><div class="g-cell" style="min-width:120px"><div class="g-cell-v">85</div><div class="g-label" style="margin-top:4px">Opened</div></div><div class="g-cell" style="min-width:120px"><div class="g-cell-v">51</div><div class="g-label" style="margin-top:4px">Directed</div></div><div class="g-cell" style="min-width:120px"><div class="g-cell-v">$255</div><div class="g-label" style="margin-top:4px">Directed $</div></div><div class="g-cell" style="min-width:120px"><div class="g-cell-v">$540</div><div class="g-label" style="margin-top:4px">Plus-up $</div></div><div class="g-cell" style="min-width:120px"><div class="g-cell-v">20</div><div class="g-label" style="margin-top:4px">Plussed up</div></div></div><div class="tbl-wrap"><table class="rep"><thead><tr><th>Month</th><th>Opened</th><th>Still open</th><th>To a creative</th><th>To a project</th><th>Left in fund</th><th>Defaulted</th><th>Directed $</th><th>Decided ≤ 7 days</th><th>Distinct recipients</th><th>Plus-ups</th><th>Plus-up $</th><th>Monthly started</th><th>Plus-up rate</th><th>Repeat givers</th><th>Repeat plus-ups</th></tr></thead><tbody><tr><td>Oct 2026</td><td class="hot">12</td><td>4</td><td>5</td><td>2</td><td>1</td><td>0</td><td>$35</td><td>7</td><td class="hot">7</td><td>3</td><td>$85</td><td>1</td><td class="hot">43%</td><td>6</td><td>2</td></tr><tr><td>Sep 2026</td><td class="hot">42</td><td>0</td><td>18</td><td>9</td><td>6</td><td>9</td><td>$135</td><td>25</td><td class="hot">21</td><td>11</td><td>$310</td><td>4</td><td class="hot">41%</td><td>13</td><td>4</td></tr><tr><td>Aug 2026</td><td class="hot">31</td><td>0</td><td>12</td><td>5</td><td>4</td><td>10</td><td>$85</td><td>17</td><td class="hot">14</td><td>6</td><td>$145</td><td>2</td><td class="hot">35%</td><td>0</td><td>0</td></tr></tbody></table></div><div style="margin-top:28px"><div class="g-label" style="margin-bottom:6px">Per member · largest plus-up total first, then months in a row</div><div class="led"><span class="n">Dana Whitfield</span><span class="m">3 months in a row · 3 of 3 directed · 3 plus-ups · last Oct 2026</span><span class="v">$85</span></div><div class="led"><span class="n">Theo Park</span><span class="m">2 months in a row · 2 of 3 directed · 2 plus-ups · last Oct 2026</span><span class="v">$50</span></div><div class="led"><span class="n">Priya Natarajan</span><span class="m">1 month in a row · 2 of 3 directed · 1 plus-up · last Sep 2026</span><span class="v">$25</span></div><div class="led"><span class="n">Ines Moreno</span><span class="m">0 months in a row · 0 of 3 directed · 0 plus-ups · last Oct 2026</span><span class="v">$0</span></div></div></section></div></div>
+</div>
+<div class="ann"><b>What this shows.</b> The operator report as a real table: the spec's "What we measure" columns plus the two the report already carries (still open, directed $), one row per month, newest first, numbers right-aligned in tabular figures. Opened, distinct recipients and plus-up rate are set in paper so the three numbers that answer "is it spreading, are they adding" read first. Totals sit above as cells. The per-member list follows (getGivingReport.members): months directed in a row, months directed of months opened, plus-up count, last period, total plussed up; sorted largest plus-up total first, then streak. Directed amounts also appear on the community's pool card above as <code>member_gift_out</code> rows (negative pool cents).<ul><li>Numbers are sample values for layout only; the feature is not live.</li><li>Under 980px the table scrolls sideways inside its section with the month column pinned; it is the one horizontal-scroll element in the product.</li><li>PostHog gets only the funnel events (giving_notice_opened, giving_decided, giving_plus_up_started) with target type; never an amount or a name.</li><li>Spine: EXPERIENCE.md › Component Patterns (Report table); Key Flow 6.</li></ul></div>
+</body>
+</html>

@@ -409,6 +409,7 @@ function makeConvexDb(ctx: MutationCtx): Db & ClassPaymentDb {
         billing: row.billing,
         stripeRef: row.stripeRef,
         period: row.period,
+        ...(row.memberGiftId ? { memberGiftId: row.memberGiftId as Id<"memberGifts"> } : {}),
         createdAt: Date.now(),
       });
     },

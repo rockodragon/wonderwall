@@ -605,11 +605,219 @@ function RecentSection({ recent }: { recent: PlatformReport["recent"] }) {
   );
 }
 
+// ————— Member-directed giving —————
+//
+// What members do with their monthly half (getGivingReport, operator only).
+// The report is read defensively: a backend that hasn't shipped it yet
+// leaves this section empty and the rest of the page renders.
+
+type GivingPeriodRow = {
+  period: string;
+  opened: number;
+  toCreative: number;
+  toProject: number;
+  fundChosen: number;
+  defaulted: number;
+  stillOpen: number;
+  directedCents: number;
+  decidedWithin7Days: number;
+  distinctRecipients: number;
+  plusUps: number;
+  plusUpCents: number;
+  monthlyPlusUpsStarted: number;
+  plusUpRate: number;
+  repeatGivers: number;
+  repeatPlusUps: number;
+};
+
+type GivingMemberRow = {
+  userId: string;
+  name: string;
+  profileId?: string | null;
+  giftsOpened: number;
+  giftsDirected: number;
+  monthsDirectedInARow: number;
+  plusUpCount: number;
+  plusUpCents: number;
+};
+
+type GivingReport = {
+  byPeriod?: GivingPeriodRow[];
+  members?: GivingMemberRow[];
+  totals?: {
+    opened?: number;
+    directed?: number;
+    directedCents?: number;
+    plusUpCents?: number;
+    giftsWithPlusUp?: number;
+  };
+};
+
+const GIVING_COLUMNS: { label: string; hot?: boolean; cell: (r: GivingPeriodRow) => string }[] = [
+  { label: "Opened", hot: true, cell: (r) => String(r.opened ?? 0) },
+  { label: "Still open", cell: (r) => String(r.stillOpen ?? 0) },
+  { label: "Creative", cell: (r) => String(r.toCreative ?? 0) },
+  { label: "Project", cell: (r) => String(r.toProject ?? 0) },
+  { label: "Fund", cell: (r) => String(r.fundChosen ?? 0) },
+  { label: "Defaulted", cell: (r) => String(r.defaulted ?? 0) },
+  { label: "Directed $", cell: (r) => formatMoney(r.directedCents ?? 0) },
+  { label: "Within 7 days", cell: (r) => String(r.decidedWithin7Days ?? 0) },
+  { label: "Recipients", hot: true, cell: (r) => String(r.distinctRecipients ?? 0) },
+  { label: "Plus-ups", cell: (r) => String(r.plusUps ?? 0) },
+  { label: "Plus-up $", cell: (r) => formatMoney(r.plusUpCents ?? 0) },
+  { label: "Monthly started", cell: (r) => String(r.monthlyPlusUpsStarted ?? 0) },
+  { label: "Rate", hot: true, cell: (r) => `${Math.round((r.plusUpRate ?? 0) * 100)}%` },
+  { label: "Repeat givers", cell: (r) => String(r.repeatGivers ?? 0) },
+  { label: "Repeat plus-ups", cell: (r) => String(r.repeatPlusUps ?? 0) },
+];
+
+const TH: React.CSSProperties = {
+  fontFamily: "var(--g-mono, monospace)",
+  fontSize: 12.5,
+  letterSpacing: "0.08em",
+  textTransform: "uppercase",
+  color: "var(--g-dim)",
+  fontWeight: 500,
+  textAlign: "right",
+  padding: "8px 12px",
+  borderBottom: "2px solid var(--g-paper)",
+  whiteSpace: "nowrap",
+  verticalAlign: "bottom",
+};
+
+const STICKY: React.CSSProperties = { position: "sticky", left: 0, background: "var(--g-ink)", textAlign: "left" };
+
+function GivingSection({ report }: { report: GivingReport | null | undefined }) {
+  const rows = report?.byPeriod ?? [];
+  const members = report?.members ?? [];
+  const totals = report?.totals;
+  return (
+    <section style={{ marginTop: 40 }}>
+      <SectionLabel>Member-directed giving</SectionLabel>
+      {report === undefined ? (
+        <div style={{ marginTop: 12 }}>
+          <GardenLoading />
+        </div>
+      ) : rows.length === 0 ? (
+        <div style={{ marginTop: 12 }}>
+          <EmptyRow>Nothing opened yet.</EmptyRow>
+        </div>
+      ) : (
+        <>
+          <div
+            style={{
+              marginTop: 12,
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit,minmax(130px,1fr))",
+              gap: 10,
+            }}
+          >
+            <StatCell label="Opened" value={String(totals?.opened ?? 0)} />
+            <StatCell label="Directed" value={String(totals?.directed ?? 0)} />
+            <StatCell label="Directed $" value={formatMoney(totals?.directedCents ?? 0)} hot />
+            <StatCell label="Plus-up $" value={formatMoney(totals?.plusUpCents ?? 0)} hot />
+            <StatCell label="Plussed up" value={String(totals?.giftsWithPlusUp ?? 0)} />
+          </div>
+
+          <div style={{ overflowX: "auto", marginTop: 18, WebkitOverflowScrolling: "touch" }}>
+            <table style={{ borderCollapse: "collapse", minWidth: "100%", fontVariantNumeric: "tabular-nums" }}>
+              <thead>
+                <tr>
+                  <th style={{ ...TH, ...STICKY }}>Month</th>
+                  {GIVING_COLUMNS.map((c) => (
+                    <th key={c.label} style={TH}>
+                      {c.label}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr key={r.period}>
+                    <td
+                      style={{
+                        ...STICKY,
+                        fontFamily: "var(--g-mono, monospace)",
+                        fontSize: 12.5,
+                        letterSpacing: "0.08em",
+                        textTransform: "uppercase",
+                        color: "var(--g-paper)",
+                        padding: "10px 12px",
+                        borderBottom: "1px solid var(--g-hairline)",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {formatPeriod(r.period)}
+                    </td>
+                    {GIVING_COLUMNS.map((c) => (
+                      <td
+                        key={c.label}
+                        style={{
+                          fontSize: 15,
+                          color: c.hot ? "var(--g-paper)" : "var(--g-body)",
+                          fontWeight: c.hot ? 600 : 400,
+                          textAlign: "right",
+                          padding: "10px 12px",
+                          borderBottom: "1px solid var(--g-hairline)",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {c.cell(r)}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div style={{ marginTop: 26 }}>
+            <div className="g-label" style={{ marginBottom: 10 }}>By member</div>
+            {members.length === 0 ? (
+              <EmptyRow>No members yet.</EmptyRow>
+            ) : (
+              members.map((m) => (
+                <LedgerRow key={m.userId}>
+                  {m.profileId ? (
+                    <Link
+                      to={`/profile/${m.profileId}`}
+                      style={{ fontSize: 14.5, color: "var(--g-paper)", fontWeight: 600, minWidth: 160 }}
+                    >
+                      {m.name}
+                    </Link>
+                  ) : (
+                    <span style={{ fontSize: 14.5, color: "var(--g-paper)", fontWeight: 600, minWidth: 160 }}>
+                      {m.name}
+                    </span>
+                  )}
+                  <span className="g-hint">
+                    {m.monthsDirectedInARow ?? 0} {m.monthsDirectedInARow === 1 ? "month" : "months"} in a row
+                  </span>
+                  <span className="g-hint">
+                    {m.giftsDirected ?? 0} of {m.giftsOpened ?? 0} directed
+                  </span>
+                  <span className="g-hint">
+                    {m.plusUpCount ?? 0} {m.plusUpCount === 1 ? "plus-up" : "plus-ups"}
+                  </span>
+                  <span style={{ fontSize: 15, color: "var(--g-paper)", marginLeft: "auto" }}>
+                    {formatMoney(m.plusUpCents ?? 0)}
+                  </span>
+                </LedgerRow>
+              ))
+            )}
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
 // ————— Page —————
 
 export default function AdminLedgerPage() {
   const profile = useQuery(api.profiles.getMyProfile);
   const report = useQuery(api.garden.reports.getPlatformReport, {}) as PlatformReport | null | undefined;
+  const givingReport = useQuery(api.garden.giving.getGivingReport, {}) as GivingReport | null | undefined;
 
   if (profile === undefined) {
     return (
@@ -654,6 +862,7 @@ export default function AdminLedgerPage() {
           <p className="g-hint" style={{ marginTop: 10 }}>Generated {formatDateTime(report.generatedAt)}</p>
           <FeesSection fees={report.fees} periods={report.periods} />
           <PoolsSection pools={report.pools} />
+          <GivingSection report={givingReport} />
           <HostEarningsSection hostEarnings={report.hostEarnings} />
           <CreativeEarningsSection creativeEarnings={report.creativeEarnings ?? []} />
           <CommunitiesMembersSection communities={report.communities} />

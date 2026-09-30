@@ -573,6 +573,10 @@ export const createBackingCheckout = action({
     guestName: v.optional(v.string()),
     // Which page the backer started on, so Stripe sends them back to it.
     from: v.optional(v.union(v.literal("story"), v.literal("project"))),
+    // Member-directed giving: the monthly amount this backing is added on
+    // top of (a plus-up from /give) — rides the metadata onto every renewal
+    // so the behavior-change report can attribute it.
+    memberGiftId: v.optional(v.id("memberGifts")),
   },
   handler: async (ctx, args) => {
     const userId = await auth.getUserId(ctx);
@@ -660,6 +664,7 @@ export const createBackingCheckout = action({
       // rest of `metadata`, so each monthly renewal invoice carries it too.
       amountCents: String(args.amountCents),
       ...(args.tierId ? { tierId: args.tierId } : {}),
+      ...(args.memberGiftId ? { memberGiftId: String(args.memberGiftId) } : {}),
     };
 
     const returnTo = backingReturnPaths({

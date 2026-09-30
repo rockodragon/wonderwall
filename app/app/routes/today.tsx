@@ -50,6 +50,10 @@ export default function Today() {
   const projects = useProjects();
   const events = useQuery(api.events.list, {});
   const profile = useQuery(api.profiles.getMyProfile);
+  // Read defensively: before the backend deploy this query doesn't exist and
+  // the card simply doesn't show.
+  const giving = useQuery(api.garden.giving.getMyGiving);
+  const openGift = giving?.open?.[0];
 
   const episode = useMemo(() => pickEpisode(events ?? []), [events]);
 
@@ -88,6 +92,8 @@ export default function Today() {
         <MonoLabel as="h1">Today in The Garden</MonoLabel>
         <MonoLabel>{formatToday()}</MonoLabel>
       </div>
+
+      {openGift && <YourHalfCard amountCents={openGift.amountCents} />}
 
       <CreatorNotes episode={episode} />
 
@@ -159,6 +165,32 @@ export default function Today() {
         <BackersCard />
       </div>
     </div>
+  );
+}
+
+// ——————————————————————————————————————————————————————————————
+// Your half — shown only while a monthly amount is open to give
+
+function YourHalfCard({ amountCents }: { amountCents: number }) {
+  return (
+    <section
+      className="rounded-xl border px-5 py-6 md:px-7 md:py-7 mb-14"
+      style={CARD}
+      aria-label="Your half"
+    >
+      <span className="text-xs uppercase tracking-[0.16em]" style={{ ...MONO, color: "var(--app-text-muted)" }}>
+        Your half
+      </span>
+      <h2 className="mt-2 text-2xl md:text-[28px] font-semibold leading-tight" style={{ ...DISPLAY, color: "var(--app-text)" }}>
+        You have {formatMoney(amountCents)} to give this month.
+      </h2>
+      <p className="mt-2 text-[15px] leading-relaxed" style={{ color: "var(--app-text-muted)", maxWidth: "60ch" }}>
+        {CLAIMS.memberDirected} {CLAIMS.memberDirectedDefault}
+      </p>
+      <div className="mt-4">
+        <PrimaryLink to="/give">Pick who gets it</PrimaryLink>
+      </div>
+    </section>
   );
 }
 

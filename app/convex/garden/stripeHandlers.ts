@@ -291,6 +291,9 @@ export interface BackingPaymentRow {
   workCents: number; // owed to the payee
   billing: "one_time" | "first" | "renewal";
   stripeRef: string; // checkout session id or invoice id — idempotency key
+  /** Member-directed giving: the monthly amount this backing was added on
+   * top of (a plus-up from /give). Read by the behavior-change report. */
+  memberGiftId?: string;
   period: string; // "YYYY-MM"
 }
 
@@ -931,6 +934,7 @@ async function recordBackingPayment(
     billing: BackingPaymentRow["billing"];
     stripeRef: string;
     periodSeconds: number;
+    memberGiftId?: string;
   },
 ): Promise<void> {
   if (args.grossCents <= 0) return;
@@ -942,6 +946,7 @@ async function recordBackingPayment(
     ...(args.supportId ? { supportId: args.supportId } : {}),
     ...(payeeUserId ? { payeeUserId } : {}),
     ...(args.backerUserId ? { backerUserId: args.backerUserId } : {}),
+    ...(args.memberGiftId ? { memberGiftId: args.memberGiftId } : {}),
     grossCents: args.grossCents,
     platformCents,
     workCents,
@@ -967,7 +972,7 @@ async function handleBackingCheckoutCompleted(
   db: Db,
 ): Promise<void> {
   const metadata = session.metadata ?? {};
-  const { projectId, supportId, userId, supporterName, visible, tierId } = metadata;
+  const { projectId, supportId, userId, supporterName, visible, tierId, memberGiftId } = metadata;
   const type = session.mode === "subscription" ? "financial_recurring" : "financial_one_time";
   // The pre-fee amount the backer actually chose (createBackingCheckout puts
   // it in metadata). session.amount_total includes the processing-fee line
@@ -998,6 +1003,7 @@ async function handleBackingCheckoutCompleted(
         billing: session.mode === "subscription" ? "first" : "one_time",
         stripeRef: session.id,
         periodSeconds: session.created ?? Math.floor(Date.now() / 1000),
+        ...(memberGiftId ? { memberGiftId } : {}),
       });
       await db.notifyBackingConfirmed({
         projectId: existing.projectId,
@@ -1051,6 +1057,7 @@ async function handleBackingCheckoutCompleted(
     billing: session.mode === "subscription" ? "first" : "one_time",
     stripeRef: session.id,
     periodSeconds: session.created ?? Math.floor(Date.now() / 1000),
+    ...(memberGiftId ? { memberGiftId } : {}),
   });
   await db.notifyBackingConfirmed({
     projectId,
@@ -1773,7 +1780,7 @@ async function handleBackingInvoicePaid(
   db: Db,
 ): Promise<void> {
   if (invoice.billing_reason !== "subscription_cycle") return; // first invoice — recorded at checkout
-  const { projectId, supportId, userId } = metadata;
+  const { projectId, supportId, userId, memberGiftId } = metadata;
   if (!projectId) {
     console.warn("[stripe] backing invoice.paid missing projectId metadata", { invoiceId: invoice.id });
     return;
@@ -1794,6 +1801,7 @@ async function handleBackingInvoicePaid(
     billing: "renewal",
     stripeRef: invoice.id,
     periodSeconds: invoice.period_start ?? invoice.created,
+    ...(memberGiftId ? { memberGiftId } : {}),
   });
 }
 

@@ -244,9 +244,10 @@ describe("emails", () => {
   it("the opened notice says the amount, the choices and the default rule", () => {
     const email = buildGiftOpenedEmail({ amountCents: 500, communityName: "The <Garden>", linkUrl: "/give" });
     expect(email.subject).toBe("You have $5 to give this month");
+    expect(email.heading).toBe("You have $5 to give this month.");
     expect(email.body).toContain("Half of your membership funds grants for other creatives.");
-    expect(email.body).toContain(GIVING_SENTENCES.memberDirectedDefault);
-    expect(email.body).toContain("The &lt;Garden&gt;");
+    expect(email.body.startsWith(`$5 of your membership in The &lt;Garden&gt; is yours to give. ${GIVING_SENTENCES.memberDirectedDefault}`)).toBe(true);
+    expect(email.previewText).toContain(GIVING_SENTENCES.memberDirectedDefault);
     expect(email.ctaUrl).toBe("/give");
   });
 

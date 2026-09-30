@@ -2130,6 +2130,29 @@ describe("member-directed giving through the webhook", () => {
     expect(giftPayments.has("in_gift_first")).toBe(false); // the checkout already recorded it
   });
 
+  it("a backing started from /give carries the monthly amount it was added on top of", async () => {
+    const backingPayments: any[] = [];
+    const db = {
+      async getProjectSupportById() { return null; },
+      async insertProjectSupport() { return "support_new"; },
+      async incrementProjectRaisedCents() {},
+      async getBackingPaymentByRef() { return null; },
+      async insertBackingPayment(row: any) { backingPayments.push(row); },
+      async getProjectLeadUserId() { return "u_lead"; },
+      async notifyBackingConfirmed() {},
+    } as unknown as Db;
+    const session = {
+      id: "cs_back_1",
+      mode: "payment",
+      amount_total: 1000 + 59,
+      created: 1_790_000_000,
+      metadata: { kind: "backing", projectId: "p_1", userId: "u_sam", supporterName: "Sam", visible: "true", amountCents: "1000", memberGiftId: "gift_1" },
+    } as unknown as StripeCheckoutSessionLike;
+    await handleStripeEvent({ id: "e", type: "checkout.session.completed", data: { object: session } } as StripeWebhookEvent, db);
+    expect(backingPayments).toHaveLength(1);
+    expect(backingPayments[0]).toMatchObject({ memberGiftId: "gift_1", grossCents: 1000, workCents: 900, billing: "one_time" });
+  });
+
   it("a gift subscription's lifecycle events never touch memberships", async () => {
     const { db } = giftFakeDb();
     const sub = { id: "sub_gift", status: "active", metadata: { kind: "gift" } } as unknown as StripeSubscriptionLike;

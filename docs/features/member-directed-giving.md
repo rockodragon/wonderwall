@@ -4,6 +4,8 @@ Spec, 2026-09-30. Decided in this spec unless marked **open**; Rick vetoes by li
 
 Working name for decks and partner talks: the generosity engine. Members never see that phrase. They see "you have $5 to give."
 
+Flow and screens: the UX spine is in `_bmad-output/planning-artifacts/ux-designs/ux-wonderwall-2026-09-30-giving/` (EXPERIENCE.md, DESIGN.md); the key-screen mocks are in [mocks/member-directed-giving/](mocks/member-directed-giving/index.html). The pages were built from them and walked signed-in on a local backend.
+
 ## What this is
 
 Half of a member's dues already funds grants for other creatives (`CLAIMS.dues`). Today a committee decides where all of it goes. This feature hands that half back to the member, one month at a time: when their membership is billed, they get a notice that they have that half to give. They pick a creative, pick a project, or leave it in the grant fund. If they do nothing, it stays in the fund. Then we ask them to add more of their own money, once or monthly.

@@ -532,14 +532,15 @@ export interface BuiltEmail {
 export function buildGiftOpenedEmail(input: { amountCents: number; communityName: string; linkUrl: string }): BuiltEmail {
   const amount = formatCents(input.amountCents);
   const community = escapeHtml(input.communityName);
+  // The default rule sits in the first two lines (spec, "The notice"), so a
+  // member who reads nothing else still knows what happens if they wait.
   return {
     subject: `You have ${amount} to give this month`,
-    previewText: `${SPLITS.duesSentence} This month you pick who.`,
-    heading: `You have ${amount} to give this month`,
+    previewText: `${amount} of your membership is yours to give. ${GIVING_SENTENCES.memberDirectedDefault}`,
+    heading: `You have ${amount} to give this month.`,
     body:
-      `${SPLITS.duesSentence} This month, ${amount} of your ${community} membership is yours to give. ` +
-      `Pick a creative, pick a project, or leave it in the grant fund. ` +
-      `${GIVING_SENTENCES.memberDirectedDefault}`,
+      `${amount} of your membership in ${community} is yours to give. ${GIVING_SENTENCES.memberDirectedDefault} ` +
+      `${SPLITS.duesSentence} Pick a creative, pick a project, or leave it in the grant fund.`,
     ctaText: "Pick who gets it",
     ctaUrl: input.linkUrl,
   };
@@ -636,7 +637,7 @@ export async function openMemberGift(
   await insertNotification(ctx, {
     userId: args.userId,
     type: "gift_opened",
-    title: `You have ${amount} to give this month`,
+    title: `You have ${amount} to give this month.`,
     message: `Pick a creative, pick a project, or leave it in the grant fund. ${GIVING_SENTENCES.memberDirectedDefault}`,
     linkUrl: "/give",
   });
