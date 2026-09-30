@@ -86,7 +86,7 @@ export function Wordmark({
       <Mark size={s.icon} tone={tone} />
       <span className="flex flex-col leading-none">
         <span
-          className={`font-medium uppercase ${TEXT_CLASS[tone]}`}
+          className={`font-medium ${TEXT_CLASS[tone]}`}
           style={{
             fontFamily: "var(--garden-font-mono)",
             fontSize: s.text,
@@ -94,7 +94,7 @@ export function Wordmark({
             color: tone === "paper" ? TEXT_STYLE_COLOR.paper : undefined,
           }}
         >
-          creatives.exchange
+          TheCreative.exchange
         </span>
         {tagline && (
           <span

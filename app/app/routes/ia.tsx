@@ -16,7 +16,7 @@ import { CLAIMS } from "../constants/claims";
 
 export function meta() {
   return [
-    { title: "How it fits together — creatives.exchange" },
+    { title: "How it fits together — TheCreative.exchange" },
     {
       name: "description",
       content:
@@ -179,7 +179,7 @@ export default function IAPage() {
         <SectionLabel>The three layers</SectionLabel>
         <div style={{ marginTop: 14 }}>
           <LayerBand
-            label="creatives.exchange"
+            label="TheCreative.exchange"
             detail="Platform — accounts, payments, entitlements, discovery"
           >
             <LayerBand

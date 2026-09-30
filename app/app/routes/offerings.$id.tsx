@@ -37,7 +37,7 @@ import {
 // inventing a new one.
 export function meta({ data }: { data?: { title?: string } }) {
   return [
-    { title: data?.title ? `${data.title} — Classes` : "Class — creatives.exchange" },
+    { title: data?.title ? `${data.title} — Classes` : "Class — TheCreative.exchange" },
     { name: "robots", content: "noindex" },
   ];
 }

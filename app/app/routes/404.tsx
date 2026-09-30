@@ -2,12 +2,12 @@ import { Link } from "react-router";
 
 export function meta() {
   return [
-    { title: "Page Not Found - creatives.exchange" },
+    { title: "Page Not Found - TheCreative.exchange" },
     {
       name: "description",
       content: "The page you're looking for doesn't exist.",
     },
-    { property: "og:title", content: "Page Not Found - creatives.exchange" },
+    { property: "og:title", content: "Page Not Found - TheCreative.exchange" },
     {
       property: "og:description",
       content: "The page you're looking for doesn't exist.",
@@ -49,8 +49,9 @@ export default function NotFound() {
         <h1 className="text-3xl md:text-4xl font-bold text-white mb-4">
           Page Not Found
         </h1>
-        <p className="text-xl text-gray-400 mb-2">Seek and you will find...</p>
-        <p className="text-gray-500 mb-8">but this page is truly missing.</p>
+        <p className="text-lg text-gray-300 mb-8">
+          This page isn't here. Check the link, or start from the home page.
+        </p>
 
         {/* Actions */}
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
@@ -68,12 +69,6 @@ export default function NotFound() {
           </Link>
         </div>
 
-        {/* Fun quote */}
-        <p className="mt-12 text-gray-600 text-sm italic">
-          "Ask and it will be given to you; seek and you will find; knock and
-          the door will be opened to you."
-          <span className="block mt-1 text-gray-700">— Matthew 7:7</span>
-        </p>
       </div>
     </div>
   );

@@ -13,7 +13,7 @@ import { SiteHeader } from "../components/SiteHeader";
 
 export function meta() {
   return [
-    { title: "Claim your credit — creatives.exchange" },
+    { title: "Claim your credit — TheCreative.exchange" },
     { name: "robots", content: "noindex" },
   ];
 }

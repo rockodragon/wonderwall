@@ -24,7 +24,7 @@ const SEAT_PRICE = 10; // $/seat/month, the published price
 
 export function meta() {
   return [
-    { title: "Sponsor your creatives — creatives.exchange" },
+    { title: "Sponsor your creatives — TheCreative.exchange" },
     {
       name: "description",
       content:

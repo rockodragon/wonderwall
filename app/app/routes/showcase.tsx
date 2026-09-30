@@ -39,7 +39,7 @@ export function meta() {
   return [
     {
       title:
-        "The Creative Economy We All Need — November 6, Encinitas | creatives.exchange",
+        "The Creative Economy We All Need — November 6, Encinitas | TheCreative.exchange",
     },
     {
       name: "description",
@@ -349,7 +349,7 @@ export default function Showcase() {
           2026-09-28). A signed-out visitor goes through sign-in first. */}
       <Section label="Show your work">
         <P>
-          Art for November 6 comes from profiles on creatives.exchange. To be
+          Art for November 6 comes from profiles on TheCreative.exchange. To be
           considered:
         </P>
         <ol style={{ margin: "14px 0 0", paddingLeft: 22, display: "grid", gap: 8, fontSize: 16.5, lineHeight: 1.6 }}>

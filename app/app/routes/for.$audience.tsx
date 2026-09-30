@@ -106,7 +106,7 @@ const AUDIENCES: Audience[] = [
     ctaLabel3: "Find a class or coach",
     ctaTo3: "/offerings",
     bandImages: ["shua", "june"],
-    metaTitle: "Find your people, get paid — creatives.exchange",
+    metaTitle: "Find your people, get paid — TheCreative.exchange",
     metaDescription:
       `Find paid work, get backed by people who believe in you, and apply for grants. ${CLAIMS.join} ${CLAIMS.backingShort}`,
   },
@@ -142,7 +142,7 @@ const AUDIENCES: Audience[] = [
     ctaLabel: "Join the host waitlist",
     ctaTo: "/communities/apply",
     bandImages: ["marta", "gallery"],
-    metaTitle: "Earn from the community you lead — creatives.exchange",
+    metaTitle: "Earn from the community you lead — TheCreative.exchange",
     metaDescription:
       "Bring your community here. Hosting is free, you keep 90% of what you sell, and the creatives in your community can apply for grants.",
   },
@@ -176,7 +176,7 @@ const AUDIENCES: Audience[] = [
     ctaLabel2: "Give to a grant fund",
     ctaTo2: "/fund/abiding-practice",
     bandImages: ["band", "viewing"],
-    metaTitle: "For patrons — creatives.exchange",
+    metaTitle: "For patrons — TheCreative.exchange",
     metaDescription:
       "Back a creative, a team, or a project. Watch it get made, get credited on the work, and give to a grant fund.",
   },
@@ -214,7 +214,7 @@ const AUDIENCES: Audience[] = [
     ctaLabel2: "See the project pool",
     ctaTo2: "/fund/creatives-exchange",
     bandImages: ["church", "busker"],
-    metaTitle: "For churches — creatives.exchange",
+    metaTitle: "For churches — TheCreative.exchange",
     metaDescription:
       "Cover seats for the creatives in your church. $10 a month per seat, and one code for your whole group.",
   },
@@ -249,7 +249,7 @@ const AUDIENCES: Audience[] = [
     ctaLabel2: "Offer your space",
     ctaTo2: "/join",
     bandImages: ["night", "opening"],
-    metaTitle: "For community partners — creatives.exchange",
+    metaTitle: "For community partners — TheCreative.exchange",
     metaDescription:
       "Venues and businesses — post paid work, offer your space, or sponsor creatives. Your name goes on what gets made.",
   },
@@ -263,7 +263,7 @@ const SLUG_REDIRECTS: Record<string, string> = {
 
 export function meta({ params }: Route.MetaArgs) {
   const a = BY_SLUG.get(params.audience ?? "");
-  const title = a ? a.metaTitle : "creatives.exchange";
+  const title = a ? a.metaTitle : "TheCreative.exchange";
   const description = a
     ? a.metaDescription
     : "Where creative work gets funded.";

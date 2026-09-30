@@ -22,7 +22,7 @@ export function escapeHtml(input: string): string {
     .replace(/'/g, "&#39;");
 }
 
-const TAGLINE = "creatives.exchange — projects, classes and support for creatives";
+const TAGLINE = "TheCreative.exchange — projects, classes and support for creatives";
 
 export interface RenderNotificationEmailArgs {
   heading: string;
@@ -81,7 +81,7 @@ export function renderNotificationEmail(args: RenderNotificationEmailArgs): Rend
 <body style="margin:0;padding:0;background:#f4f4f2;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif">
   <div style="max-width:520px;margin:0 auto;padding:32px 16px">
     <div style="text-align:left;margin-bottom:20px">
-      <span style="font-size:16px;font-weight:700;color:#111111">creatives.exchange</span>
+      <span style="font-size:16px;font-weight:700;color:#111111">TheCreative.exchange</span>
     </div>
     <div style="background:#ffffff;border-radius:12px;padding:32px;border:1px solid #e5e5e0">
       <h1 style="margin:0 0 14px;font-size:19px;line-height:1.4;color:#111111">${safeHeading}</h1>

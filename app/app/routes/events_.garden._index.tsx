@@ -29,7 +29,7 @@ import "../garden/garden.css";
 
 export function meta() {
   return [
-    { title: "Events — creatives.exchange" },
+    { title: "Events — TheCreative.exchange" },
     { name: "robots", content: "noindex" },
   ];
 }
@@ -166,7 +166,7 @@ export default function GardenEventsIndex() {
         <p style={{ fontSize: 14.5, maxWidth: "50ch" }}>
           The next gathering is being set — check back soon.{" "}
           <Link to="/" style={{ color: "var(--g-citron)" }}>
-            ← creatives.exchange
+            ← TheCreative.exchange
           </Link>
         </p>
       </GardenPage>

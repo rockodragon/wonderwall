@@ -18,7 +18,7 @@ import { formatDateTime, formatMoney } from "../garden/ui";
 
 export function meta() {
   return [
-    { title: "Community — creatives.exchange" },
+    { title: "Community — TheCreative.exchange" },
     { name: "robots", content: "noindex" },
   ];
 }
@@ -1104,7 +1104,7 @@ export function CommunityPage({ slug, footer }: { slug: string; footer?: ReactNo
           <p className="mt-2.5 text-[15px] leading-relaxed" style={{ color: "var(--garden-body)" }}>
             You also agree to{" "}
             <a href="/about/agreements.html" style={{ color: "var(--garden-citron)" }}>
-              creatives.exchange's agreements
+              TheCreative.exchange's agreements
             </a>
             .
           </p>

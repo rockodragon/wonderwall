@@ -48,7 +48,7 @@ import {
 // matches those two routes' existing convention rather than inventing one.
 export function meta({ data }: { data?: { title?: string } }) {
   return [
-    { title: data?.title ? `${data.title} — Projects` : "Project — creatives.exchange" },
+    { title: data?.title ? `${data.title} — Projects` : "Project — TheCreative.exchange" },
     { name: "robots", content: "noindex" },
   ];
 }

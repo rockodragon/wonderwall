@@ -489,7 +489,7 @@ export const createPoolContributionCheckout = action({
 
     const productName =
       hostOrg.kind === "platform"
-        ? "Project pool — creatives.exchange"
+        ? "Project pool — TheCreative.exchange"
         : `Project pool — ${hostOrg.name}`;
 
     const metadata: Record<string, string> = {

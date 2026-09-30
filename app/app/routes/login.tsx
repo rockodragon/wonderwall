@@ -7,13 +7,13 @@ import { normalizePhone } from "../../convex/phone";
 
 export function meta() {
   return [
-    { title: "Sign In - creatives.exchange" },
+    { title: "Sign In - TheCreative.exchange" },
     {
       name: "description",
       content:
         "Sign in to The Exchange to connect with creatives.",
     },
-    { property: "og:title", content: "Sign In - creatives.exchange" },
+    { property: "og:title", content: "Sign In - TheCreative.exchange" },
     {
       property: "og:description",
       content:
@@ -31,7 +31,7 @@ export function meta() {
       content: "https://creatives.exchange/og-image.png",
     },
     { name: "twitter:card", content: "summary_large_image" },
-    { name: "twitter:title", content: "Sign In - creatives.exchange" },
+    { name: "twitter:title", content: "Sign In - TheCreative.exchange" },
     {
       name: "twitter:description",
       content:

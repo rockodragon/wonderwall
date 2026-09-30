@@ -18,7 +18,7 @@ import { api } from "../../convex/_generated/api";
 
 export function meta() {
   return [
-    { title: "Host a community — creatives.exchange" },
+    { title: "Host a community — TheCreative.exchange" },
     { name: "robots", content: "noindex" },
   ];
 }

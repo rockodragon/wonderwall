@@ -25,7 +25,7 @@ const DUES_EVERY = "Half of every membership funds grants for other creatives.";
 
 export const CLAIMS = {
   whatItIs:
-    "creatives.exchange is where creatives find paid work, get backed by people who believe in them, and apply for grants.",
+    "TheCreative.exchange is where creatives find paid work, get backed by people who believe in them, and apply for grants.",
   join: "Joining is free.",
   backing: "When someone backs you for $100, you get $90. The other $10 runs the platform.",
   backingShort: "You keep 90% of what a backer gives you.",

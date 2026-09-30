@@ -449,7 +449,7 @@ export const seedCommunityLaunch = internalMutation({
       .unique();
     if (!platform) {
       await ctx.db.insert("hostOrgs", {
-        name: "creatives.exchange",
+        name: "TheCreative.exchange",
         slug: PLATFORM_ORG_SLUG,
         kind: "platform",
         visibility: "unlisted",
@@ -474,7 +474,7 @@ export const seedCommunityLaunch = internalMutation({
       description:
         // No prices here: what membership costs and buys is said once, on
         // /join, from CLAIMS. A community's description says what it is.
-        "The first community on creatives.exchange. Show your work, find collaborators, get your projects backed, and meet in person in San Diego.",
+        "The first community on TheCreative.exchange. Show your work, find collaborators, get your projects backed, and meet in person in San Diego.",
       whyHere:
         "Creating faithfully and making a living shouldn't be at odds, and for most of us they have been. We started The Garden so they don't have to be.\n\nWe'd rather back each other's work with our time, our feedback and our money than with likes in a feed, and we'd rather do it in person.",
       agreements: [

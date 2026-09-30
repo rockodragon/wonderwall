@@ -899,6 +899,15 @@ export const updateApplicationStatus = mutation({
   },
 });
 
+/** "Jordan Baptiste Vega" → "Jordan V." — a guest with no account, on a
+ * public list. */
+export function publicGuestName(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "Guest";
+  if (parts.length === 1) return parts[0];
+  return `${parts[0]} ${parts[parts.length - 1][0].toUpperCase()}.`;
+}
+
 export const getAttendees = query({
   args: { eventId: v.id("events") },
   handler: async (ctx, args) => {
@@ -910,29 +919,71 @@ export const getAttendees = query({
       .filter((q) => q.eq(q.field("status"), "accepted"))
       .collect();
 
+    async function member(userId: Id<"users">) {
+      const profile = await ctx.db
+        .query("profiles")
+        .withIndex("by_userId", (q) => q.eq("userId", userId))
+        .first();
+      let imageUrl = profile?.imageUrl || null;
+      if (profile?.imageStorageId) {
+        imageUrl = await ctx.storage.getUrl(profile.imageStorageId);
+      }
+      return { profileId: profile?._id || null, name: profile?.name || "Anonymous", imageUrl };
+    }
+
     const attendees = await Promise.all(
-      acceptedApplications.map(async (app) => {
-        const profile = await ctx.db
-          .query("profiles")
-          .withIndex("by_userId", (q) => q.eq("userId", app.applicantId))
-          .first();
-
-        let imageUrl = profile?.imageUrl || null;
-        if (profile?.imageStorageId) {
-          imageUrl = await ctx.storage.getUrl(profile.imageStorageId);
-        }
-
-        return {
-          applicationId: app._id,
-          userId: app.applicantId,
-          profileId: profile?._id || null,
-          name: profile?.name || "Anonymous",
-          imageUrl,
-          message: app.message || null,
-          joinedAt: app.createdAt,
-        };
-      }),
+      acceptedApplications.map(async (app) => ({
+        key: String(app._id),
+        userId: app.applicantId as Id<"users"> | null,
+        ...(await member(app.applicantId)),
+        message: app.message || null,
+        joinedAt: app.createdAt,
+      })),
     );
+
+    // Ticket buyers and RSVPs are going too (the host's Guests tab already
+    // lists them). Public, so name and photo only — never an email; a guest
+    // with no account shows as "First L.".
+    const seen = new Set(attendees.map((a) => String(a.userId)));
+    const rsvps = await ctx.db
+      .query("eventRsvps")
+      .withIndex("by_eventId", (q) => q.eq("eventId", args.eventId))
+      .collect();
+    const purchases = (
+      await ctx.db
+        .query("ticketPurchases")
+        .withIndex("by_eventId", (q) => q.eq("eventId", args.eventId))
+        .collect()
+    ).filter((p) => p.status === "paid");
+    const extra = [
+      ...rsvps.map((r) => ({ key: String(r._id), userId: r.userId ?? null, name: r.name, at: r.createdAt })),
+      ...purchases
+        .filter((p) => p.userId)
+        .map((p) => ({ key: String(p._id), userId: p.userId ?? null, name: "", at: p._creationTime })),
+    ];
+    for (const row of extra) {
+      if (row.userId) {
+        if (seen.has(String(row.userId))) continue;
+        seen.add(String(row.userId));
+        attendees.push({
+          key: row.key,
+          userId: row.userId,
+          ...(await member(row.userId)),
+          message: null,
+          joinedAt: row.at,
+        });
+      } else {
+        attendees.push({
+          key: row.key,
+          userId: null,
+          profileId: null,
+          name: publicGuestName(row.name),
+          imageUrl: null,
+          message: null,
+          joinedAt: row.at,
+        });
+      }
+    }
 
     return attendees;
   },

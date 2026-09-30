@@ -110,8 +110,8 @@ describe("renderNotificationEmail", () => {
       expect(html).not.toContain(retired);
       expect(text).not.toContain(retired);
     }
-    expect(html).toContain("creatives.exchange — projects, classes and support for creatives");
-    expect(text).toContain("creatives.exchange — projects, classes and support for creatives");
+    expect(html).toContain("TheCreative.exchange — projects, classes and support for creatives");
+    expect(text).toContain("TheCreative.exchange — projects, classes and support for creatives");
   });
 
   it("uses the fixed contrast-safe colours", () => {

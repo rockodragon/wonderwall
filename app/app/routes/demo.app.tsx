@@ -1568,7 +1568,7 @@ function TopBar({
             color: "var(--g-dim)",
           }}
         >
-          creatives.exchange
+          TheCreative.exchange
         </span>
       </div>
       <CommunityPicker community={community} onSelect={onCommunity} />

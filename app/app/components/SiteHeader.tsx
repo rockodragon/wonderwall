@@ -25,7 +25,7 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
     <header
       className={`${overlay ? "absolute top-0 left-0 right-0 z-50" : "relative z-40"} px-4 sm:px-6 py-4 sm:py-6 flex items-center justify-between gap-3 max-w-7xl mx-auto`}
     >
-      <Link to="/" className="min-w-0" aria-label="creatives.exchange home">
+      <Link to="/" className="min-w-0" aria-label="TheCreative.exchange home">
         <div className="sm:hidden">
           <Wordmark size="sm" />
         </div>

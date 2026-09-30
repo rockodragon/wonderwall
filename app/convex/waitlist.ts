@@ -239,10 +239,10 @@ export const approveEntry = mutation({
 
     await ctx.scheduler.runAfter(0, internal.emails.sendNotificationEmail, {
       to: entry.email,
-      subject: "You're approved for creatives.exchange",
+      subject: "You're approved for TheCreative.exchange",
       previewText: "Your invite code is ready — come on in.",
       heading: "You're in!",
-      body: `Good news — you're approved to join creatives.exchange. Use invite code <strong>${code}</strong> when you sign up, or just tap the button below and it'll be filled in for you.`,
+      body: `Good news — you're approved to join TheCreative.exchange. Use invite code <strong>${code}</strong> when you sign up, or just tap the button below and it'll be filled in for you.`,
       ctaText: "Create your account",
       ctaUrl: `/signup/${code}`,
       category: "transactional",

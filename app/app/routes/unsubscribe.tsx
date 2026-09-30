@@ -11,7 +11,7 @@ import { SiteHeader } from "../components/SiteHeader";
 
 export function meta() {
   return [
-    { title: "Email preferences — creatives.exchange" },
+    { title: "Email preferences — TheCreative.exchange" },
     { name: "robots", content: "noindex" },
   ];
 }
