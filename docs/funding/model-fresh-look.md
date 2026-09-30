@@ -103,7 +103,7 @@ Nothing in any scenario assumes a price increase, a public-arts grant to the com
 3. **Sign three partner communities outside San Diego in year one.** The civic graph and partner landscape already name them. One a quarter is the Base case; that pace is what turns a house community into an exchange.
 4. **Fund the program through the nonprofit partner, as a managed program.** Foundations fund a managed fellowship program; they do not fund regranting. The platform earns 5% administering it and the program dollars grow the impact numbers.
 5. **Count the impact every quarter.** The metrics below. A pre-revenue company with counted outcomes raises on the outcomes.
-6. **Raise in two steps.** An 18-month window of the Base plan needs $335k of cash net of revenue with founders paid from the first close and part-time marketing help, so $350k gives 19 months of runway; raise it as a $150k first close and rolling closes to $350k on post-money SAFEs (Delaware C-corp formed first), then a $1M to $1.2M seed at 18 months on the metrics. See the CFO memo.
+6. **Raise in two steps.** An 18-month window of the Base plan needs $348k of cash net of revenue with founders paid from the first close, part-time marketing help and the first two metro launches, so $350k gives 18 months of runway; raise it as a $150k first close and rolling closes to $350k on post-money SAFEs (Delaware C-corp formed first), then a $1M to $1.2M seed at 18 months on the metrics. See the CFO memo.
 
 ## Metrics to validate, first 18 months
 
@@ -131,9 +131,9 @@ These are the numbers that price the next round. Everything on the table comes f
 | Structure | one track, one member count | two tracks (Garden, Exchange), each with its own drivers |
 | Revenue lines | seat share, backing fee, class fee, program fee | plus org seat packs, host and org plans, partner plans, event fees, sponsorships |
 | Geography | San Diego | San Diego plus partner communities nationally |
-| Members, year 3 | 4,500 | 1,270 / 5,700 / 12,700 by scenario |
-| Platform revenue, year 3 | $135k | $100k / $385k / $996k |
-| Cumulative cash need through year 3 | $321k | $228k / $825k / $1.44M (founders paid from the first close in Base and Fundable) |
+| Members, year 3 | 4,500 | 1,570 / 7,620 / 20,620 by scenario (5 / 20 / 40 franchise metros by year five) |
+| Platform revenue, year 3 | $135k | $110k / $461k / $1.38M |
+| Cumulative cash need through year 3 | $321k | $247k / $823k / $1.49M (founders paid from the first close in Base and Fundable; franchise metros from year two) |
 | Founder pay through year 3 | sweat equity (~$93k) | two founders from the first close: $51k / $78k / $105k each in Base |
 | Market check | none | a sized ladder with sources, and the scenario's share of it |
 
