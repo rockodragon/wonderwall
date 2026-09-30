@@ -2,13 +2,13 @@ import { useState } from "react";
 
 export function meta() {
   return [
-    { title: "FAQ - creatives.exchange" },
+    { title: "FAQ - TheCreative.exchange" },
     {
       name: "description",
       content:
         "Frequently asked questions about The Exchange - invites, profiles, events, and account management.",
     },
-    { property: "og:title", content: "FAQ - creatives.exchange" },
+    { property: "og:title", content: "FAQ - TheCreative.exchange" },
     {
       property: "og:description",
       content:
@@ -26,7 +26,7 @@ export function meta() {
       content: "https://creatives.exchange/og-image.png",
     },
     { name: "twitter:card", content: "summary_large_image" },
-    { name: "twitter:title", content: "FAQ - creatives.exchange" },
+    { name: "twitter:title", content: "FAQ - TheCreative.exchange" },
     {
       name: "twitter:description",
       content:

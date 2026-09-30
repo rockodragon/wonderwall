@@ -217,7 +217,7 @@ export function buildClaimEmail(input: ClaimEmailInput, token: string): {
     // Plain text — sendNotificationEmail's template HTML-escapes heading itself.
     heading: `${input.leadName} credited you on ${input.projectTitle}`,
     body:
-      `${lead} listed you as <strong>${role}</strong> on <strong>${title}</strong> at creatives.exchange.` +
+      `${lead} listed you as <strong>${role}</strong> on <strong>${title}</strong> at TheCreative.exchange.` +
       `${note}<br><br>Claim the credit to put it on your own profile — the link works for 30 days.`,
     ctaText: "Claim your credit",
     ctaUrl: `/claim/${token}`,

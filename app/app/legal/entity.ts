@@ -36,7 +36,7 @@ export const LEGAL_ENTITY = {
   company: "DeepLight",
 
   /** The product. Lowercase everywhere in the UI — see routes/faq.tsx. */
-  product: "creatives.exchange",
+  product: "TheCreative.exchange",
   /** What members call it conversationally, used after first mention. */
   shortName: "The Exchange",
 

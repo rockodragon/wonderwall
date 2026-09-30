@@ -370,7 +370,7 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
           );
         }
 
-        const message = `Your creatives.exchange code is ${token}. It expires in 10 minutes.`;
+        const message = `TheCreative.exchange sign-in code: ${token}. It expires in 10 minutes.`;
         await sendSms(identifier, message);
       },
     }),

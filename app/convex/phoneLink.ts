@@ -111,7 +111,7 @@ export const startAddPhone = mutation({
 export const sendLinkCode = internalAction({
   args: { phone: v.string(), code: v.string() },
   handler: async (_ctx, { phone, code }) => {
-    const message = `Your creatives.exchange code is ${code}. It expires in 10 minutes.`;
+    const message = `TheCreative.exchange verification code: ${code}. It expires in 10 minutes.`;
     await sendSms(phone, message);
   },
 });

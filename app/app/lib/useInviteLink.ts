@@ -60,8 +60,8 @@ export function useInviteLink(variant: "sidebar" | "settings" | "people") {
     if (!url || !canShare) return;
     try {
       await navigator.share({
-        title: "Join me on creatives.exchange",
-        text: "Here's my invite to creatives.exchange.",
+        title: "Join me on TheCreative.exchange",
+        text: "Here's my invite to TheCreative.exchange.",
         url,
       });
       posthog?.capture("invite_link_shared", { variant });

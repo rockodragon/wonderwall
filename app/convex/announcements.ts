@@ -573,7 +573,7 @@ export const deliverAnnouncementBatch = internalMutation({
     // (PRD, Reply routing #4).
     const emailBodyHtml =
       announcement.kind === "broadcast"
-        ? `${escapedBody}<br><br>${provenance}<br><br>To reply, message ${senderName ?? "the sender"} on creatives.exchange.`
+        ? `${escapedBody}<br><br>${provenance}<br><br>To reply, message ${senderName ?? "the sender"} on TheCreative.exchange.`
         : `${escapedBody}<br><br>${provenance}`;
     const previewText =
       announcement.kind === "reminder" ? announcement.body : announcement.body.slice(0, 120);

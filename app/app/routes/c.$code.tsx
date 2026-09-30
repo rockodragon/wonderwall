@@ -27,7 +27,7 @@ import "../garden/garden.css";
 
 export function meta() {
   return [
-    { title: "Coverage — creatives.exchange" },
+    { title: "Coverage — TheCreative.exchange" },
     { name: "robots", content: "noindex" },
   ];
 }

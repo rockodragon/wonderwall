@@ -25,7 +25,7 @@ import "../garden/garden.css";
 
 export function meta() {
   return [
-    { title: "Platform Ledger — creatives.exchange" },
+    { title: "Platform Ledger — TheCreative.exchange" },
     { name: "robots", content: "noindex" },
   ];
 }
@@ -633,7 +633,7 @@ export default function AdminLedgerPage() {
     <GardenPage wide>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 10 }}>
         <div>
-          <div className="g-label">creatives.exchange</div>
+          <div className="g-label">TheCreative.exchange</div>
           <h1 className="g-h" style={{ marginTop: 6, fontSize: "clamp(26px,5vw,36px)" }}>
             Platform ledger
           </h1>

@@ -68,7 +68,7 @@ const PRESET_AMOUNTS_CENTS = [1000, 2500, 5000, 10000]; // $10 · $25 · $50 · 
 
 export function meta() {
   return [
-    { title: "The Sophia Fund — creatives.exchange" },
+    { title: "The Sophia Fund — TheCreative.exchange" },
     { name: "robots", content: "noindex" },
   ];
 }

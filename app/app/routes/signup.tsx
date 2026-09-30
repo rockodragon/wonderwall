@@ -12,12 +12,12 @@ import { isCheckoutSessionId } from "../../convex/garden/ticketLink";
 
 export function meta() {
   return [
-    { title: "Join creatives.exchange - Invite Only" },
+    { title: "Join TheCreative.exchange - Invite Only" },
     {
       name: "description",
       content: "Join The Exchange, a community of creatives. By invitation only.",
     },
-    { property: "og:title", content: "Join creatives.exchange" },
+    { property: "og:title", content: "Join TheCreative.exchange" },
     {
       property: "og:description",
       content: "Join The Exchange, a community of creatives. By invitation only.",
@@ -34,7 +34,7 @@ export function meta() {
       content: "https://creatives.exchange/og-image.png",
     },
     { name: "twitter:card", content: "summary_large_image" },
-    { name: "twitter:title", content: "Join creatives.exchange" },
+    { name: "twitter:title", content: "Join TheCreative.exchange" },
     {
       name: "twitter:description",
       content: "Join The Exchange, a community of creatives. By invitation only.",
@@ -340,7 +340,7 @@ export default function Signup() {
             to="/"
             className="text-xl font-bold text-gray-900 dark:text-white"
           >
-            creatives.exchange
+            TheCreative.exchange
           </Link>
           <Link
             to="/login"
@@ -818,7 +818,7 @@ function InviteEntry() {
       <div className="max-w-md w-full space-y-6">
         <div className="flex items-center justify-between mb-2">
           <Link to="/" className="text-xl font-bold text-gray-900 dark:text-white">
-            creatives.exchange
+            TheCreative.exchange
           </Link>
           <Link
             to="/login"

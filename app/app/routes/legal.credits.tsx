@@ -7,10 +7,10 @@ import { SiteHeader } from "../components/SiteHeader";
 
 export function meta() {
   return [
-    { title: "Photography credits — creatives.exchange" },
+    { title: "Photography credits — TheCreative.exchange" },
     {
       name: "description",
-      content: "Attribution for the photography used on creatives.exchange.",
+      content: "Attribution for the photography used on TheCreative.exchange.",
     },
   ];
 }

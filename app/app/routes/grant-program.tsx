@@ -59,11 +59,11 @@ const PRESET_AMOUNTS_CENTS = [1000, 2500, 5000, 10000];
 
 export function meta() {
   return [
-    { title: "Grant Program — creatives.exchange" },
+    { title: "Grant Program — TheCreative.exchange" },
     {
       name: "description",
       content:
-        "How grants work on creatives.exchange: a platform project pool, community funds, who can propose, and who decides. The Garden's fund is administered by Abiding Practice, a 501(c)(3).",
+        "How grants work on TheCreative.exchange: a platform project pool, community funds, who can propose, and who decides. The Garden's fund is administered by Abiding Practice, a 501(c)(3).",
     },
   ];
 }

@@ -13,7 +13,7 @@ import { entryCommunityArgs } from "../lib/entryCommunity";
 
 export function meta({}: Route.MetaArgs) {
   return [
-    { title: "creatives.exchange — Create better together, building flourishing communities" },
+    { title: "TheCreative.exchange — Create better together, building flourishing communities" },
     {
       name: "description",
       content:
@@ -21,7 +21,7 @@ export function meta({}: Route.MetaArgs) {
     },
     {
       property: "og:title",
-      content: "creatives.exchange — Create better together, building flourishing communities",
+      content: "TheCreative.exchange — Create better together, building flourishing communities",
     },
     {
       property: "og:description",
@@ -42,7 +42,7 @@ export function meta({}: Route.MetaArgs) {
     { name: "twitter:card", content: "summary_large_image" },
     {
       name: "twitter:title",
-      content: "creatives.exchange — Create better together, building flourishing communities",
+      content: "TheCreative.exchange — Create better together, building flourishing communities",
     },
     {
       name: "twitter:description",
@@ -572,7 +572,7 @@ export default function Home() {
       <footer className="px-6 md:px-14 py-7 border-t border-[var(--garden-hairline)]">
         <div className="max-w-[1280px] mx-auto flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-[var(--garden-dim)]">
           <p>
-            creatives.exchange — creatives and the people who back them, in
+            TheCreative.exchange — creatives and the people who back them, in
             one place
           </p>
           <div className="flex items-center gap-6">

@@ -372,7 +372,7 @@ export default function AppLayout() {
               className="grid grid-cols-2 gap-1 rounded-lg p-1"
               style={{ backgroundColor: "var(--app-surface)" }}
               role="group"
-              aria-label="Switch between The Garden and creatives.exchange"
+              aria-label="Switch between The Garden and TheCreative.exchange"
             >
               <Link
                 to={isAuthenticated ? "/today" : "/garden"}
@@ -494,7 +494,7 @@ export default function AppLayout() {
               className="text-xs uppercase tracking-[0.04em] whitespace-nowrap hover:underline"
               style={{ fontFamily: "var(--garden-font-mono)", color: "var(--app-text-dim)" }}
             >
-              About creatives.exchange →
+              About TheCreative.exchange →
             </a>
           </div>
         </div>

@@ -43,7 +43,7 @@ import "../garden/garden.css";
 
 export function meta() {
   return [
-    { title: "Become a member — creatives.exchange" },
+    { title: "Become a member — TheCreative.exchange" },
     { name: "description", content: `${CLAIMS.membership} ${CLAIMS.dues}` },
   ];
 }

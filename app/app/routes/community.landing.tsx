@@ -17,7 +17,7 @@ import { CommunityPage } from "./communities.$slug";
 import NotFound from "./404";
 
 export function meta() {
-  return [{ title: "creatives.exchange" }];
+  return [{ title: "TheCreative.exchange" }];
 }
 
 export default function CommunityLanding() {

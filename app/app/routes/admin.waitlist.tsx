@@ -34,7 +34,7 @@ import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 
 export const meta: MetaFunction = () => {
-  return [{ title: "Waitlist Admin | creatives.exchange" }];
+  return [{ title: "Waitlist Admin | TheCreative.exchange" }];
 };
 
 const ROLE_LABEL: Record<string, string> = {
