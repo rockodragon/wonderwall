@@ -1,49 +1,54 @@
 <section id="problem" data-transition="fade" style="background:#f7f7f4; color:#121212; font-family:'Archivo', Arial, sans-serif; padding:128px 128px 160px; display:flex; flex-direction:column; gap:32px">
 <p style="font-family:'JetBrains Mono', 'Courier New', monospace; font-size:24px; font-weight:500; letter-spacing:4px; text-transform:uppercase; color:#5c5c57">The problem</p>
-<h2 style="font-family:'Bricolage Grotesque', Arial, sans-serif; font-size:68px; font-weight:600; line-height:1.1; letter-spacing:-1px">Creatives in San Diego are working three jobs and posting into the void.</h2>
-<!--
-Pinned diagram 1664 x 500. Coordinates are left,top,width,height.
-pain-jobs    0,0,460,160        (right edge 460, mid-y 80)
-pain-void    0,180,460,160      (right edge 460, mid-y 260)
-pain-alone   1204,0,460,160     (left edge 1204, mid-y 80)
-pain-worthy  1204,180,460,160   (left edge 1204, mid-y 260)
-center       592,70,480,200     (edges: left 592, right 1072, top 70, bottom 270)
-arrow        804,300,56,36      (between center bottom 270 and bar top 370)
-bar          0,370,1664,130
-connectors   (460,80)->(592,130)  (460,260)->(592,210)  (1204,80)->(1072,130)  (1204,260)->(1072,210)
-Boxes never overlap: left column 0-460, gap 460-592, center 592-1072, gap 1072-1204, right column 1204-1664; ring rows end at 340; arrow 300-336 sits in the center column; bar starts at 370.
--->
-<div style="position:relative; flex:none; width:1664px; height:500px">
-<div style="position:absolute; left:0px; top:0px; width:460px; height:160px; box-sizing:border-box; background:#ffffff; border:2px solid #121212; border-radius:12px; padding:18px 24px; display:flex; flex-direction:column; justify-content:center; gap:6px">
-<p style="font-size:32px; font-weight:700; line-height:1.15">Three jobs</p>
-<p style="font-size:24px; line-height:1.3; color:#414737">The creative work is the one that doesn't pay.</p>
+<h2 style="font-family:'Bricolage Grotesque', Arial, sans-serif; font-size:68px; font-weight:600; line-height:1.1; letter-spacing:-1px">Creatives and local businesses both lose, because nothing connects them.</h2>
+<!-- host 1664x540 ; head-left 0,0,560,32 ; head-right 1104,0,560,32 ; center 632,140,400,300 ; L1 0,52,560,110 ; L2 0,174,560,110 ; L3 0,296,560,110 ; L4 0,418,560,110 ; R1 1104,52,560,110 ; R2 1104,174,560,110 ; R3 1104,296,560,110 ; R4 1104,418,560,110 ; 8 dashed connectors from each box edge to the center box -->
+<div style="position:relative; flex:none; width:1664px; height:540px">
+<p style="position:absolute; left:0px; top:0px; width:560px; height:32px; font-family:'JetBrains Mono', 'Courier New', monospace; font-size:24px; font-weight:500; letter-spacing:4px; text-transform:uppercase; color:#5c5c57">Creatives</p>
+<p style="position:absolute; left:1104px; top:0px; width:560px; height:32px; font-family:'JetBrains Mono', 'Courier New', monospace; font-size:24px; font-weight:500; letter-spacing:4px; text-transform:uppercase; color:#5c5c57">Businesses and organizations</p>
+<div style="position:absolute; left:0px; top:52px; width:560px; height:110px; box-sizing:border-box; background:#ffffff; border:2px solid #121212; border-radius:12px; padding:0px 24px; display:flex; flex-direction:column; justify-content:center; gap:4px">
+<p style="font-size:30px; font-weight:700; line-height:1.15">Three jobs</p>
+<p style="font-size:24px; line-height:1.25; color:#414737">The creative work is the one that doesn't pay.</p>
 </div>
-<div style="position:absolute; left:0px; top:180px; width:460px; height:160px; box-sizing:border-box; background:#ffffff; border:2px solid #121212; border-radius:12px; padding:18px 24px; display:flex; flex-direction:column; justify-content:center; gap:6px">
-<p style="font-size:32px; font-weight:700; line-height:1.15">Posting into the void</p>
-<p style="font-size:24px; line-height:1.3; color:#414737">Instagram, hoping to be noticed.</p>
+<div style="position:absolute; left:0px; top:174px; width:560px; height:110px; box-sizing:border-box; background:#ffffff; border:2px solid #121212; border-radius:12px; padding:0px 24px; display:flex; flex-direction:column; justify-content:center; gap:4px">
+<p style="font-size:30px; font-weight:700; line-height:1.15">Posting into the void</p>
+<p style="font-size:24px; line-height:1.25; color:#414737">Instagram, hoping to be noticed.</p>
 </div>
-<div style="position:absolute; left:1204px; top:0px; width:460px; height:160px; box-sizing:border-box; background:#ffffff; border:2px solid #121212; border-radius:12px; padding:18px 24px; display:flex; flex-direction:column; justify-content:center; gap:6px">
-<p style="font-size:32px; font-weight:700; line-height:1.15">Alone</p>
-<p style="font-size:24px; line-height:1.3; color:#414737">No table, no peers, nobody asking.</p>
+<div style="position:absolute; left:0px; top:296px; width:560px; height:110px; box-sizing:border-box; background:#ffffff; border:2px solid #121212; border-radius:12px; padding:0px 24px; display:flex; flex-direction:column; justify-content:center; gap:4px">
+<p style="font-size:30px; font-weight:700; line-height:1.15">Alone</p>
+<p style="font-size:24px; line-height:1.25; color:#414737">No table, no peers, nobody asking.</p>
 </div>
-<div style="position:absolute; left:1204px; top:180px; width:460px; height:160px; box-sizing:border-box; background:#ffffff; border:2px solid #121212; border-radius:12px; padding:18px 24px; display:flex; flex-direction:column; justify-content:center; gap:6px">
-<p style="font-size:32px; font-weight:700; line-height:1.15">Not worthy</p>
-<p style="font-size:24px; line-height:1.3; color:#414737">The story they start to believe.</p>
+<div style="position:absolute; left:0px; top:418px; width:560px; height:110px; box-sizing:border-box; background:#ffffff; border:2px solid #121212; border-radius:12px; padding:0px 24px; display:flex; flex-direction:column; justify-content:center; gap:4px">
+<p style="font-size:30px; font-weight:700; line-height:1.15">Not worthy</p>
+<p style="font-size:24px; line-height:1.25; color:#414737">The story they start to believe.</p>
 </div>
-<div style="position:absolute; left:592px; top:70px; width:480px; height:200px; box-sizing:border-box; background:#121212; border-radius:24px; padding:20px 28px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; text-align:center">
-<p style="font-family:'Bricolage Grotesque', Arial, sans-serif; font-size:36px; font-weight:600; line-height:1.15; letter-spacing:-0.5px; color:#f7f7f4">A creative in San Diego</p>
-<p style="font-size:28px; font-weight:600; line-height:1.2; color:#d7f25a">gifted, trained, unseen</p>
+<div style="position:absolute; left:1104px; top:52px; width:560px; height:110px; box-sizing:border-box; background:#ffffff; border:2px solid #121212; border-radius:12px; padding:0px 24px; display:flex; flex-direction:column; justify-content:center; gap:4px">
+<p style="font-size:30px; font-weight:700; line-height:1.15">Can't find local talent</p>
+<p style="font-size:24px; line-height:1.25; color:#414737">No trusted way to find, vet and pay creatives.</p>
 </div>
-<x-shape kind="arrow-down" style="position:absolute; left:804px; top:300px; width:56px; height:36px; background:#121212"></x-shape>
-<div style="position:absolute; left:0px; top:370px; width:1664px; height:130px; box-sizing:border-box; background:#121212; border-radius:12px; padding:0px 40px; display:flex; flex-direction:column; justify-content:center; gap:8px">
-<p style="font-family:'Bricolage Grotesque', Arial, sans-serif; font-size:36px; font-weight:600; line-height:1.15; color:#d7f25a">The economy loses their gifts.</p>
-<p style="font-size:28px; line-height:1.3; color:#f7f7f4">Nothing of theirs shows up in the places of work, restaurants, bars, parks and cultural districts.</p>
+<div style="position:absolute; left:1104px; top:174px; width:560px; height:110px; box-sizing:border-box; background:#ffffff; border:2px solid #121212; border-radius:12px; padding:0px 24px; display:flex; flex-direction:column; justify-content:center; gap:4px">
+<p style="font-size:30px; font-weight:700; line-height:1.15">Empty rooms</p>
+<p style="font-size:24px; line-height:1.25; color:#414737">Slow nights, and nothing to draw people in.</p>
 </div>
-<x-connector x1="460" y1="80" x2="592" y2="130" head="none" style="color:#121212; border-width:3px; border-style:solid"></x-connector>
-<x-connector x1="460" y1="260" x2="592" y2="210" head="none" style="color:#121212; border-width:3px; border-style:solid"></x-connector>
-<x-connector x1="1204" y1="80" x2="1072" y2="130" head="none" style="color:#121212; border-width:3px; border-style:solid"></x-connector>
-<x-connector x1="1204" y1="260" x2="1072" y2="210" head="none" style="color:#121212; border-width:3px; border-style:solid"></x-connector>
+<div style="position:absolute; left:1104px; top:296px; width:560px; height:110px; box-sizing:border-box; background:#ffffff; border:2px solid #121212; border-radius:12px; padding:0px 24px; display:flex; flex-direction:column; justify-content:center; gap:4px">
+<p style="font-size:30px; font-weight:700; line-height:1.15">Sponsorship with no return</p>
+<p style="font-size:24px; line-height:1.25; color:#414737">Sponsors can't see where the money went.</p>
 </div>
-<p style="position:absolute; left:128px; bottom:64px; font-size:24px; color:#5c5c57; font-family:'JetBrains Mono', 'Courier New', monospace">San Diego's arts budget ($10.35M in FY2027) almost never reaches an individual creative.</p>
-<aside>This slide is about people, not institutions. Read the ring left column first, then right. Three jobs: the creative work is the one that does not pay, so it gets the leftover hours. Posting into the void: Instagram, hoping to be noticed. Alone: no table, no peers, nobody asking how the work is going. Not worthy: the story they start to believe. The emotional cost and the financial cost are the same cost. Isolation drains confidence, and with it the invitations, the referrals, the paid work and the projects that never get started. Then the bar: the economy loses their gifts. Nothing of theirs shows up in the places of work, restaurants, bars, parks and cultural districts, which is where creatives grow business activity when they take part. Numbers to answer questions with: San Diego County has roughly 26,000 working creatives (range 22,000 to 30,000); the city's FY2027 arts budget is $10.35M after a proposed 85% cut was mostly restored, and almost none of it reaches an individual creative. Do not turn this into a talk about institutions receiving money.</aside>
+<div style="position:absolute; left:1104px; top:418px; width:560px; height:110px; box-sizing:border-box; background:#ffffff; border:2px solid #121212; border-radius:12px; padding:0px 24px; display:flex; flex-direction:column; justify-content:center; gap:4px">
+<p style="font-size:30px; font-weight:700; line-height:1.15">Generic places</p>
+<p style="font-size:24px; line-height:1.25; color:#414737">Nothing local, so nothing to come back for.</p>
+</div>
+<div style="position:absolute; left:632px; top:140px; width:400px; height:300px; box-sizing:border-box; background:#121212; border-radius:24px; padding:28px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; text-align:center">
+<p style="font-family:'Bricolage Grotesque', Arial, sans-serif; font-size:48px; font-weight:700; line-height:1.05; letter-spacing:-1px; color:#d7f25a">No bridge</p>
+<p style="font-size:28px; line-height:1.3; color:#f7f7f4">Talent can't find work. Businesses can't find talent.</p>
+</div>
+<x-connector x1="560" y1="107" x2="632" y2="200" head="none" style="color:#94948c; border-width:3px; border-style:dashed"></x-connector>
+<x-connector x1="1104" y1="107" x2="1032" y2="200" head="none" style="color:#94948c; border-width:3px; border-style:dashed"></x-connector>
+<x-connector x1="560" y1="229" x2="632" y2="260" head="none" style="color:#94948c; border-width:3px; border-style:dashed"></x-connector>
+<x-connector x1="1104" y1="229" x2="1032" y2="260" head="none" style="color:#94948c; border-width:3px; border-style:dashed"></x-connector>
+<x-connector x1="560" y1="351" x2="632" y2="320" head="none" style="color:#94948c; border-width:3px; border-style:dashed"></x-connector>
+<x-connector x1="1104" y1="351" x2="1032" y2="320" head="none" style="color:#94948c; border-width:3px; border-style:dashed"></x-connector>
+<x-connector x1="560" y1="473" x2="632" y2="380" head="none" style="color:#94948c; border-width:3px; border-style:dashed"></x-connector>
+<x-connector x1="1104" y1="473" x2="1032" y2="380" head="none" style="color:#94948c; border-width:3px; border-style:dashed"></x-connector>
+</div>
+<aside>Two stacks of pain, one on each side, and nothing between them. Creatives: three jobs (the creative work is the one that does not pay, so it gets the leftover hours), posting into the void, alone, and not worthy, the story they start to believe. The emotional cost and the financial cost are the same cost. Businesses and organizations: they cannot find local talent they can trust, they have empty rooms and slow nights, sponsors cannot see where the money went, and the places feel generic. Each pain on the left has a counterpart on the right, and the platform is the bridge. This slide is about people and local businesses, not about institutions and not about grant budgets.</aside>
 </section>
