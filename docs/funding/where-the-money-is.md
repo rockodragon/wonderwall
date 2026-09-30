@@ -1,6 +1,6 @@
 # Where the money is: sources for a $350k pre-seed, ranked
 
-2026-09-30. Plain-talk companion to the [CFO memo](cfo-memo-ask-and-spend.md). Facts checked against the organizations' own pages on this date; items marked ⚠ come from search snippets only and should be verified before relying on them.
+2026-09-30. Research companion to the [funding strategy](funding-strategy.md) and the [CFO memo](cfo-memo-ask-and-spend.md); the strategy doc has the final lists. Facts checked against the organizations' own pages on this date; items marked ⚠ come from search snippets only and should be verified before relying on them.
 
 ## The premise
 
@@ -18,18 +18,18 @@ The AI argument (abundant output, scarce fair pay for the people behind it) is w
 | 1 | **Customers**: pre-sold annual seat packs to churches and organizations; sponsors of November 6 | $20k to $40k | now | Non-dilutive, and the proof every source below asks for |
 | 2 | **The room**: patrons of the communities, church members with money, the founders' networks, on post-money SAFEs | **$150k first close**, 6 to 10 checks of $10k to $50k | by November 6 | Turns on founder pay; the median angel puts about $30k into a deal |
 | 3 | **Community round** on Wefunder (Regulation Crowdfunding) | $100k to $200k from members and patrons at $250 to $5,000 each | January to March, after the C-corp forms and the Form C is filed | The median Reg CF equity raise was $194k in 2025 and the average successful raise $368k in 2024; the campaign is also marketing, and it is what "Give. Receive. Grow." looks like as capital |
-| 4 | **NuFund Venture Group** (formerly Tech Coast Angels San Diego) | $100k to $350k, only with the wedge pitch | apply after November 6 with real numbers; 30-day diligence | The one local angel group that writes checks up to $1M; history is tech and life science |
-| 5 | **San Diego Angel Conference** (SDSU Lavin Center) | $42k to $242k; three companies funded out of 135+ in 2026 | applications open January 2027, finale late May | $49 to apply, mostly convertible notes, any US company; cheap, low odds |
-| 6 | **Kiva** | up to $15k at 0%, no fees | now; 20 to 25 days to approve, 30 to 45 to fund | Small, but it is community proof and it costs nothing |
-| 7 | **Prebys, through Abiding Practice** | $0 to $50k realistic in year one; their 2024 Arts Ecosystem grants ran $36k to $325k to 38 invited organizations | inquiry form now; invitation-based, no fixed cycle; fiscally sponsored projects eligible | Program money: fellowships and covered seats, which pay the platform's fees. Not runway |
-| 8 | **Accessity** (San Diego CDFI) | $25k to $100k working-capital loan; up to $250k; startups and thin credit accepted | year two, against revenue | The first debt that fits; Mission Driven Finance starts at $100k and Honeycomb wants two years of financials |
+| 4 | **Kiva** | up to $15k at 0%, no fees | now; 20 to 25 days to approve, 30 to 45 to fund | Small, but it is community proof and it costs nothing |
+| 5 | **Prebys, through a nonprofit partner** | $0 to $50k of program money to the partner in year one at best; their 2024 Arts Ecosystem grants ran $36k to $325k to 38 invited secular arts organizations | inquiry form now; invitation-based, no fixed cycle | A church-affiliated partner is unlikely to qualify; the platform is a vendor to the program at list price. Not runway; see the strategy doc |
+| 6 | **Accessity** (San Diego CDFI) | $25k to $100k working-capital loan; up to $250k; startups and thin credit accepted | year two, against revenue | The first debt that fits; Mission Driven Finance starts at $100k and Honeycomb wants two years of financials |
 
-Steps 1 to 4 add to $350k or more by the end of March without any institution. Steps 5 to 8 are additive.
+Steps 1 to 3 add to $350k by the end of March without any institution. Steps 4 to 6 are additive.
 
 ## Who says no, and why
 
 | Source | Terms | Verdict |
 |---|---|---|
+| NuFund Venture Group (formerly Tech Coast Angels San Diego) | up to $1M, 30-day diligence, tech and life science, 10x expectations | Not a match: our return profile is 2x to 5x |
+| San Diego Angel Conference (SDSU) | 2026: three funded of 135+, all biotech, on 10x odds; $49 to apply, applications January 2027 | Not a match; the founder sat on the 2026 conference |
 | Praxis Business Accelerator | $50k on an uncapped SAFE with a 20% discount, at most a third of a round, $8k program fee, US C-corp, faith screen; next window April 2027 for the 2028 cohort | Off the list |
 | Upstart Co-Lab | direct investments $500k to $1.5M at seed or Series A; requires $500k of trailing revenue and a committed lead | Year three on Base, year two on Fundable |
 | Prebys Ventures Impact Fund | $500k to $2M, seed to Series B, San Diego tech and healthcare only | Not in scope |
@@ -55,7 +55,7 @@ Steps 1 to 4 add to $350k or more by the end of March without any institution. S
 - **Instrument:** post-money SAFEs, one cap for the round, most-favored-nation for the first close. Wefunder uses the same SAFE template, so the community round and the room hold the same paper.
 - **Entity:** the Delaware C-corp has to exist before the first SAFE and before the Form C; Wefunder takes C-corps and LLCs and not S-corps.
 - **Wefunder mechanics:** 7.9% success fee plus a small admin fee, funds released no earlier than 21 days after the Form C is filed, a $5M annual cap that is irrelevant here. Budget $5k to $10k of legal and accounting for the Form C and the campaign page.
-- **Sequence:** form the corporation in October; sign the first SAFEs in the November 6 room; file the Form C in December on the November numbers; run the community round January to March while NuFund does its diligence; apply to the angel conference in January.
+- **Sequence:** form the corporation in October; sign the first SAFEs in the November 6 room; file the Form C in December on the November numbers; run the community round January to March.
 
 ## This week
 
