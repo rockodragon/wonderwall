@@ -57,10 +57,17 @@ const CONTRIBUTION_TYPE_LABELS: Record<string, string> = {
 // A fund can carry its own name and a short note about it, and a short
 // address that points at the org's slug (/fund/sophia → abiding-practice).
 const FUND_ALIASES: Record<string, string> = { sophia: "abiding-practice" };
-const NAMED_FUNDS: Record<string, { name: string; about: string; openCall?: string }> = {
+const NAMED_FUNDS: Record<
+  string,
+  { name: string; about: string; openCall?: string; seedCents?: number }
+> = {
   "abiding-practice": {
     name: "The Sophia Fund",
-    openCall: CLAIMS.sophiaAvailable,
+    openCall: CLAIMS.sophiaSchedule,
+    // Money the fund holds that isn't in this ledger (Rick, 2026-09-29).
+    // Tickets and gifts recorded here add to it; grants made come off it.
+    // If it's ever entered as a ledger row, remove it here or it counts twice.
+    seedCents: 1_000_000,
     about:
       "Sophia means wisdom in Greek. The fund carries the name of Sophia, a young Christian creative whose life was lost in a car accident this year.",
   },
@@ -320,7 +327,11 @@ function ProposeGrantSection({ slug }: { slug: string }) {
         </div>
       ) : !access.allowed ? (
         <div style={{ marginTop: 12 }}>
-          <DenialPanel reason={access.reason} upgradePath={access.upgradePath} />
+          <DenialPanel
+            reason={access.reason}
+            // The open-call card above already has the membership button.
+            upgradePath={NAMED_FUNDS[slug]?.openCall ? undefined : access.upgradePath}
+          />
         </div>
       ) : (
         <>
@@ -458,6 +469,8 @@ export default function FundPage() {
   const { org, totals, ledger, inflows, balanceCents } = data;
   const isPool = org.kind === "platform" || org.kind === "community";
   const isOutLink = org.kind === "org" || org.kind === "church";
+  const seedCents = NAMED_FUNDS[org.slug]?.seedCents;
+  const availableCents = (seedCents ?? 0) + balanceCents;
   const gaveThanks = searchParams.get("gave") === "1";
   const contributed = searchParams.get("contributed") === "1";
   // Prefer the org's own Stripe Payment Link (in-site round trip); fall back
@@ -481,12 +494,18 @@ export default function FundPage() {
         </p>
         {NAMED_FUNDS[org.slug]?.openCall && (
           <div className="g-card" style={{ marginTop: 18, borderColor: "var(--g-citron)", maxWidth: "58ch" }}>
-            <p style={{ fontSize: 16, lineHeight: 1.6, color: "var(--g-paper)", margin: 0 }}>
+            <div className="g-h" style={{ fontSize: "clamp(36px,6vw,48px)", color: "var(--g-citron)", lineHeight: 1 }}>
+              {formatMoney(availableCents)}
+            </div>
+            <div className="g-label" style={{ marginTop: 6 }}>
+              Available for grants
+            </div>
+            <p style={{ fontSize: 16, lineHeight: 1.6, color: "var(--g-paper)", margin: "14px 0 0" }}>
               {NAMED_FUNDS[org.slug].openCall}
             </p>
-            <a href="#propose" style={{ display: "inline-block", marginTop: 10, fontSize: 15, color: "var(--g-citron)" }}>
-              Propose a project →
-            </a>
+            <Link to="/join" className="g-btn g-btn-citron" style={{ marginTop: 14, display: "inline-block" }}>
+              Become a member and create a project
+            </Link>
           </div>
         )}
 
@@ -547,10 +566,18 @@ export default function FundPage() {
             marginTop: 10,
           }}
         >
-          <div className="g-cell g-cell-hot">
+          {seedCents !== undefined && (
+            <div className="g-cell g-cell-hot">
+              <div className="g-cell-v">{formatMoney(availableCents)}</div>
+              <div className="g-label" style={{ marginTop: 4 }}>
+                Available
+              </div>
+            </div>
+          )}
+          <div className={seedCents !== undefined ? "g-cell" : "g-cell g-cell-hot"}>
             <div className="g-cell-v">{formatMoney(totals.allTimeCents)}</div>
             <div className="g-label" style={{ marginTop: 4 }}>
-              All-time
+              {seedCents !== undefined ? "Granted" : "All-time"}
             </div>
           </div>
           {totals.byPeriod.map((p) => (
