@@ -45,8 +45,8 @@ export const LEGAL_ENTITY = {
   courts: "the state or federal courts located in the State of California",
 
   /** Matches the contact address the FAQ already publishes (routes/faq.tsx). */
-  contactEmail: "hello@creatives.exchange",
-  privacyEmail: "hello@creatives.exchange",
+  contactEmail: "hello@thecreative.exchange",
+  privacyEmail: "hello@thecreative.exchange",
 
   /** Bump both when either document changes materially. */
   termsUpdated: "September 2026",

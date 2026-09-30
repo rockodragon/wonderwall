@@ -220,7 +220,7 @@ export default function FAQ() {
         </p>
         <div className="flex flex-wrap items-center justify-center gap-3">
         <a
-          href="mailto:hello@creatives.exchange"
+          href="mailto:hello@thecreative.exchange"
           className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors hover:opacity-90"
           style={{ backgroundColor: "var(--app-accent)", color: "var(--garden-ink)" }}
         >
