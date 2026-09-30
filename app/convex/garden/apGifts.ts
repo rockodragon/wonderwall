@@ -53,6 +53,9 @@ export interface ApCheckoutSessionLike {
    * ticket link, rather than by AP's own checkout (a gift has no client
    * reference id). Absent on anything unrelated to this integration. */
   client_reference_id?: string | null;
+  /** The Payment Link's custom fields — AP's has one optional text box for
+   * the other guests' names (ticketLink.ts guestNamesFrom). */
+  custom_fields?: StripeCustomFieldLike[] | null;
   /** Seconds since epoch — same "period" fallback stripeHandlers.ts uses for
    * one-time payment sessions, which carry no period_start. */
   created?: number;
@@ -207,7 +210,13 @@ export function buildApTicketContributionRow(args: {
 // Ticket link helpers live in ./ticketLink (no server imports, so the
 // event page can use them in the browser).
 export { buildTicketLink, parseTicketRef, type TicketRef } from "./ticketLink";
-import { parseTicketRef, type TicketRef } from "./ticketLink";
+import {
+  guestNamesFrom,
+  parseTicketRef,
+  ticketCountFor,
+  type StripeCustomFieldLike,
+  type TicketRef,
+} from "./ticketLink";
 
 // ——— Convex glue: the one mutation the /stripe/ap/webhook route calls ———
 
@@ -310,6 +319,9 @@ async function applyApTicketSession(ctx: any, event: ApStripeWebhookEvent, sessi
     email,
     paidCents: grossCents,
     stripeRef,
+    // The link lets the buyer pick a quantity; the payload has the total.
+    tickets: ticketCountFor(grossCents, eventDoc.externalTicketPriceCents),
+    guestNames: guestNamesFrom(session.custom_fields),
   });
 
   const org = await getApHostOrg(ctx);

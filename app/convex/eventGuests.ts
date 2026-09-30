@@ -10,6 +10,10 @@ export interface GuestRow {
   email: string;
   status: GuestStatus;
   paidCents: number | null;
+  /** Tickets this person holds (1 for anyone going without a count). */
+  tickets: number;
+  /** Names they gave for the other people on their tickets. */
+  guestNames: string | null;
   addedAt: number;
 }
 
@@ -19,6 +23,8 @@ export interface GuestInput {
   email?: string | null;
   status: GuestStatus;
   paidCents?: number | null;
+  tickets?: number | null;
+  guestNames?: string | null;
   addedAt: number;
 }
 
@@ -47,11 +53,17 @@ export function mergeGuests(inputs: GuestInput[]): GuestRow[] {
         email,
         status: g.status,
         paidCents: g.paidCents ?? null,
+        tickets: g.tickets ?? 1,
+        guestNames: g.guestNames ?? null,
         addedAt: g.addedAt,
       });
     } else {
       if (RANK[g.status] > RANK[existing.status]) existing.status = g.status;
       if (g.paidCents != null) existing.paidCents = (existing.paidCents ?? 0) + g.paidCents;
+      // The same person in two places (a request and a ticket) is one
+      // person: keep the larger ticket count rather than adding.
+      existing.tickets = Math.max(existing.tickets, g.tickets ?? 1);
+      if (g.guestNames) existing.guestNames = existing.guestNames ? `${existing.guestNames}; ${g.guestNames}` : g.guestNames;
       if (!existing.email && email) existing.email = email;
       if (!existing.name || existing.name === "Anonymous") existing.name = g.name;
       existing.addedAt = Math.min(existing.addedAt, g.addedAt);
@@ -61,7 +73,7 @@ export function mergeGuests(inputs: GuestInput[]): GuestRow[] {
   return [...byKey.values()].sort((a, b) => a.addedAt - b.addedAt);
 }
 
-export function summarizeGuests(rows: Pick<GuestRow, "status" | "paidCents">[]): {
+export function summarizeGuests(rows: (Pick<GuestRow, "status" | "paidCents"> & { tickets?: number })[]): {
   going: number;
   paid: number;
   collectedCents: number;
@@ -71,7 +83,7 @@ export function summarizeGuests(rows: Pick<GuestRow, "status" | "paidCents">[]):
   let collectedCents = 0;
   for (const r of rows) {
     if (r.status !== "going") continue;
-    going += 1;
+    going += r.tickets ?? 1;
     if (r.paidCents != null && r.paidCents > 0) {
       paid += 1;
       collectedCents += r.paidCents;
@@ -90,12 +102,14 @@ function csvCell(v: string): string {
 }
 
 export function guestsToCsv(rows: GuestRow[]): string {
-  const head = ["Name", "Email", "Status", "Paid", "Added"];
+  const head = ["Name", "Email", "Status", "Tickets", "Other guests", "Paid", "Added"];
   const lines = rows.map((r) =>
     [
       r.name,
       r.email,
       r.status,
+      String(r.tickets),
+      r.guestNames ?? "",
       r.paidCents != null && r.paidCents > 0 ? formatDollars(r.paidCents) : "Free",
       new Date(r.addedAt).toISOString().slice(0, 10),
     ]

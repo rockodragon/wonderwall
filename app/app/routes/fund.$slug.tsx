@@ -34,6 +34,7 @@ import {
   formatMoney,
   formatPeriod,
 } from "../garden/ui";
+import { CLAIMS } from "../constants/claims";
 import "../garden/garden.css";
 
 function reasonFor(err: unknown, fallback: string): string {
@@ -56,9 +57,10 @@ const CONTRIBUTION_TYPE_LABELS: Record<string, string> = {
 // A fund can carry its own name and a short note about it, and a short
 // address that points at the org's slug (/fund/sophia → abiding-practice).
 const FUND_ALIASES: Record<string, string> = { sophia: "abiding-practice" };
-const NAMED_FUNDS: Record<string, { name: string; about: string }> = {
+const NAMED_FUNDS: Record<string, { name: string; about: string; openCall?: string }> = {
   "abiding-practice": {
     name: "The Sophia Fund",
+    openCall: CLAIMS.sophiaAvailable,
     about:
       "Sophia means wisdom in Greek. The fund carries the name of Sophia, a young Christian creative whose life was lost in a car accident this year.",
   },
@@ -306,7 +308,7 @@ function ProposeGrantSection({ slug }: { slug: string }) {
   }
 
   return (
-    <div style={{ marginTop: 36 }}>
+    <div id="propose" style={{ marginTop: 36, scrollMarginTop: 24 }}>
       <SectionLabel>Propose a grant</SectionLabel>
 
       {!isAuthenticated ? (
@@ -477,6 +479,16 @@ export default function FundPage() {
         <p style={{ marginTop: 12, fontSize: 15, lineHeight: 1.6, maxWidth: "58ch" }}>
           Grants to creatives, administered by {org.name}.
         </p>
+        {NAMED_FUNDS[org.slug]?.openCall && (
+          <div className="g-card" style={{ marginTop: 18, borderColor: "var(--g-citron)", maxWidth: "58ch" }}>
+            <p style={{ fontSize: 16, lineHeight: 1.6, color: "var(--g-paper)", margin: 0 }}>
+              {NAMED_FUNDS[org.slug].openCall}
+            </p>
+            <a href="#propose" style={{ display: "inline-block", marginTop: 10, fontSize: 15, color: "var(--g-citron)" }}>
+              Propose a project →
+            </a>
+          </div>
+        )}
 
         {isPool && (
           <>

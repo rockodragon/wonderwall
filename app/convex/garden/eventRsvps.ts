@@ -14,6 +14,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { isEventHost } from "../eventHosts";
 import { canSeeEvent } from "./eventVisibility";
 import { isCheckoutSessionId, type TicketClaimResult } from "./ticketLink";
+import { nextTicketState } from "./ticketLink";
 
 // ——— Pure core ———
 
@@ -123,6 +124,9 @@ export interface UpsertRsvpArgs {
   /** Set by a paid ticket purchase only — a free RSVP never passes these. */
   paidCents?: number;
   stripeRef?: string;
+  /** A ticket purchase: how many tickets, and names typed for the others. */
+  tickets?: number;
+  guestNames?: string | null;
 }
 
 export async function upsertEventRsvp(
@@ -165,6 +169,9 @@ export async function upsertEventRsvp(
       ...(args.stripeRef !== undefined && !existing.stripeRef
         ? { stripeRef: args.stripeRef }
         : {}),
+      ...(args.tickets !== undefined
+        ? nextTicketState(existing, { tickets: args.tickets, guestNames: args.guestNames ?? null })
+        : {}),
     });
     rsvpId = existing._id;
   } else {
@@ -176,6 +183,9 @@ export async function upsertEventRsvp(
       invitedBy: plan.patch.invitedBy,
       paidCents: args.paidCents,
       stripeRef: args.stripeRef,
+      ...(args.tickets !== undefined
+        ? nextTicketState(null, { tickets: args.tickets, guestNames: args.guestNames ?? null })
+        : {}),
       createdAt: Date.now(),
     });
   }
@@ -310,7 +320,10 @@ export const getMyRsvpStatus = query({
     const mine = findMyRsvp(rows, String(userId), [user?.email]);
     if (!mine) return null;
 
-    return { paidCents: mine.paidCents ?? null };
+    return {
+      paidCents: mine.paidCents ?? null,
+      ticketCount: mine.ticketCount ?? (mine.paidCents ? 1 : null),
+    };
   },
 });
 

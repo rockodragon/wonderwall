@@ -126,7 +126,7 @@ export function can(user: GardenUser, capability: Capability): CanResult {
       return {
         allowed: false,
         reason:
-          "The pool is members' dues, reserved for members' work. Patrons and partners direct their own money instead.",
+          "Proposing a project to a grant fund takes a membership.",
         upgradePath: SEAT_PATH,
       };
 
