@@ -7,7 +7,7 @@ The project is **theCreative.exchange** (repo: wonderwall). Four documents are t
 | Doc | What it holds |
 |---|---|
 | [The plan](creatives-exchange-discussion-brief.md) | What the platform is, how membership and money work, who owns work, open questions. **Start here.** |
-| [Financial model v2](financial-model-5yr-v2.xlsx) | Five-year model, two tracks (Garden, Exchange), every revenue source, three scenarios. `Inputs!B23` switches Conservative / Base / Fundable. Read with [the fresh-look memo](funding/model-fresh-look.md). The [Aug 28 model](financial-model-3yr.xlsx) is kept for comparison. |
+| [Financial model v2](financial-model-5yr-v2.xlsx) | Five-year model, two tracks (Garden, Exchange), every revenue source, three scenarios. `Inputs!B29` switches Conservative / Base / Fundable. Read with [the fresh-look memo](funding/model-fresh-look.md) and [the CFO memo](funding/cfo-memo-ask-and-spend.md); the Use of Funds sheet shows the raise by function and runway by raise size. The [Aug 28 model](financial-model-3yr.xlsx) is kept for comparison. |
 | [Partner landscape](partner-landscape.md) | Who we approach, what we say to them, patrons, churches, the migration playbook. |
 | [Civic partners social graph](civic-partners-social-graph.md) | San Diego's civic funders, venues, associations and people (Prebys, City, County, foundations, churches): agendas, filings, grant calendar, events, the Glus thesis. CSVs in [data/](data/) for the UpSight import. |
 | [Product plan](the-garden-product-plan.md) | Product spec and build canon. **Lags the plan in spots** (host $50/mo, "Tables" vocabulary, single-tenant assumptions) — reconcile after the plan is agreed, before code changes. |
@@ -25,6 +25,7 @@ The project is **theCreative.exchange** (repo: wonderwall). Four documents are t
 - [Prebys Creative Industry Survey — our response](funding/prebys-creative-industry-survey-response.md) — draft answers, positioning, follow-up email; survey closes Sept 30, 2026
 - [Impact capital positioning](funding/impact-capital-positioning.md) — how a for-profit infrastructure company with nonprofit partners pursues impact investment; sources ranked by fit; what has to be true before pitching
 - [The financial model, a fresh look](funding/model-fresh-look.md) — too conservative or too narrow; the two tracks; three scenarios with results; what makes it fundable; metrics to validate
+- [CFO memo: entity, how Prebys can fund a for-profit, the ask and the spend](funding/cfo-memo-ask-and-spend.md) — convert to a Delaware C-corp before the first check, PRI loan and program-grant routes, an 18-month budget by function with both founders paid, and a two-step raise
 - [Market sizing](funding/market-sizing.md) — how many creatives are out there (San Diego, California, US, churches, Christian networks), willingness-to-pay benchmarks, the TAM/SAM/SOM ladder with sources
 - Pitch deck v2 (Slides artifact, 12 slides, diagrams): https://claude.ai/artifact/LNyg8n2CZTRUEuJbjz8CWn — sources in [decks/pitch-v2-2026-09-30/](decks/pitch-v2-2026-09-30/)
 - Pitch deck v1 (16 slides, preserved): https://claude.ai/artifact/VVTMpZMN4cz6vyYkx5ksyo — sources in [decks/pitch-v1-2026-09-29/](decks/pitch-v1-2026-09-29/)

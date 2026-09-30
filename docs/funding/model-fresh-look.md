@@ -1,5 +1,7 @@
 # The financial model, a fresh look
 
+> **Cost side rebuilt 2026-09-30.** The budget is now by function (programs and community, marketing and launch, support, engineering and platform, operations), with both founders full time before any employee and founder pay starting when there is money for it (month 10 in Base) and ramping. Revenue is unchanged; costs, EBITDA and cash need below are updated to the rebuilt model. The ask and spend discussion is in [the CFO memo](cfo-memo-ask-and-spend.md).
+
 Prepared 2026-09-30. Companion files: `docs/financial-model-5yr-v2.xlsx` (the model), `docs/funding/market-sizing.md` (how many creatives are out there), `docs/financial-model-3yr.xlsx` (the Aug 28 model this replaces).
 
 ## The question
@@ -44,8 +46,8 @@ Each scenario is a different business, not a different mood.
 | Partner communities, year 3 / year 5 | 10 / 24 | 30 / 100 | 70 / 300 |
 | Paying and covered members, year 3 / year 5 | 1,270 / 3,530 | 5,700 / 21,000 | 12,700 / 69,500 |
 | Organization seats (schools, churches, organizations), year 3 / year 5 | 200 / 700 | 2,000 / 6,000 | 2,000 / 10,000 |
-| Full-time staff by year 5, excluding founder | 2 | 6 | 10 |
-| Founder pay, years 1 to 5 | $0 / $0 / $24k / $48k / $60k | $0 / $48k / $96k / $144k / $160k | $48k / $96k / $144k / $180k / $200k |
+| Staff by year 5, excluding founders (FTE) | 3 | 8 | 16 |
+| Founder pay, each, years 1 to 5 (cash paid) | $0 / $0–24k / $36k / $48–60k / $60–72k | $15k / $75k / $110k / $135k / $150k | $30k / $100k / $140k / $170k / $200k |
 
 ## Results, five years
 
@@ -58,18 +60,18 @@ Platform revenue is company revenue: what the platform keeps after creatives, ho
 | of which the Exchange | $10k | $62k | $228k | $547k | $1.09M |
 | Money moved through the rail | $154k | $649k | $2.1M | $4.8M | $9.3M |
 | Reaching creatives, hosts and programs | $81k | $365k | $1.2M | $2.8M | $5.6M |
-| Total costs | $54k | $240k | $479k | $878k | $1.29M |
-| EBITDA | −$18k | −$107k | −$94k | −$67k | +$185k |
-| Cumulative cash need | −$18k | −$125k | −$219k | −$286k | −$101k |
-| Headcount including founder | 1 | 2 | 3 | 5 | 7 |
+| Total costs | $127k | $402k | $776k | $1.21M | $1.62M |
+| EBITDA | −$90k | −$268k | −$391k | −$403k | −$145k |
+| Cumulative cash need | −$90k | −$359k | −$749k | −$1.15M | −$1.30M |
+| Headcount including both founders (FTE) | 2 | 3 | 5 | 8 | 10 |
 
 | Platform revenue by scenario | Y1 | Y2 | Y3 | Y4 | Y5 | Breakeven | Peak cash need |
 |---|---|---|---|---|---|---|---|
-| Conservative | $17k | $49k | $100k | $173k | $264k | never | $328k (it hires in Y3 and cannot afford to) |
-| Base | $36k | $133k | $385k | $810k | $1.47M | Y5 | $286k |
-| Fundable | $80k | $310k | $996k | $2.44M | $5.32M | Y3 | $314k |
+| Conservative | $17k | $49k | $100k | $173k | $264k | never | $761k and rising (founders start drawing pay in year three on a side-project revenue line) |
+| Base | $36k | $133k | $385k | $810k | $1.47M | not within five years (−$145k in Y5) | $1.3M |
+| Fundable | $80k | $310k | $996k | $2.44M | $5.32M | Y4 | $1.35M, repaid from year five |
 
-Two things stand out. The peak cash need is $286k to $328k in every scenario, because costs scale with ambition. And members are not revenue: an organization-bought seat earns the platform about $10 a year in fees plus the backings and classes its holder buys, so raising the Base case from 800 to 2,000 organization seats in year three added about 1,200 members but only about $24k of year-three revenue (and cut the peak cash need from $339k to $286k). Revenue is driven by backing and class volume, partner plans and sponsorships.
+Two things stand out. Paying two founders, then a real team, costs more than the Base revenue plan carries: a $1.5M-revenue platform supports about five or six people at modest pay, so either the team stays small or the growth plan has to be the Fundable one. And members are not revenue: an organization-bought seat earns the platform about $10 a year in fees plus what its holder buys, so raising the Base case from 800 to 2,000 organization seats in year three added about 1,200 members but only about $24k of year-three revenue. Revenue is driven by backing and class volume, partner plans and sponsorships.
 
 ## Revenue by source, Base case, year five
 
@@ -101,7 +103,7 @@ Nothing in any scenario assumes a price increase, a public-arts grant to the com
 3. **Sign three partner communities outside San Diego in year one.** The civic graph and partner landscape already name them. One a quarter is the Base case; that pace is what turns a house community into an exchange.
 4. **Fund the program through the nonprofit partner, as a managed program.** Foundations fund a managed fellowship program; they do not fund regranting. The platform earns 5% administering it and the program dollars grow the impact numbers.
 5. **Count the impact every quarter.** The metrics below. A pre-revenue company with counted outcomes raises on the outcomes.
-6. **Raise the full amount.** Peak cash need is $286k (Base) to $328k (Conservative) before the business pays for itself. A $150k raise buys the Conservative case with extra steps. $350k covers the Base case's peak with about a 22 percent cushion.
+6. **Raise in two steps.** An 18-month window of the Base plan needs $225k of cash net of revenue, so $350k on convertible notes gives 24 months of runway with founders paid from month 10; then a $1M to $1.2M seed at 18 months on the metrics. See the CFO memo.
 
 ## Metrics to validate, first 18 months
 
@@ -131,8 +133,8 @@ These are the numbers that price the next round. Everything on the table comes f
 | Geography | San Diego | San Diego plus partner communities nationally |
 | Members, year 3 | 4,500 | 1,270 / 5,700 / 12,700 by scenario |
 | Platform revenue, year 3 | $135k | $100k / $385k / $996k |
-| Cumulative cash need through year 3 | $321k | $127k / $219k / $272k |
-| Founder pay through year 3 | sweat equity (~$93k) | $0 to $144k a year depending on the raise |
+| Cumulative cash need through year 3 | $321k | $228k / $749k / $1.35M (founders paid from month 10 in Base, month 7 in Fundable) |
+| Founder pay through year 3 | sweat equity (~$93k) | two founders from month 10: $15k / $75k / $110k each in Base |
 | Market check | none | a sized ladder with sources, and the scenario's share of it |
 
 ## Caveats
