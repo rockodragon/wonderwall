@@ -106,6 +106,13 @@ function firstName(name: string): string {
 // the Stripe session) skip straight to this; `rsvpToEvent` resolves them
 // first and then calls through.
 
+/** Paid total after another purchase on the same RSVP. Each call is a
+ * new checkout — the webhook drops replays of one it already applied
+ * before it gets here — so amounts add up. */
+export function nextPaidCents(existingCents: number | undefined, newCents: number): number {
+  return (existingCents ?? 0) + newCents;
+}
+
 export interface UpsertRsvpArgs {
   eventId: Id<"events">;
   name: string;
@@ -148,9 +155,15 @@ export async function upsertEventRsvp(
       userId: (plan.patch.userId as Id<"users"> | undefined) ?? existing.userId,
       // A ticket purchase upgrades a prior free RSVP to paid; never
       // downgrades one that's already paid (undefined args here just means
-      // "no new payment info", not "clear the old one").
-      ...(args.paidCents !== undefined ? { paidCents: args.paidCents } : {}),
-      ...(args.stripeRef !== undefined ? { stripeRef: args.stripeRef } : {}),
+      // "no new payment info", not "clear the old one"). A second purchase
+      // by the same email adds to the total (nextPaidCents), and the first
+      // checkout's stripeRef stays so claiming by that session still works.
+      ...(args.paidCents !== undefined
+        ? { paidCents: nextPaidCents(existing.paidCents, args.paidCents) }
+        : {}),
+      ...(args.stripeRef !== undefined && !existing.stripeRef
+        ? { stripeRef: args.stripeRef }
+        : {}),
     });
     rsvpId = existing._id;
   } else {
