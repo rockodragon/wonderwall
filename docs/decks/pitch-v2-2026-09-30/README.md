@@ -1,6 +1,6 @@
 # Pitch deck v2, 2026-09-30 (revised the same day on founder feedback)
 
-Live deck: https://claude.ai/artifact/LNyg8n2CZTRUEuJbjz8CWn (private until shared). Deck v1 (16 slides, 2026-09-29) is preserved untouched at https://claude.ai/artifact/VVTMpZMN4cz6vyYkx5ksyo and in `../pitch-v1-2026-09-29/`.
+Live deck: https://claude.ai/artifact/LNyg8n2CZTRUEuJbjz8CWn (private until shared). Landscape PDF (12 pages, 1920x1080): `theCreative-exchange-pitch-deck-v2.pdf` in this folder. Deck v1 (16 slides, 2026-09-29) is preserved untouched at https://claude.ai/artifact/VVTMpZMN4cz6vyYkx5ksyo and in `../pitch-v1-2026-09-29/`.
 
 These are the slide sources (`deck.json` plus one HTML file per slide), saved so the deck can be rebuilt or edited outside the artifact. The Slides artifact also exports to .pptx and PDF from its own menu.
 
