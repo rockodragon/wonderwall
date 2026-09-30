@@ -27,7 +27,7 @@ These are the slide sources (`deck.json` plus one HTML file per slide), saved so
 | 6 | revenue-model | Multiple commerce streams. |
 | 7 | market | Millions of creatives. We start with 35,000. |
 | 8 | business | Two tracks. $1.5M platform revenue and breakeven in year five, on today's prices. |
-| 9 | traction | Soft-launched September 28. Public kickoff November 6. |
+| 9 | traction | Soft-launched September 28. Kickoff November 6. |
 | 10 | impact | How we validate impact, every six months. (preliminary model) |
 | 11 | ask | $350,000 SAFE. |
 | 12 | team | Two founders and an advisor with a record of building businesses and communities. |

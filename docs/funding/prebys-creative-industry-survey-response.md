@@ -6,6 +6,24 @@
 
 ---
 
+## Short answers (paste-ready, 2026-09-30)
+
+**The problem.** Working creatives here are isolated and underpaid, and the organizations that support them run on three or four rented tools taped together. Arts funding is tight, and San Diego creatives leave or stop making work.
+
+**What we built.** One platform where communities run their gatherings, businesses and churches post paid jobs, and patrons back named creatives. It is live now. Creatives keep 90% of every backing, and fund pages list the grants they make.
+
+**Community wealth.** The aim is a better circulation of money for a thriving creative society: co-creating new ways of exchanging and growing community wealth that starts with creatives, the people.
+
+**Why this is awesome**
+- Creative-economy infrastructure, not another program.
+- Proven demand: The Table Art Society has run the ecosystem model since 2019, with 91 cohort creatives and about 4,800 people reached a year. `[confirm these figures and what "since 2019" refers to; the county filing shows the nonprofit exempt from July 2024]`
+- Earned revenue from a 10% share of money moved, so it does not compete with nonprofits for grants.
+- Impact is visible without a report: fund pages list the grants they make, and project pages show their total and the backers who chose to be named.
+
+*Wording changes from the first draft, and why (from `docs/marketing/claims.md` on main):* "artists" is "creatives" (Never say 8). "Every grant and backing is public" and "public ledger" are out (Never say 2: money being public is not pitched); the last bullet says what the pages actually show. "90% of the money goes to the work" is "creatives keep 90% of every backing" (the 90% is a backing split, not a share of all money; internal splits beyond dues are Never say 9). "Community benefit society" is a UK legal form, so this text says community wealth and does not imply an entity or ownership structure. "About 4,800 people reached a year" is a reach number (Never say 5 covers the website and flyers, not investor materials, but keep the source ready).
+
+---
+
 ## 1 · What this survey is, and why it fits us
 
 Prebys hired **Upstart Co-Lab** (Laura Callanan's creative-economy impact-investing shop; they built the NYC Inclusive Creative Economy Fund) to find San Diego creative businesses it could **invest in**, not grant to. The stated purpose is to "understand the goals and capital needs of local creative businesses dedicated to workers, communities, and the planet" and to inform Prebys's **impact-investment initiatives**. Respondents get Upstart's *Guide for Creative Entrepreneurs*, updates on findings, and "potential follow-up conversations."
