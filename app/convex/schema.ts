@@ -1454,6 +1454,11 @@ export default defineSchema({
     // prefix convention as grantContributions.stripeRef; can't collide with
     // the platform account's own ids).
     paidCents: v.optional(v.number()),
+    // Several tickets on one purchase (garden/ticketLink.ts): how many this
+    // person holds, and the names they typed for the others. Unset on older
+    // rows — a paid one counts as 1 ticket.
+    ticketCount: v.optional(v.number()),
+    guestNames: v.optional(v.string()),
     stripeRef: v.optional(v.string()),
     createdAt: v.number(),
   })

@@ -1017,7 +1017,7 @@ export default function EventDetail() {
         {tab === "going" && attendees && attendees.length > 0 && (
           <div className="mb-8">
             <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
-              Going ({attendees.length})
+              Going ({attendees.reduce((n, a) => n + 1 + a.extraTickets, 0)})
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {attendees.map((attendee) => (
@@ -1064,6 +1064,11 @@ export default function EventDetail() {
                     ) : (
                       <span className="block text-sm font-medium text-gray-900 dark:text-white truncate">
                         {attendee.name}
+                      </span>
+                    )}
+                    {attendee.extraTickets > 0 && (
+                      <span className="block text-[12px] text-gray-600 dark:text-gray-300">
+                        +{attendee.extraTickets} {attendee.extraTickets === 1 ? "guest" : "guests"}
                       </span>
                     )}
                     {attendee.message && (
@@ -1805,7 +1810,9 @@ function ExternalTicketCard({
           You're in
         </p>
         <p style={{ color: "var(--garden-body)", fontSize: 14, margin: "4px 0 0" }}>
-          Ticket confirmed. See you there.
+          {myRsvp.ticketCount && myRsvp.ticketCount > 1
+            ? `${myRsvp.ticketCount} tickets confirmed. See you there.`
+            : "Ticket confirmed. See you there."}
         </p>
       </div>
     );
@@ -1881,7 +1888,7 @@ function ExternalTicketCard({
               padding: "14px 16px",
             }}
           >
-            Buy ticket
+            Buy tickets
           </a>
           <p style={{ color: "var(--garden-dim)", fontSize: 13, margin: "10px 0 0" }}>
             Secure checkout with Stripe.
@@ -1942,6 +1949,7 @@ function GuestsPanel({ eventId, title }: { eventId: Id<"events">; title: string 
               <tr>
                 <th className="px-3 py-2 font-semibold">Name</th>
                 <th className="px-3 py-2 font-semibold">Email</th>
+                <th className="px-3 py-2 font-semibold">Tickets</th>
                 <th className="px-3 py-2 font-semibold">Paid</th>
                 <th className="px-3 py-2 font-semibold whitespace-nowrap">Added</th>
               </tr>
@@ -1958,6 +1966,12 @@ function GuestsPanel({ eventId, title }: { eventId: Id<"events">; title: string 
                     )}
                   </td>
                   <td className="px-3 py-2">{g.email || "—"}</td>
+                  <td className="px-3 py-2">
+                    {g.tickets}
+                    {g.guestNames && (
+                      <span className="block text-[12px] text-gray-600 dark:text-gray-300">{g.guestNames}</span>
+                    )}
+                  </td>
                   <td className="px-3 py-2 whitespace-nowrap">
                     {g.paidCents != null && g.paidCents > 0 ? formatDollars(g.paidCents) : "Free"}
                   </td>

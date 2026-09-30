@@ -65,3 +65,43 @@ export type TicketClaimResult =
   | "already_yours"
   | "not_found" // webhook hasn't landed yet (or never will) — try again later
   | "taken"; // on another account
+
+// ——— Several tickets on one Payment Link (2026-09-29) ———
+// AP's Payment Link lets the buyer pick a quantity and has one optional
+// text box for the other guests' names. The webhook payload carries the
+// total, not the quantity, so the count comes from total ÷ ticket price.
+
+/** How many tickets a payment bought. At least 1; falls back to 1 when the
+ * event has no price set to divide by. */
+export function ticketCountFor(amountCents: number, unitCents: number | null | undefined): number {
+  if (!unitCents || unitCents <= 0 || amountCents <= 0) return 1;
+  return Math.max(1, Math.round(amountCents / unitCents));
+}
+
+export interface StripeCustomFieldLike {
+  key?: string;
+  type?: string;
+  text?: { value?: string | null } | null;
+}
+
+/** The names the buyer typed for the other guests — the first filled text
+ * field on the checkout, whatever its label. null when there isn't one. */
+export function guestNamesFrom(fields: StripeCustomFieldLike[] | null | undefined): string | null {
+  for (const f of fields ?? []) {
+    const value = f.type === "text" ? f.text?.value?.trim() : undefined;
+    if (value) return value.slice(0, 500);
+  }
+  return null;
+}
+
+/** A second purchase by the same person adds to what they already hold. A
+ * paid RSVP from before counts existed is 1 ticket; a free RSVP is 0 (the
+ * buyer is in the new count). */
+export function nextTicketState(
+  existing: { ticketCount?: number; paidCents?: number; guestNames?: string } | null,
+  add: { tickets: number; guestNames: string | null },
+): { ticketCount: number; guestNames?: string } {
+  const held = existing ? existing.ticketCount ?? (existing.paidCents ? 1 : 0) : 0;
+  const names = [existing?.guestNames, add.guestNames].filter(Boolean).join("; ");
+  return { ticketCount: held + add.tickets, ...(names ? { guestNames: names } : {}) };
+}

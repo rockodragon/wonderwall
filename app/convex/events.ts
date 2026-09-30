@@ -837,6 +837,8 @@ export const getGuestList = query({
         email: r.email,
         status: "going",
         paidCents: r.paidCents ?? null,
+        tickets: r.ticketCount ?? 1,
+        guestNames: r.guestNames ?? null,
         addedAt: r.createdAt,
       });
     }
@@ -938,6 +940,8 @@ export const getAttendees = query({
         ...(await member(app.applicantId)),
         message: app.message || null,
         joinedAt: app.createdAt,
+        // Tickets beyond their own — shown as "+2", never the names.
+        extraTickets: 0,
       })),
     );
 
@@ -956,14 +960,24 @@ export const getAttendees = query({
         .collect()
     ).filter((p) => p.status === "paid");
     const extra = [
-      ...rsvps.map((r) => ({ key: String(r._id), userId: r.userId ?? null, name: r.name, at: r.createdAt })),
+      ...rsvps.map((r) => ({
+        key: String(r._id),
+        userId: r.userId ?? null,
+        name: r.name,
+        at: r.createdAt,
+        extra: Math.max(0, (r.ticketCount ?? 1) - 1),
+      })),
       ...purchases
         .filter((p) => p.userId)
-        .map((p) => ({ key: String(p._id), userId: p.userId ?? null, name: "", at: p._creationTime })),
+        .map((p) => ({ key: String(p._id), userId: p.userId ?? null, name: "", at: p._creationTime, extra: 0 })),
     ];
     for (const row of extra) {
       if (row.userId) {
-        if (seen.has(String(row.userId))) continue;
+        if (seen.has(String(row.userId))) {
+          const already = attendees.find((a) => String(a.userId) === String(row.userId));
+          if (already) already.extraTickets = Math.max(already.extraTickets, row.extra);
+          continue;
+        }
         seen.add(String(row.userId));
         attendees.push({
           key: row.key,
@@ -971,6 +985,7 @@ export const getAttendees = query({
           ...(await member(row.userId)),
           message: null,
           joinedAt: row.at,
+          extraTickets: row.extra,
         });
       } else {
         attendees.push({
@@ -981,6 +996,7 @@ export const getAttendees = query({
           imageUrl: null,
           message: null,
           joinedAt: row.at,
+          extraTickets: row.extra,
         });
       }
     }
