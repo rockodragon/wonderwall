@@ -566,14 +566,8 @@ export default function FundPage() {
             marginTop: 10,
           }}
         >
-          {seedCents !== undefined && (
-            <div className="g-cell g-cell-hot">
-              <div className="g-cell-v">{formatMoney(availableCents)}</div>
-              <div className="g-label" style={{ marginTop: 4 }}>
-                Available
-              </div>
-            </div>
-          )}
+          {/* A fund with an open call shows what's available once, in the
+              card above; here it's only what's been granted. */}
           <div className={seedCents !== undefined ? "g-cell" : "g-cell g-cell-hot"}>
             <div className="g-cell-v">{formatMoney(totals.allTimeCents)}</div>
             <div className="g-label" style={{ marginTop: 4 }}>
