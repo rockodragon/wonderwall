@@ -143,7 +143,7 @@ So $350k is the room plus a community round, and that takes months. The local an
 |---|---|---|---|
 | Founders paid from | year 3, part-time | month after a $150k first close: $4k/mo each, ramping | month after the close: $5k/mo each, ramping faster |
 | Franchise metros by year five | 5 | 20 | 40 |
-| Team (FTE incl. founders), years 1 to 5 | 2 / 2 / 2 / 4 / 5 | 2.25 / 3 / 4 / 4 / 4 | 3.5 / 7 / 10 / 14 / 18 |
+| Team (FTE incl. founders), years 1 to 5 | 2 / 2 / 2.5 / 3.5 / 5 | 2.25 / 3 / 4 / 4 / 4 | 3.5 / 7 / 9.5 / 14 / 18 |
 | First employee | year 3, half time | month 18 (community & partnerships lead) | month 1, half time; 5 by year two |
 | Year-one spend / revenue | $68k / $17k | $228k / $36k | $398k / $80k |
 | 18-month net cash need | $82k | $348k | $670k |
