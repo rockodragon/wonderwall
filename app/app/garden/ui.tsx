@@ -227,6 +227,14 @@ export function FactRow({ k, v }: { k: string; v: string }) {
     from demo.app.tsx's GateHint: what it is, then the path in. The
     upgradePath button is decorative copy (no client-side purchase flow
     lives here), matching the demo's treatment exactly. */
+/** Where a denial's upgrade label goes (capabilities.ts's upgradePath
+ * strings). A label with nowhere to go shows as text, not a dead button. */
+function upgradeHref(label: string): string | undefined {
+  if (/^Become a member|^Five projects/.test(label)) return "/join";
+  if (/^Create a free account|^Become a patron/.test(label)) return "/signup";
+  return undefined;
+}
+
 export function DenialPanel({
   reason,
   upgradePath,
@@ -239,10 +247,12 @@ export function DenialPanel({
       <p style={{ fontSize: 14, lineHeight: 1.55 }}>
         {reason ?? "This isn't available right now."}
       </p>
-      {upgradePath ? (
-        <button className="g-btn g-btn-citron" style={{ marginTop: 12 }}>
+      {upgradePath && upgradeHref(upgradePath) ? (
+        <Link to={upgradeHref(upgradePath)!} className="g-btn g-btn-citron" style={{ marginTop: 12, display: "inline-block" }}>
           {upgradePath}
-        </button>
+        </Link>
+      ) : upgradePath ? (
+        <p style={{ fontSize: 14, marginTop: 8, color: "var(--g-paper)" }}>{upgradePath}</p>
       ) : null}
     </div>
   );
