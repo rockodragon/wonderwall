@@ -1,0 +1,19 @@
+{
+  "v": 4,
+  "createdOnFiles": {"v": 1, "at": "2026-09-29T17:20:00Z"},
+  "title": "creatives.exchange pitch deck",
+  "cover": "cover",
+  "order": ["cover", "problem", "what", "how", "money", "structure", "grants", "communities", "impact", "traction", "why-now", "model", "ask", "team", "risks", "close"],
+  "sections": {
+    "s1": {"description": "What creatives.exchange is and the problem it exists to solve", "start": "cover"},
+    "s2": {"description": "How it works: communities, the platform, and where every dollar goes", "start": "how"},
+    "s3": {"description": "Who it serves, the impact it produces, and what is already built", "start": "communities"},
+    "s4": {"description": "The business, the capital ask, the team, and the honest risks", "start": "model"}
+  },
+  "faces": {
+    "bricolage-grotesque": {"family": "Bricolage Grotesque", "href": "https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&display=swap"},
+    "archivo": {"family": "Archivo", "href": "https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&display=swap"},
+    "jetbrains-mono": {"family": "JetBrains Mono", "href": "https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap"}
+  },
+  "designSystems": []
+}

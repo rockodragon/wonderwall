@@ -23,7 +23,7 @@ Who they want, in their words, and where we stand:
 
 **The one-paragraph positioning** (use wherever they ask "describe your business"):
 
-> creatives.exchange is where creatives find paid work, get backed by people who believe in them, and apply for grants. Communities run on top of it: a Christian creative community in San Diego (The Garden), two founding partners (Abiding Practice, The Table Art Society), and, next, churches and civic groups that buy seats for their people. Joining is free; membership is $10 a month and half of it funds grants for other creatives. When a patron backs a creative, 90% goes to the creative. When a host sells a class, the host keeps 90%. Grants run through a 501(c)(3) partner so gifts are tax-deductible and every grant a fund makes is listed on its page. We earn 10% of the money that moves. Our purpose is human creativity in service of human flourishing, and our rule is "made by humans, for humans": every work says whether AI made any part of it.
+> creatives.exchange is building the infrastructure that enables a flourishing creative economy, so that individual creatives improve their financial, social and cultural outcomes. It is where creatives find paid work, get backed by people who believe in them, and apply for grants. Communities run on top of it: a Christian creative community in San Diego (The Garden), two founding partners (Abiding Practice, The Table Art Society), and, next, churches and civic groups that buy seats for their people. Joining is free; membership is $10 a month and half of it funds grants for other creatives. When a patron backs a creative, 90% goes to the creative. When a host sells a class, the host keeps 90%. Fellowships, commissions and cohorts are run as programs by a 501(c)(3) partner, so gifts are tax-deductible and every award a program makes is listed on its page. We earn 10% of the money that moves. Our purpose is human creativity in service of human flourishing, and our rule is "made by humans, for humans": every work says whether AI made any part of it.
 
 ---
 
@@ -37,7 +37,7 @@ Who they want, in their words, and where we stand:
 - **Customers:** creatives (free accounts, $10 seats); communities and hosts (free to host, keep 90% of what they sell); patrons and churches (backings, covered seats, gifts to the grant fund); partners posting paid work.
 
 ### B · Mission and impact (their five areas)
-Answer "which impact areas apply" with all five, and name a primary. Suggested primary: **Inclusive Economic Opportunity**; secondary: **Civic and Community Revitalization**.
+Answer "which impact areas apply" with all five, and name a primary. Suggested primary: **Inclusive Economic Opportunity**; secondary: **Civic and Community Revitalization**. Use the words impact investors listen for: **flourishing** (financial, social and cultural outcomes for individual creatives), **belonging** (membership in a real community, in person and online), **diversity** (who leads communities, who gets paid, who gets selected), **dignity of work** (pay stated up front; 90% to the maker), **agency** (creatives own their portfolio, their work and their audience).
 
 | Impact area | What we do | What we measure |
 |---|---|---|
@@ -61,7 +61,7 @@ Answer "which impact areas apply" with all five, and name a primary. Suggested p
 
 ### D · Challenges (be candid; this is a research survey, and candor is what Upstart is scanning for)
 1. Two-sided cold start: patrons and paid work must be visible before creatives pay. Our answer is partners first, members second, and a launch event built around funded work.
-2. Explaining a for-profit platform with a nonprofit grant fund in one breath. Our answer is the two-pot rule: business money and charity money never mix.
+2. Explaining a for-profit platform with nonprofit-run programs in one breath. Our answer is the two-pot rule: business money and program money never mix, and the nonprofit partner runs a managed program (selection, stipends, reported outcomes), not a regranting pool.
 3. Payments operations: payouts, 1099s at $600, Stripe Connect fees on small transfers.
 4. The Christian community we started with can be misread as the whole platform. The platform is open to any creative; The Garden is one community on it and where it started.
 5. San Diego's arts funding is volatile (the FY27 near-cut) and the creative workforce is shrinking in the Otis data; we are building the rail that moves private money to named creatives so the sector depends less on any one budget line.
@@ -79,7 +79,7 @@ Answer "which impact areas apply" with all five, and name a primary. Suggested p
 | Issue | How a Prebys/Upstart reader will see it | What to say |
 |---|---|---|
 | **Faith** | A flag if the platform reads as a ministry; fine if it reads as a platform with one Christian community | Use the claims sentence verbatim: "The platform is open to any creative. The Garden is the Christian creative community on it, and it is where this started." Purpose line: human creativity in service of human flourishing. |
-| **For-profit with a charity attached** | A structure question: who owns what, who gets receipts, is the company skimming donations | "The company sells infrastructure and earns fees. Abiding Practice, a 501(c)(3), holds the grant fund, issues receipts and decides grants; it takes 5% for administering the fund and we take 5% as a platform fee, so about 87–90% of a gift is granted. Backing a creative is not a donation and we never say it is." |
+| **For-profit with a charity attached** | A structure question: who owns what, who gets receipts, is the company skimming donations | "The company sells infrastructure and earns fees. Abiding Practice, a 501(c)(3), runs the fellowship, commission and cohort programs: it receives gifts, issues receipts, selects and pays the creatives, and reports outcomes. It keeps 5% for program administration and we take 5% as a platform fee, so about 87–90% of a gift reaches creatives. Backing a creative is not a donation and we never say it is." Foundations do not fund regranting pools; they fund a managed program with selection, stipends and reported outcomes. Describe it as a program, never as a fund that regrants. |
 | **"Public ledger"** | Donor-privacy risk (and our own claims file bans selling it) | Say: fund pages list their grants; project pages show totals and backers who chose to be named. Do not say "public ledger," "in the open," or "every dollar." |
 | **Returns** | Impact investors still need a return path | 10% of money moved plus $10 seats; the model's Medium case reaches $135k platform revenue on $1.35M moved in year three; a PBC lets us weigh mission against profit without giving up either. |
 | **Stage** | Pre-revenue platforms are a bet on the founder and the wedge | Point to what is built and live, the founding communities, the Nov 6 event, and the civic map. Don't inflate. |
