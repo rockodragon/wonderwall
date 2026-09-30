@@ -1,6 +1,7 @@
-// Real event RSVPs — the guest path, spec §1.6: "/events/first-table (and
-// event pages generally) replace mailto with a real RSVP: name + email, no
-// account required; account holders one-click."
+// Real event RSVPs. Spec §1.6 once said "no account required"; the owner
+// reversed that: an RSVP needs an account, and the event page's form makes
+// one in a single step (code by email or text). Paid tickets still check out
+// through Stripe without an account (garden/apGifts.ts).
 //
 // ctx typed loosely (`any`) — same reasoning as tables.ts / entitlements.ts:
 // the generated DataModel predates eventRsvps.
@@ -194,40 +195,63 @@ export async function upsertEventRsvp(
 
 // ——— Convex wrappers ———
 
+/** Name for a new RSVP: what was typed wins, then the profile, then the
+ * account. A brand-new account's profile is the placeholder "New User"
+ * (auth.ts's afterUserCreatedOrUpdated), which is not a name. */
+export function pickRsvpName(
+  typed: string | undefined,
+  profileName: string | undefined,
+  accountName: string | undefined,
+): string | undefined {
+  for (const candidate of [typed, profileName, accountName]) {
+    const trimmed = candidate?.trim();
+    if (trimmed && trimmed !== "New User") return trimmed;
+  }
+  return undefined;
+}
+
+// Nobody RSVPs without an account (owner's rule): the event page's form signs
+// the visitor in with an emailed or texted code first (event.tsx), then calls
+// this. The RSVP is tied to the signed-in account and its email — a typed
+// email is never trusted, so nobody can put someone else's address on the
+// list. (Paid tickets are the exception and don't come through here: they go
+// through Stripe and garden/apGifts.ts's upsertEventRsvp.)
 export const rsvpToEvent = mutation({
   args: {
     eventId: v.id("events"),
     name: v.optional(v.string()),
+    // Accepted and ignored: the account's own email is used. Kept so a page
+    // loaded before this change doesn't fail argument validation.
     email: v.optional(v.string()),
     invitedBy: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      throw new ConvexError({
+        code: "not_signed_in",
+        reason: "Sign in to save your spot.",
+      });
+    }
+
     const event = await ctx.db.get(args.eventId);
     // A hidden ticketed event reads as missing, same as its page does.
-    if (!event || !(await canSeeEvent(ctx, event, await getAuthUserId(ctx)))) {
+    if (!event || !(await canSeeEvent(ctx, event, userId))) {
       throw new ConvexError({
         code: "not_found",
         reason: "That event isn't there anymore — check the link and try again.",
       });
     }
 
-    // Auth is optional (spec: "no account required; account holders
-    // one-click") — when signed in and the caller omits name/email, fill
-    // them in from the profile/account instead of asking twice.
-    const userId = await getAuthUserId(ctx);
-    let name = args.name?.trim();
-    let email = args.email?.trim();
-    if (userId && (!name || !email)) {
-      const [profile, userDoc] = await Promise.all([
-        ctx.db
-          .query("profiles")
-          .withIndex("by_userId", (q) => q.eq("userId", userId))
-          .unique(),
-        ctx.db.get(userId),
-      ]);
-      if (!name) name = profile?.name ?? userDoc?.name;
-      if (!email) email = userDoc?.email;
-    }
+    const [profile, userDoc] = await Promise.all([
+      ctx.db
+        .query("profiles")
+        .withIndex("by_userId", (q) => q.eq("userId", userId))
+        .unique(),
+      ctx.db.get(userId),
+    ]);
+    const name = pickRsvpName(args.name, profile?.name, userDoc?.name);
+    const email = userDoc?.email?.trim();
 
     if (!name) {
       throw new ConvexError({
@@ -238,7 +262,7 @@ export const rsvpToEvent = mutation({
     if (!email || !isValidEmail(email)) {
       throw new ConvexError({
         code: "invalid_rsvp",
-        reason: "That email doesn't look right — double check it and try again.",
+        reason: "Your account needs an email to save a spot. Add one and try again.",
       });
     }
 
@@ -247,7 +271,7 @@ export const rsvpToEvent = mutation({
       name,
       email,
       invitedBy: args.invitedBy,
-      userId: userId ?? undefined,
+      userId,
     });
 
     return { ok: true, alreadyRsvpd: result.alreadyRsvpd };

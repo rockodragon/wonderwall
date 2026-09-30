@@ -30,12 +30,14 @@
 // Nothing below changes what an authenticated user sees; every new branch
 // is strictly !isAuthenticated.
 
+import { useAuthActions } from "@convex-dev/auth/react";
 import { useAction, useConvexAuth, useMutation, useQuery } from "convex/react";
 import { ConvexError } from "convex/values";
 import { type FormEvent, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
+import { normalizePhone } from "../../convex/phone";
 import { YOUTUBE_LIVE_LABEL, YOUTUBE_LIVE_URL } from "../constants/broadcast";
 import { FavoriteButton } from "../components/FavoriteButton";
 import {
@@ -688,6 +690,8 @@ export default function EventDetail() {
                 url={ticketUrl}
                 priceCents={event.externalTicketPriceCents}
               />
+            ) : rsvp.active && !cancelled ? (
+              <GuestRsvpCard rsvp={rsvp} />
             ) : isPast ? (
               <div className="p-3 bg-gray-100 dark:bg-gray-800 rounded-xl text-center">
                 <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -868,7 +872,9 @@ export default function EventDetail() {
         {/* Mobile Join Button - between description/gallery and location.
             A ticketed event shows its ticket card above the video instead. */}
         <div className={ticketUrl ? "hidden" : "md:hidden mb-8"}>
-          {isPast ? (
+          {rsvp.active && !cancelled ? (
+            <GuestRsvpCard rsvp={rsvp} />
+          ) : isPast ? (
             <div className="p-4 bg-gray-100 dark:bg-gray-800 rounded-xl text-center">
               <p className="text-gray-500 dark:text-gray-400">
                 This event has ended
@@ -1014,7 +1020,15 @@ export default function EventDetail() {
             {attendees ? "No one yet." : "Loading..."}
           </p>
         )}
-        {tab === "going" && attendees && attendees.length > 0 && (
+        {tab === "going" && isGuest && attendees && attendees.length > 0 && (
+          <p className="text-[15px] text-gray-700 dark:text-gray-200 mb-8">
+            {attendees.length} going.{" "}
+            <Link to="/login" className="text-blue-600 dark:text-blue-400 hover:underline">
+              Sign in to see who
+            </Link>
+          </p>
+        )}
+        {tab === "going" && !isGuest && attendees && attendees.length > 0 && (
           <div className="mb-8">
             <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
               Going ({attendees.reduce((n, a) => n + 1 + a.extraTickets, 0)})
@@ -1150,55 +1164,155 @@ export default function EventDetail() {
 }
 
 // ——————————————————————————————————————————————————————————————
-// Guest RSVP — the logged-out counterpart to Apply/Join above.
+// RSVP for a signed-out visitor — the counterpart to Apply/Join above.
 //
-// Wired to garden/eventRsvps.ts's rsvpToEvent, which is deliberately
-// unauthenticated (name + email, dedupes on normalized email). This is the
-// same mutation /garden/events/:id has always used; the flow is not new,
-// it just wasn't reachable from this page while this page required a login.
+// Nobody RSVPs without an account (owner's rule), so this is a one-step
+// sign-up: name + email (or phone), a 6-digit code, and the code signs them
+// in (creating the account if needed) and saves the RSVP. Codes come from
+// convex/auth.ts's "email-otp" and "phone" providers; the RSVP itself is
+// garden/eventRsvps.ts's rsvpToEvent, which needs the signed-in account.
+// Paid tickets don't come through here (ExternalTicketCard, Stripe).
 // ——————————————————————————————————————————————————————————————
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function rsvpErrorMessage(err: unknown): string {
   if (err instanceof ConvexError) {
-    const data = err.data as { reason?: string } | undefined;
-    if (data?.reason) return data.reason;
+    const data = err.data as { reason?: string } | string | undefined;
+    if (typeof data === "string" && data) return data;
+    if (data && typeof data === "object" && data.reason) return data.reason;
   }
   return "Something went wrong — try again.";
 }
 
+function isNotSignedInError(err: unknown): boolean {
+  return (
+    err instanceof ConvexError &&
+    typeof err.data === "object" &&
+    err.data !== null &&
+    (err.data as { code?: string }).code === "not_signed_in"
+  );
+}
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 function useGuestRsvp(eventId: Id<"events"> | undefined) {
+  const { signIn } = useAuthActions();
   const rsvpToEvent = useMutation(api.garden.eventRsvps.rsvpToEvent);
+  const fillMissingBasics = useMutation(api.profiles.fillMissingBasics);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  // "Use my phone instead": the code goes by text, and the email field
+  // stays because every account needs an email.
+  const [usePhone, setUsePhone] = useState(false);
+  const [code, setCode] = useState("");
+  const [step, setStep] = useState<"details" | "code" | "done">("details");
+  // The address the code went to, as shown on step 2 and sent back with it.
+  const [sentTo, setSentTo] = useState("");
+  const [signedIn, setSignedIn] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<{ alreadyRsvpd: boolean } | null>(null);
 
   const trimmedName = name.trim();
-  const trimmedEmail = email.trim();
-  const valid = trimmedName.length > 0 && EMAIL_RE.test(trimmedEmail);
+  const cleanEmail = email.trim().toLowerCase();
+  const valid =
+    trimmedName.length > 0 &&
+    EMAIL_RE.test(cleanEmail) &&
+    (!usePhone || phone.trim().length > 0);
+  const codeValid = /^\d{6}$/.test(code.trim());
 
-  async function submit(e: FormEvent) {
-    e.preventDefault();
-    if (!valid || !eventId || submitting) return;
+  async function sendCode(e?: FormEvent) {
+    e?.preventDefault();
+    if (!eventId || submitting) return;
+    if (!trimmedName) return setError("Add your name.");
+    if (!EMAIL_RE.test(cleanEmail)) return setError("Add an email we can reach you at.");
+
+    let destination = cleanEmail;
+    let phoneValue = "";
+    if (usePhone) {
+      const normalized = normalizePhone(phone);
+      if (!normalized.ok) return setError(normalized.reason);
+      phoneValue = normalized.value;
+      destination = phoneValue;
+    }
+
     setSubmitting(true);
     setError(null);
     try {
-      const res = await rsvpToEvent({
-        eventId,
-        name: trimmedName,
-        email: trimmedEmail,
-      });
-      setDone({ alreadyRsvpd: res.alreadyRsvpd });
+      if (usePhone) await signIn("phone", { phone: phoneValue });
+      else await signIn("email-otp", { email: cleanEmail });
+      setSentTo(destination);
+      setCode("");
+      setStep("code");
     } catch (err) {
-      // ConvexError carries a human reason; anything else gets the generic
-      // line. Either way the guest is told, never left with a dead button.
+      setError(
+        err instanceof ConvexError
+          ? rsvpErrorMessage(err)
+          : "Couldn't send a code. Check it and try again.",
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function saveRsvp() {
+    if (!eventId) return;
+    // Right after sign-in the Convex client can take a beat to start
+    // sending the new token; retry briefly instead of failing the RSVP.
+    for (let attempt = 0; ; attempt++) {
+      try {
+        // Only fills a blank name / missing email; never overwrites a
+        // returning member's profile (unlike upsertProfile).
+        await fillMissingBasics({ name: trimmedName, email: cleanEmail });
+        const res = await rsvpToEvent({ eventId, name: trimmedName });
+        setDone({ alreadyRsvpd: res.alreadyRsvpd });
+        setStep("done");
+        return;
+      } catch (err) {
+        const notReady =
+          isNotSignedInError(err) ||
+          (err instanceof Error && err.message.includes("Not authenticated"));
+        if (notReady && attempt < 4) {
+          await sleep(400);
+          continue;
+        }
+        throw err;
+      }
+    }
+  }
+
+  async function confirm(e?: FormEvent) {
+    e?.preventDefault();
+    if (!eventId || submitting || !codeValid) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      if (!signedIn) {
+        try {
+          if (usePhone) await signIn("phone", { phone: sentTo, code: code.trim() });
+          else await signIn("email-otp", { email: sentTo, code: code.trim() });
+        } catch {
+          setError("That code didn't work. Check it and try again, or send a new one.");
+          return;
+        }
+        setSignedIn(true);
+      }
+      await saveRsvp();
+    } catch (err) {
+      // Signed in but the RSVP didn't save: the code is spent, so the button
+      // retries just the save.
       setError(rsvpErrorMessage(err));
     } finally {
       setSubmitting(false);
     }
+  }
+
+  function changeAddress() {
+    setStep("details");
+    setCode("");
+    setError(null);
   }
 
   return {
@@ -1206,51 +1320,122 @@ function useGuestRsvp(eventId: Id<"events"> | undefined) {
     setName,
     email,
     setEmail,
+    phone,
+    setPhone,
+    usePhone,
+    setUsePhone,
+    code,
+    setCode,
+    step,
+    sentTo,
     submitting,
     error,
     done,
     valid,
-    submit,
+    codeValid,
+    // True once the visitor is past step 1. From then on the card stays put
+    // even though the page now sees a signed-in viewer.
+    active: step !== "details",
+    sendCode,
+    confirm,
+    changeAddress,
   };
 }
 
 type GuestRsvpState = ReturnType<typeof useGuestRsvp>;
 
 const GUEST_INPUT_CLASS =
-  "w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg " +
+  "w-full px-3 py-2 border border-gray-400 dark:border-gray-600 rounded-lg " +
   "focus:ring-2 focus:ring-green-500 focus:border-transparent " +
   "bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm";
+
+const GUEST_LINK_CLASS =
+  "text-sm text-gray-900 dark:text-gray-100 underline underline-offset-2 hover:no-underline";
 
 /** Rendered twice (desktop rail + mobile block), same as the Join button it
  *  stands in for. State lives in the parent so the two stay in sync. */
 function GuestRsvpCard({ rsvp }: { rsvp: GuestRsvpState }) {
-  if (rsvp.done) {
+  if (rsvp.step === "done" && rsvp.done) {
     return (
       <div className="p-4 rounded-xl bg-green-50 dark:bg-green-900/20">
-        <p className="font-medium text-green-800 dark:text-green-200">
-          {rsvp.done.alreadyRsvpd
-            ? "You're already on the list."
-            : "You're on the list."}
+        <p className="font-medium text-green-900 dark:text-green-100">
+          You're in
         </p>
-        <p className="mt-1 text-sm text-green-800 dark:text-green-200">
+        <p className="mt-1 text-sm text-green-900 dark:text-green-100">
           {rsvp.done.alreadyRsvpd
-            ? "We have your spot saved."
-            : "We'll email you the details."}
+            ? "You were already on the list. Your spot is saved."
+            : "Your spot is saved to your account. We'll email you the details."}
         </p>
       </div>
     );
   }
 
+  if (rsvp.step === "code") {
+    return (
+      <form
+        onSubmit={rsvp.confirm}
+        className="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl"
+      >
+        <h3 className="font-medium text-gray-900 dark:text-white text-sm">
+          Enter your code
+        </h3>
+        <p className="mt-1 mb-3 text-sm text-gray-800 dark:text-gray-200">
+          We sent a code to {rsvp.sentTo}.
+        </p>
+        <input
+          className={GUEST_INPUT_CLASS}
+          value={rsvp.code}
+          onChange={(e) => rsvp.setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+          placeholder="6-digit code"
+          aria-label="6-digit code"
+          inputMode="numeric"
+          autoComplete="one-time-code"
+          maxLength={6}
+        />
+        <button
+          type="submit"
+          disabled={!rsvp.codeValid || rsvp.submitting}
+          className="mt-3 w-full py-2.5 bg-green-600 text-white rounded-xl font-medium hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {rsvp.submitting ? "Saving…" : "Confirm my seat"}
+        </button>
+        {rsvp.error && (
+          <p className="mt-2 text-sm text-red-800 dark:text-red-200">
+            {rsvp.error}
+          </p>
+        )}
+        <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1">
+          <button
+            type="button"
+            onClick={() => void rsvp.sendCode()}
+            disabled={rsvp.submitting}
+            className={GUEST_LINK_CLASS}
+          >
+            Send a new code
+          </button>
+          <button
+            type="button"
+            onClick={rsvp.changeAddress}
+            className={GUEST_LINK_CLASS}
+          >
+            {rsvp.usePhone ? "Change phone" : "Change email"}
+          </button>
+        </div>
+      </form>
+    );
+  }
+
   return (
     <form
-      onSubmit={rsvp.submit}
+      onSubmit={rsvp.sendCode}
       className="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl"
     >
       <h3 className="font-medium text-gray-900 dark:text-white text-sm">
         RSVP
       </h3>
-      <p className="mt-1 mb-3 text-xs text-gray-600 dark:text-gray-300">
-        No account needed.
+      <p className="mt-1 mb-3 text-sm text-gray-800 dark:text-gray-200">
+        We'll send you a code. Entering it makes your account and saves your
+        spot.
       </p>
       <input
         className={GUEST_INPUT_CLASS}
@@ -1271,15 +1456,48 @@ function GuestRsvpCard({ rsvp }: { rsvp: GuestRsvpState }) {
           autoComplete="email"
         />
       </div>
+      {rsvp.usePhone && (
+        <div className="mt-2">
+          <input
+            className={GUEST_INPUT_CLASS}
+            type="tel"
+            value={rsvp.phone}
+            onChange={(e) => rsvp.setPhone(e.target.value)}
+            placeholder="Mobile number"
+            aria-label="Your mobile number"
+            autoComplete="tel"
+          />
+        </div>
+      )}
       <button
         type="submit"
         disabled={!rsvp.valid || rsvp.submitting}
         className="mt-3 w-full py-2.5 bg-green-600 text-white rounded-xl font-medium hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        {rsvp.submitting ? "Saving…" : "Save me a spot"}
+        {rsvp.submitting ? "Sending…" : "Send my code"}
       </button>
+      <button
+        type="button"
+        onClick={() => rsvp.setUsePhone(!rsvp.usePhone)}
+        className={`mt-3 ${GUEST_LINK_CLASS}`}
+      >
+        {rsvp.usePhone ? "Use my email instead" : "Use my phone instead"}
+      </button>
+      {/* Members sign in the usual way: a code sign-in on a password
+          account replaces the password, and a phone-only member would get
+          a second account. After sign-in they come back here (pendingIntent). */}
+      <p className="mt-3 text-sm text-gray-700 dark:text-gray-200">
+        Already have an account?{" "}
+        <Link
+          to="/login"
+          onClick={() => setPendingIntent(window.location.pathname)}
+          className={GUEST_LINK_CLASS}
+        >
+          Sign in
+        </Link>
+      </p>
       {rsvp.error && (
-        <p className="mt-2 text-sm text-red-700 dark:text-red-300">
+        <p className="mt-2 text-sm text-red-800 dark:text-red-200">
           {rsvp.error}
         </p>
       )}

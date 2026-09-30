@@ -914,7 +914,8 @@ export const getAttendees = query({
   args: { eventId: v.id("events") },
   handler: async (ctx, args) => {
     const event = await ctx.db.get(args.eventId);
-    if (!event || !(await canSeeEvent(ctx, event, await auth.getUserId(ctx)))) return [];
+    const viewerId = await auth.getUserId(ctx);
+    if (!event || !(await canSeeEvent(ctx, event, viewerId))) return [];
     const acceptedApplications = await ctx.db
       .query("eventApplications")
       .withIndex("by_eventId", (q) => q.eq("eventId", args.eventId))
@@ -1001,6 +1002,19 @@ export const getAttendees = query({
       }
     }
 
+    // Signed out: the count only. Same rows, so the page can say "N going",
+    // but no names, photos or profile links.
+    if (!viewerId) {
+      return attendees.map((a) => ({
+        key: a.key,
+        userId: null,
+        profileId: null,
+        name: "",
+        imageUrl: null,
+        message: null,
+        joinedAt: a.joinedAt,
+      }));
+    }
     return attendees;
   },
 });

@@ -139,6 +139,44 @@ export const getProfile = query({
   },
 });
 
+/**
+ * Fills in a brand-new account's basics without touching anything else:
+ * the name (only while it's blank or the "New User" placeholder) and the
+ * email (only while the account has none). The event RSVP sign-up
+ * (event.tsx) uses this instead of upsertProfile because upsertProfile
+ * replaces bio/location/etc., which would wipe a returning member who
+ * signs in through that form.
+ */
+export const fillMissingBasics = mutation({
+  args: { name: v.optional(v.string()), email: v.optional(v.string()) },
+  handler: async (ctx, args) => {
+    const userId = await auth.getUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
+    const email = args.email?.trim().toLowerCase();
+    if (email) {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        throw new ConvexError("That doesn't look like a valid email.");
+      }
+      const user = await ctx.db.get(userId);
+      if (user && !(user as { email?: string }).email) {
+        await ctx.db.patch(userId, { email });
+      }
+    }
+
+    const name = args.name?.trim();
+    if (name) {
+      const profile = await ctx.db
+        .query("profiles")
+        .withIndex("by_userId", (q) => q.eq("userId", userId))
+        .first();
+      if (profile && (!profile.name?.trim() || profile.name === "New User")) {
+        await ctx.db.patch(profile._id, { name, updatedAt: Date.now() });
+      }
+    }
+  },
+});
+
 export const upsertProfile = mutation({
   args: {
     name: v.string(),
