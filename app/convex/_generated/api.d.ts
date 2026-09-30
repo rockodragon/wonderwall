@@ -34,6 +34,8 @@ import type * as emailPreferences from "../emailPreferences.js";
 import type * as emails from "../emails.js";
 import type * as embeddings from "../embeddings.js";
 import type * as eventAccess from "../eventAccess.js";
+import type * as eventGuests from "../eventGuests.js";
+import type * as eventHosts from "../eventHosts.js";
 import type * as eventVideo from "../eventVideo.js";
 import type * as events from "../events.js";
 import type * as favorites from "../favorites.js";
@@ -146,6 +148,8 @@ declare const fullApi: ApiFromModules<{
   emails: typeof emails;
   embeddings: typeof embeddings;
   eventAccess: typeof eventAccess;
+  eventGuests: typeof eventGuests;
+  eventHosts: typeof eventHosts;
   eventVideo: typeof eventVideo;
   events: typeof events;
   favorites: typeof favorites;

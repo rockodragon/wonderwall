@@ -173,6 +173,12 @@ export default [
 
   route("ia", "routes/ia.tsx"),
 
+  // A community's front door: /sd, /the-garden (community.landing.tsx).
+  // Every static route above wins over it; a slug that isn't a community
+  // renders the 404. convex/garden/communityDomains.ts RESERVED_SLUGS keeps
+  // a community from taking a path the site already uses.
+  route(":communitySlug", "routes/community.landing.tsx"),
+
   // 404 catch-all
   route("*", "routes/404.tsx"),
 ] satisfies RouteConfig;

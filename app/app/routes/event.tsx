@@ -1022,7 +1022,7 @@ export default function EventDetail() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {attendees.map((attendee) => (
                 <div
-                  key={attendee.applicationId}
+                  key={attendee.key}
                   className="flex items-center gap-2.5 p-2.5 bg-gray-50 dark:bg-gray-800/50 rounded-xl"
                 >
                   {/* Same reason as the organizer above: no /profile links

@@ -12,7 +12,9 @@ import type { MutationCtx, QueryCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 
 export const DEFAULT_COMMUNITY_SLUG = "the-garden";
-export const CREATE_SD_SLUG = "create-sd";
+// The San Diego secular community — The Creative Exchange San Diego, at
+// /sd (renamed from "Create SD" 2026-09-29; createsd.org forwards there).
+export const CREATE_SD_SLUG = "sd";
 
 /** The Garden's membership terms — also the default for any community that
  * hasn't set its own (hostOrgs.seatPriceCents / duesGroupPct / duesPoolPct).
@@ -161,7 +163,7 @@ export const seedCreateSd = internalMutation({
       .unique();
     if (existing) return { created: false, id: existing._id };
     const id = await ctx.db.insert("hostOrgs", {
-      name: "Create SD",
+      name: "The Creative Exchange San Diego",
       slug: CREATE_SD_SLUG,
       kind: "community",
       tagline: "San Diego's creative community.",
