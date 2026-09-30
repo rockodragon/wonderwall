@@ -44,7 +44,7 @@ export function meta() {
     {
       name: "description",
       content:
-        "A night of creative work at Lightchurch, Encinitas. One ticket, $25, and every ticket goes into the Sophia Fund. November 6, 2026.",
+        "A night of creative work at Lightchurch, Encinitas. Tickets $25, and every ticket goes into the Sophia Fund. November 6, 2026.",
     },
     {
       property: "og:title",
@@ -53,7 +53,7 @@ export function meta() {
     {
       property: "og:description",
       content:
-        "A night of creative work at Lightchurch, Encinitas. One ticket, $25. Every ticket goes into the Sophia Fund.",
+        "A night of creative work at Lightchurch, Encinitas. Tickets $25. Every ticket goes into the Sophia Fund.",
     },
     { property: "og:type", content: "website" },
     // Absolute — a relative og:image doesn't unfurl on Instagram, iMessage
@@ -69,7 +69,7 @@ export function meta() {
     {
       name: "twitter:description",
       content:
-        "A night of creative work at Lightchurch, Encinitas. One ticket, $25. Every ticket goes into the Sophia Fund.",
+        "A night of creative work at Lightchurch, Encinitas. Tickets $25. Every ticket goes into the Sophia Fund.",
     },
     { name: "twitter:image", content: OG_IMAGE },
   ];
@@ -92,11 +92,9 @@ const OG_IMAGE = "https://creatives.exchange/showcase/abiding-creatives-og.jpg";
 const EVENT_DATE = "Friday, November 6, 2026";
 const EVENT_PLACE = "Lightchurch, Encinitas, California";
 
-// The one ticket. Same price for everyone.
 const TICKET = {
   label: "Admission",
   price: "$25",
-  note: "The same ticket for everyone.",
 } as const;
 
 // The November 6 event on the platform. Its page sells the ticket.
@@ -288,12 +286,12 @@ export default function Showcase() {
       </div>
 
       {/* The one ask, right under "Come and see." */}
-      <Section label="Get your ticket">
+      <Section label="Tickets">
         <button
           type="button"
           className="g-card sc-ticket"
           onClick={openTicket}
-          aria-label={`Get your ticket, ${TICKET.price}`}
+          aria-label={`Buy tickets, ${TICKET.label} ${TICKET.price}`}
           style={{
             display: "flex",
             flexWrap: "wrap",
@@ -308,25 +306,22 @@ export default function Showcase() {
             cursor: "pointer",
           }}
         >
-          <span
-            className="g-h"
-            style={{ fontSize: 30, color: "var(--g-citron)", flexShrink: 0 }}
-          >
-            {TICKET.price}
-          </span>
           <span style={{ flex: "1 1 160px" }}>
             <span style={{ color: "var(--g-paper)", display: "block" }}>
-              One ticket
+              {TICKET.label}
             </span>
-            <span className="g-hint" style={{ display: "block", marginTop: 4 }}>
-              {TICKET.note}
+            <span
+              className="g-h"
+              style={{ fontSize: 30, color: "var(--g-paper)", display: "block", marginTop: 2 }}
+            >
+              {TICKET.price}
             </span>
           </span>
           <span
-            className="g-badge g-badge-line"
-            style={{ flexShrink: 0, whiteSpace: "nowrap" }}
+            className="g-btn g-btn-citron"
+            style={{ flexShrink: 0, whiteSpace: "nowrap", alignSelf: "center" }}
           >
-            Save your space
+            Buy tickets
           </span>
         </button>
         <P>
@@ -376,7 +371,7 @@ export default function Showcase() {
       <Section label="Questions people ask">
         <div style={{ display: "grid", gap: 10 }}>
           <Faq q="What does it cost?">
-            {TICKET.price}, and it's the same ticket for everyone. It goes into
+            {TICKET.price} a ticket. Every ticket goes into
             the Sophia Fund, an artist grant fund that backs projects by
             creatives in the community.{" "}
             <Link to="/fund/sophia" style={{ color: "var(--g-citron)" }}>
@@ -384,7 +379,7 @@ export default function Showcase() {
             </Link>
           </Faq>
           <Faq q="Do I have to be a creative to come?">
-            No. Anyone can come, and everyone buys the same ticket.
+            No. Anyone can come.
           </Faq>
           <Faq q="How do I submit my work?">
             From your profile in the app. Add your work to{" "}
@@ -409,7 +404,7 @@ export default function Showcase() {
 
       <Section label="See you there">
         <button type="button" className="g-btn g-btn-citron" onClick={openTicket}>
-          Get your ticket · {TICKET.price}
+          Buy tickets · {TICKET.price}
         </button>
       </Section>
 
