@@ -9,7 +9,7 @@
 //     paymentLinkUrl, on the ORG'S own Stripe account. "Donate"/"gift" is
 //     reserved for this lane only.
 //   "platform" / "community" — the in-platform project pool. Money moves
-//     through creatives.exchange's own Stripe (createPoolContributionCheckout
+//     through thecreative.exchange's own Stripe (createPoolContributionCheckout
 //     below); NEVER "donate"/"gift"/tax-deductible copy here — "fund",
 //     "back", "add to the project pool" only (money-words rule, task spec).
 //

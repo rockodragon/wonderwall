@@ -1,6 +1,6 @@
 // Which community a visitor came in for — the page's domain (createsd.org,
 // thegardensd.org) and any ?community=<slug> link. The server decides what
-// they map to (convex/garden/communityDomains.ts); creatives.exchange and
+// they map to (convex/garden/communityDomains.ts); thecreative.exchange and
 // localhost map to none.
 export function entryCommunityArgs(): { host?: string; communitySlug?: string } {
   if (typeof window === "undefined") return {};

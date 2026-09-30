@@ -11,47 +11,47 @@
 -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://creatives.exchange/</loc>
+    <loc>https://thecreative.exchange/</loc>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://creatives.exchange/about/</loc>
+    <loc>https://thecreative.exchange/about/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://creatives.exchange/about/creatives</loc>
+    <loc>https://thecreative.exchange/about/creatives</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://creatives.exchange/about/hosts</loc>
+    <loc>https://thecreative.exchange/about/hosts</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://creatives.exchange/about/partners</loc>
+    <loc>https://thecreative.exchange/about/partners</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://creatives.exchange/about/patrons</loc>
+    <loc>https://thecreative.exchange/about/patrons</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://creatives.exchange/login</loc>
+    <loc>https://thecreative.exchange/login</loc>
     <changefreq>yearly</changefreq>
     <priority>0.3</priority>
   </url>
   <url>
-    <loc>https://creatives.exchange/legal/terms</loc>
+    <loc>https://thecreative.exchange/legal/terms</loc>
     <changefreq>yearly</changefreq>
     <priority>0.3</priority>
   </url>
   <url>
-    <loc>https://creatives.exchange/legal/privacy</loc>
+    <loc>https://thecreative.exchange/legal/privacy</loc>
     <changefreq>yearly</changefreq>
     <priority>0.3</priority>
   </url>

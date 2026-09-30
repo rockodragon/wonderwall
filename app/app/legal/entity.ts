@@ -1,5 +1,5 @@
 /**
- * The single source of truth for who, legally, is behind creatives.exchange.
+ * The single source of truth for who, legally, is behind thecreative.exchange.
  *
  * The Terms of Service and Privacy Policy both read from here rather than
  * hardcoding the company name, so a rename or an entity change is one edit

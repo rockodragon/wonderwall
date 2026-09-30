@@ -77,7 +77,7 @@ export function meta() {
   const title = "Open work and projects — TheCreative.exchange";
   const description =
     "Paid work posted by churches, businesses and nonprofits, and projects creatives are raising money to finish.";
-  const image = "https://creatives.exchange/og-image.png";
+  const image = "https://thecreative.exchange/og-image.png";
   return [
     { title },
     { name: "description", content: description },

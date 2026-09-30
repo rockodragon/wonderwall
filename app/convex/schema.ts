@@ -405,7 +405,7 @@ export default defineSchema({
     approvedAt: v.optional(v.number()),
     // Communities this person asked to join, from the domain or
     // ?community= link they came in on (communityDomains.ts). Unset = the
-    // neutral hub (creatives.exchange).
+    // neutral hub (thecreative.exchange).
     communityIds: v.optional(v.array(v.id("hostOrgs"))),
   }).index("by_email", ["email"]),
 
@@ -848,7 +848,7 @@ export default defineSchema({
   // One table, three kinds: "community" (a named group on the platform —
   // The Garden is the first; hosts apply, operators approve), "org"/"church"
   // (a sponsor or fund owner — Abiding Practice — that may never be listed
-  // as a community), and "platform" (the single creatives.exchange row that
+  // as a community), and "platform" (the single thecreative.exchange row that
   // owns the platform-wide project pool ledger; never listed). Coverage,
   // allocations, tables, and grantContributions all key off this table.
   //

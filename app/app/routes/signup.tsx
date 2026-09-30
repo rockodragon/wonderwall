@@ -8,6 +8,7 @@ import { api } from "../../convex/_generated/api";
 import { normalizePhone } from "../../convex/phone";
 import { normalizeInviteCode } from "../../convex/inviteCode";
 import { entryCommunityArgs } from "../lib/entryCommunity";
+import { ensureOAuthHost } from "../lib/oauthHost";
 import { isCheckoutSessionId } from "../../convex/garden/ticketLink";
 
 export function meta() {
@@ -25,13 +26,13 @@ export function meta() {
     { property: "og:type", content: "website" },
     {
       property: "og:image",
-      content: "https://creatives.exchange/og-image.png",
+      content: "https://thecreative.exchange/og-image.png",
     },
     { property: "og:image:width", content: "1200" },
     { property: "og:image:height", content: "630" },
     {
       name: "twitter:image",
-      content: "https://creatives.exchange/og-image.png",
+      content: "https://thecreative.exchange/og-image.png",
     },
     { name: "twitter:card", content: "summary_large_image" },
     { name: "twitter:title", content: "Join TheCreative.exchange" },
@@ -289,6 +290,7 @@ export default function Signup() {
       setError(gateError);
       return;
     }
+    if (!ensureOAuthHost()) return;
 
     setGoogleLoading(true);
 

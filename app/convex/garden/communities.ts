@@ -1,4 +1,4 @@
-// Communities — the visible layer on top of creatives.exchange
+// Communities — the visible layer on top of thecreative.exchange
 // (docs/features/community-groups.md). A community is a `hostOrgs` row of
 // kind "community": hosts APPLY (self-serve), operators approve, members
 // join for free, and content (projects/events/offerings/tables) is TAGGED

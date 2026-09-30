@@ -18,7 +18,7 @@ export function meta() {
     },
     { property: "og:title", content: "TheCreative.exchange" },
     { property: "og:description", content: "Where creatives find the people who support their work." },
-    { property: "og:image", content: "https://creatives.exchange/og-image.png" },
+    { property: "og:image", content: "https://thecreative.exchange/og-image.png" },
   ];
 }
 

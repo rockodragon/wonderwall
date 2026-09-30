@@ -1,8 +1,8 @@
 // Community domains (Rick, 2026-09-29): each community can have its own
 // front-door domains — thegardensd.org for The Garden, createsd.org for
 // Create SD. A visitor who arrives on one is tagged to that community
-// (waitlist today; signup later). creatives.exchange is the neutral hub and
-// belongs to no community. Accounts and sign-in stay on creatives.exchange.
+// (waitlist today; signup later). thecreative.exchange is the neutral hub and
+// belongs to no community. Accounts and sign-in stay on thecreative.exchange.
 //   npx convex run garden/communityDomains:setCommunityDomains '{"slug":"create-sd","domains":["createsd.org"]}' [--prod]
 
 import { v } from "convex/values";
