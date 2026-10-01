@@ -110,6 +110,13 @@ export default [
     route("jobs/:id", "routes/jobs.$id.tsx"),
     route("jobs/:id/edit", "routes/jobs.$id.edit.tsx"),
     route("profile/:profileId", "routes/profile.tsx"),
+    // Organizations (docs/features/organizations.md). Public like an event
+    // page — a signed-out guest who clicks "Hosted by Abiding Practice"
+    // lands here; _app.tsx lists "/orgs" as a public path. The edit page
+    // shares the prefix and checks admin itself.
+    route("orgs", "routes/orgs._index.tsx"),
+    route("orgs/:slug", "routes/orgs.$slug.tsx"),
+    route("orgs/:slug/edit", "routes/orgs.$slug.edit.tsx"),
     route("favorites", "routes/favorites.tsx"),
     route("settings", "routes/settings.tsx"),
     route("faq", "routes/faq.tsx"),

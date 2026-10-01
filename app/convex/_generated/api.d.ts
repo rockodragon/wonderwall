@@ -104,6 +104,8 @@ import type * as notificationRetention from "../notificationRetention.js";
 import type * as notifications from "../notifications.js";
 import type * as offerings from "../offerings.js";
 import type * as ogParse from "../ogParse.js";
+import type * as organizationRules from "../organizationRules.js";
+import type * as organizations from "../organizations.js";
 import type * as phone from "../phone.js";
 import type * as phoneLink from "../phoneLink.js";
 import type * as phoneLinkCore from "../phoneLinkCore.js";
@@ -223,6 +225,8 @@ declare const fullApi: ApiFromModules<{
   notifications: typeof notifications;
   offerings: typeof offerings;
   ogParse: typeof ogParse;
+  organizationRules: typeof organizationRules;
+  organizations: typeof organizations;
   phone: typeof phone;
   phoneLink: typeof phoneLink;
   phoneLinkCore: typeof phoneLinkCore;
