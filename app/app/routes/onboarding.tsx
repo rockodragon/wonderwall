@@ -37,6 +37,8 @@ export default function Onboarding() {
   // Shared
   const location = useLocationField();
   const [bio, setBio] = useState("");
+  const [name, setName] = useState("");
+  const [creativeOrgName, setCreativeOrgName] = useState("");
   // Only asked when the account has no email (a phone sign-in) — Stripe
   // receipts and notifications need one even then.
   const [email, setEmail] = useState("");
@@ -76,6 +78,9 @@ export default function Onboarding() {
   useEffect(() => {
     if (profile && !prefilled) {
       setBio(profile.bio || "");
+      // A blank or placeholder name starts empty so the person types a real one.
+      setName(profile.name && profile.name !== "New User" ? profile.name : "");
+      setCreativeOrgName(profile.orgName || "");
       location.hydrate(profile);
       setSelectedJobFunctions(profile.interests || []);
       setPrefilled(true);
@@ -112,6 +117,10 @@ export default function Onboarding() {
       alert("Select at least one — helps people find you.");
       return;
     }
+    if (!name.trim()) {
+      alert("Enter your name.");
+      return;
+    }
     if (needsEmail && !email.trim()) {
       alert("Enter an email — we need it for receipts and notifications.");
       return;
@@ -120,7 +129,7 @@ export default function Onboarding() {
     setUploading(true);
     try {
       await upsertProfile({
-        name: profile.name,
+        name: name.trim(),
         interests: primaryRole === "creative" ? selectedJobFunctions : undefined,
         bio: bio.trim() || undefined,
         email: needsEmail ? email.trim() : undefined,
@@ -131,7 +140,7 @@ export default function Onboarding() {
             ? (isOrg ? orgName.trim() : undefined) || undefined
             : primaryRole === "partner"
               ? partnerOrgName.trim() || undefined
-              : undefined,
+              : creativeOrgName.trim() || undefined,
         supportInterests: primaryRole === "patron" ? supportInterests : undefined,
         partnerOfferings: primaryRole === "partner" ? partnerOfferings : undefined,
       });
@@ -384,13 +393,15 @@ export default function Onboarding() {
               </div>
             </div>
 
+            <NameField name={name} setName={setName} />
             {needsEmail && <EmailField email={email} setEmail={setEmail} />}
             <LocationField location={location} />
             <BioField bio={bio} setBio={setBio} placeholder="Tell us a bit about yourself..." />
+            <OrgField value={creativeOrgName} setValue={setCreativeOrgName} />
 
             <button
               onClick={handleDetailsSubmit}
-              disabled={selectedJobFunctions.length === 0 || uploading}
+              disabled={selectedJobFunctions.length === 0 || !name.trim() || uploading}
               className="w-full py-3 px-4 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {uploading ? "Saving..." : "Continue"}
@@ -468,13 +479,14 @@ export default function Onboarding() {
               </div>
             </div>
 
+            <NameField name={name} setName={setName} />
             {needsEmail && <EmailField email={email} setEmail={setEmail} />}
             <LocationField location={location} />
             <BioField bio={bio} setBio={setBio} placeholder="Why do you support creatives? (optional)" />
 
             <button
               onClick={handleDetailsSubmit}
-              disabled={uploading}
+              disabled={!name.trim() || uploading}
               className="w-full py-3 px-4 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {uploading ? "Saving..." : "Continue"}
@@ -526,6 +538,7 @@ export default function Onboarding() {
               </div>
             </div>
 
+            <NameField name={name} setName={setName} />
             {needsEmail && <EmailField email={email} setEmail={setEmail} />}
             <LocationField
               location={location}
@@ -535,7 +548,7 @@ export default function Onboarding() {
 
             <button
               onClick={handleDetailsSubmit}
-              disabled={uploading}
+              disabled={!name.trim() || uploading}
               className="w-full py-3 px-4 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {uploading ? "Saving..." : "Continue"}
@@ -778,6 +791,41 @@ function EmailField({
         placeholder="you@example.com"
         className="w-full px-4 py-3 border border-gray-300 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
       />
+    </div>
+  );
+}
+
+function NameField({ name, setName }: { name: string; setName: (v: string) => void }) {
+  return (
+    <div className="mb-6">
+      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+        Name <span className="text-red-500">*</span>
+      </label>
+      <input
+        type="text"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        autoComplete="name"
+        className="w-full px-4 py-3 border border-gray-300 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
+      />
+    </div>
+  );
+}
+
+function OrgField({ value, setValue }: { value: string; setValue: (v: string) => void }) {
+  return (
+    <div className="mb-6">
+      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+        Organization (Optional)
+      </label>
+      <input
+        type="text"
+        value={value}
+        maxLength={80}
+        onChange={(e) => setValue(e.target.value)}
+        className="w-full px-4 py-3 border border-gray-300 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
+      />
+      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Shown with your name on events you host.</p>
     </div>
   );
 }

@@ -47,6 +47,8 @@ import {
 } from "../components/LocationAutocomplete";
 import { useLocationField } from "../lib/useLocationField";
 import { ShareButton } from "../components/ShareButton";
+import { ShowcaseContent, SHOWCASE_EVENT_ID } from "../components/ShowcaseContent";
+import { hostLabels } from "../lib/eventHosts";
 import {
   TicketTierEditor,
   draftsToTiers,
@@ -650,21 +652,24 @@ export default function EventDetail() {
             {event.organizer && (
               <p className="mb-4 text-[15px] text-gray-700 dark:text-gray-200">
                 Hosted by{" "}
-                {[
-                  { key: "organizer", name: event.organizer.name, profileId: event.organizer.profileId },
-                  ...(event.coHosts ?? []).map((c) => ({ key: String(c.userId), name: c.name, profileId: c.profileId })),
-                ].map((h, idx) => (
-                  <span key={h.key}>
+                {hostLabels([
+                  event.organizer,
+                  ...(event.coHosts ?? []),
+                ]).map((h, idx) => (
+                  <span key={`${h.primary}-${idx}`}>
                     {idx > 0 && ", "}
                     {h.profileId && !isGuest ? (
                       <Link
                         to={`/profile/${h.profileId}`}
                         className="font-medium text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400"
                       >
-                        {h.name}
+                        {h.primary}
                       </Link>
                     ) : (
-                      <span className="font-medium text-gray-900 dark:text-white">{h.name}</span>
+                      <span className="font-medium text-gray-900 dark:text-white">{h.primary}</span>
+                    )}
+                    {h.person && (
+                      <span className="text-gray-600 dark:text-gray-300"> ({h.person})</span>
                     )}
                   </span>
                 ))}
@@ -677,6 +682,15 @@ export default function EventDetail() {
                 {event.description}
               </p>
             </div>
+
+            {event._id === SHOWCASE_EVENT_ID && (
+              <div
+                className="garden-root rounded-2xl mt-6 px-5 pb-8"
+                style={{ background: "var(--g-ink)" }}
+              >
+                <ShowcaseContent embedded />
+              </div>
+            )}
           </div>
 
           {/* Right: Join Button (desktop) — or the ticket card, when the

@@ -540,6 +540,30 @@ export const patchCoordinates = internalMutation({
 });
 
 /**
+ * The organization shown next to a person's name (for example a creative who
+ * hosts events under a group name). Its own small mutation so saving it never
+ * touches any other profile field. An empty value clears it.
+ */
+export const setOrgName = mutation({
+  args: { orgName: v.optional(v.string()) },
+  handler: async (ctx, args) => {
+    const userId = await auth.getUserId(ctx);
+    if (!userId) throw new ConvexError({ code: "unauthenticated", reason: "Sign in first." });
+    const profile = await ctx.db
+      .query("profiles")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .first();
+    if (!profile) throw new ConvexError({ code: "no_profile", reason: "Finish your profile first." });
+    const orgName = (args.orgName ?? "").trim();
+    if (orgName.length > 80) {
+      throw new ConvexError({ code: "too_long", reason: "Keep the organization under 80 characters." });
+    }
+    await ctx.db.patch(profile._id, { orgName: orgName || undefined, updatedAt: Date.now() });
+    return { ok: true as const };
+  },
+});
+
+/**
  * Live booking (docs/features/live-booking.md §6): where a venue pays you.
  * Each value is normalized (an "@", a "$", a pasted profile URL all reduce
  * to the bare handle) and validated by gigRules.ts's normalizeHandle; an

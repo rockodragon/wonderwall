@@ -91,15 +91,15 @@ function CommunitiesIntro() {
             Read the base agreements →
           </Link>
         </div>
-        <div style={CARD}>
-          <span className="text-[12.5px] uppercase tracking-[0.06em]" style={{ color: "var(--garden-muted)" }}>
-            Faith-based creatives community
+        <div style={{ ...CARD, border: "1px solid var(--garden-citron)", boxShadow: "inset 4px 0 0 var(--garden-citron)" }}>
+          <span className="text-[12.5px] uppercase tracking-[0.06em]" style={{ color: "var(--garden-citron)" }}>
+            Faith-based creatives community · Open now
           </span>
           <b className="text-[17px]" style={{ color: "var(--garden-paper)" }}>
             The Garden
           </b>
           <p className="text-[15px]" style={{ color: "var(--garden-body)" }}>
-            Where this started. Open now.
+            Where this started.
           </p>
           <Link to="/communities/the-garden" className="text-[15px] mt-1" style={{ color: "var(--garden-citron)" }}>
             Open The Garden →

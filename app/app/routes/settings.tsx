@@ -1181,12 +1181,14 @@ function ProfileEditForm({
 }) {
   const posthog = usePostHog();
   const upsertProfile = useMutation(api.profiles.upsertProfile);
+  const setOrgNameMutation = useMutation(api.profiles.setOrgName);
   const generateUploadUrl = useMutation(api.files.generateUploadUrl);
   const saveProfileImage = useMutation(api.files.saveProfileImage);
   const saveProfileImageUrl = useMutation(api.files.saveProfileImageUrl);
   const deleteProfileImage = useMutation(api.files.deleteProfileImage);
 
   const [name, setName] = useState("");
+  const [orgName, setOrgName] = useState("");
   const [bio, setBio] = useState("");
   const location = useLocationField();
   const [imageUrl, setImageUrl] = useState("");
@@ -1200,6 +1202,7 @@ function ProfileEditForm({
   useEffect(() => {
     if (profile && !initialized) {
       setName(profile.name || "");
+      setOrgName(profile.orgName || "");
       setBio(profile.bio || "");
       location.hydrate(profile);
       setImageUrl(profile.imageUrl || "");
@@ -1278,6 +1281,8 @@ function ProfileEditForm({
         ...location.toArgs(),
         interests,
       });
+      // Its own call so saving the organization never changes other fields.
+      await setOrgNameMutation({ orgName: orgName.trim() });
 
       posthog?.capture("profile_updated", {
         has_bio: !!bio.trim(),
@@ -1432,6 +1437,24 @@ function ProfileEditForm({
             className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent"
             style={{ borderColor: "var(--app-hairline)", backgroundColor: "var(--app-surface-raised)", color: "var(--app-text)" }}
           />
+        </div>
+
+        {/* Organization */}
+        <div>
+          <label className="block text-sm font-medium mb-2" style={{ color: "var(--app-text-muted)" }}>
+            Organization
+          </label>
+          <input
+            type="text"
+            value={orgName}
+            maxLength={80}
+            onChange={(e) => setOrgName(e.target.value)}
+            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent"
+            style={{ borderColor: "var(--app-hairline)", backgroundColor: "var(--app-surface-raised)", color: "var(--app-text)" }}
+          />
+          <p className="mt-1 text-sm" style={{ color: "var(--app-text-dim)" }}>
+            Shown with your name on events you host.
+          </p>
         </div>
 
         {/* Bio */}

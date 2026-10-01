@@ -8,6 +8,7 @@ import {
   normalizeExternalTicket,
   normalizeTicketTiers,
   validateEndTime,
+  countGoing,
   isFreeEvent,
   type TicketTierInput,
 } from "./events";
@@ -171,5 +172,29 @@ describe("isFreeEvent (ticket-gated visibility, garden/eventVisibility.ts)", () 
         ticketTiers: [{ name: "General", priceCents: 2500 }],
       }),
     ).toBe(false);
+  });
+});
+
+describe("countGoing", () => {
+  it("is zero with nobody", () => {
+    expect(countGoing({ acceptedApplicantIds: [], rsvps: [], paidPurchases: [] })).toBe(0);
+  });
+  it("adds accepted applications, RSVP tickets and paid tickets", () => {
+    expect(
+      countGoing({
+        acceptedApplicantIds: ["u1"],
+        rsvps: [{ userId: "u2", ticketCount: 3 }, { email: "a@x.com" }],
+        paidPurchases: [{ userId: "u3" }],
+      }),
+    ).toBe(1 + 3 + 1 + 1);
+  });
+  it("counts one person once across the three places", () => {
+    expect(
+      countGoing({
+        acceptedApplicantIds: ["u1"],
+        rsvps: [{ userId: "u1", email: "a@x.com" }],
+        paidPurchases: [{ userId: "u1", buyerEmail: "A@x.com" }],
+      }),
+    ).toBe(1);
   });
 });

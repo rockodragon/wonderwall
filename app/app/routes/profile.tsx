@@ -188,6 +188,11 @@ export default function Profile() {
                 </span>
               )}
             </div>
+            {profile.orgName && (
+              <p className="mt-1 text-sm sm:text-base" style={{ color: "var(--app-text-muted)" }}>
+                {profile.orgName}
+              </p>
+            )}
             {profile.interests.length > 0 && (
               <p className="mt-1 text-sm sm:text-base" style={{ color: "var(--app-text-muted)" }}>
                 {profile.interests.join(" • ")}
