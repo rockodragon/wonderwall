@@ -17,12 +17,15 @@ import type { QueryCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 import { can } from "./capabilities";
 import { getGardenUser } from "./entitlements";
+import { isHidden } from "../moderationRules";
 
 export interface TicketedEventLike {
   ticketTiers?: unknown[];
   organizerId: Id<"users">;
   /** The tier that counts is the organizer's in this event's community. */
   hostOrgId?: Id<"hostOrgs">;
+  /** "hidden" (an admin took it down, moderation.ts) is never public. */
+  status?: string;
 }
 
 /** Pure part (unit-tested in events.test.ts): true when the event has no
@@ -55,6 +58,7 @@ export async function canSeeEvent(
 export function eventVisibilityChecker(ctx: QueryCtx) {
   const cache = new Map<string, Promise<boolean>>();
   return function isEventPublic(event: TicketedEventLike): Promise<boolean> {
+    if (isHidden(event)) return Promise.resolve(false);
     if (isFreeEvent(event)) return Promise.resolve(true);
     const key = `${event.organizerId}:${event.hostOrgId ?? ""}`;
     let result = cache.get(key);

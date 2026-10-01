@@ -18,6 +18,7 @@ import { api } from "../../convex/_generated/api";
 import { EMBED_PROVIDER_LABEL, toEmbedUrl } from "../lib/videoEmbed";
 import type { Id } from "../../convex/_generated/dataModel";
 import { AnnouncementComposer } from "../components/AnnouncementComposer";
+import { AdminMenu, HiddenNotice } from "../components/AdminMenu";
 import { EmbedPlayer } from "../components/EmbedPlayer";
 import { describeMediaLink, MediaLinkField } from "../components/MediaLinkField";
 import { FavoriteButton } from "../components/FavoriteButton";
@@ -214,9 +215,20 @@ export default function ProjectDetail() {
   const hasPieces = (project.media?.length ?? 0) > 0;
   const thumb = project.resolvedPhotoUrl || (mediaEmbed || hasPieces ? null : mediaThumb(project));
 
+  const hiddenByAdmin = project.status === "hidden";
+
   return (
     <PageShell>
-      <BackLink />
+      <div className="flex items-start justify-between gap-3">
+        <BackLink />
+        <AdminMenu target={{ kind: "project", id: project._id }} title={project.title} hidden={hiddenByAdmin} />
+      </div>
+
+      {hiddenByAdmin && (
+        <div className="mb-5">
+          <HiddenNotice kind="project" />
+        </div>
+      )}
 
       <ProjectHero
         thumb={thumb}
@@ -744,7 +756,8 @@ function ArchiveButton({ project }: { project: any }) {
     }
   }
 
-  if (project.status === "archived") return null;
+  // A hidden project's status is the admin's to change (moderation.ts).
+  if (project.status === "archived" || project.status === "hidden") return null;
 
   return (
     <button

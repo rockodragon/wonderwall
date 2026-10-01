@@ -60,6 +60,7 @@ import {
   type TicketTierDraft,
 } from "../components/TicketTierEditor";
 import { AnnouncementComposer } from "../components/AnnouncementComposer";
+import { AdminMenu, HiddenNotice } from "../components/AdminMenu";
 import { AddToCalendar } from "../components/AddToCalendar";
 import { describeMediaLink, MediaLinkField } from "../components/MediaLinkField";
 import { EmbedPlayer } from "../components/EmbedPlayer";
@@ -335,10 +336,19 @@ export default function EventDetail() {
       {/* Back link, above the hero — the wordmark/sidebar/sign-in chrome
           around this page now comes from _app.tsx itself (guest included,
           via its public-path matcher), so this file only needs the one
-          thing it's still responsible for: a way back to the list. */}
-      <div className="px-6 pt-4">
+          thing it's still responsible for: a way back to the list. An
+          admin also gets the moderation ⋮ (AdminMenu) on the right. */}
+      <div className="px-6 pt-4 flex items-center justify-between gap-3">
         <EventsBackLink isGuest={isGuest} />
+        <AdminMenu target={{ kind: "event", id: event._id }} title={event.title} hidden={event.hiddenByAdmin} />
       </div>
+
+      {/* Only hosts and admins ever get a hidden event back (events.get). */}
+      {event.hiddenByAdmin && (
+        <div className="px-6 pt-4">
+          <HiddenNotice kind="event" />
+        </div>
+      )}
 
       {/* Ticketed events stay hidden from everyone but their organizer
           until the organizer can sell tickets (product rule, 2026-09-27).
@@ -404,7 +414,7 @@ export default function EventDetail() {
                 >
                   Edit
                 </button>
-                {event.isOrganizer && event.status !== "cancelled" && (
+                {event.isOrganizer && event.status !== "cancelled" && !event.hiddenByAdmin && (
                   <div className="relative">
                     <button
                       onClick={() => setShowOptions((v) => !v)}

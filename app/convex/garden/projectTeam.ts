@@ -21,6 +21,7 @@ import { can } from "./capabilities";
 import { assertCanPure, getGardenUser } from "./entitlements";
 import { scheduleNotificationEmail } from "../emailHelpers";
 import { toEmbedUrl } from "../videoEmbed";
+import { isHidden } from "../moderationRules";
 
 // ——————————————————————————————————————————————————————————————
 // Stage — TWIN of app/app/lib/stage.ts (STAGES, isStage, stageLabel,
@@ -80,12 +81,13 @@ export function resolveStage(project: { stage?: string; status?: string; kind: s
 
 /** Whether a project is still taking new people: a role reads as "open", a
  * visitor can ask to join or apply. A finished project isn't — archived,
- * completed (by status or stage), or cancelled — so its unfilled roles stop
+ * completed (by status or stage), or cancelled — nor is one an admin hid
+ * (moderation.ts), so its unfilled roles stop
  * surfacing and a request is refused, rather than someone applying to work
  * that has already wrapped. "paused" still takes people: on hold is not
  * over. Filled roles are unaffected; they're credits, not openings. */
 export function isAcceptingPeople(project: { stage?: string; status?: string; kind: string }): boolean {
-  if (project.status === "archived" || project.status === "completed") return false;
+  if (project.status === "archived" || project.status === "completed" || isHidden(project)) return false;
   const stage = resolveStage(project);
   return stage !== "completed" && stage !== "cancelled";
 }
@@ -1600,7 +1602,7 @@ export const listAffiliations = query({
     const rows: { project: Doc<"projects">; role: string }[] = [];
     const seen = new Set<string>();
     const keep = (project: Doc<"projects"> | null): project is Doc<"projects"> =>
-      !!project && project.status !== "archived";
+      !!project && project.status !== "archived" && !isHidden(project);
     for (const project of owned) {
       if (!keep(project)) continue;
       seen.add(String(project._id));

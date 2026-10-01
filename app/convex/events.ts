@@ -12,6 +12,8 @@ import { getUserEmail } from "./emailHelpers";
 import { isEventHost, planAddCoHost, planRemoveCoHost } from "./eventHosts";
 import { canSeeEvent, eventVisibilityChecker, isFreeEvent } from "./garden/eventVisibility";
 import { hostUserIdsForOrg, primaryOrgByUserId } from "./organizations";
+import { isAdmin } from "./helpers";
+import { isHidden } from "./moderationRules";
 
 // ——— Pure validation helpers (unit-tested in events.test.ts) ———
 
@@ -382,10 +384,13 @@ export const get = query({
     const isOrganizer = userId === event.organizerId;
     const isHost = isEventHost(event, userId);
     const isPublic = await eventVisibilityChecker(ctx)(event);
-    // A ticketed event whose organizer can't sell tickets is not-found to
-    // everyone except the organizer (same anatomy as a missing event, so a
-    // hidden event can't be distinguished from one that never existed).
-    if (!isPublic && !isHost) return null;
+    const hiddenByAdmin = isHidden(event);
+    // A ticketed event whose organizer can't sell tickets, or one an admin
+    // hid (moderation.ts), is not-found to everyone except its hosts (same
+    // anatomy as a missing event, so a hidden event can't be distinguished
+    // from one that never existed) — and admins, who need the page to
+    // unhide or delete it.
+    if (!isPublic && !isHost && !(userId && (await isAdmin(ctx, userId)))) return null;
 
     // Get organizer profile
     const profile = await ctx.db
@@ -487,7 +492,9 @@ export const get = query({
       // Lets the organizer's own view show the "only you can see this"
       // notice; never true for anyone else, since a non-public event
       // already returned null above.
-      hiddenUntilMembership: isOrganizer && !isPublic,
+      hiddenUntilMembership: isOrganizer && !isPublic && !hiddenByAdmin,
+      // Only hosts and admins ever get a hidden event back (above).
+      hiddenByAdmin,
       community,
     };
   },
@@ -755,6 +762,9 @@ export const cancel = mutation({
     const event = await ctx.db.get(args.eventId);
     if (!event) throw new Error("Event not found");
     if (event.organizerId !== userId) throw new Error("Not authorized");
+    // Cancelling would swap "hidden" for a status the page shows to
+    // everyone — only an admin takes a hidden event back down (moderation.ts).
+    if (isHidden(event)) throw new Error("An admin has hidden this event");
 
     await ctx.db.patch(args.eventId, {
       status: "cancelled",

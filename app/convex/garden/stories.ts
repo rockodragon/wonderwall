@@ -16,6 +16,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import { shapeCredits } from "./allocations";
 import { notifyFollowers } from "../follows";
+import { isHidden } from "../moderationRules";
 import {
   normalizeRichDoc,
   orphanedStorageIds,
@@ -427,7 +428,8 @@ export const getStoryPage = query({
       .query("projects")
       .withIndex("by_storySlug", (q) => q.eq("storySlug", args.storySlug))
       .unique();
-    if (!project) return null;
+    // An admin-hidden project (moderation.ts) has no public story page.
+    if (!project || isHidden(project)) return null;
 
     const [ownerProfile, updateRows, allocationRows, memberships, supportRows, gigSeries, mediaRows] = await Promise.all([
       ctx.db
