@@ -39,6 +39,7 @@ import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { normalizePhone } from "../../convex/phone";
 import { LocationMapCard } from "../components/LocationMapCard";
+import { ImageFill } from "../components/ImageFill";
 import { YOUTUBE_LIVE_LABEL, YOUTUBE_LIVE_URL } from "../constants/broadcast";
 import { FavoriteButton } from "../components/FavoriteButton";
 import {
@@ -801,13 +802,9 @@ export default function EventDetail() {
                 {event.galleryImageUrls.map((url, i) => (
                   <div
                     key={i}
-                    className="aspect-square rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800"
+                    className="relative aspect-square rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800"
                   >
-                    <img
-                      src={url}
-                      alt=""
-                      className="w-full h-full object-cover"
-                    />
+                    <ImageFill src={url} alt="" />
                   </div>
                 ))}
               </div>

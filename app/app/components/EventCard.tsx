@@ -3,6 +3,7 @@ import { toEmbedUrl } from "../lib/videoEmbed";
 import { EmbedStill } from "./EmbedStill";
 import { FavoriteButton } from "./FavoriteButton";
 import { hostNamesLine, type EventHost } from "../lib/eventHosts";
+import { ImageFill } from "./ImageFill";
 
 // The one event card. Both /events (routes/events.tsx) and the Events section
 // of /favorites (routes/favorites.tsx) render this — favorites used to carry a
@@ -157,11 +158,7 @@ export function EventCard({
           }}
         >
           {event.coverImageUrl ? (
-            <img
-              src={event.coverImageUrl}
-              alt={event.title}
-              className="w-full h-full object-contain"
-            />
+            <ImageFill src={event.coverImageUrl} alt={event.title} />
           ) : mediaEmbed ? (
             <EmbedStill
               embed={mediaEmbed}
@@ -260,7 +257,7 @@ export function EventCard({
               className="text-xs mb-2 break-words line-clamp-2"
               style={{ color: "var(--garden-muted)" }}
             >
-              Hosted by {hostLine}
+              {hostLine}
             </p>
           )}
 

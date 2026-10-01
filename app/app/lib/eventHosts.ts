@@ -21,6 +21,8 @@ export type HostLabel = {
   orgUrl: string | null;
   /** The org's page here, when the org led and has one. */
   orgSlug: string | null;
+  /** `primary` is an organization, not a person. */
+  isOrg: boolean;
 };
 
 /** Hosts with an org come first (their order kept), then the rest. A repeat
@@ -43,17 +45,23 @@ export function hostLabels(hosts: (EventHost | null | undefined)[] | null | unde
         profileId: h.profileId ?? null,
         orgUrl: h.orgUrl || null,
         orgSlug: h.orgSlug || null,
+        isOrg: true,
       });
     } else if (name) {
-      without.push({ primary: name, person: null, profileId: h.profileId ?? null, orgUrl: null, orgSlug: null });
+      without.push({ primary: name, person: null, profileId: h.profileId ?? null, orgUrl: null, orgSlug: null, isOrg: false });
     }
   }
   return [...withOrg, ...without];
 }
 
-/** The card line: "Abiding Practice, Rick Moy". Empty string when no hosts. */
+/** The event card's host line (Rick, 2026-10-01): organizations A→Z, then
+ * hosts with no organization A→Z — "Abiding Practice, Reveal Brand, Dana
+ * Lee". No "Hosted by"; empty string when no hosts. */
 export function hostNamesLine(hosts: (EventHost | null | undefined)[] | null | undefined): string {
-  return hostLabels(hosts)
-    .map((l) => l.primary)
-    .join(", ");
+  const byName = (a: HostLabel, b: HostLabel) =>
+    a.primary.localeCompare(b.primary, undefined, { sensitivity: "base" });
+  const labels = hostLabels(hosts);
+  const orgs = labels.filter((l) => l.isOrg).sort(byName);
+  const people = labels.filter((l) => !l.isOrg).sort(byName);
+  return [...orgs, ...people].map((l) => l.primary).join(", ");
 }

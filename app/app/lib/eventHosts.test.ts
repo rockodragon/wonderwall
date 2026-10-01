@@ -46,3 +46,16 @@ describe("org page", () => {
     expect(person.orgSlug).toBeNull();
   });
 });
+
+describe("card host line", () => {
+  it("lists organizations A→Z, then people without one A→Z, with no prefix", () => {
+    expect(
+      hostNamesLine([
+        { name: "Rick Moy", orgName: "Reveal Brand" },
+        { name: "Zed" },
+        { name: "David Russo", orgName: "abiding Practice" },
+        { name: "Amy" },
+      ]),
+    ).toBe("abiding Practice, Reveal Brand, Amy, Zed");
+  });
+});
