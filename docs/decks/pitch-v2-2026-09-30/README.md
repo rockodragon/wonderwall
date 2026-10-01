@@ -33,8 +33,8 @@ These are the slide sources (`deck.json` plus one HTML file per slide), saved so
 | 12 | traction | Soft-launched September 28. Kickoff November 6. |
 | 13 | impact | How we validate impact, every six months. (preliminary model) |
 | 14 | ask | $350,000 pre-seed. |
-| 15 | use-of-funds | 95% on community and GTM. |
-| 16 | team | Two founders and an advisor with a record of building businesses and communities. |
+| 15 | use-of-funds | 75% on community and GTM. |
+| 16 | team | Three founders with a record of building businesses and communities. |
 
 ## Before sharing
 

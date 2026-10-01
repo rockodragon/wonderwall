@@ -55,35 +55,35 @@ Platform revenue is company revenue: what the platform keeps after creatives, ho
 
 | Base case | Y1 | Y2 | Y3 | Y4 | Y5 |
 |---|---|---|---|---|---|
-| Platform revenue | $36k | $133k | $385k | $810k | $1.47M |
+| Platform revenue | $36k | $172k | $499k | $1.11M | $2.11M |
 | of which the Garden | $26k | $71k | $158k | $263k | $381k |
-| of which the Exchange | $10k | $62k | $228k | $547k | $1.09M |
-| Money moved through the rail | $154k | $649k | $2.1M | $4.8M | $9.3M |
-| Reaching creatives, hosts and programs | $81k | $365k | $1.2M | $2.8M | $5.6M |
-| Total costs | $127k | $402k | $776k | $1.21M | $1.62M |
-| EBITDA | −$90k | −$268k | −$391k | −$403k | −$145k |
-| Cumulative cash need | −$90k | −$359k | −$749k | −$1.15M | −$1.30M |
-| Headcount including both founders (FTE) | 2 | 3 | 5 | 8 | 10 |
+| of which the Exchange | $10k | $101k | $342k | $843k | $1.73M |
+| Money moved through the rail | $154k | $1.00M | $3.20M | $7.57M | $15.3M |
+| Reaching creatives, hosts and programs | $81k | $572k | $1.87M | $4.61M | $9.62M |
+| Total costs | $228k | $537k | $794k | $1.08M | $1.41M |
+| EBITDA | −$192k | −$365k | −$294k | +$30k | +$696k |
+| Cumulative cash need | −$192k | −$557k | −$851k | −$821k | −$125k |
+| Headcount including both paid founders (FTE) | 2 | 3 | 4 | 4 | 4 |
 
 | Platform revenue by scenario | Y1 | Y2 | Y3 | Y4 | Y5 | Breakeven | Peak cash need |
 |---|---|---|---|---|---|---|---|
-| Conservative | $17k | $49k | $100k | $173k | $264k | never | $761k and rising (founders start drawing pay in year three on a side-project revenue line) |
-| Base | $36k | $133k | $385k | $810k | $1.47M | not within five years (−$145k in Y5) | $1.3M |
-| Fundable | $80k | $310k | $996k | $2.44M | $5.32M | Y4 | $1.35M, repaid from year five |
+| Conservative | $17k | $51k | $110k | $191k | $313k | never | $785k and rising (founders start drawing pay in year three on a side-project revenue line) |
+| Base | $36k | $172k | $499k | $1.11M | $2.11M | Y4 | $851k (year three), repaid from year five |
+| Fundable | $80k | $363k | $1.38M | $3.89M | $9.29M | Y4 | $1.49M, repaid from year four |
 
-Two things stand out. Paying two founders, then a real team, costs more than the Base revenue plan carries: a $1.5M-revenue platform supports about five or six people at modest pay, so either the team stays small or the growth plan has to be the Fundable one. And members are not revenue: an organization-bought seat earns the platform about $10 a year in fees plus what its holder buys, so raising the Base case from 800 to 2,000 organization seats in year three added about 1,200 members but only about $24k of year-three revenue. Revenue is driven by backing and class volume, partner plans and sponsorships.
+Two things stand out. The Base plan now carries a team of four because each metro runs itself: the capital low point is $851k in year three and the plan earns $696k in year five. And members are not revenue: an organization-bought seat earns the platform about $10 a year in fees plus what its holder buys, so seats widen reach more than they raise revenue.
 
 ## Revenue by source, Base case, year five
 
 | Source | Y5 revenue | Share | Note |
 |---|---|---|---|
-| Membership dues kept (Garden house share plus 10% of partner dues and org seats) | $381k | 26% | the Garden keeps half of its seats; partner communities keep 90% of theirs |
-| Backing fees, 10% | $305k | 21% | patrons backing named creatives |
-| Partner plans for those who post paid work, $79/mo | $284k | 19% | PROPOSED; the most speculative line |
-| Class and premium fees, 10% | $242k | 16% | hosts keep 90% |
-| Sponsorships | $180k | 12% | gatherings and program sponsors, company revenue |
-| Host and organization plans, $50/mo | $30k | 2% | PROPOSED |
-| Program platform fee, 5% of gifts | $30k | 2% | gifts to nonprofit-run programs |
+| Membership dues kept (Garden house share plus 10% of partner dues and org seats) | $542k | 26% | the Garden keeps half of its seats; partner communities keep 90% of theirs |
+| Backing fees, 10% | $506k | 24% | patrons backing named creatives |
+| Class and premium fees, 10% | $482k | 23% | hosts keep 90% |
+| Partner plans for those who post paid work, $79/mo | $284k | 13% | PROPOSED; the most speculative line |
+| Sponsorships | $180k | 9% | gatherings and program sponsors, company revenue |
+| Host and organization plans, $50/mo | $66k | 3% | PROPOSED |
+| Program platform fee, 5% of gifts | $30k | 1% | gifts to nonprofit-run programs |
 | Event ticket fee, 5% | $20k | 1% | PROPOSED; cheaper than Eventbrite's 10 to 14 percent |
 
 Revenue per paying or covered member is $70 to $100 a year in every scenario, and the effective take on money moved falls from 24 percent to 16 percent as partner communities grow. For comparison, Patreon's average paid membership is about $80 a year gross and it keeps 8 to 12 percent; Skool charges each community $1,188 a year plus 2.9 percent, and our Base case earns $2,500 to $10,000 a year per partner community across all lines.
@@ -103,7 +103,7 @@ Nothing in any scenario assumes a price increase, a public-arts grant to the com
 3. **Sign three partner communities outside San Diego in year one.** The civic graph and partner landscape already name them. One a quarter is the Base case; that pace is what turns a house community into an exchange.
 4. **Fund the program through the nonprofit partner, as a managed program.** Foundations fund a managed fellowship program; they do not fund regranting. The platform earns 5% administering it and the program dollars grow the impact numbers.
 5. **Count the impact every quarter.** The metrics below. A pre-revenue company with counted outcomes raises on the outcomes.
-6. **Raise in two steps.** An 18-month window of the Base plan needs $348k of cash net of revenue with founders paid from the first close, part-time marketing help and the first two metro launches, so $350k gives 18 months of runway; raise it as a $150k first close and rolling closes to $350k on post-money SAFEs (Delaware C-corp formed first), then a $1M to $1.2M seed at 18 months on the metrics. See the CFO memo.
+6. **Raise in two steps.** An 18-month window of the Base plan needs $374k of cash net of revenue with founders paid from the first close, part-time marketing help and three metro launches by month 18, so $350k gives 17 months of runway and $375k gives 18; raise it as a $150k first close and rolling closes to $350k on post-money SAFEs (Delaware C-corp formed first), then a $1M to $1.2M seed at 18 months on the metrics. See the CFO memo.
 
 ## Metrics to validate, first 18 months
 
@@ -112,7 +112,7 @@ Nothing in any scenario assumes a price increase, a public-arts grant to the com
 | Financial flourishing | Dollars paid to creatives, hosts and programs | $300k cumulative |
 | | Creatives paid at least once | 300 |
 | | Fellowships and commissions awarded through the program | 100 |
-| Belonging | Paying individuals active (about 18 months in) | 1,100, growing about 3x a year to 3,000+ by year three |
+| Belonging | Paying individuals active (about 18 months in) | 1,250, growing to 6,000+ by year three |
 | | Covered seats sold, and the share used | 200 sold, 70% used |
 | | Net revenue retention | 90% (target); belonging survey score up from baseline |
 | Diversity and agency | Communities led by their own people, by neighborhood and discipline | 12 communities, 6 disciplines |
@@ -131,9 +131,9 @@ These are the numbers that price the next round. Everything on the table comes f
 | Structure | one track, one member count | two tracks (Garden, Exchange), each with its own drivers |
 | Revenue lines | seat share, backing fee, class fee, program fee | plus org seat packs, host and org plans, partner plans, event fees, sponsorships |
 | Geography | San Diego | San Diego plus partner communities nationally |
-| Members, year 3 | 4,500 | 1,570 / 7,620 / 20,620 by scenario (5 / 20 / 40 franchise metros by year five) |
-| Platform revenue, year 3 | $135k | $110k / $461k / $1.38M |
-| Cumulative cash need through year 3 | $321k | $247k / $823k / $1.49M (founders paid from the first close in Base and Fundable; franchise metros from year two) |
+| Members, year 3 | 4,500 | 1,570 / 8,580 / 20,620 by scenario (5 / 20 / 40 franchise metros by year five) |
+| Platform revenue, year 3 | $135k | $110k / $499k / $1.38M |
+| Cumulative cash need through year 3 | $321k | $247k / $851k / $1.49M (founders paid from the first close in Base and Fundable; franchise metros from year two) |
 | Founder pay through year 3 | sweat equity (~$93k) | two founders from the first close: $51k / $78k / $105k each in Base |
 | Market check | none | a sized ladder with sources, and the scenario's share of it |
 

@@ -4,7 +4,7 @@
 
 ## The situation in four sentences
 
-The company is a two-week-old soft launch with no revenue, and even the franchise plan (20 metros, $2.1M of revenue and $672k of EBITDA in year five) is a 3x to 6x outcome for a pre-seed investor, not a venture one. Almost every institution that funds early companies in San Diego funds biotech and software for a chance at 10x, and every creative-economy or impact investor we found has a revenue floor we will not clear for one to three years. Foundations fund nonprofits, not us. The money for the next twelve months is customers, the people who already love these communities, small investors through a community round, and a zero-interest microloan.
+The company is a two-week-old soft launch with no revenue, and even the franchise plan (20 metros, $2.1M of revenue and $696k of EBITDA in year five) is a 3x to 6x outcome for a pre-seed investor, not a venture one. Almost every institution that funds early companies in San Diego funds biotech and software for a chance at 10x, and every creative-economy or impact investor we found has a revenue floor we will not clear for one to three years. Foundations fund nonprofits, not us. The money for the next twelve months is customers, the people who already love these communities, small investors through a community round, and a zero-interest microloan.
 
 ## List A: now (the whole list)
 

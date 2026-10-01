@@ -61,11 +61,11 @@ The plan is founders first and hires gated on revenue. Headcount by year, full-t
 | **Total FTE** | **2.25** | **3** | **4** | **4** | **4** | |
 | Revenue per FTE | $16k | $49k | $115k | $266k | $528k | four people can carry this only because each metro runs itself |
 
-What this does to the Base plan, with franchise metros (section 3b): costs are $228k, $459k, $779k, $1.07M and $1.44M against revenue of $36k, $146k, $461k, $1.06M and $2.11M, so EBITDA is −$192k, −$313k, −$318k, −$3k and +$672k. The Base plan breaks even in year four, earns $672k in year five on a team of four, and needs about $830k of capital at its lowest point (the $350k now plus a seed of roughly $500k at month 18). The Fundable plan is the same machine with 40 metros and a team of 18: $9.3M of revenue in year five, EBITDA positive in year four (+$775k) and $4.5M in year five, $1.5M of capital at the trough.
+What this does to the Base plan, with metros (section 3b): costs are $228k, $537k, $794k, $1.08M and $1.41M against revenue of $36k, $172k, $499k, $1.11M and $2.11M, so EBITDA is −$192k, −$365k, −$294k, +$30k and +$696k. The Base plan breaks even in year four, earns $696k in year five on a team of four, and needs about $850k of capital at its lowest point, in year three (the $350k now plus a seed of roughly $500k at month 18). The Fundable plan is the same machine with 40 metros and a team of 18: $9.3M of revenue in year five, EBITDA positive in year four (+$775k) and $4.5M in year five, $1.5M of capital at the trough.
 
 ### 3b. Franchise metros: what a metro costs and what it returns
 
-Until this revision the model had no cost per metro; metros arrived silently as partner communities plus a travel line. It now has four inputs on the Inputs sheet, all of them yours to vary: new metros launched per year (cumulative by year five: Conservative 5, Base 20, Fundable 40), the cost to launch a metro ($12k in Base: three or four trips, a launch gathering, local content and ads, a local organizer stipend for the first six months), the cost to support an active metro ($6k a year: the organizer stipend, a gathering a quarter, local content), and the partner communities per active metro (Base 2 in the launch year rising to 6 as metros mature). A metro is a cluster of communities led by their own people, so the platform's cost is relationships and some marketing, not staff. In Base a metro returns its launch cost inside its first year: at four communities of 80 paying members, a metro's communities put about $40k a year through the platform at today's take rates against $6k of support. That is why 20 metros turn the Base plan profitable in year four and why the team stays at four.
+Until this revision the model had no cost per metro; metros arrived silently as partner communities plus a travel line. It now has four inputs on the Inputs sheet, all of them yours to vary: new metros launched per year (cumulative by year five: Conservative 5, Base 20, Fundable 40; Base launches three by month 18, six by the end of year two and nine by the end of year three, which with San Diego is ten cities), the cost to launch a metro ($12k in Base: three or four trips, a launch gathering, local content and ads, a local organizer stipend for the first six months), the cost to support an active metro ($6k a year: the organizer stipend, a gathering a quarter, local content), and the partner communities per active metro (Base 2 in the launch year rising to 6 as metros mature). A metro is a cluster of communities led by their own people, so the platform's cost is relationships and some marketing, not staff. In Base a metro returns its launch cost inside its first year: at four communities of 80 paying members, a metro's communities put about $40k a year through the platform at today's take rates against $6k of support. That is why 20 metros turn the Base plan profitable in year four and why the team stays at four. Three metros by month 18 put about $54k of launch and support cost inside the 18-month window, which is why $350k lasts 17 months and not 18.
 
 ## 4. How Prebys can put money into a for-profit
 
@@ -92,21 +92,21 @@ First 18 months, Base case (the Use of Funds sheet):
 
 | Function | 18-month spend | Share | What is in it |
 |---|---|---|---|
-| Programs & community | $168k | 37% | Haley's pay (loaded), the community lead at half time from month 18, part-time coordinator hours, gathering stipends and venues, fellowship program administration |
-| Marketing & launch | $166k | 36% | Half of Rick's pay (sales and partnerships), the part-time launch and content helper ($41k), the first two metro launches ($18k in the window), the 2027 community launches ($12k of events; November 6 itself is five weeks out and comes from current cash and sponsorships), the film series ($10k), content and outreach, travel |
-| Engineering & platform | $75k | 16% | The other half of Rick's pay (product), hosting and tools, contractors for design and QA, payments compliance |
-| Operations & G&A | $35k | 8% | Legal (formation, agreements), accounting, insurance, admin |
-| Payments | $9k | 2% | Card processing absorbed and payout costs |
+| Programs & community | $168k | 34% | Haley's pay (loaded), the community lead at half time from month 18, part-time coordinator hours, gathering stipends and venues, grant-fund administration |
+| Marketing & launch | $202k | 41% | Half of Rick's pay (sales and partnerships), the part-time launch and content helper ($41k), three metro launches by month 18 ($36k of launch plus $18k of support in the window), the 2027 community launches ($12k of events; November 6 itself is five weeks out and comes from current cash and sponsorships), the film series ($10k), content and outreach, travel |
+| Engineering & platform | $75k | 15% | The other half of Rick's pay (product), hosting and tools, contractors for design and QA, payments compliance |
+| Operations & G&A | $35k | 7% | Legal (formation, agreements), accounting, insurance, admin |
+| Payment fees | $12k | 2% | Card processing absorbed and payout costs |
 | Support | $5k | 1% | Part-time coverage and support tools; no support hire |
-| **Total spend** | **$458k** | | Founders are $204k of it (45%), allocated to the functions they work in |
-| Revenue in the window | $109k | | |
-| **Net cash need** | **$348k** | | |
+| **Total spend** | **$497k** | | Founders are $204k of it (41%), allocated to the functions they work in |
+| Revenue in the window | $122k | | |
+| **Net cash need** | **$374k** | | |
 
 Year one alone is $228k of spend against $36k of revenue: $114k of loaded founder pay, $21k of part-time marketing help, $12k of launch events after November 6, $10k of film, $12k of legal, $8k of contractors, $8k of gathering stipends, and the rest in tools, insurance, accounting and payments. That is Haley's $45k list plus the founders plus the legal and payments work an investment requires.
 
 ## 6. The ask, and whether $350k fits the checks we can expect
 
-**The number is right; the shape was wrong.** $350k is what the Base plan needs to reach the 18-month checkpoint with founders paid, part-time help and the first two metros launched: net need $348k, runway 18 months, no cushion to speak of. Less does not get there: $250k is 14 months, $150k is 9. If the round stalls short of $350k, the second metro launch and the marketing lead's step to full time are the first things to slide. But nobody writes a $350k check at this stage, so the round should not be built as if someone will.
+**The number is close; the shape was wrong.** $350k is what the Base plan needs to reach the 18-month checkpoint with founders paid, part-time help and three metros launched by month 18: net need $374k, so $350k is 17 months of runway and $375k is 18. Less is shorter: $250k is 14 months, $150k is 9. If the round stalls short of $350k, the metro launch cost (a variable input, $12k in Base) and the marketing lead's step to full time are the first levers. But nobody writes a $350k check at this stage, so the round should not be built as if someone will.
 
 Where pre-seed money for a company like this actually comes from, and in what sizes:
 
@@ -126,7 +126,7 @@ So $350k is the room plus a community round, and that takes months. The local an
 4. **Kiva, an Accessity loan in year two and any Prebys program money to a partner are additive**, not part of the $350k count. Praxis is a 2027 application for a 2028 cohort at $50k; do not plan on it. A foundation PRI loan is a year-two conversation.
 5. **If the round stalls at $250k**, the plan holds by keeping founder pay at the $4k step (each step waits for its condition) and moving the community lead's start out a quarter. Each $1,000 a month of founder pay held back, per founder, is a month of year-one runway. Never November 6, never the film series; they are the proof.
 
-**The seed at 18 months: about $500k on the Base plan, $1M to $1.2M on the Fundable one**, from impact funds and angel groups, on the metrics: about 1,000 paying individuals, 12 communities, two metros live, 90% net revenue retention, 300 organization seats sold. On Base it carries the company to breakeven in year four; on Fundable it pays for the faster metro rollout and a real team. Upstart's pipeline wants a qualified lead investor and $500k of trailing revenue, so the seed's lead will be an angel group or an impact fund, and the Prebys equity conversation is more likely at the round after; the relationship starts now through the grant and sponsorship routes.
+**The seed at 18 months: about $500k on the Base plan, $1M to $1.2M on the Fundable one**, from impact funds and angel groups, on the metrics: about 1,250 paying individuals, 18 communities, three metros live, 90% net revenue retention, 300 organization seats sold. On Base it carries the company to breakeven in year four; on Fundable it pays for the faster metro rollout and a real team. Upstart's pipeline wants a qualified lead investor and $500k of trailing revenue, so the seed's lead will be an angel group or an impact fund, and the Prebys equity conversation is more likely at the round after; the relationship starts now through the grant and sponsorship routes.
 
 ## 7. Spend discipline
 
@@ -146,11 +146,11 @@ So $350k is the room plus a community round, and that takes months. The local an
 | Team (FTE incl. founders), years 1 to 5 | 2 / 2 / 2.5 / 3.5 / 5 | 2.25 / 3 / 4 / 4 / 4 | 3.5 / 7 / 9.5 / 14 / 18 |
 | First employee | year 3, half time | month 18 (community & partnerships lead) | month 1, half time; 5 by year two |
 | Year-one spend / revenue | $68k / $17k | $228k / $36k | $398k / $80k |
-| 18-month net cash need | $82k | $348k | $670k |
-| Runway on $350k | 42 months | 18 months | 13 months |
+| 18-month net cash need | $82k | $374k | $670k |
+| Runway on $350k | 42 months | 17 months | 13 months |
 | Year-five revenue | $313k | $2.11M | $9.29M |
-| Year-five EBITDA | −$331k | +$672k | +$4.5M |
-| Capital need at the trough | $785k and rising | $826k (year four), repaid from year five | $1.49M (year three), repaid from year four |
+| Year-five EBITDA | −$331k | +$696k | +$4.5M |
+| Capital need at the trough | $785k and rising | $851k (year three), repaid from year five | $1.49M (year three), repaid from year four |
 | What it is | a side project | four people and 20 self-run metros: breakeven in year four | the same machine with 40 metros and a team of 18 |
 
 ## Sources
