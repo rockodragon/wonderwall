@@ -39,7 +39,7 @@ describe("summary and csv", () => {
   });
   it("escapes csv cells", () => {
     const csv = guestsToCsv([
-      { key: "k", name: 'Smith, "J"', email: "j@x.com", status: "going", paidCents: null, tickets: 1, guestNames: null, addedAt: 0 },
+      { key: "k", name: 'Smith, "J"', email: "j@x.com", status: "going", paidCents: null, tickets: 1, guestNames: null, applicationId: null, addedAt: 0 },
     ]);
     expect(csv.split("\n")[1]).toBe('"Smith, ""J""",j@x.com,going,1,,Free,1970-01-01');
   });
@@ -50,5 +50,12 @@ describe("summary and csv", () => {
     ]);
     expect(summarizeGuests(rows)).toEqual({ going: 4, paid: 1, collectedCents: 7500 });
     expect(guestsToCsv(rows).split("\n")[1]).toBe('A,a@x.com,going,3,"Ann, Ben",$75,1970-01-01');
+  });
+});
+
+describe("applicationId", () => {
+  it("rides along so a host can approve from the list", () => {
+    const rows = mergeGuests([{ userId: "u1", name: "Cy", status: "pending", applicationId: "app1", addedAt: 1 }]);
+    expect(rows[0].applicationId).toBe("app1");
   });
 });
