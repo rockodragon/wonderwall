@@ -1,6 +1,6 @@
 import { useConvexAuth, useQuery } from "convex/react";
 import { useMemo, useState } from "react";
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import { api } from "../../convex/_generated/api";
 import { INTERESTS } from "../constants/interests";
 import { EventCard } from "../components/EventCard";
@@ -12,6 +12,7 @@ import { CommunityContextLine, useCommunityContext } from "../components/Communi
 import { haversineDistance, NEAR_ME_RADIUS_OPTIONS, useNearMe } from "../lib/useNearMe";
 import { LocationIcon } from "../components/icons";
 import { InviteButton } from "../components/InviteCTA";
+import { OrgDirectory } from "../components/OrgDirectory";
 
 // Derived directly from the canonical INTERESTS list so this can never
 // drift from it again (it previously did — see git history). Label and
@@ -22,6 +23,7 @@ const FILTERS = INTERESTS.map((fn) => ({ label: fn, value: fn }));
 type ProfileResult = {
   _id: string;
   name: string;
+  orgName?: string;
   imageUrl?: string;
   interests: string[];
   location?: string;
@@ -29,8 +31,24 @@ type ProfileResult = {
   wondering: { prompt: string; _id: string; imageUrl: string | null } | null;
 };
 
+// People has two tabs (docs/features/organizations.md): people, and the
+// organizations they belong to. Same ?tab= pattern as Events; People is the
+// default and carries no param.
+type PeopleTab = "people" | "orgs";
+
 export default function Search() {
   const { isAuthenticated } = useConvexAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tab: PeopleTab = searchParams.get("tab") === "orgs" ? "orgs" : "people";
+  const orgsTab = tab === "orgs";
+  function setTab(next: PeopleTab) {
+    setSearchParams((prev) => {
+      const params = new URLSearchParams(prev);
+      if (next === "people") params.delete("tab");
+      else params.set("tab", next);
+      return params;
+    });
+  }
   const [filterExpanded, setFilterExpanded] = useState(false);
   const {
     nearMe,
@@ -62,10 +80,10 @@ export default function Search() {
   const community = useCommunityContext();
   const communitySlug = community.selected === "all" ? undefined : community.selected;
 
-  const profiles = useQuery(api.profiles.search, {
-    query: debouncedQuery || undefined,
-    communitySlug,
-  }) as ProfileResult[] | undefined;
+  const profiles = useQuery(
+    api.profiles.search,
+    orgsTab ? "skip" : { query: debouncedQuery || undefined, communitySlug },
+  ) as ProfileResult[] | undefined;
 
   const filteredProfiles = useMemo(() => {
     if (!profiles) return profiles;
@@ -92,138 +110,184 @@ export default function Search() {
   // Search events when there's a query
   const events = useQuery(
     api.events.search,
-    debouncedQuery ? { query: debouncedQuery, communitySlug } : "skip",
+    debouncedQuery && !orgsTab ? { query: debouncedQuery, communitySlug } : "skip",
   );
 
   const loading = profiles === undefined;
 
   return (
     <div className="max-w-6xl mx-auto p-6">
-      <div className="flex items-start justify-between gap-4 mb-2">
-        <h2 className="text-2xl font-bold" style={{ color: "var(--app-text)" }}>
-          People
-        </h2>
-        {isAuthenticated && <InviteButton />}
+      {/* The two tabs are the title. */}
+      <div
+        className="flex items-end justify-between gap-3 mb-5 border-b"
+        style={{ borderColor: "var(--app-hairline)" }}
+      >
+        <div role="tablist" className="flex gap-5 sm:gap-7">
+          {(
+            [
+              ["people", "People"],
+              ["orgs", "Organizations"],
+            ] as const
+          ).map(([key, label]) => (
+            <button
+              key={key}
+              role="tab"
+              aria-selected={tab === key}
+              onClick={() => setTab(key)}
+              className="-mb-px pb-2 border-b-2 text-xl sm:text-2xl font-bold transition-colors"
+              style={{
+                borderColor: tab === key ? "var(--app-accent)" : "transparent",
+                color: tab === key ? "var(--app-text)" : "var(--app-text-dim)",
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        {isAuthenticated && (
+          <div className="pb-2">
+            {orgsTab ? (
+              <Link
+                to="/settings"
+                className="text-sm font-medium hover:underline"
+                style={{ color: "var(--app-accent-ink)" }}
+              >
+                Add yours
+              </Link>
+            ) : (
+              <InviteButton />
+            )}
+          </div>
+        )}
       </div>
-      <p className="mb-4" style={{ color: "var(--app-text-dim)" }}>
-        Find creatives by interest, location and see what they're up to
-      </p>
-      <CommunityContextLine
-        selected={community.selected}
-        setSelected={community.setSelected}
-        communities={community.communities}
-        variant="app"
-      />
+      {!orgsTab && (
+        <CommunityContextLine
+          selected={community.selected}
+          setSelected={community.setSelected}
+          communities={community.communities}
+          variant="app"
+        />
+      )}
 
       {/* Search input + Near Me + Filter on same line */}
       <div className="flex gap-3 mb-6">
         <SearchInput
           value={query}
           onChange={setQuery}
-          placeholder="Search by name, role, or event..."
+          placeholder={orgsTab ? "Search organizations" : "Search by name, role, or event..."}
           className="flex-1"
         />
-        <button
-          onClick={toggleNearMe}
-          disabled={geoLoading}
-          className="flex items-center gap-2 px-4 py-3 rounded-xl border transition-colors shrink-0"
-          style={
-            nearMe
-              ? { borderColor: "var(--app-accent)", backgroundColor: "var(--app-accent-wash)", color: "var(--app-accent-ink)" }
-              : { borderColor: "var(--app-hairline)", backgroundColor: "var(--app-surface-raised)", color: "var(--app-text)" }
-          }
-        >
-          <LocationIcon className="w-4 h-4" />
-          <span className="font-medium hidden sm:inline">{geoLoading ? "Locating..." : "Near me"}</span>
-        </button>
-        <FilterButton
-          open={filterExpanded}
-          onClick={() => setFilterExpanded(!filterExpanded)}
-          label={filterLabel}
-          active={activeFilters.length > 0}
-        />
-      </div>
-
-      {/* Near me radius selector */}
-      {nearMe && (
-        <div className="mb-6 flex items-center gap-3 flex-wrap">
-          <span className="text-sm" style={{ color: "var(--app-text-dim)" }}>Within:</span>
-          {NEAR_ME_RADIUS_OPTIONS.map((opt) => (
+        {!orgsTab && (
+          <>
             <button
-              key={opt.value}
-              onClick={() => setRadius(opt.value)}
-              className="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
+              onClick={toggleNearMe}
+              disabled={geoLoading}
+              className="flex items-center gap-2 px-4 py-3 rounded-xl border transition-colors shrink-0"
               style={
-                radius === opt.value
-                  ? { backgroundColor: "var(--app-accent)", color: "var(--garden-ink)" }
-                  : { backgroundColor: "var(--app-hairline)", color: "var(--app-text-muted)" }
+                nearMe
+                  ? { borderColor: "var(--app-accent)", backgroundColor: "var(--app-accent-wash)", color: "var(--app-accent-ink)" }
+                  : { borderColor: "var(--app-hairline)", backgroundColor: "var(--app-surface-raised)", color: "var(--app-text)" }
               }
             >
-              {opt.label}
+              <LocationIcon className="w-4 h-4" />
+              <span className="font-medium hidden sm:inline">{geoLoading ? "Locating..." : "Near me"}</span>
             </button>
-          ))}
-        </div>
-      )}
+            <FilterButton
+              open={filterExpanded}
+              onClick={() => setFilterExpanded(!filterExpanded)}
+              label={filterLabel}
+              active={activeFilters.length > 0}
+            />
+          </>
+        )}
+      </div>
 
-      {geoError && (
-        <p className="text-sm text-red-500 mb-4">{geoError}</p>
-      )}
-
-      {/* Filter panel content */}
-      {filterExpanded && (
-        <FilterPanel>
-          <TagFilterPills
-            options={FILTERS}
-            active={activeFilters}
-            onToggle={toggleTag}
-            onClear={clearTags}
-          />
-        </FilterPanel>
-      )}
-
-      {/* Results */}
-      {loading ? (
-        <div className="text-center py-12">
-          <div
-            className="animate-spin rounded-full h-8 w-8 border-b-2 mx-auto"
-            style={{ borderColor: "var(--app-accent)" }}
-          />
-        </div>
-      ) : filteredProfiles?.length === 0 && (!events || events.length === 0) ? (
-        <div className="text-center py-12" style={{ color: "var(--app-text-dim)" }}>
-          <p>{nearMe ? "No nearby profiles found — most people haven't set a precise location yet. Try a wider radius or turn off Near me." : query ? "No results found" : "No creatives to show yet"}</p>
-        </div>
+      {orgsTab ? (
+        <OrgDirectory query={debouncedQuery} />
       ) : (
-        <div className="space-y-12">
-          {/* Events section - show when searching */}
-          {events && events.length > 0 && (
-            <section>
-              <h2 className="text-lg font-semibold mb-4" style={{ color: "var(--app-text)" }}>
-                Events
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {events.map((event: any) => (
-                  <EventCard key={event._id} event={event} />
-                ))}
-              </div>
-            </section>
+        <>
+          {/* Near me radius selector */}
+          {nearMe && (
+            <div className="mb-6 flex items-center gap-3 flex-wrap">
+              <span className="text-sm" style={{ color: "var(--app-text-dim)" }}>Within:</span>
+              {NEAR_ME_RADIUS_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  onClick={() => setRadius(opt.value)}
+                  className="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
+                  style={
+                    radius === opt.value
+                      ? { backgroundColor: "var(--app-accent)", color: "var(--garden-ink)" }
+                      : { backgroundColor: "var(--app-hairline)", color: "var(--app-text-muted)" }
+                  }
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
           )}
 
-          {/* People */}
-          {filteredProfiles && filteredProfiles.length > 0 && (
-            <section>
-              <h2 className="text-lg font-semibold mb-4" style={{ color: "var(--app-text)" }}>
-                {query ? "People" : "Creatives"}
-              </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {filteredProfiles.map((profile) => (
-                  <ProfileCard key={profile._id} profile={profile} />
-                ))}
-              </div>
-            </section>
+          {geoError && (
+            <p className="text-sm text-red-500 mb-4">{geoError}</p>
           )}
 
-        </div>
+          {/* Filter panel content */}
+          {filterExpanded && (
+            <FilterPanel>
+              <TagFilterPills
+                options={FILTERS}
+                active={activeFilters}
+                onToggle={toggleTag}
+                onClear={clearTags}
+              />
+            </FilterPanel>
+          )}
+
+          {/* Results */}
+          {loading ? (
+            <div className="text-center py-12">
+              <div
+                className="animate-spin rounded-full h-8 w-8 border-b-2 mx-auto"
+                style={{ borderColor: "var(--app-accent)" }}
+              />
+            </div>
+          ) : filteredProfiles?.length === 0 && (!events || events.length === 0) ? (
+            <div className="text-center py-12" style={{ color: "var(--app-text-dim)" }}>
+              <p>{nearMe ? "No nearby profiles found — most people haven't set a precise location yet. Try a wider radius or turn off Near me." : query ? "No results found" : "No creatives to show yet"}</p>
+            </div>
+          ) : (
+            <div className="space-y-12">
+              {/* Events section - show when searching */}
+              {events && events.length > 0 && (
+                <section>
+                  <h2 className="text-lg font-semibold mb-4" style={{ color: "var(--app-text)" }}>
+                    Events
+                  </h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {events.map((event: any) => (
+                      <EventCard key={event._id} event={event} />
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              {/* People */}
+              {filteredProfiles && filteredProfiles.length > 0 && (
+                <section>
+                  <h2 className="text-lg font-semibold mb-4" style={{ color: "var(--app-text)" }}>
+                    {query ? "People" : "Creatives"}
+                  </h2>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    {filteredProfiles.map((profile) => (
+                      <ProfileCard key={profile._id} profile={profile} />
+                    ))}
+                  </div>
+                </section>
+              )}
+
+            </div>
+          )}
+        </>
       )}
     </div>
   );
@@ -261,6 +325,11 @@ function ProfileCard({ profile }: { profile: ProfileResult & { _distance?: numbe
         <h3 className="font-medium text-sm leading-snug" style={{ color: "var(--app-text)" }}>
           {profile.name}
         </h3>
+        {profile.orgName && (
+          <p className="text-xs truncate mt-0.5" style={{ color: "var(--app-text-muted)" }}>
+            {profile.orgName}
+          </p>
+        )}
         <p className="text-xs truncate mt-0.5" style={{ color: "var(--app-text-dim)" }}>
           {distLabel && <span style={{ color: "var(--app-accent-ink)" }}>{distLabel} · </span>}
           {profile.interests.slice(0, 2).join(" · ")}

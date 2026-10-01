@@ -28,7 +28,7 @@ const VISIT_LIMIT = 3;
 // (Sign in CTAs, no partial forms) rather than being gated at the shell.
 // Prefix match is correct here: /communities, /communities/apply, and every
 // /communities/:slug should all be public.
-const PUBLIC_PATH_PREFIXES = ["/about", "/communities", "/people", "/search", "/offerings", "/tables"];
+const PUBLIC_PATH_PREFIXES = ["/about", "/communities", "/people", "/search", "/offerings", "/tables", "/orgs"];
 
 // The project list is public; a project's own page and every action on it
 // still need an account (projects.tsx sends Post/Cheer/Back to login).
