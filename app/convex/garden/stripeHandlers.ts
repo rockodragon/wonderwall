@@ -916,6 +916,16 @@ export function splitBacking(grossCents: number): { platformCents: number; workC
 export const CARD_FEE_RATE = 0.029;
 export const CARD_FEE_FIXED_CENTS = 30;
 
+/** What a member can give from one membership payment: their community's
+ * pool percent of the NET, after card processing comes out of the charge
+ * ($10 at 50% is $4.71, not $5). The dues_share row still counts gross;
+ * only the member's giftable amount is net-based. Never negative. */
+export function memberGrantCents(grossCents: number, poolPct: number): number {
+  const fee = Math.round(grossCents * CARD_FEE_RATE + CARD_FEE_FIXED_CENTS);
+  const pct = Math.min(Math.max(poolPct, 0), 100);
+  return Math.max(0, Math.round(((grossCents - fee) * pct) / 100));
+}
+
 export function backingProcessingFeeCents(amountCents: number): number {
   const total = Math.ceil((amountCents + CARD_FEE_FIXED_CENTS) / (1 - CARD_FEE_RATE));
   return total - amountCents;
@@ -1859,7 +1869,7 @@ async function handleInvoicePaid(invoice: StripeInvoiceLike, db: Db): Promise<vo
         membershipId: membership?.id,
         sourceStripeRef: invoice.id,
         period,
-        amountCents: poolCents,
+        amountCents: memberGrantCents(grossCents, dues.poolPct),
       });
     }
     return;

@@ -80,7 +80,7 @@ describe("giftDecisionProblem", () => {
 });
 
 describe("giftDefaultDue / previousPeriod", () => {
-  it("defaults after 35 days, or as soon as a newer amount opens", () => {
+  it("defaults after a week, or as soon as a newer amount opens", () => {
     const openedAt = 1_000_000;
     expect(giftDefaultDue({ openedAt, now: openedAt + (GIFT_DEFAULT_AFTER_DAYS - 1) * DAY, newerGiftExists: false })).toBe(false);
     expect(giftDefaultDue({ openedAt, now: openedAt + GIFT_DEFAULT_AFTER_DAYS * DAY, newerGiftExists: false })).toBe(true);
@@ -182,7 +182,7 @@ describe("computeGivingReport", () => {
     { id: "g1", userId: "u1", period: "2026-10", status: "creative", decidedBy: "member", openedAt: t0, decidedAt: t0 + DAY, recipientUserId: "r1", amountCents: 500 },
     { id: "g2", userId: "u2", period: "2026-10", status: "project", decidedBy: "member", openedAt: t0, decidedAt: t0 + 10 * DAY, projectId: "p1", amountCents: 500 },
     { id: "g3", userId: "u3", period: "2026-10", status: "fund", decidedBy: "member", openedAt: t0, decidedAt: t0 + DAY, amountCents: 500 },
-    { id: "g4", userId: "u4", period: "2026-10", status: "fund", decidedBy: "default", openedAt: t0, decidedAt: t0 + 35 * DAY, amountCents: 500 },
+    { id: "g4", userId: "u4", period: "2026-10", status: "fund", decidedBy: "default", openedAt: t0, decidedAt: t0 + 7 * DAY, amountCents: 500 },
     { id: "g5", userId: "u5", period: "2026-10", status: "open", openedAt: t0, amountCents: 500 },
     // September: u1 and u2 directed; u1 plussed up
     { id: "g6", userId: "u1", period: "2026-09", status: "creative", decidedBy: "member", openedAt: t0 - 30 * DAY, decidedAt: t0 - 29 * DAY, recipientUserId: "r1", amountCents: 500 },
@@ -198,87 +198,83 @@ describe("computeGivingReport", () => {
   it("counts where each month's amounts went", () => {
     const oct = computeGivingReport(gifts, plusUps).byPeriod[0];
     expect(oct.period).toBe("2026-10");
-    expect(oct).toMatchObject({ opened: 5, toCreative: 1, toProject: 1, fundChosen: 1, defaulted: 1, stillOpen: 1, directedCents: 1000 });
+    expect(oct).toMatchObject({ membersBilled: 5, gaveToCreative: 1, gaveToProject: 1, choseFund: 1, didntPick: 1, notPickedYet: 1, givenCents: 1000 });
     expect(oct.decidedWithin7Days).toBe(2); // g1 and g3; g2 took 10 days, g4 defaulted
     expect(oct.distinctRecipients).toBe(2);
   });
 
   it("the plus-up is the metric: count, dollars, monthly starts, rate", () => {
     const oct = computeGivingReport(gifts, plusUps).byPeriod[0];
-    expect(oct.plusUps).toBe(2); // renewals excluded
-    expect(oct.plusUpCents).toBe(6000); // renewals included in dollars
-    expect(oct.monthlyPlusUpsStarted).toBe(1);
-    expect(oct.giftsWithPlusUp).toBe(2);
-    expect(oct.plusUpRate).toBe(1); // 2 of 2 directed
+    expect(oct.plussedUpCents).toBe(6000); // renewals included in dollars
+    expect(oct.plussedUpMonthly).toBe(1);
+    expect(oct.plussedUpMembers).toBe(2);
+    expect(oct.plussedUpRate).toBe(1); // 2 of 2 directed
   });
 
   it("repeat givers and repeat plus-ups look at the month before", () => {
     const oct = computeGivingReport(gifts, plusUps).byPeriod[0];
-    expect(oct.repeatGivers).toBe(2); // u1, u2 directed in Sept and Oct
-    expect(oct.repeatPlusUps).toBe(1); // only u1 plussed up both months
+    expect(oct.gaveAgain).toBe(2); // u1, u2 directed in Sept and Oct
+    expect(oct.plussedUpAgain).toBe(1); // only u1 plussed up both months
   });
 
-  it("per member: streaks and totals, most plussed-up first", () => {
+  it("per member: totals, most plussed-up first, no streaks", () => {
     const { members, totals } = computeGivingReport(gifts, plusUps);
-    expect(members[0]).toMatchObject({ userId: "u1", monthsDirectedInARow: 2, plusUpCount: 2, plusUpCents: 6000, giftsDirected: 2 });
-    expect(members.find((m) => m.userId === "u3")?.monthsDirectedInARow).toBe(0);
-    // A still-open current month doesn't break a streak.
-    const withOpen = computeGivingReport(
-      [...gifts, { id: "g8", userId: "u1", period: "2026-11", status: "open", openedAt: t0 + 30 * DAY, amountCents: 500 }],
-      plusUps,
-    );
-    expect(withOpen.members.find((m) => m.userId === "u1")?.monthsDirectedInARow).toBe(2);
-    expect(totals).toMatchObject({ opened: 7, directed: 4, directedCents: 2000, plusUpCents: 7000, giftsWithPlusUp: 3 });
+    expect(members[0]).toMatchObject({ userId: "u1", timesPlussedUp: 2, plussedUpCents: 6000, gaveCount: 2 });
+    expect(members.find((m) => m.userId === "u3")).toMatchObject({ timesPlussedUp: 0, gaveCount: 0 });
+    expect(members[0]).not.toHaveProperty("monthsDirectedInARow");
+    expect(totals).toEqual({ membersBilled: 7, gave: 4, givenCents: 2000, plussedUpCents: 7000, plussedUpMembers: 3 });
   });
 
   it("empty input yields the zeroed shape", () => {
     expect(computeGivingReport([], [])).toEqual({
       byPeriod: [],
       members: [],
-      totals: { opened: 0, directed: 0, directedCents: 0, plusUpCents: 0, giftsWithPlusUp: 0 },
+      totals: { membersBilled: 0, gave: 0, givenCents: 0, plussedUpCents: 0, plussedUpMembers: 0 },
     });
   });
 });
 
 describe("emails", () => {
-  it("the opened notice says the amount, the choices and the default rule", () => {
-    const email = buildGiftOpenedEmail({ amountCents: 500, communityName: "The <Garden>", linkUrl: "/give" });
-    expect(email.subject).toBe("You have $5 to give this month");
-    expect(email.heading).toBe("You have $5 to give this month.");
-    expect(email.body).toContain("Half of your membership funds grants for other creatives.");
-    expect(email.body.startsWith(`$5 of your membership in The &lt;Garden&gt; is yours to give. ${GIVING_SENTENCES.memberDirectedDefault}`)).toBe(true);
-    expect(email.previewText).toContain(GIVING_SENTENCES.memberDirectedDefault);
+  it("the opened notice is two sentences: what to do and the default", () => {
+    const email = buildGiftOpenedEmail({ amountCents: 471, linkUrl: "/give" });
+    expect(email.subject).toBe("You have $4.71 to give");
+    expect(email.heading).toBe("You have $4.71 to give.");
+    expect(email.body).toBe(`Support a creative, a project, or the grant fund. ${GIVING_SENTENCES.memberDirectedDefault}`);
+    expect(email.previewText).toBe(email.body);
+    expect(email.ctaText).toBe("Pick");
     expect(email.ctaUrl).toBe("/give");
   });
 
   it("the received notice names the giver only when visible, and nudges to connect", () => {
-    const shown = buildGiftReceivedEmail({ giverName: `Sam <Reed>`, visible: true, amountCents: 500, source: "allowance", recurring: false, connected: false });
-    expect(shown.subject).toBe("Sam <Reed> gave you $5");
-    expect(shown.body).toContain("<strong>Sam &lt;Reed&gt;</strong> gave you $5 from their membership.");
-    expect(shown.body).toContain("Connect your bank");
+    const shown = buildGiftReceivedEmail({ giverName: `Sam <Reed>`, visible: true, amountCents: 471, source: "allowance", recurring: false, connected: false });
+    expect(shown.subject).toBe("Sam <Reed> gave you $4.71");
+    expect(shown.body).toContain("<strong>Sam &lt;Reed&gt;</strong> gave you $4.71.");
+    expect(shown.body).toContain("Connect your bank in Settings to get it.");
     expect(shown.ctaText).toBe("Get paid");
     expect(shown.ctaUrl).toBe("/settings?tab=money");
 
-    const hidden = buildGiftReceivedEmail({ giverName: "Sam", visible: false, amountCents: 500, source: "allowance", recurring: false, connected: true });
-    expect(hidden.subject).toBe("Someone gave you $5");
+    const hidden = buildGiftReceivedEmail({ giverName: "Sam", visible: false, amountCents: 471, source: "allowance", recurring: false, connected: true });
+    expect(hidden.subject).toBe("Someone gave you $4.71");
     expect(hidden.body).not.toContain("Sam");
     expect(hidden.body).not.toContain("Connect your bank");
     expect(hidden.ctaUrl).toBe("/give");
   });
 
-  it("a plus-up reads as a backing, monthly when recurring, with the note escaped", () => {
+  it("a plus-up reads as gave you, monthly when recurring, with the note escaped", () => {
     const email = buildGiftReceivedEmail({ giverName: "Sam", visible: true, amountCents: 2500, source: "plus_up", recurring: true, note: `keep <going>`, connected: true });
-    expect(email.subject).toBe("Sam backed you with $25 a month");
+    expect(email.subject).toBe("Sam gave you $25 a month");
     expect(email.body).toContain("keep &lt;going&gt;");
+    const once = buildGiftReceivedEmail({ giverName: "Sam", visible: true, amountCents: 2500, source: "plus_up", recurring: false, connected: true });
+    expect(once.heading).toBe("Sam gave you $25");
   });
 
-  it("never says donate, gift or tax-deductible (money-words rule)", () => {
+  it("never says donate or tax-deductible (money-words rule)", () => {
     const texts = [
-      buildGiftOpenedEmail({ amountCents: 500, communityName: "The Garden", linkUrl: "/give" }),
+      buildGiftOpenedEmail({ amountCents: 471, linkUrl: "/give" }),
       buildGiftReceivedEmail({ giverName: "Sam", visible: true, amountCents: 500, source: "allowance", recurring: false, connected: false }),
     ].flatMap((e) => [e.subject, e.previewText, e.heading, e.body, e.ctaText]);
     for (const t of texts) {
-      for (const banned of ["donat", "gift", "tax-deduct"]) {
+      for (const banned of ["donat", "tax-deduct"]) {
         expect(t.toLowerCase()).not.toContain(banned);
       }
     }

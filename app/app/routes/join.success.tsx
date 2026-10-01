@@ -48,7 +48,7 @@ export default function JoinSuccess() {
         </p>
         {openGift && (
           <p style={{ marginTop: 14, fontSize: 15, lineHeight: 1.6, color: "var(--g-paper)" }}>
-            You have {formatMoney(openGift.amountCents)} to give right now.{" "}
+            You have {formatMoney(openGift.amountCents)} to give.{" "}
             <Link to="/give" style={{ textDecoration: "underline", color: "var(--g-citron)" }}>
               Pick who gets it
             </Link>

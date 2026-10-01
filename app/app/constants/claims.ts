@@ -64,9 +64,9 @@ export const CLAIMS = {
    * dollar amount is never in a claim: the page computes it from the
    * member's own invoice. Server twins: GIVING_SENTENCES in
    * convex/garden/giving.ts, checked by claims.test.ts. */
-  memberDirected: "Each month you pick which creative gets your half, or leave it in the grant fund.",
-  memberDirectedDefault: "If you don't pick by your next payment, it stays in the grant fund.",
-  memberDirectedFull: "What you give this way goes to them in full.",
+  memberDirected: "Each month you choose who gets your monthly grant: a creative, a project, or the grant fund.",
+  memberDirectedDefault: "If you don't pick within a week, it goes to the grant fund.",
+  memberDirectedFull: "What you give goes to them in full.",
 } as const;
 
 /** Phrases we dropped. claims.test.ts fails if any shows up in site source —

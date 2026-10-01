@@ -612,198 +612,117 @@ function RecentSection({ recent }: { recent: PlatformReport["recent"] }) {
 // leaves this section empty and the rest of the page renders.
 
 type GivingPeriodRow = {
-  period: string;
-  opened: number;
-  toCreative: number;
-  toProject: number;
-  fundChosen: number;
-  defaulted: number;
-  stillOpen: number;
-  directedCents: number;
-  decidedWithin7Days: number;
-  distinctRecipients: number;
-  plusUps: number;
-  plusUpCents: number;
-  monthlyPlusUpsStarted: number;
-  plusUpRate: number;
-  repeatGivers: number;
-  repeatPlusUps: number;
+  period?: string;
+  membersBilled?: number;
+  gaveToCreative?: number;
+  gaveToProject?: number;
+  choseFund?: number;
+  didntPick?: number;
+  notPickedYet?: number;
+  givenCents?: number;
+  decidedWithin7Days?: number;
+  distinctRecipients?: number;
+  plussedUpMembers?: number;
+  plussedUpCents?: number;
+  plussedUpMonthly?: number;
+  plussedUpRate?: number;
+  gaveAgain?: number;
+  plussedUpAgain?: number;
 };
 
 type GivingMemberRow = {
-  userId: string;
-  name: string;
+  userId?: string;
+  name?: string;
   profileId?: string | null;
-  giftsOpened: number;
-  giftsDirected: number;
-  monthsDirectedInARow: number;
-  plusUpCount: number;
-  plusUpCents: number;
+  timesPlussedUp?: number;
+  plussedUpCents?: number;
+  gaveCount?: number;
+  lastPeriod?: string;
 };
 
 type GivingReport = {
   byPeriod?: GivingPeriodRow[];
   members?: GivingMemberRow[];
   totals?: {
-    opened?: number;
-    directed?: number;
-    directedCents?: number;
-    plusUpCents?: number;
-    giftsWithPlusUp?: number;
+    membersBilled?: number;
+    gave?: number;
+    givenCents?: number;
+    plussedUpCents?: number;
+    plussedUpMembers?: number;
   };
 };
 
-const GIVING_COLUMNS: { label: string; hot?: boolean; cell: (r: GivingPeriodRow) => string }[] = [
-  { label: "Opened", hot: true, cell: (r) => String(r.opened ?? 0) },
-  { label: "Still open", cell: (r) => String(r.stillOpen ?? 0) },
-  { label: "Creative", cell: (r) => String(r.toCreative ?? 0) },
-  { label: "Project", cell: (r) => String(r.toProject ?? 0) },
-  { label: "Fund", cell: (r) => String(r.fundChosen ?? 0) },
-  { label: "Defaulted", cell: (r) => String(r.defaulted ?? 0) },
-  { label: "Directed $", cell: (r) => formatMoney(r.directedCents ?? 0) },
-  { label: "Within 7 days", cell: (r) => String(r.decidedWithin7Days ?? 0) },
-  { label: "Recipients", hot: true, cell: (r) => String(r.distinctRecipients ?? 0) },
-  { label: "Plus-ups", cell: (r) => String(r.plusUps ?? 0) },
-  { label: "Plus-up $", cell: (r) => formatMoney(r.plusUpCents ?? 0) },
-  { label: "Monthly started", cell: (r) => String(r.monthlyPlusUpsStarted ?? 0) },
-  { label: "Rate", hot: true, cell: (r) => `${Math.round((r.plusUpRate ?? 0) * 100)}%` },
-  { label: "Repeat givers", cell: (r) => String(r.repeatGivers ?? 0) },
-  { label: "Repeat plus-ups", cell: (r) => String(r.repeatPlusUps ?? 0) },
-];
+const GIVING_LINE: React.CSSProperties = { fontSize: 15, color: "var(--g-body)", margin: "4px 0" };
 
-const TH: React.CSSProperties = {
-  fontFamily: "var(--g-mono, monospace)",
-  fontSize: 12.5,
-  letterSpacing: "0.08em",
-  textTransform: "uppercase",
-  color: "var(--g-dim)",
-  fontWeight: 500,
-  textAlign: "right",
-  padding: "8px 12px",
-  borderBottom: "2px solid var(--g-paper)",
-  whiteSpace: "nowrap",
-  verticalAlign: "bottom",
-};
-
-const STICKY: React.CSSProperties = { position: "sticky", left: 0, background: "var(--g-ink)", textAlign: "left" };
+function GivingMonth({ r }: { r: GivingPeriodRow }) {
+  const notYet = r.notPickedYet ?? 0;
+  const again = r.gaveAgain ?? 0;
+  return (
+    <div style={{ marginTop: 20, paddingTop: 14, borderTop: "1px solid var(--g-hairline)" }}>
+      <h3 className="g-h" style={{ fontSize: 20 }}>
+        {formatPeriod(r.period ?? "")}
+      </h3>
+      <p style={GIVING_LINE}>{r.membersBilled ?? 0} {(r.membersBilled ?? 0) === 1 ? "member" : "members"} billed</p>
+      <p style={GIVING_LINE}>
+        {r.gaveToCreative ?? 0} gave to a creative, {r.gaveToProject ?? 0} to a project
+      </p>
+      <p style={GIVING_LINE}>
+        {r.choseFund ?? 0} chose the grant fund, {r.didntPick ?? 0} didn't pick (it went to the fund)
+      </p>
+      {notYet > 0 && <p style={GIVING_LINE}>{notYet} haven't picked yet</p>}
+      <p style={GIVING_LINE}>
+        {r.plussedUpMembers ?? 0} plussed up, {formatMoney(r.plussedUpCents ?? 0)}
+      </p>
+      {again > 0 && <p style={GIVING_LINE}>{again} gave again this month and last</p>}
+    </div>
+  );
+}
 
 function GivingSection({ report }: { report: GivingReport | null | undefined }) {
-  const rows = report?.byPeriod ?? [];
+  const rows = (report?.byPeriod ?? []).slice(0, 6);
   const members = report?.members ?? [];
-  const totals = report?.totals;
   return (
     <section style={{ marginTop: 40 }}>
       <SectionLabel>Member-directed giving</SectionLabel>
+      <p style={{ marginTop: 8, fontSize: 15, color: "var(--g-body)", maxWidth: "60ch" }}>
+        Each month a member picks who gets their monthly grant. Plussed up means they gave more of their own money on
+        top.
+      </p>
       {report === undefined ? (
         <div style={{ marginTop: 12 }}>
           <GardenLoading />
         </div>
       ) : rows.length === 0 ? (
         <div style={{ marginTop: 12 }}>
-          <EmptyRow>Nothing opened yet.</EmptyRow>
+          <EmptyRow>Nothing yet.</EmptyRow>
         </div>
       ) : (
         <>
-          <div
-            style={{
-              marginTop: 12,
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit,minmax(130px,1fr))",
-              gap: 10,
-            }}
-          >
-            <StatCell label="Opened" value={String(totals?.opened ?? 0)} />
-            <StatCell label="Directed" value={String(totals?.directed ?? 0)} />
-            <StatCell label="Directed $" value={formatMoney(totals?.directedCents ?? 0)} hot />
-            <StatCell label="Plus-up $" value={formatMoney(totals?.plusUpCents ?? 0)} hot />
-            <StatCell label="Plussed up" value={String(totals?.giftsWithPlusUp ?? 0)} />
-          </div>
-
-          <div style={{ overflowX: "auto", marginTop: 18, WebkitOverflowScrolling: "touch" }}>
-            <table style={{ borderCollapse: "collapse", minWidth: "100%", fontVariantNumeric: "tabular-nums" }}>
-              <thead>
-                <tr>
-                  <th style={{ ...TH, ...STICKY }}>Month</th>
-                  {GIVING_COLUMNS.map((c) => (
-                    <th key={c.label} style={TH}>
-                      {c.label}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((r) => (
-                  <tr key={r.period}>
-                    <td
-                      style={{
-                        ...STICKY,
-                        fontFamily: "var(--g-mono, monospace)",
-                        fontSize: 12.5,
-                        letterSpacing: "0.08em",
-                        textTransform: "uppercase",
-                        color: "var(--g-paper)",
-                        padding: "10px 12px",
-                        borderBottom: "1px solid var(--g-hairline)",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {formatPeriod(r.period)}
-                    </td>
-                    {GIVING_COLUMNS.map((c) => (
-                      <td
-                        key={c.label}
-                        style={{
-                          fontSize: 15,
-                          color: c.hot ? "var(--g-paper)" : "var(--g-body)",
-                          fontWeight: c.hot ? 600 : 400,
-                          textAlign: "right",
-                          padding: "10px 12px",
-                          borderBottom: "1px solid var(--g-hairline)",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {c.cell(r)}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
+          {rows.map((r, i) => (
+            <GivingMonth key={r.period ?? i} r={r} />
+          ))}
           <div style={{ marginTop: 26 }}>
-            <div className="g-label" style={{ marginBottom: 10 }}>By member</div>
+            <h3 className="g-h" style={{ fontSize: 20, marginBottom: 8 }}>
+              Who plussed up
+            </h3>
             {members.length === 0 ? (
-              <EmptyRow>No members yet.</EmptyRow>
+              <p style={GIVING_LINE}>Nobody yet.</p>
             ) : (
-              members.map((m) => (
-                <LedgerRow key={m.userId}>
-                  {m.profileId ? (
-                    <Link
-                      to={`/profile/${m.profileId}`}
-                      style={{ fontSize: 14.5, color: "var(--g-paper)", fontWeight: 600, minWidth: 160 }}
-                    >
-                      {m.name}
-                    </Link>
-                  ) : (
-                    <span style={{ fontSize: 14.5, color: "var(--g-paper)", fontWeight: 600, minWidth: 160 }}>
-                      {m.name}
-                    </span>
-                  )}
-                  <span className="g-hint">
-                    {m.monthsDirectedInARow ?? 0} {m.monthsDirectedInARow === 1 ? "month" : "months"} in a row
-                  </span>
-                  <span className="g-hint">
-                    {m.giftsDirected ?? 0} of {m.giftsOpened ?? 0} directed
-                  </span>
-                  <span className="g-hint">
-                    {m.plusUpCount ?? 0} {m.plusUpCount === 1 ? "plus-up" : "plus-ups"}
-                  </span>
-                  <span style={{ fontSize: 15, color: "var(--g-paper)", marginLeft: "auto" }}>
-                    {formatMoney(m.plusUpCents ?? 0)}
-                  </span>
-                </LedgerRow>
-              ))
+              members.map((m, i) => {
+                const name = m.name ?? "Someone";
+                return (
+                  <p key={m.userId ?? i} style={GIVING_LINE}>
+                    {m.profileId ? (
+                      <Link to={`/profile/${m.profileId}`} style={{ color: "var(--g-paper)", fontWeight: 600 }}>
+                        {name}
+                      </Link>
+                    ) : (
+                      <span style={{ color: "var(--g-paper)", fontWeight: 600 }}>{name}</span>
+                    )}{" "}
+                    · {m.timesPlussedUp ?? 0}× · {formatMoney(m.plussedUpCents ?? 0)}
+                  </p>
+                );
+              })
             )}
           </div>
         </>

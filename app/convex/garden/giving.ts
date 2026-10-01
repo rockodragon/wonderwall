@@ -43,7 +43,7 @@ import { getCommunityMember } from "./communities";
 /** An open gift that nobody directed goes to the fund this many days after
  * it opened, or when the next gift opens for the same membership, whichever
  * is first (spec, "The default"). */
-export const GIFT_DEFAULT_AFTER_DAYS = 35;
+export const GIFT_DEFAULT_AFTER_DAYS = 7;
 export const GIFT_NOTE_MAX = 200;
 /** Decided minimum before a creative's owed balance is transferred
  * (backing-payouts.md): covers Stripe's $2 active-account month. */
@@ -56,9 +56,9 @@ export type GiftTarget = "creative" | "project" | "fund";
  * claims.ts (convex/ can't import from app/). claims.test.ts checks these
  * match word for word, the same way it checks SPLITS.duesSentence. */
 export const GIVING_SENTENCES = {
-  memberDirected: "Each month you pick which creative gets your half, or leave it in the grant fund.",
-  memberDirectedDefault: "If you don't pick by your next payment, it stays in the grant fund.",
-  memberDirectedFull: "What you give this way goes to them in full.",
+  memberDirected: "Each month you choose who gets your monthly grant: a creative, a project, or the grant fund.",
+  memberDirectedDefault: "If you don't pick within a week, it goes to the grant fund.",
+  memberDirectedFull: "What you give goes to them in full.",
 } as const;
 
 /** The pool share of a dues invoice is the member's to direct. A community
@@ -324,32 +324,36 @@ export interface PlusUpLike {
 
 export interface GivingPeriodRow {
   period: string;
-  opened: number;
-  toCreative: number;
-  toProject: number;
-  fundChosen: number;
-  defaulted: number;
-  stillOpen: number;
-  directedCents: number;
+  membersBilled: number;
+  gaveToCreative: number;
+  gaveToProject: number;
+  choseFund: number;
+  didntPick: number; // defaulted to the fund
+  notPickedYet: number;
+  givenCents: number;
   decidedWithin7Days: number;
   distinctRecipients: number;
-  plusUps: number; // plus-up payments, renewals excluded
-  plusUpCents: number; // every plus-up dollar, renewals included
-  monthlyPlusUpsStarted: number;
-  giftsWithPlusUp: number;
-  /** giftsWithPlusUp ÷ (toCreative + toProject), 0 when nothing directed. */
-  plusUpRate: number;
-  repeatGivers: number;
-  repeatPlusUps: number;
+  /** Gifts with at least one plus-up (renewals excluded). */
+  plussedUpMembers: number;
+  /** Every plus-up dollar, renewals included. */
+  plussedUpCents: number;
+  /** Monthly plus-ups started. */
+  plussedUpMonthly: number;
+  /** plussedUpMembers ÷ (gaveToCreative + gaveToProject), 0 when nothing directed. */
+  plussedUpRate: number;
+  /** Members who gave last month and this one. */
+  gaveAgain: number;
+  /** Members who plussed up last month and this one. */
+  plussedUpAgain: number;
 }
 
 export interface GivingMemberRow {
   userId: string;
-  giftsOpened: number;
-  giftsDirected: number;
-  monthsDirectedInARow: number;
-  plusUpCount: number;
-  plusUpCents: number;
+  name?: string;
+  profileId?: string | null;
+  timesPlussedUp: number;
+  plussedUpCents: number;
+  gaveCount: number;
   lastPeriod: string;
 }
 
@@ -357,11 +361,11 @@ export interface GivingReport {
   byPeriod: GivingPeriodRow[]; // newest first
   members: GivingMemberRow[]; // most plussed-up first
   totals: {
-    opened: number;
-    directed: number;
-    directedCents: number;
-    plusUpCents: number;
-    giftsWithPlusUp: number;
+    membersBilled: number;
+    gave: number;
+    givenCents: number;
+    plussedUpCents: number;
+    plussedUpMembers: number;
   };
 }
 
@@ -382,14 +386,14 @@ export function computeGivingReport(gifts: GiftLike[], plusUps: PlusUpLike[]): G
     periods.set(g.period, arr);
   }
 
-  // Who directed / plussed up in each period, for the repeat columns.
-  const directedBy = new Map<string, Set<string>>();
+  // Who gave / plussed up in each period, for the "again" columns.
+  const gaveBy = new Map<string, Set<string>>();
   const plussedBy = new Map<string, Set<string>>();
   for (const g of gifts) {
     if (g.status === "creative" || g.status === "project") {
-      const s = directedBy.get(g.period) ?? new Set<string>();
+      const s = gaveBy.get(g.period) ?? new Set<string>();
       s.add(g.userId);
-      directedBy.set(g.period, s);
+      gaveBy.set(g.period, s);
     }
     if ((plusUpsByGift.get(g.id) ?? []).some((p) => p.billing !== "renewal")) {
       const s = plussedBy.get(g.period) ?? new Set<string>();
@@ -403,60 +407,57 @@ export function computeGivingReport(gifts: GiftLike[], plusUps: PlusUpLike[]): G
     const prev = previousPeriod(period);
     const row: GivingPeriodRow = {
       period,
-      opened: rows.length,
-      toCreative: 0,
-      toProject: 0,
-      fundChosen: 0,
-      defaulted: 0,
-      stillOpen: 0,
-      directedCents: 0,
+      membersBilled: rows.length,
+      gaveToCreative: 0,
+      gaveToProject: 0,
+      choseFund: 0,
+      didntPick: 0,
+      notPickedYet: 0,
+      givenCents: 0,
       decidedWithin7Days: 0,
       distinctRecipients: 0,
-      plusUps: 0,
-      plusUpCents: 0,
-      monthlyPlusUpsStarted: 0,
-      giftsWithPlusUp: 0,
-      plusUpRate: 0,
-      repeatGivers: 0,
-      repeatPlusUps: 0,
+      plussedUpMembers: 0,
+      plussedUpCents: 0,
+      plussedUpMonthly: 0,
+      plussedUpRate: 0,
+      gaveAgain: 0,
+      plussedUpAgain: 0,
     };
     const recipients = new Set<string>();
     for (const g of rows) {
       if (g.status === "creative") {
-        row.toCreative++;
-        row.directedCents += g.amountCents;
+        row.gaveToCreative++;
+        row.givenCents += g.amountCents;
         if (g.recipientUserId) recipients.add(`u:${g.recipientUserId}`);
       } else if (g.status === "project") {
-        row.toProject++;
-        row.directedCents += g.amountCents;
+        row.gaveToProject++;
+        row.givenCents += g.amountCents;
         if (g.projectId) recipients.add(`p:${g.projectId}`);
       } else if (g.status === "fund") {
-        if (g.decidedBy === "default") row.defaulted++;
-        else row.fundChosen++;
+        if (g.decidedBy === "default") row.didntPick++;
+        else row.choseFund++;
       } else {
-        row.stillOpen++;
+        row.notPickedYet++;
       }
       if (g.decidedBy === "member" && g.decidedAt !== undefined && g.decidedAt - g.openedAt <= SEVEN_DAYS_MS) {
         row.decidedWithin7Days++;
       }
-      const ups = plusUpsByGift.get(g.id) ?? [];
       let any = false;
-      for (const p of ups) {
-        row.plusUpCents += p.grossCents;
+      for (const p of plusUpsByGift.get(g.id) ?? []) {
+        row.plussedUpCents += p.grossCents;
         if (p.billing === "renewal") continue;
-        row.plusUps++;
         any = true;
-        if (p.billing === "first") row.monthlyPlusUpsStarted++;
+        if (p.billing === "first") row.plussedUpMonthly++;
       }
-      if (any) row.giftsWithPlusUp++;
+      if (any) row.plussedUpMembers++;
     }
     row.distinctRecipients = recipients.size;
-    const directed = row.toCreative + row.toProject;
-    row.plusUpRate = directed === 0 ? 0 : row.giftsWithPlusUp / directed;
-    const prevDirected = directedBy.get(prev) ?? new Set<string>();
-    for (const u of directedBy.get(period) ?? []) if (prevDirected.has(u)) row.repeatGivers++;
+    const gave = row.gaveToCreative + row.gaveToProject;
+    row.plussedUpRate = gave === 0 ? 0 : row.plussedUpMembers / gave;
+    const prevGave = gaveBy.get(prev) ?? new Set<string>();
+    for (const u of gaveBy.get(period) ?? []) if (prevGave.has(u)) row.gaveAgain++;
     const prevPlussed = plussedBy.get(prev) ?? new Set<string>();
-    for (const u of plussedBy.get(period) ?? []) if (prevPlussed.has(u)) row.repeatPlusUps++;
+    for (const u of plussedBy.get(period) ?? []) if (prevPlussed.has(u)) row.plussedUpAgain++;
     byPeriod.push(row);
   }
   byPeriod.sort((a, b) => (a.period < b.period ? 1 : a.period > b.period ? -1 : 0));
@@ -471,47 +472,33 @@ export function computeGivingReport(gifts: GiftLike[], plusUps: PlusUpLike[]): G
   const members: GivingMemberRow[] = [];
   for (const [userId, rows] of byMember) {
     const sorted = [...rows].sort((a, b) => (a.period < b.period ? 1 : a.period > b.period ? -1 : 0));
-    // Months directed in a row, ending at the latest decided month. A
-    // still-open current month doesn't break the streak — nothing has been
-    // decided yet — so it is skipped, not counted.
-    let streak = 0;
-    let expect = sorted[0]?.period;
-    for (const g of sorted) {
-      if (g.period !== expect) break;
-      expect = previousPeriod(g.period);
-      if (g.status === "open" && streak === 0) continue;
-      if (g.status !== "creative" && g.status !== "project") break;
-      streak++;
-    }
-    let plusUpCount = 0;
-    let plusUpCents = 0;
+    let timesPlussedUp = 0;
+    let plussedUpCents = 0;
     for (const g of rows) {
       for (const p of plusUpsByGift.get(g.id) ?? []) {
-        plusUpCents += p.grossCents;
-        if (p.billing !== "renewal") plusUpCount++;
+        plussedUpCents += p.grossCents;
+        if (p.billing !== "renewal") timesPlussedUp++;
       }
     }
     members.push({
       userId,
-      giftsOpened: rows.length,
-      giftsDirected: rows.filter((g) => g.status === "creative" || g.status === "project").length,
-      monthsDirectedInARow: streak,
-      plusUpCount,
-      plusUpCents,
+      timesPlussedUp,
+      plussedUpCents,
+      gaveCount: rows.filter((g) => g.status === "creative" || g.status === "project").length,
       lastPeriod: sorted[0]?.period ?? "",
     });
   }
-  members.sort((a, b) => b.plusUpCents - a.plusUpCents || b.monthsDirectedInARow - a.monthsDirectedInARow);
+  members.sort((a, b) => b.plussedUpCents - a.plussedUpCents || b.gaveCount - a.gaveCount);
 
   const totals = byPeriod.reduce(
     (t, r) => ({
-      opened: t.opened + r.opened,
-      directed: t.directed + r.toCreative + r.toProject,
-      directedCents: t.directedCents + r.directedCents,
-      plusUpCents: t.plusUpCents + r.plusUpCents,
-      giftsWithPlusUp: t.giftsWithPlusUp + r.giftsWithPlusUp,
+      membersBilled: t.membersBilled + r.membersBilled,
+      gave: t.gave + r.gaveToCreative + r.gaveToProject,
+      givenCents: t.givenCents + r.givenCents,
+      plussedUpCents: t.plussedUpCents + r.plussedUpCents,
+      plussedUpMembers: t.plussedUpMembers + r.plussedUpMembers,
     }),
-    { opened: 0, directed: 0, directedCents: 0, plusUpCents: 0, giftsWithPlusUp: 0 },
+    { membersBilled: 0, gave: 0, givenCents: 0, plussedUpCents: 0, plussedUpMembers: 0 },
   );
 
   return { byPeriod, members, totals };
@@ -528,25 +515,22 @@ export interface BuiltEmail {
   ctaUrl: string;
 }
 
-/** "You have $5 to give this month" — to the member when a gift opens. */
-export function buildGiftOpenedEmail(input: { amountCents: number; communityName: string; linkUrl: string }): BuiltEmail {
+/** "You have $4.71 to give" — to the member when a gift opens. Two
+ * sentences: what to do, and what happens if they wait. */
+export function buildGiftOpenedEmail(input: { amountCents: number; linkUrl: string }): BuiltEmail {
   const amount = formatCents(input.amountCents);
-  const community = escapeHtml(input.communityName);
-  // The default rule sits in the first two lines (spec, "The notice"), so a
-  // member who reads nothing else still knows what happens if they wait.
+  const text = `Support a creative, a project, or the grant fund. ${GIVING_SENTENCES.memberDirectedDefault}`;
   return {
-    subject: `You have ${amount} to give this month`,
-    previewText: `${amount} of your membership is yours to give. ${GIVING_SENTENCES.memberDirectedDefault}`,
-    heading: `You have ${amount} to give this month.`,
-    body:
-      `${amount} of your membership in ${community} is yours to give. ${GIVING_SENTENCES.memberDirectedDefault} ` +
-      `${SPLITS.duesSentence} Pick a creative, pick a project, or leave it in the grant fund.`,
-    ctaText: "Pick who gets it",
+    subject: `You have ${amount} to give`,
+    previewText: text,
+    heading: `You have ${amount} to give.`,
+    body: text,
+    ctaText: "Pick",
     ctaUrl: input.linkUrl,
   };
 }
 
-/** "Dana gave you $5" — to the recipient. `connected` decides the CTA: not
+/** "Dana gave you $4.71" — to the recipient. `connected` decides the CTA: not
  * connected sends them to Get paid; connected sends them to /give. */
 export function buildGiftReceivedEmail(input: {
   giverName?: string;
@@ -563,17 +547,13 @@ export function buildGiftReceivedEmail(input: {
   const amount = formatCents(input.amountCents);
   const monthly = input.recurring ? " a month" : "";
   const what = input.projectTitle ? ` toward <strong>${escapeHtml(input.projectTitle)}</strong>` : "";
-  const verb = input.source === "allowance" ? "gave you" : "backed you with";
-  const from = input.source === "allowance" ? " from their membership" : "";
   const note = input.note ? ` They wrote: &ldquo;${escapeHtml(input.note)}&rdquo;` : "";
-  const connect = input.connected
-    ? ""
-    : " Connect your bank in Settings to get it. It waits for you until you do.";
+  const connect = input.connected ? "" : " Connect your bank in Settings to get it.";
   return {
-    subject: `${displayName} ${input.source === "allowance" ? "gave you" : "backed you with"} ${amount}${monthly}`,
-    previewText: `${displayName} ${verb} ${amount}${monthly}${input.projectTitle ? ` toward ${input.projectTitle}` : ""}.`,
-    heading: `${displayName} ${verb} ${amount}${monthly}`,
-    body: `<strong>${name}</strong> ${verb} ${amount}${monthly}${what}${from}.${note}${connect}`,
+    subject: `${displayName} gave you ${amount}${monthly}`,
+    previewText: `${displayName} gave you ${amount}${monthly}${input.projectTitle ? ` toward ${input.projectTitle}` : ""}.`,
+    heading: `${displayName} gave you ${amount}${monthly}`,
+    body: `<strong>${name}</strong> gave you ${amount}${monthly}${what}.${note}${connect}`,
     ctaText: input.connected ? "See what you've been given" : "Get paid",
     ctaUrl: input.connected ? "/give" : "/settings?tab=money",
   };
@@ -631,20 +611,18 @@ export async function openMemberGift(
     openedAt: now,
   });
 
-  const community = await ctx.db.get(args.communityId);
-  const communityName = community?.name ?? "your community";
   const amount = formatCents(amountCents);
   await insertNotification(ctx, {
     userId: args.userId,
     type: "gift_opened",
-    title: `You have ${amount} to give this month.`,
-    message: `Pick a creative, pick a project, or leave it in the grant fund. ${GIVING_SENTENCES.memberDirectedDefault}`,
+    title: `You have ${amount} to give`,
+    message: GIVING_SENTENCES.memberDirectedDefault,
     linkUrl: "/give",
   });
   await scheduleNotificationEmail(ctx, {
     userId: args.userId,
     category: "activity",
-    ...buildGiftOpenedEmail({ amountCents, communityName, linkUrl: "/give" }),
+    ...buildGiftOpenedEmail({ amountCents, linkUrl: "/give" }),
   });
   return giftId;
 }
@@ -829,6 +807,16 @@ export const getMyGiving = query({
   },
 });
 
+/** Who the viewer follows: profile ids (favorites with targetType "profile"
+ * store the PROFILE id) — used to put followed people first in the pickers. */
+async function followedSets(ctx: QueryCtx, userId: Id<"users">) {
+  const favs = await ctx.db
+    .query("favorites")
+    .withIndex("by_userId_type", (q) => q.eq("userId", userId).eq("targetType", "profile"))
+    .collect();
+  return { profileIds: new Set(favs.map((f) => f.targetId)) };
+}
+
 /** People a gift can go to: active members of the gift's community, not
  * the giver, matched on name. */
 export const searchRecipients = query({
@@ -848,13 +836,17 @@ export const searchRecipients = query({
       .map((m) => m.userId);
 
     const needle = (args.query ?? "").trim().toLowerCase();
-    const profiles = await Promise.all(memberIds.map((id) => profileFor(ctx, id)));
+    const [profiles, followed] = await Promise.all([
+      Promise.all(memberIds.map((id) => profileFor(ctx, id))),
+      followedSets(ctx, userId),
+    ]);
     return profiles
       .filter((p): p is Doc<"profiles"> => Boolean(p) && p!.name !== "New User")
       .filter((p) => !needle || p.name.toLowerCase().includes(needle) || p.interests.some((i) => i.toLowerCase().includes(needle)))
-      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((p) => ({ p, following: followed.profileIds.has(String(p._id)) }))
+      .sort((a, b) => Number(b.following) - Number(a.following) || a.p.name.localeCompare(b.p.name))
       .slice(0, PICKER_LIMIT)
-      .map(pickProfileCard);
+      .map(({ p, following }) => ({ ...pickProfileCard(p), following }));
   },
 });
 
@@ -873,13 +865,21 @@ export const listProjectsForGift = query({
       .collect();
     const needle = (args.query ?? "").trim().toLowerCase();
     const mine = String(userId);
-    const visible = rows
+    const candidates = rows
       .filter((p) => String(p.userId) !== mine)
-      .filter((p) => !needle || p.title.toLowerCase().includes(needle))
-      .sort((a, b) => b.createdAt - a.createdAt)
+      .filter((p) => !needle || p.title.toLowerCase().includes(needle));
+    const [allOwners, followed] = await Promise.all([
+      Promise.all(candidates.map((p) => profileFor(ctx, p.userId))),
+      followedSets(ctx, userId),
+    ]);
+    const ranked = candidates
+      .map((p, i) => ({ p, owner: allOwners[i], ownerFollowed: allOwners[i] ? followed.profileIds.has(String(allOwners[i]!._id)) : false }))
+      .sort((a, b) => Number(b.ownerFollowed) - Number(a.ownerFollowed) || b.p.createdAt - a.p.createdAt)
       .slice(0, PICKER_LIMIT);
-    const owners = await Promise.all(visible.map((p) => profileFor(ctx, p.userId)));
+    const visible = ranked.map((r) => r.p);
+    const owners = ranked.map((r) => r.owner);
     return visible.map((p, i) => ({
+      ownerFollowed: ranked[i].ownerFollowed,
       projectId: p._id,
       title: p.title,
       blurb: p.blurb,
@@ -1214,16 +1214,17 @@ export const getGivingReport = query({
       plusUps,
     );
 
+    const plussers = report.members.filter((m) => m.timesPlussedUp > 0);
     const memberProfiles = await Promise.all(
-      report.members.slice(0, 100).map((m) => profileFor(ctx, m.userId as Id<"users">)),
+      plussers.slice(0, 100).map((m) => profileFor(ctx, m.userId as Id<"users">)),
     );
     return {
       generatedAt: Date.now(),
       ...report,
-      members: report.members.slice(0, 100).map((m, i) => ({
+      members: plussers.slice(0, 100).map((m, i) => ({
         ...m,
         name: memberProfiles[i]?.name ?? "Unknown member",
-        profileId: memberProfiles[i]?._id ?? null,
+        profileId: memberProfiles[i] ? String(memberProfiles[i]!._id) : null,
       })),
     };
   },

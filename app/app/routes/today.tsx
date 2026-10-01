@@ -22,7 +22,6 @@ import { budgetAmountLabel, budgetKindLabel } from "../lib/budgetLabel";
 import { CLAIMS } from "../constants/claims";
 import { resolveStage, stageLabel } from "../lib/stage";
 import { Dissolve } from "../hooks/useReveal";
-import { YOUTUBE_CHANNEL_URL, YOUTUBE_LIVE_URL } from "../constants/broadcast";
 
 export function meta() {
   return [{ title: "Today — The Garden" }];
@@ -169,24 +168,18 @@ export default function Today() {
 }
 
 // ——————————————————————————————————————————————————————————————
-// Your half — shown only while a monthly amount is open to give
+// Monthly grant — shown only while a monthly amount is open to give
 
 function YourHalfCard({ amountCents }: { amountCents: number }) {
   return (
     <section
       className="rounded-xl border px-5 py-6 md:px-7 md:py-7 mb-14"
       style={CARD}
-      aria-label="Your half"
+      aria-label="Monthly grant"
     >
-      <span className="text-xs uppercase tracking-[0.16em]" style={{ ...MONO, color: "var(--app-text-muted)" }}>
-        Your half
-      </span>
-      <h2 className="mt-2 text-2xl md:text-[28px] font-semibold leading-tight" style={{ ...DISPLAY, color: "var(--app-text)" }}>
-        You have {formatMoney(amountCents)} to give this month.
+      <h2 className="text-2xl md:text-[28px] font-semibold leading-tight" style={{ ...DISPLAY, color: "var(--app-text)" }}>
+        You have {formatMoney(amountCents)} to give.
       </h2>
-      <p className="mt-2 text-[15px] leading-relaxed" style={{ color: "var(--app-text-muted)", maxWidth: "60ch" }}>
-        {CLAIMS.memberDirected} {CLAIMS.memberDirectedDefault}
-      </p>
       <div className="mt-4">
         <PrimaryLink to="/give">Pick who gets it</PrimaryLink>
       </div>
@@ -205,14 +198,17 @@ type EventRow = {
   endTime?: number;
   coverImageUrl: string | null;
   mediaPreviewUrl?: string;
+  tags?: string[];
 };
 type Episode = { event: EventRow; live: boolean } | null;
 
 /** The Creator Notes episode on air now, else the next one scheduled. Read
- * off the ordinary events list by title — the show is posted as events. */
+ * off the ordinary events list — the show is posted as events, found by
+ * "Creator Notes" in the title or in the tags (an episode can have its own
+ * title, like "What is this and why?"). */
 function pickEpisode(events: readonly EventRow[]): Episode {
   const now = Date.now();
-  const shows = events.filter((e) => /creator notes/i.test(e.title));
+  const shows = events.filter((e) => /creator notes/i.test(e.title) || (e.tags ?? []).some((t) => /^creator notes$/i.test(t)));
   const onAir = shows.find((e) => e.datetime <= now && now < (e.endTime ?? e.datetime + DEFAULT_EPISODE_MS));
   if (onAir) return { event: onAir, live: true };
   const next = shows.filter((e) => e.datetime > now).sort((a, b) => a.datetime - b.datetime)[0];
@@ -238,11 +234,10 @@ function CreatorNotes({ episode }: { episode: Episode }) {
   }
 
   const live = !!episode?.live;
-  // With an episode on the calendar, everything opens its event page, which
-  // plays the stream in place (videoEmbed.ts embeds the channel's /live
-  // link). YouTube is only the fallback when nothing is scheduled.
+  // With an episode on the calendar, everything opens its event page, where
+  // people sign up and the stream plays. There is no direct YouTube link:
+  // with nothing scheduled the card is text only.
   const episodePath = episode ? `/events/${episode.event._id}` : null;
-  const watchUrl = live ? YOUTUBE_LIVE_URL : YOUTUBE_CHANNEL_URL;
   const when = episode && !live ? formatShowTime(episode.event.datetime) : null;
 
   if (collapsed) {
@@ -256,14 +251,10 @@ function CreatorNotes({ episode }: { episode: Episode }) {
           </span>
         )}
         <span className="ml-auto flex items-center gap-3">
-          {episodePath ? (
+          {episodePath && (
             <Link to={episodePath} className="text-xs uppercase tracking-[0.1em] hover:underline" style={{ ...MONO, color: "var(--app-accent-ink)" }}>
-              {live ? "Watch live →" : "Episode →"}
+              {live ? "Watch live →" : "Sign up →"}
             </Link>
-          ) : (
-            <a href={watchUrl} target="_blank" rel="noopener noreferrer" className="text-xs uppercase tracking-[0.1em] hover:underline" style={{ ...MONO, color: "var(--app-accent-ink)" }}>
-              YouTube →
-            </a>
           )}
           <GhostButton onClick={() => setAndStore(false)}>Expand</GhostButton>
         </span>
@@ -286,13 +277,15 @@ function CreatorNotes({ episode }: { episode: Episode }) {
           creatives, and get behind the motivations, struggles and aspirations of the community.
         </p>
         <div className="mt-7 flex flex-wrap gap-2">
-          {episodePath ? (
+          {episodePath && (
             <PrimaryLink to={episodePath}>
-              <PlayGlyph /> {live ? "Watch live" : "See the next episode"}
-            </PrimaryLink>
-          ) : (
-            <PrimaryLink href={watchUrl} external>
-              <PlayGlyph /> Watch on YouTube
+              {live ? (
+                <>
+                  <PlayGlyph /> Watch live
+                </>
+              ) : (
+                "Sign up"
+              )}
             </PrimaryLink>
           )}
         </div>
@@ -307,12 +300,11 @@ function CreatorNotes({ episode }: { episode: Episode }) {
         {/* A drawing of the show's notebook, not a photo: the hosts aren't
             the point of the card, and a frame grab would put a face on the
             home page nobody asked to be there. */}
-        <a
-          href={episodePath ?? watchUrl}
-          {...(episodePath ? {} : { target: "_blank", rel: "noopener noreferrer" })}
+        <Frame
+          to={episodePath}
           className="group relative block aspect-video overflow-hidden rounded-xl border"
           style={{ backgroundColor: "var(--app-surface-raised)", borderColor: live ? "var(--app-accent)" : "var(--app-hairline)" }}
-          aria-label={episodePath ? (live ? "Watch Creator Notes live" : "The next Creator Notes episode") : "Creator Notes on YouTube"}
+          label={live ? "Watch Creator Notes live" : "Sign up for the next Creator Notes"}
         >
           <NotebookDrawing />
           <div className="absolute top-3 left-3 flex items-center gap-2">
@@ -322,7 +314,7 @@ function CreatorNotes({ episode }: { episode: Episode }) {
               </span>
             ) : (
               <span className="rounded border px-2 py-1 text-xs uppercase tracking-[0.1em]" style={{ ...MONO, borderColor: "var(--app-hairline-raised)", backgroundColor: "var(--app-surface)", color: "var(--app-text-muted)" }}>
-                {when ? `Starts ${when}` : "On YouTube"}
+                {when ? `Starts ${when}` : "Coming soon"}
               </span>
             )}
           </div>
@@ -334,9 +326,20 @@ function CreatorNotes({ episode }: { episode: Episode }) {
               <span className="block h-full" style={{ width: live ? "100%" : "0%", backgroundColor: "var(--garden-citron)" }} />
             </span>
           </div>
-        </a>
+        </Frame>
       </div>
     </section>
+  );
+}
+
+/** The picture frame: a link to the episode page when there is one, else a
+    plain box. */
+function Frame({ to, className, style, label, children }: { to: string | null; className: string; style: CSSProperties; label: string; children: ReactNode }) {
+  if (!to) return <div className={className} style={style}>{children}</div>;
+  return (
+    <Link to={to} className={className} style={style} aria-label={label}>
+      {children}
+    </Link>
   );
 }
 

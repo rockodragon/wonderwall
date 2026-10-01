@@ -1,7 +1,7 @@
-// /give — each paid month, a member picks who gets their half.
+// /give — each paid month, a member picks who gets their monthly grant.
 //
 // The page has four jobs, top to bottom: choose (a creative, a project or
-// the grant fund), then the optional "add your own" ask, then past months,
+// the grant fund), then the optional one-time "give more" ask, then past months,
 // then "Given to you" for anyone who has been given something (creatives who
 // only receive land here too, so it renders with no amount of their own).
 //
@@ -13,7 +13,7 @@
 // before. Every field the backend adds is read with optional chaining so the
 // deploy window between frontend and backend cannot crash the page.
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { ConvexError } from "convex/values";
@@ -27,7 +27,7 @@ import { GardenPage, formatDate, formatMoney, formatPeriod } from "../garden/ui"
 import "../garden/garden.css";
 
 export function meta() {
-  return [{ title: "Your half — The Garden" }, { name: "robots", content: "noindex" }];
+  return [{ title: "Give — The Garden" }, { name: "robots", content: "noindex" }];
 }
 
 type Target = "creative" | "project" | "fund";
@@ -41,6 +41,10 @@ type Done = {
   recipientName?: string;
   projectId?: Id<"projects">;
   projectTitle?: string;
+  /** The member already added their own money at the first Give; skip the follow-on ask. */
+  plussedUp?: boolean;
+  /** The combined checkout failed to start after the decision landed. */
+  checkoutError?: string;
 };
 
 const PLUS_UP_AMOUNTS_CENTS = [1000, 2500, 5000] as const;
@@ -77,8 +81,106 @@ function initials(name: string): string {
   );
 }
 
-/** The second sentence of CLAIMS.pool, used under "stays in the grant fund". */
-const POOL_SECOND_SENTENCE = CLAIMS.pool.replace(CLAIMS.duesEvery, "").trim();
+/** The small "i" next to a heading. Hover on desktop, tap toggles; Escape or an outside click closes. */
+function InfoTip({ lines }: { lines: string[] }) {
+  const [open, setOpen] = useState(false);
+  const [pinned, setPinned] = useState(false);
+  const ref = useRef<HTMLSpanElement>(null);
+  const id = useId();
+  const shown = open || pinned;
+
+  useEffect(() => {
+    if (!shown) return;
+    const onDown = (e: MouseEvent | TouchEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+        setPinned(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setOpen(false);
+        setPinned(false);
+      }
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("touchstart", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("touchstart", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [shown]);
+
+  return (
+    <span
+      ref={ref}
+      style={{ position: "relative", display: "inline-flex" }}
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+    >
+      <button
+        type="button"
+        aria-label="How this works"
+        aria-expanded={shown}
+        aria-controls={id}
+        onClick={() => setPinned((p) => !p)}
+        style={{
+          width: 28,
+          height: 28,
+          borderRadius: 9999,
+          border: `1px solid ${HAIR}`,
+          background: "transparent",
+          color: PAPER,
+          fontFamily: "var(--g-mono, monospace)",
+          fontSize: 14,
+          fontStyle: "italic",
+          cursor: "pointer",
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        i
+      </button>
+      {shown && (
+        <span
+          id={id}
+          role="note"
+          style={{
+            position: "absolute",
+            top: 34,
+            left: 0,
+            zIndex: 20,
+            width: "min(320px, 80vw)",
+            padding: "12px 14px",
+            borderRadius: 10,
+            border: `1px solid ${HAIR}`,
+            background: "var(--garden-raised, #232321)",
+            color: BODY,
+            fontSize: 14.5,
+            lineHeight: 1.5,
+            fontWeight: 400,
+            letterSpacing: "normal",
+            display: "grid",
+            gap: 6,
+          }}
+        >
+          {lines.map((l) => (
+            <span key={l}>{l}</span>
+          ))}
+        </span>
+      )}
+    </span>
+  );
+}
+
+const GIVING_TIP_LINES = [
+  "Your monthly grant is half of your membership, after card processing.",
+  CLAIMS.memberDirectedFull,
+  "They see your name unless you give anonymously.",
+];
 
 // ————— Page —————
 
@@ -120,8 +222,7 @@ export default function Give() {
 
         {lastDefault && !done && (
           <p className="g-hint-body" style={{ marginBottom: 20, fontSize: 15, color: BODY }}>
-            Last month's {formatMoney(lastDefault.amountCents)} stayed in the grant fund. You didn't pick by{" "}
-            {formatDate(lastDefault.defaultAt)}.
+            Last month's {formatMoney(lastDefault.amountCents)} went to the grant fund.
           </p>
         )}
 
@@ -146,9 +247,8 @@ export default function Give() {
 
         {nothingAtAll && (
           <div>
-            <span className="g-label">Your half</span>
-            <p style={{ marginTop: 10, fontSize: 17, color: BODY, maxWidth: "52ch" }}>
-              Members get half of their dues to give each month.
+            <p style={{ fontSize: 17, color: BODY, maxWidth: "52ch" }}>
+              Members get a monthly grant to give away.
             </p>
             <div style={{ marginTop: 16 }}>
               <Link to="/join" className="g-btn g-btn-citron">
@@ -160,8 +260,7 @@ export default function Give() {
 
         {!hasOpen && !done && history.length > 0 && (
           <div>
-            <span className="g-label">Your half</span>
-            <p style={{ marginTop: 10, fontSize: 17, color: BODY, maxWidth: "52ch" }}>
+            <p style={{ fontSize: 17, color: BODY, maxWidth: "52ch" }}>
               Nothing to give right now. Your next amount opens when your membership is billed.
             </p>
           </div>
@@ -198,6 +297,8 @@ function Chooser({
   capture: (event: string, props?: Record<string, unknown>) => void;
 }) {
   const decide = useMutation(api.garden.giving.decideGift);
+  const giftCheckout = useAction(api.garden.stripe.createGiftCheckout);
+  const backingCheckout = useAction(api.garden.stripe.createBackingCheckout);
   const amount = formatMoney(gift.amountCents);
 
   const [target, setTarget] = useState<Target | null>(null);
@@ -210,6 +311,8 @@ function Chooser({
   const [anonymous, setAnonymous] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [extraChoice, setExtraChoice] = useState<number | "custom" | null>(null);
+  const [extraCustom, setExtraCustom] = useState("");
 
   useEffect(() => {
     const t = setTimeout(() => setDebounced(search.trim()), 250);
@@ -225,22 +328,15 @@ function Chooser({
     target === "project" ? { giftId: gift.giftId } : "skip",
   );
 
-  const choices: { id: Target; title: string; text: string }[] = [
-    {
-      id: "creative",
-      title: "A creative",
-      text: `Anyone in ${gift.communityName} except you. ${CLAIMS.memberDirectedFull}`,
-    },
-    {
-      id: "project",
-      title: "A project",
-      text: `An open project in ${gift.communityName}. It shows on the project as a backing.`,
-    },
-    { id: "fund", title: "The grant fund", text: CLAIMS.pool },
+  const choices: { id: Target; title: string; text?: string }[] = [
+    { id: "creative", title: "A creative" },
+    { id: "project", title: "A project" },
+    { id: "fund", title: "The grant fund", text: `Pick by ${formatDate(gift.defaultAt)}. If you don't, it goes here.` },
   ];
 
   function pickTarget(next: Target) {
     setTarget(next);
+    setSearch("");
     setError(null);
   }
 
@@ -261,9 +357,18 @@ function Chooser({
     (target === "creative" && creative !== null) ||
     (target === "project" && project !== null);
 
+  const extraAllowed = (target === "creative" && creative !== null) || (target === "project" && project !== null);
+  const extraRaw =
+    extraChoice === "custom" ? Math.round(parseFloat(extraCustom || "0") * 100) : extraChoice;
+  const extraValid = extraRaw !== null && Number.isFinite(extraRaw) && extraRaw >= MIN_PLUS_UP_CENTS;
+  // A chip is picked but its amount is not usable yet (an empty or too-small custom amount).
+  const extraBlocked = extraAllowed && extraChoice !== null && !extraValid;
+  const extraCents = extraAllowed && extraValid ? (extraRaw as number) : 0;
+  const plus = extraCents > 0 ? ` + ${formatMoney(extraCents)}` : "";
+
   let label = `Give ${amount} to a creative`;
-  if (target === "creative" && creative) label = `Give ${amount} to ${creative.name.split(" ")[0]}`;
-  if (target === "project") label = project ? `Give ${amount} to ${project.title}` : `Give ${amount} to a project`;
+  if (target === "creative" && creative) label = `Give ${amount}${plus} to ${creative.name.split(" ")[0]}`;
+  if (target === "project") label = project ? `Give ${amount}${plus} to ${project.title}` : `Give ${amount} to a project`;
   if (target === "fund") label = "Leave it in the grant fund";
   const busyLabel = target === "fund" ? "Saving…" : "Giving…";
 
@@ -274,66 +379,106 @@ function Chooser({
     try {
       const visible = !anonymous;
       const trimmed = note.trim() || undefined;
+      const plussedUp = extraCents > 0;
+      let done: Done;
       if (target === "creative" && creative) {
         await decide({ giftId: gift.giftId, target, recipientUserId: creative.userId, note: trimmed, visible });
-        onDecided({
+        done = {
           giftId: gift.giftId,
           amountCents: gift.amountCents,
           target,
           visible,
           recipientUserId: creative.userId,
           recipientName: creative.name,
-        });
+          plussedUp,
+        };
       } else if (target === "project" && project) {
         await decide({ giftId: gift.giftId, target, projectId: project.projectId, note: trimmed, visible });
-        onDecided({
+        done = {
           giftId: gift.giftId,
           amountCents: gift.amountCents,
           target,
           visible,
           projectId: project.projectId,
           projectTitle: project.title,
-        });
+          plussedUp,
+        };
       } else {
         await decide({ giftId: gift.giftId, target: "fund" });
-        onDecided({ giftId: gift.giftId, amountCents: gift.amountCents, target: "fund", visible: true });
+        done = { giftId: gift.giftId, amountCents: gift.amountCents, target: "fund", visible: true };
       }
+      onDecided(done);
       capture("giving_decided", { target });
+      if (plussedUp) {
+        // The decision has landed. A checkout failure shows in the done state and never undoes it.
+        capture("giving_plus_up_started", { target, combined: true });
+        try {
+          let url: string;
+          if (done.target === "creative" && done.recipientUserId) {
+            ({ url } = await giftCheckout({
+              recipientUserId: done.recipientUserId,
+              amountCents: extraCents,
+              recurring: false,
+              visible: !anonymous,
+              memberGiftId: gift.giftId,
+            }));
+          } else if (done.target === "project" && done.projectId) {
+            ({ url } = await backingCheckout({
+              projectId: done.projectId,
+              amountCents: extraCents,
+              recurring: false,
+              visible: !anonymous,
+              from: "project",
+              memberGiftId: gift.giftId,
+            }));
+          } else {
+            throw new Error("no target");
+          }
+          window.location.assign(url);
+        } catch (err) {
+          onDecided({ ...done, checkoutError: reasonFrom(err, "Couldn't start checkout. Try again.") });
+        }
+      }
     } catch (err) {
       setError(reasonFrom(err, "Couldn't save that. Try again."));
       setBusy(false);
     }
   }
 
+  const followingOf = (p: unknown): boolean => (p as { following?: boolean })?.following ?? false;
+  const ownerFollowedOf = (p: unknown): boolean => (p as { ownerFollowed?: boolean })?.ownerFollowed ?? false;
   const peopleRows = people ?? [];
+  const anyFollowing = peopleRows.some(followingOf);
+  const groupHeads = debounced === "" && anyFollowing;
   const shownPeople = showAll ? peopleRows : peopleRows.slice(0, ROWS_SHOWN);
-  const projectRows = projects ?? [];
+  const q = search.trim().toLowerCase();
+  const projectRows = (projects ?? [])
+    .filter((p) => !q || `${p.title} ${p.ownerName}`.toLowerCase().includes(q))
+    .map((p, i) => ({ p, i }))
+    .sort((a, b) => Number(ownerFollowedOf(b.p)) - Number(ownerFollowedOf(a.p)) || a.i - b.i)
+    .map((x) => x.p);
   const shownProjects = showAll ? projectRows : projectRows.slice(0, ROWS_SHOWN);
+  const pickedProjectId = project?.projectId;
   const showNote = target === "creative" || target === "project";
 
   return (
     <section style={{ marginTop: first ? 0 : 48 }}>
-      <span className="g-label">Your half</span>
-      {first ? (
-        <h1 className="g-h" style={{ marginTop: 8, fontSize: "clamp(28px,5vw,40px)" }}>
-          You have {amount} to give this month.
-        </h1>
-      ) : (
-        <h2 className="g-h" style={{ marginTop: 8, fontSize: 28 }}>
-          You have {amount} to give this month.
-        </h2>
-      )}
-      <p style={{ marginTop: 12, fontSize: 17, color: BODY }}>{CLAIMS.memberDirectedDefault}</p>
-      <p className="g-hint" style={{ marginTop: 4 }}>
-        Pick by {formatDate(gift.defaultAt)}.
-      </p>
-      <p className="g-hint-body" style={{ marginTop: 12, fontSize: 14.5, color: BODY }}>
-        {CLAIMS.dues} {CLAIMS.memberDirected}
-      </p>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        {first ? (
+          <h1 className="g-h" style={{ fontSize: "clamp(28px,5vw,40px)" }}>
+            You have {amount} to give.
+          </h1>
+        ) : (
+          <h2 className="g-h" style={{ fontSize: 28 }}>
+            You have {amount} to give.
+          </h2>
+        )}
+        <InfoTip lines={GIVING_TIP_LINES} />
+      </div>
+      <p style={{ marginTop: 12, fontSize: 17, color: BODY }}>Support a creative, a project, or the grant fund.</p>
 
-      <div role="radiogroup" aria-label={`Where your ${amount} goes`} style={{ marginTop: 36 }}>
-        <span className="g-label">Where it goes</span>
-        <div style={{ marginTop: 12, display: "grid", gap: 12 }}>
+      <div role="radiogroup" aria-label={`Who gets your ${amount}`} style={{ marginTop: 24 }}>
+        <div style={{ display: "grid", gap: 12 }}>
           {choices.map((c, i) => {
             const on = target === c.id;
             return (
@@ -365,9 +510,11 @@ function Chooser({
                   <b style={{ display: "block", color: PAPER, fontSize: 17, fontWeight: 600, lineHeight: 1.3 }}>
                     {c.title}
                   </b>
-                  <span style={{ display: "block", fontSize: 14.5, color: BODY, marginTop: 3, lineHeight: 1.5 }}>
-                    {c.text}
-                  </span>
+                  {c.text && (
+                    <span style={{ display: "block", fontSize: 14.5, color: BODY, marginTop: 3, lineHeight: 1.5 }}>
+                      {c.text}
+                    </span>
+                  )}
                 </div>
                 {on && (
                   <span aria-hidden="true" style={{ color: CITRON, fontFamily: "var(--g-mono, monospace)", fontSize: 15 }}>
@@ -405,40 +552,41 @@ function Chooser({
             </>
           ) : (
             <>
-              <label className="g-label" htmlFor={`search-${gift.giftId}`}>
-                Pick a creative
-              </label>
               <input
                 id={`search-${gift.giftId}`}
                 className="g-input"
-                style={{ marginTop: 10 }}
+                aria-label="Search creatives"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search by name"
+                placeholder="Search by name or keyword"
                 autoComplete="off"
               />
               <p className="g-hint" style={{ marginTop: 6 }} aria-live="polite">
-                {people === undefined
-                  ? ""
-                  : peopleRows.length === 0
-                    ? `No one by that name in ${gift.communityName}.`
-                    : `${peopleRows.length} ${peopleRows.length === 1 ? "person" : "people"}`}
+                {people !== undefined && peopleRows.length === 0 ? `No one found in ${gift.communityName}.` : ""}
               </p>
               <div
                 role="radiogroup"
                 aria-label="Pick a creative"
-                style={{ marginTop: 12, borderTop: `1px solid ${HAIR}` }}
+                style={{ marginTop: 6, borderTop: `1px solid ${HAIR}` }}
               >
-                {shownPeople.map((p) => (
-                  <PickerRow
-                    key={p.userId}
-                    avatar={initials(p.name)}
-                    title={p.name}
-                    meta={[p.interests?.[0], p.location].filter(Boolean).join(" · ") || null}
-                    selected={false}
-                    onSelect={() => setCreative({ userId: p.userId, name: p.name })}
-                  />
-                ))}
+                {shownPeople.map((p, i) => {
+                  const rowFollowing = followingOf(p);
+                  const startsFollowing = groupHeads && rowFollowing && i === 0;
+                  const startsEveryone = groupHeads && !rowFollowing && (i === 0 || followingOf(shownPeople[i - 1]));
+                  return (
+                    <div key={p.userId}>
+                      {startsFollowing && <GroupHead>People you follow</GroupHead>}
+                      {startsEveryone && anyFollowing && <GroupHead>Everyone</GroupHead>}
+                      <PickerRow
+                        avatar={initials(p.name)}
+                        title={p.name}
+                        meta={[p.interests?.[0], p.location].filter(Boolean).join(" · ") || null}
+                        selected={false}
+                        onSelect={() => setCreative({ userId: p.userId, name: p.name })}
+                      />
+                    </div>
+                  );
+                })}
               </div>
               {!showAll && peopleRows.length > ROWS_SHOWN && (
                 <button type="button" className="g-btn g-btn-ghost" style={{ marginTop: 12 }} onClick={() => setShowAll(true)}>
@@ -464,21 +612,28 @@ function Chooser({
             </>
           ) : (
             <>
-              <span className="g-label">Pick a project</span>
+              <input
+                className="g-input"
+                aria-label="Search projects"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search projects"
+                autoComplete="off"
+              />
               <p className="g-hint" style={{ marginTop: 6 }} aria-live="polite">
-                {projects === undefined
-                  ? ""
-                  : projectRows.length === 0
+                {projects !== undefined && projectRows.length === 0
+                  ? projects.length === 0
                     ? `No open projects in ${gift.communityName} right now.`
-                    : `${projectRows.length} open ${projectRows.length === 1 ? "project" : "projects"}. Yours aren't listed.`}
+                    : "No projects found."
+                  : ""}
               </p>
-              <div role="radiogroup" aria-label="Pick a project" style={{ marginTop: 12, borderTop: `1px solid ${HAIR}` }}>
+              <div role="radiogroup" aria-label="Pick a project" style={{ marginTop: 6, borderTop: `1px solid ${HAIR}` }}>
                 {shownProjects.map((p) => (
                   <PickerRow
                     key={p.projectId}
                     title={p.title}
                     meta={`${p.ownerName} · ${formatMoney(p.raisedCents)} raised`}
-                    selected={false}
+                    selected={pickedProjectId === p.projectId}
                     onSelect={() => setProject({ projectId: p.projectId, title: p.title })}
                   />
                 ))}
@@ -495,18 +650,16 @@ function Chooser({
 
       {showNote && (
         <div style={{ marginTop: 24 }}>
-          <label className="g-label" htmlFor={`note-${gift.giftId}`}>
-            A note (optional)
-          </label>
           <textarea
             id={`note-${gift.giftId}`}
+            aria-label="Add a note"
             className="g-input"
-            style={{ marginTop: 10, minHeight: 84, resize: "vertical" }}
+            style={{ minHeight: 84, resize: "vertical" }}
             rows={3}
             maxLength={NOTE_MAX}
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            placeholder="Say why, if you like."
+            placeholder="Add a note"
           />
           <div
             style={{
@@ -528,9 +681,46 @@ function Chooser({
             />
             Give anonymously
           </label>
-          <p className="g-hint" style={{ marginTop: 4, paddingLeft: 28 }}>
-            They'll see "Someone gave you {amount}."
-          </p>
+        </div>
+      )}
+
+      {extraAllowed && (
+        <div style={{ marginTop: 24 }}>
+          <p style={{ fontSize: 15, color: BODY }}>Add more of your own?</p>
+          <div role="radiogroup" aria-label="Add more of your own" style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
+            {[...PLUS_UP_AMOUNTS_CENTS, "custom" as const].map((c) => {
+              const on = extraChoice === c;
+              return (
+                <button
+                  key={c}
+                  type="button"
+                  role="radio"
+                  aria-checked={on}
+                  className="g-btn g-btn-ghost"
+                  onClick={() => setExtraChoice(on ? null : c)}
+                  style={{ minWidth: 72, minHeight: 44, ...(on ? { borderColor: CITRON, color: CITRON } : null) }}
+                >
+                  {c === "custom" ? "Custom" : formatMoney(c)}
+                </button>
+              );
+            })}
+          </div>
+          {extraChoice === "custom" && (
+            <input
+              className="g-input"
+              value={extraCustom}
+              onChange={(e) => setExtraCustom(e.target.value)}
+              inputMode="decimal"
+              placeholder="Dollars"
+              aria-label="Amount in dollars"
+              style={{ marginTop: 10, maxWidth: 160 }}
+            />
+          )}
+          {extraBlocked && (
+            <p className="g-hint" style={{ marginTop: 6 }} aria-live="polite">
+              Give at least {formatMoney(MIN_PLUS_UP_CENTS)}, or clear it.
+            </p>
+          )}
         </div>
       )}
 
@@ -539,9 +729,9 @@ function Chooser({
           type="button"
           className="g-btn g-btn-citron"
           onClick={confirm}
-          disabled={!ready || busy}
+          disabled={!ready || busy || extraBlocked}
           aria-label={ready ? label : undefined}
-          style={{ opacity: !ready || busy ? 0.5 : 1, maxWidth: "100%" }}
+          style={{ opacity: !ready || busy || extraBlocked ? 0.5 : 1, maxWidth: "100%" }}
         >
           {busy ? busyLabel : label}
         </button>
@@ -550,11 +740,14 @@ function Chooser({
             {error}
           </p>
         )}
-        <p className="g-hint" style={{ marginTop: 14 }}>
-          {CLAIMS.memberDirectedDefault} Pick by {formatDate(gift.defaultAt)}.
-        </p>
       </div>
     </section>
+  );
+}
+
+function GroupHead({ children }: { children: ReactNode }) {
+  return (
+    <div style={{ padding: "12px 10px 4px", fontSize: 14, color: "var(--g-muted)", fontWeight: 600 }}>{children}</div>
   );
 }
 
@@ -642,20 +835,9 @@ function DoneBlock({
   const [skipped, setSkipped] = useState(false);
 
   let heading = "";
-  let lines: ReactNode[] = [];
-  if (done.target === "creative") {
-    heading = `You gave ${amount} to ${done.recipientName ?? "them"}.`;
-    lines = [
-      CLAIMS.memberDirectedFull,
-      done.visible ? "They'll get a note that it came from you." : `They'll see "Someone gave you ${amount}."`,
-    ];
-  } else if (done.target === "project") {
-    heading = `You gave ${amount} to ${done.projectTitle ?? "the project"}.`;
-    lines = ["It shows on the project as a backing."];
-  } else {
-    heading = `Your ${amount} stays in the grant fund.`;
-    lines = [POOL_SECOND_SENTENCE];
-  }
+  if (done.target === "creative") heading = `You gave ${amount} to ${done.recipientName ?? "them"}.`;
+  else if (done.target === "project") heading = `You gave ${amount} to ${done.projectTitle ?? "the project"}.`;
+  else heading = `Your ${amount} went to the grant fund.`;
 
   const askName =
     done.target === "creative"
@@ -663,20 +845,28 @@ function DoneBlock({
       : done.target === "project"
         ? (done.projectTitle ?? "the project")
         : "the Sophia Fund";
+  const tipLines =
+    done.target === "fund" ? GIVING_TIP_LINES : [...GIVING_TIP_LINES, "90% goes to them. Card processing is added at checkout."];
 
   return (
     <section style={{ borderLeft: `2px solid ${CITRON}`, paddingLeft: 16, marginBottom: 48 }} aria-live="polite">
-      <span className="g-badge g-badge-citron">Given · {amount}</span>
-      <h2 className="g-h" style={{ marginTop: 10, fontSize: 22, lineHeight: 1.15 }}>
-        {heading}
-      </h2>
-      <p style={{ marginTop: 8, fontSize: 17, color: BODY }}>{lines.join(" ")}</p>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        <h2 className="g-h" style={{ fontSize: 22, lineHeight: 1.15 }}>
+          {heading}
+        </h2>
+        <InfoTip lines={tipLines} />
+      </div>
 
-      {!skipped && (
+      {done.checkoutError && (
+        <p style={{ marginTop: 12, fontSize: 14.5, color: BODY }} role="alert">
+          {done.checkoutError}
+        </p>
+      )}
+
+      {!skipped && !done.plussedUp && (
         <div style={{ marginTop: 28 }}>
-          <span className="g-label">Add your own</span>
-          <h3 className="g-h" style={{ marginTop: 8, fontSize: 22, lineHeight: 1.15 }}>
-            Add more {done.target === "fund" ? "to" : "for"} {askName}?
+          <h3 className="g-h" style={{ fontSize: 22, lineHeight: 1.15 }}>
+            Give more to {askName}?
           </h3>
           {done.target === "fund" ? (
             <FundPlusUp done={done} userId={userId} email={email} capture={capture} />
@@ -684,7 +874,7 @@ function DoneBlock({
             <PlusUpForm done={done} capture={capture} />
           )}
           <button type="button" className="g-btn g-btn-ghost" style={{ marginTop: 16 }} onClick={() => setSkipped(true)}>
-            Not this month
+            Skip
           </button>
         </div>
       )}
@@ -703,30 +893,29 @@ function PlusUpForm({
   const backingCheckout = useAction(api.garden.stripe.createBackingCheckout);
   const [choice, setChoice] = useState<number | "custom">(PLUS_UP_AMOUNTS_CENTS[1]);
   const [custom, setCustom] = useState("");
-  const [monthly, setMonthly] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const cents = choice === "custom" ? Math.round(parseFloat(custom || "0") * 100) : choice;
   const valid = Number.isFinite(cents) && cents >= MIN_PLUS_UP_CENTS;
-  const label = valid ? `Add ${formatMoney(cents)} ${monthly ? "a month" : "once"}` : "Add your own";
+  const label = valid ? `One-time gift of ${formatMoney(cents)}` : "One-time gift";
 
   async function go() {
     if (busy) return;
     if (!valid) {
-      setError(`Add at least ${formatMoney(MIN_PLUS_UP_CENTS)}.`);
+      setError(`Give at least ${formatMoney(MIN_PLUS_UP_CENTS)}.`);
       return;
     }
     setError(null);
     setBusy(true);
-    capture("giving_plus_up_started", { target: done.target, recurring: monthly });
+    capture("giving_plus_up_started", { target: done.target, recurring: false });
     try {
       let url: string;
       if (done.target === "creative" && done.recipientUserId) {
         ({ url } = await giftCheckout({
           recipientUserId: done.recipientUserId,
           amountCents: cents,
-          recurring: monthly,
+          recurring: false,
           visible: done.visible,
           memberGiftId: done.giftId,
         }));
@@ -734,7 +923,7 @@ function PlusUpForm({
         ({ url } = await backingCheckout({
           projectId: done.projectId,
           amountCents: cents,
-          recurring: monthly,
+          recurring: false,
           visible: done.visible,
           from: "project",
           memberGiftId: done.giftId,
@@ -752,39 +941,6 @@ function PlusUpForm({
 
   return (
     <div style={{ marginTop: 16 }}>
-      <div
-        role="radiogroup"
-        aria-label="How often"
-        style={{ display: "inline-flex", border: `1px solid ${HAIR}`, borderRadius: 10, padding: 3 }}
-      >
-        {[
-          { m: false, text: "One time" },
-          { m: true, text: "Monthly" },
-        ].map((o) => (
-          <button
-            key={o.text}
-            type="button"
-            role="radio"
-            aria-checked={monthly === o.m}
-            onClick={() => setMonthly(o.m)}
-            style={{
-              fontFamily: "var(--g-mono, monospace)",
-              fontSize: 13.5,
-              letterSpacing: "0.08em",
-              textTransform: "uppercase",
-              padding: "10px 16px",
-              minHeight: 44,
-              borderRadius: 8,
-              cursor: "pointer",
-              background: monthly === o.m ? PAPER : "transparent",
-              color: monthly === o.m ? "#121212" : PAPER,
-            }}
-          >
-            {o.text}
-          </button>
-        ))}
-      </div>
-
       <div role="radiogroup" aria-label="How much" style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 14 }}>
         {[...PLUS_UP_AMOUNTS_CENTS, "custom" as const].map((c) => {
           const on = choice === c;
@@ -825,9 +981,6 @@ function PlusUpForm({
           {error}
         </p>
       )}
-      <p className="g-hint-body" style={{ marginTop: 12, fontSize: 14.5, color: BODY }}>
-        {CLAIMS.patron} {CLAIMS.processingFee}
-      </p>
     </div>
   );
 }
@@ -845,10 +998,9 @@ function FundPlusUp({
 }) {
   const fundPage = useQuery(api.garden.allocations.getFundPage, { hostOrgSlug: FUND_SLUG });
   const once = fundPage?.org?.paymentLinkUrl;
-  const monthly = fundPage?.org?.monthlyPaymentLinkUrl;
 
   const links = useMemo(() => {
-    if (!userId) return { once: undefined, monthly: undefined };
+    if (!userId) return { once: undefined };
     const ref = { memberGiftId: String(done.giftId), userId: String(userId) };
     const opts = { email };
     const build = (u?: string) => {
@@ -859,10 +1011,10 @@ function FundPlusUp({
         return undefined;
       }
     };
-    return { once: build(once), monthly: build(monthly) };
-  }, [done.giftId, userId, email, once, monthly]);
+    return { once: build(once) };
+  }, [done.giftId, userId, email, once]);
 
-  if (!links.once && !links.monthly) return null;
+  if (!links.once) return null;
 
   return (
     <div style={{ marginTop: 16 }}>
@@ -873,22 +1025,12 @@ function FundPlusUp({
             className="g-btn g-btn-citron"
             onClick={() => capture("giving_plus_up_started", { target: "fund", recurring: false })}
           >
-            Give once to the Sophia Fund
-          </a>
-        )}
-        {links.monthly && (
-          <a
-            href={links.monthly}
-            className={links.once ? "g-btn g-btn-ghost" : "g-btn g-btn-citron"}
-            onClick={() => capture("giving_plus_up_started", { target: "fund", recurring: true })}
-          >
-            Give monthly to the Sophia Fund
+            One-time gift to the Sophia Fund
           </a>
         )}
       </div>
       <p className="g-hint-body" style={{ marginTop: 12, fontSize: 14.5, color: BODY }}>
-        {CLAIMS.grantFundDeductible} Secure checkout on Abiding Practice's Stripe page. Your receipt comes from them,
-        then you return here.
+        {CLAIMS.grantFundDeductible}
       </p>
     </div>
   );
@@ -907,14 +1049,14 @@ function HistorySection({ history }: { history: Gift[] }) {
           let did = "";
           if (g.status === "creative") did = `Gave ${amount} to ${g.recipient?.name ?? "someone"}`;
           else if (g.status === "project") did = `Gave ${amount} to ${g.project?.title ?? "a project"}`;
-          else did = g.decidedBy === "default" ? "Stayed in the grant fund. You didn't pick." : "Left it in the grant fund";
+          else did = g.decidedBy === "default" ? "Went to the grant fund" : "Grant fund";
           const plusUp = g.plusUpCents ?? 0;
           return (
             <HistoryRow
               key={g.giftId}
               period={formatPeriod(g.period)}
               did={did}
-              added={plusUp > 0 ? `Added ${formatMoney(plusUp)}` : "—"}
+              added={plusUp > 0 ? `Plussed up ${formatMoney(plusUp)}` : undefined}
             />
           );
         })}
@@ -932,7 +1074,7 @@ const ROW: CSSProperties = {
   borderBottom: `1px solid ${HAIR}`,
 };
 
-function HistoryRow({ period, did, added }: { period: string; did: string; added: string }) {
+function HistoryRow({ period, did, added }: { period: string; did: string; added?: string }) {
   return (
     <div style={ROW}>
       <span
@@ -948,7 +1090,7 @@ function HistoryRow({ period, did, added }: { period: string; did: string; added
         {period}
       </span>
       <span style={{ color: PAPER, fontSize: 15 }}>{did}</span>
-      <span style={{ color: "var(--g-muted)", fontSize: 14.5 }}>{added}</span>
+      {added && <span style={{ color: "var(--g-muted)", fontSize: 14.5 }}>· {added}</span>}
     </div>
   );
 }
@@ -984,7 +1126,7 @@ function ReceivedSection({
           {!payoutsEnabled && (
             <>
               <p className="g-hint-body" style={{ marginTop: 6, fontSize: 14.5, color: BODY }}>
-                Connect your bank in Settings to get it. It waits for you until you do.
+                Connect your bank in Settings to get it.
               </p>
               <Link to="/settings?tab=money" className="g-btn g-btn-ghost" style={{ marginTop: 12 }}>
                 Get paid in Settings
@@ -996,14 +1138,12 @@ function ReceivedSection({
       <div style={{ marginTop: 12, borderTop: `1px solid ${HAIR}` }}>
         {received.map((r) => {
           const amount = formatMoney(r.amountCents);
-          const did =
-            r.source === "plus_up" ? `${r.giverName} backed you with ${amount}` : `${r.giverName} gave you ${amount}`;
+          const did = `${r.giverName} gave you ${amount}`;
           return (
             <HistoryRow
               key={r.id}
               period={formatPeriod(r.period)}
               did={did}
-              added={r.transferred ? "Sent to your bank" : "—"}
             />
           );
         })}

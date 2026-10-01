@@ -8,7 +8,7 @@ Flow and screens: the UX spine is in `_bmad-output/planning-artifacts/ux-designs
 
 ## What this is
 
-Half of a member's dues already funds grants for other creatives (`CLAIMS.dues`). Today a committee decides where all of it goes. This feature hands that half back to the member, one month at a time: when their membership is billed, they get a notice that they have that half to give. They pick a creative, pick a project, or leave it in the grant fund. If they do nothing, it stays in the fund. Then we ask them to add more of their own money, once or monthly.
+Half of a member's dues already funds grants for other creatives (`CLAIMS.dues`). Today a committee decides where all of it goes. This feature hands that half back to the member, one month at a time, as their **monthly grant**: when their membership is billed, they get a notice that they have it to give. They support a creative, a project, or the grant fund. If they do nothing within a week, it goes to the fund. Then we ask them to give more of their own money, one time.
 
 The model is Kiva's re-lend credit (a small fixed amount, a named person, a monthly nudge) on top of a member-directed fund (what nobody directs, the committee grants). It is not GoFundMe: nobody has to ask. The money exists first and the member assigns it. It is not TOMS: the member picks, not us.
 
@@ -16,28 +16,29 @@ The plus-up is the metric. A member who gives their $5 and then adds $20 of thei
 
 ## Words
 
-- Member-facing: **give**, **back**, **your half**, **the grant fund**. The notice says "You have $5 to give this month."
-- Never "gift" or "donate" for money that moves through our checkout. Those words stay on the Sophia Fund's own giving links (Abiding Practice, tax-deductible), the same rule the backing modal and pool checkout already follow. This doc uses "gift" only as the name of the database row.
+- Member-facing: **support**, **give**, **your monthly grant**, **the grant fund**, **plussed up**. The notice says "You have $4.71 to give." Half the words of a first draft, every time (Rick, 2026-09-30).
+- "Gift" is fine in copy ("one-time gift"). "Donate" and "tax-deductible" stay reserved for the Sophia Fund's own giving links (Abiding Practice).
 - The dollar amount in copy is always computed from the member's own invoice, never typed. A membership will not always be $10.
+- Explanations (the money goes to them in full; they see your name; 90% on a gift of your own, card processing at checkout) live behind an info icon, not on the page.
 
 ## How it works
 
-**The trigger.** Every paid membership invoice (the first one and every renewal) already writes one `dues_share` row to the community's pool. In the same webhook call, the pool share of that invoice becomes one `memberGifts` row for that member, status `open`. The Garden's pool share is 50%, so a $10 membership opens $5. A community with no pool share opens nothing.
+**The trigger.** Every paid membership invoice (the first one and every renewal) already writes one `dues_share` row to the community's pool. In the same webhook call, the member's monthly grant opens as one `memberGifts` row, status `open`. The amount is the pool share of the **net** after card processing (2.9% + 30¢ comes out of the charge): The Garden's share is 50%, so a $10 membership opens $4.71, not $5. A community with no pool share opens nothing.
 
-**The notice.** One in-app notification and one email per opened gift: "You have $5 to give this month," linking to `/give`. Email category `activity`, so it respects the member's email settings. The in-app notice always shows. `/join/success` and `/today` show the open amount while it is open.
+**The notice.** One in-app notification and one email per opened gift: "You have $4.71 to give," linking to `/give`. Email category `activity`, so it respects the member's email settings. The in-app notice always shows. `/join/success` and `/today` show the open amount while it is open.
 
-**The choice, on `/give`.**
-- *A creative.* Any active member of the same community except yourself. Search by name. The creative does not need a paid membership.
-- *A project.* Any active passion project in the community except your own. The money shows on the project as a confirmed backing.
-- *The grant fund.* Explicit. Nothing moves; the money is already there.
+**The choice, on `/give`.** "You have $4.71 to give. Support a creative, a project, or the grant fund."
+- *A creative.* Any active member of the same community except yourself. People you follow come first, then search by name or keyword. The creative does not need a paid membership.
+- *A project.* Any active passion project in the community except your own. Projects by people you follow come first, then search. The money shows on the project as a confirmed backing.
+- *The grant fund.* The default. Under it: "Pick by Nov 4. If you don't, it goes here."
 - With a creative or project: an optional note (200 characters) and named or anonymous, the same choice backers already make.
 
 **What the recipient gets.** The full amount. The platform took its 10% on the dues; there is no second bite. The money reaches them through Stripe Connect (next section). A project-directed gift shows on the project as a confirmed backing with no platform share and adds to the project's raised total. The recipient gets a notification and an email: "Dana gave you $5" or "Someone gave you $5."
 
-**The default.** A gift left `open` goes to the fund when the member's next gift opens for the same membership, or 35 days after it opened, whichever comes first. A daily sweep does it. The notice and the page both say so in plain words. The row records that the member did not choose (`decidedBy: "default"`), which the audit counts separately from a member who chose the fund.
+**The default.** A gift left `open` goes to the fund a week after it opened, or when the member's next gift opens for the same membership, whichever comes first. A daily sweep does it. The notice and the page both say so in plain words. The row records that the member did not choose (`decidedBy: "default"`), which the audit counts separately from a member who chose the fund.
 
-**The plus-up.** Right after a decision, the page asks for more toward the same target:
-- To a creative: `createGiftCheckout`, one-time or monthly. Money rules are the backing rules: 90% to them, 10% platform, card processing on top (`CLAIMS.backing`, `CLAIMS.processingFee`). Renewals land through `invoice.paid`.
+**The plus-up.** Two chances, never a nag. Before the first Give, once a creative or project is picked, a row of amount chips ("Add more of your own?" $10 · $25 · $50 · Custom) sits above the button; pick one and the button reads "Give $4.71 + $25 to Dana" and does both at once (the $4.71 lands first, then Stripe). Pick none and, right after the decision, the page asks once: "Give more to Dana?" with the same chips and "Skip". One-time gifts only in this version. In the data and the report the word is **plussed up**.
+- To a creative: `createGiftCheckout`, one-time (monthly stays supported by the backend, hidden in the UI). Money rules are the backing rules: 90% to them, 10% platform, card processing on top (`CLAIMS.backing`, `CLAIMS.processingFee`). Renewals land through `invoice.paid`.
 - To a project: the existing backing checkout on that project, one-time or monthly, tagged with the gift it came from.
 - To the fund: the Sophia Fund's own one-time and monthly giving links, tagged with the member and the gift in the link's client reference so the Abiding Practice webhook records who added what. 100% to the fund, tax-deductible (`CLAIMS.grantFundDeductible`). This is the only plus-up that never touches our account.
 
@@ -72,27 +73,16 @@ Payouts run through Stripe Connect, separate charges and transfers (`backing-pay
 
 ## What we measure
 
-The audit lives in the data, not only in PostHog. `getGivingReport` (operator, on `/admin/ledger`) shows, per month:
+The audit lives in the data, not only in PostHog. `getGivingReport` (operator, on `/admin/ledger`) shows per month, in plain words and without a table: members billed · gave to a creative · gave to a project · chose the fund · didn't pick (went to the fund) · haven't picked yet · plussed up (how many members, how much, how many monthly) · gave again this month and last · plussed up again this month and last. Then "Who plussed up": name, how many times, how much. No streaks.
 
-| Column | What it counts |
-|---|---|
-| Opened | gifts opened (paid invoices with a pool share) |
-| To a creative · to a project · left in fund · defaulted | where each went |
-| Decided within 7 days | how fast people act |
-| Distinct recipients | whether money spreads or piles on a few |
-| Plus-ups · plus-up dollars · monthly plus-ups started | the behavior change |
-| Plus-up rate | plus-ups ÷ gifts directed to a creative or project |
-| Repeat givers | members who directed last month and this month |
-| Repeat plus-ups | members who plussed up last month and this month |
-
-Per member, the same table lists months directed in a row and total plussed up, largest first. PostHog gets the funnel events (`giving_notice_opened`, `giving_decided`, `giving_plus_up_started`) with the target type, never an amount or a name.
+PostHog gets the funnel events (`giving_notice_opened`, `giving_decided`, `giving_plus_up_started`) with the target type, never an amount or a name.
 
 ## What could go wrong, and what the spec does about it
 
 - **Two members pay each other $5 forever.** Nothing is gained: the platform already took 10% of the dues and takes 0% on the gift. Self-directing is blocked; pairs are harmless.
 - **The same three people get everything.** The report's distinct-recipient column shows it. **Open:** whether the picker should surface people who have not been backed this month.
 - **$5 pieces at scale.** A hundred members is $500 a month in small rows. Transfers into a connected account are free and automatic; the $50 minimum keeps Stripe's $2 active-account fee from eating the margin.
-- **The default feels like a trick.** The notice states the default in the first two lines. The page keeps a full history: month, what you did, what you added.
+- **The default feels like a trick.** The notice says it, and the fund option says "Pick by {date}. If you don't, it goes here." The page keeps a full history: month, what you did, what you plussed up.
 - **Email fatigue.** One email per billing. It respects the activity setting; the in-app notice remains.
 - **Fraud.** The allowance moves no new money. Plus-ups go through Stripe Checkout with the same protections as backings.
 - **Taxes.** A directed $5 is dues redirected, not a donation, and not deductible. To the recipient it is income, the same as a backing (`backing-payouts.md`). A fund plus-up through Abiding Practice is deductible because it is a gift to a 501(c)(3), and the copy says only that.
@@ -108,7 +98,6 @@ Per member, the same table lists months directed in a row and total plussed up, 
 
 ## Known gaps in what was built
 
-- Class money (`classPayments`) is not in the transfer sweep yet; it still pays out by hand. Adding it is the same code path.
 - A transfer reversal (refund after payout) is by hand in the Stripe dashboard.
 - Connect account events (`account.updated`) are read when the creative returns from Stripe and nightly; the webhook endpoint for connected-account events is an ops step, not code.
 - A refund of a membership invoice does not close or reverse its gift.

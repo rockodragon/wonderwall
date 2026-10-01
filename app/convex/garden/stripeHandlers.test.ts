@@ -21,6 +21,7 @@ import {
   backingProcessingFeeCents,
   CARD_FEE_RATE,
   CARD_FEE_FIXED_CENTS,
+  memberGrantCents,
   validateBackingAmount,
   MIN_BACKING_CENTS,
   type BillingCustomerRow,
@@ -2045,9 +2046,16 @@ describe("member-directed giving through the webhook", () => {
       userId: "u_dana",
       communityId: "org_garden",
       sourceStripeRef: "in_dues_1",
-      amountCents: 500, // the pool share of $10 at 50%
+      amountCents: 471, // half of the $10 net of card processing
     });
     expect(opened[0].period).toBe(contributions.get("in_dues_1")!.period);
+  });
+
+  it("memberGrantCents is the pool percent of the net after card processing", () => {
+    expect(memberGrantCents(1000, 50)).toBe(471);
+    expect(memberGrantCents(0, 50)).toBe(0);
+    expect(memberGrantCents(1000, 0)).toBe(0);
+    expect(memberGrantCents(10, 50)).toBe(0); // fee exceeds the charge: never negative
   });
 
   it("opens nothing on a fake Db that predates gifts, and nothing without a userId", async () => {
