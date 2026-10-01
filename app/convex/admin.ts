@@ -296,6 +296,16 @@ export const deleteUser = mutation({
       await ctx.db.delete(favorite._id);
     }
 
+    // Their positions at organizations (docs/features/organizations.md) —
+    // otherwise they'd keep counting on the organization's page.
+    const positions = await ctx.db
+      .query("orgPositions")
+      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+      .collect();
+    for (const position of positions) {
+      await ctx.db.delete(position._id);
+    }
+
     // Delete profile
     await ctx.db.delete(profile._id);
 

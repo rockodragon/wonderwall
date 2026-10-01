@@ -40,8 +40,9 @@ A project is raising when it is not a gig and has any of: a goal, the `raising` 
 
 `/projects` has two views, split by what the visitor wants:
 
-- **Projects** (default) — `kind: "passion"`. Filters: All, Raising, Looking for people.
-- **Work** (`?view=work`) — paid jobs, gigs, and projects with open roles. Filters: All, Jobs, Gigs, Roles on projects. Project cards here list each open role with its pay.
+- **Projects** (default) — `kind: "passion"`. Filters are the stages (Rick, 2026-10-01 — the old "Raising / Looking for people" pills read as stages and collided with them): All, Planning, Raising, Forming team, Working, Releasing. A stage pill matches `resolveStage`; Raising matches `isRaising`, the same rule as the card's badge and "Back this". Old `?show=people` lands on Forming team.
+- **Work** (`?view=work`) — paid jobs, shows, and projects with open roles. Filters: All, Jobs, Shows, Roles on projects. Project cards here list each open role with its pay. "Shows" was "Gigs" until 2026-10-01: a gig is any paid work, so it overlapped with the Work view itself; a show is a recurring live-booking series (`?show=gigs` still works). On-screen copy says "show"; code keeps `gig`.
+- Both views (and Events) start their grid with a "+" card — "Start a project", "Hire someone", "Host an event" — first in the lineup, so posting is the first thing you see, especially when the list is short.
 
 A filter is `?show=…`. The old `?kind=passion|paid|gigs` links still land in the right place.
 

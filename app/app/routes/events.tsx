@@ -2,6 +2,7 @@ import { useConvexAuth, useQuery } from "convex/react";
 import { useMemo, useState, type CSSProperties } from "react";
 import { useNavigate } from "react-router";
 import { api } from "../../convex/_generated/api";
+import { CreateCard } from "../components/CreateCard";
 import { CreateEventModal } from "../components/CreateEventModal";
 import { EventCard } from "../components/EventCard";
 import { SearchInput } from "../components/SearchInput";
@@ -64,6 +65,10 @@ export default function Events() {
   const allEvents = isPastTab ? pastEvents : upcomingEvents;
   const favorites = useQuery(api.favorites.getMyFavorites, {});
   const [showCreate, setShowCreate] = useState(false);
+  // The header button and the first card in the grid both host an event; a
+  // signed-out visitor goes to log in and comes back here.
+  const hostEvent = () =>
+    isAuthenticated ? setShowCreate(true) : navigate("/login?redirect=%2Fevents");
   const [tagsExpanded, setTagsExpanded] = useState(false);
   const {
     nearMe,
@@ -232,7 +237,7 @@ export default function Events() {
           <div className="flex gap-2">
             <button
               onClick={() => setActiveTab("all")}
-              className="px-3 py-1.5 rounded-lg text-[13px] font-medium uppercase tracking-[0.06em] whitespace-nowrap transition-colors"
+              className="px-3 py-1.5 rounded-lg text-[13.5px] font-medium uppercase tracking-[0.06em] whitespace-nowrap transition-colors"
               style={{
                 fontFamily: "var(--garden-font-body)",
                 backgroundColor:
@@ -244,7 +249,7 @@ export default function Events() {
             </button>
             <button
               onClick={() => setActiveTab("favorites")}
-              className="px-3 py-1.5 rounded-lg text-[13px] font-medium uppercase tracking-[0.06em] whitespace-nowrap transition-colors flex items-center gap-1.5"
+              className="px-3 py-1.5 rounded-lg text-[13.5px] font-medium uppercase tracking-[0.06em] whitespace-nowrap transition-colors flex items-center gap-1.5"
               style={{
                 fontFamily: "var(--garden-font-body)",
                 backgroundColor:
@@ -263,7 +268,7 @@ export default function Events() {
             </button>
             <button
               onClick={() => setActiveTab("past")}
-              className="px-3 py-1.5 rounded-lg text-[13px] font-medium uppercase tracking-[0.06em] whitespace-nowrap transition-colors"
+              className="px-3 py-1.5 rounded-lg text-[13.5px] font-medium uppercase tracking-[0.06em] whitespace-nowrap transition-colors"
               style={{
                 fontFamily: "var(--garden-font-body)",
                 backgroundColor:
@@ -277,17 +282,15 @@ export default function Events() {
             </button>
           </div>
           <button
-            onClick={() =>
-              isAuthenticated ? setShowCreate(true) : navigate("/login?redirect=%2Fevents")
-            }
-            className="px-4 py-2 rounded-lg text-[13px] font-semibold whitespace-nowrap transition-opacity hover:opacity-90"
+            onClick={hostEvent}
+            className="px-4 py-2 rounded-lg text-[13.5px] font-semibold whitespace-nowrap transition-opacity hover:opacity-90"
             style={{
               fontFamily: "var(--garden-font-body)",
               backgroundColor: "var(--garden-citron)",
               color: "var(--garden-ink)",
             }}
           >
-            + Create event
+            + Host an event
           </button>
         </div>
 
@@ -322,51 +325,54 @@ export default function Events() {
               }}
             />
           </div>
-        ) : filteredEvents.length === 0 && communitySlug !== "all" ? (
+        ) : filteredEvents.length === 0 && activeTab !== "all" && communitySlug === "all" ? (
+          // Favorites and Past keep a plain empty message. The upcoming list
+          // never gets one: its first card is "Host an event", so an empty
+          // list is just that card.
           <div className="text-center py-16" style={{ color: "var(--garden-muted)" }}>
             <p className="text-lg font-medium mb-1" style={{ color: "var(--garden-body)" }}>
-              Nothing in {communityNameFor(communitySlug, communities, allEvents)} yet — see
-              everything
-            </p>
-            <button
-              onClick={() => setCommunitySlug("all")}
-              className="text-sm underline underline-offset-2 hover:opacity-80"
-              style={{ color: "var(--garden-citron)" }}
-            >
-              Show all communities
-            </button>
-          </div>
-        ) : filteredEvents.length === 0 ? (
-          <div className="text-center py-16" style={{ color: "var(--garden-muted)" }}>
-            <p className="text-lg font-medium mb-1" style={{ color: "var(--garden-body)" }}>
-              {activeTab === "favorites"
-                ? "No favorited events"
-                : activeTab === "past"
-                  ? "Nothing in the archive yet"
-                  : "No upcoming events"}
+              {activeTab === "favorites" ? "No favorited events" : "Nothing in the archive yet"}
             </p>
             <p className="text-sm">
               {activeTab === "favorites"
                 ? "Heart an event to save it here"
-                : activeTab === "past"
-                  ? "Events show up here once they've happened"
-                  : "Create an event for the community"}
+                : "Events show up here once they've happened"}
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredEvents.map((event) => (
-              <EventCard
-                key={event._id}
-                event={event}
-                // Past events read as a quieter archive than the live list,
-                // and the Video chip is only worth showing there — on an
-                // upcoming event it says nothing you can act on yet.
-                dimmed={isPastTab}
-                videoBadge={isPastTab}
-              />
-            ))}
-          </div>
+          <>
+            {filteredEvents.length === 0 && communitySlug !== "all" && (
+              <div className="text-center pt-8 pb-10" style={{ color: "var(--garden-muted)" }}>
+                <p className="text-lg font-medium mb-1" style={{ color: "var(--garden-body)" }}>
+                  Nothing in {communityNameFor(communitySlug, communities, allEvents)} yet — see
+                  everything
+                </p>
+                <button
+                  onClick={() => setCommunitySlug("all")}
+                  className="text-sm underline underline-offset-2 hover:opacity-80"
+                  style={{ color: "var(--garden-citron)" }}
+                >
+                  Show all communities
+                </button>
+              </div>
+            )}
+            {(activeTab === "all" || filteredEvents.length > 0) && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {activeTab === "all" && <CreateCard label="Host an event" onClick={hostEvent} />}
+                {filteredEvents.map((event) => (
+                  <EventCard
+                    key={event._id}
+                    event={event}
+                    // Past events read as a quieter archive than the live list,
+                    // and the Video chip is only worth showing there — on an
+                    // upcoming event it says nothing you can act on yet.
+                    dimmed={isPastTab}
+                    videoBadge={isPastTab}
+                  />
+                ))}
+              </div>
+            )}
+          </>
         )}
       </div>
 

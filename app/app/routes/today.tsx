@@ -136,10 +136,10 @@ export default function Today() {
         )}
       </Section>
 
-      {/* The Work view, not its Gigs filter: on /projects "gigs" means a
+      {/* The Work view, not its Shows filter: on /projects a show is a
           recurring live-booking series, and this list is every paid
           posting, series or not. */}
-      <Section title="Paid gigs" action={<SectionLink to="/projects?view=work">{countLabel("gig", gigs.length)} →</SectionLink>}>
+      <Section title="Paid work" action={<SectionLink to="/projects?view=work">{countLabel("posting", gigs.length)} →</SectionLink>}>
         {loading ? (
           <Skeleton height={64} />
         ) : shownGigs.length > 0 ? (
@@ -551,7 +551,7 @@ function Badges({ project }: { project: Project }) {
   const topic = topicsOf(project)[0];
   return (
     <div className="flex flex-wrap gap-1.5">
-      <Tag accent>{project.kind === "paid" ? (project.gig ? "Gig" : "Paid") : "Passion"}</Tag>
+      <Tag accent>{project.kind === "paid" ? (project.gig ? "Show" : "Paid") : "Passion"}</Tag>
       {topic && <Tag>{topic}</Tag>}
       {project.community && <Tag>{project.community.name}</Tag>}
     </div>
@@ -581,7 +581,7 @@ function EmptyProfileCard() {
             Your profile is empty.
           </h2>
           <p className="mt-1.5 text-sm leading-relaxed" style={{ color: "var(--app-text-muted)" }}>
-            Add your work, your craft and what you're open to: paid gigs, collabs or passion projects.
+            Add your work, your craft and what you're open to: paid work, collabs or passion projects.
           </p>
         </div>
       </div>

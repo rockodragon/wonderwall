@@ -14,7 +14,7 @@ import {
   communityNameFor,
   useCommunityContext,
 } from "../components/CommunityFilter";
-import { resolveStage, stageLabel, STAGES } from "../lib/stage";
+import { isStage, resolveStage, stageLabel, STAGES, type Stage } from "../lib/stage";
 import { FilterButton, FilterPanel, filterButtonLabel } from "../components/FilterMenu";
 import { TagFilterPills } from "../components/TagFilterPills";
 import { CLAIMS } from "../constants/claims";
@@ -22,6 +22,7 @@ import { toEmbedUrl } from "../lib/videoEmbed";
 import { describeMediaLink, MediaLinkField } from "../components/MediaLinkField";
 import { Dissolve } from "../hooks/useReveal";
 import { EmbedStill } from "../components/EmbedStill";
+import { CreateCard } from "../components/CreateCard";
 
 // Two views, split by what the VISITOR wants rather than how the poster
 // filed it (docs/features/project-ia.md): Projects is things to back or
@@ -32,18 +33,23 @@ const VIEWS: { label: string; value: View }[] = [
   { label: "Projects", value: "projects" },
   { label: "Work", value: "work" },
 ];
+// The stages a visitor browsing for something to back or join cares about —
+// the same ids and labels as the stage pill on every card (lib/stage.ts).
+// Paused / completed / cancelled aren't things to back or join, so no pill.
+const BROWSE_STAGES: Stage[] = ["planning", "raising", "forming", "working", "releasing"];
 const SHOW_FILTERS: Record<View, { label: string; value: string }[]> = {
   projects: [
     { label: "All", value: "" },
-    { label: "Raising", value: "raising" },
-    { label: "Looking for people", value: "people" },
+    ...BROWSE_STAGES.map((s) => ({ label: stageLabel(s), value: s })),
   ],
   work: [
     { label: "All", value: "" },
     { label: "Jobs", value: "jobs" },
     // Live booking (docs/features/live-booking.md §5): a recurring paid gig
-    // is a paid project with a schedule attached (`gig` on the row).
-    { label: "Gigs", value: "gigs" },
+    // is a paid project with a schedule attached (`gig` on the row). Labelled
+    // "Shows" because "Gigs" read as the name of the whole Work view; the
+    // value stays `gigs` so existing links keep landing here.
+    { label: "Shows", value: "gigs" },
     { label: "Roles on projects", value: "roles" },
   ],
 };
@@ -63,12 +69,14 @@ function inView(p: any, view: View): boolean {
   return view === "projects" ? p.kind === "passion" : p.kind === "paid" || hasOpenRoles(p);
 }
 
+// A stage pill matches the stage the card's own pill shows (resolveStage) —
+// except Raising, which matches isRaising: a project with a goal or active
+// tiers shows the "Raising" badge and the "Back this" button whatever its
+// stage, so the pill has to agree with them.
 function matchesShow(p: any, show: string): boolean {
   switch (show) {
     case "raising":
       return isRaising(p);
-    case "people":
-      return hasOpenRoles(p);
     case "jobs":
       return p.kind === "paid" && !p.gig;
     case "gigs":
@@ -76,7 +84,7 @@ function matchesShow(p: any, show: string): boolean {
     case "roles":
       return p.kind === "passion" && hasOpenRoles(p);
     default:
-      return true;
+      return isStage(show) ? resolveStage(p) === show : true;
   }
 }
 
@@ -146,6 +154,13 @@ export default function Projects() {
       ? act()
       : navigate(`/login?redirect=${encodeURIComponent(`/projects${window.location.search}`)}`);
   const [showPassionForm, setShowPassionForm] = useState(false);
+  // The header's + Post menu and the first card in the grid do the same two
+  // things, so they share one handler each.
+  const startProject = withAccount(() => setShowPassionForm(true));
+  const hireSomeone = withAccount(() => {
+    setHireDraft(undefined);
+    setHire("job");
+  });
   const [supporting, setSupporting] = useState<{ project: any; mode: SupportMode } | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const {
@@ -162,16 +177,18 @@ export default function Projects() {
   const hasMatchFilter = interestFilter.length > 0 || !!locationFilter;
 
   // The view and its filter live in the URL (?view=work&show=gigs), not in
-  // component state, so a link can land on "Gigs" — Today's links depend on
+  // component state, so a link can land on "Shows" — Today's links depend on
   // it, and the back button and a shared link both keep it. The old
-  // ?kind=passion|paid|gigs links still land in the right place. An unknown
+  // ?kind=passion|paid|gigs links still land in the right place, and the old
+  // ?show=people (Looking for people) lands on Forming team. An unknown
   // value reads as "All".
   const legacyKind = searchParams.get("kind") || "";
   const view: View =
     searchParams.get("view") === "work" || legacyKind === "paid" || legacyKind === "gigs"
       ? "work"
       : "projects";
-  const showParam = searchParams.get("show") || (legacyKind === "gigs" ? "gigs" : "");
+  const rawShow = searchParams.get("show") || (legacyKind === "gigs" ? "gigs" : "");
+  const showParam = rawShow === "people" ? "forming" : rawShow;
   const showFilter = SHOW_FILTERS[view].some((f) => f.value === showParam) ? showParam : "";
   function setViewAndShow(nextView: View, nextShow: string) {
     const next = new URLSearchParams(searchParams);
@@ -321,13 +338,7 @@ export default function Projects() {
               </button>
             ))}
           </div>
-          <PostMenu
-            onProject={withAccount(() => setShowPassionForm(true))}
-            onHire={withAccount(() => {
-              setHireDraft(undefined);
-              setHire("job");
-            })}
-          />
+          <PostMenu onProject={startProject} onHire={hireSomeone} />
         </div>
         <div className="flex flex-wrap gap-2 mt-3 mb-4">
           {SHOW_FILTERS[view].map((f) => (
@@ -335,7 +346,7 @@ export default function Projects() {
               key={f.value}
               onClick={() => setViewAndShow(view, f.value)}
               aria-pressed={showFilter === f.value}
-              className="px-3 py-1.5 rounded-lg text-[13px] font-medium whitespace-nowrap transition-colors"
+              className="px-3 py-1.5 rounded-lg text-[13.5px] font-medium whitespace-nowrap transition-colors"
               style={{
                 fontFamily: "var(--garden-font-body)",
                 backgroundColor:
@@ -376,43 +387,42 @@ export default function Projects() {
               style={{ borderColor: "var(--garden-citron)", borderTopColor: "transparent" }}
             />
           </div>
-        ) : filtered.length === 0 && communitySlug !== "all" ? (
-          <div className="text-center py-16" style={{ color: "var(--garden-dim)" }}>
-            <p className="text-lg font-medium mb-1" style={{ color: "var(--garden-body)" }}>
-              Nothing in {communityNameFor(communitySlug, communities, projects)} yet — see
-              everything
-            </p>
-            <button
-              onClick={() => setCommunitySlug("all")}
-              className="text-sm underline underline-offset-2 hover:opacity-80"
-              style={{ color: "var(--garden-citron)" }}
-            >
-              Show all communities
-            </button>
-          </div>
-        ) : filtered.length === 0 ? (
-          <div className="text-center py-16" style={{ color: "var(--garden-dim)" }}>
-            <p className="text-lg font-medium mb-1" style={{ color: "var(--garden-body)" }}>
-              {view === "projects" ? "No projects here yet" : "No open work here yet"}
-            </p>
-            <p className="text-sm">
-              {view === "projects"
-                ? "Be the first to post something you're making"
-                : "Hiring? Post it with the button above"}
-            </p>
-          </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {filtered.map((project) => (
-              <ProjectCard
-                key={project._id}
-                project={project}
-                view={view}
-                onSupport={(mode) => withAccount(() => setSupporting({ project, mode }))()}
-                matched={hasMatchFilter && isMatch(project)}
-              />
-            ))}
-          </div>
+          <>
+            {filtered.length === 0 && communitySlug !== "all" && (
+              <div className="text-center pt-8 pb-10" style={{ color: "var(--garden-dim)" }}>
+                <p className="text-lg font-medium mb-1" style={{ color: "var(--garden-body)" }}>
+                  Nothing in {communityNameFor(communitySlug, communities, projects)} yet — see
+                  everything
+                </p>
+                <button
+                  onClick={() => setCommunitySlug("all")}
+                  className="text-sm underline underline-offset-2 hover:opacity-80"
+                  style={{ color: "var(--garden-citron)" }}
+                >
+                  Show all communities
+                </button>
+              </div>
+            )}
+            {/* The make-one card is always first, so an empty list is just
+                the grid with that one card in it. */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {view === "projects" ? (
+                <CreateCard label="Start a project" onClick={startProject} />
+              ) : (
+                <CreateCard label="Hire someone" onClick={hireSomeone} />
+              )}
+              {filtered.map((project) => (
+                <ProjectCard
+                  key={project._id}
+                  project={project}
+                  view={view}
+                  onSupport={(mode) => withAccount(() => setSupporting({ project, mode }))()}
+                  matched={hasMatchFilter && isMatch(project)}
+                />
+              ))}
+            </div>
+          </>
         )}
       </div>
 
@@ -615,7 +625,7 @@ function ProjectCard({
           </Dissolve>
         )}
         <span
-          className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[11px] font-semibold uppercase tracking-[0.06em]"
+          className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[12px] font-semibold uppercase tracking-[0.06em]"
           style={{
             fontFamily: "var(--garden-font-mono)",
             backgroundColor: "rgba(20,20,18,0.72)",
@@ -654,7 +664,7 @@ function ProjectCard({
               (projects.$id.tsx) — it's provenance, not a browse-time
               decision factor, so it doesn't need a pill here too. */}
           <span
-            className="self-start px-2 py-0.5 rounded-full text-[11px] font-medium uppercase tracking-[0.06em]"
+            className="self-start px-2 py-0.5 rounded-full text-[12px] font-medium uppercase tracking-[0.06em]"
             style={{
               fontFamily: "var(--garden-font-mono)",
               backgroundColor: "rgba(198,198,190,0.1)",
@@ -666,7 +676,7 @@ function ProjectCard({
           </span>
           {matched && (
             <span
-              className="self-start px-2 py-0.5 rounded-full text-[11px] font-medium uppercase tracking-[0.06em]"
+              className="self-start px-2 py-0.5 rounded-full text-[12px] font-medium uppercase tracking-[0.06em]"
               style={{
                 fontFamily: "var(--garden-font-mono)",
                 backgroundColor: "rgba(254,226,104,0.14)",
@@ -681,7 +691,7 @@ function ProjectCard({
               docs/features/project-teams.md §7. */}
           {project.status === "archived" && (
             <span
-              className="self-start px-2 py-0.5 rounded-full text-[11px] font-medium uppercase tracking-[0.06em]"
+              className="self-start px-2 py-0.5 rounded-full text-[12px] font-medium uppercase tracking-[0.06em]"
               style={{
                 fontFamily: "var(--garden-font-mono)",
                 backgroundColor: "rgba(198,198,190,0.1)",
@@ -749,7 +759,7 @@ function ProjectCard({
             {project.interests.slice(0, 3).map((tag: string) => (
               <span
                 key={tag}
-                className="px-2 py-0.5 rounded-full text-[11px] font-medium"
+                className="px-2 py-0.5 rounded-full text-[12px] font-medium"
                 style={{
                   fontFamily: "var(--garden-font-body)",
                   backgroundColor: "rgba(198,198,190,0.1)",
@@ -761,7 +771,7 @@ function ProjectCard({
             ))}
             {project.interests.length > 3 && (
               <span
-                className="px-2 py-0.5 rounded-full text-[11px] font-medium"
+                className="px-2 py-0.5 rounded-full text-[12px] font-medium"
                 style={{
                   fontFamily: "var(--garden-font-body)",
                   color: "var(--garden-dim)",
@@ -788,7 +798,7 @@ function ProjectCard({
                 />
               ) : (
                 <div
-                  className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
+                  className="w-5 h-5 rounded-full flex items-center justify-center text-[12px] font-bold shrink-0"
                   style={{ backgroundColor: "var(--garden-hairline-raised)", color: "var(--garden-paper)" }}
                 >
                   {project.creator.name.charAt(0).toUpperCase()}
@@ -1694,7 +1704,7 @@ export function SupportModal({
                   <span style={{ color: "var(--garden-paper)" }}>{e.supporterName}</span>
                   {e.tierName && (
                     <span
-                      className="ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-medium uppercase tracking-[0.04em]"
+                      className="ml-1.5 px-1.5 py-0.5 rounded text-[12px] font-medium uppercase tracking-[0.04em]"
                       style={{ backgroundColor: "rgba(254,226,104,0.12)", color: "var(--garden-citron)" }}
                     >
                       {e.tierName}

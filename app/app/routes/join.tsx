@@ -93,7 +93,7 @@ const LEVELS: LevelCard[] = [
     level: "seat",
     perks: [
       "Post a project and get backed",
-      "Apply to paid work and respond to gigs",
+      "Apply to paid work and shows",
       "Sell tickets to your events",
       "Ask the grant fund to back your project",
     ],
