@@ -21,6 +21,10 @@ const profile = {
   unlimitedInvites: true,
   lastLikeNotifiedAt: 5,
   plan: "free",
+  stripeConnectAccountId: "acct_123",
+  stripeConnectPayoutsEnabled: true,
+  stripeConnectDetailsSubmitted: true,
+  stripeConnectUpdatedAt: 3,
   createdAt: 1,
   updatedAt: 2,
 } as unknown as Doc<"profiles">;
@@ -39,6 +43,10 @@ describe("toPublicProfile", () => {
       "unlimitedInvites",
       "lastLikeNotifiedAt",
       "plan",
+      "stripeConnectAccountId",
+      "stripeConnectPayoutsEnabled",
+      "stripeConnectDetailsSubmitted",
+      "stripeConnectUpdatedAt",
     ]) {
       expect(pub).not.toHaveProperty(key);
     }

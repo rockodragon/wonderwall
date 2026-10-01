@@ -33,6 +33,12 @@ export function toPublicProfile(profile: Doc<"profiles">) {
     unlimitedInvites: _unlimitedInvites,
     lastLikeNotifiedAt: _lastLikeNotifiedAt,
     plan: _plan,
+    // Stripe Connect (member-directed giving): the account id and its
+    // payout state are between the creative, Stripe and us — never public.
+    stripeConnectAccountId: _stripeConnectAccountId,
+    stripeConnectPayoutsEnabled: _stripeConnectPayoutsEnabled,
+    stripeConnectDetailsSubmitted: _stripeConnectDetailsSubmitted,
+    stripeConnectUpdatedAt: _stripeConnectUpdatedAt,
     coordinates,
     ...rest
   } = profile;
