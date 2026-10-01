@@ -7,6 +7,7 @@
 // two links: the about page and the host-application page.
 
 import { useLayoutEffect } from "react";
+import type React from "react";
 import { Link, useRouteError } from "react-router";
 import { FF_V2 } from "../lib/featureFlags";
 import { CommunityPage } from "./communities.$slug";
@@ -38,33 +39,27 @@ export function ErrorBoundary() {
 }
 
 function IndexFooter() {
+  if (!FF_V2) return null;
   return (
     <div className="mt-10 pt-6 border-t flex flex-col gap-2" style={{ borderColor: "var(--garden-hairline)" }}>
-      <Link to="/about" className="text-[15px]" style={{ color: "var(--garden-citron)" }}>
-        About TheCreative.exchange →
+      <Link to="/communities/apply" className="text-[13.5px]" style={{ color: "var(--garden-dim)" }}>
+        Apply to host your own community →
       </Link>
-      {FF_V2 && (
-        <Link to="/communities/apply" className="text-[13.5px]" style={{ color: "var(--garden-dim)" }}>
-          Apply to host your own community →
-        </Link>
-      )}
     </div>
   );
 }
 
+const CARD: React.CSSProperties = {
+  border: "1px solid var(--garden-hairline)",
+  borderRadius: 10,
+  padding: "16px 18px",
+  background: "var(--garden-ink-raised, #1c1c19)",
+  display: "flex",
+  flexDirection: "column",
+  gap: 6,
+};
+
 function CommunitiesIntro() {
-  const rows = [
-    {
-      name: "The Creative Exchange",
-      to: "/about/agreements",
-      body: "The public community for everyone. Its base agreements set the minimum guidelines every community follows.",
-    },
-    {
-      name: "The Garden",
-      to: "/communities/the-garden",
-      body: "Faith-based creatives community.",
-    },
-  ];
   return (
     <section id="top" className="p-4 sm:p-6 max-w-7xl mx-auto pb-0 sm:pb-0">
       <h1
@@ -75,21 +70,43 @@ function CommunitiesIntro() {
       </h1>
       <p className="text-[15px] leading-relaxed max-w-2xl" style={{ color: "var(--garden-body)" }}>
         The Creative Exchange is a platform for the creative economy. It helps creatives, patrons, and community
-        organizations connect, collaborate, and grow, with far less friction. It is owned and run by its members.
+        organizations connect, collaborate, and grow.
       </p>
-      <ul className="mt-5 max-w-2xl flex flex-col">
-        {rows.map((r) => (
-          <li key={r.name} className="py-3 border-t" style={{ borderColor: "var(--garden-hairline)" }}>
-            <Link to={r.to} className="text-[15px] font-medium" style={{ color: "var(--garden-citron)" }}>
-              {r.name} →
-            </Link>
-            <p className="text-[15px] mt-1" style={{ color: "var(--garden-body)" }}>
-              {r.body}
-            </p>
-          </li>
-        ))}
-      </ul>
-      <p className="mt-2 text-[13.5px]" style={{ color: "var(--garden-muted)" }}>
+      <Link to="/about" className="inline-block mt-2 text-[15px]" style={{ color: "var(--garden-citron)" }}>
+        About TheCreative.exchange →
+      </Link>
+
+      <div className="mt-5 max-w-3xl grid gap-3 sm:grid-cols-2">
+        <div style={CARD}>
+          <span className="text-[12.5px] uppercase tracking-[0.06em]" style={{ color: "var(--garden-muted)" }}>
+            Public community · coming soon
+          </span>
+          <b className="text-[17px]" style={{ color: "var(--garden-paper)" }}>
+            The Creative Exchange
+          </b>
+          <p className="text-[15px]" style={{ color: "var(--garden-body)" }}>
+            Its base agreements set the minimum guidelines every community follows.
+          </p>
+          <Link to="/about/agreements" className="text-[15px] mt-1" style={{ color: "var(--garden-citron)" }}>
+            Read the base agreements →
+          </Link>
+        </div>
+        <div style={CARD}>
+          <span className="text-[12.5px] uppercase tracking-[0.06em]" style={{ color: "var(--garden-muted)" }}>
+            Faith-based creatives community
+          </span>
+          <b className="text-[17px]" style={{ color: "var(--garden-paper)" }}>
+            The Garden
+          </b>
+          <p className="text-[15px]" style={{ color: "var(--garden-body)" }}>
+            Where this started. Open now.
+          </p>
+          <Link to="/communities/the-garden" className="text-[15px] mt-1" style={{ color: "var(--garden-citron)" }}>
+            Open The Garden →
+          </Link>
+        </div>
+      </div>
+      <p className="mt-3 text-[13.5px]" style={{ color: "var(--garden-muted)" }}>
         Additional communities coming soon.
       </p>
     </section>
