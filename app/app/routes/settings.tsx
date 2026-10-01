@@ -138,6 +138,15 @@ export default function Settings() {
             )}
           </div>
 
+          {/* Organizations (docs/features/organizations.md). Always open,
+              not behind the profile's Edit — every change saves on its own.
+              Needs the profile row, so it appears after the first save. */}
+          {profile?._id && (
+            <div className="mt-8 pt-6 border-t" style={{ borderColor: "var(--app-hairline)" }}>
+              <OrganizationsEditor />
+            </div>
+          )}
+
           {/* Work & Portfolio */}
           <div className="mt-8 pt-6 border-t" style={{ borderColor: "var(--app-hairline)" }}>
             <ArtifactsSection
@@ -1614,11 +1623,6 @@ function ProfileEditForm({
             style={{ borderColor: "var(--app-hairline)", backgroundColor: "var(--app-surface-raised)", color: "var(--app-text)" }}
           />
         </div>
-
-        {/* Organizations (docs/features/organizations.md). Saves on its
-            own and needs the profile row, so someone with no profile yet
-            adds them after the first save. */}
-        {profile?._id && <OrganizationsEditor />}
 
         {/* Bio */}
         <div>

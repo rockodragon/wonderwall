@@ -200,7 +200,7 @@ export default function OrganizationPage() {
               <p className="mt-3 text-sm" style={{ color: "var(--app-text-muted)" }}>
                 On your profile. Add your title in{" "}
                 <Link
-                  to="/settings"
+                  to="/settings#organizations"
                   className="font-medium hover:underline"
                   style={{ color: "var(--app-accent-ink)" }}
                 >
