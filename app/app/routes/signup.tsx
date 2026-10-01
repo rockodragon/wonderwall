@@ -7,21 +7,21 @@ import confetti from "canvas-confetti";
 import { api } from "../../convex/_generated/api";
 import { normalizePhone } from "../../convex/phone";
 import { normalizeInviteCode } from "../../convex/inviteCode";
-import { entryCommunityArgs } from "../lib/entryCommunity";
 import { ensureOAuthHost } from "../lib/oauthHost";
+import { setPendingIntent } from "../lib/pendingIntent";
 import { isCheckoutSessionId } from "../../convex/garden/ticketLink";
 
 export function meta() {
   return [
-    { title: "Join TheCreative.exchange - Invite Only" },
+    { title: "Join TheCreative.exchange" },
     {
       name: "description",
-      content: "Join The Exchange, a community of creatives. By invitation only.",
+      content: "Join TheCreative.exchange, a community of creatives.",
     },
     { property: "og:title", content: "Join TheCreative.exchange" },
     {
       property: "og:description",
-      content: "Join The Exchange, a community of creatives. By invitation only.",
+      content: "Join TheCreative.exchange, a community of creatives.",
     },
     { property: "og:type", content: "website" },
     {
@@ -38,7 +38,7 @@ export function meta() {
     { name: "twitter:title", content: "Join TheCreative.exchange" },
     {
       name: "twitter:description",
-      content: "Join The Exchange, a community of creatives. By invitation only.",
+      content: "Join TheCreative.exchange, a community of creatives.",
     },
   ];
 }
@@ -55,6 +55,13 @@ export default function Signup() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
+
+  // Came from a page that needed an account (login's ?redirect=): go back
+  // there once onboarding is done — _app.tsx replays the pending intent.
+  useEffect(() => {
+    const redirect = new URLSearchParams(window.location.search).get("redirect");
+    if (redirect) setPendingIntent(redirect);
+  }, []);
 
   // Phone sign-up: mobile number -> text a code -> enter the code.
   const [phone, setPhone] = useState("");
@@ -81,38 +88,47 @@ export default function Signup() {
     ticketSession ? { sessionId: ticketSession } : "skip",
   );
 
+  // The slug to credit, if any. A link whose lookup came back empty
+  // (inviterInfo === null) is dropped: no credit, but they can still sign
+  // up. While the lookup loads (undefined) the slug is kept and the server
+  // checks it when it's redeemed.
+  const inviteNotFound = !!inviteSlug && !ticketSession && inviterInfo === null;
+  const creditSlug = inviteSlug && !inviteNotFound ? inviteSlug : null;
+  // The optional code field shows until a code has been accepted.
+  const showCodeEntry = !ticketSession && (!inviteSlug || inviteNotFound);
+
   const redeemInvite = useMutation(api.invites.redeemBySlug);
   const generateSlug = useMutation(api.invites.generateInviteSlug);
   const fillMissingBasics = useMutation(api.profiles.fillMissingBasics);
 
-  // Shared by every sign-up path (password, Google, phone): the invite
-  // must exist, be loaded, and still have room. Returns the error message
-  // to show, or null when it's fine to proceed.
+  // Sign-up is open: an invite only credits whoever sent it. The one gate
+  // left is a paid ticket's checkout session (one account per ticket).
+  // Returns the error message to show, or null when it's fine to proceed.
   function inviteGateError(): string | null {
-    if (!inviteSlug) return "Invite link is required";
+    if (!inviteSlug) return null;
     if (ticketSession) {
       if (ticketOpensSignup === undefined) return "Checking your ticket...";
       return ticketOpensSignup
         ? null
         : "We couldn't find an unclaimed ticket for this link. If you just paid, wait a minute and try again.";
     }
-    if (!inviterInfo) return "Loading invite information...";
-    if (!inviterInfo.canAcceptMore) return "This invite link has reached its maximum uses (3)";
     return null;
   }
 
-  // After a successful phone code verification, redeem the invite exactly
-  // the way oauth-callback.tsx does for Google: redeemInvite then
-  // generateInviteSlug, then on to onboarding — reusing those mutations
+  // After a successful phone code verification, redeem the invite (when
+  // there is one) the way oauth-callback.tsx does for Google: redeemInvite
+  // then generateInviteSlug, then on to onboarding — reusing those mutations
   // rather than inventing new ones.
   async function redeemInviteAfterSignIn() {
-    try {
-      if (!ticketSession) await redeemInvite({ slug: inviteSlug! });
-    } catch (err) {
-      posthog?.capture("invite_redemption_failed", {
-        error: err instanceof Error ? err.message : "Unknown error",
-        invite_slug: inviteSlug,
-      });
+    if (creditSlug && !ticketSession) {
+      try {
+        await redeemInvite({ slug: creditSlug });
+      } catch (err) {
+        posthog?.capture("invite_redemption_failed", {
+          error: err instanceof Error ? err.message : "Unknown error",
+          invite_slug: creditSlug,
+        });
+      }
     }
     try {
       await generateSlug({});
@@ -253,17 +269,18 @@ export default function Signup() {
       // Wait a moment for Convex auth session to fully establish
       await new Promise((resolve) => setTimeout(resolve, 500));
 
-      // Redeem the invite link after successful signup
-      try {
-        if (!ticketSession) await redeemInvite({ slug: inviteSlug! });
-        console.log("✅ Successfully redeemed invite:", inviteSlug);
-      } catch (err) {
-        console.error("❌ Failed to redeem invite:", err);
-        // Don't block signup, but log the error for debugging
-        posthog?.capture("invite_redemption_failed", {
-          error: err instanceof Error ? err.message : "Unknown error",
-          invite_slug: inviteSlug,
-        });
+      // Credit the inviter, when there is one. Never blocks sign-up.
+      if (creditSlug && !ticketSession) {
+        try {
+          await redeemInvite({ slug: creditSlug });
+          console.log("✅ Successfully redeemed invite:", creditSlug);
+        } catch (err) {
+          console.error("❌ Failed to redeem invite:", err);
+          posthog?.capture("invite_redemption_failed", {
+            error: err instanceof Error ? err.message : "Unknown error",
+            invite_slug: creditSlug,
+          });
+        }
       }
 
       // Generate invite slug for new user
@@ -312,13 +329,17 @@ export default function Signup() {
 
     try {
       posthog?.capture("google_signup_initiated", {
-        invite_slug: inviteSlug,
+        invite_slug: creditSlug,
         inviter_name: inviterInfo?.name,
       });
 
-      // Pass invite slug via redirectTo URL param so it survives OAuth redirect
+      // Pass invite slug via redirectTo URL param so it survives OAuth
+      // redirect. No invite: oauth-callback still sends a new account to
+      // onboarding (new=1 only marks the sign-up path; it isn't read).
       await signIn("google", {
-        redirectTo: `/oauth-callback?invite=${encodeURIComponent(inviteSlug!)}`,
+        redirectTo: creditSlug
+          ? `/oauth-callback?invite=${encodeURIComponent(creditSlug)}`
+          : "/oauth-callback?new=1",
       });
     } catch (err) {
       setError("Failed to sign up with Google");
@@ -327,13 +348,6 @@ export default function Signup() {
       });
       setGoogleLoading(false);
     }
-  }
-
-  // No slug in the URL: ask for the code here. This used to be a dead
-  // end ("Invite Required", no input) while the home page hero collected
-  // the code; the hero now carries the pitch and this page owns the gate.
-  if (!inviteSlug) {
-    return <InviteEntry />;
   }
 
   // Show welcome modal after successful signup
@@ -379,6 +393,17 @@ export default function Signup() {
               {ticketOpensSignup === false
                 ? "If you just paid, wait a minute and refresh. Your ticket is still good either way."
                 : "Make an account and it goes on your profile, with everyone else who's going."}
+            </p>
+          </div>
+        )}
+
+        {inviteNotFound && (
+          <div
+            role="status"
+            className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-lg border border-gray-200 dark:border-gray-700"
+          >
+            <p className="text-[13.5px] text-gray-700 dark:text-gray-300">
+              That invite link didn't work. You can still sign up.
             </p>
           </div>
         )}
@@ -463,9 +488,15 @@ export default function Signup() {
 
         {/* Signup Form */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 p-8">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
+          <h1
+            className={`text-2xl font-bold text-gray-900 dark:text-white ${
+              showCodeEntry ? "mb-2" : "mb-6"
+            }`}
+          >
             Create your account
           </h1>
+
+          {showCodeEntry && <InviteCodeEntry />}
 
           {phoneStep === "phone" && (
             <div className="space-y-4 mb-5">
@@ -727,98 +758,16 @@ export default function Signup() {
   );
 }
 
-// ——— Invite entry: the one place the code is collected ————————————————
-// Accepts a bare code or a pasted /signup/<code> link, validates it with
-// the same query the form uses, then lands on /signup/<code> so the
-// inviter card and the form render as if the link had been clicked.
+// ——— Optional invite code ————————————————————————————————————————————————
+// Sign-up is open, so this is only a way to credit whoever sent the code.
+// Accepts a bare code or a pasted /signup/<code> link and lands on
+// /signup/<code>, where the inviter card shows (or the "didn't work" note).
 
-function RequestToJoin() {
-  const addToWaitlist = useMutation(api.waitlist.addToWaitlist);
-  const [email, setEmail] = useState("");
-  const [status, setStatus] = useState<"idle" | "saving" | "done" | "error">("idle");
-  const [message, setMessage] = useState("");
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-      setStatus("error");
-      setMessage("Enter an email we can reach you at.");
-      return;
-    }
-    setStatus("saving");
-    try {
-      await addToWaitlist({ email: email.trim(), ...entryCommunityArgs() });
-      setStatus("done");
-    } catch (err) {
-      setStatus("error");
-      setMessage(err instanceof Error ? err.message : "That didn't go through. Try again.");
-    }
-  }
-
-  if (status === "done") {
-    return (
-      <p className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700 text-sm text-gray-700 dark:text-gray-300">
-        You're on the list. We'll email {email.trim()} when there's a spot.
-      </p>
-    );
-  }
-
-  return (
-    <form onSubmit={handleSubmit} className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-      <label htmlFor="waitlist-email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-        No code yet?
-      </label>
-      <div className="flex gap-2">
-        <input
-          id="waitlist-email"
-          type="email"
-          autoComplete="email"
-          value={email}
-          onChange={(e) => {
-            setEmail(e.target.value);
-            if (status === "error") setStatus("idle");
-          }}
-          className="min-w-0 flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          placeholder="you@example.com"
-        />
-        <button
-          type="submit"
-          disabled={status === "saving"}
-          className="shrink-0 px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 text-[13.5px] font-medium text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
-        >
-          {status === "saving" ? "Saving…" : "Request to join"}
-        </button>
-      </div>
-      {status === "error" && <p className="mt-2 text-sm text-red-600 dark:text-red-400">{message}</p>}
-    </form>
-  );
-}
-
-function InviteEntry() {
+function InviteCodeEntry() {
   const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
-  const [checking, setChecking] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  const inviterInfo = useQuery(
-    api.invites.getInviterInfo,
-    checking ? { slug: checking } : "skip",
-  );
-
-  useEffect(() => {
-    if (!checking || inviterInfo === undefined) return;
-    if (inviterInfo === null) {
-      setError("That invite code wasn't recognized.");
-      setChecking(null);
-      return;
-    }
-    if (!inviterInfo.canAcceptMore) {
-      setError("This invite has reached its limit — ask the person for a new one.");
-      setChecking(null);
-      return;
-    }
-    navigate(`/signup/${encodeURIComponent(checking)}`);
-  }, [checking, inviterInfo, navigate]);
+  const [error, setError] = useState("");
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -827,99 +776,55 @@ function InviteEntry() {
       setError("Paste your invite code.");
       return;
     }
-    setError(null);
-    setChecking(slug);
+    navigate(`/signup/${encodeURIComponent(slug)}`);
+  }
+
+  if (!open) {
+    return (
+      <p className="mb-6">
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="text-[13.5px] font-medium text-blue-600 dark:text-blue-400 hover:text-blue-500"
+        >
+          Have an invite code?
+        </button>
+      </p>
+    );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950 px-4 py-8">
-      <div className="max-w-md w-full space-y-6">
-        <div className="flex items-center justify-between mb-2">
-          <Link to="/" className="text-xl font-bold text-gray-900 dark:text-white">
-            TheCreative.exchange
-          </Link>
-          <Link
-            to="/login"
-            className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-          >
-            Sign in
-          </Link>
-        </div>
-
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 p-8">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-            Create your account
-          </h1>
-
-          {error && (
-            <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg text-sm">
-              {error}
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label
-                htmlFor="invite"
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-              >
-                Invite code
-              </label>
-              <input
-                id="invite"
-                type="text"
-                value={input}
-                onChange={(e) => {
-                  setInput(e.target.value);
-                  setError(null);
-                }}
-                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent uppercase tracking-wider"
-                placeholder="K7M4QD"
-                autoCapitalize="characters"
-                autoCorrect="off"
-                spellCheck={false}
-                autoFocus
-                required
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={!!checking}
-              className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {checking ? "Checking…" : "Continue"}
-            </button>
-          </form>
-
-          {/* No code yet: same waitlist as the home page's second row. */}
-          <RequestToJoin />
-
-          <div className="mt-6 space-y-2 text-sm text-gray-600 dark:text-gray-400">
-            <p>
-              Covered by a sponsor? Use the link they gave you — it starts
-              with /c/.
-            </p>
-          </div>
-
-          <p className="mt-6 text-center text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
-            <Link to="/legal/terms" className="text-blue-600 hover:text-blue-500">
-              Terms of Service
-            </Link>{" "}
-            &middot;{" "}
-            <Link to="/legal/privacy" className="text-blue-600 hover:text-blue-500">
-              Privacy Policy
-            </Link>
-          </p>
-
-          <p className="mt-4 text-center text-sm text-gray-600 dark:text-gray-400">
-            Already have an account?{" "}
-            <Link to="/login" className="text-blue-600 hover:text-blue-500 font-medium">
-              Sign in
-            </Link>
-          </p>
-        </div>
+    <form onSubmit={handleSubmit} className="mb-6">
+      <label htmlFor="invite-code" className="sr-only">
+        Invite code
+      </label>
+      <div className="flex gap-2">
+        <input
+          id="invite-code"
+          type="text"
+          value={input}
+          onChange={(e) => {
+            setInput(e.target.value);
+            setError("");
+          }}
+          className="min-w-0 flex-1 px-4 py-3 text-[13.5px] border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          placeholder="Invite code"
+          autoCapitalize="characters"
+          autoCorrect="off"
+          spellCheck={false}
+          autoFocus
+        />
+        <button
+          type="submit"
+          className="shrink-0 px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 text-[13.5px] font-medium text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700"
+        >
+          Use code
+        </button>
       </div>
-    </div>
+      {error && (
+        <p className="mt-2 text-[13.5px] text-red-600 dark:text-red-400">{error}</p>
+      )}
+    </form>
   );
 }
 

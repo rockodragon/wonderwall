@@ -137,7 +137,18 @@ function checkoutErrorMessage(err: unknown): string {
   return "Checkout didn't open — try again in a moment.";
 }
 
-function LevelButton({ card, autoStart, inviteSlug }: { card: LevelCard; autoStart: boolean; inviteSlug?: string }) {
+function LevelButton({
+  card,
+  autoStart,
+  inviteSlug,
+  memberLevel,
+}: {
+  card: LevelCard;
+  autoStart: boolean;
+  inviteSlug?: string;
+  /** undefined = loading, null = signed in or out with no paid seat. */
+  memberLevel: string | null | undefined;
+}) {
   const { isAuthenticated } = useConvexAuth();
   const navigate = useNavigate();
   const createMembershipCheckout = useAction(api.garden.stripe.createMembershipCheckout);
@@ -164,11 +175,22 @@ function LevelButton({ card, autoStart, inviteSlug }: { card: LevelCard; autoSta
   // back here with ?level=, so open checkout rather than asking again.
   useEffect(() => {
     if (!autoStart || !isAuthenticated || started.current) return;
+    if (memberLevel !== null) return;
     started.current = true;
     void startCheckout();
-  }, [autoStart, isAuthenticated, startCheckout]);
+  }, [autoStart, isAuthenticated, memberLevel, startCheckout]);
 
   const signupPath = inviteSlug ? `/signup/${inviteSlug}` : "/signup";
+
+  const isCurrentPlan = isAuthenticated && (card.level ? memberLevel === card.level : memberLevel === null);
+  if (isCurrentPlan) {
+    return (
+      <p className="g-hint" style={{ marginTop: 14 }}>
+        Your plan
+      </p>
+    );
+  }
+  if (isAuthenticated && memberLevel !== null) return null;
 
   if (!card.level) {
     return (
@@ -348,7 +370,12 @@ export default function JoinPage() {
                 </p>
               )}
               <div style={{ marginTop: "auto" }}>
-                <LevelButton card={level} autoStart={level.level === resumeLevel} inviteSlug={inviteSlug ?? undefined} />
+                <LevelButton
+                  card={level}
+                  autoStart={level.level === resumeLevel}
+                  inviteSlug={inviteSlug ?? undefined}
+                  memberLevel={membership === undefined ? undefined : (membership?.level ?? null)}
+                />
               </div>
             </div>
           ))}

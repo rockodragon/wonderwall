@@ -1,7 +1,7 @@
 import { useAuthActions } from "@convex-dev/auth/react";
 import { usePostHog } from "@posthog/react";
 import { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router";
+import { Link, useNavigate, useSearchParams } from "react-router";
 import { useConvexAuth } from "convex/react";
 import { normalizePhone } from "../../convex/phone";
 import { ensureOAuthHost } from "../lib/oauthHost";
@@ -12,13 +12,13 @@ export function meta() {
     {
       name: "description",
       content:
-        "Sign in to The Exchange to connect with creatives.",
+        "Sign in to TheCreative.exchange to connect with creatives.",
     },
     { property: "og:title", content: "Sign In - TheCreative.exchange" },
     {
       property: "og:description",
       content:
-        "Sign in to The Exchange to connect with creatives.",
+        "Sign in to TheCreative.exchange to connect with creatives.",
     },
     { property: "og:type", content: "website" },
     {
@@ -36,7 +36,7 @@ export function meta() {
     {
       name: "twitter:description",
       content:
-        "Sign in to The Exchange to connect with creatives.",
+        "Sign in to TheCreative.exchange to connect with creatives.",
     },
   ];
 }
@@ -45,6 +45,7 @@ export default function Login() {
   const { signIn } = useAuthActions();
   const { isAuthenticated, isLoading: authLoading } = useConvexAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const posthog = usePostHog();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -69,6 +70,14 @@ export default function Login() {
       navigate(safe ? redirect : "/today");
     }
   }, [isAuthenticated, authLoading, navigate]);
+
+  // /signup, carrying ?redirect= along so a new account lands back where
+  // this person started. Same-origin paths only, like the effect above.
+  const redirectParam = searchParams.get("redirect");
+  const signupPath =
+    redirectParam && redirectParam.startsWith("/") && !redirectParam.startsWith("//")
+      ? `/signup?redirect=${encodeURIComponent(redirectParam)}`
+      : "/signup";
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -168,7 +177,7 @@ export default function Login() {
             Welcome back
           </h1>
           <p className="mt-2 text-gray-600 dark:text-gray-400">
-            Sign in to The Exchange
+            Sign in to TheCreative.exchange
           </p>
         </div>
 
@@ -358,19 +367,17 @@ export default function Login() {
               {loading ? "Signing in..." : "Sign in"}
             </button>
           </form>
-        
 
+          <p className="mt-6 text-center text-[13.5px] text-gray-600 dark:text-gray-400">
+            New here?{" "}
+            <Link
+              to={signupPath}
+              className="text-blue-600 hover:text-blue-500 font-medium"
+            >
+              Create an account
+            </Link>
+          </p>
         </div>
-
-        <p className="text-center text-[13.5px] text-gray-600 dark:text-gray-400">
-          Don't have an account?{" "}
-          <Link
-            to="/signup"
-            className="text-blue-600 hover:text-blue-500 font-medium"
-          >
-            Sign up
-          </Link>
-        </p>
 
         <p className="text-center text-sm">
           <Link
