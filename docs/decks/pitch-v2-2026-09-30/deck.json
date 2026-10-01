@@ -11,8 +11,11 @@
     "cover",
     "problem",
     "solution",
-    "creative-class",
+    "solution-income",
+    "solution-worthy",
+    "solution-community",
     "ecosystem",
+    "creative-class",
     "revenue-model",
     "market",
     "business",
@@ -24,11 +27,11 @@
   ],
   "sections": {
     "s1": {
-      "description": "The problem, the solution, and the impact on the creative class",
+      "description": "The problem and the solution, one outcome at a time",
       "start": "cover"
     },
     "s2": {
-      "description": "Who it serves, the revenue model, the market and the business",
+      "description": "Who it serves, impact on the creative class, the revenue model, the market and the business",
       "start": "ecosystem"
     },
     "s3": {

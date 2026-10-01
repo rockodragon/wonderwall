@@ -20,22 +20,24 @@ These are the slide sources (`deck.json` plus one HTML file per slide), saved so
 | # | id | Headline |
 |---|---|---|
 | 1 | cover | Infrastructure & Operations for a Flourishing Creative Economy |
-| 2 | problem | Creatives and local businesses both lose, because nothing connects them. |
-| 3 | solution | We enable creative communities to support themselves and step up to their opportunities. |
-| 4 | creative-class | Flourishing is three things you can measure in a person's life. |
-| 5 | ecosystem | The infrastructure and engine for the arts and business in a city. |
-| 6 | revenue-model | Multiple commerce streams. |
-| 7 | market | Millions of creatives. We start with 35,000, then franchise city by city. |
-| 8 | business | Two tracks. $2.1M revenue and breakeven in year four, on today's prices. |
-| 9 | traction | Soft-launched September 28. Kickoff November 6. |
-| 10 | impact | How we validate impact, every six months. (preliminary model) |
-| 11 | ask | $350,000 pre-seed. First close $150k. |
-| 12 | use-of-funds | Eighteen months: where the money goes. |
-| 13 | team | Two founders and an advisor with a record of building businesses and communities. |
+| 2 | problem | The current economic systems supporting creatives are failing both the creatives and patrons. |
+| 3 | solution | theCreative.exchange provides the platform that allows creatives to flourish as professionals and a community. Step 1 of 4: Seen. |
+| 4 | solution-income | Same headline. Step 2 of 4: Income. |
+| 5 | solution-worthy | Same headline. Step 3 of 4: Worthy. |
+| 6 | solution-community | Same headline. Step 4 of 4: Community. |
+| 7 | ecosystem | The infrastructure and engine for the arts and business in a city. |
+| 8 | creative-class | Flourishing is three things you can measure in a person's life. |
+| 9 | revenue-model | Multiple commerce streams. |
+| 10 | market | From San Diego to 10 cities in 3 years. |
+| 11 | business | Two tracks. $2.1M revenue and breakeven in year four, on today's prices. |
+| 12 | traction | Soft-launched September 28. Kickoff November 6. |
+| 13 | impact | How we validate impact, every six months. (preliminary model) |
+| 14 | ask | $350,000 pre-seed. |
+| 15 | use-of-funds | 95% on community and GTM. |
+| 16 | team | Two founders and an advisor with a record of building businesses and communities. |
 
 ## Before sharing
 
-- Fill the bracketed email and phone on the team slide.
 - After November 6, replace the waitlist count with enrolled and paying counts and the room's numbers.
 - Numbers come from `docs/financial-model-5yr-v2.xlsx` (Base case) and `docs/funding/market-sizing.md`; the speaker notes in each file carry the figures to answer questions with.
 - Keep "creative," never "artist," and the "Never say" list in `docs/marketing/claims.md`.
