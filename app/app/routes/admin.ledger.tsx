@@ -605,11 +605,138 @@ function RecentSection({ recent }: { recent: PlatformReport["recent"] }) {
   );
 }
 
+// ————— Member-directed giving —————
+//
+// What members do with their monthly half (getGivingReport, operator only).
+// The report is read defensively: a backend that hasn't shipped it yet
+// leaves this section empty and the rest of the page renders.
+
+type GivingPeriodRow = {
+  period?: string;
+  membersBilled?: number;
+  gaveToCreative?: number;
+  gaveToProject?: number;
+  choseFund?: number;
+  didntPick?: number;
+  notPickedYet?: number;
+  givenCents?: number;
+  decidedWithin7Days?: number;
+  distinctRecipients?: number;
+  plussedUpMembers?: number;
+  plussedUpCents?: number;
+  plussedUpMonthly?: number;
+  plussedUpRate?: number;
+  gaveAgain?: number;
+  plussedUpAgain?: number;
+};
+
+type GivingMemberRow = {
+  userId?: string;
+  name?: string;
+  profileId?: string | null;
+  timesPlussedUp?: number;
+  plussedUpCents?: number;
+  gaveCount?: number;
+  lastPeriod?: string;
+};
+
+type GivingReport = {
+  byPeriod?: GivingPeriodRow[];
+  members?: GivingMemberRow[];
+  totals?: {
+    membersBilled?: number;
+    gave?: number;
+    givenCents?: number;
+    plussedUpCents?: number;
+    plussedUpMembers?: number;
+  };
+};
+
+const GIVING_LINE: React.CSSProperties = { fontSize: 15, color: "var(--g-body)", margin: "4px 0" };
+
+function GivingMonth({ r }: { r: GivingPeriodRow }) {
+  const notYet = r.notPickedYet ?? 0;
+  const again = r.gaveAgain ?? 0;
+  return (
+    <div style={{ marginTop: 20, paddingTop: 14, borderTop: "1px solid var(--g-hairline)" }}>
+      <h3 className="g-h" style={{ fontSize: 20 }}>
+        {formatPeriod(r.period ?? "")}
+      </h3>
+      <p style={GIVING_LINE}>{r.membersBilled ?? 0} {(r.membersBilled ?? 0) === 1 ? "member" : "members"} billed</p>
+      <p style={GIVING_LINE}>
+        {r.gaveToCreative ?? 0} gave to a creative, {r.gaveToProject ?? 0} to a project
+      </p>
+      <p style={GIVING_LINE}>
+        {r.choseFund ?? 0} chose the grant fund, {r.didntPick ?? 0} didn't pick (it went to the fund)
+      </p>
+      {notYet > 0 && <p style={GIVING_LINE}>{notYet} haven't picked yet</p>}
+      <p style={GIVING_LINE}>
+        {r.plussedUpMembers ?? 0} plussed up, {formatMoney(r.plussedUpCents ?? 0)}
+      </p>
+      {again > 0 && <p style={GIVING_LINE}>{again} gave again this month and last</p>}
+    </div>
+  );
+}
+
+function GivingSection({ report }: { report: GivingReport | null | undefined }) {
+  const rows = (report?.byPeriod ?? []).slice(0, 6);
+  const members = report?.members ?? [];
+  return (
+    <section style={{ marginTop: 40 }}>
+      <SectionLabel>Member-directed giving</SectionLabel>
+      <p style={{ marginTop: 8, fontSize: 15, color: "var(--g-body)", maxWidth: "60ch" }}>
+        Each month a member picks who gets their monthly grant. Plussed up means they gave more of their own money on
+        top.
+      </p>
+      {report === undefined ? (
+        <div style={{ marginTop: 12 }}>
+          <GardenLoading />
+        </div>
+      ) : rows.length === 0 ? (
+        <div style={{ marginTop: 12 }}>
+          <EmptyRow>Nothing yet.</EmptyRow>
+        </div>
+      ) : (
+        <>
+          {rows.map((r, i) => (
+            <GivingMonth key={r.period ?? i} r={r} />
+          ))}
+          <div style={{ marginTop: 26 }}>
+            <h3 className="g-h" style={{ fontSize: 20, marginBottom: 8 }}>
+              Who plussed up
+            </h3>
+            {members.length === 0 ? (
+              <p style={GIVING_LINE}>Nobody yet.</p>
+            ) : (
+              members.map((m, i) => {
+                const name = m.name ?? "Someone";
+                return (
+                  <p key={m.userId ?? i} style={GIVING_LINE}>
+                    {m.profileId ? (
+                      <Link to={`/profile/${m.profileId}`} style={{ color: "var(--g-paper)", fontWeight: 600 }}>
+                        {name}
+                      </Link>
+                    ) : (
+                      <span style={{ color: "var(--g-paper)", fontWeight: 600 }}>{name}</span>
+                    )}{" "}
+                    · {m.timesPlussedUp ?? 0}× · {formatMoney(m.plussedUpCents ?? 0)}
+                  </p>
+                );
+              })
+            )}
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
 // ————— Page —————
 
 export default function AdminLedgerPage() {
   const profile = useQuery(api.profiles.getMyProfile);
   const report = useQuery(api.garden.reports.getPlatformReport, {}) as PlatformReport | null | undefined;
+  const givingReport = useQuery(api.garden.giving.getGivingReport, {}) as GivingReport | null | undefined;
 
   if (profile === undefined) {
     return (
@@ -654,6 +781,7 @@ export default function AdminLedgerPage() {
           <p className="g-hint" style={{ marginTop: 10 }}>Generated {formatDateTime(report.generatedAt)}</p>
           <FeesSection fees={report.fees} periods={report.periods} />
           <PoolsSection pools={report.pools} />
+          <GivingSection report={givingReport} />
           <HostEarningsSection hostEarnings={report.hostEarnings} />
           <CreativeEarningsSection creativeEarnings={report.creativeEarnings ?? []} />
           <CommunitiesMembersSection communities={report.communities} />

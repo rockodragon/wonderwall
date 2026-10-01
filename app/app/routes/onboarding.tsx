@@ -64,6 +64,7 @@ export default function Onboarding() {
   // Only asked when the profile has no real name yet (a phone sign-in).
   const [name, setName] = useState("");
   const [bio, setBio] = useState("");
+  const [creativeOrgName, setCreativeOrgName] = useState("");
   // Only asked when the account has no email (a phone sign-in) — Stripe
   // receipts and notifications need one even then.
   const [email, setEmail] = useState("");
@@ -124,6 +125,9 @@ export default function Onboarding() {
   useEffect(() => {
     if (profile && !prefilled) {
       setBio(profile.bio || "");
+      // A blank or placeholder name starts empty so the person types a real one.
+      setName(profile.name && profile.name !== "New User" ? profile.name : "");
+      setCreativeOrgName(profile.orgName || "");
       location.hydrate(profile);
       setSelectedJobFunctions(profile.interests || []);
       setPrefilled(true);
@@ -170,6 +174,12 @@ export default function Onboarding() {
     if (!profile || !primaryRole || saving) return;
     setDetailsError(null);
     const trimmedEmail = email.trim();
+    // A name is the one thing Skip can't skip: a phone sign-in has none yet
+    // (the profile still reads "New User").
+    if (needsName && !name.trim()) {
+      setDetailsError("Enter your name.");
+      return;
+    }
     if (!skip) {
       if (primaryRole === "creative" && selectedJobFunctions.length === 0) {
         setDetailsError("Pick at least one interest.");
@@ -201,7 +211,7 @@ export default function Onboarding() {
             ? (isOrg ? orgName.trim() : undefined) || undefined
             : primaryRole === "partner"
               ? partnerOrgName.trim() || undefined
-              : undefined,
+              : creativeOrgName.trim() || undefined,
         supportInterests: primaryRole === "patron" ? supportInterests : undefined,
         partnerOfferings: primaryRole === "partner" ? partnerOfferings : undefined,
       });
@@ -509,15 +519,18 @@ export default function Onboarding() {
               </div>
             </div>
 
+            <NameField name={name} setName={setName} />
             {needsEmail && <EmailField email={email} setEmail={setEmail} />}
             <LocationField location={location} />
             <BioField bio={bio} setBio={setBio} placeholder="Tell us a bit about yourself..." />
+            <OrgField value={creativeOrgName} setValue={setCreativeOrgName} />
 
             <DetailsActions
               onContinue={() => saveDetails(false)}
               onSkip={() => saveDetails(true)}
-              continueDisabled={selectedJobFunctions.length === 0 || saving || photoUploading}
+              continueDisabled={selectedJobFunctions.length === 0 || (needsName && !name.trim()) || saving || photoUploading}
               saving={saving}
+              skipDisabled={needsName && !name.trim()}
               error={detailsError}
             />
           </div>
@@ -595,6 +608,7 @@ export default function Onboarding() {
               </div>
             </div>
 
+            <NameField name={name} setName={setName} />
             {needsEmail && <EmailField email={email} setEmail={setEmail} />}
             <LocationField location={location} />
             <BioField bio={bio} setBio={setBio} placeholder="Why do you support creatives? (optional)" />
@@ -602,8 +616,9 @@ export default function Onboarding() {
             <DetailsActions
               onContinue={() => saveDetails(false)}
               onSkip={() => saveDetails(true)}
-              continueDisabled={saving}
+              continueDisabled={(needsName && !name.trim()) || saving}
               saving={saving}
+              skipDisabled={needsName && !name.trim()}
               error={detailsError}
             />
           </div>
@@ -655,6 +670,7 @@ export default function Onboarding() {
               </div>
             </div>
 
+            <NameField name={name} setName={setName} />
             {needsEmail && <EmailField email={email} setEmail={setEmail} />}
             <LocationField
               location={location}
@@ -665,8 +681,9 @@ export default function Onboarding() {
             <DetailsActions
               onContinue={() => saveDetails(false)}
               onSkip={() => saveDetails(true)}
-              continueDisabled={saving}
+              continueDisabled={(needsName && !name.trim()) || saving}
               saving={saving}
+              skipDisabled={needsName && !name.trim()}
               error={detailsError}
             />
           </div>
@@ -924,6 +941,41 @@ function EmailField({
   );
 }
 
+function NameField({ name, setName }: { name: string; setName: (v: string) => void }) {
+  return (
+    <div className="mb-6">
+      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+        Name <span className="text-red-500">*</span>
+      </label>
+      <input
+        type="text"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        autoComplete="name"
+        className="w-full px-4 py-3 border border-gray-300 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
+      />
+    </div>
+  );
+}
+
+function OrgField({ value, setValue }: { value: string; setValue: (v: string) => void }) {
+  return (
+    <div className="mb-6">
+      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+        Organization (Optional)
+      </label>
+      <input
+        type="text"
+        value={value}
+        maxLength={80}
+        onChange={(e) => setValue(e.target.value)}
+        className="w-full px-4 py-3 border border-gray-300 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
+      />
+      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Shown with your name on events you host.</p>
+    </div>
+  );
+}
+
 function BioField({
   bio,
   setBio,
@@ -951,42 +1003,21 @@ function BioField({
   );
 }
 
-function NameField({
-  name,
-  setName,
-}: {
-  name: string;
-  setName: (v: string) => void;
-}) {
-  return (
-    <div className="mb-6">
-      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-        Your name
-      </label>
-      <input
-        type="text"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        placeholder="Jane Smith"
-        autoComplete="name"
-        className="w-full px-4 py-3 border border-gray-300 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
-      />
-    </div>
-  );
-}
-
 // Continue + a quiet Skip + the inline error, shared by all three roles.
 // Skip only waits on the save itself.
 function DetailsActions({
   onContinue,
   onSkip,
   continueDisabled,
+  skipDisabled = false,
   saving,
   error,
 }: {
   onContinue: () => void;
   onSkip: () => void;
   continueDisabled: boolean;
+  /** Skip can't skip a missing name — the one field onboarding insists on. */
+  skipDisabled?: boolean;
   saving: boolean;
   error: string | null;
 }) {
@@ -1006,7 +1037,7 @@ function DetailsActions({
       </button>
       <button
         onClick={onSkip}
-        disabled={saving}
+        disabled={saving || skipDisabled}
         className="mt-3 w-full py-2 text-[13.5px] font-medium text-gray-700 dark:text-gray-300 underline underline-offset-4 hover:text-gray-900 dark:hover:text-white disabled:opacity-50"
       >
         Skip for now

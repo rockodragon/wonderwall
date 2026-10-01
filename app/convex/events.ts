@@ -1,13 +1,13 @@
 import { v } from "convex/values";
 import { escapeHtml } from "./email/template";
-import { internalQuery, mutation, query, type MutationCtx } from "./_generated/server";
+import { internalQuery, mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { auth } from "./auth";
 import { scheduleNotificationEmail } from "./emailHelpers";
 import { assertCommunityMember } from "./garden/communities";
 import { formatFollowedEventDate, notifyFollowers } from "./follows";
 import { canonicalMediaUrl, schedulePreviewFetch } from "./linkPreview";
-import { mergeGuests, type GuestInput } from "./eventGuests";
+import { mergeGuests, summarizeGuests, type GuestInput } from "./eventGuests";
 import { getUserEmail } from "./emailHelpers";
 import { isEventHost, planAddCoHost, planRemoveCoHost } from "./eventHosts";
 import { canSeeEvent, eventVisibilityChecker, isFreeEvent } from "./garden/eventVisibility";
@@ -165,6 +165,80 @@ async function resolveCommunities(
   return out;
 }
 
+/** How many people are going, counted one way for the list and the detail:
+ * accepted applications + RSVPs (each `ticketCount ?? 1`) + paid tickets,
+ * one person once (userId, then email), keeping their largest ticket count. */
+export function countGoing(input: {
+  acceptedApplicantIds: string[];
+  rsvps: { userId?: string | null; email?: string | null; ticketCount?: number | null }[];
+  paidPurchases: { userId?: string | null; buyerEmail?: string | null }[];
+}): number {
+  const rows: GuestInput[] = [
+    ...input.acceptedApplicantIds.map((id) => ({
+      userId: id,
+      name: "",
+      status: "going" as const,
+      addedAt: 0,
+    })),
+    ...input.rsvps.map((r) => ({
+      userId: r.userId ?? null,
+      name: "",
+      email: r.email ?? null,
+      status: "going" as const,
+      tickets: r.ticketCount ?? 1,
+      addedAt: 0,
+    })),
+    ...input.paidPurchases.map((p) => ({
+      userId: p.userId ?? null,
+      name: "",
+      email: p.buyerEmail ?? null,
+      status: "going" as const,
+      addedAt: 0,
+    })),
+  ];
+  return summarizeGuests(mergeGuests(rows)).going;
+}
+
+async function loadGoingCount(ctx: QueryCtx, eventId: Id<"events">): Promise<number> {
+  const [applications, rsvps, purchases] = await Promise.all([
+    ctx.db
+      .query("eventApplications")
+      .withIndex("by_eventId", (q) => q.eq("eventId", eventId))
+      .collect(),
+    ctx.db
+      .query("eventRsvps")
+      .withIndex("by_eventId", (q) => q.eq("eventId", eventId))
+      .collect(),
+    ctx.db
+      .query("ticketPurchases")
+      .withIndex("by_eventId", (q) => q.eq("eventId", eventId))
+      .collect(),
+  ]);
+  return countGoing({
+    acceptedApplicantIds: applications.filter((a) => a.status === "accepted").map((a) => String(a.applicantId)),
+    rsvps,
+    paidPurchases: purchases.filter((p) => p.status === "paid"),
+  });
+}
+
+/** Organizer then co-hosts, each with the org name from their profile. */
+async function loadHosts(
+  ctx: QueryCtx,
+  event: Doc<"events">,
+): Promise<{ name: string; orgName?: string; orgUrl?: string; profileId?: Id<"profiles"> }[]> {
+  const ids = [event.organizerId, ...(event.coHostIds ?? [])];
+  const out: { name: string; orgName?: string; orgUrl?: string; profileId?: Id<"profiles"> }[] = [];
+  for (const id of ids) {
+    const p = await ctx.db
+      .query("profiles")
+      .withIndex("by_userId", (q) => q.eq("userId", id))
+      .first();
+    if (!p) continue;
+    out.push({ name: p.name, orgName: p.orgName?.trim() || undefined, orgUrl: p.orgUrl || undefined, profileId: p._id });
+  }
+  return out;
+}
+
 export const list = query({
   args: {
     status: v.optional(v.string()),
@@ -225,17 +299,16 @@ export const list = query({
           coverImageUrl = await ctx.storage.getUrl(event.imageStorageIds[0]);
         }
 
-        // Get attendee count
-        const applications = await ctx.db
-          .query("eventApplications")
-          .withIndex("by_eventId", (q) => q.eq("eventId", event._id))
-          .filter((q) => q.eq(q.field("status"), "accepted"))
-          .collect();
+        const [attendeeCount, hosts] = await Promise.all([
+          loadGoingCount(ctx, event._id),
+          loadHosts(ctx, event),
+        ]);
 
         return {
           ...event,
           coverImageUrl,
-          attendeeCount: applications.length,
+          attendeeCount,
+          hosts,
           community: event.hostOrgId ? (communityById.get(String(event.hostOrgId)) ?? null) : null,
         };
       }),
@@ -327,9 +400,13 @@ export const get = query({
       ? (await resolveCommunities(ctx, [event.hostOrgId])).get(String(event.hostOrgId)) ?? null
       : null;
 
+    const goingCount = await loadGoingCount(ctx, args.eventId);
+
     const coHosts: {
       userId: Id<"users">;
       name: string;
+      orgName?: string;
+      orgUrl?: string;
       imageUrl: string | null;
       profileId: Id<"profiles"> | null;
     }[] = [];
@@ -343,6 +420,8 @@ export const get = query({
       coHosts.push({
         userId: coId,
         name: p?.name ?? "Someone",
+        orgName: p?.orgName?.trim() || undefined,
+        orgUrl: p?.orgUrl || undefined,
         imageUrl: img,
         profileId: p?._id ?? null,
       });
@@ -358,11 +437,14 @@ export const get = query({
       organizer: profile
         ? {
             name: profile.name,
+            orgName: profile.orgName?.trim() || undefined,
+            orgUrl: profile.orgUrl || undefined,
             imageUrl: organizerImageUrl,
             profileId: profile._id,
           }
         : null,
       applicationCount: applications.length,
+      goingCount,
       userApplication,
       isOrganizer,
       // Lets the organizer's own view show the "only you can see this"

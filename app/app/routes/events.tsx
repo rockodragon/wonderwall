@@ -350,7 +350,7 @@ export default function Events() {
                 ? "Heart an event to save it here"
                 : activeTab === "past"
                   ? "Events show up here once they've happened"
-                  : "Be the first to create an event for the community"}
+                  : "Create an event for the community"}
             </p>
           </div>
         ) : (

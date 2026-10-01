@@ -25,7 +25,7 @@ import {
   type ContributionLike,
 } from "./allocations";
 import { computeHostEarnings, type EarningsLike } from "./products";
-import { buildCreativeEarningsRows, classPaymentToEarningsPayment } from "./payouts";
+import { buildCreativeEarningsRows, classPaymentToEarningsPayment, giftPaymentToEarningsPayment } from "./payouts";
 import { assertCanManageCommunity, normalizeCommunity, COMMUNITY_KIND } from "./communities";
 
 // ——————————————————————————————————————————————————————————————
@@ -420,6 +420,7 @@ export const getPlatformReport = query({
       backingPayments,
       creativePayouts,
       classPayments,
+      giftPayments,
     ] = await Promise.all([
       ctx.db.query("hostOrgs").collect(),
       ctx.db.query("communityMembers").collect(),
@@ -436,6 +437,7 @@ export const getPlatformReport = query({
       ctx.db.query("backingPayments").collect(),
       ctx.db.query("creativePayouts").collect(),
       ctx.db.query("classPayments").collect(),
+      ctx.db.query("giftPayments").collect(),
     ]);
 
     const hostOrgById = new Map(hostOrgs.map((o) => [String(o._id), o]));
@@ -562,6 +564,7 @@ export const getPlatformReport = query({
     const payeeIds = new Set<string>();
     for (const p of backingPayments) if (p.payeeUserId) payeeIds.add(String(p.payeeUserId));
     for (const p of classPayments) if (p.payeeUserId) payeeIds.add(String(p.payeeUserId));
+    for (const p of giftPayments) payeeIds.add(String(p.payeeUserId));
     for (const p of creativePayouts) payeeIds.add(String(p.payeeUserId));
     const projectIds = new Set(backingPayments.map((p) => String(p.projectId)));
     const offeringIds = new Set(classPayments.map((p) => String(p.offeringId)));
@@ -606,6 +609,19 @@ export const getPlatformReport = query({
             },
             offeringTitleById.get(String(p.offeringId)),
           ),
+        ),
+        // Member-directed gifts (garden/giving.ts): owed to a person, no
+        // project behind them; a Connect transfer writes the creativePayouts
+        // row that pays them down, same as a hand payout.
+        ...giftPayments.map((p) =>
+          giftPaymentToEarningsPayment({
+            id: String(p._id),
+            payeeUserId: String(p.payeeUserId),
+            source: p.source,
+            grossCents: p.grossCents,
+            platformCents: p.platformCents,
+            workCents: p.workCents,
+          }),
         ),
       ],
       creativePayouts.map((p) => ({ payeeUserId: String(p.payeeUserId), amountCents: p.amountCents })),

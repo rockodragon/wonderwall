@@ -65,4 +65,25 @@ crons.daily(
   internal.notificationRetention.sweepExpiredNotifications,
 );
 
+// Member-directed giving (docs/features/member-directed-giving.md): an
+// open monthly amount nobody directed goes to the fund 35 days after it
+// opened or when the next one opens. Idempotent — a decided row is skipped.
+crons.daily(
+  "default-open-member-gifts",
+  { hourUTC: 12, minuteUTC: 0 }, // ~5am Pacific
+  (internal as any).garden.giving.defaultOpenGifts,
+  {},
+);
+
+// Stripe Connect transfer sweep: moves what connected creatives are owed
+// (gifts and backings) once it reaches the $50 minimum. Also kicked per
+// payee when money lands and when onboarding finishes; the nightly run is
+// the backstop for anything that failed (e.g. a low platform balance).
+crons.daily(
+  "connect-transfer-owed",
+  { hourUTC: 12, minuteUTC: 30 },
+  (internal as any).garden.connect.transferOwed,
+  {},
+);
+
 export default crons;

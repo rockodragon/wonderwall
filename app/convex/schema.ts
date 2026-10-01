@@ -63,6 +63,7 @@ export default defineSchema({
     // this is just which onramp they took, for UX (default view, copy).
     primaryRole: v.optional(v.string()),
     orgName: v.optional(v.string()), // patron/partner: their org, if any
+    orgUrl: v.optional(v.string()), // the org's website, normalized to https:// (profiles.ts normalizeOrgUrl)
     supportInterests: v.optional(v.array(v.string())), // patron: categories they want to fund
     partnerOfferings: v.optional(v.array(v.string())), // partner: what they can offer
     lastLikeNotifiedAt: v.optional(v.number()), // last time likes digest was sent
@@ -80,10 +81,21 @@ export default defineSchema({
         zelle: v.optional(v.string()), // the email or phone on their bank account
       }),
     ),
+    // Stripe Connect (docs/features/member-directed-giving.md, "How the
+    // money moves"): the Express account money owed to this person is
+    // transferred to. Written only by garden/connectState.ts. Absent until
+    // they start "Get paid" in Settings › Money; payoutsEnabled flips when
+    // Stripe says identity and bank are done. NOT public — getProfile never
+    // returns it.
+    stripeConnectAccountId: v.optional(v.string()),
+    stripeConnectPayoutsEnabled: v.optional(v.boolean()),
+    stripeConnectDetailsSubmitted: v.optional(v.boolean()),
+    stripeConnectUpdatedAt: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
     .index("by_userId", ["userId"])
+    .index("by_stripeConnectAccountId", ["stripeConnectAccountId"])
     .index("by_name", ["name"])
     .index("by_inviteSlug", ["inviteSlug"])
     .index("by_adminCode", ["adminCode"]),
@@ -1523,12 +1535,21 @@ export default defineSchema({
     subscriptionId: v.string(),
     hostOrgId: v.id("hostOrgs"),
     payerName: v.optional(v.string()),
+    // A member's monthly plus-up to the fund from /give (garden/givingLink.ts
+    // carries both on the Payment Link's client_reference_id), so each
+    // renewal is attributed to the member and the gift that prompted it.
+    userId: v.optional(v.id("users")),
+    memberGiftId: v.optional(v.id("memberGifts")),
     createdAt: v.number(),
   }).index("by_subscriptionId", ["subscriptionId"]),
 
   grantContributions: defineTable({
     hostOrgId: v.id("hostOrgs"), // the pool owner: the platform row, or a community
-    type: v.string(), // "dues_share" | "contribution_in" | "topup_in" | "sponsor_in" | "entry_fee_in" | "adjustment" | "ticket_in"
+    type: v.string(), // "dues_share" | "contribution_in" | "topup_in" | "sponsor_in" | "entry_fee_in" | "adjustment" | "ticket_in" | "member_gift_out"
+    // member_gift_out (member-directed-giving.md): a member directed the
+    // pool share of their dues to a creative or project, so it leaves the
+    // pool — poolCents negative, gross and platform 0. The money itself is
+    // owed on giftPayments / backingPayments.
     grossCents: v.number(),
     platformCents: v.number(),
     poolCents: v.number(), // may be negative on an adjustment (refund/chargeback clawback)
@@ -1538,6 +1559,11 @@ export default defineSchema({
     userId: v.optional(v.id("users")), // the payer, when known
     payerName: v.optional(v.string()), // display name for public credit (never email)
     membershipId: v.optional(v.id("memberships")),
+    // The member gift this row came from: a member_gift_out row, or a
+    // plus-up to the fund through Abiding Practice attributed by
+    // client_reference_id (garden/givingLink.ts). Behavior-change reports
+    // read it (garden/giving.ts computeGivingReport).
+    memberGiftId: v.optional(v.id("memberGifts")),
     stripeRef: v.optional(v.string()), // invoice id / checkout session id — idempotency key
     period: v.string(), // "YYYY-MM" — same convention as allocations.period
     note: v.optional(v.string()),
@@ -1545,7 +1571,72 @@ export default defineSchema({
   })
     .index("by_hostOrgId", ["hostOrgId"])
     .index("by_stripeRef", ["stripeRef"])
-    .index("by_userId", ["userId"]),
+    .index("by_userId", ["userId"])
+    .index("by_memberGiftId", ["memberGiftId"]),
+
+  // Member-directed giving (docs/features/member-directed-giving.md). One
+  // row per paid membership invoice that carried a pool share: the pool
+  // half of that member's dues, theirs to direct for a month. Opened by the
+  // Stripe webhook next to the dues_share row (same invoice id, so a replay
+  // opens nothing twice), decided on /give (garden/giving.ts decideGift), or
+  // defaulted to the fund by the daily sweep. The money never moves on this
+  // row: a creative-directed gift is owed on giftPayments, a project-
+  // directed one on backingPayments, and the fund keeps what nobody directs.
+  memberGifts: defineTable({
+    userId: v.id("users"), // the giver
+    communityId: v.id("hostOrgs"), // whose pool the share sits in
+    membershipId: v.optional(v.id("memberships")),
+    sourceStripeRef: v.string(), // the membership invoice id — idempotency key
+    period: v.string(), // "YYYY-MM", the invoice's billing period
+    amountCents: v.number(), // the pool share of that invoice (The Garden: $5 of $10)
+    status: v.string(), // "open" | "creative" | "project" | "fund"
+    decidedBy: v.optional(v.string()), // "member" | "default" — set with status
+    recipientUserId: v.optional(v.id("users")), // status "creative"
+    projectId: v.optional(v.id("projects")), // status "project"
+    supportId: v.optional(v.id("projectSupport")), // the confirmed backing a project gift wrote
+    visible: v.optional(v.boolean()), // named (true) or anonymous to the recipient
+    note: v.optional(v.string()), // <= 200 chars, to the recipient
+    openedAt: v.number(),
+    decidedAt: v.optional(v.number()),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_sourceStripeRef", ["sourceStripeRef"])
+    .index("by_status", ["status"])
+    .index("by_recipientUserId", ["recipientUserId"])
+    .index("by_communityId", ["communityId"]),
+
+  // Money owed to a creative from member-directed giving — the gifting twin
+  // of backingPayments (project money) and classPayments (class money), and
+  // the third source garden/payouts.ts's owed math reads. Two sources:
+  //   "allowance" — a member directed the pool share of their dues to this
+  //     person: platformCents 0 (the platform's 10% came out of the dues),
+  //     workCents = the whole amount, stripeRef "allowance:<memberGiftId>".
+  //   "plus_up"  — the member added their own money on top, through
+  //     createGiftCheckout (garden/stripe.ts): splitBacking's 90/10, card
+  //     processing on top, stripeRef the checkout session or renewal invoice.
+  // workCents is owed until a transfer (garden/connect.ts transferOwed)
+  // records transferId, which also writes the creativePayouts row the owed
+  // math subtracts.
+  giftPayments: defineTable({
+    memberGiftId: v.optional(v.id("memberGifts")),
+    payeeUserId: v.id("users"), // the creative
+    giverUserId: v.optional(v.id("users")),
+    giverName: v.optional(v.string()), // display copy only when visible; never an email
+    visible: v.boolean(),
+    source: v.string(), // "allowance" | "plus_up"
+    grossCents: v.number(),
+    platformCents: v.number(),
+    workCents: v.number(),
+    billing: v.string(), // "allowance" | "one_time" | "first" | "renewal"
+    stripeRef: v.string(), // idempotency key
+    period: v.string(), // "YYYY-MM"
+    transferId: v.optional(v.string()), // tr_… once moved to the creative's Connect account
+    transferredAt: v.optional(v.number()),
+    createdAt: v.number(),
+  })
+    .index("by_stripeRef", ["stripeRef"])
+    .index("by_payeeUserId", ["payeeUserId"])
+    .index("by_memberGiftId", ["memberGiftId"]),
 
   // A creative's ask TO a grant fund — the self-serve front door the pool.propose
   // capability (garden/capabilities.ts) gated with nothing behind it until now.
@@ -1668,18 +1759,26 @@ export default defineSchema({
     grossCents: v.number(), // what the backer paid for the backing itself
     platformCents: v.number(), // splitBacking at the time of payment
     workCents: v.number(), // owed until paid out
-    billing: v.string(), // "one_time" | "first" (a recurring backing's first charge) | "renewal" | "backfill"
+    billing: v.string(), // "one_time" | "first" (a recurring backing's first charge) | "renewal" | "backfill" | "allowance" (a member directed their dues share to this project — platformCents 0)
     // Idempotency key: checkout session id (first payment), invoice id
-    // (renewal), or "backfill:{supportId}" for a pledge collected before
-    // this table existed (garden/payouts.ts's backfillBackingPayments).
+    // (renewal), "backfill:{supportId}" for a pledge collected before
+    // this table existed (garden/payouts.ts's backfillBackingPayments), or
+    // "allowance:{memberGiftId}" for a member-directed gift.
     stripeRef: v.string(),
     period: v.string(), // "YYYY-MM", UTC — same convention as productPurchases
+    // Member-directed giving: the gift this payment came from (the
+    // allowance itself, or a plus-up backing started from /give).
+    memberGiftId: v.optional(v.id("memberGifts")),
+    // Stripe Connect transfer of workCents to the payee (garden/connect.ts).
+    transferId: v.optional(v.string()),
+    transferredAt: v.optional(v.number()),
     createdAt: v.number(),
   })
     .index("by_stripeRef", ["stripeRef"])
     .index("by_payeeUserId", ["payeeUserId"])
     .index("by_supportId", ["supportId"])
-    .index("by_projectId", ["projectId"]),
+    .index("by_projectId", ["projectId"])
+    .index("by_memberGiftId", ["memberGiftId"]),
 
   // One row per Stripe payment on a paid class (docs/features/class-payments-
   // and-moderation.md § Money). The student pays the class price plus card
@@ -1714,12 +1813,17 @@ export default defineSchema({
   creativePayouts: defineTable({
     payeeUserId: v.id("users"),
     amountCents: v.number(),
-    reference: v.optional(v.string()), // Zelle/bank memo
+    reference: v.optional(v.string()), // Zelle/bank memo, or "stripe:tr_…" for a Connect transfer
     note: v.optional(v.string()),
     paidAt: v.number(),
-    recordedByUserId: v.id("users"),
+    // The operator who recorded a hand payout. Absent on a Stripe Connect
+    // transfer (garden/connect.ts), which no person records.
+    recordedByUserId: v.optional(v.id("users")),
+    stripeTransferId: v.optional(v.string()),
     createdAt: v.number(),
-  }).index("by_payeeUserId", ["payeeUserId"]),
+  })
+    .index("by_payeeUserId", ["payeeUserId"])
+    .index("by_stripeTransferId", ["stripeTransferId"]),
 
   // Story updates (W3) — the credit-carrying timeline on public story pages.
   storyUpdates: defineTable({

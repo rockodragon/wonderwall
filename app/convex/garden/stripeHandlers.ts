@@ -105,7 +105,20 @@ export interface StripeInvoiceLike {
   billing_reason?: string;
 }
 
+/** Locally-typed Connect account — `account.updated` (garden/connect.ts). */
+export interface StripeAccountLike {
+  id: string; // acct_…
+  payouts_enabled?: boolean;
+  details_submitted?: boolean;
+  charges_enabled?: boolean;
+}
+
 export type StripeWebhookEvent =
+  | {
+      id: string;
+      type: "account.updated";
+      data: { object: StripeAccountLike };
+    }
   | {
       id: string;
       type: "checkout.session.completed";
@@ -278,6 +291,9 @@ export interface BackingPaymentRow {
   workCents: number; // owed to the payee
   billing: "one_time" | "first" | "renewal";
   stripeRef: string; // checkout session id or invoice id — idempotency key
+  /** Member-directed giving: the monthly amount this backing was added on
+   * top of (a plus-up from /give). Read by the behavior-change report. */
+  memberGiftId?: string;
   period: string; // "YYYY-MM"
 }
 
@@ -315,7 +331,53 @@ export interface ClassPaymentDb {
   confirmOfferingSignup(offeringId: string, userId: string): Promise<void>;
 }
 
-export interface Db extends Partial<ClassPaymentDb> {
+/** A plus-up to a creative from /give (garden/stripe.ts's createGiftCheckout,
+ * kind "gift"): the gifting twin of BackingPaymentRow, owed to a person
+ * rather than a project. Allowance rows (source "allowance") are written by
+ * garden/giving.ts's decideGift, never by this webhook. */
+export interface GiftPaymentRow {
+  memberGiftId?: string;
+  payeeUserId: string;
+  giverUserId?: string;
+  giverName?: string;
+  visible: boolean;
+  source: "plus_up";
+  grossCents: number;
+  platformCents: number;
+  workCents: number;
+  billing: "one_time" | "first" | "renewal";
+  stripeRef: string;
+  period: string; // "YYYY-MM"
+}
+
+/** Member-directed giving + Stripe Connect (member-directed-giving.md).
+ * Optional on Db, like ClassPaymentDb, so a fake written before these
+ * existed still satisfies it; the real adapter implements all four. */
+export interface GiftDb {
+  /** Opens the member's gift for a paid membership invoice — idempotent on
+   * sourceStripeRef (the invoice id). Called right after the dues_share
+   * row, only when the invoice carried a pool share and a userId. */
+  openMemberGift(row: {
+    userId: string;
+    communityId: string;
+    membershipId?: string;
+    sourceStripeRef: string;
+    period: string;
+    amountCents: number;
+  }): Promise<void>;
+  getGiftPaymentByRef(stripeRef: string): Promise<{ stripeRef: string } | null>;
+  insertGiftPayment(row: GiftPaymentRow): Promise<void>;
+  /** account.updated on a connected account: what Stripe now says about
+   * payouts. Unknown account id is a safe no-op. */
+  updateConnectAccount(args: {
+    accountId: string;
+    payoutsEnabled: boolean;
+    detailsSubmitted: boolean;
+    chargesEnabled: boolean;
+  }): Promise<void>;
+}
+
+export interface Db extends Partial<ClassPaymentDb>, Partial<GiftDb> {
   getBillingCustomerByStripeId(stripeCustomerId: string): Promise<BillingCustomerRow | null>;
   upsertBillingCustomer(row: BillingCustomerRow): Promise<void>;
 
@@ -854,6 +916,16 @@ export function splitBacking(grossCents: number): { platformCents: number; workC
 export const CARD_FEE_RATE = 0.029;
 export const CARD_FEE_FIXED_CENTS = 30;
 
+/** What a member can give from one membership payment: their community's
+ * pool percent of the NET, after card processing comes out of the charge
+ * ($10 at 50% is $4.71, not $5). The dues_share row still counts gross;
+ * only the member's giftable amount is net-based. Never negative. */
+export function memberGrantCents(grossCents: number, poolPct: number): number {
+  const fee = Math.round(grossCents * CARD_FEE_RATE + CARD_FEE_FIXED_CENTS);
+  const pct = Math.min(Math.max(poolPct, 0), 100);
+  return Math.max(0, Math.round(((grossCents - fee) * pct) / 100));
+}
+
 export function backingProcessingFeeCents(amountCents: number): number {
   const total = Math.ceil((amountCents + CARD_FEE_FIXED_CENTS) / (1 - CARD_FEE_RATE));
   return total - amountCents;
@@ -872,6 +944,7 @@ async function recordBackingPayment(
     billing: BackingPaymentRow["billing"];
     stripeRef: string;
     periodSeconds: number;
+    memberGiftId?: string;
   },
 ): Promise<void> {
   if (args.grossCents <= 0) return;
@@ -883,6 +956,7 @@ async function recordBackingPayment(
     ...(args.supportId ? { supportId: args.supportId } : {}),
     ...(payeeUserId ? { payeeUserId } : {}),
     ...(args.backerUserId ? { backerUserId: args.backerUserId } : {}),
+    ...(args.memberGiftId ? { memberGiftId: args.memberGiftId } : {}),
     grossCents: args.grossCents,
     platformCents,
     workCents,
@@ -908,7 +982,7 @@ async function handleBackingCheckoutCompleted(
   db: Db,
 ): Promise<void> {
   const metadata = session.metadata ?? {};
-  const { projectId, supportId, userId, supporterName, visible, tierId } = metadata;
+  const { projectId, supportId, userId, supporterName, visible, tierId, memberGiftId } = metadata;
   const type = session.mode === "subscription" ? "financial_recurring" : "financial_one_time";
   // The pre-fee amount the backer actually chose (createBackingCheckout puts
   // it in metadata). session.amount_total includes the processing-fee line
@@ -939,6 +1013,7 @@ async function handleBackingCheckoutCompleted(
         billing: session.mode === "subscription" ? "first" : "one_time",
         stripeRef: session.id,
         periodSeconds: session.created ?? Math.floor(Date.now() / 1000),
+        ...(memberGiftId ? { memberGiftId } : {}),
       });
       await db.notifyBackingConfirmed({
         projectId: existing.projectId,
@@ -992,6 +1067,7 @@ async function handleBackingCheckoutCompleted(
     billing: session.mode === "subscription" ? "first" : "one_time",
     stripeRef: session.id,
     periodSeconds: session.created ?? Math.floor(Date.now() / 1000),
+    ...(memberGiftId ? { memberGiftId } : {}),
   });
   await db.notifyBackingConfirmed({
     projectId,
@@ -1321,6 +1397,12 @@ async function handleCheckoutSessionCompleted(
     return handleBackingCheckoutCompleted(session, db);
   }
 
+  // A plus-up to a creative from /give — one-time or monthly, so it also
+  // dispatches before the mode split.
+  if (metadata.kind === "gift") {
+    return handleGiftCheckoutCompleted(session, db);
+  }
+
   if (session.mode === "payment") {
     if (metadata.kind === "event_ticket") {
       return handleTicketCheckoutCompleted(session, db);
@@ -1513,6 +1595,112 @@ async function handleSubscriptionDeleted(sub: StripeSubscriptionLike, db: Db): P
   await handleMembershipSubscriptionUpdate(sub, db, "canceled");
 }
 
+// ——— Member-directed giving: plus-ups to a creative (kind "gift") ———
+
+/** Records one gift payment owed to a creative. Same shape as
+ * recordBackingPayment: idempotent by stripeRef, the backing split, the
+ * adapter notifies the recipient and kicks the Connect transfer. */
+async function recordGiftPayment(
+  db: Db,
+  args: {
+    memberGiftId?: string;
+    payeeUserId: string;
+    giverUserId?: string;
+    giverName?: string;
+    visible: boolean;
+    grossCents: number;
+    billing: GiftPaymentRow["billing"];
+    stripeRef: string;
+    periodSeconds: number;
+  },
+): Promise<void> {
+  if (!db.getGiftPaymentByRef || !db.insertGiftPayment) return; // adapter predates gifts
+  if (args.grossCents <= 0) return;
+  if (await db.getGiftPaymentByRef(args.stripeRef)) return; // idempotent replay
+  const { platformCents, workCents } = splitBacking(args.grossCents);
+  await db.insertGiftPayment({
+    ...(args.memberGiftId ? { memberGiftId: args.memberGiftId } : {}),
+    payeeUserId: args.payeeUserId,
+    ...(args.giverUserId ? { giverUserId: args.giverUserId } : {}),
+    ...(args.visible && args.giverName ? { giverName: args.giverName } : {}),
+    visible: args.visible,
+    source: "plus_up",
+    grossCents: args.grossCents,
+    platformCents,
+    workCents,
+    billing: args.billing,
+    stripeRef: args.stripeRef,
+    period: periodFromStripeSeconds(args.periodSeconds),
+  });
+}
+
+/** Checkout for a plus-up to a creative (garden/stripe.ts's
+ * createGiftCheckout). The gross is metadata.amountCents — never
+ * amount_total, which includes the processing line — same rule as backings. */
+async function handleGiftCheckoutCompleted(session: StripeCheckoutSessionLike, db: Db): Promise<void> {
+  const metadata = session.metadata ?? {};
+  const { recipientUserId, userId, giverName, visible, memberGiftId } = metadata;
+  if (!recipientUserId) {
+    console.warn("[stripe] gift checkout.session.completed missing recipientUserId metadata", {
+      sessionId: session.id,
+    });
+    return;
+  }
+  const grossCents = metadata.amountCents ? Number(metadata.amountCents) : 0;
+  await recordGiftPayment(db, {
+    ...(memberGiftId ? { memberGiftId } : {}),
+    payeeUserId: recipientUserId,
+    giverUserId: userId || undefined,
+    giverName: giverName || undefined,
+    visible: visible === "true",
+    grossCents,
+    billing: session.mode === "subscription" ? "first" : "one_time",
+    stripeRef: session.id,
+    periodSeconds: session.created ?? Math.floor(Date.now() / 1000),
+  });
+}
+
+/** Renewal invoice on a monthly plus-up: only "subscription_cycle" (the
+ * first invoice was recorded by the checkout), idempotent by invoice id. */
+async function handleGiftInvoicePaid(
+  invoice: StripeInvoiceLike,
+  metadata: Record<string, string>,
+  db: Db,
+): Promise<void> {
+  if (invoice.billing_reason !== "subscription_cycle") return;
+  const { recipientUserId, userId, giverName, visible, memberGiftId } = metadata;
+  if (!recipientUserId) {
+    console.warn("[stripe] gift invoice.paid missing recipientUserId metadata", { invoiceId: invoice.id });
+    return;
+  }
+  const grossCents = metadata.amountCents ? Number(metadata.amountCents) : invoice.amount_paid;
+  await recordGiftPayment(db, {
+    ...(memberGiftId ? { memberGiftId } : {}),
+    payeeUserId: recipientUserId,
+    giverUserId: userId || undefined,
+    giverName: giverName || undefined,
+    visible: visible === "true",
+    grossCents,
+    billing: "renewal",
+    stripeRef: invoice.id,
+    periodSeconds: invoice.period_start ?? invoice.created,
+  });
+}
+
+// ——— account.updated (Stripe Connect) ———
+
+/** What Stripe now says about a creative's connected account. The adapter
+ * finds the profile by account id; an unknown id is a no-op. */
+async function handleAccountUpdated(account: StripeAccountLike, db: Db): Promise<void> {
+  if (!db.updateConnectAccount || !account?.id) return;
+  await db.updateConnectAccount({
+    accountId: account.id,
+    payoutsEnabled: account.payouts_enabled === true,
+    detailsSubmitted: account.details_submitted === true,
+    chargesEnabled: account.charges_enabled === true,
+  });
+}
+
 // ——— invoice.paid (dues shares) ———
 
 /** Stripe has relocated a paid invoice's subscription metadata across API
@@ -1602,7 +1790,7 @@ async function handleBackingInvoicePaid(
   db: Db,
 ): Promise<void> {
   if (invoice.billing_reason !== "subscription_cycle") return; // first invoice — recorded at checkout
-  const { projectId, supportId, userId } = metadata;
+  const { projectId, supportId, userId, memberGiftId } = metadata;
   if (!projectId) {
     console.warn("[stripe] backing invoice.paid missing projectId metadata", { invoiceId: invoice.id });
     return;
@@ -1623,6 +1811,7 @@ async function handleBackingInvoicePaid(
     billing: "renewal",
     stripeRef: invoice.id,
     periodSeconds: invoice.period_start ?? invoice.created,
+    ...(memberGiftId ? { memberGiftId } : {}),
   });
 }
 
@@ -1640,6 +1829,10 @@ async function handleInvoicePaid(invoice: StripeInvoiceLike, db: Db): Promise<vo
     return handleBackingInvoicePaid(invoice, metadata, db);
   }
 
+  if (metadata.kind === "gift") {
+    return handleGiftInvoicePaid(invoice, metadata, db);
+  }
+
   if (metadata.kind !== "membership") return; // not a membership subscription's invoice
 
   if (await db.getContributionByStripeRef(invoice.id)) return; // idempotent replay
@@ -1653,6 +1846,7 @@ async function handleInvoicePaid(invoice: StripeInvoiceLike, db: Db): Promise<vo
   const dues = await db.getCommunityDues(metadata.communityId || membership?.communityId);
   if (dues) {
     const { platformCents, groupCents, poolCents } = communityDuesSplit(grossCents, dues);
+    const period = periodFromStripeSeconds(invoice.period_start ?? invoice.created);
     await db.insertContribution({
       hostOrgId: dues.hostOrgId,
       type: "dues_share",
@@ -1663,8 +1857,21 @@ async function handleInvoicePaid(invoice: StripeInvoiceLike, db: Db): Promise<vo
       userId: metadata.userId || undefined,
       membershipId: membership?.id,
       stripeRef: invoice.id,
-      period: periodFromStripeSeconds(invoice.period_start ?? invoice.created),
+      period,
     });
+    // Member-directed giving: the pool share of this invoice is the
+    // member's to direct for a month (garden/giving.ts). Keyed on the same
+    // invoice id, so a replayed webhook opens nothing twice.
+    if (db.openMemberGift && metadata.userId && poolCents > 0) {
+      await db.openMemberGift({
+        userId: metadata.userId,
+        communityId: dues.hostOrgId,
+        membershipId: membership?.id,
+        sourceStripeRef: invoice.id,
+        period,
+        amountCents: memberGrantCents(grossCents, dues.poolPct),
+      });
+    }
     return;
   }
 
@@ -1706,6 +1913,8 @@ export async function handleStripeEvent(event: StripeWebhookEvent, db: Db): Prom
       return handleSubscriptionDeleted(event.data.object as StripeSubscriptionLike, db);
     case "invoice.paid":
       return handleInvoicePaid(event.data.object as StripeInvoiceLike, db);
+    case "account.updated":
+      return handleAccountUpdated(event.data.object as StripeAccountLike, db);
     default:
       return; // every other event type is intentionally ignored (W1 scope)
   }

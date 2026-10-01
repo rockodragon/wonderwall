@@ -9,7 +9,7 @@
 import { useQuery } from "convex/react";
 import { Link, useRouteError } from "react-router";
 import { api } from "../../convex/_generated/api";
-import { GardenErrorState, GardenPage } from "../garden/ui";
+import { GardenErrorState, GardenPage, formatMoney } from "../garden/ui";
 import "../garden/garden.css";
 
 export function meta() {
@@ -32,6 +32,8 @@ export function ErrorBoundary() {
 
 export default function JoinSuccess() {
   const membership = useQuery(api.garden.memberships.getMyMembership);
+  const giving = useQuery(api.garden.giving.getMyGiving);
+  const openGift = giving?.open?.[0];
 
   return (
     <GardenPage>
@@ -44,6 +46,14 @@ export default function JoinSuccess() {
             ? "Your membership is active. Start a project, apply to paid work, or propose to the Grant Fund."
             : "Payment went through. Your membership turns on within a minute — refresh if it isn't showing yet."}
         </p>
+        {openGift && (
+          <p style={{ marginTop: 14, fontSize: 15, lineHeight: 1.6, color: "var(--g-paper)" }}>
+            You have {formatMoney(openGift.amountCents)} to give.{" "}
+            <Link to="/give" style={{ textDecoration: "underline", color: "var(--g-citron)" }}>
+              Pick who gets it
+            </Link>
+          </p>
+        )}
         <div style={{ marginTop: 20, display: "flex", gap: 12, flexWrap: "wrap" }}>
           <Link to="/projects?view=work" className="g-btn g-btn-citron">
             See paid work
