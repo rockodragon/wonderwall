@@ -1,6 +1,6 @@
 // /ia — information architecture reference page (discussion-brief pivot,
 // docs/creatives-exchange-discussion-brief.md). Built for the founder to
-// walk prospective community partners through: what creatives.exchange is,
+// walk prospective community partners through: what thecreative.exchange is,
 // what a community is, what a table is, the shared vocabulary, and how
 // someone actually walks from the front page into a room. No Convex data —
 // this is reference copy, static and shareable (no noindex, spec says so).
@@ -12,10 +12,11 @@
 import { Link, useRouteError } from "react-router";
 import { GardenErrorState, GardenPage, SectionLabel, FactRow } from "../garden/ui";
 import "../garden/garden.css";
+import { CLAIMS } from "../constants/claims";
 
 export function meta() {
   return [
-    { title: "How it fits together — creatives.exchange" },
+    { title: "How it fits together — TheCreative.exchange" },
     {
       name: "description",
       content:
@@ -178,7 +179,7 @@ export default function IAPage() {
         <SectionLabel>The three layers</SectionLabel>
         <div style={{ marginTop: 14 }}>
           <LayerBand
-            label="creatives.exchange"
+            label="TheCreative.exchange"
             detail="Platform — accounts, payments, entitlements, discovery"
           >
             <LayerBand
@@ -269,7 +270,7 @@ export default function IAPage() {
         </div>
         <p style={{ marginTop: 14, fontSize: 14.5, color: "var(--g-dim)", lineHeight: 1.6, maxWidth: "62ch" }}>
           Money words (Seat, Patron, Project, Fellowship) stay the same
-          everywhere because they show up in receipts and public ledgers.
+          everywhere because they show up on receipts.
           Gathering words may vary by community — Abiding Practice says
           Cohorts, The Rabbit Room says Chapters. That's an open question,
           see below.
@@ -379,9 +380,7 @@ export default function IAPage() {
               Where your dues go
             </div>
             <p style={{ fontSize: 14.5, lineHeight: 1.55, marginTop: 8 }}>
-              Every $10 seat splits two ways, published: $5 funds other
-              creatives' projects, $5 runs the place. From day one your money
-              is backing someone's work.
+              {CLAIMS.dues} {CLAIMS.duesOtherHalf}
             </p>
           </div>
           <div className="g-card">
@@ -389,9 +388,8 @@ export default function IAPage() {
               Hosting is free
             </div>
             <p style={{ fontSize: 14.5, lineHeight: 1.55, marginTop: 8 }}>
-              There is no fee to host, and no cut of a free table — ever. The
-              $50/mo Leader tier is for the tools: host tables, curate project
-              spaces, run grant programs.
+              There is no fee to host, and no cut of a free table. Hosting
+              is not open for sign-up yet; hosts join a waitlist.
             </p>
           </div>
           <div className="g-card">

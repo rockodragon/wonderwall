@@ -9,19 +9,24 @@ import { expect, test } from "@playwright/test";
 test.describe("Garden production surfaces", () => {
   test("/fund/abiding-practice renders the fund, not the error state", async ({ page }) => {
     await page.goto("/fund/abiding-practice");
-    await expect(page.getByRole("heading", { name: "Abiding Practice Fund" })).toBeVisible();
-    await expect(
-      page.getByRole("link", { name: /give to the abiding practice fund/i }),
-    ).toHaveAttribute("href", /./);
+    // The page's name has changed more than once ("Abiding Practice Fund",
+    // now "Grant Fund"), so match the shape, not the exact words.
+    await expect(page.getByRole("heading", { level: 1, name: /fund/i })).toBeVisible();
+    await expect(page.getByRole("link", { name: /give to the .*fund/i })).toHaveAttribute(
+      "href",
+      /./,
+    );
     await expect(page.getByText(/isn't live yet/i)).not.toBeVisible();
   });
 
   test("/tables renders browse (empty state or cards), never an error", async ({ page }) => {
     await page.goto("/tables");
-    await expect(page.getByRole("heading", { name: "Tables" })).toBeVisible();
-    // Empty state ("Tables are coming") or populated (descriptor + cards) — both valid.
+    // The route stays /tables but the page's noun keeps moving (Tables, then
+    // Spaces), so assert a page title rendered rather than which word it is.
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+    // Empty state ("… are coming") or populated (descriptor + cards) — both valid.
     await expect(
-      page.getByText(/Tables are coming|Groups you join and keep coming back to/i).first(),
+      page.getByText(/are coming|Groups you join and keep coming back to/i).first(),
     ).toBeVisible();
     await expect(page.getByText(/isn't live yet/i)).not.toBeVisible();
   });
@@ -29,7 +34,8 @@ test.describe("Garden production surfaces", () => {
   test("unknown fund slug shows the designed not-live state", async ({ page }) => {
     await page.goto("/fund/definitely-not-a-real-org");
     await expect(page.getByText(/isn't live yet/i)).toBeVisible();
-    await expect(page.getByRole("link", { name: /home/i })).toBeVisible();
+    // /home/i alone also matches the site header's "creatives.exchange home".
+    await expect(page.getByRole("link", { name: /back home/i })).toBeVisible();
   });
 
   test("unknown story slug shows the designed not-live state", async ({ page }) => {

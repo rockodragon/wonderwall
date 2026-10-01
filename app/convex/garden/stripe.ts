@@ -17,10 +17,18 @@ import Stripe from "stripe";
 import { action, internalAction } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { auth } from "../auth";
+import { routeTicketMoney } from "./ticketRouting";
 // Pure money logic lives in the dependency-free handler file so the checkout
 // action and the webhook share one authority (and so it's unit-testable
 // without this file's node runtime / Stripe SDK).
-import { validateBackingAmount } from "./stripeHandlers";
+import {
+  backingProcessingFeeCents,
+  backingReturnPaths,
+  classCheckoutParts,
+  guestBackingRefusal,
+  resolveGuestSupporterName,
+  validateBackingAmount,
+} from "./stripeHandlers";
 
 // Matches the `stripe` package's pinned default (node_modules/stripe's
 // apiVersion.js) at install time — keep these in lockstep on upgrade.
@@ -35,7 +43,7 @@ function getStripeClient(): Stripe {
 }
 
 function siteUrl(): string {
-  return process.env.SITE_URL || "https://www.thegarden.app";
+  return process.env.SITE_URL || "https://thecreative.exchange";
 }
 
 const PRICE_ENV_BY_LEVEL: Record<string, string | undefined> = {
@@ -49,6 +57,9 @@ const PRICE_ENV_BY_LEVEL: Record<string, string | undefined> = {
 export const createMembershipCheckout = action({
   args: {
     level: v.union(v.literal("seat"), v.literal("five"), v.literal("host")),
+    /** The community the seat is in (2026-09-29: tiers are per community).
+     * Omitted = The Garden. */
+    communityId: v.optional(v.id("hostOrgs")),
   },
   handler: async (ctx, args) => {
     const userId = await auth.getUserId(ctx);
@@ -56,7 +67,24 @@ export const createMembershipCheckout = action({
       throw new ConvexError("Sign in to become a member.");
     }
 
-    const priceId = PRICE_ENV_BY_LEVEL[args.level];
+    const community = await ctx.runQuery(
+      (internal as any).garden.defaultCommunity.getCheckoutCommunity,
+      args.communityId ? { communityId: args.communityId } : {},
+    );
+    if (!community.ok) throw new ConvexError(community.reason);
+
+    // A community's own Stripe price wins for a seat; only The Garden falls
+    // back to the platform's env prices (and is the only one with the
+    // legacy five/host levels).
+    const priceId =
+      args.level === "seat" && community.seatStripePriceId
+        ? community.seatStripePriceId
+        : community.isDefault
+          ? PRICE_ENV_BY_LEVEL[args.level]
+          : undefined;
+    if (!priceId && !community.isDefault) {
+      throw new ConvexError(`Membership in ${community.name} isn't set up yet.`);
+    }
     if (!priceId) {
       throw new ConvexError(
         `Stripe price env var for level "${args.level}" is not set (STRIPE_PRICE_${args.level.toUpperCase()}).`,
@@ -91,12 +119,14 @@ export const createMembershipCheckout = action({
     // every customer.subscription.* webhook is self-sufficient even if it
     // arrives before checkout.session.completed — see stripeHandlers.ts's
     // header comment for why this matters for idempotent convergence.
-    // No hostOrgId: a seat is platform membership, not community membership
-    // (community-groups.md §0).
+    // communityId: the community this seat's tier and dues belong to
+    // (stripeHandlers.ts handleInvoicePaid). No hostOrgId — that's the
+    // sponsor on a covered seat.
     const metadata: Record<string, string> = {
       kind: "membership",
       level: args.level,
       userId: String(userId),
+      communityId: String(community.communityId),
     };
 
     const session = await stripe.checkout.sessions.create({
@@ -160,16 +190,48 @@ export const createTicketCheckout = action({
 
     const stripe = getStripeClient();
 
+    // Where this money settles. Refuses rather than falling back to the
+    // platform account when a named beneficiary isn't connected yet — see
+    // garden/ticketRouting.ts for why that matters.
+    const routing = routeTicketMoney(info.beneficiary);
+    if (!routing.ok) {
+      throw new ConvexError(routing.reason);
+    }
+
     const metadata: Record<string, string> = {
       kind: "event_ticket",
       eventId: String(args.eventId),
       tierName: tier.name,
       ...(userId ? { userId: String(userId) } : {}),
+      // Mirrored into metadata so the webhook records what the CHECKOUT
+      // decided, not what the event says by the time the hook runs.
+      ...(info.beneficiaryHostOrgId
+        ? { beneficiaryHostOrgId: String(info.beneficiaryHostOrgId) }
+        : {}),
+      ...(routing.destinationAccountId
+        ? { destinationAccountId: routing.destinationAccountId }
+        : {}),
+      ...(routing.beneficiaryTaxStatus
+        ? { beneficiaryTaxStatus: routing.beneficiaryTaxStatus }
+        : {}),
     };
 
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       customer_email: identity?.email ?? undefined,
+      // Destination charge: the connected account becomes merchant of
+      // record (on_behalf_of — statement descriptor and 1099 are theirs)
+      // and the funds settle there (transfer_data.destination). Omitted
+      // entirely for platform-account events, so those charges behave
+      // exactly as they did before this shipped.
+      ...(routing.destinationAccountId
+        ? {
+            payment_intent_data: {
+              on_behalf_of: routing.destinationAccountId,
+              transfer_data: { destination: routing.destinationAccountId },
+            },
+          }
+        : {}),
       line_items: [
         {
           quantity: 1,
@@ -427,7 +489,7 @@ export const createPoolContributionCheckout = action({
 
     const productName =
       hostOrg.kind === "platform"
-        ? "Project pool — creatives.exchange"
+        ? "Project pool — TheCreative.exchange"
         : `Project pool — ${hostOrg.name}`;
 
     const metadata: Record<string, string> = {
@@ -482,9 +544,15 @@ export const createPoolContributionCheckout = action({
 // event has to be self-sufficient even if it beats
 // checkout.session.completed (stripeHandlers.ts's header).
 //
-// Auth required, unlike ticket/pool checkout: a backing row names a
-// supporter on a public project page, and garden/support.ts's row carries
-// supporterUserId.
+// Open to guests as well as members (bead wonderwall-uh90): someone in the
+// room on Nov 6 has to be able to back a creative they just watched, and
+// signup is invite-only. A signed-in backer is named from their profile and
+// gets their reusable Stripe customer, exactly as before. A guest gives once
+// only (guestBackingRefusal — monthly needs an account) and passes a
+// display name (or backs anonymously — resolveGuestSupporterName); Stripe
+// Checkout collects their email and sends the receipt, and nothing about
+// them but that display name is stored here. A guest is returned to the
+// public story page afterwards, since /projects/:id is behind login.
 //
 // The projectSupport row is written FIRST (support.ts's startBacking,
 // status "pending") and its id rides on the metadata, because
@@ -501,11 +569,25 @@ export const createBackingCheckout = action({
     message: v.optional(v.string()),
     tierId: v.optional(v.string()),
     interval: v.optional(v.union(v.literal("month"), v.literal("year"))),
+    // Signed-out backers only; ignored when the caller is signed in.
+    guestName: v.optional(v.string()),
+    // Which page the backer started on, so Stripe sends them back to it.
+    from: v.optional(v.union(v.literal("story"), v.literal("project"))),
   },
   handler: async (ctx, args) => {
     const userId = await auth.getUserId(ctx);
+
+    let guestName: string | undefined;
     if (!userId) {
-      throw new ConvexError({ reason: "Sign in to back a project." });
+      const refused = guestBackingRefusal({ recurring: args.recurring });
+      if (refused) {
+        throw new ConvexError({ reason: refused });
+      }
+      const resolved = resolveGuestSupporterName(args.guestName, args.visible);
+      if ("error" in resolved) {
+        throw new ConvexError({ reason: resolved.error });
+      }
+      guestName = resolved.name;
     }
 
     // $5 floor + whole-cents rule (community-groups.md §3) — the pure
@@ -517,7 +599,7 @@ export const createBackingCheckout = action({
 
     const started = await ctx.runMutation((internal as any).garden.support.startBacking, {
       projectId: args.projectId,
-      userId: String(userId),
+      ...(userId ? { userId: String(userId) } : { guestName }),
       amountCents: args.amountCents,
       recurring: args.recurring,
       visible: args.visible,
@@ -534,43 +616,62 @@ export const createBackingCheckout = action({
     // Reuse one Stripe customer per user across checkouts + the billing
     // portal (architect §3.4) — same as createMembershipCheckout. A monthly
     // backing NEEDS one (the subscription attaches to it); a one-time
-    // backing benefits from it (one customer, one portal).
-    const existing = await ctx.runQuery(
-      (internal as any).garden.memberships.getBillingCustomerForUser,
-      { userId: String(userId) },
-    );
-
-    let stripeCustomerId: string | undefined = existing?.stripeCustomerId;
-    if (!stripeCustomerId) {
-      const identity = await ctx.auth.getUserIdentity();
-      const customer = await stripe.customers.create({
-        email: identity?.email ?? undefined,
-        metadata: { userId: String(userId) },
-      });
-      stripeCustomerId = customer.id;
-      await ctx.runMutation((internal as any).garden.memberships.saveBillingCustomer, {
-        userId: String(userId),
-        stripeCustomerId,
-        email: identity?.email ?? undefined,
-      });
+    // backing benefits from it (one customer, one portal). A guest gets
+    // none of ours: Checkout creates the customer a monthly subscription
+    // needs from the email they type, and we keep no billing row for them.
+    let stripeCustomerId: string | undefined;
+    if (userId) {
+      const existing = await ctx.runQuery(
+        (internal as any).garden.memberships.getBillingCustomerForUser,
+        { userId: String(userId) },
+      );
+      stripeCustomerId = existing?.stripeCustomerId;
+      if (!stripeCustomerId) {
+        const identity = await ctx.auth.getUserIdentity();
+        const customer = await stripe.customers.create({
+          email: identity?.email ?? undefined,
+          metadata: { userId: String(userId) },
+        });
+        stripeCustomerId = customer.id;
+        await ctx.runMutation((internal as any).garden.memberships.saveBillingCustomer, {
+          userId: String(userId),
+          stripeCustomerId,
+          email: identity?.email ?? undefined,
+        });
+      }
     }
 
     const billingInterval = args.recurring ? (args.interval ?? "month") : undefined;
     const intervalLabel = billingInterval === "year" ? "Annual" : billingInterval === "month" ? "Monthly" : undefined;
 
+    // A guest's metadata has no userId key at all (rather than an empty
+    // string, which Stripe treats as "unset"); the webhook already reads a
+    // missing userId as a backing with no account behind it.
     const metadata: Record<string, string> = {
       kind: "backing",
       projectId: String(args.projectId),
-      userId: String(userId),
+      ...(userId ? { userId: String(userId) } : {}),
       visible: String(args.visible),
       supporterName: started.supporterName,
       supportId: String(started.supportId),
+      // The backing's true, pre-fee amount. The webhook reads THIS as the
+      // backing's gross — never amount_total / amount_paid, which include the
+      // processing line item below. Mirrored onto the subscription with the
+      // rest of `metadata`, so each monthly renewal invoice carries it too.
+      amountCents: String(args.amountCents),
       ...(args.tierId ? { tierId: args.tierId } : {}),
     };
 
+    const returnTo = backingReturnPaths({
+      signedIn: Boolean(userId),
+      projectId: String(args.projectId),
+      storySlug: started.storySlug,
+      from: args.from,
+    });
+
     const session = await stripe.checkout.sessions.create({
       mode: args.recurring ? "subscription" : "payment",
-      customer: stripeCustomerId,
+      ...(stripeCustomerId ? { customer: stripeCustomerId } : {}),
       line_items: [
         {
           quantity: 1,
@@ -585,11 +686,25 @@ export const createBackingCheckout = action({
             ...(args.recurring ? { recurring: { interval: billingInterval! } } : {}),
           },
         },
+        // Card processing, added on top and paid by the backer (the plan §3,
+        // decided 2026-09-18; bead wonderwall-p7uf). Its own line item, never
+        // folded into the backing, so Stripe's page shows it plainly and
+        // splitBacking never sees it. In subscription mode every line needs
+        // `recurring`, so the fee repeats each cycle just like the backing.
+        {
+          quantity: 1,
+          price_data: {
+            currency: "usd",
+            unit_amount: backingProcessingFeeCents(args.amountCents),
+            product_data: { name: "Card processing" },
+            ...(args.recurring ? { recurring: { interval: billingInterval! } } : {}),
+          },
+        },
       ],
       metadata,
       ...(args.recurring ? { subscription_data: { metadata } } : {}),
-      success_url: `${siteUrl()}/projects/${args.projectId}?backed=1`,
-      cancel_url: `${siteUrl()}/projects/${args.projectId}`,
+      success_url: `${siteUrl()}${returnTo.success}`,
+      cancel_url: `${siteUrl()}${returnTo.cancel}`,
       allow_promotion_codes: false,
     });
 
@@ -707,6 +822,105 @@ export const createProductCheckout = action({
 
     if (!session.url) {
       throw new ConvexError("Stripe did not return a checkout URL.");
+    }
+
+    return { url: session.url };
+  },
+});
+
+// ——— createClassCheckout — paying for a class or coaching ———
+//
+// docs/features/class-payments-and-moderation.md § Money. Before this, signing
+// up to a paid class with no outside payment link recorded a "pledged" row and
+// charged nothing. Now the student pays the class PRICE plus card processing on
+// top, as its own line item (the same rule and math as createBackingCheckout);
+// the webhook (stripeHandlers.ts's handleClassCheckoutCompleted) records the
+// payment into classPayments — teacher 90 / platform 10 of the price, owed to
+// the teacher until an operator records a payout — and confirms the sign-up.
+//
+// Only a paid class with NO outside payment link goes through here. A free
+// class needs no checkout, and a class with a link sends people to it and takes
+// nothing from us (offerings.ts's signUpForOffering records that sign-up).
+// Signed-in students only: a sign-up needs an account.
+//
+// The sign-up row is written FIRST (offerings.ts's startClassCheckout, status
+// "pledged") and its id rides on the metadata, the same order and reason as
+// createBackingCheckout's pending projectSupport row. An abandoned checkout
+// leaves a "pledged" row and nothing else.
+//
+// Everything that carries money or meaning — the line items, the metadata (with
+// amountCents = the TRUE pre-fee price, which the webhook reads instead of
+// Stripe's total) and the return paths — is built by stripeHandlers.ts's
+// classCheckoutParts so the tests can pin it.
+
+export const createClassCheckout = action({
+  args: {
+    offeringId: v.id("offerings"),
+  },
+  handler: async (ctx, args) => {
+    const userId = await auth.getUserId(ctx);
+    if (!userId) {
+      throw new ConvexError({ code: "unauthenticated", reason: "Sign in to sign up for a class." });
+    }
+
+    // Every "may this student pay?" rule lives in classCheckoutRefusal
+    // (stripeHandlers.ts), run inside the same mutation that writes the
+    // sign-up row, so nothing can change between the check and the write.
+    const started = await ctx.runMutation((internal as any).offerings.startClassCheckout, {
+      offeringId: args.offeringId,
+      userId: String(userId),
+    });
+    if (!started.ok) {
+      throw new ConvexError(started.refusal);
+    }
+
+    const stripe = getStripeClient();
+
+    // Reuse one Stripe customer per user across checkouts + the billing
+    // portal (architect §3.4) — same as createBackingCheckout.
+    const existing = await ctx.runQuery(
+      (internal as any).garden.memberships.getBillingCustomerForUser,
+      { userId: String(userId) },
+    );
+    let stripeCustomerId: string | undefined = existing?.stripeCustomerId;
+    if (!stripeCustomerId) {
+      const identity = await ctx.auth.getUserIdentity();
+      const customer = await stripe.customers.create({
+        email: identity?.email ?? undefined,
+        metadata: { userId: String(userId) },
+      });
+      stripeCustomerId = customer.id;
+      await ctx.runMutation((internal as any).garden.memberships.saveBillingCustomer, {
+        userId: String(userId),
+        stripeCustomerId,
+        email: identity?.email ?? undefined,
+      });
+    }
+
+    const parts = classCheckoutParts({
+      offeringId: String(args.offeringId),
+      title: started.title,
+      priceCents: started.priceCents,
+      buyerUserId: String(userId),
+      signupId: started.signupId,
+    });
+
+    const session = await stripe.checkout.sessions.create({
+      mode: "payment",
+      // Card only: the processing line is priced at the card rate, and a card
+      // payment is "paid" the moment checkout completes. A delayed method
+      // (bank debit) would complete unpaid and the webhook records nothing.
+      payment_method_types: ["card"],
+      customer: stripeCustomerId,
+      line_items: parts.lineItems,
+      metadata: parts.metadata,
+      success_url: `${siteUrl()}${parts.paths.success}`,
+      cancel_url: `${siteUrl()}${parts.paths.cancel}`,
+      allow_promotion_codes: false,
+    });
+
+    if (!session.url) {
+      throw new ConvexError({ code: "no_checkout_url", reason: "Stripe did not return a checkout URL." });
     }
 
     return { url: session.url };

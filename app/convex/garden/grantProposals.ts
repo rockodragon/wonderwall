@@ -21,6 +21,8 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { isAdminProfile } from "../helpers";
 import { can } from "./capabilities";
 import { assertCanPure, getGardenUser } from "./entitlements";
+import { scheduleNotificationEmail } from "../emailHelpers";
+import { escapeHtml } from "../email/template";
 
 // ——————————————————————————————————————————————————————————————
 // Pure core
@@ -195,6 +197,32 @@ function fundLink(slug: string): string {
   return `/fund/${slug}`;
 }
 
+/** decideProposal's email to the proposer — subject/heading plain text (the
+ * template escapes them), body HTML with the title and operator note
+ * escaped. Same shape as projectTeam.ts's builders. */
+export function buildProposalDecidedEmail(input: {
+  title: string;
+  approved: boolean;
+  operatorNote?: string;
+  linkUrl: string;
+}): { subject: string; previewText: string; heading: string; body: string; ctaText: string; ctaUrl: string } {
+  const title = escapeHtml(input.title);
+  const decision = input.approved ? "Approved" : "Declined";
+  const noteBlock = input.operatorNote?.trim() ? `<br><br>"${escapeHtml(input.operatorNote.trim())}"` : "";
+  return {
+    subject: `${decision} — your proposal ${input.title}`,
+    previewText: input.approved
+      ? `Your grant proposal "${input.title}" was approved.`
+      : `Your grant proposal "${input.title}" wasn't approved.`,
+    heading: input.approved ? "Your grant proposal was approved" : "Your grant proposal wasn't approved",
+    body: input.approved
+      ? `Your proposal <strong>${title}</strong> was approved.${noteBlock}`
+      : `Your proposal <strong>${title}</strong> wasn't approved.${noteBlock}`,
+    ctaText: "See the fund",
+    ctaUrl: input.linkUrl,
+  };
+}
+
 // ——————————————————————————————————————————————————————————————
 // Mutations
 // ——————————————————————————————————————————————————————————————
@@ -214,7 +242,7 @@ export const submitProposal = mutation({
   },
   handler: async (ctx, args) => {
     const userId = await requireUser(ctx);
-    const gardenUser = await getGardenUser(ctx, userId);
+    const gardenUser = await getGardenUser(ctx, userId, args.hostOrgId);
     assertCanPure(gardenUser, "pool.propose");
 
     const title = validateProposalTitle(args.title);
@@ -330,14 +358,25 @@ export const decideProposal = mutation({
     });
 
     const hostOrg = await ctx.db.get(row.hostOrgId);
+    const linkUrl = hostOrg ? fundLink(hostOrg.slug) : undefined;
     await ctx.db.insert("notifications", {
       userId: row.userId,
       type: "grant_proposal_decided",
       title: args.approve ? "Your grant proposal was approved" : "Your grant proposal wasn't approved",
       message: row.title,
-      linkUrl: hostOrg ? fundLink(hostOrg.slug) : undefined,
+      linkUrl,
       relatedUserId: actorId,
       createdAt: now,
+    });
+    await scheduleNotificationEmail(ctx, {
+      userId: row.userId,
+      category: "activity",
+      ...buildProposalDecidedEmail({
+        title: row.title,
+        approved: args.approve,
+        operatorNote: args.operatorNote,
+        linkUrl: linkUrl ?? "/",
+      }),
     });
 
     return { ok: true as const, status };
@@ -433,7 +472,7 @@ export const getProposeAccess = query({
     const userId = await getAuthUserId(ctx);
     if (!userId) return { hostOrgId: hostOrg._id, allowed: false as const };
 
-    const gardenUser = await getGardenUser(ctx, userId);
+    const gardenUser = await getGardenUser(ctx, userId, hostOrg._id);
     const result = can(gardenUser, "pool.propose");
     return {
       hostOrgId: hostOrg._id,

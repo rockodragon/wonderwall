@@ -8,7 +8,7 @@
 const SIZES = {
   // Compact horizontal lockup — for tight fixed-width spaces (the app
   // sidebar, w-64 minus padding is ~208px). Minimal tracking is the load-
-  // bearing choice here: at md/lg's 0.24em, "creatives.exchange" alone runs
+  // bearing choice here: at md/lg's 0.24em, "thecreative.exchange" alone runs
   // ~240px and overflows straight into the page content next to it.
   sm: { icon: 18, text: 11, tagline: 8.5, gap: "gap-1.5", trackingText: "0.02em", trackingTag: "0.08em" },
   md: { icon: 28, text: 15, tagline: 10.5, gap: "gap-2.5", trackingText: "0.24em", trackingTag: "0.18em" },
@@ -24,7 +24,7 @@ export type WordmarkSize = keyof typeof SIZES;
 // tone drives color via className instead.
 export type WordmarkTone = "paper" | "adaptive";
 
-const CITRON = "#d7f25a";
+const CITRON = "#fee268";
 const TEXT_CLASS = {
   paper: "",
   adaptive: "text-gray-900 dark:text-white",
@@ -86,7 +86,7 @@ export function Wordmark({
       <Mark size={s.icon} tone={tone} />
       <span className="flex flex-col leading-none">
         <span
-          className={`font-medium uppercase ${TEXT_CLASS[tone]}`}
+          className={`font-medium ${TEXT_CLASS[tone]}`}
           style={{
             fontFamily: "var(--garden-font-mono)",
             fontSize: s.text,
@@ -94,7 +94,7 @@ export function Wordmark({
             color: tone === "paper" ? TEXT_STYLE_COLOR.paper : undefined,
           }}
         >
-          creatives.exchange
+          TheCreative.exchange
         </span>
         {tagline && (
           <span
@@ -106,8 +106,8 @@ export function Wordmark({
               color: tone === "paper" ? DIM_STYLE_COLOR.paper : undefined,
             }}
           >
-            Make<span style={{ color: CITRON }}>.</span> Back
-            <span style={{ color: CITRON }}>.</span> Flourish
+            Give<span style={{ color: CITRON }}>.</span> Receive
+            <span style={{ color: CITRON }}>.</span> Grow
             <span style={{ color: CITRON }}>.</span>
           </span>
         )}

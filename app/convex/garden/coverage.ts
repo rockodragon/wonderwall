@@ -10,6 +10,7 @@ import { ConvexError } from "convex/values";
 import { mutation, query } from "../_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import type { Id } from "../_generated/dataModel";
+import { getDefaultCommunity } from "./defaultCommunity";
 
 // ——— Pure core ———
 
@@ -131,11 +132,15 @@ export const redeem = mutation({
     const now = Date.now();
     // A covered seat is a FULL seat: same membership row shape, same level,
     // backed by the sponsor's subscription instead of the creative's card.
+    // hostOrgId is the sponsor; the seat itself is a Garden seat (tiers
+    // are per community since 2026-09-29, and codes don't name one yet).
+    const gardenId = (await getDefaultCommunity(ctx))?._id;
     const membershipId = await ctx.db.insert("memberships", {
       userId,
       level: "seat",
       status: "active",
       hostOrgId: code.hostOrgId,
+      ...(gardenId ? { communityId: gardenId } : {}),
       stripeSubscriptionId: code.stripeSubscriptionId,
       coveredByCodeId: code._id,
       createdAt: now,

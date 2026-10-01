@@ -47,9 +47,16 @@ export function mapArtifactToProject(artifact: LegacyArtifact, userId: Id<"users
     title: deriveProjectTitle(artifact),
     blurb: artifact.type === "text" ? artifact.content : undefined,
     status: "active",
-    photoUrl: artifact.type === "image" || artifact.type === "link"
-      ? artifact.mediaUrl ?? artifact.ogImageUrl
-      : undefined,
+    // A "link" artifact's mediaUrl is the pasted *page*, not an image — using
+    // it as a fallback here (as this used to) makes photoUrl a bare URL like
+    // "abidingpractice.com" that renders as a broken <img>. Only a real
+    // fetched still (ogImageUrl) is ever a photo; an image-type artifact's
+    // mediaUrl is the photo itself.
+    photoUrl: artifact.type === "image"
+      ? artifact.mediaUrl
+      : artifact.type === "link"
+        ? artifact.ogImageUrl
+        : undefined,
     createdAt: artifact.createdAt,
     updatedAt: Date.now(),
   };

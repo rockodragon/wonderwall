@@ -60,7 +60,7 @@ describe("buildIcs", () => {
 
   it("puts the /j/ proxy link in DESCRIPTION, not a meeting URL", () => {
     expect(unfold(ics)).toContain(
-      `https://creatives.exchange/j/${base.eventId}`,
+      `https://thecreative.exchange/j/${base.eventId}`,
     );
     expect(ics).not.toContain("zoom.us");
     expect(ics).not.toContain("youtube.com");
@@ -70,7 +70,7 @@ describe("buildIcs", () => {
     // /events/:id is registered outside the auth-gated _app.tsx layout
     // (routes.ts) precisely so the guest holding this invite can open it.
     expect(unfold(ics)).toContain(
-      `URL:https://creatives.exchange/events/${base.eventId}`,
+      `URL:https://thecreative.exchange/events/${base.eventId}`,
     );
     expect(ics).not.toContain("/garden/events/");
   });
@@ -113,7 +113,7 @@ describe("buildGoogleCalendarUrl", () => {
 
   it("carries the proxy link in the details", () => {
     expect(new URL(url).searchParams.get("details")).toContain(
-      `https://creatives.exchange/j/${base.eventId}`,
+      `https://thecreative.exchange/j/${base.eventId}`,
     );
   });
 });

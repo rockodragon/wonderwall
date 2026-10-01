@@ -1,14 +1,18 @@
 import { useMutation, useQuery } from "convex/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import Markdown from "react-markdown";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
+import { EmbedPlayer } from "../components/EmbedPlayer";
 import { ShareButton } from "../components/ShareButton";
+import { toEmbedUrl } from "../lib/videoEmbed";
+import { useBack } from "../lib/useBack";
 
 export default function WorkDetail() {
   const { artifactId } = useParams();
   const navigate = useNavigate();
+  const back = useBack("/works");
   const artifact = useQuery(
     api.artifacts.get,
     artifactId ? { artifactId: artifactId as Id<"artifacts"> } : "skip",
@@ -16,6 +20,11 @@ export default function WorkDetail() {
   const toggleLike = useMutation(api.artifacts.toggleLike);
   const removeArtifact = useMutation(api.artifacts.remove);
   const refetchOgImage = useMutation(api.artifacts.refetchOgImage);
+  // A piece is a project now (docs/features/project-ia.md): its page is the
+  // project's page, which plays the piece. Old /works/:id links land there.
+  useEffect(() => {
+    if (artifact?.projectId) navigate(`/projects/${artifact.projectId}`, { replace: true });
+  }, [artifact?.projectId, navigate]);
   const [deleting, setDeleting] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -70,29 +79,35 @@ export default function WorkDetail() {
     );
   }
 
-  // Check if URL is YouTube
-  const youtubeMatch = artifact.resolvedMediaUrl?.match(
-    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
-  );
-  const youtubeId = youtubeMatch?.[1];
+  // A pasted Instagram, TikTok, YouTube or Vimeo link plays in the
+  // platform's own player, inside this page (convex/videoEmbed.ts). The
+  // resolver reads the stored link, not the storage URL — an uploaded file
+  // is never an embed.
+  const embed = toEmbedUrl(artifact.mediaUrl);
 
   // Check if URL is an image
   const urlWithoutQuery = artifact.resolvedMediaUrl?.split("?")[0] || "";
   const isImageUrl = /\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i.test(
     urlWithoutQuery,
   );
-  // Also treat as image if it has a mediaStorageId (Convex storage URLs don't have extensions)
-  const hasStoredImage = !!artifact.mediaStorageId;
+  // An uploaded image has a mediaStorageId and no extension in its URL. An
+  // uploaded video or audio file has one too, and is not an image.
+  const hasStoredImage =
+    !!artifact.mediaStorageId &&
+    artifact.type !== "video" &&
+    artifact.type !== "audio";
   const showAsImage =
-    artifact.type === "image" ||
-    hasStoredImage ||
-    (artifact.type === "link" && isImageUrl);
+    !embed &&
+    (artifact.type === "image" ||
+      hasStoredImage ||
+      (artifact.type === "link" && isImageUrl));
 
   return (
     <div className="p-4 sm:p-6 max-w-5xl mx-auto">
-      {/* Back link */}
+      {/* Back link — to wherever they came from (a profile, a project),
+          falling back to Works on a cold shared link. */}
       <Link
-        to="/works"
+        {...back}
         className="inline-flex items-center gap-2 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white mb-6 text-sm"
       >
         <svg
@@ -108,7 +123,7 @@ export default function WorkDetail() {
             d="M15 19l-7-7 7-7"
           />
         </svg>
-        Back to Works
+        Back
       </Link>
 
       {/* Main content */}
@@ -125,20 +140,12 @@ export default function WorkDetail() {
             />
           </div>
 
-          {/* YouTube embed */}
-          {youtubeId && (
-            <div className="aspect-video">
-              <iframe
-                src={`https://www.youtube.com/embed/${youtubeId}`}
-                className="w-full h-full"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-              />
-            </div>
-          )}
+          {/* Embedded player — a reel or a TikTok is portrait, capped at
+              phone width and centred; YouTube and Vimeo fill the width */}
+          {embed && <EmbedPlayer embed={embed} title={artifact.title} />}
 
           {/* Image */}
-          {showAsImage && artifact.resolvedMediaUrl && !youtubeId && (
+          {showAsImage && artifact.resolvedMediaUrl && (
             <div className="relative flex items-center justify-center min-h-[300px] max-h-[70vh]">
               <img
                 src={artifact.resolvedMediaUrl}
@@ -175,10 +182,10 @@ export default function WorkDetail() {
             </div>
           )}
 
-          {/* Video (non-YouTube) */}
+          {/* Video file (uploaded, or a direct link to one) */}
           {artifact.type === "video" &&
             artifact.resolvedMediaUrl &&
-            !youtubeId && (
+            !embed && (
               <div className="aspect-video">
                 <video
                   src={artifact.resolvedMediaUrl}
@@ -228,7 +235,7 @@ export default function WorkDetail() {
           {artifact.type === "link" &&
             !isImageUrl &&
             !hasStoredImage &&
-            !youtubeId &&
+            !embed &&
             artifact.mediaUrl && (
               <>
                 {artifact.ogImageUrl ? (
@@ -356,8 +363,12 @@ export default function WorkDetail() {
             {/* Owner controls */}
             {artifact.isOwner && (
               <>
-                {/* Refresh preview button for link-type artifacts */}
-                {artifact.type === "link" && artifact.mediaUrl && (
+                {/* Refresh preview — for a link's og:image, or a TikTok's or
+                    Instagram reel's still (convex/linkPreview.ts fetches both) */}
+                {artifact.mediaUrl &&
+                  (artifact.type === "link" ||
+                    embed?.kind === "tiktok" ||
+                    embed?.kind === "instagram") && (
                   <button
                     onClick={handleRefreshPreview}
                     disabled={refreshing}

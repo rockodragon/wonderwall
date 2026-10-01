@@ -16,4 +16,4 @@ Disallow: /admin
 Disallow: /messages
 Disallow: /onboarding
 
-Sitemap: https://creatives.exchange/sitemap.xml
+Sitemap: https://thecreative.exchange/sitemap.xml

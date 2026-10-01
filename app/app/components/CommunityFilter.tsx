@@ -142,8 +142,8 @@ export function communityNameFor(
 
 /**
  * The quiet one-line replacement for the old chip row (community-ux.md §2/§6):
- * "In {name}. Show everything" — plain text + link, not a control (the
- * control is the sidebar CommunitySwitcher now). Renders nothing when
+ * "In {name}. Show everything" — plain text + link, not a control (a lens
+ * is set by following a community page's filtered links). Renders nothing when
  * `selected === "all"`. `rows` is the page's already-fetched list, used as a
  * last-resort name lookup for a community the viewer isn't a member of (a
  * deep-linked `?community=` slug) — same fallback communityNameFor always had.

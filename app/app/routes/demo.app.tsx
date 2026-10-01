@@ -122,7 +122,7 @@ const OFFER_OWNER_ID: Record<string, string | undefined> = {
 const NAV_ITEMS = ["Buzz", "People", "Projects", "Events", "Tables", "Offers"] as const;
 type NavItem = (typeof NAV_ITEMS)[number];
 
-/** creatives.exchange hosts communities; each keeps its own name and its own
+/** thecreative.exchange hosts communities; each keeps its own name and its own
     word for a gathering. Switching here changes the vocabulary on screen —
     that's the open question in the discussion brief (§5.1) made visible. */
 const COMMUNITIES = [
@@ -1568,7 +1568,7 @@ function TopBar({
             color: "var(--g-dim)",
           }}
         >
-          creatives.exchange
+          TheCreative.exchange
         </span>
       </div>
       <CommunityPicker community={community} onSelect={onCommunity} />

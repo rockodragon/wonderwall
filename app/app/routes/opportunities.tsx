@@ -5,6 +5,8 @@ import { api } from "../../convex/_generated/api";
 import { budgetKindLabel } from "../lib/budgetLabel";
 import { setPendingIntent } from "../lib/pendingIntent";
 import { resolveStage, stageLabel } from "../lib/stage";
+import { toEmbedUrl } from "../lib/videoEmbed";
+import { EmbedStill } from "../components/EmbedStill";
 import { SiteHeader } from "../components/SiteHeader";
 
 // /opportunities — the public browse surface. Deliberately OUTSIDE the
@@ -34,6 +36,10 @@ type ProjectCard = {
   blurb?: string;
   byName: string;
   photoUrl?: string;
+  // A pasted Instagram/TikTok/YouTube/Vimeo link and its fetched still
+  // (docs/features/creator-media-cross-post.md). Cards show the still only.
+  mediaUrl?: string;
+  mediaPreviewUrl?: string;
   budgetType?: string;
   budget?: number;
   budgetMax?: number;
@@ -46,6 +52,15 @@ type ProjectCard = {
   // resolveStage() derives a sensible value when it's missing.
   stage?: string;
   community?: { name: string; slug: string } | null;
+  // Live booking (docs/features/live-booking.md §5): present on a recurring
+  // paid gig, null on everything else.
+  gig?: {
+    venueName: string | null;
+    schedule: string;
+    status: string;
+    nextDateLabel: string | null;
+    openCount: number;
+  } | null;
 };
 
 type TabId = "paid" | "passion" | "all";
@@ -59,10 +74,10 @@ const TABS: { id: TabId; label: string }[] = [
 ];
 
 export function meta() {
-  const title = "Open work and projects — creatives.exchange";
+  const title = "Open work and projects — TheCreative.exchange";
   const description =
     "Paid work posted by churches, businesses and nonprofits, and projects creatives are raising money to finish.";
-  const image = "https://creatives.exchange/og-image.png";
+  const image = "https://thecreative.exchange/og-image.png";
   return [
     { title },
     { name: "description", content: description },
@@ -130,16 +145,28 @@ function fundedPercent(project: ProjectCard): number | null {
 
 function ProjectTile({ project }: { project: ProjectCard }) {
   const percent = fundedPercent(project);
+  // The photo wins; else a pasted link's still — never a player, a grid
+  // stays quiet while someone browses (creator-media-cross-post.md, Round 2).
+  const mediaEmbed = project.photoUrl ? null : toEmbedUrl(project.mediaUrl);
   return (
     <article className="flex flex-col rounded-2xl border border-[var(--garden-hairline-raised)] bg-[var(--garden-ink-raised)]/80 overflow-hidden">
-      {project.photoUrl && (
+      {project.photoUrl ? (
         <img
           src={project.photoUrl}
           alt=""
           className="w-full h-40 object-cover"
           loading="lazy"
         />
-      )}
+      ) : mediaEmbed ? (
+        <div className="w-full h-40">
+          <EmbedStill
+            embed={mediaEmbed}
+            previewUrl={project.mediaPreviewUrl}
+            title={project.title}
+            badgeSize="sm"
+          />
+        </div>
+      ) : null}
       <div className="flex flex-col flex-1 p-6">
         <p className="text-sm mb-2">
           <span className="text-[var(--garden-citron)] font-semibold">
@@ -157,6 +184,18 @@ function ProjectTile({ project }: { project: ProjectCard }) {
           {project.byName}
           {project.community ? ` · ${project.community.name}` : ""}
         </p>
+        {project.gig && (
+          <p className="text-[var(--garden-body)] text-sm mb-3">
+            {project.gig.venueName ? `${project.gig.venueName} · ` : ""}
+            {project.gig.schedule}
+            {project.gig.status === "open" && project.gig.nextDateLabel ? ` · next ${project.gig.nextDateLabel}` : ""}
+            {project.gig.status === "open" && project.gig.openCount > 0 && (
+              <span className="text-[var(--garden-citron)]">
+                {" "}· {project.gig.openCount} {project.gig.openCount === 1 ? "date" : "dates"} open
+              </span>
+            )}
+          </p>
+        )}
         {project.blurb && (
           <p className="text-[var(--garden-body)] leading-relaxed text-[15px] mb-4">
             {project.blurb.length > 200
@@ -208,6 +247,10 @@ function EmptyState({ tab }: { tab: TabId }) {
     </div>
   );
 }
+
+// A visitor sees a handful, not the whole board: enough to show what's being
+// made, with the rest behind an account. People stay fully public on /search.
+const PREVIEW_LIMIT = 6;
 
 export default function Opportunities() {
   const [tab, setTab] = useState<TabId>("paid");
@@ -262,11 +305,26 @@ export default function Opportunities() {
         ) : projects.length === 0 ? (
           <EmptyState tab={tab} />
         ) : (
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {projects.map((project) => (
-              <ProjectTile key={project.id} project={project} />
-            ))}
-          </div>
+          <>
+            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {projects.slice(0, PREVIEW_LIMIT).map((project) => (
+                <ProjectTile key={project.id} project={project} />
+              ))}
+            </div>
+            {projects.length > PREVIEW_LIMIT && (
+              <p className="mt-8 text-[var(--garden-body)]">
+                {projects.length - PREVIEW_LIMIT} more once you're in.{" "}
+                <Link to="/login?redirect=%2Fprojects" className="text-[var(--garden-citron)] hover:underline">
+                  Sign in
+                </Link>{" "}
+                or{" "}
+                <Link to="/signup" className="text-[var(--garden-citron)] hover:underline">
+                  create an account
+                </Link>
+                .
+              </p>
+            )}
+          </>
         )}
 
         <div className="mt-16 pt-10 border-t border-[var(--garden-hairline)] max-w-3xl">

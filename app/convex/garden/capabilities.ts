@@ -9,8 +9,10 @@ export type Capability =
   | "project.create.passion"
   | "project.create.paid"
   | "project.applyPaid"
+  | "gig.respond"
   | "pool.propose"
   | "event.create"
+  | "event.sellTickets"
   | "table.join.open"
   | "table.join.member"
   | "table.create"
@@ -50,7 +52,9 @@ const PASSION_CAPS: Record<Level, number> = {
 
 const SEAT_PATH = "Become a member — $10/mo";
 const FIVE_PATH = "Five projects — $25/mo";
-const HOST_PATH = "Community Host — $50/mo";
+// Hosting is not open for sign-up yet (Rick, 2026-09-18): hosts join a
+// waitlist, and no host price is shown anywhere — this path included.
+const HOST_PATH = "Join the host waitlist";
 
 const isPaidLevel = (l: Level) => l === "seat" || l === "five" || l === "host";
 
@@ -98,7 +102,22 @@ export function can(user: GardenUser, capability: Capability): CanResult {
       if (isPaidLevel(level)) return { allowed: true };
       return {
         allowed: false,
-        reason: "Applying to paid work requires a seat.",
+        reason: "Applying to paid work takes membership.",
+        upgradePath: SEAT_PATH,
+      };
+
+    case "gig.respond":
+      // Same rule as applying to paid work (the plan, §2: "job postings are
+      // public, applying takes membership"), with the gig's own words.
+      // Decided 2026-09-17 (Rick): free to look around, membership to
+      // respond — this overrules the Sept 15 "apply free, being hired
+      // takes membership" recommendation. Membership is per community in
+      // the plan; as coded a seat is platform-wide, so this reads the seat
+      // until the pricing reconcile pass. A covered seat counts.
+      if (isPaidLevel(level)) return { allowed: true };
+      return {
+        allowed: false,
+        reason: "Responding to a gig takes membership. Anyone can see the dates and what they pay.",
         upgradePath: SEAT_PATH,
       };
 
@@ -107,15 +126,27 @@ export function can(user: GardenUser, capability: Capability): CanResult {
       return {
         allowed: false,
         reason:
-          "The pool is members' dues, reserved for members' work. Patrons and partners direct their own money instead.",
+          "Proposing a project to a grant fund takes a membership.",
         upgradePath: SEAT_PATH,
       };
 
     case "event.create":
+      // Rick, 2026-09-27 (final): anyone signed in can post an event,
+      // including one with paid ticket tiers — a ticketed event just stays
+      // hidden until its organizer can sell tickets (see
+      // "event.sellTickets" and convex/events.ts's isEventPublic).
+      if (level !== "visitor") return { allowed: true };
+      return {
+        allowed: false,
+        reason: "Sign in to post an event.",
+        upgradePath: "Create a free account",
+      };
+
+    case "event.sellTickets":
       if (isPaidLevel(level) || user.partnerRole) return { allowed: true };
       return {
         allowed: false,
-        reason: "Putting on an event takes a seat — or a partner listing.",
+        reason: "Selling tickets takes membership.",
         upgradePath: SEAT_PATH,
       };
 
@@ -135,7 +166,7 @@ export function can(user: GardenUser, capability: Capability): CanResult {
       return {
         allowed: false,
         reason:
-          "Tables are ongoing rosters run by hosts. Creating one requires the Community Host tier.",
+          "Tables are ongoing rosters run by hosts. Hosting isn't open for sign-up yet.",
         upgradePath: HOST_PATH,
       };
 
@@ -170,14 +201,16 @@ export const LEVEL_LABEL: Record<Level, string> = {
   host: "Community Host · $50/mo",
 };
 
-/** Published splits — render these wherever money appears.
-    Dues split two ways, in the open: half funds other creatives' projects,
-    half runs the place. Anything a host sells (classes, cohorts, premium
+/** The splits — render these wherever money appears.
+    Dues split two ways: half funds grants for other creatives, half runs
+    the platform. Anything a host sells (classes, cohorts, premium
     tiers) splits like patronage: 90% theirs, 10% platform. */
 export const SPLITS = {
   dues: { pool: 0.5, platform: 0.5 },
   patronage: { work: 0.9, platform: 0.1 },
   sales: { host: 0.9, platform: 0.1 },
   duesSentence:
-    "Half of every membership funds another creative's project. From day one your money is supporting someone — instead of hoping to hear back.",
+    // Twin of CLAIMS.dues (app/app/constants/claims.ts, docs/marketing/
+    // claims.md) — convex/ can't import from app/, so keep the two identical.
+    "Half of your membership funds grants for other creatives.",
 } as const;

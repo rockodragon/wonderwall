@@ -1,6 +1,7 @@
 import type { QueryCtx, MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
+import { getOrCreatePreferences, type EmailCategory } from "./emailPreferences";
 
 /**
  * Look up a user's email — first from the users table (OAuth),
@@ -34,6 +35,12 @@ export async function getUserEmail(
 
 /**
  * Schedule a notification email if the user has an email on file.
+ *
+ * `category` gates non-transactional email against the recipient's saved
+ * preferences (convex/emailPreferences.ts): a false preference for that
+ * category means this returns without scheduling anything. "transactional"
+ * email (waitlist approval, team invite claim links) has no opt-out, so it
+ * skips the preferences lookup and carries no unsubscribe token.
  */
 export async function scheduleNotificationEmail(
   ctx: MutationCtx,
@@ -45,10 +52,18 @@ export async function scheduleNotificationEmail(
     body: string;
     ctaText?: string;
     ctaUrl?: string;
+    category: EmailCategory | "transactional";
   },
 ) {
   const email = await getUserEmail(ctx, opts.userId);
   if (!email) return;
+
+  let unsubscribeToken: string | undefined;
+  if (opts.category !== "transactional") {
+    const prefs = await getOrCreatePreferences(ctx, opts.userId);
+    if (!prefs[opts.category]) return;
+    unsubscribeToken = prefs.unsubscribeToken;
+  }
 
   await ctx.scheduler.runAfter(0, internal.emails.sendNotificationEmail, {
     to: email,
@@ -58,5 +73,7 @@ export async function scheduleNotificationEmail(
     body: opts.body,
     ctaText: opts.ctaText,
     ctaUrl: opts.ctaUrl,
+    category: opts.category,
+    unsubscribeToken,
   });
 }

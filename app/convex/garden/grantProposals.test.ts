@@ -9,6 +9,7 @@ import {
   MAX_SUMMARY_LENGTH,
   MAX_TITLE_LENGTH,
   MIN_AMOUNT_CENTS,
+  buildProposalDecidedEmail,
   hasOpenProposal,
   isOpenProposalStatus,
   isValidProposalAmountCents,
@@ -168,5 +169,38 @@ describe("client projections never leak operatorNote / decidedByUserId", () => {
     expect(toMyProposalEntry(standalone).projectId).toBeNull();
     expect(toMyProposalEntry(standalone).decidedAt).toBeNull();
     expect(toReviewProposalEntry(standalone, { profileId: null, name: "Someone" }).projectId).toBeNull();
+  });
+});
+
+describe("buildProposalDecidedEmail", () => {
+  const input = {
+    title: `Short Film <Rewrites>`,
+    linkUrl: "/fund/creatives-exchange",
+  };
+
+  it("approved: subject/heading say approved, CTA is 'See the fund'", () => {
+    const email = buildProposalDecidedEmail({ ...input, approved: true });
+    expect(email.subject).toBe("Approved — your proposal Short Film <Rewrites>");
+    expect(email.heading).toBe("Your grant proposal was approved");
+    expect(email.body).not.toContain("<Rewrites>");
+    expect(email.body).toContain("&lt;Rewrites&gt;");
+    expect(email.ctaText).toBe("See the fund");
+    expect(email.ctaUrl).toBe("/fund/creatives-exchange");
+  });
+
+  it("declined: subject/heading say declined", () => {
+    const email = buildProposalDecidedEmail({ ...input, approved: false });
+    expect(email.subject).toBe("Declined — your proposal Short Film <Rewrites>");
+    expect(email.heading).toBe("Your grant proposal wasn't approved");
+  });
+
+  it("escapes and appends the operator note when present", () => {
+    const email = buildProposalDecidedEmail({ ...input, approved: false, operatorNote: `try again <smaller>` });
+    expect(email.body).toContain(`"try again &lt;smaller&gt;"`);
+    expect(email.body).not.toContain("<smaller>");
+  });
+
+  it("omits the note block when there is no operator note", () => {
+    expect(buildProposalDecidedEmail({ ...input, approved: true }).body).not.toContain('"');
   });
 });

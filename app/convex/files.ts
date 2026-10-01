@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { auth } from "./auth";
+import { isEventHost } from "./eventHosts";
 
 // Generate an upload URL for the client to upload a file directly to Convex
 export const generateUploadUrl = mutation({
@@ -216,7 +217,7 @@ export const saveEventCoverImage = mutation({
 
     const event = await ctx.db.get(args.eventId);
     if (!event) throw new Error("Event not found");
-    if (event.organizerId !== userId) throw new Error("Not authorized");
+    if (!isEventHost(event, userId)) throw new Error("Not authorized");
 
     // Delete old image if exists
     if (event.coverImageStorageId) {
@@ -243,7 +244,7 @@ export const deleteEventCoverImage = mutation({
 
     const event = await ctx.db.get(args.eventId);
     if (!event) throw new Error("Event not found");
-    if (event.organizerId !== userId) throw new Error("Not authorized");
+    if (!isEventHost(event, userId)) throw new Error("Not authorized");
 
     if (event.coverImageStorageId) {
       await ctx.storage.delete(event.coverImageStorageId);
@@ -270,7 +271,7 @@ export const addEventGalleryImage = mutation({
 
     const event = await ctx.db.get(args.eventId);
     if (!event) throw new Error("Event not found");
-    if (event.organizerId !== userId) throw new Error("Not authorized");
+    if (!isEventHost(event, userId)) throw new Error("Not authorized");
 
     const currentImages = event.imageStorageIds || [];
     if (currentImages.length >= 3) {
@@ -298,7 +299,7 @@ export const removeEventGalleryImage = mutation({
 
     const event = await ctx.db.get(args.eventId);
     if (!event) throw new Error("Event not found");
-    if (event.organizerId !== userId) throw new Error("Not authorized");
+    if (!isEventHost(event, userId)) throw new Error("Not authorized");
 
     const currentImages = event.imageStorageIds || [];
     const newImages = currentImages.filter((id) => id !== args.storageId);
@@ -359,7 +360,7 @@ export const updateEventCoverColor = mutation({
 
     const event = await ctx.db.get(args.eventId);
     if (!event) throw new Error("Event not found");
-    if (event.organizerId !== userId) throw new Error("Not authorized");
+    if (!isEventHost(event, userId)) throw new Error("Not authorized");
 
     await ctx.db.patch(args.eventId, {
       coverColor: args.color,

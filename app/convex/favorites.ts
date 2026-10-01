@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { auth } from "./auth";
 import type { Id } from "./_generated/dataModel";
+import { eventVisibilityChecker } from "./garden/eventVisibility";
 
 export const toggle = mutation({
   args: {
@@ -159,11 +160,17 @@ export const getMyFavorites = query({
     );
 
     // Fetch event data
+    const isEventPublic = eventVisibilityChecker(ctx);
     const events = await Promise.all(
       eventFavs.map(async (fav) => {
         const eventId = fav.targetId as Id<"events">;
         const event = await ctx.db.get(eventId);
         if (!event) return null;
+        // A ticketed event a viewer favorited before it lost visibility (or
+        // before its organizer could ever sell tickets) drops out of their
+        // list too — same rule as every other public surface — unless the
+        // viewer is the organizer themselves.
+        if (event.organizerId !== userId && !(await isEventPublic(event))) return null;
 
         // Resolve cover image URL (cover or first gallery image)
         let coverImageUrl: string | null = null;
@@ -192,6 +199,10 @@ export const getMyFavorites = query({
             status: event.status,
             requiresApproval: event.requiresApproval,
             coverImageUrl,
+            // A pasted reel's link and still, so the card can show it when
+            // there is no cover (docs/features/creator-media-cross-post.md).
+            mediaUrl: event.mediaUrl,
+            mediaPreviewUrl: event.mediaPreviewUrl,
             attendeeCount: applications.length,
           },
         };

@@ -1,6 +1,6 @@
 import { httpRouter } from "convex/server";
 import { httpAction } from "./_generated/server";
-import { internal } from "./_generated/api";
+import { internal, api } from "./_generated/api";
 import Stripe from "stripe";
 import { auth } from "./auth";
 import { autocomplete, autocompletePreflight } from "./location";
@@ -8,6 +8,12 @@ import {
   proxy as posthogProxy,
   proxyPreflight as posthogPreflight,
 } from "./posthog";
+import {
+  handleResendEvent,
+  verifySvixSignature,
+  type ResendWebhookDb,
+  type ResendWebhookEvent,
+} from "./resendWebhook";
 
 const http = httpRouter();
 
@@ -92,6 +98,72 @@ http.route({
   }),
 });
 
+// ————————————————————————————————————————————————————————————————
+// Abiding Practice's OWN Stripe webhook (docs/phase-1b/stripe-runbook.md §5
+// "On-site donations to the grant fund", interim step). A second, entirely
+// independent Stripe account from the platform's own /stripe/webhook above
+// — AP's donations settle into AP's account, not ours, so this route only
+// RECORDS a designated gift into grantContributions; it never moves money.
+// Same verification pattern as /stripe/webhook (raw body,
+// constructEventAsync + the SubtleCrypto provider, since this httpAction
+// runs in Convex's V8 isolate, not Node), but its own secret and its own
+// dispatcher (garden/apGifts.ts), because these are unrelated Stripe
+// accounts whose event ids could otherwise collide.
+//
+// Events to enable on this endpoint in the Stripe dashboard:
+//   checkout.session.completed
+//   checkout.session.async_payment_succeeded
+//   invoice.paid  (renewals of monthly grant-fund gifts)
+// ————————————————————————————————————————————————————————————————
+
+http.route({
+  path: "/stripe/ap/webhook",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const signature = request.headers.get("stripe-signature");
+    const webhookSecret = process.env.AP_STRIPE_WEBHOOK_SECRET;
+
+    if (!signature || !webhookSecret) {
+      console.error("[ap stripe webhook] missing signature header or AP_STRIPE_WEBHOOK_SECRET");
+      return new Response("Webhook not configured", { status: 400 });
+    }
+
+    const payload = await request.text();
+    // Verification needs no network call and no real key — this route never
+    // calls the Stripe API, only checks the signature locally.
+    const stripe = new Stripe("sk_not_configured", { apiVersion: STRIPE_API_VERSION });
+
+    let event: Stripe.Event;
+    try {
+      event = await stripe.webhooks.constructEventAsync(
+        payload,
+        signature,
+        webhookSecret,
+        undefined,
+        Stripe.createSubtleCryptoProvider(),
+      );
+    } catch (err) {
+      console.error("[ap stripe webhook] signature verification failed", err);
+      return new Response("Invalid signature", { status: 400 });
+    }
+
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await ctx.runMutation((internal as any).garden.apGifts.applyApStripeEvent, { event });
+    } catch (err) {
+      // Same reasoning as /stripe/webhook: 500 so Stripe retries rather than
+      // silently dropping a gift (e.g. abiding-practice not seeded yet).
+      console.error("[ap stripe webhook] handler failed", event.type, event.id, err);
+      return new Response("Handler error", { status: 500 });
+    }
+
+    return new Response(JSON.stringify({ received: true }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  }),
+});
+
 // Location autocomplete API
 http.route({
   path: "/api/location/autocomplete",
@@ -103,6 +175,105 @@ http.route({
   path: "/api/location/autocomplete",
   method: "OPTIONS",
   handler: autocompletePreflight,
+});
+
+// RFC 8058 one-click unsubscribe target (List-Unsubscribe-Post header sends
+// a plain POST with no body). Convex's http router has no path-param
+// syntax, so pathPrefix + parsing the token off the end of the URL is the
+// way to express "/unsubscribe/:token". Turns off all categories — this is
+// the automated-client target; a person visiting the same URL in a browser
+// (GET) hits the frontend unsubscribe page instead.
+http.route({
+  pathPrefix: "/unsubscribe/",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const url = new URL(request.url);
+    const token = decodeURIComponent(
+      url.pathname.slice(url.pathname.indexOf("/unsubscribe/") + "/unsubscribe/".length),
+    );
+
+    await ctx.runMutation(api.emailPreferences.unsubscribeByToken, { token });
+
+    return new Response("Unsubscribed", {
+      status: 200,
+      headers: { "Content-Type": "text/plain" },
+    });
+  }),
+});
+
+// ————————————————————————————————————————————————————————————————
+// Resend delivery-event webhook (know whether email landed; stop sending to
+// addresses that bounce or complain — see resendWebhook.ts's pure handler).
+//
+// Configure in the Resend dashboard: Webhooks → add endpoint
+//   URL:    <this deployment's .convex.site origin>/resend/webhook
+//   Events: email.sent, email.delivered, email.delivery_delayed,
+//           email.bounced, email.complained
+// Copy the endpoint's signing secret into this deployment's
+// RESEND_WEBHOOK_SECRET env var (starts with "whsec_").
+//
+// Resend signs webhooks the Svix way (svix-id / svix-timestamp /
+// svix-signature headers) — verifySvixSignature does the Web Crypto HMAC
+// check locally, no dependency, since this httpAction runs in Convex's V8
+// isolate (no "use node", same constraint as the Stripe route above).
+// ————————————————————————————————————————————————————————————————
+
+http.route({
+  path: "/resend/webhook",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const secret = process.env.RESEND_WEBHOOK_SECRET;
+    if (!secret) {
+      console.error("[resend webhook] RESEND_WEBHOOK_SECRET is not set");
+      return new Response("Webhook not configured", { status: 500 });
+    }
+
+    const rawBody = await request.text();
+    const svixHeaders = {
+      svixId: request.headers.get("svix-id"),
+      svixTimestamp: request.headers.get("svix-timestamp"),
+      svixSignature: request.headers.get("svix-signature"),
+    };
+
+    const verified = await verifySvixSignature(secret, svixHeaders, rawBody, Date.now());
+    if (!verified) {
+      console.error("[resend webhook] signature verification failed");
+      return new Response("Invalid signature", { status: 401 });
+    }
+
+    let event: ResendWebhookEvent;
+    try {
+      event = JSON.parse(rawBody);
+    } catch (err) {
+      console.error("[resend webhook] invalid JSON body", err);
+      return new Response("Invalid body", { status: 400 });
+    }
+
+    const db: ResendWebhookDb = {
+      async getDelivery(providerId) {
+        return await ctx.runQuery(internal.emailDeliveries.getDeliveryByProviderId, { providerId });
+      },
+      async updateDelivery(providerId, patch) {
+        return await ctx.runMutation(internal.emailDeliveries.applyDeliveryEvent, {
+          providerId,
+          ...patch,
+        });
+      },
+      async addSuppression(row) {
+        await ctx.runMutation(internal.emailDeliveries.addSuppression, row);
+      },
+    };
+
+    const result = await handleResendEvent(event, db, Date.now());
+    if ("unknown" in result && result.unknown) {
+      console.log("[resend webhook] unknown email_id — send predates delivery tracking", event.data.email_id);
+    }
+
+    return new Response(JSON.stringify({ ok: true }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  }),
 });
 
 // PostHog proxy - bypasses ad blockers by routing through first-party domain

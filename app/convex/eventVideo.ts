@@ -22,6 +22,7 @@ import { v, ConvexError } from "convex/values";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import type { Doc, Id } from "./_generated/dataModel";
+import { isEventHost } from "./eventHosts";
 import { resolveVideoRole, eventAccessType, type EventVideoRole } from "./eventAccess";
 import { visibleMeetingUrl } from "./garden/tables";
 
@@ -100,10 +101,10 @@ async function requireOrganizer(
   if (!event) {
     throw new ConvexError({ code: "not_found", reason: "That event doesn't exist." });
   }
-  if (event.organizerId !== userId) {
+  if (!isEventHost(event, userId)) {
     throw new ConvexError({
       code: "forbidden",
-      reason: "Only the organizer can set this event's video links.",
+      reason: "Only a host can set this event's video links.",
     });
   }
   return event;

@@ -7,6 +7,7 @@ import type { ReactNode } from "react";
 import { useConvexAuth } from "convex/react";
 import { Link } from "react-router";
 import { SiteHeader } from "../components/SiteHeader";
+import { FF_V2 } from "../lib/featureFlags";
 
 // ————— Page shell —————
 
@@ -46,12 +47,12 @@ export function SectionLabel({ children }: { children: ReactNode }) {
     production page gets, since these routes live outside the app shell/nav. */
 /** Platform wordmark. "The Garden" is now one COMMUNITY among several
     (Abiding Practice, Table Art Society, The Rabbit Room); the platform these
-    pages belong to is creatives.exchange. Community names appear on the
+    pages belong to is TheCreative.exchange. Community names appear on the
     community's own surfaces, not here. */
 export function GardenWordmark() {
   return (
     <Link to="/" className="g-wordmark">
-      creatives.exchange
+      TheCreative.exchange
     </Link>
   );
 }
@@ -66,12 +67,12 @@ export function GardenWordmark() {
     who's looking: /projects and /events both live inside the _app layout
     and redirect a logged-out visitor to /login, so on a mostly-public page
     — or in the app shell's own sidebar, for a signed-out visitor on one of
-    its public paths (/search, /communities, /offerings, /tables, an event
+    its public paths (/people, /communities, /offerings, /tables, an event
     detail) — the nav was walking strangers into a wall. Signed in → the
     real page; signed out → the public guest equivalent of the same
     content (/opportunities, /garden/events). */
-export const NAV_ITEMS = [
-  { to: "/search", label: "People" },
+const ALL_NAV_ITEMS = [
+  { to: "/people", label: "People" },
   { to: "/projects", publicTo: "/opportunities", label: "Projects" },
   { to: "/events", publicTo: "/garden/events", label: "Events" },
   // "Spaces" is /communities (2026-09-14, product decision) — the directory
@@ -81,6 +82,13 @@ export const NAV_ITEMS = [
   { to: "/communities", label: "Spaces" },
   { to: "/offerings", label: "Learn" },
 ] as const;
+
+// The launch is people, projects, profiles and events (Rick, 2026-09-27):
+// no self-hosted communities and no classes yet, so Spaces and Learn sit
+// behind FF_V2 everywhere this list is read — the public header, the app
+// rail and the mobile bar. The routes themselves stay live.
+const V2_NAV = new Set<string>(["/communities", "/offerings"]);
+export const NAV_ITEMS = ALL_NAV_ITEMS.filter((item) => FF_V2 || !V2_NAV.has(item.to));
 
 export function GardenNav({ active }: { active?: string }) {
   // During prerender and the first paint this reads false, so the markup a
@@ -219,6 +227,14 @@ export function FactRow({ k, v }: { k: string; v: string }) {
     from demo.app.tsx's GateHint: what it is, then the path in. The
     upgradePath button is decorative copy (no client-side purchase flow
     lives here), matching the demo's treatment exactly. */
+/** Where a denial's upgrade label goes (capabilities.ts's upgradePath
+ * strings). A label with nowhere to go shows as text, not a dead button. */
+function upgradeHref(label: string): string | undefined {
+  if (/^Become a member|^Five projects/.test(label)) return "/join";
+  if (/^Create a free account|^Become a patron/.test(label)) return "/signup";
+  return undefined;
+}
+
 export function DenialPanel({
   reason,
   upgradePath,
@@ -231,10 +247,12 @@ export function DenialPanel({
       <p style={{ fontSize: 14, lineHeight: 1.55 }}>
         {reason ?? "This isn't available right now."}
       </p>
-      {upgradePath ? (
-        <button className="g-btn g-btn-citron" style={{ marginTop: 12 }}>
+      {upgradePath && upgradeHref(upgradePath) ? (
+        <Link to={upgradeHref(upgradePath)!} className="g-btn g-btn-citron" style={{ marginTop: 12, display: "inline-block" }}>
           {upgradePath}
-        </button>
+        </Link>
+      ) : upgradePath ? (
+        <p style={{ fontSize: 14, marginTop: 8, color: "var(--g-paper)" }}>{upgradePath}</p>
       ) : null}
     </div>
   );

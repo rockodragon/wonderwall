@@ -1,6 +1,7 @@
 import { authTables } from "@convex-dev/auth/server";
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+import { richDocValidator } from "./garden/richText";
 
 export default defineSchema({
   // Convex Auth tables (users, sessions, accounts, etc.)
@@ -14,6 +15,7 @@ export default defineSchema({
     imageUrl: v.optional(v.string()), // external URL (legacy)
     imageStorageId: v.optional(v.id("_storage")), // Convex file storage
     interests: v.array(v.string()), // canonical INTERESTS vocabulary + "other:custom"
+    // discipline: v.optional(v.string()),
     // Location: `location` stays the plain display string everything already
     // reads/matches on. The rest is structured data from the same Google
     // Places pipeline `events` already uses (convex/location.ts +
@@ -64,6 +66,20 @@ export default defineSchema({
     supportInterests: v.optional(v.array(v.string())), // patron: categories they want to fund
     partnerOfferings: v.optional(v.array(v.string())), // partner: what they can offer
     lastLikeNotifiedAt: v.optional(v.number()), // last time likes digest was sent
+    // Live booking (docs/features/live-booking.md §6): where a venue pays
+    // this person directly, in the venue's own app — the platform hands
+    // over a link and records the payment, it never moves the money. NOT
+    // public: profiles.getProfile strips it; only the host who booked them
+    // reads it (garden/gigs.ts getSlotPayment). Written only by
+    // profiles.setPayoutHandles, which normalizes each value.
+    payoutHandles: v.optional(
+      v.object({
+        venmo: v.optional(v.string()), // username, no "@"
+        cashapp: v.optional(v.string()), // $cashtag, no "$"
+        paypal: v.optional(v.string()), // paypal.me name
+        zelle: v.optional(v.string()), // the email or phone on their bank account
+      }),
+    ),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
@@ -101,7 +117,23 @@ export default defineSchema({
     mediaUrl: v.optional(v.string()), // external URL for media
     mediaStorageId: v.optional(v.id("_storage")), // Convex file storage
     ogImageUrl: v.optional(v.string()), // fetched og:image for link types
+    // The stored still behind `ogImageUrl` when we hold the file ourselves: a
+    // TikTok or Instagram still copied in by convex/linkPreview.ts (the CDN
+    // URL expires in days) or a cover the creative uploaded beside a pasted
+    // reel.
+    // Read paths never need it — `ogImageUrl` already carries its URL. It
+    // exists so `remove` can delete the file (docs/features/creator-media-
+    // cross-post.md).
+    coverStorageId: v.optional(v.id("_storage")),
     title: v.optional(v.string()), // optional title for the artifact
+    // Site-supplied metadata for a plain "link" artifact, fetched alongside
+    // ogImageUrl (convex/artifacts.ts:fetchOgImage). ogTitle is the site's
+    // own title (og:title, falling back to <title>) and is never used to
+    // overwrite a title the creative typed — profile.tsx shows it only when
+    // `title` is unset. ogDescription is the site's og:description, for a
+    // one-line subtitle under the domain.
+    ogTitle: v.optional(v.string()),
+    ogDescription: v.optional(v.string()),
     order: v.number(),
     createdAt: v.number(),
     projectId: v.optional(v.id("projects")), // set once migrated (V1 pivot)
@@ -138,6 +170,9 @@ export default defineSchema({
   // Community events
   events: defineTable({
     organizerId: v.id("users"),
+    // Co-hosts: can edit the event and see the guest list; only the organizer
+    // can cancel it or change this list. See eventHosts.ts.
+    coHostIds: v.optional(v.array(v.id("users"))),
     title: v.string(),
     description: v.string(),
     datetime: v.number(),
@@ -154,6 +189,26 @@ export default defineSchema({
         }),
       ),
     ),
+    // Which org's Stripe account this event's ticket money settles into.
+    // Absent = the platform account (ordinary for-profit event revenue).
+    // Set it to a 501(c)(3) host org — Abiding Practice for a Garden
+    // fundraiser — and the money never touches the for-profit's balance.
+    // See garden/ticketRouting.ts for the rule and why it refuses rather
+    // than falling back.
+    beneficiaryHostOrgId: v.optional(v.id("hostOrgs")),
+    // An external ticketing path (docs/phase-1b/stripe-runbook.md §5 "On-site
+    // donations to the grant fund" interim step, extended to tickets):
+    // instead of the platform's own ticketTiers/Stripe Connect checkout
+    // above, sell through a Payment Link on Abiding Practice's OWN Stripe
+    // account (buy.stripe.com/... only — enforced in events.ts) and let AP's
+    // existing /stripe/ap/webhook (garden/apGifts.ts) add the buyer to this
+    // event and record the ticket into grantContributions as a benefit for
+    // the artist grant fund. Coexists with ticketTiers; most events use one
+    // or the other. externalTicketPriceCents is display-only copy (the real
+    // price lives on the Payment Link itself) — optional because a link
+    // whose price varies (donor's choice) has none to show.
+    externalTicketUrl: v.optional(v.string()),
+    externalTicketPriceCents: v.optional(v.number()),
     // Location fields — one box: the same LocationAutocomplete/Google
     // Places pipeline resolves a venue name ("Tamarack State Beach") and a
     // searched street address ("123 Main St, Carlsbad, CA") alike, so
@@ -188,6 +243,15 @@ export default defineSchema({
     requiresApproval: v.boolean(),
     status: v.string(), // "draft" | "published" | "cancelled" | "completed"
     coverImageStorageId: v.optional(v.id("_storage")), // cover/background image
+    // A pasted Instagram, TikTok, YouTube or Vimeo link that IS the event's
+    // media — stored canonical (convex/videoEmbed.ts), played on the event
+    // page, shown as a still on cards. `mediaPreviewUrl` is that still
+    // (fetched by convex/linkPreview.ts, copied into our storage because
+    // every provider's image URL expires); the storage id exists so the
+    // file can be deleted. All optional: rows before this have none.
+    mediaUrl: v.optional(v.string()),
+    mediaPreviewUrl: v.optional(v.string()),
+    mediaPreviewStorageId: v.optional(v.id("_storage")),
     coverColor: v.optional(v.string()), // fallback gradient color (e.g. "blue", "purple")
     imageStorageIds: v.optional(v.array(v.id("_storage"))), // up to 3 gallery images
     // ——— Gated event video (docs/gated-event-video-prd.md) ———
@@ -339,7 +403,102 @@ export default defineSchema({
     // account doesn't leave a dangling code string behind.
     approvedBy: v.optional(v.id("users")),
     approvedAt: v.optional(v.number()),
+    // Communities this person asked to join, from the domain or
+    // ?community= link they came in on (communityDomains.ts). Unset = the
+    // neutral hub (thecreative.exchange).
+    communityIds: v.optional(v.array(v.id("hostOrgs"))),
   }).index("by_email", ["email"]),
+
+  // Applications to the November 6 showcase open call (/showcase, backed by
+  // convex/showcase.ts). Separate from `waitlist` above rather than folded
+  // into it: the waitlist is the standing list of people who want in, this
+  // is a dated campaign with a jury and a decision per row. Every applicant
+  // lands in BOTH — showcase.ts's `apply` writes the waitlist entry too, so
+  // an applicant who isn't selected is still someone we can reach in
+  // January.
+  //
+  // Everything past `email` is optional because the form saves the email on
+  // step one and the work on step two. A row with only an email is an
+  // abandoned application, which is still a lead.
+  showcaseApplications: defineTable({
+    email: v.string(),
+    createdAt: v.number(),
+    answeredAt: v.optional(v.number()),
+    name: v.optional(v.string()),
+    city: v.optional(v.string()),
+    // Bare handle, no "@" and no URL — normalized on write in showcase.ts
+    // so the jury sheet is scannable.
+    instagram: v.optional(v.string()),
+    // What they make, on the canonical INTERESTS axis
+    // (app/constants/interests.ts) — the same vocabulary profiles, projects
+    // and offerings already use, so an applicant's answer here means the
+    // same thing as their answer everywhere else and can be matched against
+    // it. Plain string array, exactly like projects.interests: the list is
+    // enforced by the client, not the validator.
+    interests: v.optional(v.array(v.string())),
+    portfolioUrl: v.optional(v.string()),
+    workDescription: v.optional(v.string()),
+    // What they want to DO on the night. A photographer offering to
+    // document and an apparel maker wanting a table are different asks and
+    // different costs to us, so they're captured rather than inferred.
+    //
+    // `back` is the one value that is NOT about showing work — a patron
+    // offering to support the night and the people in it. It lives in this
+    // same list rather than a field of its own because the form asks one
+    // question ("how do you want to take part?") and the jury reads one
+    // answer; someone who both shows and backs picks both.
+    participation: v.optional(
+      v.array(
+        v.union(
+          v.literal("exhibit"),
+          v.literal("perform"),
+          v.literal("vend"),
+          v.literal("document"),
+          v.literal("back"),
+          // Hands on the night — setup, door, teardown. Like `back`, not a
+          // "show my work" answer, and a volunteer still buys a ticket;
+          // nobody is comped (docs/handoff/nov6-backings.md).
+          v.literal("volunteer"),
+        ),
+      ),
+    ),
+    // Jury decision. No computed score on purpose — people read these.
+    status: v.union(
+      v.literal("new"),
+      v.literal("shortlisted"),
+      v.literal("selected"),
+      v.literal("declined"),
+    ),
+    decidedAt: v.optional(v.number()),
+    decidedBy: v.optional(v.id("users")),
+    // Set once, when the applicant is first told we received a completed
+    // application. Guards the confirmation email against re-sending every
+    // time they come back and revise their submission.
+    confirmationSentAt: v.optional(v.number()),
+  })
+    .index("by_email", ["email"])
+    .index("by_status", ["status"]),
+
+  // One admin's vote on one showcase application (/admin/showcase). A row
+  // per (application, admin) rather than a tally on the application itself,
+  // so the sheet can show WHO thought what and an admin can change their
+  // mind without racing anyone else's write.
+  //
+  // Voting does not decide anything on its own — it informs the `status`
+  // an admin sets on the application. That separation is deliberate: a
+  // vote count is an opinion, selection is a commitment to give someone
+  // wall space, and the second should stay a person's explicit act.
+  showcaseVotes: defineTable({
+    applicationId: v.id("showcaseApplications"),
+    userId: v.id("users"),
+    vote: v.union(v.literal("yes"), v.literal("maybe"), v.literal("no")),
+    note: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_application", ["applicationId"])
+    // Upsert lookup: an admin has at most one vote per application.
+    .index("by_application_and_user", ["applicationId", "userId"]),
 
   // Jobs board
   jobs: defineTable({
@@ -446,7 +605,11 @@ export default defineSchema({
     createdAt: v.number(),
   })
     .index("by_userId", ["userId"])
-    .index("by_userId_readAt", ["userId", "readAt"]),
+    .index("by_userId_readAt", ["userId", "readAt"])
+    // Global range scan for retention sweeps (notificationRetention.ts):
+    // find read notifications older than N days across all users. Neither
+    // existing index supports this — by_userId_readAt is scoped per user.
+    .index("by_readAt", ["readAt"]),
 
   // Content/user reports for admin review
   reports: defineTable({
@@ -685,7 +848,7 @@ export default defineSchema({
   // One table, three kinds: "community" (a named group on the platform —
   // The Garden is the first; hosts apply, operators approve), "org"/"church"
   // (a sponsor or fund owner — Abiding Practice — that may never be listed
-  // as a community), and "platform" (the single creatives.exchange row that
+  // as a community), and "platform" (the single thecreative.exchange row that
   // owns the platform-wide project pool ledger; never listed). Coverage,
   // allocations, tables, and grantContributions all key off this table.
   //
@@ -705,9 +868,23 @@ export default defineSchema({
     paymentLinkUrl: v.optional(v.string()),
     monthlyPaymentLinkUrl: v.optional(v.string()),
     stripeCustomerId: v.optional(v.string()), // set for orgs that buy coverage
+    // Stripe Connect account (acct_…) this org's event ticket money settles
+    // into, via destination charges — see garden/ticketRouting.ts. Distinct
+    // from stripeCustomerId above, which is this org BUYING coverage from
+    // us; this is this org RECEIVING money through us. Absent until the org
+    // finishes Connect onboarding, and while it's absent their events
+    // refuse to sell tickets rather than banking into the platform account.
+    stripeConnectAccountId: v.optional(v.string()),
+    // "501c3" | "for_profit". Recorded onto each ticket purchase so a
+    // receipt can carry the right language later. Which entity holds
+    // charitable money is the whole point of docs/entity-structure-
+    // research.md; this is the flag that makes it legible in the data.
+    taxStatus: v.optional(v.string()),
     // ——— Community layer ———
     tagline: v.optional(v.string()), // one line under the name
     description: v.optional(v.string()), // the community's own words (plain text)
+    whyHere: v.optional(v.string()), // plain text, paragraphs separated by blank lines
+    agreements: v.optional(v.array(v.string())), // one agreement per entry
     coverUrl: v.optional(v.string()),
     websiteUrl: v.optional(v.string()),
     locationLabel: v.optional(v.string()), // "San Diego" / "Online" — display only
@@ -717,6 +894,16 @@ export default defineSchema({
     joinPolicy: v.optional(v.string()), // "open" | "apply"
     applicantNote: v.optional(v.string()), // "what you already gather" — from the apply form
     approvedAt: v.optional(v.number()),
+    // Membership in this community (2026-09-29: tiers and dues are per
+    // community). Unset = The Garden's defaults: $10/mo, the platform's
+    // STRIPE_PRICE_SEAT env price, and 40 group / 50 pool / 10 platform.
+    seatPriceCents: v.optional(v.number()), // display price per month
+    seatStripePriceId: v.optional(v.string()), // this community's Stripe price
+    duesGroupPct: v.optional(v.number()), // share for running the group
+    duesPoolPct: v.optional(v.number()), // share into its project pool
+    // Front-door domains ("createsd.org"), lowercase, no www — a visitor
+    // arriving on one is tagged to this community (communityDomains.ts).
+    domains: v.optional(v.array(v.string())),
     createdAt: v.number(),
   })
     .index("by_slug", ["slug"])
@@ -773,6 +960,12 @@ export default defineSchema({
     // this unset. Still written for covered seats (the sponsoring org) and
     // kept on legacy rows; entitlements never read it.
     hostOrgId: v.optional(v.id("hostOrgs")),
+    // The community this tier applies in (2026-09-29: tiers are per
+    // community — paid in The Garden can be free in SD Creatives). Unset on
+    // rows written before then, which count as The Garden
+    // (entitlements.ts's seatAppliesIn). Not the same as hostOrgId, which
+    // on a covered seat is the sponsoring church/org.
+    communityId: v.optional(v.id("hostOrgs")),
     stripeSubscriptionId: v.string(),
     stripePriceId: v.optional(v.string()),
     currentPeriodEnd: v.optional(v.number()),
@@ -811,7 +1004,16 @@ export default defineSchema({
     userId: v.id("users"), // the creator (passion) or poster (paid)
     kind: v.string(), // "passion" | "paid"
     title: v.string(),
+    // The one-or-two-line summary every card, list and search result shows.
+    // Stays plain text on purpose: it has to read the same in a grid tile, a
+    // notification and an OG description, none of which can render blocks.
     blurb: v.optional(v.string()),
+    // The full project page — headings, formatted text, images, video
+    // embeds (docs/features/rich-project-content.md). Blocks, not HTML or
+    // markdown; see convex/garden/richText.ts for why. Optional and
+    // additive: every project written before this field simply has a blurb
+    // and no body, which is a perfectly good project page.
+    body: v.optional(richDocValidator),
     // Paid projects declare a money STATE, not necessarily a number (the
     // guardrail, plan §2.3 — see convex/garden/projects.ts). All three fields
     // are optional so rows written before budgetType existed keep working:
@@ -829,6 +1031,14 @@ export default defineSchema({
     status: v.string(), // "pending" | "active" | "in_progress" | "completed" | "archived"
     photoUrl: v.optional(v.string()),
     photoStorageId: v.optional(v.id("_storage")),
+    // A pasted Instagram, TikTok, YouTube or Vimeo link that IS the
+    // project's media — the Instagram post a poster is hiring from, the
+    // reel a passion project is. Same three fields and the same fetch as
+    // `events` above (convex/linkPreview.ts). The photo stays the photo;
+    // cards use the photo when there is one, else this preview.
+    mediaUrl: v.optional(v.string()),
+    mediaPreviewUrl: v.optional(v.string()),
+    mediaPreviewStorageId: v.optional(v.id("_storage")),
     storySlug: v.optional(v.string()), // public story page (W3)
     legacyJobId: v.optional(v.id("jobs")),
     // V1 support widget (docs/the-exchange-v1-prd.md §9): set once by the
@@ -1111,6 +1321,15 @@ export default defineSchema({
     // to its creator; this is a tag, not ownership (community-groups.md).
     hostOrgId: v.optional(v.id("hostOrgs")),
     status: v.string(), // "active" | "archived"
+    // Pause — a community's hosts (or a platform admin) can pause a class
+    // after complaints (docs/features/class-payments-and-moderation.md). A
+    // paused class is hidden from everyone but its teacher, that community's
+    // hosts and admins, and takes no new sign-ups. Set and cleared ONLY by
+    // pauseOffering/restoreOffering in offerings.ts — updateOffering never
+    // touches these, so the teacher can't edit their way out of a pause.
+    pausedAt: v.optional(v.number()),
+    pausedBy: v.optional(v.id("users")),
+    pausedReason: v.optional(v.string()), // shown to the teacher; max 300 chars (enforced in mutation)
     createdAt: v.number(),
     updatedAt: v.number(),
   })
@@ -1118,19 +1337,47 @@ export default defineSchema({
     .index("by_status", ["status"])
     .index("by_hostOrgId", ["hostOrgId"]),
 
+  // Reports on a class or coaching offering. Separate from `reports` above
+  // (that one is user/message reports, reviewed by platform admins): these go
+  // to the offering's community hosts, or to platform admins when the class
+  // has no community. One open report per reporter per offering — a second
+  // report from the same person updates it (reportOffering in offerings.ts).
+  offeringReports: defineTable({
+    offeringId: v.id("offerings"),
+    hostOrgId: v.optional(v.id("hostOrgs")), // the offering's community when reported
+    reporterId: v.id("users"),
+    reason: v.union(
+      v.literal("harassment"),
+      v.literal("spam"),
+      v.literal("unsafe"),
+      v.literal("misleading"),
+      v.literal("other"),
+    ),
+    details: v.optional(v.string()), // Max 500 chars (enforced in mutation)
+    status: v.union(v.literal("open"), v.literal("resolved"), v.literal("dismissed")),
+    createdAt: v.number(),
+    resolvedBy: v.optional(v.id("users")),
+    resolvedAt: v.optional(v.number()),
+  })
+    .index("by_offeringId", ["offeringId"])
+    .index("by_hostOrgId_status", ["hostOrgId", "status"]),
+
   // Offering sign-ups (fix for offerings.ts: previously no way to record
   // "someone joined this class," even when payment happened externally).
-  // Two payment paths, one record shape — mirrors garden/support.ts's
-  // projectSupport in spirit (pledge-only, no real charge, off-platform
-  // money leaves no direct signal so it's status-tracked by hand/by pattern
-  // rather than a webhook):
-  //   "pledged"   — a paid offering, no external link: real intent, no money
-  //                 actually moved (same "pledge, not charge" semantics as
-  //                 projectSupport's financial types).
+  // Three ways in, one record shape:
+  //   "pledged"   — a paid offering with no external link where the student
+  //                 has started checkout (garden/stripe.ts's
+  //                 createClassCheckout writes this row first) but the
+  //                 payment hasn't landed. Older rows are pledges recorded
+  //                 before checkout existed: intent, no money moved. The
+  //                 Stripe webhook moves the row to "confirmed" when the
+  //                 payment arrives (stripeHandlers.ts's
+  //                 handleClassCheckoutCompleted).
   //   "confirmed" — free offering (nothing to charge), OR a paid offering
   //                 with externalPaymentLinkUrl set (payment happens off-
   //                 platform; clicking the external link still records this
-  //                 row so the creator has one place to see who's coming).
+  //                 row so the creator has one place to see who's coming),
+  //                 OR a paid offering whose checkout payment landed.
   offeringSignups: defineTable({
     offeringId: v.id("offerings"),
     userId: v.id("users"),
@@ -1197,14 +1444,27 @@ export default defineSchema({
     email: v.string(),
     invitedBy: v.optional(v.string()), // "bring someone" provenance
     // "pending" | "confirmed" — absent on free events. Organizer-set only:
-    // rsvpToEvent is unauthenticated, so the existence of an RSVP row is
-    // never a credential (docs/gated-event-video-prd.md, Criticism #3).
+    // RSVPs are free for anyone with an account to make, so the existence
+    // of an RSVP row is never a credential (docs/gated-event-video-prd.md, Criticism #3).
     // No UI writes this yet — the paid path is deferred (PRD "Build order").
     paymentStatus: v.optional(v.string()),
+    // Set when this RSVP came from a paid external-ticket purchase (AP's
+    // Payment Link, garden/apGifts.ts) rather than a free RSVP — the amount
+    // actually paid, and `ap:<checkout session id>` for idempotency (same
+    // prefix convention as grantContributions.stripeRef; can't collide with
+    // the platform account's own ids).
+    paidCents: v.optional(v.number()),
+    // Several tickets on one purchase (garden/ticketLink.ts): how many this
+    // person holds, and the names they typed for the others. Unset on older
+    // rows — a paid one counts as 1 ticket.
+    ticketCount: v.optional(v.number()),
+    guestNames: v.optional(v.string()),
+    stripeRef: v.optional(v.string()),
     createdAt: v.number(),
   })
     .index("by_eventId", ["eventId"])
-    .index("by_eventId_email", ["eventId", "email"]),
+    .index("by_eventId_email", ["eventId", "email"])
+    .index("by_stripeRef", ["stripeRef"]),
 
   // Completed event-ticket purchases — written exclusively by the Stripe
   // webhook (checkout.session.completed, mode "payment", kind "event_ticket";
@@ -1218,11 +1478,19 @@ export default defineSchema({
     userId: v.optional(v.id("users")), // absent for guest checkout
     stripeSessionId: v.string(),
     status: v.string(), // "paid" | "refunded" (refunds are operator bookkeeping)
+    // Where this specific dollar settled, captured AT PURCHASE TIME rather
+    // than read back off the event. An event's beneficiary can be changed
+    // later; what a given buyer's money did cannot, and a receipt reissued
+    // next April has to match what actually happened.
+    beneficiaryHostOrgId: v.optional(v.id("hostOrgs")),
+    destinationAccountId: v.optional(v.string()),
+    beneficiaryTaxStatus: v.optional(v.string()),
     createdAt: v.number(),
   })
     .index("by_eventId", ["eventId"])
     .index("by_stripeSessionId", ["stripeSessionId"])
-    .index("by_userId", ["userId"]),
+    .index("by_userId", ["userId"])
+    .index("by_beneficiaryHostOrgId", ["beneficiaryHostOrgId"]),
 
   // AP Fund public allocations ledger (W5; operator-entered, display-only lane).
   allocations: defineTable({
@@ -1247,12 +1515,26 @@ export default defineSchema({
   // payer paid; platformCents is the platform's share INCLUDING processing;
   // poolCents is what the pool actually holds. For dues, the receipt split
   // is 50/50; for direct inflows, 10% platform. Awards out are 0%.
+  // Monthly gifts to AP's grant fund (garden/apGifts.ts): the subscription
+  // a gift checkout started, so its later invoice.paid renewals — which
+  // carry the subscription id but nothing saying "grant fund" — are
+  // recognized and added to the fund's ledger.
+  apGiftSubscriptions: defineTable({
+    subscriptionId: v.string(),
+    hostOrgId: v.id("hostOrgs"),
+    payerName: v.optional(v.string()),
+    createdAt: v.number(),
+  }).index("by_subscriptionId", ["subscriptionId"]),
+
   grantContributions: defineTable({
     hostOrgId: v.id("hostOrgs"), // the pool owner: the platform row, or a community
-    type: v.string(), // "dues_share" | "contribution_in" | "topup_in" | "sponsor_in" | "entry_fee_in" | "adjustment"
+    type: v.string(), // "dues_share" | "contribution_in" | "topup_in" | "sponsor_in" | "entry_fee_in" | "adjustment" | "ticket_in"
     grossCents: v.number(),
     platformCents: v.number(),
     poolCents: v.number(), // may be negative on an adjustment (refund/chargeback clawback)
+    // Dues rows only: the community's share for running the group.
+    // gross = platform + group + pool (stripeHandlers.ts communityDuesSplit).
+    groupCents: v.optional(v.number()),
     userId: v.optional(v.id("users")), // the payer, when known
     payerName: v.optional(v.string()), // display name for public credit (never email)
     membershipId: v.optional(v.id("memberships")),
@@ -1362,13 +1644,102 @@ export default defineSchema({
     createdAt: v.number(),
   }).index("by_hostOrgId", ["hostOrgId"]),
 
+  // Payout rail, step 1 (bead wonderwall-7avu; docs/features/entitlements-
+  // live-status.md § Payout rail). One row per PAYMENT received on a backing
+  // — a one-time backing writes one, a monthly backer writes one a month —
+  // carrying the split at the time of payment (stripeHandlers.ts's
+  // splitBacking — 10%, then 5% of the part above $1,000). `workCents` accrues as
+  // OWED to the payee until creativePayouts records it paid; what a creative
+  // is owed is sum(workCents) − sum(their creativePayouts). Separate from
+  // projectSupport on purpose: that table is one row per backer, and a
+  // recurring backer pays many times.
+  backingPayments: defineTable({
+    projectId: v.id("projects"),
+    // The projectSupport row this payment belongs to. Absent only on a
+    // payment whose support row was never created (a pre-pending-row
+    // session) — the money is still recorded.
+    supportId: v.optional(v.id("projectSupport")),
+    // Who the work's share is owed to: the project's lead at the time the
+    // money arrived. Absent when the project was gone by then — the payment
+    // is still on the ledger, unassigned, for an operator to resolve, never
+    // silently dropped.
+    payeeUserId: v.optional(v.id("users")),
+    backerUserId: v.optional(v.id("users")),
+    grossCents: v.number(), // what the backer paid for the backing itself
+    platformCents: v.number(), // splitBacking at the time of payment
+    workCents: v.number(), // owed until paid out
+    billing: v.string(), // "one_time" | "first" (a recurring backing's first charge) | "renewal" | "backfill"
+    // Idempotency key: checkout session id (first payment), invoice id
+    // (renewal), or "backfill:{supportId}" for a pledge collected before
+    // this table existed (garden/payouts.ts's backfillBackingPayments).
+    stripeRef: v.string(),
+    period: v.string(), // "YYYY-MM", UTC — same convention as productPurchases
+    createdAt: v.number(),
+  })
+    .index("by_stripeRef", ["stripeRef"])
+    .index("by_payeeUserId", ["payeeUserId"])
+    .index("by_supportId", ["supportId"])
+    .index("by_projectId", ["projectId"]),
+
+  // One row per Stripe payment on a paid class (docs/features/class-payments-
+  // and-moderation.md § Money). The student pays the class price plus card
+  // processing on top; the price alone is split here (stripeHandlers.ts's
+  // splitClassSale — teacher 90 / platform 10). `teacherCents` accrues as
+  // OWED to the teacher until creativePayouts records it paid, the same
+  // ledger backingPayments feeds: what a creative is owed is sum(workCents on
+  // their backing payments) + sum(teacherCents on their class payments) −
+  // sum(their creativePayouts). Written only by the Stripe webhook.
+  classPayments: defineTable({
+    offeringId: v.id("offerings"),
+    // The teacher (offerings.userId) when the money arrived. Absent only when
+    // the class was deleted before the webhook landed — the payment is still
+    // on the ledger, unassigned, for an operator to resolve, never dropped.
+    payeeUserId: v.optional(v.id("users")),
+    buyerUserId: v.id("users"),
+    grossCents: v.number(), // the class PRICE only — never includes card processing
+    platformCents: v.number(), // 10%
+    teacherCents: v.number(), // 90% — owed until paid out
+    stripeRef: v.string(), // checkout session id — idempotency key
+    period: v.string(), // "YYYY-MM", UTC — same convention as backingPayments
+    createdAt: v.number(),
+  })
+    .index("by_offeringId", ["offeringId"])
+    .index("by_payeeUserId", ["payeeUserId"])
+    .index("by_stripeRef", ["stripeRef"]),
+
+  // Manual transfers of a creative's owed backing and class share — the
+  // creative-side twin of hostPayouts above, recorded by an operator on
+  // /admin/ledger (garden/payouts.ts's recordCreativePayout) until Stripe
+  // Connect ships in Phase 3 (7avu step 2).
+  creativePayouts: defineTable({
+    payeeUserId: v.id("users"),
+    amountCents: v.number(),
+    reference: v.optional(v.string()), // Zelle/bank memo
+    note: v.optional(v.string()),
+    paidAt: v.number(),
+    recordedByUserId: v.id("users"),
+    createdAt: v.number(),
+  }).index("by_payeeUserId", ["payeeUserId"]),
+
   // Story updates (W3) — the credit-carrying timeline on public story pages.
   storyUpdates: defineTable({
     projectId: v.id("projects"),
     authorUserId: v.id("users"),
+    // The plain-text rendering of `bodyDoc`, kept as its own column rather
+    // than derived on read. It is what a notification, an excerpt and every
+    // row written before bodyDoc existed use, so it must stay readable on
+    // its own — postStoryUpdate writes both together.
     body: v.string(),
+    // The rich version (docs/features/rich-project-content.md). Absent on
+    // pre-existing rows and on an update posted as plain text.
+    bodyDoc: v.optional(richDocValidator),
+    // The original single-link media field, still read by the story page for
+    // older rows. New updates put media in `bodyDoc` instead.
     mediaUrl: v.optional(v.string()),
     createdAt: v.number(),
+    // Set when an author edits an update after posting it — the timeline
+    // shows "edited" rather than silently changing under people who read it.
+    editedAt: v.optional(v.number()),
   }).index("by_projectId", ["projectId"]),
 
   // Announcements (docs/announcements-prd.md). One row per send (manual
@@ -1422,4 +1793,180 @@ export default defineSchema({
     .index("by_announcementId_deliveredAt", ["announcementId", "deliveredAt"])
     // Cross-batch email dedupe (see Recipient resolution).
     .index("by_announcementId_email", ["announcementId", "email"]),
-});
+
+  // ——— Live booking (docs/features/live-booking.md) ———
+  //
+  // A venue posts a recurring paid gig ("every Friday, 8–10pm, $300"). The
+  // posting itself is an ordinary `projects` row (kind "paid", so it sits on
+  // /projects and /opportunities with every other paid post); this table
+  // holds the schedule rule beside it, 1:1 by projectId. Dates are opened
+  // as `gigSlots` rows HORIZON_WEEKS ahead and extended daily by the cron
+  // (garden/gigs.ts extendGigSeries), so a series with no end date never
+  // runs out. Rule fields are stored the way the venue said them (venue-
+  // local date and clock strings + an IANA zone); the epoch math happens
+  // once per slot, in garden/gigRules.ts's slotTimes.
+  gigSeries: defineTable({
+    projectId: v.id("projects"),
+    hostUserId: v.id("users"), // mirrors projects.userId — the venue's account
+    venueName: v.optional(v.string()), // "The Grove" — shown on the card; the account may be a person
+    timeZone: v.string(), // IANA, e.g. "America/Los_Angeles"
+    startTime: v.string(), // "HH:MM" 24h, venue-local
+    endTime: v.string(), // "HH:MM"; at or before startTime = next morning
+    weekdays: v.array(v.number()), // 0 = Sunday … 6 = Saturday
+    intervalWeeks: v.number(), // 1 | 2 | 4
+    startDate: v.string(), // "YYYY-MM-DD" venue-local
+    endMode: v.string(), // "never" | "until" | "count"
+    endDate: v.optional(v.string()), // endMode "until"
+    count: v.optional(v.number()), // endMode "count"
+    status: v.string(), // "open" | "paused" (no new responses) | "ended"
+    materializedThrough: v.optional(v.string()), // last date the cron opened slots through
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_projectId", ["projectId"])
+    .index("by_status", ["status"]),
+
+  // One row per date a series is actually happening on. `open` takes
+  // responses; `booked` names the artist; `cancelled` is a date the venue
+  // dropped (a holiday) — kept, never deleted, once anyone has responded.
+  // Payment fields are the venue's own record of paying the artist
+  // directly (plan §3: "we record it and take nothing") — marked by the
+  // host, confirmed by the artist, never processed here.
+  gigSlots: defineTable({
+    seriesId: v.id("gigSeries"),
+    projectId: v.id("projects"), // denormalized for the project page's one range query
+    date: v.string(), // "YYYY-MM-DD" venue-local — unique within a series
+    startsAt: v.number(), // epoch ms
+    endsAt: v.number(),
+    status: v.string(), // "open" | "booked" | "cancelled"
+    bookedUserId: v.optional(v.id("users")),
+    bookedResponseId: v.optional(v.id("gigResponses")),
+    bookedAt: v.optional(v.number()),
+    cancelledAt: v.optional(v.number()),
+    paidAmountCents: v.optional(v.number()),
+    paidMethod: v.optional(v.string()), // "venmo" | "cashapp" | "paypal" | "zelle" | "cash" | "check" | "other"
+    paidAt: v.optional(v.number()), // host marked it paid
+    paidConfirmedAt: v.optional(v.number()), // artist confirmed it landed
+    createdAt: v.number(),
+  })
+    .index("by_seriesId_date", ["seriesId", "date"])
+    .index("by_projectId_startsAt", ["projectId", "startsAt"])
+    .index("by_bookedUserId_startsAt", ["bookedUserId", "startsAt"]),
+
+  // An artist saying "I can do that date" — one row per person per date,
+  // reused across withdraw/re-respond (nextResponseAction, gigRules.ts).
+  // `note` and `clipIds` are copied onto every date of one submission, so
+  // each date's responder list stands on its own. clipIds point at the
+  // artist's own `artifacts` rows (audio, video, or a music link) — the
+  // same "attach up to 3 work samples" idea the legacy jobs board had.
+  gigResponses: defineTable({
+    slotId: v.id("gigSlots"),
+    seriesId: v.id("gigSeries"),
+    projectId: v.id("projects"),
+    userId: v.id("users"),
+    profileId: v.id("profiles"),
+    status: v.string(), // "available" | "withdrawn" | "booked"
+    note: v.optional(v.string()), // ≤ 500 chars
+    clipIds: v.array(v.id("artifacts")), // ≤ 3, must belong to userId's profile
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_slotId_status", ["slotId", "status"])
+    .index("by_slotId_userId", ["slotId", "userId"])
+    .index("by_userId_status", ["userId", "status"])
+    .index("by_seriesId_userId", ["seriesId", "userId"]),
+
+  // Per-user email opt-outs by category (convex/emailPreferences.ts). A
+  // missing row means all categories are on — this table only ever records
+  // an explicit choice. "transactional" (waitlist approval, team invite
+  // claim links) has no opt-out and never reads this table.
+  emailPreferences: defineTable({
+    userId: v.id("users"),
+    activity: v.boolean(), // messages, job interest, event applications, bookings
+    digest: v.boolean(), // likes digest
+    announcements: v.boolean(), // host announcements + reminders
+    unsubscribeToken: v.string(), // random, used in email footer links
+    updatedAt: v.number(),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_unsubscribeToken", ["unsubscribeToken"]),
+
+  // One row per Resend send, updated in place as delivery events arrive on
+  // the /resend/webhook route (convex/resendWebhook.ts). Written by
+  // emails.sendNotificationEmail right after a successful send — the
+  // console provider returns no id, so nothing is recorded for it.
+  emailDeliveries: defineTable({
+    providerId: v.string(), // Resend email id
+    provider: v.string(),
+    to: v.string(), // normalized lowercase
+    subject: v.string(),
+    category: v.optional(v.string()),
+    status: v.union(
+      v.literal("sent"),
+      v.literal("delivered"),
+      v.literal("delayed"),
+      v.literal("bounced"),
+      v.literal("complained"),
+    ),
+    lastEventAt: v.number(),
+    detail: v.optional(v.string()), // bounce/complaint reason text, short
+    createdAt: v.number(),
+  })
+    .index("by_providerId", ["providerId"])
+    .index("by_to_createdAt", ["to", "createdAt"]),
+
+  // Addresses that have hard-bounced or complained — checked before every
+  // send (emails.sendNotificationEmail) so we stop mailing them. Written by
+  // the /resend/webhook route.
+  emailSuppressions: defineTable({
+    email: v.string(), // normalized lowercase
+    reason: v.union(v.literal("bounced"), v.literal("complained")),
+    providerId: v.optional(v.string()),
+    createdAt: v.number(),
+  }).index("by_email", ["email"]),
+
+  // SMS-pumping guard (convex/auth.ts Phone provider): one row per code we
+  // actually SEND to a number, so we can cap how many go out per hour.
+  // Separate from @convex-dev/auth's own authRateLimits table, which only
+  // throttles *failed verification attempts* on an identifier — nothing in
+  // that library limits how many codes get sent to a number in the first
+  // place, which is exactly the SMS-pumping surface (a script requesting
+  // codes to run up someone's Telnyx bill or spam a number).
+  phoneSendLimits: defineTable({
+    phone: v.string(), // normalized E.164, e.g. "+16195550100"
+    sentAt: v.number(),
+  }).index("by_phone_sentAt", ["phone", "sentAt"]),
+
+  // Same cap for the emailed sign-in code (convex/auth.ts's "email-otp"
+  // provider, used by the event RSVP form): 5 sends per address per hour,
+  // so the form can't be used to mail-bomb someone else's inbox. Library
+  // rate limits only cover failed verification attempts, not sends.
+  emailSendLimits: defineTable({
+    email: v.string(), // lowercased address
+    sentAt: v.number(),
+  }).index("by_email_sentAt", ["email", "sentAt"]),
+
+  // Settings → "Phone number" (convex/phoneLink.ts): a pending code for
+  // attaching a phone number to an ALREADY signed-in account, so they can
+  // later sign in by phone into the same account. One row per user — a new
+  // startAddPhone call replaces whatever was pending. Never stores the
+  // code itself, only a SHA-256 hash of it (codeHash), so a database read
+  // can't recover a live code.
+  phoneLinkCodes: defineTable({
+    userId: v.id("users"),
+    phone: v.string(), // normalized E.164 being added
+    codeHash: v.string(), // sha256 hex of the 6-digit code
+    expiresAt: v.number(),
+    attempts: v.number(),
+  }).index("by_userId", ["userId"]),
+
+  // Anti-abuse cap alongside phoneSendLimits' per-number cap: also limits
+  // how many "text me a code" *starts* one signed-in user can trigger per
+  // hour, regardless of how many different numbers they try. One row per
+  // start (mirrors phoneSendLimits' log-of-events shape, rather than a
+  // single counter, so the window can slide).
+  phoneLinkStarts: defineTable({
+    userId: v.id("users"),
+    startedAt: v.number(),
+  }).index("by_userId_startedAt", ["userId", "startedAt"]),
+}, { schemaValidation: false });

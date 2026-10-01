@@ -1,5 +1,7 @@
 # Web copy audit — pricing, splits, and business model
 
+> **Superseded 2026-09-18.** This audit enforced the Aug 31 wording, including the "$5 funds other creatives' projects · $5 runs the place" receipt line and a $50/mo host tier. Both are retired. The current money language is [claims.md](claims.md). Kept as history.
+
 **Date:** 2026-08-31
 **Canonical model:** the 2026-08-31 decision (free account $0 · seat $10/mo · $25/mo five projects · $50/mo Leader tier for grant programs · member receipt "$5 funds other creatives' projects · $5 runs the place" · hosting free with 90/10 on host sales · backings 90/10 · donations only on the General Grant Fund lane · coverage codes at $10/seat · "creative", never "artist").
 **Scope:** all public-facing marketing/web surfaces — `docs/flyers/*.html`, `app/public/**`, `docs/mocks/*.html` (audit-only), plus a grep sweep of `docs/` and `app/` for straggler pricing strings.

@@ -21,11 +21,6 @@ export default [
   // not wired to the real Host/Table data model, see PRD §10
   // (docs/the-exchange-v1-prd.md). An org that wants in today signs up as a
   // Patron through the regular waitlist/onboarding flow instead.
-  // TODO: delete routes/organizations.tsx and routes/organizations_.demo.tsx,
-  // or repurpose for a future jobs-outreach push targeting organizations —
-  // see the TODO at the top of organizations.tsx.
-  // route("organizations", "routes/organizations.tsx"),
-  // route("organizations/demo", "routes/organizations_.demo.tsx"),
 
   // Legal pages are PUBLIC and deliberately outside the _app.tsx layout
   // below, for the same reason the event page is: that layout sends
@@ -44,6 +39,10 @@ export default [
   // the _app layout below rather than bouncing them to /login.
   route("claim/:token", "routes/claim.$token.tsx"),
 
+  // Email unsubscribe links carry their own token, so this must work
+  // signed-out — same reasoning as claim/:token above.
+  route("unsubscribe/:token", "routes/unsubscribe.tsx"),
+
   // Public audience pages (/for/creatives, /for/hosts, …) — one page per
   // constituent door in docs/marketing/constituent-playbook.md. Outside the
   // _app layout on purpose: these are handed to people who have no account
@@ -58,8 +57,25 @@ export default [
   // to /join.
   route("opportunities", "routes/opportunities.tsx"),
 
+  // The November 6 showcase open call — the destination for the Instagram
+  // acquisition push (docs/marketing/showcase-open-call.md). Public and
+  // outside the _app layout for the same reason the audience pages are:
+  // it is handed to people who have no account, and the entire point is
+  // that applying requires nothing of them up front.
+  route("showcase", "routes/showcase.tsx"),
+
   // App routes (with nav layout)
   layout("routes/_app.tsx", [
+    // The signed-in home — where sign-in, OAuth and onboarding land.
+    route("today", "routes/today.tsx"),
+    // About pages, public, inside the shell (2026-09-29; were static files
+    // in public/about/). _app.tsx lists "/about" as a public path.
+    route("about", "routes/about.tsx"),
+    route("about/agreements", "routes/about.agreements.tsx"),
+    route("about/:audience", "routes/about.$audience.tsx"),
+    // People. /search was its address before it was called People; it
+    // stays mounted (same page) so old links keep working.
+    route("people", "routes/search.tsx", { id: "routes/people" }),
     route("search", "routes/search.tsx"),
     route("projects", "routes/projects.tsx"),
     route("projects/:id", "routes/projects.$id.tsx"),
@@ -100,6 +116,9 @@ export default [
     route("admin/garden", "routes/admin.garden.tsx"),
     route("admin/ledger", "routes/admin.ledger.tsx"),
     route("admin/waitlist", "routes/admin.waitlist.tsx"),
+    // Jury sheet for the November 6 open call — any admin votes, an admin
+    // decides. See convex/showcase.ts.
+    route("admin/showcase", "routes/admin.showcase.tsx"),
     route("messages", "routes/messages._index.tsx"),
     route("messages/:conversationId", "routes/messages.$conversationId.tsx"),
     // Spaces. Was outside this layout (its own GardenPage/SiteHeader
@@ -158,6 +177,12 @@ export default [
   route("garden/events/:id", "routes/events_.garden.$id.tsx"),
 
   route("ia", "routes/ia.tsx"),
+
+  // A community's front door: /sd, /the-garden (community.landing.tsx).
+  // Every static route above wins over it; a slug that isn't a community
+  // renders the 404. convex/garden/communityDomains.ts RESERVED_SLUGS keeps
+  // a community from taking a path the site already uses.
+  route(":communitySlug", "routes/community.landing.tsx"),
 
   // 404 catch-all
   route("*", "routes/404.tsx"),

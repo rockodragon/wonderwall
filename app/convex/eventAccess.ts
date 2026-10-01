@@ -14,6 +14,7 @@
 // lands — and the PRD's build order says that trigger pulls LiveKit forward
 // rather than shipping honor-system gating on a forwardable link.
 
+import { isEventHost } from "./eventHosts";
 import type { QueryCtx, MutationCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 
@@ -30,7 +31,7 @@ export async function resolveVideoRole(
   event: Doc<"events">,
   userId: Id<"users"> | null,
 ): Promise<EventVideoRole> {
-  if (userId && event.organizerId === userId) return "organizer";
+  if (userId && isEventHost(event, userId)) return "organizer";
 
   // Public event → anyone. Not a gate; see the module comment.
   if (eventAccessType(event) === "public") return "entitled";

@@ -2,13 +2,13 @@ import { useState } from "react";
 
 export function meta() {
   return [
-    { title: "FAQ - creatives.exchange" },
+    { title: "FAQ - TheCreative.exchange" },
     {
       name: "description",
       content:
         "Frequently asked questions about The Exchange - invites, profiles, events, and account management.",
     },
-    { property: "og:title", content: "FAQ - creatives.exchange" },
+    { property: "og:title", content: "FAQ - TheCreative.exchange" },
     {
       property: "og:description",
       content:
@@ -17,16 +17,16 @@ export function meta() {
     { property: "og:type", content: "website" },
     {
       property: "og:image",
-      content: "https://creatives.exchange/og-image.png",
+      content: "https://thecreative.exchange/og-image.png",
     },
     { property: "og:image:width", content: "1200" },
     { property: "og:image:height", content: "630" },
     {
       name: "twitter:image",
-      content: "https://creatives.exchange/og-image.png",
+      content: "https://thecreative.exchange/og-image.png",
     },
     { name: "twitter:card", content: "summary_large_image" },
-    { name: "twitter:title", content: "FAQ - creatives.exchange" },
+    { name: "twitter:title", content: "FAQ - TheCreative.exchange" },
     {
       name: "twitter:description",
       content:
@@ -220,7 +220,7 @@ export default function FAQ() {
         </p>
         <div className="flex flex-wrap items-center justify-center gap-3">
         <a
-          href="mailto:hello@creatives.exchange"
+          href="mailto:hello@thecreative.exchange"
           className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors hover:opacity-90"
           style={{ backgroundColor: "var(--app-accent)", color: "var(--garden-ink)" }}
         >

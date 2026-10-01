@@ -39,8 +39,10 @@ test.describe("Garden demo — capability gating in the app shell", () => {
     await page.getByRole("button", { name: "Projects" }).click();
     await page.getByRole("button", { name: "Back-room mural" }).click();
 
-    await expect(page.getByText("Applying to paid work requires a seat.")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Take a seat — $10/mo" })).toBeVisible();
+    await expect(page.getByText("Applying to paid work takes membership.")).toBeVisible();
+    // Matched by prefix, not the full label: this test is about the gate, and
+    // the price in the label is still moving (per-community dues).
+    await expect(page.getByRole("button", { name: /^Become a member/ })).toBeVisible();
   });
 
   test("marcus (host, owns the table) sees Manage table", async ({ page }) => {

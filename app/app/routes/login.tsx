@@ -3,16 +3,18 @@ import { usePostHog } from "@posthog/react";
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router";
 import { useConvexAuth } from "convex/react";
+import { normalizePhone } from "../../convex/phone";
+import { ensureOAuthHost } from "../lib/oauthHost";
 
 export function meta() {
   return [
-    { title: "Sign In - creatives.exchange" },
+    { title: "Sign In - TheCreative.exchange" },
     {
       name: "description",
       content:
         "Sign in to The Exchange to connect with creatives.",
     },
-    { property: "og:title", content: "Sign In - creatives.exchange" },
+    { property: "og:title", content: "Sign In - TheCreative.exchange" },
     {
       property: "og:description",
       content:
@@ -21,16 +23,16 @@ export function meta() {
     { property: "og:type", content: "website" },
     {
       property: "og:image",
-      content: "https://creatives.exchange/og-image.png",
+      content: "https://thecreative.exchange/og-image.png",
     },
     { property: "og:image:width", content: "1200" },
     { property: "og:image:height", content: "630" },
     {
       name: "twitter:image",
-      content: "https://creatives.exchange/og-image.png",
+      content: "https://thecreative.exchange/og-image.png",
     },
     { name: "twitter:card", content: "summary_large_image" },
-    { name: "twitter:title", content: "Sign In - creatives.exchange" },
+    { name: "twitter:title", content: "Sign In - TheCreative.exchange" },
     {
       name: "twitter:description",
       content:
@@ -50,6 +52,13 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
 
+  // Phone sign-in: mobile number -> text a code -> enter the code.
+  const [phone, setPhone] = useState("");
+  const [code, setCode] = useState("");
+  const [phoneStep, setPhoneStep] = useState<"phone" | "code">("phone");
+  const [phoneError, setPhoneError] = useState("");
+  const [phoneLoading, setPhoneLoading] = useState(false);
+
   // Redirect when authenticated (handles both password login and OAuth return).
   // ?redirect=/some/path returns the user where they started (e.g. a coverage
   // code at /c/CODE) — same-origin paths only, never external URLs.
@@ -57,7 +66,7 @@ export default function Login() {
     if (!authLoading && isAuthenticated) {
       const redirect = new URLSearchParams(window.location.search).get("redirect");
       const safe = redirect && redirect.startsWith("/") && !redirect.startsWith("//");
-      navigate(safe ? redirect : "/search");
+      navigate(safe ? redirect : "/today");
     }
   }, [isAuthenticated, authLoading, navigate]);
 
@@ -82,12 +91,64 @@ export default function Login() {
     }
   }
 
+  async function handleSendCode(e: React.FormEvent) {
+    e.preventDefault();
+    setPhoneError("");
+
+    const normalized = normalizePhone(phone);
+    if (!normalized.ok) {
+      setPhoneError(normalized.reason);
+      return;
+    }
+
+    setPhoneLoading(true);
+    try {
+      await signIn("phone", { phone: normalized.value });
+      setPhone(normalized.value);
+      setPhoneStep("code");
+      posthog?.capture("phone_code_sent");
+    } catch (err) {
+      setPhoneError(
+        err instanceof Error ? err.message : "Couldn't send a code. Try again.",
+      );
+      posthog?.capture("phone_code_send_error", {
+        error: err instanceof Error ? err.message : "Unknown error",
+      });
+    } finally {
+      setPhoneLoading(false);
+    }
+  }
+
+  async function handleVerifyCode(e: React.FormEvent) {
+    e.preventDefault();
+    setPhoneError("");
+    setPhoneLoading(true);
+
+    try {
+      await signIn("phone", { phone, code });
+      posthog?.identify(phone, { phone });
+      posthog?.capture("user_logged_in", { method: "phone" });
+      // Redirect happens automatically via useEffect when auth state updates
+    } catch (err) {
+      setPhoneError("That code didn't work. Check it and try again.");
+      posthog?.capture("phone_code_verify_error", {
+        error: err instanceof Error ? err.message : "Unknown error",
+      });
+      setPhoneLoading(false);
+    }
+  }
+
   async function handleGoogleSignIn() {
     setError("");
+    if (!ensureOAuthHost()) return;
     setGoogleLoading(true);
 
     try {
-      await signIn("google");
+      // Come back to THIS page, ?redirect= and all. Without a redirectTo,
+      // Convex Auth returns to SITE_URL — the marketing home, which doesn't
+      // forward signed-in people — so a successful Google sign-in looked
+      // like nothing happened. The effect above takes it from here.
+      await signIn("google", { redirectTo: window.location.pathname + window.location.search });
       posthog?.capture("google_sign_in_initiated");
       // Redirect happens automatically via useEffect when auth state updates
     } catch (err) {
@@ -111,63 +172,101 @@ export default function Login() {
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="mt-8 space-y-6">
-          {error && (
-            <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-3 rounded-lg text-sm">
-              {error}
-            </div>
-          )}
-
-          <div className="space-y-4">
-            <div>
-              <label
-                htmlFor="email"
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-              >
-                Email
-              </label>
-              <input
-                id="email"
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
-              />
-            </div>
+        {phoneStep === "phone" ? (
+          <form onSubmit={handleSendCode} className="mt-8 space-y-6">
+            {phoneError && (
+              <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-3 rounded-lg text-[13.5px]">
+                {phoneError}
+              </div>
+            )}
 
             <div>
               <label
-                htmlFor="password"
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                htmlFor="phone"
+                className="block text-[13.5px] font-medium text-gray-700 dark:text-gray-300"
               >
-                Password
+                Mobile number
               </label>
               <input
-                id="password"
-                type="password"
+                id="phone"
+                type="tel"
+                autoComplete="tel"
                 required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
+                placeholder="(619) 555-0100"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                className="mt-1 block w-full px-3 py-2 text-[13.5px] border border-gray-300 dark:border-gray-700 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
               />
             </div>
-          </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loading ? "Signing in..." : "Sign in"}
-          </button>
-        </form>
+            <button
+              type="submit"
+              disabled={phoneLoading}
+              className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-[13.5px] font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {phoneLoading ? "Sending..." : "Text me a code"}
+            </button>
+          </form>
+        ) : (
+          <form onSubmit={handleVerifyCode} className="mt-8 space-y-6">
+            {phoneError && (
+              <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-3 rounded-lg text-[13.5px]">
+                {phoneError}
+              </div>
+            )}
+
+            <p className="text-[13.5px] text-gray-600 dark:text-gray-400">
+              We texted a code to {phone}.{" "}
+              <button
+                type="button"
+                onClick={() => {
+                  setPhoneStep("phone");
+                  setCode("");
+                  setPhoneError("");
+                }}
+                className="text-blue-600 hover:text-blue-500 font-medium"
+              >
+                Use a different number
+              </button>
+            </p>
+
+            <div>
+              <label
+                htmlFor="code"
+                className="block text-[13.5px] font-medium text-gray-700 dark:text-gray-300"
+              >
+                6-digit code
+              </label>
+              <input
+                id="code"
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                pattern="[0-9]*"
+                maxLength={6}
+                required
+                autoFocus
+                value={code}
+                onChange={(e) => setCode(e.target.value.replace(/[^0-9]/g, ""))}
+                className="mt-1 block w-full px-3 py-2 text-[13.5px] tracking-[0.3em] border border-gray-300 dark:border-gray-700 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={phoneLoading || code.length !== 6}
+              className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-[13.5px] font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {phoneLoading ? "Signing in..." : "Sign in"}
+            </button>
+          </form>
+        )}
 
         <div className="relative">
           <div className="absolute inset-0 flex items-center">
             <div className="w-full border-t border-gray-300 dark:border-gray-700" />
           </div>
-          <div className="relative flex justify-center text-sm">
+          <div className="relative flex justify-center text-[13.5px]">
             <span className="px-2 bg-gray-50 dark:bg-gray-950 text-gray-500 dark:text-gray-400">
               or continue with
             </span>
@@ -177,7 +276,7 @@ export default function Login() {
         <button
           onClick={handleGoogleSignIn}
           disabled={googleLoading}
-          className="w-full flex items-center justify-center gap-3 py-3 px-4 border border-gray-300 dark:border-gray-700 rounded-lg shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full flex items-center justify-center gap-3 py-3 px-4 border border-gray-300 dark:border-gray-700 rounded-lg shadow-sm text-[13.5px] font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24">
             <path
@@ -200,7 +299,70 @@ export default function Login() {
           {googleLoading ? "Signing in..." : "Google"}
         </button>
 
-        <p className="text-center text-sm text-gray-600 dark:text-gray-400">
+        {/* Email and password sit in plain view: members who signed up that
+
+            way shouldn't have to hunt for it (Rick, 2026-09-27). */}
+
+        <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+
+          <p className="mb-3 text-[13.5px] font-medium text-gray-700 dark:text-gray-300">Or use your email and password</p>
+
+          <form onSubmit={handleSubmit} className="mt-4 space-y-6">
+            {error && (
+              <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-3 rounded-lg text-[13.5px]">
+                {error}
+              </div>
+            )}
+
+            <div className="space-y-4">
+              <div>
+                <label
+                  htmlFor="email"
+                  className="block text-[13.5px] font-medium text-gray-700 dark:text-gray-300"
+                >
+                  Email
+                </label>
+                <input
+                  id="email"
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="mt-1 block w-full px-3 py-2 text-[13.5px] border border-gray-300 dark:border-gray-700 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="password"
+                  className="block text-[13.5px] font-medium text-gray-700 dark:text-gray-300"
+                >
+                  Password
+                </label>
+                <input
+                  id="password"
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="mt-1 block w-full px-3 py-2 text-[13.5px] border border-gray-300 dark:border-gray-700 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
+                />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-[13.5px] font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? "Signing in..." : "Sign in"}
+            </button>
+          </form>
+        
+
+        </div>
+
+        <p className="text-center text-[13.5px] text-gray-600 dark:text-gray-400">
           Don't have an account?{" "}
           <Link
             to="/signup"

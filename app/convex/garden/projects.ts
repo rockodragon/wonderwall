@@ -8,12 +8,24 @@ import { v } from "convex/values";
 import { mutation, query } from "../_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { ConvexError } from "convex/values";
-import type { MutationCtx } from "../_generated/server";
-import type { Id } from "../_generated/dataModel";
+import type { MutationCtx, QueryCtx } from "../_generated/server";
+import type { Doc, Id } from "../_generated/dataModel";
 import { slugifyTitle, resolveAvailableSlug } from "./stories";
 import { assertCommunityMember } from "./communities";
 import { notifyFollowers } from "../follows";
 import { isStage, stageLabel, shouldNotifyStageChange } from "./projectTeam";
+import {
+  normalizeRichDoc,
+  orphanedStorageIds,
+  resolveRichDocMedia,
+  richDocValidator,
+} from "./richText";
+import { summarizeGig } from "./gigSummary";
+// A pasted Instagram, TikTok, YouTube or Vimeo link that IS the project's
+// media — the Instagram post a poster is hiring from, the reel a passion
+// project is (docs/features/creator-media-cross-post.md, Round 2) — is
+// checked and stored the way artifacts and events store one.
+import { canonicalMediaUrl, schedulePreviewFetch } from "../linkPreview";
 
 // Following fan-out (docs/features/following.md §1 #5): "Name posted Title"
 // to everyone following the poster, once per created row. `userId` is a
@@ -95,6 +107,9 @@ export const createPassionProject = mutation({
     blurb: v.optional(v.string()),
     goal: v.optional(v.number()),
     photoUrl: v.optional(v.string()),
+    // A pasted link instead of (or as well as) a photo — see canonicalMediaUrl
+    // in convex/linkPreview.ts.
+    mediaUrl: v.optional(v.string()),
     // Passion-only campaign fields (review follow-up) — deliberately not on
     // createPaidProject, see the schema comment on `projects.raiseByDate`.
     raiseByDate: v.optional(v.number()),
@@ -125,6 +140,7 @@ export const createPassionProject = mutation({
       await assertCommunityMember(ctx, args.hostOrgId, userId);
     }
 
+    const mediaUrl = canonicalMediaUrl(args.mediaUrl);
     const now = Date.now();
     const storySlug = await generateStorySlug(ctx, args.title);
     const id = await ctx.db.insert("projects", {
@@ -140,6 +156,7 @@ export const createPassionProject = mutation({
       stage: "planning",
       stageChangedAt: now,
       photoUrl: args.photoUrl,
+      mediaUrl,
       storySlug,
       raiseByDate: args.raiseByDate,
       benefitsNonprofit: args.benefitsNonprofit,
@@ -155,6 +172,8 @@ export const createPassionProject = mutation({
       createdAt: now,
       updatedAt: now,
     });
+    // The still for the card (Instagram, TikTok); a no-op for the rest.
+    await schedulePreviewFetch(ctx, "project", id, mediaUrl);
     await notifyFollowersOfProject(ctx, userId, id, args.title);
     return { projectId: id, storySlug };
   },
@@ -165,8 +184,20 @@ export const updateProject = mutation({
     projectId: v.id("projects"),
     title: v.optional(v.string()),
     blurb: v.optional(v.string()),
+    // The full page body. Passing [] clears it — v.optional means "field
+    // omitted = leave it alone", so an empty array is the only way the
+    // editor can say "I deleted everything".
+    body: v.optional(richDocValidator),
     photoUrl: v.optional(v.string()),
+    // The pasted link. An empty string clears it — same convention as
+    // `location` below, since v.optional means "omitted = leave it alone".
+    mediaUrl: v.optional(v.string()),
     interests: v.optional(v.array(v.string())),
+    // "Ask for support" is a step after posting, not part of it (docs/
+    // features/project-ia.md) — so the goal and deadline are editable here.
+    // null clears: omitted already means "leave it alone".
+    goal: v.optional(v.union(v.number(), v.null())),
+    raiseByDate: v.optional(v.union(v.number(), v.null())),
     benefitsNonprofit: v.optional(v.boolean()),
     nonprofitName: v.optional(v.string()),
     ...locationArgs,
@@ -192,18 +223,77 @@ export const updateProject = mutation({
     const patch: Record<string, any> = { updatedAt: Date.now() };
     if (args.title !== undefined) patch.title = args.title;
     if (args.blurb !== undefined) patch.blurb = args.blurb;
+    // Uploads referenced by the OLD body and not the new one are deleted
+    // here rather than left behind — an author who swaps a photo five times
+    // while writing would otherwise leave five files paid for and unread.
+    // Deletion is best-effort: a file already gone must not fail the save.
+    if (args.body !== undefined) {
+      const body = normalizeRichDoc(args.body);
+      patch.body = body;
+      for (const storageId of orphanedStorageIds(project.body, body)) {
+        try {
+          await ctx.storage.delete(storageId as Id<"_storage">);
+        } catch {
+          // already gone
+        }
+      }
+    }
     if (args.photoUrl !== undefined) patch.photoUrl = args.photoUrl;
+    // A changed or cleared link takes its still with it: the still was
+    // fetched for the OLD link, and a card showing the previous reel's cover
+    // over the new one would be wrong until the new fetch lands. Deleting
+    // the file is best-effort, same as the body's orphans above. The fetch
+    // for the new link is scheduled after the patch, so it finds the row
+    // already pointing at the new link.
+    let fetchPreviewFor: string | undefined;
+    if (args.mediaUrl !== undefined) {
+      const next = canonicalMediaUrl(args.mediaUrl);
+      if (next !== project.mediaUrl) {
+        if (project.mediaPreviewStorageId) {
+          try {
+            await ctx.storage.delete(project.mediaPreviewStorageId);
+          } catch {
+            // already gone
+          }
+        }
+        patch.mediaUrl = next;
+        patch.mediaPreviewUrl = undefined;
+        patch.mediaPreviewStorageId = undefined;
+        fetchPreviewFor = next;
+      }
+    }
     if (args.interests !== undefined) patch.interests = args.interests;
+    if (args.goal !== undefined) {
+      if (args.goal !== null && (!Number.isFinite(args.goal) || args.goal <= 0)) {
+        throw new ConvexError({
+          code: "invalid_goal",
+          reason: "If you set a support goal, it needs to be a real positive amount.",
+        });
+      }
+      patch.goal = args.goal ?? undefined;
+    }
+    if (args.raiseByDate !== undefined) patch.raiseByDate = args.raiseByDate ?? undefined;
     if (args.benefitsNonprofit !== undefined) patch.benefitsNonprofit = args.benefitsNonprofit;
     if (args.nonprofitName !== undefined) patch.nonprofitName = args.nonprofitName;
-    if (args.location !== undefined) patch.location = args.location;
-    if (args.locationType !== undefined) patch.locationType = args.locationType;
-    if (args.address !== undefined) patch.address = args.address;
-    if (args.coordinates !== undefined) patch.coordinates = args.coordinates;
-    if (args.placeId !== undefined) patch.placeId = args.placeId;
+    // Location is one group, not five independent fields. When a caller
+    // sends `location`, the structured half (type/address/coordinates/
+    // placeId) is taken from the same call — including as undefined, which
+    // `patch` treats as "unset". Otherwise a text edit that wasn't a Places
+    // pick (useLocationField.toArgs() sends the structured fields as
+    // undefined in that case) would leave the previous pick's coordinates
+    // attached to a string they no longer describe. An empty string clears
+    // the location outright.
+    if (args.location !== undefined) {
+      patch.location = args.location.trim() || undefined;
+      patch.locationType = args.locationType;
+      patch.address = args.address;
+      patch.coordinates = args.coordinates;
+      patch.placeId = args.placeId;
+    }
     if (args.remote !== undefined) patch.remote = args.remote;
 
     await ctx.db.patch(args.projectId, patch);
+    await schedulePreviewFetch(ctx, "project", args.projectId, fetchPreviewFor);
     return { ok: true };
   },
 });
@@ -328,6 +418,41 @@ export const setStage = mutation({
 // default browse view on purpose.
 const VISIBLE_STATUSES = new Set(["active", "in_progress", "completed"]);
 
+// What a project is asking for, for the two browse views (docs/features/
+// project-ia.md): Projects shows what's raising, Work shows what's hiring.
+// `raising` is the owner's own opt-in — a goal, the "raising" stage, or a
+// live patron tier — never inferred from kind; a gig is paid, never backed.
+// `openRoles` is the open postings only, with just enough to label pay.
+async function summarizeAsks(
+  ctx: QueryCtx,
+  project: Doc<"projects">,
+  hasGig: boolean,
+) {
+  const [roles, tiers] = await Promise.all([
+    ctx.db
+      .query("projectRoles")
+      .withIndex("by_projectId_status", (q) => q.eq("projectId", project._id).eq("status", "open"))
+      .collect(),
+    ctx.db
+      .query("patronTiers")
+      .withIndex("by_projectId", (q) => q.eq("projectId", project._id))
+      .collect(),
+  ]);
+  const raising =
+    !hasGig &&
+    ((project.goal ?? 0) > 0 || project.stage === "raising" || tiers.some((t) => t.isActive));
+  return {
+    raising,
+    openRoles: roles.map((r) => ({
+      roleId: r._id,
+      title: r.title,
+      budgetType: r.budgetType ?? null,
+      budget: r.budget ?? null,
+      budgetMax: r.budgetMax ?? null,
+    })),
+  };
+}
+
 export const listProjects = query({
   args: {},
   handler: async (ctx) => {
@@ -352,9 +477,10 @@ export const listProjects = query({
       if (org && org.kind === "community") communityById.set(String(id), { name: org.name, slug: org.slug });
     });
 
+    const now = Date.now();
     const withDetails = await Promise.all(
       projects.map(async (project) => {
-        const [user, media, support] = await Promise.all([
+        const [user, media, support, gig] = await Promise.all([
           ctx.db
             .query("profiles")
             .withIndex("by_userId", (q) => q.eq("userId", project.userId))
@@ -368,6 +494,9 @@ export const listProjects = query({
             .withIndex("by_projectId", (q) => q.eq("projectId", project._id))
             .filter((q) => q.eq(q.field("status"), "confirmed"))
             .collect(),
+          // Live booking: null for every ordinary project, a one-line
+          // schedule summary for a recurring paid gig (gigSummary.ts).
+          summarizeGig(ctx, project._id, now),
         ]);
 
         const resolvedMedia = await Promise.all(
@@ -398,6 +527,8 @@ export const listProjects = query({
           media: resolvedMedia,
           supportCount: support.length,
           community: project.hostOrgId ? (communityById.get(String(project.hostOrgId)) ?? null) : null,
+          gig,
+          ...(await summarizeAsks(ctx, project, !!gig)),
         };
       }),
     );
@@ -425,7 +556,7 @@ export const getProject = query({
     const project = await ctx.db.get(id);
     if (!project) return null;
 
-    const [user, media, support, communityOrg] = await Promise.all([
+    const [user, media, support, communityOrg, gig] = await Promise.all([
       ctx.db
         .query("profiles")
         .withIndex("by_userId", (q) => q.eq("userId", project.userId))
@@ -440,6 +571,8 @@ export const getProject = query({
         .filter((q) => q.eq(q.field("status"), "confirmed"))
         .collect(),
       project.hostOrgId ? ctx.db.get(project.hostOrgId) : Promise.resolve(null),
+      // Live booking summary — null unless this project is a gig series.
+      summarizeGig(ctx, project._id, Date.now()),
     ]);
 
     const resolvedMedia = await Promise.all(
@@ -455,8 +588,14 @@ export const getProject = query({
       ? await ctx.storage.getUrl(project.photoStorageId)
       : project.photoUrl || null;
 
+    // Media blocks come back carrying the URL their storageId resolves to,
+    // the same shape resolvedMedia above already uses, so the renderer never
+    // has to make a second round trip per image.
+    const resolvedBody = await resolveRichDocMedia(ctx.storage, project.body);
+
     return {
       ...project,
+      body: resolvedBody,
       resolvedPhotoUrl,
       creator: user
         ? { _id: user._id, name: user.name, imageUrl: user.imageUrl, interests: user.interests, location: user.location }
@@ -464,6 +603,8 @@ export const getProject = query({
       media: resolvedMedia,
       supportCount: support.length,
       community: communityOrg && communityOrg.kind === "community" ? { name: communityOrg.name, slug: communityOrg.slug } : null,
+      gig,
+      ...(await summarizeAsks(ctx, project, !!gig)),
     };
   },
 });
@@ -583,6 +724,9 @@ export const createPaidProject = mutation({
     budget: v.optional(v.number()),
     budgetMax: v.optional(v.number()),
     photoUrl: v.optional(v.string()),
+    // A pasted link instead of (or as well as) a photo — see canonicalMediaUrl
+    // in convex/linkPreview.ts.
+    mediaUrl: v.optional(v.string()),
     // The project's own declared topics (canonical INTERESTS list) —
     // independent of the creator's profile interests. See the schema
     // comment on `projects.interests`.
@@ -602,6 +746,7 @@ export const createPaidProject = mutation({
       await assertCommunityMember(ctx, args.hostOrgId, userId);
     }
 
+    const mediaUrl = canonicalMediaUrl(args.mediaUrl);
     const now = Date.now();
     const storySlug = await generateStorySlug(ctx, args.title);
     const id = await ctx.db.insert("projects", {
@@ -619,6 +764,7 @@ export const createPaidProject = mutation({
       stage: "forming",
       stageChangedAt: now,
       photoUrl: args.photoUrl,
+      mediaUrl,
       storySlug,
       interests: args.interests,
       hostOrgId: args.hostOrgId,
@@ -631,6 +777,8 @@ export const createPaidProject = mutation({
       createdAt: now,
       updatedAt: now,
     });
+    // The still for the card (Instagram, TikTok); a no-op for the rest.
+    await schedulePreviewFetch(ctx, "project", id, mediaUrl);
     await notifyFollowersOfProject(ctx, userId, id, args.title);
     return { projectId: id, storySlug };
   },

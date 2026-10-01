@@ -53,7 +53,7 @@ export const OLD_TO_NEW_INTEREST: Record<string, string> = {
   Speaker: "Public Speaking",
   Entrepreneur: "Entrepreneurship",
   Marketer: "Marketing",
-  "Product Manager": "Product Management",
+  "Product Manager": "Product",
   Roadie: "Production",
   Other: "Other",
 };

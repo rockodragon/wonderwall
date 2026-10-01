@@ -37,6 +37,11 @@ export function AnnouncementComposer({
   const sendAnnouncement = useMutation(api.announcements.sendAnnouncement);
 
   const [body, setBody] = useState("");
+  // Closed until asked for (progressive disclosure): a project/event/offering
+  // page is mostly read by its owner, not written to, so the composer is a
+  // button until pressed. Past messages likewise sit behind their count.
+  const [open, setOpen] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmation, setConfirmation] = useState<string | null>(null);
@@ -61,11 +66,75 @@ export function AnnouncementComposer({
         `Sent to ${result.recipientCount} ${result.recipientCount === 1 ? "person" : "people"}.`,
       );
       setBody("");
+      setOpen(false);
     } catch (err) {
       setError(errorMessage(err));
     } finally {
       setSending(false);
     }
+  }
+
+  const historyToggle =
+    history && history.length > 0 ? (
+      <button
+        type="button"
+        onClick={() => setShowHistory((v) => !v)}
+        aria-expanded={showHistory}
+        className="hover:opacity-80"
+        style={{ color: "var(--garden-dim)", fontSize: 13.5 }}
+      >
+        {showHistory ? "Hide sent" : `Sent (${history.length})`}
+      </button>
+    ) : null;
+
+  const historyList =
+    showHistory && history && history.length > 0 ? (
+      <ul className="space-y-1.5 mt-3 w-full">
+        {history.map((item) => (
+          <li
+            key={item._id}
+            className="flex items-center justify-between gap-3"
+            style={{ color: "var(--garden-muted)", fontSize: 13 }}
+          >
+            <span className="truncate">
+              {item.kind === "reminder" ? "Reminder (automatic)" : `"${truncate(item.body, 40)}"`}
+            </span>
+            <span className="shrink-0" style={{ fontFamily: "var(--garden-font-mono)", fontSize: 12 }}>
+              {item.recipientCount} · {relativeTime(item.createdAt)}
+            </span>
+          </li>
+        ))}
+      </ul>
+    ) : null;
+
+  if (!open) {
+    return (
+      <div>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <button
+            type="button"
+            onClick={() => {
+              setOpen(true);
+              setConfirmation(null);
+              setError(null);
+            }}
+            className="px-4 py-2 rounded-lg font-semibold border hover:opacity-90"
+            style={{
+              borderColor: "var(--garden-hairline-raised)",
+              color: "var(--garden-paper)",
+              fontSize: 13.5,
+            }}
+          >
+            {heading}
+          </button>
+          {confirmation && (
+            <span style={{ color: "var(--garden-muted)", fontSize: 14 }}>{confirmation}</span>
+          )}
+          {historyToggle}
+        </div>
+        {historyList}
+      </div>
+    );
   }
 
   return (
@@ -81,6 +150,7 @@ export function AnnouncementComposer({
       </h3>
 
       <textarea
+        autoFocus
         value={body}
         onChange={(e) => {
           setBody(e.target.value);
@@ -100,55 +170,38 @@ export function AnnouncementComposer({
         }}
       />
 
-      <div className="flex items-center justify-between gap-3 mt-2">
-        <span className="text-xs" style={{ color: "var(--garden-dim)" }}>
-          {rateLimited ? RATE_LIMIT_MESSAGE : audienceLine(audience, targetType)}
-        </span>
+      <p className="mt-2" style={{ color: "var(--garden-dim)", fontSize: 13 }}>
+        {rateLimited ? RATE_LIMIT_MESSAGE : audienceLine(audience, targetType)}
+      </p>
+
+      <div className="flex items-center gap-3 mt-3">
         <button
           onClick={handleSend}
           disabled={sending || rateLimited || !body.trim() || totalReach === null}
-          className="shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-opacity hover:opacity-90 disabled:opacity-50"
-          style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
+          className="shrink-0 px-4 py-2 rounded-lg font-semibold whitespace-nowrap transition-opacity hover:opacity-90 disabled:opacity-50"
+          style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)", fontSize: 13.5 }}
         >
           {sending
             ? "Sending…"
             : `Send${totalReach !== null && !rateLimited ? ` to ${totalReach}` : ""}`}
         </button>
+        <button
+          type="button"
+          onClick={() => {
+            setOpen(false);
+            setError(null);
+          }}
+          className="hover:opacity-80"
+          style={{ color: "var(--garden-dim)", fontSize: 13.5 }}
+        >
+          Cancel
+        </button>
+        <span className="flex-1" />
+        {historyToggle}
       </div>
 
       {error && <p className="text-sm text-red-400 mt-2">{error}</p>}
-      {confirmation && (
-        <p className="text-sm mt-2" style={{ color: "var(--garden-muted)" }}>
-          {confirmation}
-        </p>
-      )}
-
-      {history && history.length > 0 && (
-        <div className="mt-4 pt-3" style={{ borderTop: "1px solid var(--garden-hairline)" }}>
-          <p
-            className="text-[11px] uppercase tracking-[0.06em] mb-2"
-            style={{ color: "var(--garden-dim)" }}
-          >
-            Sent
-          </p>
-          <ul className="space-y-1.5">
-            {history.map((item) => (
-              <li
-                key={item._id}
-                className="flex items-center justify-between gap-3 text-xs"
-                style={{ color: "var(--garden-muted)" }}
-              >
-                <span className="truncate">
-                  {item.kind === "reminder" ? "Reminder (automatic)" : `"${truncate(item.body, 40)}"`}
-                </span>
-                <span className="shrink-0" style={{ fontFamily: "var(--garden-font-mono)" }}>
-                  {item.recipientCount} · {relativeTime(item.createdAt)}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+      {historyList}
     </div>
   );
 }

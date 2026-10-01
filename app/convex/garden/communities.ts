@@ -1,4 +1,4 @@
-// Communities — the visible layer on top of creatives.exchange
+// Communities — the visible layer on top of thecreative.exchange
 // (docs/features/community-groups.md). A community is a `hostOrgs` row of
 // kind "community": hosts APPLY (self-serve), operators approve, members
 // join for free, and content (projects/events/offerings/tables) is TAGGED
@@ -17,7 +17,9 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { isAdminProfile } from "../helpers";
 import { can } from "./capabilities";
 import { getGardenUser, throwDenial } from "./entitlements";
+import { eventVisibilityChecker } from "./eventVisibility";
 import { slugifyTitle, resolveAvailableSlug } from "./stories";
+import { canSeeOffering } from "../offerings";
 
 // ——————————————————————————————————————————————————————————————
 // Pure core
@@ -360,6 +362,8 @@ function publicShape(org: Doc<"hostOrgs">) {
     slug: org.slug,
     tagline: org.tagline,
     description: org.description,
+    whyHere: org.whyHere,
+    agreements: org.agreements,
     coverUrl: org.coverUrl,
     websiteUrl: org.websiteUrl,
     locationLabel: org.locationLabel,
@@ -480,6 +484,22 @@ export const getCommunity = query({
 
     const decision = resolveCommunityJoin({ community: org, existing: mine });
 
+    // A ticketed event stays off the community page until its organizer
+    // can sell tickets (product rule, 2026-09-27).
+    const upcomingEvents = events.filter((e) => e.status === "published" && e.datetime > now);
+    const isEventPublic = eventVisibilityChecker(ctx);
+    const upcomingVisibility = await Promise.all(upcomingEvents.map((e) => isEventPublic(e)));
+    const visibleEvents = upcomingEvents.filter((_, i) => upcomingVisibility[i]);
+
+    // The viewer as offerings.ts's pause rules see them: every offering
+    // listed below belongs to THIS community, so `mine` is the one
+    // membership that can matter.
+    const viewerActor = {
+      userId: userId ?? undefined,
+      isAdmin: viewerIsOperator,
+      memberships: mine ? [{ hostOrgId: org._id, status: mine.status, role: mine.role }] : [],
+    };
+
     return {
       ...publicShape(org),
       hosts: hostIds.map((id) => names.get(String(id))).filter((n): n is string => !!n),
@@ -497,8 +517,7 @@ export const getCommunity = query({
           format: t.format,
           cadence: t.cadence,
         })),
-      events: events
-        .filter((e) => e.status === "published" && e.datetime > now)
+      events: visibleEvents
         .sort((a, b) => a.datetime - b.datetime)
         .map((e) => ({
           _id: e._id,
@@ -517,14 +536,17 @@ export const getCommunity = query({
           storySlug: p.storySlug,
           byName: creatorNames.get(String(p.userId)) ?? "A creative",
         })),
+      // A paused class is left out unless the viewer is its teacher, a host
+      // of this community, or an operator (offerings.ts's canSeeOffering).
       offerings: offerings
-        .filter((o) => o.status === "active")
+        .filter((o) => o.status === "active" && canSeeOffering(o, viewerActor))
         .map((o) => ({
           _id: o._id,
           title: o.title,
           format: o.format,
           cadence: o.cadence,
           priceCents: o.priceCents,
+          paused: !!o.pausedAt,
         })),
       viewer: {
         isSignedIn: !!userId,
@@ -749,6 +771,8 @@ export const updateCommunity = mutation({
     name: v.optional(v.string()),
     tagline: v.optional(v.string()),
     description: v.optional(v.string()),
+    whyHere: v.optional(v.string()),
+    agreements: v.optional(v.array(v.string())),
     coverUrl: v.optional(v.string()),
     websiteUrl: v.optional(v.string()),
     locationLabel: v.optional(v.string()),
@@ -768,6 +792,12 @@ export const updateCommunity = mutation({
       joinPolicy: args.joinPolicy,
     });
     if (invalid) throw new ConvexError(invalid);
+    if ((args.whyHere?.trim().length ?? 0) > DESCRIPTION_MAX) {
+      throw new ConvexError({
+        code: "invalid_why_here",
+        reason: `Keep "why we're here" under ${DESCRIPTION_MAX} characters.`,
+      });
+    }
     if (args.visibility !== undefined && args.visibility !== "public" && args.visibility !== "unlisted") {
       throw new ConvexError({ code: "invalid_visibility", reason: 'Visibility is "public" or "unlisted".' });
     }
@@ -776,6 +806,11 @@ export const updateCommunity = mutation({
     if (args.name !== undefined) patch.name = args.name.trim();
     if (args.tagline !== undefined) patch.tagline = args.tagline.trim() || undefined;
     if (args.description !== undefined) patch.description = args.description.trim() || undefined;
+    if (args.whyHere !== undefined) patch.whyHere = args.whyHere.trim() || undefined;
+    if (args.agreements !== undefined) {
+      const cleaned = args.agreements.map((a) => a.trim()).filter(Boolean);
+      patch.agreements = cleaned.length ? cleaned : undefined;
+    }
     if (args.coverUrl !== undefined) patch.coverUrl = args.coverUrl.trim() || undefined;
     if (args.websiteUrl !== undefined) patch.websiteUrl = args.websiteUrl.trim() || undefined;
     if (args.locationLabel !== undefined) patch.locationLabel = args.locationLabel.trim() || undefined;

@@ -15,20 +15,40 @@ import type { ReactNode } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { Link, useNavigate, useParams, useRouteError } from "react-router";
 import { api } from "../../convex/_generated/api";
+import { EMBED_PROVIDER_LABEL, toEmbedUrl } from "../lib/videoEmbed";
 import type { Id } from "../../convex/_generated/dataModel";
 import { AnnouncementComposer } from "../components/AnnouncementComposer";
+import { EmbedPlayer } from "../components/EmbedPlayer";
+import { describeMediaLink, MediaLinkField } from "../components/MediaLinkField";
 import { FavoriteButton } from "../components/FavoriteButton";
+import { LocationAutocomplete, LocationVerifiedHint } from "../components/LocationAutocomplete";
+import { ProjectUpdates } from "../components/ProjectUpdates";
+import { RichContent } from "../components/RichContent";
+import { RichTextEditor } from "../components/RichTextEditor";
+import { useLocationField } from "../lib/useLocationField";
+import { isRichDocEmpty, toStoredDoc, type ResolvedRichBlock } from "../lib/richText";
 import { budgetAmountLabel, budgetKindLabel, budgetLabel } from "../lib/budgetLabel";
+import { GigSchedule } from "../components/GigSchedule";
+import { useBack } from "../lib/useBack";
 import { resolveStage, stageLabel } from "../lib/stage";
 import { INTERESTS } from "../constants/interests";
-import { errorMessage, STATUS_LABELS, StageSelect, SupportModal } from "./projects";
+import {
+  errorMessage,
+  STATUS_LABELS,
+  StageSelect,
+  SupportModal,
+  SupportButtons,
+  GoalProgress,
+  isRaising,
+  type SupportMode,
+} from "./projects";
 
 // Loader-less (client-only useQuery, same as communities.$slug.tsx and
 // offerings.$id.tsx) — `data` is never actually populated; this just
 // matches those two routes' existing convention rather than inventing one.
 export function meta({ data }: { data?: { title?: string } }) {
   return [
-    { title: data?.title ? `${data.title} — Projects` : "Project — creatives.exchange" },
+    { title: data?.title ? `${data.title} — Projects` : "Project — TheCreative.exchange" },
     { name: "robots", content: "noindex" },
   ];
 }
@@ -66,13 +86,14 @@ function Loading() {
 }
 
 function BackLink() {
+  const back = useBack("/projects");
   return (
     <Link
-      to="/projects"
+      {...back}
       className="inline-block text-sm mb-5 hover:opacity-80"
       style={{ color: "var(--garden-citron)" }}
     >
-      ← Projects
+      ← Back
     </Link>
   );
 }
@@ -126,11 +147,33 @@ function EditButton({ onClick, label }: { onClick: () => void; label: string }) 
   );
 }
 
+// A still for the hero when the page has nothing to play: the pasted link's
+// fetched still (`mediaPreviewUrl`, convex/linkPreview.ts), else the first
+// attached media's cover or fetched preview (`ogImageUrl`), the provider's
+// own thumbnail for a YouTube link, or the file itself. A pasted reel's page
+// URL is never an <img src> (convex/videoEmbed.ts) — before this, a video
+// link rendered a broken image.
+function mediaThumb(project: { mediaPreviewUrl?: string | null; media?: any[] }): string | null {
+  if (project.mediaPreviewUrl) return project.mediaPreviewUrl;
+  for (const m of project.media ?? []) {
+    if (m.ogImageUrl) return m.ogImageUrl;
+    const embed = toEmbedUrl(m.mediaUrl ?? undefined);
+    if (embed) {
+      if (embed.thumbnailUrl) return embed.thumbnailUrl;
+      continue;
+    }
+    if (m.resolvedMediaUrl) return m.resolvedMediaUrl;
+  }
+  return null;
+}
+
 export default function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
   const project = useQuery(api.garden.projects.getProject, id ? { projectId: id } : "skip");
   const myProfile = useQuery(api.profiles.getMyProfile);
-  const [showSupportModal, setShowSupportModal] = useState(false);
+  const [supportMode, setSupportMode] = useState<SupportMode | null>(null);
+  // Lifted so the owner's "Next steps" nudge can open the support editor.
+  const [editingSupport, setEditingSupport] = useState(false);
 
   if (project === undefined) {
     return (
@@ -153,10 +196,23 @@ export default function ProjectDetail() {
   }
 
   const isOwner = !!myProfile && project.userId === myProfile.userId;
-  const kindWord = project.kind === "paid" ? budgetKindLabel(project) : "Passion";
-  const moneyWord = project.kind === "paid" ? budgetAmountLabel(project) : null;
+  const raising = isRaising(project);
+  const isPassion = project.kind === "passion";
+  const kindWord =
+    project.kind === "paid" ? budgetKindLabel(project) : raising ? "Raising" : "Project";
+  const moneyAmount = project.kind === "paid" ? budgetAmountLabel(project) : null;
+  // Live booking (docs/features/live-booking.md): a gig's money is per date.
+  const isGig = !!project.gig;
+  const moneyWord = moneyAmount && isGig && project.budgetType === "amount" ? `${moneyAmount}/date` : moneyAmount;
   const hasMoney = project.kind === "paid" && kindWord === "Paid";
-  const thumb = project.resolvedPhotoUrl || project.media.find((m: any) => m.resolvedMediaUrl)?.resolvedMediaUrl;
+  // A pasted link plays on the page itself (docs/features/creator-media-
+  // cross-post.md, Round 2): beneath the photo when there is one, in the
+  // hero's place when there isn't. Its still is for cards, not for here.
+  const mediaEmbed = toEmbedUrl(project.mediaUrl);
+  // Attached pieces play in their own section below, so a still of the
+  // first one isn't repeated as the hero.
+  const hasPieces = (project.media?.length ?? 0) > 0;
+  const thumb = project.resolvedPhotoUrl || (mediaEmbed || hasPieces ? null : mediaThumb(project));
 
   return (
     <PageShell>
@@ -171,6 +227,19 @@ export default function ProjectDetail() {
         projectId={project._id}
         isOwner={isOwner}
       />
+
+      {mediaEmbed && (
+        <EmbedPlayer
+          embed={mediaEmbed}
+          title={project.title}
+          className="mb-6 rounded-2xl overflow-hidden"
+          style={{ backgroundColor: "var(--garden-ink-raised)" }}
+        />
+      )}
+
+      {hasPieces && <AttachedPieces project={project} />}
+
+      {isOwner && <InlineEditableMediaLink project={project} />}
 
       <InlineEditableTitle project={project} isOwner={isOwner} />
 
@@ -217,7 +286,31 @@ export default function ProjectDetail() {
 
       <InlineEditableBlurb project={project} isOwner={isOwner} />
 
-      <TeamCard project={project} isOwner={isOwner} myProfile={myProfile} />
+      <InlineEditableStory project={project} isOwner={isOwner} />
+
+      {/* A gig is booked date by date, not staffed as a team — the schedule
+          card replaces the team/roles card, and the patron support widget
+          below stays off: a bar's Friday-night slot isn't backed, it's paid. */}
+      {isOwner && isPassion && !raising && (project.openRoles?.length ?? 0) === 0 && (
+        <NextSteps
+          onFindPeople={() => document.getElementById("team")?.scrollIntoView({ behavior: "smooth" })}
+          onAskForSupport={() => {
+            setEditingSupport(true);
+            // After the editor mounts, so there's something to scroll to.
+            requestAnimationFrame(() =>
+              document.getElementById("support")?.scrollIntoView({ behavior: "smooth" }),
+            );
+          }}
+        />
+      )}
+
+      {isGig ? (
+        <GigSchedule project={project} isOwner={isOwner} myProfile={myProfile} />
+      ) : (
+        <div id="team">
+          <TeamCard project={project} isOwner={isOwner} myProfile={myProfile} />
+        </div>
+      )}
 
       {project.benefitsNonprofit && (
         <DetailCard label="Nonprofit">
@@ -229,24 +322,46 @@ export default function ProjectDetail() {
 
       <InlineEditableLocation project={project} isOwner={isOwner} />
 
-      <div
-        className="flex items-center justify-between gap-2 pt-4"
-        style={{ borderTop: "1px solid var(--garden-hairline)" }}
-      >
-        <span className="text-sm" style={{ color: "var(--garden-dim)" }}>
-          {project.supportCount > 0
-            ? `${project.supportCount} ${project.supportCount === 1 ? "supporter" : "supporters"}`
-            : "Be the first to support"}
-        </span>
-        <button
-          onClick={() => setShowSupportModal(true)}
-          className="px-4 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition-opacity hover:opacity-90"
-          style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
-        >
-          Support
-        </button>
+      {/* Support is for projects, not hires: a job or a gig is paid, not
+          backed (docs/features/project-ia.md). */}
+      {isPassion && (
+        <div id="support" className="pt-4" style={{ borderTop: "1px solid var(--garden-hairline)" }}>
+          <div
+            className="text-[11px] font-semibold uppercase tracking-[0.08em] mb-3"
+            style={{ color: "var(--garden-dim)", fontFamily: "var(--garden-font-mono)" }}
+          >
+            Support
+          </div>
+          {isOwner && (
+            <AskForSupport
+              project={project}
+              raising={raising}
+              editing={editingSupport}
+              setEditing={setEditingSupport}
+            />
+          )}
+          {!isOwner && raising && (project.goal ?? 0) > 0 && (
+            <GoalProgress raisedCents={project.raisedCents ?? 0} goal={project.goal!} />
+          )}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <span className="text-sm" style={{ color: "var(--garden-dim)" }}>
+              {project.supportCount > 0
+                ? `${project.supportCount} ${project.supportCount === 1 ? "supporter" : "supporters"}`
+                : "No supporters yet"}
+            </span>
+            {!isOwner && <SupportButtons raising={raising} onSupport={setSupportMode} />}
+          </div>
+          <SupportersList projectId={project._id} />
+        </div>
+      )}
+
+      <div className="mt-8">
+        <ProjectUpdates
+          projectId={project._id}
+          isOwner={isOwner}
+          myUserId={myProfile?.userId}
+        />
       </div>
-      <SupportersList projectId={project._id} />
 
       {isOwner && (
         <>
@@ -261,15 +376,352 @@ export default function ProjectDetail() {
               <ArchiveButton project={project} />
             </div>
           </DetailCard>
-          <TierManager projectId={project._id} />
+          {isPassion && raising && <TierManager projectId={project._id} />}
           <div className="mb-6">
             <AnnouncementComposer targetType="project" targetId={project._id} heading="Message team and supporters" />
           </div>
         </>
       )}
 
-      {showSupportModal && <SupportModal project={project} onClose={() => setShowSupportModal(false)} />}
+      {supportMode && (
+        <SupportModal project={project} mode={supportMode} onClose={() => setSupportMode(null)} />
+      )}
     </PageShell>
+  );
+}
+
+function ensureHttps(url: string): string {
+  return /^https?:\/\//i.test(url) ? url : `https://${url}`;
+}
+
+function hostOf(url: string): string {
+  try {
+    return new URL(ensureHttps(url)).hostname.replace(/^www\./, "");
+  } catch {
+    return url;
+  }
+}
+
+// The pieces attached to a project (artifacts.projectId) — the work itself,
+// shown here now that a shared piece IS a project and /works/:id redirects
+// to it (docs/features/project-ia.md). What the hero or the blurb already
+// shows is skipped: a shared image is also the project's photo, and a
+// shared text post is also its blurb.
+function AttachedPieces({ project }: { project: any }) {
+  const pieces = (project.media ?? []).filter((m: any) => {
+    if (m.type === "image" && m.resolvedMediaUrl && m.resolvedMediaUrl === project.resolvedPhotoUrl) return false;
+    if (m.type === "text" && (m.content ?? "").trim() === (project.blurb ?? "").trim()) return false;
+    return true;
+  });
+  if (pieces.length === 0) return null;
+  const frame = { backgroundColor: "var(--garden-ink-raised)" };
+  return (
+    <div className="flex flex-col gap-4 mb-6">
+      {pieces.map((m: any) => {
+        const embed = toEmbedUrl(m.mediaUrl ?? undefined);
+        if (embed) {
+          return (
+            <EmbedPlayer key={m._id} embed={embed} title={m.title ?? project.title} className="rounded-2xl overflow-hidden" style={frame} />
+          );
+        }
+        if (m.type === "video" && m.resolvedMediaUrl) {
+          return (
+            <video key={m._id} src={m.resolvedMediaUrl} controls playsInline className="w-full rounded-2xl" style={frame} />
+          );
+        }
+        if (m.type === "audio" && m.resolvedMediaUrl) {
+          return (
+            <div key={m._id} className="rounded-2xl p-4" style={frame}>
+              {m.title && (
+                <p className="text-sm mb-2" style={{ color: "var(--garden-paper)" }}>
+                  {m.title}
+                </p>
+              )}
+              <audio src={m.resolvedMediaUrl} controls className="w-full" />
+            </div>
+          );
+        }
+        if (m.type === "image" && m.resolvedMediaUrl) {
+          return (
+            <img key={m._id} src={m.resolvedMediaUrl} alt={m.title ?? ""} className="w-full max-h-[70vh] object-contain rounded-2xl" style={frame} />
+          );
+        }
+        if (m.type === "text" && m.content) {
+          return (
+            <div key={m._id} className="rounded-2xl p-5 text-[15px] whitespace-pre-wrap" style={{ ...frame, color: "var(--garden-body)" }}>
+              {m.content}
+            </div>
+          );
+        }
+        if (m.mediaUrl) {
+          return (
+            <a
+              key={m._id}
+              href={ensureHttps(m.mediaUrl)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-3 rounded-2xl p-3 hover:opacity-90"
+              style={frame}
+            >
+              {m.ogImageUrl && <img src={m.ogImageUrl} alt="" className="w-20 h-20 rounded-lg object-cover shrink-0" />}
+              <span className="min-w-0">
+                <span className="block text-sm font-medium break-words" style={{ color: "var(--garden-paper)" }}>
+                  {m.title || hostOf(m.mediaUrl)}
+                </span>
+                <span className="block text-[13px]" style={{ color: "var(--garden-muted)" }}>
+                  {hostOf(m.mediaUrl)} ↗
+                </span>
+              </span>
+            </a>
+          );
+        }
+        return null;
+      })}
+    </div>
+  );
+}
+
+// Shown to the owner of a fresh project that has asked for nothing yet —
+// posting is step one, and these are the two optional steps after it
+// (docs/features/project-ia.md).
+function NextSteps({
+  onFindPeople,
+  onAskForSupport,
+}: {
+  onFindPeople: () => void;
+  onAskForSupport: () => void;
+}) {
+  const steps = [
+    { label: "Find people", hint: "Post the roles you need, paid or volunteer.", onClick: onFindPeople },
+    { label: "Ask for support", hint: "Set a goal so people can back it.", onClick: onAskForSupport },
+  ];
+  return (
+    <DetailCard label="Next steps">
+      <p className="text-sm mb-3" style={{ color: "var(--garden-body)" }}>
+        Your project is up. Both of these are optional.
+      </p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        {steps.map((step) => (
+          <button
+            key={step.label}
+            type="button"
+            onClick={step.onClick}
+            className="text-left rounded-xl border p-3 transition-colors hover:opacity-90"
+            style={{ borderColor: "var(--garden-hairline-raised)", backgroundColor: "var(--garden-ink)" }}
+          >
+            <span className="block text-sm font-semibold" style={{ color: "var(--garden-paper)" }}>
+              {step.label}
+            </span>
+            <span className="block text-[13px] mt-0.5" style={{ color: "var(--garden-body)" }}>
+              {step.hint}
+            </span>
+          </button>
+        ))}
+      </div>
+    </DetailCard>
+  );
+}
+
+function toDateInput(ms: number | undefined): string {
+  if (!ms) return "";
+  const d = new Date(ms);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+// The owner's side of support: step three of posting, done here rather than
+// in the create form. Setting a goal is what turns the "Back this" button on.
+function AskForSupport({
+  project,
+  raising,
+  editing,
+  setEditing,
+}: {
+  project: any;
+  raising: boolean;
+  editing: boolean;
+  setEditing: (v: boolean) => void;
+}) {
+  const updateProject = useMutation((api as any).garden.projects.updateProject);
+  const [goal, setGoal] = useState(project.goal ? String(project.goal) : "");
+  const [raiseBy, setRaiseBy] = useState(toDateInput(project.raiseByDate));
+  const [benefitsNonprofit, setBenefitsNonprofit] = useState(!!project.benefitsNonprofit);
+  const [nonprofitName, setNonprofitName] = useState(project.nonprofitName ?? "");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  const inputStyle = {
+    backgroundColor: "var(--garden-ink)",
+    borderColor: "var(--garden-hairline-raised)",
+    color: "var(--garden-paper)",
+  };
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    const goalNum = Number(goal);
+    if (!goal.trim() || !Number.isFinite(goalNum) || goalNum <= 0) {
+      setError("A goal needs a real number bigger than zero.");
+      return;
+    }
+    if (benefitsNonprofit && !nonprofitName.trim()) {
+      setError("Add the nonprofit's name, or uncheck if you're not sure yet.");
+      return;
+    }
+    setBusy(true);
+    try {
+      await updateProject({
+        projectId: project._id,
+        goal: goalNum,
+        // Noon local, so the date reads the same in every US time zone.
+        raiseByDate: raiseBy ? new Date(`${raiseBy}T12:00:00`).getTime() : null,
+        benefitsNonprofit,
+        nonprofitName: benefitsNonprofit ? nonprofitName.trim() : "",
+      });
+      setEditing(false);
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function stop() {
+    setBusy(true);
+    setError("");
+    try {
+      await updateProject({ projectId: project._id, goal: null, raiseByDate: null });
+      setGoal("");
+      setRaiseBy("");
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (editing) {
+    return (
+      <form onSubmit={save} className="flex flex-col gap-3 mb-5">
+        <div>
+          <label className="block text-xs uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
+            Goal (USD)
+          </label>
+          <input
+            type="number"
+            min="1"
+            value={goal}
+            onChange={(e) => setGoal(e.target.value)}
+            placeholder="1000"
+            className="w-full px-3 py-2 rounded-lg border text-sm outline-none"
+            style={{ ...inputStyle, fontFamily: "var(--garden-font-mono)" }}
+          />
+        </div>
+        <div>
+          <label className="block text-xs uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
+            Raise by (optional)
+          </label>
+          <input
+            type="date"
+            value={raiseBy}
+            onChange={(e) => setRaiseBy(e.target.value)}
+            className="w-full px-3 py-2 rounded-lg border text-sm outline-none"
+            style={inputStyle}
+          />
+        </div>
+        <label className="flex items-center gap-2 text-sm" style={{ color: "var(--garden-body)" }}>
+          <input
+            type="checkbox"
+            checked={benefitsNonprofit}
+            onChange={(e) => setBenefitsNonprofit(e.target.checked)}
+          />
+          This supports a registered nonprofit
+        </label>
+        {benefitsNonprofit && (
+          <div>
+            <input
+              type="text"
+              value={nonprofitName}
+              onChange={(e) => setNonprofitName(e.target.value)}
+              placeholder="Nonprofit name, e.g. Second Harvest Food Bank"
+              aria-label="Nonprofit name"
+              className="w-full px-3 py-2 rounded-lg border text-sm outline-none"
+              style={inputStyle}
+            />
+            <p className="text-xs mt-1.5" style={{ color: "var(--garden-dim)" }}>
+              Self-declared, not verified.
+            </p>
+          </div>
+        )}
+        {error && <p className="text-sm text-red-400">{error}</p>}
+        <div className="flex gap-2 justify-end">
+          <button
+            type="button"
+            onClick={() => setEditing(false)}
+            className="px-4 py-2 rounded-lg text-[13.5px] font-medium"
+            style={{ color: "var(--garden-muted)" }}
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={busy}
+            className="px-4 py-2 rounded-lg text-[13.5px] font-semibold disabled:opacity-50"
+            style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
+          >
+            {busy ? "Saving…" : raising ? "Save" : "Start asking"}
+          </button>
+        </div>
+      </form>
+    );
+  }
+
+  if (!raising) {
+    return (
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
+        <p className="text-sm" style={{ color: "var(--garden-body)" }}>
+          Want money toward this? Set a goal and people can back it.
+        </p>
+        <button
+          type="button"
+          onClick={() => setEditing(true)}
+          className="px-4 py-2 rounded-lg text-[13.5px] font-semibold whitespace-nowrap"
+          style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
+        >
+          Ask for support
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mb-5">
+      {(project.goal ?? 0) > 0 && (
+        <GoalProgress raisedCents={project.raisedCents ?? 0} goal={project.goal!} />
+      )}
+      <div className="flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          onClick={() => setEditing(true)}
+          className="text-[13.5px] underline underline-offset-2 hover:opacity-80"
+          style={{ color: "var(--garden-citron)" }}
+        >
+          Edit goal
+        </button>
+        {(project.goal ?? 0) > 0 && (
+          <button
+            type="button"
+            onClick={stop}
+            disabled={busy}
+            className="text-[13.5px] underline underline-offset-2 hover:opacity-80 disabled:opacity-50"
+            style={{ color: "var(--garden-muted)" }}
+          >
+            Stop asking
+          </button>
+        )}
+      </div>
+      {error && <p className="text-sm text-red-400 mt-2">{error}</p>}
+    </div>
   );
 }
 
@@ -378,10 +830,12 @@ function ProjectHero({
         {isOwner && (
           <>
             <input ref={fileRef} type="file" accept="image/*" onChange={handleImageUpload} hidden />
+            {/* Hidden until hover only where hover exists — on a phone there
+                is no hover, and the button used to be unreachable there. */}
             <button
               onClick={() => fileRef.current?.click()}
               disabled={uploading}
-              className="absolute bottom-3 right-3 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-50"
+              className="absolute bottom-3 right-3 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-opacity disabled:opacity-50 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 focus-visible:opacity-100"
               style={{ backgroundColor: "rgba(20,20,18,0.72)", color: "var(--garden-paper)" }}
             >
               <PencilIcon size={12} />
@@ -424,6 +878,121 @@ function ProjectHero({
         </>
       )}
     </div>
+  );
+}
+
+// The pasted link, edited in place like the title and blurb below, by the
+// owner only — a visitor sees the player (or nothing), never this row. The
+// image button in ProjectHero stays the way to add a photo; this is the
+// "or paste a link" beside it. Saving a blank field clears the link:
+// updateProject reads "" as clear, and takes the fetched still with it.
+function InlineEditableMediaLink({ project }: { project: any }) {
+  const updateProject = useMutation((api as any).garden.projects.updateProject);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(project.mediaUrl ?? "");
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const hasLink = !!project.mediaUrl;
+  const current = toEmbedUrl(project.mediaUrl);
+
+  function open() {
+    setDraft(project.mediaUrl ?? "");
+    setError("");
+    setEditing(true);
+  }
+
+  async function save(next: string) {
+    const link = describeMediaLink(next);
+    if (link.state === "invalid") {
+      setError(link.message);
+      return;
+    }
+    setSaving(true);
+    setError("");
+    try {
+      await updateProject({
+        projectId: project._id,
+        mediaUrl: link.state === "ok" ? link.url : "",
+      });
+      setEditing(false);
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!editing) {
+    return (
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        {hasLink ? (
+          <>
+            <span className="text-xs" style={{ color: "var(--garden-dim)" }}>
+              {current ? `${EMBED_PROVIDER_LABEL[current.kind]} link` : "Link"}
+            </span>
+            <EditButton onClick={open} label="Change link" />
+            <button
+              onClick={() => save("")}
+              disabled={saving}
+              title="Remove link"
+              className="inline-flex items-center justify-center w-6 h-6 rounded-md hover:bg-[rgba(198,198,190,0.15)] transition-colors disabled:opacity-50"
+              style={{ color: "var(--garden-dim)" }}
+            >
+              <TrashIcon size={13} />
+            </button>
+          </>
+        ) : (
+          <button
+            type="button"
+            onClick={open}
+            className="text-xs underline underline-offset-2 hover:opacity-80"
+            style={{ color: "var(--garden-citron)" }}
+          >
+            + Paste a link (Instagram post or reel, TikTok, YouTube or Vimeo)
+          </button>
+        )}
+        {error && <span className="text-xs text-red-400">{error}</span>}
+      </div>
+    );
+  }
+
+  return (
+    <form
+      className="mb-4"
+      onSubmit={(e) => {
+        e.preventDefault();
+        save(draft);
+      }}
+    >
+      <MediaLinkField
+        variant="garden"
+        label="Link"
+        placeholder="Instagram post or reel, TikTok, YouTube or Vimeo"
+        value={draft}
+        onChange={setDraft}
+        autoFocus
+      />
+      {error && <p className="text-xs text-red-400 mt-1.5">{error}</p>}
+      <div className="flex gap-2 mt-2">
+        <button
+          type="submit"
+          disabled={saving}
+          className="px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50"
+          style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
+        >
+          {saving ? "Saving…" : "Save"}
+        </button>
+        <button
+          type="button"
+          onClick={() => setEditing(false)}
+          disabled={saving}
+          className="px-3 py-1.5 rounded-lg text-xs font-medium"
+          style={{ color: "var(--garden-dim)" }}
+        >
+          Cancel
+        </button>
+      </div>
+    </form>
   );
 }
 
@@ -552,72 +1121,211 @@ function InlineEditableBlurb({ project, isOwner }: { project: any; isOwner: bool
   );
 }
 
-function InlineEditableLocation({ project, isOwner }: { project: any; isOwner: boolean }) {
+// The full project page — headings, formatted text, images and video
+// embeds (docs/features/rich-project-content.md §2). Distinct from `blurb`
+// directly above it, which stays the one-line summary every card and search
+// result shows; this is the part a visitor reads once they've clicked in.
+//
+// Saves the whole document at once rather than per block: a project page is
+// a thing an author composes and then publishes, not a live surface, and
+// autosaving half-written blocks onto a public page would be worse.
+function InlineEditableStory({ project, isOwner }: { project: any; isOwner: boolean }) {
   const updateProject = useMutation((api as any).garden.projects.updateProject);
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(project.location ?? "");
+  const [draft, setDraft] = useState<ResolvedRichBlock[]>([]);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const body: ResolvedRichBlock[] = project.body ?? [];
+  const hasBody = body.length > 0;
+
+  function startEditing() {
+    setDraft(body);
+    setError(null);
+    setEditing(true);
+  }
 
   async function save() {
-    const trimmed = draft.trim();
-    if (trimmed === (project.location ?? "")) {
-      setEditing(false);
-      return;
-    }
     setSaving(true);
+    setError(null);
     try {
-      await updateProject({ projectId: project._id, location: trimmed || undefined });
+      // [] is how the editor says "I cleared this" — v.optional would read a
+      // missing field as "leave it alone" (garden/projects.ts).
+      await updateProject({ projectId: project._id, body: toStoredDoc(draft) });
       setEditing(false);
-    } catch {
-      setDraft(project.location ?? "");
-      setEditing(false);
+    } catch (err) {
+      setError(errorMessage(err));
     } finally {
       setSaving(false);
     }
   }
 
-  if (project.remote && !isOwner) return null;
+  if (editing) {
+    return (
+      <div className="mb-6" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <RichTextEditor
+          value={draft}
+          onChange={setDraft}
+          autoFocus
+          placeholder="Tell people what you're making, who it's for, and where it's going…"
+        />
+        {error && (
+          <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5, color: "var(--garden-citron)" }}>
+            {error}
+          </p>
+        )}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={save}
+            disabled={saving}
+            className="px-4 py-2 rounded-lg font-semibold disabled:opacity-50"
+            style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)", fontSize: 13.5 }}
+          >
+            {saving ? "Saving…" : isRichDocEmpty(draft) && hasBody ? "Clear page" : "Save"}
+          </button>
+          <button
+            onClick={() => {
+              setDraft(body);
+              setError(null);
+              setEditing(false);
+            }}
+            className="hover:opacity-80"
+            style={{ color: "var(--garden-dim)", fontSize: 13.5 }}
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!hasBody) {
+    if (!isOwner) return null;
+    return (
+      <button
+        onClick={startEditing}
+        className="w-full text-left px-4 py-3 rounded-lg mb-6 hover:opacity-90"
+        style={{
+          border: "1px dashed var(--garden-hairline-raised)",
+          backgroundColor: "var(--garden-ink-raised)",
+          color: "var(--garden-body)",
+          fontSize: 15,
+        }}
+      >
+        Add a full description — headings, photos, video, the whole page.
+      </button>
+    );
+  }
+
+  return (
+    <div className="mb-6">
+      {isOwner && (
+        <div className="flex justify-end mb-1">
+          <EditButton onClick={startEditing} label="Edit the project page" />
+        </div>
+      )}
+      <RichContent blocks={body} />
+    </div>
+  );
+}
+
+function InlineEditableLocation({ project, isOwner }: { project: any; isOwner: boolean }) {
+  const updateProject = useMutation((api as any).garden.projects.updateProject);
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  // Same wiring as the create forms in projects.tsx: the shared picker
+  // resolves a Places suggestion (type/address/coordinates) alongside the
+  // display string, and drops it the moment the text is edited away from
+  // the pick. Seeded from the project so "open, don't touch, save" keeps
+  // what was there.
+  const location = useLocationField(project);
+  const [remote, setRemote] = useState<boolean>(project.remote !== false);
+
+  function open() {
+    location.hydrate(project);
+    setRemote(project.remote !== false);
+    setError(null);
+    setEditing(true);
+  }
+
+  function cancel() {
+    setEditing(false);
+    setError(null);
+  }
+
+  async function save() {
+    const args = location.toArgs();
+    if (!remote && !args.location) {
+      setError('Pick a location, or check "This can be done remotely."');
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      // `location: ""` (not undefined) tells updateProject to clear the
+      // whole location group when the field was emptied.
+      await updateProject({ projectId: project._id, ...args, location: args.location ?? "", remote });
+      setEditing(false);
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setSaving(false);
+    }
+  }
 
   if (editing) {
     return (
       <DetailCard label="Location">
-        <div className="flex items-center gap-2">
-          <input
-            autoFocus
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") save(); if (e.key === "Escape") { setDraft(project.location ?? ""); setEditing(false); } }}
-            disabled={saving}
-            placeholder="City, State"
-            className="flex-1 px-3 py-2 rounded-lg border text-sm outline-none"
-            style={{ backgroundColor: "var(--garden-ink)", borderColor: "var(--garden-hairline-raised)", color: "var(--garden-paper)" }}
-          />
-          <button
-            onClick={save}
-            disabled={saving}
-            className="px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50"
-            style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
-          >
-            {saving ? "…" : "Save"}
-          </button>
-          <button
-            onClick={() => { setDraft(project.location ?? ""); setEditing(false); }}
-            className="text-xs hover:opacity-80"
-            style={{ color: "var(--garden-dim)" }}
-          >
-            Cancel
-          </button>
+        <div className="flex flex-col gap-3">
+          <label className="flex items-center gap-2 text-sm" style={{ color: "var(--garden-body)" }}>
+            <input type="checkbox" checked={remote} onChange={(e) => setRemote(e.target.checked)} disabled={saving} />
+            This can be done remotely
+          </label>
+          {!remote && (
+            <div>
+              <LocationAutocomplete
+                value={location.value}
+                onChange={location.onChange}
+                onSelect={location.onSelect}
+                placeholder="Search for a location, type 'Online', or 'TBD'"
+                disabled={saving}
+              />
+              <LocationVerifiedHint value={location.value} selected={location.selected} />
+            </div>
+          )}
+          {error && <p className="text-sm text-red-400">{error}</p>}
+          <div className="flex items-center gap-2 justify-end">
+            <button onClick={cancel} disabled={saving} className="text-xs hover:opacity-80" style={{ color: "var(--garden-dim)" }}>
+              Cancel
+            </button>
+            <button
+              onClick={save}
+              disabled={saving}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50"
+              style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
+            >
+              {saving ? "Saving…" : "Save"}
+            </button>
+          </div>
         </div>
       </DetailCard>
     );
   }
 
-  if (!project.remote && project.location) {
+  const isRemote = project.remote !== false;
+  const summary = isRemote
+    ? project.location
+      ? `${project.location} · remote-friendly`
+      : "Remote-friendly — anywhere"
+    : project.location || null;
+
+  if (summary) {
     return (
       <DetailCard label="Location">
         <div className="flex items-center gap-1">
-          <p className="text-sm flex-1" style={{ color: "var(--garden-body)" }}>{project.location}</p>
-          {isOwner && <EditButton onClick={() => { setDraft(project.location ?? ""); setEditing(true); }} label="Edit location" />}
+          <p className="text-sm flex-1" style={{ color: "var(--garden-body)" }}>{summary}</p>
+          {isOwner && <EditButton onClick={open} label="Edit location" />}
         </div>
       </DetailCard>
     );
@@ -628,7 +1336,7 @@ function InlineEditableLocation({ project, isOwner }: { project: any; isOwner: b
       <DetailCard label="Location">
         <div className="flex items-center gap-1">
           <p className="text-sm flex-1" style={{ color: "var(--garden-dim)" }}>No location set</p>
-          <EditButton onClick={() => { setDraft(""); setEditing(true); }} label="Add location" />
+          <EditButton onClick={open} label="Add location" />
         </div>
       </DetailCard>
     );
@@ -680,7 +1388,7 @@ function InlineEditableInterests({ project, isOwner }: { project: any; isOwner: 
                 className="px-2.5 py-1 rounded-full text-xs font-medium transition-colors"
                 style={{
                   fontFamily: "var(--garden-font-body)",
-                  backgroundColor: active ? "rgba(215,242,90,0.2)" : "rgba(198,198,190,0.1)",
+                  backgroundColor: active ? "rgba(254,226,104,0.2)" : "rgba(198,198,190,0.1)",
                   color: active ? "var(--garden-citron)" : "var(--garden-muted)",
                   border: active ? "1px solid var(--garden-citron)" : "1px solid transparent",
                 }}
@@ -922,6 +1630,7 @@ function TeamCard({
         isOwner={isOwner}
         mine={team.mine}
         onApply={(role) => setJoinModal(role)}
+        apply={team.apply}
       />
 
       {!isOwner && (
@@ -930,6 +1639,8 @@ function TeamCard({
           mine={team.mine}
           leadName={team.lead.name}
           onOpenJoinModal={() => setJoinModal({})}
+          apply={team.apply}
+          acceptingPeople={team.acceptingPeople}
         />
       )}
 
@@ -980,9 +1691,13 @@ function RolesSection({
   isOwner,
   mine,
   onApply,
+  apply,
 }: {
   project: any;
   isOwner: boolean;
+  /** Whether the viewer may apply — getTeam's read of the same
+   * project.applyPaid rule requestToJoin enforces. Absent while loading. */
+  apply?: { allowed: boolean; reason: string | null; upgradePath: string | null };
   mine: { memberId: string; status: string; role: string } | undefined;
   onApply: (role: { roleId: string; title: string }) => void;
 }) {
@@ -1096,7 +1811,7 @@ function RolesSection({
                           className="px-1.5 py-0.5 rounded-full text-[10px] font-medium uppercase tracking-[0.06em]"
                           style={{
                             fontFamily: "var(--garden-font-mono)",
-                            backgroundColor: "rgba(215,242,90,0.14)",
+                            backgroundColor: "rgba(254,226,104,0.14)",
                             color: "var(--garden-citron)",
                           }}
                         >
@@ -1148,6 +1863,14 @@ function RolesSection({
                     >
                       Close
                     </button>
+                  ) : !mine && apply && !apply.allowed ? (
+                    <Link
+                      to="/join"
+                      className="text-xs underline underline-offset-2 whitespace-nowrap pt-0.5"
+                      style={{ color: "var(--garden-citron)" }}
+                    >
+                      Join to apply
+                    </Link>
                   ) : !mine ? (
                     <button
                       onClick={() => onApply({ roleId: r.roleId, title: r.title })}
@@ -1279,7 +2002,7 @@ function RolesSection({
                       onClick={() => toggleInterest(tag)}
                       className="px-2 py-0.5 rounded-full text-xs font-medium transition-colors"
                       style={{
-                        backgroundColor: active ? "rgba(215,242,90,0.2)" : "rgba(198,198,190,0.1)",
+                        backgroundColor: active ? "rgba(254,226,104,0.2)" : "rgba(198,198,190,0.1)",
                         color: active ? "var(--garden-citron)" : "var(--garden-muted)",
                         border: active ? "1px solid var(--garden-citron)" : "1px solid transparent",
                       }}
@@ -1343,10 +2066,17 @@ function ViewerTeamActions({
   mine,
   leadName,
   onOpenJoinModal,
+  apply,
+  acceptingPeople,
 }: {
   project: any;
   mine: { memberId: string; status: string; role: string } | undefined;
   leadName: string;
+  /** See RolesSection's `apply`. */
+  apply?: { allowed: boolean; reason: string | null; upgradePath: string | null };
+  /** getTeam's isAcceptingPeople read — false on a finished project, where
+   * requestToJoin would refuse. Absent while loading (treated as open). */
+  acceptingPeople?: boolean;
   /** Opens the shared JoinRequestModal TeamCard owns — with no preset,
    * this is the original free-text "propose your own role" flow. */
   onOpenJoinModal: () => void;
@@ -1371,7 +2101,23 @@ function ViewerTeamActions({
 
   return (
     <div className="pt-3 mt-2.5" style={{ borderTop: "1px solid var(--garden-hairline)" }}>
-      {!mine && (
+      {!mine && acceptingPeople === false ? (
+        // Checked before the membership gate below: "Join to apply" on
+        // finished work would send someone to pay for something they still
+        // couldn't do.
+        <p className="text-sm" style={{ color: "var(--garden-body)" }}>
+          This project is finished and isn't taking new people.
+        </p>
+      ) : !mine && apply && !apply.allowed ? (
+        // Applying to paid work takes membership (docs/features/live-booking.md
+        // §8). The text is the server's own denial for project.applyPaid.
+        <p className="text-sm" style={{ color: "var(--garden-body)" }}>
+          {apply.reason ?? "Applying to paid work takes membership."}{" "}
+          <Link to="/join" className="underline underline-offset-2 font-medium" style={{ color: "var(--garden-citron)" }}>
+            {apply.upgradePath ?? "Join to apply"}
+          </Link>
+        </p>
+      ) : !mine ? (
         <button
           onClick={onOpenJoinModal}
           className="px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-opacity hover:opacity-90"
@@ -1379,7 +2125,7 @@ function ViewerTeamActions({
         >
           {project.kind === "paid" ? "Apply" : "Ask to join"}
         </button>
-      )}
+      ) : null}
 
       {mine?.status === "pending" && (
         <div className="flex items-center gap-3 text-sm" style={{ color: "var(--garden-body)" }}>
@@ -1651,22 +2397,7 @@ function LeadTeamTools({
                     )}
                   </div>
                 </div>
-                <div className="flex items-center gap-2 pl-7">
-                  <input
-                    type="text"
-                    value={decisionNotes[r.memberId] ?? ""}
-                    onChange={(e) =>
-                      setDecisionNotes((prev) => ({ ...prev, [r.memberId]: e.target.value.slice(0, 500) }))
-                    }
-                    placeholder="Note back to them (optional)"
-                    maxLength={500}
-                    className="flex-1 min-w-0 px-2 py-1 rounded-lg border text-xs outline-none"
-                    style={{
-                      backgroundColor: "var(--garden-ink)",
-                      borderColor: "var(--garden-hairline-raised)",
-                      color: "var(--garden-paper)",
-                    }}
-                  />
+                <div className="flex items-center gap-3 pl-7 flex-wrap">
                   <button
                     disabled={busyId === r.memberId}
                     onClick={() =>
@@ -1691,7 +2422,42 @@ function LeadTeamTools({
                   >
                     Decline
                   </button>
+                  {/* The note is optional and mostly for declines, so it's a
+                      link until wanted — an open box on every request made the
+                      list read as a form. A key present in decisionNotes (even
+                      "") is what marks it open; run() clears it after. */}
+                  {!(r.memberId in decisionNotes) && (
+                    <button
+                      type="button"
+                      onClick={() => setDecisionNotes((prev) => ({ ...prev, [r.memberId]: "" }))}
+                      className="hover:opacity-80 whitespace-nowrap"
+                      style={{ color: "var(--garden-dim)", fontSize: 13 }}
+                    >
+                      Add a note
+                    </button>
+                  )}
                 </div>
+                {r.memberId in decisionNotes && (
+                  <div className="pl-7">
+                    <input
+                      type="text"
+                      autoFocus
+                      value={decisionNotes[r.memberId] ?? ""}
+                      onChange={(e) =>
+                        setDecisionNotes((prev) => ({ ...prev, [r.memberId]: e.target.value.slice(0, 500) }))
+                      }
+                      placeholder="Note back to them — sent with Accept or Decline"
+                      maxLength={500}
+                      className="w-full px-2.5 py-1.5 rounded-lg border outline-none"
+                      style={{
+                        backgroundColor: "var(--garden-ink)",
+                        borderColor: "var(--garden-hairline-raised)",
+                        color: "var(--garden-paper)",
+                        fontSize: 14,
+                      }}
+                    />
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -1741,6 +2507,9 @@ function LeadTeamTools({
 // (docs/features/project-teams.md §3). Two modes in one compact block
 // rather than a separate form — this is one card section, not a page.
 function AddSomeone({ projectId }: { projectId: string }) {
+  // Closed until the lead asks for it — search, role pickers and the credit
+  // form were all on screen at once for a lead who'd only come to read.
+  const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<"search" | "credit">("search");
   const [query, setQuery] = useState("");
   const [invitingUserId, setInvitingUserId] = useState<string | null>(null);
@@ -1830,11 +2599,42 @@ function AddSomeone({ projectId }: { projectId: string }) {
     color: "var(--garden-paper)",
   };
 
+  if (!open) {
+    return (
+      <div>
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="px-3 py-1.5 rounded-lg font-semibold border hover:opacity-90"
+          style={{ borderColor: "var(--garden-hairline-raised)", color: "var(--garden-paper)", fontSize: 13.5 }}
+        >
+          + Add someone
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div>
-      <p className="text-[11px] uppercase tracking-[0.06em] mb-2" style={{ color: "var(--garden-dim)" }}>
-        Add someone
-      </p>
+      <div className="flex items-center justify-between mb-2">
+        <p className="uppercase tracking-[0.06em]" style={{ color: "var(--garden-dim)", fontSize: 12 }}>
+          Add someone
+        </p>
+        <button
+          type="button"
+          onClick={() => {
+            setOpen(false);
+            setMode("search");
+            setQuery("");
+            setInvitingUserId(null);
+            setError("");
+          }}
+          className="hover:opacity-80"
+          style={{ color: "var(--garden-dim)", fontSize: 13.5 }}
+        >
+          Done
+        </button>
+      </div>
 
       {mode === "search" ? (
         <>
@@ -2334,7 +3134,7 @@ function TierManager({ projectId }: { projectId: Id<"projects"> }) {
                   className="px-2 py-0.5 rounded-full text-[10px] font-medium uppercase tracking-[0.06em]"
                   style={{
                     fontFamily: "var(--garden-font-mono)",
-                    backgroundColor: tier.isActive ? "rgba(215,242,90,0.15)" : "rgba(198,198,190,0.1)",
+                    backgroundColor: tier.isActive ? "rgba(254,226,104,0.15)" : "rgba(198,198,190,0.1)",
                     color: tier.isActive ? "var(--garden-citron)" : "var(--garden-dim)",
                   }}
                 >

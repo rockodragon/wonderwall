@@ -5,9 +5,22 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  communityDuesSplit,
+  type CommunityDues,
+  backingReturnPaths,
+  guestBackingRefusal,
+  guestBackingThrottled,
+  resolveGuestSupporterName,
+  GUEST_RECURRING_REASON,
+  GUEST_NAME_MAX_LENGTH,
+  GUEST_PENDING_PER_PROJECT_PER_HOUR,
   extractCurrentPeriodEnd,
   handleStripeEvent,
   mapSubscriptionStatus,
+  splitBacking,
+  backingProcessingFeeCents,
+  CARD_FEE_RATE,
+  CARD_FEE_FIXED_CENTS,
   validateBackingAmount,
   MIN_BACKING_CENTS,
   type BillingCustomerRow,
@@ -22,6 +35,7 @@ import {
   type StripeSubscriptionLike,
   type StripeWebhookEvent,
   type TicketPurchaseRow,
+  type BackingPaymentRow,
 } from "./stripeHandlers";
 import { deriveGardenUser } from "./entitlements";
 
@@ -42,11 +56,27 @@ function createFakeDb() {
   const projectSupport = new Map<string, ProjectSupportRow & { id: string }>();
   let nextSupportId = 1;
   const projectRaisedCents = new Map<string, number>(); // projectId -> accumulated cents
+  const backingPayments = new Map<string, BackingPaymentRow>(); // keyed by stripeRef
+  const backingNotifications: Array<{
+    projectId: string;
+    supporterName: string;
+    amountCents: number;
+    visible: boolean;
+    recurring: boolean;
+    backerUserId?: string;
+  }> = [];
+  // projectId -> lead's userId. project_1 exists by default; a test that
+  // needs the project gone deletes it.
+  const projectLeads = new Map<string, string>([["project_1", "user_lead"]]);
   // Only "creatives-exchange" is seeded by default — tests that need it
   // absent (the "missing platform row" case) delete it first.
   const hostOrgsBySlug = new Map<string, string>([["creatives-exchange", PLATFORM_HOST_ORG_ID]]);
   let nextMembershipId = 1;
   const membershipIds = new Map<string, string>(); // stripeSubscriptionId -> id
+  // Community dues by communityId; "" is the default community (The
+  // Garden). Empty by default, so dues fall back to the platform 50/50 —
+  // tests of per-community dues seed it.
+  const communityDues = new Map<string, CommunityDues>();
 
   const db: Db = {
     async getBillingCustomerByStripeId(stripeCustomerId) {
@@ -81,6 +111,9 @@ function createFakeDb() {
     async getHostOrgIdBySlug(slug) {
       return hostOrgsBySlug.get(slug) ?? null;
     },
+    async getCommunityDues(communityId) {
+      return communityDues.get(communityId ?? "") ?? null;
+    },
     async getContributionByStripeRef(stripeRef) {
       const row = contributions.get(stripeRef);
       return row ? { stripeRef } : null;
@@ -114,6 +147,19 @@ function createFakeDb() {
     async insertProjectSupport(row) {
       const id = `support_${nextSupportId++}`;
       projectSupport.set(id, { ...row, id });
+      return id;
+    },
+    async getBackingPaymentByRef(stripeRef) {
+      return backingPayments.has(stripeRef) ? { stripeRef } : null;
+    },
+    async insertBackingPayment(row) {
+      backingPayments.set(row.stripeRef, row);
+    },
+    async getProjectLeadUserId(projectId) {
+      return projectLeads.get(projectId) ?? null;
+    },
+    async notifyBackingConfirmed(args) {
+      backingNotifications.push(args);
     },
     async incrementProjectRaisedCents(projectId, amountCents) {
       projectRaisedCents.set(projectId, (projectRaisedCents.get(projectId) ?? 0) + amountCents);
@@ -138,8 +184,12 @@ function createFakeDb() {
     contributions,
     productPurchases,
     hostOrgsBySlug,
+    communityDues,
     projectSupport,
     projectRaisedCents,
+    backingPayments,
+    projectLeads,
+    backingNotifications,
   };
 }
 
@@ -1234,6 +1284,494 @@ describe("checkout.session.completed — backing a project", () => {
     );
     expect(projectSupport.size).toBe(0);
   });
+
+  it("notifies the creator once when a backing confirms, and not again on replay", async () => {
+    const { db, projectSupport, backingNotifications } = createFakeDb();
+    seedPendingBacking(projectSupport);
+    const evt = event("checkout.session.completed", backingSessionFixture());
+
+    await handleStripeEvent(evt, db);
+    expect(backingNotifications).toEqual([
+      {
+        projectId: "project_1",
+        supporterName: "Ada",
+        amountCents: 2500,
+        visible: true,
+        recurring: false,
+        backerUserId: "user_patron",
+      },
+    ]);
+
+    await handleStripeEvent(evt, db); // idempotent replay — no second notification
+    expect(backingNotifications).toHaveLength(1);
+  });
+
+  it("notifies on the fallback-insert path too (no pending row)", async () => {
+    const { db, backingNotifications } = createFakeDb();
+    await handleStripeEvent(
+      event("checkout.session.completed", backingSessionFixture({ mode: "subscription", subscription: "sub_backing" })),
+      db,
+    );
+    expect(backingNotifications).toEqual([
+      {
+        projectId: "project_1",
+        supporterName: "Ada",
+        amountCents: 2500,
+        visible: true,
+        recurring: true,
+        backerUserId: "user_patron",
+      },
+    ]);
+  });
+});
+
+// ——— Owed-to-creative ledger (bead wonderwall-7avu, step 1) ———
+
+function backingInvoiceFixture(overrides: Partial<StripeInvoiceLike> = {}): StripeInvoiceLike {
+  return {
+    id: "in_backing_2",
+    amount_paid: 1000,
+    created: 1_702_600_000, // Dec 2023
+    customer: "cus_patron",
+    subscription: "sub_backing",
+    billing_reason: "subscription_cycle",
+    parent: { subscription_details: { metadata: { ...BACKING_METADATA } } },
+    period_start: 1_702_600_000,
+    ...overrides,
+  };
+}
+
+describe("splitBacking — 10% out of the backing, 5% on the part above $1,000", () => {
+  it("takes 10% of an ordinary backing", () => {
+    expect(splitBacking(2500)).toEqual({ platformCents: 250, workCents: 2250 });
+    expect(splitBacking(50_000)).toEqual({ platformCents: 5_000, workCents: 45_000 });
+  });
+
+  it("is still a flat 10% at exactly $1,000", () => {
+    expect(splitBacking(100_000)).toEqual({ platformCents: 10_000, workCents: 90_000 });
+  });
+
+  it("takes 5% of only the part above $1,000", () => {
+    // $5,000: $100 on the first $1,000 + $200 on the next $4,000 = $300 (6%).
+    expect(splitBacking(500_000)).toEqual({ platformCents: 30_000, workCents: 470_000 });
+    // $25,000: $100 + $1,200 = $1,300 (5.2%) — under an arts fiscal sponsor's 7–8%.
+    expect(splitBacking(2_500_000)).toEqual({ platformCents: 130_000, workCents: 2_370_000 });
+  });
+
+  it("always adds back to the gross, with rounding on the platform side", () => {
+    for (const gross of [1, 5, 505, 1_005, 99_999, 100_001, 123_457, 2_500_001]) {
+      const { platformCents, workCents } = splitBacking(gross);
+      expect(platformCents + workCents).toBe(gross);
+      expect(Number.isInteger(platformCents)).toBe(true);
+    }
+    expect(splitBacking(1_005).platformCents).toBe(101); // 100.5 rounds up, to the platform
+  });
+
+  it("treats each payment on its own — a $50 monthly renewal is always 10%", () => {
+    expect(splitBacking(5_000)).toEqual({ platformCents: 500, workCents: 4_500 });
+  });
+});
+
+describe("backing payments — what each creative is owed", () => {
+  it("a confirmed one-time backing writes one owed row, 90% to the work", async () => {
+    const { db, projectSupport, backingPayments } = createFakeDb();
+    seedPendingBacking(projectSupport);
+
+    await handleStripeEvent(event("checkout.session.completed", backingSessionFixture()), db);
+
+    expect(backingPayments.size).toBe(1);
+    expect(backingPayments.get("cs_backing")).toEqual({
+      projectId: "project_1",
+      supportId: "support_pending",
+      payeeUserId: "user_lead",
+      backerUserId: "user_patron",
+      grossCents: 2500,
+      platformCents: 250,
+      workCents: 2250,
+      billing: "one_time",
+      stripeRef: "cs_backing",
+      period: "2023-11",
+    });
+  });
+
+  it("replaying the checkout event records the money once", async () => {
+    const { db, projectSupport, backingPayments } = createFakeDb();
+    seedPendingBacking(projectSupport);
+    const evt = event("checkout.session.completed", backingSessionFixture());
+
+    await handleStripeEvent(evt, db);
+    await handleStripeEvent(evt, db);
+
+    expect(backingPayments.size).toBe(1);
+  });
+
+  it("a pledge confirmed before the ledger existed is left to the backfill, not recorded on replay", async () => {
+    const { db, projectSupport, backingPayments } = createFakeDb();
+    seedPendingBacking(projectSupport, { status: "confirmed" });
+
+    await handleStripeEvent(event("checkout.session.completed", backingSessionFixture()), db);
+
+    // Recording it here too would double-count it once
+    // backfillBackingPayments has run.
+    expect(backingPayments.size).toBe(0);
+  });
+
+  it("a monthly backing's first charge is billing 'first'", async () => {
+    const { db, projectSupport, backingPayments } = createFakeDb();
+    seedPendingBacking(projectSupport, { type: "financial_recurring", amountCents: 1000 });
+
+    await handleStripeEvent(
+      event(
+        "checkout.session.completed",
+        backingSessionFixture({ mode: "subscription", subscription: "sub_backing", amount_total: 1000 }),
+      ),
+      db,
+    );
+
+    expect(backingPayments.get("cs_backing")).toMatchObject({
+      billing: "first",
+      grossCents: 1000,
+      platformCents: 100,
+      workCents: 900,
+    });
+  });
+
+  it("the fallback insert path links the payment to the row it just created", async () => {
+    const { db, projectSupport, backingPayments } = createFakeDb();
+
+    await handleStripeEvent(event("checkout.session.completed", backingSessionFixture()), db);
+
+    const [supportId] = [...projectSupport.keys()];
+    expect(backingPayments.get("cs_backing")).toMatchObject({ supportId, workCents: 2250 });
+  });
+
+  it("each renewal of a monthly backing is owed too — month two onward used to go unrecorded", async () => {
+    const { db, backingPayments } = createFakeDb();
+
+    await handleStripeEvent(event("invoice.paid", backingInvoiceFixture()), db);
+    await handleStripeEvent(
+      event("invoice.paid", backingInvoiceFixture({ id: "in_backing_3", period_start: 1_705_300_000 })),
+      db,
+    );
+
+    expect(backingPayments.size).toBe(2);
+    expect(backingPayments.get("in_backing_2")).toMatchObject({
+      billing: "renewal",
+      supportId: "support_pending",
+      payeeUserId: "user_lead",
+      grossCents: 1000,
+      workCents: 900,
+      period: "2023-12",
+    });
+    expect(backingPayments.get("in_backing_3")?.period).toBe("2024-01");
+  });
+
+  it("a renewal replay records once", async () => {
+    const { db, backingPayments } = createFakeDb();
+    const evt = event("invoice.paid", backingInvoiceFixture());
+
+    await handleStripeEvent(evt, db);
+    await handleStripeEvent(evt, db);
+
+    expect(backingPayments.size).toBe(1);
+  });
+
+  it("skips the subscription's first invoice — checkout completion already recorded it", async () => {
+    const { db, backingPayments } = createFakeDb();
+
+    await handleStripeEvent(
+      event("invoice.paid", backingInvoiceFixture({ billing_reason: "subscription_create" })),
+      db,
+    );
+
+    expect(backingPayments.size).toBe(0);
+  });
+
+  it("a renewal leaves the public raised total alone", async () => {
+    const { db, projectRaisedCents } = createFakeDb();
+
+    await handleStripeEvent(event("invoice.paid", backingInvoiceFixture()), db);
+
+    expect(projectRaisedCents.get("project_1")).toBeUndefined();
+  });
+
+  it("money for a project that's gone is still recorded, with no payee", async () => {
+    const { db, backingPayments, projectLeads } = createFakeDb();
+    projectLeads.delete("project_1");
+
+    await handleStripeEvent(event("invoice.paid", backingInvoiceFixture()), db);
+
+    const row = backingPayments.get("in_backing_2");
+    expect(row).toMatchObject({ grossCents: 1000, workCents: 900 });
+    expect(row?.payeeUserId).toBeUndefined();
+  });
+
+  it("the two shares always add back up to what was paid", async () => {
+    const { db, backingPayments } = createFakeDb();
+    for (const [i, cents] of [999, 1001, 505, 3333].entries()) {
+      await handleStripeEvent(
+        event("invoice.paid", backingInvoiceFixture({ id: `in_round_${i}`, amount_paid: cents })),
+        db,
+      );
+    }
+    for (const row of backingPayments.values()) {
+      expect(row.platformCents + row.workCents).toBe(row.grossCents);
+    }
+  });
+});
+
+// ——— Card processing rides on top of a backing (bead wonderwall-p7uf) ———
+
+describe("backingProcessingFeeCents — the backer covers card processing, on top", () => {
+  it.each([
+    [500, 46],
+    [1000, 61],
+    [2500, 106],
+    [10_000, 330],
+    [100_000, 3018],
+    [250_000, 7498],
+  ])("a %i-cent backing adds a %i-cent processing line", (amount, fee) => {
+    expect(backingProcessingFeeCents(amount)).toBe(fee);
+  });
+
+  it("leaves the whole backing intact after Stripe's own 2.9% + 30¢, and overcharges by at most a cent", () => {
+    for (const amount of [500, 501, 999, 1000, 1234, 2500, 4999, 10_000, 99_999, 100_000, 250_000, 1_000_000]) {
+      const total = amount + backingProcessingFeeCents(amount);
+      // Stripe rounds its fee to the nearest cent.
+      const stripeTakes = Math.round(total * CARD_FEE_RATE + CARD_FEE_FIXED_CENTS);
+      const net = total - stripeTakes;
+      expect(net, `${amount}`).toBeGreaterThanOrEqual(amount);
+      expect(net - amount, `${amount}`).toBeLessThanOrEqual(1);
+    }
+  });
+});
+
+describe("backing payments — the processing fee is never part of the money", () => {
+  it("a one-time backing whose Stripe total includes the fee is owed on the backing alone", async () => {
+    const { db, projectSupport, backingPayments, projectRaisedCents } = createFakeDb();
+    seedPendingBacking(projectSupport); // 2500
+    const total = 2500 + backingProcessingFeeCents(2500); // 2606
+
+    await handleStripeEvent(
+      event(
+        "checkout.session.completed",
+        backingSessionFixture({
+          amount_total: total,
+          metadata: { ...BACKING_METADATA, amountCents: "2500" },
+        }),
+      ),
+      db,
+    );
+
+    expect(backingPayments.get("cs_backing")).toMatchObject({
+      grossCents: 2500,
+      platformCents: 250,
+      workCents: 2250,
+    });
+    expect(projectRaisedCents.get("project_1")).toBe(2500);
+  });
+
+  it("the pending row's own amount wins even when the session carries no amountCents metadata", async () => {
+    const { db, projectSupport, backingPayments } = createFakeDb();
+    seedPendingBacking(projectSupport);
+
+    await handleStripeEvent(
+      event("checkout.session.completed", backingSessionFixture({ amount_total: 2606 })),
+      db,
+    );
+
+    expect(backingPayments.get("cs_backing")).toMatchObject({ grossCents: 2500, workCents: 2250 });
+  });
+
+  it("a monthly backing's first payment is owed on the backing alone", async () => {
+    const { db, projectSupport, backingPayments } = createFakeDb();
+    seedPendingBacking(projectSupport, { type: "financial_recurring", amountCents: 1000 });
+
+    await handleStripeEvent(
+      event(
+        "checkout.session.completed",
+        backingSessionFixture({
+          mode: "subscription",
+          subscription: "sub_backing",
+          amount_total: 1000 + backingProcessingFeeCents(1000), // 1061
+          metadata: { ...BACKING_METADATA, amountCents: "1000" },
+        }),
+      ),
+      db,
+    );
+
+    expect(backingPayments.get("cs_backing")).toMatchObject({
+      billing: "first",
+      grossCents: 1000,
+      platformCents: 100,
+      workCents: 900,
+    });
+  });
+
+  it("each renewal reads the backing amount from the subscription metadata, not the fee-inclusive invoice", async () => {
+    const { db, backingPayments } = createFakeDb();
+
+    await handleStripeEvent(
+      event(
+        "invoice.paid",
+        backingInvoiceFixture({
+          amount_paid: 1000 + backingProcessingFeeCents(1000), // 1061 — what Stripe collected
+          parent: { subscription_details: { metadata: { ...BACKING_METADATA, amountCents: "1000" } } },
+        }),
+      ),
+      db,
+    );
+
+    expect(backingPayments.get("in_backing_2")).toMatchObject({
+      billing: "renewal",
+      grossCents: 1000,
+      platformCents: 100,
+      workCents: 900,
+    });
+  });
+
+  it("a renewal on a subscription with no amountCents metadata falls back to what Stripe reports paid", async () => {
+    const { db, backingPayments } = createFakeDb();
+
+    await handleStripeEvent(event("invoice.paid", backingInvoiceFixture({ amount_paid: 1000 })), db);
+
+    expect(backingPayments.get("in_backing_2")).toMatchObject({ grossCents: 1000, workCents: 900 });
+  });
+
+  it("with no pending row, the fallback insert records the metadata amount, not the fee-inclusive total", async () => {
+    const { db, projectSupport, backingPayments, projectRaisedCents } = createFakeDb();
+
+    await handleStripeEvent(
+      event(
+        "checkout.session.completed",
+        backingSessionFixture({
+          amount_total: 2606,
+          metadata: { ...BACKING_METADATA, amountCents: "2500" },
+        }),
+      ),
+      db,
+    );
+
+    expect([...projectSupport.values()][0]).toMatchObject({ amountCents: 2500, status: "confirmed" });
+    expect(projectRaisedCents.get("project_1")).toBe(2500);
+    expect(backingPayments.get("cs_backing")).toMatchObject({ grossCents: 2500, platformCents: 250, workCents: 2250 });
+  });
+});
+
+// ——— Guest backing (bead wonderwall-uh90) ———
+
+const { userId: _guestDropsUserId, ...GUEST_BACKING_METADATA } = BACKING_METADATA;
+
+describe("guest backing — someone with no account backs a project", () => {
+  it("a guest's pending row is confirmed and owed like any other", async () => {
+    const { db, projectSupport, backingPayments } = createFakeDb();
+    seedPendingBacking(projectSupport, { supporterUserId: undefined, supporterName: "Maya" });
+
+    await handleStripeEvent(
+      event(
+        "checkout.session.completed",
+        backingSessionFixture({ customer: null, metadata: { ...GUEST_BACKING_METADATA } }),
+      ),
+      db,
+    );
+
+    expect(projectSupport.get("support_pending")).toMatchObject({ status: "confirmed", supporterName: "Maya" });
+    expect(projectSupport.get("support_pending")?.supporterUserId).toBeUndefined();
+    const row = backingPayments.get("cs_backing");
+    expect(row).toMatchObject({ grossCents: 2500, workCents: 2250, payeeUserId: "user_lead" });
+    expect(row?.backerUserId).toBeUndefined();
+  });
+});
+
+describe("guestBackingRefusal — monthly needs an account", () => {
+  it("lets a guest give once", () => {
+    expect(guestBackingRefusal({ recurring: false })).toBeNull();
+  });
+
+  it("turns a guest away from monthly (and yearly), pointing them to sign in", () => {
+    expect(guestBackingRefusal({ recurring: true })).toBe(GUEST_RECURRING_REASON);
+    expect(GUEST_RECURRING_REASON).toMatch(/account/);
+  });
+});
+
+describe("resolveGuestSupporterName", () => {
+  it("keeps a real name, trimmed and with runs of spaces collapsed", () => {
+    expect(resolveGuestSupporterName("  Maya   Lopez ", true)).toEqual({ name: "Maya Lopez" });
+  });
+
+  it("needs a name for a named backing", () => {
+    expect(resolveGuestSupporterName("", true)).toEqual({
+      error: "Add your name, or choose to back anonymously.",
+    });
+    expect(resolveGuestSupporterName("   ", true)).toHaveProperty("error");
+    expect(resolveGuestSupporterName(undefined, true)).toHaveProperty("error");
+  });
+
+  it("doesn't need one to back anonymously", () => {
+    expect(resolveGuestSupporterName(undefined, false)).toEqual({ name: "Anonymous" });
+    expect(resolveGuestSupporterName("Maya", false)).toEqual({ name: "Maya" });
+  });
+
+  it("strips control characters so a pasted name can't break a layout", () => {
+    const nul = String.fromCharCode(0);
+    const newline = String.fromCharCode(10);
+    const del = String.fromCharCode(127);
+    expect(resolveGuestSupporterName(`Maya${nul}${newline}Lopez${del}`, true)).toEqual({ name: "Maya Lopez" });
+  });
+
+  it("caps the length", () => {
+    const long = "x".repeat(GUEST_NAME_MAX_LENGTH + 40);
+    const result = resolveGuestSupporterName(long, true);
+    expect("name" in result && result.name.length).toBe(GUEST_NAME_MAX_LENGTH);
+  });
+});
+
+describe("guestBackingThrottled", () => {
+  it("stops a flood of guest checkouts on one project", () => {
+    expect(guestBackingThrottled(GUEST_PENDING_PER_PROJECT_PER_HOUR)).toBe(true);
+    expect(guestBackingThrottled(GUEST_PENDING_PER_PROJECT_PER_HOUR + 50)).toBe(true);
+  });
+
+  it("never gets near a room full of people backing at once", () => {
+    expect(guestBackingThrottled(150)).toBe(false);
+    expect(guestBackingThrottled(GUEST_PENDING_PER_PROJECT_PER_HOUR - 1)).toBe(false);
+  });
+});
+
+describe("backingReturnPaths", () => {
+  it("a member goes back to the project page, as before", () => {
+    expect(backingReturnPaths({ signedIn: true, projectId: "p1", storySlug: "psalms" })).toEqual({
+      success: "/projects/p1?backed=1",
+      cancel: "/projects/p1",
+    });
+  });
+
+  it("a guest goes back to the public story page, not a sign-in wall", () => {
+    expect(backingReturnPaths({ signedIn: false, projectId: "p1", storySlug: "psalms" })).toEqual({
+      success: "/story/psalms?backed=1",
+      cancel: "/story/psalms",
+    });
+  });
+
+  it("a guest on a project with no story link goes home", () => {
+    expect(backingReturnPaths({ signedIn: false, projectId: "p1" })).toEqual({
+      success: "/?backed=1",
+      cancel: "/",
+    });
+  });
+
+  it("a member who started on the story page goes back to the story page", () => {
+    expect(
+      backingReturnPaths({ signedIn: true, projectId: "p1", storySlug: "psalms", from: "story" }),
+    ).toEqual({ success: "/story/psalms?backed=1", cancel: "/story/psalms" });
+  });
+
+  it("from the story page with no story link, a member still lands on the project", () => {
+    expect(backingReturnPaths({ signedIn: true, projectId: "p1", from: "story" })).toEqual({
+      success: "/projects/p1?backed=1",
+      cancel: "/projects/p1",
+    });
+  });
 });
 
 describe("validateBackingAmount — the $5 floor (community-groups.md §3)", () => {
@@ -1374,5 +1912,73 @@ describe("checkout.session.completed — coverage code issuance", () => {
       db,
     );
     expect(codes.size).toBe(0);
+  });
+});
+
+// Dues per community (2026-09-29, the brief's money table): 10% platform,
+// the community splits the rest between the group and its project pool.
+describe("invoice.paid (per-community dues)", () => {
+  const GARDEN = { hostOrgId: "org_garden", groupPct: 40, poolPct: 50 };
+  const CREATE_SD = { hostOrgId: "org_create_sd", groupPct: 70, poolPct: 20 };
+
+  it("splits $10 Garden dues 40/50/10 and books them to The Garden", async () => {
+    const { db, contributions, communityDues } = createFakeDb();
+    communityDues.set("", GARDEN);
+    await handleStripeEvent(event("invoice.paid", invoiceFixture()), db);
+    expect(contributions.get("in_123")).toMatchObject({
+      hostOrgId: "org_garden",
+      type: "dues_share",
+      grossCents: 1000,
+      platformCents: 100,
+      groupCents: 400,
+      poolCents: 500,
+    });
+  });
+
+  it("a seat bought in another community books to that community with its split", async () => {
+    const { db, contributions, communityDues } = createFakeDb();
+    communityDues.set("", GARDEN);
+    communityDues.set("org_create_sd", CREATE_SD);
+    const metadata = { ...MEMBERSHIP_METADATA, communityId: "org_create_sd" };
+    await handleStripeEvent(
+      event("invoice.paid", invoiceFixture({ parent: { subscription_details: { metadata } } })),
+      db,
+    );
+    expect(contributions.get("in_123")).toMatchObject({
+      hostOrgId: "org_create_sd",
+      platformCents: 100,
+      groupCents: 700,
+      poolCents: 200,
+    });
+  });
+
+  it("the seat records its community from the checkout", async () => {
+    const { db, memberships } = createFakeDb();
+    const sub = subscriptionFixture();
+    await handleStripeEvent(
+      event("customer.subscription.updated", {
+        ...sub,
+        metadata: { ...sub.metadata, communityId: "org_create_sd" },
+      }),
+      db,
+    );
+    expect(memberships.get(sub.id)?.communityId).toBe("org_create_sd");
+  });
+});
+
+describe("communityDuesSplit", () => {
+  it("always adds up to the gross, with odd cents", () => {
+    for (const gross of [999, 1000, 1001, 2500, 1]) {
+      const s = communityDuesSplit(gross, { poolPct: 50 });
+      expect(s.platformCents + s.groupCents + s.poolCents).toBe(gross);
+    }
+  });
+
+  it("a community with no pool keeps 90% for the group", () => {
+    expect(communityDuesSplit(1000, { poolPct: 0 })).toEqual({ platformCents: 100, groupCents: 900, poolCents: 0 });
+  });
+
+  it("a pool share over 90% can't eat the platform's 10%", () => {
+    expect(communityDuesSplit(1000, { poolPct: 120 })).toEqual({ platformCents: 100, groupCents: 0, poolCents: 900 });
   });
 });

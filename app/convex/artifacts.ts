@@ -1,9 +1,14 @@
 import { v } from "convex/values";
-import { action, internalMutation, mutation, query } from "./_generated/server";
+import { action, internalMutation, mutation, query, type MutationCtx } from "./_generated/server";
 import { api, internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
 import { auth } from "./auth";
+import { canonicalMediaUrl, schedulePreviewFetch, wantsPreviewFetch } from "./linkPreview";
+import { toEmbedUrl } from "./videoEmbed";
 import { deriveProjectTitle } from "./garden/artifactsMigration";
 import { slugifyTitle, resolveAvailableSlug } from "./garden/stories";
+import { normalizeUrl, isSafeHttpUrl } from "./garden/richText";
+import { parseOgMeta } from "./ogParse";
 
 export const getMyArtifacts = query({
   args: {},
@@ -115,6 +120,29 @@ export const toggleLike = mutation({
   },
 });
 
+// What a link needs fetched so its card has a still (docs/features/
+// creator-media-cross-post.md). One place for the rule, called by create and
+// by refetchOgImage. Scheduled, never awaited: the post lands first.
+async function schedulePreview(
+  ctx: MutationCtx,
+  artifactId: Id<"artifacts">,
+  url: string | undefined,
+  type: string,
+) {
+  if (!url || (type !== "link" && type !== "video")) return;
+  // Instagram and TikTok stills come through convex/linkPreview.ts (which
+  // knows how to ask each provider); YouTube's comes from the resolver
+  // (img.youtube.com); Vimeo has none we can reach without a key and embeds
+  // fine without one. Anything else gets the plain og:image scrape below.
+  if (wantsPreviewFetch(url)) {
+    await schedulePreviewFetch(ctx, "artifact", artifactId, url);
+    return;
+  }
+  const embed = toEmbedUrl(url);
+  if (embed) return;
+  await ctx.scheduler.runAfter(0, api.artifacts.fetchOgImage, { artifactId, url });
+}
+
 export const create = mutation({
   args: {
     type: v.string(),
@@ -122,6 +150,14 @@ export const create = mutation({
     content: v.optional(v.string()),
     mediaUrl: v.optional(v.string()),
     mediaStorageId: v.optional(v.id("_storage")),
+    // An image the creative uploaded beside a pasted reel or video link — its
+    // cover, not the work (docs/features/creator-media-cross-post.md). Stored
+    // as `ogImageUrl` so every card reads it like any other preview.
+    coverStorageId: v.optional(v.id("_storage")),
+    // "Still working on it" in the composer. A shared piece is finished
+    // work by default, so its project lands in the profile's Portfolio
+    // (docs/features/project-ia.md); true leaves the project in progress.
+    inProgress: v.optional(v.boolean()),
     // Location for the companion passion project this mutation creates as a
     // side effect (docs/the-exchange-v1-prd.md §7). Optional and unused by
     // CreateWorkComposer.tsx / onboarding.tsx today — those composers stay
@@ -176,14 +212,25 @@ export const create = mutation({
     const maxOrder =
       existing.length > 0 ? Math.max(...existing.map((a) => a.order)) : -1;
 
+    // A pasted Instagram, TikTok, YouTube or Vimeo link is stored in its
+    // canonical form — share tokens (`?stkn=`, `?igsh=`) and mobile hosts
+    // stripped — so the same reel pasted by two people is the same string,
+    // and anything that isn't http(s) is refused (convex/linkPreview.ts).
+    const mediaUrl = canonicalMediaUrl(args.mediaUrl);
+    const coverUrl = args.coverStorageId
+      ? await ctx.storage.getUrl(args.coverStorageId)
+      : null;
+
     const createdAt = Date.now();
     const artifactId = await ctx.db.insert("artifacts", {
       profileId: profile._id,
       type: args.type,
       title: args.title,
       content: args.content,
-      mediaUrl: args.mediaUrl,
+      mediaUrl,
       mediaStorageId: args.mediaStorageId,
+      ogImageUrl: coverUrl ?? undefined,
+      coverStorageId: args.coverStorageId,
       order: maxOrder + 1,
       createdAt,
     });
@@ -210,7 +257,7 @@ export const create = mutation({
       title: projectTitle,
       blurb: args.type === "text" ? args.content : undefined,
       status: "active",
-      photoUrl: args.type === "image" ? args.mediaUrl : undefined,
+      photoUrl: args.type === "image" ? mediaUrl : undefined,
       storySlug,
       interests: args.interests,
       location: args.location,
@@ -219,6 +266,8 @@ export const create = mutation({
       coordinates: args.coordinates,
       placeId: args.placeId,
       remote: args.remote ?? true,
+      stage: args.inProgress ? undefined : "completed",
+      stageChangedAt: args.inProgress ? undefined : createdAt,
       createdAt,
       updatedAt: createdAt,
     });
@@ -231,22 +280,12 @@ export const create = mutation({
       });
     }
 
-    // Schedule og:image fetching for link and video-type artifacts (except YouTube/Vimeo which have thumbnails)
-    const isYouTubeOrVimeo =
-      args.mediaUrl &&
-      (args.mediaUrl.includes("youtube.com") ||
-        args.mediaUrl.includes("youtu.be") ||
-        args.mediaUrl.includes("vimeo.com"));
-
-    if (
-      (args.type === "link" || args.type === "video") &&
-      args.mediaUrl &&
-      !isYouTubeOrVimeo
-    ) {
-      await ctx.scheduler.runAfter(0, api.artifacts.fetchOgImage, {
-        artifactId,
-        url: args.mediaUrl,
-      });
+    // A still for the card, unless the resolver already has one — or the
+    // creative uploaded a cover beside the link, which is the picture they
+    // chose: a fetched still would delete it and take its place. The owner's
+    // explicit Refresh Preview (refetchOgImage) may still do that.
+    if (!args.coverStorageId) {
+      await schedulePreview(ctx, artifactId, mediaUrl, args.type);
     }
 
     return artifactId;
@@ -312,9 +351,12 @@ export const remove = mutation({
       throw new Error("Not authorized");
     }
 
-    // Delete associated storage file
+    // Delete associated storage files — the work and any stored cover
     if (artifact.mediaStorageId) {
       await ctx.storage.delete(artifact.mediaStorageId);
+    }
+    if (artifact.coverStorageId) {
+      await ctx.storage.delete(artifact.coverStorageId);
     }
 
     await ctx.db.delete(args.artifactId);
@@ -387,23 +429,36 @@ export const getAllArtifacts = query({
   },
 });
 
-// Fetch og:image from a URL and update the artifact
+// Fetch a plain website's og:image/title/description and update the
+// artifact. Robustness notes (fixes the David Russo / abidingpractice.com
+// case, docs/features/creator-media-cross-post.md follow-up):
+//  - Legacy artifacts (and anything pasted before canonicalMediaUrl existed)
+//    can have a schemeless URL like "abidingpractice.com" stored. `fetch()`
+//    throws immediately on that (invalid URL), which the old code's blanket
+//    try/catch swallowed silently and permanently — normalizeUrl fixes the
+//    input before it ever reaches fetch.
+//  - `response.url` (the URL after following redirects) is used as the base
+//    for resolving a relative og:image, not the URL that was pasted — a
+//    relative image is relative to where the page actually ended up.
 export const fetchOgImage = action({
   args: {
     artifactId: v.id("artifacts"),
     url: v.string(),
   },
   handler: async (ctx, args) => {
+    const url = normalizeUrl(args.url);
+    if (!isSafeHttpUrl(url)) {
+      console.log(`Refusing to fetch og:image for unsafe URL: ${args.url}`);
+      return;
+    }
     try {
-      // Fetch the page HTML with browser-like headers
-      const response = await fetch(args.url, {
+      const response = await fetch(url, {
         headers: {
           "User-Agent":
             "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
           Accept:
             "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
           "Accept-Language": "en-US,en;q=0.9",
-          "Accept-Encoding": "gzip, deflate, br",
           "Cache-Control": "no-cache",
           Pragma: "no-cache",
           "Sec-Fetch-Dest": "document",
@@ -417,132 +472,30 @@ export const fetchOgImage = action({
       });
 
       if (!response.ok) {
-        console.log(`Failed to fetch ${args.url}: ${response.status}`);
+        console.log(`Failed to fetch ${url}: ${response.status}`);
         return;
       }
 
       const html = await response.text();
-      console.log(`Fetched HTML for ${args.url}, length: ${html.length}`);
+      const baseUrl = response.url || url;
+      const { title, description, imageUrl } = parseOgMeta(html, baseUrl);
 
-      // Try multiple patterns to find an image
-      const patterns = [
-        // og:image (property before content) - handles self-closing tags
-        /<meta[^>]*property\s*=\s*["']og:image["'][^>]*content\s*=\s*["']([^"']+)["'][^>]*\/?>/i,
-        // og:image (content before property)
-        /<meta[^>]*content\s*=\s*["']([^"']+)["'][^>]*property\s*=\s*["']og:image["'][^>]*\/?>/i,
-        // twitter:image (property before content)
-        /<meta[^>]*(?:name|property)\s*=\s*["']twitter:image["'][^>]*content\s*=\s*["']([^"']+)["'][^>]*\/?>/i,
-        // twitter:image (content before name/property)
-        /<meta[^>]*content\s*=\s*["']([^"']+)["'][^>]*(?:name|property)\s*=\s*["']twitter:image["'][^>]*\/?>/i,
-        // og:image:url variant
-        /<meta[^>]*property\s*=\s*["']og:image:url["'][^>]*content\s*=\s*["']([^"']+)["'][^>]*\/?>/i,
-        // itemprop image (Schema.org)
-        /<meta[^>]*itemprop\s*=\s*["']image["'][^>]*content\s*=\s*["']([^"']+)["'][^>]*\/?>/i,
-        // link rel="image_src"
-        /<link[^>]*rel\s*=\s*["']image_src["'][^>]*href\s*=\s*["']([^"']+)["'][^>]*\/?>/i,
-      ];
-
-      let imageUrl: string | null = null;
-
-      // Try meta tag patterns first
-      for (const pattern of patterns) {
-        const match = html.match(pattern);
-        if (match?.[1]) {
-          imageUrl = match[1];
-          break;
-        }
+      if (!imageUrl && !title && !description) {
+        console.log(`No preview metadata found for ${url}`);
+        return;
       }
 
-      // Fallback: Try to find image in JSON-LD structured data
-      if (!imageUrl) {
-        const jsonLdMatch = html.match(
-          /<script[^>]*type\s*=\s*["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/i,
-        );
-        if (jsonLdMatch?.[1]) {
-          try {
-            const jsonLd = JSON.parse(jsonLdMatch[1]);
-            // Look for image in various JSON-LD structures
-            const ldImage =
-              jsonLd.image ||
-              jsonLd.logo ||
-              jsonLd.thumbnailUrl ||
-              jsonLd.primaryImageOfPage?.url ||
-              (jsonLd["@graph"] &&
-                jsonLd["@graph"].find((item: any) => item.image)?.image);
-            if (typeof ldImage === "string") {
-              imageUrl = ldImage;
-            } else if (ldImage?.url) {
-              imageUrl = ldImage.url;
-            }
-          } catch {
-            // JSON parse failed, continue to next fallback
-          }
-        }
-      }
-
-      // Fallback: Squarespace socialLogoImageUrl
-      if (!imageUrl) {
-        const squarespaceMatch = html.match(
-          /"socialLogoImageUrl"\s*:\s*"([^"]+)"/,
-        );
-        if (squarespaceMatch?.[1]) {
-          imageUrl = squarespaceMatch[1];
-        }
-      }
-
-      // Fallback: First prominent img tag (skip tiny icons)
-      if (!imageUrl) {
-        const imgMatches = html.matchAll(
-          /<img[^>]*src\s*=\s*["']([^"']+)["'][^>]*>/gi,
-        );
-        for (const match of imgMatches) {
-          const src = match[1];
-          // Skip tiny images, icons, tracking pixels, and data URIs
-          if (
-            src &&
-            !src.includes("data:") &&
-            !src.includes("1x1") &&
-            !src.includes("pixel") &&
-            !src.includes("icon") &&
-            !src.includes("favicon") &&
-            !src.includes("logo") &&
-            (src.includes(".jpg") ||
-              src.includes(".jpeg") ||
-              src.includes(".png") ||
-              src.includes(".webp") ||
-              src.includes("format="))
-          ) {
-            imageUrl = src;
-            break;
-          }
-        }
-      }
-
-      if (imageUrl) {
-        // Handle relative URLs
-        let absoluteUrl = imageUrl;
-        if (imageUrl.startsWith("//")) {
-          absoluteUrl = `https:${imageUrl}`;
-        } else if (imageUrl.startsWith("/")) {
-          const urlObj = new URL(args.url);
-          absoluteUrl = `${urlObj.origin}${imageUrl}`;
-        } else if (!imageUrl.startsWith("http")) {
-          const urlObj = new URL(args.url);
-          absoluteUrl = `${urlObj.origin}/${imageUrl}`;
-        }
-
-        await ctx.runMutation(internal.artifacts.updateOgImage, {
-          artifactId: args.artifactId,
-          ogImageUrl: absoluteUrl,
-        });
-        console.log(
-          `Successfully fetched og:image for ${args.url}: ${absoluteUrl}`,
-        );
-      } else {
-        console.log(`No og:image found for ${args.url}`);
-      }
+      await ctx.runMutation(internal.artifacts.updateOgImage, {
+        artifactId: args.artifactId,
+        ogImageUrl: imageUrl,
+        ogTitle: title,
+        ogDescription: description,
+      });
+      console.log(
+        `Fetched preview for ${url}: image=${imageUrl ?? "none"} title=${title ?? "none"}`,
+      );
     } catch (error) {
-      console.log(`Error fetching og:image for ${args.url}:`, error);
+      console.log(`Error fetching og:image for ${url}:`, error);
     }
   },
 });
@@ -562,16 +515,68 @@ export const fixArtifact = internalMutation({
   },
 });
 
-// Internal mutation to update og:image URL
+// Internal mutation to update a link artifact's fetched preview (image,
+// title, description). Also mirrors the image onto the companion project's
+// photoUrl when that project doesn't already have a real image — see
+// mapArtifactToProject's photoUrl bug (garden/artifactsMigration.ts): a
+// migrated "link" project can be stuck with the raw page URL (not an image)
+// as its photoUrl, which renders as a broken <img>.
 export const updateOgImage = internalMutation({
   args: {
     artifactId: v.id("artifacts"),
-    ogImageUrl: v.string(),
+    ogImageUrl: v.optional(v.string()),
+    ogTitle: v.optional(v.string()),
+    ogDescription: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    await ctx.db.patch(args.artifactId, {
-      ogImageUrl: args.ogImageUrl,
-    });
+    const artifact = await ctx.db.get(args.artifactId);
+    if (!artifact) return;
+
+    const patch: Record<string, string> = {};
+    if (args.ogImageUrl) patch.ogImageUrl = args.ogImageUrl;
+    if (args.ogTitle) patch.ogTitle = args.ogTitle;
+    if (args.ogDescription) patch.ogDescription = args.ogDescription;
+    if (Object.keys(patch).length > 0) {
+      await ctx.db.patch(args.artifactId, patch);
+    }
+
+    if (args.ogImageUrl && artifact.projectId) {
+      const project = await ctx.db.get(artifact.projectId);
+      // A photoUrl that isn't http(s) is the bug's signature (the raw
+      // schemeless link, or the page URL, stored as if it were an image) —
+      // always replace that. A real photoUrl (an upload, or an already-good
+      // fetched image) is left alone.
+      const hasRealPhoto = !!project?.photoStorageId || /^https?:\/\//.test(project?.photoUrl ?? "");
+      if (project && !hasRealPhoto) {
+        await ctx.db.patch(project._id, { photoUrl: args.ogImageUrl, updatedAt: Date.now() });
+      }
+    }
+  },
+});
+
+// Backfill for ordinary website links created (or migrated) before this
+// module fetched title/description, or whose fetch failed the first time —
+// e.g. because the stored URL was schemeless (fixed by fetchOgImage now
+// normalizing it first). Idempotent: only artifacts missing both an image
+// and a title are re-fetched, spaced a second apart. Safe to run on dev now;
+// Rick runs it on prod once this ships:
+//   npx convex run --prod artifacts:backfillLinkPreviews
+export const backfillLinkPreviews = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const artifacts = await ctx.db.query("artifacts").collect();
+    let scheduled = 0;
+    for (const a of artifacts) {
+      if (a.type !== "link" || !a.mediaUrl) continue;
+      if (a.ogImageUrl || a.ogTitle) continue; // already has a preview
+      if (wantsPreviewFetch(a.mediaUrl) || toEmbedUrl(a.mediaUrl)) continue; // handled by linkPreview.ts / embeds
+      await ctx.scheduler.runAfter(scheduled * 1000, api.artifacts.fetchOgImage, {
+        artifactId: a._id,
+        url: a.mediaUrl,
+      });
+      scheduled += 1;
+    }
+    return { scheduled };
   },
 });
 
@@ -597,11 +602,7 @@ export const refetchOgImage = mutation({
       throw new Error("Artifact has no URL to fetch og:image from");
     }
 
-    // Schedule og:image fetch
-    await ctx.scheduler.runAfter(0, api.artifacts.fetchOgImage, {
-      artifactId: args.artifactId,
-      url: artifact.mediaUrl,
-    });
+    await schedulePreview(ctx, args.artifactId, artifact.mediaUrl, artifact.type);
 
     return { success: true };
   },

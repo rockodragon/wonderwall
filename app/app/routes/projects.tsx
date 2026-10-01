@@ -1,5 +1,7 @@
 import { useAction, useMutation, useQuery } from "convex/react";
-import { Link, useSearchParams } from "react-router";
+import { Link, useNavigate, useSearchParams } from "react-router";
+import { GigSeriesForm } from "../components/GigSeriesForm";
+import { HireWhenToggle, type HireDraft, type HireWhen } from "../components/HireWhenToggle";
 import { useMemo, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import { INTERESTS } from "../constants/interests";
@@ -13,13 +15,70 @@ import {
   useCommunityContext,
 } from "../components/CommunityFilter";
 import { resolveStage, stageLabel, STAGES } from "../lib/stage";
-import { ChevronDownIcon, FilterIcon } from "../components/icons";
+import { FilterButton, FilterPanel, filterButtonLabel } from "../components/FilterMenu";
+import { TagFilterPills } from "../components/TagFilterPills";
+import { CLAIMS } from "../constants/claims";
+import { toEmbedUrl } from "../lib/videoEmbed";
+import { describeMediaLink, MediaLinkField } from "../components/MediaLinkField";
+import { Dissolve } from "../hooks/useReveal";
+import { EmbedStill } from "../components/EmbedStill";
 
-const KIND_FILTERS = [
-  { label: "All", value: "" },
-  { label: "Passion", value: "passion" },
-  { label: "Paid", value: "paid" },
+// Two views, split by what the VISITOR wants rather than how the poster
+// filed it (docs/features/project-ia.md): Projects is things to back or
+// join; Work is things to get hired for — paid postings, gig dates, and the
+// open roles on projects. A project with open roles shows in both.
+type View = "projects" | "work";
+const VIEWS: { label: string; value: View }[] = [
+  { label: "Projects", value: "projects" },
+  { label: "Work", value: "work" },
 ];
+const SHOW_FILTERS: Record<View, { label: string; value: string }[]> = {
+  projects: [
+    { label: "All", value: "" },
+    { label: "Raising", value: "raising" },
+    { label: "Looking for people", value: "people" },
+  ],
+  work: [
+    { label: "All", value: "" },
+    { label: "Jobs", value: "jobs" },
+    // Live booking (docs/features/live-booking.md §5): a recurring paid gig
+    // is a paid project with a schedule attached (`gig` on the row).
+    { label: "Gigs", value: "gigs" },
+    { label: "Roles on projects", value: "roles" },
+  ],
+};
+
+function hasOpenRoles(p: any): boolean {
+  return (p.openRoles?.length ?? 0) > 0;
+}
+
+// Older backends don't send `raising` yet — the goal and stage alone are a
+// fair reading until they do.
+export function isRaising(p: any): boolean {
+  if (p.gig) return false;
+  return p.raising ?? ((p.goal ?? 0) > 0 || p.stage === "raising");
+}
+
+function inView(p: any, view: View): boolean {
+  return view === "projects" ? p.kind === "passion" : p.kind === "paid" || hasOpenRoles(p);
+}
+
+function matchesShow(p: any, show: string): boolean {
+  switch (show) {
+    case "raising":
+      return isRaising(p);
+    case "people":
+      return hasOpenRoles(p);
+    case "jobs":
+      return p.kind === "paid" && !p.gig;
+    case "gigs":
+      return !!p.gig;
+    case "roles":
+      return p.kind === "passion" && hasOpenRoles(p);
+    default:
+      return true;
+  }
+}
 
 export const STATUS_LABELS: Record<string, string> = {
   pending: "Pending",
@@ -74,10 +133,13 @@ export function errorMessage(err: unknown): string {
 
 export default function Projects() {
   const projects = useQuery(api.garden.projects.listProjects);
-  const [kindFilter, setKindFilter] = useState("");
-  const [showPaidForm, setShowPaidForm] = useState(false);
+  // "Hire someone" is one entry; `hire` says which shape is open, and
+  // `hireDraft` carries the title/description across when it flips.
+  const [hire, setHire] = useState<HireWhen | null>(null);
+  const [hireDraft, setHireDraft] = useState<HireDraft | undefined>(undefined);
+  const navigate = useNavigate();
   const [showPassionForm, setShowPassionForm] = useState(false);
-  const [supportingProject, setSupportingProject] = useState<any>(null);
+  const [supporting, setSupporting] = useState<{ project: any; mode: SupportMode } | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const {
     selected: communitySlug,
@@ -92,6 +154,28 @@ export default function Projects() {
   const locationFilter = (searchParams.get("location") || "").trim();
   const hasMatchFilter = interestFilter.length > 0 || !!locationFilter;
 
+  // The view and its filter live in the URL (?view=work&show=gigs), not in
+  // component state, so a link can land on "Gigs" — Today's links depend on
+  // it, and the back button and a shared link both keep it. The old
+  // ?kind=passion|paid|gigs links still land in the right place. An unknown
+  // value reads as "All".
+  const legacyKind = searchParams.get("kind") || "";
+  const view: View =
+    searchParams.get("view") === "work" || legacyKind === "paid" || legacyKind === "gigs"
+      ? "work"
+      : "projects";
+  const showParam = searchParams.get("show") || (legacyKind === "gigs" ? "gigs" : "");
+  const showFilter = SHOW_FILTERS[view].some((f) => f.value === showParam) ? showParam : "";
+  function setViewAndShow(nextView: View, nextShow: string) {
+    const next = new URLSearchParams(searchParams);
+    next.delete("kind");
+    if (nextView === "work") next.set("view", "work");
+    else next.delete("view");
+    if (nextShow) next.set("show", nextShow);
+    else next.delete("show");
+    setSearchParams(next, { replace: true });
+  }
+
   // Manual hashtag pills, separate from the soft interests/location match
   // above (which only sorts). Clicking a tag is a deliberate "show me only
   // this" action, so it's a real filter — same behavior as the Events page.
@@ -99,11 +183,12 @@ export default function Projects() {
   // from whoever happens to have posted a project) so this list is always
   // identical to People's, regardless of current creator/project data.
   const [tagFilter, setTagFilter] = useState<string[]>([]);
-  // The full interest-tag row (20+ pills) ate most of a mobile screen
-  // before any project showed. Collapsed behind a toggle on mobile only —
-  // sm+ has the horizontal room to show it inline as before.
+  // The full interest-tag row (28 pills) lives behind one Filter button now
+  // (the /search affordance — components/FilterMenu.tsx), not inline, so it
+  // doesn't clutter the page next to the kind row above.
   const [tagsExpanded, setTagsExpanded] = useState(false);
   const allTags: readonly string[] = INTERESTS;
+  const tagOptions = useMemo(() => allTags.map((tag) => ({ label: tag, value: tag })), [allTags]);
   function toggleTag(tag: string) {
     setTagFilter((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
   }
@@ -146,7 +231,7 @@ export default function Projects() {
 
   const filtered = useMemo(() => {
     if (!projects) return [];
-    let list = kindFilter ? projects.filter((p) => p.kind === kindFilter) : projects;
+    let list = projects.filter((p) => inView(p, view) && matchesShow(p, showFilter));
     if (communitySlug !== "all") {
       list = list.filter((p) => p.community?.slug === communitySlug);
     }
@@ -157,7 +242,7 @@ export default function Projects() {
       list = [...list].sort((a, b) => Number(isMatch(b)) - Number(isMatch(a)));
     }
     return list;
-  }, [projects, kindFilter, communitySlug, tagFilter, interestFilter, locationFilter]);
+  }, [projects, view, showFilter, communitySlug, tagFilter, interestFilter, locationFilter]);
 
   return (
     <div className="min-h-screen bg-[var(--garden-ink)]">
@@ -171,7 +256,9 @@ export default function Projects() {
           Projects
         </h1>
         <p className="text-[var(--garden-body)] mb-6">
-          Support creative work in progress, or post paid work that needs a creative.
+          {view === "projects"
+            ? "Things people are making — cheer them on, back them, or join in."
+            : "Paid work, dates to play, and roles on projects that need someone."}
         </p>
 
         {hasMatchFilter && (
@@ -203,79 +290,75 @@ export default function Projects() {
           rows={projects}
         />
 
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-4 mt-3">
-          <div className="flex gap-2">
-            {KIND_FILTERS.map((f) => (
+        <div className="flex flex-wrap items-center justify-between gap-3 mt-3">
+          <div
+            role="tablist"
+            aria-label="What to browse"
+            className="flex gap-1 p-1 rounded-xl"
+            style={{ backgroundColor: "var(--garden-ink-raised)" }}
+          >
+            {VIEWS.map((v) => (
               <button
-                key={f.value}
-                onClick={() => setKindFilter(f.value)}
-                className="px-3 py-1.5 rounded-lg text-[13px] font-medium uppercase tracking-[0.06em] whitespace-nowrap transition-colors"
+                key={v.value}
+                role="tab"
+                aria-selected={view === v.value}
+                onClick={() => setViewAndShow(v.value, "")}
+                className="px-4 py-1.5 rounded-lg text-[15px] font-semibold whitespace-nowrap transition-colors"
                 style={{
                   fontFamily: "var(--garden-font-body)",
-                  backgroundColor:
-                    kindFilter === f.value ? "var(--garden-citron)" : "var(--garden-ink-raised)",
-                  color: kindFilter === f.value ? "var(--garden-ink)" : "var(--garden-muted)",
+                  backgroundColor: view === v.value ? "var(--garden-citron)" : "transparent",
+                  color: view === v.value ? "var(--garden-ink)" : "var(--garden-muted)",
                 }}
               >
-                {f.label}
+                {v.label}
               </button>
             ))}
           </div>
-          <PostProjectMenu
-            onPaid={() => setShowPaidForm(true)}
-            onPassion={() => setShowPassionForm(true)}
+          <PostMenu
+            onProject={() => setShowPassionForm(true)}
+            onHire={() => {
+              setHireDraft(undefined);
+              setHire("job");
+            }}
           />
+        </div>
+        <div className="flex flex-wrap gap-2 mt-3 mb-4">
+          {SHOW_FILTERS[view].map((f) => (
+            <button
+              key={f.value}
+              onClick={() => setViewAndShow(view, f.value)}
+              aria-pressed={showFilter === f.value}
+              className="px-3 py-1.5 rounded-lg text-[13px] font-medium whitespace-nowrap transition-colors"
+              style={{
+                fontFamily: "var(--garden-font-body)",
+                backgroundColor:
+                  showFilter === f.value ? "rgba(254,226,104,0.14)" : "var(--garden-ink-raised)",
+                color: showFilter === f.value ? "var(--garden-citron)" : "var(--garden-muted)",
+              }}
+            >
+              {f.label}
+            </button>
+          ))}
         </div>
 
         {allTags.length > 0 && (
           <div className="mb-6">
-            <button
-              type="button"
+            <FilterButton
+              open={tagsExpanded}
               onClick={() => setTagsExpanded((v) => !v)}
-              className="sm:hidden flex items-center gap-2 px-3 py-1.5 rounded-lg text-[13px] font-medium mb-2 transition-colors"
-              style={{
-                fontFamily: "var(--garden-font-body)",
-                backgroundColor:
-                  tagFilter.length > 0 ? "var(--garden-citron)" : "var(--garden-ink-raised)",
-                color: tagFilter.length > 0 ? "var(--garden-ink)" : "var(--garden-muted)",
-              }}
-            >
-              <FilterIcon className="w-3.5 h-3.5" />
-              Filter{tagFilter.length > 0 ? ` (${tagFilter.length})` : ""}
-              <ChevronDownIcon
-                className={`w-3.5 h-3.5 transition-transform ${tagsExpanded ? "rotate-180" : ""}`}
-              />
-            </button>
-            <div
-              className={`${tagsExpanded ? "flex" : "hidden"} sm:flex flex-wrap items-center gap-2`}
-            >
-              {allTags.map((tag) => {
-                const active = tagFilter.includes(tag);
-                return (
-                  <button
-                    key={tag}
-                    onClick={() => toggleTag(tag)}
-                    className="px-3 py-1 rounded-full text-xs font-medium transition-colors"
-                    style={{
-                      fontFamily: "var(--garden-font-body)",
-                      backgroundColor: active ? "var(--garden-citron)" : "var(--garden-ink-raised)",
-                      color: active ? "var(--garden-ink)" : "var(--garden-muted)",
-                    }}
-                  >
-                    {tag}
-                  </button>
-                );
-              })}
-              {tagFilter.length > 0 && (
-                <button
-                  onClick={() => setTagFilter([])}
-                  className="text-xs underline underline-offset-2 hover:opacity-80"
-                  style={{ color: "var(--garden-citron)" }}
-                >
-                  Clear
-                </button>
-              )}
-            </div>
+              label={filterButtonLabel(tagOptions, tagFilter)}
+              active={tagFilter.length > 0}
+            />
+            {tagsExpanded && (
+              <FilterPanel className="mt-3">
+                <TagFilterPills
+                  options={tagOptions}
+                  active={tagFilter}
+                  onToggle={toggleTag}
+                  onClear={() => setTagFilter([])}
+                />
+              </FilterPanel>
+            )}
           </div>
         )}
 
@@ -303,9 +386,13 @@ export default function Projects() {
         ) : filtered.length === 0 ? (
           <div className="text-center py-16" style={{ color: "var(--garden-dim)" }}>
             <p className="text-lg font-medium mb-1" style={{ color: "var(--garden-body)" }}>
-              No projects yet
+              {view === "projects" ? "No projects here yet" : "No open work here yet"}
             </p>
-            <p className="text-sm">Be the first to post something you're making</p>
+            <p className="text-sm">
+              {view === "projects"
+                ? "Be the first to post something you're making"
+                : "Hiring? Post it with the button above"}
+            </p>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -313,7 +400,8 @@ export default function Projects() {
               <ProjectCard
                 key={project._id}
                 project={project}
-                onSupport={setSupportingProject}
+                view={view}
+                onSupport={(mode) => setSupporting({ project, mode })}
                 matched={hasMatchFilter && isMatch(project)}
               />
             ))}
@@ -321,73 +409,104 @@ export default function Projects() {
         )}
       </div>
 
-      {showPaidForm && (
+      {hire === "dates" && (
+        <GigSeriesForm
+          key="dates"
+          initial={hireDraft}
+          onSwitchToJob={(draft) => {
+            setHireDraft(draft);
+            setHire("job");
+          }}
+          onClose={() => setHire(null)}
+          onCreated={(projectId) => navigate(`/projects/${projectId}`)}
+        />
+      )}
+      {hire === "job" && (
         <PaidProjectForm
-          onClose={() => setShowPaidForm(false)}
-          onSwitchToPassion={() => {
-            setShowPaidForm(false);
+          key="job"
+          initial={hireDraft}
+          onSwitchToDates={(draft) => {
+            setHireDraft(draft);
+            setHire("dates");
+          }}
+          onClose={() => setHire(null)}
+          onCreated={(projectId) => navigate(`/projects/${projectId}`)}
+          onSwitchToProject={() => {
+            setHire(null);
             setShowPassionForm(true);
           }}
         />
       )}
-      {showPassionForm && <PassionProjectForm onClose={() => setShowPassionForm(false)} />}
-      {supportingProject && (
-        <SupportModal project={supportingProject} onClose={() => setSupportingProject(null)} />
+      {showPassionForm && (
+        <PassionProjectForm
+          onClose={() => setShowPassionForm(false)}
+          onCreated={(projectId) => navigate(`/projects/${projectId}`)}
+        />
+      )}
+      {supporting && (
+        <SupportModal
+          project={supporting.project}
+          mode={supporting.mode}
+          onClose={() => setSupporting(null)}
+        />
       )}
     </div>
   );
 }
 
-function PostProjectMenu({
-  onPaid,
-  onPassion,
-}: {
-  onPaid: () => void;
-  onPassion: () => void;
-}) {
+// Two ways in, named for what the poster is doing (docs/features/
+// project-ia.md). Money is not a question here: asking for support and
+// adding roles are steps on the project's own page, after it exists.
+function PostMenu({ onProject, onHire }: { onProject: () => void; onHire: () => void }) {
   const [open, setOpen] = useState(false);
+  const items = [
+    {
+      label: "Start a project",
+      hint: "Something you're making. Once it's up, add the people you need or ask for support.",
+      onClick: onProject,
+    },
+    {
+      label: "Hire someone",
+      hint: "One job, or the same slot on set dates — every Friday, say. Say what it pays.",
+      onClick: onHire,
+    },
+  ];
   return (
     <div className="relative">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="px-4 py-2 rounded-lg text-[13px] font-semibold whitespace-nowrap transition-opacity hover:opacity-90"
+        aria-expanded={open}
+        className="px-4 py-2 rounded-lg text-[13.5px] font-semibold whitespace-nowrap transition-opacity hover:opacity-90"
         style={{ fontFamily: "var(--garden-font-body)", backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
       >
-        + Post a project
+        + Post
       </button>
       {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
           <div
-            className="absolute right-0 mt-2 w-56 rounded-xl border overflow-hidden z-50"
+            className="absolute right-0 mt-2 w-64 rounded-xl border overflow-hidden z-50"
             style={{ backgroundColor: "var(--garden-ink-raised)", borderColor: "var(--garden-hairline)" }}
           >
-            <button
-              onClick={() => {
-                setOpen(false);
-                onPassion();
-              }}
-              className="block w-full text-left px-4 py-3 text-sm transition-colors hover:opacity-80"
-              style={{ color: "var(--garden-paper)", borderBottom: "1px solid var(--garden-hairline)" }}
-            >
-              <span className="block font-medium">Passion project</span>
-              <span className="block text-xs mt-0.5" style={{ color: "var(--garden-dim)" }}>
-                Something you're making — show it, and optionally ask for support toward a goal.
-              </span>
-            </button>
-            <button
-              onClick={() => {
-                setOpen(false);
-                onPaid();
-              }}
-              className="block w-full text-left px-4 py-3 text-sm transition-colors hover:opacity-80"
-              style={{ color: "var(--garden-paper)" }}
-            >
-              <span className="block font-medium">Paid work</span>
-              <span className="block text-xs mt-0.5" style={{ color: "var(--garden-dim)" }}>
-                You're hiring someone — a bounded commission, with what it pays stated up front.
-              </span>
-            </button>
+            {items.map((item, i) => (
+              <button
+                key={item.label}
+                onClick={() => {
+                  setOpen(false);
+                  item.onClick();
+                }}
+                className="block w-full text-left px-4 py-3 text-sm transition-colors hover:opacity-80"
+                style={{
+                  color: "var(--garden-paper)",
+                  borderBottom: i < items.length - 1 ? "1px solid var(--garden-hairline)" : undefined,
+                }}
+              >
+                <span className="block font-medium">{item.label}</span>
+                <span className="block text-xs mt-0.5" style={{ color: "var(--garden-body)" }}>
+                  {item.hint}
+                </span>
+              </button>
+            ))}
           </div>
         </>
       )}
@@ -395,16 +514,36 @@ function PostProjectMenu({
   );
 }
 
+/** The cover a project without a photo gets. Lighter than the card around
+ * it, with a faint hairline texture, so an empty cover reads as a surface
+ * rather than a hole with a "missing image" icon in it. Neutral on purpose:
+ * citron is for actions and chip-scale badges, never large fills. */
+const EMPTY_COVER = {
+  backgroundColor: "var(--garden-hairline-raised)",
+  backgroundImage:
+    "repeating-linear-gradient(135deg, rgba(247,247,244,0.05) 0 1px, transparent 1px 11px)",
+};
+
 function ProjectCard({
   project,
+  view,
   onSupport,
   matched,
 }: {
   project: any;
-  onSupport: (project: any) => void;
+  view: View;
+  onSupport: (mode: SupportMode) => void;
   matched?: boolean;
 }) {
-  const thumb = project.media.find((m: any) => m.resolvedMediaUrl)?.resolvedMediaUrl ?? project.resolvedPhotoUrl;
+  // The photo first, then the pasted link's still, then the first attached
+  // artifact's file (docs/features/creator-media-cross-post.md, Round 2).
+  // The still is static — a grid never loads a player.
+  const photo = project.resolvedPhotoUrl ?? null;
+  const mediaEmbed = photo ? null : toEmbedUrl(project.mediaUrl);
+  const thumb =
+    photo ??
+    (mediaEmbed ? null : (project.media.find((m: any) => m.resolvedMediaUrl)?.resolvedMediaUrl ?? null));
+  const hasCover = !!thumb || !!mediaEmbed;
   // Passion-only campaign deadline (docs/the-exchange-v1-prd.md §7 review
   // follow-up) — a past raiseByDate just means the badge doesn't render;
   // building a distinct "expired" state is explicitly out of scope.
@@ -419,10 +558,15 @@ function ProjectCard({
   // mono line at the foot carries the money half ("$400", "$300–600", "Open
   // to proposals", or nothing at all for a volunteer ask). Both come from the
   // same helper as the full one-string badge on /projects and /projects/:id.
-  const kindWord = project.kind === "paid" ? budgetKindLabel(project) : "Passion";
-  const moneyWord = project.kind === "paid" ? budgetAmountLabel(project) : null;
+  const raising = isRaising(project);
+  const kindWord =
+    project.kind === "paid" ? budgetKindLabel(project) : raising ? "Raising" : "Project";
+  const moneyAmount = project.kind === "paid" ? budgetAmountLabel(project) : null;
+  // A gig's money is per date ("$300/date"), not per project.
+  const moneyWord = moneyAmount && project.gig && project.budgetType === "amount" ? `${moneyAmount}/date` : moneyAmount;
   const hasMoney = project.kind === "paid" && kindWord === "Paid";
   const stage = resolveStage(project);
+  const openRoles: any[] = project.openRoles ?? [];
 
   const card = (
     <div
@@ -432,32 +576,36 @@ function ProjectCard({
       {/* Same fixed overlay spot Classes uses: kind top-left, money top-right
           of the image area, in the SAME place whether or not there's a
           photo — founder item (Classes redesign) was explicit that a
-          photo-dependent position defeats the point of a fixed badge. */}
+          photo-dependent position defeats the point of a fixed badge.
+          Without a photo the area collapses to a strip on a phone, where a
+          16:10 empty box was most of a screen of nothing; it keeps the full
+          box from sm up, where cards sit side by side and rows must line up. */}
       <div
-        className="relative aspect-[16/10] overflow-hidden flex items-center justify-center"
-        style={{ backgroundColor: "var(--garden-ink)" }}
+        className={`relative overflow-hidden flex items-center justify-center ${
+          hasCover ? "aspect-[16/10]" : "h-11 sm:h-auto sm:aspect-[16/10]"
+        }`}
+        style={hasCover ? { backgroundColor: "var(--garden-ink)" } : EMPTY_COVER}
       >
-        {thumb ? (
-          <img
-            src={thumb}
-            alt={project.title}
-            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-          />
-        ) : (
-          <svg
-            className="w-10 h-10"
-            style={{ color: "var(--garden-hairline-raised)" }}
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={1}
-              d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+        {/* The picture dissolves in as the card scrolls into view; the
+            badges over it don't, so the card's facts are readable at once. */}
+        {thumb && (
+          <Dissolve className="w-full h-full">
+            <img
+              src={thumb}
+              alt={project.title}
+              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
             />
-          </svg>
+          </Dissolve>
+        )}
+        {mediaEmbed && (
+          <Dissolve className="absolute inset-0">
+            <EmbedStill
+              embed={mediaEmbed}
+              previewUrl={project.mediaPreviewUrl}
+              title={project.title}
+              badgeSize="sm"
+            />
+          </Dissolve>
         )}
         <span
           className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[11px] font-semibold uppercase tracking-[0.06em]"
@@ -514,7 +662,7 @@ function ProjectCard({
               className="self-start px-2 py-0.5 rounded-full text-[11px] font-medium uppercase tracking-[0.06em]"
               style={{
                 fontFamily: "var(--garden-font-mono)",
-                backgroundColor: "rgba(215,242,90,0.14)",
+                backgroundColor: "rgba(254,226,104,0.14)",
                 color: "var(--garden-citron)",
               }}
             >
@@ -537,6 +685,55 @@ function ProjectCard({
             </span>
           )}
         </div>
+        {project.gig && (
+          // Live booking: the schedule in one line — the card's real
+          // decision factor for a musician scanning for work.
+          <p className="text-[13px] mb-2" style={{ color: "var(--garden-body)" }}>
+            {project.gig.venueName ? `${project.gig.venueName} · ` : ""}
+            {project.gig.schedule}
+            {project.gig.status === "open" && project.gig.nextDateLabel
+              ? ` · next ${project.gig.nextDateLabel}`
+              : project.gig.status === "paused"
+                ? " · paused"
+                : project.gig.status === "ended"
+                  ? " · ended"
+                  : ""}
+            {project.gig.status === "open" && project.gig.openCount > 0 && (
+              <span style={{ color: "var(--garden-citron)" }}>
+                {" "}· {project.gig.openCount} {project.gig.openCount === 1 ? "date" : "dates"} open
+              </span>
+            )}
+          </p>
+        )}
+        {openRoles.length > 0 && (
+          // The roles are the Work view's reason for showing a project at
+          // all, so there they're spelled out with pay; on Projects a count
+          // is enough to say "they need people".
+          view === "work" ? (
+            <ul className="text-[13px] mb-2 flex flex-col gap-0.5" style={{ color: "var(--garden-body)" }}>
+              {openRoles.slice(0, 3).map((r) => (
+                <li key={r.roleId} className="flex justify-between gap-2">
+                  <span className="min-w-0 break-words">{r.title}</span>
+                  {r.budgetType && (
+                    <span className="shrink-0" style={{ color: "var(--garden-citron)", fontFamily: "var(--garden-font-mono)" }}>
+                      {budgetAmountLabel(r) ?? budgetKindLabel(r)}
+                    </span>
+                  )}
+                </li>
+              ))}
+              {openRoles.length > 3 && (
+                <li style={{ color: "var(--garden-muted)" }}>+{openRoles.length - 3} more</li>
+              )}
+            </ul>
+          ) : (
+            <p className="text-[13px] mb-2" style={{ color: "var(--garden-citron)" }}>
+              Looking for {openRoles.length} {openRoles.length === 1 ? "person" : "people"}
+            </p>
+          )
+        )}
+        {raising && (project.goal ?? 0) > 0 && (
+          <GoalProgress raisedCents={project.raisedCents ?? 0} goal={project.goal} compact />
+        )}
         {project.interests && project.interests.length > 0 && (
           // Capped at 3 — a browse card is a scan, not the full tag list
           // (that's what the detail page is for); every tag rendered here
@@ -600,24 +797,18 @@ function ProjectCard({
             </div>
           )}
         </div>
-        <div className="flex items-center justify-between gap-2 mt-3 pt-3" style={{ borderTop: "1px solid var(--garden-hairline)" }}>
-          <span className="text-xs" style={{ color: "var(--garden-dim)" }}>
-            {project.supportCount > 0
-              ? `${project.supportCount} ${project.supportCount === 1 ? "supporter" : "supporters"}`
-              : "Be the first to support"}
-          </span>
-          <button
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              onSupport(project);
-            }}
-            className="px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-opacity hover:opacity-90"
-            style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
-          >
-            Support
-          </button>
-        </div>
+        {project.kind === "passion" && view === "projects" && (
+          // Stacked, not side by side: a grid card is too narrow for a
+          // count and two buttons on one line.
+          <div className="mt-3 pt-3" style={{ borderTop: "1px solid var(--garden-hairline)" }}>
+            <p className="text-xs mb-2" style={{ color: "var(--garden-dim)" }}>
+              {project.supportCount > 0
+                ? `${project.supportCount} ${project.supportCount === 1 ? "supporter" : "supporters"}`
+                : "No supporters yet"}
+            </p>
+            <SupportButtons raising={raising} onSupport={onSupport} size="sm" stretch />
+          </div>
+        )}
       </div>
     </div>
   );
@@ -628,6 +819,81 @@ function ProjectCard({
   // project's own page. That left most cards (any project with no attached
   // media) not clickable at all.
   return <Link to={`/projects/${project._id}`}>{card}</Link>;
+}
+
+export type SupportMode = "cheer" | "back";
+
+/** The two ways to show up for a project (docs/features/project-ia.md).
+ * Cheering is always there and costs nothing; backing only appears once the
+ * owner has asked for support — a project that isn't raising has no money
+ * button to press. */
+export function SupportButtons({
+  raising,
+  onSupport,
+  size = "md",
+  stretch,
+}: {
+  raising: boolean;
+  onSupport: (mode: SupportMode) => void;
+  size?: "sm" | "md";
+  /** Fill the row, buttons sharing it equally (the grid card). */
+  stretch?: boolean;
+}) {
+  const pad = size === "sm" ? "px-2.5 py-1.5 min-w-0" : "px-4 py-2";
+  const click = (mode: SupportMode) => (e: React.MouseEvent) => {
+    // Cards are links; a button inside one must not also navigate.
+    e.preventDefault();
+    e.stopPropagation();
+    onSupport(mode);
+  };
+  return (
+    <div className={`flex items-center gap-2 ${stretch ? "w-full [&>button]:flex-1" : "shrink-0"}`}>
+      <button
+        onClick={click("cheer")}
+        className={`${pad} rounded-lg text-[13.5px] font-semibold whitespace-nowrap border transition-opacity hover:opacity-90`}
+        style={{ borderColor: "var(--garden-hairline-raised)", color: "var(--garden-paper)" }}
+      >
+        Cheer them on
+      </button>
+      {raising && (
+        <button
+          onClick={click("back")}
+          className={`${pad} rounded-lg text-[13.5px] font-semibold whitespace-nowrap transition-opacity hover:opacity-90`}
+          style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
+        >
+          Back this
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** "$420 of $1,000" and a thin bar. `goal` is in dollars, as stored. */
+export function GoalProgress({
+  raisedCents,
+  goal,
+  compact,
+}: {
+  raisedCents: number;
+  goal: number;
+  compact?: boolean;
+}) {
+  const raised = raisedCents / 100;
+  const pct = Math.min(100, Math.round((raised / goal) * 100));
+  return (
+    <div className={compact ? "mb-2" : "mb-3"}>
+      <p
+        className={compact ? "text-[13px] mb-1" : "text-sm mb-1.5"}
+        style={{ color: "var(--garden-body)", fontFamily: "var(--garden-font-mono)" }}
+      >
+        <span style={{ color: "var(--garden-paper)" }}>${raised.toLocaleString("en-US")}</span> of $
+        {goal.toLocaleString("en-US")}
+      </p>
+      <div className="h-1 rounded-full overflow-hidden" style={{ backgroundColor: "var(--garden-hairline-raised)" }}>
+        <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: "var(--garden-citron)" }} />
+      </div>
+    </div>
+  );
 }
 
 // Minimal utility control, not a design centerpiece — a creator changing
@@ -717,17 +983,24 @@ export function StageSelect({ project }: { project: any }) {
 
 function PaidProjectForm({
   onClose,
-  onSwitchToPassion,
+  onCreated,
+  initial,
+  onSwitchToDates,
+  onSwitchToProject,
 }: {
   onClose: () => void;
-  onSwitchToPassion: () => void;
+  onCreated: (projectId: string) => void;
+  initial?: HireDraft;
+  onSwitchToDates: (draft: HireDraft) => void;
+  onSwitchToProject: () => void;
 }) {
   const createPaidProject = useMutation(api.garden.projects.createPaidProject);
-  const [title, setTitle] = useState("");
-  const [blurb, setBlurb] = useState("");
+  const [title, setTitle] = useState(initial?.title ?? "");
+  const [blurb, setBlurb] = useState(initial?.blurb ?? "");
   const [budgetType, setBudgetType] = useState<string>("amount");
   const [budget, setBudget] = useState("");
   const [budgetMax, setBudgetMax] = useState("");
+  const [mediaUrl, setMediaUrl] = useState("");
   const location = useLocationField();
   const [remote, setRemote] = useState(true);
   const [interests, setInterests] = useState<string[]>([]);
@@ -782,11 +1055,17 @@ function PaidProjectForm({
       setError("Pick a location, or check \"This can be done remotely.\"");
       return;
     }
+    const link = describeMediaLink(mediaUrl);
+    if (link.state === "invalid") {
+      setError(link.message);
+      return;
+    }
     setSubmitting(true);
     try {
-      await createPaidProject({
+      const result = await createPaidProject({
         title: title.trim(),
         blurb: blurb.trim() || undefined,
+        mediaUrl: link.state === "ok" ? link.url : undefined,
         // "proposals" and "volunteer" carry no numbers at all — the server
         // rejects a stray one rather than dropping it silently, so anything
         // typed before switching states is left behind here on purpose.
@@ -798,6 +1077,7 @@ function PaidProjectForm({
         interests: interests.length > 0 ? interests : undefined,
         hostOrgId: hostOrgId ? (hostOrgId as any) : undefined,
       });
+      onCreated(String(result.projectId));
       onClose();
     } catch (err) {
       setError(errorMessage(err));
@@ -806,7 +1086,7 @@ function PaidProjectForm({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: "rgba(0,0,0,0.6)" }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto" style={{ backgroundColor: "rgba(0,0,0,0.6)" }}>
       <div
         className="w-full max-w-md rounded-2xl border p-6"
         style={{ backgroundColor: "var(--garden-ink-raised)", borderColor: "var(--garden-hairline)" }}
@@ -815,19 +1095,20 @@ function PaidProjectForm({
           className="text-xl font-semibold mb-1"
           style={{ color: "var(--garden-paper)", fontFamily: "var(--garden-font-display)" }}
         >
-          Post paid work
+          Hire someone
         </h2>
         <p className="text-sm mb-3" style={{ color: "var(--garden-dim)" }}>
-          A bounded commission, not an ongoing role. Say what it pays — a number, a range, or plainly that it doesn't.
+          Say what the work is and what it pays — a number, a range, or plainly that it doesn't.
         </p>
         <button
           type="button"
-          onClick={onSwitchToPassion}
+          onClick={onSwitchToProject}
           className="block text-left text-xs underline underline-offset-2 hover:opacity-80 mb-5"
           style={{ color: "var(--garden-muted)" }}
         >
-          Raising money for your own project instead of hiring someone? Post it as a Passion project instead.
+          Making something of your own and want collaborators or backers? Start a project instead.
         </button>
+        <HireWhenToggle value="job" onChange={() => onSwitchToDates({ title, blurb })} />
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div>
             <label className="block text-xs uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
@@ -863,6 +1144,13 @@ function PaidProjectForm({
               }}
             />
           </div>
+          <MediaLinkField
+            variant="garden"
+            label="Or paste a link (optional)"
+            placeholder="Instagram post or reel, TikTok, YouTube or Vimeo"
+            value={mediaUrl}
+            onChange={setMediaUrl}
+          />
           <div>
             <label className="block text-xs uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
               What it pays
@@ -1031,7 +1319,7 @@ function PaidProjectForm({
               className="px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-50"
               style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
             >
-              {submitting ? "Posting…" : "Post project"}
+              {submitting ? "Posting…" : "Post job"}
             </button>
           </div>
         </form>
@@ -1040,18 +1328,24 @@ function PaidProjectForm({
   );
 }
 
-function PassionProjectForm({ onClose }: { onClose: () => void }) {
+// "Start a project" — step one only (docs/features/project-ia.md). No money
+// and no roles here: the project's own page is where the owner adds the
+// people they need and, if they want, asks for support.
+function PassionProjectForm({
+  onClose,
+  onCreated,
+}: {
+  onClose: () => void;
+  onCreated: (projectId: string) => void;
+}) {
   const createPassionProject = useMutation(api.garden.projects.createPassionProject);
   const [title, setTitle] = useState("");
   const [blurb, setBlurb] = useState("");
-  const [goal, setGoal] = useState("");
+  const [mediaUrl, setMediaUrl] = useState("");
   const location = useLocationField();
   const [remote, setRemote] = useState(true);
   const [interests, setInterests] = useState<string[]>([]);
   const [showInterests, setShowInterests] = useState(false);
-  const [raiseByDate, setRaiseByDate] = useState("");
-  const [benefitsNonprofit, setBenefitsNonprofit] = useState(false);
-  const [nonprofitName, setNonprofitName] = useState("");
   const [hostOrgId, setHostOrgId] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -1071,33 +1365,27 @@ function PassionProjectForm({ onClose }: { onClose: () => void }) {
       setError("Give it a title.");
       return;
     }
-    const goalNum = goal.trim() ? Number(goal) : undefined;
-    if (goalNum !== undefined && (!Number.isFinite(goalNum) || goalNum <= 0)) {
-      setError("If you set a support goal, it needs to be a real positive amount.");
-      return;
-    }
     if (!remote && !location.value.trim()) {
       setError("Pick a location, or check \"This can be done remotely.\"");
       return;
     }
-    if (benefitsNonprofit && !nonprofitName.trim()) {
-      setError("Add the nonprofit's name, or uncheck if you're not sure yet.");
+    const link = describeMediaLink(mediaUrl);
+    if (link.state === "invalid") {
+      setError(link.message);
       return;
     }
     setSubmitting(true);
     try {
-      await createPassionProject({
+      const result = await createPassionProject({
         title: title.trim(),
         blurb: blurb.trim() || undefined,
-        goal: goalNum,
+        mediaUrl: link.state === "ok" ? link.url : undefined,
         ...location.toArgs(),
         remote,
         interests: interests.length > 0 ? interests : undefined,
-        raiseByDate: raiseByDate ? new Date(raiseByDate).getTime() : undefined,
-        benefitsNonprofit: benefitsNonprofit || undefined,
-        nonprofitName: benefitsNonprofit ? nonprofitName.trim() : undefined,
         hostOrgId: hostOrgId ? (hostOrgId as any) : undefined,
       });
+      onCreated(String(result.projectId));
       onClose();
     } catch (err) {
       setError(errorMessage(err));
@@ -1115,10 +1403,10 @@ function PassionProjectForm({ onClose }: { onClose: () => void }) {
           className="text-xl font-semibold mb-1"
           style={{ color: "var(--garden-paper)", fontFamily: "var(--garden-font-display)" }}
         >
-          Post a passion project
+          Start a project
         </h2>
         <p className="text-sm mb-5" style={{ color: "var(--garden-dim)" }}>
-          Something you're making for its own sake — show it, and optionally ask for support.
+          Say what you're making. Once it's up, you can add the people you need and ask for support from its page.
         </p>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div>
@@ -1155,44 +1443,13 @@ function PassionProjectForm({ onClose }: { onClose: () => void }) {
               }}
             />
           </div>
-          <div>
-            <label className="block text-xs uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
-              Support goal (USD, optional)
-            </label>
-            <input
-              type="number"
-              min="1"
-              value={goal}
-              onChange={(e) => setGoal(e.target.value)}
-              placeholder="1000"
-              className="w-full px-3 py-2 rounded-lg border text-sm outline-none"
-              style={{
-                fontFamily: "var(--garden-font-mono)",
-                backgroundColor: "var(--garden-ink)",
-                borderColor: "var(--garden-hairline-raised)",
-                color: "var(--garden-paper)",
-              }}
-            />
-            <p className="text-xs mt-1.5" style={{ color: "var(--garden-dim)" }}>
-              How much are you hoping to raise? Leave blank if you're just sharing.
-            </p>
-          </div>
-          <div>
-            <label className="block text-xs uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
-              Raise by (optional)
-            </label>
-            <input
-              type="date"
-              value={raiseByDate}
-              onChange={(e) => setRaiseByDate(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg border text-sm outline-none"
-              style={{
-                backgroundColor: "var(--garden-ink)",
-                borderColor: "var(--garden-hairline-raised)",
-                color: "var(--garden-paper)",
-              }}
-            />
-          </div>
+          <MediaLinkField
+            variant="garden"
+            label="Or paste a link (optional)"
+            placeholder="Instagram post or reel, TikTok, YouTube or Vimeo"
+            value={mediaUrl}
+            onChange={setMediaUrl}
+          />
           <div>
             <label className="block text-xs uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
               Interests (optional)
@@ -1258,36 +1515,6 @@ function PassionProjectForm({ onClose }: { onClose: () => void }) {
               <LocationVerifiedHint value={location.value} selected={location.selected} />
             </div>
           )}
-          <label className="flex items-center gap-2 text-sm" style={{ color: "var(--garden-body)" }}>
-            <input
-              type="checkbox"
-              checked={benefitsNonprofit}
-              onChange={(e) => setBenefitsNonprofit(e.target.checked)}
-            />
-            This supports a registered nonprofit
-          </label>
-          {benefitsNonprofit && (
-            <div>
-              <label className="block text-xs uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
-                Nonprofit name
-              </label>
-              <input
-                type="text"
-                value={nonprofitName}
-                onChange={(e) => setNonprofitName(e.target.value)}
-                placeholder="e.g. Second Harvest Food Bank"
-                className="w-full px-3 py-2 rounded-lg border text-sm outline-none"
-                style={{
-                  backgroundColor: "var(--garden-ink)",
-                  borderColor: "var(--garden-hairline-raised)",
-                  color: "var(--garden-paper)",
-                }}
-              />
-              <p className="text-xs mt-1.5" style={{ color: "var(--garden-dim)" }}>
-                Self-declared, not verified — we don't check nonprofit status in V1.
-              </p>
-            </div>
-          )}
           <CommunityPicker value={hostOrgId} onChange={setHostOrgId} defaultHostOrgId={defaultHostOrgId} />
           {error && <p className="text-sm text-red-400">{error}</p>}
           <div className="flex gap-2 justify-end pt-2">
@@ -1305,7 +1532,7 @@ function PassionProjectForm({ onClose }: { onClose: () => void }) {
               className="px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-50"
               style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
             >
-              {submitting ? "Posting…" : "Post project"}
+              {submitting ? "Creating…" : "Create project"}
             </button>
           </div>
         </form>
@@ -1314,13 +1541,19 @@ function PassionProjectForm({ onClose }: { onClose: () => void }) {
   );
 }
 
-const SUPPORT_TYPES = [
-  { value: "financial_one_time", label: "Give once" },
-  { value: "financial_recurring", label: "Give monthly" },
-  { value: "financial_annual", label: "Give annually" },
-  { value: "encouragement", label: "Encouragement" },
-  { value: "resource", label: "Offer a resource" },
-];
+// Split by the two buttons (SupportButtons): cheering is free — a message or
+// an offer of help; backing is money.
+const SUPPORT_TYPES: Record<SupportMode, { value: string; label: string }[]> = {
+  cheer: [
+    { value: "encouragement", label: "Send a message" },
+    { value: "resource", label: "Offer help or gear" },
+  ],
+  back: [
+    { value: "financial_one_time", label: "Once" },
+    { value: "financial_recurring", label: "Monthly" },
+    { value: "financial_annual", label: "Yearly" },
+  ],
+};
 
 // Twin of MIN_BACKING_CENTS in convex/garden/stripeHandlers.ts (the server
 // is the authority; this is only so the modal can say it out loud and catch
@@ -1336,13 +1569,21 @@ const MIN_BACKING_DOLLARS = 5;
 // Money words (the rule stripe.ts states for its own lane): money moving
 // through the platform's Stripe is "back"/"fund"/"add to" — never
 // "donate"/"gift"/tax-deductible.
-export function SupportModal({ project, onClose }: { project: any; onClose: () => void }) {
+export function SupportModal({
+  project,
+  mode,
+  onClose,
+}: {
+  project: any;
+  mode: SupportMode;
+  onClose: () => void;
+}) {
   const existing = useQuery(api.garden.support.listSupportForProject, { projectId: project._id });
   const tiers = useQuery((api as any).garden.patronTiers.listTiers, { projectId: project._id });
   const supportProject = useMutation(api.garden.support.supportProject);
   const createBackingCheckout = useAction(api.garden.stripe.createBackingCheckout);
 
-  const [type, setType] = useState("financial_recurring");
+  const [type, setType] = useState(mode === "cheer" ? "encouragement" : "financial_recurring");
   const [amount, setAmount] = useState("");
   const [message, setMessage] = useState("");
   const [resourceDescription, setResourceDescription] = useState("");
@@ -1427,8 +1668,13 @@ export function SupportModal({ project, onClose }: { project: any; onClose: () =
           className="text-xl font-semibold mb-1"
           style={{ color: "var(--garden-paper)", fontFamily: "var(--garden-font-display)" }}
         >
-          Support "{project.title}"
+          {mode === "cheer" ? "Cheer on" : "Back"} "{project.title}"
         </h2>
+        <p className="text-sm mb-4" style={{ color: "var(--garden-dim)" }}>
+          {mode === "cheer"
+            ? "A few words, or something you can lend. It's free, and it shows up on the project."
+            : "Put money toward this project."}
+        </p>
 
         {existing && existing.length > 0 && (
           <div className="mb-5 pb-5" style={{ borderBottom: "1px solid var(--garden-hairline)" }}>
@@ -1442,7 +1688,7 @@ export function SupportModal({ project, onClose }: { project: any; onClose: () =
                   {e.tierName && (
                     <span
                       className="ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-medium uppercase tracking-[0.04em]"
-                      style={{ backgroundColor: "rgba(215,242,90,0.12)", color: "var(--garden-citron)" }}
+                      style={{ backgroundColor: "rgba(254,226,104,0.12)", color: "var(--garden-citron)" }}
                     >
                       {e.tierName}
                     </span>
@@ -1488,7 +1734,7 @@ export function SupportModal({ project, onClose }: { project: any; onClose: () =
         ) : (
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div className="flex flex-wrap gap-2">
-              {SUPPORT_TYPES.map((t) => (
+              {SUPPORT_TYPES[mode].map((t) => (
                 <button
                   key={t.value}
                   type="button"
@@ -1515,7 +1761,7 @@ export function SupportModal({ project, onClose }: { project: any; onClose: () =
                     className="text-left rounded-xl border p-3 transition-colors"
                     style={{
                       borderColor: selectedTierId === tier._id ? "var(--garden-citron)" : "var(--garden-hairline)",
-                      backgroundColor: selectedTierId === tier._id ? "rgba(215,242,90,0.08)" : "var(--garden-ink)",
+                      backgroundColor: selectedTierId === tier._id ? "rgba(254,226,104,0.08)" : "var(--garden-ink)",
                     }}
                   >
                     <div className="flex items-baseline justify-between gap-2 mb-1">
@@ -1580,11 +1826,11 @@ export function SupportModal({ project, onClose }: { project: any; onClose: () =
                 />
                 <p
                   className="text-xs mt-1.5 px-2.5 py-1.5 rounded-md"
-                  style={{ color: "var(--garden-citron)", backgroundColor: "rgba(215,242,90,0.1)" }}
+                  style={{ color: "var(--garden-citron)", backgroundColor: "rgba(254,226,104,0.1)" }}
                 >
                   ${MIN_BACKING_DOLLARS} minimum
-                  {type === "financial_recurring" ? ", charged monthly until you cancel" : type === "financial_annual" ? ", charged annually until you cancel" : ""}.
-                  Next step is secure checkout — your card is charged there, not here.
+                  {type === "financial_recurring" ? ", charged monthly until you cancel" : type === "financial_annual" ? ", charged annually until you cancel" : ""}.{" "}
+                  {CLAIMS.processingFee} Next step is secure checkout — your card is charged there, not here.
                 </p>
               </div>
             )}

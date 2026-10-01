@@ -51,13 +51,36 @@ Ordered by effort.
 
 **Church coverage checkout** — half a day. `createCoverageCheckout` is a commented-out stub in `stripe.ts`. The webhook side is already implemented and tested; what's outstanding is the checkout session (`mode: "subscription"`, `quantity = seats`, metadata `{kind: "coverage", hostOrgId, sponsorName}`) and issuing the `coverageCodes` row on completion.
 
-**Class and premium checkout** — half a day. `offerings` carries `priceCents`; `offeringSignups` records a signup but no charge. Needs a checkout action mirroring `createTicketCheckout`, a `checkout.session.completed` branch writing the signup as paid, and the buyer-pays-fee line item.
+**Class checkout** — built 2026-09-19 (`createClassCheckout` in `stripe.ts`, webhook branch `handleClassCheckoutCompleted`, `classPayments` table). The student pays the price plus card processing on top; the teacher is owed 90% of the price until an operator records a payout. Card only. It has **not** run through Stripe test mode, and it isn't live until the Convex backend is deployed. Spec: `docs/features/class-payments-and-moderation.md`. Premium tiers and bundles sold by a community use `createProductCheckout`, which is separate.
 
 **Project backing checkout** — about a day. `projectSupport` records intent only. Needs the checkout action, the fee-on-the-backer calculation (charge = (amount + 0.30) / 0.971 so the creative nets the full amount), a webhook branch, and a payout path to the creative.
 
 **Payouts to creatives and hosts** — Stripe Connect Express. A day of integration plus onboarding time per recipient, since each one completes Stripe's identity verification themselves. Costs $2 per active account per month and $0.25 + 0.25% per payout.
 
 **On-site donations to the grant fund** — a day of integration, plus AP's own onboarding. AP connects their Stripe account; donations are created as charges on AP's connected account so AP stays merchant of record and issues the receipt with their EIN. Our 5% comes out as a Stripe `application_fee_amount`, automatically. The donor designates the Grant Fund on our checkout, so the gift is designated rather than landing in AP's general giving. Replaces the outbound link in `app/routes/fund.$slug.tsx`.
+
+*Interim step, built 2026-09-28:* until that on-site checkout exists, AP keeps donating through their own existing Stripe setup (their own Payment Links, their own site) and we just record a designated gift when one comes in. A second, independent webhook route — `https://<deployment>.convex.site/stripe/ap/webhook` — listens on AP's own Stripe account, separate from our `/stripe/webhook` above. Enable `checkout.session.completed` and `checkout.session.async_payment_succeeded` on it.
+
+Env vars for this route (separate from section 1's — this is a different Stripe account):
+
+| Variable | What it is |
+|---|---|
+| `AP_STRIPE_WEBHOOK_SECRET` | Required. Signing secret for the `/stripe/ap/webhook` endpoint, from AP's own Stripe dashboard. Missing → the route answers 400 and does nothing. |
+| `AP_GRANT_PAYMENT_LINK_IDS` | Optional. Comma-separated `plink_…` ids — AP's dedicated grant-fund Payment Links, if they use fixed links instead of per-checkout metadata. |
+
+How a gift gets marked for the grant fund: either AP's checkout sets `metadata.fund = "grant-fund"` on the session, or the session came from one of the Payment Links listed in `AP_GRANT_PAYMENT_LINK_IDS`. Anything else on AP's account (their general giving, unrelated payments) is ignored — the route still answers 200 so Stripe doesn't retry it.
+
+Because AP stays merchant of record and the money never touches our account, we record the **full amount** into `grantContributions` with **no platform share** (`platformCents: 0`) — we didn't move it, so we don't take a cut of it. The row is idempotent on `stripeRef` (`ap:<checkout session id>`, prefixed so it can never collide with our own account's session/invoice ids), and the `abiding-practice` hostOrg row must already be seeded (`garden/devSeed:seedApOrg`) or the webhook fails loudly (500, so Stripe retries) rather than silently dropping a gift.
+
+Refunds are not handled by this route yet. If AP refunds a gift, an operator records an `adjustment` row against `grantContributions` by hand (same table, negative `poolCents`) — see `garden/allocations.ts`'s `recordContribution`.
+
+**Event tickets through the same AP Payment Link (2026-09-28).** An event can sell tickets through an AP Payment Link instead of (or alongside) the platform's own ticket tiers — set the link on the event ("Ticket link (Stripe Payment Link)" in the create/edit form). The event page appends `client_reference_id` (`evt-<eventId>`, or `evt-<eventId>-u-<userId>` for a signed-in buyer) and, when known, `prefilled_email` to the link before sending the buyer to Stripe (`garden/apGifts.ts`'s `buildTicketLink`).
+
+In the Stripe dashboard, set that Payment Link's **"After payment" redirect** to `https://creatives.exchange/events/<id>?paid=1` so the buyer lands back on the event page with the "payment received" notice.
+
+The same `/stripe/ap/webhook` route handles this: `client_reference_id` is checked *before* the gift-designation check, so a ticket sale is never mistaken for an undesignated gift. On a match, the buyer is added to the event through the same insert/dedupe path a free RSVP uses (`garden/eventRsvps.ts`'s `upsertEventRsvp` — signed-in buyer by userId, guest by the name/email Stripe collected at checkout), and the ticket is recorded into `grantContributions` as `type: "ticket_in"` at the full amount, `platformCents: 0` — same reasoning as a gift: AP is merchant of record, the money never touches our account, and it's a benefit for the artist grant fund. Idempotent on `stripeRef` (`ap:<checkout session id>`), checked against both `grantContributions` and `eventRsvps`. A ref for an event that no longer exists is logged and ignored (200), not retried.
+
+Refunds on a ticket are manual, same as a gift — an operator handles them by hand; this route never processes a refund event.
 
 ## 6 · Testing
 

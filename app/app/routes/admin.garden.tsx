@@ -836,7 +836,7 @@ function AllocationsSection({
   }
 
   return (
-    <SectionCard title="Allocations" hint="The AP fund's public ledger — entered by hand, spec's church-treasurer trust engine.">
+    <SectionCard title="Allocations" hint="The AP fund's grants list, entered by hand.">
       <form onSubmit={onSubmit}>
         <Field label="Fund (host org)" required>
           <select className="g-input" value={hostOrgSlug} onChange={(e) => setHostOrgSlug(e.target.value)} style={{ appearance: "none" }}>

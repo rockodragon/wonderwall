@@ -29,7 +29,7 @@ import "../garden/garden.css";
 
 export function meta() {
   return [
-    { title: "Events — The Garden" },
+    { title: "Events — TheCreative.exchange" },
     { name: "robots", content: "noindex" },
   ];
 }
@@ -52,13 +52,27 @@ type EventRow = {
   location?: string;
   tags: string[];
   priceCents?: number;
+  externalTicketPriceCents?: number;
+  ticketTiers?: { priceCents: number }[];
   community?: { name: string; slug: string } | null;
+  /** Resolved by events.list: the uploaded cover, else the first gallery image. */
+  coverImageUrl?: string | null;
+  /** The still fetched for a pasted Instagram/YouTube/etc. link. */
+  mediaPreviewUrl?: string;
 };
 
 /** The `events` table has no dedicated price field today — if one lands
     later (priceCents, or a "$"-style tag) this picks it up; until then
     every event reads as free, which is also just the truth right now. */
 function costLine(event: EventRow): string {
+  // A ticketed event shows its ticket price (the Payment Link's, else the
+  // cheapest tier), never "Free".
+  const ticketCents =
+    event.externalTicketPriceCents ??
+    (event.ticketTiers?.length ? Math.min(...event.ticketTiers.map((t) => t.priceCents)) : undefined);
+  if (ticketCents && ticketCents > 0) {
+    return `$${(ticketCents / 100).toLocaleString("en-US", { minimumFractionDigits: 0 })}`;
+  }
   if (typeof event.priceCents === "number") {
     return event.priceCents > 0
       ? `$${(event.priceCents / 100).toLocaleString("en-US", { minimumFractionDigits: 0 })}`
@@ -72,11 +86,27 @@ function costLine(event: EventRow): string {
 function EventCard({ event }: { event: EventRow }) {
   return (
     <Link
-      to={`/garden/events/${event._id}`}
+      to={`/events/${event._id}`}
       aria-label={event.title}
       className="g-card"
-      style={{ display: "block", textDecoration: "none", color: "inherit" }}
+      style={{ display: "block", textDecoration: "none", color: "inherit", overflow: "hidden" }}
     >
+      {(event.coverImageUrl || event.mediaPreviewUrl) && (
+        <img
+          src={event.coverImageUrl ?? event.mediaPreviewUrl}
+          alt=""
+          loading="lazy"
+          style={{
+            display: "block",
+            // Bleeds to the card's edges: .g-card pads 20px / 24px.
+            width: "calc(100% + 48px)",
+            margin: "-20px -24px 14px",
+            aspectRatio: "16 / 9",
+            objectFit: "cover",
+            background: "var(--g-ink)",
+          }}
+        />
+      )}
       <div className="g-h" style={{ fontSize: 17 }}>
         {event.title}
       </div>
@@ -135,8 +165,8 @@ export default function GardenEventsIndex() {
         </div>
         <p style={{ fontSize: 14.5, maxWidth: "50ch" }}>
           The next gathering is being set — check back soon.{" "}
-          <Link to="/garden" style={{ color: "var(--g-citron)" }}>
-            Back to The Garden
+          <Link to="/" style={{ color: "var(--g-citron)" }}>
+            ← TheCreative.exchange
           </Link>
         </p>
       </GardenPage>

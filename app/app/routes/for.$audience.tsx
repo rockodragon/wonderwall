@@ -4,17 +4,30 @@ import { CampaignBand } from "../components/CampaignBand";
 import type { CampaignImageKey } from "../lib/campaign";
 import { SiteHeader } from "../components/SiteHeader";
 import { Reveal } from "../hooks/useReveal";
+import { CLAIMS } from "../constants/claims";
 
 // Public audience pages — one per constituent door in
 // docs/marketing/constituent-playbook.md. Deliberately OUTSIDE the _app.tsx
 // layout (which sends logged-out visitors to /login, routes/_app.tsx:42):
 // these exist to be handed to someone who has never heard of us.
 //
-// Copy rules the playbook fixes and this file must keep:
+// Copy rules this file must keep:
+//   - Every sentence about money comes from constants/claims.ts (twin of
+//     docs/marketing/claims.md). Don't write a new one here. The "never say"
+//     list lives in that doc; claims.test.ts enforces the dropped phrases.
 //   - "Get your work funded" describes the platform and is fine. Promising a
 //     named person their project WILL be funded is not.
-//   - A backer covers the platform fee at checkout, so the creative keeps
-//     100%. Never claim a payout speed — no cadence is set.
+//   - A backing pays the creative 90%: the platform's 10% comes out of the
+//     backing (5% on the part of any single gift above $1,000). Decided
+//     2026-09-18. Never claim a payout speed — no cadence is set.
+//   - Payouts are made by hand until the payout rail ships (bead
+//     wonderwall-7avu): CLAIMS.payout says so. Don't imply automatic or
+//     instant transfers.
+//   - Grant money: dues shares (50%) fill the PLATFORM project pool
+//     (/fund/creatives-exchange); operators decide proposals to it. Abiding
+//     Practice's 501(c)(3) fund is a separate, off-platform lane. Never say a
+//     nonprofit decides the pool, and never point dues at /fund/abiding-practice.
+//     No grant cycle exists — never imply a deadline or a round.
 //   - The platform is open to any creative; The Garden is the Christian
 //     creative community inside it. Creative-facing copy says so plainly.
 //
@@ -64,12 +77,12 @@ const AUDIENCES: Audience[] = [
       "Work with other creatives, grow in your craft, find paid work, and get backed by people who believe in you. Joining is free.",
     points: [
       {
-        title: "You keep all of it",
-        body: "When someone gives you $100, you get $100. They cover our fee when they check out. Nothing comes out of your side.",
+        title: "You keep 90%",
+        body: `${CLAIMS.backing} ${CLAIMS.largeGift} ${CLAIMS.payout}`,
       },
       {
         title: "There's money set aside for your work",
-        body: "Community partners and patrons put money into a fund. You apply. A nonprofit decides who gets it, and every grant is posted publicly, so you can see who got what.",
+        body: CLAIMS.pool,
       },
       {
         title: "Real work, from people nearby",
@@ -85,7 +98,7 @@ const AUDIENCES: Audience[] = [
       },
     ],
     cost:
-      "Joining is free and stays free. A seat is $10 a month when you're ready to be funded. It lets you start projects, apply for work, and propose to the grant fund. Half of your $10 goes to fund another creative.",
+      `${CLAIMS.join} ${CLAIMS.membership}`,
     ctaLabel: "Find collaborators",
     ctaTo: "/join",
     ctaLabel2: "Find paid work",
@@ -93,9 +106,9 @@ const AUDIENCES: Audience[] = [
     ctaLabel3: "Find a class or coach",
     ctaTo3: "/offerings",
     bandImages: ["shua", "june"],
-    metaTitle: "Find your people, get paid — creatives.exchange",
+    metaTitle: "Find your people, get paid — TheCreative.exchange",
     metaDescription:
-      "Find paid work, get backed by people who believe in you, and apply for grants. Joining is free. When someone gives you $100, you get $100.",
+      `Find paid work, get backed by people who believe in you, and apply for grants. ${CLAIMS.join} ${CLAIMS.backingShort}`,
   },
   {
     slug: "hosts",
@@ -110,7 +123,7 @@ const AUDIENCES: Audience[] = [
       },
       {
         title: "You keep 90 cents of every dollar",
-        body: "Classes, cohorts, memberships, prints, downloads. One rate for all of it.",
+        body: "Classes, cohorts, memberships, prints, downloads. One rate for all of it. For now we keep track of what you've earned and pay it out to you ourselves.",
       },
       {
         title: "Hosting is free",
@@ -118,18 +131,18 @@ const AUDIENCES: Audience[] = [
       },
       {
         title: "Grants keep your community engaged",
-        body: "Half of every member's dues goes into a shared fund. Creatives in your community can apply and get funded directly — real support that gives them a reason to stay active here.",
+        body: `${CLAIMS.pool} The creatives in your community can apply.`,
       },
     ],
     cost:
-      "Free to host. We take 10% of what you sell. For $50 a month you can also run funding programs for your own community — contests, funded cohorts, and grant pools.",
-    // Hosting itself is free and lives at /communities/apply — /join is a
-    // paid $50/mo upgrade for a host who ALSO wants funding programs (see
-    // join.tsx's header comment), not how someone becomes a host at all.
-    ctaLabel: "Start earning from your community",
+      `${CLAIMS.hostSplit} We are opening hosting to a first group of communities. Join the waitlist and we will be in touch.`,
+    // Hosting is not open for sign-up yet (Rick, 2026-09-18): this page
+    // takes people to the host application, which is a waitlist for now, and
+    // shows NO host pricing. The paid host plan is hidden on /join too.
+    ctaLabel: "Join the host waitlist",
     ctaTo: "/communities/apply",
     bandImages: ["marta", "gallery"],
-    metaTitle: "Earn from the community you lead — creatives.exchange",
+    metaTitle: "Earn from the community you lead — TheCreative.exchange",
     metaDescription:
       "Bring your community here. Hosting is free, you keep 90% of what you sell, and the creatives in your community can apply for grants.",
   },
@@ -146,37 +159,37 @@ const AUDIENCES: Audience[] = [
       },
       {
         title: "You watch it get made",
-        body: "Updates as the work comes together. The finished piece when it's done. Your name on it.",
+        body: "Updates as the work comes together. The finished piece when it's done. Your name on it, if you want it there.",
       },
       {
         title: "Back more than one way",
         body: "Money, a room for an afternoon, gear, an introduction. All of it counts, and all of it is credited.",
       },
       {
-        title: "Give to the Grant Fund",
-        body: "The fund is run by Abiding Practice, a 501(c)(3). Your gift is tax-deductible, and every grant is posted publicly.",
+        title: "Give to a grant fund",
+        body: `Every community can run one. ${CLAIMS.grantFund}`,
       },
     ],
-    cost: "A patron account is free. You decide what to give, and when. Larger commitments to the Grant Fund are worth a conversation — those are the gifts a creative can plan around.",
+    cost: "A patron account is free. You decide what to give, and when. Larger commitments to a grant fund are worth a conversation — those are the gifts a creative can plan around.",
     ctaLabel: "Pick someone to back",
     ctaTo: "/opportunities",
-    ctaLabel2: "Give to the Grant Fund",
+    ctaLabel2: "Give to a grant fund",
     ctaTo2: "/fund/abiding-practice",
     bandImages: ["band", "viewing"],
-    metaTitle: "For patrons — creatives.exchange",
+    metaTitle: "For patrons — TheCreative.exchange",
     metaDescription:
-      "Back a creative, a team, or a project. Watch it get made, get credited on the work, and give to the Grant Fund.",
+      "Back a creative, a team, or a project. Watch it get made, get credited on the work, and give to a grant fund.",
   },
   {
     slug: "churches",
     eyebrow: "For churches",
     headline: "Support the creatives in your church.",
     subhead:
-      "$10 a month opens the door for one of them. You can see exactly what it did.",
+      CLAIMS.coverage,
     points: [
       {
         title: "They get everything, not a discount",
-        body: "The creative you sponsor can start projects, take paid work, and propose to the grant fund — same as anyone who pays for it themselves.",
+        body: "The creative you sponsor can start projects, take paid work, and propose to a grant fund — same as anyone who pays for it themselves.",
       },
       {
         title: "It's not really about Sunday",
@@ -188,19 +201,22 @@ const AUDIENCES: Audience[] = [
       },
       {
         title: "Where it goes",
-        body: "Half of every seat funds the grant program. The other half keeps this running. Every grant that goes out is public.",
+        body: `${CLAIMS.duesEvery} ${CLAIMS.duesOtherHalf}`,
       },
     ],
     cost:
       "$10 per seat per month, in any number you want. Paying for a year at once is one charge instead of twelve.",
     ctaLabel: "Sponsor your creative team",
     ctaTo: "/coverage",
-    ctaLabel2: "See what it pays for",
-    ctaTo2: "/fund/abiding-practice",
+    // Dues shares land on the PLATFORM pool row (stripeHandlers.ts
+    // handleInvoicePaid -> "creatives-exchange"), not on Abiding Practice's
+    // off-platform fund — so "see what it pays for" must point at that ledger.
+    ctaLabel2: "See the project pool",
+    ctaTo2: "/fund/creatives-exchange",
     bandImages: ["church", "busker"],
-    metaTitle: "For churches — creatives.exchange",
+    metaTitle: "For churches — TheCreative.exchange",
     metaDescription:
-      "Cover seats for the creatives in your church. $10 a month per seat, one code for your whole group, and a clear record of where it went.",
+      "Cover seats for the creatives in your church. $10 a month per seat, and one code for your whole group.",
   },
   {
     slug: "partners",
@@ -233,7 +249,7 @@ const AUDIENCES: Audience[] = [
     ctaLabel2: "Offer your space",
     ctaTo2: "/join",
     bandImages: ["night", "opening"],
-    metaTitle: "For community partners — creatives.exchange",
+    metaTitle: "For community partners — TheCreative.exchange",
     metaDescription:
       "Venues and businesses — post paid work, offer your space, or sponsor creatives. Your name goes on what gets made.",
   },
@@ -247,11 +263,11 @@ const SLUG_REDIRECTS: Record<string, string> = {
 
 export function meta({ params }: Route.MetaArgs) {
   const a = BY_SLUG.get(params.audience ?? "");
-  const title = a ? a.metaTitle : "creatives.exchange";
+  const title = a ? a.metaTitle : "TheCreative.exchange";
   const description = a
     ? a.metaDescription
     : "Where creative work gets funded.";
-  const image = "https://creatives.exchange/og-image.png";
+  const image = "https://thecreative.exchange/og-image.png";
   return [
     { title },
     { name: "description", content: description },

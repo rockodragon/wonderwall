@@ -11,13 +11,14 @@ import type { FormEvent, ReactNode } from "react";
 import { useAction, useConvexAuth, useMutation, useQuery } from "convex/react";
 import { ConvexError } from "convex/values";
 import { Link, useParams, useRouteError, useSearchParams } from "react-router";
+import { FF_V2 } from "../lib/featureFlags";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { formatDateTime, formatMoney } from "../garden/ui";
 
 export function meta() {
   return [
-    { title: "Community — creatives.exchange" },
+    { title: "Community — TheCreative.exchange" },
     { name: "robots", content: "noindex" },
   ];
 }
@@ -98,6 +99,8 @@ type Community = {
   slug: string;
   tagline?: string;
   description?: string;
+  whyHere?: string;
+  agreements?: string[];
   websiteUrl?: string;
   locationLabel?: string;
   status: string;
@@ -111,7 +114,7 @@ type Community = {
   tables: { _id: string; name: string; slug: string; mode: string; format?: string; cadence?: string }[];
   events: { _id: string; title: string; datetime: number; location?: string }[];
   projects: { _id: string; title: string; kind: string; blurb?: string; storySlug?: string; byName: string }[];
-  offerings: { _id: string; title: string; format?: string; cadence?: string; priceCents?: number }[];
+  offerings: { _id: string; title: string; format?: string; cadence?: string; priceCents?: number; paused?: boolean }[];
   viewer: {
     isSignedIn: boolean;
     membership: Membership;
@@ -246,6 +249,8 @@ function EditCommunityForm({ community }: { community: Community }) {
   const updateCommunity = useMutation(api.garden.communities.updateCommunity);
   const [tagline, setTagline] = useState(community.tagline ?? "");
   const [description, setDescription] = useState(community.description ?? "");
+  const [whyHere, setWhyHere] = useState(community.whyHere ?? "");
+  const [agreements, setAgreements] = useState((community.agreements ?? []).join("\n"));
   const [locationLabel, setLocationLabel] = useState(community.locationLabel ?? "");
   const [websiteUrl, setWebsiteUrl] = useState(community.websiteUrl ?? "");
   const [joinPolicy, setJoinPolicy] = useState(community.joinPolicy);
@@ -262,6 +267,11 @@ function EditCommunityForm({ community }: { community: Community }) {
         hostOrgId: community._id,
         tagline: tagline.trim() || undefined,
         description: description.trim() || undefined,
+        whyHere: whyHere.trim() || undefined,
+        agreements: agreements
+          .split("\n")
+          .map((a) => a.trim())
+          .filter(Boolean),
         locationLabel: locationLabel.trim() || undefined,
         websiteUrl: websiteUrl.trim() || undefined,
         joinPolicy,
@@ -290,6 +300,28 @@ function EditCommunityForm({ community }: { community: Community }) {
           onChange={(e) => setDescription(e.target.value)}
           rows={4}
         />
+      </div>
+      <div className="mt-3.5">
+        <label className={labelClass} style={labelStyle}>Why we're here</label>
+        <textarea
+          className={`${inputClass} resize-y`}
+          style={inputStyle}
+          value={whyHere}
+          onChange={(e) => setWhyHere(e.target.value)}
+          rows={6}
+        />
+        <Hint>Paragraphs separated by a blank line.</Hint>
+      </div>
+      <div className="mt-3.5">
+        <label className={labelClass} style={labelStyle}>Community agreements</label>
+        <textarea
+          className={`${inputClass} resize-y`}
+          style={inputStyle}
+          value={agreements}
+          onChange={(e) => setAgreements(e.target.value)}
+          rows={6}
+        />
+        <Hint>One agreement per line.</Hint>
       </div>
       <div className="mt-3.5">
         <label className={labelClass} style={labelStyle}>Location</label>
@@ -509,7 +541,7 @@ function ProductCard({ product, slug }: { product: Product; slug: string }) {
         {product.viewer.hasAccess && (
           <span
             className="inline-block px-2 py-0.5 rounded-full text-[11px] font-medium uppercase tracking-[0.06em] h-fit"
-            style={{ backgroundColor: "rgba(215,242,90,0.14)", color: "var(--garden-citron)", fontFamily: "var(--garden-font-mono)" }}
+            style={{ backgroundColor: "rgba(254,226,104,0.14)", color: "var(--garden-citron)", fontFamily: "var(--garden-font-mono)" }}
           >
             You're in
           </span>
@@ -980,8 +1012,11 @@ function HostToolsPanel({ community }: { community: Community }) {
 
 // ————— Page —————
 
-export default function CommunityDetailPage() {
-  const { slug } = useParams();
+/** The full community page body: header, why-we're-here, agreements, join/
+ * browse row, products, fund link, and (for hosts) the host tools panel.
+ * Used both by /communities/:slug (below) and by /communities, which shows
+ * The Garden's page directly and appends its own `footer` links. */
+export function CommunityPage({ slug, footer }: { slug: string; footer?: ReactNode }) {
   const [searchParams] = useSearchParams();
   const purchased = searchParams.get("purchased") === "1";
   const community = useQuery(
@@ -1043,6 +1078,39 @@ export default function CommunityDetailPage() {
         </p>
       )}
 
+      {community.whyHere && (
+        <div className="mt-7 max-w-[62ch]">
+          <SectionLabel>Why we're here</SectionLabel>
+          <div className="mt-2.5 space-y-3">
+            {community.whyHere.split(/\n\s*\n/).map((para, i) => (
+              <p key={i} className="text-[15px] leading-relaxed" style={{ color: "var(--garden-body)" }}>
+                {para}
+              </p>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {community.agreements && community.agreements.length > 0 && (
+        <div className="mt-7 max-w-[62ch]">
+          <SectionLabel>Community agreements</SectionLabel>
+          <ul className="mt-2.5 list-disc pl-5 space-y-1.5">
+            {community.agreements.map((a, i) => (
+              <li key={i} className="text-[15px] leading-relaxed" style={{ color: "var(--garden-body)" }}>
+                {a}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2.5 text-[15px] leading-relaxed" style={{ color: "var(--garden-body)" }}>
+            You also agree to{" "}
+            <a href="/about/agreements" style={{ color: "var(--garden-citron)" }}>
+              TheCreative.exchange's agreements
+            </a>
+            .
+          </p>
+        </div>
+      )}
+
       {/* One row: the membership action, then where to browse. The per-
           section lists that used to follow (tables, events, projects,
           classes) duplicated these three links, so the page stops at the
@@ -1053,16 +1121,22 @@ export default function CommunityDetailPage() {
           <span style={{ color: "var(--garden-muted)" }}>or browse</span>
           <Link to={`/projects?community=${community.slug}`} style={{ color: "var(--garden-citron)" }}>Projects →</Link>
           <Link to={`/events?community=${community.slug}`} style={{ color: "var(--garden-citron)" }}>Events →</Link>
-          <Link to={`/offerings?community=${community.slug}`} style={{ color: "var(--garden-citron)" }}>Classes →</Link>
+          {FF_V2 && (
+            <Link to={`/offerings?community=${community.slug}`} style={{ color: "var(--garden-citron)" }}>Classes →</Link>
+          )}
         </div>
       </div>
 
-      <ProductsSection
-        hostOrgId={community._id}
-        slug={community.slug}
-        canManage={community.viewer.canManage}
-        purchased={purchased}
-      />
+      {/* Member products are classes and paid extras — not in the launch
+          (projects, people, profiles, events). Behind FF_V2. */}
+      {FF_V2 && (
+        <ProductsSection
+          hostOrgId={community._id}
+          slug={community.slug}
+          canManage={community.viewer.canManage}
+          purchased={purchased}
+        />
+      )}
 
       {community.hasFund && (
         <div className="mt-7">
@@ -1074,6 +1148,22 @@ export default function CommunityDetailPage() {
       )}
 
       {community.viewer.canManage && <HostToolsPanel community={community} />}
+
+      {footer}
     </PageShell>
   );
+}
+
+export default function CommunityDetailPage() {
+  const { slug } = useParams();
+
+  if (!slug) {
+    return (
+      <PageShell>
+        <Loading />
+      </PageShell>
+    );
+  }
+
+  return <CommunityPage slug={slug} />;
 }

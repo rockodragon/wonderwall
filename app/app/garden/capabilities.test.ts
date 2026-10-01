@@ -34,8 +34,10 @@ const MATRIX: [Capability, [boolean, boolean, boolean, boolean, boolean, boolean
   ["project.create.passion", [false, false, true,  true,  true,  false, false]],
   ["project.create.paid",    [false, false, true,  true,  true,  true,  true]],
   ["project.applyPaid",      [false, false, true,  true,  true,  false, false]],
+  ["gig.respond",            [false, false, true,  true,  true,  false, false]],
   ["pool.propose",           [false, false, true,  true,  true,  false, false]],
-  ["event.create",           [false, false, true,  true,  true,  false, true]],
+  ["event.create",           [false, true,  true,  true,  true,  true,  true]],
+  ["event.sellTickets",      [false, false, true,  true,  true,  false, true]],
   ["table.join.open",        [true,  true,  true,  true,  true,  true,  true]],
   ["table.join.member",      [false, false, true,  true,  true,  false, false]],
   ["table.create",           [false, false, false, false, true,  false, false]],
@@ -75,7 +77,7 @@ describe("passion-project caps (1 / 5 / 10)", () => {
     expect(can(five, "project.create.passion")).toMatchObject({ allowed: true, limit: 5, used: 3 });
     const denied = can(fiveAtCap, "project.create.passion");
     expect(denied.allowed).toBe(false);
-    expect(denied.upgradePath).toMatch(/Community Host/);
+    expect(denied.upgradePath).toMatch(/host waitlist/i);
   });
   it("host: cap 10; at-cap denial has no upgrade path — the ladder ends", () => {
     expect(can(host, "project.create.passion")).toMatchObject({ allowed: true, limit: 10 });
@@ -102,15 +104,17 @@ describe("denial anatomy — every denial explains itself", () => {
     for (const cap of [
       "project.create.passion",
       "project.applyPaid",
+      "gig.respond",
       "pool.propose",
-      "event.create",
+      "event.sellTickets",
       "table.join.member",
     ] as Capability[]) {
       expect(can(free, cap).upgradePath).toMatch(/member.*\$10\/mo/i);
     }
   });
-  it("table.create denial points at the Community Host tier", () => {
-    expect(can(free, "table.create").upgradePath).toMatch(/Community Host.*\$50\/mo/);
+  it("table.create denial points at the host waitlist, with no price", () => {
+    expect(can(free, "table.create").upgradePath).toMatch(/host waitlist/i);
+    expect(can(free, "table.create").upgradePath).not.toMatch(/\$/);
   });
   it("patron-act denials point at the free patron role, not a paid tier", () => {
     expect(can(free, "seat.cover").upgradePath).toMatch(/patron.*free/i);

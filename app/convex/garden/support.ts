@@ -26,6 +26,7 @@ import { mutation, query, internalMutation } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { ConvexError } from "convex/values";
+import { guestBackingThrottled } from "./stripeHandlers";
 
 const FINANCIAL_TYPES = new Set(["financial_one_time", "financial_recurring", "financial_annual"]);
 const VALID_TYPES = new Set([...FINANCIAL_TYPES, "encouragement", "resource"]);
@@ -104,11 +105,18 @@ export const supportProject = mutation({
  * and it carries the message/visibility captured at intent time. An
  * abandoned checkout leaves a "pending" row that is visible nowhere and
  * counted nowhere — that's the whole reason "pending" is the right status
- * for it. */
+ * for it.
+ *
+ * `userId` is absent for a guest backing (bead wonderwall-uh90): the action
+ * has already resolved the guest's display name (resolveGuestSupporterName)
+ * and passes it as `guestName`. Guests are capped per project per hour here
+ * — this is the step that can count rows — and the project's storySlug is
+ * returned so the action can send a guest back to the public story page. */
 export const startBacking = internalMutation({
   args: {
     projectId: v.id("projects"),
-    userId: v.id("users"),
+    userId: v.optional(v.id("users")),
+    guestName: v.optional(v.string()),
     amountCents: v.number(),
     recurring: v.boolean(),
     visible: v.boolean(),
@@ -121,11 +129,30 @@ export const startBacking = internalMutation({
     const project = await ctx.db.get(args.projectId);
     if (!project || project.status === "archived") return null;
 
-    const profile = await ctx.db
-      .query("profiles")
-      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
-      .unique();
-    const supporterName = profile?.name ?? "Someone";
+    let supporterName: string;
+    if (args.userId) {
+      const userId = args.userId;
+      const profile = await ctx.db
+        .query("profiles")
+        .withIndex("by_userId", (q) => q.eq("userId", userId))
+        .unique();
+      supporterName = profile?.name ?? "Someone";
+    } else {
+      const hourAgo = Date.now() - 60 * 60 * 1000;
+      const rows = await ctx.db
+        .query("projectSupport")
+        .withIndex("by_projectId", (q) => q.eq("projectId", args.projectId))
+        .collect();
+      const guestCheckoutsLastHour = rows.filter(
+        (r) => r.supporterUserId === undefined && r.status === "pending" && r.createdAt >= hourAgo,
+      ).length;
+      if (guestBackingThrottled(guestCheckoutsLastHour)) {
+        throw new ConvexError({
+          reason: "A lot of people are backing this right now. Give it a minute and try again.",
+        });
+      }
+      supporterName = args.guestName ?? "Someone";
+    }
 
     // Resolve patron tier if provided — the tier may have been deleted
     // between page load and checkout, so a missing or wrong-project tier
@@ -153,7 +180,7 @@ export const startBacking = internalMutation({
       ...(resolvedTierId ? { tierId: resolvedTierId, tierName: resolvedTierName } : {}),
     });
 
-    return { supportId, supporterName, projectTitle: project.title };
+    return { supportId, supporterName, projectTitle: project.title, storySlug: project.storySlug };
   },
 });
 

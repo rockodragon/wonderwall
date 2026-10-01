@@ -10,7 +10,7 @@
   --g-dim: var(--garden-dim, #94948c);
   --g-muted: var(--garden-muted, #acaca4);
   --g-body: var(--garden-body, #c6c6be);
-  --g-citron: var(--garden-citron, #d7f25a);
+  --g-citron: var(--garden-citron, #fee268);
 
   background: var(--g-ink);
   color: var(--g-body);

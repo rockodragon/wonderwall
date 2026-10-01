@@ -6,11 +6,24 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import confetti from "canvas-confetti";
 import { api } from "../../convex/_generated/api";
+import { toEmbedUrl } from "../lib/videoEmbed";
 import type { Id } from "../../convex/_generated/dataModel";
+import { EmbedStill, PlayBadge } from "../components/EmbedStill";
 import { LocationAutocomplete, LocationVerifiedHint } from "../components/LocationAutocomplete";
 import { useLocationField } from "../lib/useLocationField";
 import { INTERESTS } from "../constants/interests";
 import { LEVEL_LABEL } from "../garden/capabilities";
+import { normalizeHandle, type PayoutKind } from "../../convex/garden/gigRules";
+import { errorMessage } from "./projects";
+import { NetworkTab } from "../components/NetworkTab";
+
+const SETTINGS_TABS = [
+  { id: "profile", label: "Profile" },
+  { id: "network", label: "Network" },
+  { id: "money", label: "Money" },
+  { id: "account", label: "Account" },
+] as const;
+type SettingsTab = (typeof SETTINGS_TABS)[number]["id"];
 
 // Normalize URL by adding https:// if missing
 function normalizeUrl(url: string): string {
@@ -28,10 +41,6 @@ export default function Settings() {
   const posthog = usePostHog();
   const [searchParams, setSearchParams] = useSearchParams();
   const profile = useQuery(api.profiles.getMyProfile);
-  const inviteStats = useQuery(
-    api.invites.getInviteStats,
-    profile?.userId ? { userId: profile.userId } : "skip",
-  );
   const [showProfileEdit, setShowProfileEdit] = useState(false);
 
   // Check for editArtifact query param
@@ -58,111 +67,124 @@ export default function Settings() {
       !profile?.location?.trim());
   const isEditingProfile = showProfileEdit || profileNeedsSetup;
 
+  const activeTab: SettingsTab = editArtifactId
+    ? "profile"
+    : (SETTINGS_TABS.find((t) => t.id === searchParams.get("tab"))?.id ??
+      "profile");
+
+  function selectTab(tab: SettingsTab) {
+    const next = new URLSearchParams(searchParams);
+    if (tab === "profile") next.delete("tab");
+    else next.set("tab", tab);
+    setSearchParams(next, { replace: true });
+  }
+
   return (
     <div className="p-4 sm:p-6 max-w-2xl mx-auto text-base sm:text-sm">
-      {/* Profile section - at top */}
-      <div className="mb-8">
-        {hasProfile && !isEditingProfile ? (
-          <ProfileSummary
-            profile={profile}
-            onEdit={() => setShowProfileEdit(true)}
-          />
-        ) : (
-          <ProfileEditForm
-            profile={profile}
-            onDone={() => setShowProfileEdit(false)}
-            isNewProfile={profileNeedsSetup}
-          />
+      {/* Tabs across the top: the page had grown to ten stacked sections.
+          ?tab= deep-links (the sidebar invite card opens ?tab=network). */}
+      <div
+        role="tablist"
+        aria-label="Settings"
+        className="flex gap-1 mb-8 border-b overflow-x-auto"
+        style={{ borderColor: "var(--app-hairline)" }}
+      >
+        {SETTINGS_TABS.map((tab) => {
+          const active = tab.id === activeTab;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              onClick={() => selectTab(tab.id)}
+              className="px-4 py-2.5 -mb-px text-sm font-medium whitespace-nowrap border-b-2 transition-colors"
+              style={{
+                borderColor: active ? "var(--app-accent-ink)" : "transparent",
+                color: active ? "var(--app-text)" : "var(--app-text-dim)",
+              }}
+            >
+              {tab.label}
+            </button>
+          );
+        })}
+        {profile?.isAdmin && (
+          <Link
+            to="/admin"
+            className="px-4 py-2.5 -mb-px text-sm font-medium whitespace-nowrap border-b-2 border-transparent transition-colors hover:opacity-80"
+            style={{ color: "var(--app-text-dim)" }}
+          >
+            Admin
+          </Link>
         )}
       </div>
 
-      {/* Network stats & Invite */}
-      <div className="mt-8 pt-6 border-t" style={{ borderColor: "var(--app-hairline)" }}>
-        <h2 className="text-lg font-semibold mb-4" style={{ color: "var(--app-text)" }}>
-          Your Network
-        </h2>
-        {inviteStats && (
-          <div className="flex flex-wrap items-center gap-3 mb-4 text-sm">
-            {inviteStats.invitedBy && (
-              <Link
-                to={`/profile/${inviteStats.invitedBy.profileId}`}
-                className="hover:opacity-80"
-                style={{ color: "var(--app-text-dim)" }}
-              >
-                Invited by{" "}
-                <span className="font-medium">
-                  {inviteStats.invitedBy.name}
-                </span>
-              </Link>
-            )}
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded-full">
-              <svg
-                className="w-3.5 h-3.5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"
-                />
-              </svg>
-              <span className="font-semibold">{inviteStats.networkSize}</span>
-              <span className="text-emerald-600 dark:text-emerald-500">
-                in network
-              </span>
-            </span>
-            {inviteStats.directInvitees > 0 && (
-              <span className="text-xs" style={{ color: "var(--app-text-dim)" }}>
-                ({inviteStats.directInvitees} invited
-                {inviteStats.downstreamCount > 0 &&
-                  `, +${inviteStats.downstreamCount} downstream`}
-                )
-              </span>
+      {activeTab === "profile" && (
+        <>
+          <div className="mb-8">
+            {hasProfile && !isEditingProfile ? (
+              <ProfileSummary
+                profile={profile}
+                onEdit={() => setShowProfileEdit(true)}
+              />
+            ) : (
+              <ProfileEditForm
+                profile={profile}
+                onDone={() => setShowProfileEdit(false)}
+                isNewProfile={profileNeedsSetup}
+              />
             )}
           </div>
-        )}
-      </div>
 
-      {/* Billing */}
-      <div className="mt-8 pt-6 border-t" style={{ borderColor: "var(--app-hairline)" }}>
-        <BillingSection />
-      </div>
+          {/* Work & Portfolio */}
+          <div className="mt-8 pt-6 border-t" style={{ borderColor: "var(--app-hairline)" }}>
+            <ArtifactsSection
+              editArtifactId={editArtifactId}
+              onEditComplete={clearEditParam}
+            />
+          </div>
+        </>
+      )}
 
-      {/* Your purchases */}
-      <div className="mt-8 pt-6 border-t" style={{ borderColor: "var(--app-hairline)" }}>
-        <PurchasesSection />
-      </div>
+      {activeTab === "network" && <NetworkTab />}
 
-      {/* My backings */}
-      <div className="mt-8 pt-6 border-t" style={{ borderColor: "var(--app-hairline)" }}>
-        <BackingsSection />
-      </div>
+      {activeTab === "money" && (
+        <>
+          <BillingSection />
+          <div className="mt-8 pt-6 border-t" style={{ borderColor: "var(--app-hairline)" }}>
+            <PurchasesSection />
+          </div>
+          <div className="mt-8 pt-6 border-t" style={{ borderColor: "var(--app-hairline)" }}>
+            <BackingsSection />
+          </div>
+          <div className="mt-8 pt-6 border-t" style={{ borderColor: "var(--app-hairline)" }}>
+            <PayoutHandlesSection />
+          </div>
+          <div className="mt-8 pt-6 border-t" style={{ borderColor: "var(--app-hairline)" }}>
+            <MyGigsSection />
+          </div>
+        </>
+      )}
 
-      {/* Artifacts section */}
-      <div className="mt-8 pt-6 border-t" style={{ borderColor: "var(--app-hairline)" }}>
-        <ArtifactsSection
-          editArtifactId={editArtifactId}
-          onEditComplete={clearEditParam}
-        />
-      </div>
-
-      {/* Blocked people */}
-      <div className="mt-8 pt-6 border-t" style={{ borderColor: "var(--app-hairline)" }}>
-        <BlockedSection />
-      </div>
-
-      {/* Sign out */}
-      <div className="mt-12 pt-6 border-t" style={{ borderColor: "var(--app-hairline)" }}>
-        <button
-          onClick={handleSignOut}
-          className="text-red-600 hover:text-red-500 font-medium"
-        >
-          Sign out
-        </button>
-      </div>
+      {activeTab === "account" && (
+        <>
+          <EmailSection />
+          <div className="mt-8 pt-6 border-t" style={{ borderColor: "var(--app-hairline)" }}>
+            <PhoneSection />
+          </div>
+          <div className="mt-8 pt-6 border-t" style={{ borderColor: "var(--app-hairline)" }}>
+            <BlockedSection />
+          </div>
+          <div className="mt-12 pt-6 border-t" style={{ borderColor: "var(--app-hairline)" }}>
+            <button
+              onClick={handleSignOut}
+              className="text-red-600 hover:text-red-500 font-medium"
+            >
+              Sign out
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -386,6 +408,474 @@ function BackingsSection() {
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+// Live booking (docs/features/live-booking.md §6): where a venue pays this
+// person, in the venue's own app. Same normalizeHandle validation the
+// server (profiles.ts's setPayoutHandles) runs — mirrored here so a typo
+// shows up before the round trip, not after.
+const PAYOUT_FIELDS: { kind: PayoutKind; label: string; placeholder: string }[] = [
+  { kind: "venmo", label: "Venmo", placeholder: "@username" },
+  { kind: "cashapp", label: "Cash App", placeholder: "$cashtag" },
+  { kind: "paypal", label: "PayPal.Me", placeholder: "paypal.me/name" },
+  { kind: "zelle", label: "Zelle", placeholder: "email or phone on your bank account" },
+];
+
+function PayoutHandlesSection() {
+  const profile = useQuery(api.profiles.getMyProfile);
+  const setPayoutHandles = useMutation(api.profiles.setPayoutHandles);
+  const [values, setValues] = useState<Record<PayoutKind, string>>({
+    venmo: "",
+    cashapp: "",
+    paypal: "",
+    zelle: "",
+  });
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<PayoutKind, string>>>({});
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const prefilled = useRef(false);
+
+  useEffect(() => {
+    if (prefilled.current || !profile) return;
+    const handles = (profile as any).payoutHandles ?? {};
+    setValues({
+      venmo: handles.venmo ?? "",
+      cashapp: handles.cashapp ?? "",
+      paypal: handles.paypal ?? "",
+      zelle: handles.zelle ?? "",
+    });
+    prefilled.current = true;
+  }, [profile]);
+
+  if (profile === undefined) return null;
+
+  async function handleSave(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    setSaved(false);
+    const nextErrors: Partial<Record<PayoutKind, string>> = {};
+    const args: Record<PayoutKind, string | undefined> = {
+      venmo: undefined,
+      cashapp: undefined,
+      paypal: undefined,
+      zelle: undefined,
+    };
+    for (const field of PAYOUT_FIELDS) {
+      const result = normalizeHandle(field.kind, values[field.kind]);
+      if (!result.ok) {
+        nextErrors[field.kind] = result.reason;
+      } else {
+        args[field.kind] = result.value ?? undefined;
+      }
+    }
+    setFieldErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) return;
+
+    setSaving(true);
+    try {
+      await setPayoutHandles(args);
+      setSaved(true);
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div>
+      <h2 className="text-lg font-semibold mb-2" style={{ color: "var(--app-text)" }}>
+        Getting paid
+      </h2>
+      <p className="text-sm mb-4" style={{ color: "var(--app-text-dim)" }}>
+        When a venue books you, it pays you directly in one of these apps. Only the venue that booked you sees
+        this.
+      </p>
+      <form onSubmit={handleSave} className="flex flex-col gap-3 max-w-sm">
+        {PAYOUT_FIELDS.map((field) => (
+          <div key={field.kind}>
+            <label className="block text-sm font-medium mb-1" style={{ color: "var(--app-text-muted)" }}>
+              {field.label}
+            </label>
+            <input
+              type="text"
+              value={values[field.kind]}
+              onChange={(e) => {
+                const v = e.target.value;
+                setValues((prev) => ({ ...prev, [field.kind]: v }));
+                setFieldErrors((prev) => ({ ...prev, [field.kind]: undefined }));
+              }}
+              placeholder={field.placeholder}
+              className="w-full px-3 py-2 border rounded-lg text-sm outline-none focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent"
+              style={{ borderColor: "var(--app-hairline)", backgroundColor: "var(--app-surface-raised)", color: "var(--app-text)" }}
+            />
+            {field.kind === "venmo" && (
+              <p className="text-xs mt-1" style={{ color: "var(--app-text-dim)" }}>
+                Venmo's rules say payments for services should go to a business profile (1.9% + 10¢ to you). A
+                personal profile is at your own risk.
+              </p>
+            )}
+            {fieldErrors[field.kind] && <p className="text-sm text-red-400 mt-1">{fieldErrors[field.kind]}</p>}
+          </div>
+        ))}
+        {error && <p className="text-sm text-red-400">{error}</p>}
+        {saved && !error && (
+          <p className="text-sm" style={{ color: "var(--app-text-dim)" }}>
+            Saved.
+          </p>
+        )}
+        <div>
+          <button
+            type="submit"
+            disabled={saving}
+            className="px-4 py-2 rounded-lg text-sm font-medium transition-opacity hover:opacity-90 disabled:opacity-50"
+            style={{ backgroundColor: "var(--app-accent)", color: "var(--garden-ink)" }}
+          >
+            {saving ? "Saving…" : "Save"}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+// Live booking: the signed-in artist's own dates across every gig they've
+// responded to or been booked for — same row shape as BackingsSection.
+function MyGigsSection() {
+  const gigs = useQuery(api.garden.gigs.listMyGigs);
+
+  if (!gigs || gigs.length === 0) return null;
+
+  return (
+    <div>
+      <h2 className="text-lg font-semibold mb-4" style={{ color: "var(--app-text)" }}>
+        Your gigs
+      </h2>
+      <div className="space-y-2">
+        {gigs.map((g: any) => (
+          <div
+            key={g.slotId}
+            className="flex items-center justify-between gap-3 p-3 rounded-xl"
+            style={{ backgroundColor: "var(--app-surface-raised)" }}
+          >
+            <div className="min-w-0">
+              <Link
+                to={`/projects/${g.projectId}`}
+                className="font-medium text-sm truncate block transition-colors hover:opacity-80"
+                style={{ color: "var(--app-text)" }}
+              >
+                {g.title}
+              </Link>
+              <span className="text-xs" style={{ color: "var(--app-text-dim)" }}>
+                {g.venueName ? `${g.venueName} · ` : ""}
+                {g.dateLabel} · {g.timeRange}
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              {g.slotStatus === "cancelled" ? (
+                <span
+                  className="px-2 py-0.5 rounded-full text-xs font-medium uppercase tracking-[0.06em]"
+                  style={{ backgroundColor: "var(--app-hairline)", color: "var(--app-text-dim)" }}
+                >
+                  Cancelled
+                </span>
+              ) : g.mine === "booked" ? (
+                <>
+                  <span
+                    className="px-2 py-0.5 rounded-full text-xs font-medium uppercase tracking-[0.06em]"
+                    style={{ backgroundColor: "var(--app-accent)", color: "var(--garden-ink)" }}
+                  >
+                    Booked
+                  </span>
+                  {g.paidConfirmedAt ? (
+                    <span
+                      className="px-2 py-0.5 rounded-full text-xs font-medium uppercase tracking-[0.06em]"
+                      style={{ backgroundColor: "var(--app-hairline)", color: "var(--app-text-dim)" }}
+                    >
+                      Paid · confirmed
+                    </span>
+                  ) : g.paidAt ? (
+                    <span
+                      className="px-2 py-0.5 rounded-full text-xs font-medium uppercase tracking-[0.06em]"
+                      style={{ backgroundColor: "var(--app-hairline)", color: "var(--app-text-dim)" }}
+                    >
+                      Paid
+                    </span>
+                  ) : null}
+                </>
+              ) : g.mine === "available" ? (
+                <span
+                  className="px-2 py-0.5 rounded-full text-xs font-medium uppercase tracking-[0.06em]"
+                  style={{ backgroundColor: "var(--app-hairline)", color: "var(--app-text-dim)" }}
+                >
+                  Offered
+                </span>
+              ) : null}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+const EMAIL_TOGGLES: {
+  category: "activity" | "digest" | "announcements";
+  label: string;
+  description: string;
+}[] = [
+  {
+    category: "activity",
+    label: "Activity",
+    description: "Messages, project interest, event sign-ups and bookings",
+  },
+  {
+    category: "digest",
+    label: "Digest",
+    description: "A summary of new likes, up to three times a day",
+  },
+  {
+    category: "announcements",
+    label: "Announcements",
+    description: "Updates and reminders from hosts of classes and projects you're in",
+  },
+];
+
+function EmailSection() {
+  const prefs = useQuery(api.emailPreferences.get);
+  const updatePref = useMutation(api.emailPreferences.update);
+  const [pendingCategory, setPendingCategory] = useState<string | null>(null);
+
+  // Still loading — render nothing rather than flash a default state.
+  if (prefs === undefined) return null;
+
+  async function handleToggle(
+    category: "activity" | "digest" | "announcements",
+    enabled: boolean,
+  ) {
+    setPendingCategory(category);
+    try {
+      await updatePref({ category, enabled });
+    } catch (err) {
+      console.error("Update email preference error:", err);
+    } finally {
+      setPendingCategory(null);
+    }
+  }
+
+  return (
+    <div>
+      <h2 className="text-lg font-semibold mb-4" style={{ color: "var(--app-text)" }}>
+        Email
+      </h2>
+      <div className="space-y-4">
+        {EMAIL_TOGGLES.map((toggle) => (
+          <label
+            key={toggle.category}
+            className="flex items-start gap-3 cursor-pointer"
+          >
+            <input
+              type="checkbox"
+              checked={Boolean(prefs?.[toggle.category])}
+              disabled={pendingCategory === toggle.category}
+              onChange={(e) => handleToggle(toggle.category, e.target.checked)}
+              className="mt-0.5 w-4 h-4 shrink-0 rounded"
+              style={{ accentColor: "var(--app-accent)" }}
+            />
+            <div>
+              <p className="text-sm font-medium" style={{ color: "var(--app-text)" }}>
+                {toggle.label}
+              </p>
+              <p className="text-xs" style={{ color: "var(--app-text-dim)" }}>
+                {toggle.description}
+              </p>
+            </div>
+          </label>
+        ))}
+      </div>
+      <p className="mt-4 text-xs" style={{ color: "var(--app-text-dim)" }}>
+        Receipts, approvals and invitations are always sent.
+      </p>
+    </div>
+  );
+}
+
+// Settings → "Phone number" (convex/phoneLink.ts). Lets an already
+// signed-in member attach a number so they can later sign in with a text
+// code, without creating a second account the way sign-in-by-phone alone
+// would (that path only ever creates or matches an account by phone).
+function PhoneSection() {
+  const myPhone = useQuery(api.phoneLink.getMyPhone);
+  const startAddPhone = useMutation(api.phoneLink.startAddPhone);
+  const confirmAddPhone = useMutation(api.phoneLink.confirmAddPhone);
+  const removePhone = useMutation(api.phoneLink.removePhone);
+
+  const [step, setStep] = useState<"idle" | "enterPhone" | "enterCode">("idle");
+  const [phoneInput, setPhoneInput] = useState("");
+  const [codeInput, setCodeInput] = useState("");
+  const [error, setError] = useState("");
+  const [pending, setPending] = useState(false);
+  const [removing, setRemoving] = useState(false);
+
+  if (myPhone === undefined) return null;
+
+  function reset() {
+    setStep("idle");
+    setPhoneInput("");
+    setCodeInput("");
+    setError("");
+  }
+
+  async function handleSendCode(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    setPending(true);
+    try {
+      await startAddPhone({ phone: phoneInput });
+      setStep("enterCode");
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function handleConfirmCode(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    setPending(true);
+    try {
+      await confirmAddPhone({ code: codeInput });
+      reset();
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function handleRemove() {
+    if (!confirm("Remove this phone number? You won't be able to sign in with it anymore.")) return;
+    setRemoving(true);
+    setError("");
+    try {
+      await removePhone();
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setRemoving(false);
+    }
+  }
+
+  return (
+    <div>
+      <h2 className="text-lg font-semibold mb-2" style={{ color: "var(--app-text)" }}>
+        Phone number
+      </h2>
+
+      {myPhone && step === "idle" ? (
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-sm" style={{ color: "var(--app-text-muted)" }}>
+            {myPhone} — you can sign in with a text code.
+          </p>
+          <button
+            onClick={handleRemove}
+            disabled={removing}
+            className="text-sm font-medium disabled:opacity-50 shrink-0 hover:opacity-80"
+            style={{ color: "var(--app-text-dim)" }}
+          >
+            {removing ? "Removing…" : "Remove"}
+          </button>
+        </div>
+      ) : null}
+
+      {!myPhone && step === "idle" && (
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-sm" style={{ color: "var(--app-text-dim)" }}>
+            Add a phone number to sign in with a text code.
+          </p>
+          <button
+            onClick={() => setStep("enterPhone")}
+            className="text-sm font-medium hover:opacity-80 shrink-0"
+            style={{ color: "var(--app-accent-ink)" }}
+          >
+            Add
+          </button>
+        </div>
+      )}
+
+      {myPhone && step === "idle" ? null : step === "enterPhone" ? (
+        <form onSubmit={handleSendCode} className="flex flex-col gap-3 max-w-sm mt-3">
+          <input
+            type="tel"
+            inputMode="tel"
+            autoComplete="tel"
+            value={phoneInput}
+            onChange={(e) => setPhoneInput(e.target.value)}
+            placeholder="(555) 123-4567"
+            className="w-full px-3 py-2 border rounded-lg text-sm outline-none focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent"
+            style={{ borderColor: "var(--app-hairline)", backgroundColor: "var(--app-surface-raised)", color: "var(--app-text)" }}
+          />
+          {error && <p className="text-sm text-red-400">{error}</p>}
+          <div className="flex gap-2">
+            <button
+              type="submit"
+              disabled={pending || !phoneInput.trim()}
+              className="px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 disabled:opacity-50"
+              style={{ backgroundColor: "var(--app-accent)", color: "var(--garden-ink)" }}
+            >
+              {pending ? "Sending…" : "Text me a code"}
+            </button>
+            <button
+              type="button"
+              onClick={reset}
+              className="px-4 py-2 text-sm"
+              style={{ color: "var(--app-text-dim)" }}
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      ) : step === "enterCode" ? (
+        <form onSubmit={handleConfirmCode} className="flex flex-col gap-3 max-w-sm mt-3">
+          <p className="text-sm" style={{ color: "var(--app-text-dim)" }}>
+            We texted a 6-digit code to {phoneInput}.
+          </p>
+          <input
+            type="text"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            maxLength={6}
+            value={codeInput}
+            onChange={(e) => setCodeInput(e.target.value.replace(/\D/g, ""))}
+            placeholder="123456"
+            className="w-full px-3 py-2 border rounded-lg text-sm tracking-widest outline-none focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent"
+            style={{ borderColor: "var(--app-hairline)", backgroundColor: "var(--app-surface-raised)", color: "var(--app-text)" }}
+          />
+          {error && <p className="text-sm text-red-400">{error}</p>}
+          <div className="flex gap-2">
+            <button
+              type="submit"
+              disabled={pending || codeInput.length !== 6}
+              className="px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 disabled:opacity-50"
+              style={{ backgroundColor: "var(--app-accent)", color: "var(--garden-ink)" }}
+            >
+              {pending ? "Confirming…" : "Confirm"}
+            </button>
+            <button
+              type="button"
+              onClick={reset}
+              className="px-4 py-2 text-sm"
+              style={{ color: "var(--app-text-dim)" }}
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      ) : null}
     </div>
   );
 }
@@ -831,7 +1321,7 @@ function ProfileEditForm({
         {/* Interests */}
         <div>
           <label className="block text-sm font-medium mb-2" style={{ color: "var(--app-text-muted)" }}>
-            What do you do?
+            Interests
           </label>
           <div className="flex flex-wrap gap-2">
             {INTERESTS.map((fn) => (
@@ -1198,49 +1688,6 @@ const ARTIFACT_TYPES = [
   },
 ];
 
-function getVideoEmbedUrl(mediaUrl: string): string | null {
-  try {
-    const url = new URL(mediaUrl);
-    const host = url.hostname.replace("www.", "");
-
-    if (host === "youtu.be") {
-      const id = url.pathname.slice(1);
-      return id ? `https://www.youtube.com/embed/${id}` : null;
-    }
-
-    if (
-      host === "youtube.com" ||
-      host === "m.youtube.com" ||
-      host === "youtube-nocookie.com"
-    ) {
-      if (url.pathname === "/watch") {
-        const id = url.searchParams.get("v");
-        return id ? `https://www.youtube.com/embed/${id}` : null;
-      }
-
-      if (
-        url.pathname.startsWith("/embed/") ||
-        url.pathname.startsWith("/shorts/") ||
-        url.pathname.startsWith("/live/")
-      ) {
-        const id = url.pathname.split("/")[2];
-        return id ? `https://www.youtube.com/embed/${id}` : null;
-      }
-    }
-
-    if (host === "vimeo.com" || host === "player.vimeo.com") {
-      const parts = url.pathname.split("/").filter(Boolean);
-      const id = parts[parts.length - 1];
-      if (id && /^[0-9]+$/.test(id)) {
-        return `https://player.vimeo.com/video/${id}`;
-      }
-    }
-  } catch {
-    return null;
-  }
-
-  return null;
-}
 
 function ArtifactsSection({
   editArtifactId,
@@ -1633,10 +2080,11 @@ function ArtifactsSection({
               (t) => t.value === artifact.type,
             );
             const mediaUrl = artifact.resolvedMediaUrl || artifact.mediaUrl;
-            const videoEmbedUrl =
-              artifact.type === "video" && mediaUrl
-                ? getVideoEmbedUrl(mediaUrl)
-                : null;
+            // A pasted reel, TikTok, YouTube or Vimeo link (convex/videoEmbed.ts),
+            // resolved from the stored link — an uploaded file's storage URL
+            // is never an embed. The tile shows a still, never a player: this
+            // grid used to render one live Instagram player per reel.
+            const embed = toEmbedUrl(artifact.mediaUrl);
 
             return (
               <div
@@ -1651,22 +2099,27 @@ function ArtifactsSection({
                     className="w-full h-full object-cover"
                   />
                 ) : artifact.type === "video" && mediaUrl ? (
-                  videoEmbedUrl ? (
-                    <iframe
-                      src={videoEmbedUrl}
-                      title={artifact.title || "Video"}
-                      className="w-full h-full"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
-                      loading="lazy"
+                  embed ? (
+                    <EmbedStill
+                      embed={embed}
+                      previewUrl={artifact.ogImageUrl}
+                      title={artifact.title}
+                      badgeSize="sm"
                     />
                   ) : (
-                    <div className="w-full h-full bg-gray-900 flex items-center justify-center">
+                    // An uploaded video file — a static poster. The `#t=0.1`
+                    // fragment makes Safari and Chrome paint a frame instead
+                    // of black; the badge is the neutral one (Vimeo's colour)
+                    // because this is the creative's own file, not a platform's.
+                    <div className="relative w-full h-full bg-gray-900">
                       <video
-                        src={mediaUrl}
+                        src={`${mediaUrl}#t=0.1`}
                         className="w-full h-full object-cover"
+                        preload="metadata"
                         muted
+                        playsInline
                       />
+                      <PlayBadge kind="vimeo" size="sm" />
                     </div>
                   )
                 ) : (

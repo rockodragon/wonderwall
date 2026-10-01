@@ -1,5 +1,5 @@
 /**
- * The single source of truth for who, legally, is behind creatives.exchange.
+ * The single source of truth for who, legally, is behind thecreative.exchange.
  *
  * The Terms of Service and Privacy Policy both read from here rather than
  * hardcoding the company name, so a rename or an entity change is one edit
@@ -36,7 +36,7 @@ export const LEGAL_ENTITY = {
   company: "DeepLight",
 
   /** The product. Lowercase everywhere in the UI — see routes/faq.tsx. */
-  product: "creatives.exchange",
+  product: "TheCreative.exchange",
   /** What members call it conversationally, used after first mention. */
   shortName: "The Exchange",
 
@@ -45,8 +45,8 @@ export const LEGAL_ENTITY = {
   courts: "the state or federal courts located in the State of California",
 
   /** Matches the contact address the FAQ already publishes (routes/faq.tsx). */
-  contactEmail: "hello@creatives.exchange",
-  privacyEmail: "hello@creatives.exchange",
+  contactEmail: "hello@thecreative.exchange",
+  privacyEmail: "hello@thecreative.exchange",
 
   /** Bump both when either document changes materially. */
   termsUpdated: "September 2026",

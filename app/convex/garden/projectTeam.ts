@@ -17,6 +17,10 @@ import { internal } from "../_generated/api";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { isAdminProfile } from "../helpers";
 import { isValidEmail, normalizeEmail } from "./eventRsvps";
+import { can } from "./capabilities";
+import { assertCanPure, getGardenUser } from "./entitlements";
+import { scheduleNotificationEmail } from "../emailHelpers";
+import { toEmbedUrl } from "../videoEmbed";
 
 // ——————————————————————————————————————————————————————————————
 // Stage — TWIN of app/app/lib/stage.ts (STAGES, isStage, stageLabel,
@@ -72,6 +76,18 @@ export function resolveStage(project: { stage?: string; status?: string; kind: s
   if (project.status === "in_progress") return "working";
   if (project.status === "completed") return "completed";
   return project.kind === "paid" ? "forming" : "planning";
+}
+
+/** Whether a project is still taking new people: a role reads as "open", a
+ * visitor can ask to join or apply. A finished project isn't — archived,
+ * completed (by status or stage), or cancelled — so its unfilled roles stop
+ * surfacing and a request is refused, rather than someone applying to work
+ * that has already wrapped. "paused" still takes people: on hold is not
+ * over. Filled roles are unaffected; they're credits, not openings. */
+export function isAcceptingPeople(project: { stage?: string; status?: string; kind: string }): boolean {
+  if (project.status === "archived" || project.status === "completed") return false;
+  const stage = resolveStage(project);
+  return stage !== "completed" && stage !== "cancelled";
 }
 
 // ——————————————————————————————————————————————————————————————
@@ -198,12 +214,111 @@ export function buildClaimEmail(input: ClaimEmailInput, token: string): {
   return {
     subject: `${input.leadName} credited you on ${input.projectTitle}`,
     previewText: `You're listed as ${input.role} on ${input.projectTitle}.`,
-    heading: `${lead} credited you on ${title}`,
+    // Plain text — sendNotificationEmail's template HTML-escapes heading itself.
+    heading: `${input.leadName} credited you on ${input.projectTitle}`,
     body:
-      `${lead} listed you as <strong>${role}</strong> on <strong>${title}</strong> at creatives.exchange.` +
+      `${lead} listed you as <strong>${role}</strong> on <strong>${title}</strong> at TheCreative.exchange.` +
       `${note}<br><br>Claim the credit to put it on your own profile — the link works for 30 days.`,
     ctaText: "Claim your credit",
     ctaUrl: `/claim/${token}`,
+  };
+}
+
+export interface InviteEmailInput {
+  leadName: string;
+  projectTitle: string;
+  role: string;
+  message?: string;
+  linkUrl: string;
+}
+
+/** On-platform invite (project_invite). Same escaping/plain-text-heading
+ * shape as buildClaimEmail above. */
+export function buildInviteEmail(input: InviteEmailInput): {
+  subject: string;
+  previewText: string;
+  heading: string;
+  body: string;
+  ctaText: string;
+  ctaUrl: string;
+} {
+  const lead = escapeHtml(input.leadName);
+  const title = escapeHtml(input.projectTitle);
+  const role = escapeHtml(input.role);
+  const note = input.message?.trim() ? `<br><br>"${escapeHtml(input.message.trim())}"` : "";
+  return {
+    subject: `${input.leadName} invited you to ${input.projectTitle} as ${input.role}`,
+    previewText: `${input.leadName} invited you to join ${input.projectTitle}.`,
+    heading: `${input.leadName} invited you to ${input.projectTitle}`,
+    body: `${lead} invited you to <strong>${title}</strong> as <strong>${role}</strong>.${note}`,
+    ctaText: "Answer the invite",
+    ctaUrl: input.linkUrl,
+  };
+}
+
+export interface JoinRequestEmailInput {
+  requesterName: string;
+  projectTitle: string;
+  role: string;
+  message?: string;
+  linkUrl: string;
+}
+
+/** A visitor's "Ask to join" / "Apply" (project_join_request), to the lead. */
+export function buildJoinRequestEmail(input: JoinRequestEmailInput): {
+  subject: string;
+  previewText: string;
+  heading: string;
+  body: string;
+  ctaText: string;
+  ctaUrl: string;
+} {
+  const name = escapeHtml(input.requesterName);
+  const title = escapeHtml(input.projectTitle);
+  const role = escapeHtml(input.role);
+  const note = input.message?.trim() ? `<br><br>"${escapeHtml(input.message.trim())}"` : "";
+  return {
+    subject: `${input.requesterName} asked to join ${input.projectTitle}`,
+    previewText: `${input.requesterName} wants to join ${input.projectTitle} as ${input.role}.`,
+    heading: `${input.requesterName} wants to join ${input.projectTitle}`,
+    body: `${name} asked to join <strong>${title}</strong> as <strong>${role}</strong>.${note}`,
+    ctaText: "Review the request",
+    ctaUrl: input.linkUrl,
+  };
+}
+
+export interface RequestDecidedEmailInput {
+  projectTitle: string;
+  role: string;
+  accepted: boolean;
+  note?: string;
+  linkUrl: string;
+}
+
+/** The lead's decision on a join request (project_request_decided), to the
+ * requester — accepted or declined. */
+export function buildRequestDecidedEmail(input: RequestDecidedEmailInput): {
+  subject: string;
+  previewText: string;
+  heading: string;
+  body: string;
+  ctaText: string;
+  ctaUrl: string;
+} {
+  const title = escapeHtml(input.projectTitle);
+  const role = escapeHtml(input.role);
+  const noteBlock = input.note?.trim() ? `<br><br>"${escapeHtml(input.note.trim())}"` : "";
+  return {
+    subject: input.accepted ? `You're on ${input.projectTitle}` : `${input.projectTitle} didn't have room`,
+    previewText: input.accepted
+      ? `You're on ${input.projectTitle} as ${input.role}.`
+      : `${input.projectTitle} didn't have room for you right now.`,
+    heading: input.accepted ? `You're on ${input.projectTitle}` : `${input.projectTitle} didn't have room`,
+    body: input.accepted
+      ? `You're on <strong>${title}</strong> as <strong>${role}</strong>.${noteBlock}`
+      : `<strong>${title}</strong> didn't have room for you right now.${noteBlock}`,
+    ctaText: "See the project",
+    ctaUrl: input.linkUrl,
   };
 }
 
@@ -632,6 +747,19 @@ export const requestToJoin = mutation({
     if (project.status === "archived") {
       throw new ConvexError({ code: "project_archived", reason: "This project is archived." });
     }
+    if (!isAcceptingPeople(project)) {
+      throw new ConvexError({
+        code: "project_closed",
+        reason: "This project is finished and isn't taking new people.",
+      });
+    }
+    // Applying to paid work takes membership (the plan, §2; decided
+    // 2026-09-17 alongside the gig gate — docs/features/live-booking.md
+    // §8). Asking to join a passion project stays free. First real caller
+    // of project.applyPaid, which capabilities.ts had defined all along.
+    if (project.kind === "paid") {
+      assertCanPure(await getGardenUser(ctx, userId, project.hostOrgId), "project.applyPaid");
+    }
     const postedRoleTitle = await resolveRoleForRequest(ctx, args.projectId, args.roleId);
     const role = postedRoleTitle ?? validateRole(args.role);
     const message = validateMessage(args.message);
@@ -693,6 +821,17 @@ export const requestToJoin = mutation({
       message: withNote(role, message),
       linkUrl: projectLink(project._id),
       relatedUserId: userId,
+    });
+    await scheduleNotificationEmail(ctx, {
+      userId: project.userId,
+      category: "activity",
+      ...buildJoinRequestEmail({
+        requesterName: name,
+        projectTitle: project.title,
+        role,
+        message,
+        linkUrl: projectLink(project._id),
+      }),
     });
     return { ok: true as const, changed: true as const, memberId, status: "pending" as const };
   },
@@ -815,6 +954,17 @@ export const inviteMember = mutation({
         linkUrl: projectLink(project._id),
         relatedUserId: actorId,
       });
+      await scheduleNotificationEmail(ctx, {
+        userId: targetId,
+        category: "activity",
+        ...buildInviteEmail({
+          leadName,
+          projectTitle: project.title,
+          role,
+          message,
+          linkUrl: projectLink(project._id),
+        }),
+      });
       return { ok: true as const, changed: true as const, memberId, status: "invited" as const, emailed: false };
     }
 
@@ -873,6 +1023,7 @@ export const inviteMember = mutation({
       await ctx.scheduler.runAfter(0, internal.emails.sendNotificationEmail, {
         to: email,
         ...buildClaimEmail({ leadName, projectTitle: project.title, role, message }, claimToken),
+        category: "transactional",
       });
     }
     return { ok: true as const, changed: true as const, memberId, status: "invited" as const, emailed: email !== undefined };
@@ -941,6 +1092,17 @@ export const decideRequest = mutation({
         message: withNote(row.role, note),
         linkUrl: projectLink(project._id),
         relatedUserId: actorId,
+      });
+      await scheduleNotificationEmail(ctx, {
+        userId: row.userId,
+        category: "activity",
+        ...buildRequestDecidedEmail({
+          projectTitle: project.title,
+          role: row.role,
+          accepted: args.accept,
+          note,
+          linkUrl: projectLink(project._id),
+        }),
       });
     }
     return { ok: true as const, changed: true as const, status };
@@ -1286,7 +1448,19 @@ export const getTeam = query({
         ? { memberId: myRow._id, status: myRow.status, role: myRow.role }
         : undefined;
 
-    if (!isLead) return { lead, accepted, credits, mine };
+    // May this viewer apply? The same can() requestToJoin enforces, so the
+    // page swaps Apply for "Join to apply" instead of letting someone hit
+    // the server's refusal. Passion projects are always open to ask.
+    const applyResult = project.kind === "paid" && !isLead ? can(await getGardenUser(ctx, userId, project.hostOrgId), "project.applyPaid") : { allowed: true as const };
+    const apply = applyResult.allowed
+      ? { allowed: true as const, reason: null, upgradePath: null }
+      : { allowed: false as const, reason: applyResult.reason ?? "Applying to paid work takes membership.", upgradePath: applyResult.upgradePath ?? null };
+
+    // The page hides its join/apply controls on a finished project rather
+    // than offering a button requestToJoin will refuse.
+    const acceptingPeople = isAcceptingPeople(project);
+
+    if (!isLead) return { lead, accepted, credits, mine, apply, acceptingPeople };
 
     const pending: PersonEntry[] = [];
     for (const row of rows) {
@@ -1298,7 +1472,7 @@ export const getTeam = query({
       if (row.status !== "invited") continue;
       invited.push(toInvitedEntry(row, await resolvePerson(ctx, row.userId)));
     }
-    return { lead, accepted, credits, mine, pending, invited };
+    return { lead, accepted, credits, mine, apply, acceptingPeople, pending, invited };
   },
 });
 
@@ -1307,16 +1481,22 @@ export const getTeam = query({
  * list so a visitor can pick a specific opening (or the free-text Apply/
  * Ask-to-join button) instead of proposing a role blind. Closed postings
  * are omitted — they're the lead's own history, not something to keep
- * surfacing once retired. Doesn't itself require the lead — the whole
+ * surfacing once retired. So are OPEN postings on a project that's no
+ * longer taking people (isAcceptingPeople) — an unfilled role on finished
+ * work isn't an opening; filled ones stay, as credits. Doesn't itself require the lead — the whole
  * project page already does (projects.$id.tsx lives inside the _app shell,
  * which isn't on the signed-out-public-path list). */
 export const listRoles = query({
   args: { projectId: v.id("projects") },
   handler: async (ctx, args) => {
-    const rows = await ctx.db
-      .query("projectRoles")
-      .withIndex("by_projectId", (q) => q.eq("projectId", args.projectId))
-      .collect();
+    const [project, rows] = await Promise.all([
+      ctx.db.get(args.projectId),
+      ctx.db
+        .query("projectRoles")
+        .withIndex("by_projectId", (q) => q.eq("projectId", args.projectId))
+        .collect(),
+    ]);
+    const accepting = project ? isAcceptingPeople(project) : false;
     rows.sort((a, b) => a.createdAt - b.createdAt);
 
     const out: {
@@ -1337,6 +1517,7 @@ export const listRoles = query({
     }[] = [];
     for (const row of rows) {
       if (row.status === "closed") continue;
+      if (row.status === "open" && !accepting) continue;
       let filledBy: (typeof out)[number]["filledBy"] = null;
       // filledByMemberId always has a userId by the time it's "accepted" —
       // every path that sets status "accepted" (respondToInvite,
@@ -1370,7 +1551,35 @@ export const listRoles = query({
 });
 
 /** Public: projects a person leads or is accepted on, for the profile's
- * Projects section. Archived projects excluded; newest project first. */
+ * "Working on" and "Portfolio" sections (docs/features/project-ia.md) —
+ * one list, split by `completed`. Archived projects excluded; newest first.
+ * A shared piece of work IS a project (V1 PRD §7), so portfolio-origin rows
+ * are included like any other; their attached media supplies the cover.
+ * Each row carries what a visitor needs to see at a glance: done or not,
+ * hiring (open roles, or a paid posting), raising, gig dates. */
+// The one picture that stands for a project on a profile: its own photo,
+// else its pasted link's still, else the first attached piece's — an
+// uploaded image, a fetched/uploaded cover, or a video provider's thumbnail.
+async function projectCover(ctx: QueryCtx, project: Doc<"projects">): Promise<string | null> {
+  if (project.photoStorageId) return await ctx.storage.getUrl(project.photoStorageId);
+  if (project.photoUrl) return project.photoUrl;
+  if (project.mediaPreviewUrl) return project.mediaPreviewUrl;
+  const pieces = await ctx.db
+    .query("artifacts")
+    .withIndex("by_projectId", (q) => q.eq("projectId", project._id))
+    .collect();
+  for (const piece of pieces) {
+    if (piece.ogImageUrl) return piece.ogImageUrl;
+    if (piece.type === "image") {
+      if (piece.mediaStorageId) return await ctx.storage.getUrl(piece.mediaStorageId);
+      if (piece.mediaUrl) return piece.mediaUrl;
+    }
+    const embed = toEmbedUrl(piece.mediaUrl);
+    if (embed?.thumbnailUrl) return embed.thumbnailUrl;
+  }
+  return null;
+}
+
 export const listAffiliations = query({
   args: { profileId: v.id("profiles") },
   handler: async (ctx, args) => {
@@ -1388,47 +1597,71 @@ export const listAffiliations = query({
         .collect(),
     ]);
 
-    type Row = { projectId: Id<"projects">; title: string; role: string; stage: Stage; kind: string; createdAt: number; photoStorageId?: Id<"_storage">; photoUrl?: string };
-    const out: Row[] = [];
+    const rows: { project: Doc<"projects">; role: string }[] = [];
     const seen = new Set<string>();
+    const keep = (project: Doc<"projects"> | null): project is Doc<"projects"> =>
+      !!project && project.status !== "archived";
     for (const project of owned) {
-      if (project.status === "archived") continue;
+      if (!keep(project)) continue;
       seen.add(String(project._id));
-      out.push({
-        projectId: project._id,
-        title: project.title,
-        role: "Lead",
-        stage: resolveStage(project),
-        kind: project.kind,
-        createdAt: project.createdAt,
-        photoStorageId: project.photoStorageId,
-        photoUrl: project.photoUrl,
-      });
+      rows.push({ project, role: "Lead" });
     }
     for (const row of acceptedRows) {
       if (seen.has(String(row.projectId))) continue;
       const project = await ctx.db.get(row.projectId);
-      if (!project || project.status === "archived") continue;
+      if (!keep(project)) continue;
       seen.add(String(project._id));
-      out.push({
-        projectId: project._id,
-        title: project.title,
-        role: row.role,
-        stage: resolveStage(project),
-        kind: project.kind,
-        createdAt: project.createdAt,
-        photoStorageId: project.photoStorageId,
-        photoUrl: project.photoUrl,
-      });
+      rows.push({ project, role: row.role });
     }
-    out.sort((a, b) => b.createdAt - a.createdAt);
-    const resolved = await Promise.all(
-      out.map(async ({ projectId, title, role, stage, kind, photoStorageId, photoUrl }) => {
-        const imageUrl = photoStorageId ? await ctx.storage.getUrl(photoStorageId) : photoUrl ?? null;
-        return { projectId, title, role, stage, kind, imageUrl };
+    rows.sort((a, b) => b.project.createdAt - a.project.createdAt);
+
+    return await Promise.all(
+      rows.map(async ({ project, role }) => {
+        const [imageUrl, openRoles, gig, tiers] = await Promise.all([
+          projectCover(ctx, project),
+          ctx.db
+            .query("projectRoles")
+            .withIndex("by_projectId_status", (q) => q.eq("projectId", project._id).eq("status", "open"))
+            .collect(),
+          ctx.db
+            .query("gigSeries")
+            .withIndex("by_projectId", (q) => q.eq("projectId", project._id))
+            .first(),
+          ctx.db
+            .query("patronTiers")
+            .withIndex("by_projectId", (q) => q.eq("projectId", project._id))
+            .collect(),
+        ]);
+        const stage = resolveStage(project);
+        return {
+          projectId: project._id,
+          title: project.title,
+          blurb: project.blurb ?? null,
+          role,
+          stage,
+          kind: project.kind,
+          imageUrl,
+          completed: stage === "completed" || project.status === "completed",
+          openRoles: openRoles.map((r) => ({
+            roleId: r._id,
+            title: r.title,
+            budgetType: r.budgetType ?? null,
+            budget: r.budget ?? null,
+            budgetMax: r.budgetMax ?? null,
+          })),
+          // A paid posting is itself a hire; its pay is the project's own.
+          budgetType: project.kind === "paid" ? (project.budgetType ?? null) : null,
+          budget: project.kind === "paid" ? (project.budget ?? null) : null,
+          budgetMax: project.kind === "paid" ? (project.budgetMax ?? null) : null,
+          gig: gig ? { status: gig.status, venueName: gig.venueName ?? null } : null,
+          raising:
+            !gig &&
+            ((project.goal ?? 0) > 0 || project.stage === "raising" || tiers.some((t) => t.isActive)),
+          goal: project.goal ?? null,
+          raisedCents: project.raisedCents ?? 0,
+        };
       }),
     );
-    return resolved;
   },
 });
 

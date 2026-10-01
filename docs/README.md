@@ -15,9 +15,16 @@ The project is **theCreative.exchange** (repo: wonderwall). Four documents are t
 ## Feature specs
 
 - [Phase 1B spec](phase-1b/spec.md) — the October build plan (money foundation, entitlements, coverage codes)
-- [V1 PRD](the-exchange-v1-prd.md)
-- [Entitlements and paywall foundation](features/entitlements-paywall-foundation.md)
+- [Live booking](features/live-booking.md) — a venue posts recurring paid gigs, artists answer with clips, the venue picks and pays directly; includes the payment-linking research
+- [Projects IA](features/project-ia.md) — **current** posting, browsing, support and profile model: one Project; Start a project / Hire someone; Projects vs Work views; Cheer / Back; Portfolio = completed projects. Also lists where plan and code still disagree.
+- [V1 PRD](the-exchange-v1-prd.md) — partly superseded: §7 "Projects, not Portfolios" is live (finished in Projects IA); the nav section is out of date
+- [Entitlements — live status](features/entitlements-live-status.md) — what the code enforces vs. the plan, the payout-rail gap, open decisions · [Seat, Pool, Payout](features/seat-pool-payout.html) — the money model on one page (open in a browser)
+- [Backing payouts](features/backing-payouts.md) — how backer money reaches creatives: Stripe Connect vs Venmo/Zelle vs direct pay, costs, legal risk, taxes, the $50 minimum, and what's decided vs open
+- [Handoff: backings for Nov 6](handoff/nov6-backings.md) — the plan to let people in the room back creatives on Nov 6: what's decided, built, missing, and the beads
 - [Community groups](features/community-groups.md) · [Community grant pools](features/community-grant-pools.md) · [Paid community + media](features/paid-community-youtube-media.md)
+- [Class payments and moderation](features/class-payments-and-moderation.md) — who can offer a class or coaching, how class money is collected and owed, how a community pauses a class
+- [Rich project content](features/rich-project-content.md) — the block model behind project pages and project updates (headings, images, video embeds)
+- [Creator media cross-post](features/creator-media-cross-post.md) — how a reel made for Instagram or TikTok gets onto the Exchange with one paste (embed resolver, share sheet, account import), and the growth plays that ride on it
 - Older PRDs: [jobs](jobs-feature-prd.md) · [messaging](messaging-feature-prd.md) · [event location](prd-event-location.md) · [announcements](announcements-prd.md) · [events video hosting](events-video-hosting-prd.md) · [gated event video](gated-event-video-prd.md)
 
 ## Funding
@@ -25,14 +32,19 @@ The project is **theCreative.exchange** (repo: wonderwall). Four documents are t
 - [Prebys Creative Industry Survey — our response](funding/prebys-creative-industry-survey-response.md) — draft answers, positioning, follow-up email; survey closes Sept 30, 2026
 - [Impact capital positioning](funding/impact-capital-positioning.md) — how a for-profit infrastructure company with nonprofit partners pursues impact investment; sources ranked by fit; what has to be true before pitching
 - [The financial model, a fresh look](funding/model-fresh-look.md) — too conservative or too narrow; the two tracks; three scenarios with results; what makes it fundable; metrics to validate
-- [CFO memo: entity, how Prebys can fund a for-profit, the ask and the spend](funding/cfo-memo-ask-and-spend.md) — form a Delaware C-corp now (there is no entity yet), founder pay from the first close on a conditional ramp, a team of eight by year five, PRI loan and program-grant routes, an 18-month budget by function, and a $350k round raised as a $150k first close plus rolling closes
+- [CFO memo: entity, how Prebys can fund a for-profit, the ask and the spend](funding/cfo-memo-ask-and-spend.md) — form a Delaware C-corp now (there is no entity yet), founder pay from the first close on a conditional ramp, two full-time founders and two hires (four FTE) by year three, PRI loan and program-grant routes, an 18-month budget by function, and a $350k round raised as a $150k first close plus rolling closes
 - `financial-model-bootstrapped.xlsx` — the bootstrapped pathway: $10k to start, no salaries until recurring revenue clears $1,000 a month, then 30% of revenue to the founders (70% once cash exceeds six months of costs); four marketing levels (Lean, Moderate, Push, AllIn, which puts the $10k at risk in the first quarter) on their own monthly sheets, 36 months; yellow cells on Inputs are the variables
 - [Funding strategy](funding/funding-strategy.md) — the sober version: the four sources that fund us now, the gated list with each source's requirement and when we clear it, the not-a-match list, and Prebys plainly
 - [Christian arts funding](funding/christian-arts-funding.md) — who funds Christian arts and what each can fund for us: Creative Arts Collective (LOI Nov 2), Calvin Vital Worship (Oct 15), the Impact Foundation door for DAF money into the company, NCF, the Ahmansons; and the invitation-only, regional and arts-excluding foundations that are not a match
 - [Where the money is](funding/where-the-money-is.md) — sources for a $350k pre-seed, ranked and sized: the room, a Wefunder community round, NuFund, the SDSU angel conference, Kiva, Prebys program money through Abiding Practice, Accessity; who says no and why
+- [Bay Area networking plan](funding/bay-area-networking-plan.md) — Connect Silicon Valley, KingdomHaus and the Oct 5 SF Tech Week kickoff: go once, who to meet, the ask, the email
 - [Market sizing](funding/market-sizing.md) — how many creatives are out there (San Diego, California, US, churches, Christian networks), willingness-to-pay benchmarks, the TAM/SAM/SOM ladder with sources
-- Pitch deck v2 (Slides artifact, 13 slides, diagrams): https://claude.ai/artifact/LNyg8n2CZTRUEuJbjz8CWn — sources in [decks/pitch-v2-2026-09-30/](decks/pitch-v2-2026-09-30/)
+- Pitch deck v2 (Slides artifact, 16 slides, diagrams; PDF in the folder): https://claude.ai/artifact/LNyg8n2CZTRUEuJbjz8CWn — sources in [decks/pitch-v2-2026-09-30/](decks/pitch-v2-2026-09-30/)
 - Pitch deck v1 (16 slides, preserved): https://claude.ai/artifact/VVTMpZMN4cz6vyYkx5ksyo — sources in [decks/pitch-v1-2026-09-29/](decks/pitch-v1-2026-09-29/)
+## Marketing
+
+- [What we say about money](marketing/claims.md) — every money sentence, word for word, and what we never say. The site reads the same sentences from `app/app/constants/claims.ts`.
+- [Outreach playbook](marketing/constituent-playbook.md) — six audiences; points at the claims by name
 
 ## Runbooks and research
 

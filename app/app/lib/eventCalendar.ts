@@ -16,7 +16,7 @@
 /** Hardcoded rather than window.location.origin on purpose: this URL is
  * copied into somebody's calendar and outlives the session that made it, so
  * it must be the canonical host and never a preview deployment's. */
-export const SITE_ORIGIN = "https://creatives.exchange";
+export const SITE_ORIGIN = "https://thecreative.exchange";
 
 /** Events carry a start `datetime` and no end — the schema has no duration
  * field. One hour is the assumption; the invite is a reminder with a join

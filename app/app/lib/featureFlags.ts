@@ -26,3 +26,11 @@ export function useFeatureGate(enabled: boolean, redirectTo: string) {
   return enabled;
 }
 
+
+// FF_V2 — the convention for anything held back from the current release:
+// build it, gate it here, ship the code dark. One flag rather than one per
+// item, because what's held back is a release, not a feature. Today it
+// covers the rail's extras: the invite card, the other-communities chips
+// and "Host your own" (2026-09-26, Rick — the lower-left was three ways of
+// saying the same thing). Set to true to bring the V2 rail back.
+export const FF_V2 = false;

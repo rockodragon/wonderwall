@@ -30,12 +30,14 @@
 // Nothing below changes what an authenticated user sees; every new branch
 // is strictly !isAuthenticated.
 
+import { useAuthActions } from "@convex-dev/auth/react";
 import { useAction, useConvexAuth, useMutation, useQuery } from "convex/react";
 import { ConvexError } from "convex/values";
-import { type FormEvent, useRef, useState } from "react";
-import { Link, useParams } from "react-router";
+import { type FormEvent, useEffect, useRef, useState } from "react";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
+import { normalizePhone } from "../../convex/phone";
 import { YOUTUBE_LIVE_LABEL, YOUTUBE_LIVE_URL } from "../constants/broadcast";
 import { FavoriteButton } from "../components/FavoriteButton";
 import {
@@ -54,8 +56,15 @@ import {
 } from "../components/TicketTierEditor";
 import { AnnouncementComposer } from "../components/AnnouncementComposer";
 import { AddToCalendar } from "../components/AddToCalendar";
+import { describeMediaLink, MediaLinkField } from "../components/MediaLinkField";
+import { EmbedPlayer } from "../components/EmbedPlayer";
 import { joinProxyUrl } from "../lib/eventCalendar";
 import { toEmbedUrl } from "../lib/videoEmbed";
+import { buildTicketLink, isCheckoutSessionId } from "../../convex/garden/ticketLink";
+import { claimPendingTickets, stashTicketSession } from "../lib/pendingTicket";
+import { setPendingIntent } from "../lib/pendingIntent";
+import { guestsToCsv, summarizeGuests, formatDollars } from "../../convex/eventGuests";
+import { CommunityPicker, useDefaultEventCommunity } from "../components/CommunityPicker";
 
 const COVER_COLORS = [
   { name: "Blue", value: "blue", gradient: "from-blue-500 to-blue-600" },
@@ -225,6 +234,8 @@ function EventsBackLink({ isGuest }: { isGuest: boolean }) {
   );
 }
 
+type EventTab = "details" | "going" | "guests" | "setup" | "hosts";
+
 export default function EventDetail() {
   const { eventId } = useParams();
   // isLoading is true only while Convex resolves the stored token. Treating
@@ -236,11 +247,12 @@ export default function EventDetail() {
     api.events.get,
     eventId ? { eventId: eventId as Id<"events"> } : "skip",
   );
+  const [searchParams, setSearchParams] = useSearchParams();
   const applyToEvent = useMutation(api.events.apply);
   const cancelEvent = useMutation(api.events.cancel);
   const applications = useQuery(
     api.events.getApplications,
-    eventId && event?.isOrganizer
+    eventId && event?.isHost
       ? { eventId: eventId as Id<"events"> }
       : "skip",
   );
@@ -257,6 +269,7 @@ export default function EventDetail() {
   const [joining, setJoining] = useState(false);
   const [showEditForm, setShowEditForm] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [showOptions, setShowOptions] = useState(false);
   // Held here rather than inside the card so the desktop and mobile render
   // sites stay in sync — the same reason `message`/`showApplyForm` above are
   // parent state and not local to each button.
@@ -344,12 +357,38 @@ export default function EventDetail() {
   }
 
   const isPast = event.datetime < Date.now();
+  // AP's own Stripe Payment Link (garden/apGifts.ts). When set, the ticket
+  // card takes the join button's place, above the video section.
+  const ticketUrl =
+    event.externalTicketUrl && !isPast ? event.externalTicketUrl : null;
   const cancelled = event.status === "cancelled";
   // events.apply throws "Not authenticated", so the Apply/Join buttons are
   // for signed-in visitors only. A guest gets showGuestRsvp instead — never
   // a button that would reject on click.
   const canApply =
     !isPast && !event.userApplication && !event.isOrganizer && isAuthenticated;
+  const isHost = !!(event.isHost ?? event.isOrganizer);
+  const tabs: { id: EventTab; label: string }[] = isHost
+    ? [
+        { id: "details", label: "Details" },
+        { id: "going", label: "Who's going" },
+        { id: "guests", label: "Guests" },
+        { id: "setup", label: "Setup" },
+        { id: "hosts", label: "Hosts" },
+      ]
+    : [
+        { id: "details", label: "Details" },
+        { id: "going", label: "Who's going" },
+      ];
+  const rawTab = searchParams.get("tab");
+  const tab: EventTab = tabs.some((t) => t.id === rawTab) ? (rawTab as EventTab) : "details";
+  function selectTab(next: EventTab) {
+    // Keep other params (paid, session) — the ticket flows read them.
+    const params = new URLSearchParams(searchParams);
+    if (next === "details") params.delete("tab");
+    else params.set("tab", next);
+    setSearchParams(params, { replace: true });
+  }
   const showGuestRsvp = isGuest && !isPast && !cancelled;
 
   // Get gradient class for cover color
@@ -361,6 +400,16 @@ export default function EventDetail() {
   const bannerImageUrl =
     event.coverImageUrl ||
     (event.galleryImageUrls && event.galleryImageUrls[0]);
+
+  // A pasted Instagram, TikTok, YouTube or Vimeo link plays here, in the
+  // platform's own player (docs/features/creator-media-cross-post.md). An
+  // uploaded image stays the banner and the player sits directly under it;
+  // with no image the player is the first thing on the page and the title
+  // block drops below it, off the overlay — text can't sit on an iframe.
+  // This is the event's own media, public by design; the gated join and
+  // recording links are a different thing (EventVideoSection below).
+  const mediaEmbed = toEmbedUrl(event.mediaUrl);
+  const playerIsHero = !!mediaEmbed && !bannerImageUrl;
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -380,44 +429,118 @@ export default function EventDetail() {
         <EventsBackLink isGuest={isGuest} />
       </div>
 
-      {/* Cover Image */}
-      <div className="relative h-56 md:h-72 overflow-hidden">
-        {bannerImageUrl ? (
-          <img
-            src={bannerImageUrl}
-            alt={event.title}
-            className="w-full h-full object-cover"
-          />
-        ) : (
-          <div className={`w-full h-full bg-gradient-to-br ${coverGradient}`} />
-        )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-        <div className="absolute bottom-0 left-0 right-0 p-6">
+      {/* Ticketed events stay hidden from everyone but their organizer
+          until the organizer can sell tickets (product rule, 2026-09-27).
+          Only the organizer's own view ever sees hiddenUntilMembership. */}
+      {event.hiddenUntilMembership && (
+        <div className="px-6 pt-4">
+          <div
+            className="rounded-xl px-4 py-3"
+            style={{
+              backgroundColor: "var(--garden-ink-raised)",
+              border: "1px solid var(--garden-hairline-raised)",
+            }}
+          >
+            <p style={{ color: "var(--garden-paper)", fontSize: 15, margin: 0 }}>
+              Only you can see this. Selling tickets takes membership.{" "}
+              <Link
+                to="/join"
+                style={{ color: "var(--garden-citron)", fontWeight: 600 }}
+              >
+                Become a member and it goes live →
+              </Link>
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Cover Image — or the player, when a pasted link stands in for one */}
+      {playerIsHero && mediaEmbed && (
+        <div className="px-6 pt-6">
+          <EmbedPlayer embed={mediaEmbed} title={event.title} />
+        </div>
+      )}
+      {/* The cover stands alone — posters carry their own type, so the
+          title sits below it rather than on top. */}
+      {!playerIsHero && (
+        <div className="h-56 md:h-72 overflow-hidden">
+          {bannerImageUrl ? (
+            <img
+              src={bannerImageUrl}
+              alt={event.title}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div className={`w-full h-full bg-gradient-to-br ${coverGradient}`} />
+          )}
+        </div>
+      )}
+      <div>
+        <div className="px-6 pt-5">
           <div className="flex items-center gap-3 mb-2">
-            <h1 className="text-2xl md:text-3xl font-bold text-white">
+            <h1
+              className={`text-2xl md:text-3xl font-bold ${
+                "text-gray-900 dark:text-white"
+              }`}
+            >
               {event.title}
             </h1>
-            {event.isOrganizer && (
+            {isHost && (
               <>
                 <button
                   onClick={() => setShowEditForm(true)}
-                  className="px-3 py-1 bg-white/20 backdrop-blur-sm text-white rounded-lg text-sm font-medium hover:bg-white/30 transition-colors"
+                  className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                    "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"
+                  }`}
                 >
                   Edit
                 </button>
-                {event.status !== "cancelled" && (
-                  <button
-                    onClick={handleCancelEvent}
-                    disabled={cancelling}
-                    className="px-3 py-1 bg-red-500/80 backdrop-blur-sm text-white rounded-lg text-sm font-medium hover:bg-red-600/80 transition-colors disabled:opacity-50"
-                  >
-                    {cancelling ? "Cancelling..." : "Cancel Event"}
-                  </button>
+                {event.isOrganizer && event.status !== "cancelled" && (
+                  <div className="relative">
+                    <button
+                      onClick={() => setShowOptions((v) => !v)}
+                      aria-label="More options"
+                      aria-expanded={showOptions}
+                      className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${
+                        "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+                      }`}
+                    >
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                        <circle cx="12" cy="5" r="2" />
+                        <circle cx="12" cy="12" r="2" />
+                        <circle cx="12" cy="19" r="2" />
+                      </svg>
+                    </button>
+                    {showOptions && (
+                      <>
+                        <div
+                          className="fixed inset-0 z-10"
+                          onClick={() => setShowOptions(false)}
+                        />
+                        <div className="absolute left-0 top-full mt-1 z-20 min-w-40 rounded-lg py-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-lg">
+                          <button
+                            onClick={() => {
+                              setShowOptions(false);
+                              handleCancelEvent();
+                            }}
+                            disabled={cancelling}
+                            className="w-full text-left px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-50"
+                          >
+                            {cancelling ? "Cancelling..." : "Cancel event"}
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
                 )}
               </>
             )}
           </div>
-          <div className="flex flex-wrap items-center gap-4 text-white/80 text-sm">
+          <div
+            className={`flex flex-wrap items-center gap-4 text-sm ${
+              "text-gray-600 dark:text-gray-400"
+            }`}
+          >
             <span className="flex items-center gap-1">
               <svg
                 className="w-4 h-4"
@@ -462,7 +585,39 @@ export default function EventDetail() {
         </div>
       </div>
 
-      <div className="p-6">
+      {/* The player under an uploaded cover (the no-cover case is above) */}
+      {mediaEmbed && !playerIsHero && (
+        <div className="px-6 pt-6">
+          <EmbedPlayer embed={mediaEmbed} title={event.title} />
+        </div>
+      )}
+
+      <div className="p-6 overflow-x-hidden">
+        {/* Tab bar. Scrolls sideways on a narrow screen; the page doesn't. */}
+        <div
+          role="tablist"
+          aria-label="Event sections"
+          className="flex gap-1 overflow-x-auto border-b border-gray-200 dark:border-gray-700 mb-6 -mx-6 px-6"
+        >
+          {tabs.map((t) => (
+            <button
+              key={t.id}
+              role="tab"
+              aria-selected={tab === t.id}
+              onClick={() => selectTab(t.id)}
+              className={`shrink-0 whitespace-nowrap px-3 py-2.5 text-[15px] font-medium border-b-2 -mb-px transition-colors ${
+                tab === t.id
+                  ? "border-blue-500 text-gray-900 dark:text-white"
+                  : "border-transparent text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        {tab === "details" && (
+        <>
         {/* Tags and Actions Row */}
         <div className="flex items-center justify-between gap-4 mb-6">
           <div className="flex flex-wrap gap-2">
@@ -490,65 +645,54 @@ export default function EventDetail() {
         <div className="flex flex-col md:flex-row md:gap-8 mb-8">
           {/* Left: Organizer and Description */}
           <div className="flex-1">
-            {/* Organizer */}
+            {/* Hosts: organizer first, then co-hosts. /profile/:id is inside
+                the auth-gated layout, so a guest gets plain names. */}
             {event.organizer && (
-              <div className="mb-4 text-sm text-gray-500 dark:text-gray-400">
-                <span>Organized by </span>
-                {/* /profile/:id is inside the auth-gated layout, so for a
-                    guest the name renders as plain text (the branch below)
-                    rather than as a link that bounces them to /login. */}
-                {event.organizer.profileId && !isGuest ? (
-                  <Link
-                    to={`/profile/${event.organizer.profileId}`}
-                    className="inline-flex items-center gap-2 font-medium text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400"
-                  >
-                    <span className="w-7 h-7 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center overflow-hidden">
-                      {event.organizer.imageUrl ? (
-                        <img
-                          src={event.organizer.imageUrl}
-                          alt={event.organizer.name}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <span className="text-xs font-medium text-gray-500">
-                          {event.organizer.name.charAt(0)}
-                        </span>
-                      )}
-                    </span>
-                    {event.organizer.name}
-                  </Link>
-                ) : (
-                  <span className="inline-flex items-center gap-2 font-medium text-gray-900 dark:text-white">
-                    <span className="w-7 h-7 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center overflow-hidden">
-                      {event.organizer.imageUrl ? (
-                        <img
-                          src={event.organizer.imageUrl}
-                          alt={event.organizer.name}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <span className="text-xs font-medium text-gray-500">
-                          {event.organizer.name.charAt(0)}
-                        </span>
-                      )}
-                    </span>
-                    {event.organizer.name}
+              <p className="mb-4 text-[15px] text-gray-700 dark:text-gray-200">
+                Hosted by{" "}
+                {[
+                  { key: "organizer", name: event.organizer.name, profileId: event.organizer.profileId },
+                  ...(event.coHosts ?? []).map((c) => ({ key: String(c.userId), name: c.name, profileId: c.profileId })),
+                ].map((h, idx) => (
+                  <span key={h.key}>
+                    {idx > 0 && ", "}
+                    {h.profileId && !isGuest ? (
+                      <Link
+                        to={`/profile/${h.profileId}`}
+                        className="font-medium text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400"
+                      >
+                        {h.name}
+                      </Link>
+                    ) : (
+                      <span className="font-medium text-gray-900 dark:text-white">{h.name}</span>
+                    )}
                   </span>
-                )}
-              </div>
+                ))}
+              </p>
             )}
 
             {/* Description */}
             <div className="prose dark:prose-invert max-w-none">
-              <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+              <p className="text-gray-800 dark:text-gray-100 whitespace-pre-wrap">
                 {event.description}
               </p>
             </div>
           </div>
 
-          {/* Right: Join Button (desktop) */}
-          <div className="hidden md:block flex-shrink-0 w-56">
-            {isPast ? (
+          {/* Right: Join Button (desktop) — or the ticket card, when the
+              event sells through a Payment Link */}
+          <div
+            className={`hidden md:block flex-shrink-0 ${ticketUrl ? "w-72" : "w-56"}`}
+          >
+            {ticketUrl ? (
+              <ExternalTicketCard
+                eventId={event._id}
+                url={ticketUrl}
+                priceCents={event.externalTicketPriceCents}
+              />
+            ) : rsvp.active && !cancelled ? (
+              <GuestRsvpCard rsvp={rsvp} />
+            ) : isPast ? (
               <div className="p-3 bg-gray-100 dark:bg-gray-800 rounded-xl text-center">
                 <p className="text-sm text-gray-500 dark:text-gray-400">
                   Event ended
@@ -667,11 +811,23 @@ export default function EventDetail() {
             The URLs live in the separate eventVideo table and arrive only
             through api.eventVideo.get, which resolves a role first — they
             are never on the event document this page already has. */}
+        {ticketUrl && <TicketSessionClaimer />}
+        {ticketUrl && (
+          <div className="md:hidden mb-8">
+            <ExternalTicketCard
+              eventId={event._id}
+              url={ticketUrl}
+              priceCents={event.externalTicketPriceCents}
+            />
+          </div>
+        )}
+
         <EventVideoSection
           eventId={event._id}
           title={event.title}
           datetime={event.datetime}
           cancelled={cancelled}
+          mode="details"
         />
 
         {/* Add to calendar — the invite carries /j/{eventId}, not the room */}
@@ -690,8 +846,7 @@ export default function EventDetail() {
         )}
 
         {/* Gallery Images - show first for visual appeal */}
-        {!event.isOrganizer &&
-          event.galleryImageUrls &&
+        {event.galleryImageUrls &&
           event.galleryImageUrls.length > 0 && (
             <div className="mb-8">
               <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
@@ -714,9 +869,12 @@ export default function EventDetail() {
             </div>
           )}
 
-        {/* Mobile Join Button - between description/gallery and location */}
-        <div className="md:hidden mb-8">
-          {isPast ? (
+        {/* Mobile Join Button - between description/gallery and location.
+            A ticketed event shows its ticket card above the video instead. */}
+        <div className={ticketUrl ? "hidden" : "md:hidden mb-8"}>
+          {rsvp.active && !cancelled ? (
+            <GuestRsvpCard rsvp={rsvp} />
+          ) : isPast ? (
             <div className="p-4 bg-gray-100 dark:bg-gray-800 rounded-xl text-center">
               <p className="text-gray-500 dark:text-gray-400">
                 This event has ended
@@ -853,16 +1011,32 @@ export default function EventDetail() {
           </div>
         )}
 
+        </>
+        )}
+
         {/* Attendees - Partiful style grid */}
-        {attendees && attendees.length > 0 && (
+        {tab === "going" && (!attendees || attendees.length === 0) && (
+          <p className="text-[15px] text-gray-700 dark:text-gray-200">
+            {attendees ? "No one yet." : "Loading..."}
+          </p>
+        )}
+        {tab === "going" && isGuest && attendees && attendees.length > 0 && (
+          <p className="text-[15px] text-gray-700 dark:text-gray-200 mb-8">
+            {attendees.length} going.{" "}
+            <Link to="/login" className="text-blue-600 dark:text-blue-400 hover:underline">
+              Sign in to see who
+            </Link>
+          </p>
+        )}
+        {tab === "going" && !isGuest && attendees && attendees.length > 0 && (
           <div className="mb-8">
             <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
-              Going ({attendees.length})
+              Going ({attendees.reduce((n, a) => n + 1 + a.extraTickets, 0)})
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {attendees.map((attendee) => (
                 <div
-                  key={attendee.applicationId}
+                  key={attendee.key}
                   className="flex items-center gap-2.5 p-2.5 bg-gray-50 dark:bg-gray-800/50 rounded-xl"
                 >
                   {/* Same reason as the organizer above: no /profile links
@@ -906,6 +1080,11 @@ export default function EventDetail() {
                         {attendee.name}
                       </span>
                     )}
+                    {attendee.extraTickets > 0 && (
+                      <span className="block text-[12px] text-gray-600 dark:text-gray-300">
+                        +{attendee.extraTickets} {attendee.extraTickets === 1 ? "guest" : "guests"}
+                      </span>
+                    )}
                     {attendee.message && (
                       <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
                         {attendee.message}
@@ -918,20 +1097,39 @@ export default function EventDetail() {
           </div>
         )}
 
-        {/* Organizer image management */}
-        {event.isOrganizer && (
-          <EventImageManager eventId={event._id} event={event} />
+        {tab === "guests" && isHost && (
+          <GuestsPanel eventId={event._id} title={event.title} />
         )}
 
-        {/* Organizer: message attendees */}
-        {event.isOrganizer && (
-          <div className="mt-6">
-            <AnnouncementComposer
-              targetType="event"
-              targetId={event._id}
-              heading="Message attendees"
+        {tab === "setup" && isHost && (
+          <div>
+            <div className="mb-8">
+              <button
+                onClick={() => setShowEditForm(true)}
+                className="px-4 py-2 rounded-lg text-[13.5px] font-medium bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-700"
+              >
+                Edit event details
+              </button>
+            </div>
+            <EventVideoSection
+              eventId={event._id}
+              title={event.title}
+              datetime={event.datetime}
+              cancelled={cancelled}
+              mode="setup"
             />
+            <EventImageManager eventId={event._id} event={event} />
           </div>
+        )}
+
+        {tab === "hosts" && isHost && (
+          <HostsPanel
+            eventId={event._id}
+            organizer={event.organizer}
+            coHosts={event.coHosts ?? []}
+            isOrganizer={!!event.isOrganizer}
+            isGuest={isGuest}
+          />
         )}
       </div>
 
@@ -939,6 +1137,7 @@ export default function EventDetail() {
       {showEditForm && (
         <EditEventModal
           eventId={event._id}
+          canEditTickets={!!event.isOrganizer}
           initialValues={{
             title: event.title,
             description: event.description,
@@ -946,12 +1145,16 @@ export default function EventDetail() {
             endTime: event.endTime,
             location: event.location,
             ticketTiers: event.ticketTiers,
+            externalTicketUrl: event.externalTicketUrl,
+            externalTicketPriceCents: event.externalTicketPriceCents,
             locationType: event.locationType,
             address: event.address,
             coordinates: event.coordinates,
             placeId: event.placeId,
             tags: event.tags,
             requiresApproval: event.requiresApproval,
+            mediaUrl: event.mediaUrl,
+            hostOrgId: event.hostOrgId,
           }}
           onClose={() => setShowEditForm(false)}
         />
@@ -961,55 +1164,161 @@ export default function EventDetail() {
 }
 
 // ——————————————————————————————————————————————————————————————
-// Guest RSVP — the logged-out counterpart to Apply/Join above.
+// RSVP for a signed-out visitor — the counterpart to Apply/Join above.
 //
-// Wired to garden/eventRsvps.ts's rsvpToEvent, which is deliberately
-// unauthenticated (name + email, dedupes on normalized email). This is the
-// same mutation /garden/events/:id has always used; the flow is not new,
-// it just wasn't reachable from this page while this page required a login.
+// Nobody RSVPs without an account (owner's rule), so this is a one-step
+// sign-up: name + email (or phone), a 6-digit code, and the code signs them
+// in (creating the account if needed) and saves the RSVP. Codes come from
+// convex/auth.ts's "email-otp" and "phone" providers; the RSVP itself is
+// garden/eventRsvps.ts's rsvpToEvent, which needs the signed-in account.
+// Paid tickets don't come through here (ExternalTicketCard, Stripe).
 // ——————————————————————————————————————————————————————————————
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function rsvpErrorMessage(err: unknown): string {
   if (err instanceof ConvexError) {
-    const data = err.data as { reason?: string } | undefined;
-    if (data?.reason) return data.reason;
+    const data = err.data as { reason?: string } | string | undefined;
+    if (typeof data === "string" && data) return data;
+    if (data && typeof data === "object" && data.reason) return data.reason;
   }
   return "Something went wrong — try again.";
 }
 
+function isNotSignedInError(err: unknown): boolean {
+  return (
+    err instanceof ConvexError &&
+    typeof err.data === "object" &&
+    err.data !== null &&
+    (err.data as { code?: string }).code === "not_signed_in"
+  );
+}
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 function useGuestRsvp(eventId: Id<"events"> | undefined) {
+  const { signIn } = useAuthActions();
+  // The code sign-in resolves before the Convex client is sending the new
+  // token, so saving waits until the client reports it's authenticated.
+  const { isAuthenticated } = useConvexAuth();
+  const isAuthenticatedRef = useRef(isAuthenticated);
+  isAuthenticatedRef.current = isAuthenticated;
   const rsvpToEvent = useMutation(api.garden.eventRsvps.rsvpToEvent);
+  const fillMissingBasics = useMutation(api.profiles.fillMissingBasics);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  // "Use my phone instead": the code goes by text, and the email field
+  // stays because every account needs an email.
+  const [usePhone, setUsePhone] = useState(false);
+  const [code, setCode] = useState("");
+  const [step, setStep] = useState<"details" | "code" | "done">("details");
+  // The address the code went to, as shown on step 2 and sent back with it.
+  const [sentTo, setSentTo] = useState("");
+  const [signedIn, setSignedIn] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<{ alreadyRsvpd: boolean } | null>(null);
 
   const trimmedName = name.trim();
-  const trimmedEmail = email.trim();
-  const valid = trimmedName.length > 0 && EMAIL_RE.test(trimmedEmail);
+  const cleanEmail = email.trim().toLowerCase();
+  const valid =
+    trimmedName.length > 0 &&
+    EMAIL_RE.test(cleanEmail) &&
+    (!usePhone || phone.trim().length > 0);
+  const codeValid = /^\d{6}$/.test(code.trim());
 
-  async function submit(e: FormEvent) {
-    e.preventDefault();
-    if (!valid || !eventId || submitting) return;
+  async function sendCode(e?: FormEvent) {
+    e?.preventDefault();
+    if (!eventId || submitting) return;
+    if (!trimmedName) return setError("Add your name.");
+    if (!EMAIL_RE.test(cleanEmail)) return setError("Add an email we can reach you at.");
+
+    let destination = cleanEmail;
+    let phoneValue = "";
+    if (usePhone) {
+      const normalized = normalizePhone(phone);
+      if (!normalized.ok) return setError(normalized.reason);
+      phoneValue = normalized.value;
+      destination = phoneValue;
+    }
+
     setSubmitting(true);
     setError(null);
     try {
-      const res = await rsvpToEvent({
-        eventId,
-        name: trimmedName,
-        email: trimmedEmail,
-      });
-      setDone({ alreadyRsvpd: res.alreadyRsvpd });
+      if (usePhone) await signIn("phone", { phone: phoneValue });
+      else await signIn("email-otp", { email: cleanEmail });
+      setSentTo(destination);
+      setCode("");
+      setStep("code");
     } catch (err) {
-      // ConvexError carries a human reason; anything else gets the generic
-      // line. Either way the guest is told, never left with a dead button.
+      setError(
+        err instanceof ConvexError
+          ? rsvpErrorMessage(err)
+          : "Couldn't send a code. Check it and try again.",
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function saveRsvp() {
+    if (!eventId) return;
+    // Wait (up to ~8s) for the client to be sending the new sign-in.
+    for (let i = 0; i < 80 && !isAuthenticatedRef.current; i++) await sleep(100);
+    // Then retry briefly on "not signed in" in case the server lags a beat.
+    for (let attempt = 0; ; attempt++) {
+      try {
+        // Only fills a blank name / missing email; never overwrites a
+        // returning member's profile (unlike upsertProfile).
+        await fillMissingBasics({ name: trimmedName, email: cleanEmail });
+        const res = await rsvpToEvent({ eventId, name: trimmedName });
+        setDone({ alreadyRsvpd: res.alreadyRsvpd });
+        setStep("done");
+        return;
+      } catch (err) {
+        const notReady =
+          isNotSignedInError(err) ||
+          (err instanceof Error && err.message.includes("Not authenticated"));
+        if (notReady && attempt < 6) {
+          await sleep(500);
+          continue;
+        }
+        throw err;
+      }
+    }
+  }
+
+  async function confirm(e?: FormEvent) {
+    e?.preventDefault();
+    if (!eventId || submitting || !codeValid) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      if (!signedIn) {
+        try {
+          if (usePhone) await signIn("phone", { phone: sentTo, code: code.trim() });
+          else await signIn("email-otp", { email: sentTo, code: code.trim() });
+        } catch {
+          setError("That code didn't work. Check it and try again, or send a new one.");
+          return;
+        }
+        setSignedIn(true);
+      }
+      await saveRsvp();
+    } catch (err) {
+      // Signed in but the RSVP didn't save: the code is spent, so the button
+      // retries just the save.
       setError(rsvpErrorMessage(err));
     } finally {
       setSubmitting(false);
     }
+  }
+
+  function changeAddress() {
+    setStep("details");
+    setCode("");
+    setError(null);
   }
 
   return {
@@ -1017,51 +1326,122 @@ function useGuestRsvp(eventId: Id<"events"> | undefined) {
     setName,
     email,
     setEmail,
+    phone,
+    setPhone,
+    usePhone,
+    setUsePhone,
+    code,
+    setCode,
+    step,
+    sentTo,
     submitting,
     error,
     done,
     valid,
-    submit,
+    codeValid,
+    // True once the visitor is past step 1. From then on the card stays put
+    // even though the page now sees a signed-in viewer.
+    active: step !== "details",
+    sendCode,
+    confirm,
+    changeAddress,
   };
 }
 
 type GuestRsvpState = ReturnType<typeof useGuestRsvp>;
 
 const GUEST_INPUT_CLASS =
-  "w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg " +
+  "w-full px-3 py-2 border border-gray-400 dark:border-gray-600 rounded-lg " +
   "focus:ring-2 focus:ring-green-500 focus:border-transparent " +
   "bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm";
+
+const GUEST_LINK_CLASS =
+  "text-sm text-gray-900 dark:text-gray-100 underline underline-offset-2 hover:no-underline";
 
 /** Rendered twice (desktop rail + mobile block), same as the Join button it
  *  stands in for. State lives in the parent so the two stay in sync. */
 function GuestRsvpCard({ rsvp }: { rsvp: GuestRsvpState }) {
-  if (rsvp.done) {
+  if (rsvp.step === "done" && rsvp.done) {
     return (
       <div className="p-4 rounded-xl bg-green-50 dark:bg-green-900/20">
-        <p className="font-medium text-green-800 dark:text-green-200">
-          {rsvp.done.alreadyRsvpd
-            ? "You're already on the list."
-            : "You're on the list."}
+        <p className="font-medium text-green-900 dark:text-green-100">
+          You're in
         </p>
-        <p className="mt-1 text-sm text-green-800 dark:text-green-200">
+        <p className="mt-1 text-sm text-green-900 dark:text-green-100">
           {rsvp.done.alreadyRsvpd
-            ? "We have your spot saved."
-            : "We'll email you the details."}
+            ? "You were already on the list. Your spot is saved."
+            : "Your spot is saved to your account. We'll email you the details."}
         </p>
       </div>
     );
   }
 
+  if (rsvp.step === "code") {
+    return (
+      <form
+        onSubmit={rsvp.confirm}
+        className="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl"
+      >
+        <h3 className="font-medium text-gray-900 dark:text-white text-sm">
+          Enter your code
+        </h3>
+        <p className="mt-1 mb-3 text-sm text-gray-800 dark:text-gray-200">
+          We sent a code to {rsvp.sentTo}.
+        </p>
+        <input
+          className={GUEST_INPUT_CLASS}
+          value={rsvp.code}
+          onChange={(e) => rsvp.setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+          placeholder="6-digit code"
+          aria-label="6-digit code"
+          inputMode="numeric"
+          autoComplete="one-time-code"
+          maxLength={6}
+        />
+        <button
+          type="submit"
+          disabled={!rsvp.codeValid || rsvp.submitting}
+          className="mt-3 w-full py-2.5 bg-green-600 text-white rounded-xl font-medium hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {rsvp.submitting ? "Saving…" : "Confirm my seat"}
+        </button>
+        {rsvp.error && (
+          <p className="mt-2 text-sm text-red-800 dark:text-red-200">
+            {rsvp.error}
+          </p>
+        )}
+        <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1">
+          <button
+            type="button"
+            onClick={() => void rsvp.sendCode()}
+            disabled={rsvp.submitting}
+            className={GUEST_LINK_CLASS}
+          >
+            Send a new code
+          </button>
+          <button
+            type="button"
+            onClick={rsvp.changeAddress}
+            className={GUEST_LINK_CLASS}
+          >
+            {rsvp.usePhone ? "Change phone" : "Change email"}
+          </button>
+        </div>
+      </form>
+    );
+  }
+
   return (
     <form
-      onSubmit={rsvp.submit}
+      onSubmit={rsvp.sendCode}
       className="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl"
     >
       <h3 className="font-medium text-gray-900 dark:text-white text-sm">
         RSVP
       </h3>
-      <p className="mt-1 mb-3 text-xs text-gray-600 dark:text-gray-300">
-        No account needed.
+      <p className="mt-1 mb-3 text-sm text-gray-800 dark:text-gray-200">
+        We'll send you a code. Entering it makes your account and saves your
+        spot.
       </p>
       <input
         className={GUEST_INPUT_CLASS}
@@ -1082,15 +1462,48 @@ function GuestRsvpCard({ rsvp }: { rsvp: GuestRsvpState }) {
           autoComplete="email"
         />
       </div>
+      {rsvp.usePhone && (
+        <div className="mt-2">
+          <input
+            className={GUEST_INPUT_CLASS}
+            type="tel"
+            value={rsvp.phone}
+            onChange={(e) => rsvp.setPhone(e.target.value)}
+            placeholder="Mobile number"
+            aria-label="Your mobile number"
+            autoComplete="tel"
+          />
+        </div>
+      )}
       <button
         type="submit"
         disabled={!rsvp.valid || rsvp.submitting}
         className="mt-3 w-full py-2.5 bg-green-600 text-white rounded-xl font-medium hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        {rsvp.submitting ? "Saving…" : "Save me a spot"}
+        {rsvp.submitting ? "Sending…" : "Send my code"}
       </button>
+      <button
+        type="button"
+        onClick={() => rsvp.setUsePhone(!rsvp.usePhone)}
+        className={`mt-3 ${GUEST_LINK_CLASS}`}
+      >
+        {rsvp.usePhone ? "Use my email instead" : "Use my phone instead"}
+      </button>
+      {/* Members sign in the usual way: a code sign-in on a password
+          account replaces the password, and a phone-only member would get
+          a second account. After sign-in they come back here (pendingIntent). */}
+      <p className="mt-3 text-sm text-gray-700 dark:text-gray-200">
+        Already have an account?{" "}
+        <Link
+          to="/login"
+          onClick={() => setPendingIntent(window.location.pathname)}
+          className={GUEST_LINK_CLASS}
+        >
+          Sign in
+        </Link>
+      </p>
       {rsvp.error && (
-        <p className="mt-2 text-sm text-red-700 dark:text-red-300">
+        <p className="mt-2 text-sm text-red-800 dark:text-red-200">
           {rsvp.error}
         </p>
       )}
@@ -1171,16 +1584,21 @@ function EventVideoSection({
   title,
   datetime,
   cancelled,
+  mode,
 }: {
   eventId: Id<"events">;
   title: string;
   datetime: number;
   cancelled: boolean;
+  /** "setup" = host inputs only; "details" = the player, for whoever has a
+   * playable link or recording (hosts included). */
+  mode: "details" | "setup";
 }) {
   const video = useQuery(api.eventVideo.get, { eventId });
 
   if (!video) return null;
-  if (video.role === "organizer") {
+  if (mode === "setup") {
+    if (video.role !== "organizer") return null;
     return (
       <OrganizerVideoManager
         eventId={eventId}
@@ -1189,7 +1607,7 @@ function EventVideoSection({
       />
     );
   }
-  if (video.role !== "entitled") return null;
+  if (video.role !== "entitled" && video.role !== "organizer") return null;
 
   // The room stays reachable through the end of the day after the event —
   // sessions run long, and nothing in the codebase ever marks an event
@@ -1543,6 +1961,404 @@ function TicketsCard({
   );
 }
 
+// ——————————————————————————————————————————————————————————————
+// External ticket card — sells through an AP Payment Link instead of the
+// platform's own checkout (garden/apGifts.ts). The link carries the
+// signed-in viewer's userId/email when known (buildTicketLink) so AP's
+// webhook can add them to the event without asking them to type anything
+// on Stripe's page; a guest just gets a plain link and RSVPs by whatever
+// email they enter at checkout. Opens in the same tab — the Payment Link's
+// own "After payment" redirect (set in the Stripe dashboard, see
+// docs/phase-1b/stripe-runbook.md) brings them back here with `?paid=1`.
+// ——————————————————————————————————————————————————————————————
+
+// Back from Stripe with ?session=<checkout session id>: remember it, and
+// once signed in hand it to claimTicketBySession so the ticket lands on
+// this account whatever email was used to pay. The webhook can arrive a
+// few seconds after the redirect, so a not-yet-saved ticket is retried
+// for about half a minute (and again on the next signed-in page load —
+// see _app.tsx).
+function TicketSessionClaimer() {
+  const { isAuthenticated } = useConvexAuth();
+  const claim = useMutation(api.garden.eventRsvps.claimTicketBySession);
+  const [searchParams] = useSearchParams();
+  const sessionId = searchParams.get("session");
+
+  useEffect(() => {
+    if (sessionId) stashTicketSession(sessionId);
+  }, [sessionId]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    let cancelled = false;
+    let tries = 0;
+    async function run() {
+      const waiting = await claimPendingTickets(claim);
+      tries += 1;
+      if (waiting && !cancelled && tries < 10) setTimeout(run, 3000);
+    }
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated, claim]);
+
+  return null;
+}
+
+function ExternalTicketCard({
+  eventId,
+  url,
+  priceCents,
+}: {
+  eventId: Id<"events">;
+  url: string;
+  priceCents?: number;
+}) {
+  const profile = useQuery(api.profiles.getMyProfile);
+  const myRsvp = useQuery(api.garden.eventRsvps.getMyRsvpStatus, { eventId });
+  const { isAuthenticated } = useConvexAuth();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const justPaid = searchParams.get("paid") === "1";
+
+  const cardStyle = {
+    backgroundColor: "var(--garden-ink-raised)",
+    border: "1px solid var(--garden-hairline-raised)",
+  };
+
+  if (myRsvp?.paidCents) {
+    return (
+      <div className="p-5 rounded-xl" style={cardStyle}>
+        <p style={{ color: "var(--garden-citron)", fontSize: 17, fontWeight: 600, margin: 0 }}>
+          You're in
+        </p>
+        <p style={{ color: "var(--garden-body)", fontSize: 14, margin: "4px 0 0" }}>
+          {myRsvp.ticketCount && myRsvp.ticketCount > 1
+            ? `${myRsvp.ticketCount} tickets confirmed. See you there.`
+            : "Ticket confirmed. See you there."}
+        </p>
+      </div>
+    );
+  }
+
+  const href = buildTicketLink(url, eventId, {
+    userId: profile?.userId ? String(profile.userId) : undefined,
+    email: profile?.email ?? undefined,
+  });
+
+  return (
+    <div className="p-5 rounded-xl" style={cardStyle}>
+      {justPaid && !isAuthenticated ? (
+        <>
+          <p style={{ color: "var(--garden-citron)", fontSize: 17, fontWeight: 600, margin: 0 }}>
+            You're in
+          </p>
+          <p style={{ color: "var(--garden-body)", fontSize: 14, margin: "4px 0 16px" }}>
+            Payment received. Stripe is emailing your receipt.
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              setPendingIntent(`/events/${eventId}`);
+              // The ticket stands in for an invite (signup.tsx).
+              const session = searchParams.get("session");
+              navigate(isCheckoutSessionId(session) ? `/signup/${session}` : "/signup");
+            }}
+            className="block w-full text-center rounded-lg transition-opacity hover:opacity-90"
+            style={{
+              backgroundColor: "var(--garden-citron)",
+              color: "#141414",
+              fontSize: 15,
+              fontWeight: 700,
+              padding: "12px 16px",
+            }}
+          >
+            Make an account to see who's going
+          </button>
+        </>
+      ) : justPaid ? (
+        <p style={{ color: "var(--garden-paper)", fontSize: 15, margin: 0 }}>
+          Payment received. Your ticket will show here within a minute.
+        </p>
+      ) : (
+        <>
+          <p style={{ color: "var(--garden-dim)", fontSize: 13, margin: 0 }}>
+            Admission
+          </p>
+          {priceCents ? (
+            <p
+              style={{
+                color: "var(--garden-paper)",
+                fontSize: 32,
+                fontWeight: 700,
+                lineHeight: 1.1,
+                margin: "2px 0 16px",
+              }}
+            >
+              {formatTierPrice(priceCents)}
+            </p>
+          ) : (
+            <div style={{ height: 12 }} />
+          )}
+          <a
+            href={href}
+            className="block w-full text-center rounded-lg transition-opacity hover:opacity-90"
+            style={{
+              backgroundColor: "var(--garden-citron)",
+              color: "#141414",
+              fontSize: 16,
+              fontWeight: 700,
+              padding: "14px 16px",
+            }}
+          >
+            Buy tickets
+          </a>
+          <p style={{ color: "var(--garden-dim)", fontSize: 13, margin: "10px 0 0" }}>
+            Secure checkout with Stripe.
+          </p>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ——————————————————————————————————————————————————————————————
+// Host tabs: Guests and Hosts.
+// ——————————————————————————————————————————————————————————————
+
+function GuestsPanel({ eventId, title }: { eventId: Id<"events">; title: string }) {
+  const guests = useQuery(api.events.getGuestList, { eventId });
+
+  if (guests === undefined) {
+    return <p className="text-[15px] text-gray-700 dark:text-gray-200">Loading...</p>;
+  }
+
+  const summary = summarizeGuests(guests);
+
+  function downloadCsv() {
+    if (!guests) return;
+    const blob = new Blob([guestsToCsv(guests)], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${title.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase() || "event"}-guests.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  return (
+    <div>
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <p className="text-[15px] font-medium text-gray-900 dark:text-white">
+          {summary.going} going · {summary.paid} paid · {formatDollars(summary.collectedCents)} collected
+        </p>
+        <button
+          onClick={downloadCsv}
+          disabled={guests.length === 0}
+          className="px-4 py-2 rounded-lg text-[13.5px] font-medium bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50"
+        >
+          Download CSV
+        </button>
+      </div>
+
+      {guests.length === 0 ? (
+        <p className="text-[15px] text-gray-700 dark:text-gray-200 mb-8">No one has signed up yet.</p>
+      ) : (
+        <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700 mb-8">
+          <table className="w-full text-left text-[14px] text-gray-800 dark:text-gray-100">
+            <thead className="bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-200">
+              <tr>
+                <th className="px-3 py-2 font-semibold">Name</th>
+                <th className="px-3 py-2 font-semibold">Email</th>
+                <th className="px-3 py-2 font-semibold">Tickets</th>
+                <th className="px-3 py-2 font-semibold">Paid</th>
+                <th className="px-3 py-2 font-semibold whitespace-nowrap">Added</th>
+              </tr>
+            </thead>
+            <tbody>
+              {guests.map((g) => (
+                <tr key={g.key} className="border-t border-gray-200 dark:border-gray-700">
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    {g.name}
+                    {g.status !== "going" && (
+                      <span className="ml-2 text-[12px] text-gray-600 dark:text-gray-300">
+                        ({g.status})
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2">{g.email || "—"}</td>
+                  <td className="px-3 py-2">
+                    {g.tickets}
+                    {g.guestNames && (
+                      <span className="block text-[12px] text-gray-600 dark:text-gray-300">{g.guestNames}</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    {g.paidCents != null && g.paidCents > 0 ? formatDollars(g.paidCents) : "Free"}
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    {new Date(g.addedAt).toLocaleDateString(undefined, {
+                      month: "short",
+                      day: "numeric",
+                      year: "numeric",
+                    })}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <AnnouncementComposer targetType="event" targetId={eventId} heading="Message attendees" />
+    </div>
+  );
+}
+
+function PersonAvatar({ name, imageUrl }: { name: string; imageUrl: string | null }) {
+  return (
+    <span className="w-9 h-9 shrink-0 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center overflow-hidden">
+      {imageUrl ? (
+        <img src={imageUrl} alt="" className="w-full h-full object-cover" />
+      ) : (
+        <span className="text-xs font-medium text-gray-700 dark:text-gray-200">{name.charAt(0)}</span>
+      )}
+    </span>
+  );
+}
+
+function HostsPanel({
+  eventId,
+  organizer,
+  coHosts,
+  isOrganizer,
+  isGuest,
+}: {
+  eventId: Id<"events">;
+  organizer: { name: string; imageUrl: string | null; profileId: Id<"profiles"> } | null;
+  coHosts: { userId: Id<"users">; name: string; imageUrl: string | null; profileId: Id<"profiles"> | null }[];
+  isOrganizer: boolean;
+  isGuest: boolean;
+}) {
+  const addCoHost = useMutation(api.events.addCoHost);
+  const removeCoHost = useMutation(api.events.removeCoHost);
+  const [q, setQ] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const results = useQuery(
+    api.garden.projectTeam.searchPeopleForInvite,
+    isOrganizer && q.trim() ? { q } : "skip",
+  );
+  const existing = new Set(coHosts.map((c) => String(c.userId)));
+  const hits = (results ?? []).filter((r) => !existing.has(String(r.userId))).slice(0, 8);
+
+  async function run(fn: () => Promise<unknown>) {
+    setBusy(true);
+    setError(null);
+    try {
+      await fn();
+    } catch (err) {
+      setError(err instanceof Error ? err.message.replace(/^.*Uncaught Error: /s, "").split("\n")[0] : "That didn't work.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const rows = [
+    ...(organizer
+      ? [{ userId: null as Id<"users"> | null, name: organizer.name, imageUrl: organizer.imageUrl, profileId: organizer.profileId as Id<"profiles"> | null, role: "Organizer" }]
+      : []),
+    ...coHosts.map((c) => ({ ...c, userId: c.userId as Id<"users"> | null, role: "Co-host" })),
+  ];
+
+  return (
+    <div>
+      <p className="text-[15px] text-gray-700 dark:text-gray-200 mb-4">
+        Co-hosts can edit the event and see the guest list. Only the organizer can cancel it.
+      </p>
+
+      <ul className="mb-6 space-y-2">
+        {rows.map((r) => (
+          <li
+            key={r.userId ?? "organizer"}
+            className="flex items-center gap-3 p-2.5 bg-gray-50 dark:bg-gray-800/50 rounded-xl"
+          >
+            <PersonAvatar name={r.name} imageUrl={r.imageUrl} />
+            <div className="flex-1 min-w-0">
+              {r.profileId && !isGuest ? (
+                <Link
+                  to={`/profile/${r.profileId}`}
+                  className="block text-[15px] font-medium text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 truncate"
+                >
+                  {r.name}
+                </Link>
+              ) : (
+                <span className="block text-[15px] font-medium text-gray-900 dark:text-white truncate">
+                  {r.name}
+                </span>
+              )}
+              <span className="text-[13px] text-gray-600 dark:text-gray-300">{r.role}</span>
+            </div>
+            {isOrganizer && r.userId && (
+              <button
+                disabled={busy}
+                onClick={() => run(() => removeCoHost({ eventId, userId: r.userId! }))}
+                className="px-3 py-1.5 rounded-lg text-[13.5px] font-medium text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-50"
+              >
+                Remove
+              </button>
+            )}
+          </li>
+        ))}
+      </ul>
+
+      {isOrganizer && (
+        <div>
+          <label htmlFor="cohost-search" className="block text-[15px] font-medium text-gray-900 dark:text-white mb-2">
+            Add a co-host
+          </label>
+          <input
+            id="cohost-search"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search by name"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg dark:bg-gray-900 dark:text-white text-[15px]"
+          />
+          {error && <p className="mt-2 text-[14px] text-red-600 dark:text-red-400">{error}</p>}
+          {q.trim() && results !== undefined && hits.length === 0 && (
+            <p className="mt-2 text-[14px] text-gray-700 dark:text-gray-200">No one found.</p>
+          )}
+          {hits.length > 0 && (
+            <ul className="mt-2 space-y-2">
+              {hits.map((h) => (
+                <li key={h.userId} className="flex items-center gap-3 p-2.5 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+                  <PersonAvatar name={h.name} imageUrl={h.imageUrl} />
+                  <span className="flex-1 min-w-0 truncate text-[15px] text-gray-900 dark:text-white">{h.name}</span>
+                  <button
+                    disabled={busy}
+                    onClick={() =>
+                      run(async () => {
+                        await addCoHost({ eventId, userId: h.userId });
+                        setQ("");
+                      })
+                    }
+                    className="px-3 py-1.5 rounded-lg text-[13.5px] font-medium bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    Add
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function EventImageManager({
   eventId,
   event,
@@ -1802,9 +2618,13 @@ const EVENT_TAGS = [
 
 function EditEventModal({
   eventId,
+  canEditTickets,
   initialValues,
   onClose,
 }: {
+  /** Tickets are the organizer's; a co-host's save leaves them as they were
+   * (events.update), so the fields aren't shown to co-hosts. */
+  canEditTickets: boolean;
   eventId: Id<"events">;
   initialValues: {
     title: string;
@@ -1813,20 +2633,37 @@ function EditEventModal({
     endTime?: number;
     location?: string;
     ticketTiers?: TicketTier[];
+    externalTicketUrl?: string;
+    externalTicketPriceCents?: number;
     locationType?: string;
     address?: LocationSuggestion["address"];
     coordinates?: LocationSuggestion["coordinates"];
     placeId?: string;
     tags: string[];
     requiresApproval: boolean;
+    mediaUrl?: string;
+    hostOrgId?: Id<"hostOrgs">;
   };
   onClose: () => void;
 }) {
   const updateEvent = useMutation(api.events.update);
+  // An event with no community yet pre-fills The Garden (or the switcher's
+  // community); one already in a community keeps it.
+  const [hostOrgId, setHostOrgId] = useState<string>(initialValues.hostOrgId ?? "");
+  const defaultHostOrgId = useDefaultEventCommunity();
+  // Ticketed events go live only once the organizer can sell tickets
+  // (product rule, 2026-09-27) — this just informs the editor, the
+  // TicketTierEditor itself stays open to everyone.
+  const membership = useQuery(api.garden.memberships.getMyMembership);
+  const isMember = !!membership;
 
   // Parse datetime into date and time strings
   const initialDate = new Date(initialValues.datetime);
-  const dateStr = initialDate.toISOString().split("T")[0];
+  // Local calendar day, not toISOString() (UTC): an evening event in
+  // Pacific time is already tomorrow in UTC, and saving that back moved the
+  // event a day later on every edit (same fix as offerings.tsx).
+  const pad2 = (n: number) => String(n).padStart(2, "0");
+  const dateStr = `${initialDate.getFullYear()}-${pad2(initialDate.getMonth() + 1)}-${pad2(initialDate.getDate())}`;
   const timeStr = initialDate.toTimeString().slice(0, 5);
   const endTimeInit = initialValues.endTime
     ? new Date(initialValues.endTime).toTimeString().slice(0, 5)
@@ -1840,6 +2677,14 @@ function EditEventModal({
   const [ticketTiers, setTicketTiers] = useState<TicketTierDraft[]>(
     tiersToDrafts(initialValues.ticketTiers),
   );
+  const [externalTicketUrl, setExternalTicketUrl] = useState(
+    initialValues.externalTicketUrl ?? "",
+  );
+  const [externalTicketPrice, setExternalTicketPrice] = useState(
+    initialValues.externalTicketPriceCents !== undefined
+      ? String(initialValues.externalTicketPriceCents / 100)
+      : "",
+  );
   // Seeded from the event being edited (including its structured fields) so
   // saving without re-picking a location doesn't wipe locationType/address/
   // coordinates/placeId — previously this started at null unconditionally,
@@ -1850,6 +2695,7 @@ function EditEventModal({
   const [requiresApproval, setRequiresApproval] = useState(
     initialValues.requiresApproval,
   );
+  const [mediaUrl, setMediaUrl] = useState(initialValues.mediaUrl ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -1886,6 +2732,13 @@ function EditEventModal({
       return;
     }
 
+    // Same rule as CreateEventModal: a link we can't show is never saved.
+    const mediaLink = describeMediaLink(mediaUrl);
+    if (mediaLink.state === "invalid") {
+      setError(mediaLink.message);
+      return;
+    }
+
     setSaving(true);
     try {
       await updateEvent({
@@ -1895,9 +2748,19 @@ function EditEventModal({
         datetime,
         endTime,
         ticketTiers: tiers,
+        externalTicketUrl: externalTicketUrl.trim() || undefined,
+        externalTicketPriceCents: externalTicketPrice.trim()
+          ? Math.round(parseFloat(externalTicketPrice) * 100)
+          : undefined,
         ...location.toArgs(),
         tags,
         requiresApproval,
+        // Always sent: an emptied field clears the stored link (and its
+        // still) — events.update treats only an absent field as "untouched".
+        mediaUrl: mediaLink.state === "ok" ? mediaLink.url : "",
+        ...(hostOrgId
+          ? { hostOrgId: hostOrgId as Id<"hostOrgs"> }
+          : { clearCommunity: true }),
       });
       onClose();
     } catch (err) {
@@ -2017,12 +2880,52 @@ function EditEventModal({
               <LocationVerifiedHint value={location.value} selected={location.selected} />
             </div>
 
+            <MediaLinkField value={mediaUrl} onChange={setMediaUrl} />
+
+            {canEditTickets && (
+            <>
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Ticket tiers
               </label>
               <TicketTierEditor tiers={ticketTiers} onChange={setTicketTiers} />
+              {!isMember && (
+                <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                  Ticketed events go live once you're a member.
+                </p>
+              )}
             </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Ticket link (Stripe Payment Link)
+                </label>
+                <input
+                  type="text"
+                  value={externalTicketUrl}
+                  onChange={(e) => setExternalTicketUrl(e.target.value)}
+                  placeholder="https://buy.stripe.com/..."
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Ticket price ($)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={externalTicketPrice}
+                  onChange={(e) => setExternalTicketPrice(e.target.value)}
+                  placeholder="25"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
+                />
+              </div>
+            </div>
+            </>
+            )}
 
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -2045,6 +2948,13 @@ function EditEventModal({
                 ))}
               </div>
             </div>
+
+            <CommunityPicker
+              value={hostOrgId}
+              onChange={setHostOrgId}
+              variant="tailwind"
+              defaultHostOrgId={defaultHostOrgId}
+            />
 
             <div className="flex items-center gap-3">
               <input

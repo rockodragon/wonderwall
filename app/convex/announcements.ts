@@ -19,6 +19,7 @@ import { internal } from "./_generated/api";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import type { Id } from "./_generated/dataModel";
 import { getUserEmail, scheduleNotificationEmail } from "./emailHelpers";
+import { escapeHtml } from "./email/template";
 import { normalizeEmail } from "./garden/eventRsvps";
 import { normalizeUpdateBody } from "./garden/stories";
 
@@ -44,6 +45,8 @@ const MAX_REMINDER_TARGETS_PER_RUN = 20;
 
 interface TargetInfo {
   ownerId: Id<"users">;
+  /** Event co-hosts: may read/send like the owner. */
+  coHostIds?: Id<"users">[];
   title: string;
 }
 
@@ -61,7 +64,7 @@ async function loadTarget(
     case "event": {
       const doc = await ctx.db.get(targetId as Id<"events">);
       if (!doc) return null;
-      return { ownerId: doc.organizerId, title: doc.title };
+      return { ownerId: doc.organizerId, coHostIds: doc.coHostIds, title: doc.title };
     }
     case "offering": {
       const doc = await ctx.db.get(targetId as Id<"offerings">);
@@ -85,7 +88,8 @@ async function isTargetLive(
   }
   if (targetType === "offering") {
     const offering = await ctx.db.get(targetId as Id<"offerings">);
-    return offering?.status === "active";
+    // A class a community has paused stops sending "starts tomorrow".
+    return offering?.status === "active" && !offering.pausedAt;
   }
   return true;
 }
@@ -100,8 +104,10 @@ async function assertOwnerOrAdmin(
   ctx: QueryCtx | MutationCtx,
   userId: Id<"users">,
   ownerId: Id<"users">,
+  coHostIds?: Id<"users">[],
 ): Promise<void> {
   if (userId === ownerId) return;
+  if (coHostIds?.some((c) => c === userId)) return;
   const profile = await ctx.db
     .query("profiles")
     .withIndex("by_userId", (q) => q.eq("userId", userId))
@@ -303,15 +309,6 @@ async function getSenderName(ctx: QueryCtx | MutationCtx, userId: Id<"users">): 
   return profile?.name || "Someone";
 }
 
-function escapeHtml(input: string): string {
-  return input
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
 /**
  * sendNotificationEmail (convex/emails.ts) interpolates `body` into the
  * email HTML unescaped — deliberate there (events.ts passes <strong>
@@ -358,7 +355,7 @@ export const getAnnouncementAudience = query({
 
     const target = await loadTarget(ctx, args.targetType, args.targetId);
     if (!target) throw new ConvexError({ code: "not_found", reason: "That doesn't exist." });
-    await assertOwnerOrAdmin(ctx, userId, target.ownerId);
+    await assertOwnerOrAdmin(ctx, userId, target.ownerId, target.coHostIds);
 
     const audience = await resolveAudience(ctx, args.targetType, args.targetId);
     const ownerEmail = await getUserEmail(ctx, target.ownerId);
@@ -403,7 +400,7 @@ export const listAnnouncementsForTarget = query({
 
     const target = await loadTarget(ctx, args.targetType, args.targetId);
     if (!target) throw new ConvexError({ code: "not_found", reason: "That doesn't exist." });
-    await assertOwnerOrAdmin(ctx, userId, target.ownerId);
+    await assertOwnerOrAdmin(ctx, userId, target.ownerId, target.coHostIds);
 
     const rows = await ctx.db
       .query("announcements")
@@ -444,7 +441,7 @@ export const sendAnnouncement = mutation({
     const target = await loadTarget(ctx, args.targetType, args.targetId);
     if (!target) throw new ConvexError({ code: "not_found", reason: "That doesn't exist." });
 
-    if (target.ownerId !== userId) {
+    if (target.ownerId !== userId && !target.coHostIds?.some((c) => c === userId)) {
       throw new ConvexError({
         code: "forbidden",
         reason: "Only the owner can send announcements here.",
@@ -576,7 +573,7 @@ export const deliverAnnouncementBatch = internalMutation({
     // (PRD, Reply routing #4).
     const emailBodyHtml =
       announcement.kind === "broadcast"
-        ? `${escapedBody}<br><br>${provenance}<br><br>To reply, message ${senderName ?? "the sender"} on The Exchange.`
+        ? `${escapedBody}<br><br>${provenance}<br><br>To reply, message ${senderName ?? "the sender"} on TheCreative.exchange.`
         : `${escapedBody}<br><br>${provenance}`;
     const previewText =
       announcement.kind === "reminder" ? announcement.body : announcement.body.slice(0, 120);
@@ -635,8 +632,11 @@ export const deliverAnnouncementBatch = internalMutation({
               body: emailBodyHtml,
               ctaText,
               ctaUrl,
+              category: "announcements",
             });
           } else {
+            // Guest (email-only) recipient — no userId, so no preferences
+            // row and no unsubscribe token to offer.
             await ctx.scheduler.runAfter(0, internal.emails.sendNotificationEmail, {
               to: normalizedEmail,
               subject: emailSubject,
@@ -645,6 +645,7 @@ export const deliverAnnouncementBatch = internalMutation({
               body: emailBodyHtml,
               ctaText,
               ctaUrl,
+              category: "announcements",
             });
           }
           emailQueuedAt = now;
@@ -704,8 +705,10 @@ export const sendDueReminders = internalMutation({
       .query("offerings")
       .withIndex("by_status", (q) => q.eq("status", "active"))
       .collect();
+    // Not paused: a class a community has paused after complaints doesn't
+    // get an automatic "starts tomorrow" sent to its sign-ups.
     const dueOfferings = activeOfferings.filter(
-      (o) => o.startDate !== undefined && o.startDate > now && o.startDate <= windowEnd,
+      (o) => !o.pausedAt && o.startDate !== undefined && o.startDate > now && o.startDate <= windowEnd,
     );
 
     type DueTarget = { targetType: "event" | "offering"; targetId: string; startsAt: number };

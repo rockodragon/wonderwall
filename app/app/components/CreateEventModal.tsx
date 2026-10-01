@@ -1,23 +1,29 @@
 import { usePostHog } from "@posthog/react";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import { api } from "../../convex/_generated/api";
 import { LocationAutocomplete, LocationVerifiedHint } from "./LocationAutocomplete";
 import { useLocationField } from "../lib/useLocationField";
 import { EVENT_TAGS } from "../constants/eventTags";
-import { CommunityPicker } from "./CommunityPicker";
-import { useCommunityContext } from "./CommunityFilter";
+import { CommunityPicker, useDefaultEventCommunity } from "./CommunityPicker";
 import {
   TicketTierEditor,
   draftsToTiers,
   type TicketTierDraft,
 } from "./TicketTierEditor";
+import { describeMediaLink, MediaLinkField } from "./MediaLinkField";
 
 export function CreateEventModal({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate();
   const posthog = usePostHog();
   const createEvent = useMutation(api.events.create);
+  // Ticketed events go live only once the organizer can sell tickets
+  // (product rule, 2026-09-27) — the editor stays open to everyone, this
+  // just informs a non-member. `undefined` while loading reads as "not a
+  // member yet" for a beat, which is fine: it only gates a hint line.
+  const membership = useQuery(api.garden.memberships.getMyMembership);
+  const isMember = !!membership;
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -25,16 +31,18 @@ export function CreateEventModal({ onClose }: { onClose: () => void }) {
   const [time, setTime] = useState("");
   const [endTimeStr, setEndTimeStr] = useState("");
   const [ticketTiers, setTicketTiers] = useState<TicketTierDraft[]>([]);
+  const [externalTicketUrl, setExternalTicketUrl] = useState("");
+  const [externalTicketPrice, setExternalTicketPrice] = useState("");
   const location = useLocationField();
   const [tags, setTags] = useState<string[]>([]);
   const [requiresApproval, setRequiresApproval] = useState(false);
   const [hostOrgId, setHostOrgId] = useState("");
+  const [mediaUrl, setMediaUrl] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  // Pre-fill from the sidebar switcher's current context (community-ux.md
-  // §2/§6) — still changeable to "No community — just me" via CommunityPicker.
-  const { selected: switcherCommunitySlug, communities: myCommunities } = useCommunityContext();
-  const defaultHostOrgId = myCommunities.find((c) => c.slug === switcherCommunitySlug)?._id;
+  // Pre-fill from the sidebar switcher's community, else The Garden —
+  // still changeable to "No community — just me" via CommunityPicker.
+  const defaultHostOrgId = useDefaultEventCommunity();
 
   function toggleTag(tag: string) {
     setTags((prev) =>
@@ -73,6 +81,14 @@ export function CreateEventModal({ onClose }: { onClose: () => void }) {
       return;
     }
 
+    // A link we can't show is never submitted — the field already says so
+    // inline; this repeats it where a failed submit is looked for.
+    const mediaLink = describeMediaLink(mediaUrl);
+    if (mediaLink.state === "invalid") {
+      setError(mediaLink.message);
+      return;
+    }
+
     setSaving(true);
     try {
       const eventId = await createEvent({
@@ -81,10 +97,15 @@ export function CreateEventModal({ onClose }: { onClose: () => void }) {
         datetime,
         endTime,
         ticketTiers: tiers,
+        externalTicketUrl: externalTicketUrl.trim() || undefined,
+        externalTicketPriceCents: externalTicketPrice.trim()
+          ? Math.round(parseFloat(externalTicketPrice) * 100)
+          : undefined,
         ...location.toArgs(),
         tags,
         requiresApproval,
         hostOrgId: hostOrgId ? (hostOrgId as any) : undefined,
+        mediaUrl: mediaLink.state === "ok" ? mediaLink.url : undefined,
       });
 
       // Track event created
@@ -94,6 +115,14 @@ export function CreateEventModal({ onClose }: { onClose: () => void }) {
         has_coordinates: !!location.selected?.coordinates,
         tags_count: tags.length,
         requires_approval: requiresApproval,
+        // A short link the server still has to follow is TikTok to the
+        // dashboard, same as a permalink.
+        media_provider:
+          mediaLink.state !== "ok"
+            ? null
+            : mediaLink.kind === "tiktok-short"
+              ? "tiktok"
+              : mediaLink.kind,
       });
 
       navigate(`/events/${eventId}`);
@@ -214,11 +243,47 @@ export function CreateEventModal({ onClose }: { onClose: () => void }) {
               <LocationVerifiedHint value={location.value} selected={location.selected} />
             </div>
 
+            <MediaLinkField value={mediaUrl} onChange={setMediaUrl} />
+
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Ticket tiers
               </label>
               <TicketTierEditor tiers={ticketTiers} onChange={setTicketTiers} />
+              {!isMember && (
+                <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                  Ticketed events go live once you're a member.
+                </p>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Ticket link (Stripe Payment Link)
+                </label>
+                <input
+                  type="text"
+                  value={externalTicketUrl}
+                  onChange={(e) => setExternalTicketUrl(e.target.value)}
+                  placeholder="https://buy.stripe.com/..."
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Ticket price ($)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={externalTicketPrice}
+                  onChange={(e) => setExternalTicketPrice(e.target.value)}
+                  placeholder="25"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
+                />
+              </div>
             </div>
 
             <div>

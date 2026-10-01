@@ -5,15 +5,20 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import confetti from "canvas-confetti";
 import { api } from "../../convex/_generated/api";
+import { normalizePhone } from "../../convex/phone";
+import { normalizeInviteCode } from "../../convex/inviteCode";
+import { entryCommunityArgs } from "../lib/entryCommunity";
+import { ensureOAuthHost } from "../lib/oauthHost";
+import { isCheckoutSessionId } from "../../convex/garden/ticketLink";
 
 export function meta() {
   return [
-    { title: "Join creatives.exchange - Invite Only" },
+    { title: "Join TheCreative.exchange - Invite Only" },
     {
       name: "description",
       content: "Join The Exchange, a community of creatives. By invitation only.",
     },
-    { property: "og:title", content: "Join creatives.exchange" },
+    { property: "og:title", content: "Join TheCreative.exchange" },
     {
       property: "og:description",
       content: "Join The Exchange, a community of creatives. By invitation only.",
@@ -21,16 +26,16 @@ export function meta() {
     { property: "og:type", content: "website" },
     {
       property: "og:image",
-      content: "https://creatives.exchange/og-image.png",
+      content: "https://thecreative.exchange/og-image.png",
     },
     { property: "og:image:width", content: "1200" },
     { property: "og:image:height", content: "630" },
     {
       name: "twitter:image",
-      content: "https://creatives.exchange/og-image.png",
+      content: "https://thecreative.exchange/og-image.png",
     },
     { name: "twitter:card", content: "summary_large_image" },
-    { name: "twitter:title", content: "Join creatives.exchange" },
+    { name: "twitter:title", content: "Join TheCreative.exchange" },
     {
       name: "twitter:description",
       content: "Join The Exchange, a community of creatives. By invitation only.",
@@ -51,31 +56,160 @@ export default function Signup() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
 
+  // Phone sign-up: mobile number -> text a code -> enter the code.
+  const [phone, setPhone] = useState("");
+  const [code, setCode] = useState("");
+  const [phoneStep, setPhoneStep] = useState<"phone" | "code">("phone");
+  // Phone code or password — both visible, both ask for name and email
+  // first, because every account needs an email (receipts, notifications)
+  // no matter how the person signs in.
+  const [method, setMethod] = useState<"phone" | "password">("phone");
+  const [phoneError, setPhoneError] = useState("");
+  const [phoneLoading, setPhoneLoading] = useState(false);
+
   // Get inviter information if arriving via invite link
+  // A paid ticket's Stripe checkout session id stands in for an invite
+  // (event.tsx sends ticket buyers to /signup/<session id>) — one account
+  // per ticket, checked by ticketSessionOpensSignup.
+  const ticketSession = isCheckoutSessionId(inviteSlug) ? inviteSlug : null;
   const inviterInfo = useQuery(
     api.invites.getInviterInfo,
-    inviteSlug ? { slug: inviteSlug } : "skip",
+    inviteSlug && !ticketSession ? { slug: inviteSlug } : "skip",
+  );
+  const ticketOpensSignup = useQuery(
+    api.garden.eventRsvps.ticketSessionOpensSignup,
+    ticketSession ? { sessionId: ticketSession } : "skip",
   );
 
   const redeemInvite = useMutation(api.invites.redeemBySlug);
   const generateSlug = useMutation(api.invites.generateInviteSlug);
+  const upsertProfile = useMutation(api.profiles.upsertProfile);
+
+  // Shared by every sign-up path (password, Google, phone): the invite
+  // must exist, be loaded, and still have room. Returns the error message
+  // to show, or null when it's fine to proceed.
+  function inviteGateError(): string | null {
+    if (!inviteSlug) return "Invite link is required";
+    if (ticketSession) {
+      if (ticketOpensSignup === undefined) return "Checking your ticket...";
+      return ticketOpensSignup
+        ? null
+        : "We couldn't find an unclaimed ticket for this link. If you just paid, wait a minute and try again.";
+    }
+    if (!inviterInfo) return "Loading invite information...";
+    if (!inviterInfo.canAcceptMore) return "This invite link has reached its maximum uses (3)";
+    return null;
+  }
+
+  // After a successful phone code verification, redeem the invite exactly
+  // the way oauth-callback.tsx does for Google: redeemInvite then
+  // generateInviteSlug, then on to onboarding — reusing those mutations
+  // rather than inventing new ones.
+  async function redeemInviteAfterSignIn() {
+    try {
+      if (!ticketSession) await redeemInvite({ slug: inviteSlug! });
+    } catch (err) {
+      posthog?.capture("invite_redemption_failed", {
+        error: err instanceof Error ? err.message : "Unknown error",
+        invite_slug: inviteSlug,
+      });
+    }
+    try {
+      await generateSlug({});
+    } catch (err) {
+      posthog?.capture("invite_slug_generation_failed", {
+        error: err instanceof Error ? err.message : "Unknown error",
+      });
+    }
+  }
+
+  async function handleSendCode(e: React.FormEvent) {
+    e.preventDefault();
+    setPhoneError("");
+
+    const gateError = inviteGateError();
+    if (gateError) {
+      setPhoneError(gateError);
+      return;
+    }
+
+    if (!name.trim()) {
+      setPhoneError("Add your name.");
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setPhoneError("Add an email we can reach you at.");
+      return;
+    }
+
+    const normalized = normalizePhone(phone);
+    if (!normalized.ok) {
+      setPhoneError(normalized.reason);
+      return;
+    }
+
+    setPhoneLoading(true);
+    try {
+      await signIn("phone", { phone: normalized.value });
+      setPhone(normalized.value);
+      setPhoneStep("code");
+      posthog?.capture("phone_signup_code_sent", { invite_slug: inviteSlug });
+    } catch (err) {
+      setPhoneError(
+        err instanceof Error ? err.message : "Couldn't send a code. Try again.",
+      );
+      posthog?.capture("phone_signup_code_send_error", {
+        error: err instanceof Error ? err.message : "Unknown error",
+        invite_slug: inviteSlug,
+      });
+    } finally {
+      setPhoneLoading(false);
+    }
+  }
+
+  async function handleVerifyCode(e: React.FormEvent) {
+    e.preventDefault();
+    setPhoneError("");
+    setPhoneLoading(true);
+
+    try {
+      await signIn("phone", { phone, code });
+
+      // A phone sign-in carries no email or name; save the ones they typed.
+      try {
+        await upsertProfile({ name: name.trim(), email: email.trim() });
+      } catch (err) {
+        posthog?.capture("phone_signup_profile_error", {
+          error: err instanceof Error ? err.message : "Unknown error",
+        });
+      }
+
+      await redeemInviteAfterSignIn();
+
+      posthog?.capture("user_signed_up", {
+        method: "phone",
+        invite_slug: inviteSlug,
+        inviter_name: inviterInfo?.name,
+      });
+
+      setShowWelcome(true);
+    } catch (err) {
+      setPhoneError("That code didn't work. Check it and try again.");
+      posthog?.capture("phone_signup_verify_error", {
+        error: err instanceof Error ? err.message : "Unknown error",
+        invite_slug: inviteSlug,
+      });
+      setPhoneLoading(false);
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
 
-    if (!inviteSlug) {
-      setError("Invite link is required");
-      return;
-    }
-
-    if (!inviterInfo) {
-      setError("Loading invite information...");
-      return;
-    }
-
-    if (!inviterInfo.canAcceptMore) {
-      setError("This invite link has reached its maximum uses (3)");
+    const gateError = inviteGateError();
+    if (gateError) {
+      setError(gateError);
       return;
     }
 
@@ -105,7 +239,7 @@ export default function Signup() {
 
       // Redeem the invite link after successful signup
       try {
-        await redeemInvite({ slug: inviteSlug });
+        if (!ticketSession) await redeemInvite({ slug: inviteSlug! });
         console.log("✅ Successfully redeemed invite:", inviteSlug);
       } catch (err) {
         console.error("❌ Failed to redeem invite:", err);
@@ -151,20 +285,12 @@ export default function Signup() {
   async function handleGoogleSignUp() {
     setError("");
 
-    if (!inviteSlug) {
-      setError("Invite link is required");
+    const gateError = inviteGateError();
+    if (gateError) {
+      setError(gateError);
       return;
     }
-
-    if (!inviterInfo) {
-      setError("Loading invite information...");
-      return;
-    }
-
-    if (!inviterInfo.canAcceptMore) {
-      setError("This invite link has reached its maximum uses (3)");
-      return;
-    }
+    if (!ensureOAuthHost()) return;
 
     setGoogleLoading(true);
 
@@ -176,7 +302,7 @@ export default function Signup() {
 
       // Pass invite slug via redirectTo URL param so it survives OAuth redirect
       await signIn("google", {
-        redirectTo: `/oauth-callback?invite=${encodeURIComponent(inviteSlug)}`,
+        redirectTo: `/oauth-callback?invite=${encodeURIComponent(inviteSlug!)}`,
       });
     } catch (err) {
       setError("Failed to sign up with Google");
@@ -216,7 +342,7 @@ export default function Signup() {
             to="/"
             className="text-xl font-bold text-gray-900 dark:text-white"
           >
-            creatives.exchange
+            TheCreative.exchange
           </Link>
           <Link
             to="/login"
@@ -225,6 +351,21 @@ export default function Signup() {
             Sign in
           </Link>
         </div>
+
+        {ticketSession && (
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg border border-gray-200 dark:border-gray-700">
+            <p className="font-semibold text-gray-900 dark:text-white">
+              {ticketOpensSignup === false
+                ? "We couldn't find an unclaimed ticket for this link."
+                : "Your ticket is saved."}
+            </p>
+            <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+              {ticketOpensSignup === false
+                ? "If you just paid, wait a minute and refresh. Your ticket is still good either way."
+                : "Make an account and it goes on your profile, with everyone else who's going."}
+            </p>
+          </div>
+        )}
 
         {/* Inviter Card */}
         {inviterInfo && (
@@ -310,81 +451,201 @@ export default function Signup() {
             Create your account
           </h1>
 
-          {error && (
-            <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg text-sm">
-              {error}
+          {phoneStep === "phone" && (
+            <div className="space-y-4 mb-5">
+              <div>
+                <label htmlFor="name" className="block text-[13.5px] font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Name
+                </label>
+                <input
+                  id="name"
+                  type="text"
+                  autoComplete="name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="w-full px-4 py-3 text-[13.5px] border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Your name"
+                  required
+                />
+              </div>
+              <div>
+                <label htmlFor="email" className="block text-[13.5px] font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Email
+                </label>
+                <input
+                  id="email"
+                  type="email"
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full px-4 py-3 text-[13.5px] border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="you@example.com"
+                  required
+                />
+              </div>
+              <div
+                className="grid grid-cols-2 gap-1 rounded-lg p-1 bg-gray-100 dark:bg-gray-900"
+                role="group"
+                aria-label="How do you want to sign in?"
+              >
+                {(["phone", "password"] as const).map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    aria-pressed={method === m}
+                    onClick={() => {
+                      setMethod(m);
+                      setError("");
+                      setPhoneError("");
+                    }}
+                    className={`rounded-md px-3 py-2.5 text-[13.5px] font-medium transition-colors ${
+                      method === m
+                        ? "bg-white text-gray-900 shadow-sm dark:bg-gray-700 dark:text-white"
+                        : "text-gray-600 dark:text-gray-400"
+                    }`}
+                  >
+                    {m === "phone" ? "Text me a code" : "Use a password"}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label
-                htmlFor="name"
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-              >
-                Full Name
-              </label>
-              <input
-                id="name"
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="John Doe"
-                required
-              />
-            </div>
+          {method === "password" && phoneStep === "phone" ? null : phoneStep === "phone" ? (
+            <form onSubmit={handleSendCode} className="space-y-4">
+              {phoneError && (
+                <div className="p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg text-[13.5px]">
+                  {phoneError}
+                </div>
+              )}
 
-            <div>
-              <label
-                htmlFor="email"
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-              >
-                Email
-              </label>
-              <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="you@example.com"
-                required
-              />
-            </div>
+              <div>
+                <label
+                  htmlFor="phone"
+                  className="block text-[13.5px] font-medium text-gray-700 dark:text-gray-300 mb-1"
+                >
+                  Mobile number
+                </label>
+                <input
+                  id="phone"
+                  type="tel"
+                  autoComplete="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  className="w-full px-4 py-3 text-[13.5px] border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="(619) 555-0100"
+                  required
+                />
+              </div>
 
-            <div>
-              <label
-                htmlFor="password"
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+              <button
+                type="submit"
+                disabled={phoneLoading}
+                className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg font-medium text-[13.5px] hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                Password
-              </label>
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="At least 8 characters"
-                required
-              />
-            </div>
+                {phoneLoading ? "Sending..." : "Text me a code"}
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={handleVerifyCode} className="space-y-4">
+              {phoneError && (
+                <div className="p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg text-[13.5px]">
+                  {phoneError}
+                </div>
+              )}
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {loading ? "Creating account..." : "Sign Up"}
-            </button>
-          </form>
+              <p className="text-[13.5px] text-gray-600 dark:text-gray-400">
+                We texted a code to {phone}.{" "}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPhoneStep("phone");
+                    setCode("");
+                    setPhoneError("");
+                  }}
+                  className="text-blue-600 hover:text-blue-500 font-medium"
+                >
+                  Use a different number
+                </button>
+              </p>
+
+              <div>
+                <label
+                  htmlFor="code"
+                  className="block text-[13.5px] font-medium text-gray-700 dark:text-gray-300 mb-1"
+                >
+                  6-digit code
+                </label>
+                <input
+                  id="code"
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  pattern="[0-9]*"
+                  maxLength={6}
+                  autoFocus
+                  value={code}
+                  onChange={(e) => setCode(e.target.value.replace(/[^0-9]/g, ""))}
+                  className="w-full px-4 py-3 text-[13.5px] tracking-[0.3em] border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  required
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={phoneLoading || code.length !== 6}
+                className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg font-medium text-[13.5px] hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {phoneLoading ? "Signing in..." : "Sign in"}
+              </button>
+            </form>
+          )}
+
+          {method === "password" && phoneStep === "phone" && (
+            <form onSubmit={handleSubmit} className="mt-4 space-y-4">
+                {error && (
+                  <div className="p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg text-[13.5px]">
+                    {error}
+                  </div>
+                )}
+  
+                
+  
+                
+  
+                <div>
+                  <label
+                    htmlFor="password"
+                    className="block text-[13.5px] font-medium text-gray-700 dark:text-gray-300 mb-1"
+                  >
+                    Password
+                  </label>
+                  <input
+                    id="password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full px-4 py-3 text-[13.5px] border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="At least 8 characters"
+                    required
+                  />
+                </div>
+  
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg font-medium text-[13.5px] hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {loading ? "Creating account..." : "Sign Up"}
+                </button>
+              </form>
+          )}
 
           <div className="relative my-6">
             <div className="absolute inset-0 flex items-center">
               <div className="w-full border-t border-gray-300 dark:border-gray-600" />
             </div>
-            <div className="relative flex justify-center text-sm">
+            <div className="relative flex justify-center text-[13.5px]">
               <span className="px-2 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400">
                 or continue with
               </span>
@@ -394,7 +655,7 @@ export default function Signup() {
           <button
             onClick={handleGoogleSignUp}
             disabled={googleLoading}
-            className="w-full flex items-center justify-center gap-3 py-3 px-4 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full flex items-center justify-center gap-3 py-3 px-4 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm text-[13.5px] font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
               <path
@@ -417,7 +678,9 @@ export default function Signup() {
             {googleLoading ? "Signing up..." : "Google"}
           </button>
 
-          {/* Sits below BOTH signup paths — the password form above and the
+
+
+          {/* Sits below every signup path — phone, the password form, and the
               Google button — because it has to cover whichever one is used.
               Links are public routes on purpose: there is no account yet to
               authenticate, see routes.ts. */}
@@ -453,6 +716,68 @@ export default function Signup() {
 // the same query the form uses, then lands on /signup/<code> so the
 // inviter card and the form render as if the link had been clicked.
 
+function RequestToJoin() {
+  const addToWaitlist = useMutation(api.waitlist.addToWaitlist);
+  const [email, setEmail] = useState("");
+  const [status, setStatus] = useState<"idle" | "saving" | "done" | "error">("idle");
+  const [message, setMessage] = useState("");
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setStatus("error");
+      setMessage("Enter an email we can reach you at.");
+      return;
+    }
+    setStatus("saving");
+    try {
+      await addToWaitlist({ email: email.trim(), ...entryCommunityArgs() });
+      setStatus("done");
+    } catch (err) {
+      setStatus("error");
+      setMessage(err instanceof Error ? err.message : "That didn't go through. Try again.");
+    }
+  }
+
+  if (status === "done") {
+    return (
+      <p className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700 text-sm text-gray-700 dark:text-gray-300">
+        You're on the list. We'll email {email.trim()} when there's a spot.
+      </p>
+    );
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+      <label htmlFor="waitlist-email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+        No code yet?
+      </label>
+      <div className="flex gap-2">
+        <input
+          id="waitlist-email"
+          type="email"
+          autoComplete="email"
+          value={email}
+          onChange={(e) => {
+            setEmail(e.target.value);
+            if (status === "error") setStatus("idle");
+          }}
+          className="min-w-0 flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          placeholder="you@example.com"
+        />
+        <button
+          type="submit"
+          disabled={status === "saving"}
+          className="shrink-0 px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 text-[13.5px] font-medium text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
+        >
+          {status === "saving" ? "Saving…" : "Request to join"}
+        </button>
+      </div>
+      {status === "error" && <p className="mt-2 text-sm text-red-600 dark:text-red-400">{message}</p>}
+    </form>
+  );
+}
+
 function InviteEntry() {
   const navigate = useNavigate();
   const [input, setInput] = useState("");
@@ -481,14 +806,9 @@ function InviteEntry() {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const slug = input
-      .trim()
-      .replace(/^.*\/signup\//, "")
-      .replace(/^.*[?&]invite=/, "")
-      .replace(/[?&#].*$/, "")
-      .replace(/\/+$/, "");
+    const slug = normalizeInviteCode(input);
     if (!slug) {
-      setError("Paste your invite link or code.");
+      setError("Paste your invite code.");
       return;
     }
     setError(null);
@@ -500,7 +820,7 @@ function InviteEntry() {
       <div className="max-w-md w-full space-y-6">
         <div className="flex items-center justify-between mb-2">
           <Link to="/" className="text-xl font-bold text-gray-900 dark:text-white">
-            creatives.exchange
+            TheCreative.exchange
           </Link>
           <Link
             to="/login"
@@ -514,10 +834,6 @@ function InviteEntry() {
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
             Create your account
           </h1>
-          <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
-            The Exchange is invite-only right now. Paste the invite link or
-            code an existing member gave you.
-          </p>
 
           {error && (
             <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg text-sm">
@@ -531,7 +847,7 @@ function InviteEntry() {
                 htmlFor="invite"
                 className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
               >
-                Invite link or code
+                Invite code
               </label>
               <input
                 id="invite"
@@ -541,8 +857,11 @@ function InviteEntry() {
                   setInput(e.target.value);
                   setError(null);
                 }}
-                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="creatives.exchange/signup/…"
+                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent uppercase tracking-wider"
+                placeholder="K7M4QD"
+                autoCapitalize="characters"
+                autoCorrect="off"
+                spellCheck={false}
                 autoFocus
                 required
               />
@@ -556,17 +875,13 @@ function InviteEntry() {
             </button>
           </form>
 
+          {/* No code yet: same waitlist as the home page's second row. */}
+          <RequestToJoin />
+
           <div className="mt-6 space-y-2 text-sm text-gray-600 dark:text-gray-400">
             <p>
-              No invite yet?{" "}
-              <Link to="/" className="text-blue-600 hover:text-blue-500 font-medium">
-                Join the waitlist
-              </Link>
-              , or ask a member — they can share their link from Settings.
-            </p>
-            <p>
-              Covered by a church or sponsor? Use the link they gave you — it
-              starts with /c/.
+              Covered by a sponsor? Use the link they gave you — it starts
+              with /c/.
             </p>
           </div>
 

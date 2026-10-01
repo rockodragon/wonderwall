@@ -2,11 +2,14 @@ import { useMutation, useQuery } from "convex/react";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { api } from "../../convex/_generated/api";
+import { toEmbedUrl } from "../lib/videoEmbed";
 import type { Id } from "../../convex/_generated/dataModel";
+import { EmbedStill, PlayBadge } from "../components/EmbedStill";
 import { FavoriteButton } from "../components/FavoriteButton";
 import { ShareButton } from "../components/ShareButton";
 import { usePostHog } from "@posthog/react";
 import { stageLabel, type Stage } from "../lib/stage";
+import { budgetAmountLabel, budgetKindLabel } from "../lib/budgetLabel";
 
 // Matches listAffiliations's return shape (project-teams.md §4). Annotated
 // explicitly here — not inferred from the query — so this section still
@@ -35,6 +38,13 @@ export default function Profile() {
     api.garden.projectTeam.listAffiliations,
     profile?._id ? { profileId: profile._id } : "skip",
   );
+  // One list, two sections (docs/features/project-ia.md): a shared piece is
+  // a project, so "Working on" and "Portfolio" are the same projects split
+  // by done-or-not. Pieces with no project (from before every piece got
+  // one) still show in Portfolio on their own.
+  const openProjects = (affiliations ?? []).filter((a: any) => !a.completed);
+  const completedProjects = (affiliations ?? []).filter((a: any) => a.completed);
+  const loosePieces = (profile?.artifacts ?? []).filter((a: any) => !a.projectId);
   const getOrCreateConversation = useMutation(
     api.messaging.getOrCreateConversation,
   );
@@ -396,125 +406,115 @@ export default function Profile() {
         </div>
       )}
 
-      {/* Projects this person leads or is on the team of. Above Work —
-          project-teams.md §7 — hidden entirely when there are none.
-          ≤ 3 projects → card grid with thumbnails. ≥ 4 → compact list. */}
-      {affiliations && affiliations.length > 0 && (
+      {/* Open projects this person leads or is on (docs/features/
+          project-ia.md). Completed ones are the Portfolio below, so this
+          section is what they're working on NOW — and whether they're
+          hiring or raising, which is what a visitor came to find out. */}
+      {openProjects.length > 0 && (
         <div className="mb-8">
           <h2 className="text-lg font-semibold mb-4" style={{ color: "var(--app-text)" }}>
-            Projects
+            Working on
           </h2>
-          {affiliations.length <= 3 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-              {affiliations.map((a: any) => (
-                <Link
-                  key={a.projectId}
-                  to={`/projects/${a.projectId}`}
-                  className="group block rounded-xl border transition-colors hover:border-[var(--app-accent)] overflow-hidden"
-                  style={{ borderColor: "var(--app-hairline)", backgroundColor: "var(--app-surface-raised)" }}
-                >
+          <div className="divide-y divide-[var(--app-hairline)]">
+            {openProjects.map((a: any) => (
+              <Link
+                key={a.projectId}
+                to={`/projects/${a.projectId}`}
+                className="group flex items-start gap-3 py-3"
+              >
+                {a.imageUrl ? (
+                  <img
+                    src={a.imageUrl}
+                    alt=""
+                    className="w-12 h-12 rounded-lg object-cover shrink-0"
+                  />
+                ) : (
                   <div
-                    className="aspect-[16/10] relative overflow-hidden"
-                    style={{ backgroundColor: "var(--app-hairline-raised)" }}
+                    className="w-12 h-12 rounded-lg shrink-0 flex items-center justify-center text-sm font-semibold"
+                    style={{ backgroundColor: "var(--app-accent-wash)", color: "var(--app-accent-ink)" }}
                   >
-                    {a.imageUrl ? (
-                      <img
-                        src={a.imageUrl}
-                        alt={a.title}
-                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                      />
-                    ) : (
-                      <div
-                        className="w-full h-full flex items-center justify-center"
-                        style={{ backgroundColor: "var(--app-accent-wash)" }}
-                      >
-                        <span
-                          className="text-2xl font-semibold"
-                          style={{ color: "var(--app-accent-ink)" }}
-                        >
-                          {a.title?.charAt(0)}
-                        </span>
-                      </div>
-                    )}
+                    {a.title?.charAt(0)}
                   </div>
-                  <div className="p-4">
-                    <h3 className="font-medium line-clamp-1" style={{ color: "var(--app-text)" }}>
-                      {a.title}
-                    </h3>
-                    <div className="flex items-center justify-between mt-1">
-                      <span className="text-sm" style={{ color: "var(--app-text-muted)" }}>
-                        {a.role || "Lead"}
-                      </span>
-                      <span className="text-xs" style={{ color: "var(--app-text-dim)" }}>
-                        {stageLabel(a.stage as Stage)}
-                      </span>
-                    </div>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          ) : (
-            <div className="divide-y divide-[var(--app-hairline)]">
-              {affiliations.map((a: any) => (
-                <div
-                  key={a.projectId}
-                  className="flex items-center gap-3 py-3"
-                >
-                  {a.imageUrl ? (
-                    <img
-                      src={a.imageUrl}
-                      alt={a.title}
-                      className="w-10 h-10 rounded-lg object-cover shrink-0"
-                    />
-                  ) : (
-                    <div
-                      className="w-10 h-10 rounded-lg shrink-0 flex items-center justify-center text-sm font-semibold"
-                      style={{ backgroundColor: "var(--app-accent-wash)", color: "var(--app-accent-ink)" }}
-                    >
-                      {a.title?.charAt(0)}
-                    </div>
-                  )}
-                  <div className="flex items-baseline justify-between gap-3 flex-wrap flex-1 min-w-0">
+                )}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-baseline justify-between gap-3 flex-wrap">
                     <div className="flex items-baseline gap-2 flex-wrap min-w-0">
-                      <Link
-                        to={`/projects/${a.projectId}`}
-                        className="font-medium hover:underline truncate"
+                      <span
+                        className="font-medium group-hover:underline break-words"
                         style={{ color: "var(--app-text)" }}
                       >
                         {a.title}
-                      </Link>
+                      </span>
                       <span className="text-sm" style={{ color: "var(--app-text-muted)" }}>
                         {a.role || "Lead"}
                       </span>
                     </div>
-                    <span className="text-sm shrink-0" style={{ color: "var(--app-text-dim)" }}>
+                    <span className="text-sm shrink-0" style={{ color: "var(--app-text-muted)" }}>
                       {stageLabel(a.stage as Stage)}
                     </span>
                   </div>
+                  <ProjectStatusLine project={a} />
                 </div>
-              ))}
-            </div>
-          )}
+              </Link>
+            ))}
+          </div>
         </div>
       )}
 
-      {/* Artifacts grid */}
-      {profile.artifacts && profile.artifacts.length > 0 && (
+      {/* Portfolio: finished work — completed projects, then any loose
+          pieces that never got a project. */}
+      {(completedProjects.length > 0 || loosePieces.length > 0) && (
         <>
           <h2 className="text-lg font-semibold mb-4" style={{ color: "var(--app-text)" }}>
             Portfolio
           </h2>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            {profile.artifacts.map((artifact) => {
-              // Check if this is a YouTube URL (either as video type or link type)
-              const isYouTubeUrl =
-                artifact.mediaUrl &&
-                (artifact.mediaUrl.includes("youtube.com") ||
-                  artifact.mediaUrl.includes("youtu.be"));
-              const videoEmbedUrl =
-                (artifact.type === "video" || isYouTubeUrl) && artifact.mediaUrl
-                  ? getVideoEmbedUrl(artifact.mediaUrl)
-                  : null;
+            {completedProjects.map((a: any) => (
+              <Link
+                key={a.projectId}
+                to={`/projects/${a.projectId}`}
+                className="relative aspect-square rounded-xl overflow-hidden block hover:ring-2 hover:ring-[var(--app-accent)] transition-all"
+                style={{ backgroundColor: "var(--app-hairline-raised)" }}
+              >
+                {a.imageUrl ? (
+                  <img src={a.imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
+                ) : (
+                  // No picture: the words are the work (a shared text post).
+                  a.blurb && a.blurb.trim() !== a.title.trim() && (
+                    <p
+                      className="absolute inset-x-0 top-0 p-4 text-sm line-clamp-5"
+                      style={{ color: "var(--app-text-muted)" }}
+                    >
+                      {a.blurb}
+                    </p>
+                  )
+                )}
+                <div
+                  className="absolute inset-x-0 bottom-0 p-3"
+                  style={{ background: "linear-gradient(transparent, rgba(0,0,0,0.78))" }}
+                >
+                  {a.role && a.role !== "Lead" && (
+                    <span
+                      className="inline-block mb-1 px-2 py-0.5 rounded-full text-[11px] font-semibold uppercase tracking-[0.06em]"
+                      style={{ backgroundColor: "rgba(20,20,18,0.72)", color: "#f7f7f4" }}
+                    >
+                      {a.role}
+                    </span>
+                  )}
+                  <p className="text-sm font-medium line-clamp-2" style={{ color: "#f7f7f4" }}>
+                    {a.title}
+                  </p>
+                </div>
+              </Link>
+            ))}
+            {loosePieces.map((artifact: any) => {
+              // A pasted Instagram, TikTok, YouTube or Vimeo link
+              // (convex/videoEmbed.ts). `linkUrl` is the stored link;
+              // `mediaUrl` may be an uploaded file's storage URL instead.
+              // An uploaded image with a video link keeps showing the image
+              // (the branch below comes first); a reel with a cover shows
+              // the cover from `ogImageUrl`.
+              const embed = toEmbedUrl(artifact.linkUrl ?? artifact.mediaUrl ?? undefined);
 
               return (
                 <Link
@@ -550,67 +550,31 @@ export default function Profile() {
                         </div>
                       )}
                     </div>
-                  ) : (artifact.type === "video" || isYouTubeUrl) &&
-                    artifact.mediaUrl ? (
-                    videoEmbedUrl ? (
-                      <div
-                        className="relative w-full h-full"
-                        style={{ backgroundColor: "var(--garden-ink)" }}
-                      >
-                        {getYoutubeThumbnail(artifact.mediaUrl) ? (
-                          <img
-                            src={getYoutubeThumbnail(artifact.mediaUrl)!}
-                            alt={artifact.title || "Video"}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <svg
-                              className="w-12 h-12"
-                              style={{ color: "var(--garden-hairline-raised)" }}
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={1.5}
-                                d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
-                              />
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={1.5}
-                                d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                              />
-                            </svg>
-                          </div>
-                        )}
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <div className="w-12 h-12 bg-red-600 rounded-full flex items-center justify-center">
-                            <svg
-                              className="w-6 h-6 text-white ml-0.5"
-                              fill="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path d="M8 5v14l11-7z" />
-                            </svg>
-                          </div>
-                        </div>
-                      </div>
-                    ) : (
-                      <div
-                        className="w-full h-full flex items-center justify-center"
-                        style={{ backgroundColor: "var(--garden-ink)" }}
-                      >
-                        <video
-                          src={artifact.mediaUrl}
-                          className="w-full h-full object-cover"
-                          muted
-                        />
-                      </div>
-                    )
+                  ) : embed ? (
+                    <EmbedStill
+                      embed={embed}
+                      previewUrl={artifact.ogImageUrl}
+                      title={artifact.title}
+                      badgeSize="sm"
+                    />
+                  ) : artifact.type === "video" && artifact.mediaUrl ? (
+                    // An uploaded video file — a static poster. The `#t=0.1`
+                    // fragment makes Safari and Chrome paint a frame instead
+                    // of black; the badge is the neutral one (Vimeo's colour)
+                    // because this is the creative's own file, not a platform's.
+                    <div
+                      className="relative w-full h-full"
+                      style={{ backgroundColor: "var(--garden-ink)" }}
+                    >
+                      <video
+                        src={`${artifact.mediaUrl}#t=0.1`}
+                        className="w-full h-full object-cover"
+                        preload="metadata"
+                        muted
+                        playsInline
+                      />
+                      <PlayBadge kind="vimeo" size="sm" />
+                    </div>
                   ) : artifact.type === "text" && artifact.content ? (
                     <div
                       className="p-4 text-sm line-clamp-6"
@@ -625,9 +589,25 @@ export default function Profile() {
                     >
                       <img
                         src={artifact.ogImageUrl}
-                        alt={artifact.title || "Link preview"}
-                        className="w-full h-full object-contain"
+                        alt={artifact.title || artifact.ogTitle || "Link preview"}
+                        className="w-full h-full object-cover"
                       />
+                      {/* Title (the creative's own, else the site's) + domain,
+                          same footer treatment as the fallback card below —
+                          the cover shouldn't be a bare picture with no idea
+                          what site it's from. */}
+                      <div className="absolute inset-x-0 bottom-0 p-2 bg-gradient-to-t from-black/70 to-transparent">
+                        {(artifact.title || artifact.ogTitle) && (
+                          <p className="text-white text-xs font-medium line-clamp-1">
+                            {artifact.title || artifact.ogTitle}
+                          </p>
+                        )}
+                        {domainOf(artifact.mediaUrl) && (
+                          <p className="text-white/70 text-xs truncate">
+                            {domainOf(artifact.mediaUrl)}
+                          </p>
+                        )}
+                      </div>
                       <div className="absolute top-2 right-2 w-6 h-6 bg-white/90 dark:bg-black/70 rounded-full flex items-center justify-center">
                         <svg
                           className="w-3 h-3"
@@ -647,7 +627,8 @@ export default function Profile() {
                     </div>
                   ) : artifact.type === "link" ? (
                     <LinkFallbackCard
-                      title={artifact.title}
+                      title={artifact.title || artifact.ogTitle}
+                      description={artifact.ogDescription}
                       url={artifact.mediaUrl}
                     />
                   ) : (
@@ -673,12 +654,61 @@ export default function Profile() {
       )}
 
       {/* Empty state for no artifacts - only show for other profiles */}
-      {(!profile.artifacts || profile.artifacts.length === 0) &&
+      {loosePieces.length === 0 &&
+        (!affiliations || affiliations.length === 0) &&
         !profileNeedsSetup && (
           <div className="text-center py-12" style={{ color: "var(--app-text-dim)" }}>
             <p>This profile doesn't have any content yet</p>
           </div>
         )}
+    </div>
+  );
+}
+
+// One line of what an open project is asking for — hiring (its open roles,
+// or a paid posting's own pay), gig dates, raising. Nothing when it's
+// asking for nothing: the stage beside the title already says enough.
+function ProjectStatusLine({ project: a }: { project: any }) {
+  const chips: { label: string; detail: string }[] = [];
+  if (a.gig) {
+    chips.push({ label: "Booking", detail: a.gig.venueName ? `dates at ${a.gig.venueName}` : "dates open" });
+  } else if (a.kind === "paid") {
+    const pay = a.budgetType ? budgetAmountLabel(a) ?? budgetKindLabel(a) : null;
+    chips.push({ label: "Hiring", detail: pay ?? "" });
+  }
+  if (a.openRoles?.length > 0) {
+    const roles = a.openRoles
+      .slice(0, 3)
+      .map((r: any) => {
+        const pay = r.budgetType ? (budgetAmountLabel(r) ?? budgetKindLabel(r)) : null;
+        return pay ? `${r.title} (${pay})` : r.title;
+      })
+      .join(", ");
+    const more = a.openRoles.length > 3 ? ` +${a.openRoles.length - 3} more` : "";
+    chips.push({ label: "Hiring", detail: roles + more });
+  }
+  if (a.raising) {
+    chips.push({
+      label: "Raising",
+      detail: a.goal
+        ? `$${(a.raisedCents / 100).toLocaleString("en-US")} of $${a.goal.toLocaleString("en-US")}`
+        : "",
+    });
+  }
+  if (chips.length === 0) return null;
+  return (
+    <div className="flex flex-col gap-1 mt-1.5">
+      {chips.map((c, i) => (
+        <p key={i} className="text-[13px]" style={{ color: "var(--app-text-muted)" }}>
+          <span
+            className="inline-block mr-2 px-2 py-0.5 rounded-full text-[11px] font-semibold uppercase tracking-[0.06em]"
+            style={{ backgroundColor: "var(--app-accent-wash)", color: "var(--app-accent-ink)" }}
+          >
+            {c.label}
+          </span>
+          {c.detail}
+        </p>
+      ))}
     </div>
   );
 }
@@ -735,130 +765,54 @@ function ProfileOverflowMenu({
   );
 }
 
-function getVideoEmbedUrl(mediaUrl: string): string | null {
+// A bare host the creative pasted ("abidingpractice.com") has no scheme, so
+// `new URL()` throws on it directly — same reasoning as convex/garden/
+// richText.ts's normalizeUrl, duplicated here since this is a small pure
+// helper on the client rather than a Convex import.
+function domainOf(url?: string | null): string | null {
+  if (!url) return null;
+  const withScheme = /^[a-z][a-z0-9+.-]*:/i.test(url) ? url : `https://${url}`;
   try {
-    const url = new URL(mediaUrl);
-    const host = url.hostname.replace("www.", "");
-
-    if (host === "youtu.be") {
-      const id = url.pathname.slice(1);
-      return id ? `https://www.youtube.com/embed/${id}` : null;
-    }
-
-    if (
-      host === "youtube.com" ||
-      host === "m.youtube.com" ||
-      host === "youtube-nocookie.com"
-    ) {
-      if (url.pathname === "/watch") {
-        const id = url.searchParams.get("v");
-        return id ? `https://www.youtube.com/embed/${id}` : null;
-      }
-
-      if (
-        url.pathname.startsWith("/embed/") ||
-        url.pathname.startsWith("/shorts/") ||
-        url.pathname.startsWith("/live/")
-      ) {
-        const id = url.pathname.split("/")[2];
-        return id ? `https://www.youtube.com/embed/${id}` : null;
-      }
-    }
-
-    if (host === "vimeo.com" || host === "player.vimeo.com") {
-      const parts = url.pathname.split("/").filter(Boolean);
-      const id = parts[parts.length - 1];
-      if (id && /^[0-9]+$/.test(id)) {
-        return `https://player.vimeo.com/video/${id}`;
-      }
-    }
+    return new URL(withScheme).hostname.replace(/^www\./, "");
   } catch {
     return null;
   }
-
-  return null;
 }
 
-function getYoutubeThumbnail(mediaUrl: string): string | null {
-  try {
-    const url = new URL(mediaUrl);
-    const host = url.hostname.replace("www.", "");
-    let videoId: string | null = null;
-
-    if (host === "youtu.be") {
-      videoId = url.pathname.slice(1);
-    } else if (host === "youtube.com" || host === "m.youtube.com") {
-      if (url.pathname === "/watch") {
-        videoId = url.searchParams.get("v");
-      } else if (
-        url.pathname.startsWith("/embed/") ||
-        url.pathname.startsWith("/shorts/") ||
-        url.pathname.startsWith("/live/")
-      ) {
-        videoId = url.pathname.split("/")[2];
-      }
-    }
-
-    if (videoId) {
-      // Use mqdefault (320x180) - 16:9 aspect ratio without black letterbox bars
-      return `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`;
-    }
-  } catch {
-    return null;
-  }
-  return null;
-}
-
+// Shown when a link artifact has no fetched cover yet (still pending, or the
+// site gave us nothing to work with) — a muted placeholder with whatever we
+// do know (title/domain/description), not a bare icon floating in an empty
+// box.
 function LinkFallbackCard({
   title,
+  description,
   url,
 }: {
   title?: string | null;
+  description?: string | null;
   url?: string | null;
 }) {
-  // Extract domain from URL for display
-  const domain = url
-    ? (() => {
-        try {
-          const parsed = new URL(url);
-          return parsed.hostname.replace("www.", "");
-        } catch {
-          return null;
-        }
-      })()
-    : null;
+  const domain = domainOf(url);
 
   return (
-    <div className="w-full h-full p-4 flex flex-col justify-between bg-gradient-to-br from-emerald-50 to-cyan-50 dark:from-emerald-900/30 dark:to-cyan-900/30">
-      {/* Link icon */}
-      <div className="flex justify-between items-start">
-        <svg
-          className="w-8 h-8 text-emerald-600 dark:text-emerald-400"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
-          />
-        </svg>
-        <svg
-          className="w-4 h-4 text-emerald-500/50 dark:text-emerald-400/50"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-          />
-        </svg>
-      </div>
+    <div
+      className="w-full h-full p-4 flex flex-col justify-between"
+      style={{ backgroundColor: "var(--app-hairline-raised)" }}
+    >
+      <svg
+        className="w-8 h-8"
+        style={{ color: "var(--app-text-dim)" }}
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+        />
+      </svg>
 
       {/* Title and domain */}
       <div>
@@ -870,8 +824,16 @@ function LinkFallbackCard({
             {title}
           </h3>
         )}
+        {!title && description && (
+          <p
+            className="text-xs line-clamp-2 mb-1"
+            style={{ color: "var(--app-text-muted)" }}
+          >
+            {description}
+          </p>
+        )}
         {domain && (
-          <p className="text-xs text-emerald-600 dark:text-emerald-400 truncate">
+          <p className="text-xs truncate" style={{ color: "var(--app-text-muted)" }}>
             {domain}
           </p>
         )}

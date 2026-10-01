@@ -54,7 +54,7 @@ export default function JoinSuccess() {
         </div>
         <p className="g-hint" style={{ marginTop: 18 }}>
           Receipts and billing live in{" "}
-          <Link to="/settings" style={{ textDecoration: "underline" }}>
+          <Link to="/settings?tab=money" style={{ textDecoration: "underline" }}>
             Settings
           </Link>
           .

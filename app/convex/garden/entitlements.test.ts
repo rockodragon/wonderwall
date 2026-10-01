@@ -5,7 +5,7 @@
 
 import { describe, expect, it } from "vitest";
 import { ConvexError } from "convex/values";
-import { assertCanPure, deriveGardenUser } from "./entitlements";
+import { assertCanPure, deriveGardenUser, seatAppliesIn } from "./entitlements";
 
 const base = { userId: "u1", profile: { name: "Test" }, memberships: [], activePassionProjects: 0 };
 
@@ -102,5 +102,41 @@ describe("assertCanPure", () => {
       expect(data.reason).toBeTruthy();
       expect(data.upgradePath).toMatch(/member.*\$10\/mo/i);
     }
+  });
+});
+
+// Tiers are per community (2026-09-29): paid in The Garden can be free in
+// SD Creatives. Seats written before then carry no communityId and count
+// as The Garden only.
+describe("per-community tiers", () => {
+  const garden = { id: "garden", isDefault: true };
+  const sd = { id: "sd-creatives", isDefault: false };
+  const seat = (communityId?: string) => ({ level: "seat", status: "active", communityId });
+
+  it("a seat with no community counts in The Garden, not elsewhere", () => {
+    expect(seatAppliesIn(seat(), garden)).toBe(true);
+    expect(seatAppliesIn(seat(), sd)).toBe(false);
+  });
+
+  it("a seat counts only in its own community", () => {
+    expect(seatAppliesIn(seat("garden"), garden)).toBe(true);
+    expect(seatAppliesIn(seat("garden"), sd)).toBe(false);
+    expect(seatAppliesIn(seat("sd-creatives"), sd)).toBe(true);
+    expect(seatAppliesIn(seat("sd-creatives"), garden)).toBe(false);
+  });
+
+  it("paid in The Garden, free in SD Creatives", () => {
+    const memberships = [seat("garden")];
+    expect(deriveGardenUser({ ...base, memberships, community: garden }).level).toBe("seat");
+    expect(deriveGardenUser({ ...base, memberships, community: sd }).level).toBe("free");
+  });
+
+  it("existing members keep their tier in The Garden (no behavior change today)", () => {
+    const memberships = [seat()];
+    expect(deriveGardenUser({ ...base, memberships, community: garden }).level).toBe("seat");
+  });
+
+  it("with no community known, every seat counts (the old platform-wide rule)", () => {
+    expect(deriveGardenUser({ ...base, memberships: [seat("sd-creatives")] }).level).toBe("seat");
   });
 });
