@@ -1,5 +1,6 @@
-import { useQuery } from "convex/react";
+import { useConvexAuth, useQuery } from "convex/react";
 import { useMemo, useState, type CSSProperties } from "react";
+import { useNavigate } from "react-router";
 import { api } from "../../convex/_generated/api";
 import { CreateEventModal } from "../components/CreateEventModal";
 import { EventCard } from "../components/EventCard";
@@ -22,6 +23,8 @@ import { LocationIcon } from "../components/icons";
 type FilterTab = "all" | "favorites" | "past";
 
 export default function Events() {
+  const { isAuthenticated } = useConvexAuth();
+  const navigate = useNavigate();
   const {
     query: searchQuery,
     debouncedQuery,
@@ -274,7 +277,9 @@ export default function Events() {
             </button>
           </div>
           <button
-            onClick={() => setShowCreate(true)}
+            onClick={() =>
+              isAuthenticated ? setShowCreate(true) : navigate("/login?redirect=%2Fevents")
+            }
             className="px-4 py-2 rounded-lg text-[13px] font-semibold whitespace-nowrap transition-opacity hover:opacity-90"
             style={{
               fontFamily: "var(--garden-font-body)",

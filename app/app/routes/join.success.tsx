@@ -45,8 +45,8 @@ export default function JoinSuccess() {
             : "Payment went through. Your membership turns on within a minute — refresh if it isn't showing yet."}
         </p>
         <div style={{ marginTop: 20, display: "flex", gap: 12, flexWrap: "wrap" }}>
-          <Link to="/opportunities" className="g-btn g-btn-citron">
-            See what's open
+          <Link to="/projects?view=work" className="g-btn g-btn-citron">
+            See paid work
           </Link>
           <Link to="/projects" className="g-btn g-btn-ghost">
             Start a project

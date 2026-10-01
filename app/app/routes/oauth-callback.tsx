@@ -1,5 +1,5 @@
-import { useMutation } from "convex/react";
-import { useEffect, useState } from "react";
+import { useMutation, useQuery } from "convex/react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { useConvexAuth } from "convex/react";
 import { usePostHog } from "@posthog/react";
@@ -8,7 +8,8 @@ import { api } from "../../convex/_generated/api";
 
 /**
  * OAuth callback handler for Google sign-up flow.
- * Receives invite slug via URL param, redeems invite, and redirects to onboarding.
+ * With an invite slug in the URL: redeems the invite and goes to onboarding.
+ * Without one: a new account goes to onboarding, anyone else to /today.
  */
 export default function OAuthCallback() {
   const [searchParams] = useSearchParams();
@@ -24,6 +25,14 @@ export default function OAuthCallback() {
 
   const inviteSlug = searchParams.get("invite");
 
+  // Only needed when there's no invite: the profile says whether this is a
+  // brand-new account (no primaryRole yet) or someone coming back.
+  const profile = useQuery(
+    api.profiles.getMyProfile,
+    isAuthenticated && !inviteSlug ? {} : "skip",
+  );
+  const handledNoInvite = useRef(false);
+
   useEffect(() => {
     if (isLoading) return;
 
@@ -35,8 +44,27 @@ export default function OAuthCallback() {
     }
 
     if (!inviteSlug) {
-      // No invite slug — existing user signing in with Google goes home
-      navigate("/today", { replace: true });
+      // undefined = still loading; null/no primaryRole = new account.
+      if (profile === undefined || handledNoInvite.current) return;
+      handledNoInvite.current = true;
+
+      if (profile?.primaryRole) {
+        navigate("/today", { replace: true });
+        return;
+      }
+
+      (async () => {
+        setStatus("processing");
+        try {
+          // Every new account gets its own invite link.
+          await generateSlug({});
+        } catch (err) {
+          posthog?.capture("invite_slug_generation_failed", {
+            error: err instanceof Error ? err.message : "Unknown error",
+          });
+        }
+        navigate("/onboarding", { replace: true });
+      })();
       return;
     }
 
@@ -78,6 +106,7 @@ export default function OAuthCallback() {
     isAuthenticated,
     isLoading,
     inviteSlug,
+    profile,
     navigate,
     redeemInvite,
     generateSlug,

@@ -738,6 +738,25 @@ export const getMyMembership = query({
   },
 });
 
+/** Whether Stripe has a customer on file for the signed-in user — the one
+ * thing garden/stripe.ts's createBillingPortalSession needs. Settings reads
+ * this so "Manage billing" shows for anyone the portal can open: a monthly
+ * backer with no seat, a church that only bought coverage, a member who
+ * cancelled (getMyMembership above returns null for all three). A boolean
+ * and nothing else — no customer id leaves the server. */
+export const hasBillingCustomer = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await auth.getUserId(ctx);
+    if (!userId) return false;
+    const row = await ctx.db
+      .query("billingCustomers")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .first();
+    return row !== null;
+  },
+});
+
 // Reconcile support: the nightly cron (garden/stripe.ts, "use node", lists
 // Stripe subscriptions) calls `applyStripeEvent` above once per subscription
 // with a synthetic "customer.subscription.updated" event — the exact same

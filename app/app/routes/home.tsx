@@ -1,15 +1,11 @@
-import { useConvexAuth, useMutation } from "convex/react";
+import { useConvexAuth } from "convex/react";
 import { Link, useNavigate } from "react-router";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import type { Route } from "./+types/home";
-import { api } from "../../convex/_generated/api";
-import { normalizeInviteCode } from "../../convex/inviteCode";
 import { SiteHeader } from "../components/SiteHeader";
-import { WaitlistFollowUpDark } from "../components/WaitlistFollowUpDark";
 import { CAMPAIGN_IMAGES, CAMPAIGN_QUOTES } from "../lib/campaign";
 import { Reveal } from "../hooks/useReveal";
 import { CLAIMS } from "../constants/claims";
-import { entryCommunityArgs } from "../lib/entryCommunity";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -55,53 +51,15 @@ export function meta({}: Route.MetaArgs) {
 export default function Home() {
   const { isAuthenticated, isLoading } = useConvexAuth();
   const navigate = useNavigate();
-  const [email, setEmail] = useState("");
-  const [status, setStatus] = useState<
-    "idle" | "loading" | "success" | "error"
-  >("idle");
-  const [message, setMessage] = useState("");
-  const [submittedEmail, setSubmittedEmail] = useState("");
-  const [waitlistPosition, setWaitlistPosition] = useState<number | null>(null);
-  const addToWaitlist = useMutation(api.waitlist.addToWaitlist);
 
-  const [inviteCode, setInviteCode] = useState("");
-
-  function handleCreateAccount(e: React.FormEvent) {
-    e.preventDefault();
-    const code = normalizeInviteCode(inviteCode);
-    navigate(code ? `/signup/${encodeURIComponent(code)}` : "/signup");
-  }
-
-  // /?invite=slug used to open an invite preview here; the invite code is
-  // collected on /signup now, so an old link of that shape lands there.
+  // /?invite=slug used to open an invite preview here; invite codes are
+  // handled on /signup now, so an old link of that shape lands there.
   useEffect(() => {
     const inviteParam = new URLSearchParams(window.location.search).get("invite");
     if (inviteParam) {
       navigate(`/signup/${encodeURIComponent(inviteParam)}`, { replace: true });
     }
   }, [navigate]);
-
-  async function handleWaitlistSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!email || !email.includes("@")) {
-      setStatus("error");
-      setMessage("Please enter a valid email");
-      return;
-    }
-
-    setStatus("loading");
-    try {
-      const result = await addToWaitlist({ email, ...entryCommunityArgs() });
-      setStatus("success");
-      setMessage(result.message);
-      setWaitlistPosition(result.position ?? null);
-      setSubmittedEmail(email);
-      setEmail("");
-    } catch (err) {
-      setStatus("error");
-      setMessage("Something went wrong. Please try again.");
-    }
-  }
 
   const displayFont = "'Bricolage Grotesque', sans-serif";
   const monoFont = "'JetBrains Mono', monospace";
@@ -138,88 +96,17 @@ export default function Home() {
             </p>
           </div>
 
-          {/* Right column — waitlist + how the money works */}
+          {/* Right column — sign-up button + one line on joining */}
           <div className="md:col-span-5 min-w-0 flex flex-col gap-7 pb-1.5">
 
-            {/* Row 1 — have an invite code: the more prominent path */}
-            <form
-              onSubmit={handleCreateAccount}
-              className="flex flex-col sm:flex-row gap-2.5"
+            {/* Open sign-up: one button. An invite code is optional and
+                lives on /signup. */}
+            <Link
+              to="/signup"
+              className="block w-full sm:w-auto sm:self-start text-center px-[28px] py-[15px] text-base bg-[var(--garden-citron)] text-[var(--garden-ink)] rounded-[10px] font-semibold hover:opacity-90 transition-all whitespace-nowrap"
             >
-              <input
-                type="text"
-                value={inviteCode}
-                onChange={(e) => setInviteCode(e.target.value)}
-                placeholder="Invite code"
-                autoCapitalize="characters"
-                autoCorrect="off"
-                spellCheck={false}
-                className="w-full min-w-0 sm:flex-1 px-[18px] py-[15px] text-base border border-[var(--garden-hairline-raised)] rounded-[10px] bg-[var(--garden-ink-raised)] text-[var(--garden-paper)] placeholder-[var(--garden-muted)] outline-none focus:border-[var(--garden-citron)] transition-colors uppercase tracking-wider"
-                style={{ fontFamily: "inherit" }}
-              />
-              <button
-                type="submit"
-                className="w-full sm:w-auto px-[18px] py-[15px] text-base bg-[var(--garden-citron)] text-[var(--garden-ink)] rounded-[10px] font-semibold hover:opacity-90 transition-all cursor-pointer whitespace-nowrap"
-              >
-                Create account
-              </button>
-            </form>
-
-            {/* Row 2 — no code yet: join the waitlist */}
-            {status === "success" ? (
-              <div>
-                <div className="flex items-center gap-2 text-green-400">
-                  <svg
-                    className="w-5 h-5 shrink-0"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M5 13l4 4L19 7"
-                    />
-                  </svg>
-                  <span className="font-semibold">You're on the list</span>
-                </div>
-                <p className="mt-1 text-sm text-[var(--garden-dim)]">
-                  {message}
-                </p>
-                <WaitlistFollowUpDark
-                  email={submittedEmail}
-                  initialPosition={waitlistPosition}
-                />
-              </div>
-            ) : (
-              <form
-                onSubmit={handleWaitlistSubmit}
-                className="flex flex-col gap-2.5"
-              >
-                <div className="flex flex-col sm:flex-row gap-2.5">
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="your@email.com"
-                    className="w-full min-w-0 sm:flex-1 px-[18px] py-[15px] text-base border border-[var(--garden-hairline-raised)] rounded-[10px] bg-transparent text-[var(--garden-paper)] placeholder-[var(--garden-muted)] outline-none focus:border-[var(--garden-citron)] transition-colors"
-                    style={{ fontFamily: "inherit" }}
-                    disabled={status === "loading"}
-                  />
-                  <button
-                    type="submit"
-                    disabled={status === "loading"}
-                    className="w-full sm:w-auto px-[18px] py-[15px] text-[13.5px] font-semibold border border-[var(--garden-hairline-raised)] text-[var(--garden-paper)] rounded-[10px] hover:border-[var(--garden-citron)] hover:text-[var(--garden-citron)] transition-all cursor-pointer whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {status === "loading" ? "Joining..." : "Request to join"}
-                  </button>
-                </div>
-                {status === "error" && (
-                  <p className="text-sm text-red-400">{message}</p>
-                )}
-              </form>
-            )}
+              Create account
+            </Link>
 
             {/* Gradient divider */}
             <div

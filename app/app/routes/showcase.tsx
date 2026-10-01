@@ -352,7 +352,7 @@ export default function Showcase() {
             <Link to="/signup" style={{ color: "var(--g-citron)" }}>
               Create an account
             </Link>
-            . You'll need an invite code, or you can request to join.
+            .
           </li>
           <li>Open your profile and find <strong style={{ color: "var(--g-paper)" }}>Work &amp; Portfolio</strong>.</li>
           <li>

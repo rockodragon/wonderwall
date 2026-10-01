@@ -32,11 +32,10 @@ const PUBLIC_PATH_PREFIXES = ["/about", "/communities", "/people", "/search", "/
 // /events/:eventId is public too — a calendar invite goes to a guest with
 // no account by design (eventRsvps.userId is optional), and event.tsx's own
 // guest branches (RSVP, no organizer tools) depend on this page not
-// redirecting them to /login (docs/gated-event-video-prd.md). Unlike
-// /communities, a prefix match would also expose the *list* at /events —
-// nobody asked for that — so this matches exactly one path segment after
-// /events/, never the bare list.
-const PUBLIC_EVENT_DETAIL_PATH = /^\/events\/[^/]+$/;
+// redirecting them to /login (docs/gated-event-video-prd.md). The list at
+// /events is public too (the home page links it for signed-out visitors);
+// deeper paths are not, so this is not a prefix match.
+const PUBLIC_EVENT_DETAIL_PATH = /^\/events(\/[^/]+)?$/;
 
 function isPublicPathname(pathname: string): boolean {
   return (
@@ -99,9 +98,9 @@ export default function AppLayout() {
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated && !isPublicPath) {
-      navigate("/login");
+      navigate(`/login?redirect=${encodeURIComponent(location.pathname + location.search)}`);
     }
-  }, [isAuthenticated, isLoading, isPublicPath, navigate]);
+  }, [isAuthenticated, isLoading, isPublicPath, navigate, location.pathname, location.search]);
 
   // Whatever this person clicked before they had an account — Join, Back
   // this, Apply — replayed the moment they're authenticated, so they never

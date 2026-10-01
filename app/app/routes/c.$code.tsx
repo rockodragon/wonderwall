@@ -115,9 +115,8 @@ export default function CoveragePage() {
           Your seat is covered.
         </h1>
         <p style={{ marginTop: 14, fontSize: 15, lineHeight: 1.6, maxWidth: "58ch" }}>
-          A covered seat is a full seat — run a project, apply to paid work,
-          join member tables. {data.sponsorName} pays; nothing changes about
-          what you can do.
+          A covered seat is a full seat. {data.sponsorName} pays; you can do
+          everything a member can.
         </p>
       </div>
 
@@ -135,18 +134,17 @@ export default function CoveragePage() {
               You're seated.
             </div>
             <p style={{ marginTop: 10, fontSize: 15, lineHeight: 1.6 }}>
-              Your place is yours now — run a project, apply to paid work,
-              join member tables.
+              You can now apply to paid work and start projects.
             </p>
             <div style={{ marginTop: 16, display: "flex", gap: 10, alignItems: "baseline" }}>
               <FactRow k="Seats left" v={String(seated.seatsLeft)} />
             </div>
             <div style={{ marginTop: 16, display: "flex", gap: 16, flexWrap: "wrap" }}>
-              <Link to="/tables" className="g-btn g-btn-citron">
-                Find a table
-              </Link>
-              <Link to="/projects" className="g-btn g-btn-ghost">
+              <Link to="/projects?view=work" className="g-btn g-btn-citron">
                 See paid work
+              </Link>
+              <Link to="/today" className="g-btn g-btn-ghost">
+                Explore
               </Link>
             </div>
           </div>

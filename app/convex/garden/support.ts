@@ -254,6 +254,187 @@ export const listSupportByUser = query({
   },
 });
 
+// ——— "Support you've given" (settings → Support tab) ———
+//
+// PRIVATE. What a person has given is shown to that person only: the query
+// below takes no userId, reads the signed-in user, and returns null when
+// signed out. Nothing here feeds the public profile (profiles.getProfile) —
+// the profile only carries a link to the settings tab, on the owner's own
+// view.
+
+export type SupportKind = "money" | "cheer" | "resource";
+export type SupportCadence = "one_time" | "monthly" | "yearly";
+
+/** projectSupport.type → the three things a person can give. Null for a
+ * type this file doesn't know (the row is left out rather than guessed at). */
+export function supportKind(type: string): SupportKind | null {
+  if (FINANCIAL_TYPES.has(type)) return "money";
+  if (type === "encouragement") return "cheer";
+  if (type === "resource") return "resource";
+  return null;
+}
+
+/** How often a money backing repeats. Null for cheers and resources. */
+export function supportCadence(type: string): SupportCadence | null {
+  if (type === "financial_one_time") return "one_time";
+  if (type === "financial_recurring") return "monthly";
+  if (type === "financial_annual") return "yearly";
+  return null;
+}
+
+// grantContributions rows that are the person's own money going to a fund:
+// a contribution they made, or a ticket they bought (its price lands in the
+// fund). Left out on purpose: dues_share (their membership dues — Billing
+// covers it, and it would add a row every month) and adjustment / topup_in /
+// sponsor_in / entry_fee_in (operator-entered ledger lines, never someone's
+// own payment, and they carry no userId anyway).
+export function fundMoneyKind(type: string): "contribution" | "ticket" | null {
+  if (type === "contribution_in") return "contribution";
+  if (type === "ticket_in") return "ticket";
+  return null;
+}
+
+/** What the person actually paid across a backing's payments (the first
+ * charge plus every renewal), in cents — backingPayments.grossCents, "what
+ * the backer paid for the backing itself". */
+export function totalPaidCents(payments: { grossCents: number }[]): number {
+  return payments.reduce((sum, p) => sum + p.grossCents, 0);
+}
+
+export const listMySupportGiven = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return null;
+
+    // Project backings, cheers and resource offers. Same status filter as
+    // listSupportByUser: a "pending" row is a checkout that never finished.
+    const entries = (
+      await ctx.db
+        .query("projectSupport")
+        .withIndex("by_supporterUserId", (q) => q.eq("supporterUserId", userId))
+        .collect()
+    )
+      .filter((e) => VISIBLE_STATUSES.has(e.status) && supportKind(e.type) !== null)
+      .sort((a, b) => b.createdAt - a.createdAt);
+
+    const projectCache = new Map<string, { title: string; userId: Id<"users"> } | null>();
+    async function projectInfo(projectId: Id<"projects">) {
+      const key = String(projectId);
+      if (!projectCache.has(key)) {
+        const p = await ctx.db.get(projectId);
+        projectCache.set(key, p ? { title: p.title, userId: p.userId } : null);
+      }
+      return projectCache.get(key) ?? null;
+    }
+
+    const support = await Promise.all(
+      entries.map(async (e) => {
+        const kind = supportKind(e.type) as SupportKind;
+        const project = await projectInfo(e.projectId);
+        // A monthly backer pays many times; each payment is a
+        // backingPayments row keyed back to this one by supportId.
+        const paid =
+          kind === "money"
+            ? totalPaidCents(
+                await ctx.db
+                  .query("backingPayments")
+                  .withIndex("by_supportId", (q) => q.eq("supportId", e._id))
+                  .collect(),
+              )
+            : 0;
+        return {
+          id: e._id,
+          projectId: e.projectId,
+          projectTitle: project?.title ?? "Removed project",
+          projectGone: project === null,
+          kind,
+          cadence: supportCadence(e.type) ?? undefined,
+          amountCents: e.amountCents,
+          totalPaidCents: paid,
+          status: e.status,
+          tierName: e.tierName,
+          message: e.message,
+          resourceDescription: e.resourceDescription,
+          anonymous: !e.visible,
+          createdAt: e.createdAt,
+        };
+      }),
+    );
+
+    // Money the person put into a fund.
+    const contributions = (
+      await ctx.db
+        .query("grantContributions")
+        .withIndex("by_userId", (q) => q.eq("userId", userId))
+        .collect()
+    )
+      .filter((c) => fundMoneyKind(c.type) !== null && c.grossCents > 0)
+      .sort((a, b) => b.createdAt - a.createdAt);
+    const fundCache = new Map<string, { name: string; slug: string } | null>();
+    const funds = await Promise.all(
+      contributions.map(async (c) => {
+        const key = String(c.hostOrgId);
+        if (!fundCache.has(key)) {
+          const org = await ctx.db.get(c.hostOrgId);
+          fundCache.set(key, org ? { name: org.name, slug: org.slug } : null);
+        }
+        const fund = fundCache.get(key) ?? null;
+        return {
+          id: c._id,
+          kind: fundMoneyKind(c.type) as "contribution" | "ticket",
+          fundName: fund?.name ?? "A fund",
+          fundSlug: fund?.slug,
+          amountCents: c.grossCents,
+          note: c.note,
+          createdAt: c.createdAt,
+        };
+      }),
+    );
+
+    // Classes, coaching and workshops they run. Archived ones are gone from
+    // every list, so they are left out here too.
+    const offered = (
+      await ctx.db
+        .query("offerings")
+        .withIndex("by_userId", (q) => q.eq("userId", userId))
+        .collect()
+    )
+      .filter((o) => o.status !== "archived")
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .map((o) => ({ id: o._id, title: o.title, format: o.format, createdAt: o.createdAt }));
+
+    // Projects they are on as a team member. The lead isn't a projectMembers
+    // row, but a project they own is skipped anyway; a project that has been
+    // deleted can't be linked to, so it is skipped too.
+    const memberships = await ctx.db
+      .query("projectMembers")
+      .withIndex("by_userId_status", (q) => q.eq("userId", userId).eq("status", "accepted"))
+      .collect();
+    const helped: {
+      id: Id<"projectMembers">;
+      projectId: Id<"projects">;
+      projectTitle: string;
+      role: string;
+      createdAt: number;
+    }[] = [];
+    for (const m of memberships) {
+      const project = await projectInfo(m.projectId);
+      if (!project || project.userId === userId) continue;
+      helped.push({
+        id: m._id,
+        projectId: m.projectId,
+        projectTitle: project.title,
+        role: m.role,
+        createdAt: m.respondedAt ?? m.createdAt,
+      });
+    }
+    helped.sort((a, b) => b.createdAt - a.createdAt);
+
+    return { support, funds, offered, helped };
+  },
+});
+
 // Operator-only: mark a pending financial pledge as received. No Stripe
 // webhook in V1 (PRD §9) — this is the manual confirmation step.
 export const confirmSupport = mutation({

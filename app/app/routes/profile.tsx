@@ -252,48 +252,73 @@ export default function Profile() {
           {/* Action cluster — Follow/Share always available (including on
               your own profile, matching prior behavior); Message and the
               Block kebab only make sense on someone else's. */}
-          <div className="flex items-center gap-2 shrink-0">
-            <FavoriteButton targetType="profile" targetId={profile._id} />
-            {!isOwnProfile && (
-              <button
-                onClick={handleStartConversation}
-                disabled={startingConversation}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl border text-sm font-medium transition-colors disabled:opacity-50 hover:border-[var(--app-accent)]"
-                style={{
-                  backgroundColor: "var(--app-surface-raised)",
-                  color: "var(--app-text)",
-                  borderColor: "var(--app-hairline)",
-                }}
-              >
-                {startingConversation ? (
-                  <div
-                    className="w-4 h-4 animate-spin rounded-full border-2 border-t-transparent"
-                    style={{ borderColor: "var(--app-text)" }}
-                  />
-                ) : (
-                  <svg
-                    className="w-4 h-4"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+          <div className="flex flex-col items-start sm:items-end gap-2 shrink-0">
+            <div className="flex items-center gap-2">
+              <FavoriteButton targetType="profile" targetId={profile._id} />
+              {!isOwnProfile && (
+                <button
+                  onClick={handleStartConversation}
+                  disabled={startingConversation}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl border text-sm font-medium transition-colors disabled:opacity-50 hover:border-[var(--app-accent)]"
+                  style={{
+                    backgroundColor: "var(--app-surface-raised)",
+                    color: "var(--app-text)",
+                    borderColor: "var(--app-hairline)",
+                  }}
+                >
+                  {startingConversation ? (
+                    <div
+                      className="w-4 h-4 animate-spin rounded-full border-2 border-t-transparent"
+                      style={{ borderColor: "var(--app-text)" }}
                     />
-                  </svg>
-                )}
-                Message
-              </button>
-            )}
-            <ShareButton type="profile" title={profile.name} size="sm" />
-            {!isOwnProfile && blockStatus !== undefined && (
-              <ProfileOverflowMenu
-                blocked={blockStatus.blockedByMe}
-                onToggleBlock={handleToggleBlock}
-              />
+                  ) : (
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                      />
+                    </svg>
+                  )}
+                  Message
+                </button>
+              )}
+              <ShareButton type="profile" title={profile.name} size="sm" />
+              {!isOwnProfile && blockStatus !== undefined && (
+                <ProfileOverflowMenu
+                  blocked={blockStatus.blockedByMe}
+                  onToggleBlock={handleToggleBlock}
+                />
+              )}
+            </div>
+            {/* Owner-only links into settings. Links, nothing more: what a
+                person has paid or given is private and never shown here. */}
+            {isOwnProfile && (
+              <nav
+                aria-label="Your billing and support"
+                className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm"
+              >
+                <Link
+                  to="/settings?tab=money"
+                  className="hover:underline"
+                  style={{ color: "var(--app-accent-ink)" }}
+                >
+                  Billing
+                </Link>
+                <Link
+                  to="/settings?tab=support"
+                  className="hover:underline"
+                  style={{ color: "var(--app-accent-ink)" }}
+                >
+                  Support you've given
+                </Link>
+              </nav>
             )}
           </div>
         </div>
@@ -653,14 +678,32 @@ export default function Profile() {
         </>
       )}
 
-      {/* Empty state for no artifacts - only show for other profiles */}
+      {/* Empty state. Others get the plain note; the owner gets a way to
+          fix it (profileNeedsSetup above covers the fully blank profile).
+          Waits for affiliations so the owner doesn't see it flash while
+          their projects are still loading. */}
       {loosePieces.length === 0 &&
-        (!affiliations || affiliations.length === 0) &&
-        !profileNeedsSetup && (
+        affiliations !== undefined &&
+        affiliations.length === 0 &&
+        !profileNeedsSetup &&
+        (isOwnProfile ? (
+          <div className="text-center py-12">
+            <p className="mb-4" style={{ color: "var(--app-text-muted)" }}>
+              You haven't shared any work yet.
+            </p>
+            <Link
+              to="/works"
+              className="inline-flex items-center px-5 py-2.5 rounded-xl text-sm font-medium transition-opacity hover:opacity-90"
+              style={{ backgroundColor: "var(--app-accent)", color: "var(--garden-ink)" }}
+            >
+              Add your first piece
+            </Link>
+          </div>
+        ) : (
           <div className="text-center py-12" style={{ color: "var(--app-text-dim)" }}>
             <p>This profile doesn't have any content yet</p>
           </div>
-        )}
+        ))}
     </div>
   );
 }

@@ -17,6 +17,36 @@ async function resolveImageUrl(
   return profile.imageUrl || null;
 }
 
+// What any visitor may see of someone else's profile. getProfile and search
+// are public queries (/people works signed out), so everything else stays
+// home: payout handles, street address, invite and admin bookkeeping.
+// Coordinates are rounded to ~1 km — enough for "Near me", not a doorstep.
+export function toPublicProfile(profile: Doc<"profiles">) {
+  const {
+    payoutHandles: _payoutHandles,
+    address: _address,
+    placeId: _placeId,
+    adminCode: _adminCode,
+    isAdmin: _isAdmin,
+    inviteSlug: _inviteSlug,
+    inviteUsageCount: _inviteUsageCount,
+    unlimitedInvites: _unlimitedInvites,
+    lastLikeNotifiedAt: _lastLikeNotifiedAt,
+    plan: _plan,
+    coordinates,
+    ...rest
+  } = profile;
+  return {
+    ...rest,
+    coordinates: coordinates
+      ? {
+          lat: Math.round(coordinates.lat * 100) / 100,
+          lng: Math.round(coordinates.lng * 100) / 100,
+        }
+      : undefined,
+  };
+}
+
 export const getMyProfile = query({
   args: {},
   handler: async (ctx) => {
@@ -125,11 +155,9 @@ export const getProfile = query({
 
     // Payout handles (docs/features/live-booking.md §6) are for the venue
     // that booked this person, never the public page — gigs.getSlotPayment
-    // is the only reader. Stripped here rather than trusting every caller.
-    const { payoutHandles: _private, ...publicProfile } = profile;
-    void _private;
+    // is the only reader.
     return {
-      ...publicProfile,
+      ...toPublicProfile(profile),
       imageUrl,
       attributes: Object.fromEntries(attributes.map((a) => [a.key, a.value])),
       links: links.sort((a, b) => a.order - b.order),
@@ -427,7 +455,7 @@ export const search = query({
         }
 
         return {
-          ...profile,
+          ...toPublicProfile(profile),
           imageUrl,
           wondering: wondering
             ? {
