@@ -3,7 +3,8 @@ import { Link, Outlet, useLocation, useNavigate } from "react-router";
 import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { usePostHog } from "@posthog/react";
 import { api } from "../../convex/_generated/api";
-import { takePendingIntent } from "../lib/pendingIntent";
+import { setPendingIntent, takePendingIntent } from "../lib/pendingIntent";
+import { needsOnboarding } from "../lib/onboardingGate";
 import { claimPendingTickets } from "../lib/pendingTicket";
 import { useMarkNotificationsReadForPath } from "../lib/useMarkNotificationsReadForPath";
 import { InviteCTA } from "../components/InviteCTA";
@@ -29,18 +30,22 @@ const VISIT_LIMIT = 3;
 // /communities/:slug should all be public.
 const PUBLIC_PATH_PREFIXES = ["/about", "/communities", "/people", "/search", "/offerings", "/tables"];
 
+// The project list is public; a project's own page and every action on it
+// still need an account (projects.tsx sends Post/Cheer/Back to login).
+const PUBLIC_EXACT_PATHS = ["/projects"];
+
 // /events/:eventId is public too — a calendar invite goes to a guest with
 // no account by design (eventRsvps.userId is optional), and event.tsx's own
 // guest branches (RSVP, no organizer tools) depend on this page not
-// redirecting them to /login (docs/gated-event-video-prd.md). Unlike
-// /communities, a prefix match would also expose the *list* at /events —
-// nobody asked for that — so this matches exactly one path segment after
-// /events/, never the bare list.
-const PUBLIC_EVENT_DETAIL_PATH = /^\/events\/[^/]+$/;
+// redirecting them to /login (docs/gated-event-video-prd.md). The list at
+// /events is public too (the home page links it for signed-out visitors);
+// deeper paths are not, so this is not a prefix match.
+const PUBLIC_EVENT_DETAIL_PATH = /^\/events(\/[^/]+)?$/;
 
 function isPublicPathname(pathname: string): boolean {
   return (
     PUBLIC_PATH_PREFIXES.some((prefix) => pathname.startsWith(prefix)) ||
+    PUBLIC_EXACT_PATHS.includes(pathname) ||
     PUBLIC_EVENT_DETAIL_PATH.test(pathname)
   );
 }
@@ -99,9 +104,9 @@ export default function AppLayout() {
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated && !isPublicPath) {
-      navigate("/login");
+      navigate(`/login?redirect=${encodeURIComponent(location.pathname + location.search)}`);
     }
-  }, [isAuthenticated, isLoading, isPublicPath, navigate]);
+  }, [isAuthenticated, isLoading, isPublicPath, navigate, location.pathname, location.search]);
 
   // Whatever this person clicked before they had an account — Join, Back
   // this, Apply — replayed the moment they're authenticated, so they never
@@ -130,28 +135,22 @@ export default function AppLayout() {
     if (isAuthenticated) void claimPendingTickets(claimTicket);
   }, [isAuthenticated, claimTicket]);
 
-  // A brand-new account goes through onboarding before anything else. The
-  // auth callback (convex/auth.ts afterUserCreatedOrUpdated) creates the
-  // profile as "New User" with nothing filled in; onboarding sets
-  // primaryRole. Requiring BOTH (no role AND an empty profile) keeps members
-  // who joined before primaryRole existed — they have bios and interests —
-  // from being sent back through it. Phone sign-in made this reachable: a
-  // new number lands here with an empty profile and nowhere to go.
-  const needsOnboarding =
-    !!profile &&
-    !profile.primaryRole &&
-    !profile.bio?.trim() &&
-    !(profile.interests?.length) &&
-    (!profile.name?.trim() || profile.name === "New User");
-  // Except on an event page: someone who just signed up through the RSVP
-  // form there (event.tsx) stays put to see "You're in". They go through
-  // onboarding on their next visit anywhere else.
+  // A brand-new account goes through onboarding before anything else
+  // (lib/onboardingGate.ts says who). Except on an event page: someone who
+  // just signed up through the RSVP form there (event.tsx) stays put to see
+  // "You're in". They go through onboarding on their next visit anywhere else.
+  const mustOnboard = needsOnboarding(profile);
   const onEventPage = location.pathname.startsWith("/events/");
   useEffect(() => {
-    if (isAuthenticated && needsOnboarding && !onEventPage) {
+    if (isAuthenticated && mustOnboard && !onEventPage) {
+      // Come back here afterwards — onboarding ends on /today, which
+      // replays the pending intent.
+      if (location.pathname !== "/today") {
+        setPendingIntent(location.pathname + location.search);
+      }
       navigate("/onboarding", { replace: true });
     }
-  }, [isAuthenticated, needsOnboarding, onEventPage, navigate]);
+  }, [isAuthenticated, mustOnboard, onEventPage, navigate, location.pathname, location.search]);
 
   // Identify user in PostHog when authenticated and profile loaded
   useEffect(() => {

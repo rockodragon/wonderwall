@@ -55,8 +55,8 @@ export default function JoinSuccess() {
           </p>
         )}
         <div style={{ marginTop: 20, display: "flex", gap: 12, flexWrap: "wrap" }}>
-          <Link to="/opportunities" className="g-btn g-btn-citron">
-            See what's open
+          <Link to="/projects?view=work" className="g-btn g-btn-citron">
+            See paid work
           </Link>
           <Link to="/projects" className="g-btn g-btn-ghost">
             Start a project

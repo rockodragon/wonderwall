@@ -1,4 +1,4 @@
-import { useAction, useMutation, useQuery } from "convex/react";
+import { useAction, useConvexAuth, useMutation, useQuery } from "convex/react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { GigSeriesForm } from "../components/GigSeriesForm";
 import { HireWhenToggle, type HireDraft, type HireWhen } from "../components/HireWhenToggle";
@@ -138,6 +138,13 @@ export default function Projects() {
   const [hire, setHire] = useState<HireWhen | null>(null);
   const [hireDraft, setHireDraft] = useState<HireDraft | undefined>(undefined);
   const navigate = useNavigate();
+  const { isAuthenticated } = useConvexAuth();
+  // Anyone can browse; posting and supporting need an account. Login
+  // brings them back here (and on to sign up, keeping the redirect).
+  const withAccount = (act: () => void) => () =>
+    isAuthenticated
+      ? act()
+      : navigate(`/login?redirect=${encodeURIComponent(`/projects${window.location.search}`)}`);
   const [showPassionForm, setShowPassionForm] = useState(false);
   const [supporting, setSupporting] = useState<{ project: any; mode: SupportMode } | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
@@ -315,11 +322,11 @@ export default function Projects() {
             ))}
           </div>
           <PostMenu
-            onProject={() => setShowPassionForm(true)}
-            onHire={() => {
+            onProject={withAccount(() => setShowPassionForm(true))}
+            onHire={withAccount(() => {
               setHireDraft(undefined);
               setHire("job");
-            }}
+            })}
           />
         </div>
         <div className="flex flex-wrap gap-2 mt-3 mb-4">
@@ -401,7 +408,7 @@ export default function Projects() {
                 key={project._id}
                 project={project}
                 view={view}
-                onSupport={(mode) => setSupporting({ project, mode })}
+                onSupport={(mode) => withAccount(() => setSupporting({ project, mode }))()}
                 matched={hasMatchFilter && isMatch(project)}
               />
             ))}

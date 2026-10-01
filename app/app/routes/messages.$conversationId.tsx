@@ -1,4 +1,5 @@
 import { useMutation, useQuery } from "convex/react";
+import { ConvexError } from "convex/values";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { api } from "../../convex/_generated/api";
@@ -9,6 +10,7 @@ export default function ConversationView() {
   const navigate = useNavigate();
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
   const [showMenu, setShowMenu] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -60,6 +62,7 @@ export default function ConversationView() {
     if (!message.trim() || !conversation?.participant.userId || sending) return;
 
     setSending(true);
+    setSendError(null);
     try {
       await sendMessage({
         recipientId: conversation.participant.userId,
@@ -69,9 +72,11 @@ export default function ConversationView() {
       inputRef.current?.focus();
     } catch (err) {
       console.error("Failed to send message:", err);
-      const errorMessage =
-        err instanceof Error ? err.message : "Failed to send message";
-      alert(errorMessage);
+      setSendError(
+        err instanceof ConvexError && typeof err.data === "string"
+          ? err.data
+          : "Your message didn't send. Try again.",
+      );
     } finally {
       setSending(false);
     }
@@ -392,6 +397,11 @@ export default function ConversationView() {
           borderColor: "var(--app-hairline)",
         }}
       >
+        {sendError && (
+          <p role="alert" className="text-[13px] mb-2" style={{ color: "var(--app-text)" }}>
+            {sendError}
+          </p>
+        )}
         <div className="flex items-end gap-3">
           <textarea
             ref={inputRef}

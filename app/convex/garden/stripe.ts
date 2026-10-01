@@ -15,7 +15,7 @@ import { v } from "convex/values";
 import { ConvexError } from "convex/values";
 import Stripe from "stripe";
 import { action, internalAction } from "../_generated/server";
-import { internal } from "../_generated/api";
+import { api, internal } from "../_generated/api";
 import { auth } from "../auth";
 import { routeTicketMoney } from "./ticketRouting";
 // Pure money logic lives in the dependency-free handler file so the checkout
@@ -72,6 +72,17 @@ export const createMembershipCheckout = action({
       args.communityId ? { communityId: args.communityId } : {},
     );
     if (!community.ok) throw new ConvexError(community.reason);
+
+    // Join stays clickable for people who already pay (or are covered by a
+    // sponsor); a second checkout would be a second subscription.
+    if (community.isDefault) {
+      const current = await ctx.runQuery(api.garden.memberships.getMyMembership, {});
+      if (current) {
+        throw new ConvexError(
+          "You're already a member. Manage your plan in Settings, under Money.",
+        );
+      }
+    }
 
     // A community's own Stripe price wins for a seat; only The Garden falls
     // back to the platform's env prices (and is the only one with the
@@ -971,7 +982,7 @@ export const createBillingPortalSession = action({
 
     const session = await stripe.billingPortal.sessions.create({
       customer: existing.stripeCustomerId,
-      return_url: `${siteUrl()}/settings`,
+      return_url: `${siteUrl()}/settings?tab=money`,
     });
 
     return { url: session.url };

@@ -49,6 +49,17 @@ async function getBlockedUserIds(
  * Get or create a conversation between the current user and another user.
  * Returns the existing conversation if one exists, otherwise creates a new one.
  */
+// Messages a day to people who haven't written back yet.
+export function coldMessageLimit(isMember: boolean): number {
+  return isMember ? 50 : 5;
+}
+
+export function coldLimitMessage(isMember: boolean): string {
+  return isMember
+    ? "You've sent 50 messages today to people who haven't written back. Replies don't count. Try again tomorrow."
+    : "You've sent 5 messages today to people who haven't written back. Replies don't count. Members can send 50.";
+}
+
 export const getOrCreateConversation = mutation({
   args: {
     otherUserId: v.id("users"),
@@ -135,7 +146,7 @@ export const sendMessage = mutation({
       .first();
 
     if (blockByMe) {
-      throw new Error("You have blocked this user");
+      throw new ConvexError("You blocked this person. Unblock them to send a message.");
     }
 
     const blockByThem = await ctx.db
@@ -146,29 +157,13 @@ export const sendMessage = mutation({
       .first();
 
     if (blockByThem) {
-      throw new Error("You cannot send messages to this user");
+      throw new ConvexError("You can't message this person.");
     }
 
-    // Rate limit: max 5 messages per day (skip for admins)
     const senderProfile = await ctx.db
       .query("profiles")
       .withIndex("by_userId", (q) => q.eq("userId", userId))
       .first();
-
-    if (!senderProfile?.isAdmin) {
-      const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
-      const recentMessages = await ctx.db
-        .query("messages")
-        .withIndex("by_senderId", (q) => q.eq("senderId", userId))
-        .filter((q) => q.gte(q.field("createdAt"), oneDayAgo))
-        .collect();
-
-      if (recentMessages.length >= 5) {
-        throw new Error(
-          "Rate limit exceeded. You can only send 5 messages per day.",
-        );
-      }
-    }
 
     // Get or create conversation
     const allConversations = await ctx.db.query("conversations").collect();
@@ -177,6 +172,42 @@ export const sendMessage = mutation({
         c.participants.includes(userId) &&
         c.participants.includes(args.recipientId),
     );
+
+    // Daily limit on cold messages — ones to someone who hasn't written
+    // back. Replying in a real conversation is never limited. Admins skip it.
+    const otherReplied = async (conversationId: Id<"conversations">) =>
+      (await ctx.db
+        .query("messages")
+        .withIndex("by_conversationId", (q) => q.eq("conversationId", conversationId))
+        .filter((q) => q.neq(q.field("senderId"), userId))
+        .first()) !== null;
+
+    if (!senderProfile?.isAdmin && !(conversation && (await otherReplied(conversation._id)))) {
+      const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
+      const recentMessages = await ctx.db
+        .query("messages")
+        .withIndex("by_senderId", (q) => q.eq("senderId", userId))
+        .filter((q) => q.gte(q.field("createdAt"), oneDayAgo))
+        .collect();
+      const perConversation = new Map<Id<"conversations">, number>();
+      for (const m of recentMessages) {
+        perConversation.set(m.conversationId, (perConversation.get(m.conversationId) ?? 0) + 1);
+      }
+      let coldSent = 0;
+      for (const [conversationId, count] of perConversation) {
+        if (!(await otherReplied(conversationId))) coldSent += count;
+      }
+
+      const memberships = await ctx.db
+        .query("memberships")
+        .withIndex("by_userId", (q) => q.eq("userId", userId))
+        .collect();
+      const isMember = memberships.some((m) => m.status === "active" || m.status === "past_due");
+      const limit = coldMessageLimit(isMember);
+      if (coldSent >= limit) {
+        throw new ConvexError(coldLimitMessage(isMember));
+      }
+    }
 
     const now = Date.now();
 

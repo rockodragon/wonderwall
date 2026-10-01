@@ -21,6 +21,7 @@ const SETTINGS_TABS = [
   { id: "profile", label: "Profile" },
   { id: "network", label: "Network" },
   { id: "money", label: "Money" },
+  { id: "support", label: "Support you've given" },
   { id: "account", label: "Account" },
 ] as const;
 type SettingsTab = (typeof SETTINGS_TABS)[number]["id"];
@@ -158,9 +159,6 @@ export default function Settings() {
             <PurchasesSection />
           </div>
           <div className="mt-8 pt-6 border-t" style={{ borderColor: "var(--app-hairline)" }}>
-            <BackingsSection />
-          </div>
-          <div className="mt-8 pt-6 border-t" style={{ borderColor: "var(--app-hairline)" }}>
             <PayoutHandlesSection />
           </div>
           <div className="mt-8 pt-6 border-t" style={{ borderColor: "var(--app-hairline)" }}>
@@ -168,6 +166,8 @@ export default function Settings() {
           </div>
         </>
       )}
+
+      {activeTab === "support" && <SupportGivenSection />}
 
       {activeTab === "account" && (
         <>
@@ -221,15 +221,25 @@ function billingErrorMessage(err: unknown): string {
 function BillingSection() {
   const membership = useQuery(api.garden.memberships.getMyMembership);
   const purchases = useQuery(api.garden.products.listMyPurchases);
+  // A Stripe customer on file is all the portal needs — a monthly backer
+  // with no seat, a church that only bought coverage and a member who
+  // cancelled have one but no active membership or purchase.
+  const hasBillingCustomer = useQuery(api.garden.memberships.hasBillingCustomer);
   const openBillingPortal = useAction(api.garden.stripe.createBillingPortalSession);
   const giving = useQuery(api.garden.giving.getMyGiving);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const hasGiving = (giving?.open?.length ?? 0) > 0 || (giving?.history?.length ?? 0) > 0;
 
-  // Still loading either query — render nothing rather than flash "No
+  // Still loading any query — render nothing rather than flash "No
   // billing on file" before we actually know.
-  if (membership === undefined || purchases === undefined) return null;
+  if (
+    membership === undefined ||
+    purchases === undefined ||
+    hasBillingCustomer === undefined
+  ) {
+    return null;
+  }
 
   const hasPurchases = purchases.length > 0;
   const isCovered = Boolean(membership?.coveredByCodeId);
@@ -246,7 +256,7 @@ function BillingSection() {
     }
   }
 
-  if (!membership && !hasPurchases) {
+  if (!membership && !hasPurchases && !hasBillingCustomer) {
     return (
       <div>
         <h2 className="text-lg font-semibold mb-4" style={{ color: "var(--app-text)" }}>
@@ -289,11 +299,15 @@ function BillingSection() {
         </p>
       )}
 
-      {isCovered ? (
-        <p className="text-sm" style={{ color: "var(--app-text-dim)" }}>
-          Covered by a sponsor — nothing to bill
+      {isCovered && (
+        <p className="text-sm mb-3" style={{ color: "var(--app-text-dim)" }}>
+          {hasBillingCustomer
+            ? "Your seat is covered by a sponsor."
+            : "Covered by a sponsor — nothing to bill"}
         </p>
-      ) : (
+      )}
+
+      {(!isCovered || hasBillingCustomer) && (
         <button
           onClick={handleManage}
           disabled={pending}
@@ -521,54 +535,220 @@ function PurchasesSection() {
   );
 }
 
-const TYPE_LABEL: Record<string, string> = {
-  financial_one_time: "One-time",
-  financial_recurring: "Monthly",
-  financial_annual: "Annual",
+// "Support you've given" — what this person has put into other people's
+// work: money, cheers, things they offered, projects they helped on. PRIVATE
+// by construction: listMySupportGiven reads the signed-in user only, and the
+// public profile carries nothing but a link here (profile.tsx, own view).
+const CADENCE_SUFFIX = { one_time: "", monthly: "/mo", yearly: "/yr" } as const;
+
+type SupportRowData = {
+  key: string;
+  title: string;
+  to?: string; // omitted when what it points at is gone
+  detail?: string;
+  amount?: string;
+  createdAt: number;
 };
 
-function BackingsSection() {
-  const backings = useQuery((api as any).garden.support.listSupportByUser);
+function SupportRow({ row }: { row: SupportRowData }) {
+  return (
+    <div
+      className="flex items-center justify-between gap-3 p-3 rounded-xl"
+      style={{ backgroundColor: "var(--app-surface-raised)" }}
+    >
+      <div className="min-w-0">
+        {row.to ? (
+          <Link
+            to={row.to}
+            className="font-medium text-sm block break-words transition-colors hover:opacity-80"
+            style={{ color: "var(--app-text)" }}
+          >
+            {row.title}
+          </Link>
+        ) : (
+          <span className="font-medium text-sm block break-words" style={{ color: "var(--app-text)" }}>
+            {row.title}
+          </span>
+        )}
+        {row.detail && (
+          <span className="text-xs break-words" style={{ color: "var(--app-text-muted)" }}>
+            {row.detail}
+          </span>
+        )}
+      </div>
+      {row.amount && (
+        <div className="text-sm font-semibold whitespace-nowrap" style={{ color: "var(--app-text)" }}>
+          {row.amount}
+        </div>
+      )}
+    </div>
+  );
+}
 
-  if (!backings || backings.length === 0) return null;
+// "2026-09" → "September". UTC on both ends so the 1st never slips back a month.
+function monthName(period: string): string {
+  const [y, m] = period.split("-").map(Number);
+  if (!y || !m) return period;
+  return new Date(Date.UTC(y, m - 1, 1)).toLocaleString("en-US", { month: "long", timeZone: "UTC" });
+}
+
+function SupportGivenSection() {
+  const given = useQuery(api.garden.support.listMySupportGiven);
+  // Each paid month's give-it-away share (/give). Gifts to a project are
+  // already backings above; this adds the ones to a person or the fund.
+  const giving = useQuery(api.garden.giving.getMyGiving);
+
+  // Loading, or signed out (the app shell sends signed-out visitors to
+  // /login before this renders) — nothing to show either way.
+  if (!given) return null;
+
+  const date = (ms: number) => new Date(ms).toLocaleDateString();
+  const projectLink = (id: string, gone: boolean) => (gone ? undefined : `/projects/${id}`);
+
+  const money: SupportRowData[] = [
+    ...given.support
+      .filter((s) => s.kind === "money")
+      .map((s) => {
+        const cadence = s.cadence ?? "one_time";
+        const repeats = cadence !== "one_time";
+        const detail = [
+          s.tierName,
+          s.anonymous ? "Anonymous" : undefined,
+          s.status === "pledged" ? "Pledged" : undefined,
+          repeats && s.totalPaidCents > 0
+            ? `${formatMoneyCents(s.totalPaidCents)} paid so far`
+            : undefined,
+          repeats ? `Started ${date(s.createdAt)}` : date(s.createdAt),
+        ]
+          .filter(Boolean)
+          .join(" · ");
+        return {
+          key: s.id,
+          title: s.projectTitle,
+          to: projectLink(s.projectId, s.projectGone),
+          detail,
+          amount: s.amountCents
+            ? `${formatMoneyCents(s.amountCents)}${CADENCE_SUFFIX[cadence]}`
+            : undefined,
+          createdAt: s.createdAt,
+        };
+      }),
+    ...(giving?.history ?? [])
+      .filter((g) => g.status === "creative" || g.status === "fund")
+      .map((g) => ({
+        key: g.giftId,
+        title:
+          g.status === "creative"
+            ? (g.recipient?.name ?? "A creative")
+            : `${g.communityName} grant fund`,
+        to:
+          g.status === "creative" && g.recipient
+            ? `/profile/${g.recipient.profileId}`
+            : undefined,
+        detail: [
+          `From your ${monthName(g.period)} membership`,
+          g.decidedBy === "default" ? "Went to the fund by default" : undefined,
+          g.plusUpCents > 0 ? `You added ${formatMoneyCents(g.plusUpCents)}` : undefined,
+        ]
+          .filter(Boolean)
+          .join(" · "),
+        amount: formatMoneyCents(g.amountCents),
+        createdAt: g.decidedAt ?? g.openedAt,
+      })),
+    ...given.funds.map((f) => ({
+      key: f.id,
+      title: f.fundName,
+      to: f.fundSlug ? `/fund/${f.fundSlug}` : undefined,
+      detail: [f.kind === "ticket" ? (f.note ?? "Ticket") : undefined, date(f.createdAt)]
+        .filter(Boolean)
+        .join(" · "),
+      amount: formatMoneyCents(f.amountCents),
+      createdAt: f.createdAt,
+    })),
+  ].sort((a, b) => b.createdAt - a.createdAt);
+
+  const cheers: SupportRowData[] = given.support
+    .filter((s) => s.kind === "cheer")
+    .map((s) => ({
+      key: s.id,
+      title: s.projectTitle,
+      to: projectLink(s.projectId, s.projectGone),
+      detail: [s.message ? `"${s.message}"` : undefined, date(s.createdAt)]
+        .filter(Boolean)
+        .join(" · "),
+      createdAt: s.createdAt,
+    }));
+
+  const offered: SupportRowData[] = [
+    ...given.support
+      .filter((s) => s.kind === "resource")
+      .map((s) => ({
+        key: s.id,
+        title: s.resourceDescription ?? "A resource",
+        to: projectLink(s.projectId, s.projectGone),
+        detail: `For ${s.projectTitle} · ${date(s.createdAt)}`,
+        createdAt: s.createdAt,
+      })),
+    ...given.offered.map((o) => ({
+      key: o.id,
+      title: o.title,
+      to: `/offerings/${o.id}`,
+      detail: `${o.format.charAt(0).toUpperCase()}${o.format.slice(1)} · ${date(o.createdAt)}`,
+      createdAt: o.createdAt,
+    })),
+  ].sort((a, b) => b.createdAt - a.createdAt);
+
+  const helped: SupportRowData[] = given.helped.map((h) => ({
+    key: h.id,
+    title: h.projectTitle,
+    to: `/projects/${h.projectId}`,
+    detail: h.role,
+    createdAt: h.createdAt,
+  }));
+
+  const sections = [
+    { title: "Money", rows: money },
+    { title: "Cheers", rows: cheers },
+    { title: "Things you offered", rows: offered },
+    { title: "Projects you helped on", rows: helped },
+  ].filter((s) => s.rows.length > 0);
+
+  if (sections.length === 0) {
+    return (
+      <p className="text-sm" style={{ color: "var(--app-text-muted)" }}>
+        Nothing here yet.{" "}
+        <Link
+          to="/projects"
+          className="hover:underline"
+          style={{ color: "var(--app-accent-ink)" }}
+        >
+          Find a project to support
+        </Link>
+      </p>
+    );
+  }
 
   return (
     <div>
-      <h2 className="text-lg font-semibold mb-4" style={{ color: "var(--app-text)" }}>
-        Your backings
-      </h2>
-      <div className="space-y-2">
-        {backings.map((b: any) => (
-          <div
-            key={b._id}
-            className="flex items-center justify-between gap-3 p-3 rounded-xl"
-            style={{ backgroundColor: "var(--app-surface-raised)" }}
-          >
-            <div className="min-w-0">
-              <Link
-                to={`/projects/${b.projectId}`}
-                className="font-medium text-sm truncate block transition-colors hover:opacity-80"
-                style={{ color: "var(--app-text)" }}
-              >
-                {b.projectTitle}
-              </Link>
-              <span className="text-xs" style={{ color: "var(--app-text-dim)" }}>
-                {TYPE_LABEL[b.type] ?? b.type}
-                {b.tierName ? ` · ${b.tierName}` : ""}
-                {" · "}
-                {b.status}
-                {" · "}
-                {new Date(b.createdAt).toLocaleDateString()}
-              </span>
-            </div>
-            <div className="text-sm font-semibold whitespace-nowrap" style={{ color: "var(--app-text)" }}>
-              {b.amountCents ? formatMoneyCents(b.amountCents) : ""}
-              {b.type === "financial_recurring" ? "/mo" : ""}
-              {b.type === "financial_annual" ? "/yr" : ""}
-            </div>
+      <p className="text-sm mb-6" style={{ color: "var(--app-text-muted)" }}>
+        Only you can see this.
+      </p>
+      {sections.map((section, i) => (
+        <div
+          key={section.title}
+          className={i === 0 ? "" : "mt-8 pt-6 border-t"}
+          style={i === 0 ? undefined : { borderColor: "var(--app-hairline)" }}
+        >
+          <h2 className="text-lg font-semibold mb-4" style={{ color: "var(--app-text)" }}>
+            {section.title}
+          </h2>
+          <div className="space-y-2">
+            {section.rows.map((row) => (
+              <SupportRow key={row.key} row={row} />
+            ))}
           </div>
-        ))}
-      </div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -704,7 +884,7 @@ function PayoutHandlesSection() {
 }
 
 // Live booking: the signed-in artist's own dates across every gig they've
-// responded to or been booked for — same row shape as BackingsSection.
+// responded to or been booked for — same row shape as SupportRow.
 function MyGigsSection() {
   const gigs = useQuery(api.garden.gigs.listMyGigs);
 
