@@ -2,6 +2,8 @@
 
 Written 2026-10-01 from the Connect Silicon Valley October newsletter and a research pass (sources at the end). Purpose: decide whether the Bay Area orbit is worth founder time five weeks before the November 6 launch and first close, and if so, what to do there.
 
+Briefing cards (slides with photos and the connection graph): https://claude.ai/artifact/NmxSZhrMKuF2hPNEimQmee. Graph data: `docs/data/civic-graph-nodes.csv` and `civic-graph-edges.csv` (ids connectsv, kingdomhaus, faithworktech, sovereigns, praxis, p_keele, p_collett, p_jmunro …).
+
 ## The short answer
 
 Go once, on October 5, for one full day in San Francisco. Skip October 2 and October 18. Get the Connect Silicon Valley and KingdomHaus relationships started by email today, not by flying. Treat the Bay Area as a source of three to five angel checks and two advisors, not as a market.
