@@ -26,6 +26,8 @@ import {
 } from "./stripeHandlers";
 import { DEFAULT_DUES, getDefaultCommunity } from "./defaultCommunity";
 import { resolveTierCommunity, seatAppliesIn } from "./entitlements";
+import { notifyGiftReceived, openMemberGift, scheduleTransferFor } from "./giving";
+import { applyConnectAccountStatus } from "./connectState";
 
 // ——— Backing-received email (docs/features live-booking-style pattern) ———
 //
@@ -407,6 +409,7 @@ function makeConvexDb(ctx: MutationCtx): Db & ClassPaymentDb {
         billing: row.billing,
         stripeRef: row.stripeRef,
         period: row.period,
+        ...(row.memberGiftId ? { memberGiftId: row.memberGiftId as Id<"memberGifts"> } : {}),
         createdAt: Date.now(),
       });
     },
@@ -513,6 +516,61 @@ function makeConvexDb(ctx: MutationCtx): Db & ClassPaymentDb {
           }),
         });
       }
+    },
+
+    // ——— Member-directed giving + Stripe Connect (member-directed-giving.md) ———
+
+    async openMemberGift(row) {
+      await openMemberGift(ctx, {
+        userId: row.userId as Id<"users">,
+        communityId: row.communityId as Id<"hostOrgs">,
+        membershipId: row.membershipId as Id<"memberships"> | undefined,
+        sourceStripeRef: row.sourceStripeRef,
+        period: row.period,
+        amountCents: row.amountCents,
+      });
+    },
+
+    async getGiftPaymentByRef(stripeRef: string) {
+      const row = await ctx.db
+        .query("giftPayments")
+        .withIndex("by_stripeRef", (q) => q.eq("stripeRef", stripeRef))
+        .unique();
+      return row ? { stripeRef: row.stripeRef } : null;
+    },
+
+    async insertGiftPayment(row) {
+      const payeeUserId = row.payeeUserId as Id<"users">;
+      const giverUserId = row.giverUserId as Id<"users"> | undefined;
+      await ctx.db.insert("giftPayments", {
+        memberGiftId: row.memberGiftId as Id<"memberGifts"> | undefined,
+        payeeUserId,
+        giverUserId,
+        giverName: row.giverName,
+        visible: row.visible,
+        source: row.source,
+        grossCents: row.grossCents,
+        platformCents: row.platformCents,
+        workCents: row.workCents,
+        billing: row.billing,
+        stripeRef: row.stripeRef,
+        period: row.period,
+        createdAt: Date.now(),
+      });
+      await notifyGiftReceived(ctx, {
+        payeeUserId,
+        giverUserId,
+        giverName: row.giverName,
+        visible: row.visible,
+        amountCents: row.grossCents,
+        source: "plus_up",
+        recurring: row.billing !== "one_time",
+      });
+      await scheduleTransferFor(ctx, payeeUserId);
+    },
+
+    async updateConnectAccount(args) {
+      await applyConnectAccountStatus(ctx, args);
     },
 
     async getOfferingTeacherUserId(offeringId: string) {

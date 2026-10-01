@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Notice in app and the /today card — member-directed giving mock</title>
+<style>
+/* Spine sections governing these mocks: EXPERIENCE.md > Information
+   Architecture, Voice and Tone (microcopy table), Component Patterns, State
+   Patterns; DESIGN.md > Colors, Typography, Components. Tokens are copies of
+   garden.css / tokens.css (--garden-*). Type floor: nothing under 12px. */
+:root{
+  --ink:#121212;--ink-raised:#1c1c19;--paper:#f7f7f4;--body:#c6c6be;--muted:#acaca4;
+  --dim:#94948c;--hair:#2a2a28;--hair-r:#3a3a36;--citron:#fee268;
+  --mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+  --display:"Bricolage Grotesque","Archivo",-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+  --sans:"Archivo",-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:#0c0c0c;color:var(--body);font-family:var(--sans);font-size:17px;line-height:1.6;-webkit-font-smoothing:antialiased}
+p{margin:0}
+a{color:inherit}
+.mock-head{padding:22px 24px 18px;border-bottom:1px solid var(--hair)}
+.mock-head h1{font-family:var(--display);font-size:22px;color:var(--paper);margin:0;font-weight:600;letter-spacing:-.02em}
+.mock-head p{margin:6px 0 0;font-size:14.5px;color:var(--body);max-width:88ch}
+.mock-head .k{font-family:var(--mono);font-size:12.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin-bottom:6px}
+.frames{display:flex;flex-wrap:wrap;gap:32px;padding:28px 24px 8px;align-items:flex-start}
+.frame{background:var(--ink);border:1px solid var(--hair);border-radius:10px;overflow:hidden;flex:0 0 auto}
+.frame.desktop{width:760px;max-width:100%}
+.frame.wide{width:1060px;max-width:100%}
+.frame.mobile{width:375px;max-width:100%}
+.frame .bar{display:flex;align-items:center;gap:6px;padding:10px 14px;border-bottom:1px solid var(--hair);background:#0f0f0e}
+.frame .bar i{width:10px;height:10px;border-radius:50%;background:var(--hair-r);display:block}
+.frame .bar span{margin-left:auto;font-family:var(--mono);font-size:12.5px;color:var(--dim);letter-spacing:.06em}
+.ann{padding:8px 24px 32px;font-size:14.5px;color:var(--body);max-width:96ch}
+.ann b{color:var(--paper);font-weight:600}
+.ann ul{margin:8px 0 0;padding-left:20px}
+.ann li{margin:4px 0}
+/* garden.css, copied */
+.g-wrap{max-width:680px;margin:0 auto;padding:32px 40px 72px}
+.mobile .g-wrap{padding:24px 20px 56px}
+.g-header{display:flex;justify-content:space-between;align-items:baseline;gap:16px;flex-wrap:wrap}
+.g-wordmark{font-family:var(--mono);font-weight:500;font-size:15px;letter-spacing:.28em;text-transform:uppercase;color:var(--paper);text-decoration:none}
+.g-nav{display:flex;gap:22px;flex-wrap:wrap;margin-top:14px}
+.g-nav a{font-family:var(--mono);font-size:15px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);text-decoration:none;padding-bottom:5px}
+.g-nav a.on{color:var(--citron);border-bottom:2px solid var(--citron)}
+.g-rule-heavy{height:2px;background:var(--paper);border:none;margin:12px 0 0}
+.g-rule{height:1px;background:var(--hair);border:none;margin:0}
+.g-label{font-family:var(--mono);font-size:12.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.g-label.citron{color:var(--citron)}
+.g-h{font-family:var(--display);font-weight:600;letter-spacing:-.02em;color:var(--paper);line-height:1.05;margin:0}
+h1.g-h{font-size:40px;letter-spacing:-.03em;text-wrap:balance}
+.mobile h1.g-h{font-size:30px}
+.g-h2{font-size:22px;line-height:1.15}
+.g-body{font-size:17px;color:var(--body);line-height:1.6}
+.g-hint{font-size:14.5px;color:var(--dim);line-height:1.55}
+.g-hint-body{font-size:14.5px;color:var(--body);line-height:1.55}
+.g-btn{display:inline-block;font-family:var(--mono);font-size:13.5px;letter-spacing:.08em;text-transform:uppercase;padding:13px 22px;border-radius:3px;text-decoration:none;border:none;cursor:pointer;line-height:1.2;text-align:center}
+.g-btn-citron{background:var(--citron);color:var(--ink)}
+.g-btn-ghost{border:1px solid var(--hair);color:var(--body);background:transparent}
+.g-btn.off{opacity:.5}
+.mobile .g-btn.full{display:block;width:100%}
+.g-badge{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;border-radius:3px;padding:4px 8px;display:inline-block;line-height:1.3}
+.g-badge-citron{background:var(--citron);color:var(--ink)}
+.g-badge-line{border:1px solid var(--hair);color:var(--body)}
+.g-card{border:1px solid var(--hair);border-radius:10px;padding:20px 24px}
+.g-cell{border:1px solid var(--hair);border-radius:3px;padding:12px 14px}
+.g-cell-v{font-family:var(--display);font-weight:600;font-size:22px;letter-spacing:-.02em;color:var(--paper)}
+.g-input{width:100%;background:transparent;border:1px solid var(--hair);border-radius:3px;color:var(--paper);font-family:var(--sans);font-size:16px;padding:12px 14px;line-height:1.4}
+.g-input.ph{color:var(--dim)}
+.g-mono{font-family:var(--mono)}
+.stack>*+*{margin-top:12px}
+.sec{margin-top:36px}
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+/* feature deltas (DESIGN.md > Components) */
+.gv-choice{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;border:1px solid var(--hair);border-radius:10px;padding:16px 18px;min-height:44px;cursor:pointer}
+.gv-choice[aria-checked="true"]{border-color:var(--citron)}
+.gv-choice b{display:block;color:var(--paper);font-size:17px;font-weight:600;line-height:1.3}
+.gv-choice span{display:block;font-size:14.5px;color:var(--body);margin-top:3px;line-height:1.5}
+.gv-check{color:var(--citron);flex-shrink:0;font-family:var(--mono);font-size:15px;line-height:1.5}
+.gv-list{border-top:1px solid var(--hair);margin-top:12px}
+.gv-row{display:flex;align-items:center;gap:12px;padding:12px 10px;border-bottom:1px solid var(--hair);min-height:44px}
+.gv-row[aria-checked="true"]{border:1px solid var(--citron);border-radius:3px}
+.gv-av{width:36px;height:36px;border-radius:9999px;background:var(--hair-r);color:var(--paper);font-family:var(--mono);font-size:13.5px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.gv-row .t{flex:1;min-width:0}
+.gv-row b{display:block;color:var(--paper);font-size:15px;font-weight:600;line-height:1.3}
+.gv-row span{display:block;font-size:14.5px;color:var(--dim);line-height:1.4}
+.gv-amts{display:flex;gap:8px;flex-wrap:wrap}
+.gv-amts .g-btn{min-width:72px}
+.gv-amts .on{border-color:var(--citron);color:var(--citron)}
+.gv-seg{display:inline-flex;border:1px solid var(--hair);border-radius:10px;padding:3px}
+.gv-seg span{font-family:var(--mono);font-size:13.5px;letter-spacing:.08em;text-transform:uppercase;padding:8px 16px;border-radius:8px;color:var(--paper);cursor:pointer}
+.gv-seg span.on{background:var(--paper);color:var(--ink)}
+.gv-done{border-left:2px solid var(--citron);padding-left:16px}
+.gv-hist{display:flex;flex-wrap:wrap;align-items:baseline;gap:12px;padding:14px 0;border-bottom:1px solid var(--hair)}
+.gv-hist .p{font-family:var(--mono);font-size:12.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);min-width:72px}
+.gv-hist .d{color:var(--paper);font-size:15px}
+.gv-hist .a{color:var(--muted);font-size:14.5px}
+.mobile .gv-hist .p,.mobile .gv-hist .a{flex-basis:100%}
+.gv-owed{font-family:var(--display);font-size:22px;font-weight:600;color:var(--paper);letter-spacing:-.02em}
+.chk{display:flex;align-items:center;gap:10px;font-size:15px;color:var(--body)}
+.chk i{width:18px;height:18px;border:1px solid var(--muted);border-radius:3px;display:inline-block;flex-shrink:0}
+.chk i.on{background:var(--citron);border-color:var(--citron)}
+.counter{font-size:14.5px;color:var(--dim);text-align:right;margin-top:5px}
+/* app shell (today, settings, notifications) — same tokens via --app-* */
+.app{max-width:680px;margin:0 auto;padding:32px 40px 56px}
+.mobile .app{padding:24px 20px 48px}
+.app-card{background:var(--ink-raised);border:1px solid var(--hair);border-radius:12px;padding:24px 28px}
+.mobile .app-card{padding:20px}
+.app-label{font-family:var(--mono);font-size:12.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+.app-h{font-family:var(--display);font-size:28px;font-weight:600;letter-spacing:-.01em;color:var(--paper);line-height:1.15;margin:10px 0 0}
+.mobile .app-h{font-size:24px}
+.app-btn{display:inline-flex;align-items:center;gap:8px;border-radius:8px;font-weight:600;font-size:13.5px;padding:10px 16px;background:var(--citron);color:var(--ink);text-decoration:none;font-family:var(--sans)}
+.app-btn.ghost{background:transparent;border:1px solid var(--hair-r);color:var(--paper);font-weight:500}
+.n-list{background:var(--ink-raised);border:1px solid var(--hair);border-radius:16px;overflow:hidden}
+.n-row{display:flex;align-items:flex-start;gap:12px;padding:12px 16px;border-left:2px solid transparent;border-bottom:1px solid var(--hair)}
+.n-row:last-child{border-bottom:none}
+.n-row.unread{border-left-color:var(--citron)}
+.n-row .t{flex:1;min-width:0}
+.n-row .h{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.n-row .h b{font-size:15px;color:var(--paper);font-weight:600}
+.n-row .h span{font-size:12.5px;color:var(--muted);flex-shrink:0}
+.n-row p{font-size:14.5px;color:var(--muted);margin-top:2px}
+.n-av{width:40px;height:40px;border-radius:9999px;background:var(--hair-r);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:13.5px;color:var(--paper)}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;border-bottom:1px solid var(--hair);padding-bottom:0;margin-bottom:28px}
+.tabs span{font-size:15px;font-weight:500;padding:10px 14px;color:var(--muted);border-bottom:2px solid transparent}
+.tabs span.on{color:var(--paper);border-bottom-color:var(--citron)}
+.set-h{font-size:19px;font-weight:600;color:var(--paper);margin:0 0 14px;font-family:var(--sans)}
+.set-p{font-size:14.5px;color:var(--body);line-height:1.6}
+/* email (email/template.ts, copied) */
+.em-page{background:#f4f4f2;padding:32px 16px;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+.em-wrap{max-width:520px;margin:0 auto}
+.em-brand{font-size:16px;font-weight:700;color:#111111;margin-bottom:20px}
+.em-card{background:#ffffff;border-radius:12px;padding:32px;border:1px solid #e5e5e0}
+.mobile .em-card{padding:24px 20px}
+.em-card h1{margin:0 0 14px;font-size:19px;line-height:1.4;color:#111111;font-family:inherit;font-weight:700}
+.em-card .b{font-size:15px;color:#111111;line-height:1.6}
+.em-card .b p+p{margin-top:14px}
+.em-btn{display:inline-block;padding:12px 24px;background:#111111;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:600;font-size:15px;margin-top:20px}
+.em-foot{margin-top:24px;font-size:13px;color:#444444;line-height:1.6}
+.em-foot a{color:#444444}
+.em-meta{font-family:var(--mono);font-size:12.5px;color:var(--dim);letter-spacing:.04em;padding:12px 16px;border-bottom:1px solid var(--hair);line-height:1.7}
+.em-meta b{color:var(--muted);font-weight:500}
+/* report table */
+.tbl-wrap{overflow-x:auto;margin-top:14px;-webkit-overflow-scrolling:touch}
+table.rep{border-collapse:collapse;min-width:100%;font-variant-numeric:tabular-nums}
+table.rep th{font-family:var(--mono);font-size:12.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);font-weight:500;text-align:right;padding:8px 12px;border-bottom:2px solid var(--paper);white-space:nowrap;vertical-align:bottom}
+table.rep th:first-child,table.rep td:first-child{text-align:left;position:sticky;left:0;background:var(--ink)}
+table.rep td{font-size:15px;color:var(--body);text-align:right;padding:10px 12px;border-bottom:1px solid var(--hair);white-space:nowrap}
+table.rep td:first-child{font-family:var(--mono);font-size:12.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--paper)}
+table.rep td.hot{color:var(--paper);font-weight:600}
+.led{display:flex;flex-wrap:wrap;align-items:baseline;gap:12px;padding:12px 0;border-bottom:1px solid var(--hair)}
+.led .n{font-size:14.5px;color:var(--paper);font-weight:600;min-width:160px}
+.led .m{font-size:14.5px;color:var(--dim)}
+.led .v{font-size:15px;color:var(--paper);margin-left:auto}
+</style>
+</head>
+<body>
+<div class="mock-head"><div class="k">Key screen · member-directed giving · 2026-09-30</div><h1>Notice in app and the /today card</h1><p>The notification row on /messages, the /today card while an amount is open, and the /join/success line.</p></div>
+<div class="frames">
+<div class="frame desktop"><div class="bar"><i></i><i></i><i></i><span>/messages — Notifications (in-app notice)</span></div>
+<div class="app">
+  <h2 class="set-h" style="font-size:22px;font-family:var(--display)">Notifications</h2>
+  <div class="n-list">
+    <div class="n-row unread">
+      <div class="t"><div class="h"><b>You have $5 to give this month.</b><span>2h</span></div>
+      <p>Pick a creative, pick a project, or leave it in the grant fund. If you don't pick by your next payment, it stays in the grant fund.</p></div>
+    </div>
+    <div class="n-row">
+      <div class="n-av">JA</div>
+      <div class="t"><div class="h"><b>New backing</b><span>Yesterday</span></div>
+      <p>Jo Alvarez backed Small Acts: Neighbors with $25.</p></div>
+    </div>
+  </div>
+  <p class="g-hint" style="margin-top:12px">Whole row links to /give. Read state clears when /give is visited.</p>
+</div></div><div class="frame desktop"><div class="bar"><i></i><i></i><i></i><span>/today — card while an amount is open</span></div>
+<div class="app">
+  <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:28px">
+    <span class="app-label" style="color:var(--dim)">Today in The Garden</span><span class="app-label" style="color:var(--dim)">Thu, Oct 1</span>
+  </div>
+  <div class="app-card">
+    <span class="app-label">Your half</span>
+    <h2 class="app-h">You have $5 to give this month.</h2>
+    <p class="g-body" style="margin-top:10px;font-size:15px">Each month you pick which creative gets your half, or leave it in the grant fund. If you don't pick by your next payment, it stays in the grant fund.</p>
+    <p class="g-hint" style="margin-top:6px;color:var(--muted)">Your next payment is Oct 3.</p>
+    <div style="margin-top:18px"><a class="app-btn">Pick who gets it</a></div>
+  </div>
+  <div class="app-card" style="margin-top:20px;display:flex;gap:12px;align-items:center;padding:14px 18px">
+    <span class="g-badge g-badge-line">Next live · Thu 7pm</span><span class="app-label" style="color:var(--paper)">Creator Notes</span><span style="margin-left:auto" class="g-hint">Episode →</span>
+  </div>
+</div></div><div class="frame mobile"><div class="bar"><i></i><i></i><i></i><span>/today · 375px</span></div>
+<div class="app">
+  <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:28px">
+    <span class="app-label" style="color:var(--dim)">Today in The Garden</span><span class="app-label" style="color:var(--dim)">Thu, Oct 1</span>
+  </div>
+  <div class="app-card">
+    <span class="app-label">Your half</span>
+    <h2 class="app-h">You have $5 to give this month.</h2>
+    <p class="g-body" style="margin-top:10px;font-size:15px">Each month you pick which creative gets your half, or leave it in the grant fund. If you don't pick by your next payment, it stays in the grant fund.</p>
+    <p class="g-hint" style="margin-top:6px;color:var(--muted)">Your next payment is Oct 3.</p>
+    <div style="margin-top:18px"><a class="app-btn">Pick who gets it</a></div>
+  </div>
+  <div class="app-card" style="margin-top:20px;display:flex;gap:12px;align-items:center;padding:14px 18px">
+    <span class="g-badge g-badge-line">Next live · Thu 7pm</span><span class="app-label" style="color:var(--paper)">Creator Notes</span><span style="margin-left:auto" class="g-hint">Episode →</span>
+  </div>
+</div></div><div class="frame mobile"><div class="bar"><i></i><i></i><i></i><span>/join/success · 375px</span></div>
+<div class="g-wrap" style="padding-bottom:40px">
+  <h1 class="g-h" style="font-size:32px">You're in.</h1>
+  <p class="g-body" style="margin-top:12px;font-size:15px">Your membership is active. Start a project, apply to paid work, or propose to the Grant Fund.</p>
+  <div class="row" style="margin-top:20px"><a class="g-btn g-btn-citron">See what's open</a><a class="g-btn g-btn-ghost">Start a project</a></div>
+  <p class="g-body" style="margin-top:22px;font-size:15px">You also have $5 to give this month. <a style="color:var(--citron)">Pick who gets it →</a></p>
+  <p class="g-hint" style="margin-top:12px">Receipts and billing live in <u>Settings</u>.</p>
+</div></div>
+</div>
+<div class="ann"><b>What this shows.</b> The in-app notice uses the existing notification row (title, message, relative time, citron unread bar). No avatar: there is no related user, so the empty circle is left out. The /today card sits above Creator Notes only while the amount is <code>open</code> and has no dismiss control; the default line is the dismissal. On the raised card, labels use muted (#acaca4, ~7.5:1) not dim.<ul><li><b>$5 is computed, never typed.</b> It is the pool share of this member's own invoice (The Garden: $10 membership × 50% pool share = $5). A $20 membership would read $10; a community with no pool share opens nothing. Every string that shows the amount takes it from the invoice.</li><li>Default rule in the first two lines: heading, then "If you don't pick by your next payment, it stays in the grant fund."</li><li>Spine: EXPERIENCE.md › Component Patterns (Notice row, Open-amount card); State Patterns (open).</li></ul></div>
+</body>
+</html>

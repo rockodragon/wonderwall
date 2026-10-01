@@ -295,3 +295,38 @@ describe("monthly gift renewals (invoice.paid)", () => {
     expect("skipped" in buildApRenewalRow({ invoice: { ...base, amount_paid: 0 }, hostOrgId: "o", now: 0 })).toBe(true);
   });
 });
+
+describe("a member's plus-up to the fund from /give (client_reference_id)", () => {
+  it("carries the member and the monthly amount onto the row, and says so in the note", () => {
+    const session = makeSession({ client_reference_id: "gift-gift123-u-user456" });
+    const result = buildApGrantContributionRow({
+      session,
+      hostOrgId: "hostOrg_ap",
+      attribution: { userId: "user456", memberGiftId: "gift123" },
+      now: 0,
+    });
+    if (!("row" in result)) throw new Error("expected a row");
+    expect(result.row.userId).toBe("user456");
+    expect(result.row.memberGiftId).toBe("gift123");
+    expect(result.row.note).toBe("Gift through Abiding Practice, added from a member's monthly amount");
+    expect(result.row.platformCents).toBe(0);
+  });
+
+  it("a renewal keeps the attribution the subscription was remembered with", () => {
+    const r = buildApRenewalRow({
+      invoice: { id: "in_9", amount_paid: 1000, currency: "usd", billing_reason: "subscription_cycle", period_start: 1_790_000_000 },
+      hostOrgId: "org_ap",
+      userId: "user456",
+      memberGiftId: "gift123",
+      now: 0,
+    });
+    expect("row" in r && r.row).toMatchObject({ userId: "user456", memberGiftId: "gift123", stripeRef: "ap:in_9" });
+  });
+
+  it("an unattributed gift row carries neither", () => {
+    const result = buildApGrantContributionRow({ session: makeSession(), hostOrgId: "hostOrg_ap", now: 0 });
+    if (!("row" in result)) throw new Error("expected a row");
+    expect(result.row.userId).toBeUndefined();
+    expect(result.row.memberGiftId).toBeUndefined();
+  });
+});

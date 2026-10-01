@@ -5,6 +5,7 @@
 //   npx convex run garden/devSeed:seedLaunchTables [--prod]
 //   npx convex run garden/devSeed:seedFirstTableEvent '{"organizerUserId":"..."}' [--prod]
 //   npx convex run garden/devSeed:seedCommunityLaunch [--prod]
+//   npx convex run garden/devSeed:seedCreatorNotesLaunch [--prod]
 // seedCommunityLaunch is the step-0 exit seed (docs/runbooks/step-0-go-live.md):
 // it ensures the creatives.exchange platform row, re-kinds/patches
 // "the-garden" to a community, and ensures "abiding-practice", all in one
@@ -13,6 +14,7 @@ import { v } from "convex/values";
 import { internalMutation } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 import { COMMUNITY_KIND, PLATFORM_ORG_SLUG } from "./communities";
+import { YOUTUBE_LIVE_URL } from "../../app/constants/broadcast";
 
 // Kept working for existing callers/scripts, but now creates "the-garden"
 // as a community (not the platform default) with the same defaults
@@ -710,5 +712,50 @@ export const tagProjectsToGarden = internalMutation({
       tagged.push(p.title);
     }
     return { ok: true, gardenId: garden._id, tagged, skipped };
+  },
+});
+
+// The first Creator Notes episode, as an event people can sign up for. The
+// /today card finds it by the "Creator Notes" tag (pickEpisode in
+// routes/today.tsx) and sends people to /events/{id}. 2026-10-06 1pm Pacific
+// (PDT) = 20:00Z, one hour. The YouTube live link goes in the private
+// eventVideo row, the same place the event page reads its stream from.
+// Idempotent by title. Run:
+//   npx convex run garden/devSeed:seedCreatorNotesLaunch --prod
+export const seedCreatorNotesLaunch = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const title = "What is this and why?";
+    const existing = (
+      await ctx.db
+        .query("events")
+        .withIndex("by_status", (q) => q.eq("status", "published"))
+        .collect()
+    ).find((e) => e.title === title);
+    if (existing) return { eventId: existing._id, created: false };
+
+    const admin = (await ctx.db.query("profiles").collect()).find((p) => p.isAdmin === true);
+    if (!admin) throw new Error("No admin profile found to host the event.");
+
+    const now = Date.now();
+    const startsAt = Date.parse("2026-10-06T20:00:00Z");
+    const eventId = await ctx.db.insert("events", {
+      organizerId: admin.userId,
+      title,
+      description:
+        "The first Creator Notes. What TheCreative.exchange is, why it exists, and what happens next. Sign up and we'll let you know when it starts.",
+      datetime: startsAt,
+      endTime: startsAt + 60 * 60 * 1000,
+      location: "Online",
+      locationType: "online",
+      tags: ["Creator Notes"],
+      requiresApproval: false,
+      hasVideo: true,
+      status: "published",
+      createdAt: now,
+      updatedAt: now,
+    });
+    await ctx.db.insert("eventVideo", { eventId, meetingUrl: YOUTUBE_LIVE_URL, updatedAt: now });
+    return { eventId, created: true };
   },
 });

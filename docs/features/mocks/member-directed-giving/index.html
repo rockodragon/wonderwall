@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Member-directed giving — key-screen mocks</title>
+<style>
+  :root{--ink:#121212;--paper:#f7f7f4;--body:#c6c6be;--dim:#94948c;--hair:#2a2a28;--citron:#fee268;
+    --mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+    --display:"Bricolage Grotesque","Archivo",-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+    --sans:"Archivo",-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--ink);color:var(--body);font-family:var(--sans);font-size:17px;line-height:1.6;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:680px;margin:0 auto;padding:40px 20px 96px}
+  .label{font-family:var(--mono);font-size:12.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+  h1{font-family:var(--display);font-size:32px;font-weight:600;letter-spacing:-.03em;color:var(--paper);line-height:1.05;margin:8px 0 0}
+  p{margin:12px 0 0}
+  hr{height:2px;background:var(--paper);border:none;margin:24px 0 0}
+  ol{list-style:none;padding:0;margin:8px 0 0}
+  li{display:flex;flex-wrap:wrap;align-items:baseline;gap:12px;padding:14px 0;border-bottom:1px solid var(--hair)}
+  li .n{font-family:var(--mono);font-size:12.5px;letter-spacing:.08em;color:var(--dim);min-width:24px}
+  li a{color:var(--paper);font-size:15px;font-weight:600;text-decoration:none;border-bottom:1px solid var(--citron)}
+  li span{font-size:14.5px;color:var(--body);flex-basis:100%;padding-left:36px}
+  .hint{font-size:14.5px;color:var(--dim)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="label">Key-screen mocks · 2026-09-30</div>
+  <h1>Member-directed giving</h1>
+  <p>Static HTML, one file per screen, desktop (680px column) and 375px side by side. Spec: <code>docs/features/member-directed-giving.md</code>. Spines: <code>_bmad-output/planning-artifacts/ux-designs/ux-wonderwall-2026-09-30-giving/</code> (EXPERIENCE.md, DESIGN.md). The spines win over these mocks on conflict.</p>
+  <hr>
+  <p style="margin:12px 0 20px;padding:10px 12px;border:1px solid #2a2a28;color:#c6c6be;font-size:15px;line-height:1.5">These mocks are the first draft (2026-09-30, morning). Rick cut the copy by half the same day: no "Your half" label, "Support a creative, a project, or the grant fund", the default under the fund option, explanations behind an info icon, one-time gifts only, "Skip", "plussed up", and no table on the ledger. The built pages are the reference now; the spec has the current rules.</p><ol>
+    <li><span class="n">01</span><a href="notice-in-app.html">notice-in-app.html</a><span>The notification row on /messages and the /today card while a gift is open, plus the /join/success line.</span></li>
+    <li><span class="n">02</span><a href="email-notice.html">email-notice.html</a><span>The "You have $5 to give this month." email in the shape email/template.ts produces; default rule as line two.</span></li>
+    <li><span class="n">03</span><a href="give-choose.html">give-choose.html</a><span>/give open: the amount, the three choices, the creative picker (search, rows), the project picker, the 200-character note, Give anonymously, the default line; a no-match state at 375px.</span></li>
+    <li><span class="n">04</span><a href="give-done-plusup.html">give-done-plusup.html</a><span>/give after choosing: confirmation, the plus-up ask (once or monthly, $10 · $25 · $50 · custom; the fund's two Sophia Fund links with CLAIMS.grantFundDeductible), history by month, and "Given to you".</span></li>
+    <li><span class="n">05</span><a href="recipient-notice.html">recipient-notice.html</a><span>"Dana gave you $5" as a notification and as an email, with the connect-your-bank line when the creative has not connected.</span></li>
+    <li><span class="n">06</span><a href="settings-get-paid.html">settings-get-paid.html</a><span>Settings › Money "Get paid": not connected, checking, connected (Stripe dashboard link), payouts paused, not finished; what you're owed.</span></li>
+    <li><span class="n">07</span><a href="admin-report.html">admin-report.html</a><span>/admin/ledger "Member-directed giving": totals, the per-month table with the spec's columns, and the per-member rows.</span></li>
+  </ol>
+  <p class="hint">Sample names and numbers are for layout only. The dollar amount is always computed from the member's invoice; $5 is The Garden's $10 membership at a 50% pool share.</p>
+</div>
+</body>
+</html>

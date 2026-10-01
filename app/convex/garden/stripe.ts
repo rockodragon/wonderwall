@@ -573,6 +573,10 @@ export const createBackingCheckout = action({
     guestName: v.optional(v.string()),
     // Which page the backer started on, so Stripe sends them back to it.
     from: v.optional(v.union(v.literal("story"), v.literal("project"))),
+    // Member-directed giving: the monthly amount this backing is added on
+    // top of (a plus-up from /give) — rides the metadata onto every renewal
+    // so the behavior-change report can attribute it.
+    memberGiftId: v.optional(v.id("memberGifts")),
   },
   handler: async (ctx, args) => {
     const userId = await auth.getUserId(ctx);
@@ -660,6 +664,7 @@ export const createBackingCheckout = action({
       // rest of `metadata`, so each monthly renewal invoice carries it too.
       amountCents: String(args.amountCents),
       ...(args.tierId ? { tierId: args.tierId } : {}),
+      ...(args.memberGiftId ? { memberGiftId: String(args.memberGiftId) } : {}),
     };
 
     const returnTo = backingReturnPaths({
@@ -1024,5 +1029,119 @@ export const reconcileMemberships = internalAction({
 
     console.log(`[stripe] reconcile complete — ${processed} subscriptions converged`);
     return { processed, skipped: false };
+  },
+});
+
+// ——— createGiftCheckout — a plus-up to a creative from /give ———
+//
+// Member-directed giving (docs/features/member-directed-giving.md, "The
+// plus-up"): after directing their monthly share to a creative, the member
+// can add their own money on top, once or monthly. It is a backing of a
+// person rather than a project, so it takes the backing rules — 90% to them,
+// 10% platform (splitBacking), card processing on top — and the same
+// billing-customer reuse and mirrored subscription metadata as
+// createBackingCheckout. Members only: a plus-up starts from a signed-in
+// page, and monthly needs a customer.
+//
+// memberGiftId ties the payment to the monthly amount that prompted it —
+// that link is the behavior-change metric (garden/giving.ts
+// computeGivingReport), so it rides on the metadata and onto the
+// subscription for every renewal.
+//
+// Money words: "back". Never "gift"/"donate" — this runs through our
+// account.
+
+export const createGiftCheckout = action({
+  args: {
+    recipientUserId: v.id("users"),
+    amountCents: v.number(),
+    recurring: v.boolean(),
+    visible: v.boolean(),
+    memberGiftId: v.optional(v.id("memberGifts")),
+  },
+  handler: async (ctx, args) => {
+    const userId = await auth.getUserId(ctx);
+    if (!userId) throw new ConvexError({ reason: "Sign in to back someone." });
+
+    const invalid = validateBackingAmount(args.amountCents);
+    if (invalid) throw new ConvexError({ reason: invalid });
+
+    const who = await ctx.runQuery((internal as any).garden.giving.getRecipientForCheckout, {
+      recipientUserId: String(args.recipientUserId),
+      giverUserId: String(userId),
+      ...(args.memberGiftId ? { memberGiftId: String(args.memberGiftId) } : {}),
+    });
+    if (!who.ok) throw new ConvexError({ reason: who.reason });
+
+    const stripe = getStripeClient();
+
+    const existing = await ctx.runQuery(
+      (internal as any).garden.memberships.getBillingCustomerForUser,
+      { userId: String(userId) },
+    );
+    let stripeCustomerId: string | undefined = existing?.stripeCustomerId;
+    if (!stripeCustomerId) {
+      const identity = await ctx.auth.getUserIdentity();
+      const customer = await stripe.customers.create({
+        email: identity?.email ?? undefined,
+        metadata: { userId: String(userId) },
+      });
+      stripeCustomerId = customer.id;
+      await ctx.runMutation((internal as any).garden.memberships.saveBillingCustomer, {
+        userId: String(userId),
+        stripeCustomerId,
+        email: identity?.email ?? undefined,
+      });
+    }
+
+    const metadata: Record<string, string> = {
+      kind: "gift",
+      recipientUserId: String(args.recipientUserId),
+      userId: String(userId),
+      visible: String(args.visible),
+      giverName: who.giverName,
+      // The true, pre-fee amount — the webhook reads THIS, never
+      // amount_total, which includes the processing line below.
+      amountCents: String(args.amountCents),
+      ...(args.memberGiftId ? { memberGiftId: String(args.memberGiftId) } : {}),
+    };
+
+    const productName = args.recurring
+      ? `Monthly backing — ${who.recipientName}`
+      : `Backing — ${who.recipientName}`;
+
+    const session = await stripe.checkout.sessions.create({
+      mode: args.recurring ? "subscription" : "payment",
+      customer: stripeCustomerId,
+      payment_method_types: ["card"],
+      line_items: [
+        {
+          quantity: 1,
+          price_data: {
+            currency: "usd",
+            unit_amount: args.amountCents,
+            product_data: { name: productName },
+            ...(args.recurring ? { recurring: { interval: "month" } } : {}),
+          },
+        },
+        {
+          quantity: 1,
+          price_data: {
+            currency: "usd",
+            unit_amount: backingProcessingFeeCents(args.amountCents),
+            product_data: { name: "Card processing" },
+            ...(args.recurring ? { recurring: { interval: "month" } } : {}),
+          },
+        },
+      ],
+      metadata,
+      ...(args.recurring ? { subscription_data: { metadata } } : {}),
+      success_url: `${siteUrl()}/give?backed=1${args.memberGiftId ? `&gift=${String(args.memberGiftId)}` : ""}`,
+      cancel_url: `${siteUrl()}/give`,
+      allow_promotion_codes: false,
+    });
+
+    if (!session.url) throw new ConvexError("Stripe did not return a checkout URL.");
+    return { url: session.url };
   },
 });
