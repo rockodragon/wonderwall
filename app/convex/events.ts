@@ -11,6 +11,7 @@ import { mergeGuests, summarizeGuests, type GuestInput } from "./eventGuests";
 import { getUserEmail } from "./emailHelpers";
 import { isEventHost, planAddCoHost, planRemoveCoHost } from "./eventHosts";
 import { canSeeEvent, eventVisibilityChecker, isFreeEvent } from "./garden/eventVisibility";
+import { hostUserIdsForOrg, primaryOrgByUserId } from "./organizations";
 
 // ——— Pure validation helpers (unit-tested in events.test.ts) ———
 
@@ -221,20 +222,32 @@ async function loadGoingCount(ctx: QueryCtx, eventId: Id<"events">): Promise<num
   });
 }
 
-/** Organizer then co-hosts, each with the org name from their profile. */
+type HostOrg = { orgName?: string; orgUrl?: string; orgSlug?: string };
+
+/** The organization a host's name shows with: their primary organization
+ * (docs/features/organizations.md), else the old free-text field from
+ * before the backfill — which has no page, so no slug. */
+async function hostOrg(ctx: QueryCtx, profile: Doc<"profiles"> | null): Promise<HostOrg> {
+  if (!profile) return {};
+  const org = await primaryOrgByUserId(ctx, profile.userId);
+  if (org) return { orgName: org.name, orgUrl: org.websiteUrl, orgSlug: org.slug };
+  return { orgName: profile.orgName?.trim() || undefined, orgUrl: profile.orgUrl || undefined };
+}
+
+/** Organizer then co-hosts, each with their organization. */
 async function loadHosts(
   ctx: QueryCtx,
   event: Doc<"events">,
-): Promise<{ name: string; orgName?: string; orgUrl?: string; profileId?: Id<"profiles"> }[]> {
+): Promise<({ name: string; profileId?: Id<"profiles"> } & HostOrg)[]> {
   const ids = [event.organizerId, ...(event.coHostIds ?? [])];
-  const out: { name: string; orgName?: string; orgUrl?: string; profileId?: Id<"profiles"> }[] = [];
+  const out: ({ name: string; profileId?: Id<"profiles"> } & HostOrg)[] = [];
   for (const id of ids) {
     const p = await ctx.db
       .query("profiles")
       .withIndex("by_userId", (q) => q.eq("userId", id))
       .first();
     if (!p) continue;
-    out.push({ name: p.name, orgName: p.orgName?.trim() || undefined, orgUrl: p.orgUrl || undefined, profileId: p._id });
+    out.push({ name: p.name, profileId: p._id, ...(await hostOrg(ctx, p)) });
   }
   return out;
 }
@@ -283,38 +296,66 @@ export const list = query({
     // next-up-first.
     events.sort((a, b) => (args.past ? b.datetime - a.datetime : a.datetime - b.datetime));
 
-    const communityById = await resolveCommunities(ctx, events.map((e) => e.hostOrgId));
+    return await toCardEvents(ctx, events);
+  },
+});
 
-    // Resolve cover images
-    const eventsWithImages = await Promise.all(
-      events.map(async (event) => {
-        let coverImageUrl: string | null = null;
+/** What EventCard draws for each event: cover, going count, hosts, community. */
+async function toCardEvents(ctx: QueryCtx, events: Doc<"events">[]) {
+  const communityById = await resolveCommunities(ctx, events.map((e) => e.hostOrgId));
 
-        // Try cover image first
-        if (event.coverImageStorageId) {
-          coverImageUrl = await ctx.storage.getUrl(event.coverImageStorageId);
-        }
-        // Fall back to first gallery image
-        else if (event.imageStorageIds && event.imageStorageIds.length > 0) {
-          coverImageUrl = await ctx.storage.getUrl(event.imageStorageIds[0]);
-        }
+  return await Promise.all(
+    events.map(async (event) => {
+      let coverImageUrl: string | null = null;
 
-        const [attendeeCount, hosts] = await Promise.all([
-          loadGoingCount(ctx, event._id),
-          loadHosts(ctx, event),
-        ]);
+      // Try cover image first
+      if (event.coverImageStorageId) {
+        coverImageUrl = await ctx.storage.getUrl(event.coverImageStorageId);
+      }
+      // Fall back to first gallery image
+      else if (event.imageStorageIds && event.imageStorageIds.length > 0) {
+        coverImageUrl = await ctx.storage.getUrl(event.imageStorageIds[0]);
+      }
 
-        return {
-          ...event,
-          coverImageUrl,
-          attendeeCount,
-          hosts,
-          community: event.hostOrgId ? (communityById.get(String(event.hostOrgId)) ?? null) : null,
-        };
-      }),
-    );
+      const [attendeeCount, hosts] = await Promise.all([
+        loadGoingCount(ctx, event._id),
+        loadHosts(ctx, event),
+      ]);
 
-    return eventsWithImages;
+      return {
+        ...event,
+        coverImageUrl,
+        attendeeCount,
+        hosts,
+        community: event.hostOrgId ? (communityById.get(String(event.hostOrgId)) ?? null) : null,
+      };
+    }),
+  );
+}
+
+/**
+ * An organization's events (/orgs/:slug): published events whose organizer
+ * or a co-host has this organization first — the same rule that puts its
+ * name in "Hosted by". Upcoming soonest first; past newest first, a few.
+ */
+export const listForOrganization = query({
+  args: { organizationId: v.id("organizations") },
+  handler: async (ctx, { organizationId }) => {
+    const hostIds = await hostUserIdsForOrg(ctx, organizationId);
+    if (hostIds.size === 0) return { upcoming: [], past: [] };
+    const isPublic = eventVisibilityChecker(ctx);
+    const now = Date.now();
+    const mine: Doc<"events">[] = [];
+    for (const e of await ctx.db.query("events").withIndex("by_status", (q) => q.eq("status", "published")).collect()) {
+      const hosted = hostIds.has(String(e.organizerId)) || (e.coHostIds ?? []).some((id) => hostIds.has(String(id)));
+      if (hosted && (await isPublic(e))) mine.push(e);
+    }
+    const upcoming = mine.filter((e) => e.datetime > now).sort((a, b) => a.datetime - b.datetime);
+    const past = mine
+      .filter((e) => e.datetime <= now)
+      .sort((a, b) => b.datetime - a.datetime)
+      .slice(0, 6);
+    return { upcoming: await toCardEvents(ctx, upcoming), past: await toCardEvents(ctx, past) };
   },
 });
 
@@ -402,14 +443,12 @@ export const get = query({
 
     const goingCount = await loadGoingCount(ctx, args.eventId);
 
-    const coHosts: {
+    const coHosts: ({
       userId: Id<"users">;
       name: string;
-      orgName?: string;
-      orgUrl?: string;
       imageUrl: string | null;
       profileId: Id<"profiles"> | null;
-    }[] = [];
+    } & HostOrg)[] = [];
     for (const coId of event.coHostIds ?? []) {
       const p = await ctx.db
         .query("profiles")
@@ -420,8 +459,7 @@ export const get = query({
       coHosts.push({
         userId: coId,
         name: p?.name ?? "Someone",
-        orgName: p?.orgName?.trim() || undefined,
-        orgUrl: p?.orgUrl || undefined,
+        ...(await hostOrg(ctx, p ?? null)),
         imageUrl: img,
         profileId: p?._id ?? null,
       });
@@ -437,8 +475,7 @@ export const get = query({
       organizer: profile
         ? {
             name: profile.name,
-            orgName: profile.orgName?.trim() || undefined,
-            orgUrl: profile.orgUrl || undefined,
+            ...(await hostOrg(ctx, profile)),
             imageUrl: organizerImageUrl,
             profileId: profile._id,
           }

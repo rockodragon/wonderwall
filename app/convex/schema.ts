@@ -117,6 +117,69 @@ export default defineSchema({
     order: v.number(),
   }).index("by_profileId", ["profileId"]),
 
+  // Organizations people belong to — a company, a church, a collective
+  // (docs/features/organizations.md). Public at /orgs/:slug. Distinct from
+  // hostOrgs (communities and fund owners, with money attached): an
+  // organization is who someone works with; hostOrgId links the two when
+  // the same organization also runs a community or a fund here.
+  organizations: defineTable({
+    name: v.string(),
+    nameKey: v.string(), // organizationRules.orgNameKey(name) — dedupe on create
+    slug: v.string(), // set once at creation; a rename keeps it so links hold
+    category: v.optional(v.string()), // one of organizationRules.ORG_CATEGORIES
+    tagline: v.optional(v.string()),
+    mission: v.optional(v.string()), // plain text, paragraphs separated by blank lines
+    logoStorageId: v.optional(v.id("_storage")),
+    websiteUrl: v.optional(v.string()), // normalized by normalizeOrgUrl
+    instagram: v.optional(v.string()), // handle, no "@"
+    x: v.optional(v.string()), // handle, no "@"
+    linkedin: v.optional(v.string()), // path: "company/abiding-practice" or "in/name"
+    // The same location fields events and profiles carry (useLocationField).
+    location: v.optional(v.string()),
+    locationType: v.optional(v.string()),
+    address: v.optional(
+      v.object({
+        street: v.optional(v.string()),
+        city: v.optional(v.string()),
+        state: v.optional(v.string()),
+        stateCode: v.optional(v.string()),
+        zip: v.optional(v.string()),
+        country: v.optional(v.string()),
+        countryCode: v.optional(v.string()),
+      }),
+    ),
+    coordinates: v.optional(v.object({ lat: v.number(), lng: v.number() })),
+    placeId: v.optional(v.string()),
+    hostOrgId: v.optional(v.id("hostOrgs")),
+    createdByUserId: v.id("users"),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_slug", ["slug"])
+    .index("by_nameKey", ["nameKey"])
+    .searchIndex("search_name", { searchField: "name" }),
+
+  // A person's position at an organization: one row per person per
+  // organization. endYear set = a former position. Among current
+  // positions the lowest `order` is their primary organization — the one
+  // shown with their name on events they host. profiles.orgName/orgUrl
+  // cache that primary (organizations.ts syncProfileOrgCache).
+  orgPositions: defineTable({
+    organizationId: v.id("organizations"),
+    userId: v.id("users"),
+    profileId: v.id("profiles"),
+    title: v.optional(v.string()), // "Founder", "Board chair"
+    startYear: v.optional(v.number()),
+    endYear: v.optional(v.number()),
+    isAdmin: v.boolean(), // edits the page and its people
+    order: v.number(),
+    createdAt: v.number(),
+  })
+    .index("by_organizationId", ["organizationId"])
+    .index("by_profileId", ["profileId"])
+    .index("by_userId", ["userId"])
+    .index("by_organizationId_profileId", ["organizationId", "profileId"]),
+
   // Portfolio artifacts. The Exchange V1 pivot (docs/the-exchange-v1-prd.md
   // §7) retires "Portfolio" as its own concept: each artifact becomes the
   // media attached to its own new passion project via projectId (set by

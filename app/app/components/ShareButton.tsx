@@ -2,7 +2,7 @@ import { useState } from "react";
 
 interface ShareButtonProps {
   /** Type of content being shared */
-  type: "profile" | "event" | "work" | "wondering" | "job";
+  type: "profile" | "event" | "work" | "wondering" | "job" | "organization";
   /** Title for the share dialog */
   title: string;
   /** Optional description/text */

@@ -10,6 +10,8 @@ import { ShareButton } from "../components/ShareButton";
 import { usePostHog } from "@posthog/react";
 import { stageLabel, type Stage } from "../lib/stage";
 import { budgetAmountLabel, budgetKindLabel } from "../lib/budgetLabel";
+import { OrgLogo } from "../components/OrgLogo";
+import { yearsLabel } from "../../convex/organizationRules";
 
 // Matches listAffiliations's return shape (project-teams.md §4). Annotated
 // explicitly here — not inferred from the query — so this section still
@@ -45,6 +47,8 @@ export default function Profile() {
   const openProjects = (affiliations ?? []).filter((a: any) => !a.completed);
   const completedProjects = (affiliations ?? []).filter((a: any) => a.completed);
   const loosePieces = (profile?.artifacts ?? []).filter((a: any) => !a.projectId);
+  const organizations = profile?.organizations ?? [];
+  const currentOrgs = organizations.filter((o) => o.current);
   const getOrCreateConversation = useMutation(
     api.messaging.getOrCreateConversation,
   );
@@ -188,21 +192,33 @@ export default function Profile() {
                 </span>
               )}
             </div>
-            {profile.orgName && (
+            {/* Where they work, LinkedIn-headline style: "Founder at
+                Abiding Practice · Grove". Current positions only; the full
+                list with years is the Organizations section below. An org
+                typed before organizations existed has no page yet, so it
+                still shows as text (docs/features/organizations.md). */}
+            {currentOrgs.length > 0 ? (
               <p className="mt-1 text-sm sm:text-base" style={{ color: "var(--app-text-muted)" }}>
-                {(profile as { orgUrl?: string }).orgUrl ? (
-                  <a
-                    href={(profile as { orgUrl?: string }).orgUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="hover:underline"
-                  >
-                    {profile.orgName} ↗
-                  </a>
-                ) : (
-                  profile.orgName
-                )}
+                {currentOrgs.map((o, i) => (
+                  <span key={o.organizationId}>
+                    {i > 0 && " · "}
+                    {o.title && `${o.title} at `}
+                    <Link
+                      to={`/orgs/${o.slug}`}
+                      className="font-medium hover:underline"
+                      style={{ color: "var(--app-text)" }}
+                    >
+                      {o.name}
+                    </Link>
+                  </span>
+                ))}
               </p>
+            ) : (
+              profile.orgName && (
+                <p className="mt-1 text-sm sm:text-base" style={{ color: "var(--app-text-muted)" }}>
+                  {profile.orgName}
+                </p>
+              )
             )}
             {profile.interests.length > 0 && (
               <p className="mt-1 text-sm sm:text-base" style={{ color: "var(--app-text-muted)" }}>
@@ -402,6 +418,46 @@ export default function Profile() {
               </svg>
               Set Up Profile
             </Link>
+          </div>
+        </div>
+      )}
+
+      {/* Organizations: every position, current first, with logo, title
+          and years. Each opens the organization's page. */}
+      {organizations.length > 0 && (
+        <div className="mb-8">
+          <h2 className="text-lg font-semibold mb-4" style={{ color: "var(--app-text)" }}>
+            Organizations
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {organizations.map((o) => {
+              const years = yearsLabel(o.startYear, o.endYear);
+              return (
+                <Link
+                  key={o.organizationId}
+                  to={`/orgs/${o.slug}`}
+                  className="flex items-center gap-4 p-4 rounded-2xl border transition-colors hover:border-[var(--app-accent)]"
+                  style={{ borderColor: "var(--app-hairline)", backgroundColor: "var(--app-surface-raised)" }}
+                >
+                  <OrgLogo name={o.name} logoUrl={o.logoUrl} size="md" />
+                  <div className="min-w-0">
+                    <div className="font-medium break-words" style={{ color: "var(--app-text)" }}>
+                      {o.name}
+                    </div>
+                    {o.title && (
+                      <div className="text-sm" style={{ color: "var(--app-text-muted)" }}>
+                        {o.title}
+                      </div>
+                    )}
+                    {(years || o.category) && (
+                      <div className="text-sm" style={{ color: "var(--app-text-dim)" }}>
+                        {[years, o.category].filter(Boolean).join(" · ")}
+                      </div>
+                    )}
+                  </div>
+                </Link>
+              );
+            })}
           </div>
         </div>
       )}

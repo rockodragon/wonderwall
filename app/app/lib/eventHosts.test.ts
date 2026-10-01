@@ -35,3 +35,14 @@ describe("org website", () => {
     expect(person.orgUrl).toBeNull();
   });
 });
+
+describe("org page", () => {
+  it("carries the org's page slug only when the org led", () => {
+    const [org, person] = hostLabels([
+      { name: "David Russo", orgName: "Abiding Practice", orgSlug: "abiding-practice" },
+      { name: "Rick Moy", orgSlug: "stray" },
+    ]);
+    expect(org.orgSlug).toBe("abiding-practice");
+    expect(person.orgSlug).toBeNull();
+  });
+});
