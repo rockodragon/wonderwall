@@ -937,6 +937,7 @@ export const getGuestList = query({
         .first();
       inputs.push({
         userId: String(app.applicantId),
+        applicationId: String(app._id),
         name: profile?.name ?? "Anonymous",
         email: await getUserEmail(ctx, app.applicantId),
         status:

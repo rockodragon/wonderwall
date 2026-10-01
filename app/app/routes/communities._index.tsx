@@ -61,14 +61,14 @@ const CARD: React.CSSProperties = {
 
 function CommunitiesIntro() {
   return (
-    <section id="top" className="p-4 sm:p-6 max-w-7xl mx-auto pb-0 sm:pb-0">
+    <section id="top" className="p-4 sm:p-6 max-w-4xl mx-auto pb-0 sm:pb-0">
       <h1
         className="text-2xl sm:text-3xl font-semibold mb-3"
         style={{ color: "var(--garden-paper)", fontFamily: "var(--garden-font-display)" }}
       >
         Communities
       </h1>
-      <p className="text-[15px] leading-relaxed max-w-2xl" style={{ color: "var(--garden-body)" }}>
+      <p className="text-[15px] leading-relaxed max-w-[62ch]" style={{ color: "var(--garden-body)" }}>
         The Creative Exchange is a platform for the creative economy. It helps creatives, patrons, and community
         organizations connect, collaborate, and grow.
       </p>
@@ -76,39 +76,46 @@ function CommunitiesIntro() {
         About TheCreative.exchange →
       </Link>
 
-      <div className="mt-5 max-w-3xl grid gap-3 sm:grid-cols-2">
+      <div className="mt-6 grid gap-3 sm:grid-cols-2">
         <div style={CARD}>
-          <span className="text-[12.5px] uppercase tracking-[0.06em]" style={{ color: "var(--garden-muted)" }}>
-            Public community · coming soon
+          <span className="text-[13.5px]" style={{ color: "var(--garden-muted)" }}>
+            Coming soon
           </span>
-          <b className="text-[17px]" style={{ color: "var(--garden-paper)" }}>
+          <b className="text-[19px]" style={{ color: "var(--garden-paper)" }}>
             The Creative Exchange
           </b>
+          <span className="text-[15px]" style={{ color: "var(--garden-paper)" }}>
+            Public community
+          </span>
           <p className="text-[15px]" style={{ color: "var(--garden-body)" }}>
             Its base agreements set the minimum guidelines every community follows.
           </p>
-          <Link to="/about/agreements" className="text-[15px] mt-1" style={{ color: "var(--garden-citron)" }}>
+          <Link to="/about/agreements" className="text-[15px] mt-auto pt-1" style={{ color: "var(--garden-citron)" }}>
             Read the base agreements →
           </Link>
         </div>
         <div style={{ ...CARD, border: "1px solid var(--garden-citron)", boxShadow: "inset 4px 0 0 var(--garden-citron)" }}>
-          <span className="text-[12.5px] uppercase tracking-[0.06em]" style={{ color: "var(--garden-citron)" }}>
-            Faith-based creatives community · Open now
+          <span className="text-[13.5px]" style={{ color: "var(--garden-citron)" }}>
+            Open now
           </span>
-          <b className="text-[17px]" style={{ color: "var(--garden-paper)" }}>
+          <b className="text-[19px]" style={{ color: "var(--garden-paper)" }}>
             The Garden
           </b>
+          <span className="text-[15px]" style={{ color: "var(--garden-paper)" }}>
+            Faith-based creative community
+          </span>
           <p className="text-[15px]" style={{ color: "var(--garden-body)" }}>
             Where this started.
           </p>
-          <Link to="/communities/the-garden" className="text-[15px] mt-1" style={{ color: "var(--garden-citron)" }}>
-            Open The Garden →
-          </Link>
+          <a href="#the-garden" className="text-[15px] mt-auto pt-1" style={{ color: "var(--garden-citron)" }}>
+            See The Garden below ↓
+          </a>
         </div>
       </div>
       <p className="mt-3 text-[13.5px]" style={{ color: "var(--garden-muted)" }}>
         Additional communities coming soon.
       </p>
+      <hr className="mt-8" style={{ borderColor: "var(--garden-hairline)" }} />
     </section>
   );
 }
@@ -123,7 +130,9 @@ export default function CommunitiesIndex() {
   return (
     <>
       <CommunitiesIntro />
-      <CommunityPage slug="the-garden" footer={<IndexFooter />} />
+      <div id="the-garden" className="scroll-mt-4">
+        <CommunityPage slug="the-garden" footer={<IndexFooter />} />
+      </div>
     </>
   );
 }

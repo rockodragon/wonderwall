@@ -472,7 +472,7 @@ export const seedCommunityLaunch = internalMutation({
     const gardenPatch = {
       name: "The Garden",
       kind: COMMUNITY_KIND,
-      tagline: "A Christian creative community in San Diego. Anyone is welcome.",
+      tagline: "A faith-based creative community in San Diego. Anyone is welcome.",
       description:
         // No prices here: what membership costs and buys is said once, on
         // /join, from CLAIMS. A community's description says what it is.
