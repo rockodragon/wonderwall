@@ -2,6 +2,7 @@ import { Link } from "react-router";
 import { toEmbedUrl } from "../lib/videoEmbed";
 import { EmbedStill } from "./EmbedStill";
 import { FavoriteButton } from "./FavoriteButton";
+import { hostNamesLine, type EventHost } from "../lib/eventHosts";
 
 // The one event card. Both /events (routes/events.tsx) and the Events section
 // of /favorites (routes/favorites.tsx) render this — favorites used to carry a
@@ -74,6 +75,8 @@ export type EventCardEvent = {
   mediaUrl?: string | null;
   mediaPreviewUrl?: string | null;
   attendeeCount?: number;
+  /** Organizer then co-hosts (api.events.list). Absent from favorites. */
+  hosts?: EventHost[];
   description?: string | null;
   accessType?: string;
   priceCents?: number;
@@ -127,6 +130,9 @@ export function EventCard({
   // An uploaded image wins; a pasted link fills the cover only when there is
   // none. A grid of reels stays quiet — the still is a picture with a play
   // badge, and the event page is where it plays.
+  const hostLine = hostNamesLine(event.hosts);
+  const goingCount = event.attendeeCount ?? 0;
+
   const mediaEmbed = event.coverImageUrl ? null : toEmbedUrl(event.mediaUrl ?? undefined);
 
   return (
@@ -154,7 +160,7 @@ export function EventCard({
             <img
               src={event.coverImageUrl}
               alt={event.title}
-              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+              className="w-full h-full object-contain"
             />
           ) : mediaEmbed ? (
             <EmbedStill
@@ -249,22 +255,13 @@ export function EventCard({
             )}
           </div>
 
-          {event.tags.length > 0 && (
-            <div className="flex flex-wrap gap-1 mb-2">
-              {event.tags.slice(0, 3).map((tag: string) => (
-                <span
-                  key={tag}
-                  className="px-2 py-0.5 rounded-full text-xs font-medium"
-                  style={{
-                    fontFamily: "var(--garden-font-body)",
-                    backgroundColor: "rgba(198,198,190,0.1)",
-                    color: "var(--garden-muted)",
-                  }}
-                >
-                  {tag}
-                </span>
-              ))}
-            </div>
+          {hostLine && (
+            <p
+              className="text-xs mb-2 break-words line-clamp-2"
+              style={{ color: "var(--garden-muted)" }}
+            >
+              Hosted by {hostLine}
+            </p>
           )}
 
           {/* break-words: a pasted URL in a description is one unbroken token
@@ -283,11 +280,22 @@ export function EventCard({
             style={{ borderTop: "1px solid var(--garden-hairline)" }}
           >
             <span className="text-xs" style={{ color: "var(--garden-muted)" }}>
-              {(event.attendeeCount ?? 0) > 0
-                ? `${event.attendeeCount} going`
-                : "Be the first to join"}
+              {goingCount > 0 ? `${goingCount} going` : ""}
             </span>
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex flex-wrap items-center justify-end gap-1.5 min-w-0">
+              {(event.tags ?? []).slice(0, 3).map((tag: string) => (
+                <span
+                  key={tag}
+                  className="px-2 py-0.5 rounded-full text-xs font-medium"
+                  style={{
+                    fontFamily: "var(--garden-font-body)",
+                    backgroundColor: "rgba(198,198,190,0.1)",
+                    color: "var(--garden-muted)",
+                  }}
+                >
+                  {tag}
+                </span>
+              ))}
               {videoBadge && event.hasVideo && (
                 <span
                   className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium"

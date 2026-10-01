@@ -31,6 +31,9 @@ Every sentence we say about money is defined here, word for word. Do not write a
 | **coverage** | $10 a month covers one creative's membership. A covered membership is a full membership. |
 | **partner** | Post paid work with the pay stated up front, or offer your space. Creatives respond, and you pick. |
 | **the garden** | The platform is open to any creative. The Garden is the Christian creative community on it, and it is where this started. |
+| **member-directed** | Each month you choose who gets your monthly grant: a creative, a project, or the grant fund. |
+| **member-directed, default** | If you don't pick within a week, it goes to the grant fund. |
+| **member-directed, full** | What you give goes to them in full. |
 
 ## Where these sentences live
 
@@ -43,9 +46,10 @@ Every sentence we say about money is defined here, word for word. Do not write a
 | `app/public/about/` (static HTML: index, creatives, hosts, patrons, partners) | **dues**, **host split** |
 | `docs/flyers/` (creative, operator, patron) | **dues**, **host split** |
 | `app/convex/garden/capabilities.ts`, `SPLITS.duesSentence` | **dues** (the server can't import from the app) |
+| `app/convex/garden/giving.ts`, `GIVING_SENTENCES` | **member-directed**, **member-directed, default**, **member-directed, full** (the notice and its email) |
 | Emails and texts in the [outreach playbook](constituent-playbook.md) | whichever claim the message uses |
 
-**What the test checks** (`app/app/constants/claims.test.ts`): the server's dues sentence matches **dues** exactly; the static about pages that state the dues line use the canonical words; and no site source, static page, or flyer contains a phrase from "Never say," or a host price. The playbook's emails are not machine-checked.
+**What the test checks** (`app/app/constants/claims.test.ts`): the server's dues sentence matches **dues** exactly, and the server's three member-directed sentences match theirs; the static about pages that state the dues line use the canonical words; and no site source, static page, or flyer contains a phrase from "Never say," or a host price. The playbook's emails are not machine-checked.
 
 **On "dues, other half."** It is loose on purpose. The plan splits the other half between the community and the platform. The code today sends all of it to the platform (`duesSplit` in `stripeHandlers.ts`). "Keeps this running" is true either way and promises neither. Do not write "$4 runs your community" until the code sets that money aside.
 

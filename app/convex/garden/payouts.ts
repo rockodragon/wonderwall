@@ -105,6 +105,31 @@ export function classPaymentToEarningsPayment(
   };
 }
 
+export interface GiftPaymentLike {
+  id: string;
+  payeeUserId: string;
+  source: string; // "allowance" | "plus_up"
+  grossCents: number;
+  platformCents: number;
+  workCents: number;
+}
+
+/** A member-directed gift (garden/giving.ts) as a line on the creative
+ * ledger — same shape as a backing's, keyed on the row id so the title
+ * lookup never mistakes it for a project. */
+export function giftPaymentToEarningsPayment(
+  p: GiftPaymentLike,
+): BackingPaymentLike & { payeeUserId?: string; projectId: string; title: string } {
+  return {
+    payeeUserId: p.payeeUserId,
+    projectId: `gift:${p.id}`,
+    title: p.source === "allowance" ? "Given by a member" : "Backed by a member",
+    grossCents: p.grossCents,
+    platformCents: p.platformCents,
+    workCents: p.workCents,
+  };
+}
+
 export interface CreativeEarningsRow extends CreativeEarnings {
   payeeUserId: string; // or UNASSIGNED
   name: string;

@@ -21,6 +21,7 @@ import {
   backingProcessingFeeCents,
   CARD_FEE_RATE,
   CARD_FEE_FIXED_CENTS,
+  memberGrantCents,
   validateBackingAmount,
   MIN_BACKING_CENTS,
   type BillingCustomerRow,
@@ -1980,5 +1981,207 @@ describe("communityDuesSplit", () => {
 
   it("a pool share over 90% can't eat the platform's 10%", () => {
     expect(communityDuesSplit(1000, { poolPct: 120 })).toEqual({ platformCents: 100, groupCents: 0, poolCents: 900 });
+  });
+});
+
+// ——— Member-directed giving + Stripe Connect (member-directed-giving.md) ———
+// Self-contained fakes: only the Db methods these paths touch, cast to Db
+// (the rest are optional or unreached).
+
+describe("member-directed giving through the webhook", () => {
+  function giftFakeDb() {
+    const contributions = new Map<string, ContributionRow>();
+    const giftPayments = new Map<string, any>();
+    const opened: any[] = [];
+    const accountUpdates: any[] = [];
+    const db = {
+      async getContributionByStripeRef(ref: string) {
+        return contributions.has(ref) ? { stripeRef: ref } : null;
+      },
+      async insertContribution(row: ContributionRow) {
+        contributions.set(row.stripeRef!, row);
+      },
+      async getMembershipBySubscription() {
+        return null;
+      },
+      async getCommunityDues(): Promise<CommunityDues> {
+        return { hostOrgId: "org_garden", groupPct: 40, poolPct: 50 };
+      },
+      async getHostOrgIdBySlug() {
+        return "org_platform";
+      },
+      async openMemberGift(row: any) {
+        opened.push(row);
+      },
+      async getGiftPaymentByRef(ref: string) {
+        return giftPayments.has(ref) ? { stripeRef: ref } : null;
+      },
+      async insertGiftPayment(row: any) {
+        giftPayments.set(row.stripeRef, row);
+      },
+      async updateConnectAccount(args: any) {
+        accountUpdates.push(args);
+      },
+    } as unknown as Db;
+    return { db, contributions, giftPayments, opened, accountUpdates };
+  }
+
+  const membershipInvoice: StripeInvoiceLike = {
+    id: "in_dues_1",
+    amount_paid: 1000,
+    created: 1_790_000_000,
+    customer: "cus_1",
+    subscription: "sub_1",
+    parent: { subscription_details: { metadata: { kind: "membership", userId: "u_dana", communityId: "org_garden" } } },
+  };
+
+  it("a paid membership invoice opens the member's amount next to the dues share, keyed on the invoice", async () => {
+    const { db, opened, contributions } = giftFakeDb();
+    const event = { id: "evt_1", type: "invoice.paid", data: { object: membershipInvoice } } as StripeWebhookEvent;
+    await handleStripeEvent(event, db);
+    await handleStripeEvent(event, db); // replay
+    expect(contributions.size).toBe(1);
+    expect(opened).toHaveLength(1);
+    expect(opened[0]).toMatchObject({
+      userId: "u_dana",
+      communityId: "org_garden",
+      sourceStripeRef: "in_dues_1",
+      amountCents: 471, // half of the $10 net of card processing
+    });
+    expect(opened[0].period).toBe(contributions.get("in_dues_1")!.period);
+  });
+
+  it("memberGrantCents is the pool percent of the net after card processing", () => {
+    expect(memberGrantCents(1000, 50)).toBe(471);
+    expect(memberGrantCents(0, 50)).toBe(0);
+    expect(memberGrantCents(1000, 0)).toBe(0);
+    expect(memberGrantCents(10, 50)).toBe(0); // fee exceeds the charge: never negative
+  });
+
+  it("opens nothing on a fake Db that predates gifts, and nothing without a userId", async () => {
+    const { db, opened } = giftFakeDb();
+    const noUser = {
+      ...membershipInvoice,
+      id: "in_dues_2",
+      parent: { subscription_details: { metadata: { kind: "membership", communityId: "org_garden" } } },
+    };
+    await handleStripeEvent({ id: "e", type: "invoice.paid", data: { object: noUser } } as StripeWebhookEvent, db);
+    expect(opened).toHaveLength(0);
+    const legacy = { ...db, openMemberGift: undefined } as unknown as Db;
+    await handleStripeEvent({ id: "e2", type: "invoice.paid", data: { object: { ...membershipInvoice, id: "in_dues_3" } } } as StripeWebhookEvent, legacy);
+    expect(opened).toHaveLength(0);
+  });
+
+  const giftSession: StripeCheckoutSessionLike = {
+    id: "cs_gift_1",
+    mode: "payment",
+    customer: "cus_1",
+    amount_total: 2500 + 103, // backing + card processing
+    created: 1_790_000_000,
+    metadata: {
+      kind: "gift",
+      recipientUserId: "u_dana",
+      userId: "u_sam",
+      giverName: "Sam",
+      visible: "true",
+      amountCents: "2500",
+      memberGiftId: "gift_1",
+    },
+  } as unknown as StripeCheckoutSessionLike;
+
+  it("a plus-up checkout records the backing split on the metadata amount, never the session total", async () => {
+    const { db, giftPayments } = giftFakeDb();
+    const event = { id: "evt_g", type: "checkout.session.completed", data: { object: giftSession } } as StripeWebhookEvent;
+    await handleStripeEvent(event, db);
+    await handleStripeEvent(event, db);
+    expect(giftPayments.size).toBe(1);
+    expect(giftPayments.get("cs_gift_1")).toMatchObject({
+      memberGiftId: "gift_1",
+      payeeUserId: "u_dana",
+      giverUserId: "u_sam",
+      giverName: "Sam",
+      visible: true,
+      source: "plus_up",
+      grossCents: 2500,
+      platformCents: 250,
+      workCents: 2250,
+      billing: "one_time",
+    });
+  });
+
+  it("an anonymous plus-up keeps the giver's name off the row; a monthly one is 'first' then 'renewal'", async () => {
+    const { db, giftPayments } = giftFakeDb();
+    const monthly = {
+      ...giftSession,
+      id: "cs_gift_2",
+      mode: "subscription",
+      metadata: { ...giftSession.metadata, visible: "false" },
+    } as StripeCheckoutSessionLike;
+    await handleStripeEvent({ id: "e", type: "checkout.session.completed", data: { object: monthly } } as StripeWebhookEvent, db);
+    expect(giftPayments.get("cs_gift_2")).toMatchObject({ billing: "first", visible: false });
+    expect(giftPayments.get("cs_gift_2").giverName).toBeUndefined();
+
+    const renewal: StripeInvoiceLike = {
+      id: "in_gift_2",
+      amount_paid: 2603,
+      created: 1_792_600_000,
+      customer: "cus_1",
+      subscription: "sub_gift",
+      billing_reason: "subscription_cycle",
+      parent: { subscription_details: { metadata: monthly.metadata! } },
+    };
+    await handleStripeEvent({ id: "e2", type: "invoice.paid", data: { object: renewal } } as StripeWebhookEvent, db);
+    expect(giftPayments.get("in_gift_2")).toMatchObject({ billing: "renewal", grossCents: 2500, workCents: 2250 });
+
+    const first = { ...renewal, id: "in_gift_first", billing_reason: "subscription_create" };
+    await handleStripeEvent({ id: "e3", type: "invoice.paid", data: { object: first } } as StripeWebhookEvent, db);
+    expect(giftPayments.has("in_gift_first")).toBe(false); // the checkout already recorded it
+  });
+
+  it("a backing started from /give carries the monthly amount it was added on top of", async () => {
+    const backingPayments: any[] = [];
+    const db = {
+      async getProjectSupportById() { return null; },
+      async insertProjectSupport() { return "support_new"; },
+      async incrementProjectRaisedCents() {},
+      async getBackingPaymentByRef() { return null; },
+      async insertBackingPayment(row: any) { backingPayments.push(row); },
+      async getProjectLeadUserId() { return "u_lead"; },
+      async notifyBackingConfirmed() {},
+    } as unknown as Db;
+    const session = {
+      id: "cs_back_1",
+      mode: "payment",
+      amount_total: 1000 + 59,
+      created: 1_790_000_000,
+      metadata: { kind: "backing", projectId: "p_1", userId: "u_sam", supporterName: "Sam", visible: "true", amountCents: "1000", memberGiftId: "gift_1" },
+    } as unknown as StripeCheckoutSessionLike;
+    await handleStripeEvent({ id: "e", type: "checkout.session.completed", data: { object: session } } as StripeWebhookEvent, db);
+    expect(backingPayments).toHaveLength(1);
+    expect(backingPayments[0]).toMatchObject({ memberGiftId: "gift_1", grossCents: 1000, workCents: 900, billing: "one_time" });
+  });
+
+  it("a gift subscription's lifecycle events never touch memberships", async () => {
+    const { db } = giftFakeDb();
+    const sub = { id: "sub_gift", status: "active", metadata: { kind: "gift" } } as unknown as StripeSubscriptionLike;
+    await expect(
+      handleStripeEvent({ id: "e", type: "customer.subscription.updated", data: { object: sub } } as StripeWebhookEvent, db),
+    ).resolves.toBeUndefined();
+    await expect(
+      handleStripeEvent({ id: "e", type: "customer.subscription.deleted", data: { object: sub } } as StripeWebhookEvent, db),
+    ).resolves.toBeUndefined();
+  });
+
+  it("account.updated passes Stripe's payout state to the adapter", async () => {
+    const { db, accountUpdates } = giftFakeDb();
+    await handleStripeEvent(
+      {
+        id: "e",
+        type: "account.updated",
+        data: { object: { id: "acct_1", payouts_enabled: true, details_submitted: true, charges_enabled: false } },
+      } as StripeWebhookEvent,
+      db,
+    );
+    expect(accountUpdates).toEqual([{ accountId: "acct_1", payoutsEnabled: true, detailsSubmitted: true, chargesEnabled: false }]);
   });
 });

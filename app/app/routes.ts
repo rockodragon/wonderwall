@@ -68,6 +68,8 @@ export default [
   layout("routes/_app.tsx", [
     // The signed-in home — where sign-in, OAuth and onboarding land.
     route("today", "routes/today.tsx"),
+    // Member-directed giving: each paid month a member picks who gets their half.
+    route("give", "routes/give.tsx"),
     // About pages, public, inside the shell (2026-09-29; were static files
     // in public/about/). _app.tsx lists "/about" as a public path.
     route("about", "routes/about.tsx"),

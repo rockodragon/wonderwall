@@ -151,7 +151,10 @@ export default function Settings() {
 
       {activeTab === "money" && (
         <>
-          <BillingSection />
+          <GetPaidSection />
+          <div className="mt-8 pt-6 border-t" style={{ borderColor: "var(--app-hairline)" }}>
+            <BillingSection />
+          </div>
           <div className="mt-8 pt-6 border-t" style={{ borderColor: "var(--app-hairline)" }}>
             <PurchasesSection />
           </div>
@@ -223,8 +226,10 @@ function BillingSection() {
   // cancelled have one but no active membership or purchase.
   const hasBillingCustomer = useQuery(api.garden.memberships.hasBillingCustomer);
   const openBillingPortal = useAction(api.garden.stripe.createBillingPortalSession);
+  const giving = useQuery(api.garden.giving.getMyGiving);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const hasGiving = (giving?.open?.length ?? 0) > 0 || (giving?.history?.length ?? 0) > 0;
 
   // Still loading any query — render nothing rather than flash "No
   // billing on file" before we actually know.
@@ -317,6 +322,14 @@ function BillingSection() {
         <p className="mt-2 text-sm text-red-600 dark:text-red-400">{error}</p>
       )}
 
+      {membership && hasGiving && (
+        <p className="mt-3 text-sm">
+          <Link to="/give" className="hover:underline" style={{ color: "var(--app-accent-ink)" }}>
+            Your monthly amount to give
+          </Link>
+        </p>
+      )}
+
       <p className="mt-3 text-xs" style={{ color: "var(--app-text-dim)" }}>
         Update your card, download receipts, or cancel. Changes take effect
         at the end of the billing period.
@@ -324,6 +337,154 @@ function BillingSection() {
           ? " Seats and monthly community products are managed here."
           : ""}
       </p>
+    </div>
+  );
+}
+
+// Get paid — Stripe Connect for anyone who has been given something. Five
+// states, read from getMyGiving().connect (spine: Get paid). Stripe sends the
+// person back to /settings?tab=money&connect=return (or =refresh); on either
+// we ask Stripe once and show "Checking with Stripe…" until it answers.
+// Deliberately no payout-timing or minimum sentence here: claims.md has no
+// Connect-era wording yet.
+function GetPaidSection() {
+  const giving = useQuery(api.garden.giving.getMyGiving);
+  const [searchParams] = useSearchParams();
+  const createLink = useAction(api.garden.connect.createConnectOnboardingLink);
+  const createDashboard = useAction(api.garden.connect.createConnectDashboardLink);
+  const refreshStatus = useAction(api.garden.connect.refreshConnectStatus);
+  const returned = searchParams.get("connect");
+  const comingBack = returned === "return" || returned === "refresh";
+  const [checking, setChecking] = useState(comingBack);
+  const [fresh, setFresh] = useState<{ payoutsEnabled: boolean; detailsSubmitted: boolean } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const ran = useRef(false);
+
+  useEffect(() => {
+    if (!comingBack || ran.current) return;
+    ran.current = true;
+    refreshStatus({})
+      .then((s) => setFresh(s))
+      .catch(() => {})
+      .finally(() => setChecking(false));
+  }, [comingBack, refreshStatus]);
+
+  if (giving === undefined || giving === null) return null;
+
+  const owedCents = giving?.owedCents ?? 0;
+  const connect = fresh
+    ? { started: true, ...fresh }
+    : {
+        started: Boolean(giving?.connect?.started),
+        payoutsEnabled: Boolean(giving?.connect?.payoutsEnabled),
+        detailsSubmitted: Boolean(giving?.connect?.detailsSubmitted),
+      };
+  const connected = connect.payoutsEnabled;
+  const paused = !connected && connect.detailsSubmitted;
+  const unfinished = !connected && !paused && connect.started;
+
+  async function open(kind: "onboard" | "dashboard") {
+    setError(null);
+    setBusy(true);
+    try {
+      const { url } = kind === "onboard" ? await createLink({}) : await createDashboard({});
+      if (kind === "dashboard") {
+        window.open(url, "_blank", "noopener,noreferrer");
+        setBusy(false);
+      } else {
+        window.location.assign(url);
+      }
+    } catch {
+      setError("Couldn't open Stripe. Try again.");
+      setBusy(false);
+    }
+  }
+
+  const buttonStyle = { backgroundColor: "var(--app-accent)", color: "var(--garden-ink)" };
+  const buttonClass =
+    "px-4 py-2 rounded-lg text-[13.5px] font-semibold transition-opacity hover:opacity-90 disabled:opacity-50";
+
+  return (
+    <div>
+      <div className="flex items-center gap-3 flex-wrap mb-4">
+        <h2 className="text-lg font-semibold" style={{ color: "var(--app-text)" }}>
+          Get paid
+        </h2>
+        {!checking && connected && (
+          <span
+            className="rounded px-2 py-1 text-xs font-medium uppercase tracking-[0.08em]"
+            style={{ backgroundColor: "var(--app-accent)", color: "var(--garden-ink)", fontFamily: "var(--garden-font-mono)" }}
+          >
+            Connected · Payouts on
+          </span>
+        )}
+        {!checking && paused && (
+          <span
+            className="rounded border px-2 py-1 text-xs font-medium uppercase tracking-[0.08em]"
+            style={{ borderColor: "var(--app-hairline-raised)", color: "var(--app-text)", fontFamily: "var(--garden-font-mono)" }}
+          >
+            Payouts paused
+          </span>
+        )}
+        {!checking && unfinished && (
+          <span
+            className="rounded border px-2 py-1 text-xs font-medium uppercase tracking-[0.08em]"
+            style={{ borderColor: "var(--app-hairline-raised)", color: "var(--app-text)", fontFamily: "var(--garden-font-mono)" }}
+          >
+            Not finished
+          </span>
+        )}
+      </div>
+
+      <p className="text-[15px] mb-2" style={{ color: "var(--app-text)" }}>
+        {owedCents > 0 ? `${formatMoneyCents(owedCents)} owed to you` : "Nothing owed to you yet."}
+      </p>
+
+      {checking ? (
+        <>
+          <p className="text-sm mb-3" style={{ color: "var(--app-text-muted)" }}>
+            Checking with Stripe… You're back from Stripe. This takes a moment.
+          </p>
+          <button type="button" disabled className={buttonClass} style={buttonStyle}>
+            Checking…
+          </button>
+        </>
+      ) : connected ? (
+        <>
+          <p className="text-sm mb-3" style={{ color: "var(--app-text-muted)" }}>
+            Stripe pays your bank. Payouts and history are in your Stripe dashboard.
+          </p>
+          <button
+            type="button"
+            onClick={() => open("dashboard")}
+            disabled={busy}
+            className="px-4 py-2 rounded-lg text-[13.5px] font-medium border transition-colors hover:bg-[var(--app-hairline)] disabled:opacity-50"
+            style={{ borderColor: "var(--app-hairline-raised)", color: "var(--app-text)" }}
+          >
+            {busy ? "Opening…" : "See your Stripe dashboard ↗"}
+          </button>
+        </>
+      ) : (
+        <>
+          <p className="text-sm mb-3" style={{ color: "var(--app-text-muted)" }}>
+            {paused
+              ? "Stripe needs something from you before it can pay you."
+              : unfinished
+                ? "You started with Stripe but didn't finish. Pick up where you left off."
+                : "Connect your bank to get what you're owed. Stripe asks for your identity and your bank, then sends you back here."}
+          </p>
+          <button type="button" onClick={() => open("onboard")} disabled={busy} className={buttonClass} style={buttonStyle}>
+            {busy ? "Opening…" : paused ? "Finish in Stripe" : unfinished ? "Finish connecting your bank" : "Connect your bank"}
+          </button>
+        </>
+      )}
+
+      {error && (
+        <p className="mt-2 text-sm" style={{ color: "var(--app-text)" }} role="alert">
+          {error}
+        </p>
+      )}
     </div>
   );
 }
@@ -424,8 +585,18 @@ function SupportRow({ row }: { row: SupportRowData }) {
   );
 }
 
+// "2026-09" → "September". UTC on both ends so the 1st never slips back a month.
+function monthName(period: string): string {
+  const [y, m] = period.split("-").map(Number);
+  if (!y || !m) return period;
+  return new Date(Date.UTC(y, m - 1, 1)).toLocaleString("en-US", { month: "long", timeZone: "UTC" });
+}
+
 function SupportGivenSection() {
   const given = useQuery(api.garden.support.listMySupportGiven);
+  // Each paid month's give-it-away share (/give). Gifts to a project are
+  // already backings above; this adds the ones to a person or the fund.
+  const giving = useQuery(api.garden.giving.getMyGiving);
 
   // Loading, or signed out (the app shell sends signed-out visitors to
   // /login before this renders) — nothing to show either way.
@@ -462,6 +633,28 @@ function SupportGivenSection() {
           createdAt: s.createdAt,
         };
       }),
+    ...(giving?.history ?? [])
+      .filter((g) => g.status === "creative" || g.status === "fund")
+      .map((g) => ({
+        key: g.giftId,
+        title:
+          g.status === "creative"
+            ? (g.recipient?.name ?? "A creative")
+            : `${g.communityName} grant fund`,
+        to:
+          g.status === "creative" && g.recipient
+            ? `/profile/${g.recipient.profileId}`
+            : undefined,
+        detail: [
+          `From your ${monthName(g.period)} membership`,
+          g.decidedBy === "default" ? "Went to the fund by default" : undefined,
+          g.plusUpCents > 0 ? `You added ${formatMoneyCents(g.plusUpCents)}` : undefined,
+        ]
+          .filter(Boolean)
+          .join(" · "),
+        amount: formatMoneyCents(g.amountCents),
+        createdAt: g.decidedAt ?? g.openedAt,
+      })),
     ...given.funds.map((f) => ({
       key: f.id,
       title: f.fundName,
@@ -1168,12 +1361,15 @@ function ProfileEditForm({
 }) {
   const posthog = usePostHog();
   const upsertProfile = useMutation(api.profiles.upsertProfile);
+  const setOrgNameMutation = useMutation(api.profiles.setOrgName);
   const generateUploadUrl = useMutation(api.files.generateUploadUrl);
   const saveProfileImage = useMutation(api.files.saveProfileImage);
   const saveProfileImageUrl = useMutation(api.files.saveProfileImageUrl);
   const deleteProfileImage = useMutation(api.files.deleteProfileImage);
 
   const [name, setName] = useState("");
+  const [orgName, setOrgName] = useState("");
+  const [orgUrl, setOrgUrl] = useState("");
   const [bio, setBio] = useState("");
   const location = useLocationField();
   const [imageUrl, setImageUrl] = useState("");
@@ -1187,6 +1383,8 @@ function ProfileEditForm({
   useEffect(() => {
     if (profile && !initialized) {
       setName(profile.name || "");
+      setOrgName(profile.orgName || "");
+      setOrgUrl((profile as { orgUrl?: string }).orgUrl || "");
       setBio(profile.bio || "");
       location.hydrate(profile);
       setImageUrl(profile.imageUrl || "");
@@ -1265,6 +1463,8 @@ function ProfileEditForm({
         ...location.toArgs(),
         interests,
       });
+      // Its own call so saving the organization never changes other fields.
+      await setOrgNameMutation({ orgName: orgName.trim(), orgUrl: orgUrl.trim() });
 
       posthog?.capture("profile_updated", {
         has_bio: !!bio.trim(),
@@ -1416,6 +1616,37 @@ function ProfileEditForm({
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
+            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent"
+            style={{ borderColor: "var(--app-hairline)", backgroundColor: "var(--app-surface-raised)", color: "var(--app-text)" }}
+          />
+        </div>
+
+        {/* Organization */}
+        <div>
+          <label className="block text-sm font-medium mb-2" style={{ color: "var(--app-text-muted)" }}>
+            Organization
+          </label>
+          <input
+            type="text"
+            value={orgName}
+            maxLength={80}
+            onChange={(e) => setOrgName(e.target.value)}
+            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent"
+            style={{ borderColor: "var(--app-hairline)", backgroundColor: "var(--app-surface-raised)", color: "var(--app-text)" }}
+          />
+          <p className="mt-1 text-sm" style={{ color: "var(--app-text-dim)" }}>
+            Shown with your name on events you host.
+          </p>
+          <label className="block text-sm font-medium mb-2 mt-3" style={{ color: "var(--app-text-muted)" }}>
+            Organization website
+          </label>
+          <input
+            type="text"
+            inputMode="url"
+            value={orgUrl}
+            maxLength={200}
+            placeholder="abidingpractice.com"
+            onChange={(e) => setOrgUrl(e.target.value)}
             className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent"
             style={{ borderColor: "var(--app-hairline)", backgroundColor: "var(--app-surface-raised)", color: "var(--app-text)" }}
           />

@@ -52,6 +52,7 @@ const CONTRIBUTION_TYPE_LABELS: Record<string, string> = {
   sponsor_in: "Sponsors",
   entry_fee_in: "Entry fees",
   adjustment: "Adjustments",
+  member_gift_out: "Directed by members to creatives",
 };
 
 // A fund can carry its own name and a short note about it, and a short

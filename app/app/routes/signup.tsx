@@ -99,7 +99,7 @@ export default function Signup() {
 
   const redeemInvite = useMutation(api.invites.redeemBySlug);
   const generateSlug = useMutation(api.invites.generateInviteSlug);
-  const upsertProfile = useMutation(api.profiles.upsertProfile);
+  const fillMissingBasics = useMutation(api.profiles.fillMissingBasics);
 
   // Sign-up is open: an invite only credits whoever sent it. The one gate
   // left is a paid ticket's checkout session (one account per ticket).
@@ -192,11 +192,27 @@ export default function Signup() {
       await signIn("phone", { phone, code });
 
       // A phone sign-in carries no email or name; save the ones they typed.
-      try {
-        await upsertProfile({ name: name.trim(), email: email.trim() });
-      } catch (err) {
+      // signIn resolves before the Convex client is sending the new token,
+      // so the first tries can fail as "not signed in". Retry a few times.
+      // fillMissingBasics only fills a blank or placeholder name and a
+      // missing email, so it is safe to call every time.
+      let saved = false;
+      let lastError: unknown = null;
+      for (let attempt = 0; attempt < 8 && !saved; attempt++) {
+        try {
+          await fillMissingBasics({
+            name: name.trim() || undefined,
+            email: email.trim() || undefined,
+          });
+          saved = true;
+        } catch (err) {
+          lastError = err;
+          await new Promise((resolve) => setTimeout(resolve, 400));
+        }
+      }
+      if (!saved) {
         posthog?.capture("phone_signup_profile_error", {
-          error: err instanceof Error ? err.message : "Unknown error",
+          error: lastError instanceof Error ? lastError.message : "Unknown error",
         });
       }
 

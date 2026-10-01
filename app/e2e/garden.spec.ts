@@ -12,10 +12,10 @@ test.describe("Garden production surfaces", () => {
     // The page's name has changed more than once ("Abiding Practice Fund",
     // now "Grant Fund"), so match the shape, not the exact words.
     await expect(page.getByRole("heading", { level: 1, name: /fund/i })).toBeVisible();
-    await expect(page.getByRole("link", { name: /give to the .*fund/i })).toHaveAttribute(
-      "href",
-      /./,
-    );
+    // The Sophia Fund panel's button reads "Give →" / "Give monthly →"
+    // (2026-09-29); older copy read "Give to the … Fund". Match any give
+    // link, and only require that it points somewhere.
+    await expect(page.getByRole("link", { name: /give/i }).first()).toHaveAttribute("href", /./);
     await expect(page.getByText(/isn't live yet/i)).not.toBeVisible();
   });
 

@@ -7,6 +7,7 @@ import { join, relative } from "node:path";
 import { describe, expect, it } from "vitest";
 import { BANNED_PHRASES, CLAIMS } from "./claims";
 import { SPLITS } from "../garden/capabilities";
+import { GIVING_SENTENCES } from "../../convex/garden/giving";
 
 const APP_DIR = join(__dirname, "..");
 const SCAN_DIRS = ["routes", "components", "garden", "lib", "legal"];
@@ -70,6 +71,12 @@ describe("the site", () => {
 describe("the hand copies", () => {
   it("the server's dues sentence matches CLAIMS.dues word for word", () => {
     expect(SPLITS.duesSentence).toBe(CLAIMS.dues);
+  });
+
+  it("the server's member-directed sentences match CLAIMS word for word", () => {
+    expect(GIVING_SENTENCES.memberDirected).toBe(CLAIMS.memberDirected);
+    expect(GIVING_SENTENCES.memberDirectedDefault).toBe(CLAIMS.memberDirectedDefault);
+    expect(GIVING_SENTENCES.memberDirectedFull).toBe(CLAIMS.memberDirectedFull);
   });
 
   it("static pages and flyers carry no dropped phrase and no host price", () => {
