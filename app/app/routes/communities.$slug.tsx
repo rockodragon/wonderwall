@@ -1016,7 +1016,7 @@ function HostToolsPanel({ community }: { community: Community }) {
  * browse row, products, fund link, and (for hosts) the host tools panel.
  * Used both by /communities/:slug (below) and by /communities, which shows
  * The Garden's page directly and appends its own `footer` links. */
-export function CommunityPage({ slug, footer, tagline }: { slug: string; footer?: ReactNode; tagline?: string }) {
+export function CommunityPage({ slug, footer }: { slug: string; footer?: ReactNode }) {
   const [searchParams] = useSearchParams();
   const purchased = searchParams.get("purchased") === "1";
   const community = useQuery(
@@ -1056,9 +1056,9 @@ export function CommunityPage({ slug, footer, tagline }: { slug: string; footer?
       >
         {community.name}
       </h1>
-      {(tagline ?? community.tagline) && (
+      {community.tagline && (
         <p className="mt-2.5 text-[15px] leading-relaxed max-w-[58ch]" style={{ color: "var(--garden-body)" }}>
-          {tagline ?? community.tagline}
+          {community.tagline}
         </p>
       )}
       {community.websiteUrl && (

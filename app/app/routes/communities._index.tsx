@@ -131,7 +131,7 @@ export default function CommunitiesIndex() {
     <>
       <CommunitiesIntro />
       <div id="the-garden" className="scroll-mt-4">
-        <CommunityPage slug="the-garden" footer={<IndexFooter />} tagline="A faith-based creative community in San Diego. Anyone is welcome." />
+        <CommunityPage slug="the-garden" footer={<IndexFooter />} />
       </div>
     </>
   );
