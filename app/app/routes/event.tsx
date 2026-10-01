@@ -556,10 +556,10 @@ export default function EventDetail() {
           {/* Left: Organizer and Description */}
           <div className="flex-1">
             {/* Hosts: organizer first, then co-hosts. An organization links
-                to its page here (/orgs/:slug, public); an org from before
-                organizations existed still links out to its website.
-                /profile/:id is inside the auth-gated layout, so a guest gets
-                plain person names. */}
+                to its page here (/orgs/:slug, public) — never out to its
+                website; one from before the backfill has no page yet and
+                shows as plain text. /profile/:id is inside the auth-gated
+                layout, so a guest gets plain person names. */}
             {event.organizer && (
               <p className="mb-4 text-[15px] text-gray-700 dark:text-gray-200">
                 Hosted by{" "}
@@ -576,16 +576,7 @@ export default function EventDetail() {
                       >
                         {h.primary}
                       </Link>
-                    ) : h.orgUrl ? (
-                      <a
-                        href={h.orgUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="font-medium text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400"
-                      >
-                        {h.primary}
-                      </a>
-                    ) : h.profileId && !isGuest ? (
+                    ) : h.profileId && !isGuest && !h.person ? (
                       <Link
                         to={`/profile/${h.profileId}`}
                         className="font-medium text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400"
