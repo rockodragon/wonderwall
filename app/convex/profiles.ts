@@ -544,8 +544,29 @@ export const patchCoordinates = internalMutation({
  * hosts events under a group name). Its own small mutation so saving it never
  * touches any other profile field. An empty value clears it.
  */
+/** A pasted website → "https://host/path" or null. Accepts "abidingpractice.com",
+ * "www.x.org/give", or a full URL; rejects anything that isn't http(s). */
+export function normalizeOrgUrl(raw: string | undefined | null): { ok: true; value: string | null } | { ok: false; reason: string } {
+  const trimmed = (raw ?? "").trim();
+  if (!trimmed) return { ok: true, value: null };
+  if (trimmed.length > 200) return { ok: false, reason: "Keep the website under 200 characters." };
+  const withScheme = /^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+  let url: URL;
+  try {
+    url = new URL(withScheme);
+  } catch {
+    return { ok: false, reason: "That doesn't look like a website." };
+  }
+  if (url.protocol !== "https:" && url.protocol !== "http:") {
+    return { ok: false, reason: "That doesn't look like a website." };
+  }
+  if (!url.hostname.includes(".")) return { ok: false, reason: "That doesn't look like a website." };
+  const path = url.pathname === "/" ? "" : url.pathname.replace(/\/$/, "");
+  return { ok: true, value: `${url.protocol}//${url.hostname}${path}${url.search}` };
+}
+
 export const setOrgName = mutation({
-  args: { orgName: v.optional(v.string()) },
+  args: { orgName: v.optional(v.string()), orgUrl: v.optional(v.string()) },
   handler: async (ctx, args) => {
     const userId = await auth.getUserId(ctx);
     if (!userId) throw new ConvexError({ code: "unauthenticated", reason: "Sign in first." });
@@ -558,8 +579,33 @@ export const setOrgName = mutation({
     if (orgName.length > 80) {
       throw new ConvexError({ code: "too_long", reason: "Keep the organization under 80 characters." });
     }
-    await ctx.db.patch(profile._id, { orgName: orgName || undefined, updatedAt: Date.now() });
+    const url = normalizeOrgUrl(args.orgUrl);
+    if (!url.ok) throw new ConvexError({ code: "invalid_url", reason: url.reason });
+    await ctx.db.patch(profile._id, {
+      orgName: orgName || undefined,
+      orgUrl: url.value ?? undefined,
+      updatedAt: Date.now(),
+    });
     return { ok: true as const };
+  },
+});
+
+// Operator CLI only, like setAdminByName: set someone's organization for
+// them (Rick, 2026-10-01: David Russo → Abiding Practice).
+//   npx convex run profiles:setOrgByProfileId '{"profileId":"…","orgName":"Abiding Practice","orgUrl":"abidingpractice.com"}' --prod
+export const setOrgByProfileId = internalMutation({
+  args: { profileId: v.id("profiles"), orgName: v.string(), orgUrl: v.optional(v.string()) },
+  handler: async (ctx, args) => {
+    const profile = await ctx.db.get(args.profileId);
+    if (!profile) throw new Error("Profile not found");
+    const url = normalizeOrgUrl(args.orgUrl);
+    if (!url.ok) throw new Error(url.reason);
+    await ctx.db.patch(profile._id, {
+      orgName: args.orgName.trim() || undefined,
+      orgUrl: url.value ?? undefined,
+      updatedAt: Date.now(),
+    });
+    return { name: profile.name, orgName: args.orgName.trim(), orgUrl: url.value };
   },
 });
 

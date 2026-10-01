@@ -190,7 +190,18 @@ export default function Profile() {
             </div>
             {profile.orgName && (
               <p className="mt-1 text-sm sm:text-base" style={{ color: "var(--app-text-muted)" }}>
-                {profile.orgName}
+                {(profile as { orgUrl?: string }).orgUrl ? (
+                  <a
+                    href={(profile as { orgUrl?: string }).orgUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:underline"
+                  >
+                    {profile.orgName} ↗
+                  </a>
+                ) : (
+                  profile.orgName
+                )}
               </p>
             )}
             {profile.interests.length > 0 && (

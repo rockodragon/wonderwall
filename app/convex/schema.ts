@@ -63,6 +63,7 @@ export default defineSchema({
     // this is just which onramp they took, for UX (default view, copy).
     primaryRole: v.optional(v.string()),
     orgName: v.optional(v.string()), // patron/partner: their org, if any
+    orgUrl: v.optional(v.string()), // the org's website, normalized to https:// (profiles.ts normalizeOrgUrl)
     supportInterests: v.optional(v.array(v.string())), // patron: categories they want to fund
     partnerOfferings: v.optional(v.array(v.string())), // partner: what they can offer
     lastLikeNotifiedAt: v.optional(v.number()), // last time likes digest was sent

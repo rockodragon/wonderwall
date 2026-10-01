@@ -24,3 +24,14 @@ describe("hostLabels", () => {
     expect(hostLabels([null, { name: "  " }])).toEqual([]);
   });
 });
+
+describe("org website", () => {
+  it("carries the org's website only when the org led", () => {
+    const [org, person] = hostLabels([
+      { name: "David Russo", orgName: "Abiding Practice", orgUrl: "https://abidingpractice.com" },
+      { name: "Rick Moy", orgUrl: "https://example.com" },
+    ]);
+    expect(org.orgUrl).toBe("https://abidingpractice.com");
+    expect(person.orgUrl).toBeNull();
+  });
+});

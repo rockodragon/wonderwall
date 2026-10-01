@@ -1,7 +1,7 @@
 // How an event's hosts read: the organization first, the person second.
 // Pure, so the card, the detail page and the tests share one rule.
 
-export type EventHost = { name: string; orgName?: string | null; profileId?: string | null };
+export type EventHost = { name: string; orgName?: string | null; orgUrl?: string | null; profileId?: string | null };
 
 export type HostLabel = {
   /** What to show first: the org when there is one, else the person. */
@@ -9,6 +9,8 @@ export type HostLabel = {
   /** The person's name, only when the org led. */
   person: string | null;
   profileId: string | null;
+  /** The org's website, when the org led and has one. */
+  orgUrl: string | null;
 };
 
 /** Hosts with an org come first (their order kept), then the rest. A repeat
@@ -25,9 +27,9 @@ export function hostLabels(hosts: (EventHost | null | undefined)[] | null | unde
       const key = org.toLowerCase();
       if (seenOrgs.has(key)) continue;
       seenOrgs.add(key);
-      withOrg.push({ primary: org, person: name || null, profileId: h.profileId ?? null });
+      withOrg.push({ primary: org, person: name || null, profileId: h.profileId ?? null, orgUrl: h.orgUrl || null });
     } else if (name) {
-      without.push({ primary: name, person: null, profileId: h.profileId ?? null });
+      without.push({ primary: name, person: null, profileId: h.profileId ?? null, orgUrl: null });
     }
   }
   return [...withOrg, ...without];

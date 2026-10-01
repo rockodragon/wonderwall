@@ -225,16 +225,16 @@ async function loadGoingCount(ctx: QueryCtx, eventId: Id<"events">): Promise<num
 async function loadHosts(
   ctx: QueryCtx,
   event: Doc<"events">,
-): Promise<{ name: string; orgName?: string; profileId?: Id<"profiles"> }[]> {
+): Promise<{ name: string; orgName?: string; orgUrl?: string; profileId?: Id<"profiles"> }[]> {
   const ids = [event.organizerId, ...(event.coHostIds ?? [])];
-  const out: { name: string; orgName?: string; profileId?: Id<"profiles"> }[] = [];
+  const out: { name: string; orgName?: string; orgUrl?: string; profileId?: Id<"profiles"> }[] = [];
   for (const id of ids) {
     const p = await ctx.db
       .query("profiles")
       .withIndex("by_userId", (q) => q.eq("userId", id))
       .first();
     if (!p) continue;
-    out.push({ name: p.name, orgName: p.orgName?.trim() || undefined, profileId: p._id });
+    out.push({ name: p.name, orgName: p.orgName?.trim() || undefined, orgUrl: p.orgUrl || undefined, profileId: p._id });
   }
   return out;
 }
@@ -406,6 +406,7 @@ export const get = query({
       userId: Id<"users">;
       name: string;
       orgName?: string;
+      orgUrl?: string;
       imageUrl: string | null;
       profileId: Id<"profiles"> | null;
     }[] = [];
@@ -420,6 +421,7 @@ export const get = query({
         userId: coId,
         name: p?.name ?? "Someone",
         orgName: p?.orgName?.trim() || undefined,
+        orgUrl: p?.orgUrl || undefined,
         imageUrl: img,
         profileId: p?._id ?? null,
       });
@@ -436,6 +438,7 @@ export const get = query({
         ? {
             name: profile.name,
             orgName: profile.orgName?.trim() || undefined,
+            orgUrl: profile.orgUrl || undefined,
             imageUrl: organizerImageUrl,
             profileId: profile._id,
           }

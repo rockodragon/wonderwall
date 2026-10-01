@@ -658,7 +658,16 @@ export default function EventDetail() {
                 ]).map((h, idx) => (
                   <span key={`${h.primary}-${idx}`}>
                     {idx > 0 && ", "}
-                    {h.profileId && !isGuest ? (
+                    {h.orgUrl ? (
+                      <a
+                        href={h.orgUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-medium text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400"
+                      >
+                        {h.primary}
+                      </a>
+                    ) : h.profileId && !isGuest ? (
                       <Link
                         to={`/profile/${h.profileId}`}
                         className="font-medium text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400"
@@ -1628,6 +1637,10 @@ function EventVideoSection({
   // "completed" to tell us otherwise (PRD Criticism #4).
   const roomIsLive = !cancelled && Date.now() < datetime + DAY_MS;
   const showJoin = roomIsLive && !!video.meetingUrl;
+  // The "Live" badge waits for the start time (Rick, 2026-10-01): the join
+  // link is shown ahead of time so people can find it, but nothing is live
+  // until the event starts.
+  const hasStarted = Date.now() >= datetime;
 
   // The live room wins the frame while it's live; the recording only takes it
   // once the room is done, which is also the only time the heading says
@@ -1644,8 +1657,8 @@ function EventVideoSection({
         <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
           {showJoin ? "Join online" : "Recording"}
         </h3>
-        {liveEmbed && (
-          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-red-600 text-white text-[11px] font-semibold uppercase tracking-[0.08em]">
+        {liveEmbed && hasStarted && (
+          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-red-600 text-white text-[12px] font-semibold uppercase tracking-[0.08em]">
             <span className="w-1.5 h-1.5 rounded-full bg-white" />
             Live
           </span>
