@@ -87,7 +87,7 @@ export function ErrorBoundary() {
   );
 }
 
-const OG_IMAGE = "https://creatives.exchange/showcase/abiding-creatives-og.jpg";
+const OG_IMAGE = "https://thecreative.exchange/showcase/abiding-creatives-og.jpg";
 
 const EVENT_DATE = "Friday, November 6, 2026";
 const EVENT_PLACE = "Lightchurch, Encinitas, California";

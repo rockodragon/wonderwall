@@ -670,6 +670,21 @@ export default function Onboarding() {
                 {uploading ? "Creating..." : "Share work"}
               </button>
             </div>
+            {/* Work is optional — nothing downstream needs it, and people
+                without a piece ready were stuck here with no way out. */}
+            <button
+              onClick={() => {
+                posthog?.capture("onboarding_step_completed", {
+                  step_name: "work_skipped",
+                  role: "creative",
+                });
+                setStep(4);
+              }}
+              disabled={uploading}
+              className="mt-4 w-full py-2 text-[13.5px] font-medium text-gray-700 dark:text-gray-300 underline underline-offset-4 hover:text-gray-900 dark:hover:text-white disabled:opacity-50"
+            >
+              Skip for now — add work later
+            </button>
           </div>
         )}
 

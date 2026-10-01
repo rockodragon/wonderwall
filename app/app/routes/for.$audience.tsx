@@ -267,7 +267,7 @@ export function meta({ params }: Route.MetaArgs) {
   const description = a
     ? a.metaDescription
     : "Where creative work gets funded.";
-  const image = "https://creatives.exchange/og-image.png";
+  const image = "https://thecreative.exchange/og-image.png";
   return [
     { title },
     { name: "description", content: description },

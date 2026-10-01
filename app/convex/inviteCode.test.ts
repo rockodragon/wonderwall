@@ -31,7 +31,7 @@ describe("normalizeInviteCode", () => {
 
   it("extracts the code from a pasted full link", () => {
     expect(normalizeInviteCode("creatives.exchange/signup/K7M4QD")).toBe("K7M4QD");
-    expect(normalizeInviteCode("https://creatives.exchange/signup/K7M4QD")).toBe(
+    expect(normalizeInviteCode("https://thecreative.exchange/signup/K7M4QD")).toBe(
       "K7M4QD",
     );
     expect(normalizeInviteCode("creatives.exchange/signup/K7M4QD/")).toBe("K7M4QD");
@@ -44,7 +44,7 @@ describe("normalizeInviteCode", () => {
     expect(normalizeInviteCode("creatives.exchange/signup/rick-moy")).toBe(
       "rick-moy",
     );
-    expect(normalizeInviteCode("https://creatives.exchange/signup/rick-moy-2")).toBe(
+    expect(normalizeInviteCode("https://thecreative.exchange/signup/rick-moy-2")).toBe(
       "rick-moy-2",
     );
   });
@@ -54,7 +54,7 @@ describe("normalizeInviteCode", () => {
       "rick-moy",
     );
     expect(
-      normalizeInviteCode("https://creatives.exchange/?invite=K7M4QD&utm_source=x"),
+      normalizeInviteCode("https://thecreative.exchange/?invite=K7M4QD&utm_source=x"),
     ).toBe("K7M4QD");
   });
 

@@ -19,6 +19,7 @@ import type { MutationCtx } from "../_generated/server";
 const USER_ID_FIELDS: { table: string; field: string; array?: boolean }[] = [
   { table: "wonderingResponses", field: "responderId" },
   { table: "events", field: "organizerId" },
+  { table: "events", field: "coHostIds", array: true },
   { table: "eventApplications", field: "applicantId" },
   { table: "invites", field: "inviterId" },
   { table: "invites", field: "usedBy" },
@@ -77,6 +78,8 @@ const USER_ID_FIELDS: { table: string; field: string; array?: boolean }[] = [
   { table: "gigSlots", field: "bookedUserId" },
   { table: "gigResponses", field: "userId" },
   { table: "emailPreferences", field: "userId" },
+  { table: "phoneLinkCodes", field: "userId" },
+  { table: "phoneLinkStarts", field: "userId" },
 ];
 
 // Tables that reference the source's PROFILE id rather than their user id
@@ -137,6 +140,112 @@ async function scanForContent(
   return { profile, blockers };
 }
 
+// For `moveContent`: tables where one person should hold at most one row
+// per key. When the target already has a row with the same key, the
+// source's copy is dropped instead of moved (two memberships in the same
+// community, two likes on the same piece). Keyed by "table.field" — the
+// field being re-pointed — so profileLikes can dedupe differently on its
+// user side and its profile side.
+const DEDUPE_KEYS: Record<string, string[]> = {
+  "communityMembers.userId": ["hostOrgId"],
+  "favorites.userId": ["targetType", "targetId"],
+  "profileLikes.userId": ["profileId"],
+  "profileLikes.profileId": ["userId"],
+  "artifactLikes.userId": ["artifactId"],
+  "showcaseVotes.userId": ["applicationId"],
+  "tableMemberships.userId": ["tableId"],
+  "emailPreferences.userId": [],
+  "projectMembers.userId": ["projectId"],
+  "jobInterests.userId": ["jobId"],
+  "sessionRsvps.userId": ["sessionId"],
+  "eventRsvps.userId": ["eventId"],
+  "gigResponses.userId": ["slotId"],
+  "offeringSignups.userId": ["offeringId"],
+  "announcementRecipients.userId": ["announcementId"],
+};
+
+// One Stripe customer per account: two can't be combined by re-pointing,
+// so a merge where both sides have one stops and says so.
+const ONE_PER_ACCOUNT_BLOCKING = ["billingCustomers"];
+
+/** Re-points every row in `table` whose `field` is `from` to `to`, dropping
+ * rows that would duplicate one the target already has. Returns
+ * [moved, dropped]. */
+async function repoint(
+  ctx: MutationCtx,
+  table: string,
+  field: string,
+  from: string,
+  to: string,
+  array: boolean | undefined,
+): Promise<[number, number]> {
+  const rows: any[] = await ctx.db.query(table as any).collect();
+  const dedupe = DEDUPE_KEYS[`${table}.${field}`];
+  let moved = 0;
+  let dropped = 0;
+  for (const row of rows) {
+    if (array) {
+      if (!Array.isArray(row[field]) || !row[field].includes(from)) continue;
+      const next = [...new Set(row[field].map((x: string) => (x === from ? to : x)))];
+      await ctx.db.patch(row._id, { [field]: next } as any);
+      moved++;
+      continue;
+    }
+    if (row[field] !== from) continue;
+    if (dedupe) {
+      const clash = rows.find(
+        (other) => other[field] === to && dedupe.every((k) => other[k] === row[k]),
+      );
+      if (clash) {
+        await ctx.db.delete(row._id);
+        dropped++;
+        continue;
+      }
+    }
+    await ctx.db.patch(row._id, { [field]: to } as any);
+    row[field] = to; // later rows in this pass dedupe against it
+    moved++;
+  }
+  return [moved, dropped];
+}
+
+// Profile fields never copied between accounts: identity and bookkeeping.
+const PROFILE_FIELDS_NOT_COPIED = new Set(["_id", "_creationTime", "userId", "createdAt", "updatedAt"]);
+
+/** Fills fields the target's profile leaves empty from the source's, so
+ * nothing the person wrote on either account is lost. The target's own
+ * values always win. Creates the target's profile from the source's if it
+ * has none. Returns the target profile id and which fields were filled. */
+async function mergeProfiles(
+  ctx: MutationCtx,
+  sourceProfile: Doc<"profiles">,
+  targetUserId: Id<"users">,
+): Promise<{ targetProfileId: Id<"profiles">; filled: string[] }> {
+  const targetProfile = await ctx.db
+    .query("profiles")
+    .withIndex("by_userId", (q) => q.eq("userId", targetUserId))
+    .first();
+  if (!targetProfile) {
+    await ctx.db.patch(sourceProfile._id, { userId: targetUserId, updatedAt: Date.now() });
+    return { targetProfileId: sourceProfile._id, filled: ["(whole profile moved)"] };
+  }
+  const patch: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(sourceProfile)) {
+    if (PROFILE_FIELDS_NOT_COPIED.has(key)) continue;
+    const current = (targetProfile as any)[key];
+    const empty =
+      current === undefined ||
+      current === null ||
+      current === "" ||
+      (Array.isArray(current) && current.length === 0);
+    if (empty && value !== undefined) patch[key] = value;
+  }
+  if (Object.keys(patch).length > 0) {
+    await ctx.db.patch(targetProfile._id, { ...patch, updatedAt: Date.now() } as any);
+  }
+  return { targetProfileId: targetProfile._id, filled: Object.keys(patch) };
+}
+
 function maskPhone(phone: string): string {
   return `••••${phone.slice(-4)}`;
 }
@@ -152,6 +261,7 @@ type SourceReport =
       copiedEmailVerification: boolean;
       movedPhoneMasked: string | null;
       forced: boolean;
+      contentMoved?: { moved: Record<string, number>; droppedDuplicates: Record<string, number>; profileFieldsFilled: string[] };
     };
 
 export const mergeUsers = internalMutation({
@@ -160,8 +270,12 @@ export const mergeUsers = internalMutation({
     sourceUserIds: v.array(v.id("users")),
     dryRun: v.boolean(),
     force: v.optional(v.boolean()),
+    // Move the source's content (projects, work, memberships, messages…)
+    // onto the target instead of refusing. Unlike `force`, nothing is left
+    // pointing at the deleted account.
+    moveContent: v.optional(v.boolean()),
   },
-  handler: async (ctx, { targetUserId, sourceUserIds, dryRun, force }) => {
+  handler: async (ctx, { targetUserId, sourceUserIds, dryRun, force, moveContent }) => {
     const results: SourceReport[] = [];
 
     for (const sourceUserId of sourceUserIds) {
@@ -173,9 +287,23 @@ export const mergeUsers = internalMutation({
       const { profile, blockers } = await scanForContent(ctx, sourceUserId);
       const hasContent = Object.keys(blockers).length > 0;
 
-      if (hasContent && !force) {
+      if (hasContent && !force && !moveContent) {
         results.push({ sourceUserId, blocked: true, blockers });
         continue;
+      }
+
+      if (moveContent) {
+        const clashes: Record<string, number> = {};
+        for (const table of ONE_PER_ACCOUNT_BLOCKING) {
+          const rows: any[] = await ctx.db.query(table as any).collect();
+          if (rows.some((r) => r.userId === sourceUserId) && rows.some((r) => r.userId === targetUserId)) {
+            clashes[`${table} (both accounts have one)`] = 1;
+          }
+        }
+        if (Object.keys(clashes).length > 0) {
+          results.push({ sourceUserId, blocked: true, blockers: clashes });
+          continue;
+        }
       }
 
       if (dryRun) {
@@ -184,6 +312,35 @@ export const mergeUsers = internalMutation({
       }
 
       // ---- actually merge ----
+      let contentMoved: Extract<SourceReport, { merged: true }>["contentMoved"];
+      if (moveContent && hasContent) {
+        const moved: Record<string, number> = {};
+        const droppedDuplicates: Record<string, number> = {};
+        const note = (key: string, [m, d]: [number, number]) => {
+          if (m) moved[key] = m;
+          if (d) droppedDuplicates[key] = d;
+        };
+        for (const { table, field, array } of USER_ID_FIELDS) {
+          note(`${table}.${field}`, await repoint(ctx, table, field, sourceUserId, targetUserId, array));
+        }
+        let profileFieldsFilled: string[] = [];
+        if (profile) {
+          const { targetProfileId, filled } = await mergeProfiles(ctx, profile, targetUserId);
+          profileFieldsFilled = filled;
+          if (targetProfileId !== profile._id) {
+            for (const { table, field } of PROFILE_ID_FIELDS) {
+              note(`${table}.${field}`, await repoint(ctx, table, field, profile._id, targetProfileId, false));
+            }
+          }
+        }
+        // A block between the two accounts is now a person blocking
+        // themselves; drop it.
+        for (const b of await ctx.db.query("blocks").collect()) {
+          if (b.blockerId === targetUserId && b.blockedId === targetUserId) await ctx.db.delete(b._id);
+        }
+        contentMoved = { moved, droppedDuplicates, profileFieldsFilled };
+      }
+
       const targetAccounts = await ctx.db
         .query("authAccounts")
         .withIndex("userIdAndProvider", (q) => q.eq("userId", targetUserId))
@@ -262,8 +419,9 @@ export const mergeUsers = internalMutation({
         await ctx.db.delete(session._id);
       }
 
-      if (profile) {
-        await ctx.db.delete(profile._id);
+      const profileNow = profile ? await ctx.db.get(profile._id) : null;
+      if (profileNow && profileNow.userId === sourceUserId) {
+        await ctx.db.delete(profileNow._id);
       }
 
       await ctx.db.delete(sourceUserId);
@@ -274,7 +432,8 @@ export const mergeUsers = internalMutation({
         movedAccountCount: sourceAccounts.length,
         copiedEmailVerification,
         movedPhoneMasked: movedPhone ? maskPhone(movedPhone) : null,
-        forced: hasContent,
+        forced: hasContent && !moveContent,
+        ...(contentMoved ? { contentMoved } : {}),
       });
     }
 

@@ -39,7 +39,7 @@ export const sendNotificationEmail = internalAction({
       return;
     }
 
-    const baseUrl = process.env.SITE_URL || "https://creatives.exchange";
+    const baseUrl = process.env.SITE_URL || "https://thecreative.exchange";
 
     const unsubscribeUrl = args.unsubscribeToken
       ? `${baseUrl}/unsubscribe/${args.unsubscribeToken}`
@@ -108,7 +108,7 @@ export const sendNotificationEmail = internalAction({
 export const sendSignInCode = internalAction({
   args: { to: v.string(), code: v.string() },
   handler: async (_ctx, { to, code }) => {
-    const baseUrl = process.env.SITE_URL || "https://creatives.exchange";
+    const baseUrl = process.env.SITE_URL || "https://thecreative.exchange";
     const line = `Your TheCreative.exchange code is ${code}. It expires in 10 minutes. If you didn't ask for it, ignore this email.`;
     const { html } = renderNotificationEmail({
       heading: `Your code: ${code}`,

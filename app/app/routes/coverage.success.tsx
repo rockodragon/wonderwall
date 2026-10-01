@@ -127,7 +127,7 @@ export default function CoverageSuccess() {
                 </button>
               </div>
               <p className="g-hint" style={{ marginTop: 10 }}>
-                They redeem it at creatives.exchange/c/{ready.code}
+                They redeem it at thecreative.exchange/c/{ready.code}
               </p>
             </div>
           </>

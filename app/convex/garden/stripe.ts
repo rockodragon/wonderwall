@@ -43,7 +43,7 @@ function getStripeClient(): Stripe {
 }
 
 function siteUrl(): string {
-  return process.env.SITE_URL || "https://www.thegarden.app";
+  return process.env.SITE_URL || "https://thecreative.exchange";
 }
 
 const PRICE_ENV_BY_LEVEL: Record<string, string | undefined> = {

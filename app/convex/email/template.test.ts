@@ -5,7 +5,7 @@
 import { describe, expect, it } from "vitest";
 import { escapeHtml, renderNotificationEmail } from "./template";
 
-const BASE_URL = "https://creatives.exchange";
+const BASE_URL = "https://thecreative.exchange";
 
 describe("escapeHtml", () => {
   it("escapes the five HTML-significant characters", () => {
@@ -56,8 +56,8 @@ describe("renderNotificationEmail", () => {
       ctaUrl: "/messages/abc123",
       baseUrl: BASE_URL,
     });
-    expect(html).toContain('href="https://creatives.exchange/messages/abc123"');
-    expect(text).toContain("View Message: https://creatives.exchange/messages/abc123");
+    expect(html).toContain('href="https://thecreative.exchange/messages/abc123"');
+    expect(text).toContain("View Message: https://thecreative.exchange/messages/abc123");
   });
 
   it("includes the unsubscribe link only when unsubscribeUrl is given", () => {

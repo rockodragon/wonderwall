@@ -1,6 +1,6 @@
 // /ia — information architecture reference page (discussion-brief pivot,
 // docs/creatives-exchange-discussion-brief.md). Built for the founder to
-// walk prospective community partners through: what creatives.exchange is,
+// walk prospective community partners through: what thecreative.exchange is,
 // what a community is, what a table is, the shared vocabulary, and how
 // someone actually walks from the front page into a room. No Convex data —
 // this is reference copy, static and shareable (no noindex, spec says so).

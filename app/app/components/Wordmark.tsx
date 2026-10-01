@@ -8,7 +8,7 @@
 const SIZES = {
   // Compact horizontal lockup — for tight fixed-width spaces (the app
   // sidebar, w-64 minus padding is ~208px). Minimal tracking is the load-
-  // bearing choice here: at md/lg's 0.24em, "creatives.exchange" alone runs
+  // bearing choice here: at md/lg's 0.24em, "thecreative.exchange" alone runs
   // ~240px and overflows straight into the page content next to it.
   sm: { icon: 18, text: 11, tagline: 8.5, gap: "gap-1.5", trackingText: "0.02em", trackingTag: "0.08em" },
   md: { icon: 28, text: 15, tagline: 10.5, gap: "gap-2.5", trackingText: "0.24em", trackingTag: "0.18em" },
