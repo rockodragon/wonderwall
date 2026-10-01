@@ -1045,7 +1045,7 @@ export default function EventDetail() {
         )}
         {tab === "going" && isGuest && attendees && attendees.length > 0 && (
           <p className="text-[15px] text-gray-700 dark:text-gray-200 mb-8">
-            {attendees.length} going.{" "}
+            {attendees.reduce((n, a) => n + 1 + a.extraTickets, 0)} going.{" "}
             <Link to="/login" className="text-blue-600 dark:text-blue-400 hover:underline">
               Sign in to see who
             </Link>
@@ -2154,14 +2154,26 @@ function ExternalTicketCard({
 // Host tabs: Guests and Hosts.
 // ——————————————————————————————————————————————————————————————
 
+type GuestFilter = "going" | "pending" | "declined";
+
 function GuestsPanel({ eventId, title }: { eventId: Id<"events">; title: string }) {
   const guests = useQuery(api.events.getGuestList, { eventId });
+  const setStatus = useMutation(api.events.updateApplicationStatus);
+  const [filter, setFilter] = useState<GuestFilter>("going");
+  const [busyId, setBusyId] = useState<string | null>(null);
 
   if (guests === undefined) {
     return <p className="text-[15px] text-gray-700 dark:text-gray-200">Loading...</p>;
   }
 
   const summary = summarizeGuests(guests);
+  const by = (s: GuestFilter) => guests.filter((g) => g.status === s);
+  const shown = by(filter);
+  const tabs: { id: GuestFilter; label: string }[] = [
+    { id: "going", label: `Going ${summary.going}` },
+    { id: "pending", label: `Waiting for approval ${by("pending").length}` },
+    { id: "declined", label: `Not going ${by("declined").length}` },
+  ];
 
   function downloadCsv() {
     if (!guests) return;
@@ -2176,11 +2188,20 @@ function GuestsPanel({ eventId, title }: { eventId: Id<"events">; title: string 
     URL.revokeObjectURL(url);
   }
 
+  async function decide(applicationId: string, status: "accepted" | "declined") {
+    setBusyId(applicationId);
+    try {
+      await setStatus({ applicationId: applicationId as Id<"eventApplications">, status });
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <p className="text-[15px] font-medium text-gray-900 dark:text-white">
-          {summary.going} going · {summary.paid} paid · {formatDollars(summary.collectedCents)} collected
+          {summary.paid} paid · {formatDollars(summary.collectedCents)} collected
         </p>
         <button
           onClick={downloadCsv}
@@ -2191,53 +2212,86 @@ function GuestsPanel({ eventId, title }: { eventId: Id<"events">; title: string 
         </button>
       </div>
 
-      {guests.length === 0 ? (
-        <p className="text-[15px] text-gray-700 dark:text-gray-200 mb-8">No one has signed up yet.</p>
+      <div className="flex flex-wrap gap-2 mb-4" role="tablist">
+        {tabs.map((t) => (
+          <button
+            key={t.id}
+            role="tab"
+            aria-selected={filter === t.id}
+            onClick={() => setFilter(t.id)}
+            className={`px-3 py-1.5 rounded-full text-[13.5px] font-medium ${
+              filter === t.id
+                ? "bg-gray-900 text-white dark:bg-white dark:text-gray-900"
+                : "bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-700"
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {shown.length === 0 ? (
+        <p className="text-[15px] text-gray-700 dark:text-gray-200 mb-8">
+          {filter === "going" ? "No one yet." : "No one here."}
+        </p>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700 mb-8">
-          <table className="w-full text-left text-[14px] text-gray-800 dark:text-gray-100">
-            <thead className="bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-200">
-              <tr>
-                <th className="px-3 py-2 font-semibold">Name</th>
-                <th className="px-3 py-2 font-semibold">Email</th>
-                <th className="px-3 py-2 font-semibold">Tickets</th>
-                <th className="px-3 py-2 font-semibold">Paid</th>
-                <th className="px-3 py-2 font-semibold whitespace-nowrap">Added</th>
-              </tr>
-            </thead>
-            <tbody>
-              {guests.map((g) => (
-                <tr key={g.key} className="border-t border-gray-200 dark:border-gray-700">
-                  <td className="px-3 py-2 whitespace-nowrap">
-                    {g.name}
-                    {g.status !== "going" && (
-                      <span className="ml-2 text-[12px] text-gray-600 dark:text-gray-300">
-                        ({g.status})
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-3 py-2">{g.email || "—"}</td>
-                  <td className="px-3 py-2">
-                    {g.tickets}
-                    {g.guestNames && (
-                      <span className="block text-[12px] text-gray-600 dark:text-gray-300">{g.guestNames}</span>
-                    )}
-                  </td>
-                  <td className="px-3 py-2 whitespace-nowrap">
-                    {g.paidCents != null && g.paidCents > 0 ? formatDollars(g.paidCents) : "Free"}
-                  </td>
-                  <td className="px-3 py-2 whitespace-nowrap">
-                    {new Date(g.addedAt).toLocaleDateString(undefined, {
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                    })}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <ul className="rounded-xl border border-gray-200 dark:border-gray-700 divide-y divide-gray-200 dark:divide-gray-700 mb-8">
+          {shown.map((g) => (
+            <li key={g.key} className="px-3 py-3 flex flex-wrap items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[15px] text-gray-900 dark:text-white">
+                  {g.name}
+                  {g.tickets > 1 && (
+                    <span className="ml-2 text-[13.5px] text-gray-700 dark:text-gray-200">
+                      +{g.tickets - 1} {g.tickets === 2 ? "guest" : "guests"}
+                    </span>
+                  )}
+                </p>
+                <p className="text-[13.5px] text-gray-700 dark:text-gray-200 break-all">
+                  {g.email || "No email"}
+                  {" · "}
+                  {g.paidCents != null && g.paidCents > 0 ? `Paid ${formatDollars(g.paidCents)}` : "Free"}
+                  {" · "}
+                  {new Date(g.addedAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                </p>
+                {g.guestNames && (
+                  <p className="text-[13.5px] text-gray-700 dark:text-gray-200">With {g.guestNames}</p>
+                )}
+              </div>
+              {g.applicationId && filter !== "going" && (
+                <div className="flex gap-2">
+                  {filter === "pending" && (
+                    <button
+                      disabled={busyId === g.applicationId}
+                      onClick={() => decide(g.applicationId!, "accepted")}
+                      className="px-3 py-1.5 rounded-lg text-[13.5px] font-medium bg-gray-900 text-white dark:bg-white dark:text-gray-900 disabled:opacity-50"
+                    >
+                      Approve
+                    </button>
+                  )}
+                  {filter === "pending" && (
+                    <button
+                      disabled={busyId === g.applicationId}
+                      onClick={() => decide(g.applicationId!, "declined")}
+                      className="px-3 py-1.5 rounded-lg text-[13.5px] font-medium bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-100 disabled:opacity-50"
+                    >
+                      Decline
+                    </button>
+                  )}
+                  {filter === "declined" && (
+                    <button
+                      disabled={busyId === g.applicationId}
+                      onClick={() => decide(g.applicationId!, "accepted")}
+                      className="px-3 py-1.5 rounded-lg text-[13.5px] font-medium bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-100 disabled:opacity-50"
+                    >
+                      Approve
+                    </button>
+                  )}
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
       )}
 
       <AnnouncementComposer targetType="event" targetId={eventId} heading="Message attendees" />

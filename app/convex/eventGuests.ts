@@ -14,6 +14,8 @@ export interface GuestRow {
   tickets: number;
   /** Names they gave for the other people on their tickets. */
   guestNames: string | null;
+  /** The request this person made, when they asked to join: lets a host approve or decline from the list. */
+  applicationId: string | null;
   addedAt: number;
 }
 
@@ -25,6 +27,7 @@ export interface GuestInput {
   paidCents?: number | null;
   tickets?: number | null;
   guestNames?: string | null;
+  applicationId?: string | null;
   addedAt: number;
 }
 
@@ -55,6 +58,7 @@ export function mergeGuests(inputs: GuestInput[]): GuestRow[] {
         paidCents: g.paidCents ?? null,
         tickets: g.tickets ?? 1,
         guestNames: g.guestNames ?? null,
+        applicationId: g.applicationId ?? null,
         addedAt: g.addedAt,
       });
     } else {
@@ -66,6 +70,7 @@ export function mergeGuests(inputs: GuestInput[]): GuestRow[] {
       if (g.guestNames) existing.guestNames = existing.guestNames ? `${existing.guestNames}; ${g.guestNames}` : g.guestNames;
       if (!existing.email && email) existing.email = email;
       if (!existing.name || existing.name === "Anonymous") existing.name = g.name;
+      if (!existing.applicationId && g.applicationId) existing.applicationId = g.applicationId;
       existing.addedAt = Math.min(existing.addedAt, g.addedAt);
     }
     if (eKey && !keyAlias.has(eKey)) keyAlias.set(eKey, key);
