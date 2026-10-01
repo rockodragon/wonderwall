@@ -88,3 +88,25 @@ tas,county,applicant_to,D2/D3 CEP/NRP (planned),,medium
 tas,city_ca,applicant_to,CCSD FY28 (planned),,medium
 p_homestead,tas,knows,On Aug 27 call with Rick,,medium
 cm,cm,recurs,Last Friday monthly,https://creativemornings.com/cities/sd,high
+p_keele,connectsv,leads,President,https://www.faithdrivenentrepreneur.org/bios/dustin-keele,high
+p_collett,connectsv,leads,Executive Director; credited with building Venture Forge (bio from snippets),https://connect.sv/,medium
+p_jmunro,kingdomhaus,co-founded,Co-founder,https://www.kingdom.haus/our-story,high
+p_bmunro,kingdomhaus,co-founded,Co-founder,https://www.kingdom.haus/our-story,high
+p_jmunro,praxis,mentors,"Mentor, Praxis accelerator",https://www.praxis.co/business-accelerator,high
+p_kaestner,sovereigns,co-founded,"Co-founder, Sovereign's Capital",https://sovereignscapital.com,medium
+p_thomsen,sovereigns,leads,Managing Partner,https://sovereignscapital.com,medium
+p_kaestner,fde,co-founded,Co-founder of Faith Driven Entrepreneur/Investor (national org; fde node is the San Diego chapter); faithdriveninvestor.org angel-network list shows no California group; Menlo Church hosts FDE Foundation Groups,https://faithdriveninvestor.org/angel-networks/,medium
+p_laffoon,mixbook,leads,CEO,https://www.mixbook.com/,medium
+p_laffoon,faithworktech,board_of,Board chair,https://www.faithworktech.org/our-team,high
+p_taylor,faithworktech,leads,President,https://www.faithworktech.org/our-team,high
+p_macaraeg,faithworktech,leads,Executive Director,https://www.faithworktech.org/our-team,high
+p_shaw,genbayarea,co-founded,Co-founder; also CEO of Opto AI,https://www.resourceglobal.org/diana-shaw,high
+p_shaw,kingdomhaus,spoke_at,Haus Lunch speaker,https://www.kingdom.haus/events,high
+p_keele,kingdomhaus,member_of,Member,https://www.kingdom.haus/,high
+p_kaestner,kingdomhaus,member_of,Member,https://www.kingdom.haus/,high
+p_laffoon,kingdomhaus,member_of,Member,https://www.kingdom.haus/,high
+p_dunaway,kingdomhaus,member_of,Member,https://www.kingdom.haus/,high
+connectsv,faw_kickoff,partners,"Kickoff partner, Oct 5 2026",https://www.tech-week.com/calendar/sf/events/faith-at-work-kickoff-4621c5ca-2c22-4cc4-953e-d929433f5dfa,high
+faithworktech,faw_kickoff,partners,"Kickoff partner, Oct 5 2026",https://www.tech-week.com/calendar/sf/events/faith-at-work-kickoff-4621c5ca-2c22-4cc4-953e-d929433f5dfa,high
+christiansintech,faw_kickoff,hosts,Host of the Oct 5 2026 kickoff,https://www.tech-week.com/calendar/sf/events/faith-at-work-kickoff-4621c5ca-2c22-4cc4-953e-d929433f5dfa,high
+lionsden_dfw,connectsv,partners,"Co-powers the Venture Forge Summit (Stanford, Mar 5-6 2026)",https://www.venture-forgesv.org/,high
