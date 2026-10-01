@@ -1,7 +1,7 @@
 import { useMutation, useQuery } from "convex/react";
 import { ConvexError } from "convex/values";
-import { useEffect, useState } from "react";
-import { Link } from "react-router";
+import { useEffect, useRef, useState } from "react";
+import { Link, useLocation } from "react-router";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { ORG_LIMITS, orgNameKey } from "../../convex/organizationRules";
@@ -28,6 +28,13 @@ function reasonOf(err: unknown): string {
 
 export function OrganizationsEditor() {
   const mine = useQuery(api.organizations.mine);
+  // "Add yours" and "Add your title" link here as /settings#organizations;
+  // the section renders after the profile loads, so scroll once it exists.
+  const { hash } = useLocation();
+  const sectionRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (hash === "#organizations") sectionRef.current?.scrollIntoView({ block: "start" });
+  }, [hash]);
   const [query, setQuery] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -64,10 +71,10 @@ export function OrganizationsEditor() {
   }
 
   return (
-    <div>
-      <label className="block text-sm font-medium mb-2" style={{ color: "var(--app-text-muted)" }}>
+    <div id="organizations" ref={sectionRef} className="scroll-mt-6">
+      <h2 className="text-lg font-semibold mb-3" style={{ color: "var(--app-text)" }}>
         Organizations
-      </label>
+      </h2>
 
       {mine && mine.length > 0 && (
         <ul className="space-y-2 mb-3">

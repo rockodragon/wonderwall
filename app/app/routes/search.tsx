@@ -148,7 +148,7 @@ export default function Search() {
           <div className="pb-2">
             {orgsTab ? (
               <Link
-                to="/settings"
+                to="/settings#organizations"
                 className="text-sm font-medium hover:underline"
                 style={{ color: "var(--app-accent-ink)" }}
               >
