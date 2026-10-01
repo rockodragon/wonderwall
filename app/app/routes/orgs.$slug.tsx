@@ -10,6 +10,7 @@ import { LocationMapCard } from "../components/LocationMapCard";
 import { OrgLogo } from "../components/OrgLogo";
 import { ShareButton } from "../components/ShareButton";
 import { SocialLinks } from "../components/SocialLinks";
+import { useBack } from "../lib/useBack";
 
 // /orgs/:slug — an organization's public page (docs/features/organizations.md).
 // Public like an event page: a signed-out guest who clicks a host lands here.
@@ -125,6 +126,7 @@ export default function OrganizationPage() {
 
   return (
     <div className="p-4 sm:p-6 max-w-5xl mx-auto">
+      <BackLink />
       {/* Header: identity on the left, ways to act on the right — the same
           arrangement as a profile, with a square logo so it reads as an
           organization rather than a person. */}
@@ -336,6 +338,21 @@ export default function OrganizationPage() {
         </section>
       )}
     </div>
+  );
+}
+
+// Back to wherever they came from (an event, a profile), else the
+// Organizations tab.
+function BackLink() {
+  const back = useBack("/people?tab=orgs");
+  return (
+    <Link
+      {...back}
+      className="inline-block text-sm font-medium mb-4 hover:underline"
+      style={{ color: "var(--app-accent-ink)" }}
+    >
+      ← Back
+    </Link>
   );
 }
 

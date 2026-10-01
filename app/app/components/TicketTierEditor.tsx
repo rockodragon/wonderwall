@@ -77,8 +77,12 @@ export function draftsToTiers(
   return { tiers: tiers.length > 0 ? tiers : undefined };
 }
 
-const inputClass =
-  "w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white text-sm";
+// Width lives outside the shared look: `w-full` next to a fixed `w-28` on the
+// Cap field let w-full win in the generated CSS, so Cap took the whole row
+// and squeezed the description to nothing.
+const inputLook =
+  "px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white text-sm";
+const inputClass = `w-full ${inputLook}`;
 
 export function TicketTierEditor({
   tiers,
@@ -169,7 +173,7 @@ export function TicketTierEditor({
               value={tier.description}
               onChange={(e) => updateTier(i, { description: e.target.value })}
               placeholder="Short description (optional)"
-              className={inputClass}
+              className={`${inputClass} flex-1 min-w-0`}
             />
             <input
               type="number"
@@ -179,7 +183,7 @@ export function TicketTierEditor({
               onChange={(e) => updateTier(i, { quantity: e.target.value })}
               placeholder="Cap"
               title="Maximum number available (optional)"
-              className={`${inputClass} w-28 flex-shrink-0`}
+              className={`${inputLook} w-28 flex-shrink-0`}
             />
           </div>
         </div>

@@ -40,6 +40,7 @@ import type { Id } from "../../convex/_generated/dataModel";
 import { normalizePhone } from "../../convex/phone";
 import { LocationMapCard } from "../components/LocationMapCard";
 import { ImageFill } from "../components/ImageFill";
+import { useBack } from "../lib/useBack";
 import { YOUTUBE_LIVE_LABEL, YOUTUBE_LIVE_URL } from "../constants/broadcast";
 import { FavoriteButton } from "../components/FavoriteButton";
 import {
@@ -129,18 +130,17 @@ function formatTierPrice(priceCents: number): string {
   return `$${priceCents % 100 === 0 ? dollars.toFixed(0) : dollars.toFixed(2)}`;
 }
 
-/** Back to the events list — rendered in every state of this page (loading,
- *  not-found, loaded), so there's always a way out. /events itself stays
- *  inside the auth-gated layout (routes.ts), so a guest is sent to the
- *  guest-facing browse page instead of a link that would bounce them to
- *  /login via _app.tsx's redirect. */
+/** Back to wherever they came from (a profile, an org, Today), else the
+ *  events list (Rick, 2026-10-01) — rendered in every state of this page
+ *  (loading, not-found, loaded), so there's always a way out. /events itself
+ *  stays inside the auth-gated layout (routes.ts), so a guest who arrived
+ *  cold is sent to the guest-facing browse page instead of a link that
+ *  would bounce them to /login via _app.tsx's redirect. */
 function EventsBackLink({ isGuest }: { isGuest: boolean }) {
+  const back = useBack(isGuest ? "/garden/events" : "/events");
   return (
-    <Link
-      to={isGuest ? "/garden/events" : "/events"}
-      className="text-blue-600 hover:text-blue-500 text-sm font-medium"
-    >
-      ← Back to events
+    <Link {...back} className="text-blue-600 hover:text-blue-500 text-sm font-medium">
+      ← Back
     </Link>
   );
 }
@@ -373,14 +373,12 @@ export default function EventDetail() {
       )}
       {/* The cover stands alone — posters carry their own type, so the
           title sits below it rather than on top. */}
+      {/* Shown whole (ImageFill) — a fixed-height strip used to crop a
+          flyer to a slice and trim a banner's edges. */}
       {!playerIsHero && (
-        <div className="h-56 md:h-72 overflow-hidden">
+        <div className="relative h-56 md:h-72 overflow-hidden">
           {bannerImageUrl ? (
-            <img
-              src={bannerImageUrl}
-              alt={event.title}
-              className="w-full h-full object-cover"
-            />
+            <ImageFill src={bannerImageUrl} alt={event.title} />
           ) : (
             <div className={`w-full h-full bg-gradient-to-br ${coverGradient}`} />
           )}
@@ -2476,9 +2474,12 @@ function EventImageManager({
 
       {/* Cover Image */}
       <div className="mb-6">
-        <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+        <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
           Cover Image
         </h3>
+        <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">
+          Landscape, 1600 × 900 works best.
+        </p>
         <input
           ref={coverInputRef}
           type="file"

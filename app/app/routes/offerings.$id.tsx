@@ -16,6 +16,7 @@ import { useState } from "react";
 import type { ReactNode } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { Link, useNavigate, useParams, useRouteError, useSearchParams } from "react-router";
+import { useBack } from "../lib/useBack";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { AnnouncementComposer } from "../components/AnnouncementComposer";
@@ -75,13 +76,14 @@ function Loading() {
 }
 
 function BackLink() {
+  const back = useBack("/offerings");
   return (
     <Link
-      to="/offerings"
+      {...back}
       className="inline-block text-sm mb-5 hover:opacity-80"
       style={{ color: "var(--garden-citron)" }}
     >
-      ← Classes
+      ← Back
     </Link>
   );
 }

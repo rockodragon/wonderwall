@@ -123,7 +123,7 @@ export default function WorkDetail() {
             d="M15 19l-7-7 7-7"
           />
         </svg>
-        Back
+        ← Back
       </Link>
 
       {/* Main content */}

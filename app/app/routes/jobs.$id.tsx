@@ -1,6 +1,7 @@
 import { useMutation, useQuery } from "convex/react";
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router";
+import { useBack } from "../lib/useBack";
 import Markdown from "react-markdown";
 import { usePostHog } from "@posthog/react";
 import { api } from "../../convex/_generated/api";
@@ -119,11 +120,13 @@ export default function JobDetail() {
 
   if (!enabled) return null;
 
+  const back = useBack("/jobs");
+
   return (
     <div className="p-4 sm:p-6 max-w-6xl mx-auto">
       {/* Back link */}
       <Link
-        to="/jobs"
+        {...back}
         className="inline-flex items-center gap-2 hover:text-[var(--app-text)] mb-6 text-sm transition-colors"
         style={{ color: "var(--app-text-dim)" }}
       >
@@ -140,7 +143,7 @@ export default function JobDetail() {
             d="M15 19l-7-7 7-7"
           />
         </svg>
-        Back to Projects
+        ← Back
       </Link>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
