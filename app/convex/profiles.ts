@@ -632,7 +632,7 @@ export const setOrgByProfileId = internalMutation({
     if (!profile) throw new Error("Profile not found");
     const url = normalizeOrgUrl(args.orgUrl);
     if (!url.ok) throw new Error(url.reason);
-    const org = await linkOrgByName(ctx, profile, args.orgName);
+    const org = await linkOrgByName(ctx, profile, args.orgName, { silent: true });
     await fillOrgWebsite(ctx, org._id, url.value);
     return { name: profile.name, organization: org.name, slug: org.slug };
   },

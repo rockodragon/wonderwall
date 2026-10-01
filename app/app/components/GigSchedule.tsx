@@ -1032,7 +1032,7 @@ export function GigSchedule({ project, isOwner, myProfile }: { project: any; isO
           the mutation can never disagree about the rule. */}
       {!isOwner && viewer.isSignedIn && viewer.hasProfile && !viewer.canRespond && schedule.status === "open" && (
         <p className="text-sm mb-3" style={{ color: "var(--garden-body)" }}>
-          {viewer.respondDenial?.reason ?? "Responding to a gig takes membership."}{" "}
+          {viewer.respondDenial?.reason ?? "Responding to a show takes membership."}{" "}
           <Link to="/join" className="underline underline-offset-2 font-medium" style={{ color: "var(--garden-citron)" }}>
             {viewer.respondDenial?.upgradePath ?? "Join to respond"}
           </Link>

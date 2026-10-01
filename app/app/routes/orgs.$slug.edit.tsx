@@ -523,6 +523,12 @@ export default function OrgEdit() {
           </ul>
         )}
 
+        <AddPerson
+          organizationId={org._id}
+          listed={new Set(everyone.map((p) => String(p.profileId)))}
+          onError={setPeopleError}
+        />
+
         {peopleError && (
           <p className="mt-3 text-sm" style={{ color: "var(--app-text)" }} role="alert">
             {peopleError}
@@ -530,6 +536,81 @@ export default function OrgEdit() {
         )}
       </section>
     </Shell>
+  );
+}
+
+// Admins list people themselves (docs/features/organizations.md): search
+// the directory, pick someone, and they show right away — the person is
+// told and can change or remove it in Settings.
+function AddPerson({
+  organizationId,
+  listed,
+  onError,
+}: {
+  organizationId: Id<"organizations">;
+  listed: Set<string>;
+  onError: (msg: string) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [busy, setBusy] = useState(false);
+  const addPerson = useMutation(api.organizations.addPerson);
+  const typed = query.trim();
+  const results = useQuery(api.profiles.search, typed.length >= 2 ? { query: typed } : "skip");
+  const matches = (results ?? []).filter((r) => !listed.has(String(r._id))).slice(0, 6);
+
+  async function add(profileId: Id<"profiles">) {
+    setBusy(true);
+    onError("");
+    try {
+      await addPerson({ organizationId, profileId });
+      setQuery("");
+    } catch (err) {
+      onError(reason(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="relative mt-4">
+      <input
+        type="text"
+        value={query}
+        disabled={busy}
+        placeholder="Add a person"
+        onChange={(e) => setQuery(e.target.value)}
+        className={inputClass}
+        style={inputStyle}
+      />
+      {typed.length >= 2 && results !== undefined && (
+        <ul
+          className="absolute z-20 left-0 right-0 mt-1 rounded-lg border shadow-lg overflow-hidden"
+          style={{ backgroundColor: "var(--app-surface-raised)", borderColor: "var(--app-hairline)" }}
+        >
+          {matches.length === 0 ? (
+            <li className="px-3 py-2.5 text-sm" style={{ color: "var(--app-text-dim)" }}>
+              No one by that name.
+            </li>
+          ) : (
+            matches.map((r) => (
+              <li key={r._id}>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => add(r._id as Id<"profiles">)}
+                  className="w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-[var(--app-hairline)]"
+                >
+                  <Avatar name={r.name} imageUrl={r.imageUrl ?? null} />
+                  <span className="text-sm font-medium truncate" style={{ color: "var(--app-text)" }}>
+                    {r.name}
+                  </span>
+                </button>
+              </li>
+            ))
+          )}
+        </ul>
+      )}
+    </div>
   );
 }
 

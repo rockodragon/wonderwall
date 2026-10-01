@@ -43,8 +43,19 @@ the phone bar keeps three slots.
 
 - Anyone signed in adds an organization to their profile in Settings ›
   Profile: search, pick one, or create it. Creating makes you its admin.
-- Membership is self-declared, as on LinkedIn: you can say you work
-  somewhere without asking. An admin can remove you from the page.
+- Self-organizing (Rick, 2026-10-01): joining is open — anyone can say
+  they're part of an organization, from its page ("Add to my profile") or
+  Settings — and the check comes after, not before: every admin gets a
+  notification ("Dana joined Grove") linking to the edit page, where they
+  can remove them. No approval queue for now; add one if people abuse it.
+- Admins also add people themselves: "Add a person" on the edit page
+  searches the directory and lists them right away. The person is notified
+  ("David added you to Abiding Practice") and can change their title or
+  remove it in Settings.
+- Whoever creates an organization is its first admin, even when they're
+  not the owner — they're whoever took the lead. They make others admins
+  (the real owner, a co-lead) from the edit page; platform admins can fix
+  any organization.
 - A position is one row per person per organization: a free-text title
   ("Founder", "Board chair"), an optional start year, and an optional end
   year (set = former). Your current positions are ordered; the first one is
@@ -103,7 +114,8 @@ website link) until the backfill runs.
   events today) and notifying followers when it hosts.
 - Picking "host as" per event. Today the host's first organization is used
   for every event they host.
-- Admin approval before someone appears in People.
+- An approval queue before someone appears in People (joining is open;
+  admins are notified and remove after).
 - Link-preview (OG) tags for `/orgs/:slug`; events have them via
   `functions/events/[id].ts`.
 - Linking a job's `hiringOrg` string to an organization.

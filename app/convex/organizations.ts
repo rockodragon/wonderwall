@@ -204,9 +204,10 @@ async function addPosition(
   org: Doc<"organizations">,
   profile: Doc<"profiles">,
   opts: { title?: string; primary?: boolean },
-) {
+): Promise<{ position: Doc<"orgPositions">; isNew: boolean }> {
   const mine = await positionsOfProfile(ctx, profile._id);
   let position = mine.find((p) => p.organizationId === org._id) ?? null;
+  const isNew = !position;
   if (!position) {
     const hasAdmin = (await positionsOfOrg(ctx, org._id)).some((p) => p.isAdmin);
     const id = await ctx.db.insert("orgPositions", {
@@ -226,14 +227,55 @@ async function addPosition(
   const current = sortPositions(mine).filter(isCurrent).map((p) => p._id);
   const ordered = opts.primary ? [position._id, ...current.filter((id) => id !== position!._id)] : current;
   await renumber(ctx, profile._id, ordered);
+  return { position, isNew };
+}
+
+async function notify(
+  ctx: MutationCtx,
+  userId: Id<"users">,
+  n: { type: string; title: string; message: string; linkUrl: string; relatedUserId?: Id<"users"> },
+) {
+  await ctx.db.insert("notifications", { userId, ...n, createdAt: Date.now() });
+}
+
+/** Joining is open (self-organizing), so the check comes after: an
+ * organization's admins hear about every new person and can remove them. */
+async function tellAdminsAboutJoin(ctx: MutationCtx, org: Doc<"organizations">, joiner: Doc<"profiles">) {
+  for (const p of await positionsOfOrg(ctx, org._id)) {
+    if (!p.isAdmin || p.userId === joiner.userId) continue;
+    await notify(ctx, p.userId, {
+      type: "org_joined",
+      title: `${joiner.name} joined ${org.name}`,
+      message: "Remove them on the page if they aren't part of it.",
+      linkUrl: `/orgs/${org.slug}/edit`,
+      relatedUserId: joiner.userId,
+    });
+  }
+}
+
+/** A self-join: add the position and, when it's new, tell the admins. */
+async function joinOrg(
+  ctx: MutationCtx,
+  org: Doc<"organizations">,
+  profile: Doc<"profiles">,
+  opts: { title?: string; primary?: boolean },
+) {
+  const { position, isNew } = await addPosition(ctx, org, profile, opts);
+  if (isNew && !position.isAdmin) await tellAdminsAboutJoin(ctx, org, profile);
   return position;
 }
 
 /** Profile-side entry point for a typed organization name (onboarding, the
  * operator CLI): find or create it, and make it the person's primary. */
-export async function linkOrgByName(ctx: MutationCtx, profile: Doc<"profiles">, name: string) {
+export async function linkOrgByName(
+  ctx: MutationCtx,
+  profile: Doc<"profiles">,
+  name: string,
+  opts: { silent?: boolean } = {},
+) {
   const { org } = await findOrCreate(ctx, profile.userId, name);
-  await addPosition(ctx, org, profile, { primary: true });
+  if (opts.silent) await addPosition(ctx, org, profile, { primary: true });
+  else await joinOrg(ctx, org, profile, { primary: true });
   return org;
 }
 
@@ -440,7 +482,7 @@ export const addByName = mutation({
   handler: async (ctx, args) => {
     const { userId, profile } = await requireMe(ctx);
     const { org, created } = await findOrCreate(ctx, userId, args.name);
-    await addPosition(ctx, org, profile, { title: checkTitle(args.title) });
+    await joinOrg(ctx, org, profile, { title: checkTitle(args.title) });
     return { slug: org.slug, created };
   },
 });
@@ -451,7 +493,7 @@ export const join = mutation({
     const { profile } = await requireMe(ctx);
     const org = await ctx.db.get(args.organizationId);
     if (!org) fail("not_found", "That organization is gone.");
-    await addPosition(ctx, org, profile, { title: checkTitle(args.title) });
+    await joinOrg(ctx, org, profile, { title: checkTitle(args.title) });
     return { slug: org.slug };
   },
 });
@@ -607,6 +649,30 @@ export const setLogo = mutation({
   },
 });
 
+/** An admin lists someone at the organization. It shows right away; the
+ * person is told and can change or remove it in Settings. */
+export const addPerson = mutation({
+  args: { organizationId: v.id("organizations"), profileId: v.id("profiles"), title: v.optional(v.string()) },
+  handler: async (ctx, args) => {
+    const org = await requireEditor(ctx, args.organizationId);
+    const person = await ctx.db.get(args.profileId);
+    if (!person) fail("not_found", "That person is gone.");
+    const { isNew } = await addPosition(ctx, org, person, { title: checkTitle(args.title) });
+    const userId = await auth.getUserId(ctx);
+    if (isNew && userId !== person.userId) {
+      const by = userId ? await profileByUserId(ctx, userId) : null;
+      await notify(ctx, person.userId, {
+        type: "org_added",
+        title: `${by?.name ?? "An admin"} added you to ${org.name}`,
+        message: "Change your title or remove it in Settings.",
+        linkUrl: "/settings#organizations",
+        relatedUserId: userId ?? undefined,
+      });
+    }
+    return { ok: true as const };
+  },
+});
+
 export const removePerson = mutation({
   args: { organizationId: v.id("organizations"), profileId: v.id("profiles") },
   handler: async (ctx, args) => {
@@ -663,7 +729,9 @@ export const backfillFromProfiles = internalMutation({
       report.push({ profile: profile.name, organization: known ?? name, created: !known });
       if (!known) seen.set(key, name);
       if (dryRun) continue;
-      const org = await linkOrgByName(ctx, profile, name);
+      // Silent: these people typed the organization themselves before it
+      // existed; nobody needs a "joined" notice for that.
+      const org = await linkOrgByName(ctx, profile, name, { silent: true });
       const patch: Partial<Doc<"organizations">> = {};
       if (!org.websiteUrl && profile.orgUrl) patch.websiteUrl = profile.orgUrl;
       if (!org.hostOrgId) {
