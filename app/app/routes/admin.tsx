@@ -1,4 +1,5 @@
 import { useQuery, useConvexAuth, useMutation } from "convex/react";
+import { ConvexError } from "convex/values";
 import { api } from "../../convex/_generated/api";
 import { useNavigate, Link } from "react-router";
 import { useEffect, useState } from "react";
@@ -87,22 +88,33 @@ export default function AdminPage() {
   };
 
   const handleDeleteUser = async (userId: string, userName: string) => {
-    const confirmed = window.confirm(
-      `Are you sure you want to delete ${userName}? This will permanently delete their profile, works, wonderings, and all associated data.`,
-    );
-
-    if (!confirmed) return;
-
     setDeletingUser(userId);
     setDeleteStatus("");
 
     try {
-      await deleteUser({ userId: userId as any });
-      setDeleteStatus(`Successfully deleted ${userName}`);
+      // Look first: what goes, and whether money blocks it.
+      const preview = await deleteUser({ userId: userId as any, dryRun: true });
+      if (preview.blocked.length > 0) {
+        window.alert(
+          `${userName} can't be deleted here. They have ${preview.blocked.join(", ")}. Money and community records stay for the books.`,
+        );
+        return;
+      }
+      const confirmed = window.confirm(
+        `Delete ${userName} for good? This removes their account and ${preview.summary}. It can't be undone.`,
+      );
+      if (!confirmed) return;
+
+      const done = await deleteUser({ userId: userId as any });
+      setDeleteStatus(`Deleted ${userName}: ${done.summary}`);
       setTimeout(() => setDeleteStatus(""), 3000);
     } catch (err) {
       setDeleteStatus(
-        err instanceof Error ? err.message : "Failed to delete user",
+        err instanceof ConvexError && typeof err.data === "string"
+          ? err.data
+          : err instanceof Error
+            ? err.message
+            : "Failed to delete user",
       );
     } finally {
       setDeletingUser(null);
