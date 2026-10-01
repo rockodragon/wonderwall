@@ -18,32 +18,37 @@ async function resolveImageUrl(
 }
 
 // What any visitor may see of someone else's profile. getProfile and search
-// are public queries (/people works signed out), so everything else stays
-// home: payout handles, street address, invite and admin bookkeeping.
-// Coordinates are rounded to ~1 km — enough for "Near me", not a doorstep.
+// are public queries (/people works signed out), so this is an allowlist:
+// a field added to profiles later (payout handles, Stripe ids, addresses)
+// stays private until someone adds it here on purpose. Coordinates are
+// rounded to ~1 km — enough for "Near me", not a doorstep.
 export function toPublicProfile(profile: Doc<"profiles">) {
-  const {
-    payoutHandles: _payoutHandles,
-    address: _address,
-    placeId: _placeId,
-    adminCode: _adminCode,
-    isAdmin: _isAdmin,
-    inviteSlug: _inviteSlug,
-    inviteUsageCount: _inviteUsageCount,
-    unlimitedInvites: _unlimitedInvites,
-    lastLikeNotifiedAt: _lastLikeNotifiedAt,
-    plan: _plan,
-    coordinates,
-    ...rest
-  } = profile;
+  const { coordinates } = profile;
   return {
-    ...rest,
+    _id: profile._id,
+    _creationTime: profile._creationTime,
+    userId: profile.userId,
+    name: profile.name,
+    bio: profile.bio,
+    imageUrl: profile.imageUrl,
+    imageStorageId: profile.imageStorageId,
+    interests: profile.interests,
+    location: profile.location,
+    locationType: profile.locationType,
     coordinates: coordinates
       ? {
           lat: Math.round(coordinates.lat * 100) / 100,
           lng: Math.round(coordinates.lng * 100) / 100,
         }
       : undefined,
+    primaryRole: profile.primaryRole,
+    patronRole: profile.patronRole,
+    partnerRole: profile.partnerRole,
+    orgName: profile.orgName,
+    supportInterests: profile.supportInterests,
+    partnerOfferings: profile.partnerOfferings,
+    createdAt: profile.createdAt,
+    updatedAt: profile.updatedAt,
   };
 }
 

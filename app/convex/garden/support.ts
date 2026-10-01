@@ -186,9 +186,51 @@ export const startBacking = internalMutation({
 
 const VISIBLE_STATUSES = new Set(["confirmed", "pledged"]);
 
+type SupportRow = {
+  _id: Id<"projectSupport">;
+  projectId: Id<"projects">;
+  type: string;
+  amountCents?: number;
+  message?: string;
+  resourceDescription?: string;
+  status: string;
+  createdAt: number;
+  tierId?: Id<"patronTiers">;
+  tierName?: string;
+  visible: boolean;
+  supporterName: string;
+  supporterUserId?: Id<"users">;
+};
+
+// One supporter as anyone may see them. Explicit allowlist, not a spread:
+// someone who asked to give anonymously (visible: false) must not have
+// their identity reach the client at all — a masked name alone still
+// leaked supporterUserId to anyone who opened the Support modal. How much
+// someone gave (the amount, or a tier that implies it) is for the project
+// owner only: a public "$5" next to a name shames the small backer.
+export function supporterView(e: SupportRow, viewerIsOwner: boolean) {
+  return {
+    _id: e._id,
+    projectId: e.projectId,
+    type: e.type,
+    message: e.message,
+    resourceDescription: e.resourceDescription,
+    status: e.status,
+    createdAt: e.createdAt,
+    supporterName: e.visible ? e.supporterName : "Anonymous",
+    ...(e.visible ? { supporterUserId: e.supporterUserId } : {}),
+    ...(viewerIsOwner
+      ? { amountCents: e.amountCents, tierId: e.tierId, tierName: e.tierName }
+      : {}),
+  };
+}
+
 export const listSupportForProject = query({
   args: { projectId: v.id("projects") },
   handler: async (ctx, args) => {
+    const viewer = await getAuthUserId(ctx);
+    const project = await ctx.db.get(args.projectId);
+    const viewerIsOwner = !!viewer && project?.userId === viewer;
     const entries = await ctx.db
       .query("projectSupport")
       .withIndex("by_projectId", (q) => q.eq("projectId", args.projectId))
@@ -196,24 +238,7 @@ export const listSupportForProject = query({
     return entries
       .filter((e) => VISIBLE_STATUSES.has(e.status))
       .sort((a, b) => b.createdAt - a.createdAt)
-      .map((e) => ({
-        _id: e._id,
-        projectId: e.projectId,
-        type: e.type,
-        amountCents: e.amountCents,
-        message: e.message,
-        resourceDescription: e.resourceDescription,
-        status: e.status,
-        createdAt: e.createdAt,
-        tierId: e.tierId,
-        tierName: e.tierName,
-        // Explicit allowlist, not a spread: someone who asked to give
-        // anonymously (visible: false) must not have their identity
-        // reach the client at all — a masked name alone still leaked
-        // supporterUserId to anyone who opened the Support modal.
-        supporterName: e.visible ? e.supporterName : "Anonymous",
-        ...(e.visible ? { supporterUserId: e.supporterUserId } : {}),
-      }));
+      .map((e) => supporterView(e, viewerIsOwner));
   },
 });
 

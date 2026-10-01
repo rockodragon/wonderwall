@@ -2,7 +2,8 @@
 // No Convex, no network.
 
 import { describe, expect, it } from "vitest";
-import { fundMoneyKind, supportCadence, supportKind, totalPaidCents } from "./support";
+import { fundMoneyKind, supportCadence, supportKind, supporterView, totalPaidCents } from "./support";
+import type { Id } from "../_generated/dataModel";
 
 describe("supportKind", () => {
   it("maps the three financial types to money", () => {
@@ -55,5 +56,41 @@ describe("totalPaidCents", () => {
 
   it("is zero when nothing has been paid yet", () => {
     expect(totalPaidCents([])).toBe(0);
+  });
+});
+
+describe("supporterView", () => {
+  const row = {
+    _id: "s1" as Id<"projectSupport">,
+    projectId: "p1" as Id<"projects">,
+    type: "financial_one_time",
+    amountCents: 500,
+    status: "confirmed",
+    createdAt: 1,
+    tierId: "t1" as Id<"patronTiers">,
+    tierName: "Friend",
+    visible: true,
+    supporterName: "Ana",
+    supporterUserId: "u1" as Id<"users">,
+  };
+
+  it("shows who backed, never how much, to everyone but the owner", () => {
+    const pub = supporterView(row, false) as Record<string, unknown>;
+    expect(pub.supporterName).toBe("Ana");
+    expect(pub).not.toHaveProperty("amountCents");
+    expect(pub).not.toHaveProperty("tierName");
+    expect(pub).not.toHaveProperty("tierId");
+  });
+
+  it("shows the owner the amount and tier", () => {
+    const own = supporterView(row, true);
+    expect(own.amountCents).toBe(500);
+    expect(own.tierName).toBe("Friend");
+  });
+
+  it("keeps an anonymous backer anonymous, even to the owner", () => {
+    const anon = supporterView({ ...row, visible: false }, true) as Record<string, unknown>;
+    expect(anon.supporterName).toBe("Anonymous");
+    expect(anon).not.toHaveProperty("supporterUserId");
   });
 });

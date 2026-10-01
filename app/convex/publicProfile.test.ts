@@ -57,4 +57,15 @@ describe("toPublicProfile", () => {
     const noCoords = { ...profile, coordinates: undefined } as Doc<"profiles">;
     expect(toPublicProfile(noCoords).coordinates).toBeUndefined();
   });
+
+  it("keeps fields added later private by default (e.g. Stripe payout ids)", () => {
+    const withNew = {
+      ...profile,
+      stripeConnectAccountId: "acct_123",
+      stripeConnectPayoutsEnabled: true,
+    } as unknown as Doc<"profiles">;
+    const pub = toPublicProfile(withNew) as Record<string, unknown>;
+    expect(pub).not.toHaveProperty("stripeConnectAccountId");
+    expect(pub).not.toHaveProperty("stripeConnectPayoutsEnabled");
+  });
 });
