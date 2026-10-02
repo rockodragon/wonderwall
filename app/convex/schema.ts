@@ -248,6 +248,18 @@ export default defineSchema({
     // Co-hosts: can edit the event and see the guest list; only the organizer
     // can cancel it or change this list. See eventHosts.ts.
     coHostIds: v.optional(v.array(v.id("users"))),
+    // How "Hosted by" reads, in the order the host chose: people and/or
+    // organizations. Absent = the default (organizer then co-hosts, orgs
+    // first). Display only — permissions still come from organizerId and
+    // coHostIds. See eventHosts.ts planDisplayHosts.
+    displayHosts: v.optional(
+      v.array(
+        v.union(
+          v.object({ kind: v.literal("user"), userId: v.id("users") }),
+          v.object({ kind: v.literal("org"), organizationId: v.id("organizations") }),
+        ),
+      ),
+    ),
     title: v.string(),
     description: v.string(),
     datetime: v.number(),

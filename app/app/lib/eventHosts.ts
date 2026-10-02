@@ -9,6 +9,9 @@ export type EventHost = {
    * organizations existed — then orgUrl is the only link. */
   orgSlug?: string | null;
   profileId?: string | null;
+  /** Set on every entry of a list the host ordered by hand: show it exactly
+   * as given (no org-first reordering, no person beside an org). */
+  exact?: boolean;
 };
 
 export type HostLabel = {
@@ -28,6 +31,23 @@ export type HostLabel = {
 /** Hosts with an org come first (their order kept), then the rest. A repeat
  * org shows once. A host with no name and no org is dropped. */
 export function hostLabels(hosts: (EventHost | null | undefined)[] | null | undefined): HostLabel[] {
+  const list = (hosts ?? []).filter((h): h is EventHost => !!h);
+  if (list.some((h) => h.exact)) {
+    const out: HostLabel[] = [];
+    for (const h of list) {
+      const primary = (h.orgName?.trim() || h.name?.trim()) ?? "";
+      if (!primary) continue;
+      const isOrg = !!h.orgName?.trim();
+      out.push({
+        primary,
+        person: null,
+        profileId: isOrg ? null : (h.profileId ?? null),
+        orgUrl: isOrg ? h.orgUrl || null : null,
+        orgSlug: isOrg ? h.orgSlug || null : null,
+      });
+    }
+    return out;
+  }
   const withOrg: HostLabel[] = [];
   const without: HostLabel[] = [];
   const seenOrgs = new Set<string>();
