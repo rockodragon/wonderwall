@@ -16,17 +16,21 @@ import { richDocExcerpt } from "../lib/richText";
 import { resolveStage, stageLabel } from "../lib/stage";
 import type { DeskCommunity, DeskCardId, DeskView } from "./deskState";
 import { hashSeed } from "../components/AbstractCover";
+import { actionTarget, updateCardId } from "../lib/updates";
 
 // ——————————————————————————————————————————————————————————————
 // Types
 // ——————————————————————————————————————————————————————————————
 
-export type DeskCardKind = "event" | "fund" | "grant" | "project" | "person";
+export type DeskCardKind = "update" | "event" | "fund" | "grant" | "project" | "person";
 
-/** What the opened card's button does. An RSVP is a mutation; the rest are links. */
+/** What the opened card's button does. An RSVP is a mutation; the rest are
+ * links. An Update's button records the press (api.updates.click) and then
+ * goes where its link says: in the app, or to another site in a new tab. */
 export type DeskAction =
   | { kind: "link"; label: string; href: string }
-  | { kind: "rsvp"; label: string; eventId: string };
+  | { kind: "rsvp"; label: string; eventId: string }
+  | { kind: "update"; label: string; href: string; external: boolean; updateId: string };
 
 export type DeskCard = {
   id: DeskCardId;
@@ -52,6 +56,8 @@ export type DeskCard = {
   href: string;
   /** Events only. */
   eventId?: string;
+  /** Updates only. */
+  updateId?: string;
   /** People only: the profile to ask for a bio when the card opens. */
   profileId?: string;
 };
@@ -108,8 +114,20 @@ export type DeskFundInput = {
   openCall?: string | null;
 };
 
+/** One Update, as api.updates.listMine returns it. */
+export type DeskUpdateInput = {
+  _id: string;
+  title: string;
+  body: string;
+  imageUrl: string | null;
+  actionLabel: string | null;
+  actionUrl: string | null;
+};
+
 export type DeskInput = {
   now: number;
+  /** The Updates this member should see, in the order the server gave. */
+  updates: readonly DeskUpdateInput[];
   events: readonly DeskEventInput[];
   /** Ids of the events the member has hearted. */
   favoriteEventIds: ReadonlySet<string> | readonly string[];
@@ -125,6 +143,9 @@ export type DeskInput = {
 /** How many cards rest on the desk in the default view. */
 export const ALL_VIEW_MAX = 6;
 const ALL_VIEW_EVENTS = 3;
+/** Updates take the first slots on the desk, at most this many; the Today
+ * view shows all of them. */
+export const ALL_VIEW_UPDATES = 2;
 
 // ——————————————————————————————————————————————————————————————
 // Small helpers
@@ -209,6 +230,36 @@ function eventFoot(e: DeskEventInput): string | null {
 // ——————————————————————————————————————————————————————————————
 // Cards
 // ——————————————————————————————————————————————————————————————
+
+/** An Update from the house: a dark card (or a picture) with the kicker UPDATE,
+ * and the whole text and button once it's open. */
+export function updateCard(u: DeskUpdateInput, sections: DeskView[]): DeskCard {
+  const id = updateCardId(u._id);
+  const target = u.actionLabel && u.actionUrl ? actionTarget(u.actionUrl) : null;
+  return {
+    id,
+    kind: "update",
+    sections,
+    note: false,
+    tone: toneFor(id),
+    image: u.imageUrl || null,
+    face: { kicker: "UPDATE", title: u.title, foot: null },
+    detail: {
+      meta: "UPDATE",
+      title: u.title,
+      host: null,
+      // Plain text, kept whole: the panel keeps its line breaks.
+      description: u.body,
+      aside: null,
+      action:
+        target && u.actionLabel
+          ? { kind: "update", label: u.actionLabel, href: target.href, external: target.kind === "external", updateId: u._id }
+          : null,
+    },
+    href: `/today?card=${id}`,
+    updateId: u._id,
+  };
+}
 
 export function eventCard(e: DeskEventInput, sections: DeskView[]): DeskCard {
   const id: DeskCardId = `event:${e._id}`;
@@ -351,31 +402,48 @@ export function personCard(p: DeskPersonInput): DeskCard {
 
 /**
  * Every card the desk can show for this member and community, in the order
- * they take slots: events soonest first, the fund, the monthly grant, the
- * featured project, other projects, then followed people.
+ * they take slots: Updates first, then events soonest first, the fund, the
+ * monthly grant, the featured project, other projects, then followed people.
+ *
+ * Updates are from the house, so they come before everything else: the first
+ * two rest on the desk, and the Today view opens with all of them. They count
+ * against the six on the default desk, so the events give way (the third
+ * first), never the fund, the grant or the featured project.
  */
 export function buildDeskCards(input: DeskInput, community: DeskCommunity): DeskCard[] {
   const hearted = new Set(input.favoriteEventIds);
   const money = input.formatMoney;
+
+  const updateCards = input.updates.map((u, i) => {
+    const sections: DeskView[] = ["today"];
+    if (i < ALL_VIEW_UPDATES) sections.push("all");
+    return updateCard(u, sections);
+  });
+  const resting = updateCards.filter((c) => c.sections.includes("all")).length;
+
+  const { featured, open, gigs } = pickProjects(input.projects.filter((p) => inCommunity(p, community)));
+  const hasFund = community === "garden" && input.fund !== null;
+  // Slots left for events once the Updates, the notes and the featured project have theirs.
+  const fixed = resting + (hasFund ? 1 : 0) + (input.grant ? 1 : 0) + (featured ? 1 : 0);
+  const eventSlots = Math.max(0, Math.min(ALL_VIEW_EVENTS, ALL_VIEW_MAX - fixed));
 
   const events = input.events
     .filter((e) => e.datetime > input.now && inCommunity(e, community))
     .sort((a, b) => a.datetime - b.datetime);
   const eventCards = events.map((e, i) => {
     const sections: DeskView[] = ["events"];
-    if (i < ALL_VIEW_EVENTS) sections.push("all");
+    if (i < eventSlots) sections.push("all");
     if (i === 0) sections.push("today");
     if (hearted.has(e._id)) sections.push("fav");
     return eventCard(e, sections);
   });
 
-  const cards: DeskCard[] = [...eventCards];
+  const cards: DeskCard[] = [...updateCards, ...eventCards];
 
   // The fund belongs to The Garden; The Exchange doesn't show it.
   if (community === "garden" && input.fund) cards.push(fundCard(input.fund, money));
   if (input.grant) cards.push(grantCard(input.grant.amountCents, money));
 
-  const { featured, open, gigs } = pickProjects(input.projects.filter((p) => inCommunity(p, community)));
   if (featured) cards.push(projectCard(featured, ["all", "projects"], money));
   for (const p of [...open, ...gigs]) cards.push(projectCard(p, ["projects"], money));
 

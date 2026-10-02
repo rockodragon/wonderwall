@@ -3,7 +3,14 @@
 // results here, so the mapping can be tested without Convex.
 
 import { NAMED_FUNDS, availableCents } from "../lib/namedFunds";
-import type { DeskEventInput, DeskFundInput, DeskInput, DeskPersonInput, DeskProjectInput } from "./deskCards";
+import type {
+  DeskEventInput,
+  DeskFundInput,
+  DeskInput,
+  DeskPersonInput,
+  DeskProjectInput,
+  DeskUpdateInput,
+} from "./deskCards";
 
 /** The fields of api.garden.allocations.getFundPage the desk reads. */
 export type FundPageLike = { org: { slug: string; name: string }; balanceCents: number };
@@ -20,6 +27,8 @@ export type GivingLike = { open?: readonly { amountCents: number }[] };
 /** Each query's result as the hook has it: undefined while loading, null when
  *  there is nothing (signed out, or an unknown fund). */
 export type DeskRaw = {
+  /** api.updates.listMine: [] when signed out. */
+  updates: readonly DeskUpdateInput[] | undefined;
   events: readonly DeskEventInput[] | undefined;
   projects: readonly DeskProjectInput[] | undefined;
   fundPage: FundPageLike | null | undefined;
@@ -55,6 +64,7 @@ export function toDeskInput(raw: DeskRaw, now: number, formatMoney: (cents: numb
   );
   return {
     now,
+    updates: raw.updates ?? [],
     events: raw.events ?? [],
     favoriteEventIds: (favorites?.events ?? []).flatMap((f) => (f ? [String(f.event._id)] : [])),
     people,

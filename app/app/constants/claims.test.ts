@@ -8,6 +8,7 @@ import { describe, expect, it } from "vitest";
 import { BANNED_PHRASES, CLAIMS } from "./claims";
 import { SPLITS } from "../garden/capabilities";
 import { GIVING_SENTENCES } from "../../convex/garden/giving";
+import { STARTER_UPDATES } from "../../convex/updates";
 
 const APP_DIR = join(__dirname, "..");
 const SCAN_DIRS = ["routes", "components", "garden", "lib", "legal", "desk", "hooks"];
@@ -77,6 +78,11 @@ describe("the hand copies", () => {
     expect(GIVING_SENTENCES.memberDirected).toBe(CLAIMS.memberDirected);
     expect(GIVING_SENTENCES.memberDirectedDefault).toBe(CLAIMS.memberDirectedDefault);
     expect(GIVING_SENTENCES.memberDirectedFull).toBe(CLAIMS.memberDirectedFull);
+  });
+
+  it("the Welcome Update's body is CLAIMS.whatItIs and CLAIMS.theGarden, joined by a space", () => {
+    const welcome = STARTER_UPDATES.find((u) => u.title === "Welcome");
+    expect(welcome?.body).toBe(`${CLAIMS.whatItIs} ${CLAIMS.theGarden}`);
   });
 
   it("static pages and flyers carry no dropped phrase and no host price", () => {

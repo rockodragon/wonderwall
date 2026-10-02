@@ -218,6 +218,17 @@ describe("a small desk", () => {
     expect(shown).toEqual(["event:1", "event:2", "event:3", "project:1"]);
   });
 
+  it("keeps Updates first: they take the places before the event, fund and grant", () => {
+    const cards = [
+      card("update:a", ["all", "today"]),
+      card("update:b", ["all", "today"]),
+      ...FULL_DESK.filter((c) => c.sections.includes("all")),
+    ];
+    const places = layoutDesk({ cards, view: "all", vw: 1024, vh: 600 });
+    const shown = cards.filter((c) => places.get(c.id)!.opacity === 1).map((c) => c.id);
+    expect(shown).toEqual(["update:a", "update:b", "event:1", "fund"]);
+  });
+
   it("holds all six once the window is big enough", () => {
     expect(shownIds(layoutDesk({ cards: FULL_DESK, view: "all", vw: 1000, vh: 650 }))).toEqual(ALL_SIX);
   });

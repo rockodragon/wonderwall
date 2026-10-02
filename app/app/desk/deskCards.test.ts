@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { CLAIMS } from "../constants/claims";
 import {
+  ALL_VIEW_MAX,
+  ALL_VIEW_UPDATES,
   buildDeskCards,
   cardsInView,
   dateKicker,
@@ -9,11 +11,13 @@ import {
   opensAsSheet,
   timeLabel,
   toneFor,
+  updateCard,
   venueName,
   type DeskCard,
   type DeskEventInput,
   type DeskInput,
   type DeskProjectInput,
+  type DeskUpdateInput,
 } from "./deskCards";
 
 const NOW = new Date(2026, 9, 1, 12).getTime();
@@ -60,9 +64,14 @@ const FUND = {
   openCall: CLAIMS.sophiaSchedule,
 };
 
+function update(n: number, extra: Partial<DeskUpdateInput> = {}): DeskUpdateInput {
+  return { _id: `u${n}`, title: `Update ${n}`, body: `Body ${n}.`, imageUrl: null, actionLabel: null, actionUrl: null, ...extra };
+}
+
 function input(extra: Partial<DeskInput> = {}): DeskInput {
   return {
     now: NOW,
+    updates: [],
     events: [event(1), event(2), event(3), event(4), event(5)],
     favoriteEventIds: [],
     people: [],
@@ -424,4 +433,115 @@ describe("helpers", () => {
     expect(opensAsSheet({ image: null, note: true })).toBe(false);
   });
 
+});
+
+describe("update cards", () => {
+  it("are dark cards from the house: UPDATE, the title, no picture", () => {
+    const card = updateCard(update(1), ["all", "today"]);
+    expect(card.id).toBe("update:u1");
+    expect(card.kind).toBe("update");
+    expect(card.note).toBe(false);
+    expect(card.image).toBeNull();
+    expect(card.face).toEqual({ kicker: "UPDATE", title: "Update 1", foot: null });
+    expect(card.tone).toBe(toneFor("update:u1"));
+    expect(card.updateId).toBe("u1");
+  });
+
+  it("take the picture when there is one, and then open beside it", () => {
+    const card = updateCard(update(1, { imageUrl: "https://img/u1.jpg" }), ["all"]);
+    expect(card.image).toBe("https://img/u1.jpg");
+    expect(opensAsSheet(card)).toBe(false);
+    expect(opensAsSheet(updateCard(update(2), ["all"]))).toBe(true);
+  });
+
+  it("open to the whole body, line breaks kept, not cut like other descriptions", () => {
+    const body = `${"A long line of text. ".repeat(25)}\n\nSecond paragraph.`;
+    const card = updateCard(update(1, { body }), ["all"]);
+    expect(card.detail.meta).toBe("UPDATE");
+    expect(card.detail.title).toBe("Update 1");
+    expect(card.detail.description).toBe(body);
+    expect(card.detail.description.length).toBeGreaterThan(360);
+  });
+
+  it("have no button without a label and a link", () => {
+    expect(updateCard(update(1), ["all"]).detail.action).toBeNull();
+    expect(updateCard(update(1, { actionLabel: "Go" }), ["all"]).detail.action).toBeNull();
+    expect(updateCard(update(1, { actionUrl: "/events" }), ["all"]).detail.action).toBeNull();
+  });
+
+  it("follow an in-app path in the app and open an https link in a new tab", () => {
+    expect(updateCard(update(1, { actionLabel: "Meet people", actionUrl: "/today?view=people" }), ["all"]).detail.action).toEqual({
+      kind: "update",
+      label: "Meet people",
+      href: "/today?view=people",
+      external: false,
+      updateId: "u1",
+    });
+    expect(updateCard(update(2, { actionLabel: "Read", actionUrl: "https://example.com/post" }), ["all"]).detail.action).toEqual({
+      kind: "update",
+      label: "Read",
+      href: "https://example.com/post",
+      external: true,
+      updateId: "u2",
+    });
+  });
+});
+
+describe("Updates on the desk", () => {
+  const four = [update(1), update(2), update(3), update(4)];
+
+  it("come first, in the order the server gave", () => {
+    const cards = buildDeskCards(input({ updates: four }), "garden");
+    expect(ids(cards).slice(0, 4)).toEqual(["update:u1", "update:u2", "update:u3", "update:u4"]);
+    expect(cards[4].kind).toBe("event");
+  });
+
+  it("put at most two on the default desk, and all of them in Today, first", () => {
+    const cards = buildDeskCards(input({ updates: four }), "garden");
+    expect(ALL_VIEW_UPDATES).toBe(2);
+    expect(ids(cardsInView(cards, "all")).filter((id) => id.startsWith("update:"))).toEqual(["update:u1", "update:u2"]);
+    const today = ids(cardsInView(cards, "today"));
+    expect(today.slice(0, 4)).toEqual(["update:u1", "update:u2", "update:u3", "update:u4"]);
+    expect(today.slice(4)).toEqual(["event:e1", "fund", "grant"]);
+  });
+
+  it("stay off People, Projects, Events and Favorites", () => {
+    const cards = buildDeskCards(input({ updates: four }), "garden");
+    for (const view of ["people", "projects", "events", "fav"] as const) {
+      expect(ids(cardsInView(cards, view)).some((id) => id.startsWith("update:")), view).toBe(false);
+    }
+  });
+
+  it("keep the default desk at six: the events give way, the third first", () => {
+    const one = ids(cardsInView(buildDeskCards(input({ updates: [update(1)] }), "garden"), "all"));
+    expect(one).toEqual(["update:u1", "event:e1", "event:e2", "fund", "grant", "project:p1"]);
+    const two = ids(cardsInView(buildDeskCards(input({ updates: [update(1), update(2)] }), "garden"), "all"));
+    expect(two).toEqual(["update:u1", "update:u2", "event:e1", "fund", "grant", "project:p1"]);
+    const many = ids(cardsInView(buildDeskCards(input({ updates: four }), "garden"), "all"));
+    expect(many.length).toBe(ALL_VIEW_MAX);
+    expect(many).toEqual(two);
+  });
+
+  it("never push out the fund, the grant or the featured project", () => {
+    const cards = buildDeskCards(input({ updates: four, events: [event(1), event(2), event(3)] }), "garden");
+    const all = ids(cardsInView(cards, "all"));
+    expect(all).toEqual(expect.arrayContaining(["fund", "grant", "project:p1"]));
+  });
+
+  it("leave the events their three places when the desk has room", () => {
+    const cards = buildDeskCards(input({ updates: [update(1), update(2)], fund: null, grant: null, projects: [] }), "garden");
+    expect(ids(cardsInView(cards, "all"))).toEqual(["update:u1", "update:u2", "event:e1", "event:e2", "event:e3"]);
+  });
+
+  it("change nothing when there are none", () => {
+    const cards = buildDeskCards(input(), "garden");
+    expect(ids(cardsInView(cards, "all"))).toEqual(["event:e1", "event:e2", "event:e3", "fund", "grant", "project:p1"]);
+    expect(cards.some((c) => c.kind === "update")).toBe(false);
+  });
+
+  it("show in either community", () => {
+    for (const community of ["garden", "exchange"] as const) {
+      expect(buildDeskCards(input({ updates: [update(1)] }), community)[0].id).toBe("update:u1");
+    }
+  });
 });

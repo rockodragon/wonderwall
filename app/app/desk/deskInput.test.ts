@@ -25,11 +25,12 @@ describe("fundFrom", () => {
 });
 
 describe("toDeskInput", () => {
-  const empty: DeskRaw = { events: undefined, projects: undefined, fundPage: undefined, favorites: undefined, giving: undefined };
+  const empty: DeskRaw = { updates: undefined, events: undefined, projects: undefined, fundPage: undefined, favorites: undefined, giving: undefined };
 
   it("reads a desk that hasn't loaded as an empty one", () => {
     expect(toDeskInput(empty, 42, money)).toEqual({
       now: 42,
+      updates: [],
       events: [],
       favoriteEventIds: [],
       people: [],
@@ -54,6 +55,14 @@ describe("toDeskInput", () => {
     );
     expect(input.favoriteEventIds).toEqual(["e1"]);
     expect(input.people).toEqual([{ _id: "p1", name: "Dana", imageUrl: null, interests: ["music"] }]);
+  });
+
+  it("hands the Updates through in the order the server gave", () => {
+    const updates = [
+      { _id: "u2", title: "Second", body: "b", imageUrl: null, actionLabel: null, actionUrl: null },
+      { _id: "u1", title: "First", body: "b", imageUrl: "https://img/u1.jpg", actionLabel: "Go", actionUrl: "/events" },
+    ];
+    expect(toDeskInput({ ...empty, updates }, 0, money).updates).toEqual(updates);
   });
 
   it("offers the first open grant and no other", () => {

@@ -286,6 +286,8 @@ function Face({
   // card is never blank while its picture is on the way.
   const waiting = !pic || shape === "unknown";
   const personCard = waiting && card.kind === "person";
+  // An Update is from the house: its kicker is the accent, with or without a picture.
+  const fromTheHouse = card.kind === "update";
   const dateCard = waiting && card.kind === "event";
   // Paper is the fund and grant notes' alone; a person with no photo is a dark
   // card with their initials in the paper's color.
@@ -322,6 +324,15 @@ function Face({
         <div aria-hidden style={FILL}>
           <AbstractCover seed={card.id.slice("project:".length)} />
           <div style={{ ...FILL, background: SCRIM }} />
+        </div>
+      )}
+
+      {fromTheHouse && waiting && (
+        // An Update with no picture: a letterhead. A warm light from the top
+        // corner and a thin accent frame inset from the edge, so it reads as
+        // a note from the house and not as an event or a person.
+        <div aria-hidden style={{ ...FILL, pointerEvents: "none", background: "radial-gradient(120% 70% at 88% 0%, rgba(255,224,102,.17), transparent 60%)" }}>
+          <div style={{ position: "absolute", inset: 8, border: "1px solid rgba(255,224,102,.26)", borderRadius: 2 }} />
         </div>
       )}
 
@@ -407,7 +418,10 @@ function Face({
             fontSize: 12,
             letterSpacing: "0.2em",
             textTransform: "uppercase",
-            opacity: split && pic ? 0 : 0.9,
+            color: fromTheHouse ? DESK.accent : undefined,
+            // Over a picture the accent needs a little help to stay readable.
+            textShadow: fromTheHouse && pic ? "0 1px 10px rgba(0,0,0,.65)" : undefined,
+            opacity: split && pic ? 0 : fromTheHouse ? 1 : 0.9,
             transition: t(["opacity"]),
           }}
         >
@@ -435,6 +449,7 @@ function Face({
       )}
 
       <div style={{ position: "relative", minWidth: 0, opacity: split && pic ? 0 : 1, transition: t(["opacity"]) }}>
+        {fromTheHouse && <span aria-hidden style={{ display: "block", width: 28, height: 2, marginBottom: 12, background: DESK.accent }} />}
         <h3
           style={{
             margin: 0,

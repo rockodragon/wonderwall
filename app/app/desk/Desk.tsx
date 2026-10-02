@@ -29,6 +29,7 @@ import { DESK_VIEW_LABEL, parseDeskView, useDeskCommunity, useDeskSpacing, type 
 import { SpacingControl } from "./SpacingControl";
 import { DESK, DESK_SANS, FOCUS_RING_CLASS, MOTION_MS, motion } from "./tokens";
 import { useDeskData } from "./useDeskData";
+import { useUpdateReads } from "./useUpdateReads";
 
 /** Cards that aren't on show wait below the page. Past this many, the extras
  *  aren't drawn at all. */
@@ -101,6 +102,9 @@ export function Desk() {
   const allCards = useMemo(() => (leaving.length ? [...current, ...leaving] : current), [current, leaving]);
 
   const openId = cardParam && current.some((c) => c.id === cardParam) ? cardParam : null;
+
+  // An Update that opens is seen; one that closes is done and leaves the desk.
+  useUpdateReads(openId);
 
   // ——— Scroll ———
 
