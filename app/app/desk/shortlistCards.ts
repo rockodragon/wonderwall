@@ -25,7 +25,7 @@
 import type { FavoriteTargetType } from "../../convex/favorites";
 import { addressName, KIND_LABEL, whenLabel } from "../components/shortlist/rowModel";
 import { cardIdOf, type ShortlistItem } from "../components/shortlist/items";
-import { shortDay } from "../lib/dates";
+import { calendarDay, shortDay } from "../lib/dates";
 import { withProjectTab } from "../lib/projectTabs";
 import { payText } from "../lib/shortlist/model";
 import type { ShortlistEvent, ShortlistFollow, ShortlistProject, ShortlistRequest } from "../lib/shortlist/types";
@@ -141,7 +141,7 @@ function projectStatus(row: ShortlistProject): string {
       return `You back this · Since ${since}`;
     case "saved":
       return row.role?.neededBy
-        ? `You saved this ${since} · Closes ${shortDay(row.role.neededBy)}`
+        ? `You saved this ${since} · Closes ${calendarDay(row.role.neededBy)}`
         : `You saved this ${since}`;
     case "closed":
       return row.closedReason === "finished"
@@ -196,7 +196,7 @@ function projectRowCard(row: ShortlistProject, ctx: ShortlistCardContext): DeskC
       title: row.role?.title ?? row.title,
       host: row.role ? `${row.title}, led by ${lead}` : leading ? "Led by you" : `By ${lead}`,
       description: known ? projectCard(known, [], ctx.money).detail.description : "",
-      facts: facts(["Pay", pay], ["Stage", stage], ["Closes", row.role?.neededBy ? shortDay(row.role.neededBy) : null]),
+      facts: facts(["Pay", pay], ["Stage", stage], ["Closes", row.role?.neededBy ? calendarDay(row.role.neededBy) : null]),
       aside:
         row.relation === "invited"
           ? `${addressName(row.lead.name)} is waiting on your reply`

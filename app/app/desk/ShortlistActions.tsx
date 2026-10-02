@@ -31,7 +31,7 @@ function useShortlistCall(): (call: ShortlistCall) => Promise<unknown> {
   const withdrawRequest = useMutation(api.garden.projectTeam.withdrawRequest);
   const updateApplicationStatus = useMutation(api.events.updateApplicationStatus);
   const apply = useMutation(api.events.apply);
-  const toggleFavorite = useMutation(api.favorites.toggle);
+  const removeFavorite = useMutation(api.favorites.remove);
 
   return (call) => {
     switch (call.fn) {
@@ -46,8 +46,9 @@ function useShortlistCall(): (call: ShortlistCall) => Promise<unknown> {
       case "apply":
         return apply({ eventId: call.eventId as Id<"events"> });
       case "unsave":
-        // Toggle off: the card only offers this for something saved.
-        return toggleFavorite({ targetType: call.targetType, targetId: call.targetId });
+        // Remove, never toggle: pressed twice, or after the save went
+        // elsewhere, it can't save the thing again.
+        return removeFavorite({ targetType: call.targetType, targetId: call.targetId });
     }
   };
 }

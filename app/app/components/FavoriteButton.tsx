@@ -39,9 +39,10 @@ export function FavoriteButton({
     targetType,
     targetId,
   });
+  // Only follows and hearts have a public count; a save's stays private.
   const favoriteCount = useQuery(
     api.favorites.getFavoriteCount,
-    showCount ? { targetType, targetId } : "skip",
+    showCount && (targetType === "profile" || targetType === "event") ? { targetType, targetId } : "skip",
   );
   const toggleFavorite = useMutation(api.favorites.toggle);
 

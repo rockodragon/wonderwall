@@ -5,6 +5,7 @@
 // disagree. Nothing else qualifies: the Shortlist only holds what the member
 // did themselves, so nothing here is a suggestion.
 
+import { calendarDayEnd } from "../dates";
 import type { ShortlistData, ShortlistEvent, ShortlistProject, ShortlistRequest } from "./types";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -34,8 +35,17 @@ export function isAppearance(event: ShortlistEvent): boolean {
   return (event.relation === "going" || event.relation === "hosting") && !event.cancelled;
 }
 
-/** When a saved role stops taking people (`projectRoles.neededBy`). Null for
- *  anything that isn't a saved role, or a role with no date. */
+/** Whether an event is over: its end has passed, or its start when it has no
+ *  end. One that's on right now hasn't ended. The one rule for Past, This
+ *  week's lower bound, and what the backend stops reading. */
+export function hasEnded(event: { datetime: number; endTime?: number | null }, now: number): boolean {
+  return (event.endTime ?? event.datetime) < now;
+}
+
+/** When a saved role stops taking people (`projectRoles.neededBy`), a
+ *  calendar date: format it with calendarDay, and compare calendarDayEnd of
+ *  it, since the role is open all that day. Null for anything that isn't a
+ *  saved role, or a role with no date. */
 export function closesAt(row: ShortlistProject): number | null {
   return row.relation === "saved" ? (row.role?.neededBy ?? null) : null;
 }
@@ -73,25 +83,30 @@ function waitingSince(item: Reply): number {
 
 /** Everything that needs the member, rule 1 first, then 2, then 3. */
 export function needsYou(data: ShortlistData, now: number): NeedsYouItem[] {
-  // 1. Someone is waiting on your reply.
+  // 1. Someone is waiting on your reply. A request to attend an event that
+  // has ended can't be answered any more.
   const replies: Reply[] = [
     ...data.projects
       .filter((row) => row.relation === "invited")
       .map((row) => ({ type: "project", rule: 1, row }) as const),
-    ...data.requests.map((request) => ({ type: "request", rule: 1, request }) as const),
+    ...data.requests
+      .filter((request) => request.on.type !== "event" || !hasEnded(request.on, now))
+      .map((request) => ({ type: "request", rule: 1, request }) as const),
   ].sort((a, b) => replyRank(a) - replyRank(b) || waitingSince(a) - waitingSince(b));
 
-  // 2. An event you're going to or hosting, soonest first.
+  // 2. An event you're going to or hosting, soonest first: one that starts
+  // within the window, or is on now.
   const appearances = data.events
-    .filter((event) => isAppearance(event) && inNeedsYouWindow(event.datetime, now))
+    .filter((event) => isAppearance(event) && !hasEnded(event, now) && event.datetime <= now + NEEDS_YOU_WINDOW_MS)
     .sort((a, b) => a.datetime - b.datetime)
     .map((event) => ({ type: "event", rule: 2, event }) as const);
 
-  // 3. A saved role that closes soon, soonest first.
+  // 3. A saved role that closes soon, soonest first. It closes at the end of
+  // its day.
   const closing = data.projects
     .flatMap((row) => {
       const at = closesAt(row);
-      return at !== null && inNeedsYouWindow(at, now) ? [{ row, at }] : [];
+      return at !== null && inNeedsYouWindow(calendarDayEnd(at), now) ? [{ row, at }] : [];
     })
     .sort((a, b) => a.at - b.at)
     .map(({ row }) => ({ type: "project", rule: 3, row }) as const);

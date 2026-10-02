@@ -10,11 +10,11 @@
 // SHORTLIST_GROUPS, and the counts read the same placement, so a row counts
 // once and only while it's live.
 
-import { shortDay } from "../dates";
+import { calendarDay, calendarDayEnd, shortDay } from "../dates";
 import { firstNameOf } from "../names";
 import { budgetAmountLabel, budgetKindLabel, type BudgetDeclaration } from "../budgetLabel";
 import { groupFollows } from "../groupFollows";
-import { closesAt, isAppearance, needsYou, needsYouArea, needsYouKey, type NeedsYouItem } from "./needsYou";
+import { closesAt, hasEnded, isAppearance, needsYou, needsYouArea, needsYouKey, type NeedsYouItem } from "./needsYou";
 import type {
   ProjectKind,
   ShortlistData,
@@ -240,9 +240,13 @@ function projectNext(needs: ProjectNeed[], rows: ShortlistProject[], now: number
   if (reply?.type === "request") {
     return `Review ${firstName(reply.request.person.name)}'s request · ${reply.request.on.title}`;
   }
-  const [closing] = rows.filter((row) => (closesAt(row) ?? -Infinity) >= now).sort(closingFirst);
+  const isOpen = (row: ShortlistProject) => {
+    const at = closesAt(row);
+    return at !== null && calendarDayEnd(at) >= now;
+  };
+  const [closing] = rows.filter(isOpen).sort(closingFirst);
   const at = closing && closesAt(closing);
-  return at ? `Apply by ${shortDay(at)} · ${closing.role?.title ?? closing.title}` : null;
+  return at ? `Apply by ${calendarDay(at)} · ${closing.role?.title ?? closing.title}` : null;
 }
 
 /** A row's pay in the app's own words: "$1,200", "$300–600", "Open to
@@ -255,8 +259,9 @@ export function payText(row: { pay: BudgetDeclaration | null }): string | null {
 // Events
 // ——————————————————————————————————————————————————————————————
 
-function isPast(event: ShortlistEvent, now: number): boolean {
-  return event.cancelled || event.datetime < now;
+/** Past: cancelled, or ended (hasEnded). One that's on now isn't Past yet. */
+export function isPast(event: ShortlistEvent, now: number): boolean {
+  return event.cancelled || hasEnded(event, now);
 }
 
 function eventArea(data: ShortlistData, needs: NeedsYouItem[], now: number) {

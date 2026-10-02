@@ -11,16 +11,20 @@
 // against the real schema and refuses a read without one, so "every read is
 // indexed" is tested too.
 
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import schema from "./schema";
 import {
+  ENDED_EVENTS_KEPT,
+  backingRelation,
   dedupeEvents,
   dedupeProjects,
   getMine,
   memberRelation,
   payFor,
+  projectThing,
   savedRoleRelation,
   summarizeBacking,
+  untilFinished,
 } from "./shortlist";
 import type { ProjectRelation, ShortlistEvent, ShortlistProject } from "../app/lib/shortlist/types";
 
@@ -113,6 +117,20 @@ describe("summarizeBacking — one backing per project", () => {
   });
 });
 
+describe("untilFinished and backingRelation — what closes with the project", () => {
+  it("a live relation holds while the work does, then closes as finished", () => {
+    expect(untilFinished("saved", false)).toEqual({ relation: "saved" });
+    expect(untilFinished("saved", true)).toEqual({ relation: "closed", closedReason: "finished" });
+  });
+
+  it("a one-time backing closes with the project; a recurring one stays, since it still charges", () => {
+    expect(backingRelation(false, false)).toEqual({ relation: "backing" });
+    expect(backingRelation(true, false)).toEqual({ relation: "backing" });
+    expect(backingRelation(false, true)).toEqual({ relation: "closed", closedReason: "finished" });
+    expect(backingRelation(true, true)).toEqual({ relation: "backing" });
+  });
+});
+
 describe("savedRoleRelation — a saved role closes once it can't be applied to", () => {
   it("an open role on live work stays saved", () => {
     expect(savedRoleRelation("open", false)).toEqual({ relation: "saved" });
@@ -151,12 +169,22 @@ function row(relation: ProjectRelation, projectId: string, roleId: string | null
   };
 }
 
+/** A row on a free-text role: the member's own place, no posting. */
+function freeText(relation: ProjectRelation, projectId: string, since = 1): ShortlistProject {
+  return {
+    ...row(relation, projectId, null, since),
+    key: `${relation}:${projectId}:member`,
+    role: { id: null, title: "Editor", neededBy: null },
+  };
+}
+
 const evt = (relation: ShortlistEvent["relation"], eventId: string, datetime = 1): ShortlistEvent => ({
   key: `${relation}:${eventId}`,
   relation,
   eventId,
   title: eventId,
   datetime,
+  endTime: null,
   location: null,
   coverUrl: null,
   goingCount: 0,
@@ -178,15 +206,44 @@ describe("dedupeProjects — one row per thing (types.ts header)", () => {
     expect(dedupeProjects(rows).map((r) => r.key)).toEqual(["waiting:p:r1", "saved:p:r2"]);
   });
 
-  it("a row about a free-text role (no posting id) is a row about the project", () => {
-    const freeText = { ...row("waiting", "p"), role: { id: null, title: "Editor", neededBy: null } };
-    expect(dedupeProjects([row("backing", "p"), freeText]).map((r) => r.key)).toEqual(["waiting:p"]);
+  it("projectThing: a posted role, the member's place on a free-text role, or the project", () => {
+    expect(projectThing(row("team", "p", "r1"))).toBe("p:r1");
+    expect(projectThing(freeText("team", "p"))).toBe("p:member");
+    expect(projectThing(row("backing", "p"))).toBe("p");
   });
 
-  it("a saved project drops out once anything else is left for it, a saved role included", () => {
+  it("a free-text role is its own thing: on the team through one, and backing, both show", () => {
+    expect(dedupeProjects([row("backing", "p"), freeText("team", "p")]).map((r) => r.key)).toEqual([
+      "team:p:member",
+      "backing:p",
+    ]);
+  });
+
+  it("a free-text role doesn't collide with leading or a bare save either; its own relations still dedupe", () => {
+    expect(dedupeProjects([row("leading", "p"), freeText("waiting", "p")]).map((r) => r.key)).toEqual([
+      "leading:p",
+      "waiting:p:member",
+    ]);
+    expect(dedupeProjects([freeText("closed", "p"), freeText("waiting", "p")]).map((r) => r.key)).toEqual([
+      "waiting:p:member",
+    ]);
+  });
+
+  it("a saved project drops out once anything live is left for it, a saved role included", () => {
     expect(dedupeProjects([row("saved", "p"), row("team", "p", "r1")]).map((r) => r.key)).toEqual(["team:p:r1"]);
     expect(dedupeProjects([row("saved", "p"), row("saved", "p", "r1")]).map((r) => r.key)).toEqual(["saved:p:r1"]);
-    expect(dedupeProjects([row("saved", "p"), row("closed", "p", "r1")]).map((r) => r.key)).toEqual(["closed:p:r1"]);
+    expect(dedupeProjects([row("saved", "p"), freeText("waiting", "p")]).map((r) => r.key)).toEqual(["waiting:p:member"]);
+  });
+
+  it("something closed doesn't cover a save: declined on role R, then saved the project, the save shows", () => {
+    expect(dedupeProjects([row("closed", "p", "r1"), row("saved", "p")]).map((r) => r.key)).toEqual([
+      "saved:p",
+      "closed:p:r1",
+    ]);
+    expect(dedupeProjects([freeText("closed", "p"), row("saved", "p")]).map((r) => r.key)).toEqual([
+      "saved:p",
+      "closed:p:member",
+    ]);
   });
 
   it("a saved project with nothing else stays, and other projects don't touch it", () => {
@@ -236,9 +293,12 @@ function indexFields(table: string, index: string): string[] {
  * db.normalizeId, and query().withIndex(name, q => q.eq(..)...) then
  * collect/first/unique. withIndex checks the index exists and that the
  * eq()s walk its fields in order; reading without one throws. Storage
- * resolves an id to https://files/<id>. `reads` lists every index used. */
+ * resolves an id to https://files/<id>. `reads` lists every index used;
+ * `lookups` every index read with the values it was read at, and every
+ * storage id resolved, so a test can count what one event cost. */
 function makeCtx(tables: Record<string, Row[]>, viewerId: string | null) {
   const reads: string[] = [];
+  const lookups: string[] = [];
   const rowsOf = (table: string) => tables[table] ?? [];
 
   function query(table: string) {
@@ -262,6 +322,7 @@ function makeCtx(tables: Record<string, Row[]>, viewerId: string | null) {
           if (fields[i] !== field) throw new Error(`${table}.${name}: eq("${field}") isn't field ${i} of the index`);
         });
         reads.push(`${table}.${name}`);
+        lookups.push(`${table}.${name}(${conds.map(([, v]) => String(v)).join(", ")})`);
         rows = rowsOf(table).filter((r) => conds.every(([f, v]) => r[f] === v));
         return api;
       },
@@ -293,14 +354,29 @@ function makeCtx(tables: Record<string, Row[]>, viewerId: string | null) {
       },
     },
     auth: { getUserIdentity: async () => (viewerId ? { subject: `${viewerId}|session` } : null) },
-    storage: { getUrl: async (id: string) => `https://files/${id}` },
+    storage: {
+      getUrl: async (id: string) => {
+        lookups.push(`storage(${id})`);
+        return `https://files/${id}`;
+      },
+    },
   };
-  return { ctx: ctx as any, reads };
+  return { ctx: ctx as any, reads, lookups };
 }
 
 // A Convex-registered function keeps the handler you wrote on `_handler`.
 const run = (fn: unknown, ctx: unknown) =>
   (fn as { _handler: (c: unknown, a: unknown) => Promise<any> })._handler(ctx, {});
+
+// getMine reads the clock: the world's events (datetime 5000 on) are ahead of
+// it, the ones a test ends sit before it.
+const CLOCK = 1000;
+beforeEach(() => {
+  vi.spyOn(Date, "now").mockReturnValue(CLOCK);
+});
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 const ME = "users:me";
 const LEAD = "users:lead";
@@ -513,8 +589,8 @@ const WORLD = (): Record<string, Row[]> => ({
 });
 
 async function mine(viewer: string | null = ME, world = WORLD()) {
-  const { ctx, reads } = makeCtx(world, viewer);
-  return { data: await run(getMine, ctx), reads };
+  const { ctx, reads, lookups } = makeCtx(world, viewer);
+  return { data: await run(getMine, ctx), reads, lookups };
 }
 
 describe("getMine — signed out", () => {
@@ -529,29 +605,30 @@ describe("getMine — projects", () => {
   it("one row per thing, in group order", async () => {
     const { data } = await mine();
     expect(data.projects.map((p: ShortlistProject) => p.key)).toEqual([
-      "invited:projects:invite",
+      "invited:projects:invite:member",
       "leading:projects:mine",
       "leading:projects:mineHidden",
       "team:projects:team:projectRoles:sound",
-      "waiting:projects:wait",
+      "waiting:projects:wait:member",
+      "backing:projects:invite",
       "backing:projects:backed",
       "saved:projects:roles:projectRoles:director",
       "saved:projects:art",
       "saved:projects:saved",
       "closed:projects:roles:projectRoles:gaffer",
-      "closed:projects:shelved",
-      "closed:projects:done",
-      "closed:projects:declined",
-      "closed:projects:withdrawn",
-      "closed:projects:left",
-      "closed:projects:removed",
+      "closed:projects:shelved:member",
+      "closed:projects:done:member",
+      "closed:projects:declined:member",
+      "closed:projects:withdrawn:member",
+      "closed:projects:left:member",
+      "closed:projects:removed:member",
     ]);
   });
 
   it("invited: the project's pay, its photo, the lead's name, and its stage", async () => {
     const { data } = await mine();
     expect(data.projects[0]).toEqual({
-      key: "invited:projects:invite",
+      key: "invited:projects:invite:member",
       relation: "invited",
       kind: "paid",
       projectId: "projects:invite",
@@ -616,8 +693,7 @@ describe("getMine — projects", () => {
 
   it("backing: recurring money shown, an unfinished checkout ignored, since the first", async () => {
     const { data } = await mine();
-    expect(data.projects.find((p: ShortlistProject) => p.relation === "backing")).toMatchObject({
-      projectId: "projects:backed",
+    expect(data.projects.find((p: ShortlistProject) => p.key === "backing:projects:backed")).toMatchObject({
       backing: { amountCents: 1000, recurring: true },
       pay: null,
       since: 150,
@@ -636,11 +712,11 @@ describe("getMine — projects", () => {
     expect(byKey["saved:projects:saved"]).toMatchObject({ pay: { budgetType: "volunteer" }, coverUrl: null });
   });
 
-  it("dedupe: an invite outranks a save and a cheer on the same project; a saved role hides the bare save", async () => {
+  it("dedupe: an invite on a free-text role and a cheer on the same project both show; a live row hides the bare save", async () => {
     const { data } = await mine();
     const keys = data.projects.map((p: ShortlistProject) => p.key);
+    expect(keys).toEqual(expect.arrayContaining(["invited:projects:invite:member", "backing:projects:invite"]));
     expect(keys).not.toContain("saved:projects:invite");
-    expect(keys).not.toContain("backing:projects:invite");
     expect(keys).not.toContain("saved:projects:roles");
   });
 });
@@ -789,6 +865,7 @@ describe("getMine — events", () => {
       eventId: "events:hosted",
       title: "Event hosted",
       datetime: 6000,
+      endTime: null,
       location: "The Garden",
       coverUrl: "https://files/_storage:hosted-cover",
       // Cy's accepted application and my RSVP.
@@ -799,13 +876,14 @@ describe("getMine — events", () => {
     });
   });
 
-  it("going: an accepted application and an RSVP are one row, since the earlier; members only in the count", async () => {
+  it("going: an accepted application and an RSVP are one row, since the earlier; the count is the event page's", async () => {
     const { data } = await mine();
     expect(data.events.find((e: ShortlistEvent) => e.eventId === "events:going")).toMatchObject({
       relation: "going",
       since: 510,
-      // Me and Bo, each once across application and RSVP; the guest RSVP isn't a member.
-      goingCount: 2,
+      // Me and Bo, each once across application and RSVP, and the guest, as
+      // the event page counts them (events.ts loadGoingCount).
+      goingCount: 3,
       coverUrl: "https://files/_storage:going-gallery",
       location: null,
     });
@@ -826,6 +904,119 @@ describe("getMine — events", () => {
   });
 });
 
+describe("getMine — going by ticket", () => {
+  it("a ticket bought here is going, since the purchase; a refunded one isn't; the count has it too", async () => {
+    const world = WORLD();
+    world.events.push(
+      event("ticketed", { organizerId: SAM, ticketTiers: TIERS, datetime: 7100 }),
+      event("refunded", { organizerId: SAM, ticketTiers: TIERS, datetime: 7200 }),
+    );
+    const purchase = (id: string, eventId: string, status: string, userId = ME): Row => ({
+      _id: `ticketPurchases:${id}`,
+      eventId: `events:${eventId}`,
+      tierName: "General",
+      amountCents: 2500,
+      userId,
+      buyerEmail: `${id}@example.com`,
+      stripeSessionId: `cs_${id}`,
+      status,
+      createdAt: 580,
+    });
+    world.ticketPurchases = [
+      purchase("mine", "ticketed", "paid"),
+      purchase("bos", "ticketed", "paid", BO),
+      purchase("back", "refunded", "refunded"),
+    ];
+    const { data, reads } = await mine(ME, world);
+    const byId = Object.fromEntries(data.events.map((e: ShortlistEvent) => [e.eventId, e]));
+    expect(byId["events:ticketed"]).toMatchObject({ relation: "going", since: 580, goingCount: 2 });
+    expect(byId["events:refunded"]).toBeUndefined();
+    expect(reads).toContain("ticketPurchases.by_userId");
+  });
+});
+
+describe("getMine — events that have ended", () => {
+  // Before CLOCK, so over; each would cost a count, a cover and (hosted)
+  // its requests if it were upcoming.
+  function world() {
+    const w = WORLD();
+    w.events.push(
+      event("pastHosted", { organizerId: ME, datetime: 900, coverImageStorageId: "_storage:pastHosted-cover" }),
+      event("pastGoing", { datetime: 800, imageStorageIds: ["_storage:pastGoing-gallery"] }),
+      event("endedEarly", { datetime: 500, endTime: 999 }),
+      // On now: started before CLOCK, ends after it.
+      event("onNow", { organizerId: ME, datetime: 900, endTime: 2000 }),
+      // Ends exactly now: not over yet.
+      event("endsNow", { datetime: 500, endTime: CLOCK }),
+    );
+    w.eventApplications.push(
+      application("alexPast", "pastHosted", ALEX, "pending", { createdAt: 620 }),
+      application("alexNow", "onNow", ALEX, "pending", { createdAt: 630 }),
+    );
+    w.eventRsvps.push(rsvp("mePast", "pastGoing", ME, 570), rsvp("meNow", "endsNow", ME, 575));
+    w.favorites.push(fav("event", "events:endedEarly", 360));
+    return w;
+  }
+  const costOf = (lookups: string[], id: string) => lookups.filter((l) => l.includes(id));
+
+  it("reads nothing past the event itself: no count, no cover, no requests", async () => {
+    const { lookups } = await mine(ME, world());
+    for (const id of ["events:pastHosted", "events:pastGoing", "events:endedEarly"]) {
+      expect(costOf(lookups, id)).toEqual([]);
+    }
+    expect(lookups).not.toContain("storage(_storage:pastHosted-cover)");
+    expect(lookups).not.toContain("storage(_storage:pastGoing-gallery)");
+    // An upcoming one still costs its count.
+    expect(costOf(lookups, "events:going")).toEqual(
+      expect.arrayContaining(["eventApplications.by_eventId(events:going)", "eventRsvps.by_eventId(events:going)"]),
+    );
+  });
+
+  it("comes back as a Past row: no picture, no count, nothing waiting, its requests dropped", async () => {
+    const { data } = await mine(ME, world());
+    const byId = Object.fromEntries(data.events.map((e: ShortlistEvent) => [e.eventId, e]));
+    expect(byId["events:pastHosted"]).toMatchObject({ relation: "hosting", coverUrl: null, goingCount: 0, pendingRequests: 0 });
+    expect(byId["events:pastGoing"]).toMatchObject({ relation: "going", coverUrl: null, goingCount: 0 });
+    expect(byId["events:endedEarly"]).toMatchObject({ relation: "saved", endTime: 999 });
+    expect(data.requests.map((r: { key: string }) => r.key)).not.toContain("request:event:eventApplications:alexPast");
+  });
+
+  it("one that's on now, or ends this very moment, hasn't ended", async () => {
+    const { data, lookups } = await mine(ME, world());
+    const byId = Object.fromEntries(data.events.map((e: ShortlistEvent) => [e.eventId, e]));
+    expect(byId["events:onNow"]).toMatchObject({ relation: "hosting", endTime: 2000, pendingRequests: 1, goingCount: 0 });
+    expect(data.requests.find((r: { key: string }) => r.key === "request:event:eventApplications:alexNow")?.on).toEqual({
+      type: "event",
+      id: "events:onNow",
+      title: "Event onNow",
+      datetime: 900,
+      endTime: 2000,
+    });
+    expect(byId["events:endsNow"]).toMatchObject({ relation: "going", goingCount: 1 });
+    expect(costOf(lookups, "events:endsNow")).not.toEqual([]);
+  });
+
+  it(`keeps the ${ENDED_EVENTS_KEPT} most recent across relations, after dropping what you can't open`, async () => {
+    const w = WORLD();
+    for (let i = 0; i < 30; i++) {
+      // The two most recent are hidden: older ones take their place.
+      w.events.push(event(`past${i}`, { datetime: 100 + i, ...(i >= 28 ? { status: "hidden" } : {}) }));
+      if (i % 2) w.favorites.push(fav("event", `events:past${i}`, 400 + i));
+      else w.eventRsvps.push(rsvp(`mePast${i}`, `past${i}`, ME, 400 + i));
+    }
+    const { data } = await mine(ME, w);
+    const past = data.events.filter((e: ShortlistEvent) => e.eventId.startsWith("events:past"));
+    expect(ENDED_EVENTS_KEPT).toBe(25);
+    expect(past.map((e: ShortlistEvent) => e.datetime).sort((a: number, b: number) => b - a)).toEqual(
+      Array.from({ length: 25 }, (_, i) => 127 - i),
+    );
+    // Upcoming events aren't capped.
+    expect(data.events.map((e: ShortlistEvent) => e.eventId)).toEqual(
+      expect.arrayContaining(["events:hosted", "events:going", "events:rsvp", "events:saved"]),
+    );
+  });
+});
+
 describe("getMine — requests waiting on you", () => {
   it("join requests on your project and a request to attend your event, newest first", async () => {
     const { data } = await mine();
@@ -833,7 +1024,7 @@ describe("getMine — requests waiting on you", () => {
       {
         key: "request:event:eventApplications:alexHosted",
         requestId: "eventApplications:alexHosted",
-        on: { type: "event", id: "events:hosted", title: "Event hosted", datetime: 6000 },
+        on: { type: "event", id: "events:hosted", title: "Event hosted", datetime: 6000, endTime: null },
         person: {
           profileId: "profiles:alex",
           name: "Alex Asks",
@@ -947,6 +1138,31 @@ describe("getMine — what has ended for you", () => {
       pay: { budgetType: "amount", budget: 5000 },
       since: 332,
     });
+  });
+
+  it("a bare save and a one-time backing on finished work close as finished; a recurring backing stays", async () => {
+    const world = WORLD();
+    world.projects.push(
+      project("savedDone", { status: "completed" }),
+      project("backedDone", { stage: "cancelled" }),
+      project("monthlyDone", { status: "archived" }),
+    );
+    world.favorites.push(fav("project", "projects:savedDone", 370));
+    world.projectSupport.push(
+      support("doneOnce", "backedDone", "financial_one_time", { amountCents: 2000 }),
+      support("doneMonthly", "monthlyDone", "financial_recurring", { amountCents: 500 }),
+    );
+    const { data } = await mine(ME, world);
+    const rows = byKey(data);
+
+    expect(rows["closed:projects:savedDone"]).toMatchObject({ closedReason: "finished", since: 370 });
+    expect(rows["saved:projects:savedDone"]).toBeUndefined();
+    expect(rows["closed:projects:backedDone"]).toMatchObject({ closedReason: "finished" });
+    expect(rows["closed:projects:backedDone"]).not.toHaveProperty("backing");
+    expect(rows["backing:projects:monthlyDone"]).toMatchObject({ backing: { amountCents: 500, recurring: true } });
+    // Live work is unchanged.
+    expect(rows["saved:projects:saved"]).toBeDefined();
+    expect(rows["backing:projects:backed"]).toBeDefined();
   });
 
   it("requests to attend a cancelled event you host drop, from the list and the row's count", async () => {

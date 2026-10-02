@@ -4,8 +4,8 @@
 // The real handlers on a small in-memory ctx, same harness as
 // moderation.test.ts. A save only counts if the wiring holds: a member can't
 // save what they can't see, a closed role can be unsaved but not saved, a
-// save tells nobody, and the five pages that read getMyFavorites' { profiles,
-// events } never see a project or role row.
+// save tells nobody, remove only ever removes, and the five pages that read
+// getMyFavorites' { profiles, events } never see a project or role row.
 
 import { describe, expect, it } from "vitest";
 import {
@@ -13,6 +13,7 @@ import {
   getFavoriteCount,
   getMyFavorites,
   isFavorited,
+  remove,
   toggle,
 } from "./favorites";
 
@@ -180,12 +181,11 @@ describe("saving a project or a role", () => {
   it.each([
     ["project", PROJECT],
     ["role", ROLE],
-  ])("a %s saves, reads as saved, counts, then unsaves", async (targetType, targetId) => {
+  ])("a %s saves, reads as saved, then unsaves", async (targetType, targetId) => {
     const ctx = makeCtx(world(), MEMBER);
     expect(await run(toggle, ctx, { targetType, targetId })).toEqual({ favorited: true });
     expect(ctx.store.favorites).toMatchObject([{ userId: MEMBER, targetType, targetId }]);
     expect(await run(isFavorited, ctx, { targetType, targetId })).toBe(true);
-    expect(await run(getFavoriteCount, ctx, { targetType, targetId })).toBe(1);
 
     expect(await run(toggle, ctx, { targetType, targetId })).toEqual({ favorited: false });
     expect(ctx.store.favorites).toEqual([]);
@@ -279,6 +279,121 @@ describe("refusing a save", () => {
     const ctx = makeCtx(world({ ...over, favorites: [fav(targetType, targetId)] }), MEMBER);
     expect(await run(toggle, ctx, { targetType, targetId })).toEqual({ favorited: false });
     expect(ctx.store.favorites).toEqual([]);
+  });
+});
+
+describe("a hidden (test) community", () => {
+  // "_TeamTest" is hidden (garden/hiddenCommunity.ts): only admins and its
+  // active members see what's posted into it.
+  const TEST = "hostOrgs:test";
+  const inTest = (over: { membership?: string; admin?: boolean; favorites?: Row[] } = {}) => {
+    const w = world({ project: { hostOrgId: TEST }, favorites: over.favorites });
+    w.events[0].hostOrgId = TEST;
+    w.hostOrgs = [{ _id: TEST, name: "_TeamTest", slug: "teamtest" }];
+    w.communityMembers = over.membership
+      ? [{ _id: "communityMembers:mia", hostOrgId: TEST, userId: MEMBER, role: "member", status: over.membership, joinedAt: 1 }]
+      : [];
+    if (over.admin) w.profiles[1].isAdmin = true;
+    return w;
+  };
+
+  it.each([
+    ["project", PROJECT],
+    ["role", ROLE],
+  ])("a %s posted there reads as not found to someone outside it", async (targetType, targetId) => {
+    for (const membership of [undefined, "pending", "removed"]) {
+      const ctx = makeCtx(inTest({ membership }), MEMBER);
+      expect(await thrown(run(toggle, ctx, { targetType, targetId }))).toMatchObject({ code: "not_found" });
+      expect(ctx.store.favorites).toEqual([]);
+    }
+  });
+
+  it.each([
+    ["project", PROJECT],
+    ["role", ROLE],
+  ])("a %s posted there saves for its active members, admins and its lead", async (targetType, targetId) => {
+    const viewers = [
+      [MEMBER, inTest({ membership: "active" })],
+      [MEMBER, inTest({ admin: true })],
+      [OWNER, inTest()],
+    ] as const;
+    for (const [viewer, tables] of viewers) {
+      const ctx = makeCtx(tables, viewer);
+      expect(await run(toggle, ctx, { targetType, targetId })).toEqual({ favorited: true });
+    }
+  });
+
+  it("an event posted there drops out of getMyFavorites for someone outside it", async () => {
+    const hearted = { favorites: [fav("event", EVENT)] };
+    expect((await run(getMyFavorites, makeCtx(inTest(hearted), MEMBER), {})).events).toEqual([]);
+    const member = await run(getMyFavorites, makeCtx(inTest({ ...hearted, membership: "active" }), MEMBER), {});
+    expect(member.events.map((e: any) => e.event._id)).toEqual([EVENT]);
+  });
+
+  it("the event's organizer keeps their own heart on it", async () => {
+    const tables = inTest({ favorites: [fav("event", EVENT, OWNER)] });
+    const result = await run(getMyFavorites, makeCtx(tables, OWNER), {});
+    expect(result.events.map((e: any) => e.event._id)).toEqual([EVENT]);
+  });
+});
+
+describe("remove — unsave, and only that", () => {
+  it.each([
+    ["profile", "profiles:owner"],
+    ["event", EVENT],
+    ["project", PROJECT],
+    ["role", ROLE],
+  ] as const)("removes a %s save, silently", async (targetType, targetId) => {
+    const ctx = makeCtx(world({ favorites: [fav(targetType, targetId)] }), MEMBER);
+    expect(await run(remove, ctx, { targetType, targetId })).toEqual({ favorited: false });
+    expect(ctx.store.favorites).toEqual([]);
+    expect(ctx.store.notifications).toEqual([]);
+  });
+
+  it("does nothing when there's no save: pressed twice, it never saves", async () => {
+    const ctx = makeCtx(world({ favorites: [fav("project", PROJECT)] }), MEMBER);
+    await run(remove, ctx, { targetType: "project", targetId: PROJECT });
+    expect(await run(remove, ctx, { targetType: "project", targetId: PROJECT })).toEqual({ favorited: false });
+    expect(ctx.store.favorites).toEqual([]);
+  });
+
+  it("removes only the member's own save of that target", async () => {
+    const theirs = { ...fav("project", PROJECT, OWNER), _id: "favorites:theirs" };
+    const ctx = makeCtx(world({ favorites: [theirs, fav("role", ROLE)] }), MEMBER);
+    await run(remove, ctx, { targetType: "project", targetId: PROJECT });
+    expect(ctx.store.favorites.map((f: Row) => f._id)).toEqual(["favorites:theirs", "favorites:role"]);
+  });
+
+  it.each([
+    ["a closed role", "role", ROLE, { role: { status: "closed" } }],
+    ["a role on a hidden project", "role", ROLE, { project: { status: "hidden" } }],
+    ["a deleted project", "project", "projects:gone", {}],
+    ["something that was never an id", "project", "not an id", {}],
+  ] as const)("never checks the target: a save of %s goes", async (_label, targetType, targetId, over) => {
+    const ctx = makeCtx(world({ ...over, favorites: [fav(targetType, targetId)] }), MEMBER);
+    await run(remove, ctx, { targetType, targetId });
+    expect(ctx.store.favorites).toEqual([]);
+  });
+
+  it("is for signed-in members only", async () => {
+    await expect(run(remove, makeCtx(world(), null), { targetType: "project", targetId: PROJECT })).rejects.toThrow(
+      "Not authenticated",
+    );
+  });
+});
+
+describe("getFavoriteCount", () => {
+  it("counts follows and hearts", async () => {
+    const ctx = makeCtx(world({ favorites: [fav("profile", "profiles:owner"), fav("event", EVENT)] }), null);
+    expect(await run(getFavoriteCount, ctx, { targetType: "profile", targetId: "profiles:owner" })).toBe(1);
+    expect(await run(getFavoriteCount, ctx, { targetType: "event", targetId: EVENT })).toBe(1);
+  });
+
+  it("takes profiles and events only, so a project's or role's save count isn't public", () => {
+    const args = JSON.parse((getFavoriteCount as unknown as { exportArgs(): string }).exportArgs());
+    const targetType = args.value.targetType.fieldType;
+    expect(targetType.type).toBe("union");
+    expect(targetType.value.map((m: { value: string }) => m.value)).toEqual(["profile", "event"]);
   });
 });
 

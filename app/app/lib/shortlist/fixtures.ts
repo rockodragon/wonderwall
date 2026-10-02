@@ -2,7 +2,8 @@
 // model.test.ts. sampleShortlist() mirrors the spec's sample data
 // (docs/handoff/favorites-redesign/mockup.html): Mara's Sound Mixer invite,
 // Hana's request, the Copy Editor role closing in 5 days, and the rest.
-// Dates are local, so the "Oct 7" a test expects is the day it was built on.
+// Dates are local, so the "Oct 7" a test expects is the day it was built on;
+// a role's deadline is a calendar date (day()), as the app stores it.
 
 import type { BudgetDeclaration } from "../budgetLabel";
 import type {
@@ -26,6 +27,12 @@ export function on(month: number, day: number, hour = 12, year = 2026): number {
 /** Fri Oct 2, 2026, noon: the mockup's today. */
 export const NOW = on(10, 2);
 
+/** A calendar date the way the app stores one (a role's neededBy): that
+ *  day's UTC midnight. */
+export function day(month: number, date: number, year = 2026): number {
+  return Date.UTC(year, month - 1, date);
+}
+
 function slug(text: string): string {
   return text.toLowerCase().replace(/[^a-z0-9]+/g, "-");
 }
@@ -47,9 +54,9 @@ export function project(
   extra: Partial<ShortlistProject> = {},
 ): ShortlistProject {
   const projectId = extra.projectId ?? slug(title);
-  const roleId = extra.role?.id;
+  const role = extra.role;
   return {
-    key: roleId ? `${relation}:${projectId}:${roleId}` : `${relation}:${projectId}`,
+    key: role ? `${relation}:${projectId}:${role.id ?? "member"}` : `${relation}:${projectId}`,
     relation,
     kind: "passion",
     projectId,
@@ -87,12 +94,18 @@ export function projectRequest(
   };
 }
 
-export function eventRequest(name: string, eventTitle: string, datetime: number, at = NOW - DAY): ShortlistRequest {
+export function eventRequest(
+  name: string,
+  eventTitle: string,
+  datetime: number,
+  at = NOW - DAY,
+  endTime: number | null = null,
+): ShortlistRequest {
   const id = `${slug(name)}-${slug(eventTitle)}`;
   return {
     key: `request:event:${id}`,
     requestId: id,
-    on: { type: "event", id: slug(eventTitle), title: eventTitle, datetime },
+    on: { type: "event", id: slug(eventTitle), title: eventTitle, datetime, endTime },
     person: person(name),
     message: null,
     at,
@@ -112,6 +125,7 @@ export function event(
     eventId,
     title,
     datetime,
+    endTime: null,
     location: null,
     coverUrl: null,
     goingCount: 0,
@@ -147,7 +161,7 @@ export function sampleShortlist(): ShortlistData {
       }),
       // A paid role on a passion project: it stays under Passion.
       project("saved", "Psalms Zine, Vol. 3", {
-        role: role("Copy Editor", on(10, 7)),
+        role: role("Copy Editor", day(10, 7)),
         lead: { name: "Jo Alvarez", profileId: "jo-alvarez" },
         pay: amount(300),
         since: on(9, 21),
@@ -163,13 +177,13 @@ export function sampleShortlist(): ShortlistData {
       project("team", "Garden Mural at 5th & Alder", { role: role("Painter"), pay: VOLUNTEER, since: on(7, 2) }),
       project("waiting", "Advent Liturgy Films", {
         kind: "paid",
-        role: role("Motion Designer", on(10, 30)),
+        role: role("Motion Designer", day(10, 30)),
         pay: amount(1200),
         since: on(9, 27),
       }),
       project("waiting", "Harvest Supper 2026", {
         kind: "paid",
-        role: role("Poster Illustrator", on(10, 9)),
+        role: role("Poster Illustrator", day(10, 9)),
         pay: amount(600),
         since: on(9, 30),
       }),
@@ -178,13 +192,13 @@ export function sampleShortlist(): ShortlistData {
       project("backing", "Street Choir Recordings", { backing: { amountCents: 5000, recurring: false }, since: on(6, 12) }),
       project("saved", "The Lantern Café rebrand", {
         kind: "paid",
-        role: role("Brand Designer", on(11, 1)),
+        role: role("Brand Designer", day(11, 1)),
         pay: range(2500, 4000),
         since: on(9, 18),
       }),
       project("saved", "The Wind in the Willows", {
         kind: "paid",
-        role: role("Set Builder", on(11, 20)),
+        role: role("Set Builder", day(11, 20)),
         pay: PROPOSALS,
         since: on(9, 9),
       }),

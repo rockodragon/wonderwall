@@ -5,6 +5,7 @@ import {
   PROPOSALS,
   VOLUNTEER,
   amount,
+  day,
   event,
   eventRequest,
   follow,
@@ -20,6 +21,7 @@ import {
   MONTHS_AFTER,
   SHORTLIST_GROUPS,
   eventGroups,
+  isPast,
   payText,
   peopleGroups,
   projectGroups,
@@ -241,6 +243,34 @@ describe("eventGroups", () => {
       "A minute ago",
       "Last month",
     ]);
+  });
+
+  it("an event that's on now isn't Past until it ends: going sits in This week, saved in Saved", () => {
+    const HOUR = 60 * 60 * 1000;
+    const data = shortlist({
+      events: [
+        event("going", "Workshop, on now", NOW - HOUR, { endTime: NOW + HOUR }),
+        event("saved", "Market, on now", NOW - 2 * HOUR, { endTime: NOW + 2 * HOUR }),
+        event("going", "Ends this moment", NOW - HOUR, { endTime: NOW }),
+        event("going", "Ended a minute ago", NOW - HOUR, { endTime: NOW - 60_000 }),
+      ],
+    });
+    expect(eventTitles(eventGroups(data, NOW))).toEqual({
+      week: ["Workshop, on now", "Ends this moment"],
+      saved: ["Market, on now"],
+      past: ["Ended a minute ago"],
+    });
+    const s = summary(data, NOW);
+    expect(s.events.count).toBe(3);
+    expect(s.events.next).toBe("Next: Workshop, on now, Oct 2");
+  });
+
+  it("isPast: cancelled, or ended by its end time, else its start", () => {
+    expect(isPast(event("going", "A", NOW - 1), NOW)).toBe(true);
+    expect(isPast(event("going", "A", NOW), NOW)).toBe(false);
+    expect(isPast(event("going", "A", NOW - 1, { endTime: NOW }), NOW)).toBe(false);
+    expect(isPast(event("going", "A", NOW - 2, { endTime: NOW - 1 }), NOW)).toBe(true);
+    expect(isPast(event("going", "A", NOW + DAY, { cancelled: true }), NOW)).toBe(true);
   });
 
   it("leaves event requests out: they show on the Hosting row's count", () => {
@@ -475,6 +505,16 @@ describe("summary — next steps", () => {
   it("Projects: with no reply owed, apply to the soonest saved role closing", () => {
     const data = { ...without(sampleShortlist(), "invited"), requests: [] };
     expect(summary(data, NOW).projects.next).toBe("Apply by Oct 7 · Copy Editor");
+  });
+
+  it("Projects: a role due today is open all day, and reads as its own date", () => {
+    const data = shortlist({
+      projects: [
+        project("saved", "Yesterday", { role: role("Due yesterday", day(10, 1)) }),
+        project("saved", "Today", { role: role("Due today", day(10, 2)) }),
+      ],
+    });
+    expect(summary(data, NOW).projects.next).toBe("Apply by Oct 2 · Due today");
   });
 
   it("Projects: looks past the week, and skips a role that already closed", () => {
