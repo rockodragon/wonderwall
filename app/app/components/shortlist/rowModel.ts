@@ -8,6 +8,7 @@
 // for a role's deadline, firstNameOf, payText) and the desk's (timeLabel,
 // venueName).
 
+import { workKind } from "../../lib/shortlist/kind";
 import { timeLabel, venueName } from "../../desk/deskCards";
 import type { DeskCardId } from "../../desk/deskState";
 import { calendarDay, shortDay } from "../../lib/dates";
@@ -115,7 +116,7 @@ function projectStatus(row: ShortlistProject, money: RowContext["money"]): strin
 }
 
 function projectRow(row: ShortlistProject, ctx: RowContext): Omit<RowModel, "id" | "hot" | "past"> {
-  const kind = KIND_LABEL[row.kind];
+  const kind = KIND_LABEL[workKind(row)];
   const sub = row.role
     ? line(kind, row.title, row.lead.name)
     : row.relation === "leading"
@@ -177,7 +178,7 @@ export function rowModel(item: ShortlistItem, ctx: RowContext): RowModel {
         title: person.name,
         sub:
           on.type === "project"
-            ? line(KIND_LABEL[on.kind], on.title, `Wants to join as ${on.roleTitle}`)
+            ? line(KIND_LABEL[workKind(on)], on.title, `Wants to join as ${on.roleTitle}`)
             : line(ctx.withArea && AREA_LABEL.events, on.title, "Asked to come"),
         meta: on.type === "project" ? payText(on) : shortDay(on.datetime),
         status: `Request · ${shortDay(at)}`,

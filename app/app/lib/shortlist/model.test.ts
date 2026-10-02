@@ -149,7 +149,7 @@ describe("projectGroups", () => {
 describe("projectGroups — the Paid · Passion filter", () => {
   it("Paid keeps paid projects only", () => {
     expect(projectTitles(projectGroups(sampleShortlist(), NOW, "paid"))).toEqual({
-      needs: ["Sound Mixer"],
+      needs: ["Sound Mixer", "Copy Editor"],
       leading: ["Photographer for the Advent Catalog"],
       team: ["Photographer"],
       waiting: ["Poster Illustrator", "Motion Designer"],
@@ -160,7 +160,7 @@ describe("projectGroups — the Paid · Passion filter", () => {
 
   it("Passion keeps passion projects, requests on them included", () => {
     expect(projectTitles(projectGroups(sampleShortlist(), NOW, "passion"))).toEqual({
-      needs: ["Hana Cho's request", "Copy Editor"],
+      needs: ["Hana Cho's request"],
       leading: ["Hymns for the Commons"],
       team: ["Painter"],
       waiting: ["Alto"],
@@ -170,13 +170,13 @@ describe("projectGroups — the Paid · Passion filter", () => {
     });
   });
 
-  it("keeps a paid role on a passion project under Passion", () => {
+  it("puts a paid role on a passion project under Paid", () => {
     const copyEditor = (kind: "paid" | "passion") =>
       projectGroups(sampleShortlist(), NOW, kind)
         .flatMap((g) => g.items)
-        .some((i) => title(i) === "Copy Editor");
-    expect(copyEditor("passion")).toBe(true);
-    expect(copyEditor("paid")).toBe(false);
+        .find((i) => title(i) === "Copy Editor");
+    expect(copyEditor("paid")).toMatchObject({ type: "project", row: { kind: "passion" } });
+    expect(copyEditor("passion")).toBeUndefined();
   });
 
   it("no filter (undefined or null) shows both", () => {
@@ -371,9 +371,9 @@ describe("peopleGroups", () => {
 describe("summary — the spec's sample member", () => {
   const s = summary(sampleShortlist(), NOW);
 
-  it("Projects: 15 live, 7 paid · 8 passion", () => {
+  it("Projects: 15 live, 8 paid · 7 passion", () => {
     expect(s.projects.count).toBe(15);
-    expect(s.projects.kinds).toEqual({ paid: 7, passion: 8 });
+    expect(s.projects.kinds).toEqual({ paid: 8, passion: 7 });
     expect(s.projects.parts).toEqual(["1 invite", "2 leading", "2 on the team", "3 waiting", "2 backing", "5 saved"]);
     expect(s.projects.needsYou).toBe(3);
     expect(s.projects.next).toBe("Reply to Mara · Sound Mixer");
@@ -484,11 +484,17 @@ describe("summary — next steps", () => {
   it("Projects: a paid invite leads even when a passion invite is older", () => {
     const data = shortlist({
       projects: [
-        project("invited", "Choir", { lead: { name: "Grace Mun", profileId: "g" }, since: NOW - 9 * DAY }),
+        project("invited", "Choir", {
+          role: role("Alto"),
+          lead: { name: "Grace Mun", profileId: "g" },
+          pay: VOLUNTEER,
+          since: NOW - 9 * DAY,
+        }),
         project("invited", "Film", {
           kind: "paid",
           role: role("Editor"),
           lead: { name: "Theo Okafor", profileId: "t" },
+          pay: amount(800),
           since: NOW - DAY,
         }),
       ],

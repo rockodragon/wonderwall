@@ -13,6 +13,7 @@
 import { calendarDay, calendarDayEnd, shortDay } from "../dates";
 import { firstNameOf } from "../names";
 import { budgetAmountLabel, budgetKindLabel, type BudgetDeclaration } from "../budgetLabel";
+import { workKind } from "./kind";
 import { groupFollows } from "../groupFollows";
 import { closesAt, hasEnded, isAppearance, needsYou, needsYouArea, needsYouKey, type NeedsYouItem } from "./needsYou";
 import type {
@@ -210,15 +211,15 @@ function isProjectNeed(item: NeedsYouItem): item is ProjectNeed {
 }
 
 function kindOf(item: ProjectNeed): ProjectKind | null {
-  if (item.type === "project") return item.row.kind;
-  return item.request.on.type === "project" ? item.request.on.kind : null;
+  if (item.type === "project") return workKind(item.row);
+  return item.request.on.type === "project" ? workKind(item.request.on) : null;
 }
 
-// `kind` filters by projects.kind, so a paid role on a passion project stays
-// under Passion.
+// `kind` filters by what each row pays (workKind), so a paid role on a
+// passion project is Paid.
 function projectArea(data: ShortlistData, needs: NeedsYouItem[], kind?: ProjectKind | null) {
   const projectNeeds = needs.filter(isProjectNeed).filter((item) => !kind || kindOf(item) === kind);
-  const rows = data.projects.filter((row) => !kind || row.kind === kind);
+  const rows = data.projects.filter((row) => !kind || workKind(row) === kind);
   return { needs: projectNeeds, placed: place(SHORTLIST_GROUPS.projects, rows, new Set(projectNeeds.map(needsYouKey))) };
 }
 
@@ -355,8 +356,8 @@ export function summary(data: ShortlistData, now: number): ShortlistSummary {
     parts: breakdown(projectsArea.placed),
     next: projectNext(projectsArea.needs, data.projects, now),
     kinds: {
-      paid: liveProjects.filter((row) => row.kind === "paid").length,
-      passion: liveProjects.filter((row) => row.kind === "passion").length,
+      paid: liveProjects.filter((row) => workKind(row) === "paid").length,
+      passion: liveProjects.filter((row) => workKind(row) === "passion").length,
     },
   };
 

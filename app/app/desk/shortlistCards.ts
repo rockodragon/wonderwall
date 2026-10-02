@@ -23,6 +23,7 @@
 // | Person                     | See profile                               |
 
 import type { FavoriteTargetType } from "../../convex/favorites";
+import { workKind } from "../lib/shortlist/kind";
 import { addressName, KIND_LABEL, whenLabel } from "../components/shortlist/rowModel";
 import { cardIdOf, type ShortlistItem } from "../components/shortlist/items";
 import { calendarDay, shortDay } from "../lib/dates";
@@ -184,7 +185,7 @@ function projectButtons(row: ShortlistProject): ShortlistButton[] {
 
 function projectRowCard(row: ShortlistProject, ctx: ShortlistCardContext): DeskCard {
   const item: ShortlistItem = { type: "project", row };
-  const kind = KIND_LABEL[row.kind];
+  const kind = KIND_LABEL[workKind(row)];
   const pay = payText(row);
   const stage = row.stage ? stageLabel(row.stage) : null;
   const leading = row.relation === "leading";

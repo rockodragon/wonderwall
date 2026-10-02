@@ -40,8 +40,7 @@ v2 supersedes the v1 Work/Projects split by pay and the "My projects" proposal.
 | People | People you follow | By first interest (`groupFollows`: groups at 6+ follows) |
 
 **Inside Projects:**
-- **Paid · Passion chips** filter by `projects.kind` ("paid" or "passion"). Every project is exactly one kind, so nothing shows twice.
-- A paid role on a passion project stays under Passion.
+- **Paid · Passion chips** filter rows by what the work pays (`workKind`, `app/app/lib/shortlist/kind.ts`). A row is Paid when its work states pay that isn't volunteer, the same test as browse's Jobs and gigs; otherwise it's Passion. So a paid role on a passion project is Paid. Each row is in exactly one chip, so nothing shows twice.
 - Every role row shows its pay, in the words of `app/app/lib/budgetLabel.ts`: "$1,200", "$300–600", "Open to proposals", "Confidential" or "Volunteer".
 - Each Leading row shows "N requests waiting".
 

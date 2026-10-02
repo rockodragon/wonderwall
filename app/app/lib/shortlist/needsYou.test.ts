@@ -3,6 +3,7 @@ import { calendarDayEnd } from "../dates";
 import {
   DAY,
   NOW,
+  VOLUNTEER,
   amount,
   day,
   event,
@@ -93,9 +94,9 @@ describe("needsYou — rule 1, someone waiting on your reply", () => {
   it("puts paid invites first, then other invites, then requests, oldest first within each", () => {
     const data = shortlist({
       projects: [
-        project("invited", "Passion old", { since: NOW - 9 * DAY }),
-        project("invited", "Paid new", { kind: "paid", since: NOW - 1 * DAY }),
-        project("invited", "Paid old", { kind: "paid", since: NOW - 5 * DAY }),
+        project("invited", "Passion old", { pay: VOLUNTEER, since: NOW - 9 * DAY }),
+        project("invited", "Paid new", { kind: "paid", pay: amount(500), since: NOW - 1 * DAY }),
+        project("invited", "Paid old", { kind: "paid", pay: amount(1200), since: NOW - 5 * DAY }),
         project("invited", "Passion new", { since: NOW - 2 * DAY }),
       ],
       requests: [

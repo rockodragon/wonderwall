@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DAY, NOW, event, follow, on, project, projectRequest, role, sampleShortlist, shortlist } from "../../lib/shortlist/fixtures";
+import { workKind } from "../../lib/shortlist/kind";
 import { needsYou } from "../../lib/shortlist/needsYou";
 import { summary } from "../../lib/shortlist/model";
 import {
@@ -125,8 +126,8 @@ describe("areaGroups", () => {
 
   it("narrows Projects to a kind", () => {
     const paid = areaGroups(data, NOW, "projects", "paid");
-    expect(paid.flatMap((g) => g.items).every((item) => item.type === "project" && item.row.kind === "paid")).toBe(true);
-    expect(paid[0].items.map(titleOf)).toEqual(["Sound Mixer"]);
+    expect(paid.flatMap((g) => g.items).every((item) => item.type === "project" && workKind(item.row) === "paid")).toBe(true);
+    expect(paid[0].items.map(titleOf)).toEqual(["Sound Mixer", "Copy Editor"]);
   });
 
   it("lists Events with This week hot and Past folded", () => {

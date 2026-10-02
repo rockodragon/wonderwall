@@ -5,6 +5,7 @@
 // disagree. Nothing else qualifies: the Shortlist only holds what the member
 // did themselves, so nothing here is a suggestion.
 
+import { workKind } from "./kind";
 import { calendarDayEnd } from "../dates";
 import type { ShortlistData, ShortlistEvent, ShortlistProject, ShortlistRequest } from "./types";
 
@@ -74,7 +75,7 @@ export function needsYouArea(item: NeedsYouItem): "projects" | "events" {
 // requests. Oldest first within each: the longest wait is owed first.
 function replyRank(item: Reply): number {
   if (item.type === "request") return 2;
-  return item.row.kind === "paid" ? 0 : 1;
+  return workKind(item.row) === "paid" ? 0 : 1;
 }
 
 function waitingSince(item: Reply): number {

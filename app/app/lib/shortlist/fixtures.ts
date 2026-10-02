@@ -148,7 +148,7 @@ export function shortlist(extra: Partial<ShortlistData> = {}): ShortlistData {
   return { projects: [], requests: [], events: [], people: [], ...extra };
 }
 
-/** The spec's sample member on Fri Oct 2: 15 live projects (7 paid, 8
+/** The spec's sample member on Fri Oct 2: 15 live projects (8 paid, 7
  *  passion), 10 live events, 14 follows. */
 export function sampleShortlist(): ShortlistData {
   return {
@@ -160,7 +160,7 @@ export function sampleShortlist(): ShortlistData {
         pay: amount(1200),
         since: on(9, 30),
       }),
-      // A paid role on a passion project: it stays under Passion.
+      // A paid role on a passion project: its pay makes it Paid.
       project("saved", "Psalms Zine, Vol. 3", {
         role: role("Copy Editor", day(10, 7)),
         lead: { name: "Jo Alvarez", profileId: "jo-alvarez" },
@@ -208,12 +208,14 @@ export function sampleShortlist(): ShortlistData {
       project("closed", "Okafor–Lin wedding", {
         kind: "paid",
         role: role("Wedding Videographer"),
+        pay: amount(1800),
         closedReason: "declined",
         since: on(8, 20),
       }),
       project("closed", "Wren, Low Country", {
         kind: "paid",
         role: role("Album Cover Artist"),
+        pay: amount(500),
         closedReason: "declined",
         since: on(7, 10),
       }),

@@ -62,7 +62,7 @@ describe("the overview", () => {
 
   it("sets three tiles: counts, breakdowns, the paid · passion split and a next step", () => {
     const html = text(page(SAMPLE));
-    expect(html).toContain("Projects 3 need you 15 1 invite · 2 leading · 2 on the team · 3 waiting · 2 backing · 5 saved 7 paid · 8 passion Reply to Mara · Sound Mixer");
+    expect(html).toContain("Projects 3 need you 15 1 invite · 2 leading · 2 on the team · 3 waiting · 2 backing · 5 saved 8 paid · 7 passion Reply to Mara · Sound Mixer");
     expect(html).toContain("Events 2 need you 10");
     expect(html).toContain("People KM GM ML JA EP 14 Across 8 interests Latest: Kofi Mensah, Sep 30");
     expect(page(SAMPLE)).toContain('href="/today?view=shortlist&amp;area=projects"');
@@ -120,7 +120,7 @@ describe("an area", () => {
 
   it("chips the areas with counts and a dot where something needs you, then Paid and Passion", () => {
     const html = page(SAMPLE, "projects");
-    expect(text(html)).toContain("All 39 Projects 15 Events 10 People 14 Paid 7 Passion 8");
+    expect(text(html)).toContain("All 39 Projects 15 Events 10 People 14 Paid 8 Passion 7");
     expect(html).toContain('aria-label="Projects, 15, 3 need you"');
     expect(html).toContain('aria-label="Events, 10, 2 need you"');
     expect(html).toContain('aria-label="People, 14"');
@@ -129,11 +129,12 @@ describe("an area", () => {
   });
 
   it("counts by kind once one is on", () => {
-    expect(shortlistHeader(SAMPLE, "projects", "paid").count).toBe("7");
+    expect(shortlistHeader(SAMPLE, "projects", "paid").count).toBe("8");
     expect(page(SAMPLE, "projects", "paid")).toMatch(/aria-pressed="true"[^>]*>Paid/);
     const html = text(page(SAMPLE, "projects", "paid"));
     expect(html).toContain("Sound Mixer");
-    expect(html).not.toContain("Copy Editor");
+    expect(html).toContain("Copy Editor");
+    expect(html).not.toContain("Hymns for the Commons");
   });
 
   it("has no Paid or Passion outside Projects", () => {
