@@ -27,6 +27,7 @@ import type { Id } from "../_generated/dataModel";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { ConvexError } from "convex/values";
 import { guestBackingThrottled } from "./stripeHandlers";
+import { isHidden } from "../moderationRules";
 
 const FINANCIAL_TYPES = new Set(["financial_one_time", "financial_recurring", "financial_annual"]);
 const VALID_TYPES = new Set([...FINANCIAL_TYPES, "encouragement", "resource"]);
@@ -127,7 +128,7 @@ export const startBacking = internalMutation({
   },
   handler: async (ctx, args) => {
     const project = await ctx.db.get(args.projectId);
-    if (!project || project.status === "archived") return null;
+    if (!project || project.status === "archived" || isHidden(project)) return null;
 
     let supporterName: string;
     if (args.userId) {

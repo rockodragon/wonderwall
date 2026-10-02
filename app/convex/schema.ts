@@ -328,7 +328,11 @@ export default defineSchema({
     placeId: v.optional(v.string()), // Google Places ID for enrichment
     tags: v.array(v.string()),
     requiresApproval: v.boolean(),
-    status: v.string(), // "draft" | "published" | "cancelled" | "completed"
+    status: v.string(), // "draft" | "published" | "cancelled" | "completed" | "hidden" (admin, moderation.ts)
+    // Admin hide (convex/moderation.ts): when, and the status Unhide puts
+    // back. Both unset on every event that isn't hidden.
+    hiddenAt: v.optional(v.number()),
+    statusBeforeHidden: v.optional(v.string()),
     coverImageStorageId: v.optional(v.id("_storage")), // cover/background image
     // A pasted Instagram, TikTok, YouTube or Vimeo link that IS the event's
     // media — stored canonical (convex/videoEmbed.ts), played on the event
@@ -1115,7 +1119,7 @@ export default defineSchema({
     budgetMax: v.optional(v.number()), // paid: a range's high end
     goal: v.optional(v.number()), // passion: optional target
     raisedCents: v.optional(v.number()), // passion: keep-what-you-raise running total
-    status: v.string(), // "pending" | "active" | "in_progress" | "completed" | "archived"
+    status: v.string(), // "pending" | "active" | "in_progress" | "completed" | "archived" | "hidden" (admin, moderation.ts)
     photoUrl: v.optional(v.string()),
     photoStorageId: v.optional(v.id("_storage")),
     // A pasted Instagram, TikTok, YouTube or Vimeo link that IS the
@@ -1195,6 +1199,10 @@ export default defineSchema({
     // When `stage` last changed — setStage's once-per-24h notification rule
     // (project-teams.md §6) checks against it.
     stageChangedAt: v.optional(v.number()),
+    // Admin hide (convex/moderation.ts): status "hidden" plus when, and the
+    // status Unhide puts back. Both unset on every row that isn't hidden.
+    hiddenAt: v.optional(v.number()),
+    statusBeforeHidden: v.optional(v.string()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })

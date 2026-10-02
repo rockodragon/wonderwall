@@ -23,6 +23,7 @@ import { can } from "./capabilities";
 import { assertCanPure, getGardenUser } from "./entitlements";
 import { scheduleNotificationEmail } from "../emailHelpers";
 import { escapeHtml } from "../email/template";
+import { isHidden } from "../moderationRules";
 
 // ——————————————————————————————————————————————————————————————
 // Pure core
@@ -496,7 +497,7 @@ export const listMyProjectsForProposal = query({
       .withIndex("by_userId", (q) => q.eq("userId", userId))
       .collect();
     return projects
-      .filter((p) => p.status !== "archived")
+      .filter((p) => p.status !== "archived" && !isHidden(p))
       .map((p) => ({ projectId: p._id, title: p.title }))
       .sort((a, b) => a.title.localeCompare(b.title));
   },
