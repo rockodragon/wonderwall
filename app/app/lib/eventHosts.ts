@@ -44,6 +44,7 @@ export function hostLabels(hosts: (EventHost | null | undefined)[] | null | unde
         profileId: isOrg ? null : (h.profileId ?? null),
         orgUrl: isOrg ? h.orgUrl || null : null,
         orgSlug: isOrg ? h.orgSlug || null : null,
+        isOrg,
       });
     }
     return out;

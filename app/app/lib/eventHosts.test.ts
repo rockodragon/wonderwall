@@ -57,6 +57,8 @@ describe("card host line", () => {
         { name: "Amy" },
       ]),
     ).toBe("abiding Practice, Reveal Brand, Amy, Zed");
+  });
+});
 
 describe("hosts ordered by hand", () => {
   it("keeps the given order and shows each entry as itself", () => {
