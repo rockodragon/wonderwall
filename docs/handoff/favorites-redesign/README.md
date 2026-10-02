@@ -1,6 +1,6 @@
 # Favorites redesign: the Shortlist
 
-Status: mockup v1. Name, palette slot and Today placement decided by Rick on 2026-10-02 (see Decisions). Mockup: `mockup.html` in this folder (open it in a browser; the top bar steps through the frames, "Design notes" shows the annotations). Built on the desk + palette (`docs/features/desktop-desk-palette.md`, `docs/handoff/garden-desk-palette/README.md`).
+Status: IA v2, decided by Rick on 2026-10-02. Mockup: `mockup.html` in this folder (open it in a browser; the top bar steps through the frames, "Design notes" shows the annotations). Built on the desk + palette (`docs/features/desktop-desk-palette.md`, `docs/handoff/garden-desk-palette/README.md`).
 
 ## Problem
 
@@ -8,37 +8,57 @@ Rick, after using the desk: the favorites page is hard to digest. It has no info
 
 What's wrong today:
 - One place has four names: "Following" (nav, h1), "people and events" (subtitle), "Favorites" (desk), and "See my favorites" (buried under Events in the palette).
-- People, the lowest priority, fill the top of the page. Work and Projects aren't on it at all.
+- People, the lowest priority, fill the top of the page. Projects and paid work aren't on it at all.
 - Every item has the same weight. Going, saved, requested and past events look alike, and nothing says "this needs you".
 - There's no summary. On the desk's `fav` view, a person's face and an event poster share one 3:4 grid.
 
+Rick found v1 of this spec overlappy. It cut a project two ways at once, by pay (Work vs. Projects) and by role (lead vs. member), so one project could land in two or three places. v2 sorts by one thing: your relationship to the item.
+
 ## Decisions (Rick, 2026-10-02)
 
-1. **The name is Shortlist.** It replaces "Favorites" and "Following" everywhere: the page, the desk view, the palette, and the phone nav.
-2. **Shortlist takes the Desk tool's slot in the palette.** The Desk tool goes (see Palette).
+v2 supersedes the v1 Work/Projects split by pay and the "My projects" proposal.
+
+1. **The name is Shortlist.** It replaces "Favorites" and "Following" everywhere: the page, the desk view, the palette and the phone nav.
+2. **Shortlist takes the Desk tool's slot in the palette** (see Palette).
 3. **Only what the member did themselves.** Nothing on the Shortlist is suggested by the app or by AI. Suggestions belong on Today and in the browse views.
-4. **Needs you also leads Today** (see "Needs you on Today").
-5. **Paid roles go under Work and volunteer roles under Projects.** A role's own `budgetType` decides: "volunteer" goes to Projects, anything else goes to Work.
+4. **Needs you also leads Today** (see Needs you on Today).
+5. **Three areas: Projects, Events, People.** Work is no longer an area. Paid or passion is a filter inside Projects (see The model).
+6. **Projects you lead sit in Projects, under Leading.** There is no separate "My projects".
+7. **Work first survives as order and filter, not as a section.** Paid invites lead Needs you, the Paid chip filters to paid work, and the Projects tile reads like "7 paid · 8 passion".
+8. **The desk browse toggle "Projects / Work" becomes "Passion / Paid"**, so the desk and the Shortlist use the same words. Spec note only; no code change now. The labels are `PROJECT_VIEWS` in `app/app/lib/browse/projectsFilter.ts`, shared with `/projects`.
 
 ## The model
 
-**Shortlist.** It holds everything of other people's that you've set aside or put your hand up for. Things you own or host stay on your profile. Items rank by how much they need you: in motion (invited, applied, going, on the team, backing), then saved, then followed.
+**Shortlist.** Everything you've put your hand up for, set aside, lead or host. Inside an area, rows group by your relationship to the item, in the order below: what needs you first, folded history last.
 
 **Areas**, in fixed positions, never hidden:
 
-| Area | Holds | Groups |
+| Area | Holds | Groups, in order |
 |---|---|---|
-| Work | Anything that pays: paid projects, and paid roles | Needs you · Applied · On the team · Saved · Closed (folded) |
-| Projects | Passion projects and volunteer roles | Needs you · Asked to join · On the team · Backing · Saved · Closed (folded) |
-| Events | Saved, requested, going | This week · Going · Requested · Saved (by month past 6) · Past (folded, includes cancelled) |
-| People | Follows | By first interest (`groupFollows`, 6+ follows) |
+| Projects | What you lead, joined, asked to join, back or saved | Needs you · Leading · On the team · Waiting to hear (applied, or asked to join) · Backing · Saved · Closed (folded) |
+| Events | What you host, go to, asked to attend or saved | This week · Hosting · Going · Requested · Saved (by month past 6) · Past (folded, includes cancelled) |
+| People | People you follow | By first interest (`groupFollows`: groups at 6+ follows) |
 
-**Needs you.** These rules apply across all areas, in this order, and nothing else qualifies:
-1. An invite waiting on your reply.
-2. An event you're going to in the next 7 days.
-3. A saved role that fills within 7 days.
+**Inside Projects:**
+- **Paid · Passion chips** filter by `projects.kind` ("paid" or "passion"). Every project is exactly one kind, so nothing shows twice.
+- A paid role on a passion project stays under Passion.
+- Every role row shows its pay, in the words of `app/app/lib/budgetLabel.ts`: "$1,200", "$300–600", "Open to proposals", "Confidential" or "Volunteer".
+- Each Leading row shows "N requests waiting".
 
-The overview shows 3, then "N more →". These rows get a 3px yellow left rule and a yellow mono status. Counts include live items only.
+## Needs you rules
+
+These apply across all areas, in this order. Nothing else qualifies.
+
+1. **Someone is waiting on your reply:** an invite to you, a join request or application on a project you lead, or a request to attend an event you host. Paid invites come first (decision 7).
+2. **An event you're going to or hosting** in the next 7 days.
+3. **A saved role that closes within 7 days** (its `projectRoles.neededBy`).
+
+Display:
+- The overview shows 3, then "N more →". These rows get a 3px yellow left rule and a yellow mono status.
+- Requests don't add to counts. They belong to the project you lead and show on its Leading row.
+- Every count on the Shortlist (header, tiles, chips, palette) includes live items only. Past and closed never count.
+
+**One function.** A pure `needsYou(input, now)` holds these rules and their order. Today, the Shortlist overview, the area chips and the palette dot all read it, so they can't disagree. Put it beside `deskCards.ts`, with a unit test for each rule and the 7-day edges.
 
 ## Needs you on Today
 
@@ -46,9 +66,8 @@ Today and Needs you answer different questions:
 - Today: "What's happening?" It's a briefing from the community and admins.
 - Needs you: "What do I owe a reply or an appearance to?" It's built from the member's own Shortlist.
 
-Today should still lead with what's personal and urgent, so Needs you goes first on Today too. It's one rule set shown in two places.
+Today should still lead with what's personal and urgent, so Needs you goes first on Today too. Today reads the same `needsYou` function, so the Needs you rules above apply unchanged.
 
-- **One source.** A pure `needsYou(input, now)` function holds the three rules above and their order. Today, the Shortlist overview and the palette's dot all read it, so they can't disagree. Put it beside `deskCards.ts`, with a unit test covering each rule and the 7-day edges.
 - **Desktop Today** (`/today?view=today`):
   - **Header:** the view header, as now.
   - **Needs you rows:** up to 3, using the Shortlist's row component. Under them, "N more on your Shortlist →", which goes to the Shortlist overview.
@@ -57,54 +76,63 @@ Today should still lead with what's personal and urgent, so Needs you goes first
     - the monthly grant, while open
     - the Sophia Fund
     - the next event
-- **No duplicates.** If the next event is one you're going to and it's already in Needs you, the next-event card shows the following upcoming event instead.
+- **No duplicates.** If the next event is already in Needs you (rule 2), the next-event card shows the following upcoming event instead.
 - **Nothing needs you:** the section doesn't render on Today. Today still has its cards, so an empty state would only add noise.
 - **Phones** (the current Today page): the same rows stack above the Updates.
 - **The palette's Today tool stays as it is.** The yellow dot belongs to Shortlist only, so one signal means one thing.
 
 ## Three levels
 
-1. **Overview** (`/today?view=shortlist`). Header "Shortlist · N things", then the Needs you strip, then four tiles: kicker, count at 56px, a breakdown line ("1 invite · 2 applied · 1 on the team · 3 saved"), and one next step. It fits 1440×900 without scrolling. When the whole list is 8 items or fewer, every item is also listed as a row under the tiles.
-2. **An area** (`&area=work`). Header "The Garden · Shortlist" / "Work 7". Area chips: All · Work · Projects · Events · People. Items are 64px rows, not cards: a thumbnail or date block, the title and a second line, mono meta (pay, going count), status, and an outline action on Needs you rows. Rows were chosen because status, dates and pay are what people decide on, and rows fit 10+ items on a screen.
-3. **One item** (`&card=role:<id>`, `project:`, `event:`, `person:`). This is the existing opened card, plus three things:
+1. **Overview** (`/today?view=shortlist`, replacing the desk's `fav` view). Header "Shortlist · N things", then the Needs you strip, then three tiles: Projects, Events, People. Each tile has a kicker, a count at 56px, a breakdown line and one next step. Projects' breakdown is the paid/passion split (decision 7). It fits 1440×900 without scrolling. When the whole list is 8 items or fewer, every item is also listed as a row under the tiles.
+2. **An area** (`&area=projects`). Header "The Garden · Shortlist" / "Projects 15". Chips: All · Projects · Events · People, a divider, then Paid · Passion (Projects only; click again to clear). Rows group as in The model. They are 64px rows, not cards: a thumbnail or date block, the title and a second line, mono meta (pay, going count), status, and an outline action on Needs you rows. Rows were chosen because status, dates and pay are what people decide on, and rows fit 10+ items on a screen.
+3. **One item** (`&card=role:<id>`, `request:<id>`, `project:`, `event:`, `person:`). This is the existing opened card, plus three things:
    - A status line ("Mara invited you Sep 30 · Waiting on you").
-   - One action that follows the state: Invited → Accept, with Decline as text. Applied → Withdraw request. Saved role → Apply. Saved event → I'm going. Going → You're going (disabled). Person → See profile.
+   - One action that follows the state (table below).
    - ← / → to step through the current group, with "2 of 6".
+
+| State | Action |
+|---|---|
+| Invited | Accept, with Decline as text |
+| Join request on your project | Accept, with Decline as text |
+| Request to attend your event | Approve, with Decline as text (the existing `events.updateApplicationStatus`) |
+| Leading | Review requests |
+| Applied or asked to join | Withdraw request |
+| Saved role | Apply |
+| Saved event | I'm going |
+| Going | You're going (disabled) |
+| Person | See profile |
 
 ## Palette
 
 - **Shortlist replaces the Desk tool**, in the same arc slot. The main button already does what Desk did (reset to everything); give it the title "Desk". A 7th tool on the 150px arc would put 44px tools 39px apart.
 - **Order:** Today, People, Projects, Events, Shortlist, Profile. Icon: Phosphor `bookmark-simple`.
-- **Stack:** See my shortlist ("4 need you" in yellow), Work 7, Projects 8, Events 9, People I follow 14.
+- **Stack:** See my shortlist ("4 need you" in yellow), Projects 15, Events 9, People I follow 14.
 - **"See my favorites" leaves the Events stack.**
 - **A yellow dot** on the Shortlist tool when something needs you. The number chip stays for messages.
 - **Highlight:** Shortlist lights on the overview, in an area, and on any card opened from it. It no longer lights Events.
-- **Old route:** `/favorites` redirects to the Shortlist on desktop. On phones, `/favorites` takes the same structure (tiles 2×2, then rows), and the nav label becomes "Shortlist".
+- **Old route:** `/favorites` redirects to the Shortlist on desktop. On phones, `/favorites` takes the same structure (see Open questions), and the nav label becomes "Shortlist".
 
 ## Empty and sparse
 
-- **Zero of everything:** one note, "Nothing on your shortlist yet.", with Browse work / projects / events and Find people.
-- **A few items:** all four tiles stay. Empty ones are dashed and read "Nothing saved yet" plus a browse link. Every item is listed under the tiles.
-- **Many events:** the tile counts live events only. Saved events group by month, and Past folds behind "Show 12 past events" with "Remove past events".
+- **Zero of everything:** one note, "Nothing on your shortlist yet.", with Browse projects, Browse events and Find people.
+- **A few items:** all three tiles stay. Empty ones are dashed and read "Nothing saved yet" plus a browse link. Items list under the tiles (the 8-item rule in Three levels).
+- **Many events:** the tile counts live events only (see Needs you rules, Display). Past folds behind "Show 12 past events", with "Remove past events".
 
 ## Data gaps (marked New in the mockup)
 
 | Need | Change |
 |---|---|
-| Save a project or role | `favorites.targetType` gains `"project"` and `"role"`, with matching branches in `getMyFavorites` (/events reads it too). Save buttons on project and role pages. |
-| Invited / Applied / On the team / Asked to join | A new "my requests" query over `projectMembers.by_userId_status`. It returns status, role title, budget, neededBy and the lead's name. |
-| Going | `eventRsvps` has no user index; add `by_userId`. |
-| Requested | Already exists: `eventApplications.by_applicantId`. |
-| Backing | Already exists: `garden/support.listMySupportGiven`. |
-| Role card | A new `role:<id>` opened-card kind. |
-| Interactions | ←/→ stepping in the opened card. Bulk "Remove past events". |
-| Legacy jobs | `jobInterests` were not migrated. Don't surface them. |
+| Save a project or role | New. `favorites.targetType` (now "profile" or "event") gains `"project"` and `"role"`, with branches in `getMyFavorites`, which `/events`, `EventCard` and the desk also read. Save buttons on project and role pages. |
+| Invited, waiting to hear, on the team, closed | New query over `projectMembers.by_userId_status`. It returns status, role title, pay, `neededBy` and the lead's name. |
+| Projects you lead and their requests | New query. The indexes exist: `projects.by_userId` / `by_userId_kind_status`, then `projectMembers.by_projectId_status`. |
+| Events you host and their requests | New query. The indexes exist: `events.by_organizerId`, then `eventApplications.by_eventId_status`. Co-hosts (`events.coHostIds`) have no index. |
+| Going | New `eventRsvps.by_userId` index. It has no user index today. |
+| Opened cards | New `role:<id>` and `request:<id>` card kinds. |
+| Interactions | New: ← / → stepping in the opened card; bulk "Remove past events". |
+| Hourly pay | Roles have no rate unit, so "$40/hr" needs a new field on `projectRoles`. |
+| Already exists | Follows and saved events (`favorites`). Backing (`garden/support.listMySupportGiven`). Your event requests (`eventApplications.by_applicantId`). |
+| Legacy jobs | `jobInterests` were never migrated. Don't surface them. |
 
 ## Open questions for Rick
 
-1. **Projects you lead (proposed, awaiting Rick).**
-   - Keep them off the Shortlist, which is what you're part of, not what you run.
-   - Add a Needs you rule: an application or join request on a project you lead counts, alongside invites waiting on your reply. The row's Review button opens the project's team panel.
-   - Add a "My projects" row to the palette's Projects menu. It opens the Projects view filtered to projects you lead and paid work you've posted, each card showing its waiting requests.
-   - Your profile keeps showing them publicly.
-2. **Phones.** The spec assumes the same structure, with the tiles 2×2. Confirm when the phone pass happens.
+1. **Phones.** The spec assumes the same structure, with the three tiles stacked or in a row of 3. Confirm when the phone pass happens.
