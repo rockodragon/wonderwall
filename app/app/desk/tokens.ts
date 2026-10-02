@@ -9,6 +9,7 @@
 //   headers are 12px here.
 
 import type { CSSProperties } from "react";
+import { useDeskCommunity, type DeskCommunity } from "./deskState";
 
 export const DESK = {
   surface: "#151515",
@@ -68,4 +69,37 @@ export function isFocusVisible(el: Element | null): boolean {
   } catch {
     return false;
   }
+}
+
+// ——————————————————————————————————————————————————————————————
+// Each community's desk (Rick, 2026-10-02): a warm dark for The Garden, a
+// cool dark for The Exchange, no picker. Only the surface and its dots
+// change; every text token stays, and both measure within 0.1:1 of #151515
+// (muted text 7.9:1 warm, 8.0:1 cool).
+// ——————————————————————————————————————————————————————————————
+
+export type DeskTint = { surface: string; dot: string; rgb: string };
+
+export const DESK_TINT: Record<DeskCommunity, DeskTint> = {
+  garden: { surface: "#19150f", dot: "#2b251b", rgb: "25,21,15" },
+  exchange: { surface: "#10151b", dot: "#212a35", rgb: "16,21,27" },
+};
+
+/** The surface of the community the member is on (the palette's switch). */
+export function useDeskTint(): DeskTint {
+  return DESK_TINT[useDeskCommunity()];
+}
+
+/** The tint at an alpha, for bands and fields over the dots. */
+export function tintAlpha(tint: DeskTint, alpha: number): string {
+  return `rgba(${tint.rgb},${alpha})`;
+}
+
+/** The dotted desk surface as a style. */
+export function deskSurfaceStyle(tint: DeskTint): CSSProperties {
+  return {
+    backgroundColor: tint.surface,
+    backgroundImage: `radial-gradient(${tint.dot} 1px, transparent 1px)`,
+    backgroundSize: "24px 24px",
+  };
 }

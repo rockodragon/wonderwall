@@ -195,7 +195,7 @@ Edge: an account is paused or retired after money is in flight.
 | `backingPayments` history | Not rewritten. Old rows keep `payeeUserId`. |
 | `projects.supportPaymentLinkUrl`, `events.paymentLinkUrl` | Remove from the schema in the phase 4 cleanup. Both are unused. |
 
-Interim fix, before anything else ships. **Proposed.** The public line at `projects.$id.tsx:363-369` states a legal status ("a 501(c)(3)") from unverified text. Either hide it or add "self-declared" next to it today. This is one small change. It does not depend on this spec. Bead `wonderwall-u0gt.1`.
+Interim fix, before anything else ships. **Done 2026-10-02 (#49): hidden from visitors; the owner still sees it, with "Only you see this until the nonprofit is verified."** Was proposed: The public line at `projects.$id.tsx:363-369` states a legal status ("a 501(c)(3)") from unverified text. Either hide it or add "self-declared" next to it today. This is one small change. It does not depend on this spec. Bead `wonderwall-u0gt.1`.
 
 ## 6. Build order
 
@@ -216,7 +216,7 @@ Beads: epic `wonderwall-u0gt`. Phase 0 `.1`, phase 1 `.2`, phase 2 `.3` (needs `
 
 - **Individuals first.** Getting individual people paid comes before any organization payout work. Organization payout accounts wait until creators' own payouts are solid.
 - **Nonprofit status is checked by hand.** There's no automated IRS lookup. An admin checks it.
-- **Community admins approve too.** A community's admins must also approve an organization's nonprofit status before it can be picked for that community's projects or events, in addition to the platform admin check.
+- **Who approves nonprofit status.** Either one is enough: a site admin, or an admin of the community (for The Garden, a Garden admin).
 - **Who acts for an organization.** The first person to set up an organization's payout account becomes its organization admin by default. A platform admin can override that, adding or removing people.
 
 ## 7. Open decisions for Rick

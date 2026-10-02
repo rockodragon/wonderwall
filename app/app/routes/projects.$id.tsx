@@ -411,10 +411,15 @@ export default function ProjectDetail() {
 
         <InlineEditableLocation project={project} isOwner={isOwner} />
 
-        {project.benefitsNonprofit && (
+        {/* Owner only (Rick, 2026-10-02). The nonprofit is typed in, not
+            verified, and backing money still goes to the project lead
+            (docs/features/payout-accounts.md §6a), so visitors aren't told
+            a gift goes to a 501(c)(3) until a verified payout account
+            routes it there. */}
+        {isOwner && project.benefitsNonprofit && (
           <DetailCard label="Nonprofit">
             <p className="text-sm" style={{ color: "var(--garden-body)" }}>
-              Funded via {project.nonprofitName || "a nonprofit"}, a 501(c)(3).
+              {project.nonprofitName || "A nonprofit"}. Only you see this until the nonprofit is verified.
             </p>
           </DetailCard>
         )}

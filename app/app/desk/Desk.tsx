@@ -27,7 +27,7 @@ import { DeskHeader, type HeaderSize } from "./DeskHeader";
 import { DEFAULT_HEADER_H, Z_DIM, layoutDeskFull, type LayoutCard, type Place } from "./deskLayout";
 import { DESK_VIEW_LABEL, parseDeskView, useDeskCommunity, useDeskSpacing, type DeskCardId, type DeskView } from "./deskState";
 import { SpacingControl } from "./SpacingControl";
-import { DESK, DESK_SANS, FOCUS_RING_CLASS, MOTION_MS, motion } from "./tokens";
+import { DESK, DESK_SANS, FOCUS_RING_CLASS, MOTION_MS, motion, deskSurfaceStyle, useDeskTint } from "./tokens";
 import { useDeskData } from "./useDeskData";
 import { useUpdateReads } from "./useUpdateReads";
 
@@ -54,6 +54,7 @@ export function Desk() {
   const navigate = useNavigate();
   const community = useDeskCommunity();
   const space = useDeskSpacing();
+  const tint = useDeskTint();
   const reduced = useReducedMotion();
 
   const view = parseDeskView(searchParams.get("view"));
@@ -262,9 +263,7 @@ export function Desk() {
         width: "100%",
         height: "100dvh",
         overflow: "hidden",
-        background: DESK.surface,
-        backgroundImage: `radial-gradient(${DESK.dot} 1px, transparent 1px)`,
-        backgroundSize: "24px 24px",
+        ...deskSurfaceStyle(tint),
         color: DESK.text,
         fontFamily: DESK_SANS,
       }}

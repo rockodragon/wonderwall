@@ -22,13 +22,12 @@ import { DeskFilterBar, isBrowseView, readDeskProjects, type BrowseView } from "
 import { countLabel } from "./deskGreeting";
 import { GRID_SIDE } from "./deskLayout";
 import { COMMUNITY_LABEL, DESK_VIEW_LABEL, deskCreateHref, deskHref, useDeskSpacing, type DeskCommunity, type DeskView } from "./deskState";
-import { DESK, FOCUS_RING_CLASS, monoLabel } from "./tokens";
+import { DESK, FOCUS_RING_CLASS, monoLabel, tintAlpha, useDeskTint } from "./tokens";
 
 /** The header's left edge, shared with the grid's first column. */
 export const HEADER_SIDE = GRID_SIDE;
 /** Over the cards that scroll beneath it, under the dim layer (deskLayout Z_DIM). */
 const Z_HEADER = 15;
-const BAND = "rgba(21,21,21,.92)";
 
 export type HeaderSize = {
   /** The title block alone: the filter row pins once this has scrolled away. */
@@ -68,6 +67,7 @@ export function DeskHeader({
   const rowRef = useRef<HTMLDivElement>(null);
   // The header's left edge is the grid's: both follow the spacing dial.
   const side = HEADER_SIDE * useDeskSpacing();
+  const tint = useDeskTint();
   const report = useRef(onMeasure);
   report.current = onMeasure;
 
@@ -131,7 +131,7 @@ export function DeskHeader({
             alignItems: "flex-start",
             gap: 16,
             padding: `10px ${side}px 14px`,
-            background: stuck ? BAND : "transparent",
+            background: stuck ? tintAlpha(tint, 0.92) : "transparent",
             backdropFilter: stuck ? "blur(14px)" : undefined,
             WebkitBackdropFilter: stuck ? "blur(14px)" : undefined,
             borderBottom: `1px solid ${stuck ? DESK.line : "transparent"}`,

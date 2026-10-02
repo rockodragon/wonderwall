@@ -37,7 +37,7 @@ import {
   fanTransition,
   loginHref,
 } from "./paletteLogic";
-import { DESK, FOCUS_RING_CLASS } from "./tokens";
+import { DESK, FOCUS_RING_CLASS, useDeskTint } from "./tokens";
 import { usePaletteController } from "./usePaletteController";
 
 export interface PaletteProfile {
@@ -136,6 +136,7 @@ function PaletteShell({
   const centre = PALETTE.inset + PALETTE.button / 2;
   const half = PALETTE.tool / 2;
 
+  const tint = useDeskTint();
   return (
     <div
       ref={pal.rootRef}
@@ -185,7 +186,7 @@ function PaletteShell({
             border: `1px solid ${DESK.accent}`,
             // The handoff's faint accent wash, over an opaque base so the
             // icon still reads on a light page.
-            background: `linear-gradient(${MAIN_WASH}, ${MAIN_WASH}), ${DESK.surface}`,
+            background: `linear-gradient(${MAIN_WASH}, ${MAIN_WASH}), ${tint.surface}`,
             boxShadow: `0 0 0 6px ${MAIN_RING}`,
             color: DESK.accent,
             display: "flex",

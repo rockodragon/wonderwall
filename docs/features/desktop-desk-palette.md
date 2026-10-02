@@ -342,6 +342,22 @@ A UX analyst's recommendations are folded in below. Rick: keep the two-step entr
 - Browse data and filters: `deskBrowse.tsx`, plus pure filter logic in `lib/browse/` shared with `/people`, `/projects` and `/events`.
 - Create flows and palette menus: `DeskCreate.tsx`, `FocusBackdrop.tsx`, `usePaletteController.ts`.
 
+## Community tint (Rick, 2026-10-02)
+
+There's no background picker; a UX review advised against one. Instead, each community's desk gets its own dark:
+- The Garden is warm (`#19150f`, dots `#2b251b`).
+- The Exchange is cool (`#10151b`, dots `#212a35`).
+
+The tint follows the palette's community switch. `DESK_TINT`, `useDeskTint()` and `deskSurfaceStyle()` live in `desk/tokens.ts`. It covers:
+- the desk
+- the pinned filter band
+- the desk search field
+- the create-flow backdrop
+- the palette button's base
+- the admin Updates preview
+
+Text tokens are unchanged, and both darks measure within 0.1:1 of `#151515`: muted text is 7.9:1 on the warm dark and 8.0:1 on the cool one.
+
 ## Later
 
 - Open create flows and settings as desk cards instead of pages.

@@ -62,7 +62,7 @@ import { peopleCountLabel } from "./deskGreeting";
 import { eventsCards, everyoneCards, orgsCards, peopleCards, peopleNoun, projectsCards, type ProfileRow } from "./deskBrowseCards";
 import { fundFrom } from "./deskInput";
 import { parseDeskView, type DeskCommunity, type DeskView } from "./deskState";
-import { DESK, FOCUS_RING_CLASS, monoLabel } from "./tokens";
+import { DESK, FOCUS_RING_CLASS, monoLabel, tintAlpha, useDeskTint } from "./tokens";
 
 /** Views that browse a full list with filters. */
 export type BrowseView = Extract<DeskView, "people" | "projects" | "events">;
@@ -722,6 +722,7 @@ export function DeskFilterBar({ view }: { view: BrowseView }) {
 // ——————————————————————————————————————————————————————————————
 
 function DeskSearch({ value, onChange, placeholder }: { value: string; onChange: (next: string) => void; placeholder: string }) {
+  const tint = useDeskTint();
   return (
     <div style={{ position: "relative", width: 280, height: 40, flexShrink: 0 }}>
       <svg
@@ -752,7 +753,7 @@ function DeskSearch({ value, onChange, placeholder }: { value: string; onChange:
         spellCheck={false}
         enterKeyHint="search"
         className={`block w-full rounded-lg border border-[#333] text-[15px] placeholder:text-[#ACACA4] ${FOCUS_RING_CLASS}`}
-        style={{ height: 40, paddingLeft: 38, paddingRight: 36, background: "rgba(21,21,21,.6)", color: DESK.text }}
+        style={{ height: 40, paddingLeft: 38, paddingRight: 36, background: tintAlpha(tint, 0.6), color: DESK.text }}
       />
       {value && (
         <button
