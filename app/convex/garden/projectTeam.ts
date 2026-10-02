@@ -79,17 +79,36 @@ export function resolveStage(project: { stage?: string; status?: string; kind: s
   return project.kind === "paid" ? "forming" : "planning";
 }
 
-/** Whether a project is still taking new people: a role reads as "open", a
- * visitor can ask to join or apply. A finished project isn't — archived,
- * completed (by status or stage), or cancelled — nor is one an admin hid
- * (moderation.ts), so its unfilled roles stop
- * surfacing and a request is refused, rather than someone applying to work
- * that has already wrapped. "paused" still takes people: on hold is not
- * over. Filled roles are unaffected; they're credits, not openings. */
-export function isAcceptingPeople(project: { stage?: string; status?: string; kind: string }): boolean {
-  if (project.status === "archived" || project.status === "completed" || isHidden(project)) return false;
+/** Whether a project's work is over: archived, completed (by status or
+ * stage), or cancelled. "paused" isn't: on hold is not over. Nor is a hide,
+ * which is an admin's call about the page, not the work. */
+export function isProjectFinished(project: { stage?: string; status?: string; kind: string }): boolean {
+  if (project.status === "archived" || project.status === "completed") return true;
   const stage = resolveStage(project);
-  return stage !== "completed" && stage !== "cancelled";
+  return stage === "completed" || stage === "cancelled";
+}
+
+/** Whether a project is still taking new people: a role reads as "open", a
+ * visitor can ask to join or apply. A finished project isn't
+ * (isProjectFinished), nor is one an admin hid (moderation.ts), so its
+ * unfilled roles stop surfacing and a request is refused, rather than
+ * someone applying to work that has already wrapped. Filled roles are
+ * unaffected; they're credits, not openings. */
+export function isAcceptingPeople(project: { stage?: string; status?: string; kind: string }): boolean {
+  return !isHidden(project) && !isProjectFinished(project);
+}
+
+/** Whether a project page lists this role posting (listRoles): never a
+ * closed one — the lead's own history — and an open one only while the
+ * project takes people; an unfilled role on finished work isn't an
+ * opening. A filled one stays listed, as a credit. A role whose project is
+ * gone reads as not taking people. */
+export function isRoleListed<Status extends string>(
+  role: { status: Status },
+  project: { stage?: string; status?: string; kind: string } | null,
+): role is { status: Exclude<Status, "closed"> } {
+  if (role.status === "closed") return false;
+  return role.status !== "open" || (project !== null && isAcceptingPeople(project));
 }
 
 // ——————————————————————————————————————————————————————————————
@@ -521,7 +540,7 @@ async function getProfile(ctx: Ctx, userId: Id<"users">): Promise<Doc<"profiles"
 }
 
 // Same resolution messaging.ts uses: stored file first, external URL second.
-async function resolveImageUrl(ctx: Ctx, profile: Doc<"profiles"> | null): Promise<string | null> {
+export async function resolveImageUrl(ctx: Ctx, profile: Doc<"profiles"> | null): Promise<string | null> {
   if (!profile) return null;
   if (profile.imageStorageId) return await ctx.storage.getUrl(profile.imageStorageId);
   return profile.imageUrl || null;
@@ -1478,16 +1497,13 @@ export const getTeam = query({
   },
 });
 
-/** Every open or filled role posting on a project, oldest first — what the
- * lead is actually looking for, shown separately from the invited-people
- * list so a visitor can pick a specific opening (or the free-text Apply/
- * Ask-to-join button) instead of proposing a role blind. Closed postings
- * are omitted — they're the lead's own history, not something to keep
- * surfacing once retired. So are OPEN postings on a project that's no
- * longer taking people (isAcceptingPeople) — an unfilled role on finished
- * work isn't an opening; filled ones stay, as credits. Doesn't itself require the lead — the whole
- * project page already does (projects.$id.tsx lives inside the _app shell,
- * which isn't on the signed-out-public-path list). */
+/** Every listed role posting on a project (isRoleListed), oldest first —
+ * what the lead is actually looking for, shown separately from the
+ * invited-people list so a visitor can pick a specific opening (or the
+ * free-text Apply/Ask-to-join button) instead of proposing a role blind.
+ * Doesn't itself require the lead — the whole project page already does
+ * (projects.$id.tsx lives inside the _app shell, which isn't on the
+ * signed-out-public-path list). */
 export const listRoles = query({
   args: { projectId: v.id("projects") },
   handler: async (ctx, args) => {
@@ -1498,7 +1514,6 @@ export const listRoles = query({
         .withIndex("by_projectId", (q) => q.eq("projectId", args.projectId))
         .collect(),
     ]);
-    const accepting = project ? isAcceptingPeople(project) : false;
     rows.sort((a, b) => a.createdAt - b.createdAt);
 
     const out: {
@@ -1518,8 +1533,7 @@ export const listRoles = query({
       filledBy: { profileId: Id<"profiles"> | null; name: string; imageUrl: string | null } | null;
     }[] = [];
     for (const row of rows) {
-      if (row.status === "closed") continue;
-      if (row.status === "open" && !accepting) continue;
+      if (!isRoleListed(row, project)) continue;
       let filledBy: (typeof out)[number]["filledBy"] = null;
       // filledByMemberId always has a userId by the time it's "accepted" —
       // every path that sets status "accepted" (respondToInvite,

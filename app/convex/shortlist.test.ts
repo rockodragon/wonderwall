@@ -2,7 +2,9 @@
 // favorites-redesign/README.md, contract: app/lib/shortlist/types.ts).
 //
 // Two layers, as in offeringModeration.test.ts. First the pure rules —
-// relation mapping, pay, backing, role listing, dedupe — with no Convex.
+// relation mapping, pay, backing, dedupe — with no Convex. (Which support
+// counts and which roles a project page lists are tested where those rules
+// live: garden/support.test.ts, garden/projectTeam.test.ts.)
 // Then getMine runs against a small in-memory ctx, because the rules are
 // only as good as the wiring: a hidden project must really drop out, a
 // request must really land on the lead. The fake checks every withIndex
@@ -15,10 +17,9 @@ import {
   dedupeEvents,
   dedupeProjects,
   getMine,
-  isGivenSupport,
-  isRoleListed,
   memberRelation,
   payFor,
+  savedRoleRelation,
   summarizeBacking,
 } from "./shortlist";
 import type { ProjectRelation, ShortlistEvent, ShortlistProject } from "../app/lib/shortlist/types";
@@ -77,20 +78,6 @@ describe("payFor — the role's pay, else a paid project's, else none", () => {
   });
 });
 
-describe("isGivenSupport — what listMySupportGiven lists", () => {
-  it("keeps confirmed and pledged support of a known kind", () => {
-    expect(isGivenSupport({ status: "confirmed", type: "financial_one_time" })).toBe(true);
-    expect(isGivenSupport({ status: "pledged", type: "financial_recurring" })).toBe(true);
-    expect(isGivenSupport({ status: "confirmed", type: "encouragement" })).toBe(true);
-    expect(isGivenSupport({ status: "confirmed", type: "resource" })).toBe(true);
-  });
-
-  it("drops an unfinished checkout and a type it doesn't know", () => {
-    expect(isGivenSupport({ status: "pending", type: "financial_one_time" })).toBe(false);
-    expect(isGivenSupport({ status: "confirmed", type: "mystery" })).toBe(false);
-  });
-});
-
 describe("summarizeBacking — one backing per project", () => {
   it("shows recurring money over newer one-time money, since the first", () => {
     expect(
@@ -126,25 +113,23 @@ describe("summarizeBacking — one backing per project", () => {
   });
 });
 
-describe("isRoleListed — listRoles' rule", () => {
-  const active = { kind: "paid", status: "active" };
-  const archived = { kind: "paid", status: "archived" };
-
-  it("an open role on a project taking people", () => {
-    expect(isRoleListed({ status: "open" }, active)).toBe(true);
+describe("savedRoleRelation — a saved role closes once it can't be applied to", () => {
+  it("an open role on live work stays saved", () => {
+    expect(savedRoleRelation("open", false)).toEqual({ relation: "saved" });
   });
 
-  it("never a closed role", () => {
-    expect(isRoleListed({ status: "closed" }, active)).toBe(false);
+  it("a filled or closed role closes as filled", () => {
+    expect(savedRoleRelation("filled", false)).toEqual({ relation: "closed", closedReason: "filled" });
+    expect(savedRoleRelation("closed", false)).toEqual({ relation: "closed", closedReason: "filled" });
   });
 
-  it("an open role drops once the project stops taking people", () => {
-    expect(isRoleListed({ status: "open" }, archived)).toBe(false);
-    expect(isRoleListed({ status: "open" }, { kind: "passion", status: "active", stage: "cancelled" })).toBe(false);
+  it("an open role on a finished project closes as finished", () => {
+    expect(savedRoleRelation("open", true)).toEqual({ relation: "closed", closedReason: "finished" });
   });
 
-  it("a filled role stays listed, as filled", () => {
-    expect(isRoleListed({ status: "filled" }, archived)).toBe(true);
+  it("a role that was filled before the project finished keeps its own reason", () => {
+    expect(savedRoleRelation("filled", true)).toEqual({ relation: "closed", closedReason: "filled" });
+    expect(savedRoleRelation("closed", true)).toEqual({ relation: "closed", closedReason: "filled" });
   });
 });
 
@@ -527,8 +512,8 @@ const WORLD = (): Record<string, Row[]> => ({
   hostOrgs: [],
 });
 
-async function mine(viewer: string | null = ME) {
-  const { ctx, reads } = makeCtx(WORLD(), viewer);
+async function mine(viewer: string | null = ME, world = WORLD()) {
+  const { ctx, reads } = makeCtx(world, viewer);
   return { data: await run(getMine, ctx), reads };
 }
 
@@ -553,6 +538,7 @@ describe("getMine — projects", () => {
       "saved:projects:roles:projectRoles:director",
       "saved:projects:art",
       "saved:projects:saved",
+      "closed:projects:roles:projectRoles:gaffer",
       "closed:projects:shelved",
       "closed:projects:done",
       "closed:projects:declined",
@@ -600,7 +586,7 @@ describe("getMine — projects", () => {
     });
   });
 
-  it("closed: declined, withdrawn, left and removed keep their reason; completed and archived projects finish", async () => {
+  it("closed: declined, withdrawn, left and removed keep their reason; completed and archived projects finish; a closed saved role reads filled", async () => {
     const { data } = await mine();
     const reasons = Object.fromEntries(
       data.projects
@@ -614,6 +600,7 @@ describe("getMine — projects", () => {
       "projects:removed": "removed",
       "projects:done": "finished",
       "projects:shelved": "finished",
+      "projects:roles": "filled",
     });
   });
 
@@ -664,11 +651,6 @@ describe("getMine — visibility", () => {
     const ids = data.projects.map((p: ShortlistProject) => p.projectId);
     expect(ids).not.toContain("projects:hidden"); // team row, cheer and save all gone
     expect(ids).toContain("projects:mineHidden"); // still yours to lead
-  });
-
-  it("drops a saved role the project page no longer lists", async () => {
-    const { data } = await mine();
-    expect(data.projects.some((p: ShortlistProject) => p.role?.id === "projectRoles:gaffer")).toBe(false);
   });
 
   it("drops hidden events and ticketed ones whose organizer can't sell, unless you host them", async () => {
@@ -801,6 +783,89 @@ describe("getMine — requests waiting on you", () => {
         at: 400,
       },
     ]);
+  });
+});
+
+// Closed holds anything that has ended for you (Rick's rule).
+describe("getMine — what has ended for you", () => {
+  const byKey = (data: { projects: ShortlistProject[] }) => Object.fromEntries(data.projects.map((p) => [p.key, p]));
+
+  it("a project you lead that finished is closed, not Leading, and its requests drop", async () => {
+    const world = WORLD();
+    world.projects.push(
+      project("mineDone", { userId: ME, status: "completed", createdAt: 95 }),
+      project("mineShelved", { userId: ME, status: "archived", createdAt: 94 }),
+      project("mineCancelled", { userId: ME, stage: "cancelled", createdAt: 93 }),
+    );
+    world.projectMembers.push(member("lateAsk", "mineDone", "pending", { userId: ALEX, name: "Alex A.", createdAt: 420 }));
+    const { data } = await mine(ME, world);
+    const rows = byKey(data);
+
+    for (const id of ["mineDone", "mineShelved", "mineCancelled"]) {
+      expect(rows[`leading:projects:${id}`]).toBeUndefined();
+      expect(rows[`closed:projects:${id}`]).toMatchObject({ relation: "closed", closedReason: "finished" });
+      expect(rows[`closed:projects:${id}`]).not.toHaveProperty("pendingRequests");
+    }
+    expect(rows["closed:projects:mineDone"].since).toBe(95);
+    expect(data.requests.map((r: { key: string }) => r.key)).not.toContain("request:project:projectMembers:lateAsk");
+    // Live work you lead is unchanged, and a hide isn't an ending.
+    expect(rows["leading:projects:mine"]).toMatchObject({ pendingRequests: 2 });
+    expect(rows["leading:projects:mineHidden"]).toBeDefined();
+  });
+
+  it("a saved role that was filled or closed is closed as filled; an opening on finished work as finished", async () => {
+    const world = WORLD();
+    world.projectRoles.push(
+      { _id: "projectRoles:painter", projectId: "projects:roles", title: "Painter", status: "filled", neededBy: 9000, createdAt: 1 },
+      { _id: "projectRoles:usher", projectId: "projects:done", title: "Usher", status: "open", createdAt: 1 },
+      { _id: "projectRoles:grip", projectId: "projects:done", title: "Grip", status: "filled", createdAt: 1 },
+      { _id: "projectRoles:mineFilled", projectId: "projects:mine", title: "Producer", status: "filled", createdAt: 1 },
+    );
+    world.favorites.push(
+      fav("role", "projectRoles:painter", 332),
+      fav("role", "projectRoles:usher", 333),
+      fav("role", "projectRoles:grip", 334),
+      fav("role", "projectRoles:mineFilled", 335),
+    );
+    const { data } = await mine(ME, world);
+    const reasons = Object.fromEntries(
+      data.projects
+        .filter((p: ShortlistProject) => p.role?.id)
+        .map((p: ShortlistProject) => [p.role!.id, [p.relation, p.closedReason]]),
+    );
+
+    expect(reasons).toMatchObject({
+      "projectRoles:director": ["saved", undefined],
+      "projectRoles:gaffer": ["closed", "filled"],
+      "projectRoles:painter": ["closed", "filled"],
+      "projectRoles:usher": ["closed", "finished"],
+      // Filled before the project finished: its own reason wins.
+      "projectRoles:grip": ["closed", "filled"],
+      // The same on a project you lead.
+      "projectRoles:mineFilled": ["closed", "filled"],
+    });
+    // Still the role's own row, with its title, deadline and pay, since it was saved.
+    expect(byKey(data)["closed:projects:roles:projectRoles:painter"]).toMatchObject({
+      role: { id: "projectRoles:painter", title: "Painter", neededBy: 9000 },
+      pay: { budgetType: "amount", budget: 5000 },
+      since: 332,
+    });
+  });
+
+  it("requests to attend a cancelled event you host drop, from the list and the row's count", async () => {
+    const world = WORLD();
+    world.events.push(event("hostedCancelled", { organizerId: ME, status: "cancelled", datetime: 5400 }));
+    world.eventApplications.push(application("alexCancelled", "hostedCancelled", ALEX, "pending", { createdAt: 610 }));
+    const { data } = await mine(ME, world);
+
+    expect(data.events.find((e: ShortlistEvent) => e.eventId === "events:hostedCancelled")).toMatchObject({
+      relation: "hosting",
+      cancelled: true,
+      pendingRequests: 0,
+    });
+    expect(data.requests.map((r: { key: string }) => r.key)).not.toContain("request:event:eventApplications:alexCancelled");
+    // A live event you host keeps its request.
+    expect(data.requests.map((r: { key: string }) => r.key)).toContain("request:event:eventApplications:alexHosted");
   });
 });
 

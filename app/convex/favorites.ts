@@ -4,6 +4,7 @@ import { auth } from "./auth";
 import type { Id } from "./_generated/dataModel";
 import { eventVisibilityChecker } from "./garden/eventVisibility";
 import { isAcceptingPeople } from "./garden/projectTeam";
+import { VISIBLE_PROJECT_STATUSES } from "./moderationRules";
 
 /** What a favorite points at. A profile is a follow and an event is a heart
  * (docs/features/following.md); a project, or one role on it, is a save for
@@ -18,18 +19,12 @@ export const favoriteTargetTypeValidator = v.union(
 );
 export type FavoriteTargetType = Infer<typeof favoriteTargetTypeValidator>;
 
-// The statuses the browse lists show a project in: VISIBLE_STATUSES in
-// garden/projects.ts, twinned in projectsPublic.ts and stats.ts. None of
-// them is exported, so this is one more twin; keep them in sync. Hidden,
-// pending and archived are out.
-const VISIBLE_PROJECT_STATUSES = new Set(["active", "in_progress", "completed"]);
-
 /** Throws unless a member may newly save this project or role. A project
- * they can't browse to reads as not found, the way getProject reads a
- * hidden one, so a save can't confirm it exists. A role must also be an
- * opening the way listRoles shows one: open, on a project still taking
- * people. Removing a save never comes here, so a role that has since
- * closed or filled can still be unsaved. */
+ * they can't browse to (VISIBLE_PROJECT_STATUSES) reads as not found, the
+ * way getProject reads a hidden one, so a save can't confirm it exists. A
+ * role must also be an opening the way listRoles shows one: open, on a
+ * project still taking people. Removing a save never comes here, so a role
+ * that has since closed or filled can still be unsaved. */
 async function assertSaveable(
   ctx: MutationCtx,
   targetType: "project" | "role",

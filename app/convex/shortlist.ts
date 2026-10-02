@@ -7,6 +7,13 @@
 // relation mapping, pay, backing, dedupe — unit-tested in shortlist.test.ts;
 // the reads below it. Every read is indexed on the member or on one of their
 // projects or events. These lists are small per member, so nothing pages.
+// The rules shared with other surfaces — which projects are posted, which
+// support counts, when a project is finished — are imported from their
+// homes, not copied.
+//
+// Closed holds anything that has ended for the member (Rick's rule): a team
+// row that ended, a project they lead that finished, and a saved role that
+// was filled, closed, or whose project finished.
 //
 // stage.ts and projectPick.ts are imported at runtime from app/lib, the way
 // garden/devSeed.ts imports app/constants: both are pure, and Convex bundles
@@ -22,7 +29,6 @@ import { resolveStage } from "../app/lib/stage";
 import type {
   ClosedReason,
   EventRelation,
-  ProjectKind,
   ProjectRelation,
   ShortlistData,
   ShortlistEvent,
@@ -34,15 +40,17 @@ import type {
 import { countGoing } from "./events";
 import { isEventHost } from "./eventHosts";
 import { eventVisibilityChecker } from "./garden/eventVisibility";
-import { isAcceptingPeople } from "./garden/projectTeam";
-import { supportCadence, supportKind } from "./garden/support";
-import { isHidden } from "./moderationRules";
+import { isProjectFinished, resolveImageUrl } from "./garden/projectTeam";
+import { projectKind } from "./garden/projectsPublic";
+import { isGivenSupport, supportCadence, supportKind } from "./garden/support";
+import { isHidden, isPostedProject } from "./moderationRules";
 
 // ——————————————————————————————————————————————————————————————
 // Pure core
 // ——————————————————————————————————————————————————————————————
 
 type MemberStatus = Doc<"projectMembers">["status"];
+type RoleStatus = Doc<"projectRoles">["status"];
 
 const LIVE_RELATION = { invited: "invited", accepted: "team", pending: "waiting" } as const;
 
@@ -63,10 +71,6 @@ export function memberRelation(
   }
 }
 
-function projectKind(kind: string): ProjectKind {
-  return kind === "paid" ? "paid" : "passion";
-}
-
 type Priced = { budgetType?: string; budget?: number; budgetMax?: number };
 
 /** The role's pay when it declared one, else the project's for a paid
@@ -74,15 +78,6 @@ type Priced = { budgetType?: string; budget?: number; budgetMax?: number };
 export function payFor(role: Priced | null, project: Priced & { kind: string }): BudgetDeclaration | null {
   const source = role?.budgetType ? role : project.kind === "paid" ? project : null;
   return source && { budgetType: source.budgetType, budget: source.budget, budgetMax: source.budgetMax };
-}
-
-// listMySupportGiven's (garden/support.ts) VISIBLE_STATUSES, which that file
-// doesn't export: "pending" is a checkout that never finished.
-const GIVEN_STATUSES = new Set(["confirmed", "pledged"]);
-
-/** A projectSupport row that listMySupportGiven lists: given, and a kind it knows. */
-export function isGivenSupport(row: { status: string; type: string }): boolean {
-  return GIVEN_STATUSES.has(row.status) && supportKind(row.type) !== null;
 }
 
 function isRecurring(type: string): boolean {
@@ -105,22 +100,16 @@ export function summarizeBacking(rows: { type: string; amountCents?: number; cre
   };
 }
 
-/** Whether the project page lists this role, by listRoles' rule (garden/
- * projectTeam.ts): never a closed one, and an open one only while the
- * project takes people. A filled role stays listed, as filled. */
-export function isRoleListed(
-  role: { status: string },
-  project: { stage?: string; status?: string; kind: string },
-): boolean {
-  if (role.status === "closed") return false;
-  return role.status !== "open" || isAcceptingPeople(project);
-}
-
-/** Portfolio-origin projects are artifacts.create's side effect of a quick
- * share, not projects anyone runs; listProjects keeps them off browse the
- * same way. Only an explicit "portfolio" counts. */
-function isPostedProject(project: { origin?: string }): boolean {
-  return project.origin !== "portfolio";
+/** A saved role once it can't be applied to: filled, or closed by the lead,
+ * reads "filled"; an opening on a project that finished reads "finished".
+ * A role that ended before its project did keeps its own reason, as in
+ * memberRelation. */
+export function savedRoleRelation(
+  roleStatus: RoleStatus,
+  projectFinished: boolean,
+): { relation: ProjectRelation; closedReason?: ClosedReason } {
+  if (roleStatus !== "open") return { relation: "closed", closedReason: "filled" };
+  return projectFinished ? { relation: "closed", closedReason: "finished" } : { relation: "saved" };
 }
 
 const PROJECT_ORDER: readonly ProjectRelation[] = ["invited", "leading", "team", "waiting", "backing", "saved", "closed"];
@@ -175,13 +164,13 @@ function once<K extends string, V>(load: (key: K) => Promise<V>): (key: K) => Pr
   };
 }
 
-/** A person, their picture resolved the way favorites.getMyFavorites does:
+/** A person, their picture resolved as everywhere else (resolveImageUrl):
  * the stored file wins over the legacy URL. */
 async function toPerson(ctx: QueryCtx, profile: Doc<"profiles">): Promise<ShortlistPerson> {
   return {
     profileId: profile._id,
     name: profile.name,
-    imageUrl: profile.imageStorageId ? await ctx.storage.getUrl(profile.imageStorageId) : profile.imageUrl || null,
+    imageUrl: await resolveImageUrl(ctx, profile),
     interests: profile.interests,
   };
 }
@@ -370,8 +359,14 @@ export const getMine = query({
     }
 
     // ——— Projects you lead, and the join requests waiting on you ———
+    // A finished one closes, and its requests drop with it: the people who
+    // asked already see theirs closed as finished (memberRelation).
     const leading = Promise.all(
       led.filter(isPostedProject).map(async (project) => {
+        if (isProjectFinished(project)) {
+          const row = await projectRow(project, "closed", project.createdAt, null, { closedReason: "finished" });
+          return { row, requests: [] };
+        }
         const pending = await ctx.db
           .query("projectMembers")
           .withIndex("by_projectId_status", (q) => q.eq("projectId", project._id).eq("status", "pending"))
@@ -409,9 +404,7 @@ export const getMine = query({
       const project = await read.project(row.projectId);
       if (!project || !canOpenProject(project)) return null;
       const posting = row.roleId ? await read.role(row.roleId) : null;
-      // Finished is isAcceptingPeople's rule: archived, completed (by status
-      // or stage), or cancelled.
-      const { relation, ...extra } = memberRelation(row.status, !isAcceptingPeople(project));
+      const { relation, ...extra } = memberRelation(row.status, isProjectFinished(project));
       return projectRow(project, relation, row.respondedAt ?? row.createdAt, { posting, title: row.role }, extra);
     });
 
@@ -439,18 +432,22 @@ export const getMine = query({
       const posting = id && (await read.role(id));
       const project = posting && (await read.project(posting.projectId));
       if (!posting || !project || !canOpenProject(project)) return null;
-      if (!ownsProject(project) && !isRoleListed(posting, project)) return null;
-      return projectRow(project, "saved", fav.createdAt, { posting, title: posting.title });
+      const { relation, ...extra } = savedRoleRelation(posting.status, isProjectFinished(project));
+      return projectRow(project, relation, fav.createdAt, { posting, title: posting.title }, extra);
     });
 
     // ——— Events you host, and the requests to attend waiting on you ———
     // Co-hosts (events.coHostIds) have no index, so only the organizer hosts here.
+    // A cancelled event's requests drop: there's nothing left to approve.
     const hosting = Promise.all(
       hosted.map(async (event) => {
-        const pending = await ctx.db
-          .query("eventApplications")
-          .withIndex("by_eventId_status", (q) => q.eq("eventId", event._id).eq("status", "pending"))
-          .collect();
+        const pending =
+          event.status === "cancelled"
+            ? []
+            : await ctx.db
+                .query("eventApplications")
+                .withIndex("by_eventId_status", (q) => q.eq("eventId", event._id).eq("status", "pending"))
+                .collect();
         const requests = await Promise.all(
           pending.map(async (app): Promise<ShortlistRequest> => ({
             key: `request:event:${app._id}`,

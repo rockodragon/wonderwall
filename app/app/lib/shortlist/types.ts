@@ -32,10 +32,11 @@ export type ProjectRelation =
   | "backing"
   /** You saved it (favorites, targetType "project" or "role"). */
   | "saved"
-  /** It ended for you: declined, withdrawn, left, removed, or the project finished. */
+  /** It ended for you: declined, withdrawn, left, removed, the project
+   *  finished, or a role you saved was filled or closed. */
   | "closed";
 
-export type ClosedReason = "declined" | "withdrawn" | "left" | "removed" | "finished";
+export type ClosedReason = "declined" | "withdrawn" | "left" | "removed" | "finished" | "filled";
 
 export interface ShortlistPerson {
   /** profiles._id, or null for someone without a profile (an email invite). */

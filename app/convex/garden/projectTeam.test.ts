@@ -8,6 +8,8 @@ import { describe, expect, it } from "vitest";
 import type { Doc, Id } from "../_generated/dataModel";
 import {
   isAcceptingPeople,
+  isProjectFinished,
+  isRoleListed,
   CLAIM_TTL_MS,
   DAY_MS,
   DECLINED_RETRY_MS,
@@ -348,5 +350,53 @@ describe("isAcceptingPeople", () => {
     // no stage + in_progress resolves to "working": still live
     expect(isAcceptingPeople({ kind: "paid", status: "in_progress" })).toBe(true);
     expect(isAcceptingPeople({ kind: "passion", status: "active" })).toBe(true);
+  });
+});
+
+describe("isProjectFinished — the work is over", () => {
+  it("archived, completed by status or stage, or cancelled", () => {
+    expect(isProjectFinished({ kind: "paid", status: "archived", stage: "forming" })).toBe(true);
+    expect(isProjectFinished({ kind: "paid", status: "completed" })).toBe(true);
+    expect(isProjectFinished({ kind: "passion", status: "active", stage: "completed" })).toBe(true);
+    expect(isProjectFinished({ kind: "passion", status: "active", stage: "cancelled" })).toBe(true);
+  });
+
+  it("live, paused or hidden work isn't", () => {
+    for (const stage of ["planning", "raising", "forming", "working", "releasing", "paused"]) {
+      expect(isProjectFinished({ kind: "passion", status: "active", stage })).toBe(false);
+    }
+    expect(isProjectFinished({ kind: "paid", status: "in_progress" })).toBe(false);
+    // A hide stops it taking people, but the work isn't over.
+    expect(isProjectFinished({ kind: "passion", status: "hidden" })).toBe(false);
+    expect(isAcceptingPeople({ kind: "passion", status: "hidden" })).toBe(false);
+  });
+});
+
+describe("isRoleListed — listRoles' rule", () => {
+  const active = { kind: "paid", status: "active" };
+  const archived = { kind: "paid", status: "archived" };
+
+  it("an open role on a project taking people", () => {
+    expect(isRoleListed({ status: "open" }, active)).toBe(true);
+  });
+
+  it("never a closed role", () => {
+    expect(isRoleListed({ status: "closed" }, active)).toBe(false);
+  });
+
+  it("an open role drops once the project stops taking people", () => {
+    expect(isRoleListed({ status: "open" }, archived)).toBe(false);
+    expect(isRoleListed({ status: "open" }, { kind: "passion", status: "active", stage: "cancelled" })).toBe(false);
+    expect(isRoleListed({ status: "open" }, { kind: "passion", status: "hidden" })).toBe(false);
+  });
+
+  it("a filled role stays listed, as filled", () => {
+    expect(isRoleListed({ status: "filled" }, archived)).toBe(true);
+  });
+
+  it("with the project gone, only a filled role is left", () => {
+    expect(isRoleListed({ status: "open" }, null)).toBe(false);
+    expect(isRoleListed({ status: "closed" }, null)).toBe(false);
+    expect(isRoleListed({ status: "filled" }, null)).toBe(true);
   });
 });

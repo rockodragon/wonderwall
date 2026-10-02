@@ -15,13 +15,19 @@ import { v } from "convex/values";
 import { query } from "../_generated/server";
 import { shapeCredits, type CreditEntry } from "./allocations";
 import { summarizeGig } from "./gigSummary";
-import { isHidden } from "../moderationRules";
+import { isHidden, isPostedProject, VISIBLE_PROJECT_STATUSES } from "../moderationRules";
 
 // ——————————————————————————————————————————————————————————————
 // Pure core
 // ——————————————————————————————————————————————————————————————
 
 export type ProjectKind = "passion" | "paid";
+
+/** A row's kind. The schema stores it as a bare string, so anything that
+ * isn't literally "paid" (only a pathological row) reads as "passion". */
+export function projectKind(kind: string): ProjectKind {
+  return kind === "paid" ? "paid" : "passion";
+}
 
 export interface ProjectLike {
   _id: unknown;
@@ -124,11 +130,9 @@ export function resolveMoneyLine(project: {
  * Shapes a raw project row + its resolved owner name into the plain-JSON
  * card both listProjects and getProject return — one mapper, so the browse
  * grid and the detail page never disagree on a project's display shape.
- * kind falls back to "passion" only in the pathological case of a row whose
- * kind isn't literally "paid" (schema stores kind as a bare string).
  */
 export function shapeProjectCard(project: ProjectLike, ownerName: string): ProjectCard {
-  const kind: ProjectKind = project.kind === "paid" ? "paid" : "passion";
+  const kind = projectKind(project.kind);
   return {
     id: String(project._id),
     kind,
@@ -163,22 +167,6 @@ export function shapeProjectCard(project: ProjectLike, ownerName: string): Proje
 
 const FALLBACK_OWNER_NAME = "A Garden creative";
 
-// Statuses a browsing user should ever see. "pending" isn't used yet;
-// "archived" is a deliberate hide — a creator/operator took it out of the
-// default browse view on purpose. Kept in sync with garden/projects.ts's
-// VISIBLE_STATUSES (two listProjects implementations, see file header).
-const VISIBLE_STATUSES = new Set(["active", "in_progress", "completed"]);
-
-// Portfolio-origin rows (artifacts.create's companion-project side effect —
-// a quick single-artifact share, not a deliberate post) don't belong on the
-// browse grid; they already have a home at /works. Only an EXPLICIT
-// "portfolio" excludes — a row with no origin at all (predates the field,
-// migration hasn't run) reads as "posted" so real projects never vanish
-// defensively. Kept in sync with garden/projects.ts's listProjects.
-function isPosted(p: { origin?: string }): boolean {
-  return p.origin !== "portfolio";
-}
-
 /** Public, unauthenticated — the /projects browse grid. Visible (non-hidden)
  * projects, newest first, capped at 50. `kind` queries a single indexed
  * range by kind only, then filters status in JS (status is no longer a
@@ -206,7 +194,8 @@ export const listProjects = query({
           )
         ).flat();
 
-    const visible = rows.filter((p) => VISIBLE_STATUSES.has(p.status) && isPosted(p));
+    // The same rule as garden/projects.ts's listProjects (moderationRules.ts).
+    const visible = rows.filter((p) => VISIBLE_PROJECT_STATUSES.has(p.status) && isPostedProject(p));
     const newestFirst = [...visible].sort((a, b) => b.createdAt - a.createdAt).slice(0, 50);
     if (newestFirst.length === 0) return [];
 
