@@ -8,7 +8,7 @@ import { INTERESTS } from "../constants/interests";
 import { LocationAutocomplete, LocationVerifiedHint } from "../components/LocationAutocomplete";
 import { useLocationField } from "../lib/useLocationField";
 import { budgetAmountLabel, budgetKindLabel } from "../lib/budgetLabel";
-import { CommunityPicker } from "../components/CommunityPicker";
+import { CommunityPicker, useDefaultEventCommunity } from "../components/CommunityPicker";
 import {
   CommunityContextLine,
   communityNameFor,
@@ -1027,8 +1027,7 @@ function PaidProjectForm({
   const [submitting, setSubmitting] = useState(false);
   // Pre-fill from the sidebar switcher's current context (community-ux.md
   // §2/§6) — still changeable to "No community — just me" via CommunityPicker.
-  const { selected: switcherCommunitySlug, communities: myCommunities } = useCommunityContext();
-  const defaultHostOrgId = myCommunities.find((c) => c.slug === switcherCommunitySlug)?._id;
+  const defaultHostOrgId = useDefaultEventCommunity();
 
   function toggleInterest(tag: string) {
     setInterests((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
@@ -1368,8 +1367,7 @@ function PassionProjectForm({
   const [submitting, setSubmitting] = useState(false);
   // Pre-fill from the sidebar switcher's current context (community-ux.md
   // §2/§6) — still changeable to "No community — just me" via CommunityPicker.
-  const { selected: switcherCommunitySlug, communities: myCommunities } = useCommunityContext();
-  const defaultHostOrgId = myCommunities.find((c) => c.slug === switcherCommunitySlug)?._id;
+  const defaultHostOrgId = useDefaultEventCommunity();
 
   function toggleInterest(tag: string) {
     setInterests((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
