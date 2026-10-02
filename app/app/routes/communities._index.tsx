@@ -8,15 +8,20 @@
 
 import { useLayoutEffect } from "react";
 import type React from "react";
+import { useQuery } from "convex/react";
 import { Link, useRouteError } from "react-router";
+import { api } from "../../convex/_generated/api";
 import { FF_V2 } from "../lib/featureFlags";
 import { CommunityPage } from "./communities.$slug";
 import { PAGE_WIDTH } from "../lib/pageWidth";
 
 export function meta() {
   return [
-    { title: "The Garden — TheCreative.exchange" },
-    { name: "robots", content: "noindex" },
+    { title: "Communities — TheCreative.exchange" },
+    {
+      name: "description",
+      content: "Creative communities on TheCreative.exchange.",
+    },
   ];
 }
 
@@ -61,6 +66,9 @@ const CARD: React.CSSProperties = {
 };
 
 function CommunitiesIntro() {
+  // The Garden's words come from its record (host tools), like the page
+  // below — the same query, so it's one fetch.
+  const garden = useQuery(api.garden.communities.getCommunity, { slug: "the-garden" });
   return (
     <section id="top" className={`p-4 sm:p-6 ${PAGE_WIDTH.list} mx-auto pb-0 sm:pb-0`}>
       <h1
@@ -91,9 +99,9 @@ function CommunitiesIntro() {
           <p className="text-[15px]" style={{ color: "var(--garden-body)" }}>
             Its base agreements set the minimum guidelines every community follows.
           </p>
-          <Link to="/about/agreements" className="text-[15px] mt-auto pt-1" style={{ color: "var(--garden-citron)" }}>
-            Read the base agreements →
-          </Link>
+          <a href="#agreements" className="text-[15px] mt-auto pt-1" style={{ color: "var(--garden-citron)" }}>
+            See the base agreements below ↓
+          </a>
         </div>
         <div style={{ ...CARD, border: "1px solid var(--garden-citron)", boxShadow: "inset 4px 0 0 var(--garden-citron)" }}>
           <span className="text-[13.5px]" style={{ color: "var(--garden-citron)" }}>
@@ -102,12 +110,11 @@ function CommunitiesIntro() {
           <b className="text-[19px]" style={{ color: "var(--garden-paper)" }}>
             The Garden
           </b>
-          <span className="text-[15px]" style={{ color: "var(--garden-paper)" }}>
-            Faith-based creative community
-          </span>
-          <p className="text-[15px]" style={{ color: "var(--garden-body)" }}>
-            Where this started.
-          </p>
+          {garden?.tagline && (
+            <p className="text-[15px]" style={{ color: "var(--garden-body)" }}>
+              {garden.tagline}
+            </p>
+          )}
           <a href="#the-garden" className="text-[15px] mt-auto pt-1" style={{ color: "var(--garden-citron)" }}>
             See The Garden below ↓
           </a>
@@ -132,7 +139,7 @@ export default function CommunitiesIndex() {
     <>
       <CommunitiesIntro />
       <div id="the-garden" className="scroll-mt-4">
-        <CommunityPage slug="the-garden" footer={<IndexFooter />} />
+        <CommunityPage slug="the-garden" footer={<IndexFooter />} head={false} />
       </div>
     </>
   );

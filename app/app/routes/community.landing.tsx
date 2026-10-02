@@ -74,6 +74,8 @@ function ComingSoon({
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: "var(--garden-ink)" }}>
+      {/* Not open yet: a waitlist, not a page to be found by. */}
+      <meta name="robots" content="noindex" />
       <link rel="stylesheet" href="/tokens.css" />
       <link rel="stylesheet" href="/about/fonts/fonts.css" />
       <main className="max-w-xl mx-auto px-4 sm:px-6 py-16 sm:py-24">

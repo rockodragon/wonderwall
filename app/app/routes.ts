@@ -155,7 +155,8 @@ export default [
   // The app-shell mock renders as the app itself — no demo chrome around it
   route("demo/app", "routes/demo.app.tsx"),
 
-  // The Garden's first production surfaces (real Convex data, not demo-data)
+  // The Garden's first production surfaces (real Convex data, not demo-data).
+  // /garden itself now forwards to /communities/the-garden.
   route("garden", "routes/garden._index.tsx"),
   route("join", "routes/join.tsx"),
   // Where Stripe lands people after checkout. These existed as success_url

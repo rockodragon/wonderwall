@@ -7,7 +7,7 @@
 //   npx convex run garden/defaultCommunity:seedCreateSd [--prod]
 
 import { v } from "convex/values";
-import { internalMutation, internalQuery } from "../_generated/server";
+import { internalMutation, internalQuery, query } from "../_generated/server";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 
@@ -32,13 +32,16 @@ export async function getDefaultCommunity(ctx: QueryCtx | MutationCtx) {
 
 /** Adds the user to The Garden as an active member. Does nothing when The
  * Garden isn't seeded or the user already has a row — including a
- * "removed" row, so someone a host removed is never quietly re-added. */
+ * "removed" row, so someone a host removed is never quietly re-added.
+ * `agreedAt` only when the person saw the agreements: signup and login
+ * carry the consent line that lists them (AgreementsConsent.tsx); the
+ * backfill doesn't pass it. */
 export async function joinDefaultCommunity(
   ctx: MutationCtx,
   userId: Id<"users">,
-  hostOrgId?: Id<"hostOrgs">,
+  opts: { hostOrgId?: Id<"hostOrgs">; agreedAt?: number } = {},
 ): Promise<boolean> {
-  const orgId = hostOrgId ?? (await getDefaultCommunity(ctx))?._id;
+  const orgId = opts.hostOrgId ?? (await getDefaultCommunity(ctx))?._id;
   if (!orgId) return false;
   const existing = await ctx.db
     .query("communityMembers")
@@ -51,9 +54,25 @@ export async function joinDefaultCommunity(
     role: "member",
     status: "active",
     joinedAt: Date.now(),
+    ...(opts.agreedAt ? { agreedAt: opts.agreedAt } : {}),
   });
   return true;
 }
+
+/** The community a new account joins, and its agreements as its hosts wrote
+ * them — what the signup and login consent line lists beside the
+ * platform's. One default community today. When entry domains route
+ * signups (communityDomains.ts resolveEntryCommunity), this and the join in
+ * auth.ts change together, so what people read is what they join. Public:
+ * there's no account yet. Null when the default isn't seeded. */
+export const getSignupCommunity = query({
+  args: {},
+  handler: async (ctx) => {
+    const org = await getDefaultCommunity(ctx);
+    if (!org) return null;
+    return { slug: org.slug, name: org.name, agreements: org.agreements ?? [] };
+  },
+});
 
 /** One page of users per call; run again with the returned cursor until
  * `isDone`. dryRun counts who would be added without writing. */
@@ -83,7 +102,7 @@ export const backfillDefaultCommunity = internalMutation({
         alreadyIn++;
         continue;
       }
-      if (!args.dryRun) await joinDefaultCommunity(ctx, user._id, org._id);
+      if (!args.dryRun) await joinDefaultCommunity(ctx, user._id, { hostOrgId: org._id });
       added++;
     }
 

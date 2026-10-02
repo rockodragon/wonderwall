@@ -1,4 +1,4 @@
-import { useConvexAuth } from "convex/react";
+import { useConvexAuth, useQuery } from "convex/react";
 import { Link, useNavigate } from "react-router";
 import { useEffect } from "react";
 import type { Route } from "./+types/home";
@@ -6,6 +6,8 @@ import { SiteHeader } from "../components/SiteHeader";
 import { CAMPAIGN_IMAGES, CAMPAIGN_QUOTES } from "../lib/campaign";
 import { Reveal } from "../hooks/useReveal";
 import { CLAIMS } from "../constants/claims";
+import { api } from "../../convex/_generated/api";
+import { GARDEN_SLUG } from "../lib/communitySlugs";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -51,6 +53,9 @@ export function meta({}: Route.MetaArgs) {
 export default function Home() {
   const { isAuthenticated, isLoading } = useConvexAuth();
   const navigate = useNavigate();
+  // The Garden's line is its tagline from host tools, not words kept here
+  // (2026-10-02). The page is prerendered, so it fills in after load.
+  const garden = useQuery(api.garden.communityDomains.getCommunityLanding, { slug: GARDEN_SLUG });
 
   // /?invite=slug used to open an invite preview here; invite codes are
   // handled on /signup now, so an old link of that shape lands there.
@@ -154,11 +159,7 @@ export default function Home() {
               back it. Partners open their doors. Hosts run the tables where
               it all starts. Nothing here gets made alone.
             </p>
-            <p className="text-[var(--garden-dim)]">
-              The Garden is the founding Christian creative community on the
-              platform, with one mission: love our neighbors through our
-              craft.
-            </p>
+            {garden?.tagline && <p className="text-[var(--garden-dim)]">{garden.tagline}</p>}
             <div className="flex items-center gap-6 self-start">
               <Link
                 to="/communities/the-garden"

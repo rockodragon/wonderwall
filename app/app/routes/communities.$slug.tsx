@@ -12,16 +12,17 @@ import { useAction, useConvexAuth, useMutation, useQuery } from "convex/react";
 import { ConvexError } from "convex/values";
 import { Link, useParams, useRouteError, useSearchParams } from "react-router";
 import { FF_V2 } from "../lib/featureFlags";
+import { PLATFORM_AGREEMENTS } from "../constants/agreements";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { formatDateTime, formatMoney } from "../garden/ui";
 import { PAGE_WIDTH } from "../lib/pageWidth";
+import { SITE_ORIGIN } from "../lib/eventCalendar";
 
+// Indexed (Rick, 2026-10-02: communities should be findable). The title,
+// description and canonical URL are the community's own — CommunityHead.
 export function meta() {
-  return [
-    { title: "Community — TheCreative.exchange" },
-    { name: "robots", content: "noindex" },
-  ];
+  return [{ title: "Community — TheCreative.exchange" }];
 }
 
 export function ErrorBoundary() {
@@ -92,7 +93,7 @@ function Loading({ label = "Loading…" }: { label?: string }) {
 
 // ————— Types (shaped from getCommunity's return) —————
 
-type Membership = { role: string; status: string; isHome: boolean } | null;
+type Membership = { role: string; status: string; isHome: boolean; agreed?: boolean } | null;
 
 type Community = {
   _id: Id<"hostOrgs">;
@@ -178,6 +179,21 @@ function JoinControl({ community }: { community: Community }) {
   }
 
   if (membership && membership.status === "active") {
+    // Members from before every join asked haven't agreed yet; this is
+    // what the agreements link in an Update lands them on. (Undefined =
+    // a backend from before agreements; don't ask then.)
+    const needsAgreement = membership.agreed === false;
+    async function handleAgree() {
+      setBusy(true);
+      setNote(null);
+      try {
+        await joinCommunity({ hostOrgId: community._id, agreed: true });
+      } catch (err) {
+        setNote(reasonFor(err, "Couldn't save that — try again."));
+      } finally {
+        setBusy(false);
+      }
+    }
     async function handleLeave() {
       setBusy(true);
       setNote(null);
@@ -193,6 +209,11 @@ function JoinControl({ community }: { community: Community }) {
       <div>
         <div className="flex items-center gap-4 flex-wrap">
           <span className="text-sm" style={{ color: "var(--garden-paper)" }}>You're in.</span>
+          {needsAgreement && (
+            <button className={btnPrimaryClass} style={btnPrimaryStyle} disabled={busy} onClick={handleAgree}>
+              {busy ? "Saving…" : "I agree"}
+            </button>
+          )}
           <button className={btnGhostClass} style={btnGhostStyle} disabled={busy} onClick={handleLeave}>
             Leave
           </button>
@@ -217,7 +238,7 @@ function JoinControl({ community }: { community: Community }) {
     setBusy(true);
     setNote(null);
     try {
-      await joinCommunity({ hostOrgId: community._id });
+      await joinCommunity({ hostOrgId: community._id, agreed: true });
     } catch (err) {
       setNote(reasonFor(err, "Couldn't join — try again."));
     } finally {
@@ -228,7 +249,7 @@ function JoinControl({ community }: { community: Community }) {
   return (
     <div>
       <button className={btnPrimaryClass} style={btnPrimaryStyle} disabled={busy} onClick={handleJoin}>
-        {busy ? "Joining…" : joinWouldBePending ? "Ask to join" : "Join — free"}
+        {busy ? "Joining…" : joinWouldBePending ? "Agree and ask to join" : "Agree and join — free"}
       </button>
       {note && <p className="mt-2.5 text-sm" style={{ color: "var(--garden-body)" }}>{note}</p>}
     </div>
@@ -322,7 +343,7 @@ function EditCommunityForm({ community }: { community: Community }) {
           onChange={(e) => setAgreements(e.target.value)}
           rows={6}
         />
-        <Hint>One agreement per line.</Hint>
+        <Hint>One per line. People agree to these, and the platform's, when they join.</Hint>
       </div>
       <div className="mt-3.5">
         <label className={labelClass} style={labelStyle}>Location</label>
@@ -1011,13 +1032,60 @@ function HostToolsPanel({ community }: { community: Community }) {
   );
 }
 
+function AgreementGroup({ title, items }: { title: string; items: string[] }) {
+  return (
+    <div className="mt-3">
+      <p className="text-[15px] font-semibold" style={{ color: "var(--garden-paper)" }}>{title}</p>
+      <ul className="mt-1.5 list-disc pl-5 space-y-1.5">
+        {items.map((a, i) => (
+          <li key={i} className="text-[15px] leading-relaxed" style={{ color: "var(--garden-body)" }}>
+            {a}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/** Search-facing head for a community page, from its record (host tools).
+ * The page is client-rendered, so this is what a crawler that runs the
+ * page sees. One canonical address — /communities/<slug> — whichever of
+ * /<slug> or /communities/<slug> it was reached by. Only an approved,
+ * public community is indexed. */
+function CommunityHead({ community }: { community: Community }) {
+  const title = `${community.name} — TheCreative.exchange`;
+  useEffect(() => {
+    document.title = title;
+  }, [title]);
+  const description = community.tagline ?? community.description;
+  const indexable = community.status === "active" && community.visibility === "public";
+  return (
+    <>
+      {description && <meta name="description" content={description} />}
+      <link rel="canonical" href={`${SITE_ORIGIN}/communities/${community.slug}`} />
+      {!indexable && <meta name="robots" content="noindex" />}
+    </>
+  );
+}
+
 // ————— Page —————
 
-/** The full community page body: header, why-we're-here, agreements, join/
- * browse row, products, fund link, and (for hosts) the host tools panel.
+/** The full community page body: header, why-we're-here, agreements (its
+ * own, then the platform's), join/browse row, products, fund link, and
+ * (for hosts) the host tools panel.
  * Used both by /communities/:slug (below) and by /communities, which shows
  * The Garden's page directly and appends its own `footer` links. */
-export function CommunityPage({ slug, footer }: { slug: string; footer?: ReactNode }) {
+export function CommunityPage({
+  slug,
+  footer,
+  head = true,
+}: {
+  slug: string;
+  footer?: ReactNode;
+  /** Set the page's title/description/canonical. Off where the community
+   * is embedded in another page (/communities). */
+  head?: boolean;
+}) {
   const [searchParams] = useSearchParams();
   const purchased = searchParams.get("purchased") === "1";
   const community = useQuery(
@@ -1045,6 +1113,7 @@ export function CommunityPage({ slug, footer }: { slug: string; footer?: ReactNo
 
   return (
     <PageShell>
+      {head && <CommunityHead community={community} />}
       {community.status === "pending" && (
         <div className={cellClass} style={{ ...cardStyle, marginBottom: 20, fontSize: 13.5, color: "var(--garden-muted)" }}>
           In review — only you and operators can see this page until it's approved.
@@ -1092,25 +1161,16 @@ export function CommunityPage({ slug, footer }: { slug: string; footer?: ReactNo
         </div>
       )}
 
-      {community.agreements && community.agreements.length > 0 && (
-        <div className="mt-7 max-w-[62ch]">
-          <SectionLabel>Community agreements</SectionLabel>
-          <ul className="mt-2.5 list-disc pl-5 space-y-1.5">
-            {community.agreements.map((a, i) => (
-              <li key={i} className="text-[15px] leading-relaxed" style={{ color: "var(--garden-body)" }}>
-                {a}
-              </li>
-            ))}
-          </ul>
-          <p className="mt-2.5 text-[15px] leading-relaxed" style={{ color: "var(--garden-body)" }}>
-            You also agree to{" "}
-            <a href="/about/agreements" style={{ color: "var(--garden-citron)" }}>
-              TheCreative.exchange's agreements
-            </a>
-            .
-          </p>
-        </div>
-      )}
+      {/* The community's agreements, then the platform's, in full — the
+          join button right below is "Agree and join", so everything it
+          agrees to is on the page (2026-10-02). */}
+      <div id="agreements" className="mt-7 max-w-[62ch] scroll-mt-4">
+        <SectionLabel>Agreements</SectionLabel>
+        {community.agreements && community.agreements.length > 0 && (
+          <AgreementGroup title={community.name} items={community.agreements} />
+        )}
+        <AgreementGroup title="Every community on TheCreative.exchange" items={PLATFORM_AGREEMENTS} />
+      </div>
 
       {/* One row: the membership action, then where to browse. The per-
           section lists that used to follow (tables, events, projects,
