@@ -13,7 +13,8 @@
 // A link from before free-text rows had their own id, `project:<id>` for one,
 // still opens it when the project has no row of its own.
 
-import type { DeskCardId, ShortlistArea } from "../../desk/deskState";
+import type { DeskCardId } from "../../desk/deskState";
+import type { ShortlistArea } from "../../lib/shortlist/url";
 import { SHORTLIST_GROUPS, eventGroups, peopleGroups, projectGroups } from "../../lib/shortlist/model";
 import { needsYou, type NeedsYouItem } from "../../lib/shortlist/needsYou";
 import type {
