@@ -1,5 +1,14 @@
-// Who counts as a host of an event. Pure and server-free so the frontend and
-// tests can import it (no `_generated/server` here).
+// Who counts as a host of an event, and the index that finds the events a
+// member co-hosts. The rules at the top are pure, tested without Convex.
+// Below them, syncCoHosts keeps the eventCoHosts table in step with
+// events.coHostIds (schema.ts says why the table exists), and
+// backfillCoHosts brings every existing event in step once:
+//   npx convex run eventHosts:backfillCoHosts [--prod]
+
+import { v } from "convex/values";
+import { internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
+import { internalMutation, type MutationCtx } from "./_generated/server";
 
 export const MAX_CO_HOSTS = 10;
 
@@ -57,3 +66,65 @@ export function planDisplayHosts(
   }
   return { ok: true, refs: [...refs] };
 }
+
+/** The writes that bring one event's eventCoHosts rows in step with its
+ * coHostIds: a row for each listed co-host who has none, and every other row
+ * removed, repeats included. Nothing when they're already in step. */
+export function planCoHostSync<Row extends { userId: unknown }, UserId>(
+  rows: readonly Row[],
+  coHostIds: readonly UserId[],
+): { insert: UserId[]; remove: Row[] } {
+  const listed = new Map(coHostIds.map((id) => [String(id), id]));
+  const kept = new Set<string>();
+  const remove: Row[] = [];
+  for (const row of rows) {
+    const id = String(row.userId);
+    if (listed.has(id) && !kept.has(id)) kept.add(id);
+    else remove.push(row);
+  }
+  return { insert: [...listed].filter(([id]) => !kept.has(id)).map(([, userId]) => userId), remove };
+}
+
+/** Makes eventCoHosts match `coHostIds` for one event. Every write to
+ * events.coHostIds calls it with the new list, in the same mutation; an
+ * event's delete calls it with []. Idempotent. */
+export async function syncCoHosts(
+  ctx: MutationCtx,
+  eventId: Id<"events">,
+  coHostIds: readonly Id<"users">[],
+): Promise<{ added: number; removed: number }> {
+  const rows = await ctx.db
+    .query("eventCoHosts")
+    .withIndex("by_eventId", (q) => q.eq("eventId", eventId))
+    .collect();
+  const { insert, remove } = planCoHostSync(rows, coHostIds);
+  for (const row of remove) await ctx.db.delete(row._id);
+  const now = Date.now();
+  for (const userId of insert) await ctx.db.insert("eventCoHosts", { eventId, userId, createdAt: now });
+  return { added: insert.length, removed: remove.length };
+}
+
+export const BACKFILL_PAGE_SIZE = 100;
+
+/** Syncs every event's eventCoHosts rows, a page of events per run, then
+ * schedules itself for the next page (updates.ts deliverBatch's shape).
+ * Safe to run again: an event already in step writes nothing. */
+export const backfillCoHosts = internalMutation({
+  args: { cursor: v.optional(v.union(v.string(), v.null())) },
+  handler: async (ctx, args) => {
+    const page = await ctx.db
+      .query("events")
+      .paginate({ numItems: BACKFILL_PAGE_SIZE, cursor: args.cursor ?? null });
+    let added = 0;
+    let removed = 0;
+    for (const event of page.page) {
+      const synced = await syncCoHosts(ctx, event._id, event.coHostIds ?? []);
+      added += synced.added;
+      removed += synced.removed;
+    }
+    if (!page.isDone) {
+      await ctx.scheduler.runAfter(0, internal.eventHosts.backfillCoHosts, { cursor: page.continueCursor });
+    }
+    return { scanned: page.page.length, added, removed, isDone: page.isDone };
+  },
+});

@@ -294,7 +294,8 @@ export const getMine = query({
       savedRoles,
       savedEvents,
       follows,
-      hosted,
+      organized,
+      coHosted,
       applications,
       rsvps,
       tickets,
@@ -318,6 +319,10 @@ export const getMine = query({
       ctx.db
         .query("events")
         .withIndex("by_organizerId", (q) => q.eq("organizerId", userId))
+        .collect(),
+      ctx.db
+        .query("eventCoHosts")
+        .withIndex("by_userId", (q) => q.eq("userId", userId))
         .collect(),
       ctx.db
         .query("eventApplications")
@@ -527,9 +532,24 @@ export const getMine = query({
     });
 
     // ——— Events: hosting, going, requested, saved ———
-    // Co-hosts (events.coHostIds) have no index, so only the organizer hosts
-    // here. Going is an accepted application, the member's own RSVP, or a
-    // ticket they bought here; since is the earliest of those.
+    // Hosting is what the member organizes, then what they co-host, found
+    // through eventCoHosts and dated from when they were added. The event's
+    // own coHostIds has the last word, so a row out of step with it hosts
+    // nothing and shows no requests. A co-host can answer requests to attend
+    // (updateApplicationStatus checks isEventHost), so theirs come back as
+    // the organizer's do. Going is an accepted application, the member's own
+    // RSVP, or a ticket they bought here; since is the earliest of those.
+    const coHostedEvents = await Promise.all(
+      coHosted.map(async (row) => {
+        const event = await ctx.db.get(row.eventId);
+        return event && isEventHost(event, userId) ? { event, since: row.createdAt } : null;
+      }),
+    );
+    // The organizer's first, so they win dedupe for an event that's both.
+    const hosted = [
+      ...organized.map((event) => ({ event, since: event.createdAt })),
+      ...coHostedEvents.filter(isPresent),
+    ];
     const goingSince = new Map<Id<"events">, number>();
     const noteGoing = (eventId: Id<"events">, at: number) =>
       goingSince.set(eventId, Math.min(at, goingSince.get(eventId) ?? at));
@@ -538,7 +558,7 @@ export const getMine = query({
     for (const ticket of tickets) if (ticket.status === "paid") noteGoing(ticket.eventId, ticket.createdAt);
 
     const relations: { id: Id<"events">; relation: EventRelation; since: number }[] = [
-      ...hosted.map((event) => ({ id: event._id, relation: "hosting" as const, since: event.createdAt })),
+      ...hosted.map(({ event, since }) => ({ id: event._id, relation: "hosting" as const, since })),
       ...[...goingSince].map(([id, since]) => ({ id, relation: "going" as const, since })),
       ...applications
         .filter((app) => app.status === "pending")
@@ -550,7 +570,7 @@ export const getMine = query({
     ];
     // One relation per event (dedupeEvents' order) before anything about it
     // is read, then the event itself; the ones you host are already here.
-    const hostedById = new Map(hosted.map((event) => [event._id, event]));
+    const hostedById = new Map(hosted.map(({ event }) => [event._id, event]));
     const perEvent = (
       await Promise.all(
         keepFirst(relations, (r) => r.id, EVENT_ORDER).map(async ({ id, ...r }) => {

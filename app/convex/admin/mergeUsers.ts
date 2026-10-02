@@ -10,12 +10,14 @@ import { v } from "convex/values";
 import { internalMutation } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
+import { syncCoHosts } from "../eventHosts";
 
 // Every table with a `v.id("users")` field whose rows count as "real
 // content" on an account (i.e. NOT just the account's own empty profile or
 // its auth plumbing). Regenerate by grepping `v.id("users")` in
 // convex/schema.ts — kept as an explicit, reviewable list rather than
-// introspecting the schema's validator tree at runtime.
+// introspecting the schema's validator tree at runtime. eventCoHosts isn't
+// here: it mirrors events.coHostIds, and repoint re-syncs it from that.
 const USER_ID_FIELDS: { table: string; field: string; array?: boolean }[] = [
   { table: "wonderingResponses", field: "responderId" },
   { table: "events", field: "organizerId" },
@@ -188,6 +190,8 @@ async function repoint(
       if (!Array.isArray(row[field]) || !row[field].includes(from)) continue;
       const next = [...new Set(row[field].map((x: string) => (x === from ? to : x)))];
       await ctx.db.patch(row._id, { [field]: next } as any);
+      // A co-host list carries its eventCoHosts rows with it (eventHosts.ts).
+      if (table === "events" && field === "coHostIds") await syncCoHosts(ctx, row._id, next as Id<"users">[]);
       moved++;
       continue;
     }

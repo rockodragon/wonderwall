@@ -447,6 +447,12 @@ const rsvp = (id: string, eventId: string, userId: string | undefined, createdAt
   email: `${id}@example.com`,
   createdAt,
 });
+const coHost = (eventId: string, userId: string, createdAt: number): Row => ({
+  _id: `eventCoHosts:${eventId}-${userId.split(":")[1]}`,
+  eventId: `events:${eventId}`,
+  userId,
+  createdAt,
+});
 const fav = (targetType: string, targetId: string, createdAt: number): Row => ({
   _id: `favorites:${targetType}-${targetId}`,
   userId: ME,
@@ -795,6 +801,7 @@ describe("getMine — hidden (test) communities", () => {
       event("testCoHosted", { ...inTest, coHostIds: [ME] }),
       event("openSaved", { hostOrgId: OPEN }),
     );
+    w.eventCoHosts = [coHost("testCoHosted", ME, 356)];
     w.eventApplications.push(application("alexTest", "testHosted", ALEX, "pending", { createdAt: 610 }));
     w.eventRsvps.push(rsvp("meTestGoing", "testGoing", ME, 570));
     w.favorites.push(
@@ -830,6 +837,7 @@ describe("getMine — hidden (test) communities", () => {
     const shown = ids(data);
     expect(shown.projects).toContain("projects:testMine");
     expect(shown.events).toEqual(expect.arrayContaining(["events:testHosted", "events:testCoHosted"]));
+    expect(data.events.find((e: ShortlistEvent) => e.eventId === "events:testCoHosted")?.relation).toBe("hosting");
     expect(data.requests.map((r: { key: string }) => r.key)).toContain("request:event:eventApplications:alexTest");
   });
 
@@ -915,6 +923,84 @@ describe("getMine — events", () => {
     const byId = Object.fromEntries(data.events.map((e: ShortlistEvent) => [e.eventId, e]));
     expect(byId["events:requested"]).toMatchObject({ relation: "requested", since: 530 });
     expect(byId["events:saved"]).toMatchObject({ relation: "saved", since: 340 });
+  });
+});
+
+describe("getMine — events you co-host", () => {
+  // Found through eventCoHosts, checked against the event's own coHostIds.
+  function world() {
+    const w = WORLD();
+    w.events.push(
+      event("coHosted", { coHostIds: [ME, BO], datetime: 5500 }),
+      event("coHostedHidden", { coHostIds: [ME], status: "hidden", datetime: 5600 }),
+      // Its row for me is out of step: I was taken off the list.
+      event("droppedMe", { coHostIds: [BO], datetime: 5700 }),
+    );
+    w.eventCoHosts = [
+      coHost("coHosted", ME, 450),
+      coHost("coHosted", BO, 451),
+      coHost("coHostedHidden", ME, 452),
+      coHost("droppedMe", ME, 453),
+    ];
+    w.eventApplications.push(
+      application("alexCoHosted", "coHosted", ALEX, "pending", { message: "Room for one more?", createdAt: 620 }),
+      application("alexDropped", "droppedMe", ALEX, "pending", { createdAt: 630 }),
+    );
+    w.favorites.push(fav("event", "events:droppedMe", 360));
+    return w;
+  }
+  const byId = (data: { events: ShortlistEvent[] }) => Object.fromEntries(data.events.map((e) => [e.eventId, e]));
+  const requestKeys = (data: { requests: { key: string }[] }) => data.requests.map((r) => r.key);
+
+  it("hosting, since they were added, with the requests waiting on them", async () => {
+    const { data } = await mine(ME, world());
+    expect(byId(data)["events:coHosted"]).toMatchObject({
+      key: "hosting:events:coHosted",
+      relation: "hosting",
+      since: 450,
+      pendingRequests: 1,
+    });
+    expect(data.requests.find((r: { key: string }) => r.key === "request:event:eventApplications:alexCoHosted")).toMatchObject({
+      on: { type: "event", id: "events:coHosted", title: "Event coHosted" },
+      person: { name: "Alex Asks" },
+      message: "Room for one more?",
+    });
+  });
+
+  it("a hidden one still shows to its co-host, as to its organizer", async () => {
+    const { data } = await mine(ME, world());
+    expect(byId(data)["events:coHostedHidden"]).toMatchObject({ relation: "hosting" });
+  });
+
+  it("a row the event's coHostIds no longer backs hosts nothing: no requests, and the save shows", async () => {
+    const { data, lookups } = await mine(ME, world());
+    const row = byId(data)["events:droppedMe"];
+    expect(row).toMatchObject({ relation: "saved", since: 360 });
+    expect(row).not.toHaveProperty("pendingRequests");
+    expect(requestKeys(data)).not.toContain("request:event:eventApplications:alexDropped");
+    expect(lookups).not.toContain("eventApplications.by_eventId_status(events:droppedMe, pending)");
+  });
+
+  it("organizer and co-host of the same event: one row, the organizer's", async () => {
+    const w = world();
+    w.events.find((e) => e._id === "events:hosted")!.coHostIds = [ME];
+    w.eventCoHosts.push(coHost("hosted", ME, 999));
+    const { data } = await mine(ME, w);
+    expect(data.events.filter((e: ShortlistEvent) => e.eventId === "events:hosted")).toEqual([
+      expect.objectContaining({ relation: "hosting", since: 50, pendingRequests: 1 }),
+    ]);
+    expect(requestKeys(data).filter((k: string) => k === "request:event:eventApplications:alexHosted")).toHaveLength(1);
+  });
+
+  it("each co-host gets their own: Bo hosts coHosted, not my hidden one", async () => {
+    const { data } = await mine(BO, world());
+    expect(byId(data)["events:coHosted"]).toMatchObject({ relation: "hosting" });
+    expect(byId(data)["events:coHostedHidden"]).toBeUndefined();
+  });
+
+  it("reads them through eventCoHosts.by_userId, on the member", async () => {
+    const { lookups } = await mine(ME, world());
+    expect(lookups).toContain("eventCoHosts.by_userId(users:me)");
   });
 });
 

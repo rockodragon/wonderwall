@@ -6,13 +6,15 @@
 //
 // Delete is permanent and takes the row's own children with it: team,
 // roles, tiers, updates, attached pieces, RSVPs, applications, favorites,
-// announcements and uploaded files. Notifications that link to it stay;
-// both pages already read a missing row as "isn't here anymore". It
-// refuses when money is on record (deleteBlocker).
+// announcements, an event's eventCoHosts rows and uploaded files.
+// Notifications that link to it stay; both pages already read a missing row
+// as "isn't here anymore". It refuses when money is on record
+// (deleteBlocker).
 
 import { v, ConvexError } from "convex/values";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
+import { syncCoHosts } from "./eventHosts";
 import { requireAdminCtx } from "./helpers";
 import { HIDDEN_STATUS, deleteBlocker, isHidden, restoredStatus } from "./moderationRules";
 import { orphanedStorageIds } from "./garden/richText";
@@ -206,6 +208,8 @@ export const deleteEvent = mutation({
     ]);
     await deleteAll(ctx, [...video, ...applications, ...favorites, ...rsvps]);
     await deleteAnnouncements(ctx, "event", eventId);
+    // Synced to no co-hosts: its eventCoHosts rows go with it.
+    await syncCoHosts(ctx, eventId, []);
 
     await deleteFile(ctx, event.coverImageStorageId);
     await deleteFile(ctx, event.mediaPreviewStorageId);

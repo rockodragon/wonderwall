@@ -9,7 +9,7 @@ import { formatFollowedEventDate, notifyFollowers } from "./follows";
 import { canonicalMediaUrl, schedulePreviewFetch } from "./linkPreview";
 import { mergeGuests, summarizeGuests, type GuestInput } from "./eventGuests";
 import { getUserEmail } from "./emailHelpers";
-import { isEventHost, planAddCoHost, planRemoveCoHost, planDisplayHosts } from "./eventHosts";
+import { isEventHost, planAddCoHost, planRemoveCoHost, planDisplayHosts, syncCoHosts } from "./eventHosts";
 import { canSeeEvent, eventVisibilityChecker, isFreeEvent } from "./garden/eventVisibility";
 import { communityVisibility, isHiddenCommunityId } from "./garden/communityVisibility";
 import { hostUserIdsForOrg, primaryOrgByUserId } from "./organizations";
@@ -839,6 +839,14 @@ async function requireOrganizerOf(ctx: MutationCtx, eventId: Id<"events">) {
   return event;
 }
 
+/** Saves the co-host list and, in the same mutation, its eventCoHosts rows
+ * (eventHosts.ts syncCoHosts), so the Shortlist finds the event by member. */
+async function saveCoHosts(ctx: MutationCtx, eventId: Id<"events">, coHostIds: string[]) {
+  const ids = coHostIds as Id<"users">[];
+  await ctx.db.patch(eventId, { coHostIds: ids, updatedAt: Date.now() });
+  await syncCoHosts(ctx, eventId, ids);
+}
+
 export const addCoHost = mutation({
   args: { eventId: v.id("events"), userId: v.id("users") },
   handler: async (ctx, args) => {
@@ -855,10 +863,7 @@ export const addCoHost = mutation({
     }
     const target = await ctx.db.get(args.userId);
     if (!target) throw new Error("User not found");
-    await ctx.db.patch(args.eventId, {
-      coHostIds: plan.coHostIds as Id<"users">[],
-      updatedAt: Date.now(),
-    });
+    await saveCoHosts(ctx, args.eventId, plan.coHostIds);
   },
 });
 
@@ -868,10 +873,7 @@ export const removeCoHost = mutation({
     const event = await requireOrganizerOf(ctx, args.eventId);
     const plan = planRemoveCoHost(event, String(args.userId));
     if (!plan.ok) throw new Error("Not a co-host");
-    await ctx.db.patch(args.eventId, {
-      coHostIds: plan.coHostIds as Id<"users">[],
-      updatedAt: Date.now(),
-    });
+    await saveCoHosts(ctx, args.eventId, plan.coHostIds);
   },
 });
 
