@@ -5,6 +5,7 @@ import { Link, useNavigate, useParams } from "react-router";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { FF_DESK } from "../lib/featureFlags";
+import { FULL_HEIGHT } from "../lib/phoneBar";
 import { exactTime, startsStretch, stretchLabel } from "../lib/messageTime";
 
 // The thread reads as one column, not edge to edge (Rick, 2026-10-01): full
@@ -105,7 +106,7 @@ export default function ConversationView() {
   if (conversation === undefined || messagesData === undefined) {
     return (
       <div
-        className="flex flex-col h-screen"
+        className={`flex flex-col ${FULL_HEIGHT}`}
         style={{ backgroundColor: "var(--app-surface)" }}
       >
         {/* Header skeleton */}
@@ -139,7 +140,7 @@ export default function ConversationView() {
   if (!conversation) {
     return (
       <div
-        className="flex flex-col items-center justify-center h-screen p-6"
+        className={`flex flex-col items-center justify-center ${FULL_HEIGHT} p-6`}
         style={{ backgroundColor: "var(--app-surface)" }}
       >
         <div className="text-center">
@@ -187,7 +188,7 @@ export default function ConversationView() {
 
   return (
     <div
-      className="flex flex-col h-screen"
+      className={`flex flex-col ${FULL_HEIGHT}`}
       style={{ backgroundColor: "var(--app-surface)" }}
     >
       {/* Header */}
