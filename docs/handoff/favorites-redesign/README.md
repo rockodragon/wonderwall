@@ -18,6 +18,7 @@ What's wrong today:
 2. **Shortlist takes the Desk tool's slot in the palette.** The Desk tool goes (see Palette).
 3. **Only what the member did themselves.** Nothing on the Shortlist is suggested by the app or by AI. Suggestions belong on Today and in the browse views.
 4. **Needs you also leads Today** (see "Needs you on Today").
+5. **Paid roles go under Work and volunteer roles under Projects.** A role's own `budgetType` decides: "volunteer" goes to Projects, anything else goes to Work.
 
 ## The model
 
@@ -101,5 +102,9 @@ Today should still lead with what's personal and urgent, so Needs you goes first
 
 ## Open questions for Rick
 
-1. **Paid roles under Work, volunteer roles under Projects.** Is that the right split? The spec assumes yes. A role's own `budgetType` decides: "volunteer" goes to Projects, anything else goes to Work.
+1. **Projects you lead (proposed, awaiting Rick).**
+   - Keep them off the Shortlist, which is what you're part of, not what you run.
+   - Add a Needs you rule: an application or join request on a project you lead counts, alongside invites waiting on your reply. The row's Review button opens the project's team panel.
+   - Add a "My projects" row to the palette's Projects menu. It opens the Projects view filtered to projects you lead and paid work you've posted, each card showing its waiting requests.
+   - Your profile keeps showing them publicly.
 2. **Phones.** The spec assumes the same structure, with the tiles 2×2. Confirm when the phone pass happens.
