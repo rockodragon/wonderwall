@@ -4,7 +4,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
-import { LocationAutocomplete, LocationVerifiedHint } from "./LocationAutocomplete";
+import { LocationAutocomplete, LocationVerifiedHint, type LocationSuggestion } from "./LocationAutocomplete";
 import { useLocationField } from "../lib/useLocationField";
 import { EVENT_TAGS } from "../constants/eventTags";
 import { CommunityPicker, useDefaultEventCommunity } from "./CommunityPicker";
@@ -12,11 +12,16 @@ import {
   TicketTierEditor,
   draftsToTiers,
   emptyTierDraft,
+  tiersToDrafts,
+  type TicketTier,
   type TicketTierDraft,
 } from "./TicketTierEditor";
 import { describeMediaLink, MediaLinkField } from "./MediaLinkField";
 import { ImageFill } from "./ImageFill";
 
+// One modal for hosting AND editing an event (Rick, 2026-10-01: edit uses the
+// same steps as create). Pass `edit` to open it on an existing event.
+//
 // Hosting an event in three short steps instead of one wall of fields
 // (Rick, 2026-10-01): what and when -> tell people about it -> options.
 // Every field's state lives up here, so Back never loses anything and all
@@ -78,9 +83,10 @@ function resolveWhen(
   date: string,
   time: string,
   endTimeStr: string,
+  requireFuture = true,
 ): { datetime: number; endTime?: number; error?: string } {
   const datetime = new Date(`${date}T${time}`).getTime();
-  if (datetime < Date.now()) {
+  if (requireFuture && datetime < Date.now()) {
     return { datetime, error: "Event date must be in the future" };
   }
   // Optional end time — same day as the start; must be after it.
@@ -189,10 +195,53 @@ function OptionRow({
   );
 }
 
-export function CreateEventModal({ onClose }: { onClose: () => void }) {
+/** An existing event, to edit with the same steps as create. */
+export type EventEditTarget = {
+  eventId: Id<"events">;
+  /** Tickets are the organizer's; a co-host's save leaves them as they were
+   * (events.update), so the ticket row isn't shown to co-hosts. */
+  canEditTickets: boolean;
+  coverImageUrl?: string | null;
+  initialValues: {
+    title: string;
+    description: string;
+    datetime: number;
+    endTime?: number;
+    location?: string;
+    ticketTiers?: TicketTier[];
+    externalTicketUrl?: string;
+    externalTicketPriceCents?: number;
+    locationType?: string;
+    address?: LocationSuggestion["address"];
+    coordinates?: LocationSuggestion["coordinates"];
+    placeId?: string;
+    tags: string[];
+    requiresApproval: boolean;
+    mediaUrl?: string;
+    hostOrgId?: Id<"hostOrgs">;
+  };
+};
+
+const pad2 = (n: number) => String(n).padStart(2, "0");
+
+export function CreateEventModal({
+  onClose,
+  edit,
+}: {
+  onClose: () => void;
+  edit?: EventEditTarget;
+}) {
   const navigate = useNavigate();
   const posthog = usePostHog();
   const createEvent = useMutation(api.events.create);
+  const updateEvent = useMutation(api.events.update);
+  const deleteEventCoverImage = useMutation(api.files.deleteEventCoverImage);
+  const init = edit?.initialValues;
+  const canEditTickets = edit ? edit.canEditTickets : true;
+  // Local calendar day and time, not toISOString() (UTC): an evening event in
+  // Pacific time is already tomorrow in UTC, and saving that back moved the
+  // event a day later on every edit.
+  const initStart = init ? new Date(init.datetime) : null;
   const generateUploadUrl = useMutation(api.files.generateUploadUrl);
   const saveEventCoverImage = useMutation(api.files.saveEventCoverImage);
   // Ticketed events go live only once the organizer can sell tickets
@@ -216,19 +265,35 @@ export function CreateEventModal({ onClose }: { onClose: () => void }) {
 
   const [step, setStep] = useState<Step>(1);
 
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [date, setDate] = useState("");
-  const [time, setTime] = useState("");
-  const [endTimeStr, setEndTimeStr] = useState("");
-  const [ticketTiers, setTicketTiers] = useState<TicketTierDraft[]>([]);
-  const [externalTicketUrl, setExternalTicketUrl] = useState("");
-  const [externalTicketPrice, setExternalTicketPrice] = useState("");
-  const location = useLocationField();
-  const [tags, setTags] = useState<string[]>([]);
-  const [requiresApproval, setRequiresApproval] = useState(false);
-  const [hostOrgId, setHostOrgId] = useState("");
-  const [mediaUrl, setMediaUrl] = useState("");
+  const [title, setTitle] = useState(init?.title ?? "");
+  const [description, setDescription] = useState(init?.description ?? "");
+  const [date, setDate] = useState(
+    initStart
+      ? `${initStart.getFullYear()}-${pad2(initStart.getMonth() + 1)}-${pad2(initStart.getDate())}`
+      : "",
+  );
+  const [time, setTime] = useState(initStart ? initStart.toTimeString().slice(0, 5) : "");
+  const [endTimeStr, setEndTimeStr] = useState(
+    init?.endTime ? new Date(init.endTime).toTimeString().slice(0, 5) : "",
+  );
+  const [ticketTiers, setTicketTiers] = useState<TicketTierDraft[]>(
+    tiersToDrafts(init?.ticketTiers),
+  );
+  const [externalTicketUrl, setExternalTicketUrl] = useState(init?.externalTicketUrl ?? "");
+  const [externalTicketPrice, setExternalTicketPrice] = useState(
+    init?.externalTicketPriceCents !== undefined ? String(init.externalTicketPriceCents / 100) : "",
+  );
+  // Seeded with the event's structured fields so saving without re-picking a
+  // location doesn't wipe locationType/address/coordinates/placeId.
+  const location = useLocationField(init);
+  const [tags, setTags] = useState<string[]>(init?.tags ?? []);
+  const [requiresApproval, setRequiresApproval] = useState(init?.requiresApproval ?? false);
+  const [hostOrgId, setHostOrgId] = useState<string>(init?.hostOrgId ?? "");
+  const [mediaUrl, setMediaUrl] = useState(init?.mediaUrl ?? "");
+  // Edit: the cover already on the event. Cleared by Remove.
+  const [existingCoverUrl, setExistingCoverUrl] = useState<string | null>(
+    edit?.coverImageUrl ?? null,
+  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   // Pre-fill from the sidebar switcher's community, else The Garden —
@@ -250,6 +315,7 @@ export function CreateEventModal({ onClose }: { onClose: () => void }) {
   const coverInputRef = useRef<HTMLInputElement>(null);
   const coverRef = useRef(cover);
   coverRef.current = cover;
+  const shownCoverUrl = cover?.previewUrl ?? existingCoverUrl;
 
   const bodyRef = useRef<HTMLDivElement>(null);
   const firstRender = useRef(true);
@@ -331,6 +397,7 @@ export function CreateEventModal({ onClose }: { onClose: () => void }) {
   function removeCover() {
     if (cover) URL.revokeObjectURL(cover.previewUrl);
     setCover(null);
+    setExistingCoverUrl(null);
     setCoverError("");
   }
 
@@ -341,7 +408,7 @@ export function CreateEventModal({ onClose }: { onClose: () => void }) {
     setError("");
     if (step === 1) {
       if (!whenFilled) return;
-      const { error: whenError } = resolveWhen(date, time, endTimeStr);
+      const { error: whenError } = resolveWhen(date, time, endTimeStr, !edit);
       if (whenError) {
         setError(whenError);
         return;
@@ -379,6 +446,7 @@ export function CreateEventModal({ onClose }: { onClose: () => void }) {
       date,
       time,
       endTimeStr,
+      !edit,
     );
     if (whenError) {
       setStep(1);
@@ -402,6 +470,45 @@ export function CreateEventModal({ onClose }: { onClose: () => void }) {
 
     setSaving(true);
     try {
+      if (edit) {
+        await updateEvent({
+          eventId: edit.eventId,
+          title,
+          description,
+          datetime,
+          endTime,
+          // A co-host's save leaves tickets as they were.
+          ...(edit.canEditTickets
+            ? {
+                ticketTiers: tiers,
+                externalTicketUrl: externalTicketUrl.trim() || undefined,
+                externalTicketPriceCents: externalTicketPrice.trim()
+                  ? Math.round(parseFloat(externalTicketPrice) * 100)
+                  : undefined,
+              }
+            : {}),
+          ...location.toArgs(),
+          tags,
+          requiresApproval,
+          // Always sent: an emptied field clears the stored link —
+          // events.update treats only an absent field as "untouched".
+          mediaUrl: mediaLink.state === "ok" ? mediaLink.url : "",
+          ...(hostOrgId
+            ? { hostOrgId: hostOrgId as Id<"hostOrgs"> }
+            : { clearCommunity: true }),
+        });
+        try {
+          if (cover) {
+            await saveEventCoverImage({ eventId: edit.eventId, storageId: cover.storageId });
+          } else if (edit.coverImageUrl && !existingCoverUrl) {
+            await deleteEventCoverImage({ eventId: edit.eventId });
+          }
+        } catch (err) {
+          console.error("Cover save error:", err);
+        }
+        onClose();
+        return;
+      }
       const eventId = await createEvent({
         title,
         description,
@@ -449,7 +556,7 @@ export function CreateEventModal({ onClose }: { onClose: () => void }) {
 
       navigate(`/events/${eventId}`);
     } catch (err) {
-      setError("Failed to create event");
+      setError(edit ? "Failed to update event" : "Failed to create event");
     } finally {
       setSaving(false);
     }
@@ -525,7 +632,7 @@ export function CreateEventModal({ onClose }: { onClose: () => void }) {
               className="text-xl font-bold"
               style={{ color: "var(--app-text)" }}
             >
-              Host an event
+              {edit ? "Edit event" : "Host an event"}
             </h2>
             <button
               type="button"
@@ -608,7 +715,7 @@ export function CreateEventModal({ onClose }: { onClose: () => void }) {
                   <input
                     id={dateId}
                     type="date"
-                    min={todayString()}
+                    min={edit ? undefined : todayString()}
                     value={date}
                     onChange={(e) => setDate(e.target.value)}
                     className={inputTightClass}
@@ -689,7 +796,7 @@ export function CreateEventModal({ onClose }: { onClose: () => void }) {
                   className="hidden"
                   tabIndex={-1}
                 />
-                {cover ? (
+                {shownCoverUrl ? (
                   <div className="flex items-center gap-4">
                     <div
                       className="relative overflow-hidden aspect-[16/10] w-40 flex-shrink-0 rounded-lg border"
@@ -698,7 +805,7 @@ export function CreateEventModal({ onClose }: { onClose: () => void }) {
                         backgroundColor: "var(--app-surface-raised)",
                       }}
                     >
-                      <ImageFill src={cover.previewUrl} alt="Cover preview" />
+                      <ImageFill src={shownCoverUrl} alt="Cover preview" />
                     </div>
                     <div className="flex flex-col items-start gap-1">
                       <button
@@ -850,10 +957,11 @@ export function CreateEventModal({ onClose }: { onClose: () => void }) {
                 </button>
               </div>
 
+              {canEditTickets && (
               <OptionRow
                 label="Tickets"
                 value={ticketSummary}
-                actionLabel="Add tickets"
+                actionLabel={filledTiers > 0 || externalTicketUrl.trim() ? "Edit" : "Add tickets"}
                 expanded={showTickets}
                 onToggle={toggleTickets}
                 panelId={ticketsPanelId}
@@ -903,11 +1011,12 @@ export function CreateEventModal({ onClose }: { onClose: () => void }) {
                   )}
                 </div>
               </OptionRow>
+              )}
 
               <OptionRow
                 label="Video or reel link"
                 value={mediaSummary}
-                actionLabel="Add"
+                actionLabel={mediaUrl.trim() ? "Change" : "Add"}
                 expanded={showMedia}
                 onToggle={() => setShowMedia((open) => !open)}
                 panelId={mediaPanelId}
@@ -952,7 +1061,7 @@ export function CreateEventModal({ onClose }: { onClose: () => void }) {
               </button>
             )}
             <button
-              key={step === 3 ? "create" : "next"}
+              key={step === 3 ? "save" : "next"}
               type="submit"
               disabled={primaryDisabled}
               className="flex-1 px-4 py-2.5 rounded-lg text-[13.5px] font-semibold transition-opacity hover:opacity-90 disabled:opacity-50"
@@ -961,7 +1070,15 @@ export function CreateEventModal({ onClose }: { onClose: () => void }) {
                 color: "var(--garden-ink)",
               }}
             >
-              {step < 3 ? "Next" : saving ? "Creating…" : "Create event"}
+              {step < 3
+                ? "Next"
+                : edit
+                  ? saving
+                    ? "Saving…"
+                    : "Save changes"
+                  : saving
+                    ? "Creating…"
+                    : "Create event"}
             </button>
           </div>
         </form>
