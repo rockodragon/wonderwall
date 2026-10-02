@@ -2,6 +2,7 @@
 // view and the count beside a view's name ("13 people") on the others. Pure,
 // so the hour, the placeholder-name rule and the plurals can be tested.
 
+import { firstNameOf } from "../lib/names";
 import type { DeskView } from "./deskState";
 
 export type GreetingWord = "morning" | "afternoon" | "evening";
@@ -9,14 +10,6 @@ export type GreetingWord = "morning" | "afternoon" | "evening";
 /** Before noon is morning, before five is afternoon, the rest evening. */
 export function greetingWord(hour: number): GreetingWord {
   return hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening";
-}
-
-/** The first word of the member's name, or null before they've named themselves. */
-export function firstNameOf(name: string | undefined | null): string | null {
-  const full = name?.trim();
-  // "New User" is the placeholder an account has before its owner names it.
-  if (!full || /^new user$/i.test(full)) return null;
-  return full.split(/\s+/)[0] || null;
 }
 
 /** "Good evening, Rick." — or "Good evening." with no name to use. */

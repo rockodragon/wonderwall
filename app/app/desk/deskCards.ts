@@ -17,6 +17,7 @@ import { resolveStage, stageLabel } from "../lib/stage";
 import type { DeskCommunity, DeskCardId, DeskView } from "./deskState";
 import { hashSeed } from "../components/AbstractCover";
 import { actionTarget, updateCardId } from "../lib/updates";
+import { shortDay } from "../lib/dates";
 
 // ——————————————————————————————————————————————————————————————
 // Types
@@ -210,7 +211,7 @@ export function venueName(location: string | null | undefined): string {
 /** "OCT 2". The same date as EventCard's "Oct 2", capitalized for the mono
  * kicker; kept here so this module stays free of component imports. */
 export function dateKicker(ms: number): string {
-  return new Date(ms).toLocaleDateString("en-US", { month: "short", day: "numeric" }).toUpperCase();
+  return shortDay(ms).toUpperCase();
 }
 
 /** "7PM", "7:30PM" */
