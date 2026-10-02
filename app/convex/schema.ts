@@ -367,6 +367,20 @@ export default defineSchema({
     .index("by_status", ["status"])
     .index("by_hostOrgId", ["hostOrgId"]),
 
+  // One row per (event, co-host): events.coHostIds as rows, so "events I
+  // co-host" has an index. Convex can't index membership of an array.
+  // coHostIds stays the source of truth (display, permissions); this table
+  // only mirrors it, kept in step by eventHosts.ts syncCoHosts, which every
+  // write to coHostIds and every event delete goes through. createdAt is
+  // when the member became a co-host (or when backfillCoHosts first ran).
+  eventCoHosts: defineTable({
+    eventId: v.id("events"),
+    userId: v.id("users"),
+    createdAt: v.number(),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_eventId", ["eventId"]),
+
   // The ONLY home for secret event URLs (docs/gated-event-video-prd.md,
   // "Data model"). Nothing spreads this document into a public response:
   // exactly one query (convex/eventVideo.ts) may ever return these fields,

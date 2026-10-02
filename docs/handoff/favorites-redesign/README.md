@@ -124,7 +124,7 @@ Today should still lead with what's personal and urgent, so Needs you goes first
 | Save a project or role | New. `favorites.targetType` (now "profile" or "event") gains `"project"` and `"role"`, with branches in `getMyFavorites`, which `/events`, `EventCard` and the desk also read. Save buttons on project and role pages. |
 | Invited, waiting to hear, on the team, closed | New query over `projectMembers.by_userId_status`. It returns status, role title, pay, `neededBy` and the lead's name. |
 | Projects you lead and their requests | New query. The indexes exist: `projects.by_userId` / `by_userId_kind_status`, then `projectMembers.by_projectId_status`. |
-| Events you host and their requests | New query. The indexes exist: `events.by_organizerId`, then `eventApplications.by_eventId_status`. Co-hosts (`events.coHostIds`) have no index. |
+| Events you host and their requests | New query. The indexes exist: `events.by_organizerId`, then `eventApplications.by_eventId_status`. Events you co-host are included too, through `eventCoHosts.by_userId`: a join table that mirrors `events.coHostIds`, since an array can't be indexed. |
 | Going | New `eventRsvps.by_userId` index. It has no user index today. |
 | Opened cards | New `role:<id>` and `request:<id>` card kinds. |
 | Interactions | New: ← / → stepping in the opened card; bulk "Remove past events". |
