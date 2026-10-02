@@ -132,10 +132,9 @@ function TodayPage() {
         )}
       </Section>
 
-      {/* The Work view, not its Shows filter: on /projects a show is a
-          recurring live-booking series, and this list is every paid
-          posting, series or not. */}
-      <Section title="Paid work" action={<SectionLink to="/projects?view=work">{countLabel("posting", gigs.length)} →</SectionLink>}>
+      {/* The Jobs and gigs chip, not only its recurring gigs: this list is
+          every paid posting, series or not. */}
+      <Section title="Paid work" action={<SectionLink to="/projects?show=work">{countLabel("posting", gigs.length)} →</SectionLink>}>
         {loading ? (
           <Skeleton height={64} />
         ) : shownGigs.length > 0 ? (
@@ -547,7 +546,7 @@ function Badges({ project }: { project: Project }) {
   const topic = topicsOf(project)[0];
   return (
     <div className="flex flex-wrap gap-1.5">
-      <Tag accent>{project.kind === "paid" ? (project.gig ? "Show" : "Paid") : "Passion"}</Tag>
+      <Tag accent>{project.kind === "paid" ? (project.gig ? "Recurring gig" : "Job") : "Passion"}</Tag>
       {topic && <Tag>{topic}</Tag>}
       {project.community && <Tag>{project.community.name}</Tag>}
     </div>

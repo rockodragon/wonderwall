@@ -1,5 +1,6 @@
 // The panel of an opened card: meta line and close button, title, who's
-// behind it, a few lines, and the one thing to do. Beside a picture it takes
+// behind it, a few lines, and the one thing to do. A project adds a few
+// labelled rows (stage, funding, open roles, pay) before the button. Beside a picture it takes
 // the right-hand side (the picture's width is set in DeskCard.tsx); a card
 // with no picture is this panel alone, a centered sheet. From the handoff,
 // "Opened card".
@@ -12,7 +13,7 @@
 // its queries (a profile's bio, whether I'm going) only run while it's up.
 // Hooks run unconditionally; a query that doesn't apply is skipped.
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { Link } from "react-router";
 import { CaretLeft, CaretRight, X } from "@phosphor-icons/react";
@@ -32,6 +33,9 @@ import { useUpdateClick } from "./useUpdateReads";
 export type Stepper = { index: number; total: number; onStep: (by: -1 | 1) => void; arrived?: -1 | 1 };
 
 const ROUND_CLASS = `flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#333] bg-transparent text-[#F4F4F2] transition-colors enabled:hover:border-[#FFE066] enabled:hover:text-[#FFE066] disabled:opacity-35 ${FOCUS_RING_CLASS}`;
+
+/** Five lines of the description, then an ellipsis. */
+const CLAMP_5: CSSProperties = { display: "-webkit-box", WebkitLineClamp: 5, WebkitBoxOrient: "vertical", overflow: "hidden" };
 
 export function DetailPanel({
   card,
@@ -72,6 +76,10 @@ export function DetailPanel({
   const description = card.detail.description || plainText(profile?.bio, 500);
   const host = card.detail.host ?? (profile?.location || null);
   const action = card.detail.action;
+  // A project's panel carries rows under the description, so it spends less
+  // space between its parts to fit a laptop-height window.
+  const project = card.kind === "project";
+  const facts = card.detail.facts ?? [];
 
   return (
     <div
@@ -84,7 +92,7 @@ export function DetailPanel({
         bottom: 0,
         left: sheet ? 0 : `${share * 100}%`,
         background: DESK.panel,
-        padding: sheet ? 48 : 56,
+        padding: sheet || project ? 48 : 56,
         display: "flex",
         flexDirection: "column",
         gap: 20,
@@ -113,7 +121,7 @@ export function DetailPanel({
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col justify-center gap-5">
+      <div className="flex min-h-0 flex-1 flex-col justify-center" style={{ gap: project ? 14 : 20 }}>
         {card.detail.status && (
           <p
             style={{
@@ -139,39 +147,41 @@ export function DetailPanel({
           <p
             style={{
               margin: 0,
-              fontSize: 18,
-              lineHeight: 1.65,
+              fontSize: project ? 17 : 18,
+              lineHeight: project ? 1.6 : 1.65,
               color: DESK.textSoft,
               maxWidth: "46ch",
               overflowWrap: "break-word",
               hyphens: "manual",
               // An Update's body is written whole, line breaks and all.
               whiteSpace: card.kind === "update" ? "pre-line" : undefined,
+              ...(project ? CLAMP_5 : {}),
             }}
           >
             {description}
           </p>
         )}
-        {card.detail.facts && card.detail.facts.length > 0 && (
+        {facts.length > 0 && (
           <dl
             style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(2, minmax(0, 220px))",
-              gap: "14px 32px",
               margin: 0,
-              paddingTop: 18,
-              borderTop: `1px solid ${DESK.line}`,
+              display: "grid",
+              gridTemplateColumns: "max-content minmax(0, 1fr)",
+              columnGap: 20,
+              rowGap: 8,
+              fontSize: 15,
+              lineHeight: 1.45,
             }}
           >
-            {card.detail.facts.map(([label, value]) => (
-              <div key={label}>
-                <dt style={{ ...monoLabel(12, "0.18em"), color: DESK.muted }}>{label}</dt>
-                <dd style={{ margin: "4px 0 0", fontSize: 15, color: DESK.text }}>{value}</dd>
-              </div>
+            {facts.map((fact) => (
+              <Fragment key={fact.label}>
+                <dt style={{ color: DESK.muted }}>{fact.label}</dt>
+                <dd style={{ margin: 0, color: DESK.text, overflowWrap: "break-word", hyphens: "manual" }}>{fact.value}</dd>
+              </Fragment>
             ))}
           </dl>
         )}
-        <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-3">
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-3" style={{ marginTop: project ? 4 : 8 }}>
           {action?.kind === "link" && <ActionLink action={action} />}
           {action?.kind === "rsvp" && <JoinButton action={action} />}
           {action?.kind === "update" && <UpdateButton action={action} />}

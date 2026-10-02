@@ -12,10 +12,12 @@
 // "Funded by the {org} Fund" derivation.
 
 import { v } from "convex/values";
+import { getAuthUserId } from "@convex-dev/auth/server";
 import { query } from "../_generated/server";
 import { shapeCredits, type CreditEntry } from "./allocations";
 import { summarizeGig } from "./gigSummary";
 import { isHidden, isPostedProject, VISIBLE_PROJECT_STATUSES } from "../moderationRules";
+import { communityVisibility } from "./communityVisibility";
 
 // ——————————————————————————————————————————————————————————————
 // Pure core
@@ -195,7 +197,11 @@ export const listProjects = query({
         ).flat();
 
     // The same rule as garden/projects.ts's listProjects (moderationRules.ts).
-    const visible = rows.filter((p) => VISIBLE_PROJECT_STATUSES.has(p.status) && isPostedProject(p));
+    // A project posted into a hidden (test) community is listed only for
+    // admins and that community's members.
+    const visible = await communityVisibility(ctx).filter(
+      rows.filter((p) => VISIBLE_PROJECT_STATUSES.has(p.status) && isPostedProject(p)),
+    );
     const newestFirst = [...visible].sort((a, b) => b.createdAt - a.createdAt).slice(0, 50);
     if (newestFirst.length === 0) return [];
 
@@ -246,6 +252,14 @@ export const getProject = query({
     const project = await ctx.db.get(id);
     // An admin-hidden project (moderation.ts) reads as not found here.
     if (!project || isHidden(project)) return null;
+    // Same not-found for a project in a hidden (test) community, unless the
+    // viewer is its lead, an admin or a member of that community.
+    if (project.hostOrgId) {
+      const viewerId = await getAuthUserId(ctx);
+      if (viewerId !== project.userId && !(await communityVisibility(ctx, viewerId).idVisible(project.hostOrgId))) {
+        return null;
+      }
+    }
 
     const [ownerProfile, allocationRows] = await Promise.all([
       ctx.db.query("profiles").withIndex("by_userId", (q) => q.eq("userId", project.userId)).unique(),

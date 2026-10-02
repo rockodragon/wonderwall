@@ -17,6 +17,7 @@ import { can } from "./capabilities";
 import type { GardenUser } from "./capabilities";
 import { getGardenUser, throwDenial } from "./entitlements";
 import { COMMUNITY_KIND } from "./communities";
+import { communityVisibility } from "./communityVisibility";
 
 /** Batches hostOrgs lookups into one Map keyed by hostOrgId string — every
  * gardenTables row has a hostOrgId (it's required, unlike projects/events/
@@ -101,10 +102,14 @@ export function visibleMeetingUrl(
 export const listTables = query({
   args: {},
   handler: async (ctx) => {
-    const tables = await ctx.db
-      .query("gardenTables")
-      .withIndex("by_status", (q) => q.eq("status", "active"))
-      .collect();
+    // A table of a hidden (test) community is listed only for admins and
+    // that community's members.
+    const tables = await communityVisibility(ctx).filter(
+      await ctx.db
+        .query("gardenTables")
+        .withIndex("by_status", (q) => q.eq("status", "active"))
+        .collect(),
+    );
 
     const communityById = await resolveCommunities(ctx, tables.map((t: any) => t.hostOrgId));
 
@@ -145,6 +150,8 @@ export const getTable = query({
     if (!table) return null;
 
     const userId = await getAuthUserId(ctx);
+    // Not found to anyone who can't see the table's (hidden, test) community.
+    if (!(await communityVisibility(ctx, userId).idVisible(table.hostOrgId))) return null;
 
     const [sessions, memberships] = await Promise.all([
       ctx.db

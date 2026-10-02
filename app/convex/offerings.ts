@@ -19,6 +19,7 @@ import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { assertCommunityMember, canManageCommunity } from "./garden/communities";
 import { classCheckoutRefusal, classPaymentPath, classPriceProblem } from "./garden/stripeHandlers";
 import { isAdminProfile } from "./helpers";
+import { communityVisibility } from "./garden/communityVisibility";
 
 const VALID_STATUSES = new Set(["active", "archived"]);
 
@@ -380,7 +381,10 @@ export const listOfferings = query({
     const viewer = active.some((o) => o.pausedAt)
       ? await loadViewer(ctx, await getAuthUserId(ctx))
       : null;
-    const offerings = viewer ? active.filter((o) => canSeeOffering(o, viewer)) : active;
+    const unpaused = viewer ? active.filter((o) => canSeeOffering(o, viewer)) : active;
+    // A class posted into a hidden (test) community is listed only for
+    // admins and that community's members.
+    const offerings = await communityVisibility(ctx).filter(unpaused);
 
     const communityById = await resolveCommunities(ctx, offerings.map((o) => o.hostOrgId));
 
@@ -448,6 +452,14 @@ export const getOffering = query({
     const userId = await getAuthUserId(ctx);
     const viewer = await loadViewer(ctx, userId);
     if (!canSeeOffering(offering, viewer)) return null;
+    // Posted into a hidden (test) community: not found to everyone but its
+    // teacher, admins and that community's members.
+    if (
+      !isOfferingTeacher(offering, viewer) &&
+      !(await communityVisibility(ctx, userId).idVisible(offering.hostOrgId))
+    ) {
+      return null;
+    }
 
     const canModerate = canModerateOffering(offering, viewer);
     const canReport = !!userId && !isOfferingTeacher(offering, viewer);

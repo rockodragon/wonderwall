@@ -1,6 +1,6 @@
 import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import { useState, useMemo } from "react";
+import { Fragment, useState, useMemo } from "react";
 import type { MetaFunction } from "react-router";
 import {
   useReactTable,
@@ -11,7 +11,15 @@ import {
   type ColumnDef,
   type SortingState,
 } from "@tanstack/react-table";
-import { PAGE_WIDTH } from "../lib/pageWidth";
+import { admin } from "../components/admin/adminStyles";
+import {
+  AdminAccessDenied,
+  AdminFrame,
+  AdminHeader,
+  AdminLoading,
+  SortButton,
+  ariaSortFor,
+} from "../components/admin/AdminUi";
 
 export const meta: MetaFunction = () => {
   return [{ title: "Crawler Admin | TheCreative.exchange" }];
@@ -37,9 +45,9 @@ function Tooltip({
         {children}
       </div>
       {show && (
-        <div className="absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 text-sm text-white bg-gray-800 rounded-lg shadow-lg max-w-xs whitespace-normal">
+        <div className="absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 text-[13.5px] text-[color:var(--app-text)] bg-[var(--app-surface)] border border-[color:var(--app-hairline-raised)] rounded-lg shadow-lg w-max max-w-xs whitespace-normal">
           {content}
-          <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-800" />
+          <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-[color:var(--app-hairline-raised)]" />
         </div>
       )}
     </div>
@@ -49,7 +57,7 @@ function Tooltip({
 function InfoIcon() {
   return (
     <svg
-      className="w-4 h-4 text-gray-500 inline-block ml-1"
+      className="w-4 h-4 text-[color:var(--app-text-muted)] inline-block ml-1"
       fill="none"
       stroke="currentColor"
       viewBox="0 0 24 24"
@@ -92,32 +100,32 @@ const SEGMENTS = {
   hot: {
     label: "Hot",
     desc: "Ready to contact",
-    color: "text-red-400",
-    bg: "bg-red-500/20",
+    color: "text-red-300",
+    bg: "bg-red-400/15",
   },
   warm: {
     label: "Warm",
     desc: "Good fit, nurture",
-    color: "text-orange-400",
-    bg: "bg-orange-500/20",
+    color: "text-orange-300",
+    bg: "bg-orange-400/15",
   },
   nurture: {
     label: "Nurture",
     desc: "Potential, needs outreach",
-    color: "text-yellow-400",
-    bg: "bg-yellow-500/20",
+    color: "text-amber-300",
+    bg: "bg-amber-400/15",
   },
   research: {
     label: "Review",
     desc: "Needs manual review",
-    color: "text-blue-400",
-    bg: "bg-blue-500/20",
+    color: "text-sky-300",
+    bg: "bg-sky-400/15",
   },
   low: {
     label: "Low Priority",
     desc: "Poor fit",
-    color: "text-gray-400",
-    bg: "bg-gray-500/20",
+    color: "text-[color:var(--app-text-muted)]",
+    bg: "bg-[var(--app-hairline)]",
   },
 };
 
@@ -167,10 +175,12 @@ export default function CrawlerAdmin() {
         cell: ({ row }) => (
           <button
             onClick={() => toggleRow(row.original._id)}
-            className="p-1 hover:bg-gray-700 rounded"
+            aria-expanded={expandedRows.has(row.original._id)}
+            aria-label={`Details for ${row.original.name}`}
+            className={`rounded p-1 transition-colors hover:bg-[var(--app-hairline)] ${admin.focus}`}
           >
             <svg
-              className={`w-4 h-4 text-gray-500 transition-transform ${expandedRows.has(row.original._id) ? "rotate-90" : ""}`}
+              className={`w-4 h-4 text-[color:var(--app-text-muted)] transition-transform ${expandedRows.has(row.original._id) ? "rotate-90" : ""}`}
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -190,7 +200,7 @@ export default function CrawlerAdmin() {
         accessorKey: "name",
         header: "Organization",
         cell: ({ row }) => (
-          <span className="text-white font-medium">{row.original.name}</span>
+          <span className="font-medium text-[color:var(--app-text)]">{row.original.name}</span>
         ),
       },
       {
@@ -203,7 +213,7 @@ export default function CrawlerAdmin() {
         accessorKey: "totalScore",
         header: "Score",
         cell: ({ row }) => (
-          <span className="font-mono text-gray-300">
+          <span className="font-mono text-[color:var(--garden-body)]">
             {row.original.totalScore}
           </span>
         ),
@@ -213,7 +223,7 @@ export default function CrawlerAdmin() {
         accessorKey: "industry",
         header: "Industry",
         cell: ({ row }) => (
-          <span className="text-gray-400 text-sm">{row.original.industry}</span>
+          <span className="text-[color:var(--app-text-muted)]">{row.original.industry}</span>
         ),
       },
       {
@@ -225,7 +235,7 @@ export default function CrawlerAdmin() {
               href={row.original.website}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-blue-400 hover:text-blue-300 text-sm"
+              className={admin.link}
             >
               {
                 row.original.website
@@ -248,15 +258,15 @@ export default function CrawlerAdmin() {
           const org = row.original;
           if (org.jobCount !== undefined && org.jobCount > 0) {
             return (
-              <span className="inline-flex items-center justify-center px-2 py-0.5 bg-green-900/30 text-green-400 text-xs font-medium rounded">
+              <span className={admin.chip.green}>
                 {org.jobCount}
               </span>
             );
           }
           if (org.hasCareerPage) {
-            return <span className="text-gray-600 text-xs">0</span>;
+            return <span className="text-[color:var(--app-text-muted)]">0</span>;
           }
-          return <span className="text-gray-700 text-xs">—</span>;
+          return <span className="text-[color:var(--app-text-muted)]">—</span>;
         },
         size: 60,
       },
@@ -267,7 +277,7 @@ export default function CrawlerAdmin() {
           <button
             onClick={() => handleScrapeJobs(row.original)}
             disabled={scrapingOrg === row.original._id}
-            className="px-2 py-1 bg-gray-800 hover:bg-gray-700 disabled:opacity-50 text-white text-xs rounded"
+            className={admin.btnRowSecondary}
           >
             {scrapingOrg === row.original._id ? "..." : "Scrape"}
           </button>
@@ -316,17 +326,12 @@ export default function CrawlerAdmin() {
   });
 
   // Check admin access - AFTER all hooks
+  if (profile === undefined) {
+    return <AdminLoading>Checking access…</AdminLoading>;
+  }
+
   if (!profile?.isAdmin) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-950">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-white mb-2">Access Denied</h1>
-          <p className="text-gray-400">
-            You don't have permission to access this page.
-          </p>
-        </div>
-      </div>
-    );
+    return <AdminAccessDenied />;
   }
 
   const handleSeedUrls = async () => {
@@ -397,338 +402,347 @@ export default function CrawlerAdmin() {
   const failedCount = queueStatus?.failed ?? 0;
 
   return (
-    <div className="min-h-screen bg-gray-950 p-6">
-      <div className={`${PAGE_WIDTH.wide} mx-auto`}>
-        {/* Header */}
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-white mb-1">Lead Crawler</h1>
-          <p className="text-gray-500 text-sm">
-            Find and classify faith-aligned organizations
-          </p>
-        </div>
+    <AdminFrame>
+      <AdminHeader
+        back
+        title="Lead Crawler"
+        sub="Find and classify faith-aligned organizations"
+      />
 
-        {/* Queue Status Bar */}
-        <div className="bg-gray-900 rounded-xl p-4 border border-gray-800 mb-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-6">
-              {/* Queue flow: Pending → Processing → Completed / Failed */}
-              <div className="flex items-center gap-2">
-                <span className="text-yellow-400 font-bold text-xl">
-                  {pendingCount}
+      {/* Queue Status Bar */}
+      <div className={`${admin.card} mb-6 p-4`}>
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+            {/* Queue flow: Pending → Processing → Completed / Failed */}
+            <div className="flex items-center gap-2">
+              <span className="text-xl font-bold text-amber-300">
+                {pendingCount}
+              </span>
+              <span className={admin.meta}>pending</span>
+            </div>
+            <ChevronRight />
+            <div className="flex items-center gap-2">
+              <span className="text-xl font-bold text-sky-300">
+                {processingCount}
+              </span>
+              <span className={admin.meta}>processing</span>
+            </div>
+            <ChevronRight />
+            <div className="flex items-center gap-2">
+              <span className="text-xl font-bold text-green-300">
+                {completedCount}
+              </span>
+              <span className={admin.meta}>done</span>
+            </div>
+            {failedCount > 0 && (
+              <>
+                <span aria-hidden="true" className="text-[color:var(--app-text-dim)]">
+                  |
                 </span>
-                <span className="text-gray-400 text-sm">pending</span>
-              </div>
-              <svg
-                className="w-4 h-4 text-gray-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 5l7 7-7 7"
-                />
-              </svg>
-              <div className="flex items-center gap-2">
-                <span className="text-blue-400 font-bold text-xl">
-                  {processingCount}
-                </span>
-                <span className="text-gray-400 text-sm">processing</span>
-              </div>
-              <svg
-                className="w-4 h-4 text-gray-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 5l7 7-7 7"
-                />
-              </svg>
-              <div className="flex items-center gap-2">
-                <span className="text-green-400 font-bold text-xl">
-                  {completedCount}
-                </span>
-                <span className="text-gray-400 text-sm">done</span>
-              </div>
-              {failedCount > 0 && (
-                <>
-                  <span className="text-gray-600">|</span>
-                  <button
-                    onClick={() => setShowFailedItems(!showFailedItems)}
-                    className="flex items-center gap-2 hover:bg-gray-800 px-2 py-1 rounded transition-colors"
+                <button
+                  onClick={() => setShowFailedItems(!showFailedItems)}
+                  aria-expanded={showFailedItems}
+                  className={`flex items-center gap-2 rounded px-2 py-1 transition-colors hover:bg-[var(--app-hairline)] ${admin.focus}`}
+                >
+                  <span className="text-xl font-bold text-red-300">
+                    {failedCount}
+                  </span>
+                  <span className={admin.meta}>failed</span>
+                  <svg
+                    className={`w-4 h-4 text-[color:var(--app-text-muted)] transition-transform ${showFailedItems ? "rotate-180" : ""}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
                   >
-                    <span className="text-red-400 font-bold text-xl">
-                      {failedCount}
-                    </span>
-                    <span className="text-gray-400 text-sm">failed</span>
-                    <svg
-                      className={`w-4 h-4 text-gray-500 transition-transform ${showFailedItems ? "rotate-180" : ""}`}
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M19 9l-7 7-7-7"
-                      />
-                    </svg>
-                  </button>
-                </>
-              )}
-            </div>
-
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setShowAddForm(!showAddForm)}
-                className="px-3 py-1.5 text-sm bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg transition-colors"
-              >
-                + Add URL
-              </button>
-              <button
-                onClick={handleProcessQueue}
-                disabled={isProcessing || pendingCount === 0}
-                className="px-4 py-1.5 text-sm bg-green-600 hover:bg-green-500 disabled:bg-gray-700 disabled:text-gray-500 text-white font-medium rounded-lg transition-colors"
-              >
-                {isProcessing ? "Processing..." : `Process (${pendingCount})`}
-              </button>
-            </div>
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 9l-7 7-7-7"
+                    />
+                  </svg>
+                </button>
+              </>
+            )}
           </div>
 
-          {/* Collapsible Add URL Form */}
-          {showAddForm && (
-            <form
-              onSubmit={handleAddUrl}
-              className="mt-4 pt-4 border-t border-gray-800"
-            >
-              <div className="flex gap-3">
-                <input
-                  type="text"
-                  value={newUrl}
-                  onChange={(e) => setNewUrl(e.target.value)}
-                  placeholder="Enter website URL (e.g., example.org)"
-                  className="flex-1 px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
-                  autoFocus
-                />
-                <button
-                  type="submit"
-                  disabled={isAddingUrl || !newUrl.trim()}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 text-white font-medium rounded-lg transition-colors"
-                >
-                  {isAddingUrl ? "Adding..." : "Add"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowAddForm(false)}
-                  className="px-3 py-2 text-gray-400 hover:text-white"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          )}
-
-          {/* Collapsible Failed Items Panel */}
-          {showFailedItems && failedItems && failedItems.length > 0 && (
-            <div className="mt-4 pt-4 border-t border-gray-800">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-medium text-gray-300">
-                  Failed Items
-                </h3>
-                <button
-                  onClick={handleRetryFailed}
-                  disabled={isRetrying}
-                  className="px-3 py-1 text-sm bg-red-600 hover:bg-red-500 disabled:bg-gray-700 text-white rounded transition-colors"
-                >
-                  {isRetrying
-                    ? "Retrying..."
-                    : `Retry All (${failedItems.length})`}
-                </button>
-              </div>
-              <div className="space-y-2 max-h-48 overflow-y-auto">
-                {failedItems.map((item) => (
-                  <div
-                    key={item._id}
-                    className="flex items-center justify-between p-2 bg-gray-800/50 rounded text-sm"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <span className="text-gray-300 truncate block">
-                        {
-                          item.url
-                            .replace(/^https?:\/\/(www\.)?/, "")
-                            .split("/")[0]
-                        }
-                      </span>
-                      {item.errorMessage && (
-                        <span className="text-red-400 text-xs truncate block">
-                          {item.errorMessage}
-                        </span>
-                      )}
-                    </div>
-                    <span className="text-gray-500 text-xs ml-2">
-                      {item.retryCount} retries
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Last Result Message */}
-        {lastResult && (
-          <div className="mb-4 p-3 bg-gray-800/50 rounded-lg border border-gray-700 flex items-center justify-between">
-            <p className="text-gray-300 text-sm">{lastResult}</p>
+          <div className="flex items-center gap-3">
             <button
-              onClick={() => setLastResult(null)}
-              className="text-gray-500 hover:text-gray-300"
+              onClick={() => setShowAddForm(!showAddForm)}
+              className={admin.btnSecondary}
             >
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
+              + Add URL
+            </button>
+            <button
+              onClick={handleProcessQueue}
+              disabled={isProcessing || pendingCount === 0}
+              className={admin.btnPrimary}
+            >
+              {isProcessing ? "Processing..." : `Process (${pendingCount})`}
             </button>
           </div>
+        </div>
+
+        {/* Collapsible Add URL Form */}
+        {showAddForm && (
+          <form onSubmit={handleAddUrl} className={`mt-4 pt-4 ${admin.ruleTop}`}>
+            <div className="flex flex-wrap gap-3">
+              <input
+                type="text"
+                value={newUrl}
+                onChange={(e) => setNewUrl(e.target.value)}
+                placeholder="Enter website URL (e.g., example.org)"
+                aria-label="Website URL"
+                className={`${admin.input} min-w-[220px] flex-1`}
+                autoFocus
+              />
+              <button
+                type="submit"
+                disabled={isAddingUrl || !newUrl.trim()}
+                className={admin.btnPrimary}
+              >
+                {isAddingUrl ? "Adding..." : "Add"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowAddForm(false)}
+                className={admin.btnQuiet}
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
         )}
 
-        {/* Segment Summary */}
-        <div className="flex flex-wrap gap-3 mb-6">
-          {Object.entries(SEGMENTS).map(([key, seg]) => {
-            const count = stats?.bySegment?.[key] ?? 0;
-            return (
-              <Tooltip key={key} content={seg.desc}>
+        {/* Collapsible Failed Items Panel */}
+        {showFailedItems && failedItems && failedItems.length > 0 && (
+          <div className={`mt-4 pt-4 ${admin.ruleTop}`}>
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className={admin.h3}>Failed Items</h3>
+              <button
+                onClick={handleRetryFailed}
+                disabled={isRetrying}
+                className={admin.btnRowSecondary}
+              >
+                {isRetrying
+                  ? "Retrying..."
+                  : `Retry All (${failedItems.length})`}
+              </button>
+            </div>
+            <div className="max-h-48 space-y-2 overflow-y-auto">
+              {failedItems.map((item) => (
                 <div
-                  className={`px-3 py-2 rounded-lg ${seg.bg} flex items-center gap-2`}
+                  key={item._id}
+                  className={`${admin.inset} flex items-center justify-between p-2.5 text-[13.5px]`}
                 >
-                  <span className={`font-bold ${seg.color}`}>{count}</span>
-                  <span className={`text-sm ${seg.color}`}>{seg.label}</span>
-                </div>
-              </Tooltip>
-            );
-          })}
-          <div className="px-3 py-2 rounded-lg bg-gray-800 flex items-center gap-2 ml-auto">
-            <span className="font-bold text-white">{stats?.total ?? 0}</span>
-            <span className="text-sm text-gray-400">total</span>
-          </div>
-        </div>
-
-        {/* Organizations DataTable */}
-        <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
-          <div className="px-4 py-3 border-b border-gray-800 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-white">Organizations</h2>
-            <input
-              type="text"
-              value={globalFilter}
-              onChange={(e) => setGlobalFilter(e.target.value)}
-              placeholder="Search..."
-              className="px-3 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 text-sm focus:outline-none focus:border-blue-500 w-48"
-            />
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-800/50">
-                {table.getHeaderGroups().map((headerGroup) => (
-                  <tr key={headerGroup.id}>
-                    {headerGroup.headers.map((header) => (
-                      <th
-                        key={header.id}
-                        className="px-4 py-2 text-left text-xs font-medium text-gray-400 uppercase tracking-wider"
-                        style={{ width: header.getSize() }}
-                      >
-                        {header.isPlaceholder ? null : (
-                          <div
-                            className={
-                              header.column.getCanSort()
-                                ? "cursor-pointer select-none flex items-center gap-1 hover:text-gray-200"
-                                : ""
-                            }
-                            onClick={header.column.getToggleSortingHandler()}
-                          >
-                            {flexRender(
-                              header.column.columnDef.header,
-                              header.getContext(),
-                            )}
-                            {{
-                              asc: " ↑",
-                              desc: " ↓",
-                            }[header.column.getIsSorted() as string] ?? null}
-                          </div>
-                        )}
-                      </th>
-                    ))}
-                  </tr>
-                ))}
-              </thead>
-              <tbody className="divide-y divide-gray-800">
-                {table.getRowModel().rows.map((row) => (
-                  <>
-                    <tr key={row.id} className="hover:bg-gray-800/30">
-                      {row.getVisibleCells().map((cell) => (
-                        <td key={cell.id} className="px-4 py-2.5">
-                          {flexRender(
-                            cell.column.columnDef.cell,
-                            cell.getContext(),
-                          )}
-                        </td>
-                      ))}
-                    </tr>
-                    {expandedRows.has(row.original._id) && (
-                      <tr key={`${row.id}-expanded`}>
-                        <td colSpan={columns.length} className="bg-gray-800/30">
-                          <ExpandedOrgDetails org={row.original} />
-                        </td>
-                      </tr>
+                  <div className="min-w-0 flex-1">
+                    <span className="block truncate text-[color:var(--app-text)]">
+                      {
+                        item.url
+                          .replace(/^https?:\/\/(www\.)?/, "")
+                          .split("/")[0]
+                      }
+                    </span>
+                    {item.errorMessage && (
+                      <span className="block truncate text-[12.5px] text-red-300">
+                        {item.errorMessage}
+                      </span>
                     )}
-                  </>
-                ))}
-                {table.getRowModel().rows.length === 0 && (
-                  <tr>
-                    <td
-                      colSpan={columns.length}
-                      className="px-4 py-8 text-center text-gray-500"
-                    >
-                      No organizations yet. Add a URL and click Process to get
-                      started.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                  </div>
+                  <span className={`ml-2 ${admin.hint}`}>
+                    {item.retryCount} retries
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
-          <div className="px-4 py-2 border-t border-gray-800 text-xs text-gray-500">
-            {table.getRowModel().rows.length} of{" "}
-            {orgs?.organizations?.length ?? 0} organizations
-          </div>
-        </div>
+        )}
+      </div>
 
-        {/* Dev tools - hidden in corner */}
-        <div className="mt-8 flex justify-end">
+      {/* Last Result Message */}
+      {lastResult && (
+        <div
+          role="status"
+          className={`${admin.notice.info} mb-4 flex items-center justify-between gap-3`}
+        >
+          <p>{lastResult}</p>
           <button
-            onClick={handleSeedUrls}
-            disabled={isSeeding}
-            className="text-xs text-gray-600 hover:text-gray-400"
+            onClick={() => setLastResult(null)}
+            aria-label="Dismiss message"
+            className={`rounded text-[color:var(--app-text-muted)] transition-colors hover:text-[color:var(--app-text)] ${admin.focus}`}
           >
-            {isSeeding ? "Seeding..." : "Seed test data"}
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
           </button>
         </div>
+      )}
+
+      {/* Segment Summary */}
+      <div className="mb-6 flex flex-wrap gap-3">
+        {Object.entries(SEGMENTS).map(([key, seg]) => {
+          const count = stats?.bySegment?.[key] ?? 0;
+          return (
+            <Tooltip key={key} content={seg.desc}>
+              <div
+                className={`flex items-center gap-2 rounded-lg px-3 py-2 ${seg.bg}`}
+              >
+                <span className={`font-bold ${seg.color}`}>{count}</span>
+                <span className={`text-[13.5px] ${seg.color}`}>{seg.label}</span>
+              </div>
+            </Tooltip>
+          );
+        })}
+        <div className={`${admin.card} ml-auto flex items-center gap-2 px-3 py-2`}>
+          <span className="font-bold text-[color:var(--app-text)]">
+            {stats?.total ?? 0}
+          </span>
+          <span className={admin.meta}>total</span>
+        </div>
       </div>
-    </div>
+
+      {/* Organizations DataTable */}
+      <div className={admin.tableWrap}>
+        <div
+          className={`${admin.ruleBottom} flex flex-wrap items-center justify-between gap-3 px-4 py-3`}
+        >
+          <h2 className={admin.h2}>Organizations</h2>
+          <input
+            type="search"
+            value={globalFilter}
+            onChange={(e) => setGlobalFilter(e.target.value)}
+            placeholder="Search..."
+            aria-label="Search organizations"
+            className={`${admin.input} sm:w-64`}
+          />
+        </div>
+        <div className={admin.tableScroll}>
+          <table className={`${admin.table} min-w-[900px]`}>
+            <thead className={admin.thead}>
+              {table.getHeaderGroups().map((headerGroup) => (
+                <tr key={headerGroup.id}>
+                  {headerGroup.headers.map((header) => {
+                    const canSort = header.column.getCanSort();
+                    const sorted = header.column.getIsSorted();
+                    return (
+                      <th
+                        key={header.id}
+                        scope="col"
+                        className={admin.th}
+                        style={{ width: header.getSize() }}
+                        aria-sort={canSort ? ariaSortFor(sorted) : undefined}
+                      >
+                        {header.isPlaceholder ? null : canSort ? (
+                          <SortButton
+                            label={String(header.column.columnDef.header)}
+                            sorted={sorted}
+                            onClick={header.column.getToggleSortingHandler()}
+                          />
+                        ) : (
+                          flexRender(
+                            header.column.columnDef.header,
+                            header.getContext(),
+                          )
+                        )}
+                      </th>
+                    );
+                  })}
+                </tr>
+              ))}
+            </thead>
+            <tbody className={admin.tbody}>
+              {table.getRowModel().rows.map((row) => (
+                <Fragment key={row.id}>
+                  <tr className={admin.tr}>
+                    {row.getVisibleCells().map((cell) => (
+                      <td
+                        key={cell.id}
+                        className="px-4 py-2.5 align-middle text-[14px] text-[color:var(--app-text)]"
+                      >
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext(),
+                        )}
+                      </td>
+                    ))}
+                  </tr>
+                  {expandedRows.has(row.original._id) && (
+                    <tr>
+                      <td
+                        colSpan={columns.length}
+                        className="bg-[var(--app-surface)]"
+                      >
+                        <ExpandedOrgDetails org={row.original} />
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              ))}
+              {table.getRowModel().rows.length === 0 && (
+                <tr>
+                  <td
+                    colSpan={columns.length}
+                    className={`px-4 py-8 text-center ${admin.meta}`}
+                  >
+                    No organizations yet. Add a URL and click Process to get
+                    started.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+        <div className={admin.tableFoot}>
+          <span>
+            {table.getRowModel().rows.length} of{" "}
+            {orgs?.organizations?.length ?? 0} organizations
+          </span>
+        </div>
+      </div>
+
+      {/* Dev tools - hidden in corner */}
+      <div className="mt-8 flex justify-end">
+        <button
+          onClick={handleSeedUrls}
+          disabled={isSeeding}
+          className={`rounded text-[12.5px] text-[color:var(--app-text-dim)] transition-colors hover:text-[color:var(--app-text)] ${admin.focus}`}
+        >
+          {isSeeding ? "Seeding..." : "Seed test data"}
+        </button>
+      </div>
+    </AdminFrame>
+  );
+}
+
+// The arrow between the queue stages.
+function ChevronRight() {
+  return (
+    <svg
+      className="w-4 h-4 text-[color:var(--app-text-dim)]"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M9 5l7 7-7 7"
+      />
+    </svg>
   );
 }
 
@@ -746,15 +760,15 @@ function ContactCell({ org }: { org: Organization }) {
       : null;
 
   if (!validEmail && !validPhone && !validContactForm) {
-    return <span className="text-gray-600 text-sm">—</span>;
+    return <span className="text-[color:var(--app-text-muted)]">—</span>;
   }
 
   return (
-    <div className="flex items-center gap-3 text-sm">
+    <div className="flex items-center gap-3">
       {validEmail && (
         <a
           href={`mailto:${validEmail}`}
-          className="text-green-400 hover:text-green-300 hover:underline"
+          className={admin.link}
           title={`Email: ${validEmail}`}
         >
           {validEmail.length > 20
@@ -765,7 +779,7 @@ function ContactCell({ org }: { org: Organization }) {
       {validPhone && (
         <a
           href={`tel:${validPhone}`}
-          className="text-yellow-400 hover:text-yellow-300 hover:underline"
+          className={admin.link}
           title={`Call: ${org.phone}`}
         >
           {org.phone}
@@ -776,7 +790,7 @@ function ContactCell({ org }: { org: Organization }) {
           href={validContactForm}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-purple-400 hover:text-purple-300 hover:underline"
+          className={admin.link}
         >
           Contact form
         </a>
@@ -796,15 +810,15 @@ function ExpandedOrgDetails({ org }: { org: Organization }) {
     <div className="px-6 py-4 space-y-3">
       {/* Jobs Info */}
       {(org.jobCount !== undefined || org.lastJobsCrawledAt) && (
-        <div className="text-sm text-gray-400">
-          <span className="text-gray-500">Jobs:</span>{" "}
+        <div className="text-[14px] text-[color:var(--garden-body)]">
+          <span className="text-[color:var(--app-text-muted)]">Jobs:</span>{" "}
           {org.jobCount !== undefined && org.jobCount > 0 ? (
-            <span className="text-green-400">{org.jobCount} active</span>
+            <span className="text-green-300">{org.jobCount} active</span>
           ) : (
             <span>None found</span>
           )}
           {org.lastJobsCrawledAt && (
-            <span className="ml-2 text-gray-500">
+            <span className="ml-2 text-[color:var(--app-text-muted)]">
               (scraped {formatRelativeTime(org.lastJobsCrawledAt)})
             </span>
           )}
@@ -813,8 +827,8 @@ function ExpandedOrgDetails({ org }: { org: Organization }) {
 
       {/* Location */}
       {(org.streetAddress || org.city || org.state || org.zipCode) && (
-        <div className="text-sm text-gray-400">
-          <span className="text-gray-500">Location:</span>{" "}
+        <div className="text-[14px] text-[color:var(--garden-body)]">
+          <span className="text-[color:var(--app-text-muted)]">Location:</span>{" "}
           {org.streetAddress && <span>{org.streetAddress}, </span>}
           {[org.city, org.state].filter(Boolean).join(", ")}
           {org.zipCode && <span> {org.zipCode}</span>}
@@ -822,11 +836,11 @@ function ExpandedOrgDetails({ org }: { org: Organization }) {
       )}
 
       {/* Full Contact Details */}
-      <div className="flex flex-wrap gap-4 text-sm">
+      <div className="flex flex-wrap gap-4 text-[14px]">
         {validEmail && (
           <a
             href={`mailto:${validEmail}`}
-            className="text-green-400 hover:text-green-300 hover:underline"
+            className={admin.link}
           >
             {validEmail}
           </a>
@@ -834,7 +848,7 @@ function ExpandedOrgDetails({ org }: { org: Organization }) {
         {validPhone && (
           <a
             href={`tel:${validPhone}`}
-            className="text-yellow-400 hover:text-yellow-300 hover:underline"
+            className={admin.link}
           >
             {org.phone}
           </a>
@@ -844,7 +858,7 @@ function ExpandedOrgDetails({ org }: { org: Organization }) {
             href={org.website}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-blue-400 hover:text-blue-300 hover:underline"
+            className={admin.link}
           >
             {org.website}
           </a>
@@ -854,7 +868,7 @@ function ExpandedOrgDetails({ org }: { org: Organization }) {
             href={org.careerPageUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-orange-400 hover:text-orange-300 hover:underline"
+            className={admin.link}
           >
             Careers page
           </a>
@@ -864,7 +878,7 @@ function ExpandedOrgDetails({ org }: { org: Organization }) {
             href={org.contactFormUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-purple-400 hover:text-purple-300 hover:underline"
+            className={admin.link}
           >
             Contact form
           </a>
@@ -873,17 +887,14 @@ function ExpandedOrgDetails({ org }: { org: Organization }) {
 
       {/* Description */}
       {org.description && (
-        <p className="text-sm text-gray-300">{org.description}</p>
+        <p className="text-[14px] text-[color:var(--garden-body)]">{org.description}</p>
       )}
 
       {/* Tags - just persona tags, skip faith signals */}
       {org.personaTags?.length ? (
         <div className="flex flex-wrap gap-2">
           {org.personaTags?.map((tag, i) => (
-            <span
-              key={i}
-              className="px-2 py-0.5 bg-gray-700 text-gray-300 text-xs rounded"
-            >
+            <span key={i} className={admin.chip.neutral}>
               {tag}
             </span>
           ))}
@@ -898,7 +909,7 @@ function SegmentBadge({ segment }: { segment: string }) {
 
   return (
     <span
-      className={`px-2 py-1 rounded-full text-xs font-medium ${seg.bg} ${seg.color}`}
+      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[12.5px] font-medium ${seg.bg} ${seg.color}`}
     >
       {seg.label}
     </span>

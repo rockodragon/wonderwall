@@ -18,20 +18,20 @@
 // Hooks stay above every return.
 
 import { useLayoutEffect, useRef, type ReactNode } from "react";
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import { canCopyInvite, inviteRowLabel } from "../components/InviteCTA";
+import { lensCreate } from "../lib/browse/projectsFilter";
 import { useInviteLink } from "../lib/useInviteLink";
-import { DeskFilterBar, isBrowseView, type BrowseView } from "./deskBrowse";
+import { DeskFilterBar, isBrowseView, readDeskProjects, type BrowseView } from "./deskBrowse";
 import { countLabel } from "./deskGreeting";
 import { GRID_SIDE } from "./deskLayout";
-import { COMMUNITY_LABEL, DESK_VIEW_LABEL, deskHref, useDeskSpacing, type DeskCommunity, type DeskView } from "./deskState";
-import { DESK, FOCUS_RING_CLASS, monoLabel } from "./tokens";
+import { COMMUNITY_LABEL, DESK_VIEW_LABEL, deskCreateHref, deskHref, useDeskSpacing, type DeskCommunity, type DeskView } from "./deskState";
+import { DESK, FOCUS_RING_CLASS, monoLabel, tintAlpha, useDeskTint } from "./tokens";
 
 /** The header's left edge, shared with the grid's first column. */
 export const HEADER_SIDE = GRID_SIDE;
 /** Over the cards that scroll beneath it, under the dim layer (deskLayout Z_DIM). */
 const Z_HEADER = 15;
-const BAND = "rgba(21,21,21,.92)";
 
 export type HeaderSize = {
   /** The title block alone: the filter row pins once this has scrolled away. */
@@ -61,6 +61,7 @@ export function DeskHeader({
   greeting,
   greetingReady,
   count,
+  countText,
   stuck,
   inert,
   onMeasure,
@@ -74,6 +75,8 @@ export function DeskHeader({
   greetingReady: boolean;
   /** Cards shown, once known. */
   count: number | null;
+  /** The count in words, where a view says more than "N things" ("30 people · 4 organizations"). */
+  countText?: string | null;
   /** The filter row has reached the top and is riding on its band. */
   stuck: boolean;
   /** A card is open: nothing here can be reached. */
@@ -85,13 +88,15 @@ export function DeskHeader({
   const rowRef = useRef<HTMLDivElement>(null);
   // The header's left edge is the grid's: both follow the spacing dial.
   const side = HEADER_SIDE * useDeskSpacing();
+  const tint = useDeskTint();
   const report = useRef(onMeasure);
   report.current = onMeasure;
 
   const home = view === "all";
   const browse = isBrowseView(view);
   const pinned = browse || !!parts?.row;
-  const countText = parts?.count !== undefined ? parts.count : count !== null ? countLabel(view, count) : null;
+  // A view's own parts win; otherwise the words the view gave, else "N things".
+  const shownCount = parts?.count !== undefined ? parts.count : count !== null ? (countText ?? countLabel(view, count)) : null;
 
   // Measured before paint, then kept current: a filter row that wraps at a
   // narrow window is taller, and the grid starts below whatever it is.
@@ -132,9 +137,9 @@ export function DeskHeader({
           </p>
           <h1 style={{ ...titleStyle, display: "flex", alignItems: "baseline", gap: 14 }}>
             <span>{parts?.title ?? DESK_VIEW_LABEL[view]}</span>
-            {countText !== null && (
+            {shownCount !== null && (
               <span role="status" style={{ fontSize: 16, fontWeight: 400, letterSpacing: 0, color: DESK.muted }}>
-                {countText}
+                {shownCount}
               </span>
             )}
           </h1>
@@ -154,7 +159,7 @@ export function DeskHeader({
             alignItems: "flex-start",
             gap: 16,
             padding: `10px ${side}px 14px`,
-            background: stuck ? BAND : "transparent",
+            background: stuck ? tintAlpha(tint, 0.92) : "transparent",
             backdropFilter: stuck ? "blur(14px)" : undefined,
             WebkitBackdropFilter: stuck ? "blur(14px)" : undefined,
             borderBottom: `1px solid ${stuck ? DESK.line : "transparent"}`,
@@ -194,13 +199,7 @@ const titleStyle = {
 const VERB_CLASS = `inline-flex h-10 shrink-0 items-center whitespace-nowrap rounded-lg border border-[#333333] bg-transparent px-4 text-[14px] font-medium text-[#F4F4F2] no-underline transition-colors hover:border-[#FFE066] hover:text-[#FFE066] ${FOCUS_RING_CLASS}`;
 
 function CreateVerb({ view }: { view: BrowseView }) {
-  if (view === "projects") {
-    return (
-      <Link to={deskHref("projects", null, "project")} className={VERB_CLASS}>
-        Start a project
-      </Link>
-    );
-  }
+  if (view === "projects") return <ProjectsVerb />;
   if (view === "events") {
     return (
       <Link to={deskHref("events", null, "event")} className={VERB_CLASS}>
@@ -209,6 +208,19 @@ function CreateVerb({ view }: { view: BrowseView }) {
     );
   }
   return <InviteVerb />;
+}
+
+/** Follows the chip: "Hire someone" on Jobs and gigs, "Start a project" on the
+ * others. The filters stay in the URL, so closing the card finds the list as
+ * it was. */
+function ProjectsVerb() {
+  const [searchParams] = useSearchParams();
+  const create = lensCreate(readDeskProjects(searchParams).lens);
+  return (
+    <Link to={deskCreateHref(searchParams, create.kind)} className={VERB_CLASS}>
+      {create.label}
+    </Link>
+  );
 }
 
 /** "Invite someone": one click copies your invite link, as the palette's row

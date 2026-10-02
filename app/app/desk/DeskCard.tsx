@@ -7,14 +7,20 @@
 // the picture's shape wants (46 to 62 percent), and the detail panel beside
 // it. A card with no picture is a centered sheet, the panel alone.
 //
+// On a project, event, person or organization, the picture side is also a
+// mouse click target for the full page (the yellow button is the keyboard way
+// there). An organization's logo is never cropped: it sits whole on a light
+// plate, and with no logo the face is its monogram in a square frame.
+//
 // Geometry comes from deskLayout.ts; this file draws it. All motion is 620ms
 // DESK.ease, and none of it runs under prefers-reduced-motion.
 
 import { memo, useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { Link } from "react-router";
 import { AbstractCover } from "../components/AbstractCover";
 import { useReducedMotion } from "../hooks/useMediaQuery";
 import { initialsOf } from "../lib/initials";
-import { opensAsSheet, type DeskCard } from "./deskCards";
+import { opensAsSheet, picturePage, type DeskCard } from "./deskCards";
 import { PIC_MIN, Z_HOVER, pictureShare, type Place } from "./deskLayout";
 import { DetailPanel, type Stepper } from "./OpenedCard";
 import { DESK, DESK_MONO, DESK_SANS, FOCUS_RING_CLASS, MOTION_MS, isFocusVisible, motion } from "./tokens";
@@ -180,6 +186,7 @@ export const DeskCardView = memo(function DeskCardView({
   if (open) shareRef.current = pictureShare(aspect, place.w, place.h);
   const share = shareRef.current;
 
+  const pagePath = picturePage(card);
   const lift = hovered && place.opacity > 0 && !open;
   const radius = open ? RADIUS_OPEN : RADIUS;
   const label = [card.face.kicker, card.face.title, card.face.foot].filter(Boolean).join(", ");
@@ -197,6 +204,7 @@ export const DeskCardView = memo(function DeskCardView({
     >
       <div style={{ position: "absolute", inset: 0, overflow: "hidden", borderRadius: radius, transition: motion(["border-radius"], reduced) }}>
         <Face card={card} open={open} sheet={sheet} share={share} scale={place.w / CARD_W} onAspect={setAspect} />
+        {open && pagePath && <PictureLink to={pagePath} share={share} />}
         {panel && <DetailPanel card={card} visible={open} sheet={sheet} share={share} onClose={onClose} stepper={open ? stepper : undefined} />}
       </div>
       {!open && (
@@ -217,6 +225,34 @@ export const DeskCardView = memo(function DeskCardView({
     </Shell>
   );
 });
+
+/** The picture side of an opened card as a mouse click target for the full
+ * page: a pointer, and a slight brightening under it. Not a tab stop and not
+ * announced: the panel's button says the same thing, for the keyboard. It
+ * waits out the opening motion, so the second click of a double-click on a
+ * closed card doesn't carry the visitor straight off the desk. */
+function PictureLink({ to, share }: { to: string; share: number }) {
+  const reduced = useReducedMotion();
+  const [armed, setArmed] = useState(reduced);
+  useEffect(() => {
+    if (reduced) {
+      setArmed(true);
+      return;
+    }
+    const timer = setTimeout(() => setArmed(true), MOTION_MS);
+    return () => clearTimeout(timer);
+  }, [reduced]);
+  return (
+    <Link
+      to={to}
+      aria-hidden
+      tabIndex={-1}
+      data-desk-picture-link=""
+      className="bg-transparent transition-colors duration-150 hover:bg-[rgba(255,255,255,0.07)]"
+      style={{ position: "absolute", top: 0, bottom: 0, left: 0, width: `${share * 100}%`, cursor: "pointer", pointerEvents: armed ? "auto" : "none" }}
+    />
+  );
+}
 
 function Face({
   card,
@@ -246,9 +282,10 @@ function Face({
   const settle = useCallback(
     (el: HTMLImageElement) => {
       setShape(isWide(el) ? "wide" : "tall");
-      if (el.naturalHeight > 0) onAspect(el.naturalWidth / el.naturalHeight);
+      // A logo sits on its plate whatever its shape; the picture side stays narrow.
+      if (el.naturalHeight > 0 && card.kind !== "org") onAspect(el.naturalWidth / el.naturalHeight);
     },
-    [onAspect],
+    [onAspect, card.kind],
   );
   const measure = useCallback(
     (el: HTMLImageElement | null) => {
@@ -283,12 +320,16 @@ function Face({
   // uncropped, on a dimmed blur of themselves. Project and people pictures
   // are photos, which read best full-bleed whatever their shape, resting or open.
   const poster = card.kind === "event";
-  const framed = Boolean(pic) && poster && (split || wide);
+  // An organization's logo is always framed, on a plate rather than a blur.
+  const logo = card.kind === "org";
+  const framed = Boolean(pic) && (logo || (poster && (split || wide)));
 
   // No picture, or not loaded yet: each kind gets a face of its own, so a
   // card is never blank while its picture is on the way.
   const waiting = !pic || shape === "unknown";
   const personCard = waiting && card.kind === "person";
+  // No logo (or not loaded yet): the monogram, in a square frame where a person's are bare.
+  const orgMark = waiting && logo;
   // An Update is from the house: its kicker is the accent, with or without a picture.
   const fromTheHouse = card.kind === "update";
   const dateCard = waiting && card.kind === "event";
@@ -299,6 +340,8 @@ function Face({
   const t = (props: string[]) => motion(props, reduced);
   const tPic = (props: string[]) => (armed ? t(props) : "none");
   const small = Math.min(1, scale);
+  // The card's side padding at rest: where its words start.
+  const edge = Math.round(22 * Math.min(1, Math.max(0.7, scale)));
 
   return (
     <div
@@ -308,7 +351,7 @@ function Face({
         bottom: 0,
         left: 0,
         width: split ? `${share * 100}%` : "100%",
-        padding: split ? 56 : Math.round(22 * Math.min(1, Math.max(0.7, scale))),
+        padding: split ? 56 : edge,
         display: "flex",
         flexDirection: "column",
         justifyContent: "space-between",
@@ -316,7 +359,7 @@ function Face({
         overflow: "hidden",
         color: ink,
         fontFamily: DESK_SANS,
-        background: paper ? DESK.paper : pic ? DESK.page : `linear-gradient(165deg, ${tone}, #161616 92%)`,
+        background: paper ? DESK.paper : pic && !logo ? DESK.page : `linear-gradient(165deg, ${tone}, #161616 92%)`,
         // A sheet's face goes as the sheet opens; the panel is all that is left.
         opacity: open && sheet ? 0 : 1,
         transition: t(["width", "padding", "opacity"]),
@@ -372,25 +415,42 @@ function Face({
             alt=""
             aria-hidden
             decoding="async"
-            style={{ ...FILL, objectFit: "cover", filter: "blur(28px) brightness(.4)", transform: "scale(1.15)", opacity: framed ? 1 : 0, transition: tPic(["opacity"]) }}
+            style={{ ...FILL, objectFit: "cover", filter: "blur(28px) brightness(.4)", transform: "scale(1.15)", opacity: framed && !logo ? 1 : 0, transition: tPic(["opacity"]) }}
           />
           <div
             aria-hidden
             style={{
               position: "absolute",
               // Open, the side is the poster's own shape, so a small margin
-              // lets the poster fill its larger side.
-              ...(split ? { top: 28, left: 28, right: 28, bottom: 28 } : { top: 50, left: 14, right: 14, bottom: "44%" }),
+              // lets the poster fill its larger side. A logo's plate lines up
+              // with the card's words instead.
+              ...(split ? { top: 28, left: 28, right: 28, bottom: 28 } : { top: 50, left: logo ? edge : 14, right: logo ? edge : 14, bottom: "44%" }),
               opacity: framed ? 1 : 0,
               transition: tPic(["opacity", "top", "left", "right", "bottom"]),
             }}
           >
-            <img
-              src={pic}
-              alt=""
-              decoding="async"
-              style={{ width: "100%", height: "100%", objectFit: "contain", objectPosition: split ? "center" : "center top" }}
-            />
+            {/* A logo's plate: the whole card-width resting, a shorter one
+                centered in the picture side open, so it reads as a mat around
+                the logo and not as a light slab. */}
+            <div
+              style={{
+                position: "absolute",
+                left: 0,
+                right: 0,
+                top: logo && split ? "14%" : 0,
+                bottom: logo && split ? "14%" : 0,
+                boxSizing: "border-box",
+                ...(logo ? { background: DESK.plate, borderRadius: split ? 8 : 4, padding: split ? 56 : 16 } : {}),
+                transition: tPic(["top", "bottom", "padding", "border-radius"]),
+              }}
+            >
+              <img
+                src={pic}
+                alt=""
+                decoding={logo ? "sync" : "async"}
+                style={{ width: "100%", height: "100%", objectFit: "contain", objectPosition: split || logo ? "center" : "center top" }}
+              />
+            </div>
           </div>
         </div>
       )}
@@ -421,6 +481,12 @@ function Face({
             fontSize: 12,
             letterSpacing: "0.2em",
             textTransform: "uppercase",
+            // "Recurring gig · Fridays 8–10pm" runs to two lines on a card; no more than three.
+            display: "-webkit-box",
+            WebkitLineClamp: 3,
+            WebkitBoxOrient: "vertical" as const,
+            overflow: "hidden",
+            overflowWrap: "break-word",
             color: fromTheHouse ? DESK.accent : undefined,
             // Over a picture the accent needs a little help to stay readable.
             textShadow: fromTheHouse && pic ? "0 1px 10px rgba(0,0,0,.65)" : undefined,
@@ -441,6 +507,32 @@ function Face({
               fontWeight: 500,
               lineHeight: 1,
               letterSpacing: "-0.04em",
+              color: DESK.paper,
+              opacity: split ? 0 : 0.92,
+              transition: t(["opacity"]),
+            }}
+          >
+            {initialsOf(face.title)}
+          </span>
+        </div>
+      )}
+
+      {orgMark && (
+        // No logo: the initials, in a square frame (a person's are round-feeling and bare).
+        <div aria-hidden style={{ position: "relative", flex: 1, display: "flex", alignItems: "center", minHeight: 0 }}>
+          <span
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: Math.max(64, Math.round(92 * Math.min(1.15, scale))),
+              height: Math.max(64, Math.round(92 * Math.min(1.15, scale))),
+              border: "1.5px solid rgba(237,227,180,.5)",
+              borderRadius: 6,
+              fontSize: Math.max(26, Math.round(40 * Math.min(1.15, scale))),
+              fontWeight: 500,
+              lineHeight: 1,
+              letterSpacing: "-0.02em",
               color: DESK.paper,
               opacity: split ? 0 : 0.92,
               transition: t(["opacity"]),

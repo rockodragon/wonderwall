@@ -66,7 +66,7 @@ describe("the actions table", () => {
   it("Leading: Review requests, on the project's team panel", () => {
     const leading = project("leading", "Hymns", { pendingRequests: 2 });
     expect(labels(p(leading))).toEqual(["Review requests*", "Project page →"]);
-    expect(buttons(p(leading))[0]).toMatchObject({ kind: "link", href: "/projects/hymns#team" });
+    expect(buttons(p(leading))[0]).toMatchObject({ kind: "link", href: "/projects/hymns?tab=team" });
     expect(labels(p(project("leading", "Hymns")))[0]).toBe("See team*");
   });
 
@@ -79,7 +79,7 @@ describe("the actions table", () => {
   it("Saved role: Apply on the team panel, and it can be let go", () => {
     const saved = project("saved", "Psalms Zine", { role: role("Copy Editor", on(10, 7)) });
     expect(labels(p(saved))).toEqual(["Apply*", "Remove from shortlist"]);
-    expect(buttons(p(saved))[0]).toMatchObject({ kind: "link", href: "/projects/psalms-zine#team" });
+    expect(buttons(p(saved))[0]).toMatchObject({ kind: "link", href: "/projects/psalms-zine?tab=team" });
     expect(buttons(p(saved))[1]).toMatchObject({ call: { fn: "unsave", targetType: "role", targetId: "copy-editor" }, done: "Removed from your shortlist." });
   });
 
@@ -195,7 +195,7 @@ describe("the card", () => {
       title: "Sound Mixer",
       host: "Hollow Creek Field Recordings, led by Mara Lin",
       aside: "Mara is waiting on your reply",
-      facts: [["Pay", "$1,200"]],
+      facts: [{ label: "Pay", value: "$1,200" }],
     });
   });
 
@@ -230,7 +230,7 @@ describe("the card", () => {
   it("sends a request from someone with no profile to the thing they asked about", () => {
     const request = projectRequest("Off Platform", "Hymns");
     const c = card({ type: "request", request: { ...request, person: { ...request.person, profileId: null } } });
-    expect(c.href).toBe("/projects/hymns#team");
+    expect(c.href).toBe("/projects/hymns?tab=team");
     expect(c.profileId).toBeUndefined();
   });
 

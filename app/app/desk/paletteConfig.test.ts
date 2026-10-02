@@ -77,6 +77,19 @@ describe("buildSignedInTools", () => {
   });
 });
 
+describe("the palette's Projects menu", () => {
+  const projects = tool(buildSignedInTools(deps()), "projects");
+
+  it("browses, starts a project, hires someone, then the Grant Fund", () => {
+    expect(projects.items.map((i) => i.label)).toEqual(["Browse projects", "Start a project", "Hire someone", "Grant Fund"]);
+  });
+  it("opens each create flow as a card on the desk", () => {
+    const byLabel = Object.fromEntries(projects.items.map((i) => [i.label, i.to]));
+    expect(byLabel["Start a project"]).toBe("/today?view=projects&create=project");
+    expect(byLabel["Hire someone"]).toBe("/today?view=projects&create=hire");
+  });
+});
+
 describe("the Shortlist stack", () => {
   it("links the overview, then each area, in the Shortlist's order", () => {
     const items = shortlistTool().items;

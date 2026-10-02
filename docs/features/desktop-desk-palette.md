@@ -48,7 +48,7 @@ Everything the sidebar and bottom bar do today has a home in the palette. None o
 6. **Scale.** The design's straight row fits about 4 cards. Real lists are longer. Decision: when more cards match than fit, the last slot becomes a tail card, "All 12 events →", linking to the full page (`/events`, `/projects`, `/people`, `/favorites`).
 7. **Find people / Meet people near me.** The desk only holds people you follow, so these go to the directory: `/people` and `/people?near=1` (the Near me toggle is on by default with that param).
 8. **Community switch.** Today "The Exchange" means the `/communities` directory. Decision, per the design: switching re-filters the desk. The Garden shows content from The Garden plus content with no community, plus the Sophia Fund. The Exchange shows everything on the platform, and no fund card. Switching from another page goes to the desk.
-9. **Create flows** (Start a project, Host an event) open the existing modals: `/projects?new=project` and `/events?new=event`. Opening them as desk cards is a later step.
+9. **Create flows** (Start a project, Hire someone, Host an event) open as cards on the desk: `/today?create=project|hire|event`. The list pages' own `/projects?new=project` and `/events?new=event` still open the same forms in place.
 10. **Palette over page content.** Off the desk, the 56px button sits over the bottom-left corner of pages (about 112×112px). The 280×280 hover zone takes no pointer events until the fan is open, so it never blocks clicks.
 
 ### Rule departures from the handoff
@@ -88,7 +88,8 @@ The visual spec is the handoff README. What follows covers the build.
 | People | Meet people near me | `/people?near=1` |
 | People | Invite someone | Copy the invite link (`useInviteLink`). The row reads "Invite link copied" for 2s, the same as the old invite button. If there's no link, go to `/settings?tab=network`. |
 | Projects | Browse projects | `deskHref("projects")` |
-| Projects | Start a project | `/projects?new=project` |
+| Projects | Start a project | `deskHref("projects", null, "project")` |
+| Projects | Hire someone | `deskHref("projects", null, "hire")` |
 | Projects | Grant Fund | `deskHref("projects", "fund")` |
 | Events | Browse events | `deskHref("events")` |
 | Events | Host an event | `/events?new=event` |
@@ -171,14 +172,20 @@ The visual spec is the handoff README. What follows covers the build.
 **Project** cards: open passion projects and open paid projects, picked the way today.tsx picks them.
 - Section: `projects`.
 - Cover from `coverOf()`.
-- Kicker: the stage label, or `PAID WORK`. Foot: owner or community.
-- Detail: description, then "See project" linking to `/projects/:id`.
+- Kicker says what the card is (`lib/projectKind.ts`): the stage label for a project; `JOB` for one-off paid work; `RECURRING GIG · FRIDAYS 8–10PM` for a live-booking series; `VOLUNTEER` for an unpaid posting. Foot: owner or community.
+- Under Jobs and gigs, a project shown for a paid role leads with the role: kicker `ROLE ON {PROJECT} · PAID`, the role as the title, its pay then the owner in the foot.
+- Detail: description, then "See project" linking to `/projects/:id`. Its meta line repeats the kicker with the community. Its rows are, top to bottom: Paid role (Jobs and gigs only), Stage, Schedule (a recurring gig), Funding, Roles, Pay. Funding is "$370 of $1,000 · 37%" with a goal, "Open to backing" when the project is raising through a tier with no goal.
 - The featured project, picked the way today.tsx picks it, also joins `all`.
 
 **Person** cards: followed people.
 - Sections: `people`, `fav`.
 - Image from the profile photo. Kicker `FOLLOWING`. Title: name. Foot: discipline or location.
 - Detail: bio, then "See profile" linking to `/profile/:id`.
+
+**Organization** cards: in the People view, mixed in with people (see "Organizations in People" below).
+- Section: `people` only. Id `org:<id>`.
+- Face: the logo whole on a light plate (logos are drawn for a light page, so it is never cropped), or with no logo the initials in a square frame. Kicker `ORGANIZATION`. Foot: category · place, else the people count. A category of "Other" is left out.
+- Detail: the tagline, the place, "3 people", then "See organization" linking to `/orgs/:slug`.
 
 **Community filter.**
 - garden: `community == null || community.slug === "the-garden"`.
@@ -264,10 +271,11 @@ A UX analyst's recommendations are folded in below. Rick: keep the two-step entr
   - Line 2: the view name at 30px, then a muted count ("13 people").
 - People, Projects and Events add one filter row under the header, on the same 48px left edge:
   - a search field (280×40, 15px)
-  - Projects: Projects / Work, then the stage chips (All, Planning, Raising, Forming team, Working, Released)
+  - Projects: four chips, one at a time, Projects first (Projects, Seeking funding, Seeking people, Jobs and gigs), then a "Stage ▾" menu (Any stage, Planning, Forming team, Working, Released) after a thin divider. No toggle, no "All" chip. Stage is hidden under Jobs and gigs.
   - Events: Upcoming / Saved / Past, then Near me
-  - People: Everyone / Following, Discipline, Near me
-- At the right end of the row sits the view's one create verb, as an outline button: "Start a project", "Host an event", "Invite someone".
+  - People: Everyone / Following / Organizations, Discipline, Near me
+- At the right end of the row sits the view's one create verb, as an outline button: "Start a project" (Projects, Seeking funding, Seeking people), "Hire someone" (Jobs and gigs), "Host an event", "Invite someone". The Projects button opens the card over the list as it is: the filters stay in the URL.
+- One row, never wrapped. At 1280px wide the search, all four chips, Stage and the create button fit with no "More". Narrower, the pieces after the search and the toggle fold into a "More" menu from the end (Stage first, then the chips), and a chip or menu that is switched on never folds. The People row folds the same way (Near me, then Discipline), as does Events', so nothing runs into the create button between 1024 and 1279px. In the menu, a long list (Discipline) comes after the short rows.
 - Chips:
   - 36px pills with a 1px `#333` border and 13.5px `#D6D6D6` text.
   - The active chip copies the palette button: yellow border, 8% yellow fill, yellow text.
@@ -275,7 +283,7 @@ A UX analyst's recommendations are folded in below. Rick: keep the two-step entr
 - Solid yellow stays reserved for the opened card's one action.
 - There is no community dropdown on the desk; the palette's switch scopes every view.
 - On scroll, the title scrolls away and the filter row pins to the top on a 92% `#151515` band with backdrop blur.
-- Filter state lives in the URL (`?view=projects&stage=raising&q=…`).
+- Filter state lives in the URL (`?view=projects&show=funding&stage=planning&q=…`; `show` is the chip, `stage` the Stage menu, the same params as `/projects`). The old `tab=work`, `stage=gigs|roles|raising` and `seek=` links still land on the chip they meant (docs/features/project-ia.md).
 
 **Grid.**
 - Browse views and Favorites lay out as a wrapping grid that scrolls: columns at least 240px, cards at most 300px, a 32px gap, 3:4 cards.
@@ -301,7 +309,7 @@ A UX analyst's recommendations are folded in below. Rick: keep the two-step entr
 - Events: the tone card, with the date set large.
 
 **Create flows.**
-- The palette's "Start a project" and "Host an event", and each view's create button, go to `/today?create=project|event`.
+- The palette's "Start a project", "Hire someone" and "Host an event", and each view's create button, go to `/today?create=project|hire|event`. "Hire someone" is the chooser `/projects` uses (`components/HireFlow.tsx`): one job, or a recurring gig. Its "Start a project instead" link swaps the card to `create=project`.
 - The form opens as a single card on the desk's dotted surface, with nothing from the list behind it.
 - Closing it returns to the desk.
 - The same forms opened from the list pages use the same opaque backdrop (`components/FocusBackdrop.tsx`) instead of a 60% black overlay.
@@ -315,6 +323,16 @@ A UX analyst's recommendations are folded in below. Rick: keep the two-step entr
 
 **People verbs.** "Find people" and "Meet people near me" open the desk's People view (Everyone), the latter with Near me on (`&near=1`, taken once, then dropped from the URL).
 
+**Organizations in People (Rick, 2026-10-02).** On `/people` the Organizations tab sits beside People; the desk's People view had no way in. Organizations are mixed into the one grid, and the toggle gains a third state: **Everyone · Following · Organizations**.
+- Everyone: people with the organizations mixed in. The header reads "30 people · 4 organizations".
+- Following: people you follow. Organizations can't be followed yet.
+- Organizations: only organizations (`?tab=orgs`, the same param as `/people`). Discipline and Near me are hidden: an organization has neither in `api.organizations.list`.
+- Search is one box. People are searched on the server; organizations by name, category, place and tagline (`lib/browse/orgFilter.ts`, shared with `/people`).
+- Discipline or Near me on, under Everyone: the organizations step aside, since they can't match.
+- Order: people keep the server's order; organizations (most members first) are spread evenly through them, so with 30 people and 4 organizations there is one after every sixth. People and organizations have no sort key in common, and this keeps both lists as `/people` shows them.
+- Organizations belong to no community, so the community switch doesn't scope them (as on `/people`).
+- Not in this pass: a People-only state (turn on a Discipline for that), following an organization, Near me for organizations (the list doesn't send coordinates).
+
 **Spacing dial (admins, experiment).** Rick wants to try more negative space.
 - Admins get a "Spacing" pill in the desk's lower right. It opens a slider from 0.75× to 2×, plus Reset.
 - The value is saved in that browser only (`desk.spacing`), so trying values never changes the desk for anyone else.
@@ -325,6 +343,22 @@ A UX analyst's recommendations are folded in below. Rick: keep the two-step entr
 - Desk presentation (header, grid, opened card, fallbacks): `Desk.tsx`, `DeskCard.tsx`, `OpenedCard.tsx`, `deskLayout.ts`, `DeskHeader.tsx`.
 - Browse data and filters: `deskBrowse.tsx`, plus pure filter logic in `lib/browse/` shared with `/people`, `/projects` and `/events`.
 - Create flows and palette menus: `DeskCreate.tsx`, `FocusBackdrop.tsx`, `usePaletteController.ts`.
+
+## Community tint (Rick, 2026-10-02)
+
+There's no background picker; a UX review advised against one. Instead, each community's desk gets its own dark:
+- The Garden is warm (`#19150f`, dots `#2b251b`).
+- The Exchange is cool (`#10151b`, dots `#212a35`).
+
+The tint follows the palette's community switch. `DESK_TINT`, `useDeskTint()` and `deskSurfaceStyle()` live in `desk/tokens.ts`. It covers:
+- the desk
+- the pinned filter band
+- the desk search field
+- the create-flow backdrop
+- the palette button's base
+- the admin Updates preview
+
+Text tokens are unchanged, and both darks measure within 0.1:1 of `#151515`: muted text is 7.9:1 on the warm dark and 8.0:1 on the cool one.
 
 ## Later
 

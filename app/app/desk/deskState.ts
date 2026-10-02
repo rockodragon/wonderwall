@@ -7,7 +7,7 @@
 // /today?view=events&card=event:abc123
 //   view   — which tool's cards are on the desk (absent = everything)
 //   card   — the card opened full-page (absent = none open)
-//   create — a create flow open as a card on the desk (project | event)
+//   create — a create flow open as a card on the desk (project | hire | event)
 // Each view's own filters (q, stage, tab, …) ride along as more params.
 //
 // /today?view=shortlist&area=projects&kind=paid&card=role:abc123
@@ -55,15 +55,26 @@ export type DeskCardId =
   | `role:${string}`
   | `request:${string}`
   | `person:${string}`
+  | `org:${string}`
   | "fund"
   | "grant";
 
-/** Create flows that open as a focused card on the desk. */
-export const DESK_CREATE_KINDS = ["project", "event"] as const;
+/** Create flows that open as a focused card on the desk. "hire" is Hire
+ * someone: one job or a recurring gig, the chooser /projects mounts. */
+export const DESK_CREATE_KINDS = ["project", "hire", "event"] as const;
 export type DeskCreateKind = (typeof DESK_CREATE_KINDS)[number];
 
 export function parseDeskCreate(raw: string | null | undefined): DeskCreateKind | null {
   return (DESK_CREATE_KINDS as readonly string[]).includes(raw ?? "") ? (raw as DeskCreateKind) : null;
+}
+
+/** The desk as it is now with a create flow open on top: the view's filters
+ * stay in the URL, so closing the card finds the list where it was. */
+export function deskCreateHref(current: URLSearchParams, kind: DeskCreateKind): string {
+  const params = new URLSearchParams(current);
+  params.delete("card");
+  params.set("create", kind);
+  return `${DESK_PATH}?${params.toString()}`;
 }
 
 export function deskHref(view: DeskView = "all", card?: DeskCardId | null, create?: DeskCreateKind | null): string {

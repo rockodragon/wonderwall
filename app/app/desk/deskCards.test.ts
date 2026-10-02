@@ -6,9 +6,16 @@ import {
   buildDeskCards,
   cardsInView,
   dateKicker,
+  fundingLine,
   inCommunity,
   plainText,
   opensAsSheet,
+  orgCard,
+  peopleLine,
+  picturePage,
+  projectCard,
+  projectFacts,
+  rolesLine,
   timeLabel,
   toneFor,
   updateCard,
@@ -16,6 +23,7 @@ import {
   type DeskCard,
   type DeskEventInput,
   type DeskInput,
+  type DeskOrgInput,
   type DeskProjectInput,
   type DeskUpdateInput,
 } from "./deskCards";
@@ -350,7 +358,7 @@ describe("project cards", () => {
     expect(cards.filter((c) => c.kind === "project").map((c) => c.id)).toEqual(["project:paid"]);
   });
 
-  it("read the stage, or PAID WORK, and the owner", () => {
+  it("read the stage, or JOB, and the owner", () => {
     const cards = buildDeskCards(
       input({
         projects: [
@@ -362,23 +370,214 @@ describe("project cards", () => {
     );
     expect(byId(cards, "project:a").face).toEqual({ kicker: "RAISING", title: "Project a", foot: "Dana Lee" });
     expect(byId(cards, "project:a").image).toBe("https://img/a.jpg");
-    expect(byId(cards, "project:b").face.kicker).toBe("PAID WORK");
-    expect(byId(cards, "project:b").detail.aside).toBe("$400");
+    expect(byId(cards, "project:b").face.kicker).toBe("JOB");
+    expect(byId(cards, "project:b").detail.facts).toEqual([{ label: "Pay", value: "$400" }]);
     expect(byId(cards, "project:b").image).toBeNull();
   });
 
-  it("show what a passion project has raised, exactly", () => {
+  it("say what they are and where, in the opened card's kicker", () => {
+    const cards = buildDeskCards(
+      input({
+        projects: [
+          project("a", { community: { name: "Table Art Society", slug: "tas" } }),
+          project("b"),
+          project("c", { kind: "paid", budgetType: "amount", budget: 400, community: { name: "Table Art Society", slug: "tas" } }),
+          project("d", { kind: "paid", budgetType: "proposals" }),
+        ],
+      }),
+      "exchange",
+    );
+    expect(byId(cards, "project:a").detail.meta).toBe("PROJECT · TABLE ART SOCIETY");
+    expect(byId(cards, "project:b").detail.meta).toBe("PROJECT · THE GARDEN");
+    expect(byId(cards, "project:c").detail.meta).toBe("JOB · TABLE ART SOCIETY");
+    expect(byId(cards, "project:d").detail.meta).toBe("JOB · THE GARDEN");
+  });
+
+  it("call a recurring gig by its schedule", () => {
+    const gig = project("g", {
+      kind: "paid",
+      budgetType: "amount",
+      budget: 150,
+      gig: { status: "open", cadence: "Every Friday", timeRange: "8–10pm" },
+    });
+    const card = projectCard(gig, ["projects"], money);
+    expect(card.face.kicker).toBe("RECURRING GIG · FRIDAYS 8–10PM");
+    expect(card.detail.meta).toBe("RECURRING GIG · FRIDAYS 8–10PM · THE GARDEN");
+    expect(card.detail.facts).toEqual([
+      { label: "Schedule", value: "Fridays 8–10pm" },
+      { label: "Pay", value: "$150/date" },
+    ]);
+  });
+
+  it("call a gig by its name when the row carries no schedule", () => {
+    const gig = project("g", { kind: "paid", budgetType: "amount", budget: 150, gig: { status: "open" } });
+    expect(projectCard(gig, ["projects"], money).face.kicker).toBe("RECURRING GIG");
+  });
+
+  it("call an unpaid posting volunteer work, not a job", () => {
+    const card = projectCard(project("v", { kind: "paid", budgetType: "volunteer" }), ["projects"], money);
+    expect(card.face.kicker).toBe("VOLUNTEER");
+    expect(card.detail.meta).toBe("VOLUNTEER · THE GARDEN");
+    expect(card.detail.facts?.some((f) => f.label === "Pay")).toBe(false);
+  });
+
+  it("show what a passion project has raised, exactly, in the Funding row", () => {
     const cards = buildDeskCards(
       input({ projects: [project("a", { goal: 1000, raisedCents: 12_550, resolvedPhotoUrl: "https://img/a.jpg" })] }),
       "garden",
     );
-    expect(byId(cards, "project:a").detail.aside).toBe("$125.50 of $1,000 raised");
+    const card = byId(cards, "project:a");
+    expect(card.detail.facts).toContainEqual({ label: "Funding", value: "$125.50 of $1,000 · 13%" });
+    // The old line after the button is gone.
+    expect(card.detail.aside).toBeNull();
   });
 
   it("open to the blurb and a link to the project", () => {
     const card = byId(buildDeskCards(input(), "garden"), "project:p2");
     expect(card.detail.description).toBe("Making a thing.");
     expect(card.detail.action).toEqual({ kind: "link", label: "See project", href: "/projects/p2" });
+  });
+});
+
+describe("fundingLine", () => {
+  const goal = (raisedCents: number | null | undefined, extra: Partial<DeskProjectInput> = {}) =>
+    fundingLine(project("f", { goal: 1000, raisedCents, ...extra }), money);
+
+  it("reads raised of goal, with the percent once something has come in", () => {
+    expect(goal(37_000)).toBe("$370 of $1,000 · 37%");
+  });
+  it("never says 0%: nothing raised, or less than a percent, has no percent", () => {
+    expect(goal(0)).toBe("$0 of $1,000");
+    expect(goal(undefined)).toBe("$0 of $1,000");
+    expect(goal(null)).toBe("$0 of $1,000");
+    expect(goal(100)).toBe("$1 of $1,000");
+  });
+  it("is not 100% until the goal is met", () => {
+    expect(goal(99_700)).toBe("$997 of $1,000 · 99%");
+  });
+  it("says the goal is reached at it, or over it", () => {
+    expect(goal(100_000)).toBe("$1,000 of $1,000 · Goal reached");
+    expect(goal(120_000)).toBe("$1,200 of $1,000 · Goal reached");
+  });
+  it("is nothing for a project with no goal, and for paid work", () => {
+    expect(fundingLine(project("n"), money)).toBeNull();
+    expect(fundingLine(project("z", { goal: 0 }), money)).toBeNull();
+    expect(fundingLine(project("p", { kind: "paid", goal: 1000, budgetType: "amount", budget: 400 }), money)).toBeNull();
+  });
+});
+
+describe("rolesLine", () => {
+  const roles = (...titles: string[]) => titles.map((title) => ({ title }));
+  it("counts the open roles and names two", () => {
+    expect(rolesLine(roles("Writer"))).toBe("1 open: Writer");
+    expect(rolesLine(roles("Writer", "Director"))).toBe("2 open: Writer, Director");
+    expect(rolesLine(roles("Writer", "Director", "Editor", "Gaffer"))).toBe("4 open: Writer, Director +2");
+  });
+  it("is nothing when no role is open", () => {
+    expect(rolesLine([])).toBeNull();
+    expect(rolesLine(null)).toBeNull();
+    expect(rolesLine(undefined)).toBeNull();
+  });
+});
+
+describe("projectFacts", () => {
+  it("lists stage, funding and roles in that order, and leaves out what isn't true", () => {
+    const full = project("a", { stage: "raising", goal: 1000, raisedCents: 37_000, openRoles: [{ title: "Writer" }, { title: "Director" }] });
+    expect(projectFacts(full, money)).toEqual([
+      { label: "Stage", value: "Raising" },
+      { label: "Funding", value: "$370 of $1,000 · 37%" },
+      { label: "Roles", value: "2 open: Writer, Director" },
+    ]);
+    // A project with no goal and no open roles has the stage alone.
+    expect(projectFacts(project("b"), money)).toEqual([{ label: "Stage", value: "Planning" }]);
+  });
+  it("reads the stage with the page's own words", () => {
+    expect(projectFacts(project("c", { stage: "forming" }), money)[0]).toEqual({ label: "Stage", value: "Forming team" });
+    expect(projectFacts(project("d", { stage: "releasing" }), money)[0]).toEqual({ label: "Stage", value: "Released" });
+  });
+  it("gives paid work its pay, and no stage it didn't set", () => {
+    const job = project("j", { kind: "paid", budgetType: "range", budget: 300, budgetMax: 600 });
+    expect(projectFacts(job, money)).toEqual([{ label: "Pay", value: "$300–600" }]);
+    expect(projectFacts({ ...job, stage: "working" }, money)).toEqual([
+      { label: "Stage", value: "Working" },
+      { label: "Pay", value: "$300–600" },
+    ]);
+  });
+  it("gives a gig its pay per date", () => {
+    const gig = project("g", { kind: "paid", budgetType: "amount", budget: 150, gig: { status: "open" } });
+    expect(projectFacts(gig, money)).toEqual([{ label: "Pay", value: "$150/date" }]);
+  });
+  it("says a project raising without a goal is open to backing", () => {
+    // An active patron tier makes the server say raising; there is no goal to count against.
+    const tiers = project("t", { raising: true });
+    expect(projectFacts(tiers, money)).toEqual([
+      { label: "Stage", value: "Planning" },
+      { label: "Funding", value: "Open to backing" },
+    ]);
+    // The raising stage with no goal reads the same on an older backend.
+    expect(projectFacts(project("s", { stage: "raising" }), money)).toEqual([
+      { label: "Stage", value: "Raising" },
+      { label: "Funding", value: "Open to backing" },
+    ]);
+  });
+  it("keeps the amount of a goal when there is one, even when the server says raising", () => {
+    const funded = project("g", { raising: true, goal: 1000, raisedCents: 37_000 });
+    expect(projectFacts(funded, money).find((f) => f.label === "Funding")).toEqual({ label: "Funding", value: "$370 of $1,000 · 37%" });
+  });
+  it("says nothing of backing for a project that is not raising, or a gig, or paid work", () => {
+    expect(projectFacts(project("n"), money).some((f) => f.label === "Funding")).toBe(false);
+    expect(projectFacts(project("r", { raising: false, goal: 0 }), money).some((f) => f.label === "Funding")).toBe(false);
+    const gig = project("g", { kind: "paid", budgetType: "amount", budget: 150, raising: true, gig: { status: "open" } });
+    expect(projectFacts(gig, money).some((f) => f.label === "Funding")).toBe(false);
+    const job = project("j", { kind: "paid", budgetType: "amount", budget: 150, raising: true });
+    expect(projectFacts(job, money).some((f) => f.label === "Funding")).toBe(false);
+  });
+  it("leads with the paid roles on the Jobs and gigs list, and names the other roles after", () => {
+    const roles = [
+      { title: "Drummer", budgetType: "amount", budget: 200 },
+      { title: "Singer", budgetType: "range", budget: 300, budgetMax: 600 },
+      { title: "Stagehand", budgetType: "volunteer" },
+    ];
+    const p = project("m", { stage: "working", openRoles: roles });
+    expect(projectFacts(p, money, { onJobsAndGigs: true })).toEqual([
+      { label: "Paid roles", value: "Drummer · $200; Singer · $300–600" },
+      { label: "Stage", value: "Working" },
+      { label: "Roles", value: "1 open: Stagehand" },
+    ]);
+    // Anywhere else the roles are one line, as before.
+    expect(projectFacts(p, money)).toEqual([
+      { label: "Stage", value: "Working" },
+      { label: "Roles", value: "3 open: Drummer, Singer +1" },
+    ]);
+  });
+  it("names the single paid role in the singular, and leaves out a Roles row when it was the only one", () => {
+    const p = project("m", { openRoles: [{ title: "Drummer", budgetType: "proposals" }] });
+    expect(projectFacts(p, money, { onJobsAndGigs: true })).toEqual([
+      { label: "Paid role", value: "Drummer · Open to proposals" },
+      { label: "Stage", value: "Planning" },
+    ]);
+  });
+  it("shows roles on paid work too, and never invents whether it is open", () => {
+    const job = project("j", { kind: "paid", budgetType: "amount", budget: 400, openRoles: [{ title: "Drummer" }] });
+    const facts = projectFacts(job, money);
+    expect(facts).toContainEqual({ label: "Roles", value: "1 open: Drummer" });
+    expect(facts.map((f) => f.value).join(" ")).not.toMatch(/hiring|open for/i);
+  });
+});
+
+describe("picturePage", () => {
+  const card = (over: Partial<DeskCard>) => ({ kind: "project", image: "https://img/x.jpg", note: false, href: "/projects/x", ...over }) as DeskCard;
+  it("is the full page for a project, an event or a person with a picture", () => {
+    expect(picturePage(card({}))).toBe("/projects/x");
+    expect(picturePage(card({ kind: "event", href: "/events/e" }))).toBe("/events/e");
+    expect(picturePage(card({ kind: "person", href: "/profile/u" }))).toBe("/profile/u");
+    expect(picturePage(card({ kind: "org", href: "/orgs/grove" }))).toBe("/orgs/grove");
+  });
+  it("is nothing without a picture side, or for the other kinds", () => {
+    expect(picturePage(card({ image: null }))).toBeNull();
+    expect(picturePage(card({ kind: "update", href: "/today" }))).toBeNull();
+    expect(picturePage(card({ kind: "fund", note: true, image: null }))).toBeNull();
+    expect(picturePage(card({ kind: "grant", note: true, image: null }))).toBeNull();
   });
 });
 
@@ -399,6 +598,80 @@ describe("person cards", () => {
     for (const view of ["all", "today", "projects", "events", "shortlist"] as const) {
       expect(ids(cardsInView(cards, view)), view).not.toContain("person:u1");
     }
+  });
+});
+
+describe("peopleLine", () => {
+  it("pluralizes", () => {
+    expect(peopleLine(1)).toBe("1 person");
+    expect(peopleLine(12)).toBe("12 people");
+  });
+});
+
+describe("organization cards", () => {
+  const org = (extra: Partial<DeskOrgInput> = {}): DeskOrgInput => ({
+    _id: "o1",
+    name: "Abiding Practice",
+    slug: "abiding-practice",
+    category: "Collective",
+    tagline: "Spiritual formation for artists",
+    location: "San Diego, CA",
+    logoUrl: "https://img/ap.png",
+    peopleCount: 3,
+    ...extra,
+  });
+
+  it("belong to People alone, with their own id and kicker", () => {
+    const card = orgCard(org());
+    expect(card.id).toBe("org:o1");
+    expect(card.kind).toBe("org");
+    expect(card.sections).toEqual(["people"]);
+    expect(card.face.kicker).toBe("ORGANIZATION");
+    expect(card.face.title).toBe("Abiding Practice");
+  });
+  it("show the logo as the picture, and no picture without one", () => {
+    expect(orgCard(org()).image).toBe("https://img/ap.png");
+    expect(orgCard(org({ logoUrl: null })).image).toBeNull();
+    expect(orgCard(org({ logoUrl: undefined })).image).toBeNull();
+  });
+  it("put the category and place in the foot, falling back to how many people", () => {
+    expect(orgCard(org()).face.foot).toBe("Collective \u00b7 San Diego, CA");
+    expect(orgCard(org({ location: null })).face.foot).toBe("Collective");
+    expect(orgCard(org({ category: null, location: null })).face.foot).toBe("3 people");
+    expect(orgCard(org({ category: null, location: null, peopleCount: 0 })).face.foot).toBeNull();
+  });
+  it("leave out the 'Other' category, which says nothing", () => {
+    const card = orgCard(org({ category: "Other", location: null }));
+    expect(card.face.foot).toBe("3 people");
+    expect(card.detail.meta).toBe("ORGANIZATION");
+  });
+  it("open to the tagline, the place, the people count and a button to its page", () => {
+    const { detail, href } = orgCard(org());
+    expect(detail.meta).toBe("ORGANIZATION \u00b7 COLLECTIVE");
+    expect(detail.title).toBe("Abiding Practice");
+    expect(detail.host).toBe("San Diego, CA");
+    expect(detail.description).toBe("Spiritual formation for artists");
+    expect(detail.aside).toBe("3 people");
+    expect(detail.action).toEqual({ kind: "link", label: "See organization", href: "/orgs/abiding-practice" });
+    expect(href).toBe("/orgs/abiding-practice");
+  });
+  it("say nothing about people at zero, or about a tagline it doesn't have", () => {
+    const card = orgCard(org({ peopleCount: 0, tagline: null, location: null }));
+    expect(card.detail.aside).toBeNull();
+    expect(card.detail.description).toBe("");
+    expect(card.detail.host).toBeNull();
+    expect(orgCard(org({ peopleCount: undefined })).detail.aside).toBeNull();
+  });
+  it("opens as a sheet without a logo, and with its logo's side when it has one", () => {
+    expect(opensAsSheet(orgCard(org({ logoUrl: null })))).toBe(true);
+    expect(opensAsSheet(orgCard(org()))).toBe(false);
+  });
+  it("keep their own color wherever they show", () => {
+    expect(orgCard(org()).tone).toBe(toneFor("org:o1"));
+  });
+  it("never reach Favorites or Today", () => {
+    const cards = buildDeskCards(input({}), "garden");
+    expect(cards.some((c) => c.kind === "org")).toBe(false);
   });
 });
 

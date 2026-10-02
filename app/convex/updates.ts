@@ -368,6 +368,96 @@ export const listMine = query({
   },
 });
 
+/** An Update that has left this person's desk: the card, plus when they
+ * archived it (null if it simply ended) and when its dates ended (null if
+ * it has no end). */
+export type PastUpdateCard = UpdateCard & {
+  archivedAt: number | null;
+  endsAt: number | null;
+};
+
+/** Whether this person was in the Update's audience before `sawItBy` (the
+ * moment they archived it, or the moment it ended). "New" is measured from
+ * the first moment they could have seen it, so a new-members Update they
+ * read in week one stays theirs after the two weeks are up. A community's
+ * members are its active ones who had joined by then. */
+async function wasInAudience(
+  ctx: QueryCtx,
+  update: Doc<"updates">,
+  userId: Id<"users">,
+  userCreatedAt: number,
+  sawItBy: number,
+): Promise<boolean> {
+  const firstChance = Math.max(update.startsAt, userCreatedAt);
+  if (firstChance > sawItBy) return false;
+  if (update.audience === "everyone") return true;
+  if (update.audience === "new") return userCreatedAt > newCutoff(update.newForDays, firstChance);
+  const hostOrgId = update.hostOrgId;
+  if (!hostOrgId) return false;
+  const membership = await ctx.db
+    .query("communityMembers")
+    .withIndex("by_hostOrgId_userId", (q) => q.eq("hostOrgId", hostOrgId).eq("userId", userId))
+    .unique();
+  return membership?.status === "active" && membership.joinedAt <= sawItBy;
+}
+
+/** The Updates that have left this person's desk, newest first: the ones
+ * they archived, and the ones published to them that have since ended.
+ * Never a draft, never one they weren't in the audience for. */
+export const listPastMine = query({
+  args: {},
+  handler: async (ctx): Promise<PastUpdateCard[]> => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return [];
+    const user = await ctx.db.get(userId);
+    if (!user) return [];
+
+    const now = Date.now();
+    const reads = await ctx.db
+      .query("updateReads")
+      .withIndex("by_userId_updateId", (q) => q.eq("userId", userId))
+      .collect();
+    const archivedAt = new Map<string, number>();
+    for (const r of reads) if (r.archivedAt !== undefined) archivedAt.set(r.updateId, r.archivedAt);
+
+    // An Update an admin archived counts only if this person archived it
+    // too: otherwise there's no telling they ever saw it.
+    const published = await ctx.db
+      .query("updates")
+      .withIndex("by_status_order", (q) => q.eq("status", "published"))
+      .collect();
+    const adminArchived = await ctx.db
+      .query("updates")
+      .withIndex("by_status_order", (q) => q.eq("status", "archived"))
+      .collect();
+
+    const past: { update: Doc<"updates">; archivedAt: number | null; leftAt: number }[] = [];
+    for (const update of [...published, ...adminArchived]) {
+      const mine = archivedAt.get(update._id);
+      const ended = update.status === "published" && update.endsAt !== undefined && update.endsAt <= now;
+      // When it left their desk: their archive, else the end of its dates.
+      const leftAt = mine ?? (ended ? update.endsAt : undefined);
+      if (leftAt === undefined) continue;
+      if (!(await wasInAudience(ctx, update, userId, user._creationTime, leftAt))) continue;
+      past.push({ update, archivedAt: mine ?? null, leftAt });
+    }
+    past.sort((a, b) => b.leftAt - a.leftAt);
+
+    return Promise.all(
+      past.map(async ({ update: u, archivedAt: at }) => ({
+        _id: u._id,
+        title: u.title,
+        body: u.body,
+        imageUrl: u.imageStorageId ? await ctx.storage.getUrl(u.imageStorageId) : null,
+        actionLabel: u.actionLabel ?? null,
+        actionUrl: u.actionUrl ?? null,
+        archivedAt: at,
+        endsAt: u.endsAt ?? null,
+      })),
+    );
+  },
+});
+
 type ReadFields = "openedAt" | "clickedAt" | "archivedAt";
 
 /** Sets the given timestamps on the person's read row, creating it on first

@@ -4,11 +4,12 @@
 // Once a value feels right it becomes the layout's default and this goes.
 
 import { useState } from "react";
-import { DESK, DESK_MONO, FOCUS_RING_CLASS } from "./tokens";
+import { DESK, DESK_MONO, FOCUS_RING_CLASS, tintAlpha, useDeskTint } from "./tokens";
 import { DESK_SPACING, setDeskSpacing, useDeskSpacing } from "./deskState";
 
 export function SpacingControl() {
   const space = useDeskSpacing();
+  const tint = useDeskTint();
   const [open, setOpen] = useState(false);
   const value = `${space.toFixed(2)}×`;
 
@@ -62,7 +63,7 @@ export function SpacingControl() {
           padding: "0 12px",
           borderRadius: 16,
           border: `1px solid ${DESK.lineStrong}`,
-          background: "rgba(21,21,21,.85)",
+          background: tintAlpha(tint, 0.85),
           color: DESK.muted,
           fontFamily: DESK_MONO,
           fontSize: 12,

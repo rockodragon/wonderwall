@@ -18,7 +18,7 @@ import type { Id } from "../../convex/_generated/dataModel";
 import { updateCard } from "../desk/deskCards";
 import { DeskCardView } from "../desk/DeskCard";
 import type { Place } from "../desk/deskLayout";
-import { DESK } from "../desk/tokens";
+import { DESK, deskSurfaceStyle, useDeskTint } from "../desk/tokens";
 import { errorMessage } from "../lib/convexError";
 import {
   ACTION_LABEL_MAX,
@@ -401,15 +401,14 @@ function Preview({ update, form }: { update: AdminUpdate | null; form: UpdateFor
       ),
     [update?._id, form.title, form.body, form.imageUrl, form.actionLabel, form.actionUrl],
   );
+  const tint = useDeskTint();
   return (
     <div
       className="relative mx-auto overflow-hidden rounded-lg"
       style={{
         width: STAGE_W,
         height: STAGE_H,
-        background: DESK.surface,
-        backgroundImage: `radial-gradient(${DESK.dot} 1px, transparent 1px)`,
-        backgroundSize: "24px 24px",
+        ...deskSurfaceStyle(tint),
       }}
     >
       {/* vh below the card puts it in place at once, with no rise. */}

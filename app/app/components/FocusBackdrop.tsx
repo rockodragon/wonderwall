@@ -9,7 +9,7 @@
 // scrolls the backdrop. z-50 puts it above the palette (z-40).
 
 import type { ReactNode } from "react";
-import { DESK } from "../desk/tokens";
+import { deskSurfaceStyle, useDeskTint } from "../desk/tokens";
 
 export function FocusBackdrop({
   children,
@@ -20,14 +20,13 @@ export function FocusBackdrop({
    *  False: the card keeps a gutter and centres, as it does on a larger window. */
   phoneFullScreen?: boolean;
 }) {
+  // The desk of the community the member is on, so a form opens on the same
+  // surface it was started from.
+  const tint = useDeskTint();
   return (
     <div
       className="fixed inset-0 z-50 overflow-y-auto overscroll-contain"
-      style={{
-        backgroundColor: DESK.surface,
-        backgroundImage: `radial-gradient(${DESK.dot} 1px, transparent 1px)`,
-        backgroundSize: "24px 24px",
-      }}
+      style={deskSurfaceStyle(tint)}
     >
       <div
         className={`flex min-h-full justify-center ${

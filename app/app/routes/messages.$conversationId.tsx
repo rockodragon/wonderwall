@@ -1,10 +1,12 @@
 import { useMutation, useQuery } from "convex/react";
 import { ConvexError } from "convex/values";
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { FF_DESK } from "../lib/featureFlags";
+import { FULL_HEIGHT } from "../lib/phoneBar";
+import { exactTime, startsStretch, stretchLabel } from "../lib/messageTime";
 
 // The thread reads as one column, not edge to edge (Rick, 2026-10-01): full
 // width on a phone, then 768px, then 896px on a big screen. Bubbles stop at
@@ -100,43 +102,11 @@ export default function ConversationView() {
     }
   }
 
-  function formatTimestamp(timestamp: number) {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-    if (diffDays === 0) {
-      return date.toLocaleTimeString("en-US", {
-        hour: "numeric",
-        minute: "2-digit",
-      });
-    } else if (diffDays === 1) {
-      return `Yesterday ${date.toLocaleTimeString("en-US", {
-        hour: "numeric",
-        minute: "2-digit",
-      })}`;
-    } else if (diffDays < 7) {
-      return date.toLocaleDateString("en-US", {
-        weekday: "short",
-        hour: "numeric",
-        minute: "2-digit",
-      });
-    } else {
-      return date.toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-        hour: "numeric",
-        minute: "2-digit",
-      });
-    }
-  }
-
   // Loading state
   if (conversation === undefined || messagesData === undefined) {
     return (
       <div
-        className="flex flex-col h-screen"
+        className={`flex flex-col ${FULL_HEIGHT}`}
         style={{ backgroundColor: "var(--app-surface)" }}
       >
         {/* Header skeleton */}
@@ -170,7 +140,7 @@ export default function ConversationView() {
   if (!conversation) {
     return (
       <div
-        className="flex flex-col items-center justify-center h-screen p-6"
+        className={`flex flex-col items-center justify-center ${FULL_HEIGHT} p-6`}
         style={{ backgroundColor: "var(--app-surface)" }}
       >
         <div className="text-center">
@@ -214,10 +184,11 @@ export default function ConversationView() {
   }
 
   const messages = messagesData?.messages ?? [];
+  const now = Date.now();
 
   return (
     <div
-      className="flex flex-col h-screen"
+      className={`flex flex-col ${FULL_HEIGHT}`}
       style={{ backgroundColor: "var(--app-surface)" }}
     >
       {/* Header */}
@@ -344,7 +315,7 @@ export default function ConversationView() {
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4">
-        <div className={`${COLUMN} space-y-4 ${messages.length === 0 ? "h-full" : ""}`}>
+        <div className={`${COLUMN} ${messages.length === 0 ? "h-full" : ""}`}>
           {messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center">
               <div className="w-16 h-16 mb-4 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center">
@@ -368,37 +339,51 @@ export default function ConversationView() {
               </p>
             </div>
           ) : (
-            messages.map((msg) => (
-              <div
-                key={msg._id}
-                className={`flex ${msg.isOwnMessage ? "justify-end" : "justify-start"}`}
-              >
-                <div
-                  className={`max-w-[75%] md:max-w-[34rem] rounded-2xl ${
-                    msg.isOwnMessage ? "rounded-br-md" : "rounded-bl-md"
-                  }`}
-                  style={
-                    msg.isOwnMessage
-                      ? { backgroundColor: "var(--app-accent)", color: "var(--garden-ink)" }
-                      : { backgroundColor: "var(--app-hairline-raised)", color: "var(--app-text)" }
-                  }
-                >
-                  <p className="px-4 py-2.5 whitespace-pre-wrap break-words">
-                    {msg.content}
-                  </p>
-                  <p
-                    className="px-4 pb-2 text-xs"
-                    style={
-                      msg.isOwnMessage
-                        ? { color: "var(--garden-ink)", opacity: 0.65 }
-                        : { color: "var(--app-text-dim)" }
-                    }
-                  >
-                    {formatTimestamp(msg.createdAt)}
-                  </p>
-                </div>
-              </div>
-            ))
+            messages.map((msg, i) => {
+              const prev = messages[i - 1];
+              // The time shows as a small label on a new day or after a pause,
+              // never inside a bubble. Runs from one sender sit close together.
+              const stretch = startsStretch(prev?.createdAt, msg.createdAt);
+              const joinedPrev = !stretch && prev?.isOwnMessage === msg.isOwnMessage;
+              const gap = i === 0 || stretch ? "" : joinedPrev ? "mt-1" : "mt-3";
+              return (
+                <Fragment key={msg._id}>
+                  {stretch && (
+                    <p
+                      className={`text-center text-xs mb-2 ${i === 0 ? "" : "mt-5"}`}
+                      style={{ color: "var(--app-text-dim)" }}
+                    >
+                      {stretchLabel(msg.createdAt, now)}
+                    </p>
+                  )}
+                  <div className={`flex ${gap} ${msg.isOwnMessage ? "justify-end" : "justify-start"}`}>
+                    <p
+                      title={exactTime(msg.createdAt)}
+                      className={`max-w-[80%] md:max-w-[34rem] px-3.5 py-2 rounded-2xl border text-[15px] leading-[1.45] whitespace-pre-wrap break-words ${
+                        msg.isOwnMessage
+                          ? `border-transparent rounded-br-md ${joinedPrev ? "rounded-tr-md" : ""}`
+                          : `rounded-bl-md ${joinedPrev ? "rounded-tl-md" : ""}`
+                      }`}
+                      style={
+                        msg.isOwnMessage
+                          ? {
+                              backgroundColor: "var(--app-accent-wash)",
+                              borderColor: "color-mix(in srgb, var(--app-accent) 22%, transparent)",
+                              color: "var(--app-text)",
+                            }
+                          : {
+                              backgroundColor: "var(--app-surface-raised)",
+                              borderColor: "var(--app-hairline-raised)",
+                              color: "var(--app-text)",
+                            }
+                      }
+                    >
+                      {msg.content}
+                    </p>
+                  </div>
+                </Fragment>
+              );
+            })
           )}
           <div ref={messagesEndRef} />
         </div>

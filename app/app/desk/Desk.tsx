@@ -46,7 +46,7 @@ import type { Stepper } from "./OpenedCard";
 import { shortlistCard } from "./shortlistCards";
 import { ShortlistBody, TodayNeedsYou, shortlistHeader } from "./ShortlistView";
 import { SpacingControl } from "./SpacingControl";
-import { DESK, DESK_SANS, FOCUS_RING_CLASS, MOTION_MS, motion } from "./tokens";
+import { DESK, DESK_SANS, FOCUS_RING_CLASS, MOTION_MS, motion, deskSurfaceStyle, useDeskTint } from "./tokens";
 import { useDeskData } from "./useDeskData";
 import { useUpdateReads } from "./useUpdateReads";
 
@@ -76,6 +76,7 @@ export function Desk() {
   const navigate = useNavigate();
   const community = useDeskCommunity();
   const space = useDeskSpacing();
+  const tint = useDeskTint();
   const reduced = useReducedMotion();
 
   const view = parseDeskView(searchParams.get("view"));
@@ -385,9 +386,7 @@ export function Desk() {
         width: "100%",
         height: "100dvh",
         overflow: "hidden",
-        background: DESK.surface,
-        backgroundImage: `radial-gradient(${DESK.dot} 1px, transparent 1px)`,
-        backgroundSize: "24px 24px",
+        ...deskSurfaceStyle(tint),
         color: DESK.text,
         fontFamily: DESK_SANS,
       }}
@@ -418,6 +417,7 @@ export function Desk() {
             greeting={greeting}
             greetingReady={profile !== undefined}
             count={count}
+            countText={browsing ? browse.count : null}
             stuck={scroll.stuck}
             inert={!!openId}
             onMeasure={onMeasure}
@@ -500,7 +500,7 @@ function EmptyDesk({ view, browse, top, height }: { view: DeskView; browse: Desk
       <style>{"@keyframes desk-fade-in { from { opacity: 0 } to { opacity: 1 } }"}</style>
       {noMatch && isBrowseView(view) ? (
         <>
-          <p style={{ margin: 0, fontSize: 20, color: DESK.muted }}>No {NOUN[view]} match.</p>
+          <p style={{ margin: 0, fontSize: 20, color: DESK.muted }}>No {browse.noun ?? NOUN[view]} match.</p>
           <button type="button" onClick={browse.clear} className={`${linkClass} border-0 bg-transparent p-0`}>
             Clear filters
           </button>

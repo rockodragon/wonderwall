@@ -26,6 +26,7 @@ import type { FavoriteTargetType } from "../../convex/favorites";
 import { addressName, KIND_LABEL, whenLabel } from "../components/shortlist/rowModel";
 import { cardIdOf, type ShortlistItem } from "../components/shortlist/items";
 import { shortDay } from "../lib/dates";
+import { withProjectTab } from "../lib/projectTabs";
 import { payText } from "../lib/shortlist/model";
 import type { ShortlistEvent, ShortlistFollow, ShortlistProject, ShortlistRequest } from "../lib/shortlist/types";
 import { stageLabel } from "../lib/stage";
@@ -38,6 +39,7 @@ import {
   venueName,
   type DeskCard,
   type DeskEventInput,
+  type DeskFact,
   type DeskProjectInput,
 } from "./deskCards";
 
@@ -73,8 +75,8 @@ const call = (label: string, solid: boolean, c: ShortlistCall, done: string): Sh
 const link = (label: string, solid: boolean, href: string): ShortlistButton => ({ kind: "link", label, solid, href });
 
 const projectHref = (id: string) => `/projects/${id}`;
-// The project page's team panel: open roles to apply for, requests to answer.
-const teamHref = (id: string) => `/projects/${id}#team`;
+// The project page's Team tab: open roles to apply for, requests to answer.
+const teamHref = (id: string) => `/projects/${id}?${withProjectTab(new URLSearchParams(), "team")}`;
 const eventHref = (id: string) => `/events/${id}`;
 
 const REMOVE = "Remove from shortlist";
@@ -114,8 +116,8 @@ function base(item: ShortlistItem): Pick<DeskCard, "id" | "sections" | "note" | 
   return { id, sections: [], note: false, tone: toneFor(id) };
 }
 
-function facts(...pairs: [string, string | null | undefined][]): [string, string][] {
-  return pairs.flatMap(([label, value]) => (value ? [[label, value] as [string, string]] : []));
+function facts(...pairs: [string, string | null | undefined][]): DeskFact[] {
+  return pairs.flatMap(([label, value]) => (value ? [{ label, value }] : []));
 }
 
 // ——— Projects and roles ———
