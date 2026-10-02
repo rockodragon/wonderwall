@@ -19,6 +19,7 @@ import { notifyFollowers } from "../follows";
 import { scheduleNotificationEmail } from "../emailHelpers";
 import { slugifyTitle, resolveAvailableSlug } from "./stories";
 import { assertCommunityMember } from "./communities";
+import { isHiddenCommunityId } from "./communityVisibility";
 import { validateBudgetDeclaration } from "./projects";
 import { ruleOf, summarizeGig } from "./gigSummary";
 import { can } from "./capabilities";
@@ -589,14 +590,17 @@ export const createGigSeries = mutation({
     const series = (await ctx.db.get(seriesId))!;
     const opened = await materializeSeries(ctx, series, now);
 
-    // Same follower fan-out createPaidProject does (following.md §1 #5).
-    const profile = await getProfile(ctx, userId);
-    await notifyFollowers(ctx, userId, {
-      type: "followed_posted_project",
-      title: `${profile?.name || "Someone"} posted ${title}`,
-      message: "",
-      linkUrl: projectLink(projectId),
-    });
+    // Same follower fan-out createPaidProject does (following.md §1 #5) —
+    // skipped for a gig posted into a hidden (test) community.
+    if (!(await isHiddenCommunityId(ctx, args.hostOrgId))) {
+      const profile = await getProfile(ctx, userId);
+      await notifyFollowers(ctx, userId, {
+        type: "followed_posted_project",
+        title: `${profile?.name || "Someone"} posted ${title}`,
+        message: "",
+        linkUrl: projectLink(projectId),
+      });
+    }
 
     return { projectId, seriesId, storySlug, slotsOpened: opened };
   },

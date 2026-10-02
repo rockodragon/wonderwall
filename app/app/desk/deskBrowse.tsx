@@ -2,15 +2,24 @@
 // a tool is picked, and the filter row that narrows it. Filter state lives in
 // the URL beside ?view= so Back and shared links keep it:
 //
-//   /today?view=projects&tab=work&stage=gigs&q=band
+//   /today?view=projects&show=work&q=band
+//   /today?view=projects&show=funding&stage=planning
 //   /today?view=people&tab=following&interests=Music,Film&q=maya
 //   /today?view=events&tab=past&q=open+mic
 //
 //   q          search text (lib/useFilterState, debounced)
-//   tab        the view's toggle: people following · projects work ·
-//              events favorites (Saved) | past. Absent = Everyone / Projects / Upcoming.
-//   stage      Projects' stage pill, or Work's (the /projects page's ?show=)
+//   tab        the view's toggle: people following | orgs (Organizations) ·
+//              events favorites (Saved) | past. Absent = Everyone / Upcoming.
+//   show       Projects' chip: funding | people | work (Seeking funding,
+//              Seeking people, Jobs and gigs). Absent = Projects. The same
+//              ?show= as the /projects page.
+//   stage      Projects' Stage menu: planning | forming | working | releasing
+//              (not under Jobs and gigs). The same ?stage= as /projects.
 //   interests  People's Discipline multi-select
+//
+// The desk's old Projects | Work toggle (?tab=work) and ?stage=gigs|roles|
+// raising, ?seek= still land where they did (lib/browse/projectsFilter
+// readProjectsView).
 //
 // The filtering is the list pages' own, extracted to lib/browse/ and shared:
 // /people, /projects and /events call the same functions. Near me is state
@@ -18,6 +27,7 @@
 // location); see publishNear below.
 
 import {
+  Fragment,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -34,16 +44,25 @@ import { filterButtonLabel } from "../components/FilterMenu";
 import { formatMoney } from "../garden/ui";
 import { visibleChips } from "../lib/browse/foldChips";
 import { INTEREST_OPTIONS } from "../lib/browse/peopleFilter";
-import { PROJECT_VIEWS, SHOW_FILTERS, readProjectsView } from "../lib/browse/projectsFilter";
+import {
+  PROJECT_LENSES,
+  STAGE_OPTIONS,
+  readProjectsView,
+  selectLens,
+  stageCaption,
+  writeProjectsView,
+  type ProjectsLens,
+} from "../lib/browse/projectsFilter";
 import { GARDEN_SLUG } from "../lib/communitySlugs";
 import { SOPHIA_FUND_SLUG } from "../lib/namedFunds";
 import { useFilterState } from "../lib/useFilterState";
 import { NEAR_ME_RADIUS_OPTIONS, useNearMe } from "../lib/useNearMe";
-import type { DeskCard, DeskEventInput, DeskProjectInput } from "./deskCards";
-import { eventsCards, peopleCards, projectsCards, type ProfileRow } from "./deskBrowseCards";
+import type { DeskCard, DeskEventInput, DeskOrgInput, DeskProjectInput } from "./deskCards";
+import { peopleCountLabel } from "./deskGreeting";
+import { eventsCards, everyoneCards, orgsCards, peopleCards, peopleNoun, projectsCards, type ProfileRow } from "./deskBrowseCards";
 import { fundFrom } from "./deskInput";
 import { parseDeskView, type DeskCommunity, type DeskView } from "./deskState";
-import { DESK, FOCUS_RING_CLASS } from "./tokens";
+import { DESK, FOCUS_RING_CLASS, monoLabel } from "./tokens";
 
 /** Views that browse a full list with filters. */
 export type BrowseView = Extract<DeskView, "people" | "projects" | "events">;
@@ -59,6 +78,11 @@ export type DeskBrowse = {
   filtered: boolean;
   /** Reset this view's filters to their defaults. */
   clear: () => void;
+  /** The header's count when it isn't just "N things": People mixes in
+   * organizations ("30 people · 4 organizations"). null: use the default. */
+  count: string | null;
+  /** What the view calls its things when nothing matches ("No ___ match."). null: the view's own noun. */
+  noun: string | null;
 };
 
 // ——————————————————————————————————————————————————————————————
@@ -67,7 +91,7 @@ export type DeskBrowse = {
 
 /** The params this module owns. A link that opens a card should carry them
  * along so the list behind the card keeps its filters. */
-export const BROWSE_PARAMS = ["q", "tab", "stage", "interests"] as const;
+export const BROWSE_PARAMS = ["q", "tab", "show", "stage", "seek", "interests"] as const;
 
 /** The browse params present in `from`, and nothing else. */
 export function browseParamsOf(from: URLSearchParams): URLSearchParams {
@@ -84,11 +108,15 @@ type Tab = { value: string; label: string };
 /** Each view's toggle. The first is the default and carries no param. The
  * values match the pages' own where they have them (Events' ?tab=). */
 const TABS: Record<BrowseView, Tab[]> = {
+  // Everyone is people and organizations together; Organizations narrows to
+  // them (the same ?tab=orgs as /people). Organizations can't be followed yet.
   people: [
     { value: "", label: "Everyone" },
     { value: "following", label: "Following" },
+    { value: "orgs", label: "Organizations" },
   ],
-  projects: PROJECT_VIEWS.map((v) => ({ value: v.value === "projects" ? "" : v.value, label: v.label })),
+  // Projects has chips, not a toggle (see the filter row).
+  projects: [],
   events: [
     { value: "", label: "Upcoming" },
     { value: "favorites", label: "Saved" },
@@ -100,6 +128,20 @@ function readTab(view: BrowseView, raw: string | null): string {
   return TABS[view].some((t) => t.value === raw) ? (raw as string) : "";
 }
 
+/** The params the desk's Projects view used before the chips: the Projects |
+ * Work toggle and the Seeking pills. Writing the chips drops them. */
+const PROJECTS_LEGACY_PARAMS = ["tab", "seek"] as const;
+
+/** The Projects chip and Stage a desk URL holds, old links included. */
+export function readDeskProjects(params: URLSearchParams): { lens: ProjectsLens; stage: string } {
+  return readProjectsView({
+    work: params.get("tab") === "work",
+    show: params.get("show"),
+    stage: params.get("stage"),
+    seek: params.get("seek"),
+  });
+}
+
 /** The view's filters as the URL has them, and the ways to change them. Both
  * the cards and the filter row read this, so they never disagree. */
 function useBrowseUrl(view: BrowseView) {
@@ -107,10 +149,12 @@ function useBrowseUrl(view: BrowseView) {
   const { searchParams, setSearchParams } = filters;
 
   const tab = readTab(view, searchParams.get("tab"));
-  const projectsView = readProjectsView({ work: tab === "work", show: searchParams.get("stage") });
-  const stage = view === "projects" ? projectsView.show : "";
-  // Discipline is People's; a stray ?interests= on another view is ignored.
-  const interests = view === "people" ? filters.tags : NO_TAGS;
+  const projects = readDeskProjects(searchParams);
+  const lens: ProjectsLens = view === "projects" ? projects.lens : "projects";
+  const stage = view === "projects" ? projects.stage : "";
+  // Discipline is People's, and an organization has none, so a stray
+  // ?interests= on another view, or on Organizations, is ignored.
+  const interests = view === "people" && tab !== "orgs" ? filters.tags : NO_TAGS;
 
   const edit = useCallback(
     (change: (params: URLSearchParams) => void) =>
@@ -125,24 +169,25 @@ function useBrowseUrl(view: BrowseView) {
     [setSearchParams],
   );
 
-  // A new toggle starts its pills over: Work has different stages than Projects.
   const setTab = useCallback(
     (value: string) =>
       edit((p) => {
         if (value) p.set("tab", value);
         else p.delete("tab");
-        p.delete("stage");
       }),
     [edit],
   );
-  const setStage = useCallback(
-    (value: string) =>
-      edit((p) => {
-        if (value) p.set("stage", value);
-        else p.delete("stage");
-      }),
+  // A chip and the Stage are written together, read the way the cards read
+  // them: an old ?stage=gigs or ?seek=people becomes ?show= the first time
+  // either is touched, rather than one undoing the other.
+  const setProjects = useCallback(
+    (change: (now: { lens: ProjectsLens; stage: string }) => { lens: ProjectsLens; stage: string }) =>
+      edit((p) => writeProjectsView(p, change(readDeskProjects(p)), PROJECTS_LEGACY_PARAMS)),
     [edit],
   );
+  /** A chip: Projects resets, Jobs and gigs has no Stage. */
+  const setLens = useCallback((value: ProjectsLens) => setProjects((now) => selectLens(now, value)), [setProjects]);
+  const setStage = useCallback((value: string) => setProjects((now) => ({ ...now, stage: value })), [setProjects]);
   const clearParams = useCallback(() => edit((p) => BROWSE_PARAMS.forEach((key) => p.delete(key))), [edit]);
 
   return {
@@ -153,9 +198,10 @@ function useBrowseUrl(view: BrowseView) {
     searched: filters.debouncedQuery.trim(),
     tab,
     setTab,
+    lens,
+    setLens,
     stage,
     setStage,
-    projectsView: projectsView.view,
     interests,
     toggleInterest: filters.toggleTag,
     clearInterests: filters.clearTags,
@@ -222,7 +268,7 @@ function useStale<T>(key: string, value: T | undefined): T | undefined {
 /** Cards for a browse view under its current URL filters. */
 export function useDeskBrowse(view: BrowseView, community: DeskCommunity, fallback: DeskCard[] | undefined): DeskBrowse {
   const url = useBrowseUrl(view);
-  const { tab, searched, stage, interests } = url;
+  const { tab, searched, lens, stage, interests } = url;
 
   // Queries run only while this view is the one on the desk, so a caller that
   // always passes a view doesn't pay for the other two.
@@ -267,15 +313,21 @@ export function useDeskBrowse(view: BrowseView, community: DeskCommunity, fallba
   );
 
   // People. Everyone is the same query /people runs (the Garden's members, or
-  // everyone in The Exchange); Following is the member's own list.
+  // everyone in The Exchange) with the organizations mixed in; Following is
+  // the member's own list; Organizations is the /people Organizations tab.
   const following = view === "people" && tab === "following";
+  const orgsOnly = view === "people" && tab === "orgs";
   const communitySlug = community === "garden" ? GARDEN_SLUG : undefined;
   const directory = useStale(
     `people:${communitySlug}`,
-    useQuery(api.profiles.search, peopleOn && !following ? { query: searched || undefined, communitySlug } : "skip") as
-      | ProfileRow[]
-      | undefined,
+    useQuery(
+      api.profiles.search,
+      peopleOn && !following && !orgsOnly ? { query: searched || undefined, communitySlug } : "skip",
+    ) as ProfileRow[] | undefined,
   );
+  // Every organization, as the /people Organizations tab asks for them. They
+  // belong to no community, so the desk's community switch doesn't scope them.
+  const orgRows = useQuery(api.organizations.list, peopleOn && !following ? {} : "skip") as DeskOrgInput[] | undefined;
   const favorites = useQuery(api.favorites.getMyFavorites, peopleOn || eventsOn ? {} : "skip");
 
   // Projects.
@@ -295,19 +347,24 @@ export function useDeskBrowse(view: BrowseView, community: DeskCommunity, fallba
 
   const built = useMemo((): DeskCard[] | undefined => {
     if (peopleOn) {
+      if (orgsOnly) return orgRows ? orgsCards(orgRows, searched) : undefined;
       const followed: ProfileRow[] | undefined = favorites
         ? favorites.profiles.flatMap((f) => (f ? [{ ...f.profile, _id: String(f.profile._id), interests: [...f.profile.interests] }] : []))
         : undefined;
       const rows = following ? followed : directory;
       if (!rows || !favorites) return undefined;
       const followedIds = new Set(favorites.profiles.flatMap((f) => (f ? [String(f.profile._id)] : [])));
-      return peopleCards({ rows, followedIds, following, query: searched, interests, near });
+      const people = peopleCards({ rows, followedIds, following, query: searched, interests, near });
+      if (following) return people;
+      if (!orgRows) return undefined;
+      // Discipline and Near me are about people: an organization has neither.
+      return everyoneCards(people, orgRows, { query: searched, peopleOnly: interests.length > 0 || !!near });
     }
     if (projectsOn) {
       if (!projectRows || (community === "garden" && fundPage === undefined)) return undefined;
       return projectsCards({
         rows: projectRows,
-        view: url.projectsView,
+        lens,
         stage,
         query: searched,
         community,
@@ -322,12 +379,12 @@ export function useDeskBrowse(view: BrowseView, community: DeskCommunity, fallba
       return eventsCards({ rows, tab, query: searched, community, near, favoriteIds, now: Date.now() });
     }
     return undefined;
-  }, [peopleOn, projectsOn, eventsOn, favorites, following, directory, searched, interests, near, projectRows, fundPage, community, url.projectsView, stage, past, pastRows, upcomingRows, tab]);
+  }, [peopleOn, projectsOn, eventsOn, favorites, following, orgsOnly, directory, orgRows, searched, interests, near, projectRows, fundPage, community, lens, stage, past, pastRows, upcomingRows, tab]);
 
   const filtered =
     !!searched ||
-    (view === "people" && (interests.length > 0 || !!near || following)) ||
-    (view === "projects" && (!!stage || tab === "work")) ||
+    (view === "people" && (interests.length > 0 || !!near || following || orgsOnly)) ||
+    (view === "projects" && (!!stage || lens !== "projects")) ||
     (view === "events" && (!!near || tab !== ""));
 
   // Until this view's own answer arrives, the desk's cards for it stand in,
@@ -342,7 +399,15 @@ export function useDeskBrowse(view: BrowseView, community: DeskCommunity, fallba
     if (geoRef.current.nearMe) geoRef.current.toggleNearMe();
   }, [clearParams]);
 
-  return useMemo(() => ({ cards, filtered, clear }), [cards, filtered, clear]);
+  // People mixes organizations in, so its count and its empty line say both.
+  const count = useMemo(() => {
+    if (view !== "people" || !cards) return null;
+    const orgs = cards.filter((c) => c.kind === "org").length;
+    return peopleCountLabel(cards.length - orgs, orgs, orgsOnly);
+  }, [view, cards, orgsOnly]);
+  const noun = view === "people" ? peopleNoun(tab, interests.length > 0 || !!near) : null;
+
+  return useMemo(() => ({ cards, filtered, clear, count, noun }), [cards, filtered, clear, count, noun]);
 }
 
 // ——————————————————————————————————————————————————————————————
@@ -362,48 +427,189 @@ function pillClass(on: boolean) {
   return `${PILL} ${on ? PILL_ON : PILL_OFF}`;
 }
 
-type Chip = { key: string; label: string; on: boolean; select: () => void };
+/** One thing on the row after the search and the toggle: a chip, a menu, a
+ * button. When the row is too narrow the last ones fold into a More menu. */
+type Piece = {
+  key: string;
+  /** The live piece. */
+  node: ReactNode;
+  /** The same piece drawn flat, one element wide enough for it, to measure. */
+  ghost: ReactNode;
+  /** What it becomes inside the More menu. */
+  folded: (close: () => void) => ReactNode;
+  /** Switched on or chosen: it never folds, so the row always shows what is on. */
+  on: boolean;
+  /** A thin divider sits where the group changes. */
+  group?: "refine";
+  /** Folded, it goes after the rest in the More menu: a long list shouldn't
+   * bury the short rows under it. */
+  long?: boolean;
+};
+
+/** A chip: one choice among a few. */
+function chipPiece(key: string, label: string, on: boolean, select: () => void): Piece {
+  return {
+    key,
+    on,
+    node: (
+      <button type="button" aria-pressed={on} onClick={select} className={pillClass(on)}>
+        {label}
+      </button>
+    ),
+    ghost: <span className={pillClass(false)}>{label}</span>,
+    folded: (close) => (
+      <MenuRow
+        label={label}
+        on={on}
+        onSelect={() => {
+          select();
+          close();
+        }}
+      />
+    ),
+  };
+}
+
+/** Room a divider takes between two pieces: its own width and one more gap. */
+const DIVIDER_ROOM = 1 + PILL_GAP;
 
 /** One row, no panel, on the dotted surface: search, the view's toggle, then
- * its filters. Chips that don't fit fold into a More menu rather than wrapping.
- * Fills the width its parent gives it (put it in a flex row). */
+ * its filters. Pieces that don't fit fold into a More menu rather than
+ * wrapping (the last first, never one that is switched on), so the row never
+ * runs into the create button at its right end. Fills the width its parent
+ * gives it (put it in a flex row). */
 export function DeskFilterBar({ view }: { view: BrowseView }) {
   const url = useBrowseUrl(view);
   const near = useNearControls();
   const { tab } = url;
   const following = view === "people" && tab === "following";
+  const orgsOnly = view === "people" && tab === "orgs";
 
-  // Following carries no coordinates, so Near me has nothing to measure there.
-  const canNear = (view === "people" && !following) || view === "events";
+  // Following carries no coordinates, and an organization's place isn't in the
+  // list, so Near me has nothing to measure on either.
+  const canNear = (view === "people" && !following && !orgsOnly) || view === "events";
 
-  const chips: Chip[] = useMemo(() => {
+  const pieces: Piece[] = useMemo(() => {
+    const out: Piece[] = [];
     if (view === "projects") {
-      return SHOW_FILTERS[url.projectsView].map((f) => ({
-        key: f.value || "all",
-        label: f.label,
-        on: url.stage === f.value,
-        select: () => url.setStage(f.value),
-      }));
+      // The chips: one at a time, Projects first. Then Stage, which narrows
+      // any of them but Jobs and gigs.
+      for (const l of PROJECT_LENSES) out.push(chipPiece(`lens-${l.value}`, l.label, url.lens === l.value, () => url.setLens(l.value)));
+      if (url.lens !== "work") {
+        const chosen = (value: string) => url.stage === value;
+        const pick = (value: string, close: () => void) => {
+          url.setStage(value);
+          close();
+        };
+        out.push({
+          key: "stage",
+          on: !!url.stage,
+          group: "refine",
+          node: (
+            <PillMenu label="Stage" on={!!url.stage} caption={stageCaption(url.stage)} align="left">
+              {(close) =>
+                STAGE_OPTIONS.map((o) => (
+                  <MenuRow key={o.value || "any"} label={o.label} on={chosen(o.value)} onSelect={() => pick(o.value, close)} />
+                ))
+              }
+            </PillMenu>
+          ),
+          ghost: <MenuPillGhost on={!!url.stage} caption={stageCaption(url.stage)} />,
+          folded: (close) => (
+            <>
+              <MenuHeading>Stage</MenuHeading>
+              {STAGE_OPTIONS.map((o) => (
+                <MenuRow key={o.value || "any"} label={o.label} on={chosen(o.value)} onSelect={() => pick(o.value, close)} />
+              ))}
+            </>
+          ),
+        });
+      }
+      return out;
     }
-    if (canNear && near?.on) {
-      return NEAR_ME_RADIUS_OPTIONS.map((opt) => ({
-        key: `within-${opt.value}`,
-        label: opt.label,
-        on: near.radius === opt.value,
-        select: () => near.setRadius(opt.value),
-      }));
+    if (view === "people" && !orgsOnly) {
+      const caption = url.interests.length === 0 ? "Discipline" : filterButtonLabel(INTEREST_OPTIONS, url.interests);
+      const rows = () => (
+        <>
+          {url.interests.length > 0 && (
+            <button type="button" onClick={url.clearInterests} className={`${MENU_ROW} text-[#FFE066]`}>
+              Clear
+            </button>
+          )}
+          {INTEREST_OPTIONS.map((o) => (
+            <MenuRow key={o.value} label={o.label} on={url.interests.includes(o.value)} onSelect={() => url.toggleInterest(o.value)} />
+          ))}
+        </>
+      );
+      out.push({
+        key: "discipline",
+        long: true,
+        on: url.interests.length > 0,
+        node: (
+          <PillMenu label="Discipline" on={url.interests.length > 0} caption={caption} align="left">
+            {() => rows()}
+          </PillMenu>
+        ),
+        ghost: <MenuPillGhost on={url.interests.length > 0} caption={caption} />,
+        folded: () => (
+          <>
+            <MenuHeading>Discipline</MenuHeading>
+            {rows()}
+          </>
+        ),
+      });
     }
-    return [];
-  }, [view, url.projectsView, url.stage, url.setStage, canNear, near]);
-  const chipsLabel = view === "projects" ? "Stage" : "Within";
+    if (canNear) {
+      const label = near?.loading ? "Locating…" : "Near me";
+      out.push({
+        key: "near",
+        on: !!near?.on,
+        node: (
+          <button
+            type="button"
+            aria-pressed={!!near?.on}
+            disabled={!near || near.loading}
+            onClick={() => near?.toggle()}
+            className={pillClass(!!near?.on)}
+          >
+            <LocationIcon className="h-4 w-4" />
+            {label}
+          </button>
+        ),
+        ghost: (
+          <span className={pillClass(!!near?.on)}>
+            <LocationIcon className="h-4 w-4" />
+            {label}
+          </span>
+        ),
+        folded: (close) => (
+          <MenuRow
+            label={label}
+            on={!!near?.on}
+            disabled={!near || near.loading}
+            onSelect={() => {
+              near?.toggle();
+              close();
+            }}
+          />
+        ),
+      });
+      if (near?.on) {
+        for (const opt of NEAR_ME_RADIUS_OPTIONS) out.push(chipPiece(`within-${opt.value}`, opt.label, near.radius === opt.value, () => near.setRadius(opt.value)));
+      }
+    }
+    return out;
+  }, [view, url.lens, url.setLens, url.stage, url.setStage, url.interests, url.toggleInterest, url.clearInterests, canNear, orgsOnly, near]);
+  const piecesLabel = view === "projects" ? "Show" : "Filters";
+  const hasDivider = pieces.some((c) => c.group) && pieces.some((c) => !c.group);
 
-  // Fit the chips on the one row. The widths come from a hidden copy of every
-  // chip, so a folded chip's width is known before it is needed.
+  // Fit the pieces on the one row. The widths come from a hidden copy of every
+  // piece, so a folded piece's width is known before it is needed.
   const rootRef = useRef<HTMLDivElement>(null);
   const fixedRef = useRef<HTMLDivElement>(null);
   const measureRef = useRef<HTMLDivElement>(null);
   const [fit, setFit] = useState<{ widths: number[]; more: number; room: number } | null>(null);
-  const chipKey = chips.map((c) => c.label).join("|");
+  const pieceKey = pieces.map((c) => c.key).join("|");
   useLayoutEffect(() => {
     const root = rootRef.current;
     const fixed = fixedRef.current;
@@ -431,16 +637,27 @@ export function DeskFilterBar({ view }: { view: BrowseView }) {
       live = false;
       observer.disconnect();
     };
-  }, [chipKey]);
+  }, [pieceKey]);
 
-  const activeIndex = chips.findIndex((c) => c.on);
+  const active = pieces.flatMap((c, i) => (c.on ? [i] : []));
   const shown =
-    fit && fit.widths.length === chips.length
-      ? visibleChips(fit.widths, { available: fit.room, gap: PILL_GAP, moreWidth: fit.more, activeIndex })
-      : chips.map((_, i) => i);
-  const folded = chips.filter((_, i) => !shown.includes(i));
+    fit && fit.widths.length === pieces.length
+      ? visibleChips(fit.widths, { available: fit.room - (hasDivider ? DIVIDER_ROOM : 0), gap: PILL_GAP, moreWidth: fit.more, activeIndex: active })
+      : pieces.map((_, i) => i);
+  const folded = pieces.filter((_, i) => !shown.includes(i)).sort((a, b) => Number(!!a.long) - Number(!!b.long));
 
-  const placeholder = view === "projects" ? (tab === "work" ? "Search work" : "Search projects") : view === "people" ? "Search people" : "Search events";
+  const placeholder =
+    view === "projects"
+      ? url.lens === "work"
+        ? "Search jobs and gigs"
+        : "Search projects"
+      : view === "people"
+        ? orgsOnly
+          ? "Search organizations"
+          : following
+            ? "Search people"
+            : "Search people and orgs"
+        : "Search events";
 
   return (
     <div
@@ -451,51 +668,14 @@ export function DeskFilterBar({ view }: { view: BrowseView }) {
     >
       <div ref={fixedRef} style={{ display: "flex", alignItems: "center", gap: ROW_GAP, flexShrink: 0 }}>
         <DeskSearch value={url.query} onChange={url.setQuery} placeholder={placeholder} />
-        <div role="group" aria-label="Show" className="flex items-center gap-2">
-          {TABS[view].map((t) => (
-            <button key={t.value || "default"} type="button" aria-pressed={tab === t.value} onClick={() => url.setTab(t.value)} className={pillClass(tab === t.value)}>
-              {t.label}
-            </button>
-          ))}
-        </div>
-        {view === "people" && (
-          <PillMenu
-            label="Discipline"
-            on={url.interests.length > 0}
-            caption={url.interests.length === 0 ? "Discipline" : filterButtonLabel(INTEREST_OPTIONS, url.interests)}
-            align="left"
-          >
-            {() => (
-              <>
-                {url.interests.length > 0 && (
-                  <button type="button" onClick={url.clearInterests} className={`${MENU_ROW} text-[#FFE066]`}>
-                    Clear
-                  </button>
-                )}
-                {INTEREST_OPTIONS.map((o) => {
-                  const on = url.interests.includes(o.value);
-                  return (
-                    <button key={o.value} type="button" aria-pressed={on} onClick={() => url.toggleInterest(o.value)} className={`${MENU_ROW} ${on ? "text-[#FFE066]" : "text-[#D6D6D6]"}`}>
-                      <span>{o.label}</span>
-                      {on && <CheckMark />}
-                    </button>
-                  );
-                })}
-              </>
-            )}
-          </PillMenu>
-        )}
-        {canNear && (
-          <button
-            type="button"
-            aria-pressed={!!near?.on}
-            disabled={!near || near.loading}
-            onClick={() => near?.toggle()}
-            className={pillClass(!!near?.on)}
-          >
-            <LocationIcon className="h-4 w-4" />
-            {near?.loading ? "Locating…" : "Near me"}
-          </button>
+        {TABS[view].length > 0 && (
+          <div role="group" aria-label="Show" className="flex items-center gap-2">
+            {TABS[view].map((t) => (
+              <button key={t.value || "default"} type="button" aria-pressed={tab === t.value} onClick={() => url.setTab(t.value)} className={pillClass(tab === t.value)}>
+                {t.label}
+              </button>
+            ))}
+          </div>
         )}
         {canNear && near?.error && (
           <span role="status" className="whitespace-nowrap text-[13.5px] text-[#FF9B8F]">
@@ -504,52 +684,34 @@ export function DeskFilterBar({ view }: { view: BrowseView }) {
         )}
       </div>
 
-      {chips.length > 0 && (
-        <div role="group" aria-label={chipsLabel} className="flex shrink-0 items-center gap-2">
-          {shown.map((i) => (
-            <button key={chips[i].key} type="button" aria-pressed={chips[i].on} onClick={chips[i].select} className={pillClass(chips[i].on)}>
-              {chips[i].label}
-            </button>
+      {pieces.length > 0 && (
+        <div role="group" aria-label={piecesLabel} className="flex shrink-0 items-center gap-2">
+          {shown.map((i, at) => (
+            <Fragment key={pieces[i].key}>
+              {pieces[i].group && at > 0 && pieces[shown[at - 1]].group !== pieces[i].group && (
+                <span role="separator" aria-orientation="vertical" style={{ width: 1, height: 20, flexShrink: 0, background: DESK.lineStrong }} />
+              )}
+              {pieces[i].node}
+            </Fragment>
           ))}
           {folded.length > 0 && (
-            <PillMenu label={`More ${chipsLabel.toLowerCase()}`} on={false} caption="More" align="right">
-              {(close) =>
-                folded.map((c) => (
-                  <button
-                    key={c.key}
-                    type="button"
-                    aria-pressed={c.on}
-                    onClick={() => {
-                      c.select();
-                      close();
-                    }}
-                    className={`${MENU_ROW} ${c.on ? "text-[#FFE066]" : "text-[#D6D6D6]"}`}
-                  >
-                    <span>{c.label}</span>
-                    {c.on && <CheckMark />}
-                  </button>
-                ))
-              }
+            <PillMenu label="More filters" on={false} caption="More" align="right">
+              {(close) => folded.map((c) => <Fragment key={c.key}>{c.folded(close)}</Fragment>)}
             </PillMenu>
           )}
         </div>
       )}
 
-      {/* A hidden copy of every chip and the More button, for their widths. */}
+      {/* A hidden copy of every piece and the More button, for their widths. */}
       <div
         ref={measureRef}
         aria-hidden
         style={{ position: "absolute", left: 0, top: 0, display: "flex", gap: PILL_GAP, height: 0, overflow: "hidden", visibility: "hidden", pointerEvents: "none" }}
       >
-        {chips.map((c) => (
-          <span key={c.key} className={pillClass(false)}>
-            {c.label}
-          </span>
+        {pieces.map((c) => (
+          <Fragment key={c.key}>{c.ghost}</Fragment>
         ))}
-        <span className={pillClass(false)}>
-          More
-          <ChevronDownIcon className="h-4 w-4" />
-        </span>
+        <MenuPillGhost on={false} caption="More" />
       </div>
     </div>
   );
@@ -609,6 +771,38 @@ function DeskSearch({ value, onChange, placeholder }: { value: string; onChange:
 }
 
 const MENU_ROW = `flex h-9 w-full items-center justify-between gap-4 rounded-lg px-3 text-left text-[13.5px] hover:bg-[#2a2a2a] ${FOCUS_RING_CLASS}`;
+
+function MenuRow({ label, on, onSelect, disabled }: { label: string; on: boolean; onSelect: () => void; disabled?: boolean }) {
+  return (
+    <button
+      type="button"
+      aria-pressed={on}
+      disabled={disabled}
+      onClick={onSelect}
+      className={`${MENU_ROW} ${on ? "text-[#FFE066]" : "text-[#D6D6D6]"} disabled:opacity-60`}
+    >
+      <span>{label}</span>
+      {on && <CheckMark />}
+    </button>
+  );
+}
+
+/** A small label over a group of rows in a menu. */
+function MenuHeading({ children }: { children: ReactNode }) {
+  return (
+    <p style={{ ...monoLabel(12, "0.16em"), margin: 0, padding: "8px 12px 4px", color: DESK.muted }}>{children}</p>
+  );
+}
+
+/** A menu pill drawn flat: the width of the real one, for measuring. */
+function MenuPillGhost({ on, caption }: { on: boolean; caption: ReactNode }) {
+  return (
+    <span className={pillClass(on)}>
+      {caption}
+      <ChevronDownIcon className="h-4 w-4" />
+    </span>
+  );
+}
 
 function CheckMark() {
   return (

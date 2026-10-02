@@ -47,6 +47,7 @@ import type * as garden_artifactsMigration from "../garden/artifactsMigration.js
 import type * as garden_capabilities from "../garden/capabilities.js";
 import type * as garden_communities from "../garden/communities.js";
 import type * as garden_communityDomains from "../garden/communityDomains.js";
+import type * as garden_communityVisibility from "../garden/communityVisibility.js";
 import type * as garden_connect from "../garden/connect.js";
 import type * as garden_connectState from "../garden/connectState.js";
 import type * as garden_coverage from "../garden/coverage.js";
@@ -62,6 +63,7 @@ import type * as garden_giving from "../garden/giving.js";
 import type * as garden_givingLink from "../garden/givingLink.js";
 import type * as garden_givingLinks from "../garden/givingLinks.js";
 import type * as garden_grantProposals from "../garden/grantProposals.js";
+import type * as garden_hiddenCommunity from "../garden/hiddenCommunity.js";
 import type * as garden_interestsMigration from "../garden/interestsMigration.js";
 import type * as garden_jobsMigration from "../garden/jobsMigration.js";
 import type * as garden_memberships from "../garden/memberships.js";
@@ -171,6 +173,7 @@ declare const fullApi: ApiFromModules<{
   "garden/capabilities": typeof garden_capabilities;
   "garden/communities": typeof garden_communities;
   "garden/communityDomains": typeof garden_communityDomains;
+  "garden/communityVisibility": typeof garden_communityVisibility;
   "garden/connect": typeof garden_connect;
   "garden/connectState": typeof garden_connectState;
   "garden/coverage": typeof garden_coverage;
@@ -186,6 +189,7 @@ declare const fullApi: ApiFromModules<{
   "garden/givingLink": typeof garden_givingLink;
   "garden/givingLinks": typeof garden_givingLinks;
   "garden/grantProposals": typeof garden_grantProposals;
+  "garden/hiddenCommunity": typeof garden_hiddenCommunity;
   "garden/interestsMigration": typeof garden_interestsMigration;
   "garden/jobsMigration": typeof garden_jobsMigration;
   "garden/memberships": typeof garden_memberships;

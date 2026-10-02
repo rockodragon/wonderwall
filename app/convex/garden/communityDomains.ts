@@ -9,6 +9,8 @@ import { v } from "convex/values";
 import { internalMutation, query } from "../_generated/server";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import type { Doc } from "../_generated/dataModel";
+import { isHiddenCommunity } from "./hiddenCommunity";
+import { communityVisibility } from "./communityVisibility";
 
 /** "WWW.CreateSD.org:443" → "createsd.org". Empty for anything unusable. */
 export function normalizeHost(host: string | null | undefined): string {
@@ -31,7 +33,9 @@ export function findCommunityForHost<T extends { domains?: string[] }>(
 
 /** Which community a visitor arrived for: an explicit `?community=<slug>`
  * wins, then the domain. null = the neutral hub. hostOrgs is a small
- * table (a handful of communities), so a scan is fine. */
+ * table (a handful of communities), so a scan is fine. A hidden (test)
+ * community is never an entry point: the visitor is anonymous, and a hidden
+ * one has no front door to tag them to. */
 export async function resolveEntryCommunity(
   ctx: QueryCtx | MutationCtx,
   args: { host?: string; communitySlug?: string },
@@ -41,11 +45,11 @@ export async function resolveEntryCommunity(
       .query("hostOrgs")
       .withIndex("by_slug", (q) => q.eq("slug", args.communitySlug!.trim().toLowerCase()))
       .unique();
-    if (bySlug && bySlug.kind === "community") return bySlug;
+    if (bySlug && bySlug.kind === "community" && !isHiddenCommunity(bySlug)) return bySlug;
   }
   if (!args.host) return null;
   const communities = (await ctx.db.query("hostOrgs").collect()).filter(
-    (o) => o.kind === "community",
+    (o) => o.kind === "community" && !isHiddenCommunity(o),
   );
   return findCommunityForHost(args.host, communities);
 }
@@ -94,6 +98,9 @@ export const getCommunityLanding = query({
     if (!org || org.kind !== "community") return null;
     const status = org.status ?? "active";
     if (status === "declined" || status === "archived") return null;
+    // A hidden (test) community has no front door for anyone but admins and
+    // its members.
+    if (!(await communityVisibility(ctx).orgVisible(org))) return null;
     return {
       slug: org.slug,
       name: org.name,

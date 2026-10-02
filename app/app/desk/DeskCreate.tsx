@@ -1,11 +1,15 @@
-// A create flow (start a project, host an event) open as one card on the
-// desk: /today?create=project|event. The form sits on the desk's own dotted
+// A create flow (start a project, hire someone, host an event) open as one
+// card on the desk: /today?create=project|hire|event. The form sits on the
+// desk's own dotted
 // surface (FocusBackdrop) with nothing from the list behind it. Closing it
 // drops the param and the desk shows again.
 //
 // The forms are the ones the list pages use, mounted the same way:
 //   project: routes/projects.tsx, ProjectModal in its start mode, and on
 //            success go to the new project's page.
+//   hire:    routes/projects.tsx, the Hire someone chooser (HireFlow: one job,
+//            or a recurring gig), and on success go to the new posting's page.
+//            "Start a project instead" swaps this card for the project one.
 //   event:   routes/events.tsx, CreateEventModal, which goes to the new
 //            event's page itself.
 //
@@ -17,6 +21,7 @@ import { useCallback, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useLocation, useNavigate, useSearchParams } from "react-router";
 import { CreateEventModal } from "../components/CreateEventModal";
+import { HireFlow } from "../components/HireFlow";
 import { ProjectModal } from "../components/ProjectModal";
 import { parseDeskCreate } from "./deskState";
 import { loginHref } from "./paletteLogic";
@@ -59,16 +64,31 @@ export function DeskCreate() {
 
   if (!kind || isLoading || !isAuthenticated || typeof document === "undefined") return null;
 
+  const onCreated = (projectId: string) => {
+    created.current = true;
+    navigate(`/projects/${projectId}`);
+  };
+
   // Into <body>: the desk is its own stacking context, and the palette (z-40)
   // would otherwise sit above the card. Page modals cover it, so this does too.
   return createPortal(
     kind === "project" ? (
-      <ProjectModal
+      <ProjectModal onClose={close} onCreated={onCreated} />
+    ) : kind === "hire" ? (
+      <HireFlow
         onClose={close}
-        onCreated={(projectId) => {
-          created.current = true;
-          navigate(`/projects/${projectId}`);
-        }}
+        onCreated={onCreated}
+        // Same page, other card: the param swaps and the filters stay.
+        onSwitchToProject={() =>
+          setSearchParams(
+            (prev) => {
+              const next = new URLSearchParams(prev);
+              next.set("create", "project");
+              return next;
+            },
+            { replace: true },
+          )
+        }
       />
     ) : (
       <CreateEventModal onClose={close} />

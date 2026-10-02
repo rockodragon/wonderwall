@@ -20,6 +20,8 @@ import { getGardenUser, throwDenial } from "./entitlements";
 import { eventVisibilityChecker } from "./eventVisibility";
 import { slugifyTitle, resolveAvailableSlug } from "./stories";
 import { canSeeOffering } from "../offerings";
+import { canSeeCommunity, isHiddenCommunity } from "./hiddenCommunity";
+import { communityVisibility } from "./communityVisibility";
 
 // ——————————————————————————————————————————————————————————————
 // Pure core
@@ -325,6 +327,27 @@ async function requireOperator(ctx: Ctx): Promise<Id<"users">> {
   return userId;
 }
 
+/** A leading "_" in a community's name hides it (hiddenCommunity.ts), so
+ * only an admin may give a community such a name or take it away. Anyone
+ * else naming or renaming one gets the ordinary invalid-name answer. */
+async function assertMayChangeHiddenName(
+  ctx: Ctx,
+  userId: Id<"users">,
+  before: { name: string; slug: string } | null,
+  after: { name: string; slug: string },
+): Promise<void> {
+  if (isHiddenCommunity(before) === isHiddenCommunity(after)) return;
+  const profile = await ctx.db
+    .query("profiles")
+    .withIndex("by_userId", (q) => q.eq("userId", userId))
+    .unique();
+  if (isAdminProfile(profile)) return;
+  throw new ConvexError({
+    code: "invalid_name",
+    reason: "A community name can't start with an underscore.",
+  });
+}
+
 /** Only `name` off profiles — never email (same rule as tables.ts). */
 async function profileNames(ctx: Ctx, userIds: Id<"users">[]): Promise<Map<string, string>> {
   const profiles = await Promise.all(
@@ -388,7 +411,8 @@ export const listCommunities = query({
       .query("hostOrgs")
       .withIndex("by_kind_status", (q) => q.eq("kind", COMMUNITY_KIND))
       .collect();
-    const listed = orgs.filter(isListedCommunity);
+    // A hidden (test) community is listed only for admins and its members.
+    const listed = await communityVisibility(ctx).filterOrgs(orgs.filter(isListedCommunity));
 
     return Promise.all(
       listed.map(async (org) => {
@@ -446,6 +470,11 @@ export const getCommunity = query({
       viewerIsOperator || (mine?.status === "active" && canManageCommunity(mine.role));
 
     if (c.status !== "active" && !viewerManages) return null;
+    // A hidden (test) community doesn't exist for anyone but admins and its
+    // active members — same answer as an unknown slug.
+    if (!canSeeCommunity(org, { isAdmin: viewerIsOperator, isActiveMember: mine?.status === "active" })) {
+      return null;
+    }
 
     const activeMembers = members.filter((m) => m.status === "active");
     const hostIds = activeMembers.filter((m) => m.role === "host").map((m) => m.userId);
@@ -645,6 +674,9 @@ export const applyToHost = mutation({
         .unique();
       return hit !== null;
     });
+    // An admin can name one with a leading "_" to make an invisible test
+    // community (hiddenCommunity.ts); the slug drops the underscore.
+    await assertMayChangeHiddenName(ctx, userId, null, { name, slug });
 
     const now = Date.now();
     const hostOrgId = await ctx.db.insert("hostOrgs", {
@@ -681,6 +713,10 @@ export const joinCommunity = mutation({
 
     const org = await ctx.db.get(args.hostOrgId);
     if (!org) throw new ConvexError({ code: "not_found", reason: "That community isn't there." });
+    // A hidden (test) community can't be joined by someone who can't see it.
+    if (!(await communityVisibility(ctx, userId).orgVisible(org))) {
+      throw new ConvexError({ code: "not_found", reason: "That community isn't there." });
+    }
 
     const existing = await getCommunityMember(ctx, args.hostOrgId, userId);
     const decision = resolveCommunityJoin({ community: org, existing });
@@ -792,6 +828,9 @@ export const updateCommunity = mutation({
       joinPolicy: args.joinPolicy,
     });
     if (invalid) throw new ConvexError(invalid);
+    if (args.name !== undefined) {
+      await assertMayChangeHiddenName(ctx, userId, org, { name: args.name.trim(), slug: org.slug });
+    }
     if ((args.whyHere?.trim().length ?? 0) > DESCRIPTION_MAX) {
       throw new ConvexError({
         code: "invalid_why_here",

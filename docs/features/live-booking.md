@@ -8,7 +8,9 @@ v0.1 · 2026-09-17 · owner: Rick · status: **built on the `live-booking` branc
 
 A restaurant, a bar, or any community partner with a room posts a paid gig that repeats: "live music every Friday, 8 to 10pm, $300." The platform opens the dates. Artists mark the dates they can play and attach clips from their portfolio. The venue listens, picks one artist per date, and pays them directly in Venmo, Cash App, PayPal, or Zelle. The platform records the payment and takes nothing.
 
-It shows up under **Projects** as **Paid gigs**. A gig is a paid project with a schedule attached. It sits next to every other paid post on `/projects` and `/opportunities`, with its own filter chip. Decided 2026-09-17: paid work, passion projects, and gigs live together under Projects, one toggle apart. The plan brief's line "jobs are their own thing, not projects" (§1) is the one sentence left to update.
+It shows up under **Projects** as a **recurring gig**. A recurring gig is a paid project with a schedule attached. On `/projects` it sits with one-off jobs under the **Jobs and gigs** chip, and on `/opportunities` next to every other paid post. Decided 2026-09-17: paid work, passion projects, and recurring gigs live together under Projects. The plan brief's line "jobs are their own thing, not projects" (§1) is the one sentence left to update.
+
+Naming (2026-10-02, Rick): the app says **recurring gig** (or **recurring gigs**) for one of these, and **Jobs and gigs** when jobs and gigs are named together. It no longer says "show" or "shows" for a booking series. Code keeps `gig`, `gigs`, `gigSlots`.
 
 ## 1 · Who does what
 
@@ -77,7 +79,8 @@ The venue says it the way they think about it, and the platform stores it that w
 
 | Place | What you see |
 |---|---|
-| `/projects` | A **Paid gigs** filter chip beside All, Passion, Paid. Each gig card carries a schedule line: "The Grove · Every Friday · 8–10pm · next Fri, Sep 25 · 6 dates open" and a "$300/date" badge. |
+| `/projects` | The **Jobs and gigs** chip (`?show=work`). A recurring gig's card opens with "Recurring gig · Fridays 8–10pm" (a one-off job says "Job"). Its body carries a schedule line: "The Grove · Every Friday · 8–10pm · next Fri, Sep 25 · 6 dates open" and a "$300/date" badge. |
+| `/today` (the desk) | The same chip in the desk's Projects view. The card's first line reads "RECURRING GIG · FRIDAYS 8–10PM"; opened, it lists Schedule and Pay ("$150/date"). "Hire someone" there (`/today?create=hire`) opens the same chooser as `/projects`: one job, or a recurring gig. |
 | `/projects/:id` | The **Dates** card replaces the team card: the schedule, every upcoming date with its status, and the controls each viewer is allowed. The patron support widget is off for gigs. |
 | `/opportunities` (public, no account) | The gig appears as paid work with its money line, like every other paid post, plus the same schedule line. Responding still takes an account. |
 | Settings → **Getting paid** | Venmo, Cash App, PayPal.Me, Zelle. Private. |

@@ -27,6 +27,8 @@ export const DESK = {
   accentInk: "#121212",
   paper: "#EDE3B4",
   paperInk: "#1d1b12",
+  /** The light mat an organization's logo sits on: logos are drawn for a light page. */
+  plate: "#DEDBD2",
   hover: "#2a2a2a",
   ease: "cubic-bezier(.2,.8,.2,1)",
 } as const;

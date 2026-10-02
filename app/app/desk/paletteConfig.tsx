@@ -134,6 +134,7 @@ export function buildSignedInTools(d: SignedInDeps): PaletteTool[] {
       items: [
         { id: "browse", label: "Browse projects", to: deskHref("projects") },
         { id: "start", label: "Start a project", to: deskHref("projects", null, "project") },
+        { id: "hire", label: "Hire someone", to: deskHref("projects", null, "hire") },
         { id: "fund", label: "Grant Fund", to: deskHref("projects", "fund") },
       ],
     },

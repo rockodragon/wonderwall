@@ -28,6 +28,7 @@ import { summarizeGig } from "./gigSummary";
 import { canonicalMediaUrl, schedulePreviewFetch } from "../linkPreview";
 import { isAdmin } from "../helpers";
 import { isHidden } from "../moderationRules";
+import { communityVisibility, isHiddenCommunityId } from "./communityVisibility";
 
 // Following fan-out (docs/features/following.md §1 #5): "Name posted Title"
 // to everyone following the poster, once per created row. `userId` is a
@@ -39,7 +40,11 @@ async function notifyFollowersOfProject(
   userId: Id<"users">,
   projectId: Id<"projects">,
   title: string,
+  hostOrgId?: Id<"hostOrgs">,
 ): Promise<void> {
+  // Posted into a hidden (test) community: followers would be told about a
+  // project they can't open.
+  if (await isHiddenCommunityId(ctx, hostOrgId)) return;
   const profile = await ctx.db
     .query("profiles")
     .withIndex("by_userId", (q) => q.eq("userId", userId))
@@ -176,7 +181,7 @@ export const createPassionProject = mutation({
     });
     // The still for the card (Instagram, TikTok); a no-op for the rest.
     await schedulePreviewFetch(ctx, "project", id, mediaUrl);
-    await notifyFollowersOfProject(ctx, userId, id, args.title);
+    await notifyFollowersOfProject(ctx, userId, id, args.title, args.hostOrgId);
     return { projectId: id, storySlug };
   },
 });
@@ -478,7 +483,7 @@ export const listProjects = query({
   args: {},
   handler: async (ctx) => {
     const allProjects = await ctx.db.query("projects").collect();
-    const projects = allProjects.filter(
+    const posted = allProjects.filter(
       // Portfolio-origin rows (artifacts.create's companion-project side
       // effect — a quick single-artifact share, not a deliberate post) don't
       // belong on the main browse grid; they already have a home at /works.
@@ -487,6 +492,9 @@ export const listProjects = query({
       // "posted" so real projects never vanish defensively.
       (p) => VISIBLE_STATUSES.has(p.status) && p.origin !== "portfolio",
     );
+    // A project posted into a hidden (test) community is listed only for
+    // admins and that community's members.
+    const projects = await communityVisibility(ctx).filter(posted);
 
     // Batch the hostOrgs lookups: one ctx.db.get per DISTINCT community, not
     // one per project (several posted projects can share a community).
@@ -581,6 +589,14 @@ export const getProject = query({
     if (isHidden(project)) {
       const viewerId = await getAuthUserId(ctx);
       if (!viewerId || (viewerId !== project.userId && !(await isAdmin(ctx, viewerId)))) return null;
+    }
+    // Posted into a hidden (test) community: not found to everyone but its
+    // lead, admins and that community's members.
+    if (project.hostOrgId) {
+      const viewerId = await getAuthUserId(ctx);
+      if (viewerId !== project.userId && !(await communityVisibility(ctx, viewerId).idVisible(project.hostOrgId))) {
+        return null;
+      }
     }
 
     const [user, media, support, communityOrg, gig] = await Promise.all([
@@ -806,7 +822,7 @@ export const createPaidProject = mutation({
     });
     // The still for the card (Instagram, TikTok); a no-op for the rest.
     await schedulePreviewFetch(ctx, "project", id, mediaUrl);
-    await notifyFollowersOfProject(ctx, userId, id, args.title);
+    await notifyFollowersOfProject(ctx, userId, id, args.title, args.hostOrgId);
     return { projectId: id, storySlug };
   },
 });

@@ -6,7 +6,7 @@ Decided 2026-09-27. Replaces the Passion / Paid / Paid gigs split at posting tim
 
 ## The model in one paragraph
 
-There is one thing, a **Project**. It has a stage (planning → … → completed). It can carry pieces of work (media), open roles (each with its own pay), a support ask (goal, deadline, tiers), or a schedule of paid dates (a gig series). Nothing about money is chosen when it's created. Its owner turns things on from the project page. Profiles and browse pages are **views** of projects: open ones are "Working on", completed ones are the Portfolio, and ones hiring show up under Work.
+There is one thing, a **Project**. It has a stage (planning → … → completed). It can carry pieces of work (media), open roles (each with its own pay), a support ask (goal, deadline, tiers), or a schedule of paid dates (a gig series). Nothing about money is chosen when it's created. Its owner turns things on from the project page. Profiles and browse pages are **views** of projects: open ones are "Working on", completed ones are the Portfolio, and ones hiring show up under Jobs and gigs.
 
 ## The problem
 
@@ -32,19 +32,50 @@ The owner of a new project that has asked for nothing yet sees **Next steps**:
 
 Patron tiers only show for a project that is raising.
 
+## The project page: tabs (2026-10-02)
+
+Above the tabs: back link, the owner's ⋯ (Archive) and the admin's ⋮, the hero or player, the title with its pencil, the stage chip, the byline, the blurb, interests, the goal bar with Cheer them on / Back this, and the owner's Next steps. The stage chip is a label to visitors and a select to the owner ("Planning ▾"), saved on change (`setStage`).
+
+Tabs, with `?tab=` in the URL (About is the default and drops the param; the URL is replaced, not pushed): **About** (the story, attached pieces, location, nonprofit note) · **Team** (team and roles; a gig shows **Dates** with its schedule instead) · **Updates** (the feed, the owner's composers) · **Support** (goal editor, tiers, supporters; passion projects only, so a job or a gig has three tabs). The owner's Team tab says how many join requests are waiting: "Team · 2 requests".
+
+Every panel stays mounted and is hidden when it isn't chosen, so a half-written form survives a trip to another tab. Next steps switches to the tab first, then scrolls to it.
+
 ## Raising
 
 A project is raising when it is not a gig and has any of: a goal, the `raising` stage, or an active patron tier. This is computed server-side in `summarizeAsks` (`convex/garden/projects.ts`) and returned as `raising` from `listProjects` and `getProject`. The client falls back to goal/stage when talking to an older backend.
 
-## Browsing: two views
+## Browsing: one row of chips
 
-`/projects` has two views, split by what the visitor wants:
+`/projects` and the desk's Projects view share one exclusive row of chips, by what the visitor is looking for (2026-10-02, Rick: "clearly list out jobs, gigs, projects seeking funding and/or people"). There is no Projects | Work toggle and no "All" chip. A project can answer to more than one chip.
 
-- **Projects** (default) — `kind: "passion"`. Filters are the stages (Rick, 2026-10-01 — the old "Raising / Looking for people" pills read as stages and collided with them): All, Planning, Raising, Forming team, Working, Releasing. A stage pill matches `resolveStage`; Raising matches `isRaising`, the same rule as the card's badge and "Back this". Old `?show=people` lands on Forming team.
-- **Work** (`?view=work`) — paid jobs, shows, and projects with open roles. Filters: All, Jobs, Shows, Roles on projects. Project cards here list each open role with its pay. "Shows" was "Gigs" until 2026-10-01: a gig is any paid work, so it overlapped with the Work view itself; a show is a recurring live-booking series (`?show=gigs` still works). On-screen copy says "show"; code keeps `gig`.
-- Both views (and Events) start their grid with a "+" card — "Start a project", "Hire someone", "Host an event" — first in the lineup, so posting is the first thing you see, especially when the list is short.
+| Chip | `?show=` | A project is here when |
+|---|---|---|
+| **Projects** (default) | absent | `kind: "passion"`, at every stage. Clicking it resets the chip and the Stage. |
+| **Seeking funding** | `funding` | `isRaising`: a goal, the Raising stage, or an active tier. Never a recurring gig. This is the card's "Raising" badge and "Back this". |
+| **Seeking people** | `people` | A project with at least one open role (paid or volunteer), plus a paid-kind posting declared Volunteer. |
+| **Jobs and gigs** | `work` | A paid posting that is not Volunteer (one-off jobs and recurring gigs), plus a project with an open role that pays (only a role that declared its pay, the way its card prints it). |
 
-A filter is `?show=…`. The old `?kind=passion|paid|gigs` links still land in the right place.
+Search, the interest tags and **Stage** combine with any chip. Stage is a "Stage ▾" menu after the chips: Any stage, Planning, Forming team, Working, Released (`?stage=planning|forming|working|releasing`). It reads as the chosen stage once one is set, and it is hidden under Jobs and gigs (its param is dropped there). Raising is not a stage option: it is Seeking funding.
+
+**What a card says it is, in its first line** (`lib/projectKind.ts`; the /projects badge, the desk card's kicker and the opened card's kicker):
+
+- **Job** — one-off paid work.
+- **Recurring gig · Fridays 8–10pm** — a live-booking series, with its schedule.
+- **Role on {project} · Paid** — a project shown under Jobs and gigs for a paid role. The card leads with that role (its title, its pay), not the project's title. Opened on the desk it lists "Paid role" ahead of Stage.
+- **Volunteer** — an unpaid posting, whatever shape. Never "Paid".
+- A project reads **Raising** or **Project** on /projects, and its stage on the desk.
+
+The opened desk card's Funding row reads "$370 of $1,000 · 37%" when there is a goal, and "Open to backing" when the project is raising through an active tier with no goal.
+
+**Create button follows the chip.** "Start a project" on Projects, Seeking funding and Seeking people; "Hire someone" on Jobs and gigs. On `/projects` it is a split button: the main half is the one for the chip, and the arrow opens both (the old "+ Post" menu). On the desk it is the row's outline button, and it opens the focused card (`/today?view=projects&create=hire|project`). The grid's first "+" card follows the chip too.
+
+**URLs.** Canonical: `?show=funding|people|work` (absent = Projects) and `?stage=…`, the same on `/projects` and the desk. Old links keep landing where they did (`readProjectsView` in `lib/browse/projectsFilter.ts`):
+
+- Jobs and gigs: `?view=work`, `?kind=paid`, `?kind=gigs`, the desk's `?tab=work`, `show`/`stage` = `jobs` or `gigs`.
+- Seeking people: `show`/`stage` = `roles` or `people`, `?seek=people`.
+- Seeking funding: `show`/`stage` = `raising`, `?seek=funding`.
+- An explicit `?seek=` beats a chip an old param implies. An old stage id (`?show=working`) is that stage with Projects. `?view=projects`, `?kind=passion` and anything unknown are Projects.
+- Clicking a chip writes the canonical params and drops the old ones.
 
 ## Supporting: two buttons
 
@@ -77,7 +108,7 @@ Checked 2026-09-27 against the live set (docs/README.md) and the code. **The pla
 1. **Are jobs projects?**
    - **The plan says:** "Jobs are their own thing, not projects." (brief §2, edited 2026-09-27). It also says a passion project "is unpaid and looks for backing" and a paid project "comes with a budget".
    - **As coded:** "Hire someone" creates a project (`kind: "paid"`) or a gig series under a project. Backing is opt-in on any project, and pay lives on roles.
-   - **Recommendation:** change the brief to match. Suggested wording: *"Projects — creative work, yours or a group's. A project can ask for people (paid or volunteer roles) and for backing. Hiring someone for a job or a run of gig dates is posted the same way and shows up under Work."*
+   - **Recommendation:** change the brief to match. Suggested wording: *"Projects — creative work, yours or a group's. A project can ask for people (paid or volunteer roles) and for backing. Hiring someone for a job or a run of gig dates is posted the same way and shows up under Jobs and gigs."*
 2. **Who owns the work, stated when the project is created.**
    - **The plan says:** "the project leader states who owns the result when the project is created" (brief §4).
    - **As coded:** there's no field or step for it anywhere.

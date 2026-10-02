@@ -7,6 +7,7 @@ import type { Doc } from "./_generated/dataModel";
 import { normalizeHandle, PAYOUT_KINDS, type PayoutHandles } from "./garden/gigRules";
 import { fillOrgWebsite, linkOrgByName, profileOrganizations, unlinkPrimaryOrg } from "./organizations";
 import { normalizeOrgUrl } from "./organizationRules";
+import { communityVisibility } from "./garden/communityVisibility";
 
 export { normalizeOrgUrl };
 
@@ -407,6 +408,9 @@ export const search = query({
         .withIndex("by_slug", (q) => q.eq("slug", args.communitySlug!))
         .unique();
       if (!org) return [];
+      // A hidden (test) community's people are findable only by admins and
+      // its own members — same empty answer as an unknown slug.
+      if (!(await communityVisibility(ctx).orgVisible(org))) return [];
       const members = await ctx.db
         .query("communityMembers")
         .withIndex("by_hostOrgId", (q) => q.eq("hostOrgId", org._id))

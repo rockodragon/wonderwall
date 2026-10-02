@@ -1,47 +1,46 @@
 import { useAction, useConvexAuth, useMutation, useQuery } from "convex/react";
 import { Link, useNavigate, useSearchParams } from "react-router";
-import { GigSeriesForm } from "../components/GigSeriesForm";
-import { HireWhenToggle, type HireDraft, type HireWhen } from "../components/HireWhenToggle";
+import { HireFlow } from "../components/HireFlow";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import { INTERESTS } from "../constants/interests";
-import { LocationAutocomplete, LocationVerifiedHint } from "../components/LocationAutocomplete";
-import { useLocationField } from "../lib/useLocationField";
 import { budgetAmountLabel, budgetKindLabel } from "../lib/budgetLabel";
-import { CommunityPicker, useDefaultEventCommunity } from "../components/CommunityPicker";
 import {
   CommunityContextLine,
   communityNameFor,
   useCommunityContext,
 } from "../components/CommunityFilter";
-import { resolveStage, stageLabel, STAGES } from "../lib/stage";
+import { resolveStage, stageLabel } from "../lib/stage";
 import {
-  PROJECT_VIEWS,
-  SHOW_FILTERS,
+  PROJECT_LENSES,
+  STAGE_OPTIONS,
   filterProjects,
   isMatch as isSoftMatch,
   isRaising,
+  lensCreate,
   readProjectsView,
-  type ProjectsView,
+  selectLens,
+  stageCaption,
+  writeProjectsView,
+  type ProjectsLens,
 } from "../lib/browse/projectsFilter";
+import { leadRoles, projectKindLabel, rolePay } from "../lib/projectKind";
 import { FilterButton, FilterPanel, filterButtonLabel } from "../components/FilterMenu";
+import { ChevronDownIcon } from "../components/icons";
 import { TagFilterPills } from "../components/TagFilterPills";
 import { CLAIMS } from "../constants/claims";
 import { toEmbedUrl } from "../lib/videoEmbed";
-import { describeMediaLink, MediaLinkField } from "../components/MediaLinkField";
 import { Dissolve } from "../hooks/useReveal";
 import { EmbedStill } from "../components/EmbedStill";
 import { CreateCard } from "../components/CreateCard";
 import { errorMessage } from "../lib/convexError";
 import { ProjectModal } from "../components/ProjectModal";
-import { FocusBackdrop } from "../components/FocusBackdrop";
 import { INTEREST_OPTIONS } from "../lib/browse/peopleFilter";
 import { PAGE_WIDTH } from "../lib/pageWidth";
 
-// The two views (Projects / Work), their stage pills and the pure filtering
-// live in lib/browse/projectsFilter.ts, shared with the desk's Projects view.
-type View = ProjectsView;
-const VIEWS = PROJECT_VIEWS;
+// The four chips (Projects, Seeking funding, Seeking people, Jobs and gigs),
+// the Stage menu and the pure filtering live in lib/browse/projectsFilter.ts,
+// shared with the desk's Projects view.
 // Still importable from here: projects.$id.tsx reads it.
 export { isRaising };
 
@@ -69,25 +68,11 @@ const STATUS_OPTIONS_BY_KIND: Record<string, { value: string; label: string }[]>
   ],
 };
 
-// The four money states a paid posting can declare (convex/garden/
-// projects.ts's validateBudgetDeclaration is the authority — this is the
-// picker for them). A set amount is first and selected by default: it's the
-// encouraged default, and it's what gets answered. The other three exist so
-// an honest posting with a small, unknown, or absent budget can still be
-// made — and so an unpaid ask has to say "Volunteer" out loud.
-const BUDGET_TYPE_OPTIONS = [
-  { value: "amount", label: "Set amount" },
-  { value: "range", label: "Range" },
-  { value: "proposals", label: "Open to proposals" },
-  { value: "volunteer", label: "Volunteer" },
-] as const;
 
 export default function Projects() {
   const projects = useQuery(api.garden.projects.listProjects);
-  // "Hire someone" is one entry; `hire` says which shape is open, and
-  // `hireDraft` carries the title/description across when it flips.
-  const [hire, setHire] = useState<HireWhen | null>(null);
-  const [hireDraft, setHireDraft] = useState<HireDraft | undefined>(undefined);
+  // "Hire someone" is one entry (HireFlow): one job, or a recurring gig.
+  const [hiring, setHiring] = useState(false);
   const navigate = useNavigate();
   const { isAuthenticated, isLoading: authLoading } = useConvexAuth();
   // Anyone can browse; posting and supporting need an account. Login
@@ -97,13 +82,10 @@ export default function Projects() {
       ? act()
       : navigate(`/login?redirect=${encodeURIComponent(`/projects${window.location.search}`)}`);
   const [showPassionForm, setShowPassionForm] = useState(false);
-  // The header's + Post menu and the first card in the grid do the same two
+  // The header's create button and menu and the first card in the grid do the same two
   // things, so they share one handler each.
   const startProject = withAccount(() => setShowPassionForm(true));
-  const hireSomeone = withAccount(() => {
-    setHireDraft(undefined);
-    setHire("job");
-  });
+  const hireSomeone = withAccount(() => setHiring(true));
   const [supporting, setSupporting] = useState<{ project: any; mode: SupportMode } | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
   // /projects?new=project (the palette's "Start a project") opens the start
@@ -143,26 +125,25 @@ export default function Projects() {
   const locationFilter = (searchParams.get("location") || "").trim();
   const hasMatchFilter = interestFilter.length > 0 || !!locationFilter;
 
-  // The view and its filter live in the URL (?view=work&show=gigs), not in
-  // component state, so a link can land on "Shows" — Today's links depend on
-  // it, and the back button and a shared link both keep it. The old
-  // ?kind=passion|paid|gigs links still land in the right place, and the old
-  // ?show=people (Looking for people) lands on Forming team. An unknown
-  // value reads as "All".
-  const { view, show: showFilter } = readProjectsView({
+  // The chip and the Stage live in the URL (?show=work&stage=planning), not in
+  // component state, so a link can land on "Jobs and gigs" — Today's links
+  // depend on it, and the back button and a shared link both keep it. Absent
+  // is Projects. The old ?view=work, ?kind=passion|paid|gigs, ?show=gigs|
+  // roles|raising and ?seek= links still land in the right place.
+  const { lens, stage: stageFilter } = readProjectsView({
     view: searchParams.get("view"),
     kind: searchParams.get("kind"),
     show: searchParams.get("show"),
+    stage: searchParams.get("stage"),
+    seek: searchParams.get("seek"),
   });
-  function setViewAndShow(nextView: View, nextShow: string) {
-    const next = new URLSearchParams(searchParams);
-    next.delete("kind");
-    if (nextView === "work") next.set("view", "work");
-    else next.delete("view");
-    if (nextShow) next.set("show", nextShow);
-    else next.delete("show");
-    setSearchParams(next, { replace: true });
+  // Writes the chip and the Stage, and drops the old params a link may carry.
+  function setView(next: { lens: ProjectsLens; stage: string }) {
+    const params = new URLSearchParams(searchParams);
+    writeProjectsView(params, next, ["view", "kind", "seek"]);
+    setSearchParams(params, { replace: true });
   }
+  const create = lensCreate(lens);
 
   // Manual hashtag pills, separate from the soft interests/location match
   // above (which only sorts). Clicking a tag is a deliberate "show me only
@@ -197,13 +178,13 @@ export default function Projects() {
   const filtered = useMemo(() => {
     if (!projects) return [];
     return filterProjects(projects, {
-      view,
-      show: showFilter,
+      lens,
+      stage: stageFilter,
       inCommunity: communitySlug !== "all" ? (p) => p.community?.slug === communitySlug : null,
       tags: tagFilter,
       soft: hasMatchFilter ? softMatch : null,
     });
-  }, [projects, view, showFilter, communitySlug, tagFilter, softMatch, hasMatchFilter]);
+  }, [projects, lens, stageFilter, communitySlug, tagFilter, softMatch, hasMatchFilter]);
 
   return (
     <div className="min-h-screen bg-[var(--garden-ink)]">
@@ -217,9 +198,7 @@ export default function Projects() {
           Projects
         </h1>
         <p className="text-[var(--garden-body)] mb-6">
-          {view === "projects"
-            ? "Things people are making — cheer them on, back them, or join in."
-            : "Paid work, dates to play, and roles on projects that need someone."}
+          {LENS_BLURB[lens]}
         </p>
 
         {hasMatchFilter && (
@@ -251,49 +230,35 @@ export default function Projects() {
           rows={projects}
         />
 
-        <div className="flex flex-wrap items-center justify-between gap-3 mt-3">
-          <div
-            role="tablist"
-            aria-label="What to browse"
-            className="flex gap-1 p-1 rounded-xl"
-            style={{ backgroundColor: "var(--garden-ink-raised)" }}
-          >
-            {VIEWS.map((v) => (
-              <button
-                key={v.value}
-                role="tab"
-                aria-selected={view === v.value}
-                onClick={() => setViewAndShow(v.value, "")}
-                className="px-4 py-1.5 rounded-lg text-[15px] font-semibold whitespace-nowrap transition-colors"
-                style={{
-                  fontFamily: "var(--garden-font-body)",
-                  backgroundColor: view === v.value ? "var(--garden-citron)" : "transparent",
-                  color: view === v.value ? "var(--garden-ink)" : "var(--garden-muted)",
-                }}
-              >
-                {v.label}
-              </button>
-            ))}
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 mt-3 mb-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <div role="group" aria-label="Show" className="flex flex-wrap items-center gap-2">
+              {PROJECT_LENSES.map((l) => (
+                <FilterChip
+                  key={l.value}
+                  label={l.label}
+                  on={lens === l.value}
+                  onClick={() => setView(selectLens({ lens, stage: stageFilter }, l.value))}
+                />
+              ))}
+            </div>
+            {lens !== "work" && (
+              <>
+                <span
+                  role="separator"
+                  aria-orientation="vertical"
+                  className="hidden sm:block mx-1 h-5 w-px"
+                  style={{ backgroundColor: "var(--garden-hairline-raised)" }}
+                />
+                <StageMenu stage={stageFilter} onChange={(stage) => setView({ lens, stage })} />
+              </>
+            )}
           </div>
-          <PostMenu onProject={startProject} onHire={hireSomeone} />
-        </div>
-        <div className="flex flex-wrap gap-2 mt-3 mb-4">
-          {SHOW_FILTERS[view].map((f) => (
-            <button
-              key={f.value}
-              onClick={() => setViewAndShow(view, f.value)}
-              aria-pressed={showFilter === f.value}
-              className="px-3 py-1.5 rounded-lg text-[13.5px] font-medium whitespace-nowrap transition-colors"
-              style={{
-                fontFamily: "var(--garden-font-body)",
-                backgroundColor:
-                  showFilter === f.value ? "rgba(254,226,104,0.14)" : "var(--garden-ink-raised)",
-                color: showFilter === f.value ? "var(--garden-citron)" : "var(--garden-muted)",
-              }}
-            >
-              {f.label}
-            </button>
-          ))}
+          <PostMenu
+            primary={{ label: create.label, onClick: create.kind === "hire" ? hireSomeone : startProject }}
+            onProject={startProject}
+            onHire={hireSomeone}
+          />
         </div>
 
         {allTags.length > 0 && (
@@ -344,16 +309,12 @@ export default function Projects() {
             {/* The make-one card is always first, so an empty list is just
                 the grid with that one card in it. */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {view === "projects" ? (
-                <CreateCard label="Start a project" onClick={startProject} />
-              ) : (
-                <CreateCard label="Hire someone" onClick={hireSomeone} />
-              )}
+              <CreateCard label={create.label} onClick={create.kind === "hire" ? hireSomeone : startProject} />
               {filtered.map((project) => (
                 <ProjectCard
                   key={project._id}
                   project={project}
-                  view={view}
+                  lens={lens}
                   onSupport={(mode) => withAccount(() => setSupporting({ project, mode }))()}
                   matched={hasMatchFilter && isMatch(project)}
                 />
@@ -363,30 +324,12 @@ export default function Projects() {
         )}
       </div>
 
-      {hire === "dates" && (
-        <GigSeriesForm
-          key="dates"
-          initial={hireDraft}
-          onSwitchToJob={(draft) => {
-            setHireDraft(draft);
-            setHire("job");
-          }}
-          onClose={() => setHire(null)}
-          onCreated={(projectId) => navigate(`/projects/${projectId}`)}
-        />
-      )}
-      {hire === "job" && (
-        <PaidProjectForm
-          key="job"
-          initial={hireDraft}
-          onSwitchToDates={(draft) => {
-            setHireDraft(draft);
-            setHire("dates");
-          }}
-          onClose={() => setHire(null)}
+      {hiring && (
+        <HireFlow
+          onClose={() => setHiring(false)}
           onCreated={(projectId) => navigate(`/projects/${projectId}`)}
           onSwitchToProject={() => {
-            setHire(null);
+            setHiring(false);
             setShowPassionForm(true);
           }}
         />
@@ -408,10 +351,30 @@ export default function Projects() {
   );
 }
 
+// Under the title, one line on what the chip shows.
+const LENS_BLURB: Record<ProjectsLens, string> = {
+  projects: "Things people are making — cheer them on, back them, or join in.",
+  funding: "Projects asking for backers. Cheer them on, or back them.",
+  people: "Projects that need people, paid or volunteer.",
+  work: "Jobs, recurring gigs, and paid roles on projects.",
+};
+
 // Two ways in, named for what the poster is doing (docs/features/
 // project-ia.md). Money is not a question here: asking for support and
 // adding roles are steps on the project's own page, after it exists.
-function PostMenu({ onProject, onHire }: { onProject: () => void; onHire: () => void }) {
+//
+// A split button: the main half is the one the chip goes with (Start a
+// project on Projects, Seeking funding and Seeking people; Hire someone on
+// Jobs and gigs), and the arrow opens both.
+function PostMenu({
+  primary,
+  onProject,
+  onHire,
+}: {
+  primary: { label: string; onClick: () => void };
+  onProject: () => void;
+  onHire: () => void;
+}) {
   const [open, setOpen] = useState(false);
   const items = [
     {
@@ -421,25 +384,37 @@ function PostMenu({ onProject, onHire }: { onProject: () => void; onHire: () => 
     },
     {
       label: "Hire someone",
-      hint: "One job, or the same slot on set dates — every Friday, say. Say what it pays.",
+      hint: "One job, or a recurring gig — every Friday, say. Say what it pays.",
       onClick: onHire,
     },
   ];
+  const fill = { fontFamily: "var(--garden-font-body)", backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" };
   return (
-    <div className="relative">
+    <div className="relative inline-flex">
       <button
+        type="button"
+        onClick={primary.onClick}
+        className="pl-4 pr-3 py-2 rounded-l-lg text-[13.5px] font-semibold whitespace-nowrap transition-opacity hover:opacity-90"
+        style={fill}
+      >
+        {primary.label}
+      </button>
+      <button
+        type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className="px-4 py-2 rounded-lg text-[13.5px] font-semibold whitespace-nowrap transition-opacity hover:opacity-90"
-        style={{ fontFamily: "var(--garden-font-body)", backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
+        aria-haspopup="true"
+        aria-label="More ways to post"
+        className="px-2 py-2 rounded-r-lg transition-opacity hover:opacity-90"
+        style={{ ...fill, borderLeft: "1px solid rgba(18,18,18,0.25)" }}
       >
-        + Post
+        <ChevronDownIcon className={`w-4 h-4 transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
       {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
           <div
-            className="absolute right-0 mt-2 w-64 rounded-xl border overflow-hidden z-50"
+            className="absolute right-0 top-full mt-2 w-64 rounded-xl border overflow-hidden z-50"
             style={{ backgroundColor: "var(--garden-ink-raised)", borderColor: "var(--garden-hairline)" }}
           >
             {items.map((item, i) => (
@@ -478,14 +453,14 @@ const EMPTY_COVER = {
     "repeating-linear-gradient(135deg, rgba(247,247,244,0.05) 0 1px, transparent 1px 11px)",
 };
 
-function ProjectCard({
+export function ProjectCard({
   project,
-  view,
+  lens,
   onSupport,
   matched,
 }: {
   project: any;
-  view: View;
+  lens: ProjectsLens;
   onSupport: (mode: SupportMode) => void;
   matched?: boolean;
 }) {
@@ -506,21 +481,29 @@ function ProjectCard({
       ? Math.max(1, Math.ceil((project.raiseByDate - Date.now()) / 86400000))
       : null;
 
-  // The paid badge is split across the card: the pill carries the kind word
-  // ("Paid" or, on an explicitly unpaid posting, "Volunteer" — never "Paid",
-  // which is the dishonesty the four money states exist to prevent), and the
-  // mono line at the foot carries the money half ("$400", "$300–600", "Open
-  // to proposals", or nothing at all for a volunteer ask). Both come from the
-  // same helper as the full one-string badge on /projects and /projects/:id.
+  // The first line says what the card is (lib/projectKind): "Job",
+  // "Recurring gig · Fridays 8–10pm", "Volunteer" (an unpaid posting never
+  // passes itself off as paid), or "Seeking funding" / "Project". On Jobs and gigs a
+  // project with a paid role leads with that role: "Role on Harbor Mural ·
+  // Paid", the role as the title, its pay in the corner. The money half
+  // ("$400", "$300–600", "Open to proposals") comes from the same helper as
+  // the full badge on /projects/:id.
   const raising = isRaising(project);
-  const kindWord =
-    project.kind === "paid" ? budgetKindLabel(project) : raising ? "Raising" : "Project";
-  const moneyAmount = project.kind === "paid" ? budgetAmountLabel(project) : null;
+  const onJobsAndGigs = lens === "work";
+  const role = leadRoles(project, onJobsAndGigs)[0] ?? null;
+  const kindWord = projectKindLabel(project, { onJobsAndGigs, raising });
+  const moneyAmount =
+    project.kind === "paid" && budgetKindLabel(project) === "Paid" ? budgetAmountLabel(project) : role ? rolePay(role) : null;
   // A gig's money is per date ("$300/date"), not per project.
   const moneyWord = moneyAmount && project.gig && project.budgetType === "amount" ? `${moneyAmount}/date` : moneyAmount;
-  const hasMoney = project.kind === "paid" && kindWord === "Paid";
+  const title = role ? role.title : project.title;
   const stage = resolveStage(project);
   const openRoles: any[] = project.openRoles ?? [];
+  // The roles spelled out with their pay, where they are the reason the card
+  // is here (Seeking people, Jobs and gigs); elsewhere a count says it. The
+  // role the card leads with is not listed twice.
+  const spellRoles = lens === "people" || lens === "work";
+  const otherRoles = role ? openRoles.filter((r) => r !== role) : openRoles;
 
   const card = (
     <div
@@ -536,7 +519,7 @@ function ProjectCard({
           box from sm up, where cards sit side by side and rows must line up. */}
       <div
         className={`relative overflow-hidden flex items-center justify-center ${
-          hasCover ? "aspect-[16/10]" : "h-11 sm:h-auto sm:aspect-[16/10]"
+          hasCover ? "aspect-[16/10]" : "h-16 sm:h-auto sm:aspect-[16/10]"
         }`}
         style={hasCover ? { backgroundColor: "var(--garden-ink)" } : EMPTY_COVER}
       >
@@ -561,35 +544,38 @@ function ProjectCard({
             />
           </Dissolve>
         )}
-        <span
-          className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[12px] font-semibold uppercase tracking-[0.06em]"
-          style={{
-            fontFamily: "var(--garden-font-mono)",
-            backgroundColor: "rgba(20,20,18,0.72)",
-            color: "var(--garden-paper)",
-          }}
-        >
-          {kindWord}
-        </span>
-        {hasMoney && moneyWord && (
+        {/* One row, so a long first line and the money never sit on each other. */}
+        <div className="absolute inset-x-2 top-2 flex items-start justify-between gap-2">
           <span
-            className="absolute top-2 right-2 px-2.5 py-1 rounded-full text-xs font-bold"
+            className="min-w-0 px-2 py-0.5 rounded-[14px] text-[12px] font-semibold uppercase tracking-[0.06em] leading-snug line-clamp-2"
             style={{
               fontFamily: "var(--garden-font-mono)",
-              backgroundColor: "var(--garden-citron)",
-              color: "var(--garden-ink)",
+              backgroundColor: "rgba(20,20,18,0.72)",
+              color: "var(--garden-paper)",
             }}
           >
-            {moneyWord}
+            {kindWord}
           </span>
-        )}
+          {moneyWord && (
+            <span
+              className="shrink-0 px-2.5 py-1 rounded-full text-xs font-bold"
+              style={{
+                fontFamily: "var(--garden-font-mono)",
+                backgroundColor: "var(--garden-citron)",
+                color: "var(--garden-ink)",
+              }}
+            >
+              {moneyWord}
+            </span>
+          )}
+        </div>
       </div>
       <div className="p-4 flex-1 flex flex-col min-w-0">
         <h3
           className="font-semibold line-clamp-2 mb-1"
           style={{ color: "var(--garden-paper)", fontFamily: "var(--garden-font-display)" }}
         >
-          {project.title}
+          {title}
         </h3>
         <div className="flex flex-wrap items-center gap-1.5 mb-2">
           {/* Stage always shows — see docs/features/project-teams.md §7 —
@@ -659,13 +645,10 @@ function ProjectCard({
             )}
           </p>
         )}
-        {openRoles.length > 0 && (
-          // The roles are the Work view's reason for showing a project at
-          // all, so there they're spelled out with pay; on Projects a count
-          // is enough to say "they need people".
-          view === "work" ? (
+        {otherRoles.length > 0 &&
+          (spellRoles ? (
             <ul className="text-[13px] mb-2 flex flex-col gap-0.5" style={{ color: "var(--garden-body)" }}>
-              {openRoles.slice(0, 3).map((r) => (
+              {otherRoles.slice(0, 3).map((r) => (
                 <li key={r.roleId} className="flex justify-between gap-2">
                   <span className="min-w-0 break-words">{r.title}</span>
                   {r.budgetType && (
@@ -675,16 +658,15 @@ function ProjectCard({
                   )}
                 </li>
               ))}
-              {openRoles.length > 3 && (
-                <li style={{ color: "var(--garden-muted)" }}>+{openRoles.length - 3} more</li>
+              {otherRoles.length > 3 && (
+                <li style={{ color: "var(--garden-muted)" }}>+{otherRoles.length - 3} more</li>
               )}
             </ul>
           ) : (
             <p className="text-[13px] mb-2" style={{ color: "var(--garden-citron)" }}>
               Looking for {openRoles.length} {openRoles.length === 1 ? "person" : "people"}
             </p>
-          )
-        )}
+          ))}
         {raising && (project.goal ?? 0) > 0 && (
           <GoalProgress raisedCents={project.raisedCents ?? 0} goal={project.goal} compact />
         )}
@@ -751,7 +733,7 @@ function ProjectCard({
             </div>
           )}
         </div>
-        {project.kind === "passion" && view === "projects" && (
+        {project.kind === "passion" && lens !== "work" && (
           // Stacked, not side by side: a grid card is too narrow for a
           // count and two buttons on one line.
           <div className="mt-3 pt-3" style={{ borderTop: "1px solid var(--garden-hairline)" }}>
@@ -773,6 +755,84 @@ function ProjectCard({
   // project's own page. That left most cards (any project with no attached
   // media) not clickable at all.
   return <Link to={`/projects/${project._id}`}>{card}</Link>;
+}
+
+function chipStyle(on: boolean) {
+  return {
+    fontFamily: "var(--garden-font-body)",
+    backgroundColor: on ? "rgba(254,226,104,0.14)" : "var(--garden-ink-raised)",
+    color: on ? "var(--garden-citron)" : "var(--garden-muted)",
+  };
+}
+
+function FilterChip({ label, on, onClick }: { label: string; on: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      aria-pressed={on}
+      className="px-3 py-1.5 rounded-lg text-[13.5px] font-medium whitespace-nowrap transition-colors"
+      style={chipStyle(on)}
+    >
+      {label}
+    </button>
+  );
+}
+
+/** "Stage ▾": Any stage, Planning, Forming team, Working, Released. Reads as
+ * the stage that is chosen once one is. Narrows any chip but Jobs and gigs. */
+function StageMenu({ stage, onChange }: { stage: string; onChange: (stage: string) => void }) {
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open]);
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        aria-haspopup="true"
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13.5px] font-medium whitespace-nowrap transition-colors"
+        style={chipStyle(!!stage)}
+      >
+        {stageCaption(stage)}
+        <ChevronDownIcon className={`w-4 h-4 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div
+            role="group"
+            aria-label="Stage"
+            className="absolute left-0 top-full mt-2 w-48 rounded-xl border overflow-hidden z-50 py-1"
+            style={{ backgroundColor: "var(--garden-ink-raised)", borderColor: "var(--garden-hairline)" }}
+          >
+            {STAGE_OPTIONS.map((o) => {
+              const on = stage === o.value;
+              return (
+                <button
+                  key={o.value || "any"}
+                  type="button"
+                  aria-pressed={on}
+                  onClick={() => {
+                    setOpen(false);
+                    onChange(o.value);
+                  }}
+                  className="block w-full text-left px-4 py-2 text-[13.5px] transition-colors hover:opacity-80"
+                  style={{ color: on ? "var(--garden-citron)" : "var(--garden-paper)", fontWeight: on ? 600 : 400 }}
+                >
+                  {o.label}
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </div>
+  );
 }
 
 export type SupportMode = "cheer" | "back";
@@ -889,395 +949,6 @@ export function StatusSelect({ project }: { project: any }) {
         </option>
       ))}
     </select>
-  );
-}
-
-// Stage select — the project page's stage control (docs/features/
-// project-teams.md §1). StatusSelect above still backs the legacy status
-// pill and is untouched; this is a separate control writing the new
-// `stage` field via setStage. Any stage can move to any other — it's a
-// label, not a state machine, so every option is always available.
-export function StageSelect({ project }: { project: any }) {
-  const setStage = useMutation(api.garden.projects.setStage);
-  const [saving, setSaving] = useState(false);
-
-  async function handleChange(e: React.ChangeEvent<HTMLSelectElement>) {
-    const stage = e.target.value;
-    setSaving(true);
-    try {
-      await setStage({ projectId: project._id, stage });
-    } catch {
-      // Reverts on the next render since project.stage won't have actually
-      // changed server-side — same convention as StatusSelect above.
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <select
-      value={resolveStage(project)}
-      onChange={handleChange}
-      disabled={saving}
-      className="text-xs rounded-lg border px-2 py-1 outline-none disabled:opacity-50"
-      style={{
-        backgroundColor: "var(--garden-ink)",
-        borderColor: "var(--garden-hairline-raised)",
-        color: "var(--garden-body)",
-      }}
-    >
-      {STAGES.map((s) => (
-        <option key={s} value={s}>
-          {stageLabel(s)}
-        </option>
-      ))}
-    </select>
-  );
-}
-
-function PaidProjectForm({
-  onClose,
-  onCreated,
-  initial,
-  onSwitchToDates,
-  onSwitchToProject,
-}: {
-  onClose: () => void;
-  onCreated: (projectId: string) => void;
-  initial?: HireDraft;
-  onSwitchToDates: (draft: HireDraft) => void;
-  onSwitchToProject: () => void;
-}) {
-  const createPaidProject = useMutation(api.garden.projects.createPaidProject);
-  const [title, setTitle] = useState(initial?.title ?? "");
-  const [blurb, setBlurb] = useState(initial?.blurb ?? "");
-  const [budgetType, setBudgetType] = useState<string>("amount");
-  const [budget, setBudget] = useState("");
-  const [budgetMax, setBudgetMax] = useState("");
-  const [mediaUrl, setMediaUrl] = useState("");
-  const location = useLocationField();
-  const [remote, setRemote] = useState(true);
-  const [interests, setInterests] = useState<string[]>([]);
-  const [showInterests, setShowInterests] = useState(false);
-  const [hostOrgId, setHostOrgId] = useState("");
-  const [error, setError] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  // Pre-fill from the sidebar switcher's current context (community-ux.md
-  // §2/§6) — still changeable to "No community — just me" via CommunityPicker.
-  const defaultHostOrgId = useDefaultEventCommunity();
-
-  function toggleInterest(tag: string) {
-    setInterests((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setError("");
-    if (!title.trim()) {
-      setError("Give it a title.");
-      return;
-    }
-    // Mirrors validateBudgetDeclaration on the server (convex/garden/
-    // projects.ts), which is the authority — this only saves a round trip.
-    const budgetNum = Number(budget);
-    const budgetMaxNum = Number(budgetMax);
-    if (budgetType === "amount" && (!budget.trim() || !Number.isFinite(budgetNum) || budgetNum <= 0)) {
-      setError("A set amount needs a real number bigger than zero.");
-      return;
-    }
-    if (budgetType === "range") {
-      if (!budget.trim() || !budgetMax.trim()) {
-        setError("A range needs both a low and a high number.");
-        return;
-      }
-      if (
-        !Number.isFinite(budgetNum) ||
-        budgetNum <= 0 ||
-        !Number.isFinite(budgetMaxNum) ||
-        budgetMaxNum <= 0
-      ) {
-        setError("A range needs real numbers bigger than zero.");
-        return;
-      }
-      if (budgetMaxNum <= budgetNum) {
-        setError("A range needs a high number bigger than the low one.");
-        return;
-      }
-    }
-    if (!remote && !location.value.trim()) {
-      setError("Pick a location, or check \"This can be done remotely.\"");
-      return;
-    }
-    const link = describeMediaLink(mediaUrl);
-    if (link.state === "invalid") {
-      setError(link.message);
-      return;
-    }
-    setSubmitting(true);
-    try {
-      const result = await createPaidProject({
-        title: title.trim(),
-        blurb: blurb.trim() || undefined,
-        mediaUrl: link.state === "ok" ? link.url : undefined,
-        // "proposals" and "volunteer" carry no numbers at all — the server
-        // rejects a stray one rather than dropping it silently, so anything
-        // typed before switching states is left behind here on purpose.
-        budgetType,
-        budget: budgetType === "amount" || budgetType === "range" ? budgetNum : undefined,
-        budgetMax: budgetType === "range" ? budgetMaxNum : undefined,
-        ...location.toArgs(),
-        remote,
-        interests: interests.length > 0 ? interests : undefined,
-        hostOrgId: hostOrgId ? (hostOrgId as any) : undefined,
-      });
-      onCreated(String(result.projectId));
-      onClose();
-    } catch (err) {
-      setError(errorMessage(err));
-      setSubmitting(false);
-    }
-  }
-
-  return (
-    <FocusBackdrop phoneFullScreen={false}>
-      <div
-        className="w-full max-w-md rounded-2xl border p-6"
-        style={{ backgroundColor: "var(--garden-ink-raised)", borderColor: "var(--garden-hairline)" }}
-      >
-        <h2
-          className="text-xl font-semibold mb-1"
-          style={{ color: "var(--garden-paper)", fontFamily: "var(--garden-font-display)" }}
-        >
-          Hire someone
-        </h2>
-        <p className="text-sm mb-3" style={{ color: "var(--garden-dim)" }}>
-          Say what the work is and what it pays — a number, a range, or plainly that it doesn't.
-        </p>
-        <button
-          type="button"
-          onClick={onSwitchToProject}
-          className="block text-left text-xs underline underline-offset-2 hover:opacity-80 mb-5"
-          style={{ color: "var(--garden-muted)" }}
-        >
-          Making something of your own and want collaborators or backers? Start a project instead.
-        </button>
-        <HireWhenToggle value="job" onChange={() => onSwitchToDates({ title, blurb })} />
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <div>
-            <label className="block text-xs uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
-              Title
-            </label>
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Logo design for a local bakery"
-              className="w-full px-3 py-2 rounded-lg border text-sm outline-none"
-              style={{
-                backgroundColor: "var(--garden-ink)",
-                borderColor: "var(--garden-hairline-raised)",
-                color: "var(--garden-paper)",
-              }}
-            />
-          </div>
-          <div>
-            <label className="block text-xs uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
-              What's the work
-            </label>
-            <textarea
-              value={blurb}
-              onChange={(e) => setBlurb(e.target.value)}
-              rows={3}
-              placeholder="What you need done"
-              className="w-full px-3 py-2 rounded-lg border text-sm outline-none resize-none"
-              style={{
-                backgroundColor: "var(--garden-ink)",
-                borderColor: "var(--garden-hairline-raised)",
-                color: "var(--garden-paper)",
-              }}
-            />
-          </div>
-          <MediaLinkField
-            variant="garden"
-            label="Or paste a link (optional)"
-            placeholder="Instagram post or reel, TikTok, YouTube or Vimeo"
-            value={mediaUrl}
-            onChange={setMediaUrl}
-          />
-          <div>
-            <label className="block text-xs uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
-              What it pays
-            </label>
-            <div role="radiogroup" aria-label="What it pays" className="flex flex-wrap gap-1.5">
-              {BUDGET_TYPE_OPTIONS.map((opt) => {
-                const active = budgetType === opt.value;
-                return (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    role="radio"
-                    aria-checked={active}
-                    onClick={() => setBudgetType(opt.value)}
-                    className="px-2.5 py-1 rounded-full text-xs font-medium transition-colors"
-                    style={{
-                      fontFamily: "var(--garden-font-body)",
-                      backgroundColor: active ? "var(--garden-citron)" : "var(--garden-ink)",
-                      color: active ? "var(--garden-ink)" : "var(--garden-muted)",
-                      border: `1px solid ${active ? "var(--garden-citron)" : "var(--garden-hairline-raised)"}`,
-                    }}
-                  >
-                    {opt.label}
-                  </button>
-                );
-              })}
-            </div>
-            <p className="text-xs mt-1.5" style={{ color: "var(--garden-dim)" }}>
-              Posting a number gets more responses. If you don't have one yet, say so — just
-              don't leave people guessing.
-            </p>
-            {budgetType === "amount" && (
-              <input
-                type="number"
-                min="1"
-                value={budget}
-                onChange={(e) => setBudget(e.target.value)}
-                placeholder="500"
-                aria-label="Amount in US dollars"
-                className="w-full mt-2.5 px-3 py-2 rounded-lg border text-sm outline-none"
-                style={{
-                  fontFamily: "var(--garden-font-mono)",
-                  backgroundColor: "var(--garden-ink)",
-                  borderColor: "var(--garden-hairline-raised)",
-                  color: "var(--garden-paper)",
-                }}
-              />
-            )}
-            {budgetType === "range" && (
-              <div className="flex items-center gap-2 mt-2.5">
-                <input
-                  type="number"
-                  min="1"
-                  value={budget}
-                  onChange={(e) => setBudget(e.target.value)}
-                  placeholder="300"
-                  aria-label="Low end, in US dollars"
-                  className="w-full px-3 py-2 rounded-lg border text-sm outline-none"
-                  style={{
-                    fontFamily: "var(--garden-font-mono)",
-                    backgroundColor: "var(--garden-ink)",
-                    borderColor: "var(--garden-hairline-raised)",
-                    color: "var(--garden-paper)",
-                  }}
-                />
-                <span className="text-sm" style={{ color: "var(--garden-dim)" }}>
-                  to
-                </span>
-                <input
-                  type="number"
-                  min="1"
-                  value={budgetMax}
-                  onChange={(e) => setBudgetMax(e.target.value)}
-                  placeholder="600"
-                  aria-label="High end, in US dollars"
-                  className="w-full px-3 py-2 rounded-lg border text-sm outline-none"
-                  style={{
-                    fontFamily: "var(--garden-font-mono)",
-                    backgroundColor: "var(--garden-ink)",
-                    borderColor: "var(--garden-hairline-raised)",
-                    color: "var(--garden-paper)",
-                  }}
-                />
-              </div>
-            )}
-          </div>
-          <div>
-            <label className="block text-xs uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
-              Interests (optional)
-            </label>
-            {showInterests ? (
-              <>
-                <div className="flex flex-wrap gap-1.5">
-                  {INTERESTS.map((tag) => {
-                    const active = interests.includes(tag);
-                    return (
-                      <button
-                        key={tag}
-                        type="button"
-                        aria-pressed={active}
-                        onClick={() => toggleInterest(tag)}
-                        className="px-2.5 py-1 rounded-full text-xs font-medium transition-colors"
-                        style={{
-                          fontFamily: "var(--garden-font-body)",
-                          backgroundColor: active ? "var(--garden-citron)" : "var(--garden-ink)",
-                          color: active ? "var(--garden-ink)" : "var(--garden-muted)",
-                          border: `1px solid ${active ? "var(--garden-citron)" : "var(--garden-hairline-raised)"}`,
-                        }}
-                      >
-                        {tag}
-                      </button>
-                    );
-                  })}
-                </div>
-                <p className="text-xs mt-1.5" style={{ color: "var(--garden-dim)" }}>
-                  What's this work about — helps people find it, separate from your own profile tags.
-                </p>
-              </>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setShowInterests(true)}
-                className="text-xs underline underline-offset-2 hover:opacity-80"
-                style={{ color: "var(--garden-citron)" }}
-              >
-                {interests.length > 0 ? `${interests.length} selected — edit` : "+ Add interests"}
-              </button>
-            )}
-          </div>
-          <label className="flex items-center gap-2 text-sm" style={{ color: "var(--garden-body)" }}>
-            <input
-              type="checkbox"
-              checked={remote}
-              onChange={(e) => setRemote(e.target.checked)}
-            />
-            This can be done remotely
-          </label>
-          {!remote && (
-            <div>
-              <label className="block text-xs uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
-                Location
-              </label>
-              <LocationAutocomplete
-                value={location.value}
-                onChange={location.onChange}
-                onSelect={location.onSelect}
-                placeholder="Search for a location, type 'Online', or 'TBD'"
-              />
-              <LocationVerifiedHint value={location.value} selected={location.selected} />
-            </div>
-          )}
-          <CommunityPicker value={hostOrgId} onChange={setHostOrgId} defaultHostOrgId={defaultHostOrgId} />
-          {error && <p className="text-sm text-red-400">{error}</p>}
-          <div className="flex gap-2 justify-end pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 rounded-lg text-sm font-medium"
-              style={{ color: "var(--garden-dim)" }}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={submitting}
-              className="px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-50"
-              style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
-            >
-              {submitting ? "Posting…" : "Post job"}
-            </button>
-          </div>
-        </form>
-      </div>
-    </FocusBackdrop>
   );
 }
 

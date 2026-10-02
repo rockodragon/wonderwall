@@ -140,7 +140,7 @@ export default function CoveragePage() {
               <FactRow k="Seats left" v={String(seated.seatsLeft)} />
             </div>
             <div style={{ marginTop: 16, display: "flex", gap: 16, flexWrap: "wrap" }}>
-              <Link to="/projects?view=work" className="g-btn g-btn-citron">
+              <Link to="/projects?show=work" className="g-btn g-btn-citron">
                 See paid work
               </Link>
               <Link to="/today" className="g-btn g-btn-ghost">

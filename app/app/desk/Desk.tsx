@@ -294,6 +294,7 @@ export function Desk() {
             greeting={greeting}
             greetingReady={profile !== undefined}
             count={count}
+            countText={browsing ? browse.count : null}
             stuck={scroll.stuck}
             inert={!!openId}
             onMeasure={onMeasure}
@@ -371,7 +372,7 @@ function EmptyDesk({ view, browse, top, height }: { view: DeskView; browse: Desk
       <style>{"@keyframes desk-fade-in { from { opacity: 0 } to { opacity: 1 } }"}</style>
       {noMatch && isBrowseView(view) ? (
         <>
-          <p style={{ margin: 0, fontSize: 20, color: DESK.muted }}>No {NOUN[view]} match.</p>
+          <p style={{ margin: 0, fontSize: 20, color: DESK.muted }}>No {browse.noun ?? NOUN[view]} match.</p>
           <button type="button" onClick={browse.clear} className={`${linkClass} border-0 bg-transparent p-0`}>
             Clear filters
           </button>

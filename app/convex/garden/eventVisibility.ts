@@ -18,6 +18,7 @@ import type { Id } from "../_generated/dataModel";
 import { can } from "./capabilities";
 import { getGardenUser } from "./entitlements";
 import { isHidden } from "../moderationRules";
+import { communityVisibility } from "./communityVisibility";
 
 export interface TicketedEventLike {
   ticketTiers?: unknown[];
@@ -43,15 +44,19 @@ export function isFreeEvent(event: Pick<TicketedEventLike, "ticketTiers">): bool
  * call.
  */
 /** True when `viewerId` may act on this event: it's public, or they
- * organized it. Used by the actions that take a raw eventId (apply, RSVP,
- * the attendee list), so knowing a hidden event's id gets you nothing the
- * event page wouldn't. */
+ * organized it. An event posted into a hidden (test) community also needs
+ * the viewer to be able to see that community. Used by the actions that
+ * take a raw eventId (apply, RSVP, the attendee list), so knowing a hidden
+ * event's id gets you nothing the event page wouldn't. */
 export async function canSeeEvent(
   ctx: QueryCtx,
   event: TicketedEventLike,
   viewerId: Id<"users"> | null,
 ): Promise<boolean> {
   if (viewerId && String(event.organizerId) === String(viewerId)) return true;
+  // Posted into a hidden (test) community: only admins and its members, so
+  // knowing the id gets a stranger nothing (apply, RSVP, the attendee list).
+  if (!(await communityVisibility(ctx, viewerId).idVisible(event.hostOrgId))) return false;
   return eventVisibilityChecker(ctx)(event);
 }
 

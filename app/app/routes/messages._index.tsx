@@ -2,6 +2,7 @@ import { useMutation, useQuery } from "convex/react";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { api } from "../../convex/_generated/api";
+import { PastUpdates } from "../components/PastUpdates";
 import { PAGE_WIDTH } from "../lib/pageWidth";
 
 // Notifications visible before "Show all". We fetch past this so we know
@@ -314,6 +315,9 @@ export default function MessagesIndex() {
           })}
         </div>
       )}
+
+      {/* Updates you've read or that have ended — hidden when there are none */}
+      <PastUpdates />
     </div>
   );
 }

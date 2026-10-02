@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { countLabel, firstNameOf, greetingFor, greetingWord } from "./deskGreeting";
+import { countLabel, firstNameOf, greetingFor, greetingWord, peopleCountLabel } from "./deskGreeting";
 
 describe("greetingWord", () => {
   it("is morning until noon, afternoon until five, then evening", () => {
@@ -57,5 +57,25 @@ describe("countLabel", () => {
 
   it("has no count on the home view", () => {
     expect(countLabel("all", 6)).toBe("");
+  });
+});
+
+describe("peopleCountLabel", () => {
+  it("counts people alone when no organization is mixed in", () => {
+    expect(peopleCountLabel(30, 0)).toBe("30 people");
+    expect(peopleCountLabel(1, 0)).toBe("1 person");
+    expect(peopleCountLabel(0, 0)).toBe("0 people");
+  });
+  it("counts both when both are there", () => {
+    expect(peopleCountLabel(30, 4)).toBe("30 people \u00b7 4 organizations");
+    expect(peopleCountLabel(1, 1)).toBe("1 person \u00b7 1 organization");
+  });
+  it("counts organizations alone when only they are there", () => {
+    expect(peopleCountLabel(0, 3)).toBe("3 organizations");
+  });
+  it("on the Organizations toggle, says organizations even at zero", () => {
+    expect(peopleCountLabel(0, 5, true)).toBe("5 organizations");
+    expect(peopleCountLabel(0, 0, true)).toBe("0 organizations");
+    expect(peopleCountLabel(0, 1, true)).toBe("1 organization");
   });
 });

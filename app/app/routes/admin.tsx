@@ -1,8 +1,54 @@
 import { useQuery, useConvexAuth, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useNavigate, Link } from "react-router";
-import { useEffect, useState } from "react";
-import { PAGE_WIDTH } from "../lib/pageWidth";
+import { useCallback, useEffect, useState } from "react";
+import { admin } from "../components/admin/adminStyles";
+import {
+  AdminFrame,
+  AdminHeader,
+  AdminLoading,
+  AdminNotice,
+} from "../components/admin/AdminUi";
+import {
+  DestinationCards,
+  type Destination,
+} from "../components/admin/DestinationCards";
+import { MembersTable } from "../components/admin/MembersTable";
+
+// Where each admin tool lives. A grid of cards, not a column of rows.
+const DESTINATIONS: readonly Destination[] = [
+  {
+    to: "/admin/garden",
+    title: "Garden Operator Console",
+    blurb:
+      "Create tables, sessions, coverage codes, and record AP fund allocations.",
+  },
+  {
+    to: "/admin/ledger",
+    title: "Platform Ledger",
+    blurb: "Fees, grant pools, host earnings, and platform seats.",
+  },
+  {
+    to: "/admin/crawler",
+    title: "Lead Crawler",
+    blurb: "Find and classify faith-aligned organizations.",
+  },
+  {
+    to: "/admin/waitlist",
+    title: "Waitlist",
+    blurb: "Review answers and approve people off the waitlist.",
+  },
+  {
+    to: "/admin/updates",
+    title: "Updates",
+    blurb: "Write the cards members see on their desk.",
+  },
+  {
+    to: "/admin/showcase",
+    title: "Showcase jury",
+    blurb: "Vote on open call applications.",
+  },
+];
 
 export default function AdminPage() {
   const { isAuthenticated, isLoading: authLoading } = useConvexAuth();
@@ -87,28 +133,33 @@ export default function AdminPage() {
     }
   };
 
-  const handleDeleteUser = async (userId: string, userName: string) => {
-    const confirmed = window.confirm(
-      `Are you sure you want to delete ${userName}? This will permanently delete their profile, works, wonderings, and all associated data.`,
-    );
-
-    if (!confirmed) return;
-
-    setDeletingUser(userId);
-    setDeleteStatus("");
-
-    try {
-      await deleteUser({ userId: userId as any });
-      setDeleteStatus(`Successfully deleted ${userName}`);
-      setTimeout(() => setDeleteStatus(""), 3000);
-    } catch (err) {
-      setDeleteStatus(
-        err instanceof Error ? err.message : "Failed to delete user",
+  // Stable, so the members table can keep its column definitions between
+  // renders.
+  const handleDeleteUser = useCallback(
+    async (userId: string, userName: string) => {
+      const confirmed = window.confirm(
+        `Are you sure you want to delete ${userName}? This will permanently delete their profile, works, wonderings, and all associated data.`,
       );
-    } finally {
-      setDeletingUser(null);
-    }
-  };
+
+      if (!confirmed) return;
+
+      setDeletingUser(userId);
+      setDeleteStatus("");
+
+      try {
+        await deleteUser({ userId: userId as any });
+        setDeleteStatus(`Successfully deleted ${userName}`);
+        setTimeout(() => setDeleteStatus(""), 3000);
+      } catch (err) {
+        setDeleteStatus(
+          err instanceof Error ? err.message : "Failed to delete user",
+        );
+      } finally {
+        setDeletingUser(null);
+      }
+    },
+    [deleteUser],
+  );
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -116,368 +167,160 @@ export default function AdminPage() {
     }
   }, [isAuthenticated, authLoading, navigate]);
 
+
   if (authLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-gray-500">Loading...</div>
-      </div>
-    );
+    return <AdminLoading>Loading...</AdminLoading>;
   }
 
   if (!users) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-gray-500">Loading users...</div>
-      </div>
-    );
+    return <AdminLoading>Loading users...</AdminLoading>;
   }
 
+  const withoutInviter = users.filter((u) => !u.invitedBy);
+
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
-      <div className={`${PAGE_WIDTH.wide} mx-auto`}>
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
-          <p className="mt-2 text-sm text-gray-600">
-            Total Users: {users.length}
-          </p>
-          {deleteStatus && (
-            <div className="mt-4 p-3 bg-green-50 text-green-700 rounded-lg">
-              {deleteStatus}
-            </div>
-          )}
-        </div>
+    <AdminFrame>
+      <AdminHeader title="Admin Dashboard" sub={`Total Users: ${users.length}`} />
 
-        <div className="mb-8 bg-white shadow-md rounded-lg p-6 flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">
-              Garden Operator Console
-            </h2>
-            <p className="mt-1 text-sm text-gray-600">
-              Create tables, sessions, coverage codes, and record AP fund
-              allocations.
-            </p>
-          </div>
-          <Link
-            to="/admin/garden"
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 whitespace-nowrap"
-          >
-            Open Console
-          </Link>
-        </div>
+      {deleteStatus && (
+        <AdminNotice tone="ok" className="mb-6">
+          {deleteStatus}
+        </AdminNotice>
+      )}
 
-        <div className="mb-8 bg-white shadow-md rounded-lg p-6 flex items-center justify-between flex-wrap gap-4">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">
-              Platform Ledger
-            </h2>
-            <p className="mt-1 text-sm text-gray-600">
-              Fees, grant pools, host earnings, and platform seats.
-            </p>
-          </div>
-          <Link
-            to="/admin/ledger"
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 whitespace-nowrap"
-          >
-            Open Ledger
-          </Link>
-        </div>
+      <DestinationCards destinations={DESTINATIONS} />
 
-        <div className="mb-8 bg-white shadow-md rounded-lg p-6 flex items-center justify-between flex-wrap gap-4">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">Lead Crawler</h2>
-            <p className="mt-1 text-sm text-gray-600">
-              Find and classify faith-aligned organizations.
-            </p>
-          </div>
-          <Link
-            to="/admin/crawler"
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 whitespace-nowrap"
-          >
-            Open Crawler
-          </Link>
-        </div>
-
-        <div className="mb-8 bg-white shadow-md rounded-lg p-6 flex items-center justify-between flex-wrap gap-4">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">Waitlist</h2>
-            <p className="mt-1 text-sm text-gray-600">
-              Review answers and approve people off the waitlist.
-            </p>
-          </div>
-          <Link
-            to="/admin/waitlist"
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 whitespace-nowrap"
-          >
-            Open Waitlist
-          </Link>
-        </div>
-
-        <div className="mb-8 bg-white shadow-md rounded-lg p-6 flex items-center justify-between flex-wrap gap-4">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">Updates</h2>
-            <p className="mt-1 text-sm text-gray-600">
-              Write the cards members see on their desk.
-            </p>
-          </div>
-          <Link
-            to="/admin/updates"
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 whitespace-nowrap"
-          >
-            Open Updates
-          </Link>
-        </div>
-
+      <div className="mt-8 space-y-6">
         <HiddenContent />
 
-        <div className="mb-8 bg-white shadow-md rounded-lg p-6">
-          <div className="flex items-center justify-between flex-wrap gap-4">
-            <div>
-              <h2 className="text-lg font-semibold text-gray-900">
-                Admin Group
-              </h2>
-              <p className="mt-1 text-sm text-gray-600 max-w-2xl">
-                The standing admin list lives in{" "}
-                <code className="text-xs bg-gray-100 px-1 py-0.5 rounded">
-                  convex/adminEmails.ts
-                </code>
-                . New signups from those emails get admin access
-                automatically; this backfills anyone who already had an
-                account before their email was added, and generates each
-                admin's fixed waitlist-approval code.
-              </p>
-            </div>
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <div className={admin.panel}>
+            <h2 className={admin.h2}>Admin Group</h2>
+            <p className={`mt-1 ${admin.body}`}>
+              The standing admin list lives in{" "}
+              <code className={admin.code}>convex/adminEmails.ts</code>. New
+              signups from those emails get admin access automatically; this
+              backfills anyone who already had an account before their email
+              was added, and generates each admin's fixed waitlist-approval
+              code.
+            </p>
             <button
               onClick={handleSyncAdminGroup}
               disabled={syncingAdmins}
-              className="px-4 py-2 bg-gray-800 text-white rounded-lg text-sm hover:bg-gray-900 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+              className={`mt-4 ${admin.btnSecondary}`}
             >
               {syncingAdmins ? "Syncing…" : "Sync Admin Group"}
             </button>
+            {syncStatus && (
+              <AdminNotice className="mt-4">{syncStatus}</AdminNotice>
+            )}
           </div>
-          {syncStatus && (
-            <div className="mt-4 p-3 bg-blue-50 text-blue-700 rounded-lg text-sm">
-              {syncStatus}
-            </div>
-          )}
-        </div>
 
-        <div className="mb-8 bg-white shadow-md rounded-lg p-6">
-          <div className="flex items-center justify-between flex-wrap gap-4">
-            <div>
-              <h2 className="text-lg font-semibold text-gray-900">
-                Invite Follows
-              </h2>
-              <p className="mt-1 text-sm text-gray-600 max-w-2xl">
-                Accepting an invite now makes the inviter and the new member
-                follow each other. This does the same for invites accepted
-                before that — run it once; a re-run re-follows anyone who
-                has since unfollowed their inviter.
-              </p>
-            </div>
+          <div className={admin.panel}>
+            <h2 className={admin.h2}>Invite Follows</h2>
+            <p className={`mt-1 ${admin.body}`}>
+              Accepting an invite now makes the inviter and the new member
+              follow each other. This does the same for invites accepted
+              before that — run it once; a re-run re-follows anyone who has
+              since unfollowed their inviter.
+            </p>
             <button
               onClick={handleBackfillInviteFollows}
               disabled={backfilling}
-              className="px-4 py-2 bg-gray-800 text-white rounded-lg text-sm hover:bg-gray-900 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+              className={`mt-4 ${admin.btnSecondary}`}
             >
               {backfilling ? "Backfilling…" : "Backfill Invite Follows"}
             </button>
-          </div>
-          {backfillStatus && (
-            <div className="mt-4 p-3 bg-blue-50 text-blue-700 rounded-lg text-sm">
-              {backfillStatus}
-            </div>
-          )}
-        </div>
-
-        <div className="bg-white shadow-md rounded-lg overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Name
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Email
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Invited By
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Invite Slug
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Invites Used
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Joined
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {users.map((user) => (
-                  <tr key={user._id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <Link
-                        to={`/profile/${user._id}`}
-                        className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline"
-                      >
-                        {user.name}
-                      </Link>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-600">{user.email}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {user.invitedBy ? (
-                        <div>
-                          <div className="text-sm font-medium text-gray-900">
-                            {user.invitedBy.name}
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            {user.invitedBy.email}
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="text-sm text-gray-400 italic">
-                          Direct signup
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-600">
-                        {user.inviteSlug || "-"}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        {user.inviteUsageCount}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-600">
-                        {new Date(user.createdAt).toLocaleDateString()}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <button
-                        onClick={() => handleDeleteUser(user.userId, user.name)}
-                        disabled={deletingUser === user.userId}
-                        className="px-3 py-1 text-sm text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {deletingUser === user.userId
-                          ? "Deleting..."
-                          : "Delete"}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            {backfillStatus && (
+              <AdminNotice className="mt-4">{backfillStatus}</AdminNotice>
+            )}
           </div>
         </div>
 
-        <div className="mt-8 bg-white shadow-md rounded-lg p-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">
-            Statistics
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-blue-50 rounded-lg p-4">
-              <div className="text-sm text-blue-600 font-medium">
-                Total Users
-              </div>
-              <div className="text-3xl font-bold text-blue-900">
-                {users.length}
-              </div>
-            </div>
-            <div className="bg-green-50 rounded-lg p-4">
-              <div className="text-sm text-green-600 font-medium">
-                Users with Invites Used
-              </div>
-              <div className="text-3xl font-bold text-green-900">
-                {users.filter((u) => u.inviteUsageCount > 0).length}
-              </div>
-            </div>
-            <div className="bg-purple-50 rounded-lg p-4">
-              <div className="text-sm text-purple-600 font-medium">
-                Total Invites Used
-              </div>
-              <div className="text-3xl font-bold text-purple-900">
-                {users.reduce((sum, u) => sum + u.inviteUsageCount, 0)}
-              </div>
-            </div>
-          </div>
+        <MembersTable
+          users={users}
+          deletingUserId={deletingUser}
+          onDelete={handleDeleteUser}
+        />
+
+        <div className={admin.panel}>
+          <h2 className={`${admin.h2} mb-4`}>Statistics</h2>
+          <dl className="grid grid-cols-1 gap-3 md:grid-cols-3">
+            <Stat label="Total Users" value={users.length} />
+            <Stat
+              label="Users with Invites Used"
+              value={users.filter((u) => u.inviteUsageCount > 0).length}
+            />
+            <Stat
+              label="Total Invites Used"
+              value={users.reduce((sum, u) => sum + u.inviteUsageCount, 0)}
+            />
+          </dl>
         </div>
 
         {/* Manual Invite Linking */}
-        <div className="mt-8 bg-white shadow-md rounded-lg p-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">
-            Manual Invite Linking
-          </h2>
+        <div className={admin.panel}>
+          <h2 className={`${admin.h2} mb-4`}>Manual Invite Linking</h2>
           {linkStatus && (
-            <div className="mb-4 p-3 bg-blue-50 text-blue-700 rounded-lg">
-              {linkStatus}
-            </div>
+            <AdminNotice className="mb-4">{linkStatus}</AdminNotice>
           )}
-          <div className="space-y-4">
-            {users
-              ?.filter((u) => !u.invitedBy)
-              .map((user) => (
-                <div
-                  key={user._id}
-                  className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg"
-                >
-                  <div className="flex-1">
-                    <div className="font-medium text-gray-900">{user.name}</div>
-                    <div className="text-sm text-gray-500">{user.email}</div>
+          <div className="space-y-3">
+            {withoutInviter.map((user) => (
+              <div
+                key={user._id}
+                className={`${admin.inset} flex flex-wrap items-center gap-3 p-4`}
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="font-medium text-[color:var(--app-text)]">
+                    {user.name}
                   </div>
-                  {linkingUser === user.userId ? (
-                    <div className="flex items-center gap-2">
-                      <select
-                        value={selectedInviter}
-                        onChange={(e) => setSelectedInviter(e.target.value)}
-                        className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                      >
-                        <option value="">Select inviter...</option>
-                        {users
-                          ?.filter((u) => u.userId !== user.userId)
-                          .map((u) => (
-                            <option key={u.userId} value={u.userId}>
-                              {u.name} ({u.email})
-                            </option>
-                          ))}
-                      </select>
-                      <button
-                        onClick={() => handleLinkInvite(user.userId)}
-                        className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700"
-                      >
-                        Link
-                      </button>
-                      <button
-                        onClick={() => {
-                          setLinkingUser(null);
-                          setSelectedInviter("");
-                        }}
-                        className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-400"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => setLinkingUser(user.userId)}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700"
-                    >
-                      Set Inviter
-                    </button>
-                  )}
+                  <div className={admin.meta}>{user.email}</div>
                 </div>
-              ))}
-            {users?.filter((u) => !u.invitedBy).length === 0 && (
-              <p className="text-gray-500 text-center py-4">
+                {linkingUser === user.userId ? (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <select
+                      value={selectedInviter}
+                      onChange={(e) => setSelectedInviter(e.target.value)}
+                      aria-label={`Inviter for ${user.name}`}
+                      className={`${admin.select} max-w-full`}
+                    >
+                      <option value="">Select inviter...</option>
+                      {users
+                        .filter((u) => u.userId !== user.userId)
+                        .map((u) => (
+                          <option key={u.userId} value={u.userId}>
+                            {u.name} ({u.email})
+                          </option>
+                        ))}
+                    </select>
+                    <button
+                      onClick={() => handleLinkInvite(user.userId)}
+                      className={admin.btnPrimary}
+                    >
+                      Link
+                    </button>
+                    <button
+                      onClick={() => {
+                        setLinkingUser(null);
+                        setSelectedInviter("");
+                      }}
+                      className={admin.btnSecondary}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setLinkingUser(user.userId)}
+                    className={admin.btnSecondary}
+                  >
+                    Set Inviter
+                  </button>
+                )}
+              </div>
+            ))}
+            {withoutInviter.length === 0 && (
+              <p className={`${admin.meta} py-4 text-center`}>
                 All users have inviters linked
               </p>
             )}
@@ -486,34 +329,17 @@ export default function AdminPage() {
 
         {/* Debug Section */}
         {debugData && (
-          <div className="mt-8 bg-yellow-50 border border-yellow-200 rounded-lg p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">
-              Debug: Invite Records
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-              <div className="bg-white rounded-lg p-4">
-                <div className="text-sm text-gray-600">Total Invites</div>
-                <div className="text-2xl font-bold text-gray-900">
-                  {debugData.totalInvites}
-                </div>
-              </div>
-              <div className="bg-white rounded-lg p-4">
-                <div className="text-sm text-gray-600">Used Invites</div>
-                <div className="text-2xl font-bold text-green-600">
-                  {debugData.usedInvites}
-                </div>
-              </div>
-              <div className="bg-white rounded-lg p-4">
-                <div className="text-sm text-gray-600">Unused Invites</div>
-                <div className="text-2xl font-bold text-gray-600">
-                  {debugData.unusedInvites}
-                </div>
-              </div>
-            </div>
+          <div className="rounded-xl border border-amber-400/30 bg-[var(--app-surface-raised)] p-5 sm:p-6">
+            <h2 className={`${admin.h2} mb-4`}>Debug: Invite Records</h2>
+            <dl className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-3">
+              <Stat label="Total Invites" value={debugData.totalInvites} />
+              <Stat label="Used Invites" value={debugData.usedInvites} />
+              <Stat label="Unused Invites" value={debugData.unusedInvites} />
+            </dl>
             {debugData.invites.length > 0 && (
-              <div className="bg-white rounded-lg p-4 max-h-96 overflow-y-auto">
-                <h3 className="font-semibold mb-2">All Invite Records:</h3>
-                <pre className="text-xs overflow-x-auto">
+              <div className={`${admin.inset} max-h-96 overflow-y-auto p-4`}>
+                <h3 className={`${admin.h3} mb-2`}>All Invite Records:</h3>
+                <pre className="overflow-x-auto text-[12.5px] text-[color:var(--garden-body)]">
                   {JSON.stringify(debugData.invites, null, 2)}
                 </pre>
               </div>
@@ -521,6 +347,18 @@ export default function AdminPage() {
           </div>
         )}
       </div>
+    </AdminFrame>
+  );
+}
+
+// One number and what it counts, set into the card like a hollow.
+function Stat({ label, value }: { label: string; value: number }) {
+  return (
+    <div className={`${admin.inset} p-4`}>
+      <dt className={admin.meta}>{label}</dt>
+      <dd className="mt-1 text-3xl font-semibold text-[color:var(--app-text)]">
+        {value}
+      </dd>
     </div>
   );
 }
@@ -570,37 +408,41 @@ function HiddenContent() {
   }
 
   return (
-    <div className="mb-8 bg-white shadow-md rounded-lg p-6">
-      <h2 className="text-lg font-semibold text-gray-900">Hidden</h2>
-      <p className="mt-1 text-sm text-gray-600 max-w-2xl">
+    <div className={admin.panel}>
+      <h2 className={admin.h2}>Hidden</h2>
+      <p className={`mt-1 ${admin.body}`}>
         Projects and events hidden with the ⋮ on their page. Only their owner
         and admins can open them. Open one to delete it for good.
       </p>
       {rows.length === 0 ? (
-        <p className="mt-4 text-sm text-gray-400 italic">Nothing hidden.</p>
+        <p className={`mt-4 italic ${admin.meta}`}>Nothing hidden.</p>
       ) : (
-        <ul className="mt-4 divide-y divide-gray-200">
+        <ul className={`mt-4 ${admin.divide}`}>
           {rows.map((row) => (
-            <li key={row.key} className="py-3 flex items-center justify-between gap-4 flex-wrap">
+            <li
+              key={row.key}
+              className="flex flex-wrap items-center justify-between gap-4 py-3"
+            >
               <div className="min-w-0">
-                <span className="text-xs font-medium uppercase tracking-wide text-gray-500 mr-2">
+                <span className="mr-2 text-[12.5px] font-semibold uppercase tracking-wide text-[color:var(--app-text-muted)]">
                   {row.kind}
                 </span>
                 <Link
                   to={row.href}
-                  className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline"
+                  className={`text-[14px] font-medium text-[color:var(--app-text)] ${admin.link}`}
                 >
                   {row.title}
                 </Link>
-                <div className="text-xs text-gray-500">
+                <div className={admin.hint}>
                   {row.ownerName}
-                  {row.hiddenAt && ` · hidden ${new Date(row.hiddenAt).toLocaleDateString()}`}
+                  {row.hiddenAt &&
+                    ` · hidden ${new Date(row.hiddenAt).toLocaleDateString()}`}
                 </div>
               </div>
               <button
                 onClick={() => unhide(row)}
                 disabled={busyId === row.key}
-                className="px-3 py-1 text-sm text-gray-700 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50"
+                className={admin.btnRowSecondary}
               >
                 {busyId === row.key ? "Unhiding…" : "Unhide"}
               </button>
