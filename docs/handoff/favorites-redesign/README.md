@@ -1,6 +1,6 @@
 # Favorites redesign: the Shortlist
 
-Status: mockup v1, for review (2026-10-02). Mockup: `mockup.html` in this folder (open it in a browser; the top bar steps through the frames, "Design notes" shows the annotations). Built on the desk + palette (`docs/features/desktop-desk-palette.md`, `docs/handoff/garden-desk-palette/README.md`).
+Status: mockup v1. Name, palette slot and Today placement decided by Rick on 2026-10-02 (see Decisions). Mockup: `mockup.html` in this folder (open it in a browser; the top bar steps through the frames, "Design notes" shows the annotations). Built on the desk + palette (`docs/features/desktop-desk-palette.md`, `docs/handoff/garden-desk-palette/README.md`).
 
 ## Problem
 
@@ -12,9 +12,16 @@ What's wrong today:
 - Every item has the same weight. Going, saved, requested and past events look alike, and nothing says "this needs you".
 - There's no summary. On the desk's `fav` view, a person's face and an event poster share one 3:4 grid.
 
-## Decision
+## Decisions (Rick, 2026-10-02)
 
-**Name it Shortlist.** It holds everything of other people's that you've set aside or put your hand up for. Things you own or host stay on your profile. Items rank by how much they need you: in motion (invited, applied, going, on the team, backing), then saved, then followed.
+1. **The name is Shortlist.** It replaces "Favorites" and "Following" everywhere: the page, the desk view, the palette, and the phone nav.
+2. **Shortlist takes the Desk tool's slot in the palette.** The Desk tool goes (see Palette).
+3. **Only what the member did themselves.** Nothing on the Shortlist is suggested by the app or by AI. Suggestions belong on Today and in the browse views.
+4. **Needs you also leads Today** (see "Needs you on Today").
+
+## The model
+
+**Shortlist.** It holds everything of other people's that you've set aside or put your hand up for. Things you own or host stay on your profile. Items rank by how much they need you: in motion (invited, applied, going, on the team, backing), then saved, then followed.
 
 **Areas**, in fixed positions, never hidden:
 
@@ -31,6 +38,28 @@ What's wrong today:
 3. A saved role that fills within 7 days.
 
 The overview shows 3, then "N more →". These rows get a 3px yellow left rule and a yellow mono status. Counts include live items only.
+
+## Needs you on Today
+
+Today and Needs you answer different questions:
+- Today: "What's happening?" It's a briefing from the community and admins.
+- Needs you: "What do I owe a reply or an appearance to?" It's built from the member's own Shortlist.
+
+Today should still lead with what's personal and urgent, so Needs you goes first on Today too. It's one rule set shown in two places.
+
+- **One source.** A pure `needsYou(input, now)` function holds the three rules above and their order. Today, the Shortlist overview and the palette's dot all read it, so they can't disagree. Put it beside `deskCards.ts`, with a unit test covering each rule and the 7-day edges.
+- **Desktop Today** (`/today?view=today`):
+  - **Header:** the view header, as now.
+  - **Needs you rows:** up to 3, using the Shortlist's row component. Under them, "N more on your Shortlist →", which goes to the Shortlist overview.
+  - **Today's card row**, as now:
+    - unread Updates
+    - the monthly grant, while open
+    - the Sophia Fund
+    - the next event
+- **No duplicates.** If the next event is one you're going to and it's already in Needs you, the next-event card shows the following upcoming event instead.
+- **Nothing needs you:** the section doesn't render on Today. Today still has its cards, so an empty state would only add noise.
+- **Phones** (the current Today page): the same rows stack above the Updates.
+- **The palette's Today tool stays as it is.** The yellow dot belongs to Shortlist only, so one signal means one thing.
 
 ## Three levels
 
@@ -72,7 +101,5 @@ The overview shows 3, then "N more →". These rows get a 3px yellow left rule a
 
 ## Open questions for Rick
 
-1. OK to retire the Desk tool for Shortlist?
-2. The name: Shortlist, or keep Favorites?
-3. Is the split right: volunteer roles under Projects, paid roles under Work?
-4. Phones: the same structure, with tiles 2×2?
+1. **Paid roles under Work, volunteer roles under Projects.** Is that the right split? The spec assumes yes. A role's own `budgetType` decides: "volunteer" goes to Projects, anything else goes to Work.
+2. **Phones.** The spec assumes the same structure, with the tiles 2×2. Confirm when the phone pass happens.
