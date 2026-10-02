@@ -16,6 +16,7 @@
 
 import { useSyncExternalStore } from "react";
 import type { ProjectKind } from "../lib/shortlist/types";
+import type { ShortlistArea } from "../lib/shortlist/url";
 
 export const DESK_PATH = "/today";
 
@@ -105,28 +106,17 @@ export function stepTo(step: { index: number; total: number; busy?: boolean }, b
 // The Shortlist's own params
 // ——————————————————————————————————————————————————————————————
 
-/** The Shortlist's three areas, in their fixed order. */
-export const SHORTLIST_AREAS = ["projects", "events", "people"] as const;
-export type ShortlistArea = (typeof SHORTLIST_AREAS)[number];
+// The params themselves live in lib/shortlist/url.ts, shared with the phone
+// page; re-exported here so desk code keeps one import.
+export { SHORTLIST_AREAS, parseShortlistArea, parseShortlistKind, type ShortlistArea } from "../lib/shortlist/url";
 
-const PROJECT_KINDS: readonly ProjectKind[] = ["paid", "passion"];
-
-/** ?area=, or null for the overview. */
-export function parseShortlistArea(raw: string | null | undefined): ShortlistArea | null {
-  return (SHORTLIST_AREAS as readonly string[]).includes(raw ?? "") ? (raw as ShortlistArea) : null;
-}
-
-/** ?kind=, which only Projects has; anywhere else it's ignored. */
-export function parseShortlistKind(raw: string | null | undefined, area: ShortlistArea | null): ProjectKind | null {
-  if (area !== "projects") return null;
-  return (PROJECT_KINDS as readonly string[]).includes(raw ?? "") ? (raw as ProjectKind) : null;
-}
-
-/** The Shortlist's overview, or one of its areas. Paid or Passion is a
- *  filter set on the page, so a link starts without one. */
-export function shortlistHref(area?: ShortlistArea): string {
+/** The Shortlist's overview, or one of its areas. Paid or Passion rides on
+ *  Projects only, as favoritesHref has it; a link made without one starts
+ *  on both. */
+export function shortlistHref(area?: ShortlistArea | null, kind?: ProjectKind | null): string {
   const params = new URLSearchParams({ view: SHORTLIST_VIEW });
   if (area) params.set("area", area);
+  if (area === "projects" && kind) params.set("kind", kind);
   return `${DESK_PATH}?${params.toString()}`;
 }
 

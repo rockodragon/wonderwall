@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  CREATE_CELL,
+  CREATE_CELL_ID,
   DEFAULT_HEADER_H,
   GREETING_BOX,
   GRID_BELOW_HEADER,
@@ -15,8 +17,10 @@ import {
   SHEET_W,
   Z_DIM,
   Z_OPEN,
+  cellsOnShow,
   clearZones,
   deskScale,
+  emptyLane,
   gridMetrics,
   isGridView,
   isSmallDesk,
@@ -487,6 +491,153 @@ describe("grid (People, Projects, Events)", () => {
   it("has nothing on show for an empty view", () => {
     const places = layoutDesk({ cards: FULL_DESK, view: "people", vw: 1440, vh: 900 });
     for (const p of places.values()) expect(p.opacity).toBe(0);
+  });
+});
+
+describe("the \"+\" card in the grid (Projects, Events)", () => {
+  // What Desk hands the layout on Projects: the "+" cell with the cards, the
+  // fund's note and the projects, and the ids on show with the cell first.
+  const fund = card("fund", ["projects"], true);
+  const projects = Array.from({ length: 7 }, (_, i) => card(`project:${i}`, ["projects"]));
+  const list = [fund, ...projects];
+  const withCell = (cards: LayoutCard[], create: boolean, top = 150) =>
+    layoutDeskFull({
+      cards: [...cards, CREATE_CELL],
+      view: "projects",
+      vw: 1440,
+      vh: 900,
+      top,
+      shown: cellsOnShow(
+        cards.map((c) => c.id),
+        create,
+      ),
+    });
+
+  it("goes first in the list of cells, ahead of the list", () => {
+    expect(cellsOnShow(["fund", "project:1"], true)).toEqual([CREATE_CELL_ID, "fund", "project:1"]);
+    expect(cellsOnShow(["fund", "project:1"], false)).toEqual(["fund", "project:1"]);
+    expect(cellsOnShow([], true)).toEqual([CREATE_CELL_ID]);
+    expect(cellsOnShow([], false)).toEqual([]);
+  });
+
+  it("does not touch the list it is given", () => {
+    const ids = ["a", "b"];
+    cellsOnShow(ids, true);
+    expect(ids).toEqual(["a", "b"]);
+  });
+
+  it("takes the first cell: the left edge of the first row, under the header", () => {
+    const { places } = withCell(list, true);
+    expect(places.get(CREATE_CELL_ID)).toMatchObject({ x: GRID_SIDE, y: 150 + GRID_BELOW_HEADER, opacity: 1, r: 0 });
+  });
+
+  it("is the size of any other cell, 3:4, on the one layer", () => {
+    const { places, grid } = withCell(list, true);
+    const create = places.get(CREATE_CELL_ID)!;
+    expect(create.w).toBe(places.get("project:0")!.w);
+    expect(create.h).toBe(places.get("project:0")!.h);
+    expect(create.h).toBeCloseTo((create.w * 4) / 3, 5);
+    expect(create.w).toBe(grid!.w);
+    expect(create.z).toBe(places.get("project:0")!.z);
+    expect(create.z).toBeLessThan(Z_DIM - 10);
+  });
+
+  it("comes before the fund's note, which takes the second cell, and pushes the list on by one", () => {
+    const { places, grid } = withCell(list, true);
+    const create = places.get(CREATE_CELL_ID)!;
+    const note = places.get("fund")!;
+    expect(note.y).toBe(create.y);
+    expect(note.x).toBeCloseTo(create.x + grid!.w + GRID_GAP, 5);
+    // Without the card the note was first; every card after it moves on one cell.
+    const without = withCell(list, false).places;
+    expect(without.get("fund")!.x).toBe(GRID_SIDE);
+    expect(places.get("project:2")!.x).toBe(without.get("project:3")!.x);
+    expect(places.get("project:2")!.y).toBe(without.get("project:3")!.y);
+    // The one that was last in the first row is first in the second.
+    expect(places.get("project:3")!.x).toBe(GRID_SIDE);
+    expect(places.get("project:3")!.y).toBeCloseTo(create.y + grid!.h + GRID_GAP, 5);
+  });
+
+  it("stays in the first cell whether or not the fund's note is there", () => {
+    const withNote = withCell(list, true).places.get(CREATE_CELL_ID)!;
+    const noNote = withCell(projects, true).places.get(CREATE_CELL_ID)!;
+    expect(noNote.x).toBe(withNote.x);
+    expect(noNote.y).toBe(withNote.y);
+  });
+
+  it("is the whole grid when nothing else is on show", () => {
+    const { places, height, grid } = withCell([], true);
+    expect(places.get(CREATE_CELL_ID)).toMatchObject({ x: GRID_SIDE, opacity: 1 });
+    expect(grid!.cols).toBe(5);
+    expect(height).toBe(900);
+  });
+
+  it("is a cell like any other when the page grows: a sixth cell starts a second row", () => {
+    // 5 columns at 1440: the card and four more fill a row, the next goes under.
+    const { places, height, grid } = withCell(projects.slice(0, 5), true);
+    expect(places.get("project:3")!.y).toBe(places.get(CREATE_CELL_ID)!.y);
+    expect(places.get("project:4")!.y).toBeCloseTo(places.get(CREATE_CELL_ID)!.y + grid!.h + GRID_GAP, 5);
+    // Two rows of cells: the page is as tall as they and the clear space under them.
+    expect(height).toBeCloseTo(150 + GRID_BELOW_HEADER + 2 * grid!.h + GRID_GAP + GRID_BOTTOM, 5);
+    const long = withCell(Array.from({ length: 12 }, (_, i) => card(`project:${i}`, ["projects"])), true);
+    // 13 cells: three rows.
+    expect(long.height).toBeCloseTo(150 + GRID_BELOW_HEADER + 3 * grid!.h + 2 * GRID_GAP + GRID_BOTTOM, 5);
+  });
+
+  it("falls below the page when the view has none, as a card that leaves does", () => {
+    const { places, height } = withCell(list, false);
+    const create = places.get(CREATE_CELL_ID)!;
+    expect(create.opacity).toBe(0);
+    expect(create.y).toBe(height + 80);
+    // And rises to its cell again from where it fell.
+    expect(withCell(list, true).places.get(CREATE_CELL_ID)!.opacity).toBe(1);
+  });
+
+  it("is not a grid cell on a view that isn't a grid", () => {
+    const places = layoutDesk({ cards: [...FULL_DESK, CREATE_CELL], view: "all", vw: 1440, vh: 900 });
+    expect(places.get(CREATE_CELL_ID)!.opacity).toBe(0);
+    // And leaves the resting cards where they were.
+    const plain = layoutDesk({ cards: FULL_DESK, view: "all", vw: 1440, vh: 900 });
+    for (const c of FULL_DESK) expect(places.get(c.id)).toEqual(plain.get(c.id));
+  });
+
+  it("changes nothing for a layout that does not hand it in", () => {
+    const a = layoutDeskFull({ cards: list, view: "projects", vw: 1440, vh: 900, shown: list.map((c) => c.id) });
+    expect(a.places.has(CREATE_CELL_ID)).toBe(false);
+    expect(a.places.get("fund")!.x).toBe(GRID_SIDE);
+  });
+});
+
+describe("emptyLane", () => {
+  it("is the first row's room beside the \"+\" card, to the right margin", () => {
+    const g = gridMetrics(1440);
+    const lane = emptyLane(g, 150, 1440);
+    expect(lane.y).toBe(150 + GRID_BELOW_HEADER);
+    expect(lane.h).toBe(g.h);
+    expect(lane.x).toBeCloseTo(GRID_SIDE + g.w + GRID_GAP, 5);
+    expect(lane.x + lane.w).toBeCloseTo(1440 - GRID_SIDE, 5);
+  });
+
+  it("does not touch the card", () => {
+    for (const vw of [768, 1024, 1280, 1440, 1920]) {
+      const g = gridMetrics(vw);
+      const card = { x: GRID_SIDE, y: 150 + GRID_BELOW_HEADER, w: g.w, h: g.h };
+      expect(rectsOverlap(emptyLane(g, 150, vw), card), `${vw}`).toBe(false);
+      expect(emptyLane(g, 150, vw).w).toBeGreaterThan(0);
+    }
+  });
+
+  it("goes under the card when a single column leaves no room beside it", () => {
+    const g = { cols: 1, w: 300, h: 400, gap: 32, x0: 48 };
+    const lane = emptyLane(g, 150, 420);
+    expect(lane.y).toBe(150 + GRID_BELOW_HEADER + 400 + 32);
+    expect(lane.x).toBe(48);
+    expect(lane.w).toBe(420 - 96);
+  });
+
+  it("never has a negative width", () => {
+    expect(emptyLane({ cols: 2, w: 300, h: 400, gap: 32, x0: 48 }, 150, 100).w).toBe(0);
+    expect(emptyLane({ cols: 1, w: 300, h: 400, gap: 32, x0: 48 }, 150, 50).w).toBe(0);
   });
 });
 

@@ -405,6 +405,32 @@ export function gridMetrics(vw: number, space = 1): GridMetrics {
   return { cols, w, h: w * GRID_ASPECT, gap, x0: side };
 }
 
+/** The "+" card's id in the layout. It is not a DeskCard (nothing opens, it is
+ *  not counted, it is no row of the list): it holds a cell as a card does. */
+export const CREATE_CELL_ID = "create-cell";
+
+/** The "+" card as the layout sees it. Handed in with the cards, it is placed
+ *  when `cellsOnShow` names it and falls below the page when it does not, as
+ *  a card that leaves the view does. */
+export const CREATE_CELL: LayoutCard = { id: CREATE_CELL_ID, sections: [], note: false };
+
+/** The cells on show in a grid view: the "+" card first when the view has one,
+ *  then the list in its own order. First, so it holds one cell whatever the
+ *  filters: the fund's note, which comes and goes with them, comes after it. */
+export function cellsOnShow(ids: readonly string[], create: boolean): string[] {
+  return create ? [CREATE_CELL_ID, ...ids] : [...ids];
+}
+
+/** The room the first row leaves beside the "+" card, where an empty list's
+ *  words go ("No projects match." and Clear filters), as wide as the grid
+ *  past that cell. A one-column grid has none beside it: under the card. */
+export function emptyLane(g: GridMetrics, top: number, vw: number): Rect {
+  const rowTop = top + GRID_BELOW_HEADER;
+  if (g.cols < 2) return { x: g.x0, y: rowTop + g.h + g.gap, w: Math.max(0, vw - 2 * g.x0), h: g.h };
+  const x = g.x0 + g.w + g.gap;
+  return { x, y: rowTop, w: Math.max(0, vw - g.x0 - x), h: g.h };
+}
+
 /** How tall the page is for `count` cards in the grid, and where each row starts. */
 function gridHeight(count: number, g: GridMetrics, top: number, vh: number): number {
   if (count === 0) return vh;

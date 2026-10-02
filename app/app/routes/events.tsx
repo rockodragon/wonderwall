@@ -20,8 +20,8 @@ import { filterEvents, onlyFavorites, parseEventsTab, type EventsTab } from "../
 import { LocationIcon } from "../components/icons";
 import { PAGE_WIDTH } from "../lib/pageWidth";
 
-// The card itself lives in components/EventCard.tsx — /favorites renders the
-// same component, so the treatment can only be changed in one place.
+// The card itself lives in components/EventCard.tsx, so the treatment can only
+// be changed in one place.
 
 export default function Events() {
   const { isAuthenticated, isLoading: authLoading } = useConvexAuth();

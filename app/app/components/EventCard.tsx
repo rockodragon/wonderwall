@@ -6,12 +6,12 @@ import { hostNamesLine, type EventHost } from "../lib/eventHosts";
 import { ImageFill } from "./ImageFill";
 import { paidPriceCents } from "../lib/eventTickets";
 
-// The one event card. Both /events (routes/events.tsx) and the Events section
-// of /favorites (routes/favorites.tsx) render this — favorites used to carry a
-// verbatim copy of the pre-garden card (a five-way saturated rainbow keyed off
-// list index), so the same event showed two different faces depending on which
-// page you were standing on. Any future event list should import this rather
-// than grow a third copy.
+// The one event card. /events (routes/events.tsx), search (routes/search.tsx)
+// and an org's page (routes/orgs.$slug.tsx) render this, so the same event
+// wears the same face on each. /favorites once carried a verbatim copy of the
+// pre-garden card (a five-way saturated rainbow keyed off list index); it no
+// longer renders event cards at all. Any future event list should import this
+// rather than grow another copy.
 //
 // Fallback cover treatment for an event with no uploaded image. Everything
 // here stays inside the ink family — the previous version picked one of five
@@ -97,12 +97,11 @@ export function EventCard({
 }: {
   event: EventCardEvent;
   /**
-   * Knock the card back to 60%. /events lists only upcoming published events
-   * so it never needs this; /favorites can hold an event that has since
-   * passed or been cancelled, and the caller owns that rule because it is the
-   * caller that has `status` and a reason to care. Keeping the Date.now()
-   * comparison out of here also keeps a time-dependent value out of the
-   * shared render path.
+   * Knock the card back to 60%. Only /events' Past tab passes it: the live
+   * list never needs it. The caller owns that rule because it is the caller
+   * that knows which tab it is on and has a reason to care. Keeping the
+   * Date.now() comparison out of here also keeps a time-dependent value out
+   * of the shared render path.
    */
   dimmed?: boolean;
   /**

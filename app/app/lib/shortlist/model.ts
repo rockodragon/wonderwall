@@ -24,6 +24,7 @@ import type {
   ShortlistProject,
   ShortlistRequest,
 } from "./types";
+import type { ShortlistArea } from "./url";
 
 // ——————————————————————————————————————————————————————————————
 // The relationships config
@@ -143,6 +144,12 @@ export interface ShortlistSummary {
   projects: AreaSummary & { kinds: Record<ProjectKind, number> };
   events: AreaSummary;
   people: AreaSummary;
+}
+
+/** An area's live count: Projects narrowed by kind when a kind is on. The
+ *  header's count on the desk and the phone. */
+export function areaCount(summary: ShortlistSummary, area: ShortlistArea, kind: ProjectKind | null): number {
+  return area === "projects" && kind ? summary.projects.kinds[kind] : summary[area].count;
 }
 
 // ——————————————————————————————————————————————————————————————
