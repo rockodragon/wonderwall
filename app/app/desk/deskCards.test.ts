@@ -73,7 +73,6 @@ function input(extra: Partial<DeskInput> = {}): DeskInput {
     now: NOW,
     updates: [],
     events: [event(1), event(2), event(3), event(4), event(5)],
-    favoriteEventIds: [],
     people: [],
     projects: [project("p1", { goal: 1000, resolvedPhotoUrl: "https://img/p1.jpg" }), project("p2"), project("p3")],
     fund: FUND,
@@ -99,12 +98,33 @@ describe("event cards", () => {
     expect(byId(cards, "event:e2").sections).not.toContain("today");
   });
 
-  it("add Favorites for a hearted event, from an array or a set", () => {
-    for (const hearted of [["e2"], new Set(["e2"])]) {
-      const cards = buildDeskCards(input({ favoriteEventIds: hearted }), "garden");
-      expect(byId(cards, "event:e2").sections).toContain("fav");
-      expect(byId(cards, "event:e1").sections).not.toContain("fav");
+  it("give Today the following event when Needs you already lists the next, from an array or a set", () => {
+    for (const needsYou of [["e1"], new Set(["e1"])]) {
+      const cards = buildDeskCards(input({ needsYouEventIds: needsYou }), "garden");
+      expect(byId(cards, "event:e1").sections).not.toContain("today");
+      expect(byId(cards, "event:e2").sections).toContain("today");
     }
+  });
+
+  it("skip every event Needs you lists, and still give Today just one", () => {
+    const cards = buildDeskCards(input({ needsYouEventIds: ["e1", "e2", "e4"] }), "garden");
+    expect(ids(cardsInView(cards, "today")).filter((id) => id.startsWith("event:"))).toEqual(["event:e3"]);
+  });
+
+  it("give Today no event when Needs you lists them all", () => {
+    const cards = buildDeskCards(input({ events: [event(1)], needsYouEventIds: ["e1"] }), "garden");
+    expect(ids(cardsInView(cards, "today")).some((id) => id.startsWith("event:"))).toBe(false);
+    expect(byId(cards, "event:e1").sections).toContain("events");
+  });
+
+  it("leave the default desk alone: Needs you only moves Today's card", () => {
+    const cards = buildDeskCards(input({ needsYouEventIds: ["e1"] }), "garden");
+    expect(ids(cardsInView(cards, "all")).slice(0, 3)).toEqual(["event:e1", "event:e2", "event:e3"]);
+  });
+
+  it("belong to no Favorites view: hearted events are the Shortlist's now", () => {
+    const cards = buildDeskCards(input(), "garden");
+    for (const card of cards) expect(card.sections as string[]).not.toContain("fav");
   });
 
   it("drop an event that already started", () => {
@@ -363,20 +383,22 @@ describe("project cards", () => {
 });
 
 describe("person cards", () => {
-  it("belong to People and Favorites", () => {
+  it("belong to People alone", () => {
     const cards = buildDeskCards(input({ people: [{ _id: "u1", name: "Ann Cole", imageUrl: "https://img/ann.jpg", interests: ["other:x", "Painter"] }] }), "garden");
     const card = byId(cards, "person:u1");
-    expect(card.sections).toEqual(["people", "fav"]);
+    expect(card.sections).toEqual(["people"]);
     expect(card.face).toEqual({ kicker: "FOLLOWING", title: "Ann Cole", foot: "Painter" });
     expect(card.image).toBe("https://img/ann.jpg");
     expect(card.detail.action).toEqual({ kind: "link", label: "See profile", href: "/profile/u1" });
     expect(card.profileId).toBe("u1");
   });
 
-  it("make the Favorites view out of hearted events and followed people", () => {
-    const cards = buildDeskCards(input({ favoriteEventIds: ["e2"], people: [{ _id: "u1", name: "Ann" }] }), "garden");
-    expect(ids(cardsInView(cards, "fav"))).toEqual(["event:e2", "person:u1"]);
+  it("stand in on People and on no other view", () => {
+    const cards = buildDeskCards(input({ people: [{ _id: "u1", name: "Ann" }] }), "garden");
     expect(ids(cardsInView(cards, "people"))).toEqual(["person:u1"]);
+    for (const view of ["all", "today", "projects", "events", "shortlist"] as const) {
+      expect(ids(cardsInView(cards, view)), view).not.toContain("person:u1");
+    }
   });
 });
 
@@ -390,7 +412,7 @@ describe("empty desks", () => {
 describe("copy", () => {
   it("never says 'Be the first'", () => {
     const cards = buildDeskCards(
-      input({ people: [{ _id: "u1", name: "Ann" }], favoriteEventIds: ["e1"] }),
+      input({ people: [{ _id: "u1", name: "Ann" }] }),
       "garden",
     );
     const text = JSON.stringify(cards);
@@ -505,9 +527,9 @@ describe("Updates on the desk", () => {
     expect(today.slice(4)).toEqual(["event:e1", "fund", "grant"]);
   });
 
-  it("stay off People, Projects, Events and Favorites", () => {
+  it("stay off People, Projects, Events and the Shortlist", () => {
     const cards = buildDeskCards(input({ updates: four }), "garden");
-    for (const view of ["people", "projects", "events", "fav"] as const) {
+    for (const view of ["people", "projects", "events", "shortlist"] as const) {
       expect(ids(cardsInView(cards, view)).some((id) => id.startsWith("update:")), view).toBe(false);
     }
   });

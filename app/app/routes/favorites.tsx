@@ -1,8 +1,11 @@
 import { useQuery } from "convex/react";
-import { Link } from "react-router";
+import { Link, Navigate } from "react-router";
 import { api } from "../../convex/_generated/api";
 import { EventCard } from "../components/EventCard";
 import { FavoriteButton } from "../components/FavoriteButton";
+import { shortlistHref } from "../desk/deskState";
+import { useIsDesktop } from "../hooks/useMediaQuery";
+import { FF_DESK } from "../lib/featureFlags";
 import { groupFollows } from "../lib/groupFollows";
 import { PAGE_WIDTH } from "../lib/pageWidth";
 
@@ -44,7 +47,16 @@ type FavoritesData = {
   events: (FavoriteEventItem | null)[];
 };
 
+// On desktop the Shortlist replaces this page (docs/handoff/favorites-redesign/
+// README.md, "Palette"), behind the same FF_DESK and breakpoint as the desk
+// itself (today.tsx). Phones keep the page below for now. Both branches mount
+// their own hooks, so the switch never changes hook order inside either one.
 export default function Favorites() {
+  const isDesktop = useIsDesktop();
+  return FF_DESK && isDesktop ? <Navigate to={shortlistHref()} replace /> : <FavoritesPage />;
+}
+
+function FavoritesPage() {
   const favorites = useQuery(api.favorites.getMyFavorites, {}) as
     FavoritesData | undefined;
 

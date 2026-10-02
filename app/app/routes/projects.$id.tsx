@@ -12,11 +12,12 @@
 
 import { useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { useMutation, useQuery } from "convex/react";
+import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { Link, useNavigate, useParams, useRouteError } from "react-router";
 import { api } from "../../convex/_generated/api";
 import { EMBED_PROVIDER_LABEL, toEmbedUrl } from "../lib/videoEmbed";
 import type { Id } from "../../convex/_generated/dataModel";
+import { VISIBLE_PROJECT_STATUSES } from "../../convex/moderationRules";
 import { AnnouncementComposer } from "../components/AnnouncementComposer";
 import { AdminMenu, HiddenNotice } from "../components/AdminMenu";
 import { EmbedPlayer } from "../components/EmbedPlayer";
@@ -174,6 +175,7 @@ export default function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
   const project = useQuery(api.garden.projects.getProject, id ? { projectId: id } : "skip");
   const myProfile = useQuery(api.profiles.getMyProfile);
+  const { isAuthenticated } = useConvexAuth();
   const [supportMode, setSupportMode] = useState<SupportMode | null>(null);
   // Lifted so the owner's "Next steps" nudge can open the support editor.
   const [editingSupport, setEditingSupport] = useState(false);
@@ -201,6 +203,12 @@ export default function ProjectDetail() {
   }
 
   const isOwner = !!myProfile && project.userId === myProfile.userId;
+  // Save for the Shortlist (docs/handoff/favorites-redesign/README.md): a
+  // signed-in member who isn't the lead, on a project the browse lists show.
+  // favorites.toggle refuses the rest, so the page never offers a save that
+  // would fail. Held until the profile loads, so the lead never sees it flash.
+  const canSave =
+    isAuthenticated && myProfile !== undefined && !isOwner && VISIBLE_PROJECT_STATUSES.has(project.status);
   const raising = isRaising(project);
   const isPassion = project.kind === "passion";
   const kindWord =
@@ -289,7 +297,11 @@ export default function ProjectDetail() {
         />
       )}
 
-      <InlineEditableTitle project={project} isOwner={isOwner} />
+      <InlineEditableTitle
+        project={project}
+        isOwner={isOwner}
+        action={canSave ? <FavoriteButton targetType="project" targetId={project._id} size="sm" /> : null}
+      />
 
       {project.creator && (
         <div className="flex items-center gap-3 mb-4">
@@ -356,7 +368,7 @@ export default function ProjectDetail() {
         <GigSchedule project={project} isOwner={isOwner} myProfile={myProfile} />
       ) : (
         <div id="team">
-          <TeamCard project={project} isOwner={isOwner} myProfile={myProfile} />
+          <TeamCard project={project} isOwner={isOwner} myProfile={myProfile} canSave={canSave} />
         </div>
       )}
 
@@ -1045,7 +1057,16 @@ function InlineEditableMediaLink({ project }: { project: any }) {
   );
 }
 
-function InlineEditableTitle({ project, isOwner }: { project: any; isOwner: boolean }) {
+function InlineEditableTitle({
+  project,
+  isOwner,
+  action,
+}: {
+  project: any;
+  isOwner: boolean;
+  /** A visitor's control at the row's end: Save. */
+  action?: ReactNode;
+}) {
   const updateProject = useMutation((api as any).garden.projects.updateProject);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(project.title);
@@ -1097,6 +1118,7 @@ function InlineEditableTitle({ project, isOwner }: { project: any; isOwner: bool
         {stageLabel(resolveStage(project))}
       </span>
       {isOwner && !editing && <EditButton onClick={() => { setDraft(project.title); setEditing(true); }} label="Edit title" />}
+      {action && <div className="ml-auto">{action}</div>}
     </div>
   );
 }
@@ -1621,10 +1643,13 @@ function TeamCard({
   project,
   isOwner,
   myProfile,
+  canSave,
 }: {
   project: any;
   isOwner: boolean;
   myProfile: any;
+  /** See ProjectDetail's canSave. */
+  canSave: boolean;
 }) {
   const team = useQuery(api.garden.projectTeam.getTeam, { projectId: project._id });
   // null = closed; {} = the free-text flow (generic Apply/Ask-to-join
@@ -1677,6 +1702,7 @@ function TeamCard({
       <RolesSection
         project={project}
         isOwner={isOwner}
+        canSave={canSave}
         mine={team.mine}
         onApply={(role) => setJoinModal(role)}
         apply={team.apply}
@@ -1738,12 +1764,16 @@ const ROLE_BUDGET_TYPE_OPTIONS = [
 function RolesSection({
   project,
   isOwner,
+  canSave,
   mine,
   onApply,
   apply,
 }: {
   project: any;
   isOwner: boolean;
+  /** Whether the viewer may save this project's roles (ProjectDetail's
+   * canSave). Only open roles get the button. */
+  canSave: boolean;
   /** Whether the viewer may apply — getTeam's read of the same
    * project.applyPaid rule requestToJoin enforces. Absent while loading. */
   apply?: { allowed: boolean; reason: string | null; upgradePath: string | null };
@@ -1899,6 +1929,11 @@ function RolesSection({
                       </div>
                     )}
                   </div>
+                  {/* listRoles only sends an open role while the project
+                      is taking people, the same test the save makes. */}
+                  {canSave && r.status === "open" && (
+                    <FavoriteButton targetType="role" targetId={r.roleId} size="sm" />
+                  )}
                   {r.status === "filled" ? (
                     <span className="text-xs whitespace-nowrap pt-0.5" style={{ color: "var(--garden-dim)" }}>
                       Filled — {r.filledBy?.name ?? "someone"}

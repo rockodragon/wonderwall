@@ -1,7 +1,7 @@
-// The palette's pieces: a tool's stack of rows, the count chip, the profile
-// avatar, and the stylesheet for the states inline styles can't reach. The
-// fan, the state machine and the composition live in Palette.tsx and
-// usePaletteController.ts.
+// The palette's pieces: a tool's stack of rows, the count chip, the dot, the
+// profile avatar, and the stylesheet for the states inline styles can't
+// reach. The fan, the state machine and the composition live in Palette.tsx
+// and usePaletteController.ts.
 
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from "react";
 import { Link } from "react-router";
@@ -136,7 +136,13 @@ function StackRow({
     <>
       <span>{item.label}</span>
       {item.trailing && (
-        <span style={{ fontFamily: DESK_MONO, fontSize: 13.5, color: DESK.muted }}>
+        <span
+          style={{
+            fontFamily: DESK_MONO,
+            fontSize: 13.5,
+            color: item.trailingAccent ? DESK.accent : DESK.muted,
+          }}
+        >
           {item.trailing}
         </span>
       )}
@@ -188,6 +194,27 @@ export function CountChip({ text, offset }: { text: string; offset: number }): R
     >
       {text}
     </span>
+  );
+}
+
+/** The Shortlist's "something needs you": a 9px accent dot in the tool's
+ *  corner, ringed in the surface color so it reads off the tool's border. */
+export function Dot(): ReactNode {
+  return (
+    <span
+      aria-hidden
+      style={{
+        position: "absolute",
+        top: 0,
+        right: 0,
+        width: 9,
+        height: 9,
+        borderRadius: "50%",
+        background: DESK.accent,
+        boxShadow: `0 0 0 2px ${DESK.surface}`,
+        pointerEvents: "none",
+      }}
+    />
   );
 }
 

@@ -9,8 +9,10 @@
 // The surface is the window's size and scrolls inside: a scroller holds one
 // page-high box, the header sits at its top in flow, and every card is
 // absolutely placed in it (deskLayout.ts gives the places and the page's
-// height). People, Projects, Events and Favorites run long as a grid; Home is a
-// scatter and Today a short row, neither of which scrolls.
+// height). People, Projects and Events run long as a grid; Home is a scatter
+// and Today a short row, under Needs you when something needs the member.
+// The Shortlist is rows in the page's flow (ShortlistView.tsx); only the card
+// one of them opens is placed.
 //
 // Hooks stay above every return. A Rules-of-Hooks violation crashed a page
 // before.
@@ -18,14 +20,31 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { useReducedMotion } from "../hooks/useMediaQuery";
+import { openInScope, type ShortlistScope } from "../components/shortlist/items";
+import type { RowModel } from "../components/shortlist/rowModel";
+import { useShortlist } from "../lib/shortlist/useShortlist";
 import { buildDeskCards, cardsInView, opensAsSheet, type DeskCard } from "./deskCards";
 import { DeskCardView } from "./DeskCard";
 import { DeskCreate } from "./DeskCreate";
 import { isBrowseView, useDeskBrowse, type BrowseView, type DeskBrowse } from "./deskBrowse";
 import { greetingFor } from "./deskGreeting";
-import { DeskHeader, type HeaderSize } from "./DeskHeader";
+import { DeskHeader, type HeaderParts, type HeaderSize } from "./DeskHeader";
+import { DeskToast } from "./DeskToast";
 import { DEFAULT_HEADER_H, Z_DIM, layoutDeskFull, type LayoutCard, type Place } from "./deskLayout";
-import { DESK_VIEW_LABEL, parseDeskView, useDeskCommunity, useDeskSpacing, type DeskCardId, type DeskView } from "./deskState";
+import {
+  DESK_VIEW_LABEL,
+  SHORTLIST_VIEW,
+  parseDeskView,
+  parseShortlistArea,
+  parseShortlistKind,
+  useDeskCommunity,
+  useDeskSpacing,
+  type DeskCardId,
+  type DeskView,
+} from "./deskState";
+import type { Stepper } from "./OpenedCard";
+import { shortlistCard } from "./shortlistCards";
+import { ShortlistBody, TodayNeedsYou, shortlistHeader } from "./ShortlistView";
 import { SpacingControl } from "./SpacingControl";
 import { DESK, DESK_SANS, FOCUS_RING_CLASS, MOTION_MS, motion } from "./tokens";
 import { useDeskData } from "./useDeskData";
@@ -48,6 +67,9 @@ const LEAVE_LIMIT = 48;
  *  can't be skipped, so on any other view it is pointed at Events, whose
  *  upcoming list the desk has already loaded. */
 const IDLE_BROWSE: BrowseView = "events";
+/** Air between Today's Needs you rows and its card row. */
+const BELOW_NEEDS = 32;
+const NO_IDS: readonly string[] = [];
 
 export function Desk() {
   const [searchParams] = useSearchParams();
@@ -59,8 +81,14 @@ export function Desk() {
   const view = parseDeskView(searchParams.get("view"));
   const cardParam = searchParams.get("card");
   const browsing = isBrowseView(view);
+  const shortlistOn = view === SHORTLIST_VIEW;
+  const area = parseShortlistArea(searchParams.get("area"));
+  const kind = parseShortlistKind(searchParams.get("kind"), area);
 
   const { input, loaded, profile } = useDeskData();
+  // The Shortlist and Today's Needs you. The palette reads the same query, so
+  // this is one subscription, not a second.
+  const shortlist = useShortlist();
 
   const rootRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -73,13 +101,38 @@ export function Desk() {
   // Whether I pushed the open card onto the history (so Back is how it closes).
   const pushed = useRef(false);
   const lastOpen = useRef<string | null>(null);
+  // The card the member opened, before any ← / → step took them elsewhere.
+  const openedFirst = useRef<string | null>(null);
   // The URL's other params (filters) ride along when a card opens or closes.
   const paramsRef = useRef(searchParams);
   paramsRef.current = searchParams;
 
   // ——— Cards ———
 
-  const deskCards = useMemo(() => buildDeskCards(input, community), [input, community]);
+  // Events Needs you already lists (rule 2): Today's next-event card skips them.
+  const needsYouEventIds = useMemo(
+    () => (shortlist.status === "ready" ? shortlist.needs.flatMap((item) => (item.type === "event" ? [item.event.eventId] : [])) : NO_IDS),
+    [shortlist],
+  );
+  const deskCards = useMemo(() => buildDeskCards({ ...input, needsYouEventIds }, community), [input, community, needsYouEventIds]);
+
+  // A Shortlist item opened as a card, and the list ← / → step through. On
+  // Today only Needs you's rows open this way; the rest is the desk's own.
+  const opened = useMemo(() => {
+    if (!cardParam || shortlist.status !== "ready") return null;
+    const scope: ShortlistScope | null = shortlistOn ? { view: "shortlist", area, kind } : view === "today" ? { view: "today" } : null;
+    if (!scope) return null;
+    const found = openInScope(shortlist.data, shortlist.now, scope, cardParam);
+    if (!found) return null;
+    const card = shortlistCard(found.item, {
+      now: shortlist.now,
+      money: input.formatMoney,
+      events: input.events,
+      projects: input.projects,
+    });
+    return { card, ids: found.ids };
+  }, [cardParam, shortlist, shortlistOn, view, area, kind, input]);
+  const shortlistOpen = opened?.card ?? null;
 
   // Today's matching cards stand in until the list's own data arrives.
   const fallback = useMemo(() => (loaded && browsing ? cardsInView(deskCards, view) : undefined), [loaded, browsing, deskCards, view]);
@@ -92,10 +145,15 @@ export function Desk() {
     [browsing, browse.cards, deskCards, view],
   );
   const current = useMemo(() => {
-    if (!browsing || !browse.cards) return deskCards;
-    const own = new Set(browse.cards.map((c) => c.id));
-    return [...browse.cards, ...deskCards.filter((c) => !own.has(c.id))];
-  }, [browsing, browse.cards, deskCards]);
+    let cards = deskCards;
+    if (browsing && browse.cards) {
+      const own = new Set(browse.cards.map((c) => c.id));
+      cards = [...browse.cards, ...deskCards.filter((c) => !own.has(c.id))];
+    }
+    // The Shortlist's version of a card stands in for the desk's while it's open.
+    if (shortlistOpen) cards = [...cards.filter((c) => c.id !== shortlistOpen.id), shortlistOpen];
+    return cards;
+  }, [browsing, browse.cards, deskCards, shortlistOpen]);
   // Cards that just left (a filter narrowed the list, another view came up)
   // fall away rather than blink out.
   const leaving = useLeaving(current, reduced);
@@ -155,6 +213,12 @@ export function Desk() {
   }, [allCards, leaving]);
   const shownIds = useMemo(() => (browsing ? (shown ?? []).map((c) => c.id) : undefined), [browsing, shown]);
 
+  // Today's card row starts under Needs you when Needs you is there.
+  const todayNeeds = view === "today" && shortlist.status === "ready" && shortlist.needs.length > 0;
+  // The Shortlist's rows are in the page, which the layout doesn't measure:
+  // what isn't on show waits below the window, wherever it was scrolled to.
+  const scrollTop = openId || shortlistOn ? openScroll : 0;
+
   const layout = useMemo(
     () =>
       layoutDeskFull({
@@ -164,11 +228,12 @@ export function Desk() {
         vw: size.w,
         vh: size.h,
         top: header.total,
-        scrollTop: openId ? openScroll : 0,
+        scrollTop,
         shown: shownIds,
         space,
+        rowTop: todayNeeds ? header.total + BELOW_NEEDS : undefined,
       }),
-    [layoutCards, view, openId, size.w, size.h, header.total, openScroll, shownIds, space],
+    [layoutCards, view, openId, size.w, size.h, header.total, scrollTop, shownIds, space, todayNeeds],
   );
   const places = layout.places;
 
@@ -194,6 +259,7 @@ export function Desk() {
   const open = useCallback(
     (id: DeskCardId) => {
       pushed.current = true;
+      openedFirst.current = id;
       const next = new URLSearchParams(paramsRef.current);
       next.set("card", id);
       navigate({ search: `?${next.toString()}` });
@@ -217,8 +283,40 @@ export function Desk() {
     if (!cardParam) pushed.current = false;
   }, [cardParam]);
 
+  const openRow = useCallback((row: RowModel) => open(row.id), [open]);
+
+  // ← / → through the list a Shortlist card was opened from. The step
+  // replaces the URL, so Back still closes the card.
+  const stepped = useRef<{ id: string; by: -1 | 1 } | null>(null);
+  const stepper: Stepper | undefined = useMemo(() => {
+    if (!opened || opened.card.id !== openId) return undefined;
+    const { ids } = opened;
+    const index = ids.indexOf(opened.card.id);
+    if (index < 0 || ids.length < 2) return undefined;
+    return {
+      index,
+      total: ids.length,
+      arrived: stepped.current?.id === openId ? stepped.current.by : undefined,
+      onStep: (by) => {
+        const to = ids[index + by];
+        if (!to) return;
+        stepped.current = { id: to, by };
+        const next = new URLSearchParams(paramsRef.current);
+        next.set("card", to);
+        navigate({ search: `?${next.toString()}` }, { replace: true });
+      },
+    };
+  }, [opened, openId, navigate]);
+  const stepRef = useRef(stepper);
+  stepRef.current = stepper;
+  // A card opened afresh, not stepped to, starts with focus on Close.
+  useEffect(() => {
+    if (!cardParam) stepped.current = null;
+  }, [cardParam]);
+
   // Escape closes. Tab stays inside the open card. The palette's own Escape
   // (closing its stack or fan) marks the event handled, and this stands down.
+  // ← / → step a Shortlist card, unless someone is typing or in the palette.
   useEffect(() => {
     if (!openId) return;
     function onKeyDown(e: KeyboardEvent) {
@@ -228,6 +326,15 @@ export function Desk() {
         close();
       } else if (e.key === "Tab") {
         trapTab(e);
+      } else if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+        const step = stepRef.current;
+        if (!step || e.defaultPrevented || e.altKey || e.metaKey || e.ctrlKey || e.shiftKey || isTyping(e.target)) return;
+        if (e.target instanceof Element && e.target.closest(PALETTE_SELECTOR)) return;
+        const by = e.key === "ArrowLeft" ? -1 : 1;
+        const to = step.index + by;
+        if (to < 0 || to >= step.total) return;
+        e.preventDefault();
+        step.onStep(by);
       }
     }
     window.addEventListener("keydown", onKeyDown);
@@ -239,7 +346,13 @@ export function Desk() {
     const was = lastOpen.current;
     lastOpen.current = openId;
     if (was && !openId) {
-      rootRef.current?.querySelector<HTMLElement>(`[data-desk-card="${CSS.escape(was)}"]`)?.focus({ preventScroll: true });
+      // The card that was open, else (stepped to one with no row on show)
+      // the one the member opened.
+      for (const id of [was, openedFirst.current]) {
+        if (!id) continue;
+        rootRef.current?.querySelector<HTMLElement>(`[data-desk-card="${CSS.escape(id)}"]`)?.focus({ preventScroll: true });
+        if (document.activeElement?.getAttribute("data-desk-card") === id) break;
+      }
     }
   }, [openId]);
 
@@ -250,8 +363,18 @@ export function Desk() {
   const shownCount = listed ? listed.length : null;
   // The header counts the view's own things: the fund and grant notes aren't projects.
   const count = view === "all" || !listed ? null : listed.filter((c) => !c.note).length;
-  const empty = shownCount === 0;
+  // The Shortlist has empty states of its own.
+  const empty = shownCount === 0 && !shortlistOn;
   const greeting = greetingFor(new Date().getHours(), profile?.name);
+
+  const money = input.formatMoney;
+  const headerParts: HeaderParts | undefined = shortlistOn
+    ? shortlistHeader(shortlist, area, kind)
+    : view === "today"
+      ? { below: <TodayNeedsYou state={shortlist} money={money} onOpen={openRow} /> }
+      : undefined;
+  // A Shortlist card rises from below the window, wherever the rows were scrolled to.
+  const enterFrom = size.h + (shortlistOn ? openScroll : 0);
 
   return (
     <div
@@ -286,8 +409,9 @@ export function Desk() {
         }}
       >
         {/* `clip`, not `hidden`: a card waiting below the page must not make
-            it longer, and the filter row inside still pins to the scroller. */}
-        <div style={{ position: "relative", height: layout.height, overflow: "clip" }}>
+            it longer, and the filter row inside still pins to the scroller.
+            The Shortlist's rows are in the flow, so its page grows with them. */}
+        <div style={{ position: "relative", ...(shortlistOn ? { minHeight: layout.height } : { height: layout.height }), overflow: "clip" }}>
           <DeskHeader
             view={view}
             community={community}
@@ -297,9 +421,12 @@ export function Desk() {
             stuck={scroll.stuck}
             inert={!!openId}
             onMeasure={onMeasure}
+            parts={headerParts}
           />
 
           {empty && <EmptyDesk view={view} browse={browsing ? browse : null} top={header.total} height={size.h} />}
+
+          {shortlistOn && <ShortlistBody state={shortlist} area={area} kind={kind} money={money} onOpen={openRow} inert={!!openId} />}
 
           {mounted.map((card) => (
             <DeskCardView
@@ -308,9 +435,10 @@ export function Desk() {
               place={places.get(card.id) ?? OFFSCREEN}
               open={card.id === openId}
               inert={!!openId && card.id !== openId}
-              vh={size.h}
+              vh={enterFrom}
               onOpen={open}
               onClose={close}
+              stepper={card.id === openId ? stepper : undefined}
             />
           ))}
         </div>
@@ -332,6 +460,7 @@ export function Desk() {
 
       <DeskCreate />
       {profile?.isAdmin && <SpacingControl />}
+      <DeskToast />
     </div>
   );
 }
@@ -347,7 +476,7 @@ const NOUN: Record<BrowseView, string> = { people: "people", projects: "projects
 function EmptyDesk({ view, browse, top, height }: { view: DeskView; browse: DeskBrowse | null; top: number; height: number }) {
   const reduced = useReducedMotion();
   const noMatch = browse !== null && browse.filtered && isBrowseView(view);
-  const findPeople = view === "people" || view === "fav";
+  const findPeople = view === "people";
   const linkClass = `pointer-events-auto text-[15px] text-[#FFE066] underline-offset-4 hover:underline ${FOCUS_RING_CLASS}`;
   return (
     <div
@@ -446,6 +575,12 @@ function useDeskSize(ref: React.RefObject<HTMLElement | null>) {
 /** The palette's corner: it sits above the opened card on purpose, so the
  * keyboard can reach it while a card is open. */
 const PALETTE_SELECTOR = '.desk-pal, [aria-label="Navigation"]';
+
+/** Focus is in something that takes arrow keys for itself. */
+function isTyping(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  return target.isContentEditable || target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT";
+}
 
 function trapTab(e: KeyboardEvent) {
   const dialog = document.querySelector<HTMLElement>("[data-desk-dialog]");

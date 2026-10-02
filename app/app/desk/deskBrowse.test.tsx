@@ -34,16 +34,16 @@ describe("DeskFilterBar", () => {
 
   it("Projects: the toggle and every stage chip, with the URL's stage on", () => {
     const html = bar("projects", "&stage=raising");
-    for (const label of ["Projects", "Work", "All", "Planning", "Raising", "Forming team", "Working", "Released"]) {
+    for (const label of ["Passion", "Paid", "All", "Planning", "Raising", "Forming team", "Working", "Released"]) {
       expect(html).toContain(`>${label}<`);
     }
     expect(html).toMatch(/aria-pressed="true"[^>]*>Raising</);
     expect(html).toMatch(/aria-pressed="false"[^>]*>Planning</);
   });
 
-  it("Projects, Work: Work's own pills", () => {
+  it("Projects, Paid: paid work's own pills", () => {
     const html = bar("projects", "&tab=work&stage=gigs");
-    expect(html).toContain('placeholder="Search work"');
+    expect(html).toContain('placeholder="Search paid work"');
     expect(html).toMatch(/aria-pressed="true"[^>]*>Shows</);
     expect(html).toContain(">Roles on projects<");
     expect(html).not.toContain(">Planning<");

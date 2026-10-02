@@ -24,7 +24,7 @@ const COUNT_NOUN: Record<DeskView, readonly [string, string] | null> = {
   people: ["person", "people"],
   projects: ["project", "projects"],
   events: ["event", "events"],
-  fav: ["favorite", "favorites"],
+  shortlist: ["thing", "things"],
 };
 
 /** "13 people", "1 project": the count that sits beside a view's name. Empty

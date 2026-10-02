@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  PROJECT_VIEWS,
   SHOW_FILTERS,
   filterProjects,
   inView,
@@ -64,6 +65,16 @@ describe("matchesShow", () => {
   });
   it("lets everything through for All", () => {
     expect(matchesShow(passion(), "")).toBe(true);
+  });
+});
+
+describe("PROJECT_VIEWS", () => {
+  it("names the two views Passion and Paid, the Shortlist's words", () => {
+    expect(PROJECT_VIEWS.map((v) => v.label)).toEqual(["Passion", "Paid"]);
+  });
+  it("keeps the old values, so ?view=work links still land", () => {
+    expect(PROJECT_VIEWS.map((v) => v.value)).toEqual(["projects", "work"]);
+    expect(readProjectsView({ view: PROJECT_VIEWS[1].value }).view).toBe("work");
   });
 });
 

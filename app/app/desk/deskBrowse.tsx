@@ -358,7 +358,8 @@ const PILL_OFF = "border-[#333] bg-transparent text-[#D6D6D6] hover:bg-[#2a2a2a]
 // The palette button's look: a yellow outline, an 8% yellow fill, yellow text.
 const PILL_ON = "border-[#FFE066] bg-[rgba(255,224,102,0.08)] text-[#FFE066]";
 
-function pillClass(on: boolean) {
+/** A 36px chip, on or off. The Shortlist's chips are these too. */
+export function pillClass(on: boolean) {
   return `${PILL} ${on ? PILL_ON : PILL_OFF}`;
 }
 
@@ -440,7 +441,7 @@ export function DeskFilterBar({ view }: { view: BrowseView }) {
       : chips.map((_, i) => i);
   const folded = chips.filter((_, i) => !shown.includes(i));
 
-  const placeholder = view === "projects" ? (tab === "work" ? "Search work" : "Search projects") : view === "people" ? "Search people" : "Search events";
+  const placeholder = view === "projects" ? (tab === "work" ? "Search paid work" : "Search projects") : view === "people" ? "Search people" : "Search events";
 
   return (
     <div

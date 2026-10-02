@@ -30,8 +30,8 @@ describe("countLabel", () => {
     expect(countLabel("people", 1)).toBe("1 person");
     expect(countLabel("events", 4)).toBe("4 events");
     expect(countLabel("projects", 1)).toBe("1 project");
-    expect(countLabel("fav", 2)).toBe("2 favorites");
-    expect(countLabel("fav", 1)).toBe("1 favorite");
+    expect(countLabel("shortlist", 39)).toBe("39 things");
+    expect(countLabel("shortlist", 1)).toBe("1 thing");
     expect(countLabel("today", 3)).toBe("3 things");
   });
 

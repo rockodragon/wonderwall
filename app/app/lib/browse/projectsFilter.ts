@@ -8,13 +8,15 @@ import { isStage, resolveStage, stageLabel, type Stage } from "../stage";
 import { richDocPlainText } from "../richText";
 
 // Two views, split by what the VISITOR wants rather than how the poster
-// filed it (docs/features/project-ia.md): Projects is things to back or
-// join; Work is things to get hired for — paid postings, gig dates, and the
-// open roles on projects. A project with open roles shows in both.
+// filed it (docs/features/project-ia.md): Passion is things to back or
+// join; Paid is things to get hired for — paid postings, gig dates, and the
+// open roles on projects. A project with open roles shows in both. The
+// labels are the Shortlist's words (docs/handoff/favorites-redesign/README.md,
+// decision 8); the values are the old ones, so links keep working.
 export type ProjectsView = "projects" | "work";
 export const PROJECT_VIEWS: { label: string; value: ProjectsView }[] = [
-  { label: "Projects", value: "projects" },
-  { label: "Work", value: "work" },
+  { label: "Passion", value: "projects" },
+  { label: "Paid", value: "work" },
 ];
 
 // The stages a visitor browsing for something to back or join cares about —

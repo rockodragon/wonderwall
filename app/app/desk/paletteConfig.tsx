@@ -1,20 +1,23 @@
 // What the palette holds: its tools, and the rows in each tool's stack. The
-// copy here is exact (docs/features/desktop-desk-palette.md, "Stacks"). Palette.tsx
-// draws it; nothing in this file touches the DOM.
+// copy here is exact (docs/features/desktop-desk-palette.md, "Stacks", and
+// docs/handoff/favorites-redesign/README.md, "Palette"). Palette.tsx draws it;
+// nothing in this file touches the DOM.
 
 import type { ReactNode } from "react";
 import {
+  BookmarkSimple,
   CalendarBlank,
   PaintBrush,
   PersonSimple,
   SignIn,
-  SquaresFour,
   Sun,
 } from "@phosphor-icons/react";
+import type { ShortlistSummary } from "../lib/shortlist/model";
 import {
   COMMUNITY_LABEL,
   deskHref,
   otherCommunity,
+  shortlistHref,
   type DeskCommunity,
 } from "./deskState";
 import { badgeText, type ToolId } from "./paletteLogic";
@@ -30,6 +33,8 @@ export interface PaletteItem {
   onSelect?: () => "keep" | void;
   /** Right-aligned, muted (the unread count on "Read messages"). */
   trailing?: string;
+  /** The trailing text in the accent instead: "4 need you". */
+  trailingAccent?: boolean;
 }
 
 export interface PaletteTool {
@@ -46,11 +51,52 @@ export interface PaletteTool {
   items: PaletteItem[];
   /** Unread count chip on the tool. */
   badge?: number;
+  /** A small accent dot: something on the Shortlist needs you. A dot, not a
+   *  number, so the count chip only ever means messages. */
+  dot?: boolean;
 }
 
 // ——————————————————————————————————————————————————————————————
-// Signed in: Desk, Today, People, Projects, Events, Profile
+// Signed in: Today, People, Projects, Events, Shortlist, Profile
 // ——————————————————————————————————————————————————————————————
+
+/** What the palette shows of the Shortlist (useShortlist): how many things
+ *  need you, and each area's live count. */
+export interface PaletteShortlist {
+  needs: number;
+  summary: ShortlistSummary;
+}
+
+// The Shortlist stack's area rows, in the Shortlist's own order.
+const SHORTLIST_AREA_ROWS = [
+  { area: "projects", label: "Projects" },
+  { area: "events", label: "Events" },
+  { area: "people", label: "People I follow" },
+] as const;
+
+/** "1 needs you", "4 need you". */
+export function needYouText(n: number): string {
+  return `${n} ${n === 1 ? "needs" : "need"} you`;
+}
+
+/** The Shortlist stack. The counts wait for the data; the rows don't. */
+function shortlistItems(s: PaletteShortlist | null): PaletteItem[] {
+  return [
+    {
+      id: "all",
+      label: "See my shortlist",
+      to: shortlistHref(),
+      trailing: s && s.needs > 0 ? needYouText(s.needs) : undefined,
+      trailingAccent: true,
+    },
+    ...SHORTLIST_AREA_ROWS.map(({ area, label }) => ({
+      id: area,
+      label,
+      to: shortlistHref(area),
+      trailing: s ? String(s.summary[area].count) : undefined,
+    })),
+  ];
+}
 
 export interface SignedInDeps {
   profileName?: string | null;
@@ -60,6 +106,8 @@ export interface SignedInDeps {
   badgeCount: number;
   community: DeskCommunity;
   active: ToolId | null;
+  /** Null while it loads: the stack shows no counts and the tool no dot. */
+  shortlist: PaletteShortlist | null;
   /** The invite row: its label, and what selecting it does. */
   invite: { label: string; onSelect: () => "keep" | void };
   onSwitchCommunity: (next: DeskCommunity) => void;
@@ -93,15 +141,6 @@ export function buildSignedInTools(d: SignedInDeps): PaletteTool[] {
   profileItems.push({ id: "signout", label: "Sign out", onSelect: d.onSignOut });
 
   return [
-    {
-      id: "desk",
-      label: "Desk",
-      header: "Desk",
-      icon: <SquaresFour size={TOOL_ICON_SIZE} weight="regular" />,
-      active: isActive("desk"),
-      to: deskHref("all"),
-      items: [{ id: "all", label: "Show everything", to: deskHref("all") }],
-    },
     {
       id: "today",
       label: "Today",
@@ -147,8 +186,19 @@ export function buildSignedInTools(d: SignedInDeps): PaletteTool[] {
       items: [
         { id: "browse", label: "Browse events", to: deskHref("events") },
         { id: "host", label: "Host an event", to: deskHref("events", null, "event") },
-        { id: "fav", label: "See my favorites", to: deskHref("fav") },
       ],
+    },
+    // In the slot the Desk tool had: the main button already does what Desk
+    // did, and a seventh tool would crowd the arc.
+    {
+      id: "shortlist",
+      label: "Shortlist",
+      header: "Shortlist",
+      icon: <BookmarkSimple size={TOOL_ICON_SIZE} weight="regular" />,
+      active: isActive("shortlist"),
+      to: shortlistHref(),
+      items: shortlistItems(d.shortlist),
+      dot: (d.shortlist?.needs ?? 0) > 0,
     },
     {
       id: "profile",

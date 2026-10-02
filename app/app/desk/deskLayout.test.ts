@@ -289,6 +289,42 @@ describe("row (Today)", () => {
     expect(layoutDeskFull({ cards: FULL_DESK, view: "all", vw: 1440, vh: 900 }).height).toBe(900);
   });
 
+  it("stays where it was when Needs you leaves it room", () => {
+    const s = deskScale(1440, 900);
+    const places = layoutDesk({ cards: today, view: "today", vw: 1440, vh: 900, rowTop: 120 });
+    expect(places.get("event:1")!.y).toBeCloseTo(230 * s, 5);
+  });
+
+  it("moves down under Needs you at full size when the window has room", () => {
+    const s = deskScale(1440, 900);
+    const { places, height } = layoutDeskFull({ cards: today, view: "today", vw: 1440, vh: 900, rowTop: 420 });
+    const tall = places.get("event:1")!;
+    expect(tall.y).toBe(420);
+    expect(tall.h).toBeCloseTo(310 * s, 5);
+    expect(height).toBe(900);
+  });
+
+  it("shrinks under Needs you to stay in the window, keeping its proportions", () => {
+    const { places, height } = layoutDeskFull({ cards: today, view: "today", vw: 1280, vh: 720, rowTop: 430 });
+    const tall = places.get("event:1")!;
+    expect(tall.y).toBe(430);
+    expect(tall.y + tall.h).toBeCloseTo(720 - 48, 5);
+    expect(tall.w / tall.h).toBeCloseTo(230 / 310, 5);
+    expect(height).toBe(720);
+  });
+
+  it("stops at half size, and then the page grows to hold the row", () => {
+    const s = deskScale(1280, 720);
+    const { places, height } = layoutDeskFull({ cards: today, view: "today", vw: 1280, vh: 720, rowTop: 600 });
+    const tall = places.get("event:1")!;
+    expect(tall.h).toBeCloseTo(310 * s * 0.5, 5);
+    expect(height).toBeCloseTo(600 + tall.h + 48, 5);
+    expect(height).toBeGreaterThan(720);
+    // Cards that aren't in the view still wait below the page.
+    const more = layoutDeskFull({ cards: [...today, card("project:9", ["projects"])], view: "today", vw: 1280, vh: 720, rowTop: 600 });
+    expect(more.places.get("project:9")!.y).toBeCloseTo(more.height + 80, 5);
+  });
+
   it("drops cards that aren't in the view straight down, tilted three times over", () => {
     const places = layoutDesk({ cards: FULL_DESK, view: "today", vw: 1440, vh: 900 });
     const home = layoutDesk({ cards: FULL_DESK, view: "all", vw: 1440, vh: 900 });
@@ -309,16 +345,17 @@ describe("row (Today)", () => {
   });
 });
 
-describe("grid (People, Projects, Events, Favorites)", () => {
-  const GRID_VIEWS: DeskView[] = ["people", "projects", "events", "fav"];
+describe("grid (People, Projects, Events)", () => {
+  const GRID_VIEWS: DeskView[] = ["people", "projects", "events"];
   // Cards that belong to every grid view.
   const many = (n: number, views: DeskView[] = GRID_VIEWS): LayoutCard[] =>
     Array.from({ length: n }, (_, i) => card(`person:${i}`, views));
 
-  it("is the layout for browse views and favorites, not for home or Today", () => {
+  it("is the layout for browse views, not for home, Today or the Shortlist", () => {
     for (const v of GRID_VIEWS) expect(isGridView(v), v).toBe(true);
     expect(isGridView("all")).toBe(false);
     expect(isGridView("today")).toBe(false);
+    expect(isGridView("shortlist")).toBe(false);
   });
 
   it.each([
@@ -450,6 +487,24 @@ describe("grid (People, Projects, Events, Favorites)", () => {
   it("has nothing on show for an empty view", () => {
     const places = layoutDesk({ cards: FULL_DESK, view: "people", vw: 1440, vh: 900 });
     for (const p of places.values()) expect(p.opacity).toBe(0);
+  });
+});
+
+describe("the Shortlist", () => {
+  it("lays out no cards: its rows are in the page", () => {
+    const places = layoutDesk({ cards: FULL_DESK, view: "shortlist", vw: 1440, vh: 900, shown: [] });
+    for (const p of places.values()) expect(p.opacity).toBe(0);
+  });
+
+  it("opens its card in the window, wherever the rows were scrolled to", () => {
+    const cards = [...FULL_DESK, card("role:r1", [])];
+    const places = layoutDesk({ cards, view: "shortlist", openId: "role:r1", vw: 1440, vh: 900, scrollTop: 2000, shown: [] });
+    expect(places.get("role:r1")).toMatchObject({ x: OPEN_INSET, y: 2000 + OPEN_INSET, opacity: 1, z: Z_OPEN });
+  });
+
+  it("drops what isn't on show below the window, not up to the top of the page", () => {
+    const places = layoutDesk({ cards: FULL_DESK, view: "shortlist", vw: 1440, vh: 900, scrollTop: 2000, shown: [] });
+    for (const p of places.values()) expect(p.y).toBe(2000 + 900 + 80);
   });
 });
 

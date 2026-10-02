@@ -16,6 +16,7 @@ import { useLocation, useNavigate } from "react-router";
 import { canCopyInvite, inviteRowLabel } from "../components/InviteCTA";
 import { useReducedMotion } from "../hooks/useMediaQuery";
 import { initialsOf } from "../lib/initials";
+import { useShortlist } from "../lib/shortlist/useShortlist";
 import { useInviteLink } from "../lib/useInviteLink";
 import { useSignOut } from "../lib/useSignOut";
 import { setDeskCommunity, useDeskCommunity, deskHref } from "./deskState";
@@ -23,6 +24,7 @@ import { buildSignedInTools, buildSignedOutTools, type PaletteTool } from "./pal
 import {
   Avatar,
   CountChip,
+  Dot,
   MAIN_RING,
   MAIN_WASH,
   StackPanel,
@@ -74,6 +76,9 @@ function SignedInPalette({
   const community = useDeskCommunity();
   // The sidebar's invite row used this same hook; the palette replaces it.
   const invite = useInviteLink("palette");
+  // Signed in only: this branch is the only one that subscribes. The one
+  // shared hook, so the dot and the counts agree with the Shortlist itself.
+  const shortlist = useShortlist();
 
   const tools = buildSignedInTools({
     profileName: profile?.name,
@@ -83,6 +88,8 @@ function SignedInPalette({
     badgeCount,
     community,
     active: activeToolId(location.pathname, location.search),
+    shortlist:
+      shortlist.status === "ready" ? { needs: shortlist.needs.length, summary: shortlist.summary } : null,
     invite: {
       label: inviteRowLabel(invite.copied),
       onSelect: () => {
@@ -103,7 +110,12 @@ function SignedInPalette({
   });
 
   return (
-    <PaletteShell tools={tools} badge={badgeCount} onMain={() => navigate(deskHref("all"))} />
+    <PaletteShell
+      tools={tools}
+      badge={badgeCount}
+      mainTitle="Desk"
+      onMain={() => navigate(deskHref("all"))}
+    />
   );
 }
 
@@ -120,11 +132,14 @@ function SignedOutPalette() {
 function PaletteShell({
   tools,
   badge,
+  mainTitle,
   onMain,
 }: {
   tools: PaletteTool[];
   /** Unread count for the main button. */
   badge: number;
+  /** The main button's tooltip: signed in, it is the way back to the desk. */
+  mainTitle?: string;
   onMain: () => void;
 }) {
   const reduced = useReducedMotion();
@@ -166,6 +181,7 @@ function PaletteShell({
           ref={pal.mainRef}
           type="button"
           aria-label="Navigation"
+          title={mainTitle}
           aria-expanded={open}
           aria-describedby={mainBadge ? "desk-pal-unread" : undefined}
           data-pal-hit
@@ -265,6 +281,7 @@ function PaletteShell({
               >
                 {tool.avatar ? <Avatar {...tool.avatar} /> : tool.icon}
                 {hasBadge && <CountChip text={badgeText(tool.badge ?? 0)} offset={-6} />}
+                {tool.dot && <Dot />}
               </button>
 
               {stackOpen && (

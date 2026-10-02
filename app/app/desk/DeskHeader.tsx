@@ -6,6 +6,10 @@
 //   Browse views the filter row under that, on the same 48px left edge, with
 //                the view's one create verb at the row's right end. The title
 //                scrolls away; the row pins to the top on a 92% band.
+//   Shortlist    its own crumb, title and count, and in an area its chips as
+//                the row that pins (ShortlistView.tsx hands them in as parts)
+//   Today        Needs you's rows under the title, so the card row starts
+//                below them
 //
 // It renders two siblings, not a wrapper: the filter row is `position:
 // sticky`, and a sticky row stays pinned only while its parent is as tall as
@@ -13,7 +17,7 @@
 //
 // Hooks stay above every return.
 
-import { useLayoutEffect, useRef } from "react";
+import { useLayoutEffect, useRef, type ReactNode } from "react";
 import { Link } from "react-router";
 import { canCopyInvite, inviteRowLabel } from "../components/InviteCTA";
 import { useInviteLink } from "../lib/useInviteLink";
@@ -36,6 +40,21 @@ export type HeaderSize = {
   total: number;
 };
 
+/** A view that brings its own header parts. Each one left out keeps the
+ *  view's usual. */
+export type HeaderParts = {
+  /** After the community in the mono line: "THE GARDEN · SHORTLIST". */
+  crumb?: ReactNode;
+  /** In place of the view's name. */
+  title?: string;
+  /** In place of countLabel(view, count); null for none. */
+  count?: string | null;
+  /** Under the title, scrolling away with it. */
+  below?: ReactNode;
+  /** The row that pins, in place of a browse view's filter row. */
+  row?: ReactNode;
+};
+
 export function DeskHeader({
   view,
   community,
@@ -45,6 +64,7 @@ export function DeskHeader({
   stuck,
   inert,
   onMeasure,
+  parts,
 }: {
   view: DeskView;
   community: DeskCommunity;
@@ -59,6 +79,7 @@ export function DeskHeader({
   /** A card is open: nothing here can be reached. */
   inert: boolean;
   onMeasure: (size: HeaderSize) => void;
+  parts?: HeaderParts;
 }) {
   const titleRef = useRef<HTMLDivElement>(null);
   const rowRef = useRef<HTMLDivElement>(null);
@@ -69,6 +90,8 @@ export function DeskHeader({
 
   const home = view === "all";
   const browse = isBrowseView(view);
+  const pinned = browse || !!parts?.row;
+  const countText = parts?.count !== undefined ? parts.count : count !== null ? countLabel(view, count) : null;
 
   // Measured before paint, then kept current: a filter row that wraps at a
   // narrow window is taller, and the grid starts below whatever it is.
@@ -84,7 +107,7 @@ export function DeskHeader({
     if (title) ro.observe(title);
     if (row) ro.observe(row);
     return () => ro.disconnect();
-  }, [home, browse]);
+  }, [home, pinned]);
 
   const mono = { ...monoLabel(12, "0.24em"), margin: 0, color: DESK.muted } as const;
 
@@ -101,21 +124,25 @@ export function DeskHeader({
         <div
           ref={titleRef}
           inert={inert}
-          style={{ position: "relative", padding: `44px ${side}px ${browse ? 14 : 24}px`, display: "flex", flexDirection: "column", gap: 10 }}
+          style={{ position: "relative", padding: `44px ${side}px ${pinned ? 14 : 24}px`, display: "flex", flexDirection: "column", gap: 10 }}
         >
-          <p style={mono}>{COMMUNITY_LABEL[community]}</p>
+          <p style={mono}>
+            {COMMUNITY_LABEL[community]}
+            {parts?.crumb && <> · {parts.crumb}</>}
+          </p>
           <h1 style={{ ...titleStyle, display: "flex", alignItems: "baseline", gap: 14 }}>
-            <span>{DESK_VIEW_LABEL[view]}</span>
-            {count !== null && (
+            <span>{parts?.title ?? DESK_VIEW_LABEL[view]}</span>
+            {countText !== null && (
               <span role="status" style={{ fontSize: 16, fontWeight: 400, letterSpacing: 0, color: DESK.muted }}>
-                {countLabel(view, count)}
+                {countText}
               </span>
             )}
           </h1>
+          {parts?.below}
         </div>
       )}
 
-      {browse && (
+      {pinned && (
         <div
           ref={rowRef}
           inert={inert}
@@ -134,10 +161,16 @@ export function DeskHeader({
             transition: "background-color 200ms ease, border-color 200ms ease",
           }}
         >
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <DeskFilterBar view={view} />
-          </div>
-          <CreateVerb view={view} />
+          {browse ? (
+            <>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <DeskFilterBar view={view} />
+              </div>
+              <CreateVerb view={view} />
+            </>
+          ) : (
+            <div style={{ flex: 1, minWidth: 0 }}>{parts?.row}</div>
+          )}
         </div>
       )}
     </>
