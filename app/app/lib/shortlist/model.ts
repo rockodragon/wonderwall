@@ -1,23 +1,28 @@
-// The Shortlist's groups, counts and next steps: what the overview tiles, an
-// area's rows and the palette stack show (docs/handoff/favorites-redesign/
+// The Shortlist's groups, counts, previews and next steps: what the overview
+// tiles, an area's rows and the palette stack show (docs/handoff/favorites-redesign/
 // README.md, "The model" and "Three levels"). Pure functions of (data, now),
 // like needsYou beside it.
 //
 // Rows group by one thing, the member's relationship to the item, so a row
 // lands in exactly one group: the folded group once it's over, else Needs you
 // (This week, for events) when needsYou picked it, else its relation's own
-// group. Labels, folding, breakdown nouns and order all come from
-// SHORTLIST_GROUPS, and the counts read the same placement, so a row counts
-// once and only while it's live.
+// group. Labels, folding and order all come from SHORTLIST_GROUPS, and the
+// counts read the same placement, so a row counts once and only while it's
+// live.
+//
+// summary() is what the overview's tiles say: each area's count and a preview
+// of what's in it, by name, read by the desk's tiles and the phone's alike.
 
-import { calendarDay, calendarDayEnd, shortDay } from "../dates";
+import { dayWord, timeLabel } from "../dates";
 import { firstNameOf } from "../names";
 import { budgetAmountLabel, budgetKindLabel, type BudgetDeclaration } from "../budgetLabel";
 import { workKind } from "./kind";
 import { groupFollows } from "../groupFollows";
-import { closesAt, hasEnded, isAppearance, needsYou, needsYouArea, needsYouKey, type NeedsYouItem } from "./needsYou";
+import { closesAt, hasEnded, needsYou, needsYouArea, needsYouKey, type NeedsYouItem } from "./needsYou";
 import type {
+  EventRelation,
   ProjectKind,
+  ProjectRelation,
   ShortlistData,
   ShortlistEvent,
   ShortlistFollow,
@@ -40,9 +45,6 @@ export interface GroupConfig<Key extends string, Row extends { relation: string 
   needsYou?: true;
   /** The relation whose rows land here, unless Needs you or the calendar moves them. */
   relation: Row["relation"] | null;
-  /** The tile's breakdown noun, one and many. Counted by relation, so an
-   *  invite in Needs you is still "1 invite". */
-  noun: readonly [one: string, many: string] | null;
   /** Row order. The Needs you group keeps needsYou's order instead. */
   order?: (a: Row, b: Row) => number;
   /** Splits into month buckets past MONTHS_AFTER rows. */
@@ -65,25 +67,44 @@ function closingFirst(a: ShortlistProject, b: ShortlistProject): number {
  *  (peopleGroups). */
 export const SHORTLIST_GROUPS = {
   projects: [
-    { key: "needs", label: "Needs you", folded: false, needsYou: true, relation: "invited", noun: ["invite", "invites"] },
-    { key: "leading", label: "Leading", folded: false, relation: "leading", noun: ["leading", "leading"], order: newestFirst },
-    { key: "team", label: "On the team", folded: false, relation: "team", noun: ["on the team", "on the team"], order: newestFirst },
-    { key: "waiting", label: "Waiting to hear", folded: false, relation: "waiting", noun: ["waiting", "waiting"], order: newestFirst },
-    { key: "backing", label: "Backing", folded: false, relation: "backing", noun: ["backing", "backing"], order: newestFirst },
-    { key: "saved", label: "Saved", folded: false, relation: "saved", noun: ["saved", "saved"], order: closingFirst },
-    { key: "closed", label: "Closed", folded: true, relation: "closed", noun: null, order: newestFirst },
+    { key: "needs", label: "Needs you", folded: false, needsYou: true, relation: "invited" },
+    { key: "leading", label: "Leading", folded: false, relation: "leading", order: newestFirst },
+    { key: "team", label: "On the team", folded: false, relation: "team", order: newestFirst },
+    { key: "waiting", label: "Waiting to hear", folded: false, relation: "waiting", order: newestFirst },
+    { key: "backing", label: "Backing", folded: false, relation: "backing", order: newestFirst },
+    { key: "saved", label: "Saved", folded: false, relation: "saved", order: closingFirst },
+    { key: "closed", label: "Closed", folded: true, relation: "closed", order: newestFirst },
   ],
   events: [
-    { key: "week", label: "This week", folded: false, needsYou: true, relation: null, noun: null },
-    { key: "hosting", label: "Hosting", folded: false, relation: "hosting", noun: ["hosting", "hosting"], order: soonestFirst },
-    { key: "going", label: "Going", folded: false, relation: "going", noun: ["going", "going"], order: soonestFirst },
-    { key: "requested", label: "Requested", folded: false, relation: "requested", noun: ["requested", "requested"], order: soonestFirst },
-    { key: "saved", label: "Saved", folded: false, relation: "saved", noun: ["saved", "saved"], order: soonestFirst, byMonth: true },
-    { key: "past", label: "Past", folded: true, relation: null, noun: null, order: latestFirst },
+    { key: "week", label: "This week", folded: false, needsYou: true, relation: null },
+    { key: "hosting", label: "Hosting", folded: false, relation: "hosting", order: soonestFirst },
+    { key: "going", label: "Going", folded: false, relation: "going", order: soonestFirst },
+    { key: "requested", label: "Requested", folded: false, relation: "requested", order: soonestFirst },
+    { key: "saved", label: "Saved", folded: false, relation: "saved", order: soonestFirst, byMonth: true },
+    { key: "past", label: "Past", folded: true, relation: null, order: latestFirst },
   ],
 } as const satisfies {
   projects: readonly GroupConfig<string, ShortlistProject>[];
   events: readonly GroupConfig<string, ShortlistEvent>[];
+};
+
+/** What the member is to an item, in a word: a tile's preview and an event
+ *  row's second line say it. By relation, so an invite in Needs you is still
+ *  "Invited". */
+export const PROJECT_WORD: Record<ProjectRelation, string> = {
+  invited: "Invited",
+  leading: "Leading",
+  team: "On the team",
+  waiting: "Waiting",
+  backing: "Backing",
+  saved: "Saved",
+  closed: "Closed",
+};
+export const EVENT_WORD: Record<EventRelation, string> = {
+  hosting: "Hosting",
+  going: "Going",
+  requested: "Requested",
+  saved: "Saved",
 };
 
 export type ProjectGroupKey = (typeof SHORTLIST_GROUPS.projects)[number]["key"];
@@ -132,19 +153,44 @@ export interface AreaSummary {
   count: number;
   /** This area's Needs you rows, requests included: the tile's flag and the chip's dot. */
   needsYou: number;
-  /** The breakdown line, in group order: "1 invite", "2 leading". The UI joins them with " · ". */
-  parts: string[];
-  /** The tile's one next step, or null when there's none. */
-  next: string | null;
+}
+
+/** What a tile says of Projects or Events: up to PREVIEW_LINES lines, then
+ *  how many more there are. */
+export interface LinesPreview {
+  items: PreviewLine[];
+  more: number;
+}
+
+/** One line in a Projects or Events tile, "Zine Workshop · Hosting · Today
+ *  7PM": the item's name, then what to know of it. */
+export interface PreviewLine {
+  key: string;
+  name: string;
+  note: string;
+}
+
+/** What the People tile says: the faces of the PREVIEW_FACES people followed
+ *  most recently, and their names, "Kofi, Grace, Jo and 11 more". */
+export interface FacesPreview {
+  items: { profileId: string; name: string; imageUrl: string | null }[];
+  line: string;
 }
 
 export interface ShortlistSummary {
   /** Live items across the three areas: the header and the palette stack. */
   total: number;
-  projects: AreaSummary & { kinds: Record<ProjectKind, number> };
-  events: AreaSummary;
-  people: AreaSummary;
+  projects: AreaSummary & { kinds: Record<ProjectKind, number>; preview: LinesPreview };
+  events: AreaSummary & { preview: LinesPreview };
+  people: AreaSummary & { preview: FacesPreview };
 }
+
+/** A Projects or Events tile names this many items, then "and N more". */
+export const PREVIEW_LINES = 3;
+
+/** The People tile shows this many faces, and names this many of them. */
+export const PREVIEW_FACES = 5;
+export const PREVIEW_NAMES = 3;
 
 /** An area's live count: Projects narrowed by kind when a kind is on. The
  *  header's count on the desk and the phone. */
@@ -190,17 +236,9 @@ function toGroup<Key extends string, Row extends { relation: string }, Item>(
   return { key: group.key, label: group.label, folded: group.folded, items: group.needsYou ? needs : rows.map(item) };
 }
 
-function plural(n: number, [one, many]: readonly [string, string]): string {
-  return `${n} ${n === 1 ? one : many}`;
-}
-
-/** "1 invite · 2 leading · …": live rows by relation, in group order, zeros left out. */
-function breakdown<Key extends string, Row extends { relation: string }>(placed: Placed<Key, Row>[]): string[] {
-  const live = liveRows(placed);
-  return placed.flatMap(({ group: { noun, relation } }) => {
-    const n = noun ? live.filter((row) => row.relation === relation).length : 0;
-    return noun && n ? [plural(n, noun)] : [];
-  });
+/** The first `n` of a list, as lines, and how many are left out. */
+function firstOf<T>(items: T[], n: number, line: (item: T) => PreviewLine): LinesPreview {
+  return { items: items.slice(0, n).map(line), more: Math.max(0, items.length - n) };
 }
 
 function firstName(name: string): string {
@@ -238,23 +276,13 @@ export function projectGroups(data: ShortlistData, now: number, kind?: ProjectKi
     .filter((group) => group.items.length > 0);
 }
 
-// A reply owed comes first, in needsYou's order; else the next saved role to
-// close, even past Needs you's week.
-function projectNext(needs: ProjectNeed[], rows: ShortlistProject[], now: number): string | null {
-  const reply = needs.find((item) => item.rule === 1);
-  if (reply?.type === "project") {
-    return `Reply to ${firstName(reply.row.lead.name)} · ${reply.row.role?.title ?? reply.row.title}`;
-  }
-  if (reply?.type === "request") {
-    return `Review ${firstName(reply.request.person.name)}'s request · ${reply.request.on.title}`;
-  }
-  const isOpen = (row: ShortlistProject) => {
-    const at = closesAt(row);
-    return at !== null && calendarDayEnd(at) >= now;
-  };
-  const [closing] = rows.filter(isOpen).sort(closingFirst);
-  const at = closing && closesAt(closing);
-  return at ? `Apply by ${calendarDay(at)} · ${closing.role?.title ?? closing.title}` : null;
+// Needs you's project rows first, in needsYou's order (a request isn't a row:
+// it belongs to the project you lead), then the rest in group order. Named by
+// the project, whatever the role.
+function projectPreview(needs: ProjectNeed[], live: ShortlistProject[]): LinesPreview {
+  const urgent = needs.flatMap((item) => (item.type === "project" ? [item.row] : []));
+  const rows = [...urgent, ...live.filter((row) => !urgent.includes(row))];
+  return firstOf(rows, PREVIEW_LINES, (row) => ({ key: row.key, name: row.title, note: PROJECT_WORD[row.relation] }));
 }
 
 /** A row's pay in the app's own words: "$1,200", "$300–600", "Open to
@@ -311,10 +339,14 @@ export function eventGroups(data: ShortlistData, now: number): EventGroup[] {
     .filter((group) => group.items.length > 0);
 }
 
-function eventNext(events: ShortlistEvent[], now: number): string | null {
-  const [next] = events.filter((event) => isAppearance(event) && !isPast(event, now)).sort(soonestFirst);
-  if (!next) return null;
-  return `${next.relation === "hosting" ? "Hosting" : "Next"}: ${next.title}, ${shortDay(next.datetime)}`;
+// Soonest first, whatever the relation: "Zine Workshop · Hosting · Today 7PM".
+function eventPreview(live: ShortlistEvent[], now: number): LinesPreview {
+  const soonest = [...live].sort(soonestFirst);
+  return firstOf(soonest, PREVIEW_LINES, (event) => ({
+    key: event.key,
+    name: event.title,
+    note: `${EVENT_WORD[event.relation]} · ${dayWord(event.datetime, now)} ${timeLabel(event.datetime)}`,
+  }));
 }
 
 // ——————————————————————————————————————————————————————————————
@@ -332,17 +364,24 @@ export function peopleGroups(data: ShortlistData): PeopleGroups {
   return { grouped, groups: groups.map(({ label, items }) => ({ label, items: items.map((item) => item.profile) })) };
 }
 
-function peopleSummary(people: ShortlistFollow[]): AreaSummary {
-  if (people.length === 0) return { count: 0, needsYou: 0, parts: [], next: null };
-  // Threshold 1, so every follow lands in its interest group and the groups
-  // can be counted with groupFollows' own Other rule.
-  const interests = groupFollows(asFollows(people), 1).groups.length;
-  const latest = people.reduce((a, b) => (b.since > a.since ? b : a));
+/** "Kofi, Grace, Jo and 11 more"; with nobody left over, "Kofi, Grace and Jo". */
+function namesLine(names: string[], more: number): string {
+  if (more > 0) return `${names.join(", ")} and ${more} more`;
+  return names.length > 1 ? `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}` : (names[0] ?? "");
+}
+
+function peopleSummary(people: ShortlistFollow[]): ShortlistSummary["people"] {
+  const recent = [...people].sort((a, b) => b.since - a.since);
   return {
     count: people.length,
     needsYou: 0,
-    parts: [`Across ${plural(interests, ["interest", "interests"])}`],
-    next: `Latest: ${latest.name}, ${shortDay(latest.since)}`,
+    preview: {
+      items: recent.slice(0, PREVIEW_FACES).map(({ profileId, name, imageUrl }) => ({ profileId, name, imageUrl })),
+      line: namesLine(
+        recent.slice(0, PREVIEW_NAMES).map((person) => firstName(person.name)),
+        Math.max(0, people.length - PREVIEW_NAMES),
+      ),
+    },
   };
 }
 
@@ -350,7 +389,7 @@ function peopleSummary(people: ShortlistFollow[]): AreaSummary {
 // Summary
 // ——————————————————————————————————————————————————————————————
 
-/** The overview: each area's count, breakdown and next step, and the total. */
+/** The overview: each area's count and what's in it (the preview), and the total. */
 export function summary(data: ShortlistData, now: number): ShortlistSummary {
   const needs = needsYou(data, now);
   const needsIn = (area: "projects" | "events") => needs.filter((item) => needsYouArea(item) === area).length;
@@ -360,8 +399,7 @@ export function summary(data: ShortlistData, now: number): ShortlistSummary {
   const projects = {
     count: liveProjects.length,
     needsYou: needsIn("projects"),
-    parts: breakdown(projectsArea.placed),
-    next: projectNext(projectsArea.needs, data.projects, now),
+    preview: projectPreview(projectsArea.needs, liveProjects),
     kinds: {
       paid: liveProjects.filter((row) => workKind(row) === "paid").length,
       passion: liveProjects.filter((row) => workKind(row) === "passion").length,
@@ -369,11 +407,11 @@ export function summary(data: ShortlistData, now: number): ShortlistSummary {
   };
 
   const eventsArea = eventArea(data, needs, now);
+  const liveEvents = liveRows(eventsArea.placed);
   const events = {
-    count: liveRows(eventsArea.placed).length,
+    count: liveEvents.length,
     needsYou: needsIn("events"),
-    parts: breakdown(eventsArea.placed),
-    next: eventNext(data.events, now),
+    preview: eventPreview(liveEvents, now),
   };
 
   const people = peopleSummary(data.people);

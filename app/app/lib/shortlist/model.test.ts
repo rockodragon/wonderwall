@@ -263,7 +263,6 @@ describe("eventGroups", () => {
     });
     const s = summary(data, NOW);
     expect(s.events.count).toBe(3);
-    expect(s.events.next).toBe("Next: Workshop, on now, Oct 2");
   });
 
   it("isPast: cancelled, or ended by its end time, else its start", () => {
@@ -375,25 +374,20 @@ describe("summary — the spec's sample member", () => {
   it("Projects: 15 live, 8 paid · 7 passion", () => {
     expect(s.projects.count).toBe(15);
     expect(s.projects.kinds).toEqual({ paid: 8, passion: 7 });
-    expect(s.projects.parts).toEqual(["1 invite", "2 leading", "2 on the team", "3 waiting", "2 backing", "5 saved"]);
     expect(s.projects.needsYou).toBe(3);
-    expect(s.projects.next).toBe("Reply to Mara · Sound Mixer");
   });
 
   it("Events: 10 live", () => {
     expect(s.events.count).toBe(10);
-    expect(s.events.parts).toEqual(["1 hosting", "3 going", "1 requested", "5 saved"]);
     expect(s.events.needsYou).toBe(2);
-    expect(s.events.next).toBe("Next: Open Studio Night, Oct 3");
   });
 
   it("People: 14 follows", () => {
-    expect(s.people).toEqual({
-      count: 14,
-      needsYou: 0,
-      parts: ["Across 8 interests"],
-      next: "Latest: Kofi Mensah, Sep 30",
-    });
+    expect(s.people).toMatchObject({ count: 14, needsYou: 0 });
+  });
+
+  it("has no breakdown: the tiles say what's in each area, not how it divides", () => {
+    for (const area of [s.projects, s.events, s.people]) expect(area).not.toHaveProperty("parts");
   });
 
   it("totals the three areas", () => {
@@ -423,15 +417,11 @@ describe("areaCount", () => {
 });
 
 describe("summary — counts", () => {
-  const partsTotal = (parts: string[]) => parts.reduce((n, part) => n + Number.parseInt(part, 10), 0);
-
   it("counts each live row once, wherever it sits", () => {
     const data = sampleShortlist();
     const s = summary(data, NOW);
-    // The breakdown, the tile count and the groups agree, though the invite,
-    // Copy Editor and this week's events sit in Needs you / This week.
-    expect(partsTotal(s.projects.parts)).toBe(s.projects.count);
-    expect(partsTotal(s.events.parts)).toBe(s.events.count);
+    // The tile count and the groups agree, though the invite, Copy Editor and
+    // this week's events sit in Needs you / This week.
     const liveProjectRows = projectGroups(data, NOW)
       .filter((g) => !g.folded)
       .flatMap((g) => g.items)
@@ -475,114 +465,133 @@ describe("summary — counts", () => {
     });
     const s = summary(data, NOW);
     expect(s.projects.count).toBe(1);
-    expect(s.projects.parts).toEqual(["1 on the team"]);
+    expect(s.projects.preview.items.map((l) => l.name)).toEqual(["Live"]);
     expect(s.events.count).toBe(1);
-    expect(s.events.parts).toEqual(["1 going"]);
+    expect(s.events.preview.items.map((l) => l.name)).toEqual(["Tomorrow"]);
     expect(s.total).toBe(2);
   });
 
-  it("pluralizes", () => {
-    const data = shortlist({
-      projects: [project("invited", "A"), project("invited", "B")],
-      people: [follow("Mara Lin", ["Audio"], on(9, 10))],
-    });
-    const s = summary(data, NOW);
-    expect(s.projects.parts).toEqual(["2 invites"]);
-    expect(s.people.parts).toEqual(["Across 1 interest"]);
-  });
-
-  it("is all zeros for an empty shortlist", () => {
-    const empty = { count: 0, needsYou: 0, parts: [], next: null };
+  it("is all zeros, and says nothing, for an empty shortlist", () => {
+    const empty = { count: 0, needsYou: 0 };
+    const none = { items: [], more: 0 };
     expect(summary(shortlist(), NOW)).toEqual({
       total: 0,
-      projects: { ...empty, kinds: { paid: 0, passion: 0 } },
-      events: empty,
-      people: empty,
+      projects: { ...empty, kinds: { paid: 0, passion: 0 }, preview: none },
+      events: { ...empty, preview: none },
+      people: { ...empty, preview: { items: [], line: "" } },
     });
   });
 });
 
-describe("summary — next steps", () => {
-  it("Projects: a paid invite leads even when a passion invite is older", () => {
+describe("summary — tile previews", () => {
+  const s = summary(sampleShortlist(), NOW);
+  const lines = (preview: { items: { name: string; note: string }[] }) => preview.items.map((l) => `${l.name} · ${l.note}`);
+
+  it("Projects: three by name with their relation, then how many more", () => {
+    expect(lines(s.projects.preview)).toEqual([
+      "Hollow Creek Field Recordings · Invited",
+      "Psalms Zine, Vol. 3 · Saved",
+      "Photographer for the Advent Catalog · Leading",
+    ]);
+    // 15 live, three named.
+    expect(s.projects.preview.more).toBe(12);
+  });
+
+  it("Projects: Needs you's rows come first, then Leading, On the team, Waiting, Backing, Saved", () => {
     const data = shortlist({
       projects: [
-        project("invited", "Choir", {
-          role: role("Alto"),
-          lead: { name: "Grace Mun", profileId: "g" },
-          pay: VOLUNTEER,
-          since: NOW - 9 * DAY,
-        }),
-        project("invited", "Film", {
-          kind: "paid",
-          role: role("Editor"),
-          lead: { name: "Theo Okafor", profileId: "t" },
-          pay: amount(800),
-          since: NOW - DAY,
-        }),
+        project("saved", "Saved one", { since: on(9, 1) }),
+        project("backing", "Backed one"),
+        project("waiting", "Waited on"),
+        project("team", "Teamed"),
+        project("leading", "Led"),
+        project("invited", "Invited to", { role: role("Editor") }),
+        project("saved", "Closing role", { role: role("Copy Editor", day(10, 7)) }),
       ],
+      requests: [projectRequest("Hana Cho", "Led", { at: on(9, 30) })],
     });
-    expect(summary(data, NOW).projects.next).toBe("Reply to Theo · Editor");
+    const all = summary(data, NOW).projects.preview;
+    expect(lines(all)).toEqual(["Invited to · Invited", "Closing role · Saved", "Led · Leading"]);
+    expect(all.more).toBe(4);
+    // Past Needs you, the rest follow the groups' order.
+    const rest = summary({ ...data, projects: data.projects.filter((r) => r.relation !== "invited" && r.title !== "Closing role") }, NOW);
+    expect(rest.projects.preview.items.map((l) => l.name)).toEqual(["Led", "Teamed", "Waited on"]);
+    expect(rest.projects.preview.more).toBe(2);
   });
 
-  it("Projects: with no invite, review the oldest request", () => {
-    const data = without(sampleShortlist(), "invited");
-    data.requests.push(projectRequest("Ike Obi", "Hymns for the Commons", { at: on(10, 1) }));
-    expect(summary(data, NOW).projects.next).toBe("Review Hana's request · Hymns for the Commons");
-  });
-
-  it("Projects: with no reply owed, apply to the soonest saved role closing", () => {
-    const data = { ...without(sampleShortlist(), "invited"), requests: [] };
-    expect(summary(data, NOW).projects.next).toBe("Apply by Oct 7 · Copy Editor");
-  });
-
-  it("Projects: a role due today is open all day, and reads as its own date", () => {
+  it("Projects: names the project, not the role, and never lists a request as a row", () => {
     const data = shortlist({
-      projects: [
-        project("saved", "Yesterday", { role: role("Due yesterday", day(10, 1)) }),
-        project("saved", "Today", { role: role("Due today", day(10, 2)) }),
-      ],
+      projects: [project("team", "Neighborhood Portraits", { role: role("Photographer") })],
+      requests: [projectRequest("Hana Cho", "Hymns for the Commons")],
     });
-    expect(summary(data, NOW).projects.next).toBe("Apply by Oct 2 · Due today");
+    expect(lines(summary(data, NOW).projects.preview)).toEqual(["Neighborhood Portraits · On the team"]);
   });
 
-  it("Projects: looks past the week, and skips a role that already closed", () => {
-    const data = shortlist({
-      projects: [
-        project("saved", "Gone", { role: role("Closed yesterday", NOW - DAY) }),
-        project("saved", "Later", { role: role("Brand Designer", on(11, 1)) }),
-      ],
-    });
-    expect(summary(data, NOW).projects.next).toBe("Apply by Nov 1 · Brand Designer");
+  it("Events: three soonest first, with what you are to them and the day and time, then how many more", () => {
+    expect(lines(s.events.preview)).toEqual([
+      "Open Studio Night · Going · Tomorrow 7PM",
+      "Printmaking Workshop · Going · Thu 6PM",
+      "Zine Workshop · Hosting · Oct 15 6PM",
+    ]);
+    // 10 live, three named.
+    expect(s.events.preview.more).toBe(7);
   });
 
-  it("Projects: an event request doesn't make a project step", () => {
-    const data = shortlist({ requests: [eventRequest("Ike Obi", "Zine Workshop", NOW + DAY)] });
-    expect(summary(data, NOW).projects.next).toBeNull();
-  });
-
-  it("Events: the next going or hosting event, skipping past, cancelled and saved", () => {
+  it("Events: Today for one tonight, a date for one a week or more out; past and cancelled never show", () => {
     const data = shortlist({
       events: [
-        event("going", "Yesterday", NOW - DAY),
-        event("going", "Cancelled", NOW + DAY, { cancelled: true }),
-        event("saved", "Saved", NOW + DAY),
-        event("hosting", "Zine Workshop", on(10, 15, 18)),
-        event("going", "Harvest Supper", on(10, 17, 17)),
+        event("saved", "Later", on(11, 8, 20)),
+        event("requested", "Salon", on(10, 22, 19)),
+        event("hosting", "Tonight", on(10, 2, 19)),
+        event("going", "Over", on(9, 19, 18)),
+        event("going", "Called off", on(10, 3, 19), { cancelled: true }),
       ],
     });
-    expect(summary(data, NOW).events.next).toBe("Hosting: Zine Workshop, Oct 15");
+    const preview = summary(data, NOW).events.preview;
+    expect(lines(preview)).toEqual(["Tonight · Hosting · Today 7PM", "Salon · Requested · Oct 22 7PM", "Later · Saved · Nov 8 8PM"]);
+    expect(preview.more).toBe(0);
   });
 
-  it("Events: nothing to go to", () => {
-    const data = shortlist({ events: [event("saved", "Saved", NOW + DAY)] });
-    expect(summary(data, NOW).events.next).toBeNull();
-  });
-
-  it("People: the latest follow", () => {
-    const data = shortlist({
-      people: [follow("Mara Lin", ["Audio"], on(9, 10)), follow("Grace Mun", ["Music"], on(9, 28))],
+  it("names every item and says nothing more when there are three or fewer", () => {
+    const data = shortlist({ projects: [project("leading", "A"), project("team", "B")] });
+    expect(summary(data, NOW).projects.preview).toEqual({
+      items: [
+        { key: "leading:a", name: "A", note: "Leading" },
+        { key: "team:b", name: "B", note: "On the team" },
+      ],
+      more: 0,
     });
-    expect(summary(data, NOW).people.next).toBe("Latest: Grace Mun, Sep 28");
+  });
+
+  it("People: the five followed most recently, with their photos, and three first names", () => {
+    const { items, line } = s.people.preview;
+    expect(items.map((p) => p.name)).toEqual(["Kofi Mensah", "Grace Mun", "Mara Lin", "Jo Alvarez", "Esther Park"]);
+    expect(line).toBe("Kofi, Grace, Mara and 11 more");
+  });
+
+  it("People: carries each photo, or null where there's none, for the tile to fall back to initials", () => {
+    const data = shortlist({ people: [{ ...follow("Kofi Mensah", [], on(9, 30)), imageUrl: "https://img/kofi.jpg" }, follow("Grace Mun", [], on(9, 28))] });
+    expect(summary(data, NOW).people.preview.items).toEqual([
+      { profileId: "kofi-mensah", name: "Kofi Mensah", imageUrl: "https://img/kofi.jpg" },
+      { profileId: "grace-mun", name: "Grace Mun", imageUrl: null },
+    ]);
+  });
+
+  it("People: reads the names as a sentence, down to one", () => {
+    const line = (n: number) =>
+      summary(shortlist({ people: ["Kofi Mensah", "Grace Mun", "Mara Lin", "Jo Alvarez", "Esther Park"].slice(0, n).map((name, i) => follow(name, [], on(9, 30 - i))) }), NOW).people
+        .preview.line;
+    expect([1, 2, 3, 4, 5].map(line)).toEqual([
+      "Kofi",
+      "Kofi and Grace",
+      "Kofi, Grace and Mara",
+      "Kofi, Grace, Mara and 1 more",
+      "Kofi, Grace, Mara and 2 more",
+    ]);
+  });
+
+  it("People: a name that isn't set yet is said whole", () => {
+    expect(summary(shortlist({ people: [follow("New User", [], on(9, 30))] }), NOW).people.preview.line).toBe("New User");
   });
 });
 

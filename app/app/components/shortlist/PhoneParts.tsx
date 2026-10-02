@@ -37,6 +37,7 @@ export function PhoneRows({
   hot = false,
   past = false,
   withArea = false,
+  now,
   money,
 }: {
   items: readonly ShortlistItem[];
@@ -45,13 +46,15 @@ export function PhoneRows({
   past?: boolean;
   /** A list that mixes areas names each row's. */
   withArea?: boolean;
+  /** The clock, for "Today" and "Tomorrow". */
+  now: number;
   money: (cents: number) => string;
 }) {
   return (
     <ul data-shortlist-rows className="m-0 list-none border-t p-0" style={{ borderColor: "var(--app-hairline)" }}>
       {items.map((item) => {
         const id = cardIdOf(item);
-        const row = rowModel(item, { hot: typeof hot === "boolean" ? hot : hot.has(id), withArea, past, money });
+        const row = rowModel(item, { hot: typeof hot === "boolean" ? hot : hot.has(id), withArea, past, now, money });
         return (
           <li key={id} className="border-b" style={{ borderColor: "var(--app-hairline)" }}>
             <ShortlistRow variant="phone" row={row} href={itemHref(item)} />
@@ -66,10 +69,12 @@ export function PhoneRows({
  *  here ("expand"), or on the Shortlist ("link", Today's). */
 export function PhoneNeedsYou({
   needs,
+  now,
   money,
   more,
 }: {
   needs: readonly NeedsYouItem[];
+  now: number;
   money: (cents: number) => string;
   more: "expand" | "link";
 }) {
@@ -80,7 +85,7 @@ export function PhoneNeedsYou({
   return (
     <section aria-label="Needs you">
       <Kicker hot>Needs you · {needs.length}</Kicker>
-      <PhoneRows items={shown} hot withArea money={money} />
+      <PhoneRows items={shown} hot withArea now={now} money={money} />
       {rest > 0 &&
         (more === "link" ? (
           <Link to={favoritesHref()} className={MORE_CLASS} style={MORE_STYLE}>

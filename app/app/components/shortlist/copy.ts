@@ -38,3 +38,8 @@ export const FOLD_NOUN: Record<string, string> = { closed: "closed", past: "past
 export function needYouText(n: number): string {
   return `${n} ${n === 1 ? "needs" : "need"} you`;
 }
+
+/** "and 12 more →": what a tile's preview says after the items it names. */
+export function moreText(n: number): string {
+  return `and ${n} more →`;
+}

@@ -19,7 +19,7 @@ import { isStage, resolveStage, stageLabel } from "../lib/stage";
 import type { DeskCommunity, DeskCardId, DeskView } from "./deskState";
 import { hashSeed } from "../components/AbstractCover";
 import { actionTarget, updateCardId } from "../lib/updates";
-import { shortDay } from "../lib/dates";
+import { shortDay, timeLabel } from "../lib/dates";
 import type { ShortlistButton } from "./shortlistCards";
 
 // ——————————————————————————————————————————————————————————————
@@ -254,14 +254,6 @@ export function dateKicker(ms: number): string {
   return shortDay(ms).toUpperCase();
 }
 
-/** "7PM", "7:30PM" */
-export function timeLabel(ms: number): string {
-  return new Date(ms)
-    .toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
-    .replace(":00", "")
-    .replace(" ", "")
-    .toUpperCase();
-}
 
 function eventFoot(e: DeskEventInput): string | null {
   if (e.locationType === "online") return "Online";

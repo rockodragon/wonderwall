@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { renderToString } from "react-dom/server";
 import { MemoryRouter } from "react-router";
 import { formatMoney } from "../../garden/ui";
-import { NOW, event, follow, on, sampleShortlist, shortlist } from "../../lib/shortlist/fixtures";
+import { NOW, event, eventRequest, follow, on, sampleShortlist, shortlist } from "../../lib/shortlist/fixtures";
 import { summary } from "../../lib/shortlist/model";
 import { needsYou } from "../../lib/shortlist/needsYou";
 import type { ShortlistData, ProjectKind } from "../../lib/shortlist/types";
@@ -54,16 +54,27 @@ describe("the overview", () => {
     expect(html).toContain("Sound Mixer");
     expect(html).toContain("Hana Cho");
     expect(html).toContain("Open Studio Night");
-    expect(html).not.toContain("Printmaking Workshop");
+    // Above the tiles, which name Printmaking Workshop in Events.
+    expect(html.split("Projects · 15")[0]).not.toContain("Printmaking Workshop");
     expect(html).toContain("2 more →");
     expect(page(SAMPLE)).toMatch(/aria-expanded="false"[^>]*>2 more →/);
   });
 
-  it("sets three tiles: counts, breakdowns, the paid · passion split and a next step", () => {
+  it("sets three tiles that name what's in them: a small count in the kicker, three lines, 'and N more', a next step", () => {
     const html = text(page(SAMPLE));
-    expect(html).toContain("Projects 3 need you 15 1 invite · 2 leading · 2 on the team · 3 waiting · 2 backing · 5 saved 8 paid · 7 passion Reply to Mara · Sound Mixer");
-    expect(html).toContain("Events 2 need you 10");
-    expect(html).toContain("People 14 Across 8 interests Latest: Kofi Mensah, Sep 30");
+    expect(html).toContain(
+      "Projects · 15 3 need you Hollow Creek Field Recordings · Invited Psalms Zine, Vol. 3 · Saved Photographer for the Advent Catalog · Leading and 12 more →",
+    );
+    expect(html).toContain(
+      "Events · 10 2 need you Open Studio Night · Going · Tomorrow 7PM Printmaking Workshop · Going · Thu 6PM Zine Workshop · Hosting · Oct 15 6PM and 7 more →",
+    );
+    expect(html).toContain("People · 14 KM GM ML JA EP Kofi, Grace, Mara and 11 more");
+  });
+
+  it("drops the big numbers and the breakdown lines from the tiles", () => {
+    const html = page(SAMPLE);
+    expect(html).not.toContain("text-[44px]");
+    for (const gone of ["1 invite", "2 leading", "Across 8 interests", "8 paid · 7 passion", "1 hosting"]) expect(text(html)).not.toContain(gone);
   });
 
   it("links each tile to its area on the phone's own page", () => {
@@ -109,6 +120,30 @@ describe("the overview", () => {
   });
 });
 
+describe("Needs you says what's wanted, once", () => {
+  // Rick's case: a request asked Sep 28 about a Nov 6 event, and an event tonight.
+  const rick = ready(
+    shortlist({
+      events: [
+        event("hosting", "Songwriters Circle", on(10, 2, 19), { location: "The Press Room, 22 Elm St", goingCount: 12 }),
+        event("hosting", "Winter Open Mic", on(11, 6, 19)),
+      ],
+      requests: [eventRequest("Sam Ito", "Winter Open Mic", on(11, 6, 19), on(9, 28))],
+    }),
+  );
+  // The rows, before the tiles.
+  const needs = text(page(rick)).split("Projects Nothing saved yet")[0];
+
+  it("says what the request is about and what to do, with the date it asks about and when it asked apart", () => {
+    expect(needs).toContain("Sam Ito Wants to attend Winter Open Mic · Nov 6 Approve or decline asked Sep 28 Review");
+  });
+
+  it("says when to show up as a day word and a time, with the date left to the block and the time said once", () => {
+    expect(needs).toContain("OCT 2 Songwriters Circle You're hosting · The Press Room Today · 7PM 12 going");
+    expect(needs.match(/7PM/g)).toHaveLength(1);
+  });
+});
+
 describe("rows", () => {
   it("are links to the item's page, the whole row", () => {
     const html = page(SAMPLE);
@@ -127,8 +162,8 @@ describe("rows", () => {
 
   it("mark a Needs you row with the accent rule and say what it waits on", () => {
     const html = page(SAMPLE, "projects");
-    expect(text(html)).toContain("Invited · Sep 30 $1,200 Reply");
-    expect(text(html)).toContain("Closes Oct 7 $300 Apply");
+    expect(text(html)).toContain("Reply to invite $1,200 Reply");
+    expect(text(html)).toContain("Apply by Oct 7 Apply");
     expect(html).toContain("width:3px");
   });
 
@@ -239,7 +274,7 @@ describe("Needs you on Today", () => {
   function today(state: Ready, more: "expand" | "link" = "link") {
     return renderToString(
       <MemoryRouter initialEntries={["/today"]}>
-        <PhoneNeedsYou needs={state.needs} money={formatMoney} more={more} />
+        <PhoneNeedsYou needs={state.needs} now={state.now} money={formatMoney} more={more} />
       </MemoryRouter>,
     );
   }

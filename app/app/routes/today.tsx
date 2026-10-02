@@ -94,7 +94,7 @@ function TodayPage() {
           three and a way to the rest. Nothing at all when nothing needs you. */}
       {shortlist.status === "ready" && shortlist.needs.length > 0 && (
         <div className="mb-10">
-          <PhoneNeedsYou needs={shortlist.needs} money={formatMoney} more="link" />
+          <PhoneNeedsYou needs={shortlist.needs} now={shortlist.now} money={formatMoney} more="link" />
         </div>
       )}
 

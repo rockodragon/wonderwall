@@ -22,6 +22,7 @@ import { BROWSE_LABEL, EMPTY_AREA, FOLD_NOUN, WELCOME, emptyKind, needYouText } 
 import { AREA_LABEL, LIST_ALL_UNDER, areaGroups, cardIdOf, everything, type ListGroup, type ShortlistItem } from "./items";
 import { Kicker, MORE_CLASS, MORE_STYLE, PhoneNeedsYou, PhoneRows } from "./PhoneParts";
 import { KIND_LABEL } from "./rowModel";
+import { TilePreview } from "./TilePreview";
 
 type Ready = Extract<ShortlistState, { status: "ready" }>;
 
@@ -95,7 +96,7 @@ function Overview({ state, money }: { state: Ready; money: (cents: number) => st
   const hot = new Set(needs.map(cardIdOf));
   return (
     <div className="space-y-8">
-      <PhoneNeedsYou needs={needs} money={money} more="expand" />
+      <PhoneNeedsYou needs={needs} now={now} money={money} more="expand" />
       <div className="space-y-3">
         {SHORTLIST_AREAS.map((area) => (
           <Tile key={area} area={area} summary={summary} />
@@ -104,7 +105,7 @@ function Overview({ state, money }: { state: Ready; money: (cents: number) => st
       {listed.length > 0 && listed.length <= LIST_ALL_UNDER && (
         <section>
           <Kicker>Everything on your shortlist · {listed.length}</Kicker>
-          <PhoneRows items={listed} hot={hot} withArea money={money} />
+          <PhoneRows items={listed} hot={hot} withArea now={now} money={money} />
         </section>
       )}
     </div>
@@ -113,7 +114,7 @@ function Overview({ state, money }: { state: Ready; money: (cents: number) => st
 
 const TILE = "block rounded-xl border p-4 no-underline";
 
-/** One area: its count, what it's made of, and the next thing to do in it. */
+/** One area: what's in it, by name. */
 function Tile({ area, summary }: { area: ShortlistArea; summary: ShortlistSummary }) {
   const s: AreaSummary = summary[area];
   const name = AREA_LABEL[area];
@@ -133,10 +134,6 @@ function Tile({ area, summary }: { area: ShortlistArea; summary: ShortlistSummar
       </div>
     );
   }
-  const kinds =
-    area === "projects"
-      ? (["paid", "passion"] as const).flatMap((k) => (summary.projects.kinds[k] ? [`${summary.projects.kinds[k]} ${KIND_LABEL[k].toLowerCase()}`] : []))
-      : [];
   return (
     <Link
       to={favoritesHref(area)}
@@ -146,7 +143,7 @@ function Tile({ area, summary }: { area: ShortlistArea; summary: ShortlistSummar
     >
       <span className="flex min-h-[18px] items-center justify-between gap-2">
         <span className={SMALL_CAPS} style={{ ...MONO, color: "var(--app-text-dim)" }}>
-          {name}
+          {`${name} · ${s.count}`}
         </span>
         {s.needsYou > 0 && (
           <span className={`${SMALL_CAPS} inline-flex items-center gap-1.5 whitespace-nowrap`} style={{ ...MONO, color: "var(--app-accent-ink)" }}>
@@ -155,18 +152,9 @@ function Tile({ area, summary }: { area: ShortlistArea; summary: ShortlistSummar
           </span>
         )}
       </span>
-      <span className="mt-3 flex items-start gap-4">
-        <span className="text-[44px] font-medium leading-none tracking-[-0.03em] tabular-nums">{s.count}</span>
-        <span className="min-w-0 flex-1 pt-0.5 text-[13px] leading-[1.45]" style={{ color: "var(--app-text-muted)" }}>
-          {s.parts.join(" · ")}
-          {kinds.length > 0 && <span className="block">{kinds.join(" · ")}</span>}
-        </span>
+      <span className="mt-3 block">
+        <TilePreview area={area} summary={summary} variant="phone" />
       </span>
-      {s.next && (
-        <span className="mt-3 block truncate border-t pt-3 text-[13px]" style={{ borderColor: "var(--app-hairline)" }}>
-          {s.next}
-        </span>
-      )}
     </Link>
   );
 }
@@ -295,18 +283,18 @@ function AreaRows({
   return (
     <div>
       {groups.map((group) => (
-        <Group key={group.key} group={group} money={money} />
+        <Group key={group.key} group={group} now={state.now} money={money} />
       ))}
     </div>
   );
 }
 
-function Group({ group, money }: { group: ListGroup; money: (cents: number) => string }) {
+function Group({ group, now, money }: { group: ListGroup; now: number; money: (cents: number) => string }) {
   const [open, setOpen] = useState(false);
   const rowsId = useId();
   const n = group.items.length;
   const noun = FOLD_NOUN[group.key] ?? group.label.toLowerCase();
-  const rows = (items: ShortlistItem[]) => <PhoneRows items={items} hot={group.hot} past={group.folded} money={money} />;
+  const rows = (items: ShortlistItem[]) => <PhoneRows items={items} hot={group.hot} past={group.folded} now={now} money={money} />;
   let body: ReactNode;
   if (group.folded && !open) {
     body = null;

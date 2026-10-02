@@ -24,7 +24,7 @@ v2 supersedes the v1 Work/Projects split by pay and the "My projects" proposal.
 4. **Needs you also leads Today** (see Needs you on Today).
 5. **Three areas: Projects, Events, People.** Work is no longer an area. Paid or passion is a filter inside Projects (see The model).
 6. **Projects you lead sit in Projects, under Leading.** There is no separate "My projects".
-7. **Work first survives as order and filter, not as a section.** Paid invites lead Needs you, the Paid chip filters to paid work, and the Projects tile reads like "7 paid · 8 passion".
+7. **Work first survives as order and filter, not as a section.** Paid invites lead Needs you, and the Paid chip filters to paid work.
 8. **No rename for the browse toggle.** Renaming the desk's "Projects / Work" toggle (`PROJECT_VIEWS`) to "Passion / Paid" is moot: that toggle is gone, and `/projects` and the desk's Projects view now browse by intent chips (`docs/features/project-ia.md`, "Browsing: one row of chips").
 
 ## The model
@@ -54,6 +54,18 @@ These apply across all areas, in this order. Nothing else qualifies.
 
 Display:
 - The overview shows 3, then "N more →". These rows get a 3px yellow left rule and a yellow mono status.
+- **Row anatomy.** A Needs you row leads with the need. Title, then a muted second line saying what it's about, then the yellow line (only the need: what to do, or when to show up), then muted meta. Yellow is for the need alone; dates, "asked {date}" and counts are muted. The date block on an event already shows the date, so a row never repeats it and says the time once. Day words are relative: "Today", "Tomorrow", a weekday for the next six days, else the short date (an event a week or more out shows only its time, the block has the date). Buttons stay Reply, Review, Apply.
+
+| Need | Title | Second line (muted) | Yellow | Meta (muted) |
+|---|---|---|---|---|
+| Invite to you | role title | "{Lead} invited you · {project}" | "Reply to invite" | pay |
+| Join request on your project | person | "Wants to join {project} as {role}" | "Approve or decline" | "asked {Sep 30}" |
+| Request to attend your event | person | "Wants to attend {event} · {Nov 6}" | "Approve or decline" | "asked {Sep 28}" |
+| Hosting soon | event | "You're hosting · {venue}" | "{Today} · {7PM}" | "{N} going" |
+| Going soon | event | "You're going · {venue}" | "{Tomorrow} · {7PM}" | "{N} going" |
+| Saved role closing | role | "{project} · {pay}" | "Apply by {Oct 7}" | none |
+
+- Event rows outside Needs you follow the same rule: second line "{Hosting · Going · Requested · Saved} · {venue}", status the day word and time with no date.
 - Requests don't add to counts. They belong to the project you lead and show on its Leading row.
 - Every count on the Shortlist (header, tiles, chips, palette) includes live items only. Past and closed never count.
 
@@ -82,7 +94,7 @@ Today should still lead with what's personal and urgent, so Needs you goes first
 
 ## Three levels
 
-1. **Overview** (`/today?view=shortlist`, replacing the desk's `fav` view). Header "Shortlist · N things", then the Needs you strip, then three tiles: Projects, Events, People. Each tile has a kicker, a count at 56px, a breakdown line and one next step. Projects' breakdown is the paid/passion split (decision 7). It fits 1440×900 without scrolling. When the whole list is 8 items or fewer, every item is also listed as a row under the tiles.
+1. **Overview** (`/today?view=shortlist`, replacing the desk's `fav` view). Header "Shortlist · N things", then the Needs you strip, then three tiles: Projects, Events, People. A tile shows content, not counts: a kicker with a small count ("PROJECTS · 15"), the "N need you" flag, and what's in the area by name. Projects lists up to 3 as "{name} · {relation}" (Needs you items first, then Leading, On the team, Waiting, Backing, Saved), Events up to 3 as "{name} · {Hosting, Going, …} · {day word} {time}" soonest first, each then "and N more →". People shows the photos of the 5 most recent follows (initials when none) and "{First}, {First}, {First} and N more". It fits 1440×900 without scrolling. When the whole list is 8 items or fewer, every item is also listed as a row under the tiles.
 2. **An area** (`&area=projects`). Header "The Garden · Shortlist" / "Projects 15". Chips: All · Projects · Events · People, a divider, then Paid · Passion (Projects only; click again to clear). Rows group as in The model. They are 64px rows, not cards: a thumbnail or date block, the title and a second line, mono meta (pay, going count), status, and an outline action on Needs you rows. Rows were chosen because status, dates and pay are what people decide on, and rows fit 10+ items on a screen.
 3. **One item** (`&card=role:<id>`, `request:<id>`, `project:`, `event:`, `person:`). This is the existing opened card, plus three things:
    - A status line ("Mara invited you Sep 30 · Waiting on you").

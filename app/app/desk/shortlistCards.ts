@@ -26,7 +26,7 @@ import type { FavoriteTargetType } from "../../convex/favorites";
 import { workKind } from "../lib/shortlist/kind";
 import { addressName, KIND_LABEL, whenLabel } from "../components/shortlist/rowModel";
 import { cardIdOf, type ShortlistItem } from "../components/shortlist/items";
-import { calendarDay, shortDay } from "../lib/dates";
+import { calendarDay, shortDay, timeLabel } from "../lib/dates";
 import { withProjectTab } from "../lib/projectTabs";
 import { isPast, payText } from "../lib/shortlist/model";
 import type { ShortlistEvent, ShortlistFollow, ShortlistProject, ShortlistRequest } from "../lib/shortlist/types";
@@ -35,7 +35,6 @@ import {
   dateKicker,
   eventCard,
   projectCard,
-  timeLabel,
   toneFor,
   venueName,
   type DeskCard,

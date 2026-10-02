@@ -38,9 +38,9 @@ describe("/favorites on a phone", () => {
     const html = text(await phone("/favorites"));
     expect(html).toContain("Shortlist 39 things");
     expect(html).toContain("Needs you · 5");
-    expect(html).toContain("Projects 3 need you 15");
-    expect(html).toContain("Events 2 need you 10");
-    expect(html).toContain("People 14");
+    expect(html).toContain("Projects · 15 3 need you");
+    expect(html).toContain("Events · 10 2 need you");
+    expect(html).toContain("People · 14");
     expect(html).not.toContain("Following");
   });
 

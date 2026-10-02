@@ -16,7 +16,6 @@ import {
   projectCard,
   projectFacts,
   rolesLine,
-  timeLabel,
   toneFor,
   updateCard,
   venueName,
@@ -27,6 +26,7 @@ import {
   type DeskProjectInput,
   type DeskUpdateInput,
 } from "./deskCards";
+import { timeLabel } from "../lib/dates";
 
 const NOW = new Date(2026, 9, 1, 12).getTime();
 const DAY = 24 * 60 * 60 * 1000;

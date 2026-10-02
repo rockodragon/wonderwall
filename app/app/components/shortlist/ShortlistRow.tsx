@@ -1,7 +1,7 @@
 // One Shortlist row (rowModel.ts says what it reads): 64px, a thumbnail or
-// date block, the title and a second line, mono meta, the status, and on a
-// Needs you row a 3px yellow rule, a yellow mono status and an outline
-// action. Rows, not cards: status, dates and pay are what people decide on,
+// date block, the title and a second line, the status, mono meta, and on a
+// Needs you row a 3px yellow rule, a yellow mono status (the need, and
+// nothing else yellow) and an outline action. Rows, not cards: status, dates and pay are what people decide on,
 // and rows fit 10+ items on a screen.
 //
 // The whole row is one button that opens the item's card; the outline
@@ -11,7 +11,7 @@
 //
 // The phone draws the same row (variant "phone"): a link to the item's page
 // instead of a button that opens a card, on the app's --app-* tokens so it
-// follows light and dark, and with the pay and status under the title where
+// follows light and dark, and with the status and meta under the title where
 // the desk has columns for them.
 
 import { useState } from "react";
@@ -23,6 +23,9 @@ import type { RowModel, Thumb } from "./rowModel";
 
 const MONO = { fontFamily: DESK_MONO, fontSize: 12, textTransform: "uppercase" } as const;
 const CLIP = { whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } as const;
+// A Needs you row's second line is what it's about, so it wraps to two lines
+// before it gives anything up; any other row's stays on one.
+const CLAMP = { display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 2, overflow: "hidden" } as const;
 
 /** What pressing a row does: the desk opens its card, the phone follows a
  *  link to the item's page (itemHref). */
@@ -43,7 +46,6 @@ const SKIN = {
     line: DESK.lineStrong,
     well: DESK.page,
     block: "#1d1d1d",
-    blockHot: "rgba(255,224,102,.5)",
     face: DESK.paper,
     faceInk: DESK.paperInk,
   },
@@ -58,7 +60,6 @@ const SKIN = {
     line: "var(--app-hairline-raised)",
     well: "var(--app-hairline)",
     block: "var(--app-surface-raised)",
-    blockHot: "var(--app-accent-ink)",
     face: "var(--app-hairline-raised)",
     faceInk: "var(--app-text)",
   },
@@ -94,7 +95,7 @@ export function ShortlistRow({ row, ...target }: { row: RowModel } & RowTarget) 
       {row.title}
     </span>
   );
-  const sub = <span style={{ display: "block", fontSize: 13, color: quiet ?? skin.muted, ...CLIP }}>{row.sub}</span>;
+  const sub = <span style={{ display: "block", fontSize: 13, color: quiet ?? skin.muted, ...(row.hot ? CLAMP : CLIP) }}>{row.sub}</span>;
   const meta = (
     <span style={{ ...MONO, letterSpacing: "0.12em", color: skin.quiet, ...(phone ? { flex: "none" } : { textAlign: "right" }), ...CLIP }}>
       {row.meta}
@@ -130,7 +131,7 @@ export function ShortlistRow({ row, ...target }: { row: RowModel } & RowTarget) 
       {row.action}
     </span>
   );
-  const thumb = <RowThumb thumb={row.thumb} hot={row.hot} skin={skin} />;
+  const thumb = <RowThumb thumb={row.thumb} skin={skin} />;
 
   if (target.variant === "phone") {
     return (
@@ -162,7 +163,7 @@ export function ShortlistRow({ row, ...target }: { row: RowModel } & RowTarget) 
       onClick={() => target.onOpen(row)}
       className={`group relative grid w-full cursor-pointer items-center border-0 bg-transparent text-left transition-colors hover:bg-[rgba(255,255,255,0.035)] ${FOCUS_RING_CLASS}`}
       style={{
-        gridTemplateColumns: "44px minmax(0,1fr) 128px 200px 88px",
+        gridTemplateColumns: "44px minmax(0,1fr) 200px 128px 88px",
         gap: 16,
         minHeight: 64,
         padding: "10px 12px 10px 16px",
@@ -176,8 +177,8 @@ export function ShortlistRow({ row, ...target }: { row: RowModel } & RowTarget) 
         {title}
         {sub}
       </span>
-      {meta}
       {status}
+      {meta}
       <span style={{ display: "flex", justifyContent: "flex-end" }}>{action}</span>
     </button>
   );
@@ -185,7 +186,7 @@ export function ShortlistRow({ row, ...target }: { row: RowModel } & RowTarget) 
 
 const THUMB = { width: 44, height: 44, borderRadius: 4, overflow: "hidden", flex: "none" } as const;
 
-function RowThumb({ thumb, hot, skin }: { thumb: Thumb; hot: boolean; skin: Skin }) {
+function RowThumb({ thumb, skin }: { thumb: Thumb; skin: Skin }) {
   // A picture that won't load falls back to the face the row has without one.
   const [broken, setBroken] = useState<string | null>(null);
   const url = thumb.kind !== "date" && thumb.url !== broken ? thumb.url : null;
@@ -213,7 +214,7 @@ function RowThumb({ thumb, hot, skin }: { thumb: Thumb; hot: boolean; skin: Skin
             justifyContent: "center",
             lineHeight: 1,
             background: skin.block,
-            border: `1px solid ${hot ? skin.blockHot : skin.line}`,
+            border: `1px solid ${skin.line}`,
           }}
         >
           <span style={{ ...MONO, letterSpacing: "0.1em", color: skin.muted }}>{thumb.month}</span>

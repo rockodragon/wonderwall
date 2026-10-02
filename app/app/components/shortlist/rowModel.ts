@@ -1,21 +1,25 @@
 // What a Shortlist row says (docs/handoff/favorites-redesign/README.md,
 // "Three levels"): a thumbnail or date block, the title and a second line,
-// mono meta (pay, going count), the status, and on a Needs you row an outline
+// the status, mono meta (pay, going count), and on a Needs you row an outline
 // action. Pure, so the copy for every relation lives in one place and is
 // tested; ShortlistRow.tsx draws it.
 //
-// Dates, names and pay come from the app's own helpers (shortDay, calendarDay
-// for a role's deadline, firstNameOf, payText) and the desk's (timeLabel,
-// venueName).
+// On a Needs you row the second line says what it's about and the status is
+// only the need: what to do, or when to show up. A date the row's date block
+// already shows is never said again, and a time only once.
+//
+// Dates, names and pay come from the app's own helpers (shortDay, dayWord,
+// timeLabel, calendarDay for a role's deadline, firstNameOf, payText) and the
+// desk's venueName.
 
 import { workKind } from "../../lib/shortlist/kind";
-import { timeLabel, venueName } from "../../desk/deskCards";
+import { venueName } from "../../desk/deskCards";
 import type { DeskCardId } from "../../desk/deskState";
-import { calendarDay, shortDay } from "../../lib/dates";
+import { calendarDay, dayWord, relativeDay, shortDay, timeLabel } from "../../lib/dates";
 import { firstNameOf } from "../../lib/names";
-import { payText } from "../../lib/shortlist/model";
+import { EVENT_WORD, payText } from "../../lib/shortlist/model";
 import { closesAt } from "../../lib/shortlist/needsYou";
-import type { ClosedReason, ProjectKind, ShortlistEvent, ShortlistProject } from "../../lib/shortlist/types";
+import type { ClosedReason, EventRelation, ProjectKind, ShortlistEvent, ShortlistProject } from "../../lib/shortlist/types";
 import { stageLabel } from "../../lib/stage";
 import { AREA_LABEL, cardIdOf, type ShortlistItem } from "./items";
 
@@ -51,10 +55,12 @@ export interface RowModel {
 export interface RowContext {
   /** In Needs you or This week. */
   hot: boolean;
-  /** A list that mixes areas (the overview, Today) names each row's area. */
+  /** A list that mixes areas (the overview, Today) names a person row's area. */
   withArea: boolean;
   /** In a folded group. */
   past?: boolean;
+  /** The clock: "Today" and "Tomorrow" are told from it. */
+  now: number;
   /** The app's money formatter (garden/ui formatMoney), for what you back. */
   money: (cents: number) => string;
 }
@@ -81,19 +87,35 @@ const CLOSED: Record<ClosedReason, string> = {
   filled: "Filled",
 };
 
-/** "Oct 3 · 7PM": when an event is, in a row's status or a card's meta. */
+/** "Oct 3 · 7PM": when an event is, on its opened card. */
 export function whenLabel(ms: number): string {
   return `${shortDay(ms)} · ${timeLabel(ms)}`;
+}
+
+/** "Tomorrow · 7PM": when an event is, in a row's status. The day in words and
+ *  the time, never the date: the row's date block has that. A week or more out
+ *  there's no day word, so the time stands alone. */
+export function eventWhen(ms: number, now: number): string {
+  return line(relativeDay(ms, now), timeLabel(ms));
+}
+
+// What a Needs you row asks of the member, in the yellow line.
+const REPLY = "Reply to invite";
+const DECIDE = "Approve or decline";
+
+/** "asked Sep 28": when someone sent a request, muted after the need. */
+function askedOn(at: number): string {
+  return `asked ${shortDay(at)}`;
 }
 
 // ——————————————————————————————————————————————————————————————
 // Projects
 // ——————————————————————————————————————————————————————————————
 
-function projectStatus(row: ShortlistProject, money: RowContext["money"]): string | null {
+function projectStatus(row: ShortlistProject, ctx: RowContext): string | null {
   switch (row.relation) {
     case "invited":
-      return `Invited · ${shortDay(row.since)}`;
+      return REPLY;
     case "leading":
       return row.pendingRequests ? waiting(row.pendingRequests) : "No requests waiting";
     case "team":
@@ -103,12 +125,13 @@ function projectStatus(row: ShortlistProject, money: RowContext["money"]): strin
     case "backing": {
       const cents = row.backing?.amountCents;
       if (!cents) return "Backing";
-      return row.backing?.recurring ? `Backing ${money(cents)} recurring` : `Backed ${money(cents)}`;
+      return row.backing?.recurring ? `Backing ${ctx.money(cents)} recurring` : `Backed ${ctx.money(cents)}`;
     }
     case "saved": {
       // neededBy is a calendar date: calendarDay reads it in UTC, as stored.
       const at = closesAt(row);
-      return at ? `Closes ${calendarDay(at)}` : `Saved ${shortDay(row.since)}`;
+      if (at === null) return `Saved ${shortDay(row.since)}`;
+      return ctx.hot ? `Apply by ${calendarDay(at)}` : `Closes ${calendarDay(at)}`;
     }
     case "closed":
       return row.closedReason ? CLOSED[row.closedReason] : "Closed";
@@ -117,39 +140,45 @@ function projectStatus(row: ShortlistProject, money: RowContext["money"]): strin
 
 function projectRow(row: ShortlistProject, ctx: RowContext): Omit<RowModel, "id" | "hot" | "past"> {
   const kind = KIND_LABEL[workKind(row)];
+  const title = row.role?.title ?? row.title;
+  const base = {
+    title,
+    status: projectStatus(row, ctx),
+    thumb: { kind: "cover", url: row.coverUrl, seed: row.projectId } as const,
+    // A reply owed, or a saved role about to close.
+    action: !ctx.hot ? null : row.relation === "invited" ? "Reply" : row.relation === "saved" ? "Apply" : null,
+  };
+  // Needs you: what it's about, then (in the status) the need. A bare
+  // invite's title is already the project.
+  if (row.relation === "invited") {
+    return { ...base, sub: line(`${addressName(row.lead.name)} invited you`, row.role && row.title), meta: payText(row) };
+  }
+  if (ctx.hot && row.relation === "saved") {
+    return { ...base, sub: line(row.title, payText(row)), meta: null };
+  }
   const sub = row.role
     ? line(kind, row.title, row.lead.name)
     : row.relation === "leading"
       ? line(kind, "You lead")
       : line(kind, `by ${row.lead.name}`);
-  return {
-    title: row.role?.title ?? row.title,
-    sub,
-    meta: payText(row) ?? (row.stage ? stageLabel(row.stage) : null),
-    status: projectStatus(row, ctx.money),
-    thumb: { kind: "cover", url: row.coverUrl, seed: row.projectId },
-    // A reply owed, or a saved role about to close.
-    action: !ctx.hot ? null : row.relation === "invited" ? "Reply" : row.relation === "saved" ? "Apply" : null,
-  };
+  return { ...base, sub, meta: payText(row) ?? (row.stage ? stageLabel(row.stage) : null) };
 }
 
 // ——————————————————————————————————————————————————————————————
 // Events
 // ——————————————————————————————————————————————————————————————
 
-function eventStatus(event: ShortlistEvent, ctx: RowContext): string | null {
+function eventStatus(event: ShortlistEvent, ctx: RowContext): string {
   if (ctx.past) return event.cancelled ? "Cancelled" : "Past";
-  if (ctx.hot) return whenLabel(event.datetime);
-  switch (event.relation) {
-    case "hosting":
-      return event.pendingRequests ? waiting(event.pendingRequests) : "You're hosting";
-    case "going":
-      return "You're going";
-    case "requested":
-      return "Requested";
-    case "saved":
-      return `Saved ${shortDay(event.since)}`;
-  }
+  return eventWhen(event.datetime, ctx.now);
+}
+
+// In Needs you the relation is said to the member; under a heading of its
+// own it's the label.
+const YOURE: Partial<Record<EventRelation, string>> = { hosting: "You're hosting", going: "You're going" };
+
+function eventRelation(event: ShortlistEvent, ctx: RowContext): string {
+  return (ctx.hot && YOURE[event.relation]) || EVENT_WORD[event.relation];
 }
 
 function dateThumb(ms: number): Thumb {
@@ -178,10 +207,10 @@ export function rowModel(item: ShortlistItem, ctx: RowContext): RowModel {
         title: person.name,
         sub:
           on.type === "project"
-            ? line(KIND_LABEL[workKind(on)], on.title, `Wants to join as ${on.roleTitle}`)
-            : line(ctx.withArea && AREA_LABEL.events, on.title, "Asked to come"),
-        meta: on.type === "project" ? payText(on) : shortDay(on.datetime),
-        status: `Request · ${shortDay(at)}`,
+            ? `Wants to join ${on.title} as ${on.roleTitle}`
+            : line(`Wants to attend ${on.title}`, dayWord(on.datetime, ctx.now)),
+        meta: askedOn(at),
+        status: DECIDE,
         thumb: { kind: "face", name: person.name, url: person.imageUrl },
         action: hot ? "Review" : null,
       };
@@ -193,7 +222,7 @@ export function rowModel(item: ShortlistItem, ctx: RowContext): RowModel {
         hot,
         past,
         title: event.title,
-        sub: line(ctx.withArea && AREA_LABEL.events, venueName(event.location), timeLabel(event.datetime)),
+        sub: line(eventRelation(event, ctx), venueName(event.location)),
         meta: event.goingCount > 0 ? `${event.goingCount} going` : null,
         status: eventStatus(event, ctx),
         thumb: dateThumb(event.datetime),

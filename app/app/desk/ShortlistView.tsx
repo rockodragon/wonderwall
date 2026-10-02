@@ -17,7 +17,7 @@ import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { useMutation } from "convex/react";
 import { Link, useSearchParams } from "react-router";
 import { api } from "../../convex/_generated/api";
-import { BROWSE_LABEL, EMPTY_AREA, FOLD_NOUN, WELCOME, emptyKind } from "../components/shortlist/copy";
+import { BROWSE_LABEL, EMPTY_AREA, FOLD_NOUN, WELCOME, emptyKind, needYouText } from "../components/shortlist/copy";
 import {
   AREA_LABEL,
   LIST_ALL_UNDER,
@@ -31,12 +31,12 @@ import {
 } from "../components/shortlist/items";
 import { KIND_LABEL, rowModel, type RowModel } from "../components/shortlist/rowModel";
 import { ShortlistRows } from "../components/shortlist/ShortlistRow";
+import { TilePreview } from "../components/shortlist/TilePreview";
 import { errorMessage } from "../lib/convexError";
-import { initialsOf } from "../lib/initials";
 import type { NeedsYouItem } from "../lib/shortlist/needsYou";
 import { areaCount, type AreaSummary, type ShortlistSummary } from "../lib/shortlist/model";
 import type { ShortlistState } from "../lib/shortlist/useShortlist";
-import type { ProjectKind, ShortlistData } from "../lib/shortlist/types";
+import type { ProjectKind } from "../lib/shortlist/types";
 import { pillClass } from "./deskBrowse";
 import { countLabel } from "./deskGreeting";
 import { showDeskToast } from "./DeskToast";
@@ -78,8 +78,8 @@ function Heading({ id, hot = false, children }: { id: string; hot?: boolean; chi
 }
 
 /** A row for a Needs you item. */
-function needsRow(item: NeedsYouItem, withArea: boolean, money: (cents: number) => string): RowModel {
-  return rowModel(item, { hot: true, withArea, money });
+function needsRow(item: NeedsYouItem, withArea: boolean, money: (cents: number) => string, now: number): RowModel {
+  return rowModel(item, { hot: true, withArea, now, money });
 }
 
 // ——————————————————————————————————————————————————————————————
@@ -212,19 +212,19 @@ function Overview({ state, money, onOpen }: { state: Ready; money: (cents: numbe
     <>
       {needs.length > 0 && (
         <section aria-label="Needs you" style={{ maxWidth: ROWS_MAX_W, marginBottom: 40 }}>
-          <NeedsYouList needs={needs} money={money} onOpen={onOpen} />
+          <NeedsYouList needs={needs} money={money} now={now} onOpen={onOpen} />
         </section>
       )}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 300px))", gap: 24 }}>
         {SHORTLIST_AREAS.map((area) => (
-          <Tile key={area} area={area} summary={summary} data={data} />
+          <Tile key={area} area={area} summary={summary} />
         ))}
       </div>
       {listed.length <= LIST_ALL_UNDER && listed.length > 0 && (
         <section style={{ maxWidth: ROWS_MAX_W, marginTop: 40 }}>
           <Heading id="everything">Everything on your shortlist · {listed.length}</Heading>
           <ShortlistRows
-            rows={listed.map((item) => rowModel(item, { hot: hot.has(cardIdOf(item)), withArea: true, money }))}
+            rows={listed.map((item) => rowModel(item, { hot: hot.has(cardIdOf(item)), withArea: true, now, money }))}
             onOpen={onOpen}
           />
         </section>
@@ -234,7 +234,7 @@ function Overview({ state, money, onOpen }: { state: Ready; money: (cents: numbe
 }
 
 /** Needs you's rows, NEEDS_SHOWN of them, then "N more →" to see them all. */
-function NeedsYouList({ needs, money, onOpen }: { needs: NeedsYouItem[]; money: (cents: number) => string; onOpen: (row: RowModel) => void }) {
+function NeedsYouList({ needs, money, now, onOpen }: { needs: NeedsYouItem[]; money: (cents: number) => string; now: number; onOpen: (row: RowModel) => void }) {
   const [all, setAll] = useState(false);
   const shown = all ? needs : needs.slice(0, NEEDS_SHOWN);
   return (
@@ -242,7 +242,7 @@ function NeedsYouList({ needs, money, onOpen }: { needs: NeedsYouItem[]; money: 
       <Heading id="needs" hot>
         Needs you · {needs.length}
       </Heading>
-      <ShortlistRows rows={shown.map((item) => needsRow(item, true, money))} onOpen={onOpen} />
+      <ShortlistRows rows={shown.map((item) => needsRow(item, true, money, now))} onOpen={onOpen} />
       {needs.length > NEEDS_SHOWN && (
         <div style={{ marginTop: 12 }}>
           <button type="button" aria-expanded={all} onClick={() => setAll((v) => !v)} className={`${QUIET_BUTTON} text-[#D6D6D6]`}>
@@ -256,7 +256,7 @@ function NeedsYouList({ needs, money, onOpen }: { needs: NeedsYouItem[]; money: 
 
 const TILE = {
   position: "relative",
-  minHeight: 224,
+  minHeight: 168,
   minWidth: 0,
   borderRadius: 4,
   padding: "20px 20px 18px",
@@ -265,7 +265,8 @@ const TILE = {
   textAlign: "left",
 } as const;
 
-function Tile({ area, summary, data }: { area: ShortlistArea; summary: ShortlistSummary; data: ShortlistData }) {
+/** One area: what's in it, by name. */
+function Tile({ area, summary }: { area: ShortlistArea; summary: ShortlistSummary }) {
   const s: AreaSummary = summary[area];
   const name = AREA_LABEL[area];
   const tileKicker = { ...monoLabel(12, "0.2em"), color: DESK.muted } as const;
@@ -281,84 +282,26 @@ function Tile({ area, summary, data }: { area: ShortlistArea; summary: Shortlist
       </div>
     );
   }
-  const kinds =
-    area === "projects"
-      ? (["paid", "passion"] as const).flatMap((k) => (summary.projects.kinds[k] ? [`${summary.projects.kinds[k]} ${KIND_LABEL[k].toLowerCase()}`] : []))
-      : [];
-  const count = <span style={{ fontSize: 56, fontWeight: 500, letterSpacing: "-0.035em", lineHeight: 1, fontVariantNumeric: "tabular-nums" }}>{s.count}</span>;
   return (
     <Link
       to={shortlistHref(area)}
-      aria-label={`${name}, ${s.count}${s.needsYou ? `, ${s.needsYou} need${s.needsYou === 1 ? "s" : ""} you` : ""}`}
+      aria-label={`${name}, ${s.count}${s.needsYou ? `, ${needYouText(s.needsYou)}` : ""}`}
       className={`group text-[#F4F4F2] no-underline transition-[transform,box-shadow,border-color] duration-300 hover:-translate-y-2 hover:border-[#3c3c3c] hover:shadow-[0_40px_80px_rgba(0,0,0,.6)] motion-reduce:transition-none motion-reduce:hover:translate-y-0 ${FOCUS_RING_CLASS}`}
       style={{ ...TILE, background: DESK.panel, border: `1px solid ${DESK.line}`, boxShadow: "0 10px 30px rgba(0,0,0,.45)" }}
     >
       <span style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, minHeight: 18 }}>
-        <span style={tileKicker}>{name}</span>
+        <span style={tileKicker}>{`${name} · ${s.count}`}</span>
         {s.needsYou > 0 && (
           <span style={{ fontFamily: DESK_MONO, fontSize: 12, letterSpacing: "0.1em", color: DESK.accent, display: "inline-flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}>
             <span aria-hidden style={{ width: 7, height: 7, borderRadius: "50%", background: DESK.accent }} />
-            {s.needsYou} need{s.needsYou === 1 ? "s" : ""} you
+            {needYouText(s.needsYou)}
           </span>
         )}
       </span>
-      <span style={{ marginTop: 16, display: "flex", alignItems: "center", height: 56 }}>
-        {area === "people" && <Faces data={data} />}
-        {count}
+      <span style={{ display: "block", marginTop: 14 }}>
+        <TilePreview area={area} summary={summary} variant="desk" />
       </span>
-      <span style={{ fontSize: 13, color: DESK.muted, margin: "10px 0 12px", lineHeight: 1.45 }}>
-        {s.parts.join(" · ")}
-        {kinds.length > 0 && <span style={{ display: "block" }}>{kinds.join(" · ")}</span>}
-      </span>
-      {s.next && (
-        <span
-          style={{
-            marginTop: "auto",
-            paddingTop: 12,
-            borderTop: `1px solid ${DESK.line}`,
-            fontSize: 13,
-            color: DESK.textSoft,
-            whiteSpace: "nowrap",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-          }}
-        >
-          {s.next}
-        </span>
-      )}
     </Link>
-  );
-}
-
-/** The five people followed most recently, overlapping. */
-function Faces({ data }: { data: ShortlistData }) {
-  const faces = [...data.people].sort((a, b) => b.since - a.since).slice(0, 5);
-  return (
-    <span aria-hidden style={{ display: "flex", marginRight: 12 }}>
-      {faces.map((p, i) => (
-        <span
-          key={p.profileId}
-          style={{
-            width: 34,
-            height: 34,
-            borderRadius: "50%",
-            marginLeft: i === 0 ? 0 : -8,
-            overflow: "hidden",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            background: DESK.paper,
-            color: DESK.paperInk,
-            fontFamily: DESK_MONO,
-            fontSize: 12,
-            fontWeight: 500,
-            boxShadow: `0 0 0 2px ${DESK.panel}`,
-          }}
-        >
-          {p.imageUrl ? <img src={p.imageUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : initialsOf(p.name)}
-        </span>
-      ))}
-    </span>
   );
 }
 
@@ -451,7 +394,7 @@ function AreaRows({
   return (
     <div ref={rootRef} style={{ maxWidth: ROWS_MAX_W }}>
       {groups.map((group) => (
-        <Group key={group.key} group={group} money={money} onOpen={onOpen} onRemoved={setRemoved} />
+        <Group key={group.key} group={group} money={money} now={state.now} onOpen={onOpen} onRemoved={setRemoved} />
       ))}
     </div>
   );
@@ -462,17 +405,19 @@ const NO_GROUP: ListGroup = { key: "", label: "", hot: false, folded: false, ite
 function Group({
   group,
   money,
+  now,
   onOpen,
   onRemoved,
 }: {
   group: ListGroup;
   money: (cents: number) => string;
+  now: number;
   onOpen: (row: RowModel) => void;
   onRemoved: (eventIds: string[]) => void;
 }) {
   const [open, setOpen] = useState(false);
   const rowsId = useId();
-  const rows = (items: ShortlistItem[]) => items.map((item) => rowModel(item, { hot: group.hot, withArea: false, past: group.folded, money }));
+  const rows = (items: ShortlistItem[]) => items.map((item) => rowModel(item, { hot: group.hot, withArea: false, past: group.folded, now, money }));
   const n = group.items.length;
   const noun = FOLD_NOUN[group.key] ?? group.label.toLowerCase();
   let body: ReactNode;
@@ -636,14 +581,14 @@ export function TodayNeedsYou({
   onOpen: (row: RowModel) => void;
 }) {
   if (state.status !== "ready" || state.needs.length === 0) return null;
-  const { needs } = state;
+  const { needs, now } = state;
   const more = needs.length - NEEDS_SHOWN;
   return (
     <section aria-label="Needs you" style={{ maxWidth: ROWS_MAX_W, marginTop: 18 }}>
       <Heading id="needs" hot>
         Needs you · {needs.length}
       </Heading>
-      <ShortlistRows rows={needs.slice(0, NEEDS_SHOWN).map((item) => needsRow(item, true, money))} onOpen={onOpen} />
+      <ShortlistRows rows={needs.slice(0, NEEDS_SHOWN).map((item) => needsRow(item, true, money, now))} onOpen={onOpen} />
       {more > 0 && (
         <div style={{ marginTop: 12 }}>
           <Link to={shortlistHref()} className={LINK}>
