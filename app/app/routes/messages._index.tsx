@@ -2,6 +2,7 @@ import { useMutation, useQuery } from "convex/react";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { api } from "../../convex/_generated/api";
+import { PAGE_WIDTH } from "../lib/pageWidth";
 
 // Notifications visible before "Show all". We fetch past this so we know
 // whether there is anything more to show; the query's own default is 20.
@@ -76,7 +77,7 @@ export default function MessagesIndex() {
   };
 
   return (
-    <div className="p-6 max-w-3xl mx-auto">
+    <div className={`p-6 ${PAGE_WIDTH.reading} mx-auto`}>
       {/* Header */}
       <div className="mb-6">
         <h1

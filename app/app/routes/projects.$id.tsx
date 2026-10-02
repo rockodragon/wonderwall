@@ -44,6 +44,7 @@ import {
   isRaising,
   type SupportMode,
 } from "./projects";
+import { PAGE_WIDTH } from "../lib/pageWidth";
 
 // Loader-less (client-only useQuery, same as communities.$slug.tsx and
 // offerings.$id.tsx) — `data` is never actually populated; this just
@@ -71,7 +72,7 @@ function PageShell({ children }: { children: ReactNode }) {
     <div className="min-h-screen bg-[var(--garden-ink)]">
       <link rel="stylesheet" href="/tokens.css" />
       <link rel="stylesheet" href="/about/fonts/fonts.css" />
-      <div className="p-4 sm:p-6 max-w-3xl mx-auto">{children}</div>
+      <div className={`p-4 sm:p-6 ${PAGE_WIDTH.reading} mx-auto`}>{children}</div>
     </div>
   );
 }
@@ -107,7 +108,7 @@ function DetailCard({ label, children }: { label: string; children: ReactNode })
       style={{ borderColor: "var(--garden-hairline)", backgroundColor: "var(--garden-ink-raised)" }}
     >
       <div
-        className="text-[11px] font-semibold uppercase tracking-[0.08em] mb-3"
+        className="text-xs font-semibold uppercase tracking-[0.08em] mb-3"
         style={{ color: "var(--garden-dim)", fontFamily: "var(--garden-font-mono)" }}
       >
         {label}
@@ -301,7 +302,7 @@ export default function ProjectDetail() {
               />
             ) : (
               <div
-                className="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0"
+                className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
                 style={{ backgroundColor: "var(--garden-hairline-raised)", color: "var(--garden-paper)" }}
               >
                 {project.creator.name.charAt(0).toUpperCase()}
@@ -322,7 +323,7 @@ export default function ProjectDetail() {
 
       {project.status === "archived" && (
         <span
-          className="inline-block mb-4 px-2 py-0.5 rounded-full text-[11px] font-medium uppercase tracking-[0.06em]"
+          className="inline-block mb-4 px-2 py-0.5 rounded-full text-xs font-medium uppercase tracking-[0.06em]"
           style={{ fontFamily: "var(--garden-font-mono)", backgroundColor: "rgba(198,198,190,0.1)", color: "var(--garden-muted)" }}
         >
           {STATUS_LABELS[project.status] ?? project.status}
@@ -374,7 +375,7 @@ export default function ProjectDetail() {
       {isPassion && (
         <div id="support" className="pt-4" style={{ borderTop: "1px solid var(--garden-hairline)" }}>
           <div
-            className="text-[11px] font-semibold uppercase tracking-[0.08em] mb-3"
+            className="text-xs font-semibold uppercase tracking-[0.08em] mb-3"
             style={{ color: "var(--garden-dim)", fontFamily: "var(--garden-font-mono)" }}
           >
             Support
@@ -415,7 +416,7 @@ export default function ProjectDetail() {
           <DetailCard label="Manage">
             <div className="flex items-center gap-3 flex-wrap">
               <div className="flex items-center gap-2">
-                <label className="text-[11px] uppercase tracking-[0.06em]" style={{ color: "var(--garden-dim)" }}>
+                <label className="text-xs uppercase tracking-[0.06em]" style={{ color: "var(--garden-dim)" }}>
                   Stage
                 </label>
                 <StageSelect project={project} />
@@ -1090,7 +1091,7 @@ function InlineEditableTitle({ project, isOwner }: { project: any; isOwner: bool
         </h1>
       )}
       <span
-        className="px-2 py-0.5 rounded-full text-[11px] font-medium uppercase tracking-[0.06em]"
+        className="px-2 py-0.5 rounded-full text-xs font-medium uppercase tracking-[0.06em]"
         style={{ fontFamily: "var(--garden-font-mono)", backgroundColor: "rgba(198,198,190,0.1)", color: "var(--garden-muted)" }}
       >
         {stageLabel(resolveStage(project))}
@@ -1496,7 +1497,7 @@ function Avatar({ name, imageUrl }: { name: string; imageUrl?: string | null }) 
     <img src={imageUrl} alt={name} className="w-6 h-6 rounded-full object-cover shrink-0" />
   ) : (
     <div
-      className="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0"
+      className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
       style={{ backgroundColor: "var(--garden-hairline-raised)", color: "var(--garden-paper)" }}
     >
       {name.charAt(0).toUpperCase()}
@@ -1664,7 +1665,7 @@ function TeamCard({
             <span style={{ color: "var(--garden-paper)" }}>{c.name}</span>
             <span style={{ color: "var(--garden-dim)" }}>— {c.role}</span>
             <span
-              className="text-[10px] uppercase tracking-[0.06em]"
+              className="text-xs uppercase tracking-[0.06em]"
               style={{ fontFamily: "var(--garden-font-mono)", color: "var(--garden-dim)" }}
             >
               invited
@@ -1843,7 +1844,7 @@ function RolesSection({
     <div className="pt-3 mt-2.5" style={{ borderTop: "1px solid var(--garden-hairline)" }}>
       {roles.length > 0 && (
         <>
-          <p className="text-[11px] uppercase tracking-[0.06em] mb-2" style={{ color: "var(--garden-dim)" }}>
+          <p className="text-xs uppercase tracking-[0.06em] mb-2" style={{ color: "var(--garden-dim)" }}>
             Roles needed
           </p>
           <div className="flex flex-col gap-2.5 mb-2">
@@ -1856,7 +1857,7 @@ function RolesSection({
                       <span style={{ color: "var(--garden-paper)" }}>{r.title}</span>
                       {r.budgetType && (
                         <span
-                          className="px-1.5 py-0.5 rounded-full text-[10px] font-medium uppercase tracking-[0.06em]"
+                          className="px-1.5 py-0.5 rounded-full text-xs font-medium uppercase tracking-[0.06em]"
                           style={{
                             fontFamily: "var(--garden-font-mono)",
                             backgroundColor: "rgba(254,226,104,0.14)",
@@ -1868,7 +1869,7 @@ function RolesSection({
                       )}
                       {days !== null && (
                         <span
-                          className="px-1.5 py-0.5 rounded-full text-[10px] font-medium uppercase tracking-[0.06em]"
+                          className="px-1.5 py-0.5 rounded-full text-xs font-medium uppercase tracking-[0.06em]"
                           style={{
                             fontFamily: "var(--garden-font-mono)",
                             backgroundColor: "rgba(198,198,190,0.1)",
@@ -1889,7 +1890,7 @@ function RolesSection({
                         {r.interests.map((tag: string) => (
                           <span
                             key={tag}
-                            className="px-1.5 py-0.5 rounded-full text-[10px] font-medium"
+                            className="px-1.5 py-0.5 rounded-full text-xs font-medium"
                             style={{ backgroundColor: "rgba(198,198,190,0.1)", color: "var(--garden-muted)" }}
                           >
                             {tag}
@@ -1958,7 +1959,7 @@ function RolesSection({
               style={inputStyle}
             />
             <div>
-              <label className="block text-[11px] uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
+              <label className="block text-xs uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
                 Payment (optional)
               </label>
               <div role="radiogroup" aria-label="Payment" className="flex flex-wrap gap-1.5">
@@ -2025,7 +2026,7 @@ function RolesSection({
               )}
             </div>
             <div>
-              <label className="block text-[11px] uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
+              <label className="block text-xs uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
                 Needed by (optional)
               </label>
               <input
@@ -2037,7 +2038,7 @@ function RolesSection({
               />
             </div>
             <div>
-              <label className="block text-[11px] uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
+              <label className="block text-xs uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
                 Skills/interests (optional)
               </label>
               <div className="flex flex-wrap gap-1.5">
@@ -2425,7 +2426,7 @@ function LeadTeamTools({
     <div className="pt-4 mt-2.5 flex flex-col gap-4" style={{ borderTop: "1px solid var(--garden-hairline)" }}>
       {pending && pending.length > 0 && (
         <div>
-          <p className="text-[11px] uppercase tracking-[0.06em] mb-2" style={{ color: "var(--garden-dim)" }}>
+          <p className="text-xs uppercase tracking-[0.06em] mb-2" style={{ color: "var(--garden-dim)" }}>
             Requests
           </p>
           <div className="flex flex-col gap-2">
@@ -2514,7 +2515,7 @@ function LeadTeamTools({
 
       {invited && invited.length > 0 && (
         <div>
-          <p className="text-[11px] uppercase tracking-[0.06em] mb-2" style={{ color: "var(--garden-dim)" }}>
+          <p className="text-xs uppercase tracking-[0.06em] mb-2" style={{ color: "var(--garden-dim)" }}>
             Invited
           </p>
           <div className="flex flex-col gap-2">
@@ -3179,7 +3180,7 @@ function TierManager({ projectId }: { projectId: Id<"projects"> }) {
                   ${(tier.priceCents / 100).toFixed(0)}{tier.billing === "one_time" ? "" : "/mo"}
                 </span>
                 <span
-                  className="px-2 py-0.5 rounded-full text-[10px] font-medium uppercase tracking-[0.06em]"
+                  className="px-2 py-0.5 rounded-full text-xs font-medium uppercase tracking-[0.06em]"
                   style={{
                     fontFamily: "var(--garden-font-mono)",
                     backgroundColor: tier.isActive ? "rgba(254,226,104,0.15)" : "rgba(198,198,190,0.1)",
@@ -3271,7 +3272,7 @@ function SupportersList({ projectId }: { projectId: Id<"projects"> }) {
         {show.map((s: any) => (
           <div key={s._id} className="flex items-center gap-2 text-sm">
             <span
-              className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
+              className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
               style={{
                 backgroundColor: "var(--garden-muted, #e5e5e5)",
                 color: "var(--garden-ink)",
@@ -3284,7 +3285,7 @@ function SupportersList({ projectId }: { projectId: Id<"projects"> }) {
             </span>
             {s.tierName && (
               <span
-                className="text-[10px] uppercase tracking-[0.06em] px-1.5 py-0.5 rounded"
+                className="text-xs uppercase tracking-[0.06em] px-1.5 py-0.5 rounded"
                 style={{
                   backgroundColor: "var(--garden-muted, #e5e5e5)",
                   color: "var(--garden-dim)",

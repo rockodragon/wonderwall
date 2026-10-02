@@ -4,6 +4,7 @@ import { api } from "../../convex/_generated/api";
 import { EventCard } from "../components/EventCard";
 import { FavoriteButton } from "../components/FavoriteButton";
 import { groupFollows } from "../lib/groupFollows";
+import { PAGE_WIDTH } from "../lib/pageWidth";
 
 // /favorites is the Following page (docs/features/following.md §1 row 4). A
 // profile favorite is a follow; the rows above are people you follow, the
@@ -141,7 +142,7 @@ function PageShell({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen" style={{ backgroundColor: "var(--app-surface)" }}>
       <link rel="stylesheet" href="/tokens.css" />
       <link rel="stylesheet" href="/about/fonts/fonts.css" />
-      <div className="p-4 sm:p-6 max-w-7xl mx-auto">
+      <div className={`p-4 sm:p-6 ${PAGE_WIDTH.list} mx-auto`}>
         <h1
           className="text-2xl sm:text-3xl font-semibold mb-1"
           style={{ color: "var(--app-text)", fontFamily: "var(--garden-font-display)" }}

@@ -27,6 +27,7 @@ import type { MetaFunction } from "react-router";
 import { Link } from "react-router";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
+import { PAGE_WIDTH } from "../lib/pageWidth";
 
 export const meta: MetaFunction = () => [
   { title: "Showcase jury | TheCreative.exchange" },
@@ -338,7 +339,7 @@ export default function AdminShowcasePage() {
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-4xl mx-auto">
+      <div className={`${PAGE_WIDTH.list} mx-auto`}>
         <div className="mb-6">
           <Link to="/admin" className="text-sm text-blue-600 hover:text-blue-800">
             ← Admin Dashboard

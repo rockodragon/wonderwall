@@ -58,6 +58,7 @@ import { buildTicketLink, isCheckoutSessionId } from "../../convex/garden/ticket
 import { claimPendingTickets, stashTicketSession } from "../lib/pendingTicket";
 import { setPendingIntent } from "../lib/pendingIntent";
 import { guestsToCsv, summarizeGuests, formatDollars } from "../../convex/eventGuests";
+import { PAGE_WIDTH } from "../lib/pageWidth";
 
 const COVER_COLORS = [
   { name: "Blue", value: "blue", gradient: "from-blue-500 to-blue-600" },
@@ -196,7 +197,7 @@ export default function EventDetail() {
 
   if (event === undefined) {
     return (
-      <div className="p-6 max-w-4xl mx-auto">
+      <div className={`p-6 ${PAGE_WIDTH.list} mx-auto`}>
         <EventsBackLink isGuest={isGuest} />
         <div className="animate-pulse mt-4">
           <div className="h-48 bg-gray-200 dark:bg-gray-700 rounded-2xl mb-6" />
@@ -209,7 +210,7 @@ export default function EventDetail() {
 
   if (!event) {
     return (
-      <div className="p-6 max-w-4xl mx-auto">
+      <div className={`p-6 ${PAGE_WIDTH.list} mx-auto`}>
         <EventsBackLink isGuest={isGuest} />
         <div className="text-center py-12">
           <p className="text-gray-500 dark:text-gray-400">Event not found</p>
@@ -311,7 +312,7 @@ export default function EventDetail() {
   const playerIsHero = !!mediaEmbed && !bannerImageUrl;
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className={`${PAGE_WIDTH.list} mx-auto`}>
       {/* Garden design tokens — this file is otherwise plain Tailwind, but
           the shared AnnouncementComposer (see "Organizer: message
           attendees" below) is styled with --garden-* tokens to match

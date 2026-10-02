@@ -5,6 +5,7 @@ import { api } from "../../convex/_generated/api";
 import { CreateWorkComposer } from "../components/CreateWorkComposer";
 import { EmbedStill, PlayBadge } from "../components/EmbedStill";
 import { toEmbedUrl, type EmbedAspect } from "../lib/videoEmbed";
+import { PAGE_WIDTH } from "../lib/pageWidth";
 
 const TYPE_FILTERS = [
   { label: "All", value: "" },
@@ -60,7 +61,7 @@ export default function Works() {
 
   if (filteredArtifacts.length === 0) {
     return (
-      <div className="p-6 max-w-6xl mx-auto">
+      <div className={`p-6 ${PAGE_WIDTH.list} mx-auto`}>
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
           Portfolios
         </h1>
@@ -95,7 +96,7 @@ export default function Works() {
   }
 
   return (
-    <div className="p-6 max-w-[1600px] mx-auto">
+    <div className={`p-6 ${PAGE_WIDTH.list} mx-auto`}>
       <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
         Portfolios
       </h1>
@@ -159,7 +160,7 @@ export default function Works() {
           card sizes itself off its own actual image aspect ratio (measured
           client-side, since nothing in the schema stores width/height) or a
           type-appropriate default for non-image content. See BentoCard. */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 auto-rows-[200px]">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 auto-rows-[200px]">
         {filteredArtifacts.map((artifact, index) => (
           <BentoCard key={artifact._id} artifact={artifact} featured={index === 0} />
         ))}

@@ -30,6 +30,7 @@ import {
   formatDateTime,
   formatPrice,
 } from "./offerings";
+import { PAGE_WIDTH } from "../lib/pageWidth";
 
 // Loader-less (this whole app is a client-only SPA over useQuery — same as
 // communities.$slug.tsx/projects.$id.tsx), so `data` is never actually
@@ -59,7 +60,7 @@ function PageShell({ children }: { children: ReactNode }) {
     <div className="min-h-screen bg-[var(--garden-ink)]">
       <link rel="stylesheet" href="/tokens.css" />
       <link rel="stylesheet" href="/about/fonts/fonts.css" />
-      <div className="p-4 sm:p-6 max-w-3xl mx-auto">{children}</div>
+      <div className={`p-4 sm:p-6 ${PAGE_WIDTH.reading} mx-auto`}>{children}</div>
     </div>
   );
 }
@@ -223,7 +224,7 @@ export default function OfferingDetail() {
             />
           ) : (
             <div
-              className="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0"
+              className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
               style={{ backgroundColor: "var(--garden-hairline-raised)", color: "var(--garden-paper)" }}
             >
               {offering.creator.name.charAt(0).toUpperCase()}

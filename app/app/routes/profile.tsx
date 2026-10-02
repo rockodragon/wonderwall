@@ -12,6 +12,7 @@ import { stageLabel, type Stage } from "../lib/stage";
 import { budgetAmountLabel, budgetKindLabel } from "../lib/budgetLabel";
 import { OrgLogo } from "../components/OrgLogo";
 import { yearsLabel } from "../../convex/organizationRules";
+import { PAGE_WIDTH } from "../lib/pageWidth";
 
 // Matches listAffiliations's return shape (project-teams.md §4). Annotated
 // explicitly here — not inferred from the query — so this section still
@@ -127,7 +128,7 @@ export default function Profile() {
 
   if (profile === undefined) {
     return (
-      <div className="p-6 max-w-4xl mx-auto">
+      <div className={`p-6 ${PAGE_WIDTH.list} mx-auto`}>
         <div className="animate-pulse">
           <div className="flex items-start gap-6 mb-8">
             <div className="w-24 h-24 bg-gray-200 dark:bg-gray-700 rounded-full" />
@@ -143,14 +144,14 @@ export default function Profile() {
 
   if (!profile) {
     return (
-      <div className="p-6 max-w-4xl mx-auto text-center py-12">
+      <div className={`p-6 ${PAGE_WIDTH.list} mx-auto text-center py-12`}>
         <p className="text-gray-500 dark:text-gray-400">Profile not found</p>
       </div>
     );
   }
 
   return (
-    <div className="p-4 sm:p-6 max-w-5xl mx-auto">
+    <div className={`p-4 sm:p-6 ${PAGE_WIDTH.list} mx-auto`}>
       {/* Profile header. Identity (name/role/location/network) sits on the
           left, all the ways to act on this person are grouped on the right
           — Follow/Message/Share stay one click away, Block moves into the
@@ -592,7 +593,7 @@ export default function Profile() {
                 >
                   {a.role && a.role !== "Lead" && (
                     <span
-                      className="inline-block mb-1 px-2 py-0.5 rounded-full text-[11px] font-semibold uppercase tracking-[0.06em]"
+                      className="inline-block mb-1 px-2 py-0.5 rounded-full text-xs font-semibold uppercase tracking-[0.06em]"
                       style={{ backgroundColor: "rgba(20,20,18,0.72)", color: "#f7f7f4" }}
                     >
                       {a.role}
@@ -816,7 +817,7 @@ function ProjectStatusLine({ project: a }: { project: any }) {
       {chips.map((c, i) => (
         <p key={i} className="text-[13px]" style={{ color: "var(--app-text-muted)" }}>
           <span
-            className="inline-block mr-2 px-2 py-0.5 rounded-full text-[11px] font-semibold uppercase tracking-[0.06em]"
+            className="inline-block mr-2 px-2 py-0.5 rounded-full text-xs font-semibold uppercase tracking-[0.06em]"
             style={{ backgroundColor: "var(--app-accent-wash)", color: "var(--app-accent-ink)" }}
           >
             {c.label}

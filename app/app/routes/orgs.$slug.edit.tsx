@@ -13,6 +13,7 @@ import { ORG_CATEGORIES, ORG_LIMITS, yearsLabel } from "../../convex/organizatio
 import { LocationAutocomplete } from "../components/LocationAutocomplete";
 import { OrgLogo } from "../components/OrgLogo";
 import { useLocationField } from "../lib/useLocationField";
+import { PAGE_WIDTH } from "../lib/pageWidth";
 
 const inputClass =
   "w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent placeholder:text-[var(--app-text-dim)]";
@@ -615,7 +616,7 @@ function AddPerson({
 }
 
 function Shell({ children }: { children: React.ReactNode }) {
-  return <div className="p-4 sm:p-6 max-w-2xl mx-auto">{children}</div>;
+  return <div className={`p-4 sm:p-6 ${PAGE_WIDTH.reading} mx-auto`}>{children}</div>;
 }
 
 function Notice({ text, linkTo, linkLabel }: { text: string; linkTo: string; linkLabel: string }) {

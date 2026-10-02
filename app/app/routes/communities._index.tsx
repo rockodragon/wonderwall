@@ -11,6 +11,7 @@ import type React from "react";
 import { Link, useRouteError } from "react-router";
 import { FF_V2 } from "../lib/featureFlags";
 import { CommunityPage } from "./communities.$slug";
+import { PAGE_WIDTH } from "../lib/pageWidth";
 
 export function meta() {
   return [
@@ -25,7 +26,7 @@ export function ErrorBoundary() {
     <div className="min-h-screen bg-[var(--garden-ink)]">
       <link rel="stylesheet" href="/tokens.css" />
       <link rel="stylesheet" href="/about/fonts/fonts.css" />
-      <div className="p-4 sm:p-6 max-w-7xl mx-auto">
+      <div className={`p-4 sm:p-6 ${PAGE_WIDTH.list} mx-auto`}>
         <h1
           className="text-2xl sm:text-3xl font-semibold mb-2"
           style={{ color: "var(--garden-paper)", fontFamily: "var(--garden-font-display)" }}
@@ -61,7 +62,7 @@ const CARD: React.CSSProperties = {
 
 function CommunitiesIntro() {
   return (
-    <section id="top" className="p-4 sm:p-6 max-w-4xl mx-auto pb-0 sm:pb-0">
+    <section id="top" className={`p-4 sm:p-6 ${PAGE_WIDTH.list} mx-auto pb-0 sm:pb-0`}>
       <h1
         className="text-2xl sm:text-3xl font-semibold mb-3"
         style={{ color: "var(--garden-paper)", fontFamily: "var(--garden-font-display)" }}

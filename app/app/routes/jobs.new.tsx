@@ -5,6 +5,7 @@ import { useNavigate } from "react-router";
 import { api } from "../../convex/_generated/api";
 import { INTERESTS } from "../constants/interests";
 import { FF_JOBS, useFeatureGate } from "../lib/featureFlags";
+import { PAGE_WIDTH } from "../lib/pageWidth";
 
 type LocationType = "Remote" | "Hybrid" | "On-site";
 type JobType = "Full-time" | "Part-time" | "Contract" | "Freelance";
@@ -163,7 +164,7 @@ export default function JobsNew() {
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: "var(--app-surface)" }}>
-      <div className="max-w-3xl mx-auto px-4 py-8">
+      <div className={`${PAGE_WIDTH.reading} mx-auto px-4 py-8`}>
         <div
           className="rounded-2xl shadow-sm border p-6"
           style={{ backgroundColor: "var(--app-surface-raised)", borderColor: "var(--app-hairline)" }}

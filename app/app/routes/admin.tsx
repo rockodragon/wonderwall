@@ -2,6 +2,7 @@ import { useQuery, useConvexAuth, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useNavigate, Link } from "react-router";
 import { useEffect, useState } from "react";
+import { PAGE_WIDTH } from "../lib/pageWidth";
 
 export default function AdminPage() {
   const { isAuthenticated, isLoading: authLoading } = useConvexAuth();
@@ -133,7 +134,7 @@ export default function AdminPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-7xl mx-auto">
+      <div className={`${PAGE_WIDTH.wide} mx-auto`}>
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
           <p className="mt-2 text-sm text-gray-600">

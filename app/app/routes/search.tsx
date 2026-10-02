@@ -14,6 +14,7 @@ import { distanceLabel } from "../lib/browse/nearMe";
 import { LocationIcon } from "../components/icons";
 import { InviteButton } from "../components/InviteCTA";
 import { OrgDirectory } from "../components/OrgDirectory";
+import { PAGE_WIDTH } from "../lib/pageWidth";
 
 type ProfileResult = {
   _id: string;
@@ -120,7 +121,7 @@ export default function Search() {
   const loading = profiles === undefined;
 
   return (
-    <div className="max-w-6xl mx-auto p-6">
+    <div className={`${PAGE_WIDTH.list} mx-auto p-6`}>
       {/* The two tabs are the title. */}
       <div
         className="flex items-end justify-between gap-3 mb-5 border-b"

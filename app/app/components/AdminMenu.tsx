@@ -121,7 +121,7 @@ export function AdminMenu({
             }}
           >
             <div
-              className="px-3 pt-1.5 pb-1 text-[11px] font-semibold uppercase tracking-[0.08em]"
+              className="px-3 pt-1.5 pb-1 text-xs font-semibold uppercase tracking-[0.08em]"
               style={{ color: "var(--garden-dim)", fontFamily: "var(--garden-font-mono)" }}
             >
               Admin

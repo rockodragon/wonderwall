@@ -7,6 +7,7 @@ import type { ReactNode } from "react";
 import { Link } from "react-router";
 import { CLAIMS } from "../constants/claims";
 import { FF_V2 } from "../lib/featureFlags";
+import { PAGE_WIDTH } from "../lib/pageWidth";
 
 export function meta() {
   return [
@@ -65,7 +66,7 @@ export function AboutShell({ children }: { children: ReactNode }) {
     <div className="min-h-screen" style={{ backgroundColor: "var(--garden-ink)" }}>
       <link rel="stylesheet" href="/tokens.css" />
       <link rel="stylesheet" href="/about/fonts/fonts.css" />
-      <div className="px-4 sm:px-8 py-10 sm:py-14 max-w-3xl">{children}</div>
+      <div className={`px-4 sm:px-8 py-10 sm:py-14 ${PAGE_WIDTH.reading} mx-auto`}>{children}</div>
     </div>
   );
 }

@@ -11,6 +11,7 @@ import { OrgLogo } from "../components/OrgLogo";
 import { ShareButton } from "../components/ShareButton";
 import { SocialLinks } from "../components/SocialLinks";
 import { useBack } from "../lib/useBack";
+import { PAGE_WIDTH } from "../lib/pageWidth";
 
 // /orgs/:slug — an organization's public page (docs/features/organizations.md).
 // Public like an event page: a signed-out guest who clicks a host lands here.
@@ -68,7 +69,7 @@ export default function OrganizationPage() {
 
   if (org === undefined) {
     return (
-      <div className="p-4 sm:p-6 max-w-5xl mx-auto">
+      <div className={`p-4 sm:p-6 ${PAGE_WIDTH.list} mx-auto`}>
         <div className="animate-pulse">
           <div className="flex items-start gap-4 sm:gap-6 mb-8">
             <div
@@ -93,7 +94,7 @@ export default function OrganizationPage() {
 
   if (org === null) {
     return (
-      <div className="p-4 sm:p-6 max-w-5xl mx-auto text-center py-12">
+      <div className={`p-4 sm:p-6 ${PAGE_WIDTH.list} mx-auto text-center py-12`}>
         <p className="mb-4" style={{ color: "var(--app-text-muted)" }}>
           Organization not found
         </p>
@@ -125,7 +126,7 @@ export default function OrganizationPage() {
   const showJoinButton = viewer.signedIn && !viewer.hasPosition && !joined;
 
   return (
-    <div className="p-4 sm:p-6 max-w-5xl mx-auto">
+    <div className={`p-4 sm:p-6 ${PAGE_WIDTH.list} mx-auto`}>
       <BackLink />
       {/* Header: identity on the left, ways to act on the right — the same
           arrangement as a profile, with a square logo so it reads as an
