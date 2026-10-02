@@ -53,8 +53,8 @@ import {
   formatPeriod,
 } from "../garden/ui";
 import "../garden/garden.css";
+import { SOPHIA_FUND_SLUG } from "../lib/namedFunds";
 
-const AP_SLUG = "abiding-practice";
 const PRESET_AMOUNTS_CENTS = [1000, 2500, 5000, 10000];
 
 export function meta() {
@@ -735,7 +735,7 @@ export default function GrantProgramPage() {
   const [searchParams] = useSearchParams();
   const [showModal, setShowModal] = useState(false);
   const data = useQuery(api.garden.allocations.getFundPage, {
-    hostOrgSlug: AP_SLUG,
+    hostOrgSlug: SOPHIA_FUND_SLUG,
   });
   const counts = useQuery(api.garden.stats.publicCounts, {});
 

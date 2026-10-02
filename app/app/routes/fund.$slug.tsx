@@ -35,6 +35,7 @@ import {
   formatPeriod,
 } from "../garden/ui";
 import { CLAIMS } from "../constants/claims";
+import { NAMED_FUNDS, SOPHIA_FUND_SLUG, availableCents as fundAvailableCents } from "../lib/namedFunds";
 import "../garden/garden.css";
 
 function reasonFor(err: unknown, fallback: string): string {
@@ -57,22 +58,7 @@ const CONTRIBUTION_TYPE_LABELS: Record<string, string> = {
 
 // A fund can carry its own name and a short note about it, and a short
 // address that points at the org's slug (/fund/sophia → abiding-practice).
-const FUND_ALIASES: Record<string, string> = { sophia: "abiding-practice" };
-const NAMED_FUNDS: Record<
-  string,
-  { name: string; about: string; openCall?: string; seedCents?: number }
-> = {
-  "abiding-practice": {
-    name: "The Sophia Fund",
-    openCall: CLAIMS.sophiaSchedule,
-    // Money the fund holds that isn't in this ledger (Rick, 2026-09-29).
-    // Tickets and gifts recorded here add to it; grants made come off it.
-    // If it's ever entered as a ledger row, remove it here or it counts twice.
-    seedCents: 1_000_000,
-    about:
-      "Sophia means wisdom in Greek. The fund carries the name of Sophia, a young Christian creative whose life was lost in a car accident this year.",
-  },
-};
+const FUND_ALIASES: Record<string, string> = { sophia: SOPHIA_FUND_SLUG };
 
 const PRESET_AMOUNTS_CENTS = [1000, 2500, 5000, 10000]; // $10 · $25 · $50 · $100
 
@@ -473,7 +459,7 @@ export default function FundPage() {
   const isPool = org.kind === "platform" || org.kind === "community";
   const isOutLink = org.kind === "org" || org.kind === "church";
   const seedCents = NAMED_FUNDS[org.slug]?.seedCents;
-  const availableCents = (seedCents ?? 0) + balanceCents;
+  const availableCents = fundAvailableCents(org.slug, balanceCents);
   const gaveThanks = searchParams.get("gave") === "1";
   const contributed = searchParams.get("contributed") === "1";
   // Prefer the org's own Stripe Payment Link (in-site round trip); fall back

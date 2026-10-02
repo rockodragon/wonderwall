@@ -9,7 +9,7 @@ import type { ReactNode } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { Link } from "react-router";
 import { api } from "../../convex/_generated/api";
-import { errorMessage } from "../routes/projects";
+import { errorMessage } from "../lib/convexError";
 import { toEmbedUrl } from "../lib/videoEmbed";
 import { MAX_CLIPS, MAX_NOTE_LENGTH, PAID_METHODS, isClipArtifact, type PaidMethod } from "../../convex/garden/gigRules";
 

@@ -34,3 +34,9 @@ export function useFeatureGate(enabled: boolean, redirectTo: string) {
 // and "Host your own" (2026-09-26, Rick — the lower-left was three ways of
 // saying the same thing). Set to true to bring the V2 rail back.
 export const FF_V2 = false;
+
+// FF_DESK — desktop (md and up) trades the left sidebar for the palette in
+// the lower-left corner, and /today becomes the desk (docs/features/
+// desktop-desk-palette.md). Phones keep the bottom bar and the Today page
+// either way. Set to false to bring the sidebar back.
+export const FF_DESK = true;

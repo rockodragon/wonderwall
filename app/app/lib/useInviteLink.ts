@@ -9,7 +9,7 @@ import { api } from "../../convex/_generated/api";
  * use if the account doesn't have one yet, and owns the copy-to-clipboard
  * state so both surfaces behave the same.
  */
-export function useInviteLink(variant: "sidebar" | "settings" | "people") {
+export function useInviteLink(variant: "sidebar" | "settings" | "people" | "palette") {
   const posthog = usePostHog();
   const inviteLink = useQuery(api.invites.getMyInviteLink);
   const generateSlug = useMutation(api.invites.generateInviteSlug);
