@@ -8,6 +8,7 @@
 import type { FunctionArgs } from "convex/server";
 import type { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
+import { shortDay } from "./dates";
 
 export const TITLE_MAX = 80;
 export const BODY_MAX = 600;
@@ -81,10 +82,6 @@ function dayAndTime(ms: number): string {
   return new Date(ms).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 }
 
-function day(ms: number): string {
-  return new Date(ms).toLocaleDateString("en-US", { month: "short", day: "numeric" });
-}
-
 /** "Oct 1, 9:00 AM → Oct 8, 5:00 PM", or "From Oct 1, 9:00 AM" with no end. */
 export function datesLabel(startsAt: number, endsAt?: number | null): string {
   return endsAt != null ? `${dayAndTime(startsAt)} → ${dayAndTime(endsAt)}` : `From ${dayAndTime(startsAt)}`;
@@ -92,7 +89,7 @@ export function datesLabel(startsAt: number, endsAt?: number | null): string {
 
 /** "Sent to 40 · Oct 2" */
 export function sentLabel(sentCount: number | undefined, sentAt: number): string {
-  return `Sent to ${sentCount ?? 0} · ${day(sentAt)}`;
+  return `Sent to ${sentCount ?? 0} · ${shortDay(sentAt)}`;
 }
 
 /** "128 people", "1 person" */

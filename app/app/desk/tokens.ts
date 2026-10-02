@@ -51,6 +51,9 @@ export function monoLabel(size = 12, tracking = "0.24em"): CSSProperties {
 export const FOCUS_RING_CLASS =
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FFE066]";
 
+/** An opened card's big button, before its fill: 52px, 10px corners. */
+export const CARD_BUTTON_CLASS = `inline-flex h-[52px] items-center justify-center rounded-[10px] px-7 text-base font-semibold no-underline transition-colors ${FOCUS_RING_CLASS}`;
+
 /** Card and palette motion: 620ms on the desk's ease. */
 export const MOTION_MS = 620;
 

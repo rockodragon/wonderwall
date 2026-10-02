@@ -5,6 +5,10 @@
 // with no picture is this panel alone, a centered sheet. From the handoff,
 // "Opened card".
 //
+// A Shortlist card adds three things (docs/handoff/favorites-redesign/
+// README.md, level 3): a status line, buttons that follow the item's state
+// (ShortlistActions.tsx), and ← / → through the list it was opened from.
+//
 // The panel mounts when a card opens and unmounts a beat after it closes, so
 // its queries (a profile's bio, whether I'm going) only run while it's up.
 // Hooks run unconditionally; a query that doesn't apply is skipped.
@@ -12,20 +16,36 @@
 import { Fragment, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { Link } from "react-router";
-import { X } from "@phosphor-icons/react";
+import { CaretLeft, CaretRight, X } from "@phosphor-icons/react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { useReducedMotion } from "../hooks/useMediaQuery";
 import { errorMessage } from "../lib/convexError";
 import type { DeskAction, DeskCard } from "./deskCards";
+import type { DeskCardId } from "./deskState";
 import { plainText } from "./deskCards";
-import { DESK, DESK_SANS, FOCUS_RING_CLASS, monoLabel } from "./tokens";
+import { ShortlistActions } from "./ShortlistActions";
+import { CARD_BUTTON_CLASS, DESK, DESK_MONO, DESK_SANS, FOCUS_RING_CLASS, monoLabel } from "./tokens";
 import { useUpdateClick } from "./useUpdateReads";
+
+/** ← / → through the list a card was opened from: "2 of 6". `arrived` is
+ *  the way the last step went, when this card was reached by one: focus
+ *  lands on that step button again, so the next press goes on. `busy`: the
+ *  card's action is running, and stepping waits for it (ShortlistActions
+ *  reports through `onBusy`). */
+export type Stepper = {
+  index: number;
+  total: number;
+  onStep: (by: -1 | 1) => void;
+  arrived?: -1 | 1;
+  busy?: boolean;
+  onBusy?: (busy: boolean) => void;
+};
+
+const ROUND_CLASS = `flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#333] bg-transparent text-[#F4F4F2] transition-colors enabled:hover:border-[#FFE066] enabled:hover:text-[#FFE066] disabled:opacity-35 ${FOCUS_RING_CLASS}`;
 
 /** Five lines of the description, then an ellipsis. */
 const CLAMP_5: CSSProperties = { display: "-webkit-box", WebkitLineClamp: 5, WebkitBoxOrient: "vertical", overflow: "hidden" };
-
-const BUTTON_CLASS = `inline-flex h-[52px] items-center justify-center rounded-[10px] px-7 text-base font-semibold no-underline transition-colors ${FOCUS_RING_CLASS}`;
 
 export function DetailPanel({
   card,
@@ -33,6 +53,7 @@ export function DetailPanel({
   sheet,
   share,
   onClose,
+  stepper,
 }: {
   card: DeskCard;
   visible: boolean;
@@ -40,10 +61,14 @@ export function DetailPanel({
   sheet: boolean;
   /** Width of the picture side, as a share of the open card. */
   share: number;
-  onClose: () => void;
+  /** Closes the card; given an id, only if that card is still the one open. */
+  onClose: (only?: DeskCardId) => void;
+  stepper?: Stepper;
 }) {
   const reduced = useReducedMotion();
   const closeRef = useRef<HTMLButtonElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const arrived = stepper?.arrived;
 
   // A followed person's bio isn't in the list the card came from.
   const profile = useQuery(
@@ -52,7 +77,11 @@ export function DetailPanel({
   );
 
   useEffect(() => {
-    if (visible) closeRef.current?.focus({ preventScroll: true });
+    if (!visible) return;
+    const step = arrived ? rootRef.current?.querySelector<HTMLButtonElement>(`[data-step="${arrived}"]:not(:disabled)`) : null;
+    (step ?? closeRef.current)?.focus({ preventScroll: true });
+    // Where focus lands when the panel comes up, not on every step after.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
 
   const description = card.detail.description || plainText(profile?.bio, 500);
@@ -65,6 +94,7 @@ export function DetailPanel({
 
   return (
     <div
+      ref={rootRef}
       aria-hidden={!visible}
       style={{
         position: "absolute",
@@ -88,18 +118,37 @@ export function DetailPanel({
     >
       <div className="flex items-start justify-between gap-6">
         <p style={{ ...monoLabel(12, "0.2em"), color: DESK.accent, margin: 0, paddingTop: 10 }}>{card.detail.meta}</p>
-        <button
-          ref={closeRef}
-          type="button"
-          onClick={onClose}
-          aria-label="Close"
-          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#333] bg-transparent text-[#F4F4F2] transition-colors hover:border-[#FFE066] hover:text-[#FFE066] ${FOCUS_RING_CLASS}`}
-        >
-          <X size={18} weight="regular" aria-hidden />
-        </button>
+        <div className="flex shrink-0 items-center gap-3">
+          {stepper && stepper.total > 1 && <StepControls stepper={stepper} />}
+          <button
+            ref={closeRef}
+            type="button"
+            onClick={() => onClose()}
+            aria-label="Close"
+            className={ROUND_CLASS}
+          >
+            <X size={18} weight="regular" aria-hidden />
+          </button>
+        </div>
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col justify-center" style={{ gap: project ? 14 : 20 }}>
+        {card.detail.status && (
+          <p
+            style={{
+              ...monoLabel(12, "0.14em"),
+              alignSelf: "flex-start",
+              margin: 0,
+              padding: "7px 10px",
+              borderRadius: 6,
+              border: "1px solid rgba(255,224,102,.35)",
+              background: "rgba(255,224,102,.08)",
+              color: DESK.accent,
+            }}
+          >
+            {card.detail.status}
+          </p>
+        )}
         {/* A word never breaks mid-way; only one wider than the whole panel gives way. */}
         <h2 style={{ margin: 0, fontSize: 44, lineHeight: 1.08, fontWeight: 500, letterSpacing: "-0.02em", overflowWrap: "break-word", hyphens: "manual" }}>
           {card.detail.title}
@@ -147,6 +196,10 @@ export function DetailPanel({
           {action?.kind === "link" && <ActionLink action={action} />}
           {action?.kind === "rsvp" && <JoinButton action={action} />}
           {action?.kind === "update" && <UpdateButton action={action} />}
+          {/* Keyed by card: stepping to the next item starts its buttons fresh. */}
+          {action?.kind === "shortlist" && (
+            <ShortlistActions key={card.id} id={card.id} buttons={action.buttons} onDone={onClose} onBusy={stepper?.onBusy} />
+          )}
           {card.detail.aside && <span style={{ fontSize: 14, color: DESK.muted }}>{card.detail.aside}</span>}
           {card.kind === "event" && (
             <Link
@@ -162,9 +215,26 @@ export function DetailPanel({
   );
 }
 
+function StepControls({ stepper }: { stepper: Stepper }) {
+  const { index, total, onStep, busy } = stepper;
+  return (
+    <div className="flex items-center gap-2" style={{ fontFamily: DESK_MONO, fontSize: 12, letterSpacing: "0.14em", color: DESK.muted, whiteSpace: "nowrap" }}>
+      <button type="button" data-step="-1" onClick={() => onStep(-1)} disabled={busy || index === 0} aria-label="Previous" className={ROUND_CLASS}>
+        <CaretLeft size={16} weight="regular" aria-hidden />
+      </button>
+      <span aria-live="polite">
+        {index + 1} of {total}
+      </span>
+      <button type="button" data-step="1" onClick={() => onStep(1)} disabled={busy || index === total - 1} aria-label="Next" className={ROUND_CLASS}>
+        <CaretRight size={16} weight="regular" aria-hidden />
+      </button>
+    </div>
+  );
+}
+
 function ActionLink({ action }: { action: Extract<DeskAction, { kind: "link" }> }): ReactNode {
   return (
-    <Link to={action.href} className={`${BUTTON_CLASS} bg-[#FFE066] text-[#121212] hover:bg-[#FFEA94]`}>
+    <Link to={action.href} className={`${CARD_BUTTON_CLASS} bg-[#FFE066] text-[#121212] hover:bg-[#FFEA94]`}>
       {action.label}
     </Link>
   );
@@ -175,7 +245,7 @@ function ActionLink({ action }: { action: Extract<DeskAction, { kind: "link" }> 
  * in a new tab. */
 function UpdateButton({ action }: { action: Extract<DeskAction, { kind: "update" }> }): ReactNode {
   const pressed = useUpdateClick();
-  const className = `${BUTTON_CLASS} bg-[#FFE066] text-[#121212] hover:bg-[#FFEA94]`;
+  const className = `${CARD_BUTTON_CLASS} bg-[#FFE066] text-[#121212] hover:bg-[#FFEA94]`;
   if (action.external) {
     return (
       <a href={action.href} target="_blank" rel="noopener noreferrer" onClick={() => pressed(action.updateId)} className={className}>
@@ -239,10 +309,10 @@ function JoinButton({ action }: { action: Extract<DeskAction, { kind: "rsvp" }> 
         disabled={done || state === "saving"}
         className={
           going || status === "pending"
-            ? `${BUTTON_CLASS} cursor-default border border-[#FFE066] bg-[rgba(255,224,102,0.1)] text-[#FFE066]`
+            ? `${CARD_BUTTON_CLASS} cursor-default border border-[#FFE066] bg-[rgba(255,224,102,0.1)] text-[#FFE066]`
             : done
-              ? `${BUTTON_CLASS} cursor-default border border-[#333] bg-transparent`
-              : `${BUTTON_CLASS} border border-transparent bg-[#FFE066] text-[#121212] hover:bg-[#FFEA94] disabled:opacity-70`
+              ? `${CARD_BUTTON_CLASS} cursor-default border border-[#333] bg-transparent`
+              : `${CARD_BUTTON_CLASS} border border-transparent bg-[#FFE066] text-[#121212] hover:bg-[#FFEA94] disabled:opacity-70`
         }
         style={status === "declined" && !going ? { color: DESK.muted } : undefined}
       >

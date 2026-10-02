@@ -203,7 +203,7 @@ export function countGoing(input: {
   return summarizeGuests(mergeGuests(rows)).going;
 }
 
-async function loadGoingCount(ctx: QueryCtx, eventId: Id<"events">): Promise<number> {
+export async function loadGoingCount(ctx: QueryCtx, eventId: Id<"events">): Promise<number> {
   const [applications, rsvps, purchases] = await Promise.all([
     ctx.db
       .query("eventApplications")

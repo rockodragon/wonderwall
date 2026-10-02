@@ -4,10 +4,12 @@
 // Four arrangements (docs/features/desktop-desk-palette.md, "Geometry" and
 // "Round 2"):
 //   scatter — view "all": cards rest at slight angles, spread over the desk
-//   row     — Today: matching cards stand straight in a short centered row
-//   grid    — People, Projects, Events, Favorites: a wrapping grid on the
-//             header's left edge. The desk scrolls; the layout reports how
-//             tall the page is.
+//   row     — Today: matching cards stand straight in a short centered row,
+//             under Needs you when that's there
+//   grid    — People, Projects, Events: a wrapping grid on the header's left
+//             edge. The desk scrolls; the layout reports how tall the page is.
+// The Shortlist lays out no cards: it is rows (ShortlistView.tsx), and only
+// its opened card is placed here.
 //   open    — one card fills the window (inset 24px), or a card with no
 //             picture opens as a centered sheet
 // A card that doesn't belong to the view falls off the bottom of the page.
@@ -88,7 +90,7 @@ const ROW_SIDE = 96;
 /** A row shrinks its cards, down to half size, to fit the window. */
 const ROW_SIDE_TIGHT = 48;
 
-// The grid (People, Projects, Events, Favorites): as many columns as fit at
+// The grid (People, Projects, Events): as many columns as fit at
 // GRID_MIN_W, cards at most GRID_MAX_W wide, 3:4, left on the header's edge.
 export const GRID_MIN_W = 240;
 export const GRID_MAX_W = 300;
@@ -105,7 +107,7 @@ const GRID_ASPECT = 4 / 3;
 
 /** Views that lay out as a scrolling grid. */
 export function isGridView(view: DeskView): boolean {
-  return view === "people" || view === "projects" || view === "events" || view === "fav";
+  return view === "people" || view === "projects" || view === "events";
 }
 
 export function clamp(n: number, lo: number, hi: number): number {
@@ -339,31 +341,45 @@ function scatter(cards: readonly LayoutCard[], vw: number, vh: number, space = 1
 // Row (Today)
 // ——————————————————————————————————————————————————————————————
 
-function row(matched: readonly LayoutCard[], vw: number, vh: number, space = 1): Map<string, Place> {
+/** Clear space under Today's row once Needs you has pushed it down the page. */
+const ROW_BOTTOM = 48;
+
+/** The row's places, and how far down the page its cards reach. `minTop`
+ *  holds the row below whatever sits over it (Today's Needs you rows). */
+function row(
+  matched: readonly LayoutCard[],
+  vw: number,
+  vh: number,
+  space = 1,
+  minTop = 0,
+): { places: Map<string, Place>; bottom: number } {
   const out = new Map<string, Place>();
   const s = deskScale(vw, vh);
   const fit = rowFit(vw, vh);
   const count = matched.length;
-  if (count === 0) return out;
+  if (count === 0) return { places: out, bottom: 0 };
 
   // Past the full-size fit, cards shrink (Today holds a handful, never more).
-  const k = count > fit ? clamp(rowShrink(count, vw, vh), 0.5, 1) : 1;
+  let k = count > fit ? clamp(rowShrink(count, vw, vh), 0.5, 1) : 1;
+  const top = Math.max(ROW_TOP * s, minTop);
+  // Pushed down under Needs you, they shrink to stay in the window, down to
+  // half size; past that the page scrolls.
+  if (top > ROW_TOP * s) k = Math.min(k, clamp((vh - top - ROW_BOTTOM) / (ROW_H * s), 0.5, 1));
   const w = ROW_W * s * k;
   const gap = ROW_GAP * s * k * space;
   const tall = ROW_H * s * k;
   const total = count * w + (count - 1) * gap;
   const startX = (vw - total) / 2;
-  const top = ROW_TOP * s;
 
   matched.forEach((c, i) => {
     const h = (c.note ? ROW_NOTE_H : ROW_H) * s * k;
     out.set(c.id, { x: startX + i * (w + gap), y: top + (tall - h) / 2, w, h, r: 0, opacity: 1, z: i + 1 });
   });
-  return out;
+  return { places: out, bottom: top + tall };
 }
 
 // ——————————————————————————————————————————————————————————————
-// Grid (People, Projects, Events, Favorites)
+// Grid (People, Projects, Events)
 // ——————————————————————————————————————————————————————————————
 
 export type GridMetrics = {
@@ -422,8 +438,12 @@ export type LayoutInput = {
   /** Grid views: how tall the header is. The first row starts just under it. */
   top?: number;
   /** How far the page is scrolled. An open card sits in the window, so it
-   *  sits this far down the page. */
+   *  sits this far down the page, and a card leaving the view falls below the
+   *  window as well as below the page. */
   scrollTop?: number;
+  /** Row views: the row starts no higher than this. Today passes the bottom
+   *  of its header when Needs you sits in it; the page then grows to fit. */
+  rowTop?: number;
   /** The cards on show in this view, in order. Without it, the cards whose
    *  sections name the view, in the order given. */
   shown?: readonly string[];
@@ -456,6 +476,7 @@ export function layoutDeskFull({
   scrollTop = 0,
   shown,
   space = 1,
+  rowTop,
 }: LayoutInput): DeskLayout {
   // Where each resting card would sit: also where an unmatched card falls
   // from and returns to, so it drops straight down.
@@ -484,8 +505,14 @@ export function layoutDeskFull({
     arranged = grid(matched, metrics, gridTop);
     height = gridHeight(matched.length, metrics, gridTop, vh);
   } else {
-    arranged = row(onShow(), vw, vh, space);
+    const laid = row(onShow(), vw, vh, space, rowTop);
+    arranged = laid.places;
+    if (rowTop !== undefined) height = Math.max(vh, laid.bottom + ROW_BOTTOM);
   }
+
+  // Below the page, and below the window when the page is taller than this
+  // layout knows (the Shortlist's rows are in the page's flow, not placed).
+  const below = Math.max(height, scrollTop + vh) + 80;
 
   const places = new Map<string, Place>();
   let spare = 0;
@@ -501,7 +528,7 @@ export function layoutDeskFull({
     const ht = h?.h ?? (c.note ? ROW_NOTE_H : ROW_H) * deskScale(vw, vh);
     places.set(c.id, {
       x: h?.x ?? vw / 2 - w / 2 + (spare - 2) * 70,
-      y: height + 80,
+      y: below,
       w,
       h: ht,
       r: tilt * 3,

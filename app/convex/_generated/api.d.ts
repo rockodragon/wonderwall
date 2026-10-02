@@ -119,6 +119,7 @@ import type * as public_ from "../public.js";
 import type * as resendWebhook from "../resendWebhook.js";
 import type * as scraperService from "../scraperService.js";
 import type * as seed from "../seed.js";
+import type * as shortlist from "../shortlist.js";
 import type * as showcase from "../showcase.js";
 import type * as smsSender from "../smsSender.js";
 import type * as sourceParsers from "../sourceParsers.js";
@@ -245,6 +246,7 @@ declare const fullApi: ApiFromModules<{
   resendWebhook: typeof resendWebhook;
   scraperService: typeof scraperService;
   seed: typeof seed;
+  shortlist: typeof shortlist;
   showcase: typeof showcase;
   smsSender: typeof smsSender;
   sourceParsers: typeof sourceParsers;

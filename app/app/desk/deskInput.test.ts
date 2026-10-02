@@ -32,7 +32,6 @@ describe("toDeskInput", () => {
       now: 42,
       updates: [],
       events: [],
-      favoriteEventIds: [],
       people: [],
       projects: [],
       fund: null,
@@ -41,19 +40,17 @@ describe("toDeskInput", () => {
     });
   });
 
-  it("takes the hearted event ids and followed people, skipping holes", () => {
+  it("takes the followed people, skipping holes", () => {
     const input = toDeskInput(
       {
         ...empty,
         favorites: {
-          events: [{ event: { _id: "e1" } }, null],
           profiles: [null, { profile: { _id: "p1", name: "Dana", imageUrl: null, interests: ["music"] } }],
         },
       },
       0,
       money,
     );
-    expect(input.favoriteEventIds).toEqual(["e1"]);
     expect(input.people).toEqual([{ _id: "p1", name: "Dana", imageUrl: null, interests: ["music"] }]);
   });
 

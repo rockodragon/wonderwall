@@ -22,7 +22,7 @@ import { useReducedMotion } from "../hooks/useMediaQuery";
 import { initialsOf } from "../lib/initials";
 import { opensAsSheet, picturePage, type DeskCard } from "./deskCards";
 import { PIC_MIN, Z_HOVER, pictureShare, type Place } from "./deskLayout";
-import { DetailPanel } from "./OpenedCard";
+import { DetailPanel, type Stepper } from "./OpenedCard";
 import { DESK, DESK_MONO, DESK_SANS, FOCUS_RING_CLASS, MOTION_MS, isFocusVisible, motion } from "./tokens";
 
 const RADIUS = 4;
@@ -147,6 +147,7 @@ export const DeskCardView = memo(function DeskCardView({
   vh,
   onOpen,
   onClose,
+  stepper,
 }: {
   card: DeskCard;
   place: Place;
@@ -155,7 +156,10 @@ export const DeskCardView = memo(function DeskCardView({
   inert: boolean;
   vh: number;
   onOpen: (id: DeskCard["id"]) => void;
-  onClose: () => void;
+  /** Closes the card; given an id, only if that card is still the one open. */
+  onClose: (only?: DeskCard["id"]) => void;
+  /** Open from a Shortlist list: ← / → through it. */
+  stepper?: Stepper;
 }) {
   const reduced = useReducedMotion();
   const [hovered, setHovered] = useState(false);
@@ -202,7 +206,7 @@ export const DeskCardView = memo(function DeskCardView({
       <div style={{ position: "absolute", inset: 0, overflow: "hidden", borderRadius: radius, transition: motion(["border-radius"], reduced) }}>
         <Face card={card} open={open} sheet={sheet} share={share} scale={place.w / CARD_W} onAspect={setAspect} />
         {open && pagePath && <PictureLink to={pagePath} share={share} />}
-        {panel && <DetailPanel card={card} visible={open} sheet={sheet} share={share} onClose={onClose} />}
+        {panel && <DetailPanel card={card} visible={open} sheet={sheet} share={share} onClose={onClose} stepper={open ? stepper : undefined} />}
       </div>
       {!open && (
         <button
@@ -365,7 +369,7 @@ function Face({
       {!pic && card.kind === "project" && (
         // No photo yet: the same cover the project gets on Today.
         <div aria-hidden style={FILL}>
-          <AbstractCover seed={card.id.slice("project:".length)} />
+          <AbstractCover seed={card.projectId ?? card.id.slice("project:".length)} />
           <div style={{ ...FILL, background: SCRIM }} />
         </div>
       )}

@@ -15,9 +15,9 @@ import type {
 /** The fields of api.garden.allocations.getFundPage the desk reads. */
 export type FundPageLike = { org: { slug: string; name: string }; balanceCents: number };
 
-/** The fields of api.favorites.getMyFavorites the desk reads. */
+/** The fields of api.favorites.getMyFavorites the desk reads: the people
+ *  the member follows. (Saved events are the Shortlist's now.) */
 export type FavoritesLike = {
-  events: readonly ({ event: { _id: string } } | null)[];
   profiles: readonly ({ profile: { _id: string; name: string; imageUrl?: string | null; interests?: readonly string[] | null } } | null)[];
 };
 
@@ -66,7 +66,6 @@ export function toDeskInput(raw: DeskRaw, now: number, formatMoney: (cents: numb
     now,
     updates: raw.updates ?? [],
     events: raw.events ?? [],
-    favoriteEventIds: (favorites?.events ?? []).flatMap((f) => (f ? [String(f.event._id)] : [])),
     people,
     projects: raw.projects ?? [],
     fund: fundFrom(raw.fundPage),

@@ -8,7 +8,13 @@
 // admins, and out of the owner's reach to undo.
 
 import { describe, expect, it } from "vitest";
-import { deleteBlocker, isHidden, restoredStatus } from "./moderationRules";
+import {
+  deleteBlocker,
+  isHidden,
+  isPostedProject,
+  restoredStatus,
+  VISIBLE_PROJECT_STATUSES,
+} from "./moderationRules";
 import { deleteEvent, deleteProject, listHidden, setEventHidden, setProjectHidden } from "./moderation";
 import { cancel as cancelEvent, get as getEvent, list as listEvents } from "./events";
 import { getProject, listProjects, updateProjectStatus } from "./garden/projects";
@@ -52,6 +58,18 @@ describe("moderationRules", () => {
     ).toBe(
       "This project has 2 backing payments, 1 fund allocation and 3 grant proposals on record, which the ledger keeps. Hide it instead.",
     );
+  });
+
+  it("VISIBLE_PROJECT_STATUSES: live and completed work shows; pending, archived and hidden don't", () => {
+    for (const status of ["active", "in_progress", "completed"]) expect(VISIBLE_PROJECT_STATUSES.has(status)).toBe(true);
+    for (const status of ["pending", "archived", "hidden"]) expect(VISIBLE_PROJECT_STATUSES.has(status)).toBe(false);
+  });
+
+  it("isPostedProject: only an explicit portfolio origin is a share, not a post", () => {
+    expect(isPostedProject({ origin: "portfolio" })).toBe(false);
+    expect(isPostedProject({ origin: "posted" })).toBe(true);
+    // Predates the field: still a real project.
+    expect(isPostedProject({})).toBe(true);
   });
 
   it("a hidden project isn't taking people", () => {

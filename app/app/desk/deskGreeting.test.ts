@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { countLabel, firstNameOf, greetingFor, greetingWord, peopleCountLabel } from "./deskGreeting";
+import { countLabel, greetingFor, greetingWord, headerCount, peopleCountLabel } from "./deskGreeting";
 
 describe("greetingWord", () => {
   it("is morning until noon, afternoon until five, then evening", () => {
@@ -9,22 +9,6 @@ describe("greetingWord", () => {
     expect(greetingWord(16)).toBe("afternoon");
     expect(greetingWord(17)).toBe("evening");
     expect(greetingWord(23)).toBe("evening");
-  });
-});
-
-describe("firstNameOf", () => {
-  it("takes the first word of the name", () => {
-    expect(firstNameOf("Rick Moy")).toBe("Rick");
-    expect(firstNameOf("  Dana   Lee ")).toBe("Dana");
-    expect(firstNameOf("Sophia")).toBe("Sophia");
-  });
-
-  it("has none for a missing name or the New User placeholder", () => {
-    expect(firstNameOf(undefined)).toBeNull();
-    expect(firstNameOf(null)).toBeNull();
-    expect(firstNameOf("   ")).toBeNull();
-    expect(firstNameOf("New User")).toBeNull();
-    expect(firstNameOf("new user")).toBeNull();
   });
 });
 
@@ -46,8 +30,8 @@ describe("countLabel", () => {
     expect(countLabel("people", 1)).toBe("1 person");
     expect(countLabel("events", 4)).toBe("4 events");
     expect(countLabel("projects", 1)).toBe("1 project");
-    expect(countLabel("fav", 2)).toBe("2 favorites");
-    expect(countLabel("fav", 1)).toBe("1 favorite");
+    expect(countLabel("shortlist", 39)).toBe("39 things");
+    expect(countLabel("shortlist", 1)).toBe("1 thing");
     expect(countLabel("today", 3)).toBe("3 things");
   });
 
@@ -57,6 +41,39 @@ describe("countLabel", () => {
 
   it("has no count on the home view", () => {
     expect(countLabel("all", 6)).toBe("");
+  });
+});
+
+describe("headerCount", () => {
+  const card = (id: string, note = false) => ({ id, note });
+  // Today as reported: the fund, the grant and the next event, with five rows in Needs you.
+  const today = [card("fund", true), card("grant", true), card("event:next")];
+  const needs = ["role:a", "request:b", "request:c", "event:soon", "project:d"];
+
+  it("Today counts its cards, notes included, and its Needs you rows", () => {
+    expect(headerCount("today", today, needs)).toBe(8);
+    expect(headerCount("today", today, [])).toBe(3);
+    expect(headerCount("today", [], needs)).toBe(5);
+  });
+
+  it("a Needs you row that's also one of Today's cards counts once", () => {
+    expect(headerCount("today", today, ["event:next", "role:a"])).toBe(4);
+  });
+
+  it("Today waits for Needs you rather than count short", () => {
+    expect(headerCount("today", today, undefined)).toBeNull();
+  });
+
+  it("other views count their own kind: the fund note on Projects isn't a project", () => {
+    expect(headerCount("projects", [card("fund", true), card("project:a"), card("project:b")])).toBe(2);
+    expect(headerCount("events", [card("event:a")], needs)).toBe(1);
+    expect(headerCount("people", [])).toBe(0);
+  });
+
+  it("none on the home view, or while the list is arriving", () => {
+    expect(headerCount("all", today, needs)).toBeNull();
+    expect(headerCount("projects", undefined)).toBeNull();
+    expect(headerCount("today", undefined, needs)).toBeNull();
   });
 });
 

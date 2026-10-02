@@ -2,7 +2,7 @@
 // No Convex, no network.
 
 import { describe, expect, it } from "vitest";
-import { fundMoneyKind, supportCadence, supportKind, supporterView, totalPaidCents } from "./support";
+import { fundMoneyKind, isGivenSupport, supportCadence, supportKind, supporterView, totalPaidCents } from "./support";
 import type { Id } from "../_generated/dataModel";
 
 describe("supportKind", () => {
@@ -33,6 +33,20 @@ describe("supportCadence", () => {
   it("is null for cheers and resources", () => {
     expect(supportCadence("encouragement")).toBeNull();
     expect(supportCadence("resource")).toBeNull();
+  });
+});
+
+describe("isGivenSupport — what listMySupportGiven lists", () => {
+  it("keeps confirmed and pledged support of a known kind", () => {
+    expect(isGivenSupport({ status: "confirmed", type: "financial_one_time" })).toBe(true);
+    expect(isGivenSupport({ status: "pledged", type: "financial_recurring" })).toBe(true);
+    expect(isGivenSupport({ status: "confirmed", type: "encouragement" })).toBe(true);
+    expect(isGivenSupport({ status: "confirmed", type: "resource" })).toBe(true);
+  });
+
+  it("drops an unfinished checkout and a type it doesn't know", () => {
+    expect(isGivenSupport({ status: "pending", type: "financial_one_time" })).toBe(false);
+    expect(isGivenSupport({ status: "confirmed", type: "mystery" })).toBe(false);
   });
 });
 

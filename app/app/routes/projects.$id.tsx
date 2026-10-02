@@ -12,11 +12,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { useMutation, useQuery } from "convex/react";
+import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { Link, useNavigate, useParams, useRouteError, useSearchParams } from "react-router";
 import { api } from "../../convex/_generated/api";
 import { EMBED_PROVIDER_LABEL, toEmbedUrl } from "../lib/videoEmbed";
 import type { Id } from "../../convex/_generated/dataModel";
+import { VISIBLE_PROJECT_STATUSES } from "../../convex/moderationRules";
 import { AnnouncementComposer } from "../components/AnnouncementComposer";
 import { AdminMenu, HiddenNotice } from "../components/AdminMenu";
 import { EmbedPlayer } from "../components/EmbedPlayer";
@@ -181,6 +182,7 @@ export default function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
   const project = useQuery(api.garden.projects.getProject, id ? { projectId: id } : "skip");
   const myProfile = useQuery(api.profiles.getMyProfile);
+  const { isAuthenticated } = useConvexAuth();
   // The team is read here, once, so the Team tab can say how many requests are
   // waiting; TeamCard draws from the same answer.
   const team = useQuery(api.garden.projectTeam.getTeam, id ? { projectId: id as Id<"projects"> } : "skip");
@@ -220,6 +222,12 @@ export default function ProjectDetail() {
   }
 
   const isOwner = !!myProfile && project.userId === myProfile.userId;
+  // Save for the Shortlist (docs/handoff/favorites-redesign/README.md): a
+  // signed-in member who isn't the lead, on a project the browse lists show.
+  // favorites.toggle refuses the rest, so the page never offers a save that
+  // would fail. Held until the profile loads, so the lead never sees it flash.
+  const canSave =
+    isAuthenticated && myProfile !== undefined && !isOwner && VISIBLE_PROJECT_STATUSES.has(project.status);
   const raising = isRaising(project);
   const isPassion = project.kind === "passion";
   const kindWord =
@@ -329,10 +337,15 @@ export default function ProjectDetail() {
       )}
 
       {/* The pencil sits right after the title and edits only the title; the
-          stage is its own chip beside it. */}
+          stage is its own chip beside it, and a visitor's Save ends the row. */}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2 mb-2">
         <InlineEditableTitle project={project} isOwner={isOwner} />
         <StageChip project={project} isOwner={isOwner} />
+        {canSave && (
+          <div className="ml-auto">
+            <FavoriteButton targetType="project" targetId={project._id} size="sm" />
+          </div>
+        )}
       </div>
 
       {project.creator && (
@@ -431,7 +444,7 @@ export default function ProjectDetail() {
         </TabPanel>
       ) : (
         <TabPanel base={TABS_BASE} id="team" selected={tab === "team"}>
-          <TeamCard project={project} team={team} isOwner={isOwner} myProfile={myProfile} />
+          <TeamCard project={project} team={team} isOwner={isOwner} myProfile={myProfile} canSave={canSave} />
         </TabPanel>
       )}
 
@@ -1611,6 +1624,7 @@ function TeamCard({
   team,
   isOwner,
   myProfile,
+  canSave,
 }: {
   project: any;
   /** api.garden.projectTeam.getTeam, read by the page (which also counts the
@@ -1618,6 +1632,8 @@ function TeamCard({
   team: any;
   isOwner: boolean;
   myProfile: any;
+  /** See ProjectDetail's canSave. */
+  canSave: boolean;
 }) {
   // null = closed; {} = the free-text flow (generic Apply/Ask-to-join
   // button); {roleId,title} = applying for a specific posted role (from
@@ -1669,6 +1685,7 @@ function TeamCard({
       <RolesSection
         project={project}
         isOwner={isOwner}
+        canSave={canSave}
         mine={team.mine}
         onApply={(role) => setJoinModal(role)}
         apply={team.apply}
@@ -1730,12 +1747,16 @@ const ROLE_BUDGET_TYPE_OPTIONS = [
 function RolesSection({
   project,
   isOwner,
+  canSave,
   mine,
   onApply,
   apply,
 }: {
   project: any;
   isOwner: boolean;
+  /** Whether the viewer may save this project's roles (ProjectDetail's
+   * canSave). Only open roles get the button. */
+  canSave: boolean;
   /** Whether the viewer may apply — getTeam's read of the same
    * project.applyPaid rule requestToJoin enforces. Absent while loading. */
   apply?: { allowed: boolean; reason: string | null; upgradePath: string | null };
@@ -1891,6 +1912,11 @@ function RolesSection({
                       </div>
                     )}
                   </div>
+                  {/* listRoles only sends an open role while the project
+                      is taking people, the same test the save makes. */}
+                  {canSave && r.status === "open" && (
+                    <FavoriteButton targetType="role" targetId={r.roleId} size="sm" name={r.title} />
+                  )}
                   {r.status === "filled" ? (
                     <span className="text-xs whitespace-nowrap pt-0.5" style={{ color: "var(--garden-dim)" }}>
                       Filled — {r.filledBy?.name ?? "someone"}

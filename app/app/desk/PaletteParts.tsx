@@ -1,13 +1,13 @@
-// The palette's pieces: a tool's stack of rows, the count chip, the profile
-// avatar, and the stylesheet for the states inline styles can't reach. The
-// fan, the state machine and the composition live in Palette.tsx and
-// usePaletteController.ts.
+// The palette's pieces: a tool's stack of rows, the count chip, the dot, the
+// profile avatar, and the stylesheet for the states inline styles can't
+// reach. The fan, the state machine and the composition live in Palette.tsx
+// and usePaletteController.ts.
 
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from "react";
 import { Link } from "react-router";
 import type { PaletteItem, PaletteTool } from "./paletteConfig";
 import { PALETTE, withAlpha } from "./paletteLogic";
-import { DESK, DESK_MONO, FOCUS_RING_CLASS, monoLabel, motion } from "./tokens";
+import { DESK, DESK_MONO, FOCUS_RING_CLASS, monoLabel, motion, useDeskTint } from "./tokens";
 
 // Colors the handoff gives that the DESK tokens don't hold: the stack panel's
 // #1a1a1a (a step lighter than DESK.panel) and the black of its shadow.
@@ -136,7 +136,13 @@ function StackRow({
     <>
       <span>{item.label}</span>
       {item.trailing && (
-        <span style={{ fontFamily: DESK_MONO, fontSize: 13.5, color: DESK.muted }}>
+        <span
+          style={{
+            fontFamily: DESK_MONO,
+            fontSize: 13.5,
+            color: item.trailingAccent ? DESK.accent : DESK.muted,
+          }}
+        >
           {item.trailing}
         </span>
       )}
@@ -188,6 +194,29 @@ export function CountChip({ text, offset }: { text: string; offset: number }): R
     >
       {text}
     </span>
+  );
+}
+
+/** The Shortlist's "something needs you": a 9px accent dot in the tool's
+ *  corner, ringed in the community's desk surface (the main button's base)
+ *  so it reads off the tool's border. */
+export function Dot(): ReactNode {
+  const tint = useDeskTint();
+  return (
+    <span
+      aria-hidden
+      style={{
+        position: "absolute",
+        top: 0,
+        right: 0,
+        width: 9,
+        height: 9,
+        borderRadius: "50%",
+        background: DESK.accent,
+        boxShadow: `0 0 0 2px ${tint.surface}`,
+        pointerEvents: "none",
+      }}
+    />
   );
 }
 

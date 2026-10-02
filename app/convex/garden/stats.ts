@@ -15,9 +15,9 @@
 // city. Omitted buckets are not folded into withoutLocation.
 //
 // Visibility rules are borrowed, not re-invented:
-//   - projects follow projectsPublic.ts's listProjects: VISIBLE_STATUSES,
-//     origin !== "portfolio", kind passion|paid. Kept in sync by hand (same
-//     as the two listProjects implementations note in that file's header).
+//   - projects follow projectsPublic.ts's listProjects: moderationRules.ts's
+//     VISIBLE_PROJECT_STATUSES and isPostedProject (imported), kind
+//     passion|paid.
 //   - communities follow communities.ts's isListedCommunity (imported).
 //   - seeded sample postings (seedPaidPostings.ts) are posted by users whose
 //     email ends in @seed.creatives.exchange; those users, their profiles and
@@ -32,10 +32,8 @@ import { query } from "../_generated/server";
 import type { QueryCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import { COMMUNITY_KIND, isListedCommunity } from "./communities";
+import { isPostedProject, VISIBLE_PROJECT_STATUSES } from "../moderationRules";
 import { isHiddenCommunity } from "./hiddenCommunity";
-
-/** Same set as projectsPublic.ts / projects.ts VISIBLE_STATUSES. */
-const VISIBLE_STATUSES = new Set(["active", "in_progress", "completed"]);
 
 /** Mirrors seedPaidPostings.ts SEED_EMAIL_DOMAIN (not exported there). */
 const SEED_EMAIL_SUFFIX = "@seed.creatives.exchange";
@@ -47,10 +45,6 @@ const SEED_EMAIL_SUFFIX = "@seed.creatives.exchange";
  * negative. poolBalanceCents is therefore restricted to these kinds;
  * grantsAwarded* below still counts every fund's allocations. */
 const POOL_KINDS = new Set(["platform", "community"]);
-
-function isPosted(p: { origin?: string }): boolean {
-  return p.origin !== "portfolio";
-}
 
 /** One users lookup per distinct userId, memoized for the life of the query. */
 class SeedCheck {
@@ -193,7 +187,7 @@ export const publicCounts = query({
     let activeProjects = 0;
     let paidOpportunities = 0;
     for (const p of projectRows) {
-      if (!VISIBLE_STATUSES.has(p.status) || !isPosted(p)) continue;
+      if (!VISIBLE_PROJECT_STATUSES.has(p.status) || !isPostedProject(p)) continue;
       if (p.hostOrgId && hiddenCommunityIds.has(String(p.hostOrgId))) continue;
       if (await seedCheck.isSeed(p.userId)) continue;
       activeProjects++;

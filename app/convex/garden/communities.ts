@@ -20,6 +20,7 @@ import { getGardenUser, throwDenial } from "./entitlements";
 import { eventVisibilityChecker } from "./eventVisibility";
 import { slugifyTitle, resolveAvailableSlug } from "./stories";
 import { canSeeOffering } from "../offerings";
+import { isPostedProject, VISIBLE_PROJECT_STATUSES } from "../moderationRules";
 import { canSeeCommunity, isHiddenCommunity } from "./hiddenCommunity";
 import { communityVisibility } from "./communityVisibility";
 
@@ -434,8 +435,6 @@ export const listCommunities = query({
   },
 });
 
-const VISIBLE_PROJECT_STATUSES = new Set(["active", "in_progress", "completed"]);
-
 /** One community's page: who runs it, who's in it, and everything tagged
  * to it (tables, upcoming events, projects, offerings). Public — a pending
  * or declined community returns null to everyone except its hosts and
@@ -504,9 +503,8 @@ export const getCommunity = query({
         .collect(),
     ]);
 
-    const visibleProjects = projects.filter(
-      (p) => VISIBLE_PROJECT_STATUSES.has(p.status) && p.origin !== "portfolio",
-    );
+    // Projects show here as they do on browse (moderationRules.ts).
+    const visibleProjects = projects.filter((p) => VISIBLE_PROJECT_STATUSES.has(p.status) && isPostedProject(p));
     const creatorNames = await profileNames(ctx, [
       ...new Set(visibleProjects.map((p) => p.userId)),
     ]);

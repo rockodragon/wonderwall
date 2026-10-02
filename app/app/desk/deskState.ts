@@ -9,12 +9,21 @@
 //   card   — the card opened full-page (absent = none open)
 //   create — a create flow open as a card on the desk (project | hire | event)
 // Each view's own filters (q, stage, tab, …) ride along as more params.
+//
+// /today?view=shortlist&area=projects&kind=paid&card=role:abc123
+//   area   — the Shortlist's area (absent = the overview)
+//   kind   — Projects only: paid | passion (absent = both)
 
 import { useSyncExternalStore } from "react";
+import type { ProjectKind } from "../lib/shortlist/types";
 
 export const DESK_PATH = "/today";
 
-export const DESK_VIEWS = ["all", "today", "people", "projects", "events", "fav"] as const;
+/** The Shortlist's view (docs/handoff/favorites-redesign/README.md). It
+ *  replaced "fav", which old links still name. */
+export const SHORTLIST_VIEW = "shortlist";
+
+export const DESK_VIEWS = ["all", "today", "people", "projects", "events", SHORTLIST_VIEW] as const;
 export type DeskView = (typeof DESK_VIEWS)[number];
 
 /** Greeting label for each view: "THE GARDEN · YOUR DESK". */
@@ -24,18 +33,27 @@ export const DESK_VIEW_LABEL: Record<DeskView, string> = {
   people: "People",
   projects: "Projects",
   events: "Events",
-  fav: "Favorites",
+  shortlist: "Shortlist",
 };
 
+/** Old names a view still answers to, so links people saved keep working. */
+const LEGACY_VIEWS: ReadonlyMap<string, DeskView> = new Map([["fav", SHORTLIST_VIEW]]);
+
 export function parseDeskView(raw: string | null | undefined): DeskView {
-  return (DESK_VIEWS as readonly string[]).includes(raw ?? "") ? (raw as DeskView) : "all";
+  const name = raw ?? "";
+  if ((DESK_VIEWS as readonly string[]).includes(name)) return name as DeskView;
+  return LEGACY_VIEWS.get(name) ?? "all";
 }
 
-/** Card ids are typed so the URL says what kind of thing is open. */
+/** Card ids are typed so the URL says what kind of thing is open. A role
+ *  and a request are the Shortlist's (`role:<projectRoles id>`,
+ *  `request:<projectMembers or eventApplications id>`). */
 export type DeskCardId =
   | `update:${string}`
   | `event:${string}`
   | `project:${string}`
+  | `role:${string}`
+  | `request:${string}`
   | `person:${string}`
   | `org:${string}`
   | "fund"
@@ -66,6 +84,50 @@ export function deskHref(view: DeskView = "all", card?: DeskCardId | null, creat
   if (create) params.set("create", create);
   const qs = params.toString();
   return qs ? `${DESK_PATH}?${qs}` : DESK_PATH;
+}
+
+/** Whether `card` is the one the URL has open. A Shortlist action that lands
+ *  after the member closed its card, or stepped to another, closes nothing:
+ *  it only ever closes its own. */
+export function isOpenCard(search: URLSearchParams, card: string): boolean {
+  return search.get("card") === card;
+}
+
+/** Where ← (-1) or → (1) goes in the list an opened card steps through, or
+ *  null: past either end, or while the card's action runs, so the action
+ *  lands on the card it started on. */
+export function stepTo(step: { index: number; total: number; busy?: boolean }, by: -1 | 1): number | null {
+  const to = step.index + by;
+  return step.busy || to < 0 || to >= step.total ? null : to;
+}
+
+// ——————————————————————————————————————————————————————————————
+// The Shortlist's own params
+// ——————————————————————————————————————————————————————————————
+
+/** The Shortlist's three areas, in their fixed order. */
+export const SHORTLIST_AREAS = ["projects", "events", "people"] as const;
+export type ShortlistArea = (typeof SHORTLIST_AREAS)[number];
+
+const PROJECT_KINDS: readonly ProjectKind[] = ["paid", "passion"];
+
+/** ?area=, or null for the overview. */
+export function parseShortlistArea(raw: string | null | undefined): ShortlistArea | null {
+  return (SHORTLIST_AREAS as readonly string[]).includes(raw ?? "") ? (raw as ShortlistArea) : null;
+}
+
+/** ?kind=, which only Projects has; anywhere else it's ignored. */
+export function parseShortlistKind(raw: string | null | undefined, area: ShortlistArea | null): ProjectKind | null {
+  if (area !== "projects") return null;
+  return (PROJECT_KINDS as readonly string[]).includes(raw ?? "") ? (raw as ProjectKind) : null;
+}
+
+/** The Shortlist's overview, or one of its areas. Paid or Passion is a
+ *  filter set on the page, so a link starts without one. */
+export function shortlistHref(area?: ShortlistArea): string {
+  const params = new URLSearchParams({ view: SHORTLIST_VIEW });
+  if (area) params.set("area", area);
+  return `${DESK_PATH}?${params.toString()}`;
 }
 
 // ——————————————————————————————————————————————————————————————

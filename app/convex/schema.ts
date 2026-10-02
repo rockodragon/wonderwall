@@ -449,12 +449,13 @@ export default defineSchema({
     .index("by_userId", ["userId"])
     .index("by_artifactId_userId", ["artifactId", "userId"]),
 
-  // Favorites (can favorite profiles or events). A "profile" favorite IS a
-  // follow (docs/features/following.md) — there is no separate follows table.
+  // Favorites (profiles, events, and the Shortlist's projects and roles). A
+  // "profile" favorite IS a follow (docs/features/following.md) — there is no
+  // separate follows table.
   favorites: defineTable({
     userId: v.id("users"), // the favoriter / follower — a users id
-    targetType: v.string(), // "profile" | "event"
-    targetId: v.string(), // profiles._id or events._id — for "profile" this is the PROFILE id, not the user id
+    targetType: v.string(), // "profile" | "event" | "project" | "role" (favorites.ts's favoriteTargetTypeValidator)
+    targetId: v.string(), // profiles._id, events._id, projects._id or projectRoles._id — for "profile" this is the PROFILE id, not the user id
     createdAt: v.number(),
   })
     .index("by_userId", ["userId"])
@@ -1559,7 +1560,9 @@ export default defineSchema({
   })
     .index("by_eventId", ["eventId"])
     .index("by_eventId_email", ["eventId", "email"])
-    .index("by_stripeRef", ["stripeRef"]),
+    .index("by_stripeRef", ["stripeRef"])
+    // The member's own RSVPs, for the Shortlist's Going (convex/shortlist.ts).
+    .index("by_userId", ["userId"]),
 
   // Completed event-ticket purchases — written exclusively by the Stripe
   // webhook (checkout.session.completed, mode "payment", kind "event_ticket";

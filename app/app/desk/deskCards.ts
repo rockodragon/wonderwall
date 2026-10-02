@@ -19,6 +19,8 @@ import { isStage, resolveStage, stageLabel } from "../lib/stage";
 import type { DeskCommunity, DeskCardId, DeskView } from "./deskState";
 import { hashSeed } from "../components/AbstractCover";
 import { actionTarget, updateCardId } from "../lib/updates";
+import { shortDay } from "../lib/dates";
+import type { ShortlistButton } from "./shortlistCards";
 
 // ——————————————————————————————————————————————————————————————
 // Types
@@ -28,11 +30,13 @@ export type DeskCardKind = "update" | "event" | "fund" | "grant" | "project" | "
 
 /** What the opened card's button does. An RSVP is a mutation; the rest are
  * links. An Update's button records the press (api.updates.click) and then
- * goes where its link says: in the app, or to another site in a new tab. */
+ * goes where its link says: in the app, or to another site in a new tab. A
+ * Shortlist card's buttons follow the item's state (shortlistCards.ts). */
 export type DeskAction =
   | { kind: "link"; label: string; href: string }
   | { kind: "rsvp"; label: string; eventId: string }
-  | { kind: "update"; label: string; href: string; external: boolean; updateId: string };
+  | { kind: "update"; label: string; href: string; external: boolean; updateId: string }
+  | { kind: "shortlist"; buttons: ShortlistButton[] };
 
 /** One labelled line in an opened card's panel: "Stage", "Planning". A row
  * that isn't true of the card isn't in the list. */
@@ -57,9 +61,12 @@ export type DeskCard = {
     /** Small print beside the button: "3 going", "Tax-deductible". */
     aside: string | null;
     /** Labelled rows under the description (a project's stage, funding, roles,
-     * pay). Absent on cards that don't have any. */
+     * pay; a Shortlist role's pay and closing date). Absent on cards that
+     * don't have any. */
     facts?: readonly DeskFact[];
     action: DeskAction | null;
+    /** A Shortlist card's status line: "Mara invited you Sep 30 · Waiting on you". */
+    status?: string;
   };
   /** The full page for this card. */
   href: string;
@@ -69,6 +76,9 @@ export type DeskCard = {
   updateId?: string;
   /** People only: the profile to ask for a bio when the card opens. */
   profileId?: string;
+  /** A Shortlist role or project: the project, whose id picks the cover
+   *  when there's no picture (a role's card wears its project's). */
+  projectId?: string;
 };
 
 export type DeskEventInput = {
@@ -159,8 +169,9 @@ export type DeskInput = {
   /** The Updates this member should see, in the order the server gave. */
   updates: readonly DeskUpdateInput[];
   events: readonly DeskEventInput[];
-  /** Ids of the events the member has hearted. */
-  favoriteEventIds: ReadonlySet<string> | readonly string[];
+  /** Events already in Needs you (rule 2: going or hosting this week). Today
+   *  lists them above its cards, so its next-event card skips them. */
+  needsYouEventIds?: ReadonlySet<string> | readonly string[];
   people: readonly DeskPersonInput[];
   projects: readonly DeskProjectInput[];
   fund: DeskFundInput | null;
@@ -240,7 +251,7 @@ export function venueName(location: string | null | undefined): string {
 /** "OCT 2". The same date as EventCard's "Oct 2", capitalized for the mono
  * kicker; kept here so this module stays free of component imports. */
 export function dateKicker(ms: number): string {
-  return new Date(ms).toLocaleDateString("en-US", { month: "short", day: "numeric" }).toUpperCase();
+  return shortDay(ms).toUpperCase();
 }
 
 /** "7PM", "7:30PM" */
@@ -481,7 +492,7 @@ export function personCard(p: DeskPersonInput): DeskCard {
   return {
     id,
     kind: "person",
-    sections: ["people", "fav"],
+    sections: ["people"],
     note: false,
     tone: toneFor(id),
     image: p.imageUrl || null,
@@ -542,7 +553,8 @@ export function orgCard(o: DeskOrgInput, sections: DeskView[] = ["people"]): Des
 /**
  * Every card the desk can show for this member and community, in the order
  * they take slots: Updates first, then events soonest first, the fund, the
- * monthly grant, the featured project, other projects, then followed people.
+ * monthly grant, the featured project, other projects, then followed people
+ * (who stand in on People until its own list arrives).
  *
  * Updates are from the house, so they come before everything else: the first
  * two rest on the desk, and the Today view opens with all of them. They count
@@ -550,7 +562,7 @@ export function orgCard(o: DeskOrgInput, sections: DeskView[] = ["people"]): Des
  * first), never the fund, the grant or the featured project.
  */
 export function buildDeskCards(input: DeskInput, community: DeskCommunity): DeskCard[] {
-  const hearted = new Set(input.favoriteEventIds);
+  const needsYou = new Set(input.needsYouEventIds);
   const money = input.formatMoney;
 
   const updateCards = input.updates.map((u, i) => {
@@ -569,11 +581,12 @@ export function buildDeskCards(input: DeskInput, community: DeskCommunity): Desk
   const events = input.events
     .filter((e) => e.datetime > input.now && inCommunity(e, community))
     .sort((a, b) => a.datetime - b.datetime);
+  // Today's next event, unless Needs you already lists it: then the one after.
+  const next = events.find((e) => !needsYou.has(e._id));
   const eventCards = events.map((e, i) => {
     const sections: DeskView[] = ["events"];
     if (i < eventSlots) sections.push("all");
-    if (i === 0) sections.push("today");
-    if (hearted.has(e._id)) sections.push("fav");
+    if (e === next) sections.push("today");
     return eventCard(e, sections);
   });
 
@@ -599,7 +612,6 @@ const TAIL_NOUN: Partial<Record<DeskView, string>> = {
   events: "events",
   projects: "projects",
   people: "people",
-  fav: "favorites",
 };
 
 /** Cards whose picture side, once open, is a mouse click target for the

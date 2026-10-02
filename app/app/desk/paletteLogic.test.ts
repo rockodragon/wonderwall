@@ -17,19 +17,30 @@ import { DESK } from "./tokens";
 
 describe("activeToolId", () => {
   it("on the desk, lights the tool whose view is showing", () => {
-    expect(activeToolId("/today", "")).toBe("desk");
     expect(activeToolId("/today", "?view=today")).toBe("today");
     expect(activeToolId("/today", "?view=people")).toBe("people");
     expect(activeToolId("/today", "?view=projects")).toBe("projects");
     expect(activeToolId("/today", "?view=events")).toBe("events");
+    expect(activeToolId("/today", "?view=shortlist")).toBe("shortlist");
   });
 
-  it("lights Events for favorites", () => {
-    expect(activeToolId("/today", "?view=fav")).toBe("events");
+  it("lights no tool on the desk's home: the main button is the way back", () => {
+    expect(activeToolId("/today", "")).toBeNull();
+    expect(activeToolId("/today", "?view=all")).toBeNull();
+    expect(activeToolId("/today", "?card=fund")).toBeNull();
   });
 
-  it("reads an unknown view as the whole desk, and ignores an open card", () => {
-    expect(activeToolId("/today", "?view=nonsense")).toBe("desk");
+  it("lights Shortlist on the overview, in an area and under a card opened from it", () => {
+    expect(activeToolId("/today", "?view=shortlist&area=projects")).toBe("shortlist");
+    expect(activeToolId("/today", "?view=shortlist&area=events&card=event:abc")).toBe("shortlist");
+  });
+
+  it("no longer lights Events for the old favorites view", () => {
+    expect(activeToolId("/today", "?view=fav")).not.toBe("events");
+  });
+
+  it("reads an unknown view as home, and ignores an open card", () => {
+    expect(activeToolId("/today", "?view=nonsense")).toBeNull();
     expect(activeToolId("/today", "?view=events&card=event:abc")).toBe("events");
   });
 

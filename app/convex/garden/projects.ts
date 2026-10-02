@@ -27,7 +27,7 @@ import { summarizeGig } from "./gigSummary";
 // checked and stored the way artifacts and events store one.
 import { canonicalMediaUrl, schedulePreviewFetch } from "../linkPreview";
 import { isAdmin } from "../helpers";
-import { isHidden } from "../moderationRules";
+import { isHidden, isPostedProject, VISIBLE_PROJECT_STATUSES } from "../moderationRules";
 import { communityVisibility, isHiddenCommunityId } from "./communityVisibility";
 
 // Following fan-out (docs/features/following.md §1 #5): "Name posted Title"
@@ -439,10 +439,8 @@ export const setStage = mutation({
 // the artifacts.create path, its attached media — passion and paid projects
 // mixed together, newest first. Small-scale by design (a handful of V1
 // users): a full table scan is simpler and fast enough, no index tuning yet.
-// Statuses a browsing user should ever see. "pending" isn't used yet;
-// "archived" is a deliberate hide — a creator/operator took it out of the
-// default browse view on purpose.
-const VISIBLE_STATUSES = new Set(["active", "in_progress", "completed"]);
+// Which projects show is moderationRules.ts's VISIBLE_PROJECT_STATUSES and
+// isPostedProject, shared with projectsPublic.ts's listProjects.
 
 // What a project is asking for, for the two browse views (docs/features/
 // project-ia.md): Projects shows what's raising, Work shows what's hiring.
@@ -483,15 +481,7 @@ export const listProjects = query({
   args: {},
   handler: async (ctx) => {
     const allProjects = await ctx.db.query("projects").collect();
-    const posted = allProjects.filter(
-      // Portfolio-origin rows (artifacts.create's companion-project side
-      // effect — a quick single-artifact share, not a deliberate post) don't
-      // belong on the main browse grid; they already have a home at /works.
-      // Only an EXPLICIT "portfolio" excludes — a project with no origin at
-      // all (predates this field, migration hasn't run) is treated as
-      // "posted" so real projects never vanish defensively.
-      (p) => VISIBLE_STATUSES.has(p.status) && p.origin !== "portfolio",
-    );
+    const posted = allProjects.filter((p) => VISIBLE_PROJECT_STATUSES.has(p.status) && isPostedProject(p));
     // A project posted into a hidden (test) community is listed only for
     // admins and that community's members.
     const projects = await communityVisibility(ctx).filter(posted);

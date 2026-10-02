@@ -6,11 +6,11 @@ import { DESK_PATH, parseDeskView, type DeskView } from "./deskState";
 import { DESK } from "./tokens";
 
 export type ToolId =
-  | "desk"
   | "today"
   | "people"
   | "projects"
   | "events"
+  | "shortlist"
   | "profile"
   | "signin";
 
@@ -48,13 +48,14 @@ export function fanOffset(angleDeg: number, radius: number = PALETTE.radius) {
   return { x: Math.cos(rad) * radius, y: Math.sin(rad) * radius };
 }
 
-const VIEW_TOOL: Record<DeskView, ToolId> = {
-  all: "desk",
+// Home has no tool of its own: the main button is the way back to it.
+const VIEW_TOOL: Record<DeskView, ToolId | null> = {
+  all: null,
   today: "today",
   people: "people",
   projects: "projects",
   events: "events",
-  fav: "events",
+  shortlist: "shortlist",
 };
 
 function isUnder(pathname: string, base: string): boolean {
@@ -62,7 +63,8 @@ function isUnder(pathname: string, base: string): boolean {
 }
 
 /** The tool that reads as "you are here".
- *  - On the desk, the tool whose view is showing (hearted events light Events).
+ *  - On the desk, the tool whose view is showing. The Shortlist view lights
+ *    Shortlist in an area and under an opened card too; home lights none.
  *  - Elsewhere, the tool whose pages these are. */
 export function activeToolId(pathname: string, search: string): ToolId | null {
   if (isUnder(pathname, DESK_PATH)) {

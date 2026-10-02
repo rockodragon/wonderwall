@@ -308,6 +308,13 @@ export function supportCadence(type: string): SupportCadence | null {
   return null;
 }
 
+/** Support the person has given, as listMySupportGiven lists it and the
+ * Shortlist's Backing counts it (convex/shortlist.ts): a visible status —
+ * "pending" is a checkout that never finished — and a kind this file knows. */
+export function isGivenSupport(row: { status: string; type: string }): boolean {
+  return VISIBLE_STATUSES.has(row.status) && supportKind(row.type) !== null;
+}
+
 // grantContributions rows that are the person's own money going to a fund:
 // a contribution they made, or a ticket they bought (its price lands in the
 // fund). Left out on purpose: dues_share (their membership dues — Billing
@@ -341,7 +348,7 @@ export const listMySupportGiven = query({
         .withIndex("by_supporterUserId", (q) => q.eq("supporterUserId", userId))
         .collect()
     )
-      .filter((e) => VISIBLE_STATUSES.has(e.status) && supportKind(e.type) !== null)
+      .filter(isGivenSupport)
       .sort((a, b) => b.createdAt - a.createdAt);
 
     const projectCache = new Map<string, { title: string; userId: Id<"users"> } | null>();
