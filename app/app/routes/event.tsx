@@ -43,25 +43,13 @@ import { ImageFill } from "../components/ImageFill";
 import { useBack } from "../lib/useBack";
 import { YOUTUBE_LIVE_LABEL, YOUTUBE_LIVE_URL } from "../constants/broadcast";
 import { FavoriteButton } from "../components/FavoriteButton";
-import {
-  LocationAutocomplete,
-  LocationVerifiedHint,
-  type LocationSuggestion,
-} from "../components/LocationAutocomplete";
-import { useLocationField } from "../lib/useLocationField";
 import { ShareButton } from "../components/ShareButton";
 import { ShowcaseContent, SHOWCASE_EVENT_ID } from "../components/ShowcaseContent";
 import { hostLabels } from "../lib/eventHosts";
-import {
-  TicketTierEditor,
-  draftsToTiers,
-  tiersToDrafts,
-  type TicketTier,
-  type TicketTierDraft,
-} from "../components/TicketTierEditor";
+import { CreateEventModal } from "../components/CreateEventModal";
+import type { TicketTier } from "../components/TicketTierEditor";
 import { AnnouncementComposer } from "../components/AnnouncementComposer";
 import { AddToCalendar } from "../components/AddToCalendar";
-import { describeMediaLink, MediaLinkField } from "../components/MediaLinkField";
 import { EmbedPlayer } from "../components/EmbedPlayer";
 import { joinProxyUrl } from "../lib/eventCalendar";
 import { toEmbedUrl } from "../lib/videoEmbed";
@@ -69,7 +57,6 @@ import { buildTicketLink, isCheckoutSessionId } from "../../convex/garden/ticket
 import { claimPendingTickets, stashTicketSession } from "../lib/pendingTicket";
 import { setPendingIntent } from "../lib/pendingIntent";
 import { guestsToCsv, summarizeGuests, formatDollars } from "../../convex/eventGuests";
-import { CommunityPicker, useDefaultEventCommunity } from "../components/CommunityPicker";
 
 const COVER_COLORS = [
   { name: "Blue", value: "blue", gradient: "from-blue-500 to-blue-600" },
@@ -1076,10 +1063,12 @@ export default function EventDetail() {
 
       {/* Edit Form Modal */}
       {showEditForm && (
-        <EditEventModal
-          eventId={event._id}
-          canEditTickets={!!event.isOrganizer}
-          initialValues={{
+        <CreateEventModal
+          edit={{
+            eventId: event._id,
+            canEditTickets: !!event.isOrganizer,
+            coverImageUrl: event.coverImageUrl,
+            initialValues: {
             title: event.title,
             description: event.description,
             datetime: event.datetime,
@@ -1096,6 +1085,7 @@ export default function EventDetail() {
             requiresApproval: event.requiresApproval,
             mediaUrl: event.mediaUrl,
             hostOrgId: event.hostOrgId,
+            },
           }}
           onClose={() => setShowEditForm(false)}
         />
@@ -2813,382 +2803,3 @@ const EVENT_TAGS = [
   "Fellowship",
   "Reading",
 ];
-
-function EditEventModal({
-  eventId,
-  canEditTickets,
-  initialValues,
-  onClose,
-}: {
-  /** Tickets are the organizer's; a co-host's save leaves them as they were
-   * (events.update), so the fields aren't shown to co-hosts. */
-  canEditTickets: boolean;
-  eventId: Id<"events">;
-  initialValues: {
-    title: string;
-    description: string;
-    datetime: number;
-    endTime?: number;
-    location?: string;
-    ticketTiers?: TicketTier[];
-    externalTicketUrl?: string;
-    externalTicketPriceCents?: number;
-    locationType?: string;
-    address?: LocationSuggestion["address"];
-    coordinates?: LocationSuggestion["coordinates"];
-    placeId?: string;
-    tags: string[];
-    requiresApproval: boolean;
-    mediaUrl?: string;
-    hostOrgId?: Id<"hostOrgs">;
-  };
-  onClose: () => void;
-}) {
-  const updateEvent = useMutation(api.events.update);
-  // An event with no community yet pre-fills The Garden (or the switcher's
-  // community); one already in a community keeps it.
-  const [hostOrgId, setHostOrgId] = useState<string>(initialValues.hostOrgId ?? "");
-  const defaultHostOrgId = useDefaultEventCommunity();
-  // Ticketed events go live only once the organizer can sell tickets
-  // (product rule, 2026-09-27) — this just informs the editor, the
-  // TicketTierEditor itself stays open to everyone.
-  const membership = useQuery(api.garden.memberships.getMyMembership);
-  const isMember = !!membership;
-
-  // Parse datetime into date and time strings
-  const initialDate = new Date(initialValues.datetime);
-  // Local calendar day, not toISOString() (UTC): an evening event in
-  // Pacific time is already tomorrow in UTC, and saving that back moved the
-  // event a day later on every edit (same fix as offerings.tsx).
-  const pad2 = (n: number) => String(n).padStart(2, "0");
-  const dateStr = `${initialDate.getFullYear()}-${pad2(initialDate.getMonth() + 1)}-${pad2(initialDate.getDate())}`;
-  const timeStr = initialDate.toTimeString().slice(0, 5);
-  const endTimeInit = initialValues.endTime
-    ? new Date(initialValues.endTime).toTimeString().slice(0, 5)
-    : "";
-
-  const [title, setTitle] = useState(initialValues.title);
-  const [description, setDescription] = useState(initialValues.description);
-  const [date, setDate] = useState(dateStr);
-  const [time, setTime] = useState(timeStr);
-  const [endTimeStr, setEndTimeStr] = useState(endTimeInit);
-  const [ticketTiers, setTicketTiers] = useState<TicketTierDraft[]>(
-    tiersToDrafts(initialValues.ticketTiers),
-  );
-  const [externalTicketUrl, setExternalTicketUrl] = useState(
-    initialValues.externalTicketUrl ?? "",
-  );
-  const [externalTicketPrice, setExternalTicketPrice] = useState(
-    initialValues.externalTicketPriceCents !== undefined
-      ? String(initialValues.externalTicketPriceCents / 100)
-      : "",
-  );
-  // Seeded from the event being edited (including its structured fields) so
-  // saving without re-picking a location doesn't wipe locationType/address/
-  // coordinates/placeId — previously this started at null unconditionally,
-  // and events.update patches those fields unconditionally from whatever
-  // `selected` currently is, so an untouched save silently erased them.
-  const location = useLocationField(initialValues);
-  const [tags, setTags] = useState<string[]>(initialValues.tags);
-  const [requiresApproval, setRequiresApproval] = useState(
-    initialValues.requiresApproval,
-  );
-  const [mediaUrl, setMediaUrl] = useState(initialValues.mediaUrl ?? "");
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-
-  function toggleTag(tag: string) {
-    setTags((prev) =>
-      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag],
-    );
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setError("");
-
-    if (!title.trim() || !description.trim() || !date || !time) {
-      setError("Please fill in all required fields");
-      return;
-    }
-
-    const datetime = new Date(`${date}T${time}`).getTime();
-
-    // Optional end time — same day as the start; must be after it.
-    let endTime: number | undefined;
-    if (endTimeStr) {
-      endTime = new Date(`${date}T${endTimeStr}`).getTime();
-      if (endTime <= datetime) {
-        setError("End time must be after the start time");
-        return;
-      }
-    }
-
-    const { tiers, error: tiersError } = draftsToTiers(ticketTiers);
-    if (tiersError) {
-      setError(tiersError);
-      return;
-    }
-
-    // Same rule as CreateEventModal: a link we can't show is never saved.
-    const mediaLink = describeMediaLink(mediaUrl);
-    if (mediaLink.state === "invalid") {
-      setError(mediaLink.message);
-      return;
-    }
-
-    setSaving(true);
-    try {
-      await updateEvent({
-        eventId,
-        title,
-        description,
-        datetime,
-        endTime,
-        ticketTiers: tiers,
-        externalTicketUrl: externalTicketUrl.trim() || undefined,
-        externalTicketPriceCents: externalTicketPrice.trim()
-          ? Math.round(parseFloat(externalTicketPrice) * 100)
-          : undefined,
-        ...location.toArgs(),
-        tags,
-        requiresApproval,
-        // Always sent: an emptied field clears the stored link (and its
-        // still) — events.update treats only an absent field as "untouched".
-        mediaUrl: mediaLink.state === "ok" ? mediaLink.url : "",
-        ...(hostOrgId
-          ? { hostOrgId: hostOrgId as Id<"hostOrgs"> }
-          : { clearCommunity: true }),
-      });
-      onClose();
-    } catch (err) {
-      setError("Failed to update event");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white dark:bg-gray-900 rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
-        <div className="p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-              Edit Event
-            </h2>
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-            >
-              <svg
-                className="w-6 h-6"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            </button>
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {error && (
-              <div className="p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg text-sm">
-                {error}
-              </div>
-            )}
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Title *
-              </label>
-              <input
-                type="text"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="Event name"
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Description *
-              </label>
-              <textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="What's this event about?"
-                rows={3}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white resize-none"
-              />
-            </div>
-
-            <div className="grid grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Date *
-                </label>
-                <input
-                  type="date"
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Start time *
-                </label>
-                <input
-                  type="time"
-                  value={time}
-                  onChange={(e) => setTime(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  End time
-                </label>
-                <input
-                  type="time"
-                  value={endTimeStr}
-                  onChange={(e) => setEndTimeStr(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Location
-              </label>
-              <LocationAutocomplete
-                value={location.value}
-                onChange={location.onChange}
-                onSelect={location.onSelect}
-                placeholder="Search by venue name or street address, type 'Online', or 'TBD'"
-              />
-              <LocationVerifiedHint value={location.value} selected={location.selected} />
-            </div>
-
-            <MediaLinkField value={mediaUrl} onChange={setMediaUrl} />
-
-            {canEditTickets && (
-            <>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Ticket tiers
-              </label>
-              <TicketTierEditor tiers={ticketTiers} onChange={setTicketTiers} />
-              {!isMember && (
-                <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                  Ticketed events go live once you're a member.
-                </p>
-              )}
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Ticket link (Stripe Payment Link)
-                </label>
-                <input
-                  type="text"
-                  value={externalTicketUrl}
-                  onChange={(e) => setExternalTicketUrl(e.target.value)}
-                  placeholder="https://buy.stripe.com/..."
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Ticket price ($)
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={externalTicketPrice}
-                  onChange={(e) => setExternalTicketPrice(e.target.value)}
-                  placeholder="25"
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
-                />
-              </div>
-            </div>
-            </>
-            )}
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Tags
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {EVENT_TAGS.map((tag) => (
-                  <button
-                    key={tag}
-                    type="button"
-                    onClick={() => toggleTag(tag)}
-                    className={`px-3 py-1 rounded-full text-sm transition-colors ${
-                      tags.includes(tag)
-                        ? "bg-blue-600 text-white"
-                        : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300"
-                    }`}
-                  >
-                    {tag}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <CommunityPicker
-              value={hostOrgId}
-              onChange={setHostOrgId}
-              variant="tailwind"
-              defaultHostOrgId={defaultHostOrgId}
-            />
-
-            <div className="flex items-center gap-3">
-              <input
-                type="checkbox"
-                id="approval-edit"
-                checked={requiresApproval}
-                onChange={(e) => setRequiresApproval(e.target.checked)}
-                className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
-              />
-              <label
-                htmlFor="approval-edit"
-                className="text-sm text-gray-700 dark:text-gray-300"
-              >
-                Require approval for attendees
-              </label>
-            </div>
-
-            <div className="flex gap-3 pt-4">
-              <button
-                type="button"
-                onClick={onClose}
-                className="flex-1 py-2 border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-800"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={saving}
-                className="flex-1 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50"
-              >
-                {saving ? "Saving..." : "Save Changes"}
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-    </div>
-  );
-}
