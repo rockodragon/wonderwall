@@ -379,8 +379,7 @@ export default defineSchema({
     createdAt: v.number(),
   })
     .index("by_userId", ["userId"])
-    .index("by_eventId", ["eventId"])
-    .index("by_eventId_userId", ["eventId", "userId"]),
+    .index("by_eventId", ["eventId"]),
 
   // The ONLY home for secret event URLs (docs/gated-event-video-prd.md,
   // "Data model"). Nothing spreads this document into a public response:
