@@ -200,6 +200,10 @@ export const updateProject = mutation({
     raiseByDate: v.optional(v.union(v.number(), v.null())),
     benefitsNonprofit: v.optional(v.boolean()),
     nonprofitName: v.optional(v.string()),
+    // The community this is posted into. Omitted = leave it; clearCommunity
+    // = take it out of any community (same pair events.update uses).
+    hostOrgId: v.optional(v.id("hostOrgs")),
+    clearCommunity: v.optional(v.boolean()),
     ...locationArgs,
   },
   handler: async (ctx, args) => {
@@ -291,6 +295,16 @@ export const updateProject = mutation({
       patch.placeId = args.placeId;
     }
     if (args.remote !== undefined) patch.remote = args.remote;
+    if (args.hostOrgId) {
+      // Only a member can tag a community, and only when it changes — an
+      // operator's unrelated edit shouldn't need membership.
+      if (String(args.hostOrgId) !== String(project.hostOrgId ?? "")) {
+        await assertCommunityMember(ctx, args.hostOrgId, project.userId);
+      }
+      patch.hostOrgId = args.hostOrgId;
+    } else if (args.clearCommunity) {
+      patch.hostOrgId = undefined;
+    }
 
     await ctx.db.patch(args.projectId, patch);
     await schedulePreviewFetch(ctx, "project", args.projectId, fetchPreviewFor);
