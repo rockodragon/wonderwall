@@ -119,8 +119,8 @@ export function buildSignedInTools(d: SignedInDeps): PaletteTool[] {
       active: isActive("people"),
       to: deskHref("people"),
       items: [
-        { id: "find", label: "Find people", to: "/people" },
-        { id: "near", label: "Meet people near me", to: "/people?near=1" },
+        { id: "find", label: "Find people", to: deskHref("people") },
+        { id: "near", label: "Meet people near me", to: `${deskHref("people")}&near=1` },
         { id: "invite", label: d.invite.label, onSelect: d.invite.onSelect },
       ],
     },
@@ -133,7 +133,7 @@ export function buildSignedInTools(d: SignedInDeps): PaletteTool[] {
       to: deskHref("projects"),
       items: [
         { id: "browse", label: "Browse projects", to: deskHref("projects") },
-        { id: "start", label: "Start a project", to: "/projects?new=project" },
+        { id: "start", label: "Start a project", to: deskHref("projects", null, "project") },
         { id: "fund", label: "Grant Fund", to: deskHref("projects", "fund") },
       ],
     },
@@ -146,7 +146,7 @@ export function buildSignedInTools(d: SignedInDeps): PaletteTool[] {
       to: deskHref("events"),
       items: [
         { id: "browse", label: "Browse events", to: deskHref("events") },
-        { id: "host", label: "Host an event", to: "/events?new=event" },
+        { id: "host", label: "Host an event", to: deskHref("events", null, "event") },
         { id: "fav", label: "See my favorites", to: deskHref("fav") },
       ],
     },

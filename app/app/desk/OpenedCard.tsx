@@ -1,6 +1,8 @@
-// The right-hand panel of an opened card: meta line and close button, title,
-// who's behind it, a few lines, and the one thing to do. The left 46% is the
-// card's own face (DeskCard.tsx). From the handoff, "Opened card".
+// The panel of an opened card: meta line and close button, title, who's
+// behind it, a few lines, and the one thing to do. Beside a picture it takes
+// the right-hand side (the picture's width is set in DeskCard.tsx); a card
+// with no picture is this panel alone, a centered sheet. From the handoff,
+// "Opened card".
 //
 // The panel mounts when a card opens and unmounts a beat after it closes, so
 // its queries (a profile's bio, whether I'm going) only run while it's up.
@@ -23,10 +25,16 @@ const BUTTON_CLASS = `inline-flex h-[52px] items-center justify-center rounded-[
 export function DetailPanel({
   card,
   visible,
+  sheet,
+  share,
   onClose,
 }: {
   card: DeskCard;
   visible: boolean;
+  /** No picture side: the panel fills the card. */
+  sheet: boolean;
+  /** Width of the picture side, as a share of the open card. */
+  share: number;
   onClose: () => void;
 }) {
   const reduced = useReducedMotion();
@@ -54,9 +62,9 @@ export function DetailPanel({
         top: 0,
         right: 0,
         bottom: 0,
-        left: "46%",
+        left: sheet ? 0 : `${share * 100}%`,
         background: DESK.panel,
-        padding: 56,
+        padding: sheet ? 48 : 56,
         display: "flex",
         flexDirection: "column",
         gap: 20,
@@ -83,12 +91,13 @@ export function DetailPanel({
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col justify-center gap-5">
-        <h2 style={{ margin: 0, fontSize: 44, lineHeight: 1.08, fontWeight: 500, letterSpacing: "-0.02em", overflowWrap: "anywhere" }}>
+        {/* A word never breaks mid-way; only one wider than the whole panel gives way. */}
+        <h2 style={{ margin: 0, fontSize: 44, lineHeight: 1.08, fontWeight: 500, letterSpacing: "-0.02em", overflowWrap: "break-word", hyphens: "manual" }}>
           {card.detail.title}
         </h2>
-        {host && <p style={{ margin: 0, fontSize: 15, color: DESK.muted }}>{host}</p>}
+        {host && <p style={{ margin: 0, fontSize: 15, color: DESK.muted, overflowWrap: "break-word", hyphens: "manual" }}>{host}</p>}
         {description && (
-          <p style={{ margin: 0, fontSize: 18, lineHeight: 1.65, color: DESK.textSoft, maxWidth: "46ch" }}>{description}</p>
+          <p style={{ margin: 0, fontSize: 18, lineHeight: 1.65, color: DESK.textSoft, maxWidth: "46ch", overflowWrap: "break-word", hyphens: "manual" }}>{description}</p>
         )}
         <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-3">
           {action?.kind === "link" && <ActionLink action={action} />}

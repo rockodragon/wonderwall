@@ -8,6 +8,7 @@ import { LocationAutocomplete, LocationVerifiedHint } from "./LocationAutocomple
 import { describeMediaLink, MediaLinkField } from "./MediaLinkField";
 import { useLocationField } from "../lib/useLocationField";
 import { errorMessage } from "../lib/convexError";
+import { FocusBackdrop } from "./FocusBackdrop";
 
 // One modal for starting AND editing a project, in three short steps — the
 // same shape as the event modal (CreateEventModal): name it -> show it ->
@@ -174,10 +175,7 @@ export function ProjectModal({
   const secondaryClass = "px-4 py-2.5 rounded-lg border text-[13.5px] font-medium disabled:opacity-50";
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-stretch sm:items-center justify-center sm:p-4"
-      style={{ backgroundColor: "rgba(0,0,0,0.6)" }}
-    >
+    <FocusBackdrop>
       <div
         role="dialog"
         aria-modal="true"
@@ -379,6 +377,6 @@ export function ProjectModal({
           </div>
         </form>
       </div>
-    </div>
+    </FocusBackdrop>
   );
 }

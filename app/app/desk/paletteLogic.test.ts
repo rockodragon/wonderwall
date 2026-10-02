@@ -1,13 +1,17 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  HOVER_GRACE_MS,
   PALETTE,
   activeToolId,
   badgeText,
+  createGrace,
+  createHoverIntent,
   fanAngles,
   fanOffset,
   fanTransition,
   loginHref,
   withAlpha,
+  type ToolId,
 } from "./paletteLogic";
 import { DESK } from "./tokens";
 
@@ -131,5 +135,185 @@ describe("withAlpha", () => {
   });
   it("refuses what isn't a hex color", () => {
     expect(() => withAlpha("red", 0.5)).toThrow();
+  });
+});
+
+describe("hover intent", () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  /** A palette to point the mouse at: `stack` is the menu showing. */
+  function setup(opts: { keyboardFocus?: boolean } = {}) {
+    const state: { stack: ToolId | null; closed: number } = { stack: null, closed: 0 };
+    const intent = createHoverIntent({
+      current: () => state.stack,
+      showStack: (id) => {
+        state.stack = id;
+      },
+      closeAll: () => {
+        state.closed += 1;
+        state.stack = null;
+      },
+      keepOpen: () => !!opts.keyboardFocus,
+    });
+    return { state, intent };
+  }
+  const just = HOVER_GRACE_MS - 1;
+
+  it("is 300ms, and the bridge is 28px", () => {
+    expect(HOVER_GRACE_MS).toBe(300);
+    expect(PALETTE.bridge).toBe(28);
+  });
+
+  it("opens a menu at once when none is open", () => {
+    const { state, intent } = setup();
+    intent.toolEnter("projects");
+    expect(state.stack).toBe("projects");
+  });
+
+  it("switches to a neighbouring tool only after the grace period", () => {
+    const { state, intent } = setup();
+    intent.toolEnter("projects");
+    intent.toolLeave();
+    intent.toolEnter("people");
+    vi.advanceTimersByTime(just);
+    expect(state.stack).toBe("projects");
+    vi.advanceTimersByTime(1);
+    expect(state.stack).toBe("people");
+  });
+
+  it("crossing a neighbour on the way to the menu changes nothing", () => {
+    const { state, intent } = setup();
+    intent.toolEnter("projects");
+    // Off Projects, over People for a moment, then into Projects' menu (which
+    // is inside Projects' own zone, so it enters Projects again).
+    intent.toolLeave();
+    intent.toolEnter("people");
+    vi.advanceTimersByTime(80);
+    intent.toolLeave();
+    intent.toolEnter("projects");
+    vi.advanceTimersByTime(HOVER_GRACE_MS * 3);
+    expect(state.stack).toBe("projects");
+  });
+
+  it("returning to the open tool drops a switch that was waiting", () => {
+    const { state, intent } = setup();
+    intent.toolEnter("projects");
+    intent.toolEnter("events");
+    vi.advanceTimersByTime(just);
+    intent.toolEnter("projects");
+    vi.advanceTimersByTime(HOVER_GRACE_MS);
+    expect(state.stack).toBe("projects");
+  });
+
+  it("closes the menu after the grace period when the pointer leaves", () => {
+    const { state, intent } = setup();
+    intent.toolEnter("projects");
+    intent.toolLeave();
+    vi.advanceTimersByTime(just);
+    expect(state.stack).toBe("projects");
+    vi.advanceTimersByTime(1);
+    expect(state.stack).toBeNull();
+  });
+
+  it("coming back before the grace period ends keeps the menu", () => {
+    const { state, intent } = setup();
+    intent.toolEnter("projects");
+    intent.toolLeave();
+    vi.advanceTimersByTime(just);
+    intent.toolEnter("projects");
+    vi.advanceTimersByTime(HOVER_GRACE_MS * 3);
+    expect(state.stack).toBe("projects");
+  });
+
+  it("counts the grace period from the last move, not the first", () => {
+    const { state, intent } = setup();
+    intent.toolEnter("projects");
+    intent.toolEnter("people"); // waits for People
+    vi.advanceTimersByTime(200);
+    intent.toolLeave(); // off People: now the wait is to close
+    vi.advanceTimersByTime(just);
+    expect(state.stack).toBe("projects");
+    vi.advanceTimersByTime(1);
+    expect(state.stack).toBeNull();
+  });
+
+  it("leaving a tool when no menu is open starts nothing", () => {
+    const { state, intent } = setup();
+    intent.toolLeave();
+    vi.advanceTimersByTime(HOVER_GRACE_MS * 2);
+    expect(state.stack).toBeNull();
+    expect(state.closed).toBe(0);
+  });
+
+  it("folds the fan away after the grace period when the pointer leaves the zone", () => {
+    const { state, intent } = setup();
+    intent.toolEnter("projects");
+    intent.toolLeave();
+    intent.zoneLeave();
+    vi.advanceTimersByTime(just);
+    expect(state.closed).toBe(0);
+    vi.advanceTimersByTime(1);
+    expect(state.closed).toBe(1);
+    expect(state.stack).toBeNull();
+  });
+
+  it("coming back into the zone drops the close", () => {
+    const { state, intent } = setup();
+    intent.toolEnter("projects");
+    intent.toolLeave();
+    intent.zoneLeave();
+    vi.advanceTimersByTime(just);
+    intent.zoneEnter();
+    vi.advanceTimersByTime(HOVER_GRACE_MS * 3);
+    expect(state.closed).toBe(0);
+    expect(state.stack).toBe("projects");
+  });
+
+  it("does not fold the fan while keyboard focus is inside", () => {
+    const { state, intent } = setup({ keyboardFocus: true });
+    intent.zoneLeave();
+    vi.advanceTimersByTime(HOVER_GRACE_MS * 3);
+    expect(state.closed).toBe(0);
+  });
+
+  it("cancel() drops whatever is waiting", () => {
+    const { state, intent } = setup();
+    intent.toolEnter("projects");
+    intent.toolEnter("events");
+    intent.cancel();
+    vi.advanceTimersByTime(HOVER_GRACE_MS * 3);
+    expect(state.stack).toBe("projects");
+  });
+});
+
+describe("createGrace", () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it("runs the latest action once, after the delay", () => {
+    const grace = createGrace(100);
+    const first = vi.fn();
+    const second = vi.fn();
+    grace.start(first);
+    expect(grace.waiting).toBe(true);
+    vi.advanceTimersByTime(60);
+    grace.start(second);
+    vi.advanceTimersByTime(99);
+    expect(second).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
+    expect(first).not.toHaveBeenCalled();
+    expect(second).toHaveBeenCalledTimes(1);
+    expect(grace.waiting).toBe(false);
+  });
+
+  it("does nothing once cancelled", () => {
+    const grace = createGrace(100);
+    const fn = vi.fn();
+    grace.start(fn);
+    grace.cancel();
+    vi.advanceTimersByTime(500);
+    expect(fn).not.toHaveBeenCalled();
+    expect(grace.waiting).toBe(false);
   });
 });

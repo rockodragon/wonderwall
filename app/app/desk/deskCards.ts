@@ -210,7 +210,7 @@ function eventFoot(e: DeskEventInput): string | null {
 // Cards
 // ——————————————————————————————————————————————————————————————
 
-function eventCard(e: DeskEventInput, sections: DeskView[]): DeskCard {
+export function eventCard(e: DeskEventInput, sections: DeskView[]): DeskCard {
   const id: DeskCardId = `event:${e._id}`;
   const foot = eventFoot(e);
   const going = e.attendeeCount ?? 0;
@@ -244,7 +244,7 @@ function eventCard(e: DeskEventInput, sections: DeskView[]): DeskCard {
   };
 }
 
-function fundCard(f: DeskFundInput, money: (cents: number) => string): DeskCard {
+export function fundCard(f: DeskFundInput, money: (cents: number) => string): DeskCard {
   return {
     id: "fund",
     kind: "fund",
@@ -265,7 +265,7 @@ function fundCard(f: DeskFundInput, money: (cents: number) => string): DeskCard 
   };
 }
 
-function grantCard(amountCents: number, money: (cents: number) => string): DeskCard {
+export function grantCard(amountCents: number, money: (cents: number) => string): DeskCard {
   const amount = money(amountCents);
   return {
     id: "grant",
@@ -288,7 +288,7 @@ function grantCard(amountCents: number, money: (cents: number) => string): DeskC
   };
 }
 
-function projectCard(p: DeskProjectInput, sections: DeskView[], money: (cents: number) => string): DeskCard {
+export function projectCard(p: DeskProjectInput, sections: DeskView[], money: (cents: number) => string): DeskCard {
   const id: DeskCardId = `project:${p._id}`;
   const kicker = p.kind === "paid" ? "PAID WORK" : stageLabel(resolveStage(p)).toUpperCase();
   const owner = p.creator?.name ?? null;
@@ -323,7 +323,7 @@ function projectCard(p: DeskProjectInput, sections: DeskView[], money: (cents: n
   };
 }
 
-function personCard(p: DeskPersonInput): DeskCard {
+export function personCard(p: DeskPersonInput): DeskCard {
   const id: DeskCardId = `person:${p._id}`;
   const interest = (p.interests ?? []).find((t) => !t.startsWith("other:")) ?? null;
   return {
@@ -395,9 +395,11 @@ const TAIL_NOUN: Partial<Record<DeskView, string>> = {
   fav: "favorites",
 };
 
-/** The card that ends a row that runs long: "All 12 events →". */
-export function tailLabel(view: DeskView, count: number): string {
-  return `All ${count} ${TAIL_NOUN[view] ?? "cards"} →`;
+/** A card with no picture and no designed face (a paper note has one) opens
+ * as a centered sheet, the detail panel alone: with nothing to show on the
+ * picture side, there is no picture side. */
+export function opensAsSheet(card: Pick<DeskCard, "image" | "note">): boolean {
+  return !card.image && !card.note;
 }
 
 /** Cards in a view. */

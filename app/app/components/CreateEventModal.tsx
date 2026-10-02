@@ -18,6 +18,7 @@ import {
 } from "./TicketTierEditor";
 import { describeMediaLink, MediaLinkField } from "./MediaLinkField";
 import { ImageFill } from "./ImageFill";
+import { FocusBackdrop } from "./FocusBackdrop";
 
 // One modal for hosting AND editing an event (Rick, 2026-10-01: edit uses the
 // same steps as create). Pass `edit` to open it on an existing event.
@@ -614,7 +615,7 @@ export function CreateEventModal({
         : busy;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-stretch sm:items-center justify-center sm:p-4 bg-black/60">
+    <FocusBackdrop>
       <div
         role="dialog"
         aria-modal="true"
@@ -1083,6 +1084,6 @@ export function CreateEventModal({
           </div>
         </form>
       </div>
-    </div>
+    </FocusBackdrop>
   );
 }

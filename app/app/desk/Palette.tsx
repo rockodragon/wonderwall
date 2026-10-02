@@ -159,6 +159,7 @@ function PaletteShell({
           height: PALETTE.zone,
           pointerEvents: open ? "auto" : "none",
         }}
+        onPointerEnter={pal.onZonePointerEnter}
         onPointerLeave={pal.onZonePointerLeave}
       >
         <button
@@ -214,7 +215,7 @@ function PaletteShell({
               key={tool.id}
               data-pal-hit
               onPointerEnter={(e) => pal.onToolPointerEnter(e, tool)}
-              onPointerLeave={(e) => pal.onToolPointerLeave(e, tool)}
+              onPointerLeave={pal.onToolPointerLeave}
               style={{
                 position: "absolute",
                 left: centre + x - half,
@@ -248,6 +249,8 @@ function PaletteShell({
                 onFocus={() => pal.setRoving(i)}
                 style={{
                   position: "relative",
+                  // Above the menu's bridge, which reaches in behind the button.
+                  zIndex: 1,
                   width: PALETTE.tool,
                   height: PALETTE.tool,
                   borderRadius: "50%",
@@ -269,18 +272,22 @@ function PaletteShell({
                   data-pal-hit
                   data-stack={tool.id}
                   className="desk-pal-stack"
-                  // Starts at the tool's right edge; the 14px of padding is the
-                  // bridge the cursor crosses. The panel's bottom edge sits at
-                  // the tool's centre, so it grows up and right, clear of the
+                  // The left padding is the bridge the cursor crosses: 28px, as
+                  // tall as the menu. It starts 14px inside the tool's box
+                  // (behind its button, which sits above it), so the empty
+                  // corners of the circle are covered, and the menu stays 14px
+                  // clear of the tool. The panel's bottom edge sits at the
+                  // tool's centre, so it grows up and right, clear of the
                   // tools further round the arc. 8px of padding below it keeps
                   // the bridge under a cursor that leaves the circle just low
                   // of centre.
                   style={{
                     position: "absolute",
-                    left: PALETTE.tool,
+                    left: PALETTE.tool - PALETTE.bridge / 2,
                     bottom: half - 8,
                     paddingLeft: PALETTE.bridge,
                     paddingBottom: 8,
+                    zIndex: 0,
                   }}
                 >
                   <StackPanel
