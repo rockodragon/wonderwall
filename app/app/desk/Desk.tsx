@@ -20,14 +20,14 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { useReducedMotion } from "../hooks/useMediaQuery";
-import { openInScope, type ShortlistScope } from "../components/shortlist/items";
+import { cardIdOf, openInScope, type ShortlistScope } from "../components/shortlist/items";
 import type { RowModel } from "../components/shortlist/rowModel";
 import { useShortlist } from "../lib/shortlist/useShortlist";
 import { buildDeskCards, cardsInView, opensAsSheet, type DeskCard } from "./deskCards";
 import { DeskCardView } from "./DeskCard";
 import { DeskCreate } from "./DeskCreate";
 import { isBrowseView, useDeskBrowse, type BrowseView, type DeskBrowse } from "./deskBrowse";
-import { greetingFor } from "./deskGreeting";
+import { greetingFor, headerCount } from "./deskGreeting";
 import { DeskHeader, type HeaderParts, type HeaderSize } from "./DeskHeader";
 import { DeskToast } from "./DeskToast";
 import { DEFAULT_HEADER_H, Z_DIM, layoutDeskFull, type LayoutCard, type Place } from "./deskLayout";
@@ -362,8 +362,8 @@ export function Desk() {
   // How many cards are on show; null while the list is still arriving.
   const listed = browsing ? browse.cards : loaded ? (shown ?? []) : undefined;
   const shownCount = listed ? listed.length : null;
-  // The header counts the view's own things: the fund and grant notes aren't projects.
-  const count = view === "all" || !listed ? null : listed.filter((c) => !c.note).length;
+  // What the header counts beside the view's name; Today's include its Needs you rows.
+  const count = headerCount(view, listed, shortlist.status === "ready" ? shortlist.needs.map(cardIdOf) : undefined);
   // The Shortlist has empty states of its own.
   const empty = shownCount === 0 && !shortlistOn;
   const greeting = greetingFor(new Date().getHours(), profile?.name);

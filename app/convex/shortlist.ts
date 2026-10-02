@@ -39,6 +39,7 @@ import type {
 } from "../app/lib/shortlist/types";
 import { countGoing } from "./events";
 import { isEventHost } from "./eventHosts";
+import { communityVisibility } from "./garden/communityVisibility";
 import { eventVisibilityChecker } from "./garden/eventVisibility";
 import { isProjectFinished, resolveImageUrl } from "./garden/projectTeam";
 import { projectKind } from "./garden/projectsPublic";
@@ -305,11 +306,16 @@ export const getMine = query({
     // not-found once an admin hides it (getProject), except to its lead; an
     // event page shows to its hosts, and to everyone else while it's public
     // (events.get: not hidden, and a ticketed one only while its organizer
-    // can sell tickets).
+    // can sell tickets). Either one posted into a hidden (test) community
+    // shows only to admins and that community's members, as on the pages and
+    // in the public lists (communityVisibility); its lead and hosts keep it.
+    const gate = communityVisibility(ctx, userId);
     const ownsProject = (project: Doc<"projects">) => project.userId === userId;
-    const canOpenProject = (project: Doc<"projects">) => ownsProject(project) || !isHidden(project);
+    const canOpenProject = async (project: Doc<"projects">) =>
+      ownsProject(project) || (!isHidden(project) && (await gate.idVisible(project.hostOrgId)));
     const isPublic = eventVisibilityChecker(ctx);
-    const canOpenEvent = async (event: Doc<"events">) => isEventHost(event, userId) || (await isPublic(event));
+    const canOpenEvent = async (event: Doc<"events">) =>
+      isEventHost(event, userId) || ((await isPublic(event)) && (await gate.idVisible(event.hostOrgId)));
 
     async function projectRow(
       project: Doc<"projects">,
@@ -402,7 +408,7 @@ export const getMine = query({
     // live invite or request has none, so it's when that was made.
     const teamRows = memberRows.map(async (row) => {
       const project = await read.project(row.projectId);
-      if (!project || !canOpenProject(project)) return null;
+      if (!project || !(await canOpenProject(project))) return null;
       const posting = row.roleId ? await read.role(row.roleId) : null;
       const { relation, ...extra } = memberRelation(row.status, isProjectFinished(project));
       return projectRow(project, relation, row.respondedAt ?? row.createdAt, { posting, title: row.role }, extra);
@@ -415,7 +421,7 @@ export const getMine = query({
     }
     const backingRows = [...given].map(async ([projectId, entries]) => {
       const project = await read.project(projectId);
-      if (!project || !canOpenProject(project)) return null;
+      if (!project || !(await canOpenProject(project))) return null;
       const { since, backing } = summarizeBacking(entries);
       return projectRow(project, "backing", since, null, { backing });
     });
@@ -424,14 +430,14 @@ export const getMine = query({
     const savedProjectRows = savedProjects.map(async (fav) => {
       const id = ctx.db.normalizeId("projects", fav.targetId);
       const project = id && (await read.project(id));
-      if (!project || !canOpenProject(project)) return null;
+      if (!project || !(await canOpenProject(project))) return null;
       return projectRow(project, "saved", fav.createdAt, null);
     });
     const savedRoleRows = savedRoles.map(async (fav) => {
       const id = ctx.db.normalizeId("projectRoles", fav.targetId);
       const posting = id && (await read.role(id));
       const project = posting && (await read.project(posting.projectId));
-      if (!posting || !project || !canOpenProject(project)) return null;
+      if (!posting || !project || !(await canOpenProject(project))) return null;
       const { relation, ...extra } = savedRoleRelation(posting.status, isProjectFinished(project));
       return projectRow(project, relation, fav.createdAt, { posting, title: posting.title }, extra);
     });

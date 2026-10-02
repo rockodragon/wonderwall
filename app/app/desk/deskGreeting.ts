@@ -35,6 +35,22 @@ export function countLabel(view: DeskView, count: number): string {
   return `${count} ${count === 1 ? noun[0] : noun[1]}`;
 }
 
+/** The number beside a view's name: what's on show, each thing once. Null on
+ *  the home view, and while the list (on Today, Needs you too) is arriving.
+ *  Today counts its Needs you rows as well as its cards, the fund and grant
+ *  notes included; a row that's also a card counts once. Other views count
+ *  their own kind, so the fund note on Projects isn't a project. */
+export function headerCount(
+  view: DeskView,
+  cards: readonly { id: string; note: boolean }[] | undefined,
+  needsYouIds?: readonly string[],
+): number | null {
+  if (view === "all" || !cards) return null;
+  if (view !== "today") return cards.filter((c) => !c.note).length;
+  if (!needsYouIds) return null;
+  return new Set([...cards.map((c) => c.id), ...needsYouIds]).size;
+}
+
 /** The People view's count: "30 people", or "30 people · 4 organizations" when
  *  organizations are mixed in. `orgsOnly` is the Organizations toggle, which
  *  says "0 organizations" rather than "0 people" when nothing matches. */

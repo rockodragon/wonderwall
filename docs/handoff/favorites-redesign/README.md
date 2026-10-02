@@ -25,7 +25,7 @@ v2 supersedes the v1 Work/Projects split by pay and the "My projects" proposal.
 5. **Three areas: Projects, Events, People.** Work is no longer an area. Paid or passion is a filter inside Projects (see The model).
 6. **Projects you lead sit in Projects, under Leading.** There is no separate "My projects".
 7. **Work first survives as order and filter, not as a section.** Paid invites lead Needs you, the Paid chip filters to paid work, and the Projects tile reads like "7 paid · 8 passion".
-8. **The desk browse toggle "Projects / Work" becomes "Passion / Paid"**, so the desk and the Shortlist use the same words. Spec note only; no code change now. The labels are `PROJECT_VIEWS` in `app/app/lib/browse/projectsFilter.ts`, shared with `/projects`.
+8. **No rename for the browse toggle.** Renaming the desk's "Projects / Work" toggle (`PROJECT_VIEWS`) to "Passion / Paid" is moot: that toggle is gone, and `/projects` and the desk's Projects view now browse by intent chips (`docs/features/project-ia.md`, "Browsing: one row of chips").
 
 ## The model
 

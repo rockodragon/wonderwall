@@ -73,7 +73,7 @@ export function DeskHeader({
   greeting: string;
   /** False until the profile has arrived, so the name doesn't pop in. */
   greetingReady: boolean;
-  /** Cards shown, once known. */
+  /** What's on show (headerCount: on Today, Needs you's rows too), once known. */
   count: number | null;
   /** The count in words, where a view says more than "N things" ("30 people · 4 organizations"). */
   countText?: string | null;

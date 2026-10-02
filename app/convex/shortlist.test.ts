@@ -669,6 +669,103 @@ describe("getMine — visibility", () => {
   });
 });
 
+describe("getMine — hidden (test) communities", () => {
+  // "_TeamTest" is hidden (garden/hiddenCommunity.ts); "Open Studio" isn't.
+  // Everything here is the member's: saved, backed, on the team, going, or
+  // their own to lead and host.
+  const TEST = "hostOrgs:test";
+  const OPEN = "hostOrgs:open";
+  const inTest = { hostOrgId: TEST };
+
+  function world(viewer: { membership?: string; admin?: boolean } = {}) {
+    const w = WORLD();
+    w.hostOrgs = [
+      { _id: TEST, name: "_TeamTest", slug: "teamtest" },
+      { _id: OPEN, name: "Open Studio", slug: "open-studio" },
+    ];
+    w.communityMembers = viewer.membership
+      ? [{ _id: "communityMembers:me", hostOrgId: TEST, userId: ME, role: "member", status: viewer.membership, joinedAt: 1 }]
+      : [];
+    if (viewer.admin) w.profiles[0].isAdmin = true;
+    w.projects.push(
+      project("testSaved", inTest),
+      project("testBacked", inTest),
+      project("testTeam", inTest),
+      project("testRoles", inTest),
+      project("testMine", { ...inTest, userId: ME }),
+      project("openSaved", { hostOrgId: OPEN }),
+    );
+    w.projectRoles.push({ _id: "projectRoles:testRole", projectId: "projects:testRoles", title: "Tester", status: "open", createdAt: 1 });
+    w.projectMembers.push(member("testTeam", "testTeam", "accepted", { createdAt: 280, respondedAt: 285 }));
+    w.projectSupport.push(support("testBacked", "testBacked", "encouragement"));
+    w.events.push(
+      event("testSaved", inTest),
+      event("testGoing", inTest),
+      event("testHosted", { ...inTest, organizerId: ME }),
+      event("testCoHosted", { ...inTest, coHostIds: [ME] }),
+      event("openSaved", { hostOrgId: OPEN }),
+    );
+    w.eventApplications.push(application("alexTest", "testHosted", ALEX, "pending", { createdAt: 610 }));
+    w.eventRsvps.push(rsvp("meTestGoing", "testGoing", ME, 570));
+    w.favorites.push(
+      fav("project", "projects:testSaved", 350),
+      fav("role", "projectRoles:testRole", 351),
+      fav("project", "projects:openSaved", 352),
+      fav("event", "events:testSaved", 353),
+      fav("event", "events:testCoHosted", 354),
+      fav("event", "events:openSaved", 355),
+    );
+    return w;
+  }
+
+  const ids = (data: { projects: ShortlistProject[]; events: ShortlistEvent[] }) => ({
+    projects: data.projects.map((p) => p.projectId),
+    events: data.events.map((e) => e.eventId),
+  });
+  const TEST_PROJECTS = ["projects:testSaved", "projects:testBacked", "projects:testTeam", "projects:testRoles"];
+  const TEST_EVENTS = ["events:testSaved", "events:testGoing"];
+
+  it("drops what's saved, backed, joined or attended there for someone outside it", async () => {
+    const { data } = await mine(ME, world());
+    const shown = ids(data);
+    for (const id of TEST_PROJECTS) expect(shown.projects).not.toContain(id);
+    for (const id of TEST_EVENTS) expect(shown.events).not.toContain(id);
+    // An ordinary community changes nothing.
+    expect(shown.projects).toContain("projects:openSaved");
+    expect(shown.events).toContain("events:openSaved");
+  });
+
+  it("keeps the member's own: the project they lead, the events they host or co-host, and the requests on them", async () => {
+    const { data } = await mine(ME, world());
+    const shown = ids(data);
+    expect(shown.projects).toContain("projects:testMine");
+    expect(shown.events).toEqual(expect.arrayContaining(["events:testHosted", "events:testCoHosted"]));
+    expect(data.requests.map((r: { key: string }) => r.key)).toContain("request:event:eventApplications:alexTest");
+  });
+
+  it("shows all of it to the community's active members and to admins", async () => {
+    for (const viewer of [{ membership: "active" }, { admin: true }]) {
+      const shown = ids((await mine(ME, world(viewer))).data);
+      expect(shown.projects).toEqual(expect.arrayContaining(TEST_PROJECTS));
+      expect(shown.events).toEqual(expect.arrayContaining(TEST_EVENTS));
+    }
+  });
+
+  it("a pending or removed membership isn't one", async () => {
+    for (const membership of ["pending", "removed"]) {
+      const shown = ids((await mine(ME, world({ membership }))).data);
+      for (const id of TEST_PROJECTS) expect(shown.projects).not.toContain(id);
+      for (const id of TEST_EVENTS) expect(shown.events).not.toContain(id);
+    }
+  });
+
+  it("reads nothing about the member's communities until a hidden one turns up", async () => {
+    const { reads } = await mine();
+    expect(reads).not.toContain("communityMembers.by_userId");
+    expect((await mine(ME, world())).reads).toContain("communityMembers.by_userId");
+  });
+});
+
 describe("getMine — events", () => {
   it("one row per event, in group order", async () => {
     const { data } = await mine();
