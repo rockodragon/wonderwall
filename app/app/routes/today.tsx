@@ -27,6 +27,8 @@ import { FF_DESK } from "../lib/featureFlags";
 import { Desk } from "../desk/Desk";
 import { useIsDesktop } from "../hooks/useMediaQuery";
 import { UpdatesStack } from "../components/UpdatesStack";
+import { PhoneNeedsYou } from "../components/shortlist/PhoneParts";
+import { useShortlist } from "../lib/shortlist/useShortlist";
 
 export function meta() {
   return [{ title: "Today — The Garden" }];
@@ -67,6 +69,8 @@ function TodayPage() {
   // the card simply doesn't show.
   const giving = useQuery(api.garden.giving.getMyGiving);
   const openGift = giving?.open?.[0];
+  // Today is signed-in only (routes/_app.tsx), so there's always a Shortlist.
+  const shortlist = useShortlist();
 
   const episode = useMemo(() => pickEpisode(events ?? []), [events]);
 
@@ -85,7 +89,16 @@ function TodayPage() {
         <MonoLabel>{formatToday()}</MonoLabel>
       </div>
 
-      {/* Updates come first (docs/features/desk-updates.md). */}
+      {/* Needs you leads (docs/handoff/favorites-redesign/README.md): what
+          you owe a reply or an appearance to, the Shortlist's own rows, up to
+          three and a way to the rest. Nothing at all when nothing needs you. */}
+      {shortlist.status === "ready" && shortlist.needs.length > 0 && (
+        <div className="mb-10">
+          <PhoneNeedsYou needs={shortlist.needs} money={formatMoney} more="link" />
+        </div>
+      )}
+
+      {/* Updates come next (docs/features/desk-updates.md). */}
       <UpdatesStack />
 
       {openGift && <YourHalfCard amountCents={openGift.amountCents} />}

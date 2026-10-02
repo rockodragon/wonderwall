@@ -15,6 +15,7 @@
 //   kind   — Projects only: paid | passion (absent = both)
 
 import { useSyncExternalStore } from "react";
+import type { ProjectKind } from "../lib/shortlist/types";
 import type { ShortlistArea } from "../lib/shortlist/url";
 
 export const DESK_PATH = "/today";
@@ -109,11 +110,13 @@ export function stepTo(step: { index: number; total: number; busy?: boolean }, b
 // page; re-exported here so desk code keeps one import.
 export { SHORTLIST_AREAS, parseShortlistArea, parseShortlistKind, type ShortlistArea } from "../lib/shortlist/url";
 
-/** The Shortlist's overview, or one of its areas. Paid or Passion is a
- *  filter set on the page, so a link starts without one. */
-export function shortlistHref(area?: ShortlistArea): string {
+/** The Shortlist's overview, or one of its areas. Paid or Passion rides on
+ *  Projects only, as favoritesHref has it; a link made without one starts
+ *  on both. */
+export function shortlistHref(area?: ShortlistArea | null, kind?: ProjectKind | null): string {
   const params = new URLSearchParams({ view: SHORTLIST_VIEW });
   if (area) params.set("area", area);
+  if (area === "projects" && kind) params.set("kind", kind);
   return `${DESK_PATH}?${params.toString()}`;
 }
 

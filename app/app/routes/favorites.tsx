@@ -1,66 +1,33 @@
-import { useQuery } from "convex/react";
-import { Link, Navigate } from "react-router";
-import { api } from "../../convex/_generated/api";
-import { EventCard } from "../components/EventCard";
-import { FavoriteButton } from "../components/FavoriteButton";
+import { Navigate, useSearchParams } from "react-router";
+import { PhoneShortlist } from "../components/shortlist/PhoneShortlist";
 import { shortlistHref } from "../desk/deskState";
+import { formatMoney } from "../garden/ui";
 import { useIsDesktop } from "../hooks/useMediaQuery";
 import { FF_DESK } from "../lib/featureFlags";
-import { groupFollows } from "../lib/groupFollows";
 import { PAGE_WIDTH } from "../lib/pageWidth";
+import type { ProjectKind } from "../lib/shortlist/types";
+import { parseShortlistArea, parseShortlistKind, type ShortlistArea } from "../lib/shortlist/url";
+import { useShortlist } from "../lib/shortlist/useShortlist";
 
-// /favorites is the Following page (docs/features/following.md §1 row 4). A
-// profile favorite is a follow; the rows above are people you follow, the
-// Events section below is the events you saved. The Events section renders
-// components/EventCard — the same component /events renders — so the
-// identical event wears the same face on both pages.
-
-type FavoriteProfileItem = {
-  favoriteId: string;
-  favoritedAt: number;
-  profile: {
-    _id: string;
-    name: string;
-    imageUrl?: string | null;
-    interests: string[];
-  };
-};
-
-type FavoriteEventItem = {
-  favoriteId: string;
-  favoritedAt: number;
-  event: {
-    _id: string;
-    title: string;
-    datetime: number;
-    location?: string | null;
-    tags: string[];
-    status: string;
-    requiresApproval: boolean;
-    coverImageUrl?: string | null;
-    attendeeCount?: number;
-  };
-};
-
-type FavoritesData = {
-  profiles: (FavoriteProfileItem | null)[];
-  events: (FavoriteEventItem | null)[];
-};
-
-// On desktop the Shortlist replaces this page (docs/handoff/favorites-redesign/
-// README.md, "Palette"), behind the same FF_DESK and breakpoint as the desk
-// itself (today.tsx). Phones keep the page below for now. Both branches mount
-// their own hooks, so the switch never changes hook order inside either one.
+// /favorites is the Shortlist (docs/handoff/favorites-redesign/README.md).
+// On desktop it sends you to the desk's Shortlist, behind the same FF_DESK
+// and breakpoint as the desk itself (today.tsx); on a phone it is the
+// Shortlist page, components/shortlist/PhoneShortlist. ?area= and ?kind=
+// ride along either way (lib/shortlist/url.ts), so a link to Projects or to
+// Paid work lands in the same place on both. Both branches mount their own
+// hooks, so the switch never changes hook order inside either one.
 export default function Favorites() {
   const isDesktop = useIsDesktop();
-  return FF_DESK && isDesktop ? <Navigate to={shortlistHref()} replace /> : <FavoritesPage />;
+  const [params] = useSearchParams();
+  const area = parseShortlistArea(params.get("area"));
+  const kind = parseShortlistKind(params.get("kind"), area);
+  return FF_DESK && isDesktop ? <Navigate to={shortlistHref(area, kind)} replace /> : <FavoritesPage area={area} kind={kind} />;
 }
 
-function FavoritesPage() {
-  const favorites = useQuery(api.favorites.getMyFavorites, {}) as
-    FavoritesData | undefined;
+function FavoritesPage({ area, kind }: { area: ShortlistArea | null; kind: ProjectKind | null }) {
+  const state = useShortlist();
 
-  if (favorites === undefined) {
+  if (state.status === "loading") {
     return (
       <PageShell>
         <div className="flex items-center justify-center py-24">
@@ -76,70 +43,9 @@ function FavoritesPage() {
     );
   }
 
-  // Filter out null values and get typed arrays
-  const profiles = favorites.profiles.filter(
-    (p): p is NonNullable<typeof p> => p !== null,
-  );
-  const events = favorites.events.filter(
-    (e): e is NonNullable<typeof e> => e !== null,
-  );
-
-  const { grouped, groups } = groupFollows(profiles);
-  const hasProfiles = profiles.length > 0;
-  const hasEvents = events.length > 0;
-
   return (
     <PageShell>
-      <div className="space-y-12">
-        <section>
-          {hasProfiles ? (
-            grouped ? (
-              <div className="space-y-8">
-                {groups.map((group) => (
-                  <div key={group.label}>
-                    <SectionHeading>{group.label}</SectionHeading>
-                    <FollowList items={group.items} />
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <FollowList items={groups[0].items} />
-            )
-          ) : (
-            <p
-              className="text-sm py-8"
-              style={{ color: "var(--app-text-dim)" }}
-            >
-              You aren't following anyone yet. Tap Follow on a profile.
-            </p>
-          )}
-        </section>
-
-        {hasEvents && (
-          <section>
-            <SectionHeading>Events you saved</SectionHeading>
-            {/* Same grid breakpoints as /events, so a card is the same
-                width at the same viewport and the two pages really do
-                match rather than merely sharing a component. */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {events.map((item) => (
-                <EventCard
-                  key={item.favoriteId}
-                  event={item.event}
-                  // /events lists only upcoming published events, so this
-                  // knock-back is genuinely favorites-only: a saved event
-                  // can drift into the past or be cancelled out from under
-                  // you, and `status` only exists on this query.
-                  dimmed={
-                    item.event.datetime < Date.now() ||
-                    item.event.status === "cancelled"
-                  }
-                />
-              ))}
-            </div>
-          </section>
-        )}
-      </div>
+      <PhoneShortlist state={state} area={area} kind={kind} money={formatMoney} />
     </PageShell>
   );
 }
@@ -154,93 +60,7 @@ function PageShell({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen" style={{ backgroundColor: "var(--app-surface)" }}>
       <link rel="stylesheet" href="/tokens.css" />
       <link rel="stylesheet" href="/about/fonts/fonts.css" />
-      <div className={`p-4 sm:p-6 ${PAGE_WIDTH.list} mx-auto`}>
-        <h1
-          className="text-2xl sm:text-3xl font-semibold mb-1"
-          style={{ color: "var(--app-text)", fontFamily: "var(--garden-font-display)" }}
-        >
-          Following
-        </h1>
-        <p className="mb-6" style={{ color: "var(--app-text-dim)" }}>
-          People you follow and events you saved.
-        </p>
-        {children}
-      </div>
+      <div className={`p-4 sm:p-6 ${PAGE_WIDTH.list} mx-auto`}>{children}</div>
     </div>
-  );
-}
-
-function SectionHeading({ children }: { children: React.ReactNode }) {
-  return (
-    <h2
-      className="text-lg font-semibold mb-4"
-      style={{
-        color: "var(--app-text)",
-        fontFamily: "var(--garden-font-display)",
-      }}
-    >
-      {children}
-    </h2>
-  );
-}
-
-// One line per person, no card chrome: this is a shortlist, not a gallery.
-function FollowList({ items }: { items: FavoriteProfileItem[] }) {
-  return (
-    <ul className="divide-y divide-[var(--app-hairline)]">
-      {items.map((item) => (
-        <FollowRow key={item.favoriteId} item={item} />
-      ))}
-    </ul>
-  );
-}
-
-function FollowRow({ item }: { item: FavoriteProfileItem }) {
-  const hasImage = !!item.profile.imageUrl;
-
-  return (
-    <li className="flex items-center gap-3 py-3">
-      {hasImage ? (
-        <img
-          src={item.profile.imageUrl as string}
-          alt={item.profile.name}
-          className="w-10 h-10 rounded-full object-cover shrink-0"
-        />
-      ) : (
-        <div
-          className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
-          style={{
-            backgroundColor: "var(--app-hairline-raised)",
-            color: "var(--app-text)",
-          }}
-        >
-          {item.profile.name.charAt(0).toUpperCase()}
-        </div>
-      )}
-      <div className="min-w-0 flex-1">
-        <Link
-          to={`/profile/${item.profile._id}`}
-          className="block font-medium text-sm truncate hover:underline"
-          style={{ color: "var(--app-text)" }}
-        >
-          {item.profile.name}
-        </Link>
-        {item.profile.interests.length > 0 && (
-          <p
-            className="text-xs truncate"
-            style={{ color: "var(--app-text-dim)" }}
-          >
-            {item.profile.interests.join(" • ")}
-          </p>
-        )}
-      </div>
-      <div className="shrink-0">
-        <FavoriteButton
-          targetType="profile"
-          targetId={item.profile._id}
-          size="sm"
-        />
-      </div>
-    </li>
   );
 }

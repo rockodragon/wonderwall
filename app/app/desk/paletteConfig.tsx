@@ -12,6 +12,7 @@ import {
   SignIn,
   Sun,
 } from "@phosphor-icons/react";
+import { needYouText } from "../components/shortlist/copy";
 import type { ShortlistSummary } from "../lib/shortlist/model";
 import {
   COMMUNITY_LABEL,
@@ -74,11 +75,6 @@ const SHORTLIST_AREA_ROWS = [
   { area: "events", label: "Events" },
   { area: "people", label: "People I follow" },
 ] as const;
-
-/** "1 needs you", "4 need you". */
-export function needYouText(n: number): string {
-  return `${n} ${n === 1 ? "needs" : "need"} you`;
-}
 
 /** The Shortlist stack. The counts wait for the data; the rows don't. */
 function shortlistItems(s: PaletteShortlist | null): PaletteItem[] {

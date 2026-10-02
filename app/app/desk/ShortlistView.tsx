@@ -17,6 +17,7 @@ import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { useMutation } from "convex/react";
 import { Link, useSearchParams } from "react-router";
 import { api } from "../../convex/_generated/api";
+import { BROWSE_LABEL, EMPTY_AREA, FOLD_NOUN, WELCOME, emptyKind } from "../components/shortlist/copy";
 import {
   AREA_LABEL,
   LIST_ALL_UNDER,
@@ -33,7 +34,7 @@ import { ShortlistRows } from "../components/shortlist/ShortlistRow";
 import { errorMessage } from "../lib/convexError";
 import { initialsOf } from "../lib/initials";
 import type { NeedsYouItem } from "../lib/shortlist/needsYou";
-import type { AreaSummary, ShortlistSummary } from "../lib/shortlist/model";
+import { areaCount, type AreaSummary, type ShortlistSummary } from "../lib/shortlist/model";
 import type { ShortlistState } from "../lib/shortlist/useShortlist";
 import type { ProjectKind, ShortlistData } from "../lib/shortlist/types";
 import { pillClass } from "./deskBrowse";
@@ -49,17 +50,12 @@ type Ready = Extract<ShortlistState, { status: "ready" }>;
 /** Rows read best at this measure; past it the status drifts from the title. */
 const ROWS_MAX_W = 920;
 
-/** Where an area sends someone who has nothing in it yet. */
-const BROWSE: Record<ShortlistArea, { label: string; href: string }> = {
-  projects: { label: "Browse projects →", href: deskHref("projects") },
-  events: { label: "Browse events →", href: deskHref("events") },
-  people: { label: "Find people →", href: deskHref("people") },
-};
-
-const EMPTY_AREA: Record<ShortlistArea, string> = {
-  projects: "No projects on your shortlist yet.",
-  events: "No events saved yet.",
-  people: "You're not following anyone yet.",
+/** Where an area sends someone who has nothing in it yet; the words are
+ *  components/shortlist/copy's, the phone's too. */
+const BROWSE_HREF: Record<ShortlistArea, string> = {
+  projects: deskHref("projects"),
+  events: deskHref("events"),
+  people: deskHref("people"),
 };
 
 const LINK = `text-[14px] text-[#D6D6D6] no-underline transition-colors hover:text-[#FFE066] ${FOCUS_RING_CLASS}`;
@@ -84,11 +80,6 @@ function Heading({ id, hot = false, children }: { id: string; hot?: boolean; chi
 /** A row for a Needs you item. */
 function needsRow(item: NeedsYouItem, withArea: boolean, money: (cents: number) => string): RowModel {
   return rowModel(item, { hot: true, withArea, money });
-}
-
-/** The area's live count: Projects narrowed by kind when a kind is on. */
-function areaCount(summary: ShortlistSummary, area: ShortlistArea, kind: ProjectKind | null): number {
-  return area === "projects" && kind ? summary.projects.kinds[kind] : summary[area].count;
 }
 
 // ——————————————————————————————————————————————————————————————
@@ -284,8 +275,8 @@ function Tile({ area, summary, data }: { area: ShortlistArea; summary: Shortlist
       <div style={{ ...TILE, border: `1px dashed ${DESK.line}` }}>
         <span style={tileKicker}>{name}</span>
         <span style={{ marginTop: "auto", fontSize: 15, color: DESK.muted }}>Nothing saved yet</span>
-        <Link to={BROWSE[area].href} className={`${LINK} mt-1 self-start`}>
-          {BROWSE[area].label}
+        <Link to={BROWSE_HREF[area]} className={`${LINK} mt-1 self-start`}>
+          {BROWSE_LABEL[area]}
         </Link>
       </div>
     );
@@ -385,15 +376,13 @@ function Welcome() {
         boxShadow: "0 10px 30px rgba(0,0,0,.45)",
       }}
     >
-      <h2 style={{ margin: "0 0 10px", fontSize: 26, fontWeight: 500, letterSpacing: "-0.02em" }}>Nothing on your shortlist yet.</h2>
-      <p style={{ margin: 0, color: DESK.textSoft, maxWidth: "46ch" }}>
-        Save projects, roles and events you want to come back to, and follow people whose work you like. They all collect here.
-      </p>
+      <h2 style={{ margin: "0 0 10px", fontSize: 26, fontWeight: 500, letterSpacing: "-0.02em" }}>{WELCOME.title}</h2>
+      <p style={{ margin: 0, color: DESK.textSoft, maxWidth: "46ch" }}>{WELCOME.body}</p>
       <ul style={{ listStyle: "none", margin: "22px 0 0", padding: "16px 0 0", borderTop: `1px solid ${DESK.line}`, display: "grid", gap: 8 }}>
         {SHORTLIST_AREAS.map((area) => (
           <li key={area}>
-            <Link to={BROWSE[area].href} className={LINK}>
-              {BROWSE[area].label}
+            <Link to={BROWSE_HREF[area]} className={LINK}>
+              {BROWSE_LABEL[area]}
             </Link>
           </li>
         ))}
@@ -403,8 +392,6 @@ function Welcome() {
 }
 
 // ——— Level 2: one area ———
-
-const FOLD_NOUN: Record<string, string> = { closed: "closed", past: "past events" };
 
 function AreaRows({
   state,
@@ -454,9 +441,9 @@ function AreaRows({
           fontSize: 15,
         }}
       >
-        <span>{kind ? `No ${KIND_LABEL[kind].toLowerCase()} projects on your shortlist.` : EMPTY_AREA[area]}</span>
-        <Link to={BROWSE[area].href} className={LINK}>
-          {BROWSE[area].label}
+        <span>{kind ? emptyKind(kind) : EMPTY_AREA[area]}</span>
+        <Link to={BROWSE_HREF[area]} className={LINK}>
+          {BROWSE_LABEL[area]}
         </Link>
       </div>
     );

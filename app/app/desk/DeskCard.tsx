@@ -18,8 +18,10 @@
 import { memo, useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { Link } from "react-router";
 import { AbstractCover } from "../components/AbstractCover";
+import { CreateCard } from "../components/CreateCard";
 import { useReducedMotion } from "../hooks/useMediaQuery";
 import { initialsOf } from "../lib/initials";
+import type { DeskCreateLink } from "./deskBrowse";
 import { opensAsSheet, picturePage, type DeskCard } from "./deskCards";
 import { PIC_MIN, Z_HOVER, pictureShare, type Place } from "./deskLayout";
 import { DetailPanel, type Stepper } from "./OpenedCard";
@@ -79,6 +81,7 @@ function Shell({
   inert,
   onHover,
   dialogLabel,
+  flat = false,
   children,
 }: {
   place: Place;
@@ -89,6 +92,8 @@ function Shell({
   inert: boolean;
   onHover: (hovered: boolean) => void;
   dialogLabel?: string;
+  /** No shadow, resting or lifted: an empty slot is not a thing on the desk. */
+  flat?: boolean;
   children: ReactNode;
 }) {
   const reduced = useReducedMotion();
@@ -125,7 +130,7 @@ function Shell({
           height: "100%",
           transform: `translateY(${lift ? -8 : 0}px) rotate(${lift ? 0 : p.r}deg)`,
           borderRadius: open ? RADIUS_OPEN : RADIUS,
-          boxShadow: open ? SHADOW_OPEN : lift ? SHADOW_HOVER : SHADOW,
+          boxShadow: flat ? "none" : open ? SHADOW_OPEN : lift ? SHADOW_HOVER : SHADOW,
           transition: motion(["transform", "box-shadow", "border-radius"], reduced),
         }}
       >
@@ -223,6 +228,42 @@ export const DeskCardView = memo(function DeskCardView({
           style={{ position: "absolute", inset: 0, border: 0, padding: 0, background: "transparent", borderRadius: radius, cursor: "pointer" }}
         />
       )}
+    </Shell>
+  );
+});
+
+/**
+ * The "+" card that leads Projects' and Events' grids (deskBrowse
+ * browseCreateCard): placed, sized, lifted and risen like the cards around it,
+ * but a link to the create flow, not a card that opens. Flat, since an empty
+ * slot casts no shadow. Keyboard focus lifts it as it lifts a card.
+ */
+export const DeskCreateCell = memo(function DeskCreateCell({
+  create,
+  place,
+  vh,
+  inert,
+}: {
+  create: DeskCreateLink;
+  place: Place;
+  vh: number;
+  /** A card is open: this one can't be reached. */
+  inert: boolean;
+}) {
+  const [hovered, setHovered] = useState(false);
+  // As for a card: one that arrives below the first screen doesn't rise.
+  const [instant] = useState(() => place.y > vh + 1);
+  return (
+    <Shell place={place} vh={vh} instant={instant} lift={hovered && place.opacity > 0} open={false} inert={inert} onHover={setHovered} flat>
+      <div
+        style={{ width: "100%", height: "100%" }}
+        onFocus={(e) => {
+          if (isFocusVisible(e.target as Element)) setHovered(true);
+        }}
+        onBlur={() => setHovered(false)}
+      >
+        <CreateCard look="desk" label={create.label} to={create.href} />
+      </div>
     </Shell>
   );
 });

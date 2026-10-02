@@ -1,6 +1,7 @@
 import { BookmarkSimple } from "@phosphor-icons/react";
 import type { ReactElement } from "react";
 import { describe, expect, it } from "vitest";
+import { needYouText } from "../components/shortlist/copy";
 import { NOW, sampleShortlist, shortlist } from "../lib/shortlist/fixtures";
 import { summary } from "../lib/shortlist/model";
 import { needsYou } from "../lib/shortlist/needsYou";
@@ -9,7 +10,6 @@ import { shortlistHref } from "./deskState";
 import {
   buildSignedInTools,
   buildSignedOutTools,
-  needYouText,
   type PaletteShortlist,
   type PaletteTool,
   type SignedInDeps,
@@ -132,13 +132,6 @@ describe("the Shortlist stack", () => {
     expect(t.items).toHaveLength(4);
     expect(t.items.map((i) => i.trailing)).toEqual([undefined, undefined, undefined, undefined]);
     expect(t.dot).toBeUndefined();
-  });
-});
-
-describe("needYouText", () => {
-  it("agrees with the number", () => {
-    expect(needYouText(1)).toBe("1 needs you");
-    expect(needYouText(4)).toBe("4 need you");
   });
 });
 

@@ -5,6 +5,7 @@ import { api } from "../../convex/_generated/api";
 import { toEmbedUrl } from "../lib/videoEmbed";
 import type { Id } from "../../convex/_generated/dataModel";
 import { EmbedStill, PlayBadge } from "../components/EmbedStill";
+import { BookmarkSimple } from "@phosphor-icons/react";
 import { FavoriteButton } from "../components/FavoriteButton";
 import { ShareButton } from "../components/ShareButton";
 import { usePostHog } from "@posthog/react";
@@ -13,6 +14,7 @@ import { budgetAmountLabel, budgetKindLabel } from "../lib/budgetLabel";
 import { OrgLogo } from "../components/OrgLogo";
 import { yearsLabel } from "../../convex/organizationRules";
 import { PAGE_WIDTH } from "../lib/pageWidth";
+import { favoritesHref } from "../lib/shortlist/url";
 
 // Matches listAffiliations's return shape (project-teams.md §4). Annotated
 // explicitly here — not inferred from the query — so this section still
@@ -330,6 +332,23 @@ export default function Profile() {
                 />
               )}
             </div>
+            {/* Your own profile is where a phone finds the Shortlist: the
+                bottom bar's bookmark says so, and so does this, in the place
+                Message sits on anyone else's. */}
+            {isOwnProfile && (
+              <Link
+                to={favoritesHref()}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl border text-sm font-medium transition-colors hover:border-[var(--app-accent)]"
+                style={{
+                  backgroundColor: "var(--app-surface-raised)",
+                  color: "var(--app-text)",
+                  borderColor: "var(--app-hairline)",
+                }}
+              >
+                <BookmarkSimple size={16} aria-hidden />
+                Your shortlist →
+              </Link>
+            )}
             {/* Owner-only links into settings. Links, nothing more: what a
                 person has paid or given is private and never shown here. */}
             {isOwnProfile && (

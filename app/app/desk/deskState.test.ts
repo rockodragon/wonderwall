@@ -112,6 +112,30 @@ describe("shortlistHref", () => {
       expect(parseShortlistArea(params.get("area"))).toBe(area ?? null);
     }
   });
+
+  it("takes null for an absent area or kind, as /favorites's params read", () => {
+    expect(shortlistHref(null, null)).toBe("/today?view=shortlist");
+    expect(shortlistHref("projects", null)).toBe("/today?view=shortlist&area=projects");
+  });
+
+  it("carries Paid or Passion on Projects", () => {
+    expect(shortlistHref("projects", "paid")).toBe("/today?view=shortlist&area=projects&kind=paid");
+    expect(shortlistHref("projects", "passion")).toBe("/today?view=shortlist&area=projects&kind=passion");
+  });
+
+  it("drops a kind anywhere but Projects, and with no area", () => {
+    expect(shortlistHref("events", "paid")).toBe("/today?view=shortlist&area=events");
+    expect(shortlistHref("people", "passion")).toBe("/today?view=shortlist&area=people");
+    expect(shortlistHref(undefined, "paid")).toBe("/today?view=shortlist");
+    expect(shortlistHref(null, "paid")).toBe("/today?view=shortlist");
+  });
+
+  it("reads back as the kind it names", () => {
+    for (const kind of ["paid", "passion"] as const) {
+      const params = new URL(shortlistHref("projects", kind), "https://x.test").searchParams;
+      expect(parseShortlistKind(params.get("kind"), parseShortlistArea(params.get("area")))).toBe(kind);
+    }
+  });
 });
 
 describe("the Shortlist's params", () => {

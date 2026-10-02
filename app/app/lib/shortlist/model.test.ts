@@ -20,6 +20,7 @@ import {
 import {
   MONTHS_AFTER,
   SHORTLIST_GROUPS,
+  areaCount,
   eventGroups,
   isPast,
   payText,
@@ -397,6 +398,27 @@ describe("summary — the spec's sample member", () => {
 
   it("totals the three areas", () => {
     expect(s.total).toBe(39);
+  });
+});
+
+describe("areaCount", () => {
+  const s = summary(sampleShortlist(), NOW);
+
+  it("is the area's live count", () => {
+    expect(areaCount(s, "projects", null)).toBe(s.projects.count);
+    expect(areaCount(s, "events", null)).toBe(s.events.count);
+    expect(areaCount(s, "people", null)).toBe(s.people.count);
+  });
+
+  it("narrows Projects to the kind that is on", () => {
+    expect(areaCount(s, "projects", "paid")).toBe(s.projects.kinds.paid);
+    expect(areaCount(s, "projects", "passion")).toBe(s.projects.kinds.passion);
+    expect(areaCount(s, "projects", "paid") + areaCount(s, "projects", "passion")).toBe(areaCount(s, "projects", null));
+  });
+
+  it("ignores a kind anywhere but Projects", () => {
+    expect(areaCount(s, "events", "paid")).toBe(s.events.count);
+    expect(areaCount(s, "people", "passion")).toBe(s.people.count);
   });
 });
 

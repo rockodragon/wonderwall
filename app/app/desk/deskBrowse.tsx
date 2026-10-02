@@ -47,6 +47,7 @@ import { INTEREST_OPTIONS } from "../lib/browse/peopleFilter";
 import {
   PROJECT_LENSES,
   STAGE_OPTIONS,
+  lensCreate,
   readProjectsView,
   selectLens,
   stageCaption,
@@ -61,7 +62,7 @@ import type { DeskCard, DeskEventInput, DeskOrgInput, DeskProjectInput } from ".
 import { peopleCountLabel } from "./deskGreeting";
 import { eventsCards, everyoneCards, orgsCards, peopleCards, peopleNoun, projectsCards, type ProfileRow } from "./deskBrowseCards";
 import { fundFrom } from "./deskInput";
-import { parseDeskView, type DeskCommunity, type DeskView } from "./deskState";
+import { deskCreateHref, deskHref, parseDeskView, type DeskCommunity, type DeskView } from "./deskState";
 import { DESK, FOCUS_RING_CLASS, monoLabel, tintAlpha, useDeskTint } from "./tokens";
 
 /** Views that browse a full list with filters. */
@@ -83,6 +84,9 @@ export type DeskBrowse = {
   count: string | null;
   /** What the view calls its things when nothing matches ("No ___ match."). null: the view's own noun. */
   noun: string | null;
+  /** The "+" card that leads the view's grid, or null when the view has none
+   * (People, Today, and Events outside Upcoming). */
+  create: DeskCreateLink | null;
 };
 
 // ——————————————————————————————————————————————————————————————
@@ -140,6 +144,32 @@ export function readDeskProjects(params: URLSearchParams): { lens: ProjectsLens;
     stage: params.get("stage"),
     seek: params.get("seek"),
   });
+}
+
+/** A view's create verb: its words, and where it goes. */
+export type DeskCreateLink = { label: string; href: string };
+
+/**
+ * The create verb the view's header button and its grid's first "+" card both
+ * carry, so the two cannot disagree. Projects follows the chip: Hire someone
+ * on Jobs and gigs, Start a project on the rest, and the filters stay in the
+ * URL (deskCreateHref). Events always hosts. People has none: its verb is
+ * Invite someone, which is not a create flow.
+ */
+export function browseCreate(view: BrowseView, params: URLSearchParams): DeskCreateLink | null {
+  if (view === "projects") {
+    const create = lensCreate(readDeskProjects(params).lens);
+    return { label: create.label, href: deskCreateHref(params, create.kind) };
+  }
+  if (view === "events") return { label: "Host an event", href: deskHref("events", null, "event") };
+  return null;
+}
+
+/** The "+" card: the view's verb, where the view starts with one. Events has
+ * it on Upcoming only, as /events does: Saved and Past are lists to read. */
+export function browseCreateCard(view: BrowseView, params: URLSearchParams): DeskCreateLink | null {
+  if (view === "events" && readTab(view, params.get("tab")) !== "") return null;
+  return browseCreate(view, params);
 }
 
 /** The view's filters as the URL has them, and the ways to change them. Both
@@ -407,7 +437,12 @@ export function useDeskBrowse(view: BrowseView, community: DeskCommunity, fallba
   }, [view, cards, orgsOnly]);
   const noun = view === "people" ? peopleNoun(tab, interests.length > 0 || !!near) : null;
 
-  return useMemo(() => ({ cards, filtered, clear, count, noun }), [cards, filtered, clear, count, noun]);
+  // Only while this view is on the desk: the hook is pointed at Events on any
+  // other view (Desk IDLE_BROWSE), and that must not lend them its card.
+  const { searchParams } = url;
+  const create = useMemo(() => (onDesk ? browseCreateCard(view, searchParams) : null), [onDesk, view, searchParams]);
+
+  return useMemo(() => ({ cards, filtered, clear, count, noun, create }), [cards, filtered, clear, count, noun, create]);
 }
 
 // ——————————————————————————————————————————————————————————————

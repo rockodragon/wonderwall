@@ -1,7 +1,8 @@
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router";
-import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useId, useState, type CSSProperties, type ReactNode } from "react";
 import { usePostHog } from "@posthog/react";
+import { BookmarkSimple } from "@phosphor-icons/react";
 import { api } from "../../convex/_generated/api";
 import { setPendingIntent, takePendingIntent } from "../lib/pendingIntent";
 import { needsOnboarding } from "../lib/onboardingGate";
@@ -14,6 +15,8 @@ import { initialsOf } from "../lib/initials";
 import { GARDEN_SLUG } from "../lib/communitySlugs";
 import { PHONE_BAR_HEIGHT } from "../lib/phoneBar";
 import { Palette } from "../desk/Palette";
+import { NeedsYouDot } from "../components/shortlist/NeedsYouDot";
+import { useShortlist } from "../lib/shortlist/useShortlist";
 
 // The Garden holds the top of the rail (garden-first-ia mock, screen 2):
 // the community you're in takes the wordmark slot, the platform moves to the
@@ -64,7 +67,7 @@ function isPublicPathname(pathname: string): boolean {
 // primary list stays short; mobile's bottom bar has no room for that, so it
 // shows the full set too, but only for a signed-in viewer (a signed-out
 // visitor on a public path gets primary items only, same as the desktop
-// sidebar — there's nothing behind Following/Profile/Messages for them to
+// sidebar — there's nothing behind Shortlist/Profile/Messages for them to
 // see, and every one of those three redirects a guest straight to /login).
 //
 // The items themselves (label/destination/signed-out fallback) come from
@@ -80,8 +83,11 @@ const NAV_ICONS = {
   "/communities": GridIcon,
   "/offerings": ClassesIcon,
 } as const;
+// The Shortlist (docs/handoff/favorites-redesign/README.md) replaced
+// "Following" here: same /favorites, now the phone's Shortlist page.
+const SHORTLIST_PATH = "/favorites";
 const secondaryNavItems = [
-  { path: "/favorites", label: "Following", icon: HeartIcon },
+  { path: SHORTLIST_PATH, label: "Shortlist", icon: BookmarkSimple },
   { path: "/settings", label: "Profile", icon: UserIcon },
 ];
 
@@ -93,6 +99,11 @@ export default function AppLayout() {
   const profile = useQuery(api.profiles.getMyProfile);
   const unreadCount = useQuery(api.messaging.getUnreadCount) ?? 0;
   const notificationCount = useQuery(api.notifications.getUnreadCount) ?? 0;
+  // Only the Shortlist's nav dot reads this (the palette reads its own, the
+  // same subscription): one dot when something needs you, signed in only.
+  const shortlist = useShortlist(isAuthenticated);
+  const needsYou = shortlist.status === "ready" ? shortlist.needs.length : 0;
+  const dotId = useId();
   // Only the sidebar's community chips read this; with the palette there is
   // no sidebar, so don't subscribe.
   const allCommunities = useQuery(api.garden.communities.listCommunities, FF_DESK ? "skip" : {});
@@ -215,7 +226,7 @@ export default function AppLayout() {
     .filter((c) => c.slug !== GARDEN_SLUG)
     .sort((a, b) => b.memberCount - a.memberCount)
     .slice(0, VISIT_LIMIT);
-  // Following/Profile/Messages all require an account — nothing behind them
+  // Shortlist/Profile/Messages all require an account — nothing behind them
   // for a signed-out visitor, so the mobile bar drops to primary items only,
   // matching the desktop sidebar's secondaryNavItems block below.
   const navItems = isAuthenticated
@@ -281,7 +292,7 @@ export default function AppLayout() {
       )}
 
       {/* Mobile bottom nav - icons only, to fit up to 8 items (5 primary +
-          Following/Profile/Messages once signed in; 5 for a signed-out
+          Shortlist/Profile/Messages once signed in; 5 for a signed-out
           visitor on a public path). Sits fixed over scrolling content, so
           it needs a real shadow (not just the fill color) to read as a
           solid bar instead of blending with whatever scrolls underneath
@@ -298,6 +309,7 @@ export default function AppLayout() {
           {navItems.map((item) => {
             const isActive = location.pathname.startsWith(item.path);
             const isProfileItem = item.path === "/settings";
+            const hasDot = item.path === SHORTLIST_PATH && needsYou > 0;
             return (
               <Link
                 key={item.path}
@@ -305,8 +317,14 @@ export default function AppLayout() {
                 className="flex items-center justify-center p-2"
                 style={{ color: isActive ? "var(--app-accent-ink)" : "var(--app-text-dim)" }}
                 aria-label={item.label}
+                aria-describedby={hasDot ? `${dotId}-bar` : undefined}
               >
-                {isProfileItem && profile?.imageUrl ? (
+                {hasDot ? (
+                  <span className="relative">
+                    <item.icon className="w-6 h-6" />
+                    <NeedsYouDot id={`${dotId}-bar`} count={needsYou} />
+                  </span>
+                ) : isProfileItem && profile?.imageUrl ? (
                   <img
                     src={profile.imageUrl}
                     alt={profile.name}
@@ -490,8 +508,16 @@ export default function AppLayout() {
                     {profile?.name ?? "Your account"}
                   </span>
                 </Link>
-                <RailIconLink to="/favorites" label="Following" active={location.pathname.startsWith("/favorites")}>
-                  <HeartIcon className="w-4.5 h-4.5" />
+                <RailIconLink
+                  to={SHORTLIST_PATH}
+                  label="Shortlist"
+                  active={location.pathname.startsWith(SHORTLIST_PATH)}
+                  describedBy={needsYou > 0 ? `${dotId}-rail` : undefined}
+                >
+                  <span className="relative">
+                    <BookmarkSimple className="w-4.5 h-4.5" />
+                    {needsYou > 0 && <NeedsYouDot id={`${dotId}-rail`} count={needsYou} />}
+                  </span>
                 </RailIconLink>
                 <RailIconLink to="/messages" label="Messages" active={location.pathname.startsWith("/messages")}>
                   <span className="relative">
@@ -598,24 +624,6 @@ function UserIcon({ className }: { className?: string }) {
   );
 }
 
-function HeartIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke="currentColor"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
-      />
-    </svg>
-  );
-}
-
 function GridIcon({ className }: { className?: string }) {
   return (
     <svg
@@ -710,17 +718,21 @@ function RailIconLink({
   to,
   label,
   active,
+  describedBy,
   children,
 }: {
   to: string;
   label: string;
   active: boolean;
+  /** The id of text that says more about the link: the Shortlist's dot. */
+  describedBy?: string;
   children: ReactNode;
 }) {
   return (
     <Link
       to={to}
       aria-label={label}
+      aria-describedby={describedBy}
       title={label}
       aria-current={active ? "page" : undefined}
       className="flex items-center justify-center w-9 h-9 shrink-0 rounded-lg transition-colors hover:bg-[var(--app-hairline)]"

@@ -24,13 +24,13 @@ import { cardIdOf, openInScope, todayNeedsEventIds, type ShortlistScope } from "
 import type { RowModel } from "../components/shortlist/rowModel";
 import { useShortlist } from "../lib/shortlist/useShortlist";
 import { buildDeskCards, cardsInView, opensAsSheet, type DeskCard } from "./deskCards";
-import { DeskCardView } from "./DeskCard";
+import { DeskCardView, DeskCreateCell } from "./DeskCard";
 import { DeskCreate } from "./DeskCreate";
 import { isBrowseView, useDeskBrowse, type BrowseView, type DeskBrowse } from "./deskBrowse";
 import { greetingFor, headerCount } from "./deskGreeting";
 import { DeskHeader, type HeaderParts, type HeaderSize } from "./DeskHeader";
 import { DeskToast } from "./DeskToast";
-import { DEFAULT_HEADER_H, Z_DIM, layoutDeskFull, type LayoutCard, type Place } from "./deskLayout";
+import { CREATE_CELL, CREATE_CELL_ID, DEFAULT_HEADER_H, Z_DIM, cellsOnShow, emptyLane, layoutDeskFull, type LayoutCard, type Place, type Rect } from "./deskLayout";
 import {
   DESK_VIEW_LABEL,
   SHORTLIST_VIEW,
@@ -143,6 +143,14 @@ export function Desk() {
   const fallback = useMemo(() => (loaded && browsing ? cardsInView(deskCards, view) : undefined), [loaded, browsing, deskCards, view]);
   const browse = useDeskBrowse(browsing ? view : IDLE_BROWSE, community, fallback);
 
+  // The "+" card that leads Projects' and Events' grids. It holds its last
+  // words after its view (or tab) is left, so it falls away below the page
+  // and comes back up as a card does, rather than blinking out.
+  const create = browsing ? browse.create : null;
+  const lastCreate = useRef(create);
+  if (create) lastCreate.current = create;
+  const cell = create ?? lastCreate.current;
+
   // What is on show in this view, in order. A browse view's own list is the
   // whole view; its cards replace the desk's own versions of the same cards.
   const shown: readonly DeskCard[] | undefined = useMemo(
@@ -212,12 +220,15 @@ export function Desk() {
 
   // ——— Layout ———
 
+  const hasCell = cell !== null;
   const layoutCards: LayoutCard[] = useMemo(() => {
     const gone = new Set(leaving.map((c) => c.id));
     // Held, Today's cards wait below the window, as cards of another view do.
-    return allCards.map((c) => ({ id: c.id, sections: gone.has(c.id) || todayHeld ? [] : c.sections, note: c.note, sheet: opensAsSheet(c) }));
-  }, [allCards, leaving, todayHeld]);
-  const shownIds = useMemo(() => (browsing ? (shown ?? []).map((c) => c.id) : undefined), [browsing, shown]);
+    const own = allCards.map((c) => ({ id: c.id, sections: gone.has(c.id) || todayHeld ? [] : c.sections, note: c.note, sheet: opensAsSheet(c) }));
+    return hasCell ? [...own, CREATE_CELL] : own;
+  }, [allCards, leaving, todayHeld, hasCell]);
+  // The "+" card is the grid's first cell, ahead of the list and its fund note.
+  const shownIds = useMemo(() => (browsing ? cellsOnShow((shown ?? []).map((c) => c.id), create !== null) : undefined), [browsing, shown, create]);
 
   // Today's card row starts under Needs you when Needs you is there.
   const todayNeeds = view === "today" && shortlist.status === "ready" && shortlist.needs.length > 0;
@@ -405,6 +416,8 @@ export function Desk() {
   // The Shortlist has empty states of its own; Today with Needs you rows
   // isn't empty, even with no cards.
   const empty = shownCount === 0 && !shortlistOn && !todayNeeds;
+  // With the "+" card in the first cell, an empty list's words sit beside it.
+  const lane = create && layout.grid ? emptyLane(layout.grid, header.total, size.w) : undefined;
   const greeting = greetingFor(new Date().getHours(), profile?.name);
 
   const money = input.formatMoney;
@@ -463,9 +476,12 @@ export function Desk() {
             parts={headerParts}
           />
 
-          {empty && <EmptyDesk view={view} browse={browsing ? browse : null} top={header.total} height={size.h} />}
+          {empty && <EmptyDesk view={view} browse={browsing ? browse : null} top={header.total} height={size.h} lane={lane} />}
 
           {shortlistOn && <ShortlistBody state={shortlist} area={area} kind={kind} money={money} onOpen={openRow} inert={!!openId} />}
+
+          {/* Ahead of the cards in the page, so the keyboard reaches it first. */}
+          {cell && <DeskCreateCell create={cell} place={places.get(CREATE_CELL_ID) ?? OFFSCREEN} vh={enterFrom} inert={!!openId} />}
 
           {mounted.map((card) => (
             <DeskCardView
@@ -512,19 +528,31 @@ const OFFSCREEN: Place = { x: 0, y: 0, w: 230, h: 310, r: 0, opacity: 0, z: 0 };
 
 const NOUN: Record<BrowseView, string> = { people: "people", projects: "projects", events: "events" };
 
-function EmptyDesk({ view, browse, top, height }: { view: DeskView; browse: DeskBrowse | null; top: number; height: number }) {
+function EmptyDesk({
+  view,
+  browse,
+  top,
+  height,
+  lane,
+}: {
+  view: DeskView;
+  browse: DeskBrowse | null;
+  top: number;
+  height: number;
+  /** Where the words go when the "+" card holds the grid's first cell: the room beside it. */
+  lane?: Rect;
+}) {
   const reduced = useReducedMotion();
   const noMatch = browse !== null && browse.filtered && isBrowseView(view);
+  // The "+" card says all there is to say to a list nothing narrowed: make the first one.
+  if (lane && !noMatch) return null;
   const findPeople = view === "people";
   const linkClass = `pointer-events-auto text-[15px] text-[#FFE066] underline-offset-4 hover:underline ${FOCUS_RING_CLASS}`;
   return (
     <div
       style={{
         position: "absolute",
-        left: 0,
-        right: 0,
-        top,
-        height: Math.max(0, height - top),
+        ...(lane ? { left: lane.x, width: lane.w, top: lane.y, height: lane.h } : { left: 0, right: 0, top, height: Math.max(0, height - top) }),
         display: "flex",
         flexDirection: "column",
         alignItems: "center",

@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { renderToString } from "react-dom/server";
 import { MemoryRouter } from "react-router";
-import { DeskFilterBar, browseParamsOf, readDeskProjects } from "./deskBrowse";
+import { DeskHeader } from "./DeskHeader";
+import { DeskFilterBar, browseCreate, browseCreateCard, browseParamsOf, readDeskProjects } from "./deskBrowse";
 
 function bar(view: "people" | "projects" | "events", search = "") {
   return renderToString(
@@ -157,5 +158,82 @@ describe("readDeskProjects", () => {
   it("does not take ?tab= from another view for a Work toggle", () => {
     expect(read("tab=following")).toEqual({ lens: "projects", stage: "" });
     expect(read("tab=past")).toEqual({ lens: "projects", stage: "" });
+  });
+});
+
+describe("browseCreate and browseCreateCard", () => {
+  const params = (search: string) => new URLSearchParams(search);
+
+  // The doc (project-ia.md): "Start a project" on Projects, Seeking funding and
+  // Seeking people; "Hire someone" on Jobs and gigs.
+  it.each([
+    ["", "Start a project", "project"],
+    ["&show=funding", "Start a project", "project"],
+    ["&show=people", "Start a project", "project"],
+    ["&show=work", "Hire someone", "hire"],
+  ])("Projects%s: the card says %s and opens create=%s", (chip, label, kind) => {
+    const card = browseCreateCard("projects", params(`view=projects${chip}`));
+    expect(card).toEqual({ label, href: `/today?view=projects${chip}&create=${kind}` });
+  });
+
+  it("Projects: follows the chip an old link names", () => {
+    expect(browseCreateCard("projects", params("view=projects&tab=work"))?.label).toBe("Hire someone");
+    expect(browseCreateCard("projects", params("view=projects&tab=work&stage=roles"))?.label).toBe("Start a project");
+    expect(browseCreateCard("projects", params("view=projects&stage=gigs"))?.label).toBe("Hire someone");
+    expect(browseCreateCard("projects", params("view=projects&seek=funding"))?.label).toBe("Start a project");
+  });
+
+  it("Projects: the filters stay in the URL, so closing the flow finds the list as it was", () => {
+    const card = browseCreateCard("projects", params("view=projects&show=funding&stage=planning&q=hymns"));
+    expect(card?.href).toBe("/today?view=projects&show=funding&stage=planning&q=hymns&create=project");
+  });
+
+  it("Projects: an open card or create flow is swapped, not stacked", () => {
+    const card = browseCreateCard("projects", params("view=projects&show=work&card=project:x&create=project"));
+    expect(card?.href).toBe("/today?view=projects&show=work&create=hire");
+  });
+
+  it("Events: Host an event on Upcoming", () => {
+    expect(browseCreateCard("events", params("view=events"))).toEqual({ label: "Host an event", href: "/today?view=events&create=event" });
+    expect(browseCreateCard("events", params("view=events&q=jazz"))?.label).toBe("Host an event");
+  });
+
+  it("Events: no card on Saved or Past (the header verb stays), as /events has it on Upcoming only", () => {
+    for (const tab of ["favorites", "past"]) {
+      expect(browseCreateCard("events", params(`view=events&tab=${tab}`))).toBeNull();
+      expect(browseCreate("events", params(`view=events&tab=${tab}`))?.label).toBe("Host an event");
+    }
+    // A tab the desk does not know is Upcoming.
+    expect(browseCreateCard("events", params("view=events&tab=nonsense"))?.label).toBe("Host an event");
+  });
+
+  it("People: no card, and no create verb (its button is Invite someone)", () => {
+    expect(browseCreateCard("people", params("view=people"))).toBeNull();
+    expect(browseCreate("people", params("view=people"))).toBeNull();
+  });
+
+  it("Events: a ?show= left in the URL does not change the verb", () => {
+    expect(browseCreateCard("events", params("view=events&show=work"))?.label).toBe("Host an event");
+  });
+
+  // The header's outline button and the grid's first card are one verb.
+  it.each([
+    ["projects", ""],
+    ["projects", "&show=work"],
+    ["projects", "&show=people&stage=forming&q=band"],
+    ["events", ""],
+    ["events", "&q=jazz"],
+  ] as const)("the header button is the card: %s%s", (view, search) => {
+    const html = renderToString(
+      <MemoryRouter initialEntries={[`/today?view=${view}${search}`]}>
+        <DeskHeader view={view} community="garden" greeting="" greetingReady count={3} stuck={false} inert={false} onMeasure={() => {}} />
+      </MemoryRouter>,
+    );
+    const card = browseCreateCard(view, new URLSearchParams(`view=${view}${search}`))!;
+    const escaped = card.href.replace(/&/g, "&amp;");
+    // The header's link goes where the card goes, and says what it says.
+    const at = html.indexOf(`href="${escaped}"`);
+    expect(at).toBeGreaterThan(-1);
+    expect(html.slice(at, html.indexOf("</a>", at)).endsWith(`>${card.label}`)).toBe(true);
   });
 });
