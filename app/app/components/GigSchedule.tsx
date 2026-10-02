@@ -53,14 +53,19 @@ function Avatar({ name, imageUrl }: { name: string; imageUrl?: string | null }) 
   );
 }
 
-function StatusPill({ label, kind = "muted" }: { label: string; kind?: "muted" | "citron" }) {
+// A status is not a call to action, so neither kind is filled with citron
+// (which means "press me" everywhere else). "on" is a current state (Booked,
+// You're available): no fill, a raised hairline, muted text. "muted" is a
+// state that is over or inert (Played, Cancelled, Ended): a faint wash.
+function StatusPill({ label, kind = "muted" }: { label: string; kind?: "muted" | "on" }) {
   return (
     <span
       className="px-2 py-0.5 rounded-full text-xs font-medium uppercase tracking-[0.06em] whitespace-nowrap"
       style={{
         fontFamily: "var(--garden-font-mono)",
-        backgroundColor: kind === "citron" ? "var(--garden-citron)" : "rgba(198,198,190,0.1)",
-        color: kind === "citron" ? "var(--garden-ink)" : "var(--garden-muted)",
+        backgroundColor: kind === "on" ? "transparent" : "rgba(198,198,190,0.1)",
+        border: kind === "on" ? "1px solid var(--garden-hairline-raised)" : "1px solid transparent",
+        color: "var(--garden-muted)",
       }}
     >
       {label}
@@ -404,7 +409,7 @@ function OpenSlotResponders({ slotId }: { slotId: any }) {
           </div>
           {r.status === "booked" ? (
             <div className="shrink-0">
-              <StatusPill label="Booked" kind="citron" />
+              <StatusPill label="Booked" kind="on" />
             </div>
           ) : (
             <button
@@ -679,7 +684,7 @@ function SlotRow({
               </span>
             </Link>
           )}
-          <StatusPill label={slot.isPast ? "Played" : "Booked"} kind={slot.isPast ? "muted" : "citron"} />
+          <StatusPill label={slot.isPast ? "Played" : "Booked"} kind={slot.isPast ? "muted" : "on"} />
         </div>
         <div className="flex items-center gap-2 flex-wrap justify-end">
           {isOwner && <TextButton tone="citron" onClick={() => setShowPay((v) => !v)}>Pay</TextButton>}
@@ -748,7 +753,7 @@ function SlotRow({
       if (slot.mine === "available") {
         right = (
           <div className="flex items-center gap-2">
-            <StatusPill label="You're available" kind="citron" />
+            <StatusPill label="You're available" kind="on" />
             <TextButton disabled={busy} onClick={() => run(() => withdrawResponse({ slotId: slot.slotId }))}>
               Withdraw
             </TextButton>

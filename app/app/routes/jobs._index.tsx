@@ -5,6 +5,7 @@ import { usePostHog } from "@posthog/react";
 import { api } from "../../convex/_generated/api";
 import { FF_JOBS, useFeatureGate } from "../lib/featureFlags";
 import { INTERESTS } from "../constants/interests";
+import { PAGE_WIDTH } from "../lib/pageWidth";
 
 type StatusFilter = "All" | "Open" | "Closed";
 type LocationFilter = "All" | "Remote" | "Hybrid" | "On-site";
@@ -130,7 +131,7 @@ export default function JobsIndex() {
   if (!enabled) return null;
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className={`p-6 ${PAGE_WIDTH.list} mx-auto`}>
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>

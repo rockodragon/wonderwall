@@ -205,6 +205,12 @@ export default function AppLayout() {
   // "The Exchange" in the switcher is lit on any platform-level page: the
   // directory and community pages, and the apply form.
   const onExchange = location.pathname.startsWith("/communities");
+  // Pages that fill the window and place their own bottom edge: the desk
+  // (/today) and an open message thread (/messages/:id; the inbox is a
+  // normal page).
+  const ownsBottom =
+    location.pathname.replace(/\/$/, "") === "/today" ||
+    /^\/messages\/[^/]+/.test(location.pathname);
   const otherCommunities = (allCommunities ?? [])
     .filter((c) => c.slug !== GARDEN_SLUG)
     .sort((a, b) => b.memberCount - a.memberCount)
@@ -247,8 +253,19 @@ export default function AppLayout() {
       } as CSSProperties}
     >
       {/* Main content. With the palette (FF_DESK) there is no sidebar to
-          make room for on desktop. */}
-      <main className={FF_DESK ? "pb-20 md:pb-0" : "pb-20 md:pb-0 md:pl-64"}>
+          make room for on desktop, but the palette sits over the lower-left
+          corner (56px at 28px in, plus its ring), so a normal page gets
+          room at the foot to scroll its last line clear of it. The desk and
+          a message thread are full-height and manage their own bottom. */}
+      <main
+        className={
+          FF_DESK
+            ? ownsBottom
+              ? "pb-20 md:pb-0"
+              : "pb-20 md:pb-32"
+            : "pb-20 md:pb-0 md:pl-64"
+        }
+      >
         <Outlet />
       </main>
 
@@ -318,7 +335,7 @@ export default function AppLayout() {
               <div className="relative">
                 <EnvelopeIcon className="w-6 h-6" />
                 {sidebarBadgeCount > 0 && (
-                  <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] rounded-full h-4 min-w-4 flex items-center justify-center px-1">
+                  <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-[18px] min-w-[18px] flex items-center justify-center px-1">
                     {sidebarBadgeCount > 99 ? "99+" : sidebarBadgeCount}
                   </span>
                 )}

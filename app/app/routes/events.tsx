@@ -18,6 +18,7 @@ import {
 import { NEAR_ME_RADIUS_OPTIONS, useNearMe } from "../lib/useNearMe";
 import { filterEvents, onlyFavorites, parseEventsTab, type EventsTab } from "../lib/browse/eventsFilter";
 import { LocationIcon } from "../components/icons";
+import { PAGE_WIDTH } from "../lib/pageWidth";
 
 // The card itself lives in components/EventCard.tsx — /favorites renders the
 // same component, so the treatment can only be changed in one place.
@@ -161,7 +162,7 @@ export default function Events() {
     >
       <link rel="stylesheet" href="/tokens.css" />
       <link rel="stylesheet" href="/about/fonts/fonts.css" />
-      <div className="p-4 sm:p-6 max-w-7xl mx-auto">
+      <div className={`p-4 sm:p-6 ${PAGE_WIDTH.list} mx-auto`}>
         <h1
           className="text-2xl sm:text-3xl font-semibold text-[var(--garden-paper)] mb-1"
           style={{ fontFamily: "var(--garden-font-display)" }}

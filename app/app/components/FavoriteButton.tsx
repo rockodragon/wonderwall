@@ -47,38 +47,54 @@ export function FavoriteButton({
       md: "px-3 py-1.5 text-sm",
     };
 
-    // "Following" is a status, not a call to action — a solid citron fill
-    // read as loud and competed with neighboring buttons (Message, etc.),
-    // so it gets the same quieter wash+ink-accent treatment as every other
-    // "active" state in the app-token system (see _app.tsx's navLinkStyle).
-    // "Follow" (not yet following) stays a plain outline: still inviting,
-    // without shouting louder than the status badge it turns into.
+    // "Following" is a status, not a call to action, so it is quiet: no
+    // fill, a raised hairline, muted text. It only speaks up when you point at
+    // it or tab to it: the label turns to "Unfollow" and the text and border
+    // go to full text colour, so it is clear what pressing does. Both labels
+    // sit in one grid cell, so the pill never changes width.
+    // "Follow" (not yet following) stays a plain outline: still inviting.
+    const base = `${pillSizeClasses[size]} rounded-full font-medium border transition-colors duration-200 whitespace-nowrap`;
+
+    if (isFavorited) {
+      return (
+        <button
+          onClick={handleClick}
+          className={`${base} group bg-transparent text-[var(--app-text-muted)] border-[var(--app-hairline-raised)] hover:text-[var(--app-text)] hover:border-[var(--app-text)] focus-visible:text-[var(--app-text)] focus-visible:border-[var(--app-text)]`}
+          title="Unfollow"
+        >
+          <span className="inline-grid">
+            <span className="col-start-1 row-start-1 group-hover:invisible group-focus-visible:invisible">
+              Following
+            </span>
+            <span
+              aria-hidden="true"
+              className="col-start-1 row-start-1 invisible group-hover:visible group-focus-visible:visible"
+            >
+              Unfollow
+            </span>
+          </span>
+        </button>
+      );
+    }
+
     return (
       <button
         onClick={handleClick}
-        className={`${pillSizeClasses[size]} rounded-full font-medium border transition-colors duration-200 whitespace-nowrap`}
-        style={
-          isFavorited
-            ? {
-                backgroundColor: "var(--app-accent-wash)",
-                color: "var(--app-accent-ink)",
-                borderColor: "var(--app-accent)",
-              }
-            : {
-                backgroundColor: "transparent",
-                color: "var(--app-text-muted)",
-                borderColor: "var(--app-hairline)",
-              }
-        }
+        className={base}
+        style={{
+          backgroundColor: "transparent",
+          color: "var(--app-text-muted)",
+          borderColor: "var(--app-hairline)",
+        }}
         onMouseEnter={(e) => {
-          if (!isFavorited) e.currentTarget.style.borderColor = "var(--app-accent)";
+          e.currentTarget.style.borderColor = "var(--app-accent)";
         }}
         onMouseLeave={(e) => {
-          if (!isFavorited) e.currentTarget.style.borderColor = "var(--app-hairline)";
+          e.currentTarget.style.borderColor = "var(--app-hairline)";
         }}
-        title={isFavorited ? "Unfollow" : "Follow"}
+        title="Follow"
       >
-        {isFavorited ? "Following" : "Follow"}
+        Follow
       </button>
     );
   }

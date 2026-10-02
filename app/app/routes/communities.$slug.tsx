@@ -15,6 +15,7 @@ import { FF_V2 } from "../lib/featureFlags";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { formatDateTime, formatMoney } from "../garden/ui";
+import { PAGE_WIDTH } from "../lib/pageWidth";
 
 export function meta() {
   return [
@@ -50,7 +51,7 @@ function PageShell({ children }: { children: ReactNode }) {
     <div className="min-h-screen bg-[var(--garden-ink)]">
       <link rel="stylesheet" href="/tokens.css" />
       <link rel="stylesheet" href="/about/fonts/fonts.css" />
-      <div className="p-4 sm:p-6 max-w-4xl mx-auto">{children}</div>
+      <div className={`p-4 sm:p-6 ${PAGE_WIDTH.list} mx-auto`}>{children}</div>
     </div>
   );
 }
@@ -69,7 +70,7 @@ const btnGhostStyle = { borderColor: "var(--garden-hairline-raised)", color: "va
 function SectionLabel({ children }: { children: ReactNode }) {
   return (
     <div
-      className="text-[11px] font-semibold uppercase tracking-[0.08em]"
+      className="text-xs font-semibold uppercase tracking-[0.08em]"
       style={{ color: "var(--garden-dim)", fontFamily: "var(--garden-font-mono)" }}
     >
       {children}
@@ -540,8 +541,8 @@ function ProductCard({ product, slug }: { product: Product; slug: string }) {
         </span>
         {product.viewer.hasAccess && (
           <span
-            className="inline-block px-2 py-0.5 rounded-full text-[11px] font-medium uppercase tracking-[0.06em] h-fit"
-            style={{ backgroundColor: "rgba(254,226,104,0.14)", color: "var(--garden-citron)", fontFamily: "var(--garden-font-mono)" }}
+            className="inline-block px-2 py-0.5 rounded-full border text-xs font-medium uppercase tracking-[0.06em] h-fit"
+            style={{ borderColor: "var(--garden-hairline-raised)", color: "var(--garden-muted)", fontFamily: "var(--garden-font-mono)" }}
           >
             You're in
           </span>
@@ -611,8 +612,8 @@ function ProductsSection({
     <div className="mt-7">
       <SectionLabel>For members</SectionLabel>
       {purchased && (
-        <div className="rounded-2xl border p-4 mt-3 max-w-[50ch]" style={{ ...cardStyle, borderColor: "var(--garden-citron)" }}>
-          <div className="text-[11px] font-semibold uppercase tracking-[0.08em]" style={{ color: "var(--garden-citron)", fontFamily: "var(--garden-font-mono)" }}>
+        <div className="rounded-2xl border p-4 mt-3 max-w-[50ch]" style={cardStyle}>
+          <div className="text-xs font-semibold uppercase tracking-[0.08em]" style={{ color: "var(--garden-muted)", fontFamily: "var(--garden-font-mono)" }}>
             You're in
           </div>
           <p className="mt-2 text-sm">You're in. Your resources are below.</p>
@@ -822,7 +823,7 @@ function EditProductRow({ product }: { product: Product }) {
       <div className="flex justify-between gap-2.5 flex-wrap">
         <span className="text-sm font-semibold" style={{ color: "var(--garden-paper)" }}>{product.name}</span>
         <span
-          className="inline-block px-2 py-0.5 rounded-full text-[11px] font-medium uppercase tracking-[0.06em] h-fit"
+          className="inline-block px-2 py-0.5 rounded-full text-xs font-medium uppercase tracking-[0.06em] h-fit"
           style={{ backgroundColor: "rgba(198,198,190,0.1)", color: "var(--garden-muted)", fontFamily: "var(--garden-font-mono)" }}
         >
           {product.status}
@@ -896,7 +897,7 @@ function StatCell({ value, label, hot }: { value: string; label: string; hot?: b
       <div className="text-lg font-semibold" style={{ color: hot ? "var(--garden-citron)" : "var(--garden-paper)", fontFamily: "var(--garden-font-mono)" }}>
         {value}
       </div>
-      <div className="text-[11px] uppercase tracking-[0.06em] mt-1" style={{ color: "var(--garden-dim)" }}>{label}</div>
+      <div className="text-xs uppercase tracking-[0.06em] mt-1" style={{ color: "var(--garden-dim)" }}>{label}</div>
     </div>
   );
 }

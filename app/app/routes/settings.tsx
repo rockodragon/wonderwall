@@ -17,6 +17,7 @@ import { normalizeHandle, type PayoutKind } from "../../convex/garden/gigRules";
 import { errorMessage } from "../lib/convexError";
 import { NetworkTab } from "../components/NetworkTab";
 import { OrganizationsEditor } from "../components/OrganizationsEditor";
+import { PAGE_WIDTH } from "../lib/pageWidth";
 
 const SETTINGS_TABS = [
   { id: "profile", label: "Profile" },
@@ -73,7 +74,7 @@ export default function Settings() {
   }
 
   return (
-    <div className="p-4 sm:p-6 max-w-2xl mx-auto text-base sm:text-sm">
+    <div className={`p-4 sm:p-6 ${PAGE_WIDTH.reading} mx-auto text-base sm:text-sm`}>
       {/* Tabs across the top: the page had grown to ten stacked sections.
           ?tab= deep-links (the sidebar invite card opens ?tab=network). */}
       <div
@@ -414,8 +415,8 @@ function GetPaidSection() {
         </h2>
         {!checking && connected && (
           <span
-            className="rounded px-2 py-1 text-xs font-medium uppercase tracking-[0.08em]"
-            style={{ backgroundColor: "var(--app-accent)", color: "var(--garden-ink)", fontFamily: "var(--garden-font-mono)" }}
+            className="rounded border px-2 py-1 text-xs font-medium uppercase tracking-[0.08em]"
+            style={{ borderColor: "var(--app-hairline-raised)", color: "var(--app-text-muted)", fontFamily: "var(--garden-font-mono)" }}
           >
             Connected · Payouts on
           </span>
@@ -919,30 +920,30 @@ function MyGigsSection() {
             <div className="flex items-center gap-1.5 shrink-0">
               {g.slotStatus === "cancelled" ? (
                 <span
-                  className="px-2 py-0.5 rounded-full text-xs font-medium uppercase tracking-[0.06em]"
-                  style={{ backgroundColor: "var(--app-hairline)", color: "var(--app-text-dim)" }}
+                  className="px-2 py-0.5 rounded-full border text-xs font-medium uppercase tracking-[0.06em]"
+                  style={{ borderColor: "var(--app-hairline-raised)", color: "var(--app-text-muted)" }}
                 >
                   Cancelled
                 </span>
               ) : g.mine === "booked" ? (
                 <>
                   <span
-                    className="px-2 py-0.5 rounded-full text-xs font-medium uppercase tracking-[0.06em]"
-                    style={{ backgroundColor: "var(--app-accent)", color: "var(--garden-ink)" }}
+                    className="px-2 py-0.5 rounded-full border text-xs font-medium uppercase tracking-[0.06em]"
+                    style={{ borderColor: "var(--app-hairline-raised)", color: "var(--app-text-muted)" }}
                   >
                     Booked
                   </span>
                   {g.paidConfirmedAt ? (
                     <span
-                      className="px-2 py-0.5 rounded-full text-xs font-medium uppercase tracking-[0.06em]"
-                      style={{ backgroundColor: "var(--app-hairline)", color: "var(--app-text-dim)" }}
+                      className="px-2 py-0.5 rounded-full border text-xs font-medium uppercase tracking-[0.06em]"
+                      style={{ borderColor: "var(--app-hairline-raised)", color: "var(--app-text-muted)" }}
                     >
                       Paid · confirmed
                     </span>
                   ) : g.paidAt ? (
                     <span
-                      className="px-2 py-0.5 rounded-full text-xs font-medium uppercase tracking-[0.06em]"
-                      style={{ backgroundColor: "var(--app-hairline)", color: "var(--app-text-dim)" }}
+                      className="px-2 py-0.5 rounded-full border text-xs font-medium uppercase tracking-[0.06em]"
+                      style={{ borderColor: "var(--app-hairline-raised)", color: "var(--app-text-muted)" }}
                     >
                       Paid
                     </span>
@@ -950,8 +951,8 @@ function MyGigsSection() {
                 </>
               ) : g.mine === "available" ? (
                 <span
-                  className="px-2 py-0.5 rounded-full text-xs font-medium uppercase tracking-[0.06em]"
-                  style={{ backgroundColor: "var(--app-hairline)", color: "var(--app-text-dim)" }}
+                  className="px-2 py-0.5 rounded-full border text-xs font-medium uppercase tracking-[0.06em]"
+                  style={{ borderColor: "var(--app-hairline-raised)", color: "var(--app-text-muted)" }}
                 >
                   Offered
                 </span>

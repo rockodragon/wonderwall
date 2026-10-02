@@ -8,6 +8,7 @@ import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { InterestModal } from "../components/InterestModal";
 import { FF_JOBS, useFeatureGate } from "../lib/featureFlags";
+import { PAGE_WIDTH } from "../lib/pageWidth";
 
 export default function JobDetail() {
   const enabled = useFeatureGate(FF_JOBS, "/projects");
@@ -88,7 +89,7 @@ export default function JobDetail() {
 
   if (!job) {
     return (
-      <div className="p-6 max-w-4xl mx-auto text-center py-12">
+      <div className={`p-6 ${PAGE_WIDTH.list} mx-auto text-center py-12`}>
         <p style={{ color: "var(--app-text-dim)" }}>Project not found</p>
         <Link
           to="/jobs"
@@ -123,7 +124,7 @@ export default function JobDetail() {
   const back = useBack("/jobs");
 
   return (
-    <div className="p-4 sm:p-6 max-w-6xl mx-auto">
+    <div className={`p-4 sm:p-6 ${PAGE_WIDTH.list} mx-auto`}>
       {/* Back link */}
       <Link
         {...back}

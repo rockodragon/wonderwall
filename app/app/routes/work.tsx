@@ -8,6 +8,7 @@ import { EmbedPlayer } from "../components/EmbedPlayer";
 import { ShareButton } from "../components/ShareButton";
 import { toEmbedUrl } from "../lib/videoEmbed";
 import { useBack } from "../lib/useBack";
+import { PAGE_WIDTH } from "../lib/pageWidth";
 
 export default function WorkDetail() {
   const { artifactId } = useParams();
@@ -67,7 +68,7 @@ export default function WorkDetail() {
 
   if (!artifact) {
     return (
-      <div className="p-6 max-w-4xl mx-auto text-center py-12">
+      <div className={`p-6 ${PAGE_WIDTH.list} mx-auto text-center py-12`}>
         <p className="text-gray-500 dark:text-gray-400">Work not found</p>
         <Link
           to="/works"
@@ -103,7 +104,7 @@ export default function WorkDetail() {
       (artifact.type === "link" && isImageUrl));
 
   return (
-    <div className="p-4 sm:p-6 max-w-5xl mx-auto">
+    <div className={`p-4 sm:p-6 ${PAGE_WIDTH.list} mx-auto`}>
       {/* Back link — to wherever they came from (a profile, a project),
           falling back to Works on a cold shared link. */}
       <Link

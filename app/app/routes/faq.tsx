@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { PAGE_WIDTH } from "../lib/pageWidth";
 
 export function meta() {
   return [
@@ -117,7 +118,7 @@ export default function FAQ() {
   const [openQuestion, setOpenQuestion] = useState<string | null>(null);
 
   return (
-    <div className="p-6 max-w-3xl mx-auto">
+    <div className={`p-6 ${PAGE_WIDTH.reading} mx-auto`}>
       <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--app-text)" }}>
         Frequently Asked Questions
       </h1>

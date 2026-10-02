@@ -15,6 +15,7 @@ import { useConvexAuth, useMutation } from "convex/react";
 import { ConvexError } from "convex/values";
 import { Link, useRouteError } from "react-router";
 import { api } from "../../convex/_generated/api";
+import { PAGE_WIDTH } from "../lib/pageWidth";
 
 export function meta() {
   return [
@@ -49,7 +50,7 @@ function PageShell({ children }: { children: ReactNode }) {
     <div className="min-h-screen bg-[var(--garden-ink)]">
       <link rel="stylesheet" href="/tokens.css" />
       <link rel="stylesheet" href="/about/fonts/fonts.css" />
-      <div className="p-4 sm:p-6 max-w-2xl mx-auto">{children}</div>
+      <div className={`p-4 sm:p-6 ${PAGE_WIDTH.reading} mx-auto`}>{children}</div>
     </div>
   );
 }
@@ -128,7 +129,7 @@ function ApplyForm() {
     return (
       <div className="rounded-2xl border p-5 mt-6" style={cardStyle}>
         <span
-          className="inline-block px-2.5 py-1 rounded-full text-[11px] font-medium uppercase tracking-[0.06em]"
+          className="inline-block px-2.5 py-1 rounded-full text-xs font-medium uppercase tracking-[0.06em]"
           style={{ backgroundColor: "rgba(198,198,190,0.1)", color: "var(--garden-muted)", fontFamily: "var(--garden-font-mono)" }}
         >
           Application in

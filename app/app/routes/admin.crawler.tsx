@@ -11,6 +11,7 @@ import {
   type ColumnDef,
   type SortingState,
 } from "@tanstack/react-table";
+import { PAGE_WIDTH } from "../lib/pageWidth";
 
 export const meta: MetaFunction = () => {
   return [{ title: "Crawler Admin | TheCreative.exchange" }];
@@ -397,7 +398,7 @@ export default function CrawlerAdmin() {
 
   return (
     <div className="min-h-screen bg-gray-950 p-6">
-      <div className="max-w-7xl mx-auto">
+      <div className={`${PAGE_WIDTH.wide} mx-auto`}>
         {/* Header */}
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-white mb-1">Lead Crawler</h1>

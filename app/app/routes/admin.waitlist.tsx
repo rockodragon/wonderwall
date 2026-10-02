@@ -32,6 +32,7 @@ import {
 } from "@tanstack/react-table";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
+import { PAGE_WIDTH } from "../lib/pageWidth";
 
 export const meta: MetaFunction = () => {
   return [{ title: "Waitlist Admin | TheCreative.exchange" }];
@@ -369,7 +370,7 @@ export default function AdminWaitlistPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-7xl mx-auto">
+      <div className={`${PAGE_WIDTH.wide} mx-auto`}>
         <div className="mb-8 flex items-center justify-between flex-wrap gap-3">
           <div>
             <Link

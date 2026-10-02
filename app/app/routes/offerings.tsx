@@ -15,6 +15,7 @@ import {
 } from "../components/CommunityFilter";
 import { haversineDistance, NEAR_ME_RADIUS_OPTIONS, useNearMe } from "../lib/useNearMe";
 import { ChevronDownIcon, FilterIcon, LocationIcon } from "../components/icons";
+import { PAGE_WIDTH } from "../lib/pageWidth";
 
 // AnnouncementComposer moved off this list page entirely — it now renders
 // only on the detail page (routes/offerings.$id.tsx), per the founder's
@@ -186,7 +187,7 @@ export default function Offerings() {
     <div className="min-h-screen bg-[var(--garden-ink)]">
       <link rel="stylesheet" href="/tokens.css" />
       <link rel="stylesheet" href="/about/fonts/fonts.css" />
-      <div className="p-4 sm:p-6 max-w-[1600px] mx-auto">
+      <div className={`p-4 sm:p-6 ${PAGE_WIDTH.list} mx-auto`}>
         <h1
           className="text-2xl sm:text-3xl font-semibold text-[var(--garden-paper)] mb-1"
           style={{ fontFamily: "var(--garden-font-display)" }}
@@ -354,7 +355,7 @@ export default function Offerings() {
             <p className="text-sm">Be the first to post a class, a coaching slot, or a workshop</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {filtered.map((offering) => (
               <OfferingCard
                 key={offering._id}
@@ -429,7 +430,7 @@ function OfferingCard({ offering, isOwner }: { offering: any; isOwner: boolean }
             </svg>
           )}
           <span
-            className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[11px] font-semibold uppercase tracking-[0.06em]"
+            className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-xs font-semibold uppercase tracking-[0.06em]"
             style={{
               fontFamily: "var(--garden-font-mono)",
               backgroundColor: "rgba(20,20,18,0.72)",
@@ -481,7 +482,7 @@ function OfferingCard({ offering, isOwner }: { offering: any; isOwner: boolean }
               {offering.interests.slice(0, 4).map((tag: string) => (
                 <span
                   key={tag}
-                  className="px-2 py-0.5 rounded-full text-[11px] font-medium"
+                  className="px-2 py-0.5 rounded-full text-xs font-medium"
                   style={{
                     fontFamily: "var(--garden-font-body)",
                     backgroundColor: "rgba(198,198,190,0.1)",
@@ -492,7 +493,7 @@ function OfferingCard({ offering, isOwner }: { offering: any; isOwner: boolean }
                 </span>
               ))}
               {offering.interests.length > 4 && (
-                <span className="px-2 py-0.5 text-[11px]" style={{ color: "var(--garden-dim)" }}>
+                <span className="px-2 py-0.5 text-xs" style={{ color: "var(--garden-dim)" }}>
                   +{offering.interests.length - 4}
                 </span>
               )}
@@ -525,7 +526,7 @@ function OfferingCard({ offering, isOwner }: { offering: any; isOwner: boolean }
                 />
               ) : (
                 <div
-                  className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
+                  className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
                   style={{ backgroundColor: "var(--garden-hairline-raised)", color: "var(--garden-paper)" }}
                 >
                   {offering.creator.name.charAt(0).toUpperCase()}
@@ -932,7 +933,7 @@ function FormSection({
         className="cursor-pointer select-none px-4 py-3 flex items-center justify-between gap-3 flex-wrap"
         style={{ listStyle: "none" }}
       >
-        <span className="text-[11px] font-semibold uppercase tracking-[0.08em]" style={labelStyle}>
+        <span className="text-xs font-semibold uppercase tracking-[0.08em]" style={labelStyle}>
           {label}
         </span>
         {summaryExtra && (
