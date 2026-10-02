@@ -14,7 +14,16 @@ import {
   communityNameFor,
   useCommunityContext,
 } from "../components/CommunityFilter";
-import { isStage, resolveStage, stageLabel, STAGES, type Stage } from "../lib/stage";
+import { resolveStage, stageLabel, STAGES } from "../lib/stage";
+import {
+  PROJECT_VIEWS,
+  SHOW_FILTERS,
+  filterProjects,
+  isMatch as isSoftMatch,
+  isRaising,
+  readProjectsView,
+  type ProjectsView,
+} from "../lib/browse/projectsFilter";
 import { FilterButton, FilterPanel, filterButtonLabel } from "../components/FilterMenu";
 import { TagFilterPills } from "../components/TagFilterPills";
 import { CLAIMS } from "../constants/claims";
@@ -25,70 +34,15 @@ import { EmbedStill } from "../components/EmbedStill";
 import { CreateCard } from "../components/CreateCard";
 import { errorMessage } from "../lib/convexError";
 import { ProjectModal } from "../components/ProjectModal";
+import { FocusBackdrop } from "../components/FocusBackdrop";
+import { INTEREST_OPTIONS } from "../lib/browse/peopleFilter";
 
-// Two views, split by what the VISITOR wants rather than how the poster
-// filed it (docs/features/project-ia.md): Projects is things to back or
-// join; Work is things to get hired for — paid postings, gig dates, and the
-// open roles on projects. A project with open roles shows in both.
-type View = "projects" | "work";
-const VIEWS: { label: string; value: View }[] = [
-  { label: "Projects", value: "projects" },
-  { label: "Work", value: "work" },
-];
-// The stages a visitor browsing for something to back or join cares about —
-// the same ids and labels as the stage pill on every card (lib/stage.ts).
-// Paused / completed / cancelled aren't things to back or join, so no pill.
-const BROWSE_STAGES: Stage[] = ["planning", "raising", "forming", "working", "releasing"];
-const SHOW_FILTERS: Record<View, { label: string; value: string }[]> = {
-  projects: [
-    { label: "All", value: "" },
-    ...BROWSE_STAGES.map((s) => ({ label: stageLabel(s), value: s })),
-  ],
-  work: [
-    { label: "All", value: "" },
-    { label: "Jobs", value: "jobs" },
-    // Live booking (docs/features/live-booking.md §5): a recurring paid gig
-    // is a paid project with a schedule attached (`gig` on the row). Labelled
-    // "Shows" because "Gigs" read as the name of the whole Work view; the
-    // value stays `gigs` so existing links keep landing here.
-    { label: "Shows", value: "gigs" },
-    { label: "Roles on projects", value: "roles" },
-  ],
-};
-
-function hasOpenRoles(p: any): boolean {
-  return (p.openRoles?.length ?? 0) > 0;
-}
-
-// Older backends don't send `raising` yet — the goal and stage alone are a
-// fair reading until they do.
-export function isRaising(p: any): boolean {
-  if (p.gig) return false;
-  return p.raising ?? ((p.goal ?? 0) > 0 || p.stage === "raising");
-}
-
-function inView(p: any, view: View): boolean {
-  return view === "projects" ? p.kind === "passion" : p.kind === "paid" || hasOpenRoles(p);
-}
-
-// A stage pill matches the stage the card's own pill shows (resolveStage) —
-// except Raising, which matches isRaising: a project with a goal or active
-// tiers shows the "Raising" badge and the "Back this" button whatever its
-// stage, so the pill has to agree with them.
-function matchesShow(p: any, show: string): boolean {
-  switch (show) {
-    case "raising":
-      return isRaising(p);
-    case "jobs":
-      return p.kind === "paid" && !p.gig;
-    case "gigs":
-      return !!p.gig;
-    case "roles":
-      return p.kind === "passion" && hasOpenRoles(p);
-    default:
-      return isStage(show) ? resolveStage(p) === show : true;
-  }
-}
+// The two views (Projects / Work), their stage pills and the pure filtering
+// live in lib/browse/projectsFilter.ts, shared with the desk's Projects view.
+type View = ProjectsView;
+const VIEWS = PROJECT_VIEWS;
+// Still importable from here: projects.$id.tsx reads it.
+export { isRaising };
 
 export const STATUS_LABELS: Record<string, string> = {
   pending: "Pending",
@@ -194,14 +148,11 @@ export default function Projects() {
   // ?kind=passion|paid|gigs links still land in the right place, and the old
   // ?show=people (Looking for people) lands on Forming team. An unknown
   // value reads as "All".
-  const legacyKind = searchParams.get("kind") || "";
-  const view: View =
-    searchParams.get("view") === "work" || legacyKind === "paid" || legacyKind === "gigs"
-      ? "work"
-      : "projects";
-  const rawShow = searchParams.get("show") || (legacyKind === "gigs" ? "gigs" : "");
-  const showParam = rawShow === "people" ? "forming" : rawShow;
-  const showFilter = SHOW_FILTERS[view].some((f) => f.value === showParam) ? showParam : "";
+  const { view, show: showFilter } = readProjectsView({
+    view: searchParams.get("view"),
+    kind: searchParams.get("kind"),
+    show: searchParams.get("show"),
+  });
   function setViewAndShow(nextView: View, nextShow: string) {
     const next = new URLSearchParams(searchParams);
     next.delete("kind");
@@ -224,7 +175,7 @@ export default function Projects() {
   // doesn't clutter the page next to the kind row above.
   const [tagsExpanded, setTagsExpanded] = useState(false);
   const allTags: readonly string[] = INTERESTS;
-  const tagOptions = useMemo(() => allTags.map((tag) => ({ label: tag, value: tag })), [allTags]);
+  const tagOptions = INTEREST_OPTIONS;
   function toggleTag(tag: string) {
     setTagFilter((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
   }
@@ -236,49 +187,22 @@ export default function Projects() {
     setSearchParams(next, { replace: true });
   }
 
-  // A project's own declared interests win when it has any; a project with
-  // none set (nothing selected at creation, or an older project from before
-  // this field existed) falls back to its creator's interests so existing/
-  // untagged projects don't just vanish from every filter.
-  function projectTopics(p: any): string[] {
-    return p.interests?.length ? p.interests : (p.creator?.interests ?? []);
-  }
-
-  // Interests/location are a soft signal, not a hard filter — with a small
-  // friend-group-scale catalog, excluding non-matches outright would too
-  // easily show an empty page. Matching projects float to the top instead.
-  // A project's own location wins over its creator's when the project set
-  // one; remote !== false (covers both true and unset) always satisfies a
-  // location filter — a remote-friendly project matches anywhere.
-  function isMatch(p: any): boolean {
-    const interestHit =
-      interestFilter.length > 0 &&
-      projectTopics(p).some((fn: string) => interestFilter.includes(fn));
-    const locationText = p.remote === false ? (p.location ?? p.creator?.location) : null;
-    const creatorLoc = locationText?.toLowerCase();
-    const filterLoc = locationFilter.toLowerCase();
-    // Bidirectional substring: "Nashville, TN" vs "Nashville" should match
-    // either way round, not just filter-is-shorter.
-    const locationHit =
-      !!locationFilter &&
-      (p.remote !== false || (!!creatorLoc && (creatorLoc.includes(filterLoc) || filterLoc.includes(creatorLoc))));
-    return interestHit || locationHit;
-  }
+  const softMatch = useMemo(
+    () => ({ interests: interestFilter, location: locationFilter }),
+    [interestFilter, locationFilter],
+  );
+  const isMatch = (p: any) => isSoftMatch(p, softMatch);
 
   const filtered = useMemo(() => {
     if (!projects) return [];
-    let list = projects.filter((p) => inView(p, view) && matchesShow(p, showFilter));
-    if (communitySlug !== "all") {
-      list = list.filter((p) => p.community?.slug === communitySlug);
-    }
-    if (tagFilter.length > 0) {
-      list = list.filter((p) => projectTopics(p).some((fn: string) => tagFilter.includes(fn)));
-    }
-    if (hasMatchFilter) {
-      list = [...list].sort((a, b) => Number(isMatch(b)) - Number(isMatch(a)));
-    }
-    return list;
-  }, [projects, view, showFilter, communitySlug, tagFilter, interestFilter, locationFilter]);
+    return filterProjects(projects, {
+      view,
+      show: showFilter,
+      inCommunity: communitySlug !== "all" ? (p) => p.community?.slug === communitySlug : null,
+      tags: tagFilter,
+      soft: hasMatchFilter ? softMatch : null,
+    });
+  }, [projects, view, showFilter, communitySlug, tagFilter, softMatch, hasMatchFilter]);
 
   return (
     <div className="min-h-screen bg-[var(--garden-ink)]">
@@ -1114,7 +1038,7 @@ function PaidProjectForm({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto" style={{ backgroundColor: "rgba(0,0,0,0.6)" }}>
+    <FocusBackdrop phoneFullScreen={false}>
       <div
         className="w-full max-w-md rounded-2xl border p-6"
         style={{ backgroundColor: "var(--garden-ink-raised)", borderColor: "var(--garden-hairline)" }}
@@ -1352,7 +1276,7 @@ function PaidProjectForm({
           </div>
         </form>
       </div>
-    </div>
+    </FocusBackdrop>
   );
 }
 

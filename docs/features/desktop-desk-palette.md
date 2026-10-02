@@ -242,6 +242,88 @@ Close it with the close button, a click on the dim layer, or Escape. Closing rem
 
 Use `.claude/launch.json` → `app-dev` (port 5173, `VITE_CONVEX_URL=https://courteous-rabbit-750.convex.cloud`). It reads and writes prod. Signing in on localhost only works with a password account; Google sign-in returns to the prod host.
 
+## Round 2: browse, filters, focus (Rick, 2026-10-01, after using #45 live)
+
+What Rick saw on prod:
+- The tool views showed only 3 or 4 cards, with no way to browse or filter.
+- The greeting repeated on every view.
+- The cards were small, with empty space under them.
+- An opened card's picture was small.
+- An opened card with no picture showed its title twice ("Weddi/ng").
+- The create forms sat over the list page.
+- The palette's menus closed too easily while moving onto them.
+
+A UX analyst's recommendations are folded in below. Rick: keep the two-step entry (card, then the full page) for now.
+
+**Header.**
+- Home (`all`) keeps the greeting.
+- Every other view drops it. The header is:
+  - Line 1: mono `{COMMUNITY}`.
+  - Line 2: the view name at 30px, then a muted count ("13 people").
+- People, Projects and Events add one filter row under the header, on the same 48px left edge:
+  - a search field (280×40, 15px)
+  - Projects: Projects / Work, then the stage chips (All, Planning, Raising, Forming team, Working, Released)
+  - Events: Upcoming / Saved / Past, then Near me
+  - People: Everyone / Following, Discipline, Near me
+- At the right end of the row sits the view's one create verb, as an outline button: "Start a project", "Host an event", "Invite someone".
+- Chips:
+  - 36px pills with a 1px `#333` border and 13.5px `#D6D6D6` text.
+  - The active chip copies the palette button: yellow border, 8% yellow fill, yellow text.
+  - No bar behind them.
+- Solid yellow stays reserved for the opened card's one action.
+- There is no community dropdown on the desk; the palette's switch scopes every view.
+- On scroll, the title scrolls away and the filter row pins to the top on a 92% `#151515` band with backdrop blur.
+- Filter state lives in the URL (`?view=projects&stage=raising&q=…`).
+
+**Grid.**
+- Browse views and Favorites lay out as a wrapping grid that scrolls: columns at least 240px, cards at most 300px, a 32px gap, 3:4 cards.
+- It aligns to the header's left edge, with 140px of bottom padding so the last row clears the palette.
+- Cards still animate between positions; a change of filter slides them.
+- No tail card ("All N →") in browse views; the view is the full list.
+- Today keeps a short centered row.
+- With nothing matching: "No {things} match." plus "Clear filters".
+- People defaults to Everyone (the directory, same query as /people), with Following as a chip.
+- The fund note takes a full cell and comes first in Projects.
+
+**Opened card.**
+- No picture: no picture half. Show one centered sheet (detail only, about 720px wide), so no title appears twice.
+- With a picture:
+  - The picture side's width follows the picture's shape, between 46% and 62%.
+  - Photos (projects, people) fill and crop.
+  - Event posters stay uncropped (framed), filling the larger side.
+- Never break a word across lines.
+
+**Cards with no picture** get a designed fallback:
+- People: a paper name card with large initials.
+- Projects: `AbstractCover`, as now.
+- Events: the tone card, with the date set large.
+
+**Create flows.**
+- The palette's "Start a project" and "Host an event", and each view's create button, go to `/today?create=project|event`.
+- The form opens as a single card on the desk's dotted surface, with nothing from the list behind it.
+- Closing it returns to the desk.
+- The same forms opened from the list pages use the same opaque backdrop (`components/FocusBackdrop.tsx`) instead of a 60% black overlay.
+
+**Palette menus.**
+- Moving from a tool to its menu keeps the menu open.
+- A 300ms grace period applies before:
+  - switching to a neighbouring tool while a menu is open
+  - closing on leave
+- The bridge between a tool and its menu is wider.
+
+**People verbs.** "Find people" and "Meet people near me" open the desk's People view (Everyone), the latter with Near me on (`&near=1`, taken once, then dropped from the URL).
+
+**Spacing dial (admins, experiment).** Rick wants to try more negative space.
+- Admins get a "Spacing" pill in the desk's lower right. It opens a slider from 0.75× to 2×, plus Reset.
+- The value is saved in that browser only (`desk.spacing`), so trying values never changes the desk for anyone else.
+- It scales the grid's gap and side margins, the header's left edge, and Today's row gap. Scattered cards on home shrink by its square root, so their slots keep their places.
+- Once a value is chosen, it becomes the default (`GRID_GAP`, `GRID_SIDE`, `ROW_GAP` in `deskLayout.ts`) and the dial goes.
+
+**Who owns what.**
+- Desk presentation (header, grid, opened card, fallbacks): `Desk.tsx`, `DeskCard.tsx`, `OpenedCard.tsx`, `deskLayout.ts`, `DeskHeader.tsx`.
+- Browse data and filters: `deskBrowse.tsx`, plus pure filter logic in `lib/browse/` shared with `/people`, `/projects` and `/events`.
+- Create flows and palette menus: `DeskCreate.tsx`, `FocusBackdrop.tsx`, `usePaletteController.ts`.
+
 ## Later
 
 - Open create flows and settings as desk cards instead of pages.

@@ -26,7 +26,10 @@ export const PALETTE = {
   stagger: 35,
   fanMs: 340,
   stackMs: 240,
-  bridge: 14,
+  /** The invisible hover area between a tool and its menu. Half of it sits
+   *  behind the tool's button (covering the gaps at the circle's corners); the
+   *  other half is the visible gap to the menu. It runs the menu's full height. */
+  bridge: 28,
 } as const;
 
 /** Where each tool sits on the quarter arc. Six tools use the handoff's exact
@@ -105,3 +108,101 @@ export function withAlpha(hex: string, alpha: number): string {
   const n = parseInt(full, 16);
   return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${alpha})`;
 }
+
+// ——————————————————————————————————————————————————————————————
+// Hover intent: menus stay open while a finger travels to them
+// ——————————————————————————————————————————————————————————————
+
+/** How long the pointer must stay before the palette acts on it: before it
+ *  switches to a neighbouring tool while a menu is open, and before it closes
+ *  on leave. A diagonal move from a tool to its menu crosses other tools and
+ *  the gaps between circles; this keeps that from closing the menu. */
+export const HOVER_GRACE_MS = 300;
+
+/** One waiting action. Starting a new one drops the old one. */
+export interface Grace {
+  start(fn: () => void): void;
+  cancel(): void;
+  readonly waiting: boolean;
+}
+
+export function createGrace(ms: number = HOVER_GRACE_MS): Grace {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  const cancel = () => {
+    if (timer !== null) {
+      clearTimeout(timer);
+      timer = null;
+    }
+  };
+  return {
+    start(fn) {
+      cancel();
+      timer = setTimeout(() => {
+        timer = null;
+        fn();
+      }, ms);
+    },
+    cancel,
+    get waiting() {
+      return timer !== null;
+    },
+  };
+}
+
+export interface HoverIntentDeps {
+  /** The tool whose menu is showing now. */
+  current: () => ToolId | null;
+  /** Show this tool's menu, or none. */
+  showStack: (id: ToolId | null) => void;
+  /** Fold the fan away. */
+  closeAll: () => void;
+  /** True while keyboard focus is inside the palette: leaving the zone then
+   *  does not close it. */
+  keepOpen?: () => boolean;
+}
+
+/** What a mouse does to the palette's menus (touch and keyboard are handled
+ *  elsewhere):
+ *  - no menu open: entering a tool opens its menu at once
+ *  - a menu open: entering another tool switches after the grace period, and
+ *    returning to the open tool (or its menu) drops the switch
+ *  - leaving the tool and its menu closes the menu after the grace period;
+ *    coming back drops that too
+ *  - leaving the whole zone folds the fan after the grace period
+ *  One timer serves all of it: the latest move wins. Pass your own `grace` to
+ *  cancel its wait from outside (closing the palette does). */
+export function createHoverIntent(deps: HoverIntentDeps, grace: Grace = createGrace()) {
+  return {
+    toolEnter(id: ToolId) {
+      const open = deps.current();
+      if (open === null) {
+        grace.cancel();
+        deps.showStack(id);
+      } else if (open === id) {
+        grace.cancel();
+      } else {
+        grace.start(() => deps.showStack(id));
+      }
+    },
+    /** The pointer left a tool and its menu. */
+    toolLeave() {
+      if (deps.current() === null) {
+        grace.cancel();
+        return;
+      }
+      grace.start(() => deps.showStack(null));
+    },
+    zoneEnter() {
+      grace.cancel();
+    },
+    zoneLeave() {
+      if (deps.keepOpen?.()) return;
+      grace.start(() => {
+        if (!deps.keepOpen?.()) deps.closeAll();
+      });
+    },
+    cancel: grace.cancel,
+  };
+}
+
+export type HoverIntent = ReturnType<typeof createHoverIntent>;

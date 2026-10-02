@@ -18,6 +18,7 @@ import { useLocationField } from "../lib/useLocationField";
 import { CommunityPicker } from "./CommunityPicker";
 import { useCommunityContext } from "./CommunityFilter";
 import { errorMessage } from "../lib/convexError";
+import { FocusBackdrop } from "./FocusBackdrop";
 import { HireWhenToggle, type HireDraft } from "./HireWhenToggle";
 import { HORIZON_WEEKS, MAX_COUNT, WEEKDAY_SHORT, compareDates } from "../../convex/garden/gigRules";
 
@@ -265,10 +266,7 @@ export function GigSeriesForm({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto"
-      style={{ backgroundColor: "rgba(0,0,0,0.6)" }}
-    >
+    <FocusBackdrop phoneFullScreen={false}>
       <div
         className="w-full max-w-lg rounded-2xl border p-6 my-8"
         style={{ backgroundColor: "var(--garden-ink-raised)", borderColor: "var(--garden-hairline)" }}
@@ -543,6 +541,6 @@ export function GigSeriesForm({
           </div>
         </form>
       </div>
-    </div>
+    </FocusBackdrop>
   );
 }

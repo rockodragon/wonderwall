@@ -6,7 +6,7 @@ import {
   dateKicker,
   inCommunity,
   plainText,
-  tailLabel,
+  opensAsSheet,
   timeLabel,
   toneFor,
   venueName,
@@ -418,10 +418,10 @@ describe("helpers", () => {
     expect(venueName(null)).toBe("");
   });
 
-  it("tailLabel reads 'All N things →'", () => {
-    expect(tailLabel("events", 12)).toBe("All 12 events →");
-    expect(tailLabel("projects", 5)).toBe("All 5 projects →");
-    expect(tailLabel("people", 7)).toBe("All 7 people →");
-    expect(tailLabel("fav", 9)).toBe("All 9 favorites →");
+  it("a card with no picture opens as a sheet; a note keeps its face", () => {
+    expect(opensAsSheet({ image: null, note: false })).toBe(true);
+    expect(opensAsSheet({ image: "https://x.test/a.jpg", note: false })).toBe(false);
+    expect(opensAsSheet({ image: null, note: true })).toBe(false);
   });
+
 });

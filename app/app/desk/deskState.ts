@@ -5,8 +5,10 @@
 // to.
 //
 // /today?view=events&card=event:abc123
-//   view — which tool's cards are on the desk (absent = everything)
-//   card — the card opened full-page (absent = none open)
+//   view   — which tool's cards are on the desk (absent = everything)
+//   card   — the card opened full-page (absent = none open)
+//   create — a create flow open as a card on the desk (project | event)
+// Each view's own filters (q, stage, tab, …) ride along as more params.
 
 import { useSyncExternalStore } from "react";
 
@@ -37,10 +39,19 @@ export type DeskCardId =
   | "fund"
   | "grant";
 
-export function deskHref(view: DeskView = "all", card?: DeskCardId | null): string {
+/** Create flows that open as a focused card on the desk. */
+export const DESK_CREATE_KINDS = ["project", "event"] as const;
+export type DeskCreateKind = (typeof DESK_CREATE_KINDS)[number];
+
+export function parseDeskCreate(raw: string | null | undefined): DeskCreateKind | null {
+  return (DESK_CREATE_KINDS as readonly string[]).includes(raw ?? "") ? (raw as DeskCreateKind) : null;
+}
+
+export function deskHref(view: DeskView = "all", card?: DeskCardId | null, create?: DeskCreateKind | null): string {
   const params = new URLSearchParams();
   if (view !== "all") params.set("view", view);
   if (card) params.set("card", card);
+  if (create) params.set("create", create);
   const qs = params.toString();
   return qs ? `${DESK_PATH}?${qs}` : DESK_PATH;
 }
@@ -60,36 +71,68 @@ export function otherCommunity(c: DeskCommunity): DeskCommunity {
   return c === "garden" ? "exchange" : "garden";
 }
 
-const STORAGE_KEY = "desk.community";
-const listeners = new Set<() => void>();
-let current: DeskCommunity | null = null;
-
-function read(): DeskCommunity {
-  if (current) return current;
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    current = stored === "exchange" ? "exchange" : "garden";
-  } catch {
-    current = "garden";
-  }
-  return current;
+/** A small value saved in this browser that every component can read and
+ *  set: the community choice, the spacing dial. Falls back to `fallback`
+ *  where storage is off (private browsing) or on the server. */
+function localStore<T>(key: string, parse: (raw: string | null) => T, fallback: T) {
+  const listeners = new Set<() => void>();
+  let current: T | undefined;
+  const read = (): T => {
+    if (current !== undefined) return current;
+    try {
+      current = parse(localStorage.getItem(key));
+    } catch {
+      current = fallback;
+    }
+    return current;
+  };
+  const set = (next: T) => {
+    current = next;
+    try {
+      localStorage.setItem(key, String(next));
+    } catch {
+      // Private browsing — the value lasts for this tab only.
+    }
+    listeners.forEach((l) => l());
+  };
+  const subscribe = (listener: () => void) => {
+    listeners.add(listener);
+    return () => listeners.delete(listener);
+  };
+  const use = (): T => useSyncExternalStore(subscribe, read, () => fallback);
+  return { use, set };
 }
 
-export function setDeskCommunity(next: DeskCommunity) {
-  current = next;
-  try {
-    localStorage.setItem(STORAGE_KEY, next);
-  } catch {
-    // Private browsing — the choice lasts for this tab only.
-  }
-  listeners.forEach((l) => l());
+const communityStore = localStore<DeskCommunity>(
+  "desk.community",
+  (raw) => (raw === "exchange" ? "exchange" : "garden"),
+  "garden",
+);
+
+export const setDeskCommunity = communityStore.set;
+export const useDeskCommunity = communityStore.use;
+
+// ——————————————————————————————————————————————————————————————
+// Spacing: an admin's dial for the desk's negative space
+// ——————————————————————————————————————————————————————————————
+
+/** 1 is the layout as designed. Gaps and margins scale by it; scattered
+ *  cards shrink by its square root. Per browser, admins only, while the
+ *  right value is found — then it becomes the default here. */
+export const DESK_SPACING = { min: 0.75, max: 2, step: 0.05, initial: 1 } as const;
+
+export function clampSpacing(n: number): number {
+  if (!Number.isFinite(n)) return DESK_SPACING.initial;
+  return Math.min(DESK_SPACING.max, Math.max(DESK_SPACING.min, n));
 }
 
-function subscribe(listener: () => void) {
-  listeners.add(listener);
-  return () => listeners.delete(listener);
-}
+const spacingStore = localStore<number>(
+  "desk.spacing",
+  (raw) => (raw === null ? DESK_SPACING.initial : clampSpacing(Number(raw))),
+  DESK_SPACING.initial,
+);
 
-export function useDeskCommunity(): DeskCommunity {
-  return useSyncExternalStore(subscribe, read, () => "garden" as const);
+export const useDeskSpacing = spacingStore.use;
+export function setDeskSpacing(n: number) {
+  spacingStore.set(clampSpacing(n));
 }

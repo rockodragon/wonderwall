@@ -2,23 +2,18 @@ import { useConvexAuth, useQuery } from "convex/react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { api } from "../../convex/_generated/api";
-import { INTERESTS } from "../constants/interests";
 import { EventCard } from "../components/EventCard";
 import { SearchInput } from "../components/SearchInput";
 import { TagFilterPills } from "../components/TagFilterPills";
 import { FilterButton, FilterPanel, filterButtonLabel } from "../components/FilterMenu";
 import { useFilterState } from "../lib/useFilterState";
 import { CommunityContextLine, useCommunityContext } from "../components/CommunityFilter";
-import { haversineDistance, NEAR_ME_RADIUS_OPTIONS, useNearMe } from "../lib/useNearMe";
+import { NEAR_ME_RADIUS_OPTIONS, useNearMe } from "../lib/useNearMe";
+import { INTEREST_OPTIONS, filterProfiles } from "../lib/browse/peopleFilter";
+import { distanceLabel } from "../lib/browse/nearMe";
 import { LocationIcon } from "../components/icons";
 import { InviteButton } from "../components/InviteCTA";
 import { OrgDirectory } from "../components/OrgDirectory";
-
-// Derived directly from the canonical INTERESTS list so this can never
-// drift from it again (it previously did — see git history). Label and
-// value are the same singular string, matching how Projects' `#Tag` pills
-// already render these values.
-const FILTERS = INTERESTS.map((fn) => ({ label: fn, value: fn }));
 
 type ProfileResult = {
   _id: string;
@@ -93,7 +88,7 @@ export default function Search() {
   } = useFilterState({ tagsParam: "interests" });
 
   // Get filter label for button
-  const filterLabel = filterButtonLabel(FILTERS, activeFilters);
+  const filterLabel = filterButtonLabel(INTEREST_OPTIONS, activeFilters);
 
   // Text-based search for profiles (includes name, bio, interests).
   // No interest is passed server-side — at friend-group scale the whole
@@ -110,24 +105,10 @@ export default function Search() {
 
   const filteredProfiles = useMemo(() => {
     if (!profiles) return profiles;
-    let result = profiles;
-    if (activeFilters.length > 0) {
-      result = result.filter((profile) =>
-        activeFilters.some((filter) => profile.interests.includes(filter)),
-      );
-    }
-    if (nearMe && userPos) {
-      result = result
-        .map((p) => ({
-          ...p,
-          _distance: p.coordinates
-            ? haversineDistance(userPos.lat, userPos.lng, p.coordinates.lat, p.coordinates.lng)
-            : Infinity,
-        }))
-        .filter((p) => p._distance <= radius)
-        .sort((a, b) => a._distance - b._distance);
-    }
-    return result;
+    return filterProfiles(profiles, {
+      interests: activeFilters,
+      near: nearMe && userPos ? { pos: userPos, radius } : null,
+    });
   }, [profiles, activeFilters, nearMe, userPos, radius]);
 
   // Search events when there's a query
@@ -258,7 +239,7 @@ export default function Search() {
           {filterExpanded && (
             <FilterPanel>
               <TagFilterPills
-                options={FILTERS}
+                options={INTEREST_OPTIONS}
                 active={activeFilters}
                 onToggle={toggleTag}
                 onClear={clearTags}
@@ -318,9 +299,7 @@ export default function Search() {
 
 function ProfileCard({ profile }: { profile: ProfileResult & { _distance?: number } }) {
   const hasImage = !!profile.imageUrl;
-  const distLabel = profile._distance != null && isFinite(profile._distance)
-    ? profile._distance < 1 ? "< 1 mi" : `${Math.round(profile._distance)} mi`
-    : null;
+  const distLabel = distanceLabel(profile._distance);
 
   return (
     <Link

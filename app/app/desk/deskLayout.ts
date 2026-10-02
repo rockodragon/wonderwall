@@ -1,14 +1,20 @@
 // Where each card sits on the desk. Pure geometry: no DOM, no React, so it
 // can be tested at any viewport size.
 //
-// Three arrangements (docs/features/desktop-desk-palette.md, "Geometry"):
+// Four arrangements (docs/features/desktop-desk-palette.md, "Geometry" and
+// "Round 2"):
 //   scatter — view "all": cards rest at slight angles, spread over the desk
-//   row     — any other view: matching cards stand straight in a centered row
-//   open    — one card fills the page, inset 24px
-// A card that doesn't belong to the view falls off the bottom.
+//   row     — Today: matching cards stand straight in a short centered row
+//   grid    — People, Projects, Events, Favorites: a wrapping grid on the
+//             header's left edge. The desk scrolls; the layout reports how
+//             tall the page is.
+//   open    — one card fills the window (inset 24px), or a card with no
+//             picture opens as a centered sheet
+// A card that doesn't belong to the view falls off the bottom of the page.
 //
-// Positions are in viewport pixels. The handoff's 1200x760 artboard is scaled
-// by s = clamp(min(vw/1200, vh/760), .75, 1.3).
+// Positions are in pixels of the desk's scroll content: its top is the top of
+// the page, not of the window. The handoff's 1200x760 artboard is scaled by
+// s = clamp(min(vw/1200, vh/760), .62, 1.3).
 
 import type { DeskView } from "./deskState";
 import { PALETTE } from "./paletteLogic";
@@ -20,6 +26,9 @@ export type LayoutCard = {
   sections: readonly DeskView[];
   /** A paper note: it takes the short slots and the short row height. */
   note: boolean;
+  /** No picture to show: the card opens as a centered sheet (the detail
+   *  panel alone) instead of picture-and-panel. */
+  sheet?: boolean;
 };
 
 /** x, y, w, h in px; r is the rotation in degrees. */
@@ -27,10 +36,10 @@ export type Place = { x: number; y: number; w: number; h: number; r: number; opa
 
 export type Rect = { x: number; y: number; w: number; h: number };
 
-/** The "All N events →" card that closes a row that is too long to fit. */
-export const TAIL_ID = "__tail__";
-
 export const OPEN_INSET = 24;
+/** The sheet a card with no picture opens as: this wide, this tall at most. */
+export const SHEET_W = 720;
+export const SHEET_H = 680;
 /** Under the dim layer and the opened card, above every resting card. */
 export const Z_DIM = 20;
 export const Z_OPEN = 30;
@@ -76,20 +85,28 @@ const ROW_NOTE_H = 200;
 const ROW_GAP = 44;
 const ROW_TOP = 230;
 const ROW_SIDE = 96;
-/** A row shrinks its cards (down to ROW_MIN_K) to show up to ROW_MAX before
- *  giving its last slot to the tail card — four events shouldn't read as
- *  "2 and a link". */
-const ROW_MAX = 5;
-const ROW_MIN_K = 0.72;
+/** A row shrinks its cards, down to half size, to fit the window. */
 const ROW_SIDE_TIGHT = 48;
 
-/** Views whose row ends in a link to a full page when it runs long. */
-export const TAIL_HREF: Partial<Record<DeskView, string>> = {
-  events: "/events",
-  projects: "/projects",
-  people: "/favorites",
-  fav: "/favorites",
-};
+// The grid (People, Projects, Events, Favorites): as many columns as fit at
+// GRID_MIN_W, cards at most GRID_MAX_W wide, 3:4, left on the header's edge.
+export const GRID_MIN_W = 240;
+export const GRID_MAX_W = 300;
+export const GRID_GAP = 32;
+/** The header's left edge, and the same margin on the right. */
+export const GRID_SIDE = 48;
+/** Clear space under the last row, so it can scroll out from behind the palette. */
+export const GRID_BOTTOM = 140;
+/** Air between the header and the first row. */
+export const GRID_BELOW_HEADER = 16;
+/** Height of the title block plus filter row before they have been measured. */
+export const DEFAULT_HEADER_H = 190;
+const GRID_ASPECT = 4 / 3;
+
+/** Views that lay out as a scrolling grid. */
+export function isGridView(view: DeskView): boolean {
+  return view === "people" || view === "projects" || view === "events" || view === "fav";
+}
 
 export function clamp(n: number, lo: number, hi: number): number {
   return Math.min(hi, Math.max(lo, n));
@@ -131,7 +148,7 @@ export function clearZones(vh: number): { greeting: Rect; palette: Rect } {
   };
 }
 
-/** How many cards a row holds before its last slot becomes the tail card. */
+/** How many cards a row holds at full size. */
 export function rowFit(vw: number, vh: number): number {
   const s = deskScale(vw, vh);
   const w = ROW_W * s;
@@ -146,14 +163,18 @@ function rowShrink(count: number, vw: number, vh: number): number {
   return clamp((vw - 2 * ROW_SIDE_TIGHT) / need, 0, 1);
 }
 
-/** How many cards a row shows before it ends in a tail card: everything that
- *  fits at full size, or up to ROW_MAX if shrinking them a little fits more. */
-export function rowCapacity(vw: number, vh: number): number {
-  let cap = rowFit(vw, vh);
-  for (let n = cap + 1; n <= ROW_MAX; n++) {
-    if (rowShrink(n, vw, vh) >= ROW_MIN_K) cap = n;
-  }
-  return cap;
+/** Share of the open card the picture side takes. It follows the picture's
+ *  shape (a tall picture a narrow side, a wide one a wide side), held between
+ *  these. */
+export const PIC_MIN = 0.46;
+export const PIC_MAX = 0.62;
+
+/** The picture side's share of an open card `w` by `h`, for a picture whose
+ *  width over height is `aspect` (0 while unknown): the share at which the
+ *  side is the picture's own shape, held to PIC_MIN..PIC_MAX. */
+export function pictureShare(aspect: number, w: number, h: number): number {
+  if (!(aspect > 0) || !(w > 0)) return PIC_MIN;
+  return clamp((h * aspect) / w, PIC_MIN, PIC_MAX);
 }
 
 // ——————————————————————————————————————————————————————————————
@@ -279,8 +300,10 @@ function settle(p: Place, placed: readonly Place[], greeting: Rect, palette: Rec
   return best;
 }
 
-function scatter(cards: readonly LayoutCard[], vw: number, vh: number): Map<string, Place> {
+function scatter(cards: readonly LayoutCard[], vw: number, vh: number, space = 1): Map<string, Place> {
   const s = deskScale(vw, vh);
+  // More space keeps the slots where they are and shrinks the cards in them.
+  const shrink = 1 / Math.sqrt(space);
   const slots = assignSlots(isSmallDesk(vw, vh) ? pickForSmallDesk(cards) : cards);
   const out = new Map<string, Place>();
   if (slots.size === 0) return out;
@@ -298,10 +321,10 @@ function scatter(cards: readonly LayoutCard[], vw: number, vh: number): Map<stri
     const sl = slots.get(c.id);
     if (!sl) continue;
     const p: Place = {
-      x: offX + sl.x * s,
-      y: offY + sl.y * s,
-      w: sl.w * s,
-      h: sl.h * s,
+      x: offX + (sl.x + (sl.w * (1 - shrink)) / 2) * s,
+      y: offY + (sl.y + (sl.h * (1 - shrink)) / 2) * s,
+      w: sl.w * s * shrink,
+      h: sl.h * s * shrink,
       r: sl.r,
       opacity: 1,
       z: z++,
@@ -312,35 +335,74 @@ function scatter(cards: readonly LayoutCard[], vw: number, vh: number): Map<stri
 }
 
 // ——————————————————————————————————————————————————————————————
-// Row
+// Row (Today)
 // ——————————————————————————————————————————————————————————————
 
-function row(matched: readonly LayoutCard[], view: DeskView, vw: number, vh: number): Map<string, Place> {
+function row(matched: readonly LayoutCard[], vw: number, vh: number, space = 1): Map<string, Place> {
   const out = new Map<string, Place>();
   const s = deskScale(vw, vh);
   const fit = rowFit(vw, vh);
-  const capacity = rowCapacity(vw, vh);
-  const tailed = TAIL_HREF[view] !== undefined && matched.length > capacity;
-  const shown = tailed ? matched.slice(0, Math.max(1, capacity - 1)) : [...matched];
-  const count = shown.length + (tailed ? 1 : 0);
+  const count = matched.length;
   if (count === 0) return out;
 
-  // Past the full-size fit, cards shrink. A view with no full page to point
-  // at (Today) can't end in a tail card, so it may shrink further.
+  // Past the full-size fit, cards shrink (Today holds a handful, never more).
   const k = count > fit ? clamp(rowShrink(count, vw, vh), 0.5, 1) : 1;
   const w = ROW_W * s * k;
-  const gap = ROW_GAP * s * k;
+  const gap = ROW_GAP * s * k * space;
   const tall = ROW_H * s * k;
   const total = count * w + (count - 1) * gap;
   const startX = (vw - total) / 2;
   const top = ROW_TOP * s;
 
-  const put = (id: string, i: number, note: boolean) => {
-    const h = (note ? ROW_NOTE_H : ROW_H) * s * k;
-    out.set(id, { x: startX + i * (w + gap), y: top + (tall - h) / 2, w, h, r: 0, opacity: 1, z: i + 1 });
-  };
-  shown.forEach((c, i) => put(c.id, i, c.note));
-  if (tailed) put(TAIL_ID, shown.length, true);
+  matched.forEach((c, i) => {
+    const h = (c.note ? ROW_NOTE_H : ROW_H) * s * k;
+    out.set(c.id, { x: startX + i * (w + gap), y: top + (tall - h) / 2, w, h, r: 0, opacity: 1, z: i + 1 });
+  });
+  return out;
+}
+
+// ——————————————————————————————————————————————————————————————
+// Grid (People, Projects, Events, Favorites)
+// ——————————————————————————————————————————————————————————————
+
+export type GridMetrics = {
+  /** Columns that fit. */
+  cols: number;
+  /** Card width and height (3:4). */
+  w: number;
+  h: number;
+  gap: number;
+  /** The left edge of the first column. */
+  x0: number;
+};
+
+/** The grid for a window `vw` wide: as many columns as fit at GRID_MIN_W,
+ *  filling the width up to GRID_MAX_W per card; whatever is left of a wide
+ *  window stays on the right, so the left edge is always the header's. */
+export function gridMetrics(vw: number, space = 1): GridMetrics {
+  const side = GRID_SIDE * space;
+  const gap = GRID_GAP * space;
+  const avail = Math.max(0, vw - 2 * side);
+  const cols = Math.max(1, Math.floor((avail + gap) / (GRID_MIN_W + gap)));
+  const w = Math.min(GRID_MAX_W, (avail - (cols - 1) * gap) / cols);
+  return { cols, w, h: w * GRID_ASPECT, gap, x0: side };
+}
+
+/** How tall the page is for `count` cards in the grid, and where each row starts. */
+function gridHeight(count: number, g: GridMetrics, top: number, vh: number): number {
+  if (count === 0) return vh;
+  const rows = Math.ceil(count / g.cols);
+  return Math.max(vh, top + rows * g.h + (rows - 1) * g.gap + GRID_BOTTOM);
+}
+
+function grid(matched: readonly LayoutCard[], g: GridMetrics, top: number): Map<string, Place> {
+  const out = new Map<string, Place>();
+  matched.forEach((c, i) => {
+    const col = i % g.cols;
+    const rowIx = Math.floor(i / g.cols);
+    // One layer for every card: a long grid must not climb over the dim layer.
+    out.set(c.id, { x: g.x0 + col * (g.w + g.gap), y: top + rowIx * (g.h + g.gap), w: g.w, h: g.h, r: 0, opacity: 1, z: 1 });
+  });
   return out;
 }
 
@@ -353,41 +415,92 @@ export type LayoutInput = {
   view: DeskView;
   /** The card standing open, if any. */
   openId?: string | null;
+  /** The scroller's visible width and height (not the page's). */
   vw: number;
   vh: number;
+  /** Grid views: how tall the header is. The first row starts just under it. */
+  top?: number;
+  /** How far the page is scrolled. An open card sits in the window, so it
+   *  sits this far down the page. */
+  scrollTop?: number;
+  /** The cards on show in this view, in order. Without it, the cards whose
+   *  sections name the view, in the order given. */
+  shown?: readonly string[];
+  /** Negative space, 1 = as designed: scales gaps and margins (grid, Today's
+   *  row) and shrinks scattered cards. An admin-only dial (deskState
+   *  useDeskSpacing) while the right value is found. */
+  space?: number;
+};
+
+export type DeskLayout = {
+  places: Map<string, Place>;
+  /** How tall the page is: the window's height unless a grid runs longer. */
+  height: number;
+  /** The grid's columns, for the views that have one. */
+  grid: GridMetrics | null;
 };
 
 /**
- * A place for every card, plus one for the tail card (TAIL_ID) when a row
- * runs long. Cards that don't belong to the view sit below the bottom edge,
- * invisible, tilted three times their resting angle.
+ * A place for every card, and the page's height. Cards that don't belong to
+ * the view sit below the bottom of the page, invisible, tilted three times
+ * their resting angle.
  */
-export function layoutDesk({ cards, view, openId = null, vw, vh }: LayoutInput): Map<string, Place> {
+export function layoutDeskFull({
+  cards,
+  view,
+  openId = null,
+  vw,
+  vh,
+  top = DEFAULT_HEADER_H,
+  scrollTop = 0,
+  shown,
+  space = 1,
+}: LayoutInput): DeskLayout {
   // Where each resting card would sit: also where an unmatched card falls
   // from and returns to, so it drops straight down.
   const home = scatter(
     cards.filter((c) => matchesView(c, "all")),
     vw,
     vh,
+    space,
   );
 
-  const arranged = view === "all" ? home : row(cards.filter((c) => matchesView(c, view)), view, vw, vh);
+  const onShow = (): LayoutCard[] => {
+    if (!shown) return cards.filter((c) => matchesView(c, view));
+    const byId = new Map(cards.map((c) => [c.id, c]));
+    return shown.map((id) => byId.get(id)).filter((c): c is LayoutCard => c !== undefined);
+  };
 
-  const out = new Map<string, Place>();
+  let arranged: Map<string, Place>;
+  let height = vh;
+  let metrics: GridMetrics | null = null;
+  if (view === "all") {
+    arranged = home;
+  } else if (isGridView(view)) {
+    const matched = onShow();
+    metrics = gridMetrics(vw, space);
+    const gridTop = top + GRID_BELOW_HEADER;
+    arranged = grid(matched, metrics, gridTop);
+    height = gridHeight(matched.length, metrics, gridTop, vh);
+  } else {
+    arranged = row(onShow(), vw, vh, space);
+  }
+
+  const places = new Map<string, Place>();
   let spare = 0;
   for (const c of cards) {
     const placed = arranged.get(c.id);
     if (placed) {
-      out.set(c.id, placed);
+      places.set(c.id, placed);
       continue;
     }
     const h = home.get(c.id);
     const tilt = h?.r ?? REST_TILTS[spare % REST_TILTS.length];
     const w = h?.w ?? ROW_W * deskScale(vw, vh);
     const ht = h?.h ?? (c.note ? ROW_NOTE_H : ROW_H) * deskScale(vw, vh);
-    out.set(c.id, {
+    places.set(c.id, {
       x: h?.x ?? vw / 2 - w / 2 + (spare - 2) * 70,
-      y: vh + 80,
+      y: height + 80,
       w,
       h: ht,
       r: tilt * 3,
@@ -396,20 +509,24 @@ export function layoutDesk({ cards, view, openId = null, vw, vh }: LayoutInput):
     });
     if (!h) spare++;
   }
-  const tail = arranged.get(TAIL_ID);
-  if (tail) out.set(TAIL_ID, tail);
 
   // A card opened from a view it isn't in rises from where it waits.
+  const open = openId ? cards.find((c) => c.id === openId) : undefined;
   if (openId) {
-    out.set(openId, {
-      x: OPEN_INSET,
-      y: OPEN_INSET,
-      w: Math.max(0, vw - 2 * OPEN_INSET),
-      h: Math.max(0, vh - 2 * OPEN_INSET),
-      r: 0,
-      opacity: 1,
-      z: Z_OPEN,
-    });
+    const winW = Math.max(0, vw - 2 * OPEN_INSET);
+    const winH = Math.max(0, vh - 2 * OPEN_INSET);
+    if (open?.sheet) {
+      const w = Math.min(SHEET_W, winW);
+      const h = Math.min(SHEET_H, winH);
+      places.set(openId, { x: (vw - w) / 2, y: scrollTop + (vh - h) / 2, w, h, r: 0, opacity: 1, z: Z_OPEN });
+    } else {
+      places.set(openId, { x: OPEN_INSET, y: scrollTop + OPEN_INSET, w: winW, h: winH, r: 0, opacity: 1, z: Z_OPEN });
+    }
   }
-  return out;
+  return { places, height, grid: metrics };
+}
+
+/** Just the places: see layoutDeskFull. */
+export function layoutDesk(input: LayoutInput): Map<string, Place> {
+  return layoutDeskFull(input).places;
 }

@@ -3,15 +3,19 @@
 // The face (picture or tone, scrim, kicker, title, foot) is the same element
 // open and closed, so opening is one motion rather than a swap.
 //
+// Opened, a card with a picture splits: the picture on the left, as wide as
+// the picture's shape wants (46 to 62 percent), and the detail panel beside
+// it. A card with no picture is a centered sheet, the panel alone.
+//
 // Geometry comes from deskLayout.ts; this file draws it. All motion is 620ms
 // DESK.ease, and none of it runs under prefers-reduced-motion.
 
-import { useCallback, useEffect, useState, type CSSProperties, type ReactNode } from "react";
-import { Link } from "react-router";
+import { memo, useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { AbstractCover } from "../components/AbstractCover";
 import { useReducedMotion } from "../hooks/useMediaQuery";
-import type { DeskCard } from "./deskCards";
-import { Z_HOVER, type Place } from "./deskLayout";
+import { initialsOf } from "../lib/initials";
+import { opensAsSheet, type DeskCard } from "./deskCards";
+import { PIC_MIN, Z_HOVER, pictureShare, type Place } from "./deskLayout";
 import { DetailPanel } from "./OpenedCard";
 import { DESK, DESK_MONO, DESK_SANS, FOCUS_RING_CLASS, MOTION_MS, isFocusVisible, motion } from "./tokens";
 
@@ -32,11 +36,12 @@ const FILL: CSSProperties = { position: "absolute", inset: 0, width: "100%", hei
 /** False on the first frame, true after: a card that has just arrived starts
  * below the window and rises to its place. Two animation frames let the
  * browser draw the starting position first; a timer covers a hidden tab,
- * where frames don't run. */
-function useEntered(reduced: boolean): boolean {
-  const [entered, setEntered] = useState(reduced);
+ * where frames don't run. A card that arrives already in its place (one
+ * scrolled into the window, or waiting below it) skips the rise. */
+function useEntered(reduced: boolean, instant: boolean): boolean {
+  const [entered, setEntered] = useState(reduced || instant);
   useEffect(() => {
-    if (reduced) {
+    if (reduced || instant) {
       setEntered(true);
       return;
     }
@@ -50,7 +55,7 @@ function useEntered(reduced: boolean): boolean {
       cancelAnimationFrame(inner);
       clearTimeout(fallback);
     };
-  }, [reduced]);
+  }, [reduced, instant]);
   return entered;
 }
 
@@ -62,6 +67,7 @@ function useEntered(reduced: boolean): boolean {
 function Shell({
   place,
   vh,
+  instant,
   lift,
   open,
   inert,
@@ -71,6 +77,7 @@ function Shell({
 }: {
   place: Place;
   vh: number;
+  instant: boolean;
   lift: boolean;
   open: boolean;
   inert: boolean;
@@ -79,7 +86,7 @@ function Shell({
   children: ReactNode;
 }) {
   const reduced = useReducedMotion();
-  const entered = useEntered(reduced);
+  const entered = useEntered(reduced, instant);
   const p: Place = entered ? place : { ...place, y: vh + 80, opacity: 0, r: place.r * 3 };
   const hidden = p.opacity === 0;
 
@@ -126,7 +133,7 @@ function Shell({
 // A card
 // ——————————————————————————————————————————————————————————————
 
-export function DeskCardView({
+export const DeskCardView = memo(function DeskCardView({
   card,
   place,
   open,
@@ -141,11 +148,14 @@ export function DeskCardView({
   /** Another card is open: this one can't be reached. */
   inert: boolean;
   vh: number;
-  onOpen: () => void;
+  onOpen: (id: DeskCard["id"]) => void;
   onClose: () => void;
 }) {
   const reduced = useReducedMotion();
   const [hovered, setHovered] = useState(false);
+  // Set once, when the card is first drawn: one that appears below the first
+  // screen (scrolled to, or waiting offscreen) doesn't rise from the bottom.
+  const [instant] = useState(() => place.y > vh + 1);
 
   // The detail panel stays up while the card shrinks back, then goes.
   const [panel, setPanel] = useState(open);
@@ -158,6 +168,15 @@ export function DeskCardView({
     return () => clearTimeout(timer);
   }, [open, reduced]);
 
+  // The picture's shape, known once it has loaded, sets the picture side's width.
+  const [aspect, setAspect] = useState(0);
+  const sheet = opensAsSheet(card);
+  // Worked out against the open card, then held while it closes: the card is
+  // grid-sized by then, and the panel is still fading.
+  const shareRef = useRef(PIC_MIN);
+  if (open) shareRef.current = pictureShare(aspect, place.w, place.h);
+  const share = shareRef.current;
+
   const lift = hovered && place.opacity > 0 && !open;
   const radius = open ? RADIUS_OPEN : RADIUS;
   const label = [card.face.kicker, card.face.title, card.face.foot].filter(Boolean).join(", ");
@@ -166,6 +185,7 @@ export function DeskCardView({
     <Shell
       place={place}
       vh={vh}
+      instant={instant}
       lift={lift}
       open={open}
       inert={inert}
@@ -173,8 +193,8 @@ export function DeskCardView({
       dialogLabel={card.detail.title}
     >
       <div style={{ position: "absolute", inset: 0, overflow: "hidden", borderRadius: radius, transition: motion(["border-radius"], reduced) }}>
-        <Face card={card} open={open} scale={place.w / CARD_W} />
-        {panel && <DetailPanel card={card} visible={open} onClose={onClose} />}
+        <Face card={card} open={open} sheet={sheet} share={share} scale={place.w / CARD_W} onAspect={setAspect} />
+        {panel && <DetailPanel card={card} visible={open} sheet={sheet} share={share} onClose={onClose} />}
       </div>
       {!open && (
         <button
@@ -182,7 +202,7 @@ export function DeskCardView({
           data-desk-card={card.id}
           aria-label={label}
           aria-haspopup="dialog"
-          onClick={onOpen}
+          onClick={() => onOpen(card.id)}
           onFocus={(e) => {
             if (isFocusVisible(e.currentTarget)) setHovered(true);
           }}
@@ -193,9 +213,25 @@ export function DeskCardView({
       )}
     </Shell>
   );
-}
+});
 
-function Face({ card, open, scale }: { card: DeskCard; open: boolean; scale: number }) {
+function Face({
+  card,
+  open,
+  sheet,
+  share,
+  scale,
+  onAspect,
+}: {
+  card: DeskCard;
+  open: boolean;
+  /** This card opens as a sheet: its face fades out as it does. */
+  sheet: boolean;
+  /** Width of the face when open, as a share of the open card. */
+  share: number;
+  scale: number;
+  onAspect: (aspect: number) => void;
+}) {
   const reduced = useReducedMotion();
   const { face, note, image, tone } = card;
   const [broken, setBroken] = useState(false);
@@ -204,15 +240,60 @@ function Face({ card, open, scale }: { card: DeskCard; open: boolean; scale: num
   // it's measured: no cropped poster that then fades into its frame. A cached
   // picture can finish before onLoad is attached; read it on mount too.
   const [shape, setShape] = useState<"unknown" | "wide" | "tall">("unknown");
-  const measure = useCallback((el: HTMLImageElement | null) => {
-    if (el?.complete && el.naturalHeight > 0) setShape(isWide(el) ? "wide" : "tall");
-  }, []);
+  const settle = useCallback(
+    (el: HTMLImageElement) => {
+      setShape(isWide(el) ? "wide" : "tall");
+      if (el.naturalHeight > 0) onAspect(el.naturalWidth / el.naturalHeight);
+    },
+    [onAspect],
+  );
+  const measure = useCallback(
+    (el: HTMLImageElement | null) => {
+      if (el?.complete && el.naturalHeight > 0) settle(el);
+    },
+    [settle],
+  );
   const wide = shape === "wide";
-  // Event posters carry their own lettering; project and people pictures are
-  // photos, which read best full-bleed whatever their shape.
-  const framed = Boolean(pic) && (open || (wide && card.kind === "event"));
-  const ink = note ? DESK.paperInk : DESK.text;
+  // The picture's layers take their final look the moment it is revealed and
+  // only animate from then on, so a poster never shows cropped and then fades
+  // into its frame.
+  const [armed, setArmed] = useState(false);
+  useEffect(() => {
+    if (shape === "unknown") {
+      setArmed(false);
+      return;
+    }
+    let inner = 0;
+    const outer = requestAnimationFrame(() => {
+      inner = requestAnimationFrame(() => setArmed(true));
+    });
+    const fallback = setTimeout(() => setArmed(true), 300);
+    return () => {
+      cancelAnimationFrame(outer);
+      cancelAnimationFrame(inner);
+      clearTimeout(fallback);
+    };
+  }, [shape]);
+  // The picture side of an opened card (a sheet has none).
+  const split = open && !sheet;
+  // Event posters carry their own lettering, so they stay whole: framed,
+  // uncropped, on a dimmed blur of themselves. Project and people pictures
+  // are photos, which read best full-bleed whatever their shape, resting or open.
+  const poster = card.kind === "event";
+  const framed = Boolean(pic) && poster && (split || wide);
+
+  // No picture, or not loaded yet: each kind gets a face of its own, so a
+  // card is never blank while its picture is on the way.
+  const waiting = !pic || shape === "unknown";
+  const personCard = waiting && card.kind === "person";
+  const dateCard = waiting && card.kind === "event";
+  // Paper is the fund and grant notes' alone; a person with no photo is a dark
+  // card with their initials in the paper's color.
+  const paper = note;
+  const ink = paper ? DESK.paperInk : DESK.text;
   const t = (props: string[]) => motion(props, reduced);
+  const tPic = (props: string[]) => (armed ? t(props) : "none");
+  const small = Math.min(1, scale);
 
   return (
     <div
@@ -221,8 +302,8 @@ function Face({ card, open, scale }: { card: DeskCard; open: boolean; scale: num
         top: 0,
         bottom: 0,
         left: 0,
-        width: open ? "46%" : "100%",
-        padding: open ? 56 : Math.round(22 * Math.min(1, Math.max(0.7, scale))),
+        width: split ? `${share * 100}%` : "100%",
+        padding: split ? 56 : Math.round(22 * Math.min(1, Math.max(0.7, scale))),
         display: "flex",
         flexDirection: "column",
         justifyContent: "space-between",
@@ -230,8 +311,10 @@ function Face({ card, open, scale }: { card: DeskCard; open: boolean; scale: num
         overflow: "hidden",
         color: ink,
         fontFamily: DESK_SANS,
-        background: note ? DESK.paper : pic ? DESK.page : `linear-gradient(165deg, ${tone}, #161616 92%)`,
-        transition: t(["width", "padding"]),
+        background: paper ? DESK.paper : pic ? DESK.page : `linear-gradient(165deg, ${tone}, #161616 92%)`,
+        // A sheet's face goes as the sheet opens; the panel is all that is left.
+        opacity: open && sheet ? 0 : 1,
+        transition: t(["width", "padding", "opacity"]),
       }}
     >
       {!pic && card.kind === "project" && (
@@ -250,80 +333,122 @@ function Face({ card, open, scale }: { card: DeskCard; open: boolean; scale: num
           <img
             src={pic}
             alt=""
-            loading="lazy"
             decoding="async"
             onError={() => setBroken(true)}
             ref={measure}
-            onLoad={(e) => setShape(isWide(e.currentTarget) ? "wide" : "tall")}
-            style={{ ...FILL, objectFit: "cover", opacity: framed ? 0 : 1, transition: t(["opacity"]) }}
+            onLoad={(e) => settle(e.currentTarget)}
+            style={{ ...FILL, objectFit: "cover", opacity: framed ? 0 : 1, transition: tPic(["opacity"]) }}
           />
           <div
             aria-hidden
             style={{
               ...FILL,
               background: SCRIM,
-              opacity: framed ? 0 : 1,
-              transition: t(["opacity"]),
+              // Words go from a photo's face when it opens: they move to the panel.
+              opacity: framed || split ? 0 : 1,
+              transition: tPic(["opacity"]),
             }}
           />
           {/* Framed: the whole picture, uncropped, on a dimmed blur of
-              itself. Opened cards always frame (the title moves to the
-              detail panel); resting event cards frame a wide poster, which
-              a portrait card would otherwise crop to half its lettering. */}
+              itself. An opened poster is framed; a resting event card frames a
+              wide poster, which a portrait card would otherwise crop to half
+              its lettering. */}
           <img
             src={pic}
             alt=""
             aria-hidden
             decoding="async"
-            style={{ ...FILL, objectFit: "cover", filter: "blur(28px) brightness(.4)", transform: "scale(1.15)", opacity: framed ? 1 : 0, transition: t(["opacity"]) }}
+            style={{ ...FILL, objectFit: "cover", filter: "blur(28px) brightness(.4)", transform: "scale(1.15)", opacity: framed ? 1 : 0, transition: tPic(["opacity"]) }}
           />
           <div
             aria-hidden
             style={{
               position: "absolute",
-              ...(open ? { top: 40, left: 40, right: 40, bottom: 40 } : { top: 50, left: 14, right: 14, bottom: "44%" }),
+              // Open, the side is the poster's own shape, so a small margin
+              // lets the poster fill its larger side.
+              ...(split ? { top: 28, left: 28, right: 28, bottom: 28 } : { top: 50, left: 14, right: 14, bottom: "44%" }),
               opacity: framed ? 1 : 0,
-              transition: t(["opacity", "top", "left", "right", "bottom"]),
+              transition: tPic(["opacity", "top", "left", "right", "bottom"]),
             }}
           >
             <img
               src={pic}
               alt=""
               decoding="async"
-              style={{ width: "100%", height: "100%", objectFit: "contain", objectPosition: open ? "center" : "center top" }}
+              style={{ width: "100%", height: "100%", objectFit: "contain", objectPosition: split ? "center" : "center top" }}
             />
           </div>
         </div>
       )}
 
-      <p
-        style={{
-          position: "relative",
-          margin: 0,
-          fontFamily: DESK_MONO,
-          fontSize: 12,
-          letterSpacing: "0.2em",
-          textTransform: "uppercase",
-          opacity: open && pic ? 0 : 0.9,
-          transition: t(["opacity"]),
-        }}
-      >
-        {face.kicker}
-      </p>
+      {dateCard ? (
+        // No poster: the date, set large, is the face.
+        <p
+          style={{
+            position: "relative",
+            margin: 0,
+            fontSize: Math.max(28, Math.round(40 * Math.min(1.1, scale))),
+            fontWeight: 500,
+            lineHeight: 1,
+            letterSpacing: "-0.02em",
+            whiteSpace: "nowrap",
+            opacity: split ? 0 : 1,
+            transition: t(["opacity"]),
+          }}
+        >
+          {face.kicker}
+        </p>
+      ) : (
+        <p
+          style={{
+            position: "relative",
+            margin: 0,
+            fontFamily: DESK_MONO,
+            fontSize: 12,
+            letterSpacing: "0.2em",
+            textTransform: "uppercase",
+            opacity: split && pic ? 0 : 0.9,
+            transition: t(["opacity"]),
+          }}
+        >
+          {face.kicker}
+        </p>
+      )}
 
-      <div style={{ position: "relative", minWidth: 0, opacity: open && pic ? 0 : 1, transition: t(["opacity"]) }}>
+      {personCard && (
+        // No photo: the initials, large, in the paper's color.
+        <div aria-hidden style={{ position: "relative", flex: 1, display: "flex", alignItems: "center", minHeight: 0 }}>
+          <span
+            style={{
+              fontSize: Math.max(56, Math.round(92 * Math.min(1.15, scale))),
+              fontWeight: 500,
+              lineHeight: 1,
+              letterSpacing: "-0.04em",
+              color: DESK.paper,
+              opacity: split ? 0 : 0.92,
+              transition: t(["opacity"]),
+            }}
+          >
+            {initialsOf(face.title)}
+          </span>
+        </div>
+      )}
+
+      <div style={{ position: "relative", minWidth: 0, opacity: split && pic ? 0 : 1, transition: t(["opacity"]) }}>
         <h3
           style={{
             margin: 0,
             // Type follows the card's size on small desks, never below 17px.
-            fontSize: open ? 72 : Math.max(17, Math.round((note ? 40 : 26) * Math.min(1, scale))),
+            // A sheet keeps the resting size while its face fades.
+            fontSize: split ? 72 : Math.max(17, Math.round((note ? 40 : 26) * small)),
             fontWeight: 500,
-            lineHeight: open ? 1 : 1.04,
+            lineHeight: split ? 1 : 1.04,
             letterSpacing: "-0.02em",
+            // A word never breaks mid-way; only one wider than its whole line gives way.
             overflowWrap: "break-word",
-            hyphens: "auto",
+            hyphens: "manual",
             transition: t(["font-size"]),
-            ...(open ? {} : { display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical" as const, overflow: "hidden" }),
+            ...(split ? {} : { display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical" as const, overflow: "hidden" }),
           }}
         >
           {face.title}
@@ -332,11 +457,13 @@ function Face({ card, open, scale }: { card: DeskCard; open: boolean; scale: num
           <p
             style={{
               margin: "10px 0 0",
-              fontSize: open ? 16 : 13,
+              fontSize: split ? 16 : 13,
               lineHeight: 1.35,
               opacity: 0.85,
+              hyphens: "manual",
+              overflowWrap: "break-word",
               transition: t(["font-size"]),
-              ...(open ? {} : { display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" as const, overflow: "hidden" }),
+              ...(split ? {} : { display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" as const, overflow: "hidden" }),
             }}
           >
             {face.foot}
@@ -350,29 +477,4 @@ function Face({ card, open, scale }: { card: DeskCard; open: boolean; scale: num
 /** Wider than about square: a portrait card would crop it hard. */
 function isWide(img: HTMLImageElement): boolean {
   return img.naturalHeight > 0 && img.naturalWidth / img.naturalHeight > 0.95;
-}
-
-// ——————————————————————————————————————————————————————————————
-// The tail of a long row
-// ——————————————————————————————————————————————————————————————
-
-/** "All 12 events →": the last slot of a row that runs long. A link to the full page. */
-export function TailCard({ place, vh, inert, label, href }: { place: Place; vh: number; inert: boolean; label: string; href: string }) {
-  const [hovered, setHovered] = useState(false);
-  const lift = hovered && place.opacity > 0;
-  return (
-    <Shell place={place} vh={vh} lift={lift} open={false} inert={inert} onHover={setHovered}>
-      <Link
-        to={href}
-        onFocus={(e) => {
-          if (isFocusVisible(e.currentTarget)) setHovered(true);
-        }}
-        onBlur={() => setHovered(false)}
-        className={`flex h-full w-full items-center justify-center rounded-[4px] border border-[#333] p-6 text-center no-underline ${FOCUS_RING_CLASS}`}
-        style={{ background: DESK.panel, color: DESK.text, fontFamily: DESK_SANS, fontSize: 22, fontWeight: 500, lineHeight: 1.2, letterSpacing: "-0.01em" }}
-      >
-        {label}
-      </Link>
-    </Shell>
-  );
 }

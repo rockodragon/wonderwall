@@ -15,7 +15,7 @@ import {
 } from "react";
 import { useNavigate } from "react-router";
 import type { PaletteItem, PaletteTool } from "./paletteConfig";
-import type { ToolId } from "./paletteLogic";
+import { createGrace, createHoverIntent, type ToolId } from "./paletteLogic";
 import { isFocusVisible } from "./tokens";
 
 const ARROW_KEYS = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"];
@@ -34,6 +34,10 @@ export function usePaletteController(tools: PaletteTool[], onMain: () => void) {
   const [open, setOpen] = useState(false);
   const [stackId, setStackId] = useState<ToolId | null>(null);
   const [roving, setRoving] = useState(0);
+  // The same value as stackId, readable by a pointer event before the next render.
+  const stackRef = useRef<ToolId | null>(null);
+  // The one wait behind mouse hover: a switch to a neighbouring tool, or a close.
+  const [grace] = useState(() => createGrace());
 
   const rootRef = useRef<HTMLDivElement>(null);
   const mainRef = useRef<HTMLButtonElement>(null);
@@ -47,22 +51,44 @@ export function usePaletteController(tools: PaletteTool[], onMain: () => void) {
   const focusStackOnOpen = useRef(false);
   const focusToolOnOpen = useRef<number | null>(null);
 
+  /** Every change of stack goes through here, so a hover still waiting never
+   *  lands on top of a newer choice (keyboard, click, close). */
+  const showStack = useCallback(
+    (id: ToolId | null) => {
+      grace.cancel();
+      stackRef.current = id;
+      setStackId(id);
+    },
+    [grace],
+  );
+
   const closeAll = useCallback((refocusMain = false) => {
     hovering.current = false;
-    setStackId(null);
+    showStack(null);
     setOpen(false);
     if (refocusMain) {
       skipFocusOpen.current = true;
       mainRef.current?.focus();
       skipFocusOpen.current = false;
     }
-  }, []);
+  }, [showStack]);
 
   /** Keyboard focus is inside the palette (as opposed to a mouse that clicked there). */
   function keyboardFocusInside(): boolean {
     const el = document.activeElement;
     return !!el && !!rootRef.current?.contains(el) && isFocusVisible(el);
   }
+
+  // What the mouse does to the menus, with a 300ms grace before a switch or a
+  // close (paletteLogic: createHoverIntent). It only touches refs, so the
+  // first render's functions are good for the life of the palette.
+  const [intent] = useState(() =>
+    createHoverIntent(
+      { current: () => stackRef.current, showStack, closeAll: () => closeAll(), keepOpen: keyboardFocusInside },
+      grace,
+    ),
+  );
+  useEffect(() => () => grace.cancel(), [grace]);
 
   // Tap outside closes everything (touch, or a click anywhere off the palette).
   useEffect(() => {
@@ -97,7 +123,7 @@ export function usePaletteController(tools: PaletteTool[], onMain: () => void) {
   function focusTool(i: number) {
     const next = Math.max(0, Math.min(tools.length - 1, i));
     setRoving(next);
-    setStackId(null);
+    showStack(null);
     toolRefs.current[tools[next].id]?.focus();
   }
 
@@ -107,7 +133,7 @@ export function usePaletteController(tools: PaletteTool[], onMain: () => void) {
       return;
     }
     focusStackOnOpen.current = true;
-    setStackId(id);
+    showStack(id);
   }
 
   // ——— main button ———
@@ -119,6 +145,7 @@ export function usePaletteController(tools: PaletteTool[], onMain: () => void) {
   function onMainPointerEnter(e: ReactPointerEvent) {
     if (e.pointerType === "touch") return;
     hovering.current = true;
+    intent.zoneEnter();
     setOpen(true);
   }
 
@@ -152,21 +179,26 @@ export function usePaletteController(tools: PaletteTool[], onMain: () => void) {
 
   // ——— the hover zone ———
 
+  function onZonePointerEnter(e: ReactPointerEvent) {
+    if (e.pointerType === "touch") return;
+    hovering.current = true;
+    intent.zoneEnter();
+  }
+
   function onZonePointerLeave(e: ReactPointerEvent) {
     if (e.pointerType === "touch") return;
     hovering.current = false;
-    if (keyboardFocusInside()) return;
-    closeAll();
+    intent.zoneLeave();
   }
 
   // ——— tools ———
 
   function onToolPointerEnter(e: ReactPointerEvent, tool: PaletteTool) {
-    if (e.pointerType !== "touch") setStackId(tool.id);
+    if (e.pointerType !== "touch") intent.toolEnter(tool.id);
   }
 
-  function onToolPointerLeave(e: ReactPointerEvent, tool: PaletteTool) {
-    if (e.pointerType !== "touch") setStackId((cur) => (cur === tool.id ? null : cur));
+  function onToolPointerLeave(e: ReactPointerEvent) {
+    if (e.pointerType !== "touch") intent.toolLeave();
   }
 
   function onToolPointerDown(e: ReactPointerEvent) {
@@ -183,7 +215,7 @@ export function usePaletteController(tools: PaletteTool[], onMain: () => void) {
     if (pointerKind.current === "touch") {
       // First tap shows the stack; the second runs the tool.
       if (stackId !== tool.id) {
-        setStackId(tool.id);
+        showStack(tool.id);
         return;
       }
       if (tool.to) {
@@ -248,7 +280,7 @@ export function usePaletteController(tools: PaletteTool[], onMain: () => void) {
         break;
       case "ArrowLeft":
         e.preventDefault();
-        setStackId(null);
+        showStack(null);
         toolRefs.current[tool.id]?.focus();
         break;
     }
@@ -270,7 +302,7 @@ export function usePaletteController(tools: PaletteTool[], onMain: () => void) {
     e.stopPropagation();
     if (stackId) {
       const id = stackId;
-      setStackId(null);
+      showStack(null);
       toolRefs.current[id]?.focus();
     } else {
       closeAll(true);
@@ -296,6 +328,7 @@ export function usePaletteController(tools: PaletteTool[], onMain: () => void) {
     setRoving,
     onRootKeyDown,
     onRootBlur,
+    onZonePointerEnter,
     onZonePointerLeave,
     onMainPointerDown,
     onMainPointerEnter,

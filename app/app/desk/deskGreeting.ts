@@ -1,5 +1,8 @@
-// The desk's greeting: "Good morning, Rick." Pure, so the hour and the
-// placeholder-name rule can be tested.
+// The desk's header copy: the greeting ("Good morning, Rick.") on the home
+// view and the count beside a view's name ("13 people") on the others. Pure,
+// so the hour, the placeholder-name rule and the plurals can be tested.
+
+import type { DeskView } from "./deskState";
 
 export type GreetingWord = "morning" | "afternoon" | "evening";
 
@@ -20,4 +23,21 @@ export function firstNameOf(name: string | undefined | null): string | null {
 export function greetingFor(hour: number, name: string | undefined | null): string {
   const first = firstNameOf(name);
   return `Good ${greetingWord(hour)}${first ? `, ${first}` : ""}.`;
+}
+
+const COUNT_NOUN: Record<DeskView, readonly [string, string] | null> = {
+  all: null,
+  today: ["thing", "things"],
+  people: ["person", "people"],
+  projects: ["project", "projects"],
+  events: ["event", "events"],
+  fav: ["favorite", "favorites"],
+};
+
+/** "13 people", "1 project": the count that sits beside a view's name. Empty
+ *  for the home view, which has none. */
+export function countLabel(view: DeskView, count: number): string {
+  const noun = COUNT_NOUN[view];
+  if (!noun) return "";
+  return `${count} ${count === 1 ? noun[0] : noun[1]}`;
 }

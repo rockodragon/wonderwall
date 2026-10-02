@@ -15,13 +15,12 @@ import {
   communityNameFor,
   useCommunityContext,
 } from "../components/CommunityFilter";
-import { haversineDistance, NEAR_ME_RADIUS_OPTIONS, useNearMe } from "../lib/useNearMe";
+import { NEAR_ME_RADIUS_OPTIONS, useNearMe } from "../lib/useNearMe";
+import { filterEvents, onlyFavorites, parseEventsTab, type EventsTab } from "../lib/browse/eventsFilter";
 import { LocationIcon } from "../components/icons";
 
 // The card itself lives in components/EventCard.tsx — /favorites renders the
 // same component, so the treatment can only be changed in one place.
-
-type FilterTab = "all" | "favorites" | "past";
 
 export default function Events() {
   const { isAuthenticated, isLoading: authLoading } = useConvexAuth();
@@ -37,11 +36,9 @@ export default function Events() {
     setSearchParams,
   } = useFilterState({ tagsParam: "tags" });
 
-  const tabParam = searchParams.get("tab");
-  const activeTab: FilterTab =
-    tabParam === "favorites" || tabParam === "past" ? tabParam : "all";
+  const activeTab = parseEventsTab(searchParams.get("tab"));
 
-  function setActiveTab(tab: FilterTab) {
+  function setActiveTab(tab: EventsTab) {
     setSearchParams((prev) => {
       const params = new URLSearchParams(prev);
       if (tab === "all") params.delete("tab");
@@ -119,35 +116,12 @@ export default function Events() {
   // Client-side search filtering
   const events = useMemo(() => {
     if (!allEvents) return undefined;
-    const q = debouncedQuery.trim().toLowerCase();
-    let list = allEvents as any[];
-    if (q) {
-      list = list.filter(
-        (e) =>
-          e.title.toLowerCase().includes(q) ||
-          e.description.toLowerCase().includes(q) ||
-          (e.location && e.location.toLowerCase().includes(q)) ||
-          e.tags.some((t: string) => t.toLowerCase().includes(q)),
-      );
-    }
-    if (tagFilters.length > 0) {
-      list = list.filter((e) => e.tags.some((t: string) => tagFilters.includes(t)));
-    }
-    if (communitySlug !== "all") {
-      list = list.filter((e: any) => e.community?.slug === communitySlug);
-    }
-    if (nearMe && userPos) {
-      list = list
-        .map((e) => ({
-          ...e,
-          _distance: e.coordinates
-            ? haversineDistance(userPos.lat, userPos.lng, e.coordinates.lat, e.coordinates.lng)
-            : Infinity,
-        }))
-        .filter((e) => e._distance <= radius)
-        .sort((a, b) => a._distance - b._distance);
-    }
-    return list;
+    return filterEvents(allEvents as any[], {
+      query: debouncedQuery,
+      tags: tagFilters,
+      inCommunity: communitySlug !== "all" ? (e: any) => e.community?.slug === communitySlug : null,
+      near: nearMe && userPos ? { pos: userPos, radius } : null,
+    });
   }, [allEvents, debouncedQuery, tagFilters, communitySlug, nearMe, userPos, radius]);
 
   // Get favorited event IDs
@@ -159,9 +133,7 @@ export default function Events() {
 
   // Filter events based on active tab
   const filteredEvents =
-    activeTab === "favorites"
-      ? events?.filter((e) => favoriteEventIds.has(e._id))
-      : events;
+    activeTab === "favorites" && events ? onlyFavorites(events, favoriteEventIds) : events;
 
   return (
     // SearchInput and TagFilterPills (below) now use the --app-* tokens
