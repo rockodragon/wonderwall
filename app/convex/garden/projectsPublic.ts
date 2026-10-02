@@ -15,6 +15,7 @@ import { v } from "convex/values";
 import { query } from "../_generated/server";
 import { shapeCredits, type CreditEntry } from "./allocations";
 import { summarizeGig } from "./gigSummary";
+import { isHidden } from "../moderationRules";
 
 // ——————————————————————————————————————————————————————————————
 // Pure core
@@ -254,7 +255,8 @@ export const getProject = query({
     if (!id) return null;
 
     const project = await ctx.db.get(id);
-    if (!project) return null;
+    // An admin-hidden project (moderation.ts) reads as not found here.
+    if (!project || isHidden(project)) return null;
 
     const [ownerProfile, allocationRows] = await Promise.all([
       ctx.db.query("profiles").withIndex("by_userId", (q) => q.eq("userId", project.userId)).unique(),

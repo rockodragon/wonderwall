@@ -211,6 +211,8 @@ export default function AdminPage() {
           </Link>
         </div>
 
+        <HiddenContent />
+
         <div className="mb-8 bg-white shadow-md rounded-lg p-6">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div>
@@ -503,6 +505,93 @@ export default function AdminPage() {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// What admins have hidden with the ⋮ on a project or event page
+// (components/AdminMenu.tsx, convex/moderation.ts). Hidden rows are off
+// every browse list, so this is the way back to them: open one to delete
+// it from its own ⋮, or unhide it here.
+function HiddenContent() {
+  const hidden = useQuery(api.moderation.listHidden);
+  const setProjectHidden = useMutation(api.moderation.setProjectHidden);
+  const setEventHidden = useMutation(api.moderation.setEventHidden);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  if (!hidden) return null;
+
+  const rows = [
+    ...hidden.events.map((e) => ({
+      key: e._id as string,
+      kind: "Event",
+      title: e.title,
+      ownerName: e.ownerName,
+      hiddenAt: e.hiddenAt,
+      href: `/events/${e._id}`,
+      unhide: () => setEventHidden({ eventId: e._id, hidden: false }),
+    })),
+    ...hidden.projects.map((p) => ({
+      key: p._id as string,
+      kind: "Project",
+      title: p.title,
+      ownerName: p.ownerName,
+      hiddenAt: p.hiddenAt,
+      href: `/projects/${p._id}`,
+      unhide: () => setProjectHidden({ projectId: p._id, hidden: false }),
+    })),
+  ].sort((a, b) => (b.hiddenAt ?? 0) - (a.hiddenAt ?? 0));
+
+  async function unhide(row: (typeof rows)[number]) {
+    setBusyId(row.key);
+    try {
+      await row.unhide();
+    } catch (err) {
+      window.alert(err instanceof Error ? err.message : "Couldn't unhide that.");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  return (
+    <div className="mb-8 bg-white shadow-md rounded-lg p-6">
+      <h2 className="text-lg font-semibold text-gray-900">Hidden</h2>
+      <p className="mt-1 text-sm text-gray-600 max-w-2xl">
+        Projects and events hidden with the ⋮ on their page. Only their owner
+        and admins can open them. Open one to delete it for good.
+      </p>
+      {rows.length === 0 ? (
+        <p className="mt-4 text-sm text-gray-400 italic">Nothing hidden.</p>
+      ) : (
+        <ul className="mt-4 divide-y divide-gray-200">
+          {rows.map((row) => (
+            <li key={row.key} className="py-3 flex items-center justify-between gap-4 flex-wrap">
+              <div className="min-w-0">
+                <span className="text-xs font-medium uppercase tracking-wide text-gray-500 mr-2">
+                  {row.kind}
+                </span>
+                <Link
+                  to={row.href}
+                  className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline"
+                >
+                  {row.title}
+                </Link>
+                <div className="text-xs text-gray-500">
+                  {row.ownerName}
+                  {row.hiddenAt && ` · hidden ${new Date(row.hiddenAt).toLocaleDateString()}`}
+                </div>
+              </div>
+              <button
+                onClick={() => unhide(row)}
+                disabled={busyId === row.key}
+                className="px-3 py-1 text-sm text-gray-700 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50"
+              >
+                {busyId === row.key ? "Unhiding…" : "Unhide"}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

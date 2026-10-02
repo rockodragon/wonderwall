@@ -26,6 +26,8 @@ import { summarizeGig } from "./gigSummary";
 // project is (docs/features/creator-media-cross-post.md, Round 2) — is
 // checked and stored the way artifacts and events store one.
 import { canonicalMediaUrl, schedulePreviewFetch } from "../linkPreview";
+import { isAdmin } from "../helpers";
+import { isHidden } from "../moderationRules";
 
 // Following fan-out (docs/features/following.md §1 #5): "Name posted Title"
 // to everyone following the poster, once per created row. `userId` is a
@@ -346,6 +348,11 @@ export const updateProjectStatus = mutation({
         reason: `Not a valid status for a ${project.kind} project.`,
       });
     }
+    // Hidden is set and lifted only by an admin's Hide/Unhide
+    // (moderation.ts), which also remembers the status to restore.
+    if (isHidden(project)) {
+      throw new ConvexError({ code: "hidden", reason: "An admin has hidden this project." });
+    }
 
     await ctx.db.patch(args.projectId, { status: args.status, updatedAt: Date.now() });
     return { ok: true };
@@ -569,6 +576,12 @@ export const getProject = query({
     if (!id) return null;
     const project = await ctx.db.get(id);
     if (!project) return null;
+    // An admin-hidden project (moderation.ts) reads as not-found to everyone
+    // but its lead and admins.
+    if (isHidden(project)) {
+      const viewerId = await getAuthUserId(ctx);
+      if (!viewerId || (viewerId !== project.userId && !(await isAdmin(ctx, viewerId)))) return null;
+    }
 
     const [user, media, support, communityOrg, gig] = await Promise.all([
       ctx.db
