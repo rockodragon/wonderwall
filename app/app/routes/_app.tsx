@@ -12,6 +12,7 @@ import { NAV_ITEMS } from "../garden/ui";
 import { FF_DESK, FF_V2 } from "../lib/featureFlags";
 import { initialsOf } from "../lib/initials";
 import { GARDEN_SLUG } from "../lib/communitySlugs";
+import { PHONE_BAR_HEIGHT } from "../lib/phoneBar";
 import { Palette } from "../desk/Palette";
 
 // The Garden holds the top of the rail (garden-first-ia mock, screen 2):
@@ -208,9 +209,8 @@ export default function AppLayout() {
   // Pages that fill the window and place their own bottom edge: the desk
   // (/today) and an open message thread (/messages/:id; the inbox is a
   // normal page).
-  const ownsBottom =
-    location.pathname.replace(/\/$/, "") === "/today" ||
-    /^\/messages\/[^/]+/.test(location.pathname);
+  const isThread = /^\/messages\/[^/]+/.test(location.pathname);
+  const ownsBottom = isThread || location.pathname.replace(/\/$/, "") === "/today";
   const otherCommunities = (allCommunities ?? [])
     .filter((c) => c.slug !== GARDEN_SLUG)
     .sort((a, b) => b.memberCount - a.memberCount)
@@ -256,15 +256,13 @@ export default function AppLayout() {
           make room for on desktop, but the palette sits over the lower-left
           corner (56px at 28px in, plus its ring), so a normal page gets
           room at the foot to scroll its last line clear of it. The desk and
-          a message thread are full-height and manage their own bottom. */}
+          a message thread are full-height and manage their own bottom. On a
+          phone every page gets room for the bottom bar except a thread,
+          which stops above the bar itself (lib/phoneBar.ts). */}
       <main
-        className={
-          FF_DESK
-            ? ownsBottom
-              ? "pb-20 md:pb-0"
-              : "pb-20 md:pb-32"
-            : "pb-20 md:pb-0 md:pl-64"
-        }
+        className={`${isThread ? "" : "pb-20"} ${
+          FF_DESK ? (ownsBottom ? "md:pb-0" : "md:pb-32") : "md:pb-0 md:pl-64"
+        }`}
       >
         <Outlet />
       </main>
@@ -289,14 +287,14 @@ export default function AppLayout() {
           solid bar instead of blending with whatever scrolls underneath
           it. */}
       <nav
-        className="fixed bottom-0 left-0 right-0 z-50 border-t md:hidden"
+        className={`fixed bottom-0 left-0 right-0 z-50 border-t md:hidden ${PHONE_BAR_HEIGHT}`}
         style={{
           backgroundColor: "var(--app-surface-raised)",
           borderColor: "var(--app-hairline)",
           boxShadow: "0 -8px 24px -6px rgba(0, 0, 0, 0.35)",
         }}
       >
-        <div className="flex justify-around py-3">
+        <div className="h-full flex items-center justify-around">
           {navItems.map((item) => {
             const isActive = location.pathname.startsWith(item.path);
             const isProfileItem = item.path === "/settings";

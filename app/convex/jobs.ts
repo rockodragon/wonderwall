@@ -260,7 +260,7 @@ export const getJobInterests = query({
                 interests: profile.interests,
               }
             : null,
-          workLinkArtifacts: workLinkArtifacts.filter(Boolean),
+          workLinkArtifacts: workLinkArtifacts.filter((a) => a !== null),
         };
       }),
     );
@@ -310,7 +310,7 @@ export const getUserJobInterest = query({
 
     return {
       ...interest,
-      workLinkArtifacts: workLinkArtifacts.filter(Boolean),
+      workLinkArtifacts: workLinkArtifacts.filter((a) => a !== null),
     };
   },
 });

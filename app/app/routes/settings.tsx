@@ -116,7 +116,7 @@ export default function Settings() {
       {activeTab === "profile" && (
         <>
           <div className="mb-8">
-            {hasProfile && !isEditingProfile ? (
+            {hasProfile && profile && !isEditingProfile ? (
               <ProfileSummary
                 profile={profile}
                 onEdit={() => setShowProfileEdit(true)}

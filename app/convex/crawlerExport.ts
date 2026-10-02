@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { query, action, mutation } from "./_generated/server";
 import { api } from "./_generated/api";
-import { Doc } from "./_generated/dataModel";
+import type { Doc } from "./_generated/dataModel";
 
 // ============================================
 // CSV Export Utilities
