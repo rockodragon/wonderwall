@@ -4,8 +4,8 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
 <style>
 /* Layout: the desk (dotted dark surface, 48px left edge). The page reads top-down:
-   Needs you, then four area tiles in priority order (Work, Projects, Events, People),
-   then rows grouped by status inside an area, then the opened card.
+   Needs you, then three area tiles (Projects, Events, People), then rows grouped by
+   your relationship to each item inside an area, then the opened card.
    The palette owns the lower-left corner. One dark theme on purpose: the desk is always dark.
    Blue (--note) is the mockup's annotation layer and is not part of the product. */
 :root{
@@ -24,7 +24,7 @@
 @media (max-width: 640px){ :root{ --side: 20px; } }
 
 html,body{height:100%;overflow:hidden}
-body{background:var(--page);color:var(--text);font-family:var(--sans);font-size:15px;line-height:1.45;-webkit-font-smoothing:antialiased;display:flex;flex-direction:column;overflow:hidden}
+body{margin:0;background:var(--page);color:var(--text);font-family:var(--sans);font-size:15px;line-height:1.45;-webkit-font-smoothing:antialiased;display:flex;flex-direction:column;overflow:hidden}
 button{font:inherit;color:inherit}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 @media (prefers-reduced-motion: reduce){ *,*::before,*::after{transition:none!important;animation:none!important} }
@@ -60,6 +60,7 @@ button{font:inherit;color:inherit}
 .chip[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-08);color:var(--accent)}
 .chip[aria-pressed="true"] .n{color:var(--accent)}
 .chip .hotdot{width:7px;height:7px;border-radius:50%;background:var(--accent)}
+.chip-div{flex:none;width:1px;height:20px;align-self:center;margin:0 6px;background:var(--line-strong)}
 
 .section{padding:0 var(--side);max-width:calc(920px + 2 * var(--side))}
 .kicker{margin:0 0 10px;font:400 12px var(--mono);letter-spacing:.2em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:10px;flex-wrap:wrap}
@@ -106,17 +107,17 @@ button{font:inherit;color:inherit}
 .empty-line{padding:22px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);color:var(--muted);font-size:15px;display:flex;gap:16px;flex-wrap:wrap;align-items:baseline}
 
 /* ——— Tiles (level 1) ——— */
-.tiles{display:grid;grid-template-columns:repeat(4,minmax(200px,264px));gap:24px;padding:0 var(--side)}
-@media (max-width: 1180px){ .tiles{grid-template-columns:repeat(2,minmax(0,264px))} }
-@media (max-width: 520px){ .tiles{grid-template-columns:minmax(0,1fr)} }
-.tile{position:relative;height:224px;min-width:0;background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:20px 20px 18px;display:flex;flex-direction:column;text-align:left;cursor:pointer;box-shadow:0 10px 30px rgba(0,0,0,.45);transition:transform .32s var(--ease),box-shadow .32s var(--ease),border-color .2s ease}
+.tiles{display:grid;grid-template-columns:repeat(3,minmax(0,300px));gap:24px;padding:0 var(--side)}
+@media (max-width: 720px){ .tiles{grid-template-columns:minmax(0,1fr)} }
+.tile{position:relative;min-height:224px;min-width:0;background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:20px 20px 18px;display:flex;flex-direction:column;text-align:left;cursor:pointer;box-shadow:0 10px 30px rgba(0,0,0,.45);transition:transform .32s var(--ease),box-shadow .32s var(--ease),border-color .2s ease}
 .tile:hover{transform:translateY(-8px);box-shadow:0 40px 80px rgba(0,0,0,.6);border-color:#3c3c3c}
 .tile-top{display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:18px}
 .tile-kicker{font:400 12px var(--mono);letter-spacing:.2em;color:var(--muted)}
 .tile-flag{font:12px var(--mono);letter-spacing:.1em;color:var(--accent);display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
 .tile-flag::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--accent)}
 .tile-count{font-size:56px;font-weight:500;letter-spacing:-.035em;line-height:1;margin-top:16px;font-variant-numeric:tabular-nums}
-.tile-break{font-size:13px;color:var(--muted);margin-top:10px;line-height:1.45}
+.tile-break{font-size:13px;color:var(--muted);margin:10px 0 12px;line-height:1.45}
+.tile-break .kinds{display:block}
 .tile-next{margin-top:auto;padding-top:12px;border-top:1px solid var(--line);font-size:13px;color:var(--text-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tile.empty{background:transparent;border-style:dashed;box-shadow:none;cursor:default}
 .tile.empty:hover{transform:none;box-shadow:none;border-color:var(--line)}
@@ -219,13 +220,6 @@ body.notes-on .newtag{display:inline-flex}
 
 <div class="mockbar" role="toolbar" aria-label="Mockup frames">
   <span class="mock-label">MOCKUP</span>
-  <button class="scene" data-scene="overview"><span class="k">1</span>Overview</button>
-  <button class="scene" data-scene="work"><span class="k">2</span>Work open</button>
-  <button class="scene" data-scene="invite"><span class="k">3</span>An invite</button>
-  <button class="scene" data-scene="palette"><span class="k">4</span>Palette</button>
-  <button class="scene" data-scene="events40"><span class="k">5</span>40 saved events</button>
-  <button class="scene" data-scene="sparse"><span class="k">6</span>Two follows</button>
-  <button class="scene" data-scene="new"><span class="k">7</span>New member</button>
   <span class="mock-spacer"></span>
   <button class="notes-toggle" id="notesToggle" aria-pressed="false">Design notes</button>
 </div>
@@ -243,16 +237,34 @@ body.notes-on .newtag{display:inline-flex}
 (function(){
 "use strict";
 
-// ——— Time ———
+// ——— Time and text helpers ———
 var TODAY = new Date(2026, 9, 2); // Fri Oct 2, 2026
 var MON = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
 var MONTH = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 var DOW = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 var DOWL = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 function D(m, d, y){ return new Date(y || 2026, m - 1, d); }
-function days(d){ return Math.round((d - TODAY) / 864e5); }
+function daysFrom(d, from){ return Math.round((d - from) / 864e5); }
+function days(d){ return daysFrom(d, TODAY); }
 function short(d){ return MONTH[d.getMonth()].slice(0,3) + " " + d.getDate(); }
+function whenWord(d){
+  var n = days(d);
+  if (n === 0) return "Today";
+  if (n === 1) return "Tomorrow";
+  if (n > 1 && n < 7) return DOWL[d.getDay()];
+  if (n >= 7 && n <= 13) return "Next " + DOWL[d.getDay()];
+  return short(d);
+}
+function whenInline(d){ return whenWord(d).replace(/^(Today|Tomorrow|Next)/, function(w){ return w.toLowerCase(); }); }
+function soon(i){ return whenWord(i.date) + " · " + i.time; }
+function ago(d){ var n = -days(d); return n ? plural(n, "day", "days") : "today"; }
+function plural(n, one, many){ return n + " " + (n === 1 ? one : many); }
+function first(name){ return name.split(" ")[0]; }
+function payWord(pay){ return pay === "Volunteer" ? "volunteer" : pay; }
+function val(v, i){ return typeof v === "function" ? v(i) : v; } // config fields are a value or a function of the item
 function esc(s){ return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]; }); }
+function byDate(a, b){ return a.date - b.date; }
+function bySinceDesc(a, b){ return b.since - a.since; }
 
 // ——— Covers (stand-ins for real cover images) ———
 var TONES = [
@@ -283,58 +295,184 @@ function icon(name, size){
   size = size || 19;
   return '<svg width="' + size + '" height="' + size + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + ICON[name] + '</svg>';
 }
-function newtag(why, cls){ return '<span class="newtag' + (cls ? " " + cls : "") + '" title="' + esc(why) + '">New</span>'; }
+function newtag(why, cls){ return why ? '<span class="newtag' + (cls ? " " + cls : "") + '" title="' + esc(why) + '">New</span>' : ""; }
+
+// ═══ Config: one object per concept. Tiles, chips, the palette stack, groups and breakdowns all derive from these. ═══
+
+// What each New tag (notes mode) needs. The data gaps follow the brief's table.
+var NEW = {
+  save:"Save a project or role: favorites.targetType gains \"project\" and \"role\", with branches in getMyFavorites (/events also reads it).",
+  requests:"Your requests (invited, applied, asked, on the team, closed): a new query over projectMembers.by_userId_status.",
+  leading:"Projects you lead and their pending requests: a new query. The indexes exist: projects.by_userId / by_userId_kind_status and projectMembers.by_projectId_status.",
+  hosting:"Events you host and pending approvals: a new query. The indexes exist: events.by_organizerId and eventApplications.by_eventId_status.",
+  going:"Going: eventRsvps needs a by_userId index.",
+  cards:"New role:<id> and request:<id> opened-card kinds.",
+  step:"←/→ steps through the group without closing the card. New interaction.",
+  bulk:"Bulk \"Remove past events\". New mutation.",
+  needs:"One needsYou(data, today) function picks these, in order: a reply you owe (an invite to you, a request on what you lead or host), then going or hosting within 7 days, then a saved role closing within 7 days. Requests don't add to counts.",
+  palette:"Replaces the Desk tool. The main button already resets the desk."
+};
+
+// Project kind: a filter inside Projects, never a section. Every project is exactly one.
+var KINDS = { paid:{ label:"Paid" }, passion:{ label:"Passion" } };
+
+// Card buttons shared across relationships.
+var BTN = {
+  remove:{ l:"Remove from shortlist", a:"remove" },
+  project:{ l:"See project", solid:true, t:"Goes to the project page." },
+  projectLink:{ l:"Project page →", t:"Goes to the project page." },
+  eventLink:{ l:"Event page →", t:"Goes to the event page." }
+};
+
+// Your relationship to an item: the one axis the Shortlist sorts by. Each lands in one group.
+//   group: the L2 group (defaults to its own key) · label: the group heading · noun: tile breakdown
+//   collapsed: over and folded (closed, past), never counted · counts:false: shown but not counted
+//   row / hot: row status (hot when Needs you picks it) · status: the card's status line
+//   acts: the card's buttons · rowAct: the outline button on a Needs you row · next: the tile's next step
+var RELATIONSHIPS = {
+  needs:{ label:"Needs you", hot:true },   // hot groups: where Needs you items sit inside an area
+  week:{ label:"This week", hot:true },
+
+  invited:{ group:"needs", noun:["invite","invites"], rowAct:"Reply",
+    row:function(i){ return "Invited · " + short(i.since); },
+    status:function(i){ return first(i.lead) + " invited you " + short(i.since) + " · Waiting on you"; },
+    aside:function(i){ return first(i.lead) + " is waiting on your reply"; },
+    next:function(i){ return "Reply to " + first(i.lead) + " · " + i.title; },
+    acts:[{ l:"Accept", solid:true, a:"accept" },{ l:"Decline", a:"decline" }] },
+  request:{ group:"needs", counts:false, rowAct:"Review", kicker:"Join request", card:"cards",
+    row:function(i){ return "Request · " + short(i.since); },
+    status:function(i){ return first(i.name) + " asked " + short(i.since) + " · Waiting on you"; },
+    meta:function(i){ return "Join request · " + i.project; },
+    sub:function(i){ return i.project + " · Wants to join as " + i.role; },
+    host:function(i){ return "Wants to join as " + i.role + " · " + payWord(i.pay); },
+    aside:function(i){ return first(i.name) + " is waiting on your reply"; },
+    next:function(i){ return "Review " + first(i.name) + "'s request · " + i.project; },
+    acts:[{ l:"Accept", solid:true, a:"admit" },{ l:"Decline", a:"turnDown" }] },
+  leading:{ label:"Leading", noun:"leading", card:"leading",
+    row:function(i){ var n = requestsFor(i).length; return n ? plural(n, "request waiting", "requests waiting") : i.note; },
+    meta:function(i){ return "You lead · " + (i.stage || i.pay); },
+    sub:function(i){ return ["You lead", i.team && i.team + " on the team", i.open && plural(i.open, "open role", "open roles"), i.posted && "Posted " + short(i.posted)].filter(Boolean).join(" · "); },
+    acts:function(i){ return [requestsFor(i).length ? { l:"Review requests", solid:true, t:"Opens the project's team panel, where requests wait for you." } : { l:"See team", solid:true, t:"Opens the project's team panel." }, BTN.projectLink]; } },
+  team:{ label:"On the team", noun:"on the team", row:"You're on the team",
+    status:function(i){ return "You joined " + short(i.since) + " · On the team"; },
+    acts:[BTN.project] },
+  waiting:{ label:"Waiting to hear", noun:"waiting",
+    row:function(i){ return "Waiting on " + first(i.lead) + " · " + ago(i.since); },
+    status:function(i){ return (i.via === "asked" ? "You asked to join " : "You applied ") + short(i.since) + " · Waiting on " + first(i.lead); },
+    aside:function(i){ return "Sent " + short(i.since); },
+    next:function(i){ return "Waiting on " + first(i.lead) + " · " + i.project; },
+    acts:[{ l:"Withdraw request", a:"withdraw" }] },
+  backing:{ label:"Backing", noun:"backing", row:function(i){ return i.note; }, acts:[BTN.project] },
+  saved:{ label:"Saved", noun:"saved", rowAct:"Apply",
+    row:function(i){ return i.due ? "Closes " + short(i.due) : i.note; },
+    status:function(i){ return i.date ? "You saved this · " + whenWord(i.date) : "You saved this " + short(i.since) + (i.due ? " · Closes " + short(i.due) : ""); },
+    next:function(i){ return i.date ? "Soonest: " + i.title + ", " + short(i.date) : i.due ? "Apply by " + short(i.due) + " · " + i.title : ""; },
+    acts:function(i){
+      if (i.date) return [{ l:"I'm going", solid:true, a:"going" }, BTN.eventLink, { l:"Remove", a:"remove" }];
+      return [i.project ? { l:"Apply", solid:true, a:"apply" } : BTN.project, BTN.remove];
+    } },
+  closed:{ label:"Closed", collapsed:true, fold:"closed", row:function(i){ return i.note; } },
+
+  hosting:{ label:"Hosting", noun:"hosting", row:"You're hosting", hot:soon,
+    status:function(i){ return "You're hosting · " + whenWord(i.date) + ", " + i.time; },
+    next:function(i){ return "Hosting: " + i.title + ", " + whenInline(i.date); },
+    acts:[{ l:"Manage event", solid:true, t:"Goes to the host view: guests, approvals and messages." }, BTN.eventLink] },
+  going:{ label:"Going", noun:"going", row:"You're going", hot:soon,
+    status:function(i){ return "You're going · " + whenWord(i.date) + ", " + i.time; },
+    next:function(i){ return "Next: " + i.title + ", " + whenInline(i.date); },
+    acts:[{ l:"You're going", solid:true, dis:true }, BTN.eventLink] },
+  requested:{ label:"Requested", noun:"requested", row:"Requested", status:"You requested a place · Waiting on the host",
+    acts:[{ l:"Requested", solid:true, dis:true }, BTN.eventLink] },
+  past:{ label:"Past", collapsed:true, fold:"past events", bulk:"Remove past events", newestFirst:true,
+    row:function(i){ return i.cancelled ? "Cancelled" : "Past"; },
+    status:function(i){ return i.cancelled ? "Cancelled by the host" : "This event has passed"; },
+    acts:[BTN.eventLink, BTN.remove] },
+
+  following:{ label:"Following",
+    row:function(i){ return "Followed " + short(i.since); },
+    status:function(i){ return "You followed " + first(i.name) + " " + short(i.since); },
+    meta:function(i){ return "Following · " + i.interests[0]; },
+    kicker:function(i){ return "Following · " + i.interests[0]; },
+    host:function(i){ return i.interests.join(" · "); },
+    next:function(i){ return "Latest: " + i.name + ", " + short(i.since); },
+    acts:function(i){ return [{ l:"See profile", solid:true, t:"Goes to " + i.name + "'s profile." },{ l:"Unfollow", a:"remove" }]; } }
+};
+
+// The three areas, in fixed positions.
+var INTEREST_ORDER = ["Design","Illustration","Animation","Photography","Videography","Filmmaking","Writing","Poetry","Art","Craft","Music","Dance & Movement","Acting","Worship","Production","Audio"];
+var AREAS = [
+  { id:"projects", label:"Projects", kicker:"PROJECTS", browse:"Browse projects →", empty:"No projects on your shortlist yet.",
+    hot:"needs", groups:["needs","leading","team","waiting","backing","saved","closed"],
+    breakdown:["invited","leading","team","waiting","backing","saved"], kinds:true,
+    gaps:{ needs:"needs", leading:"leading", team:"requests", waiting:"requests", saved:"save", closed:"requests" } },
+  { id:"events", label:"Events", kicker:"EVENTS", browse:"Browse events →", empty:"No events saved yet.",
+    hot:"week", groups:["week","hosting","going","requested","saved","past"],
+    breakdown:["hosting","going","requested","saved"], sort:byDate,
+    gaps:{ week:"going", hosting:"hosting", going:"going" } },
+  { id:"people", label:"People", stack:"People I follow", kicker:"PEOPLE", browse:"Find people →", empty:"You're not following anyone yet.",
+    groups:groupFollows, sort:bySinceDesc, faces:true,
+    breakdown:function(items){ var g = {}; items.forEach(function(p){ g[p.interests[0]] = 1; }); return "Across " + plural(Object.keys(g).length, "interest", "interests"); } }
+];
+var AREA = {}; AREAS.forEach(function(a){ AREA[a.id] = a; });
+
+// Follows group by first interest once there are 6 or more (the app's groupFollows rule).
+function groupFollows(items){
+  items = items.slice().sort(bySinceDesc);
+  if (items.length < 6) return [{ key:"all", label:"", items:items }];
+  var by = {};
+  items.forEach(function(p){ var k = INTEREST_ORDER.indexOf(p.interests[0]) >= 0 ? p.interests[0] : "Other"; (by[k] = by[k] || []).push(p); });
+  return INTEREST_ORDER.concat(["Other"]).filter(function(k){ return by[k]; }).map(function(k){ return { key:k, label:k, items:by[k] }; });
+}
 
 // ——— Sample data (examples, not real members) ———
-var INTEREST_ORDER = ["Design","Illustration","Animation","Photography","Videography","Filmmaking","Writing","Poetry","Art","Craft","Music","Dance & Movement","Acting","Worship","Production","Audio"];
-
-function work(){
+function projectItems(){
   return [
-    { id:"w-invite", kind:"invited", role:true, title:"Sound Mixer", project:"Hollow Creek Field Recordings", lead:"Mara Lin", who:"Mara", meta:"$1,200", status:"Invited by Mara · Sep 30", hot:"Invited · Sep 30", tone:0, act:"Reply",
-      d:{ status:"Mara invited you Sep 30 · Waiting on you", desc:"Three days recording a creek, a choir and a congregation for a short documentary album. You run the field mixer and log takes. Gear is provided; bring your own headphones.", facts:[["Pay","$1,200 flat"],["Dates","Oct 19 to 21"],["Where","Hollow Creek, on location"],["Team","4 of 6 roles filled"]], aside:"Mara is waiting on your reply" } },
-    { id:"w-due", kind:"saved", role:true, due:D(10,7), title:"Copy Editor", project:"Psalms Zine, Vol. 3", lead:"Jo Alvarez", who:"Jo", meta:"$300", status:"Fill by Oct 7", hot:"Fill by Oct 7", tone:2, act:"Apply",
-      d:{ status:"You saved this Sep 21 · Fill by Oct 7", desc:"A 40-page zine of new psalm settings and short essays. Two passes of copy editing over one week, working in shared docs.", facts:[["Pay","$300 flat"],["Fill by","Oct 7"],["Where","Remote"],["Team","5 of 6 roles filled"]] } },
-    { id:"w-a1", kind:"applied", role:true, title:"Motion Designer", project:"Advent Liturgy Films", lead:"Theo Okafor", who:"Theo", meta:"$40/hr", status:"Waiting on Theo · 5 days", tone:3,
-      d:{ status:"You applied Sep 27 · Waiting on Theo", desc:"Title cards and simple motion for four short films, one for each week of Advent.", facts:[["Pay","$40 an hour, about 30 hours"],["Fill by","Oct 30"],["Where","Remote"],["Team","3 of 5 roles filled"]], aside:"Sent Sep 27" } },
-    { id:"w-a2", kind:"applied", role:true, title:"Poster Illustrator", project:"Harvest Supper 2026", lead:"Ruth Benton", who:"Ruth", meta:"$600", status:"Waiting on Ruth · 2 days", tone:2,
-      d:{ status:"You applied Sep 30 · Waiting on Ruth", desc:"One poster and a set of place cards for the neighborhood Harvest Supper.", facts:[["Pay","$600 flat"],["Fill by","Oct 9"],["Where","Remote, print pickup in town"]], aside:"Sent Sep 30" } },
-    { id:"w-t1", kind:"team", role:true, title:"Photographer", project:"Neighborhood Portraits", lead:"Sam Ito", who:"Sam", meta:"$1,500–2,000", status:"You're on the team", tone:5,
-      d:{ status:"You joined Aug 14 · On the team", desc:"Portraits of thirty neighbors on one block, printed large and shown on that block in November.", facts:[["Pay","$1,500 to $2,000"],["Show","Nov 14"],["Where","Alder Street"]] } },
-    { id:"w-s1", kind:"saved", role:true, due:D(11,1), title:"Brand Designer", project:"The Lantern Café rebrand", lead:"Dana Wells", who:"Dana", meta:"$2,500–4,000", status:"Fill by Nov 1", tone:7,
-      d:{ status:"You saved this Sep 18 · Fill by Nov 1", desc:"A new mark, menu system and window signage for a cafe that doubles as a small venue.", facts:[["Pay","$2,500 to $4,000"],["Fill by","Nov 1"],["Where","Hybrid"]] } },
-    { id:"w-s2", kind:"saved", role:true, due:D(11,20), title:"Set Builder", project:"The Wind in the Willows", lead:"Eastside Players", who:"Eastside Players", meta:"Proposals", status:"Fill by Nov 20", tone:6,
-      d:{ status:"You saved this Sep 9 · Fill by Nov 20", desc:"Flats, a riverbank and one small boat for a spring community musical.", facts:[["Pay","Open to proposals"],["Fill by","Nov 20"],["Where","Eastside Hall"]] } },
-    { id:"w-c1", kind:"closed", role:true, title:"Wedding Videographer", project:"Okafor–Lin wedding", lead:"Theo Okafor", meta:"$1,800", status:"Filled", tone:4 },
-    { id:"w-c2", kind:"closed", role:true, title:"Album Cover Artist", project:"Wren, Low Country", lead:"Nate Fuller", meta:"$500", status:"Not selected", tone:1 }
+    { id:"pr-invite", rel:"invited", pkind:"paid", title:"Sound Mixer", project:"Hollow Creek Field Recordings", lead:"Mara Lin", pay:"$1,200", since:D(9,30), tone:0,
+      d:{ desc:"Three days recording a creek, a choir and a congregation for a short documentary album. You run the field mixer and log takes. Gear is provided; bring your own headphones.", facts:[["Pay","$1,200 flat"],["Dates","Oct 19 to 21"],["Where","Hollow Creek, on location"],["Team","4 of 6 roles filled"]] } },
+    { id:"pr-req", rel:"request", pkind:"passion", of:"pr-hymns", title:"Hana Cho", name:"Hana Cho", role:"Cellist", pay:"Volunteer", project:"Hymns for the Commons", interests:["Music","Worship"], since:D(9,30), tone:6,
+      d:{ desc:"“I've played cello at Light Church for six years and would love to record with you. Free Tuesdays and Saturdays.”" } },
+    { id:"pr-zine", rel:"saved", pkind:"passion", title:"Copy Editor", project:"Psalms Zine, Vol. 3", lead:"Jo Alvarez", pay:"$300", since:D(9,21), due:D(10,7), tone:2,
+      d:{ desc:"A 40-page zine of new psalm settings and short essays. Two passes of copy editing over one week, working in shared docs. A paid role on a passion project.", facts:[["Pay","$300 flat"],["Closes","Oct 7"],["Where","Remote"],["Team","5 of 6 roles filled"]] } },
+    { id:"pr-hymns", rel:"leading", pkind:"passion", title:"Hymns for the Commons", stage:"Forming team", team:4, open:2, note:"No requests waiting", tone:1,
+      d:{ desc:"New hymns for public places, written and recorded with neighbors over the winter. Looking for strings and a second engineer.", facts:[["Stage","Forming team"],["Open roles","Cellist, Engineer"],["Started","Sep 4"],["Where","Light Church"]] } },
+    { id:"pr-catalog", rel:"leading", pkind:"paid", title:"Photographer for the Advent Catalog", pay:"$900", posted:D(9,12), note:"3 applied, all answered", tone:5,
+      d:{ desc:"Product and table shots for the shop's Advent catalog. One day in the studio, then light retouching.", facts:[["Pay","$900 flat"],["Posted","Sep 12"],["Applied","3, all answered"],["Where","Your studio or ours"]] } },
+    { id:"pr-portraits", rel:"team", pkind:"paid", title:"Photographer", project:"Neighborhood Portraits", lead:"Sam Ito", pay:"$1,500–2,000", since:D(8,14), tone:5,
+      d:{ desc:"Portraits of thirty neighbors on one block, printed large and shown on that block in November.", facts:[["Pay","$1,500 to $2,000"],["Show","Nov 14"],["Where","Alder Street"]] } },
+    { id:"pr-mural", rel:"team", pkind:"passion", title:"Painter", project:"Garden Mural at 5th & Alder", lead:"Luis Romero", pay:"Volunteer", since:D(7,2), tone:0,
+      d:{ desc:"A 60-foot mural of the community garden, painted over six Saturdays.", facts:[["Role","Painter, volunteer"],["Stage","Working"],["Next session","Sat, Oct 10"]] } },
+    { id:"pr-films", rel:"waiting", via:"applied", pkind:"paid", title:"Motion Designer", project:"Advent Liturgy Films", lead:"Theo Okafor", pay:"$40/hr", since:D(9,27), tone:3,
+      d:{ desc:"Title cards and simple motion for four short films, one for each week of Advent.", facts:[["Pay","$40 an hour, about 30 hours"],["Closes","Oct 30"],["Where","Remote"],["Team","3 of 5 roles filled"]] } },
+    { id:"pr-supper", rel:"waiting", via:"applied", pkind:"paid", title:"Poster Illustrator", project:"Harvest Supper 2026", lead:"Ruth Benton", pay:"$600", since:D(9,30), tone:2,
+      d:{ desc:"One poster and a set of place cards for the neighborhood Harvest Supper.", facts:[["Pay","$600 flat"],["Closes","Oct 9"],["Where","Remote, print pickup in town"]] } },
+    { id:"pr-choir", rel:"waiting", via:"asked", pkind:"passion", title:"Alto", project:"Choir for the Commons", lead:"Grace Mun", pay:"Volunteer", since:D(9,29), tone:1,
+      d:{ desc:"A neighborhood choir that sings in public places once a month. Rehearsals are Tuesday evenings.", facts:[["Role","Alto, volunteer"],["Stage","Forming team"],["Where","Commons Park"]] } },
+    { id:"pr-table", rel:"backing", pkind:"passion", title:"The Long Table podcast", lead:"Esther Park", stage:"Released", note:"Backing $15 a month", tone:3,
+      d:{ desc:"Conversations recorded around a dinner table with artists, pastors and neighbors.", facts:[["Stage","Released"],["Episodes","14"]], aside:"Since August" } },
+    { id:"pr-street", rel:"backing", pkind:"passion", title:"Street Choir Recordings", lead:"Nate Fuller", stage:"Raising", note:"Backed $50 in June", tone:4,
+      d:{ desc:"Field recordings of the street choir, pressed to a small run of records.", facts:[["Stage","Raising"],["Raised","$2,150 of $5,000"]] } },
+    { id:"pr-lantern", rel:"saved", pkind:"paid", title:"Brand Designer", project:"The Lantern Café rebrand", lead:"Dana Wells", pay:"$2,500–4,000", since:D(9,18), due:D(11,1), tone:7,
+      d:{ desc:"A new mark, menu system and window signage for a cafe that doubles as a small venue.", facts:[["Pay","$2,500 to $4,000"],["Closes","Nov 1"],["Where","Hybrid"]] } },
+    { id:"pr-willows", rel:"saved", pkind:"paid", title:"Set Builder", project:"The Wind in the Willows", lead:"Eastside Players", pay:"Proposals", since:D(9,9), due:D(11,20), tone:6,
+      d:{ desc:"Flats, a riverbank and one small boat for a spring community musical.", facts:[["Pay","Open to proposals"],["Closes","Nov 20"],["Where","Eastside Hall"]] } },
+    { id:"pr-icons", rel:"saved", pkind:"passion", title:"Icons for the Everyday", lead:"Lydia Shore", stage:"Raising", note:"$3,400 of $8,000", since:D(9,14), tone:7 },
+    { id:"pr-quiet", rel:"saved", pkind:"passion", title:"Quiet Hours Zine", lead:"Miriam Cole", stage:"Forming team", note:"2 open roles", since:D(9,24), tone:6 },
+    { id:"pr-wedding", rel:"closed", pkind:"paid", title:"Wedding Videographer", project:"Okafor–Lin wedding", lead:"Theo Okafor", pay:"$1,800", note:"Filled", tone:4 },
+    { id:"pr-album", rel:"closed", pkind:"paid", title:"Album Cover Artist", project:"Wren, Low Country", lead:"Nate Fuller", pay:"$500", note:"Not selected", tone:1 },
+    { id:"pr-easter", rel:"closed", pkind:"passion", title:"Easter Sunrise Installation", lead:"Ruth Benton", stage:"Finished", note:"Wrapped in April", tone:5 }
   ];
 }
-function projects(){
-  return [
-    { id:"p-ask", kind:"asked", role:true, title:"Alto", project:"Choir for the Commons", lead:"Grace Mun", who:"Grace", meta:"Volunteer", status:"Waiting on Grace · 3 days", tone:1,
-      d:{ status:"You asked to join Sep 29 · Waiting on Grace", desc:"A neighborhood choir that sings in public places once a month. Rehearsals are Tuesday evenings.", facts:[["Role","Alto, volunteer"],["Stage","Forming team"],["Where","Commons Park"]], aside:"Sent Sep 29" } },
-    { id:"p-team", kind:"team", role:true, title:"Painter", project:"Garden Mural at 5th & Alder", lead:"Luis Romero", who:"Luis", meta:"Working", status:"You're on the team", tone:0,
-      d:{ status:"You joined Jul 2 · On the team", desc:"A 60-foot mural of the community garden, painted over six Saturdays.", facts:[["Role","Painter"],["Stage","Working"],["Next session","Sat, Oct 10"]] } },
-    { id:"p-b1", kind:"backing", title:"The Long Table podcast", lead:"Esther Park", meta:"$15/mo", status:"Backing since August", tone:3,
-      d:{ status:"Backing $15 a month since August", desc:"Conversations recorded around a dinner table with artists, pastors and neighbors.", facts:[["Stage","Released"],["Episodes","14"]], aside:"Backing $15 a month" } },
-    { id:"p-b2", kind:"backing", title:"Street Choir Recordings", lead:"Nate Fuller", meta:"$50", status:"Backed in June", tone:4,
-      d:{ status:"Backed $50 in June", desc:"Field recordings of the street choir, pressed to a small run of records.", facts:[["Stage","Raising"],["Raised","$2,150 of $5,000"]] } },
-    { id:"p-s1", kind:"saved", title:"Icons for the Everyday", lead:"Lydia Shore", meta:"Raising", status:"$3,400 of $8,000", tone:7 },
-    { id:"p-s2", kind:"saved", title:"Quiet Hours Zine", lead:"Miriam Cole", meta:"Forming team", status:"2 open roles", tone:6 },
-    { id:"p-s3", kind:"saved", title:"Liturgy in Clay", lead:"Ana Reyes", meta:"Working", status:"Updated Sep 29", tone:2 },
-    { id:"p-s4", kind:"saved", title:"Night Market Light Walk", lead:"Kofi Mensah", meta:"Planning", status:"Saved Sep 14", tone:3 },
-    { id:"p-c1", kind:"closed", title:"Easter Sunrise Installation", lead:"Ruth Benton", meta:"Released", status:"Finished in April", tone:5 }
-  ];
-}
-function ev(id, kind, date, title, venue, time, going, tone, extra){
-  var o = { id:id, kind:kind, date:date, title:title, venue:venue, time:time, going:going, tone:tone };
+function ev(id, rel, date, title, venue, time, going, tone, extra){
+  var o = { id:id, rel:rel, date:date, title:title, venue:venue, time:time, going:going, tone:tone };
   if (extra) for (var k in extra) o[k] = extra[k];
   return o;
 }
 function eventsTypical(){
   return [
-    ev("e1","going",D(10,3),"Open Studio Night","Light Church","7 PM",24,1,{ d:{ host:"Hosted by Light Church Artists", desc:"Twelve studios open in the church basement. Work in progress, coffee, and a short reading at 8.", aside:"24 going" } }),
-    ev("e2","going",D(10,8),"Printmaking Workshop","The Press Room","6:30 PM",11,2,{ d:{ host:"Hosted by Ana Reyes", desc:"Carve and print a two-color linocut. Materials included; wear something you can get ink on.", aside:"11 going" } }),
+    ev("e1","going",D(10,3),"Open Studio Night","Light Church","7 PM",24,1,{ d:{ host:"Hosted by Light Church Artists", desc:"Twelve studios open in the church basement. Work in progress, coffee, and a short reading at 8." } }),
+    ev("e2","going",D(10,8),"Printmaking Workshop","The Press Room","6:30 PM",11,2,{ d:{ host:"Hosted by Ana Reyes", desc:"Carve and print a two-color linocut. Materials included; wear something you can get ink on." } }),
     ev("e3","going",D(10,17),"Harvest Supper","St. Brigid's Hall","5 PM",86,0),
+    ev("e13","hosting",D(10,15),"Zine Workshop","The Press Room","6 PM",14,7,{ d:{ host:"Hosted by you", desc:"Bring paper, scissors and a story. Everyone leaves with a 16-page zine." } }),
     ev("e4","requested",D(10,22),"Poetry & Prayer Salon","The Lantern Café","7:30 PM",18,4,{ d:{ host:"Hosted by Miriam Cole", desc:"A small evening of new poems and prayers. The host approves each guest so the room stays small.", aside:"Approval needed" } }),
     ev("e5","saved",D(10,24),"Film Night: Babette's Feast","Light Church","7 PM",31,5),
     ev("e6","saved",D(10,31),"Makers Market","Alder Street","10 AM",140,7),
@@ -347,7 +485,7 @@ function eventsTypical(){
   ];
 }
 function eventsHeavy(){
-  var list = eventsTypical().filter(function(e){ return e.kind === "going"; });
+  var list = eventsTypical().filter(function(e){ return e.rel === "going" || e.rel === "hosting"; });
   var saved = [
     [10,11,"Hymn Sing in the Park"],[10,18,"Zine Swap"],[10,24,"Film Night: Babette's Feast"],[10,27,"Portfolio Night"],[10,31,"Makers Market"],
     [11,5,"Clay & Coffee"],[11,8,"Songwriters in the Round"],[11,12,"Poetry Open Mic"],[11,14,"Icon Writing Retreat"],[11,19,"Dance Lab"],[11,21,"Thanksgiving Table Workshop"],[11,27,"Gallery Walk: Alder Street"],
@@ -380,183 +518,130 @@ function people(){
     ["Nate Fuller",["Music","Audio"],D(6,21),"Songwriter. Records the street choir."],
     ["Ruth Benton",["Worship","Teaching"],D(5,2),"Organizes the Harvest Supper every fall."],
     ["Mara Lin",["Audio","Filmmaking"],D(9,10),"Sound recordist. Leading Hollow Creek Field Recordings."]
-  ].map(function(p, i){ return { id:"u" + i, kind:"following", name:p[0], title:p[0], interests:p[1], since:p[2], bio:p[3], tone:i }; });
+  ].map(function(p, i){ return { id:"u" + i, rel:"following", name:p[0], title:p[0], interests:p[1], since:p[2], tone:i, d:{ desc:p[3] } }; });
 }
-
+var SCENARIOS = {
+  typical:function(){ return { projects:projectItems(), events:eventsTypical(), people:people() }; },
+  heavy:function(){ return { projects:projectItems(), events:eventsHeavy(), people:people() }; },
+  sparse:function(){ return { projects:[], events:[], people:people().filter(function(p){ return p.name === "Mara Lin" || p.name === "Theo Okafor"; }) }; },
+  empty:function(){ return { projects:[], events:[], people:[] }; }
+};
 function makeData(scenario){
-  var data = { work:[], projects:[], events:[], people:[] };
-  if (scenario === "typical" || scenario === "heavy"){
-    data.work = work(); data.projects = projects(); data.people = people();
-    data.events = scenario === "heavy" ? eventsHeavy() : eventsTypical();
-  } else if (scenario === "sparse"){
-    data.people = people().filter(function(p){ return p.name === "Mara Lin" || p.name === "Theo Okafor"; });
-  }
-  ["work","projects","events","people"].forEach(function(a){ data[a].forEach(function(i){ i.area = a; }); });
+  var data = SCENARIOS[scenario]();
+  AREAS.forEach(function(a){ data[a.id].forEach(function(i){ i.area = a.id; }); });
   return data;
 }
 
 // ——— Rules ———
-var AREAS = [
-  { id:"work", label:"Work", kicker:"WORK", browse:"Browse work →", empty:"No work saved yet." },
-  { id:"projects", label:"Projects", kicker:"PROJECTS", browse:"Browse projects →", empty:"No projects saved yet." },
-  { id:"events", label:"Events", kicker:"EVENTS", browse:"Browse events →", empty:"No events saved yet." },
-  { id:"people", label:"People", kicker:"PEOPLE", browse:"Find people →", empty:"You're not following anyone yet." }
-];
-var GROUPS = {
-  work: [["needs","Needs you"],["applied","Applied"],["team","On the team"],["saved","Saved"],["closed","Closed"]],
-  projects: [["needs","Needs you"],["asked","Asked to join"],["team","On the team"],["backing","Backing"],["saved","Saved"],["closed","Closed"]],
-  events: [["week","This week"],["going","Going"],["requested","Requested"],["saved","Saved"],["past","Past"]]
-};
-var COLLAPSED = { closed:true, past:true };
-function isLive(i){ return i.kind !== "closed" && i.kind !== "past"; }
-function isSoon(i){ return i.area === "events" && i.kind === "going" && days(i.date) >= 0 && days(i.date) <= 7; }
-function isDue(i){ return i.kind === "saved" && i.role && i.due && days(i.due) >= 0 && days(i.due) <= 7; }
-function groupOf(i){
-  if (i.area === "events") return isSoon(i) ? "week" : i.kind;
-  if (i.kind === "invited" || isDue(i)) return "needs";
-  return i.kind;
-}
-function needsList(data){
-  var all = data.work.concat(data.projects);
-  var inv = all.filter(function(i){ return i.kind === "invited"; });
-  var soon = data.events.filter(isSoon).sort(function(a,b){ return a.date - b.date; });
-  var due = all.filter(isDue).sort(function(a,b){ return a.due - b.due; });
-  return inv.concat(soon, due);
-}
-function liveCount(data, area){ return data[area].filter(isLive).length; }
-function areaNeeds(data, area){ return needsList(data).filter(function(i){ return i.area === area; }).length; }
-function plural(n, one, many){ return n + " " + (n === 1 ? one : many); }
+function allItems(data){ return AREAS.reduce(function(all, a){ return all.concat(data[a.id]); }, []); }
+function isLive(i){ return !RELATIONSHIPS[i.rel].collapsed; }
+function counts(i){ return isLive(i) && RELATIONSHIPS[i.rel].counts !== false; }
+function counted(items){ return items.filter(counts); }
+function total(data){ return counted(allItems(data)).length; }
+function requestsFor(project){ return state.data.projects.filter(function(r){ return r.rel === "request" && r.of === project.id; }); }
 
-function breakdown(data, area){
-  var c = {};
-  data[area].filter(isLive).forEach(function(i){ c[i.kind] = (c[i.kind] || 0) + 1; });
-  var parts = [];
-  if (area === "work"){
-    if (c.invited) parts.push(plural(c.invited, "invite", "invites"));
-    if (c.applied) parts.push(c.applied + " applied");
-    if (c.team) parts.push(c.team + " on the team");
-    if (c.saved) parts.push(c.saved + " saved");
-  } else if (area === "projects"){
-    if (c.invited) parts.push(plural(c.invited, "invite", "invites"));
-    if (c.asked) parts.push(c.asked + " asked to join");
-    if (c.team) parts.push(c.team + " on the team");
-    if (c.backing) parts.push(c.backing + " backing");
-    if (c.saved) parts.push(c.saved + " saved");
-  } else if (area === "events"){
-    if (c.going) parts.push(c.going + " going");
-    if (c.requested) parts.push(c.requested + " requested");
-    if (c.saved) parts.push(c.saved + " saved");
-  } else {
-    var g = {};
-    data.people.forEach(function(p){ g[p.interests[0]] = 1; });
-    parts.push("Across " + plural(Object.keys(g).length, "interest", "interests"));
-  }
-  return parts.join(" · ");
+// Needs you, in rule order. Nothing else qualifies. The strip, tile flags, chip dots, palette dot and stack count all call this.
+//   1. Someone is waiting on your reply: an invite to you (paid first), then a request on what you lead or host.
+//   2. An event you're going to or hosting in the next 7 days.
+//   3. A saved role that closes within 7 days.
+function needsYou(data, today){
+  var live = allItems(data).filter(isLive);
+  function within7(d){ var n = daysFrom(d, today); return n >= 0 && n <= 7; }
+  function replyRank(i){ return (i.rel === "invited" ? 0 : 2) + (i.pkind === "paid" ? 0 : 1); }
+  var replies = live.filter(function(i){ return i.rel === "invited" || i.rel === "request"; })
+    .sort(function(a, b){ return replyRank(a) - replyRank(b) || a.since - b.since; });
+  var soonest = live.filter(function(i){ return (i.rel === "going" || i.rel === "hosting") && within7(i.date); }).sort(byDate);
+  var closing = live.filter(function(i){ return i.rel === "saved" && i.due && within7(i.due); }).sort(function(a, b){ return a.due - b.due; });
+  return replies.concat(soonest, closing);
 }
-function nextLine(data, area){
-  var items = data[area];
-  if (area === "work" || area === "projects"){
-    var inv = items.filter(function(i){ return i.kind === "invited"; })[0];
-    if (inv) return "Reply to " + inv.who + " · " + inv.title;
-    var due = items.filter(function(i){ return i.kind === "saved" && i.due; }).sort(function(a,b){ return a.due - b.due; })[0];
-    if (due) return "Next: " + due.title + ", fill by " + short(due.due);
-    var ask = items.filter(function(i){ return i.kind === "asked" || i.kind === "applied"; })[0];
-    if (ask) return "Waiting on " + ask.who + " · " + ask.project;
-    var any = items.filter(isLive)[0];
-    return any ? "Latest: " + (any.project || any.title) : "";
-  }
-  if (area === "events"){
-    var g = items.filter(function(e){ return e.kind === "going" && days(e.date) >= 0; }).sort(function(a,b){ return a.date - b.date; })[0];
-    if (g) return "Next: " + g.title + ", " + whenWord(g.date).toLowerCase();
-    var s = items.filter(isLive).sort(function(a,b){ return a.date - b.date; })[0];
-    return s ? "Soonest: " + s.title + ", " + short(s.date) : "";
-  }
-  var latest = items.slice().sort(function(a,b){ return b.since - a.since; })[0];
-  return latest ? "Latest: " + latest.name + ", " + short(latest.since) : "";
+function needsIn(area){ return needsYou(state.data, TODAY).filter(function(i){ return i.area === area; }); }
+
+function nounFor(rel, n){ var w = RELATIONSHIPS[rel].noun; return Array.isArray(w) ? plural(n, w[0], w[1]) : n + " " + w; }
+function breakdown(a, items){
+  if (typeof a.breakdown === "function") return a.breakdown(items);
+  return a.breakdown.map(function(rel){
+    var n = items.filter(function(i){ return i.rel === rel; }).length;
+    return n ? nounFor(rel, n) : "";
+  }).filter(Boolean).join(" · ");
 }
-function whenWord(d){
-  var n = days(d);
-  if (n === 0) return "Today";
-  if (n === 1) return "Tomorrow";
-  if (n > 1 && n < 7) return DOWL[d.getDay()];
-  if (n >= 7 && n <= 13) return "Next " + DOWL[d.getDay()];
-  return short(d);
+function kindsLine(items){
+  return Object.keys(KINDS).map(function(k){
+    var n = items.filter(function(i){ return i.pkind === k; }).length;
+    return n ? n + " " + KINDS[k].label.toLowerCase() : "";
+  }).filter(Boolean).join(" · ");
+}
+// The tile's one next step: the first Needs you item, else the first live item whose relationship has one.
+function nextStep(a){
+  var rest = counted(state.data[a.id]).slice();
+  if (a.sort) rest.sort(a.sort);
+  var pool = needsIn(a.id).concat(rest);
+  for (var k = 0; k < pool.length; k++){ var t = val(RELATIONSHIPS[pool[k].rel].next, pool[k]); if (t) return t; }
+  return "";
 }
 
 // ——— State ———
-var state = { scenario:"typical", data:makeData("typical"), area:null, card:null, needsAll:false, expanded:{}, notes:false, palettePinned:false };
+var state = { scenario:"typical", data:makeData("typical"), area:null, filter:null, card:null, needsAll:false, expanded:{}, notes:false, palettePinned:false };
 var lists = {}; // list key → ids, for stepping through a group in the opened card
 
 function findItem(id){
-  var d = state.data, all = d.work.concat(d.projects, d.events, d.people);
-  for (var i = 0; i < all.length; i++) if (all[i].id === id) return all[i];
+  var all = allItems(state.data);
+  for (var k = 0; k < all.length; k++) if (all[k].id === id) return all[k];
   return null;
 }
-function total(){ return AREAS.reduce(function(s, a){ return s + liveCount(state.data, a.id); }, 0); }
 
-// ——— Rows ———
+// ——— Rows: one renderer, driven by item fields ———
 function thumbHTML(i){
-  if (i.area === "events") return '<div class="thumb date"><span class="m">' + MON[i.date.getMonth()] + '</span><span class="d">' + i.date.getDate() + '</span></div>';
-  if (i.area === "people") return '<div class="thumb face" style="background:' + faceTone(i.tone) + '">' + esc(initialsOf(i.name)) + '</div>';
+  if (i.date) return '<div class="thumb date"><span class="m">' + MON[i.date.getMonth()] + '</span><span class="d">' + i.date.getDate() + '</span></div>';
+  if (i.name) return '<div class="thumb face" style="background:' + faceTone(i.tone) + '">' + esc(initialsOf(i.name)) + '</div>';
   return '<div class="thumb" style="background-image:' + cover(i.tone) + '"></div>';
 }
-function rowParts(i, withArea){
-  var hot = false, title = i.title, sub = "", meta = i.meta || "", status = i.status || "", act = "";
-  var areaLabel = withArea ? (i.area === "work" ? "Work" : i.area === "projects" ? "Projects" : i.area === "events" ? "Events" : "People") + " · " : "";
-  if (i.area === "events"){
-    sub = areaLabel + i.venue + " · " + DOW[i.date.getDay()] + " " + i.time;
-    meta = i.going > 0 ? i.going + " going" : "";
-    if (i.kind === "going") status = "You're going";
-    else if (i.kind === "requested") status = "Requested";
-    else if (i.kind === "past") status = i.cancelled ? "Cancelled" : "Past";
-    else status = "";
-    if (isSoon(i)){ hot = true; status = whenWord(i.date) + " · " + i.time; }
-  } else if (i.area === "people"){
-    sub = areaLabel + i.interests.join(" · ");
-    meta = "";
-    status = "Followed " + short(i.since);
-  } else {
-    sub = areaLabel + (i.role ? i.project + " · " + i.lead : "by " + i.lead);
-    if (i.kind === "invited" || isDue(i)){ hot = true; status = i.hot || status; }
-    if (i.act && hot) act = '<button class="btn-outline" data-act="' + (i.kind === "invited" ? "open" : "apply-open") + '" data-id="' + i.id + '">' + esc(i.act) + '</button>';
-  }
-  return { hot:hot, title:title, sub:sub, meta:meta, status:status, act:act };
+function subOf(i){
+  var r = RELATIONSHIPS[i.rel];
+  if (r.sub) return r.sub(i);
+  if (i.date) return i.venue + " · " + DOW[i.date.getDay()] + " " + i.time;
+  if (i.project) return i.project + " · " + i.lead;
+  if (i.lead) return "by " + i.lead;
+  return i.interests.join(" · ");
 }
-function rowHTML(i, listKey, withArea){
-  var p = rowParts(i, withArea);
-  var cls = "row" + (p.hot ? " hot" : "") + (i.kind === "past" || i.kind === "closed" ? " past" : "");
-  return '<li class="' + cls + '" tabindex="0" data-open="' + i.id + '" data-list="' + listKey + '">' +
+function rowHTML(i, listKey, withArea, hot){
+  var r = RELATIONSHIPS[i.rel];
+  var status = val(hot && r.hot || r.row, i) || "";
+  var lead = i.pkind ? KINDS[i.pkind].label : withArea ? AREA[i.area].label : "";
+  var sub = [lead, subOf(i)].filter(Boolean).join(" · ");
+  var meta = i.date ? (i.going ? i.going + " going" : "") : (i.pay || i.stage || "");
+  var act = hot && r.rowAct ? '<button class="btn-outline" data-act="' + i.id + '">' + esc(r.rowAct) + '</button>' : "";
+  return '<li class="row' + (hot ? " hot" : "") + (r.collapsed ? " past" : "") + '" tabindex="0" data-open="' + i.id + '" data-list="' + listKey + '">' +
     thumbHTML(i) +
-    '<div class="row-text"><div class="row-title">' + esc(p.title) + '</div><div class="row-sub">' + esc(p.sub) + '</div>' +
-      (p.status ? '<div class="row-sub2">' + esc(p.status) + '</div>' : '') + '</div>' +
-    '<div class="row-meta">' + esc(p.meta) + '</div>' +
-    '<div class="row-status">' + esc(p.status) + '</div>' +
-    '<div class="row-act">' + p.act + '</div>' +
+    '<div class="row-text"><div class="row-title">' + esc(i.title) + '</div><div class="row-sub">' + esc(sub) + '</div>' +
+      (status ? '<div class="row-sub2">' + esc(status) + '</div>' : '') + '</div>' +
+    '<div class="row-meta">' + esc(meta) + '</div>' +
+    '<div class="row-status">' + esc(status) + '</div>' +
+    '<div class="row-act">' + act + '</div>' +
   '</li>';
 }
 function rowsHTML(items, listKey, withArea){
+  var needs = needsYou(state.data, TODAY);
   lists[listKey] = items.map(function(i){ return i.id; });
-  return '<ul class="rows">' + items.map(function(i){ return rowHTML(i, listKey, withArea); }).join("") + '</ul>';
+  return '<ul class="rows">' + items.map(function(i){ return rowHTML(i, listKey, withArea, needs.indexOf(i) >= 0); }).join("") + '</ul>';
 }
+function browseLink(a, style){ return '<button class="linkish"' + (style ? ' style="' + style + '"' : '') + ' data-toast="Goes to ' + esc(a.browse.replace(" →","")) + ' on the desk.">' + esc(a.browse) + '</button>'; }
 
 // ——— Level 1: overview ———
 function renderOverview(){
-  var d = state.data, n = total(), html = "";
+  var d = state.data, n = total(d), html = "";
   html += '<header class="head"><p class="mono-label">The Garden</p><h1 class="title"><span>Shortlist</span>' +
     (n ? '<span class="count" role="status">' + plural(n, "thing", "things") + '</span>' : '') + '</h1></header>';
 
   if (n === 0){
-    html += '<div class="welcome"><h2>Nothing on your shortlist yet.</h2>' +
-      '<p>Save work, projects and events you want to come back to, and follow people whose work you like. They all collect here.</p>' +
-      '<ul>' + AREAS.map(function(a){ return '<li><button class="linkish" data-toast="Goes to ' + esc(a.browse.replace(" →","")) + ' on the desk.">' + esc(a.browse) + '</button></li>'; }).join("") + '</ul></div>';
-    return html;
+    return html + '<div class="welcome"><h2>Nothing on your shortlist yet.</h2>' +
+      '<p>Save projects, roles and events you want to come back to, and follow people whose work you like. They all collect here.</p>' +
+      '<ul>' + AREAS.map(function(a){ return '<li>' + browseLink(a) + '</li>'; }).join("") + '</ul></div>';
   }
 
-  var needs = needsList(d);
+  var needs = needsYou(d, TODAY);
   if (needs.length){
-    var shown = state.needsAll ? needs : needs.slice(0, 3);
-    html += '<section class="section" aria-label="Needs you"><p class="kicker hot">Needs you · ' + needs.length + newtag("The rules that pick these: an invite waiting on you, an event you're going to in the next 7 days, a saved role that fills within 7 days.") + '</p>' +
-      rowsHTML(shown, "needs", true);
+    html += '<section class="section" aria-label="Needs you"><p class="kicker hot">Needs you · ' + needs.length + newtag(NEW.needs) + '</p>' +
+      rowsHTML(state.needsAll ? needs : needs.slice(0, 3), "needs", true);
     if (needs.length > 3) html += '<div class="more"><button class="linkish" data-needs-all="1">' + (state.needsAll ? "Show fewer" : (needs.length - 3) + " more →") + '</button></div>';
     html += '</section>';
   }
@@ -564,128 +649,101 @@ function renderOverview(){
   html += '<div style="height:' + (needs.length ? 40 : 8) + 'px"></div><div class="tiles">' + AREAS.map(tileHTML).join("") + '</div>';
 
   if (n <= 8){
-    var all = [];
-    AREAS.forEach(function(a){ all = all.concat(d[a.id].filter(isLive)); });
+    var all = counted(allItems(d));
     html += '<section class="section" style="margin-top:40px"><p class="kicker">Everything on your shortlist · ' + all.length + '</p>' + rowsHTML(all, "all", true) + '</section>';
   }
   return html;
 }
 function tileHTML(a){
-  var d = state.data, c = liveCount(d, a.id), needs = areaNeeds(d, a.id);
-  var gap = { work:"Saving roles and the invite and applied states need the new my-requests query and a project/role save.", projects:"Saving a project needs favorites.targetType \"project\". Asked, team and backing come from existing tables via a new query.", events:"Going and requested need eventRsvps indexed by user.", people:"" }[a.id];
+  var items = counted(state.data[a.id]), c = items.length, hot = needsIn(a.id).length;
   if (!c){
     return '<div class="tile empty"><div class="tile-top"><span class="tile-kicker">' + a.kicker + '</span></div>' +
-      '<div class="tile-none">Nothing saved yet</div><button class="linkish" style="text-align:left" data-toast="Goes to ' + esc(a.browse.replace(" →","")) + ' on the desk.">' + esc(a.browse) + '</button></div>';
+      '<div class="tile-none">Nothing saved yet</div>' + browseLink(a, "text-align:left") + '</div>';
   }
-  var body = a.id === "people"
-    ? '<div class="faces">' + d.people.slice().sort(function(x,y){ return y.since - x.since; }).slice(0,5).map(function(p){ return '<span style="background:' + faceTone(p.tone) + '">' + esc(initialsOf(p.name)) + '</span>'; }).join("") + '<span class="n">' + c + '</span></div>'
+  var gaps = Object.keys(a.gaps || {}).map(function(g){ return a.gaps[g]; }).filter(function(k, ix, arr){ return k !== "needs" && arr.indexOf(k) === ix; });
+  var body = a.faces
+    ? '<div class="faces">' + items.slice().sort(a.sort).slice(0,5).map(function(p){ return '<span style="background:' + faceTone(p.tone) + '">' + esc(initialsOf(p.name)) + '</span>'; }).join("") + '<span class="n">' + c + '</span></div>'
     : '<div class="tile-count">' + c + '</div>';
-  return '<button class="tile" data-area="' + a.id + '" aria-label="' + esc(a.label + ", " + c + (needs ? ", " + needs + " need you" : "")) + '">' +
-    '<div class="tile-top"><span style="display:inline-flex;gap:8px;align-items:center"><span class="tile-kicker">' + a.kicker + '</span>' + (gap ? newtag(gap) : "") + '</span>' + (needs ? '<span class="tile-flag">' + needs + ' need' + (needs === 1 ? "s" : "") + ' you</span>' : "") + '</div>' +
-    body + '<div class="tile-break">' + esc(breakdown(d, a.id)) + '</div><div class="tile-next">' + esc(nextLine(d, a.id)) + '</div></button>';
+  return '<button class="tile" data-area="' + a.id + '" aria-label="' + esc(a.label + ", " + c + (hot ? ", " + hot + " need you" : "")) + '">' +
+    '<div class="tile-top"><span style="display:inline-flex;gap:8px;align-items:center"><span class="tile-kicker">' + a.kicker + '</span>' + newtag(gaps.map(function(k){ return NEW[k]; }).join(" ")) + '</span>' +
+      (hot ? '<span class="tile-flag">' + hot + ' need' + (hot === 1 ? "s" : "") + ' you</span>' : "") + '</div>' +
+    body + '<div class="tile-break">' + esc(breakdown(a, items)) + (a.kinds ? '<span class="kinds">' + esc(kindsLine(items)) + '</span>' : '') + '</div>' +
+    '<div class="tile-next">' + esc(nextStep(a)) + '</div></button>';
 }
 
 // ——— Level 2: one area ———
-function renderArea(){
-  var d = state.data, a = AREAS.filter(function(x){ return x.id === state.area; })[0], c = liveCount(d, a.id), html = "";
-  html += '<header class="head"><p class="mono-label">The Garden · <button class="crumb" data-area="">Shortlist</button></p><h1 class="title"><span>' + a.label + '</span><span class="count" role="status">' + c + '</span></h1></header>';
-  html += '<div class="chiprow" id="chiprow" role="group" aria-label="Areas"><button class="chip" aria-pressed="false" data-area="">All</button>' +
-    AREAS.map(function(x){
-      var n = liveCount(d, x.id), hot = areaNeeds(d, x.id);
-      return '<button class="chip" aria-pressed="' + (x.id === a.id) + '" data-area="' + x.id + '">' + (hot ? '<span class="hotdot" aria-hidden="true"></span>' : '') + x.label + ' <span class="n">' + n + '</span></button>';
-    }).join("") + '</div>';
-
-  if (!d[a.id].length){
-    html += '<section class="section" style="margin-top:20px"><div class="empty-line"><span>' + esc(a.empty) + '</span><button class="linkish" data-toast="Goes to ' + esc(a.browse.replace(" →","")) + ' on the desk.">' + esc(a.browse) + '</button></div></section>';
-    return html;
-  }
-
-  html += '<section class="section">';
-  if (a.id === "people"){
-    var by = {};
-    d.people.slice().sort(function(x,y){ return y.since - x.since; }).forEach(function(p){
-      var k = INTEREST_ORDER.indexOf(p.interests[0]) >= 0 ? p.interests[0] : "Other";
-      (by[k] = by[k] || []).push(p);
-    });
-    var keys = INTEREST_ORDER.concat(["Other"]).filter(function(k){ return by[k]; });
-    var grouped = d.people.length >= 6;
-    if (!grouped) html += '<div class="group" style="margin-top:12px">' + rowsHTML(d.people, "people:all") + '</div>';
-    else keys.forEach(function(k){
-      html += '<div class="group"><p class="kicker">' + esc(k) + ' <span class="sub">' + by[k].length + '</span></p>' + rowsHTML(by[k], "people:" + k) + '</div>';
-    });
+function chipHTML(label, n, attr, on, dot){
+  return '<button class="chip" aria-pressed="' + on + '" ' + attr + '>' + (dot ? '<span class="hotdot" aria-hidden="true"></span>' : '') + esc(label) + ' <span class="n">' + n + '</span></button>';
+}
+function groupOf(i, a, needs){ return needs.indexOf(i) >= 0 ? a.hot : (RELATIONSHIPS[i.rel].group || i.rel); }
+function relGroups(a, items){
+  var needs = needsYou(state.data, TODAY);
+  return a.groups.map(function(key){
+    var r = RELATIONSHIPS[key];
+    var list = items.filter(function(i){ return groupOf(i, a, needs) === key; });
+    if (r.hot) list.sort(function(x, y){ return needs.indexOf(x) - needs.indexOf(y); });
+    else if (a.sort) list.sort(a.sort);
+    if (r.newestFirst) list.reverse();
+    return { key:key, label:r.label, items:list };
+  }).filter(function(g){ return g.items.length; });
+}
+function groupHTML(a, g){
+  var r = RELATIONSHIPS[g.key] || {}, key = a.id + ":" + g.key, n = g.items.length, html = "";
+  html += '<div class="group"' + (g.label ? '' : ' style="margin-top:12px"') + '>';
+  if (g.label) html += '<p class="kicker' + (r.hot ? " hot" : "") + '">' + esc(g.label) + ' <span class="sub">' + n + '</span>' + newtag(a.gaps && NEW[a.gaps[g.key]]) + '</p>';
+  if (r.collapsed && !state.expanded[key]){
+    html += '<div class="more" style="margin-top:0"><button class="linkish quiet" data-expand="' + key + '">Show ' + n + ' ' + r.fold + '</button>' +
+      (r.bulk ? '<button class="linkish quiet" data-bulk="' + g.key + '">' + r.bulk + '</button>' + newtag(NEW.bulk) : '') + '</div>';
+  } else if (n > 6 && g.items[0].date){
+    var months = [], byM = {};
+    g.items.forEach(function(i){ var m = MONTH[i.date.getMonth()] + (i.date.getFullYear() !== 2026 ? " " + i.date.getFullYear() : ""); if (!byM[m]){ byM[m] = []; months.push(m); } byM[m].push(i); });
+    months.forEach(function(m){ html += '<p class="month">' + m.toUpperCase() + ' · ' + byM[m].length + '</p>' + rowsHTML(byM[m], key + ":" + m); });
   } else {
-    GROUPS[a.id].forEach(function(g){
-      var items = d[a.id].filter(function(i){ return groupOf(i) === g[0]; });
-      if (a.id === "events" || g[0] === "needs") items.sort(function(x,y){ return (x.date || x.due || 0) - (y.date || y.due || 0); });
-      if (g[0] === "past") items.sort(function(x,y){ return y.date - x.date; });
-      if (!items.length) return;
-      var key = a.id + ":" + g[0];
-      var hot = g[0] === "needs" || g[0] === "week";
-      var gapNote = { applied:"Needs the new my-requests query over projectMembers.", asked:"Needs the new my-requests query over projectMembers.", team:"Needs the new my-requests query over projectMembers.", going:"Needs eventRsvps indexed by user.", requested:"eventApplications.by_applicantId already exists.", saved: a.id === "events" ? "" : "Needs favorites.targetType \"project\" and \"role\"." }[g[0]];
-      html += '<div class="group"><p class="kicker' + (hot ? " hot" : "") + '">' + g[1] + ' <span class="sub">' + items.length + '</span>' + (gapNote ? newtag(gapNote) : "") + '</p>';
-      if (COLLAPSED[g[0]] && !state.expanded[key]){
-        html += '<div class="more" style="margin-top:0"><button class="linkish quiet" data-expand="' + key + '">Show ' + items.length + (g[0] === "past" ? " past events" : " closed") + '</button>' +
-          (g[0] === "past" ? '<button class="linkish quiet" data-clear-past="1">Remove past events</button>' + newtag("Bulk unsave. New mutation.") : '') + '</div>';
-      } else if (a.id === "events" && g[0] === "saved" && items.length > 6){
-        var months = [], byM = {};
-        items.forEach(function(i){ var m = MONTH[i.date.getMonth()] + (i.date.getFullYear() !== 2026 ? " " + i.date.getFullYear() : ""); if (!byM[m]){ byM[m] = []; months.push(m); } byM[m].push(i); });
-        months.forEach(function(m){ html += '<p class="month">' + m.toUpperCase() + ' · ' + byM[m].length + '</p>' + rowsHTML(byM[m], key + ":" + m); });
-      } else {
-        html += rowsHTML(items, key);
-        if (COLLAPSED[g[0]]) html += '<div class="more"><button class="linkish quiet" data-expand="' + key + '">Hide</button></div>';
-      }
-      html += '</div>';
-    });
+    html += rowsHTML(g.items, key);
   }
-  html += '</section>';
-  return html;
+  if (r.collapsed && state.expanded[key]) html += '<div class="more"><button class="linkish quiet" data-expand="' + key + '">Hide</button></div>';
+  return html + '</div>';
+}
+function renderArea(){
+  var d = state.data, a = AREA[state.area], html = "";
+  var items = d[a.id].filter(function(i){ return !state.filter || i.pkind === state.filter; });
+  html += '<header class="head"><p class="mono-label">The Garden · <button class="crumb" data-area="">Shortlist</button></p><h1 class="title"><span>' + a.label + '</span><span class="count" role="status">' + counted(items).length + '</span></h1></header>';
+  html += '<div class="chiprow" id="chiprow" role="group" aria-label="Areas">' +
+    chipHTML("All", total(d), 'data-area=""', false) +
+    AREAS.map(function(x){ var on = x.id === a.id; return chipHTML(x.label, counted(d[x.id]).length, 'data-area="' + (on ? "" : x.id) + '"', on, needsIn(x.id).length); }).join("") +
+    (a.kinds ? '<span class="chip-div" aria-hidden="true"></span>' + Object.keys(KINDS).map(function(k){
+      return chipHTML(KINDS[k].label, counted(d[a.id]).filter(function(i){ return i.pkind === k; }).length, 'data-filter="' + k + '"', state.filter === k);
+    }).join("") : '') + '</div>';
+
+  if (!items.length){
+    return html + '<section class="section" style="margin-top:20px"><div class="empty-line"><span>' + esc(a.empty) + '</span>' + browseLink(a) + '</div></section>';
+  }
+  var groups = typeof a.groups === "function" ? a.groups(items) : relGroups(a, items);
+  return html + '<section class="section">' + groups.map(function(g){ return groupHTML(a, g); }).join("") + '</section>';
 }
 
-// ——— Level 3: the opened card ———
-function actionsFor(i){
-  var A = [];
-  if (i.area === "people") return { btns:[{ l:"See profile", solid:true, t:"Goes to " + i.name + "'s profile." },{ l:"Unfollow", a:"remove" }], aside:"" };
-  if (i.area === "events"){
-    if (i.kind === "going") A = [{ l:"You're going", solid:true, dis:true },{ l:"Event page →", t:"Goes to the event page." }];
-    else if (i.kind === "requested") A = [{ l:"Requested", solid:true, dis:true },{ l:"Event page →", t:"Goes to the event page." }];
-    else if (i.kind === "saved") A = [{ l:"I'm going", solid:true, a:"going" },{ l:"Event page →", t:"Goes to the event page." },{ l:"Remove", a:"remove" }];
-    else A = [{ l:"Event page →", t:"Goes to the event page." },{ l:"Remove from shortlist", a:"remove" }];
-    return { btns:A, aside:(i.d && i.d.aside) || (i.going > 0 && i.kind !== "past" ? i.going + " going" : "") };
-  }
-  switch (i.kind){
-    case "invited": A = [{ l:"Accept", solid:true, a:"accept" },{ l:"Decline", a:"decline" }]; break;
-    case "applied": case "asked": A = [{ l:"Withdraw request", a:"withdraw" }]; break;
-    case "team": A = [{ l:"See project", solid:true, t:"Goes to the project page." }]; break;
-    case "backing": A = [{ l:"See project", solid:true, t:"Goes to the project page." }]; break;
-    case "saved": A = i.role ? [{ l:"Apply", solid:true, a:"apply" },{ l:"Remove from shortlist", a:"remove" }] : [{ l:"See project", solid:true, t:"Goes to the project page." },{ l:"Remove from shortlist", a:"remove" }]; break;
-    default: A = [{ l:"Remove from shortlist", a:"remove" }];
-  }
-  return { btns:A, aside:(i.d && i.d.aside) || "" };
-}
+// ——— Level 3: the opened card, driven by item fields ———
 function faceHTML(i){
-  if (i.area === "people"){
-    return '<div class="card-face paper"><div class="face-kicker">Following · ' + esc(i.interests[0]) + '</div><div><div class="initials">' + esc(initialsOf(i.name)) + '</div><div class="face-foot">' + esc(i.interests.join(" · ")) + '</div></div></div>';
+  var r = RELATIONSHIPS[i.rel];
+  if (i.date){
+    return '<div class="card-face" style="background-image:' + cover(i.tone) + '"><div class="scrim"></div><div class="face-kicker">' + DOWL[i.date.getDay()] + ' · ' + esc(i.time) + '</div><div><p class="face-title">' + short(i.date) + '</p><div class="face-foot">' + esc(i.venue) + '</div></div></div>';
   }
-  if (i.area === "events"){
-    return '<div class="card-face" style="background-image:' + cover(i.tone) + '"><div class="scrim"></div><div class="face-kicker">' + DOWL[i.date.getDay()] + ' · ' + esc(i.time) + '</div><div><p class="face-title">' + MONTH[i.date.getMonth()].slice(0,3) + " " + i.date.getDate() + '</p><div class="face-foot">' + esc(i.venue) + '</div></div></div>';
+  if (i.name){
+    return '<div class="card-face paper"><div class="face-kicker">' + esc(val(r.kicker, i)) + '</div><div><div class="initials">' + esc(initialsOf(i.name)) + '</div><div class="face-foot">' + esc(i.interests.join(" · ")) + '</div></div></div>';
   }
-  var kick = i.area === "work" ? "Paid work" : (i.role ? "Project" : (i.meta || "Project"));
-  return '<div class="card-face" style="background-image:' + cover(i.tone) + '"><div class="scrim"></div><div class="face-kicker">' + esc(kick) + '</div><div>' +
-    (i.role ? '<p class="face-title">' + esc(i.project) + '</p>' : '') + '<div class="face-foot">' + (i.role ? "Led by " : "By ") + esc(i.lead) + '</div></div></div>';
+  return '<div class="card-face" style="background-image:' + cover(i.tone) + '"><div class="scrim"></div><div class="face-kicker">' + KINDS[i.pkind].label + '</div><div>' +
+    (i.project ? '<p class="face-title">' + esc(i.project) + '</p>' : '') + '<div class="face-foot">' + esc(i.lead ? (i.project ? "Led by " : "By ") + i.lead : "Led by you") + '</div></div></div>';
 }
 function detailFor(i){
-  var d = i.d || {};
-  if (i.area === "people") return { meta:"Following · " + i.interests[0], status:"You followed " + i.name.split(" ")[0] + " " + short(i.since), title:i.name, host:i.interests.join(" · "), desc:i.bio, facts:[] };
-  if (i.area === "events"){
-    var st = i.kind === "going" ? "You're going · " + whenWord(i.date) + ", " + i.time : i.kind === "requested" ? "You requested a place · Waiting on the host" : i.kind === "past" ? (i.cancelled ? "Cancelled by the host" : "This event has passed") : "You saved this · " + whenWord(i.date);
-    return { meta:short(i.date).toUpperCase() + " · " + i.venue, status:st, title:i.title, host:d.host || "Hosted at " + i.venue, desc:d.desc || "", facts:[] };
-  }
+  var r = RELATIONSHIPS[i.rel], d = i.d || {};
   return {
-    meta:(i.role ? (i.area === "work" ? "Paid work · " + i.meta : "Project role · " + i.meta) : (i.meta || "Project")),
-    status:d.status || (i.kind === "saved" ? "You saved this · " + i.status : i.status),
-    title:i.title,
-    host:i.role ? i.project + ", led by " + i.lead : "By " + i.lead,
-    desc:d.desc || "", facts:d.facts || []
+    meta: r.meta ? r.meta(i) : i.date ? short(i.date).toUpperCase() + " · " + i.venue : KINDS[i.pkind].label + " · " + (i.pay || i.stage),
+    status: val(r.status || r.row, i),
+    host: r.host ? r.host(i) : r.sub ? r.sub(i) : i.date ? d.host || "Hosted at " + i.venue : i.project ? i.project + ", led by " + i.lead : "By " + i.lead,
+    desc: d.desc || "", facts: d.facts || [],
+    acts: val(r.acts, i) || [BTN.remove],
+    aside: r.aside ? r.aside(i) : d.aside || (i.going && isLive(i) ? i.going + " going" : ""),
+    gap: NEW[r.card || (i.project ? "cards" : "")]
   };
 }
 function renderCard(){
@@ -693,21 +751,20 @@ function renderCard(){
   if (!state.card){ cardEl.classList.remove("on"); dim.classList.remove("on"); cardEl.setAttribute("aria-hidden","true"); syncScene(); return; }
   var i = findItem(state.card.id);
   if (!i){ state.card = null; return renderCard(); }
-  var ids = lists[state.card.list] || [i.id], idx = Math.max(0, ids.indexOf(i.id));
-  var det = detailFor(i), act = actionsFor(i);
+  var ids = lists[state.card.list] || [i.id], idx = Math.max(0, ids.indexOf(i.id)), det = detailFor(i);
   cardEl.innerHTML = faceHTML(i) +
     '<div class="card-panel">' +
       '<div class="panel-bar"><div class="panel-meta">' + esc(det.meta) + '</div>' +
-        (ids.length > 1 ? '<div class="stepper">' + newtag("Step through the group without closing the card. New interaction.") + '<button class="round" data-step="-1" aria-label="Previous"' + (idx === 0 ? " disabled" : "") + '>' + icon("left", 16) + '</button><span>' + (idx + 1) + ' of ' + ids.length + '</span><button class="round" data-step="1" aria-label="Next"' + (idx === ids.length - 1 ? " disabled" : "") + '>' + icon("right", 16) + '</button></div>' : '') +
+        (ids.length > 1 ? '<div class="stepper">' + newtag(NEW.step) + '<button class="round" data-step="-1" aria-label="Previous"' + (idx === 0 ? " disabled" : "") + '>' + icon("left", 16) + '</button><span>' + (idx + 1) + ' of ' + ids.length + '</span><button class="round" data-step="1" aria-label="Next"' + (idx === ids.length - 1 ? " disabled" : "") + '>' + icon("right", 16) + '</button></div>' : '') +
         '<button class="round" data-close="1" aria-label="Close">' + icon("x", 16) + '</button></div>' +
       '<div class="status-chip">' + esc(det.status) + '</div>' +
-      '<h2 class="panel-title">' + esc(det.title) + (i.role ? " " + newtag("A role opens as its own card kind, role:<id>.") : "") + '</h2>' +
+      '<h2 class="panel-title">' + esc(i.title) + (det.gap ? " " + newtag(det.gap) : "") + '</h2>' +
       '<p class="panel-host">' + esc(det.host) + '</p>' +
       (det.desc ? '<p class="panel-desc">' + esc(det.desc) + '</p>' : '') +
       (det.facts.length ? '<dl class="facts">' + det.facts.map(function(f){ return '<div><dt>' + esc(f[0]) + '</dt><dd>' + esc(f[1]) + '</dd></div>'; }).join("") + '</dl>' : '') +
-      '<div class="actions">' + act.btns.map(function(b){
+      '<div class="actions">' + det.acts.map(function(b){
         return '<button class="' + (b.solid ? "btn-solid" : "btn-text") + '"' + (b.dis ? " disabled" : "") + (b.a ? ' data-do="' + b.a + '"' : "") + (b.t ? ' data-toast="' + esc(b.t) + '"' : "") + '>' + esc(b.l) + '</button>';
-      }).join("") + (act.aside ? '<span class="aside">' + esc(act.aside) + '</span>' : '') + '</div>' +
+      }).join("") + (det.aside ? '<span class="aside">' + esc(det.aside) + '</span>' : '') + '</div>' +
     '</div>';
   cardEl.removeAttribute("aria-hidden");
   cardEl.classList.add("on"); dim.classList.add("on");
@@ -727,17 +784,13 @@ var TOOLS = [
 var pal = { open:false, stack:null, closeTimer:0 };
 function stackItems(t){
   if (t.id !== "shortlist") return (t.items || []).map(function(r){ return { l:r[0], trail:r[1] || "", t:"In the app, this goes to " + r[0] + "." }; });
-  var d = state.data, n = needsList(d).length;
-  return [
-    { l:"See my shortlist", trail:n ? n + " need you" : "", hot:true, area:"" },
-    { l:"Work", trail:String(liveCount(d,"work")), area:"work" },
-    { l:"Projects", trail:String(liveCount(d,"projects")), area:"projects" },
-    { l:"Events", trail:String(liveCount(d,"events")), area:"events" },
-    { l:"People I follow", trail:String(liveCount(d,"people")), area:"people" }
-  ];
+  var n = needsYou(state.data, TODAY).length;
+  return [{ l:"See my shortlist", trail:n ? n + " need you" : "", hot:true, area:"" }].concat(AREAS.map(function(a){
+    return { l:a.stack || a.label, trail:String(counted(state.data[a.id]).length), area:a.id };
+  }));
 }
 function renderPalette(){
-  var el = document.getElementById("palette"), n = TOOLS.length, needs = needsList(state.data).length;
+  var el = document.getElementById("palette"), n = TOOLS.length, needs = needsYou(state.data, TODAY).length;
   var stageW = document.getElementById("stage").clientWidth || 1200;
   var html = '<button class="pal-main" id="palMain" title="Desk" aria-label="Navigation" aria-expanded="' + pal.open + '">' + icon("palette", 24) + '<span class="chipct" aria-label="3 unread">3</span></button>';
   TOOLS.forEach(function(t, i){
@@ -755,7 +808,7 @@ function renderPalette(){
     var bottom = Math.max(12, yUp - h / 2);
     var left = Math.max(8, Math.min(x + 22 + 14, stageW - 244));
     html += '<div class="pal-stack' + (pal.open && pal.stack === t.id ? " on" : "") + '" role="menu" data-stack="' + t.id + '" style="left:' + left.toFixed(0) + 'px;bottom:' + bottom.toFixed(0) + 'px">' +
-      '<div class="pal-head">' + esc(t.header || t.label) + (t.id === "shortlist" ? " " + newtag("Replaces the Desk tool. The main button already resets the desk.") : "") + '</div>' +
+      '<div class="pal-head">' + esc(t.header || t.label) + (t.id === "shortlist" ? " " + newtag(NEW.palette) : "") + '</div>' +
       rows.map(function(r){
         return '<button class="pal-item" role="menuitem"' + (r.area !== undefined ? ' data-area="' + r.area + '"' : ' data-toast="' + esc(r.t) + '"') + '><span>' + esc(r.l) + '</span>' + (r.trail ? '<span class="trail' + (r.hot ? " hot" : "") + '">' + esc(r.trail) + '</span>' : '') + '</button>';
       }).join("") + (state.notes ? extra : "") + '</div>';
@@ -776,7 +829,7 @@ function setPal(open, stack){
 }
 function bindPalette(){
   var el = document.getElementById("palette");
-  el.addEventListener("pointerenter", function(e){ clearTimeout(pal.closeTimer); }, true);
+  el.addEventListener("pointerenter", function(){ clearTimeout(pal.closeTimer); }, true);
   el.addEventListener("mouseover", function(e){
     clearTimeout(pal.closeTimer);
     if (e.target.closest("#palMain") && !pal.open) setPal(true, null);
@@ -794,8 +847,7 @@ function bindPalette(){
     if (t && pal.stack !== t.dataset.tool){ pal.stack = t.dataset.tool; syncStacks(); }
   });
   el.addEventListener("click", function(e){
-    var main = e.target.closest("#palMain");
-    if (main){ toast("The main button is the Desk: it resets the desk to everything. That's why the Desk tool can go."); return; }
+    if (e.target.closest("#palMain")){ toast("The main button is the Desk: it resets the desk to everything. That's why the Desk tool can go."); return; }
     var t = e.target.closest("[data-tool]");
     if (t){
       if (t.dataset.tool === "shortlist") go({ area:null, card:null });
@@ -808,21 +860,23 @@ function syncStacks(){
   document.querySelectorAll("#palette .pal-tool").forEach(function(b){ b.classList.toggle("hover", pal.stack === b.dataset.tool); });
 }
 
-// ——— Notes ———
+// ——— Notes: the key decisions only. The README is the spec. ———
 function renderNotes(){
   document.getElementById("notes").innerHTML =
   '<button class="round close-notes" data-notes-close="1" aria-label="Close notes">' + icon("x", 16) + '</button>' +
-  '<h2>Shortlist: design notes</h2><p style="color:#93a7b8">Favorites redesign, mockup v1 · Oct 2, 2026</p>' +
-  '<h3>What the page is</h3><p><strong>Shortlist</strong>: everything of other people\'s that you\'ve set aside or put your hand up for. What you own or host stays on your profile.</p>' +
-  '<p>Three relationships, ranked by how much they need you: <strong>in motion</strong> (invited, applied, going, on the team, backing), then <strong>saved</strong>, then <strong>followed</strong>.</p>' +
-  '<h3>Order</h3><p>Work, Projects, Events, People. Positions are fixed and never hidden, so people learn where things are. Work is anything that pays; volunteer roles sit under Projects.</p>' +
-  '<h3>Three levels</h3><ol><li><strong>Overview.</strong> Needs you (up to 3), then four tiles with counts, a breakdown and one next step. Fits 1440×900 without scrolling.</li><li><strong>An area.</strong> Rows, not posters, grouped by status. Status, dates and pay are what you decide on, and rows put 10+ on a screen. Closed and past fold away.</li><li><strong>One item.</strong> The existing opened card, plus a status line, one action that follows the state, and ← → to step through the group.</li></ol>' +
-  '<h3>Needs you</h3><ol><li>An invite waiting on your reply.</li><li>An event you\'re going to in the next 7 days.</li><li>A saved role that fills within 7 days.</li></ol><p>Nothing else counts. Notifications stay in Messages. Counts include live items only.</p>' +
-  '<h3>Palette</h3><ul><li>Shortlist replaces the Desk tool, in the same arc slot. The main button already does what Desk did, and a 7th tool would overlap on the 150px arc.</li><li>New order: Today, People, Projects, Events, Shortlist, Profile.</li><li>"See my favorites" leaves the Events stack.</li><li>A yellow dot on Shortlist when something needs you. The number chip stays for messages.</li></ul>' +
-  '<h3>Data gaps (tagged New)</h3><ul><li>Save a project or role: <code>favorites.targetType</code> gains "project" and "role", with branches in <code>getMyFavorites</code> (/events reads it too).</li><li>A my-requests query over <code>projectMembers.by_userId_status</code>: invited, applied, team, closed, with role, pay, fill-by and lead.</li><li>Going: <code>eventRsvps</code> needs a by-user index. Requested: <code>eventApplications.by_applicantId</code> exists.</li><li>A <code>role:&lt;id&gt;</code> opened-card kind, ← → stepping, and bulk "Remove past events".</li><li>Already there: follows, saved events, backing (<code>listMySupportGiven</code>).</li></ul>' +
-  '<h3>Decided · Oct 2</h3><ol><li>The name is <strong>Shortlist</strong>, everywhere.</li><li>Shortlist takes the Desk tool\'s slot.</li><li>Only what the member did. No suggestions, AI or otherwise.</li><li><strong>Needs you leads Today too</strong>: the same rules from one function, up to 3 rows above Today\'s cards, then "N more on your Shortlist →". Hidden on Today when nothing needs you.</li></ol>' +
-  '<h3>Still open</h3><ol><li>Paid roles under Work, volunteer roles under Projects. Right split?</li><li>Phones: same structure, tiles 2×2?</li></ol>' +
-  '<h3>Frames</h3><p>Use the bar along the top. Everything is clickable: tiles, chips, rows, the card\'s buttons, ← → and Escape, and the palette in the lower left.</p>';
+  '<h2>Shortlist: design notes</h2><p style="color:#93a7b8">Mockup v2 · Oct 2, 2026. Blue New tags mark data gaps; hover one for the detail.</p>' +
+  '<h3>Key decisions</h3><ul>' +
+    '<li><strong>Shortlist</strong>, everywhere. It holds only what the member did themselves; no suggestions.</li>' +
+    '<li><strong>Three areas, one axis.</strong> Projects, Events and People, each grouped by your relationship to the item, so nothing lands in two places.</li>' +
+    '<li><strong>Paid · Passion is a filter, not a section.</strong> Every project is one kind. A paid role on a passion project stays under Passion and shows its pay.</li>' +
+    '<li><strong>What you lead or host lives here too</strong>, in Leading and Hosting, with requests waiting on you. No separate "My projects".</li>' +
+    '<li><strong>One <code>needsYou(data, today)</code></strong> feeds the strip, the tiles, the chips, the palette dot and Today, so they can\'t disagree. Requests don\'t add to counts.</li>' +
+    '<li><strong>Work first</strong> survives: paid invites lead Needs you, the Paid chip, and a paid · passion line on the Projects tile.</li>' +
+    '<li><strong>Three levels:</strong> tiles, then rows by relationship, then the opened card with one action that follows the state and ←/→.</li>' +
+    '<li><strong>Palette:</strong> Shortlist takes the Desk tool\'s slot, with a yellow dot when something needs you.</li>' +
+  '</ul>' +
+  '<p>Full spec: <code>docs/handoff/favorites-redesign/README.md</code>.</p>' +
+  '<p>Still open: phones.</p>';
 }
 
 // ——— Toast ———
@@ -833,11 +887,46 @@ function toast(msg){
   clearTimeout(toastTimer); toastTimer = setTimeout(function(){ t.classList.remove("on"); }, 2600);
 }
 
+// ——— Scenes (the mockup bar). Each is a state; #hash deep-links to it. ———
+var SCENES = {
+  overview:{ label:"Overview" },
+  projects:{ label:"Projects open", area:"projects" },
+  invite:{ label:"An invite", card:{ id:"pr-invite", list:"needs" } },
+  request:{ label:"A join request", card:{ id:"pr-req", list:"needs" } },
+  palette:{ label:"Palette", palette:true },
+  events40:{ label:"40 saved events", scenario:"heavy", area:"events" },
+  sparse:{ label:"Two follows", scenario:"sparse" },
+  "new":{ label:"New member", scenario:"empty" }
+};
+function currentScene(){
+  return Object.keys(SCENES).filter(function(name){
+    var s = SCENES[name];
+    return (s.scenario || "typical") === state.scenario && (s.area || null) === state.area && !state.filter &&
+      !!s.palette === state.palettePinned && (s.card ? !!state.card && state.card.id === s.card.id : !state.card);
+  })[0] || "";
+}
+function syncScene(){
+  var cur = currentScene();
+  document.querySelectorAll(".scene").forEach(function(b){ b.setAttribute("aria-pressed", String(b.dataset.scene === cur)); });
+}
+function scene(name){
+  if (!SCENES[name]) name = "overview";
+  var s = SCENES[name];
+  state.scenario = s.scenario || "typical"; state.data = makeData(state.scenario);
+  state.area = s.area || null; state.filter = null; state.card = null; state.needsAll = false; state.expanded = {};
+  state.palettePinned = !!s.palette;
+  render();
+  document.getElementById("desk").scrollTop = 0;
+  if (s.card){ state.card = { id:s.card.id, list:s.card.list }; renderCard(); }
+  if (s.palette){ setPal(true, "shortlist"); } else { setPal(false); }
+  syncScene();
+  try { history.replaceState(null, "", "#" + name); } catch (e) {}
+}
+
 // ——— Render + navigation ———
 function render(){
   lists = {};
-  var inner = document.getElementById("deskInner");
-  inner.innerHTML = state.area ? renderArea() : renderOverview();
+  document.getElementById("deskInner").innerHTML = state.area ? renderArea() : renderOverview();
   renderCard();
   renderPalette();
   document.body.classList.toggle("notes-on", state.notes);
@@ -847,74 +936,44 @@ function render(){
   syncScene();
   onScroll();
 }
-function currentScene(){
-  if (state.palettePinned) return "palette";
-  if (state.scenario === "empty") return "new";
-  if (state.scenario === "sparse") return state.area || state.card ? "" : "sparse";
-  if (state.scenario === "heavy") return state.area === "events" && !state.card ? "events40" : "";
-  if (state.card) return state.card.id === "w-invite" && !state.area ? "invite" : "";
-  if (state.area === "work") return "work";
-  return state.area ? "" : "overview";
-}
-function syncScene(){
-  var cur = currentScene();
-  document.querySelectorAll(".scene").forEach(function(b){ b.setAttribute("aria-pressed", String(b.dataset.scene === cur)); });
-}
 function go(patch){
   var areaChanged = "area" in patch && patch.area !== state.area;
   for (var k in patch) state[k] = patch[k];
-  if (areaChanged) state.expanded = {};
+  if (areaChanged){ state.expanded = {}; state.filter = null; }
   render();
   if (areaChanged) document.getElementById("desk").scrollTop = 0;
 }
-var SCENES = {
-  overview:{ scenario:"typical", area:null },
-  work:{ scenario:"typical", area:"work" },
-  invite:{ scenario:"typical", area:null, card:{ id:"w-invite", list:"needs" } },
-  palette:{ scenario:"typical", area:null, palette:true },
-  events40:{ scenario:"heavy", area:"events" },
-  sparse:{ scenario:"sparse", area:null },
-  "new":{ scenario:"empty", area:null }
-};
-function scene(name){
-  if (!SCENES[name]) name = "overview";
-  var s = SCENES[name];
-  state.scenario = s.scenario; state.data = makeData(s.scenario);
-  state.area = s.area; state.card = null; state.needsAll = false; state.expanded = {};
-  state.palettePinned = !!s.palette;
-  render();
-  document.getElementById("desk").scrollTop = 0;
-  if (s.card){ state.card = s.card; renderCard(); }
-  if (s.palette){ setPal(true, "shortlist"); } else { setPal(false); }
-  syncScene();
-  try { history.replaceState(null, "", "#" + name); } catch (e) {}
-}
 function openCard(id, list){ state.card = { id:id, list:list }; renderCard(); }
-function closeCard(){
-  state.card = null; renderCard();
-}
+function closeCard(){ state.card = null; renderCard(); }
 function step(dir){
   if (!state.card) return;
   var ids = lists[state.card.list] || [], idx = ids.indexOf(state.card.id) + dir;
   if (idx >= 0 && idx < ids.length){ state.card.id = ids[idx]; renderCard(); }
 }
-function mutate(kind, i){
-  var name = i.title;
-  if (kind === "accept"){ i.kind = "team"; i.status = "You're on the team"; i.d = Object.assign({}, i.d, { status:"You joined today · On the team", aside:"" }); toast("You're on the team for " + i.project + "."); }
-  else if (kind === "decline"){ i.kind = "closed"; i.status = "You declined"; toast("Declined. " + i.who + " will see it."); }
-  else if (kind === "withdraw"){ i.kind = "closed"; i.status = "Withdrawn"; toast("Request withdrawn."); }
-  else if (kind === "apply"){ i.kind = "applied"; i.status = "Waiting on " + i.who + " · today"; i.d = Object.assign({}, i.d, { status:"You applied today · Waiting on " + i.who, aside:"Sent today" }); toast("In the app, Apply opens the request form. Marked as applied here."); }
-  else if (kind === "going"){ i.kind = "going"; toast("You're going to " + name + "."); }
-  else if (kind === "remove"){
-    var arr = state.data[i.area]; arr.splice(arr.indexOf(i), 1);
-    toast(i.area === "people" ? "Unfollowed " + name + "." : "Removed from your shortlist.");
-  }
-  state.card = null;
-  render();
-}
+
+// Card actions. Each returns its toast.
+function drop(i){ var arr = state.data[i.area]; arr.splice(arr.indexOf(i), 1); }
+var DO = {
+  accept:function(i){ i.rel = "team"; i.since = TODAY; return "You're on the team for " + i.project + "."; },
+  decline:function(i){ i.rel = "closed"; i.note = "You declined"; return "Declined. " + first(i.lead) + " will see it."; },
+  admit:function(i){
+    var p = findItem(i.of); drop(i);
+    if (p){ p.team += 1; p.open = Math.max(0, p.open - 1); p.note = first(i.name) + " joined as " + i.role; }
+    return first(i.name) + " joined " + i.project + " as " + i.role + ".";
+  },
+  turnDown:function(i){ drop(i); return "Declined. " + first(i.name) + " will see it."; },
+  withdraw:function(i){ i.rel = "closed"; i.note = "Withdrawn"; return "Request withdrawn."; },
+  apply:function(i){ i.rel = "waiting"; i.via = "applied"; i.since = TODAY; return "In the app, Apply opens the request form. Marked as applied here."; },
+  going:function(i){ i.rel = "going"; return "You're going to " + i.title + "."; },
+  remove:function(i){ drop(i); return i.rel === "following" ? "Unfollowed " + i.name + "." : "Removed from your shortlist."; }
+};
+function mutate(kind, i){ toast(DO[kind](i)); state.card = null; render(); }
 
 // ——— Events ———
 function bind(){
+  document.querySelector(".mock-label").insertAdjacentHTML("afterend", Object.keys(SCENES).map(function(name, k){
+    return '<button class="scene" data-scene="' + name + '"><span class="k">' + (k + 1) + '</span>' + esc(SCENES[name].label) + '</button>';
+  }).join(""));
   document.querySelector(".mockbar").addEventListener("click", function(e){
     var s = e.target.closest("[data-scene]"); if (s) scene(s.dataset.scene);
     if (e.target.closest("#notesToggle")){ state.notes = !state.notes; render(); if (state.palettePinned) setPal(true, "shortlist"); }
@@ -933,12 +992,15 @@ function bind(){
     if ((el = e.target.closest("[data-toast]"))){ toast(el.dataset.toast); return; }
     if ((el = e.target.closest("[data-close]")) || e.target.id === "dim"){ closeCard(); return; }
     if ((el = e.target.closest("[data-step]"))){ step(Number(el.dataset.step)); return; }
-    if ((el = e.target.closest("[data-act]"))){
-      var row = el.closest("[data-open]"); openCard(el.dataset.id, row ? row.dataset.list : "needs"); return;
-    }
+    if ((el = e.target.closest("[data-act]"))){ var row = el.closest("[data-open]"); openCard(el.dataset.act, row ? row.dataset.list : "needs"); return; }
     if ((el = e.target.closest("[data-needs-all]"))){ go({ needsAll: !state.needsAll }); return; }
     if ((el = e.target.closest("[data-expand]"))){ state.expanded[el.dataset.expand] = !state.expanded[el.dataset.expand]; render(); return; }
-    if ((el = e.target.closest("[data-clear-past]"))){ state.data.events = state.data.events.filter(function(x){ return x.kind !== "past"; }); toast("Past events removed from your shortlist."); render(); return; }
+    if ((el = e.target.closest("[data-bulk]"))){
+      var rel = el.dataset.bulk, arr = state.data[state.area], gone = arr.filter(function(x){ return x.rel === rel; }).length;
+      state.data[state.area] = arr.filter(function(x){ return x.rel !== rel; });
+      toast("Removed " + plural(gone, RELATIONSHIPS[rel].fold.replace(/s$/, ""), RELATIONSHIPS[rel].fold) + " from your shortlist."); render(); return;
+    }
+    if ((el = e.target.closest("[data-filter]"))){ go({ filter: state.filter === el.dataset.filter ? null : el.dataset.filter }); return; }
     if ((el = e.target.closest("[data-area]"))){ go({ area: el.dataset.area || null, card:null }); return; }
     if ((el = e.target.closest("[data-open]"))){ openCard(el.dataset.open, el.dataset.list); return; }
     if (pal.open && !state.palettePinned) setPal(false);
@@ -955,6 +1017,7 @@ function bind(){
     if ((e.key === "Enter" || e.key === " ") && e.target.matches && e.target.matches(".row[data-open]")){ e.preventDefault(); openCard(e.target.dataset.open, e.target.dataset.list); }
   });
   document.getElementById("desk").addEventListener("scroll", onScroll, { passive:true });
+  window.addEventListener("hashchange", function(){ scene(location.hash.replace("#", "")); });
 }
 function onScroll(){
   var row = document.getElementById("chiprow"); if (!row) return;
@@ -966,7 +1029,6 @@ function onScroll(){
 renderNotes();
 bind();
 bindPalette();
-var start = (location.hash || "").replace("#", "");
-scene(SCENES[start] ? start : "overview");
+scene((location.hash || "").replace("#", ""));
 })();
 </script>
