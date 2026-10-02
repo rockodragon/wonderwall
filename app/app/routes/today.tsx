@@ -18,10 +18,14 @@ import { Link } from "react-router";
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { api } from "../../convex/_generated/api";
 import { formatMoney } from "../garden/ui";
-import { budgetAmountLabel, budgetKindLabel } from "../lib/budgetLabel";
 import { CLAIMS } from "../constants/claims";
 import { resolveStage, stageLabel } from "../lib/stage";
 import { Dissolve } from "../hooks/useReveal";
+import { AbstractCover } from "../components/AbstractCover";
+import { coverOf, fundingOf, moneyOf, pickProjects } from "../lib/projectPick";
+import { FF_DESK } from "../lib/featureFlags";
+import { Desk } from "../desk/Desk";
+import { useIsDesktop } from "../hooks/useMediaQuery";
 
 export function meta() {
   return [{ title: "Today — The Garden" }];
@@ -45,7 +49,16 @@ function useProjects() {
   return useQuery(api.garden.projects.listProjects);
 }
 
+// Desktop (md and up) opens on the desk instead of this page, behind FF_DESK
+// (docs/features/desktop-desk-palette.md). Phones keep the page below. Both
+// branches mount their own hooks, so the switch never changes hook order
+// inside either one.
 export default function Today() {
+  const isDesktop = useIsDesktop();
+  return FF_DESK && isDesktop ? <Desk /> : <TodayPage />;
+}
+
+function TodayPage() {
   const projects = useProjects();
   const events = useQuery(api.events.list, {});
   const profile = useQuery(api.profiles.getMyProfile);
@@ -56,28 +69,7 @@ export default function Today() {
 
   const episode = useMemo(() => pickEpisode(events ?? []), [events]);
 
-  const { featured, open, gigs } = useMemo(() => {
-    const all = projects ?? [];
-    const passion = all.filter((p) => p.kind === "passion" && p.status !== "completed");
-    const paid = all.filter(
-      (p) =>
-        p.kind === "paid" &&
-        p.status !== "completed" &&
-        budgetKindLabel(p) === "Paid" &&
-        (!p.gig || p.gig.status === "open"),
-    );
-    const featured =
-      passion.find((p) => (p.goal ?? 0) > 0 && coverOf(p)) ??
-      [...passion, ...paid].find((p) => coverOf(p)) ??
-      passion[0] ??
-      paid[0] ??
-      null;
-    return {
-      featured,
-      open: passion.filter((p) => p._id !== featured?._id),
-      gigs: paid.filter((p) => p._id !== featured?._id),
-    };
-  }, [projects]);
+  const { featured, open, gigs } = useMemo(() => pickProjects(projects ?? []), [projects]);
 
   const shownOpen = open.slice(0, LIST_LIMIT);
   const shownGigs = gigs.slice(0, LIST_LIMIT);
@@ -403,7 +395,7 @@ function FeaturedProject({ project }: { project: Project }) {
   const team = useQuery(api.garden.projectTeam.getTeam, { projectId: project._id });
   const roles = useQuery(api.garden.projectTeam.listRoles, { projectId: project._id });
   const cover = coverOf(project);
-  const funded = fundingOf(project);
+  const funded = fundingOf(project, formatMoney);
   const deadline = project.raiseByDate && project.raiseByDate > Date.now() ? project.raiseByDate : null;
   const openRoles = roles ? roles.filter((r) => r.status === "open").length : null;
 
@@ -477,7 +469,7 @@ function FeaturedProject({ project }: { project: Project }) {
     the space between rows is the separator. The whole row is the link. */
 function ProjectRow({ project, flip }: { project: Project; flip: boolean }) {
   const cover = coverOf(project);
-  const funded = fundingOf(project);
+  const funded = fundingOf(project, formatMoney);
   const daysLeft = project.raiseByDate && project.raiseByDate > Date.now() ? Math.max(1, Math.ceil((project.raiseByDate - Date.now()) / 86400000)) : null;
   const meta = [
     stageLabel(resolveStage(project)),
@@ -729,62 +721,6 @@ function Skeleton({ height }: { height: number }) {
   return <div className="rounded-xl border animate-pulse" style={{ ...CARD, height }} aria-hidden />;
 }
 
-// Covers for projects with no photo: flat shapes in a muted palette —
-// charcoal grounds, a dull amber and a bone white. Picked from the project
-// id so a project keeps the same cover everywhere. Deliberately plain
-// geometry (rings, bands, a split field, blocks): it has to read as "no
-// picture yet," never as someone's artwork.
-const COVER_GROUNDS = ["#1c1c19", "#23231f", "#2a2926"];
-const COVER_AMBER = "#9c8456";
-const COVER_BONE = "#cfcabd";
-
-function hashSeed(seed: string): number {
-  let h = 0;
-  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
-  return h;
-}
-
-function AbstractCover({ seed }: { seed: string }) {
-  const h = hashSeed(seed);
-  const ground = COVER_GROUNDS[h % COVER_GROUNDS.length];
-  const shade = COVER_GROUNDS[(h + 1) % COVER_GROUNDS.length];
-  const variant = (h >>> 3) % 4;
-  return (
-    <svg viewBox="0 0 160 100" preserveAspectRatio="xMidYMid slice" className="h-full w-full" aria-hidden>
-      <rect width="160" height="100" fill={ground} />
-      {variant === 0 && (
-        <g fill="none">
-          <circle cx="80" cy="50" r="34" stroke={shade} strokeWidth="10" />
-          <circle cx="80" cy="50" r="18" stroke={COVER_AMBER} strokeWidth="1.5" opacity="0.7" />
-          <circle cx="80" cy="50" r="5" fill={COVER_BONE} opacity="0.5" />
-        </g>
-      )}
-      {variant === 1 && (
-        <g>
-          <path d="M0 64 C40 52 80 76 160 58 V100 H0 Z" fill={shade} />
-          <path d="M0 76 C50 66 100 88 160 72 V100 H0 Z" fill={COVER_AMBER} opacity="0.45" />
-          <path d="M0 88 C50 80 110 98 160 86 V100 H0 Z" fill={COVER_BONE} opacity="0.35" />
-          <circle cx="122" cy="26" r="8" fill={COVER_BONE} opacity="0.4" />
-        </g>
-      )}
-      {variant === 2 && (
-        <g>
-          <path d="M0 100 L80 10 L160 100 Z" fill={shade} />
-          <path d="M0 100 L0 58 L34 100 Z" fill={COVER_AMBER} opacity="0.5" />
-          <path d="M160 100 L160 64 L130 100 Z" fill={COVER_BONE} opacity="0.35" />
-        </g>
-      )}
-      {variant === 3 && (
-        <g>
-          <rect x="22" y="18" width="52" height="64" fill={shade} />
-          <rect x="30" y="26" width="36" height="22" fill={COVER_AMBER} opacity="0.5" />
-          <rect x="86" y="18" width="52" height="30" fill={shade} />
-          <path d="M86 58h52M86 66h40M86 74h46" stroke={COVER_BONE} strokeWidth="2" opacity="0.35" />
-        </g>
-      )}
-    </svg>
-  );
-}
 
 function PlayGlyph() {
   return (
@@ -798,28 +734,8 @@ function PlayGlyph() {
 // Helpers
 // ——————————————————————————————————————————————————————————————
 
-function coverOf(p: Project): string | null {
-  return p.resolvedPhotoUrl ?? p.mediaPreviewUrl ?? p.media.find((m) => m.resolvedMediaUrl && m.type === "image")?.resolvedMediaUrl ?? null;
-}
-
 function topicsOf(p: Project): string[] {
   return (p.interests?.length ? p.interests : (p.creator?.interests ?? [])).filter((t) => !t.startsWith("other:"));
-}
-
-function fundingOf(p: Project): { raised: string; goal: string; pct: number } | null {
-  if (p.kind !== "passion" || !p.goal || p.goal <= 0) return null;
-  const raisedCents = p.raisedCents ?? 0;
-  return {
-    raised: formatMoney(raisedCents),
-    goal: formatMoney(p.goal * 100),
-    pct: Math.min(100, Math.round((raisedCents / (p.goal * 100)) * 100)),
-  };
-}
-
-/** Same money half the /projects cards print; a gig's pay is per date. */
-function moneyOf(p: Project): string | null {
-  const amount = budgetAmountLabel(p);
-  return amount && p.gig && p.budgetType === "amount" ? `${amount}/date` : amount;
 }
 
 /** "All 12 projects" / "All gigs" while loading or empty. */

@@ -1,9 +1,8 @@
-import { useAuthActions } from "@convex-dev/auth/react";
 import { usePostHog } from "@posthog/react";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { ConvexError } from "convex/values";
 import { useEffect, useRef, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import confetti from "canvas-confetti";
 import { api } from "../../convex/_generated/api";
 import { toEmbedUrl } from "../lib/videoEmbed";
@@ -11,10 +10,11 @@ import type { Id } from "../../convex/_generated/dataModel";
 import { EmbedStill, PlayBadge } from "../components/EmbedStill";
 import { LocationAutocomplete, LocationVerifiedHint } from "../components/LocationAutocomplete";
 import { useLocationField } from "../lib/useLocationField";
+import { useSignOut } from "../lib/useSignOut";
 import { INTERESTS } from "../constants/interests";
 import { LEVEL_LABEL } from "../garden/capabilities";
 import { normalizeHandle, type PayoutKind } from "../../convex/garden/gigRules";
-import { errorMessage } from "./projects";
+import { errorMessage } from "../lib/convexError";
 import { NetworkTab } from "../components/NetworkTab";
 import { OrganizationsEditor } from "../components/OrganizationsEditor";
 
@@ -38,9 +38,7 @@ function normalizeUrl(url: string): string {
 }
 
 export default function Settings() {
-  const { signOut } = useAuthActions();
-  const navigate = useNavigate();
-  const posthog = usePostHog();
+  const handleSignOut = useSignOut();
   const [searchParams, setSearchParams] = useSearchParams();
   const profile = useQuery(api.profiles.getMyProfile);
   const [showProfileEdit, setShowProfileEdit] = useState(false);
@@ -53,13 +51,6 @@ export default function Settings() {
     searchParams.delete("editArtifact");
     setSearchParams(searchParams, { replace: true });
   };
-
-  async function handleSignOut() {
-    posthog?.capture("user_logged_out");
-    posthog?.reset();
-    await signOut();
-    navigate("/login");
-  }
 
   const hasProfile = Boolean(profile?.name?.trim());
   const profileNeedsSetup =

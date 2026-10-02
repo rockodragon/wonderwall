@@ -34,8 +34,8 @@ import { GigSchedule } from "../components/GigSchedule";
 import { useBack } from "../lib/useBack";
 import { resolveStage, stageLabel } from "../lib/stage";
 import { INTERESTS } from "../constants/interests";
+import { errorMessage } from "../lib/convexError";
 import {
-  errorMessage,
   STATUS_LABELS,
   StageSelect,
   SupportModal,

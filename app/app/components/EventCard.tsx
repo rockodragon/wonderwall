@@ -4,6 +4,7 @@ import { EmbedStill } from "./EmbedStill";
 import { FavoriteButton } from "./FavoriteButton";
 import { hostNamesLine, type EventHost } from "../lib/eventHosts";
 import { ImageFill } from "./ImageFill";
+import { paidPriceCents } from "../lib/eventTickets";
 
 // The one event card. Both /events (routes/events.tsx) and the Events section
 // of /favorites (routes/favorites.tsx) render this — favorites used to carry a
@@ -115,10 +116,7 @@ export function EventCard({
    */
   videoBadge?: boolean;
 }) {
-  const priceCents =
-    event.accessType === "paid" && (event.priceCents ?? 0) > 0
-      ? (event.priceCents as number)
-      : null;
+  const priceCents = paidPriceCents(event);
 
   // Date only, no time: this renders during SSR as well as on the client, and
   // a timezone-sensitive time string is the kind of thing that hydrates

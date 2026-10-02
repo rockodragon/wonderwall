@@ -1,5 +1,5 @@
 import { useConvexAuth, useQuery } from "convex/react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { api } from "../../convex/_generated/api";
 import { INTERESTS } from "../constants/interests";
@@ -57,8 +57,31 @@ export default function Search() {
     geoLoading,
     radius,
     setRadius,
+    requestLocation,
     toggleNearMe,
   } = useNearMe();
+
+  // /people?near=1 (the palette's "Meet people near me") turns Near me on, the
+  // same as pressing the toggle: the browser asks for location, or Near me
+  // stays on if it already is. The param is a one-shot request, so it comes
+  // out of the URL (replace, no history entry) once taken: Back and refresh
+  // don't ask again, and choosing "Meet people near me" a second time sets it
+  // again and fires again.
+  const wantsNear = searchParams.get("near") === "1";
+  useEffect(() => {
+    if (!wantsNear) return;
+    requestLocation();
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("near");
+        return next;
+      },
+      { replace: true },
+    );
+    // requestLocation changes when the position arrives; the param is the trigger.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wantsNear]);
 
   const {
     query,

@@ -17,7 +17,7 @@ import { LocationAutocomplete, LocationVerifiedHint } from "./LocationAutocomple
 import { useLocationField } from "../lib/useLocationField";
 import { CommunityPicker } from "./CommunityPicker";
 import { useCommunityContext } from "./CommunityFilter";
-import { errorMessage } from "../routes/projects";
+import { errorMessage } from "../lib/convexError";
 import { HireWhenToggle, type HireDraft } from "./HireWhenToggle";
 import { HORIZON_WEEKS, MAX_COUNT, WEEKDAY_SHORT, compareDates } from "../../convex/garden/gigRules";
 

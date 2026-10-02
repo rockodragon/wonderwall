@@ -7,6 +7,7 @@ import { CommunityPicker, useDefaultEventCommunity } from "./CommunityPicker";
 import { LocationAutocomplete, LocationVerifiedHint } from "./LocationAutocomplete";
 import { describeMediaLink, MediaLinkField } from "./MediaLinkField";
 import { useLocationField } from "../lib/useLocationField";
+import { errorMessage } from "../lib/convexError";
 
 // One modal for starting AND editing a project, in three short steps — the
 // same shape as the event modal (CreateEventModal): name it -> show it ->
@@ -34,15 +35,6 @@ export type ProjectEditTarget = {
   placeId?: string;
   hostOrgId?: Id<"hostOrgs">;
 };
-
-// Same as errorMessage() in routes/projects.tsx: Convex surfaces a thrown
-// ConvexError's payload on err.data, not err.message.
-function reasonFrom(err: unknown): string {
-  const data = (err as { data?: unknown })?.data;
-  if (data && typeof data === "object" && "reason" in data) return String((data as { reason: unknown }).reason);
-  if (typeof data === "string" && data.length > 0) return data;
-  return "Something went wrong — try again.";
-}
 
 const labelClass = "block text-xs uppercase tracking-[0.06em] mb-1.5";
 const inputClass = "w-full px-3 py-2 rounded-lg border text-sm outline-none";
@@ -161,7 +153,7 @@ export function ProjectModal({
       onCreated?.(String(result.projectId));
       onClose();
     } catch (err) {
-      setError(reasonFrom(err));
+      setError(errorMessage(err));
       setSaving(false);
     }
   }

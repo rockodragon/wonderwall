@@ -53,6 +53,8 @@ export const CLAIMS = {
    * takes a paid membership (capabilities.ts pool.propose). */
   sophiaSchedule: "The first grants go out in November, from projects submitted in October.",
   grantFundDeductible: "Abiding Practice is a 501(c)(3), so your gift is tax-deductible.",
+  /** The desk's fund card, beside the Give button. */
+  grantFundDeductibleShort: "Tax-deductible",
   ticketFund:
     "Every ticket goes into the Sophia Fund, an artist grant fund that backs projects by creatives in the community. Creatives propose projects, and a review team decides.",
   patron: "Back a specific person or project. 90% goes to them. You can be named on the work, or stay anonymous.",

@@ -1,5 +1,5 @@
 import { useConvexAuth, useQuery } from "convex/react";
-import { useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { useNavigate } from "react-router";
 import { api } from "../../convex/_generated/api";
 import { CreateCard } from "../components/CreateCard";
@@ -24,7 +24,7 @@ import { LocationIcon } from "../components/icons";
 type FilterTab = "all" | "favorites" | "past";
 
 export default function Events() {
-  const { isAuthenticated } = useConvexAuth();
+  const { isAuthenticated, isLoading: authLoading } = useConvexAuth();
   const navigate = useNavigate();
   const {
     query: searchQuery,
@@ -69,6 +69,29 @@ export default function Events() {
   // signed-out visitor goes to log in and comes back here.
   const hostEvent = () =>
     isAuthenticated ? setShowCreate(true) : navigate("/login?redirect=%2Fevents");
+  // /events?new=event (the palette's "Host an event") opens the create modal
+  // once, then drops the param. Signed out, it goes to log in, replacing this
+  // entry so Back doesn't land on the param again, and the redirect keeps
+  // ?new=event so the modal opens when they come back. Wait out the token
+  // check first: until it settles a signed-in member reads as signed out.
+  const wantsNewEvent = searchParams.get("new") === "event";
+  useEffect(() => {
+    if (!wantsNewEvent || authLoading) return;
+    if (!isAuthenticated) {
+      navigate(`/login?redirect=${encodeURIComponent(`/events?${searchParams}`)}`, { replace: true });
+      return;
+    }
+    setShowCreate(true);
+    setSearchParams(
+      (prev) => {
+        const params = new URLSearchParams(prev);
+        params.delete("new");
+        return params;
+      },
+      { replace: true },
+    );
+    // The param and the auth answer are the triggers.
+  }, [wantsNewEvent, isAuthenticated, authLoading]);
   const [tagsExpanded, setTagsExpanded] = useState(false);
   const {
     nearMe,

@@ -183,6 +183,21 @@ export default function AdminPage() {
 
         <div className="mb-8 bg-white shadow-md rounded-lg p-6 flex items-center justify-between flex-wrap gap-4">
           <div>
+            <h2 className="text-lg font-semibold text-gray-900">Lead Crawler</h2>
+            <p className="mt-1 text-sm text-gray-600">
+              Find and classify faith-aligned organizations.
+            </p>
+          </div>
+          <Link
+            to="/admin/crawler"
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 whitespace-nowrap"
+          >
+            Open Crawler
+          </Link>
+        </div>
+
+        <div className="mb-8 bg-white shadow-md rounded-lg p-6 flex items-center justify-between flex-wrap gap-4">
+          <div>
             <h2 className="text-lg font-semibold text-gray-900">Waitlist</h2>
             <p className="mt-1 text-sm text-gray-600">
               Review answers and approve people off the waitlist.

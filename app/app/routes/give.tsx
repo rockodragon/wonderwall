@@ -25,6 +25,7 @@ import { CLAIMS } from "../constants/claims";
 import { useAnalytics } from "../hooks/useAnalytics";
 import { GardenPage, formatDate, formatMoney, formatPeriod } from "../garden/ui";
 import "../garden/garden.css";
+import { SOPHIA_FUND_SLUG } from "../lib/namedFunds";
 
 export function meta() {
   return [{ title: "Give — The Garden" }, { name: "robots", content: "noindex" }];
@@ -51,7 +52,6 @@ const PLUS_UP_AMOUNTS_CENTS = [1000, 2500, 5000] as const;
 const MIN_PLUS_UP_CENTS = 500;
 const ROWS_SHOWN = 15;
 const NOTE_MAX = 200;
-const FUND_SLUG = "abiding-practice";
 
 const PAPER = "var(--g-paper)";
 const BODY = "var(--g-body)";
@@ -996,7 +996,7 @@ function FundPlusUp({
   email?: string;
   capture: (event: string, props?: Record<string, unknown>) => void;
 }) {
-  const fundPage = useQuery(api.garden.allocations.getFundPage, { hostOrgSlug: FUND_SLUG });
+  const fundPage = useQuery(api.garden.allocations.getFundPage, { hostOrgSlug: SOPHIA_FUND_SLUG });
   const once = fundPage?.org?.paymentLinkUrl;
 
   const links = useMemo(() => {

@@ -15,11 +15,8 @@
 import { useEffect } from "react";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
+import { GARDEN_SLUG } from "../lib/communitySlugs";
 import { useCommunityContext } from "./CommunityFilter";
-
-// Same value as convex/garden/defaultCommunity.ts's DEFAULT_COMMUNITY_SLUG;
-// copied because that file imports server code the browser can't load.
-const THE_GARDEN_SLUG = "the-garden";
 
 /** Default community for a new or edited event: the sidebar switcher's
  * community when one is picked, otherwise The Garden (every account joins
@@ -28,7 +25,7 @@ export function useDefaultEventCommunity(): string | undefined {
   const { selected, communities } = useCommunityContext();
   return (
     communities.find((c) => c.slug === selected)?._id ??
-    communities.find((c) => c.slug === THE_GARDEN_SLUG)?._id
+    communities.find((c) => c.slug === GARDEN_SLUG)?._id
   );
 }
 

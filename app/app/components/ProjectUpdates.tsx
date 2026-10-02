@@ -17,7 +17,7 @@ import { RichContent } from "./RichContent";
 import { RichTextEditor } from "./RichTextEditor";
 import { isRichDocEmpty, toStoredDoc, type ResolvedRichBlock } from "../lib/richText";
 import { formatDate } from "../garden/ui";
-import { errorMessage } from "../routes/projects";
+import { errorMessage } from "../lib/convexError";
 
 function PrimaryButton({
   onClick,

@@ -10,7 +10,7 @@ import { SPLITS } from "../garden/capabilities";
 import { GIVING_SENTENCES } from "../../convex/garden/giving";
 
 const APP_DIR = join(__dirname, "..");
-const SCAN_DIRS = ["routes", "components", "garden", "lib", "legal"];
+const SCAN_DIRS = ["routes", "components", "garden", "lib", "legal", "desk", "hooks"];
 
 // Surfaces that can't import claims.ts and so carry hand copies
 // (docs/marketing/claims.md lists them): the static /about pages and the

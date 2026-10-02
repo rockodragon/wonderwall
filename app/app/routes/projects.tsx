@@ -2,7 +2,7 @@ import { useAction, useConvexAuth, useMutation, useQuery } from "convex/react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { GigSeriesForm } from "../components/GigSeriesForm";
 import { HireWhenToggle, type HireDraft, type HireWhen } from "../components/HireWhenToggle";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import { INTERESTS } from "../constants/interests";
 import { LocationAutocomplete, LocationVerifiedHint } from "../components/LocationAutocomplete";
@@ -23,6 +23,7 @@ import { describeMediaLink, MediaLinkField } from "../components/MediaLinkField"
 import { Dissolve } from "../hooks/useReveal";
 import { EmbedStill } from "../components/EmbedStill";
 import { CreateCard } from "../components/CreateCard";
+import { errorMessage } from "../lib/convexError";
 import { ProjectModal } from "../components/ProjectModal";
 
 // Two views, split by what the VISITOR wants rather than how the poster
@@ -126,20 +127,6 @@ const BUDGET_TYPE_OPTIONS = [
   { value: "volunteer", label: "Volunteer" },
 ] as const;
 
-// Convex surfaces a thrown ConvexError's payload on err.data, not
-// err.message (that's a generic "Server Error" in production, by design —
-// only ConvexError.data is meant to reach the client). Caught via testing:
-// a real validation error ("Needs a real amount.") was showing as an opaque
-// server error instead of its actual reason.
-export function errorMessage(err: unknown): string {
-  const data = (err as { data?: unknown })?.data;
-  if (data && typeof data === "object" && "reason" in data) {
-    return String((data as { reason: unknown }).reason);
-  }
-  if (typeof data === "string" && data.length > 0) return data;
-  return "Something went wrong — try again.";
-}
-
 export default function Projects() {
   const projects = useQuery(api.garden.projects.listProjects);
   // "Hire someone" is one entry; `hire` says which shape is open, and
@@ -147,7 +134,7 @@ export default function Projects() {
   const [hire, setHire] = useState<HireWhen | null>(null);
   const [hireDraft, setHireDraft] = useState<HireDraft | undefined>(undefined);
   const navigate = useNavigate();
-  const { isAuthenticated } = useConvexAuth();
+  const { isAuthenticated, isLoading: authLoading } = useConvexAuth();
   // Anyone can browse; posting and supporting need an account. Login
   // brings them back here (and on to sign up, keeping the redirect).
   const withAccount = (act: () => void) => () =>
@@ -164,6 +151,30 @@ export default function Projects() {
   });
   const [supporting, setSupporting] = useState<{ project: any; mode: SupportMode } | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
+  // /projects?new=project (the palette's "Start a project") opens the start
+  // flow once, then drops the param so a refresh doesn't open it again. Signed
+  // out, it goes to log in, replacing this entry so Back doesn't land on the
+  // param again, and the redirect keeps ?new=project so the flow opens when
+  // they come back. Wait out the token check first: until it settles a
+  // signed-in member reads as signed out.
+  const wantsNewProject = searchParams.get("new") === "project";
+  useEffect(() => {
+    if (!wantsNewProject || authLoading) return;
+    if (!isAuthenticated) {
+      navigate(`/login?redirect=${encodeURIComponent(`/projects?${searchParams}`)}`, { replace: true });
+      return;
+    }
+    setShowPassionForm(true);
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("new");
+        return next;
+      },
+      { replace: true },
+    );
+    // The param and the auth answer are the triggers.
+  }, [wantsNewProject, isAuthenticated, authLoading]);
   const {
     selected: communitySlug,
     setSelected: setCommunitySlug,

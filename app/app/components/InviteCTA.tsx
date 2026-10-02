@@ -12,16 +12,38 @@ export function InviteIcon({ className }: { className?: string }) {
   );
 }
 
+/** Whether one click can copy the invite link. When it can't (still
+ *  generating, out of invites, or no clipboard), the invite row goes to
+ *  Settings → Network, which says why. Shared by this row and the palette's. */
+export function canCopyInvite(link: {
+  loading: boolean;
+  url: string;
+  hasUsesLeft: boolean;
+}): boolean {
+  return (
+    !link.loading &&
+    link.hasUsesLeft &&
+    Boolean(link.url) &&
+    typeof navigator !== "undefined" &&
+    !!navigator.clipboard
+  );
+}
+
+/** The invite row's label: it says so for two seconds after the copy. */
+export function inviteRowLabel(copied: boolean): string {
+  return copied ? "Invite link copied" : "Invite someone";
+}
+
 // Sidebar (docs/the-exchange-v1-prd.md §5 nav note): one row, one click
 // copies your invite link. The full link, Share and the people you've
 // invited live on Settings → Network, which the row falls back to when
-// there's no link to copy (still generating, or out of invites).
+// there's no link to copy (canCopyInvite).
 export function InviteCTA() {
   const { loading, url, hasUsesLeft, copied, copy } = useInviteLink("sidebar");
   const rowClass =
     "flex w-full items-center gap-3 px-4 py-2.5 rounded-lg text-[15px] text-left transition-colors hover:bg-[var(--app-hairline)]";
 
-  if (loading || !hasUsesLeft || !url) {
+  if (!canCopyInvite({ loading, url, hasUsesLeft })) {
     return (
       <Link to="/settings?tab=network" className={rowClass} style={{ color: "var(--app-text-muted)" }}>
         <InviteIcon className="w-5 h-5" />
@@ -39,7 +61,7 @@ export function InviteCTA() {
       style={{ color: copied ? "var(--app-accent-ink)" : "var(--app-text-muted)" }}
     >
       <InviteIcon className="w-5 h-5" />
-      {copied ? "Invite link copied" : "Invite someone"}
+      {inviteRowLabel(copied)}
     </button>
   );
 }

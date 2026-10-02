@@ -9,7 +9,10 @@ import { claimPendingTickets } from "../lib/pendingTicket";
 import { useMarkNotificationsReadForPath } from "../lib/useMarkNotificationsReadForPath";
 import { InviteCTA } from "../components/InviteCTA";
 import { NAV_ITEMS } from "../garden/ui";
-import { FF_V2 } from "../lib/featureFlags";
+import { FF_DESK, FF_V2 } from "../lib/featureFlags";
+import { initialsOf } from "../lib/initials";
+import { GARDEN_SLUG } from "../lib/communitySlugs";
+import { Palette } from "../desk/Palette";
 
 // The Garden holds the top of the rail (garden-first-ia mock, screen 2):
 // the community you're in takes the wordmark slot, the platform moves to the
@@ -19,7 +22,6 @@ import { FF_V2 } from "../lib/featureFlags";
 // just stops presenting it as a lens. A lens is now set by visiting: each
 // community page links into Projects/Events/Classes filtered to it, and the
 // browse pages' CommunityContextLine clears it.
-const HOME_COMMUNITY_SLUG = "the-garden";
 const VISIT_LIMIT = 3;
 
 // Public paths (community-ux.md §2/§6): a signed-out visitor may browse
@@ -90,7 +92,9 @@ export default function AppLayout() {
   const profile = useQuery(api.profiles.getMyProfile);
   const unreadCount = useQuery(api.messaging.getUnreadCount) ?? 0;
   const notificationCount = useQuery(api.notifications.getUnreadCount) ?? 0;
-  const allCommunities = useQuery(api.garden.communities.listCommunities);
+  // Only the sidebar's community chips read this; with the palette there is
+  // no sidebar, so don't subscribe.
+  const allCommunities = useQuery(api.garden.communities.listCommunities, FF_DESK ? "skip" : {});
   // Notifications don't get their own nav row — the count folds into the
   // Messages badge instead (2026-08-30, on request).
   const sidebarBadgeCount = unreadCount + notificationCount;
@@ -202,7 +206,7 @@ export default function AppLayout() {
   // directory and community pages, and the apply form.
   const onExchange = location.pathname.startsWith("/communities");
   const otherCommunities = (allCommunities ?? [])
-    .filter((c) => c.slug !== HOME_COMMUNITY_SLUG)
+    .filter((c) => c.slug !== GARDEN_SLUG)
     .sort((a, b) => b.memberCount - a.memberCount)
     .slice(0, VISIT_LIMIT);
   // Following/Profile/Messages all require an account — nothing behind them
@@ -242,10 +246,24 @@ export default function AppLayout() {
         "--garden-ink-raised": "#242420",
       } as CSSProperties}
     >
-      {/* Main content */}
-      <main className="pb-20 md:pb-0 md:pl-64">
+      {/* Main content. With the palette (FF_DESK) there is no sidebar to
+          make room for on desktop. */}
+      <main className={FF_DESK ? "pb-20 md:pb-0" : "pb-20 md:pb-0 md:pl-64"}>
         <Outlet />
       </main>
+
+      {/* Desktop palette — one button in the lower-left corner that fans out
+          the places you can go (desk/Palette.tsx). Phones keep the bottom
+          bar below. */}
+      {FF_DESK && (
+        <div className="hidden md:block">
+          <Palette
+            isAuthenticated={isAuthenticated}
+            profile={profile}
+            badgeCount={sidebarBadgeCount}
+          />
+        </div>
+      )}
 
       {/* Mobile bottom nav - icons only, to fit up to 8 items (5 primary +
           Following/Profile/Messages once signed in; 5 for a signed-out
@@ -311,7 +329,9 @@ export default function AppLayout() {
       </nav>
 
       {/* Desktop sidebar — The Garden's name on top, the places you can
-          visit and your account at the foot, the platform last. */}
+          visit and your account at the foot, the platform last. Replaced by
+          the palette while FF_DESK is on. */}
+      {!FF_DESK && (
       <aside
         className="hidden md:flex md:flex-col md:fixed md:inset-y-0 md:w-64 border-r overflow-y-auto"
         style={{ backgroundColor: "var(--app-surface-raised)", borderColor: "var(--app-hairline)" }}
@@ -504,6 +524,7 @@ export default function AppLayout() {
           </div>
         </div>
       </aside>
+      )}
     </div>
   );
 }
@@ -695,12 +716,6 @@ function RailIconLink({
   );
 }
 
-function initialsOf(name: string | undefined): string {
-  if (!name) return "·";
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  const letters = parts.length > 1 ? parts[0][0] + parts[parts.length - 1][0] : (parts[0] ?? "").slice(0, 2);
-  return letters.toUpperCase() || "·";
-}
 
 function SunIcon({ className }: { className?: string }) {
   return (
