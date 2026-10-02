@@ -562,10 +562,9 @@ export default function EventDetail() {
             {event.organizer && (
               <p className="mb-4 text-[15px] text-gray-700 dark:text-gray-200">
                 Hosted by{" "}
-                {hostLabels([
-                  event.organizer,
-                  ...(event.coHosts ?? []),
-                ]).map((h, idx) => (
+                {hostLabels(
+                  event.shownHosts ?? [event.organizer, ...(event.coHosts ?? [])],
+                ).map((h, idx) => (
                   <span key={`${h.primary}-${idx}`}>
                     {idx > 0 && ", "}
                     {h.orgSlug ? (
@@ -1067,6 +1066,8 @@ export default function EventDetail() {
             eventId={event._id}
             organizer={event.organizer}
             coHosts={event.coHosts ?? []}
+            organizerUserId={event.organizerId}
+            savedShown={event.displayHostRows ?? []}
             isOrganizer={!!event.isOrganizer}
             isGuest={isGuest}
           />
@@ -2232,12 +2233,16 @@ function HostsPanel({
   eventId,
   organizer,
   coHosts,
+  organizerUserId,
+  savedShown,
   isOrganizer,
   isGuest,
 }: {
   eventId: Id<"events">;
   organizer: { name: string; imageUrl: string | null; profileId: Id<"profiles"> } | null;
   coHosts: { userId: Id<"users">; name: string; imageUrl: string | null; profileId: Id<"profiles"> | null }[];
+  organizerUserId: Id<"users">;
+  savedShown: { kind: "user" | "org"; refId: string; name: string; imageUrl: string | null }[];
   isOrganizer: boolean;
   isGuest: boolean;
 }) {
@@ -2353,6 +2358,198 @@ function HostsPanel({
           )}
         </div>
       )}
+
+      <ShownHostsEditor
+        eventId={eventId}
+        organizer={organizer}
+        organizerUserId={organizerUserId}
+        coHosts={coHosts}
+        savedShown={savedShown}
+      />
+    </div>
+  );
+}
+
+type ShownRow = { kind: "user" | "org"; refId: string; name: string; imageUrl: string | null };
+
+/** Who "Hosted by" shows, and in what order: people and/or organizations.
+ * Any host can set it. Display only; it changes no one's access. */
+function ShownHostsEditor({
+  eventId,
+  organizer,
+  organizerUserId,
+  coHosts,
+  savedShown,
+}: {
+  eventId: Id<"events">;
+  organizer: { name: string; imageUrl: string | null } | null;
+  organizerUserId: Id<"users">;
+  coHosts: { userId: Id<"users">; name: string; imageUrl: string | null }[];
+  savedShown: ShownRow[];
+}) {
+  const setDisplayHosts = useMutation(api.events.setDisplayHosts);
+  const defaults: ShownRow[] = [
+    ...(organizer ? [{ kind: "user" as const, refId: String(organizerUserId), name: organizer.name, imageUrl: organizer.imageUrl }] : []),
+    ...coHosts.map((c) => ({ kind: "user" as const, refId: String(c.userId), name: c.name, imageUrl: c.imageUrl })),
+  ];
+  const custom = savedShown.length > 0;
+  const [rows, setRows] = useState<ShownRow[]>(custom ? savedShown : defaults);
+  const [q, setQ] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const people = useQuery(api.garden.projectTeam.searchPeopleForInvite, q.trim() ? { q } : "skip");
+  const orgs = useQuery(api.organizations.search, q.trim() ? { q } : "skip");
+  const has = (kind: string, id: string) => rows.some((r) => r.kind === kind && r.refId === id);
+  const personHits = (people ?? []).filter((r) => !has("user", String(r.userId))).slice(0, 5);
+  const orgHits = (orgs ?? []).filter((o) => !has("org", String(o._id))).slice(0, 5);
+
+  function move(i: number, d: -1 | 1) {
+    const j = i + d;
+    if (j < 0 || j >= rows.length) return;
+    const next = [...rows];
+    [next[i], next[j]] = [next[j], next[i]];
+    setRows(next);
+    setSaved(false);
+  }
+  function add(r: ShownRow) {
+    setRows([...rows, r]);
+    setQ("");
+    setSaved(false);
+  }
+  async function save(list: ShownRow[]) {
+    setBusy(true);
+    setError(null);
+    try {
+      await setDisplayHosts({
+        eventId,
+        hosts: list.map((r) =>
+          r.kind === "user"
+            ? { kind: "user" as const, id: r.refId as Id<"users"> }
+            : { kind: "org" as const, id: r.refId as Id<"organizations"> },
+        ),
+      });
+      setSaved(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message.replace(/^.*Uncaught Error: /s, "").split("\n")[0] : "That didn't work.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const btn =
+    "px-2.5 py-1 rounded-lg text-[13.5px] font-medium text-gray-800 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-40";
+
+  return (
+    <div className="mt-10 pt-6 border-t border-gray-200 dark:border-gray-800">
+      <h3 className="text-[15px] font-semibold text-gray-900 dark:text-white mb-1">Shown as host</h3>
+      <p className="text-[15px] text-gray-700 dark:text-gray-200 mb-4">
+        {custom
+          ? "This is who the event page and cards show, in this order."
+          : "Right now the page shows the organizer, then co-hosts. Change the list to choose who shows and in what order."}
+      </p>
+      <ul className="space-y-2 mb-4">
+        {rows.map((r, i) => (
+          <li key={`${r.kind}-${r.refId}`} className="flex items-center gap-3 p-2.5 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+            <PersonAvatar name={r.name} imageUrl={r.imageUrl} />
+            <div className="flex-1 min-w-0">
+              <span className="block text-[15px] font-medium text-gray-900 dark:text-white truncate">{r.name}</span>
+              <span className="text-[13px] text-gray-600 dark:text-gray-300">
+                {r.kind === "org" ? "Organization" : "Person"}
+              </span>
+            </div>
+            <button className={btn} disabled={busy || i === 0} onClick={() => move(i, -1)} aria-label={`Move ${r.name} up`}>
+              ↑
+            </button>
+            <button
+              className={btn}
+              disabled={busy || i === rows.length - 1}
+              onClick={() => move(i, 1)}
+              aria-label={`Move ${r.name} down`}
+            >
+              ↓
+            </button>
+            <button
+              className={`${btn} !text-red-600 dark:!text-red-400`}
+              disabled={busy}
+              onClick={() => {
+                setRows(rows.filter((_, k) => k !== i));
+                setSaved(false);
+              }}
+            >
+              Remove
+            </button>
+          </li>
+        ))}
+      </ul>
+
+      <label htmlFor="shown-host-search" className="block text-[15px] font-medium text-gray-900 dark:text-white mb-2">
+        Add a person or organization
+      </label>
+      <input
+        id="shown-host-search"
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        placeholder="Search by name"
+        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg dark:bg-gray-900 dark:text-white text-[15px]"
+      />
+      {q.trim() && (personHits.length > 0 || orgHits.length > 0) && (
+        <ul className="mt-2 space-y-2">
+          {orgHits.map((o) => (
+            <li key={`o-${o._id}`} className="flex items-center gap-3 p-2.5 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+              <PersonAvatar name={o.name} imageUrl={o.logoUrl} />
+              <span className="flex-1 min-w-0 truncate text-[15px] text-gray-900 dark:text-white">
+                {o.name} <span className="text-[13px] text-gray-600 dark:text-gray-300">Organization</span>
+              </span>
+              <button
+                className="px-3 py-1.5 rounded-lg text-[13.5px] font-medium bg-blue-600 text-white hover:bg-blue-700"
+                onClick={() => add({ kind: "org", refId: String(o._id), name: o.name, imageUrl: o.logoUrl })}
+              >
+                Add
+              </button>
+            </li>
+          ))}
+          {personHits.map((h) => (
+            <li key={`u-${h.userId}`} className="flex items-center gap-3 p-2.5 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+              <PersonAvatar name={h.name} imageUrl={h.imageUrl} />
+              <span className="flex-1 min-w-0 truncate text-[15px] text-gray-900 dark:text-white">{h.name}</span>
+              <button
+                className="px-3 py-1.5 rounded-lg text-[13.5px] font-medium bg-blue-600 text-white hover:bg-blue-700"
+                onClick={() => add({ kind: "user", refId: String(h.userId), name: h.name, imageUrl: h.imageUrl })}
+              >
+                Add
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {q.trim() && people !== undefined && orgs !== undefined && personHits.length === 0 && orgHits.length === 0 && (
+        <p className="mt-2 text-[14px] text-gray-700 dark:text-gray-200">No one found.</p>
+      )}
+
+      {error && <p className="mt-3 text-[14px] text-red-600 dark:text-red-400">{error}</p>}
+      <div className="mt-4 flex items-center gap-3">
+        <button
+          disabled={busy || rows.length === 0}
+          onClick={() => save(rows)}
+          className="px-4 py-2 rounded-lg text-[13.5px] font-medium bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+        >
+          Save
+        </button>
+        {custom && (
+          <button
+            disabled={busy}
+            onClick={async () => {
+              await save([]);
+              setRows(defaults);
+            }}
+            className={btn}
+          >
+            Back to default
+          </button>
+        )}
+        {saved && <span className="text-[14px] text-gray-700 dark:text-gray-200">Saved.</span>}
+      </div>
     </div>
   );
 }

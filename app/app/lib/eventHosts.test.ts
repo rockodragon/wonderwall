@@ -59,3 +59,18 @@ describe("card host line", () => {
     ).toBe("abiding Practice, Reveal Brand, Amy, Zed");
   });
 });
+
+describe("hosts ordered by hand", () => {
+  it("keeps the given order and shows each entry as itself", () => {
+    const out = hostLabels([
+      { name: "Rick Moy", profileId: "p1", exact: true },
+      { name: "", orgName: "Abiding Practice", orgSlug: "abiding-practice", exact: true },
+    ]);
+    expect(out.map((l) => l.primary)).toEqual(["Rick Moy", "Abiding Practice"]);
+    expect(out[0].person).toBeNull();
+    expect(out[1].orgSlug).toBe("abiding-practice");
+  });
+  it("an org alone, with no person beside it", () => {
+    expect(hostNamesLine([{ name: "", orgName: "Abiding Practice", exact: true }])).toBe("Abiding Practice");
+  });
+});
