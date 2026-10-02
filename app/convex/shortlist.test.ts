@@ -1,0 +1,837 @@
+// Tests for the Shortlist query (shortlist.ts; spec: docs/handoff/
+// favorites-redesign/README.md, contract: app/lib/shortlist/types.ts).
+//
+// Two layers, as in offeringModeration.test.ts. First the pure rules —
+// relation mapping, pay, backing, role listing, dedupe — with no Convex.
+// Then getMine runs against a small in-memory ctx, because the rules are
+// only as good as the wiring: a hidden project must really drop out, a
+// request must really land on the lead. The fake checks every withIndex
+// against the real schema and refuses a read without one, so "every read is
+// indexed" is tested too.
+
+import { describe, expect, it } from "vitest";
+import schema from "./schema";
+import {
+  dedupeEvents,
+  dedupeProjects,
+  getMine,
+  isGivenSupport,
+  isRoleListed,
+  memberRelation,
+  payFor,
+  summarizeBacking,
+} from "./shortlist";
+import type { ProjectRelation, ShortlistEvent, ShortlistProject } from "../app/lib/shortlist/types";
+
+// ——————————————————————————————————————————————————————————————
+// Pure rules
+// ——————————————————————————————————————————————————————————————
+
+describe("memberRelation — projectMembers status to relation", () => {
+  it("maps the live statuses", () => {
+    expect(memberRelation("invited", false)).toEqual({ relation: "invited" });
+    expect(memberRelation("accepted", false)).toEqual({ relation: "team" });
+    expect(memberRelation("pending", false)).toEqual({ relation: "waiting" });
+  });
+
+  it("closes the ended statuses with their own reason", () => {
+    for (const status of ["declined", "withdrawn", "left", "removed"] as const) {
+      expect(memberRelation(status, false)).toEqual({ relation: "closed", closedReason: status });
+    }
+  });
+
+  it("a finished project closes a live row as finished", () => {
+    for (const status of ["invited", "accepted", "pending"] as const) {
+      expect(memberRelation(status, true)).toEqual({ relation: "closed", closedReason: "finished" });
+    }
+  });
+
+  it("a row that ended before the project finished keeps its own reason", () => {
+    expect(memberRelation("left", true)).toEqual({ relation: "closed", closedReason: "left" });
+  });
+});
+
+describe("payFor — the role's pay, else a paid project's, else none", () => {
+  const paid = { kind: "paid", budgetType: "amount", budget: 1200 };
+  const passion = { kind: "passion", goal: 5000 };
+
+  it("a role that declared pay wins, even volunteer on a paid project", () => {
+    expect(payFor({ budgetType: "range", budget: 300, budgetMax: 600 }, paid)).toEqual({
+      budgetType: "range",
+      budget: 300,
+      budgetMax: 600,
+    });
+    expect(payFor({ budgetType: "volunteer" }, paid)).toEqual({ budgetType: "volunteer" });
+  });
+
+  it("a role that didn't say falls back to a paid project's pay", () => {
+    expect(payFor({}, paid)).toEqual({ budgetType: "amount", budget: 1200 });
+    expect(payFor(null, paid)).toEqual({ budgetType: "amount", budget: 1200 });
+  });
+
+  it("a passion project has no pay of its own", () => {
+    expect(payFor(null, passion)).toBeNull();
+    expect(payFor({}, passion)).toBeNull();
+    // A paid role on a passion project still shows its pay.
+    expect(payFor({ budgetType: "confidential" }, passion)).toEqual({ budgetType: "confidential" });
+  });
+});
+
+describe("isGivenSupport — what listMySupportGiven lists", () => {
+  it("keeps confirmed and pledged support of a known kind", () => {
+    expect(isGivenSupport({ status: "confirmed", type: "financial_one_time" })).toBe(true);
+    expect(isGivenSupport({ status: "pledged", type: "financial_recurring" })).toBe(true);
+    expect(isGivenSupport({ status: "confirmed", type: "encouragement" })).toBe(true);
+    expect(isGivenSupport({ status: "confirmed", type: "resource" })).toBe(true);
+  });
+
+  it("drops an unfinished checkout and a type it doesn't know", () => {
+    expect(isGivenSupport({ status: "pending", type: "financial_one_time" })).toBe(false);
+    expect(isGivenSupport({ status: "confirmed", type: "mystery" })).toBe(false);
+  });
+});
+
+describe("summarizeBacking — one backing per project", () => {
+  it("shows recurring money over newer one-time money, since the first", () => {
+    expect(
+      summarizeBacking([
+        { type: "financial_recurring", amountCents: 1000, createdAt: 10 },
+        { type: "financial_one_time", amountCents: 5000, createdAt: 30 },
+        { type: "encouragement", createdAt: 5 },
+      ]),
+    ).toEqual({ since: 5, backing: { amountCents: 1000, recurring: true } });
+  });
+
+  it("an annual backing is recurring too", () => {
+    expect(summarizeBacking([{ type: "financial_annual", amountCents: 12000, createdAt: 1 }]).backing).toEqual({
+      amountCents: 12000,
+      recurring: true,
+    });
+  });
+
+  it("the newest one-time money when nothing recurs", () => {
+    expect(
+      summarizeBacking([
+        { type: "financial_one_time", amountCents: 2500, createdAt: 10 },
+        { type: "financial_one_time", amountCents: 4000, createdAt: 20 },
+      ]).backing,
+    ).toEqual({ amountCents: 4000, recurring: false });
+  });
+
+  it("a cheer or a resource alone has no amount", () => {
+    expect(summarizeBacking([{ type: "resource", createdAt: 7 }])).toEqual({
+      since: 7,
+      backing: { amountCents: null, recurring: false },
+    });
+  });
+});
+
+describe("isRoleListed — listRoles' rule", () => {
+  const active = { kind: "paid", status: "active" };
+  const archived = { kind: "paid", status: "archived" };
+
+  it("an open role on a project taking people", () => {
+    expect(isRoleListed({ status: "open" }, active)).toBe(true);
+  });
+
+  it("never a closed role", () => {
+    expect(isRoleListed({ status: "closed" }, active)).toBe(false);
+  });
+
+  it("an open role drops once the project stops taking people", () => {
+    expect(isRoleListed({ status: "open" }, archived)).toBe(false);
+    expect(isRoleListed({ status: "open" }, { kind: "passion", status: "active", stage: "cancelled" })).toBe(false);
+  });
+
+  it("a filled role stays listed, as filled", () => {
+    expect(isRoleListed({ status: "filled" }, archived)).toBe(true);
+  });
+});
+
+const PROJECT_ORDER: ProjectRelation[] = ["invited", "leading", "team", "waiting", "backing", "saved", "closed"];
+
+function row(relation: ProjectRelation, projectId: string, roleId: string | null = null, since = 1): ShortlistProject {
+  return {
+    key: roleId ? `${relation}:${projectId}:${roleId}` : `${relation}:${projectId}`,
+    relation,
+    kind: "passion",
+    projectId,
+    title: projectId,
+    stage: "planning",
+    lead: { name: "Lead", profileId: null },
+    coverUrl: null,
+    role: roleId ? { id: roleId, title: roleId, neededBy: null } : null,
+    pay: null,
+    since,
+  };
+}
+
+const evt = (relation: ShortlistEvent["relation"], eventId: string, datetime = 1): ShortlistEvent => ({
+  key: `${relation}:${eventId}`,
+  relation,
+  eventId,
+  title: eventId,
+  datetime,
+  location: null,
+  coverUrl: null,
+  goingCount: 0,
+  cancelled: false,
+  since: 1,
+});
+
+describe("dedupeProjects — one row per thing (types.ts header)", () => {
+  it("keeps the first relation in invited → leading → team → waiting → backing → saved → closed", () => {
+    PROJECT_ORDER.forEach((winner, i) => {
+      // Every relation from the winner down, in reverse so order of arrival can't decide it.
+      const rows = PROJECT_ORDER.slice(i).reverse().map((r) => row(r, "p"));
+      expect(dedupeProjects(rows).map((r) => r.relation)).toEqual([winner]);
+    });
+  });
+
+  it("the same order holds per role", () => {
+    const rows = [row("closed", "p", "r1"), row("saved", "p", "r1"), row("waiting", "p", "r1"), row("saved", "p", "r2")];
+    expect(dedupeProjects(rows).map((r) => r.key)).toEqual(["waiting:p:r1", "saved:p:r2"]);
+  });
+
+  it("a row about a free-text role (no posting id) is a row about the project", () => {
+    const freeText = { ...row("waiting", "p"), role: { id: null, title: "Editor", neededBy: null } };
+    expect(dedupeProjects([row("backing", "p"), freeText]).map((r) => r.key)).toEqual(["waiting:p"]);
+  });
+
+  it("a saved project drops out once anything else is left for it, a saved role included", () => {
+    expect(dedupeProjects([row("saved", "p"), row("team", "p", "r1")]).map((r) => r.key)).toEqual(["team:p:r1"]);
+    expect(dedupeProjects([row("saved", "p"), row("saved", "p", "r1")]).map((r) => r.key)).toEqual(["saved:p:r1"]);
+    expect(dedupeProjects([row("saved", "p"), row("closed", "p", "r1")]).map((r) => r.key)).toEqual(["closed:p:r1"]);
+  });
+
+  it("a saved project with nothing else stays, and other projects don't touch it", () => {
+    expect(dedupeProjects([row("saved", "p"), row("team", "q")]).map((r) => r.key)).toEqual(["team:q", "saved:p"]);
+  });
+
+  it("returns group order, newest first within a group", () => {
+    const rows = [row("saved", "a", null, 5), row("team", "b", null, 1), row("saved", "c", null, 9), row("invited", "d")];
+    expect(dedupeProjects(rows).map((r) => r.key)).toEqual(["invited:d", "team:b", "saved:c", "saved:a"]);
+  });
+});
+
+describe("dedupeEvents — one row per event", () => {
+  it("keeps the first relation in hosting → going → requested → saved", () => {
+    const order = ["hosting", "going", "requested", "saved"] as const;
+    order.forEach((winner, i) => {
+      const rows = order.slice(i).reverse().map((r) => evt(r, "e"));
+      expect(dedupeEvents(rows).map((r) => r.relation)).toEqual([winner]);
+    });
+  });
+
+  it("returns group order, soonest first within a group", () => {
+    const rows = [evt("saved", "a", 9), evt("going", "b", 7), evt("going", "c", 3), evt("hosting", "d", 99)];
+    expect(dedupeEvents(rows).map((r) => r.key)).toEqual(["hosting:d", "going:c", "going:b", "saved:a"]);
+  });
+});
+
+// ——————————————————————————————————————————————————————————————
+// getMine, on an in-memory ctx
+// ——————————————————————————————————————————————————————————————
+
+type Row = Record<string, any> & { _id: string };
+
+/** The fields of a real schema index, or a throw: a typo'd or missing index
+ * (eventRsvps.by_userId, say) fails here rather than in a deployment. */
+function indexFields(table: string, index: string): string[] {
+  const tables = schema.tables as unknown as Record<
+    string,
+    { " indexes"(): { indexDescriptor: string; fields: string[] }[] } | undefined
+  >;
+  const found = tables[table]?.[" indexes"]().find((i) => i.indexDescriptor === index);
+  if (!found) throw new Error(`${table} has no index ${index}`);
+  return found.fields;
+}
+
+/** Just enough of Convex's ctx for getMine and what it calls: db.get,
+ * db.normalizeId, and query().withIndex(name, q => q.eq(..)...) then
+ * collect/first/unique. withIndex checks the index exists and that the
+ * eq()s walk its fields in order; reading without one throws. Storage
+ * resolves an id to https://files/<id>. `reads` lists every index used. */
+function makeCtx(tables: Record<string, Row[]>, viewerId: string | null) {
+  const reads: string[] = [];
+  const rowsOf = (table: string) => tables[table] ?? [];
+
+  function query(table: string) {
+    let rows: Row[] | null = null;
+    const matched = () => {
+      if (!rows) throw new Error(`unindexed read of ${table}`);
+      return rows.map((r) => ({ ...r }));
+    };
+    const api = {
+      withIndex(name: string, build: (q: any) => any) {
+        const fields = indexFields(table, name);
+        const conds: [string, unknown][] = [];
+        const q = {
+          eq(field: string, value: unknown) {
+            conds.push([field, value]);
+            return q;
+          },
+        };
+        build(q);
+        conds.forEach(([field], i) => {
+          if (fields[i] !== field) throw new Error(`${table}.${name}: eq("${field}") isn't field ${i} of the index`);
+        });
+        reads.push(`${table}.${name}`);
+        rows = rowsOf(table).filter((r) => conds.every(([f, v]) => r[f] === v));
+        return api;
+      },
+      async collect() {
+        return matched();
+      },
+      async first() {
+        return matched()[0] ?? null;
+      },
+      async unique() {
+        const all = matched();
+        if (all.length > 1) throw new Error("unique() matched more than one row");
+        return all[0] ?? null;
+      },
+    };
+    return api;
+  }
+
+  const find = (id: string) => rowsOf(id.split(":")[0]).find((r) => r._id === id) ?? null;
+  const ctx = {
+    db: {
+      query,
+      async get(id: string) {
+        const r = find(id);
+        return r ? { ...r } : null;
+      },
+      normalizeId(table: string, id: string) {
+        return id.startsWith(`${table}:`) && find(id) ? id : null;
+      },
+    },
+    auth: { getUserIdentity: async () => (viewerId ? { subject: `${viewerId}|session` } : null) },
+    storage: { getUrl: async (id: string) => `https://files/${id}` },
+  };
+  return { ctx: ctx as any, reads };
+}
+
+// A Convex-registered function keeps the handler you wrote on `_handler`.
+const run = (fn: unknown, ctx: unknown) =>
+  (fn as { _handler: (c: unknown, a: unknown) => Promise<any> })._handler(ctx, {});
+
+const ME = "users:me";
+const LEAD = "users:lead";
+const ALEX = "users:alex";
+const BO = "users:bo";
+const CY = "users:cy";
+const SAM = "users:sam";
+
+const project = (id: string, over: Partial<Row> = {}): Row => ({
+  _id: `projects:${id}`,
+  userId: LEAD,
+  kind: "passion",
+  title: `Project ${id}`,
+  status: "active",
+  createdAt: 100,
+  updatedAt: 100,
+  ...over,
+});
+const member = (id: string, projectId: string, status: string, over: Partial<Row> = {}): Row => ({
+  _id: `projectMembers:${id}`,
+  projectId: `projects:${projectId}`,
+  userId: ME,
+  name: "Me",
+  role: "Collaborator",
+  status,
+  createdAt: 200,
+  ...over,
+});
+const support = (id: string, projectId: string, type: string, over: Partial<Row> = {}): Row => ({
+  _id: `projectSupport:${id}`,
+  projectId: `projects:${projectId}`,
+  supporterUserId: ME,
+  supporterName: "Me",
+  type,
+  status: "confirmed",
+  visible: true,
+  createdAt: 150,
+  ...over,
+});
+const event = (id: string, over: Partial<Row> = {}): Row => ({
+  _id: `events:${id}`,
+  organizerId: LEAD,
+  title: `Event ${id}`,
+  description: "",
+  datetime: 5000,
+  tags: [],
+  requiresApproval: true,
+  status: "published",
+  createdAt: 50,
+  updatedAt: 50,
+  ...over,
+});
+const application = (id: string, eventId: string, applicantId: string, status: string, over: Partial<Row> = {}): Row => ({
+  _id: `eventApplications:${id}`,
+  eventId: `events:${eventId}`,
+  applicantId,
+  status,
+  createdAt: 500,
+  updatedAt: 500,
+  ...over,
+});
+const rsvp = (id: string, eventId: string, userId: string | undefined, createdAt: number): Row => ({
+  _id: `eventRsvps:${id}`,
+  eventId: `events:${eventId}`,
+  ...(userId ? { userId } : {}),
+  name: id,
+  email: `${id}@example.com`,
+  createdAt,
+});
+const fav = (targetType: string, targetId: string, createdAt: number): Row => ({
+  _id: `favorites:${targetType}-${targetId}`,
+  userId: ME,
+  targetType,
+  targetId,
+  createdAt,
+});
+const TIERS = [{ name: "General", priceCents: 2500 }];
+
+const WORLD = (): Record<string, Row[]> => ({
+  profiles: [
+    { _id: "profiles:me", userId: ME, name: "Me Member", interests: [] },
+    {
+      _id: "profiles:lead",
+      userId: LEAD,
+      name: "Mara Lead",
+      interests: ["Music"],
+      imageUrl: "https://legacy/mara.jpg",
+      imageStorageId: "_storage:mara",
+    },
+    { _id: "profiles:alex", userId: ALEX, name: "Alex Asks", interests: ["Film", "Music"], imageUrl: "https://legacy/alex.jpg" },
+    { _id: "profiles:cy", userId: CY, name: "Cy", interests: [] },
+    // Sam can sell tickets (a partner listing), so Sam's ticketed event is public.
+    { _id: "profiles:sam", userId: SAM, name: "Sam Seller", interests: [], partnerRole: true },
+  ],
+  projects: [
+    project("invite", { kind: "paid", budgetType: "amount", budget: 1200, photoStorageId: "_storage:invite-photo" }),
+    project("team", { stage: "working" }),
+    project("wait", { kind: "paid", budgetType: "proposals", mediaPreviewUrl: "https://still/wait.jpg" }),
+    project("declined"),
+    project("withdrawn"),
+    project("left"),
+    project("removed"),
+    project("done", { status: "completed" }),
+    project("shelved", { status: "archived" }),
+    project("hidden", { status: "hidden" }),
+    project("mine", { userId: ME, kind: "paid", budgetType: "range", budget: 300, budgetMax: 600 }),
+    project("mineHidden", { userId: ME, status: "hidden", createdAt: 90 }),
+    project("portfolio", { userId: ME, origin: "portfolio" }),
+    project("backed"),
+    project("saved", { kind: "paid", budgetType: "volunteer" }),
+    project("roles", { kind: "paid", budgetType: "amount", budget: 5000 }),
+    project("art"),
+  ],
+  projectRoles: [
+    {
+      _id: "projectRoles:sound",
+      projectId: "projects:team",
+      title: "Sound Mixer",
+      status: "filled",
+      budgetType: "range",
+      budget: 300,
+      budgetMax: 600,
+      createdAt: 1,
+    },
+    { _id: "projectRoles:director", projectId: "projects:roles", title: "Director", status: "open", neededBy: 9000, createdAt: 1 },
+    { _id: "projectRoles:gaffer", projectId: "projects:roles", title: "Gaffer", status: "closed", createdAt: 1 },
+    { _id: "projectRoles:editor", projectId: "projects:mine", title: "Editor", status: "open", budgetType: "amount", budget: 800, createdAt: 1 },
+  ],
+  projectMembers: [
+    member("invite", "invite", "invited", { role: "Cellist", createdAt: 210 }),
+    member("team", "team", "accepted", { role: "Sound Mixer", roleId: "projectRoles:sound", createdAt: 220, respondedAt: 225 }),
+    member("wait", "wait", "pending", { role: "Editor", createdAt: 230 }),
+    ...["declined", "withdrawn", "left", "removed"].map((s) => member(s, s, s, { createdAt: 240, respondedAt: 245 })),
+    member("done", "done", "accepted", { createdAt: 250, respondedAt: 255 }),
+    member("shelved", "shelved", "invited", { createdAt: 260 }),
+    member("hidden", "hidden", "accepted", { createdAt: 270, respondedAt: 275 }),
+    // Requests on the project I lead: one for a posted role, one free-text from
+    // someone with no profile. An accepted member isn't a request.
+    member("alexAsks", "mine", "pending", {
+      userId: ALEX,
+      name: "Alex A.",
+      role: "Editor",
+      roleId: "projectRoles:editor",
+      message: "I cut docs.",
+      createdAt: 400,
+    }),
+    member("boAsks", "mine", "pending", { userId: BO, name: "Bo Nophoto", role: "Runner", createdAt: 410 }),
+    member("cyOn", "mine", "accepted", { userId: CY, name: "Cy", createdAt: 1 }),
+  ],
+  projectSupport: [
+    support("oneTime", "backed", "financial_one_time", { amountCents: 2500, createdAt: 150 }),
+    support("monthly", "backed", "financial_recurring", { amountCents: 1000, createdAt: 170 }),
+    support("unpaid", "backed", "financial_annual", { amountCents: 99999, status: "pending", createdAt: 120 }),
+    support("cheerHidden", "hidden", "encouragement", { createdAt: 160 }),
+    support("cheerInvite", "invite", "encouragement", { createdAt: 160 }),
+  ],
+  artifacts: [
+    { _id: "artifacts:note", projectId: "projects:art", type: "text", content: "hi", order: 0, createdAt: 1 },
+    { _id: "artifacts:pic", projectId: "projects:art", type: "image", mediaStorageId: "_storage:art-img", order: 1, createdAt: 2 },
+  ],
+  favorites: [
+    fav("project", "projects:saved", 300),
+    fav("project", "projects:art", 305),
+    fav("project", "projects:invite", 306),
+    fav("project", "projects:roles", 307),
+    fav("project", "projects:hidden", 308),
+    fav("project", "not-an-id", 309),
+    fav("role", "projectRoles:director", 330),
+    fav("role", "projectRoles:gaffer", 331),
+    fav("event", "events:saved", 340),
+    fav("event", "events:ticketedSeller", 341),
+    fav("event", "events:ticketedNoSeller", 342),
+    fav("event", "events:hidden", 343),
+    fav("event", "events:hosted", 344),
+    fav("profile", "profiles:alex", 310),
+    fav("profile", "profiles:lead", 320),
+    fav("profile", "profiles:gone", 321),
+  ],
+  events: [
+    event("hosted", { organizerId: ME, datetime: 6000, location: "The Garden", coverImageStorageId: "_storage:hosted-cover" }),
+    event("hostedHidden", { organizerId: ME, status: "hidden" }),
+    event("going", { datetime: 5100, imageStorageIds: ["_storage:going-gallery"] }),
+    event("rsvp", { datetime: 5200, mediaPreviewUrl: "https://still/rsvp.jpg" }),
+    event("cancelled", { datetime: 5300, status: "cancelled" }),
+    event("requested"),
+    event("saved"),
+    event("hidden", { status: "hidden" }),
+    event("ticketedNoSeller", { ticketTiers: TIERS }),
+    event("ticketedSeller", { organizerId: SAM, ticketTiers: TIERS, datetime: 7000 }),
+  ],
+  eventApplications: [
+    application("meGoing", "going", ME, "accepted", { createdAt: 500, updatedAt: 520 }),
+    application("boGoing", "going", BO, "accepted"),
+    application("meRequested", "requested", ME, "pending", { createdAt: 530 }),
+    application("meDeclined", "rsvp", ME, "declined"),
+    application("meTicketed", "ticketedNoSeller", ME, "accepted"),
+    application("alexHosted", "hosted", ALEX, "pending", { message: "Can I come?", createdAt: 600 }),
+    application("cyHosted", "hosted", CY, "accepted"),
+  ],
+  eventRsvps: [
+    rsvp("meGoing", "going", ME, 510),
+    rsvp("boGoing", "going", BO, 515),
+    rsvp("guestGoing", "going", undefined, 516),
+    rsvp("meRsvp", "rsvp", ME, 540),
+    rsvp("meCancelled", "cancelled", ME, 550),
+    rsvp("meHosted", "hosted", ME, 560),
+  ],
+  memberships: [],
+  hostOrgs: [],
+});
+
+async function mine(viewer: string | null = ME) {
+  const { ctx, reads } = makeCtx(WORLD(), viewer);
+  return { data: await run(getMine, ctx), reads };
+}
+
+describe("getMine — signed out", () => {
+  it("returns empty lists and reads nothing", async () => {
+    const { data, reads } = await mine(null);
+    expect(data).toEqual({ projects: [], requests: [], events: [], people: [] });
+    expect(reads).toEqual([]);
+  });
+});
+
+describe("getMine — projects", () => {
+  it("one row per thing, in group order", async () => {
+    const { data } = await mine();
+    expect(data.projects.map((p: ShortlistProject) => p.key)).toEqual([
+      "invited:projects:invite",
+      "leading:projects:mine",
+      "leading:projects:mineHidden",
+      "team:projects:team:projectRoles:sound",
+      "waiting:projects:wait",
+      "backing:projects:backed",
+      "saved:projects:roles:projectRoles:director",
+      "saved:projects:art",
+      "saved:projects:saved",
+      "closed:projects:shelved",
+      "closed:projects:done",
+      "closed:projects:declined",
+      "closed:projects:withdrawn",
+      "closed:projects:left",
+      "closed:projects:removed",
+    ]);
+  });
+
+  it("invited: the project's pay, its photo, the lead's name, and its stage", async () => {
+    const { data } = await mine();
+    expect(data.projects[0]).toEqual({
+      key: "invited:projects:invite",
+      relation: "invited",
+      kind: "paid",
+      projectId: "projects:invite",
+      title: "Project invite",
+      stage: "forming",
+      lead: { name: "Mara Lead", profileId: "profiles:lead" },
+      coverUrl: "https://files/_storage:invite-photo",
+      role: { id: null, title: "Cellist", neededBy: null },
+      pay: { budgetType: "amount", budget: 1200 },
+      since: 210,
+    });
+  });
+
+  it("team: the posted role's title and pay, since they joined", async () => {
+    const { data } = await mine();
+    expect(data.projects.find((p: ShortlistProject) => p.relation === "team")).toMatchObject({
+      kind: "passion",
+      stage: "working",
+      role: { id: "projectRoles:sound", title: "Sound Mixer", neededBy: null },
+      pay: { budgetType: "range", budget: 300, budgetMax: 600 },
+      since: 225,
+    });
+  });
+
+  it("waiting: a free-text role, the project's pay, and a pasted link's still", async () => {
+    const { data } = await mine();
+    expect(data.projects.find((p: ShortlistProject) => p.relation === "waiting")).toMatchObject({
+      role: { id: null, title: "Editor", neededBy: null },
+      pay: { budgetType: "proposals" },
+      coverUrl: "https://still/wait.jpg",
+      since: 230,
+    });
+  });
+
+  it("closed: declined, withdrawn, left and removed keep their reason; completed and archived projects finish", async () => {
+    const { data } = await mine();
+    const reasons = Object.fromEntries(
+      data.projects
+        .filter((p: ShortlistProject) => p.relation === "closed")
+        .map((p: ShortlistProject) => [p.projectId, p.closedReason]),
+    );
+    expect(reasons).toEqual({
+      "projects:declined": "declined",
+      "projects:withdrawn": "withdrawn",
+      "projects:left": "left",
+      "projects:removed": "removed",
+      "projects:done": "finished",
+      "projects:shelved": "finished",
+    });
+  });
+
+  it("leading: counts requests waiting; a portfolio share isn't a project you lead", async () => {
+    const { data } = await mine();
+    const leading = data.projects.filter((p: ShortlistProject) => p.relation === "leading");
+    expect(leading.map((p: ShortlistProject) => [p.projectId, p.pendingRequests, p.pay])).toEqual([
+      ["projects:mine", 2, { budgetType: "range", budget: 300, budgetMax: 600 }],
+      ["projects:mineHidden", 0, null],
+    ]);
+    expect(data.projects.some((p: ShortlistProject) => p.projectId === "projects:portfolio")).toBe(false);
+  });
+
+  it("backing: recurring money shown, an unfinished checkout ignored, since the first", async () => {
+    const { data } = await mine();
+    expect(data.projects.find((p: ShortlistProject) => p.relation === "backing")).toMatchObject({
+      projectId: "projects:backed",
+      backing: { amountCents: 1000, recurring: true },
+      pay: null,
+      since: 150,
+    });
+  });
+
+  it("saved: a role with its deadline and the project's pay; a project with its first image artifact", async () => {
+    const { data } = await mine();
+    const byKey = Object.fromEntries(data.projects.map((p: ShortlistProject) => [p.key, p]));
+    expect(byKey["saved:projects:roles:projectRoles:director"]).toMatchObject({
+      role: { id: "projectRoles:director", title: "Director", neededBy: 9000 },
+      pay: { budgetType: "amount", budget: 5000 },
+      since: 330,
+    });
+    expect(byKey["saved:projects:art"]).toMatchObject({ coverUrl: "https://files/_storage:art-img", pay: null });
+    expect(byKey["saved:projects:saved"]).toMatchObject({ pay: { budgetType: "volunteer" }, coverUrl: null });
+  });
+
+  it("dedupe: an invite outranks a save and a cheer on the same project; a saved role hides the bare save", async () => {
+    const { data } = await mine();
+    const keys = data.projects.map((p: ShortlistProject) => p.key);
+    expect(keys).not.toContain("saved:projects:invite");
+    expect(keys).not.toContain("backing:projects:invite");
+    expect(keys).not.toContain("saved:projects:roles");
+  });
+});
+
+describe("getMine — visibility", () => {
+  it("drops a hidden project from every relation but the member's own", async () => {
+    const { data } = await mine();
+    const ids = data.projects.map((p: ShortlistProject) => p.projectId);
+    expect(ids).not.toContain("projects:hidden"); // team row, cheer and save all gone
+    expect(ids).toContain("projects:mineHidden"); // still yours to lead
+  });
+
+  it("drops a saved role the project page no longer lists", async () => {
+    const { data } = await mine();
+    expect(data.projects.some((p: ShortlistProject) => p.role?.id === "projectRoles:gaffer")).toBe(false);
+  });
+
+  it("drops hidden events and ticketed ones whose organizer can't sell, unless you host them", async () => {
+    const { data } = await mine();
+    const ids = data.events.map((e: ShortlistEvent) => e.eventId);
+    expect(ids).not.toContain("events:hidden");
+    expect(ids).not.toContain("events:ticketedNoSeller"); // saved and going, both gone
+    expect(ids).toContain("events:ticketedSeller");
+    expect(ids).toContain("events:hostedHidden");
+  });
+
+  it("skips saves whose target is gone or malformed", async () => {
+    const { data } = await mine();
+    expect(data.people.map((p: { profileId: string }) => p.profileId)).not.toContain("profiles:gone");
+    expect(data.projects.some((p: ShortlistProject) => p.projectId === "not-an-id")).toBe(false);
+  });
+});
+
+describe("getMine — events", () => {
+  it("one row per event, in group order", async () => {
+    const { data } = await mine();
+    expect(data.events.map((e: ShortlistEvent) => e.key)).toEqual([
+      "hosting:events:hostedHidden",
+      "hosting:events:hosted",
+      "going:events:going",
+      "going:events:rsvp",
+      "going:events:cancelled",
+      "requested:events:requested",
+      "saved:events:saved",
+      "saved:events:ticketedSeller",
+    ]);
+  });
+
+  it("hosting: requests waiting, location, cover; my own RSVP and save fold into it", async () => {
+    const { data } = await mine();
+    expect(data.events.find((e: ShortlistEvent) => e.eventId === "events:hosted")).toEqual({
+      key: "hosting:events:hosted",
+      relation: "hosting",
+      eventId: "events:hosted",
+      title: "Event hosted",
+      datetime: 6000,
+      location: "The Garden",
+      coverUrl: "https://files/_storage:hosted-cover",
+      // Cy's accepted application and my RSVP.
+      goingCount: 2,
+      cancelled: false,
+      since: 50,
+      pendingRequests: 1,
+    });
+  });
+
+  it("going: an accepted application and an RSVP are one row, since the earlier; members only in the count", async () => {
+    const { data } = await mine();
+    expect(data.events.find((e: ShortlistEvent) => e.eventId === "events:going")).toMatchObject({
+      relation: "going",
+      since: 510,
+      // Me and Bo, each once across application and RSVP; the guest RSVP isn't a member.
+      goingCount: 2,
+      coverUrl: "https://files/_storage:going-gallery",
+      location: null,
+    });
+  });
+
+  it("going by RSVP alone, with a pasted link's still; a cancelled event says so", async () => {
+    const { data } = await mine();
+    const byId = Object.fromEntries(data.events.map((e: ShortlistEvent) => [e.eventId, e]));
+    expect(byId["events:rsvp"]).toMatchObject({ relation: "going", since: 540, coverUrl: "https://still/rsvp.jpg" });
+    expect(byId["events:cancelled"]).toMatchObject({ relation: "going", cancelled: true });
+  });
+
+  it("requested and saved", async () => {
+    const { data } = await mine();
+    const byId = Object.fromEntries(data.events.map((e: ShortlistEvent) => [e.eventId, e]));
+    expect(byId["events:requested"]).toMatchObject({ relation: "requested", since: 530 });
+    expect(byId["events:saved"]).toMatchObject({ relation: "saved", since: 340 });
+  });
+});
+
+describe("getMine — requests waiting on you", () => {
+  it("join requests on your project and a request to attend your event, newest first", async () => {
+    const { data } = await mine();
+    expect(data.requests).toEqual([
+      {
+        key: "request:event:eventApplications:alexHosted",
+        requestId: "eventApplications:alexHosted",
+        on: { type: "event", id: "events:hosted", title: "Event hosted", datetime: 6000 },
+        person: {
+          profileId: "profiles:alex",
+          name: "Alex Asks",
+          imageUrl: "https://legacy/alex.jpg",
+          interests: ["Film", "Music"],
+        },
+        message: "Can I come?",
+        at: 600,
+      },
+      {
+        key: "request:project:projectMembers:boAsks",
+        requestId: "projectMembers:boAsks",
+        on: {
+          type: "project",
+          id: "projects:mine",
+          title: "Project mine",
+          kind: "paid",
+          roleTitle: "Runner",
+          pay: { budgetType: "range", budget: 300, budgetMax: 600 },
+        },
+        // No profile: the name on the request, nothing else.
+        person: { profileId: null, name: "Bo Nophoto", imageUrl: null, interests: [] },
+        message: null,
+        at: 410,
+      },
+      {
+        key: "request:project:projectMembers:alexAsks",
+        requestId: "projectMembers:alexAsks",
+        on: {
+          type: "project",
+          id: "projects:mine",
+          title: "Project mine",
+          kind: "paid",
+          roleTitle: "Editor",
+          pay: { budgetType: "amount", budget: 800 },
+        },
+        person: {
+          profileId: "profiles:alex",
+          name: "Alex Asks",
+          imageUrl: "https://legacy/alex.jpg",
+          interests: ["Film", "Music"],
+        },
+        message: "I cut docs.",
+        at: 400,
+      },
+    ]);
+  });
+});
+
+describe("getMine — people", () => {
+  it("follows with name, picture and interests, newest first; a stored picture wins", async () => {
+    const { data } = await mine();
+    expect(data.people).toEqual([
+      {
+        profileId: "profiles:lead",
+        name: "Mara Lead",
+        imageUrl: "https://files/_storage:mara",
+        interests: ["Music"],
+        since: 320,
+      },
+      {
+        profileId: "profiles:alex",
+        name: "Alex Asks",
+        imageUrl: "https://legacy/alex.jpg",
+        interests: ["Film", "Music"],
+        since: 310,
+      },
+    ]);
+  });
+});
+
+describe("getMine — reads", () => {
+  it("every read uses a real index, the member's RSVPs through eventRsvps.by_userId", async () => {
+    // makeCtx throws on an unknown index, an out-of-order eq, or no index at all.
+    const { reads } = await mine();
+    expect(reads).toContain("eventRsvps.by_userId");
+    expect(reads).toContain("projectMembers.by_userId_status");
+    expect(reads).toContain("favorites.by_userId_type");
+  });
+});

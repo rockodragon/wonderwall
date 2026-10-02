@@ -1559,7 +1559,9 @@ export default defineSchema({
   })
     .index("by_eventId", ["eventId"])
     .index("by_eventId_email", ["eventId", "email"])
-    .index("by_stripeRef", ["stripeRef"]),
+    .index("by_stripeRef", ["stripeRef"])
+    // The member's own RSVPs, for the Shortlist's Going (convex/shortlist.ts).
+    .index("by_userId", ["userId"]),
 
   // Completed event-ticket purchases — written exclusively by the Stripe
   // webhook (checkout.session.completed, mode "payment", kind "event_ticket";
