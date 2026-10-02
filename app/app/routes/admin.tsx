@@ -212,6 +212,21 @@ export default function AdminPage() {
           </Link>
         </div>
 
+        <div className="mb-8 bg-white shadow-md rounded-lg p-6 flex items-center justify-between flex-wrap gap-4">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">Updates</h2>
+            <p className="mt-1 text-sm text-gray-600">
+              Write the cards members see on their desk.
+            </p>
+          </div>
+          <Link
+            to="/admin/updates"
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 whitespace-nowrap"
+          >
+            Open Updates
+          </Link>
+        </div>
+
         <HiddenContent />
 
         <div className="mb-8 bg-white shadow-md rounded-lg p-6">

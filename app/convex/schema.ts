@@ -1981,6 +1981,56 @@ export default defineSchema({
     // Cross-batch email dedupe (see Recipient resolution).
     .index("by_announcementId_email", ["announcementId", "email"]),
 
+  // ——— Updates (docs/features/desk-updates.md) ———
+  //
+  // Short cards an admin writes. Stored once with an audience rule; each
+  // person's state is recorded lazily in `updateReads`, so someone who
+  // joins next week still sees them. "Send it now" is only the pipe that
+  // pulls people back (a notification and an email each, in batches).
+  updates: defineTable({
+    title: v.string(), // at most 80 chars (enforced in updates.ts)
+    body: v.string(), // plain text, at most 600 chars
+    imageStorageId: v.optional(v.id("_storage")),
+    // Set together or not at all. The label is at most 24 chars; the URL is an
+    // in-app path ("/events/…") or an https:// link.
+    actionLabel: v.optional(v.string()),
+    actionUrl: v.optional(v.string()),
+    audience: v.union(v.literal("everyone"), v.literal("community"), v.literal("new")),
+    // Required when audience is "community": the active communityMembers of
+    // this hostOrg are the audience.
+    hostOrgId: v.optional(v.id("hostOrgs")),
+    // For "new": accounts younger than this many days (default 14, 1–90),
+    // measured from users._creationTime.
+    newForDays: v.optional(v.number()),
+    startsAt: v.number(),
+    endsAt: v.optional(v.number()), // none = shows until archived
+    order: v.number(), // lower comes first
+    status: v.union(v.literal("draft"), v.literal("published"), v.literal("archived")),
+    // Set once by "Send it now"; an Update can only be sent once.
+    sentAt: v.optional(v.number()),
+    sentCount: v.optional(v.number()),
+    createdBy: v.id("users"),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    // eq(status).order → published Updates already in display order.
+    .index("by_status_order", ["status", "order"]),
+
+  // One row per person per Update, created on first touch. openedAt counts
+  // as "seen"; archivedAt means it never shows for them again.
+  updateReads: defineTable({
+    userId: v.id("users"),
+    updateId: v.id("updates"),
+    openedAt: v.optional(v.number()),
+    clickedAt: v.optional(v.number()),
+    archivedAt: v.optional(v.number()),
+  })
+    // Upsert/lookup for one person and one Update. Its userId prefix also
+    // serves "everything this person has read" (listMine's archived filter).
+    .index("by_userId_updateId", ["userId", "updateId"])
+    // Stats for the admin list.
+    .index("by_updateId", ["updateId"]),
+
   // ——— Live booking (docs/features/live-booking.md) ———
   //
   // A venue posts a recurring paid gig ("every Friday, 8–10pm, $300"). The

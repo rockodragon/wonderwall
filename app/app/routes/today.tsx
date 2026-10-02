@@ -26,6 +26,7 @@ import { coverOf, fundingOf, moneyOf, pickProjects } from "../lib/projectPick";
 import { FF_DESK } from "../lib/featureFlags";
 import { Desk } from "../desk/Desk";
 import { useIsDesktop } from "../hooks/useMediaQuery";
+import { UpdatesStack } from "../components/UpdatesStack";
 
 export function meta() {
   return [{ title: "Today — The Garden" }];
@@ -83,6 +84,9 @@ function TodayPage() {
         <MonoLabel as="h1">Today in The Garden</MonoLabel>
         <MonoLabel>{formatToday()}</MonoLabel>
       </div>
+
+      {/* Updates come first (docs/features/desk-updates.md). */}
+      <UpdatesStack />
 
       {openGift && <YourHalfCard amountCents={openGift.amountCents} />}
 

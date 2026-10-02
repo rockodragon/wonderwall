@@ -19,6 +19,7 @@ import { errorMessage } from "../lib/convexError";
 import type { DeskAction, DeskCard } from "./deskCards";
 import { plainText } from "./deskCards";
 import { DESK, DESK_SANS, FOCUS_RING_CLASS, monoLabel } from "./tokens";
+import { useUpdateClick } from "./useUpdateReads";
 
 const BUTTON_CLASS = `inline-flex h-[52px] items-center justify-center rounded-[10px] px-7 text-base font-semibold no-underline transition-colors ${FOCUS_RING_CLASS}`;
 
@@ -97,11 +98,26 @@ export function DetailPanel({
         </h2>
         {host && <p style={{ margin: 0, fontSize: 15, color: DESK.muted, overflowWrap: "break-word", hyphens: "manual" }}>{host}</p>}
         {description && (
-          <p style={{ margin: 0, fontSize: 18, lineHeight: 1.65, color: DESK.textSoft, maxWidth: "46ch", overflowWrap: "break-word", hyphens: "manual" }}>{description}</p>
+          <p
+            style={{
+              margin: 0,
+              fontSize: 18,
+              lineHeight: 1.65,
+              color: DESK.textSoft,
+              maxWidth: "46ch",
+              overflowWrap: "break-word",
+              hyphens: "manual",
+              // An Update's body is written whole, line breaks and all.
+              whiteSpace: card.kind === "update" ? "pre-line" : undefined,
+            }}
+          >
+            {description}
+          </p>
         )}
         <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-3">
           {action?.kind === "link" && <ActionLink action={action} />}
           {action?.kind === "rsvp" && <JoinButton action={action} />}
+          {action?.kind === "update" && <UpdateButton action={action} />}
           {card.detail.aside && <span style={{ fontSize: 14, color: DESK.muted }}>{card.detail.aside}</span>}
           {card.kind === "event" && (
             <Link
@@ -120,6 +136,26 @@ export function DetailPanel({
 function ActionLink({ action }: { action: Extract<DeskAction, { kind: "link" }> }): ReactNode {
   return (
     <Link to={action.href} className={`${BUTTON_CLASS} bg-[#FFE066] text-[#121212] hover:bg-[#FFEA94]`}>
+      {action.label}
+    </Link>
+  );
+}
+
+/** An Update's button: records the press (which archives the Update), then
+ * goes where its link says. In the app it is a router link; another site opens
+ * in a new tab. */
+function UpdateButton({ action }: { action: Extract<DeskAction, { kind: "update" }> }): ReactNode {
+  const pressed = useUpdateClick();
+  const className = `${BUTTON_CLASS} bg-[#FFE066] text-[#121212] hover:bg-[#FFEA94]`;
+  if (action.external) {
+    return (
+      <a href={action.href} target="_blank" rel="noopener noreferrer" onClick={() => pressed(action.updateId)} className={className}>
+        {action.label}
+      </a>
+    );
+  }
+  return (
+    <Link to={action.href} onClick={() => pressed(action.updateId)} className={className}>
       {action.label}
     </Link>
   );

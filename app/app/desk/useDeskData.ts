@@ -11,6 +11,8 @@ import type { DeskInput } from "./deskCards";
 import { toDeskInput } from "./deskInput";
 
 export function useDeskData() {
+  // Updates are first on the desk (docs/features/desk-updates.md); [] signed out.
+  const updates = useQuery(api.updates.listMine);
   const events = useQuery(api.events.list, { upcoming: true });
   const projects = useQuery(api.garden.projects.listProjects);
   const fundPage = useQuery(api.garden.allocations.getFundPage, { hostOrgSlug: SOPHIA_FUND_SLUG });
@@ -20,11 +22,12 @@ export function useDeskData() {
   const profile = useQuery(api.profiles.getMyProfile);
 
   const input: DeskInput = useMemo(
-    () => toDeskInput({ events, projects, fundPage, favorites, giving }, Date.now(), formatMoney),
-    [events, projects, fundPage, favorites, giving],
+    () => toDeskInput({ updates, events, projects, fundPage, favorites, giving }, Date.now(), formatMoney),
+    [updates, events, projects, fundPage, favorites, giving],
   );
 
   const loaded =
+    updates !== undefined &&
     events !== undefined &&
     projects !== undefined &&
     fundPage !== undefined &&

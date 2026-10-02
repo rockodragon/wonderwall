@@ -33,6 +33,7 @@ export function parseDeskView(raw: string | null | undefined): DeskView {
 
 /** Card ids are typed so the URL says what kind of thing is open. */
 export type DeskCardId =
+  | `update:${string}`
   | `event:${string}`
   | `project:${string}`
   | `person:${string}`

@@ -120,6 +120,7 @@ import type * as seed from "../seed.js";
 import type * as showcase from "../showcase.js";
 import type * as smsSender from "../smsSender.js";
 import type * as sourceParsers from "../sourceParsers.js";
+import type * as updates from "../updates.js";
 import type * as videoEmbed from "../videoEmbed.js";
 import type * as waitlist from "../waitlist.js";
 import type * as wonderings from "../wonderings.js";
@@ -243,6 +244,7 @@ declare const fullApi: ApiFromModules<{
   showcase: typeof showcase;
   smsSender: typeof smsSender;
   sourceParsers: typeof sourceParsers;
+  updates: typeof updates;
   videoEmbed: typeof videoEmbed;
   waitlist: typeof waitlist;
   wonderings: typeof wonderings;
