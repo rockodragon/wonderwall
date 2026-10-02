@@ -9,7 +9,7 @@ import { formatFollowedEventDate, notifyFollowers } from "./follows";
 import { canonicalMediaUrl, schedulePreviewFetch } from "./linkPreview";
 import { mergeGuests, summarizeGuests, type GuestInput } from "./eventGuests";
 import { getUserEmail } from "./emailHelpers";
-import { isEventHost, planAddCoHost, planRemoveCoHost } from "./eventHosts";
+import { isEventHost, planAddCoHost, planRemoveCoHost, planDisplayHosts } from "./eventHosts";
 import { canSeeEvent, eventVisibilityChecker, isFreeEvent } from "./garden/eventVisibility";
 import { hostUserIdsForOrg, primaryOrgByUserId } from "./organizations";
 import { isAdmin } from "./helpers";
@@ -236,13 +236,51 @@ async function hostOrg(ctx: QueryCtx, profile: Doc<"profiles"> | null): Promise<
   return { orgName: profile.orgName?.trim() || undefined, orgUrl: profile.orgUrl || undefined };
 }
 
-/** Organizer then co-hosts, each with their organization. */
-async function loadHosts(
+type LoadedHost = { name: string; profileId?: Id<"profiles">; exact?: boolean } & HostOrg;
+
+/** The hosts the host chose to show, in their order. An org that was
+ * deleted or a user without a profile is skipped. */
+async function loadDisplayHosts(
   ctx: QueryCtx,
   event: Doc<"events">,
-): Promise<({ name: string; profileId?: Id<"profiles"> } & HostOrg)[]> {
+): Promise<(LoadedHost & { kind: "user" | "org"; refId: string; imageUrl: string | null })[] | null> {
+  if (!event.displayHosts || event.displayHosts.length === 0) return null;
+  const out: (LoadedHost & { kind: "user" | "org"; refId: string; imageUrl: string | null })[] = [];
+  for (const d of event.displayHosts) {
+    if (d.kind === "org") {
+      const o = await ctx.db.get(d.organizationId);
+      if (!o) continue;
+      const logo = o.logoStorageId ? await ctx.storage.getUrl(o.logoStorageId) : null;
+      out.push({
+        kind: "org",
+        refId: String(o._id),
+        name: "",
+        orgName: o.name,
+        orgUrl: o.websiteUrl ?? undefined,
+        orgSlug: o.slug,
+        imageUrl: logo,
+        exact: true,
+      });
+    } else {
+      const p = await ctx.db
+        .query("profiles")
+        .withIndex("by_userId", (q) => q.eq("userId", d.userId))
+        .first();
+      if (!p) continue;
+      const img = p.imageStorageId ? await ctx.storage.getUrl(p.imageStorageId) : p.imageUrl || null;
+      out.push({ kind: "user", refId: String(d.userId), name: p.name, profileId: p._id, imageUrl: img, exact: true });
+    }
+  }
+  return out;
+}
+
+/** What "Hosted by" shows: the host's own list when they set one, else the
+ * organizer then co-hosts, each with their organization. */
+async function loadHosts(ctx: QueryCtx, event: Doc<"events">): Promise<LoadedHost[]> {
+  const chosen = await loadDisplayHosts(ctx, event);
+  if (chosen) return chosen.map(({ kind: _k, refId: _r, imageUrl: _i, ...h }) => h);
   const ids = [event.organizerId, ...(event.coHostIds ?? [])];
-  const out: ({ name: string; profileId?: Id<"profiles"> } & HostOrg)[] = [];
+  const out: LoadedHost[] = [];
   for (const id of ids) {
     const p = await ctx.db
       .query("profiles")
@@ -470,9 +508,17 @@ export const get = query({
       });
     }
 
+    const chosenHosts = await loadDisplayHosts(ctx, event);
+
     return {
       ...event,
       coHosts,
+      // Who "Hosted by" shows when the host set the list; null = default.
+      shownHosts: chosenHosts
+        ? chosenHosts.map(({ kind: _k, refId: _r, imageUrl: _i, ...h }) => h)
+        : null,
+      // The editor's rows (host view only).
+      displayHostRows: isHost && chosenHosts ? chosenHosts.map((h) => ({ kind: h.kind, refId: h.refId, name: h.orgName ?? h.name, imageUrl: h.imageUrl })) : [],
       isHost,
       ticketsSoldByTier,
       coverImageUrl,
@@ -1268,5 +1314,42 @@ export const getEventForTicketCheckout = internalQuery({
           }
         : null,
     };
+  },
+});
+
+
+/** Choose who "Hosted by" shows and in what order — people and/or
+ * organizations. Any host can set it; an empty list goes back to the default. */
+export const setDisplayHosts = mutation({
+  args: {
+    eventId: v.id("events"),
+    hosts: v.array(
+      v.union(
+        v.object({ kind: v.literal("user"), id: v.id("users") }),
+        v.object({ kind: v.literal("org"), id: v.id("organizations") }),
+      ),
+    ),
+  },
+  handler: async (ctx, args) => {
+    const userId = await auth.getUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+    const event = await ctx.db.get(args.eventId);
+    if (!event) throw new Error("Event not found");
+    if (!isEventHost(event, userId)) throw new Error("Only a host can change who is shown as host");
+    const plan = planDisplayHosts(args.hosts.map((h) => ({ kind: h.kind, id: String(h.id) })));
+    if (!plan.ok) {
+      throw new Error(plan.reason === "full" ? "Show at most 10 hosts" : "Each host can be listed once");
+    }
+    await ctx.db.patch(args.eventId, {
+      displayHosts:
+        args.hosts.length === 0
+          ? undefined
+          : args.hosts.map((h) =>
+              h.kind === "user"
+                ? { kind: "user" as const, userId: h.id as Id<"users"> }
+                : { kind: "org" as const, organizationId: h.id as Id<"organizations"> },
+            ),
+      updatedAt: Date.now(),
+    });
   },
 });

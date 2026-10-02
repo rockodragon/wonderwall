@@ -43,26 +43,14 @@ import { ImageFill } from "../components/ImageFill";
 import { useBack } from "../lib/useBack";
 import { YOUTUBE_LIVE_LABEL, YOUTUBE_LIVE_URL } from "../constants/broadcast";
 import { FavoriteButton } from "../components/FavoriteButton";
-import {
-  LocationAutocomplete,
-  LocationVerifiedHint,
-  type LocationSuggestion,
-} from "../components/LocationAutocomplete";
-import { useLocationField } from "../lib/useLocationField";
 import { ShareButton } from "../components/ShareButton";
 import { ShowcaseContent, SHOWCASE_EVENT_ID } from "../components/ShowcaseContent";
 import { hostLabels } from "../lib/eventHosts";
-import {
-  TicketTierEditor,
-  draftsToTiers,
-  tiersToDrafts,
-  type TicketTier,
-  type TicketTierDraft,
-} from "../components/TicketTierEditor";
+import { CreateEventModal } from "../components/CreateEventModal";
+import type { TicketTier } from "../components/TicketTierEditor";
 import { AnnouncementComposer } from "../components/AnnouncementComposer";
 import { AdminMenu, HiddenNotice } from "../components/AdminMenu";
 import { AddToCalendar } from "../components/AddToCalendar";
-import { describeMediaLink, MediaLinkField } from "../components/MediaLinkField";
 import { EmbedPlayer } from "../components/EmbedPlayer";
 import { joinProxyUrl } from "../lib/eventCalendar";
 import { toEmbedUrl } from "../lib/videoEmbed";
@@ -70,7 +58,6 @@ import { buildTicketLink, isCheckoutSessionId } from "../../convex/garden/ticket
 import { claimPendingTickets, stashTicketSession } from "../lib/pendingTicket";
 import { setPendingIntent } from "../lib/pendingIntent";
 import { guestsToCsv, summarizeGuests, formatDollars } from "../../convex/eventGuests";
-import { CommunityPicker, useDefaultEventCommunity } from "../components/CommunityPicker";
 
 const COVER_COLORS = [
   { name: "Blue", value: "blue", gradient: "from-blue-500 to-blue-600" },
@@ -572,10 +559,9 @@ export default function EventDetail() {
             {event.organizer && (
               <p className="mb-4 text-[15px] text-gray-700 dark:text-gray-200">
                 Hosted by{" "}
-                {hostLabels([
-                  event.organizer,
-                  ...(event.coHosts ?? []),
-                ]).map((h, idx) => (
+                {hostLabels(
+                  event.shownHosts ?? [event.organizer, ...(event.coHosts ?? [])],
+                ).map((h, idx) => (
                   <span key={`${h.primary}-${idx}`}>
                     {idx > 0 && ", "}
                     {h.orgSlug ? (
@@ -1077,6 +1063,8 @@ export default function EventDetail() {
             eventId={event._id}
             organizer={event.organizer}
             coHosts={event.coHosts ?? []}
+            organizerUserId={event.organizerId}
+            savedShown={event.displayHostRows ?? []}
             isOrganizer={!!event.isOrganizer}
             isGuest={isGuest}
           />
@@ -1085,10 +1073,12 @@ export default function EventDetail() {
 
       {/* Edit Form Modal */}
       {showEditForm && (
-        <EditEventModal
-          eventId={event._id}
-          canEditTickets={!!event.isOrganizer}
-          initialValues={{
+        <CreateEventModal
+          edit={{
+            eventId: event._id,
+            canEditTickets: !!event.isOrganizer,
+            coverImageUrl: event.coverImageUrl,
+            initialValues: {
             title: event.title,
             description: event.description,
             datetime: event.datetime,
@@ -1105,6 +1095,7 @@ export default function EventDetail() {
             requiresApproval: event.requiresApproval,
             mediaUrl: event.mediaUrl,
             hostOrgId: event.hostOrgId,
+            },
           }}
           onClose={() => setShowEditForm(false)}
         />
@@ -2242,12 +2233,16 @@ function HostsPanel({
   eventId,
   organizer,
   coHosts,
+  organizerUserId,
+  savedShown,
   isOrganizer,
   isGuest,
 }: {
   eventId: Id<"events">;
   organizer: { name: string; imageUrl: string | null; profileId: Id<"profiles"> } | null;
   coHosts: { userId: Id<"users">; name: string; imageUrl: string | null; profileId: Id<"profiles"> | null }[];
+  organizerUserId: Id<"users">;
+  savedShown: { kind: "user" | "org"; refId: string; name: string; imageUrl: string | null }[];
   isOrganizer: boolean;
   isGuest: boolean;
 }) {
@@ -2363,6 +2358,198 @@ function HostsPanel({
           )}
         </div>
       )}
+
+      <ShownHostsEditor
+        eventId={eventId}
+        organizer={organizer}
+        organizerUserId={organizerUserId}
+        coHosts={coHosts}
+        savedShown={savedShown}
+      />
+    </div>
+  );
+}
+
+type ShownRow = { kind: "user" | "org"; refId: string; name: string; imageUrl: string | null };
+
+/** Who "Hosted by" shows, and in what order: people and/or organizations.
+ * Any host can set it. Display only; it changes no one's access. */
+function ShownHostsEditor({
+  eventId,
+  organizer,
+  organizerUserId,
+  coHosts,
+  savedShown,
+}: {
+  eventId: Id<"events">;
+  organizer: { name: string; imageUrl: string | null } | null;
+  organizerUserId: Id<"users">;
+  coHosts: { userId: Id<"users">; name: string; imageUrl: string | null }[];
+  savedShown: ShownRow[];
+}) {
+  const setDisplayHosts = useMutation(api.events.setDisplayHosts);
+  const defaults: ShownRow[] = [
+    ...(organizer ? [{ kind: "user" as const, refId: String(organizerUserId), name: organizer.name, imageUrl: organizer.imageUrl }] : []),
+    ...coHosts.map((c) => ({ kind: "user" as const, refId: String(c.userId), name: c.name, imageUrl: c.imageUrl })),
+  ];
+  const custom = savedShown.length > 0;
+  const [rows, setRows] = useState<ShownRow[]>(custom ? savedShown : defaults);
+  const [q, setQ] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const people = useQuery(api.garden.projectTeam.searchPeopleForInvite, q.trim() ? { q } : "skip");
+  const orgs = useQuery(api.organizations.search, q.trim() ? { q } : "skip");
+  const has = (kind: string, id: string) => rows.some((r) => r.kind === kind && r.refId === id);
+  const personHits = (people ?? []).filter((r) => !has("user", String(r.userId))).slice(0, 5);
+  const orgHits = (orgs ?? []).filter((o) => !has("org", String(o._id))).slice(0, 5);
+
+  function move(i: number, d: -1 | 1) {
+    const j = i + d;
+    if (j < 0 || j >= rows.length) return;
+    const next = [...rows];
+    [next[i], next[j]] = [next[j], next[i]];
+    setRows(next);
+    setSaved(false);
+  }
+  function add(r: ShownRow) {
+    setRows([...rows, r]);
+    setQ("");
+    setSaved(false);
+  }
+  async function save(list: ShownRow[]) {
+    setBusy(true);
+    setError(null);
+    try {
+      await setDisplayHosts({
+        eventId,
+        hosts: list.map((r) =>
+          r.kind === "user"
+            ? { kind: "user" as const, id: r.refId as Id<"users"> }
+            : { kind: "org" as const, id: r.refId as Id<"organizations"> },
+        ),
+      });
+      setSaved(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message.replace(/^.*Uncaught Error: /s, "").split("\n")[0] : "That didn't work.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const btn =
+    "px-2.5 py-1 rounded-lg text-[13.5px] font-medium text-gray-800 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-40";
+
+  return (
+    <div className="mt-10 pt-6 border-t border-gray-200 dark:border-gray-800">
+      <h3 className="text-[15px] font-semibold text-gray-900 dark:text-white mb-1">Shown as host</h3>
+      <p className="text-[15px] text-gray-700 dark:text-gray-200 mb-4">
+        {custom
+          ? "This is who the event page and cards show, in this order."
+          : "Right now the page shows the organizer, then co-hosts. Change the list to choose who shows and in what order."}
+      </p>
+      <ul className="space-y-2 mb-4">
+        {rows.map((r, i) => (
+          <li key={`${r.kind}-${r.refId}`} className="flex items-center gap-3 p-2.5 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+            <PersonAvatar name={r.name} imageUrl={r.imageUrl} />
+            <div className="flex-1 min-w-0">
+              <span className="block text-[15px] font-medium text-gray-900 dark:text-white truncate">{r.name}</span>
+              <span className="text-[13px] text-gray-600 dark:text-gray-300">
+                {r.kind === "org" ? "Organization" : "Person"}
+              </span>
+            </div>
+            <button className={btn} disabled={busy || i === 0} onClick={() => move(i, -1)} aria-label={`Move ${r.name} up`}>
+              ↑
+            </button>
+            <button
+              className={btn}
+              disabled={busy || i === rows.length - 1}
+              onClick={() => move(i, 1)}
+              aria-label={`Move ${r.name} down`}
+            >
+              ↓
+            </button>
+            <button
+              className={`${btn} !text-red-600 dark:!text-red-400`}
+              disabled={busy}
+              onClick={() => {
+                setRows(rows.filter((_, k) => k !== i));
+                setSaved(false);
+              }}
+            >
+              Remove
+            </button>
+          </li>
+        ))}
+      </ul>
+
+      <label htmlFor="shown-host-search" className="block text-[15px] font-medium text-gray-900 dark:text-white mb-2">
+        Add a person or organization
+      </label>
+      <input
+        id="shown-host-search"
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        placeholder="Search by name"
+        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg dark:bg-gray-900 dark:text-white text-[15px]"
+      />
+      {q.trim() && (personHits.length > 0 || orgHits.length > 0) && (
+        <ul className="mt-2 space-y-2">
+          {orgHits.map((o) => (
+            <li key={`o-${o._id}`} className="flex items-center gap-3 p-2.5 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+              <PersonAvatar name={o.name} imageUrl={o.logoUrl} />
+              <span className="flex-1 min-w-0 truncate text-[15px] text-gray-900 dark:text-white">
+                {o.name} <span className="text-[13px] text-gray-600 dark:text-gray-300">Organization</span>
+              </span>
+              <button
+                className="px-3 py-1.5 rounded-lg text-[13.5px] font-medium bg-blue-600 text-white hover:bg-blue-700"
+                onClick={() => add({ kind: "org", refId: String(o._id), name: o.name, imageUrl: o.logoUrl })}
+              >
+                Add
+              </button>
+            </li>
+          ))}
+          {personHits.map((h) => (
+            <li key={`u-${h.userId}`} className="flex items-center gap-3 p-2.5 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+              <PersonAvatar name={h.name} imageUrl={h.imageUrl} />
+              <span className="flex-1 min-w-0 truncate text-[15px] text-gray-900 dark:text-white">{h.name}</span>
+              <button
+                className="px-3 py-1.5 rounded-lg text-[13.5px] font-medium bg-blue-600 text-white hover:bg-blue-700"
+                onClick={() => add({ kind: "user", refId: String(h.userId), name: h.name, imageUrl: h.imageUrl })}
+              >
+                Add
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {q.trim() && people !== undefined && orgs !== undefined && personHits.length === 0 && orgHits.length === 0 && (
+        <p className="mt-2 text-[14px] text-gray-700 dark:text-gray-200">No one found.</p>
+      )}
+
+      {error && <p className="mt-3 text-[14px] text-red-600 dark:text-red-400">{error}</p>}
+      <div className="mt-4 flex items-center gap-3">
+        <button
+          disabled={busy || rows.length === 0}
+          onClick={() => save(rows)}
+          className="px-4 py-2 rounded-lg text-[13.5px] font-medium bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+        >
+          Save
+        </button>
+        {custom && (
+          <button
+            disabled={busy}
+            onClick={async () => {
+              await save([]);
+              setRows(defaults);
+            }}
+            className={btn}
+          >
+            Back to default
+          </button>
+        )}
+        {saved && <span className="text-[14px] text-gray-700 dark:text-gray-200">Saved.</span>}
+      </div>
     </div>
   );
 }
@@ -2626,382 +2813,3 @@ const EVENT_TAGS = [
   "Fellowship",
   "Reading",
 ];
-
-function EditEventModal({
-  eventId,
-  canEditTickets,
-  initialValues,
-  onClose,
-}: {
-  /** Tickets are the organizer's; a co-host's save leaves them as they were
-   * (events.update), so the fields aren't shown to co-hosts. */
-  canEditTickets: boolean;
-  eventId: Id<"events">;
-  initialValues: {
-    title: string;
-    description: string;
-    datetime: number;
-    endTime?: number;
-    location?: string;
-    ticketTiers?: TicketTier[];
-    externalTicketUrl?: string;
-    externalTicketPriceCents?: number;
-    locationType?: string;
-    address?: LocationSuggestion["address"];
-    coordinates?: LocationSuggestion["coordinates"];
-    placeId?: string;
-    tags: string[];
-    requiresApproval: boolean;
-    mediaUrl?: string;
-    hostOrgId?: Id<"hostOrgs">;
-  };
-  onClose: () => void;
-}) {
-  const updateEvent = useMutation(api.events.update);
-  // An event with no community yet pre-fills The Garden (or the switcher's
-  // community); one already in a community keeps it.
-  const [hostOrgId, setHostOrgId] = useState<string>(initialValues.hostOrgId ?? "");
-  const defaultHostOrgId = useDefaultEventCommunity();
-  // Ticketed events go live only once the organizer can sell tickets
-  // (product rule, 2026-09-27) — this just informs the editor, the
-  // TicketTierEditor itself stays open to everyone.
-  const membership = useQuery(api.garden.memberships.getMyMembership);
-  const isMember = !!membership;
-
-  // Parse datetime into date and time strings
-  const initialDate = new Date(initialValues.datetime);
-  // Local calendar day, not toISOString() (UTC): an evening event in
-  // Pacific time is already tomorrow in UTC, and saving that back moved the
-  // event a day later on every edit (same fix as offerings.tsx).
-  const pad2 = (n: number) => String(n).padStart(2, "0");
-  const dateStr = `${initialDate.getFullYear()}-${pad2(initialDate.getMonth() + 1)}-${pad2(initialDate.getDate())}`;
-  const timeStr = initialDate.toTimeString().slice(0, 5);
-  const endTimeInit = initialValues.endTime
-    ? new Date(initialValues.endTime).toTimeString().slice(0, 5)
-    : "";
-
-  const [title, setTitle] = useState(initialValues.title);
-  const [description, setDescription] = useState(initialValues.description);
-  const [date, setDate] = useState(dateStr);
-  const [time, setTime] = useState(timeStr);
-  const [endTimeStr, setEndTimeStr] = useState(endTimeInit);
-  const [ticketTiers, setTicketTiers] = useState<TicketTierDraft[]>(
-    tiersToDrafts(initialValues.ticketTiers),
-  );
-  const [externalTicketUrl, setExternalTicketUrl] = useState(
-    initialValues.externalTicketUrl ?? "",
-  );
-  const [externalTicketPrice, setExternalTicketPrice] = useState(
-    initialValues.externalTicketPriceCents !== undefined
-      ? String(initialValues.externalTicketPriceCents / 100)
-      : "",
-  );
-  // Seeded from the event being edited (including its structured fields) so
-  // saving without re-picking a location doesn't wipe locationType/address/
-  // coordinates/placeId — previously this started at null unconditionally,
-  // and events.update patches those fields unconditionally from whatever
-  // `selected` currently is, so an untouched save silently erased them.
-  const location = useLocationField(initialValues);
-  const [tags, setTags] = useState<string[]>(initialValues.tags);
-  const [requiresApproval, setRequiresApproval] = useState(
-    initialValues.requiresApproval,
-  );
-  const [mediaUrl, setMediaUrl] = useState(initialValues.mediaUrl ?? "");
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-
-  function toggleTag(tag: string) {
-    setTags((prev) =>
-      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag],
-    );
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setError("");
-
-    if (!title.trim() || !description.trim() || !date || !time) {
-      setError("Please fill in all required fields");
-      return;
-    }
-
-    const datetime = new Date(`${date}T${time}`).getTime();
-
-    // Optional end time — same day as the start; must be after it.
-    let endTime: number | undefined;
-    if (endTimeStr) {
-      endTime = new Date(`${date}T${endTimeStr}`).getTime();
-      if (endTime <= datetime) {
-        setError("End time must be after the start time");
-        return;
-      }
-    }
-
-    const { tiers, error: tiersError } = draftsToTiers(ticketTiers);
-    if (tiersError) {
-      setError(tiersError);
-      return;
-    }
-
-    // Same rule as CreateEventModal: a link we can't show is never saved.
-    const mediaLink = describeMediaLink(mediaUrl);
-    if (mediaLink.state === "invalid") {
-      setError(mediaLink.message);
-      return;
-    }
-
-    setSaving(true);
-    try {
-      await updateEvent({
-        eventId,
-        title,
-        description,
-        datetime,
-        endTime,
-        ticketTiers: tiers,
-        externalTicketUrl: externalTicketUrl.trim() || undefined,
-        externalTicketPriceCents: externalTicketPrice.trim()
-          ? Math.round(parseFloat(externalTicketPrice) * 100)
-          : undefined,
-        ...location.toArgs(),
-        tags,
-        requiresApproval,
-        // Always sent: an emptied field clears the stored link (and its
-        // still) — events.update treats only an absent field as "untouched".
-        mediaUrl: mediaLink.state === "ok" ? mediaLink.url : "",
-        ...(hostOrgId
-          ? { hostOrgId: hostOrgId as Id<"hostOrgs"> }
-          : { clearCommunity: true }),
-      });
-      onClose();
-    } catch (err) {
-      setError("Failed to update event");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white dark:bg-gray-900 rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
-        <div className="p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-              Edit Event
-            </h2>
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-            >
-              <svg
-                className="w-6 h-6"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            </button>
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {error && (
-              <div className="p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg text-sm">
-                {error}
-              </div>
-            )}
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Title *
-              </label>
-              <input
-                type="text"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="Event name"
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Description *
-              </label>
-              <textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="What's this event about?"
-                rows={3}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white resize-none"
-              />
-            </div>
-
-            <div className="grid grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Date *
-                </label>
-                <input
-                  type="date"
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Start time *
-                </label>
-                <input
-                  type="time"
-                  value={time}
-                  onChange={(e) => setTime(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  End time
-                </label>
-                <input
-                  type="time"
-                  value={endTimeStr}
-                  onChange={(e) => setEndTimeStr(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Location
-              </label>
-              <LocationAutocomplete
-                value={location.value}
-                onChange={location.onChange}
-                onSelect={location.onSelect}
-                placeholder="Search by venue name or street address, type 'Online', or 'TBD'"
-              />
-              <LocationVerifiedHint value={location.value} selected={location.selected} />
-            </div>
-
-            <MediaLinkField value={mediaUrl} onChange={setMediaUrl} />
-
-            {canEditTickets && (
-            <>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Ticket tiers
-              </label>
-              <TicketTierEditor tiers={ticketTiers} onChange={setTicketTiers} />
-              {!isMember && (
-                <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                  Ticketed events go live once you're a member.
-                </p>
-              )}
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Ticket link (Stripe Payment Link)
-                </label>
-                <input
-                  type="text"
-                  value={externalTicketUrl}
-                  onChange={(e) => setExternalTicketUrl(e.target.value)}
-                  placeholder="https://buy.stripe.com/..."
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Ticket price ($)
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={externalTicketPrice}
-                  onChange={(e) => setExternalTicketPrice(e.target.value)}
-                  placeholder="25"
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
-                />
-              </div>
-            </div>
-            </>
-            )}
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Tags
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {EVENT_TAGS.map((tag) => (
-                  <button
-                    key={tag}
-                    type="button"
-                    onClick={() => toggleTag(tag)}
-                    className={`px-3 py-1 rounded-full text-sm transition-colors ${
-                      tags.includes(tag)
-                        ? "bg-blue-600 text-white"
-                        : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300"
-                    }`}
-                  >
-                    {tag}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <CommunityPicker
-              value={hostOrgId}
-              onChange={setHostOrgId}
-              variant="tailwind"
-              defaultHostOrgId={defaultHostOrgId}
-            />
-
-            <div className="flex items-center gap-3">
-              <input
-                type="checkbox"
-                id="approval-edit"
-                checked={requiresApproval}
-                onChange={(e) => setRequiresApproval(e.target.checked)}
-                className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
-              />
-              <label
-                htmlFor="approval-edit"
-                className="text-sm text-gray-700 dark:text-gray-300"
-              >
-                Require approval for attendees
-              </label>
-            </div>
-
-            <div className="flex gap-3 pt-4">
-              <button
-                type="button"
-                onClick={onClose}
-                className="flex-1 py-2 border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-800"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={saving}
-                className="flex-1 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50"
-              >
-                {saving ? "Saving..." : "Save Changes"}
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-    </div>
-  );
-}

@@ -39,3 +39,21 @@ export function planRemoveCoHost(
   if (!current.includes(userId)) return { ok: false, reason: "not_a_co_host" };
   return { ok: true, coHostIds: current.filter((c) => c !== userId) };
 }
+
+export const MAX_DISPLAY_HOSTS = 10;
+
+export type DisplayHostRef = { kind: "user"; id: string } | { kind: "org"; id: string };
+
+/** Pure rule for the "show as host" list: at most 10, no repeats, order kept. */
+export function planDisplayHosts(
+  refs: readonly DisplayHostRef[],
+): { ok: true; refs: DisplayHostRef[] } | { ok: false; reason: "duplicate" | "full" } {
+  if (refs.length > MAX_DISPLAY_HOSTS) return { ok: false, reason: "full" };
+  const seen = new Set<string>();
+  for (const r of refs) {
+    const key = `${r.kind}:${r.id}`;
+    if (seen.has(key)) return { ok: false, reason: "duplicate" };
+    seen.add(key);
+  }
+  return { ok: true, refs: [...refs] };
+}

@@ -35,7 +35,7 @@ export function stageLabel(stage: Stage): string {
     case "working":
       return "Working";
     case "releasing":
-      return "Releasing";
+      return "Released";
     case "paused":
       return "Paused";
     case "completed":

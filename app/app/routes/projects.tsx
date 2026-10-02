@@ -8,7 +8,7 @@ import { INTERESTS } from "../constants/interests";
 import { LocationAutocomplete, LocationVerifiedHint } from "../components/LocationAutocomplete";
 import { useLocationField } from "../lib/useLocationField";
 import { budgetAmountLabel, budgetKindLabel } from "../lib/budgetLabel";
-import { CommunityPicker } from "../components/CommunityPicker";
+import { CommunityPicker, useDefaultEventCommunity } from "../components/CommunityPicker";
 import {
   CommunityContextLine,
   communityNameFor,
@@ -23,6 +23,7 @@ import { describeMediaLink, MediaLinkField } from "../components/MediaLinkField"
 import { Dissolve } from "../hooks/useReveal";
 import { EmbedStill } from "../components/EmbedStill";
 import { CreateCard } from "../components/CreateCard";
+import { ProjectModal } from "../components/ProjectModal";
 
 // Two views, split by what the VISITOR wants rather than how the poster
 // filed it (docs/features/project-ia.md): Projects is things to back or
@@ -455,7 +456,7 @@ export default function Projects() {
         />
       )}
       {showPassionForm && (
-        <PassionProjectForm
+        <ProjectModal
           onClose={() => setShowPassionForm(false)}
           onCreated={(projectId) => navigate(`/projects/${projectId}`)}
         />
@@ -1027,8 +1028,7 @@ function PaidProjectForm({
   const [submitting, setSubmitting] = useState(false);
   // Pre-fill from the sidebar switcher's current context (community-ux.md
   // §2/§6) — still changeable to "No community — just me" via CommunityPicker.
-  const { selected: switcherCommunitySlug, communities: myCommunities } = useCommunityContext();
-  const defaultHostOrgId = myCommunities.find((c) => c.slug === switcherCommunitySlug)?._id;
+  const defaultHostOrgId = useDefaultEventCommunity();
 
   function toggleInterest(tag: string) {
     setInterests((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
@@ -1337,219 +1337,6 @@ function PaidProjectForm({
               style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
             >
               {submitting ? "Posting…" : "Post job"}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-}
-
-// "Start a project" — step one only (docs/features/project-ia.md). No money
-// and no roles here: the project's own page is where the owner adds the
-// people they need and, if they want, asks for support.
-function PassionProjectForm({
-  onClose,
-  onCreated,
-}: {
-  onClose: () => void;
-  onCreated: (projectId: string) => void;
-}) {
-  const createPassionProject = useMutation(api.garden.projects.createPassionProject);
-  const [title, setTitle] = useState("");
-  const [blurb, setBlurb] = useState("");
-  const [mediaUrl, setMediaUrl] = useState("");
-  const location = useLocationField();
-  const [remote, setRemote] = useState(true);
-  const [interests, setInterests] = useState<string[]>([]);
-  const [showInterests, setShowInterests] = useState(false);
-  const [hostOrgId, setHostOrgId] = useState("");
-  const [error, setError] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  // Pre-fill from the sidebar switcher's current context (community-ux.md
-  // §2/§6) — still changeable to "No community — just me" via CommunityPicker.
-  const { selected: switcherCommunitySlug, communities: myCommunities } = useCommunityContext();
-  const defaultHostOrgId = myCommunities.find((c) => c.slug === switcherCommunitySlug)?._id;
-
-  function toggleInterest(tag: string) {
-    setInterests((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setError("");
-    if (!title.trim()) {
-      setError("Give it a title.");
-      return;
-    }
-    if (!remote && !location.value.trim()) {
-      setError("Pick a location, or check \"This can be done remotely.\"");
-      return;
-    }
-    const link = describeMediaLink(mediaUrl);
-    if (link.state === "invalid") {
-      setError(link.message);
-      return;
-    }
-    setSubmitting(true);
-    try {
-      const result = await createPassionProject({
-        title: title.trim(),
-        blurb: blurb.trim() || undefined,
-        mediaUrl: link.state === "ok" ? link.url : undefined,
-        ...location.toArgs(),
-        remote,
-        interests: interests.length > 0 ? interests : undefined,
-        hostOrgId: hostOrgId ? (hostOrgId as any) : undefined,
-      });
-      onCreated(String(result.projectId));
-      onClose();
-    } catch (err) {
-      setError(errorMessage(err));
-      setSubmitting(false);
-    }
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto" style={{ backgroundColor: "rgba(0,0,0,0.6)" }}>
-      <div
-        className="w-full max-w-md rounded-2xl border p-6 my-8"
-        style={{ backgroundColor: "var(--garden-ink-raised)", borderColor: "var(--garden-hairline)" }}
-      >
-        <h2
-          className="text-xl font-semibold mb-1"
-          style={{ color: "var(--garden-paper)", fontFamily: "var(--garden-font-display)" }}
-        >
-          Start a project
-        </h2>
-        <p className="text-sm mb-5" style={{ color: "var(--garden-dim)" }}>
-          Say what you're making. Once it's up, you can add the people you need and ask for support from its page.
-        </p>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <div>
-            <label className="block text-xs uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
-              Title
-            </label>
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="A short film about my grandmother's garden"
-              className="w-full px-3 py-2 rounded-lg border text-sm outline-none"
-              style={{
-                backgroundColor: "var(--garden-ink)",
-                borderColor: "var(--garden-hairline-raised)",
-                color: "var(--garden-paper)",
-              }}
-            />
-          </div>
-          <div>
-            <label className="block text-xs uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
-              What is it
-            </label>
-            <textarea
-              value={blurb}
-              onChange={(e) => setBlurb(e.target.value)}
-              rows={3}
-              placeholder="What you're making, and why"
-              className="w-full px-3 py-2 rounded-lg border text-sm outline-none resize-none"
-              style={{
-                backgroundColor: "var(--garden-ink)",
-                borderColor: "var(--garden-hairline-raised)",
-                color: "var(--garden-paper)",
-              }}
-            />
-          </div>
-          <MediaLinkField
-            variant="garden"
-            label="Or paste a link (optional)"
-            placeholder="Instagram post or reel, TikTok, YouTube or Vimeo"
-            value={mediaUrl}
-            onChange={setMediaUrl}
-          />
-          <div>
-            <label className="block text-xs uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
-              Interests (optional)
-            </label>
-            {showInterests ? (
-              <>
-                <div className="flex flex-wrap gap-1.5">
-                  {INTERESTS.map((tag) => {
-                    const active = interests.includes(tag);
-                    return (
-                      <button
-                        key={tag}
-                        type="button"
-                        aria-pressed={active}
-                        onClick={() => toggleInterest(tag)}
-                        className="px-2.5 py-1 rounded-full text-xs font-medium transition-colors"
-                        style={{
-                          fontFamily: "var(--garden-font-body)",
-                          backgroundColor: active ? "var(--garden-citron)" : "var(--garden-ink)",
-                          color: active ? "var(--garden-ink)" : "var(--garden-muted)",
-                          border: `1px solid ${active ? "var(--garden-citron)" : "var(--garden-hairline-raised)"}`,
-                        }}
-                      >
-                        {tag}
-                      </button>
-                    );
-                  })}
-                </div>
-                <p className="text-xs mt-1.5" style={{ color: "var(--garden-dim)" }}>
-                  What's this project about — helps people find it, separate from your own profile tags.
-                </p>
-              </>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setShowInterests(true)}
-                className="text-xs underline underline-offset-2 hover:opacity-80"
-                style={{ color: "var(--garden-citron)" }}
-              >
-                {interests.length > 0 ? `${interests.length} selected — edit` : "+ Add interests"}
-              </button>
-            )}
-          </div>
-          <label className="flex items-center gap-2 text-sm" style={{ color: "var(--garden-body)" }}>
-            <input
-              type="checkbox"
-              checked={remote}
-              onChange={(e) => setRemote(e.target.checked)}
-            />
-            This can be done remotely
-          </label>
-          {!remote && (
-            <div>
-              <label className="block text-xs uppercase tracking-[0.06em] mb-1.5" style={{ color: "var(--garden-dim)" }}>
-                Location
-              </label>
-              <LocationAutocomplete
-                value={location.value}
-                onChange={location.onChange}
-                onSelect={location.onSelect}
-                placeholder="Search for a location, type 'Online', or 'TBD'"
-              />
-              <LocationVerifiedHint value={location.value} selected={location.selected} />
-            </div>
-          )}
-          <CommunityPicker value={hostOrgId} onChange={setHostOrgId} defaultHostOrgId={defaultHostOrgId} />
-          {error && <p className="text-sm text-red-400">{error}</p>}
-          <div className="flex gap-2 justify-end pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 rounded-lg text-sm font-medium"
-              style={{ color: "var(--garden-dim)" }}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={submitting}
-              className="px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-50"
-              style={{ backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" }}
-            >
-              {submitting ? "Creating…" : "Create project"}
             </button>
           </div>
         </form>

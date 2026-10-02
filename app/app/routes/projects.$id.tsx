@@ -24,6 +24,7 @@ import { describeMediaLink, MediaLinkField } from "../components/MediaLinkField"
 import { FavoriteButton } from "../components/FavoriteButton";
 import { LocationAutocomplete, LocationVerifiedHint } from "../components/LocationAutocomplete";
 import { ProjectUpdates } from "../components/ProjectUpdates";
+import { ProjectModal } from "../components/ProjectModal";
 import { RichContent } from "../components/RichContent";
 import { RichTextEditor } from "../components/RichTextEditor";
 import { useLocationField } from "../lib/useLocationField";
@@ -175,6 +176,8 @@ export default function ProjectDetail() {
   const [supportMode, setSupportMode] = useState<SupportMode | null>(null);
   // Lifted so the owner's "Next steps" nudge can open the support editor.
   const [editingSupport, setEditingSupport] = useState(false);
+  // The same three-step modal "Start a project" uses, opened on this project.
+  const [editingProject, setEditingProject] = useState(false);
 
   if (project === undefined) {
     return (
@@ -252,6 +255,38 @@ export default function ProjectDetail() {
       {hasPieces && <AttachedPieces project={project} />}
 
       {isOwner && <InlineEditableMediaLink project={project} />}
+
+      {isOwner && isPassion && (
+        <div className="mb-2">
+          <button
+            type="button"
+            onClick={() => setEditingProject(true)}
+            className="text-[13.5px] font-medium underline underline-offset-2 hover:opacity-80"
+            style={{ color: "var(--garden-citron)" }}
+          >
+            Edit project
+          </button>
+        </div>
+      )}
+      {editingProject && (
+        <ProjectModal
+          edit={{
+            projectId: project._id,
+            title: project.title,
+            blurb: project.blurb,
+            mediaUrl: project.mediaUrl,
+            interests: project.interests,
+            remote: project.remote,
+            location: project.location,
+            locationType: project.locationType,
+            address: project.address,
+            coordinates: project.coordinates,
+            placeId: project.placeId,
+            hostOrgId: project.hostOrgId,
+          }}
+          onClose={() => setEditingProject(false)}
+        />
+      )}
 
       <InlineEditableTitle project={project} isOwner={isOwner} />
 
