@@ -1,13 +1,32 @@
+import { BookmarkSimple } from "@phosphor-icons/react";
 import { usePostHog } from "@posthog/react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
+import type { FavoriteTargetType } from "../../convex/favorites";
 
 interface FavoriteButtonProps {
-  targetType: "profile" | "event";
+  targetType: FavoriteTargetType;
   targetId: string;
   size?: "sm" | "md";
   showCount?: boolean;
 }
+
+// Every target but an event gets a worded pill: what pressing it does, the
+// status once done, and what pressing the status does. A project or role
+// favorite is a save for the Shortlist (docs/handoff/favorites-redesign/
+// README.md). The toggle refuses a new save of a hidden project or a role
+// that isn't open, so a page offers Save only where it would work.
+const SAVE_WORDS = { idle: "Save", done: "Saved", undo: "Unsave" } as const;
+const PILL_WORDS: Record<
+  Exclude<FavoriteTargetType, "event">,
+  { idle: string; done: string; undo: string }
+> = {
+  profile: { idle: "Follow", done: "Following", undo: "Unfollow" },
+  project: SAVE_WORDS,
+  role: SAVE_WORDS,
+};
+
+const BOOKMARK_SIZE = { sm: 14, md: 16 } as const;
 
 export function FavoriteButton({
   targetType,
@@ -40,12 +59,25 @@ export function FavoriteButton({
 
   // A profile favorite is a follow (docs/features/following.md §1). The
   // control says so in words: a hidden heart never read as "follow", and
-  // hover-reveal made it unreachable on phones. Events keep the heart.
-  if (targetType === "profile") {
+  // hover-reveal made it unreachable on phones. Saves take the same pill
+  // for the same reason. Events keep the heart.
+  if (targetType !== "event") {
+    const words = PILL_WORDS[targetType];
     const pillSizeClasses = {
       sm: "px-2.5 py-1 text-xs",
       md: "px-3 py-1.5 text-sm",
     };
+    // A save also carries the Shortlist's bookmark, filled once saved. Its
+    // accessible name is pinned to Save or Saved, whatever the icon does.
+    const isSave = targetType !== "profile";
+    const icon = isSave ? (
+      <BookmarkSimple
+        size={BOOKMARK_SIZE[size]}
+        weight={isFavorited ? "fill" : "regular"}
+        aria-hidden="true"
+      />
+    ) : null;
+    const ariaLabel = isSave ? (isFavorited ? words.done : words.idle) : undefined;
 
     // "Following" is a status, not a call to action, so it is quiet: no
     // fill, a raised hairline, muted text. It only speaks up when you point at
@@ -53,24 +85,27 @@ export function FavoriteButton({
     // go to full text colour, so it is clear what pressing does. Both labels
     // sit in one grid cell, so the pill never changes width.
     // "Follow" (not yet following) stays a plain outline: still inviting.
-    const base = `${pillSizeClasses[size]} rounded-full font-medium border transition-colors duration-200 whitespace-nowrap`;
+    // "Save" / "Saved" / "Unsave" behave the same way.
+    const base = `${pillSizeClasses[size]} rounded-full font-medium border transition-colors duration-200 whitespace-nowrap${isSave ? " inline-flex items-center gap-1" : ""}`;
 
     if (isFavorited) {
       return (
         <button
           onClick={handleClick}
           className={`${base} group bg-transparent text-[var(--app-text-muted)] border-[var(--app-hairline-raised)] hover:text-[var(--app-text)] hover:border-[var(--app-text)] focus-visible:text-[var(--app-text)] focus-visible:border-[var(--app-text)]`}
-          title="Unfollow"
+          title={words.undo}
+          aria-label={ariaLabel}
         >
+          {icon}
           <span className="inline-grid">
             <span className="col-start-1 row-start-1 group-hover:invisible group-focus-visible:invisible">
-              Following
+              {words.done}
             </span>
             <span
               aria-hidden="true"
               className="col-start-1 row-start-1 invisible group-hover:visible group-focus-visible:visible"
             >
-              Unfollow
+              {words.undo}
             </span>
           </span>
         </button>
@@ -92,9 +127,11 @@ export function FavoriteButton({
         onMouseLeave={(e) => {
           e.currentTarget.style.borderColor = "var(--app-hairline)";
         }}
-        title="Follow"
+        title={words.idle}
+        aria-label={ariaLabel}
       >
-        Follow
+        {icon}
+        {words.idle}
       </button>
     );
   }

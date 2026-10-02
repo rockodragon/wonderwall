@@ -1,12 +1,57 @@
-import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { ConvexError, v, type Infer } from "convex/values";
+import { mutation, query, type MutationCtx } from "./_generated/server";
 import { auth } from "./auth";
 import type { Id } from "./_generated/dataModel";
 import { eventVisibilityChecker } from "./garden/eventVisibility";
+import { isAcceptingPeople } from "./garden/projectTeam";
+
+/** What a favorite points at. A profile is a follow and an event is a heart
+ * (docs/features/following.md); a project, or one role on it, is a save for
+ * the Shortlist (docs/handoff/favorites-redesign/README.md). `targetId` is
+ * the matching profiles, events, projects or projectRoles id. The schema
+ * column is a plain string, so a new value here needs no migration. */
+export const favoriteTargetTypeValidator = v.union(
+  v.literal("profile"),
+  v.literal("event"),
+  v.literal("project"),
+  v.literal("role"),
+);
+export type FavoriteTargetType = Infer<typeof favoriteTargetTypeValidator>;
+
+// The statuses the browse lists show a project in: VISIBLE_STATUSES in
+// garden/projects.ts, twinned in projectsPublic.ts and stats.ts. None of
+// them is exported, so this is one more twin; keep them in sync. Hidden,
+// pending and archived are out.
+const VISIBLE_PROJECT_STATUSES = new Set(["active", "in_progress", "completed"]);
+
+/** Throws unless a member may newly save this project or role. A project
+ * they can't browse to reads as not found, the way getProject reads a
+ * hidden one, so a save can't confirm it exists. A role must also be an
+ * opening the way listRoles shows one: open, on a project still taking
+ * people. Removing a save never comes here, so a role that has since
+ * closed or filled can still be unsaved. */
+async function assertSaveable(
+  ctx: MutationCtx,
+  targetType: "project" | "role",
+  targetId: string,
+): Promise<void> {
+  const notFound = () => new ConvexError({ code: "not_found", reason: "That isn't here anymore." });
+  const roleId = targetType === "role" ? ctx.db.normalizeId("projectRoles", targetId) : null;
+  const role = roleId ? await ctx.db.get(roleId) : null;
+  if (targetType === "role" && !role) throw notFound();
+
+  const projectId = role ? role.projectId : ctx.db.normalizeId("projects", targetId);
+  const project = projectId ? await ctx.db.get(projectId) : null;
+  if (!project || !VISIBLE_PROJECT_STATUSES.has(project.status)) throw notFound();
+
+  if (role && (role.status !== "open" || !isAcceptingPeople(project))) {
+    throw new ConvexError({ code: "role_closed", reason: "This role isn't open anymore." });
+  }
+}
 
 export const toggle = mutation({
   args: {
-    targetType: v.union(v.literal("profile"), v.literal("event")),
+    targetType: favoriteTargetTypeValidator,
     targetId: v.string(),
   },
   handler: async (ctx, args) => {
@@ -28,6 +73,9 @@ export const toggle = mutation({
       await ctx.db.delete(existing._id);
       return { favorited: false };
     } else {
+      if (args.targetType === "project" || args.targetType === "role") {
+        await assertSaveable(ctx, args.targetType, args.targetId);
+      }
       const now = Date.now();
       await ctx.db.insert("favorites", {
         userId,
@@ -41,6 +89,7 @@ export const toggle = mutation({
       // id, so hop through the profile row to reach the recipient's users
       // id; `userId` (the actor) is already a users id. The link points at
       // the follower's profile, so we need the actor's profile id too.
+      // Hearts and Shortlist saves tell nobody.
       if (args.targetType === "profile") {
         const followedProfile = await ctx.db.get(
           args.targetId as Id<"profiles">,
@@ -69,7 +118,7 @@ export const toggle = mutation({
 
 export const isFavorited = query({
   args: {
-    targetType: v.union(v.literal("profile"), v.literal("event")),
+    targetType: favoriteTargetTypeValidator,
     targetId: v.string(),
   },
   handler: async (ctx, args) => {
@@ -92,7 +141,7 @@ export const isFavorited = query({
 
 export const getMyFavorites = query({
   args: {
-    targetType: v.optional(v.union(v.literal("profile"), v.literal("event"))),
+    targetType: v.optional(favoriteTargetTypeValidator),
   },
   handler: async (ctx, args) => {
     const userId = await auth.getUserId(ctx);
@@ -108,7 +157,9 @@ export const getMyFavorites = query({
       ? favorites.filter((f) => f.targetType === args.targetType)
       : favorites;
 
-    // Separate profiles and events
+    // Profiles and events only. Project and role saves belong to the
+    // Shortlist, which reads this table itself (convex/shortlist.ts), so
+    // they never reach the pages that read this { profiles, events } shape.
     const profileFavs = filtered.filter((f) => f.targetType === "profile");
     const eventFavs = filtered.filter((f) => f.targetType === "event");
 
@@ -218,7 +269,7 @@ export const getMyFavorites = query({
 
 export const getFavoriteCount = query({
   args: {
-    targetType: v.union(v.literal("profile"), v.literal("event")),
+    targetType: favoriteTargetTypeValidator,
     targetId: v.string(),
   },
   handler: async (ctx, args) => {
