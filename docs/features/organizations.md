@@ -39,6 +39,10 @@ their organization under their name, and searching People matches it.
 Decided with the UX pass on 2026-10-01: one task ("find who"), one page;
 the phone bar keeps three slots.
 
+The desk's People view (`/today?view=people`) mixes organizations in with
+people and has an Organizations toggle beside Everyone and Following; see
+`desktop-desk-palette.md`, "Organizations in People".
+
 ## Who can do what
 
 - Anyone signed in adds an organization to their profile in Settings ›

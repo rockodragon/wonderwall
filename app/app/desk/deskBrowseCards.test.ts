@@ -1,6 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { directoryCard, eventsCards, pastEventCard, peopleCards, projectsCards, type ProfileRow } from "./deskBrowseCards";
-import type { DeskEventInput, DeskFundInput, DeskProjectInput } from "./deskCards";
+import {
+  directoryCard,
+  eventsCards,
+  everyoneCards,
+  orgsCards,
+  pastEventCard,
+  peopleCards,
+  peopleNoun,
+  projectsCards,
+  spreadEvenly,
+  type ProfileRow,
+} from "./deskBrowseCards";
+import type { DeskEventInput, DeskFundInput, DeskOrgInput, DeskProjectInput } from "./deskCards";
 
 const NOW = new Date(2026, 9, 1, 12).getTime();
 const DAY = 24 * 60 * 60 * 1000;
@@ -58,6 +69,97 @@ describe("peopleCards", () => {
   });
 });
 
+const org = (n: number, extra: Partial<DeskOrgInput> = {}): DeskOrgInput => ({
+  _id: `o${n}`,
+  name: `Org ${n}`,
+  slug: `org-${n}`,
+  category: "Collective",
+  tagline: null,
+  location: null,
+  logoUrl: null,
+  peopleCount: 1,
+  ...extra,
+});
+
+describe("orgsCards", () => {
+  const rows = [
+    org(1, { name: "Abiding Practice", tagline: "Spiritual formation for artists" }),
+    org(2, { name: "Reveal Brand", category: "Other" }),
+    org(3, { name: "Grove", category: "Church", location: "Poway, CA" }),
+  ];
+  it("lists the organizations in the server's order, as org cards", () => {
+    expect(ids(orgsCards(rows, ""))).toEqual(["org:o1", "org:o2", "org:o3"]);
+    expect(orgsCards(rows, "").every((c) => c.kind === "org" && c.sections.includes("people"))).toBe(true);
+  });
+  it("searches the name, category, place and tagline, as the Organizations tab does", () => {
+    expect(ids(orgsCards(rows, "reveal"))).toEqual(["org:o2"]);
+    expect(ids(orgsCards(rows, "church"))).toEqual(["org:o3"]);
+    expect(ids(orgsCards(rows, "poway"))).toEqual(["org:o3"]);
+    expect(ids(orgsCards(rows, "artists"))).toEqual(["org:o1"]);
+    expect(ids(orgsCards(rows, "nothing like it"))).toEqual([]);
+  });
+});
+
+describe("spreadEvenly", () => {
+  const people = Array.from({ length: 30 }, (_, i) => `p${i + 1}`);
+  it("puts one after every sixth of thirty when there are four to place", () => {
+    const mixed = spreadEvenly(people, ["o1", "o2", "o3", "o4"]);
+    expect(mixed).toHaveLength(34);
+    expect(["o1", "o2", "o3", "o4"].map((o) => mixed.indexOf(o))).toEqual([6, 13, 20, 27]);
+  });
+  it("keeps each list in its own order", () => {
+    const mixed = spreadEvenly(people, ["o1", "o2", "o3", "o4"]);
+    expect(mixed.filter((x) => x.startsWith("p"))).toEqual(people);
+    expect(mixed.filter((x) => x.startsWith("o"))).toEqual(["o1", "o2", "o3", "o4"]);
+  });
+  it("puts a lone organization in the middle", () => {
+    expect(spreadEvenly(["a", "b", "c", "d"], ["X"])).toEqual(["a", "b", "X", "c", "d"]);
+    expect(spreadEvenly(["a", "b"], ["X"])).toEqual(["a", "X", "b"]);
+  });
+  it("keeps a person first whenever there is one", () => {
+    expect(spreadEvenly(["a"], ["X", "Y", "Z"])).toEqual(["a", "X", "Y", "Z"]);
+  });
+  it("is whichever list is there when the other is empty", () => {
+    expect(spreadEvenly([], ["X", "Y"])).toEqual(["X", "Y"]);
+    expect(spreadEvenly(["a", "b"], [])).toEqual(["a", "b"]);
+    expect(spreadEvenly([], [])).toEqual([]);
+  });
+});
+
+describe("everyoneCards", () => {
+  const rows = [person(1), person(2, { interests: ["Film"] }), person(3), person(4)];
+  const people = peopleCards({ rows, followedIds: new Set<string>(), following: false, query: "", interests: [], near: null });
+  const orgs = [org(1, { name: "Reveal Brand" }), org(2, { name: "Grove" })];
+
+  it("mixes the organizations in among the people", () => {
+    const cards = everyoneCards(people, orgs, { query: "", peopleOnly: false });
+    expect(ids(cards)).toEqual(["person:u1", "person:u2", "org:o1", "person:u3", "org:o2", "person:u4"]);
+  });
+  it("searches the organizations by the same text (the server has searched the people)", () => {
+    expect(ids(everyoneCards(people, orgs, { query: "grove", peopleOnly: false }))).toEqual(["person:u1", "person:u2", "org:o2", "person:u3", "person:u4"]);
+    expect(ids(everyoneCards(people, orgs, { query: "zzz", peopleOnly: false }))).toEqual(["person:u1", "person:u2", "person:u3", "person:u4"]);
+  });
+  it("lets the organizations step aside when Discipline or Near me narrows to people", () => {
+    expect(ids(everyoneCards(people, orgs, { query: "", peopleOnly: true }))).toEqual(["person:u1", "person:u2", "person:u3", "person:u4"]);
+  });
+  it("is just the organizations when there are no people", () => {
+    expect(ids(everyoneCards([], orgs, { query: "", peopleOnly: false }))).toEqual(["org:o1", "org:o2"]);
+  });
+  it("does not change the people's own cards", () => {
+    const cards = everyoneCards(people, orgs, { query: "", peopleOnly: false });
+    expect(cards.filter((c) => c.kind === "person")).toEqual(people);
+  });
+});
+
+describe("peopleNoun", () => {
+  it("names what an empty People view lacks", () => {
+    expect(peopleNoun("", false)).toBe("people or organizations");
+    expect(peopleNoun("orgs", false)).toBe("organizations");
+    expect(peopleNoun("following", false)).toBe("people");
+    expect(peopleNoun("", true)).toBe("people");
+  });
+});
+
 function project(id: string, extra: Partial<DeskProjectInput> = {}): DeskProjectInput {
   return { _id: id, kind: "passion", status: "active", title: `Project ${id}`, blurb: "Making a thing.", media: [], creator: { name: "Dana Lee" }, community: null, ...extra };
 }
@@ -67,21 +169,71 @@ describe("projectsCards", () => {
   const rows = [
     project("a", { stage: "working", title: "Harbor Mural" }),
     project("b", { stage: "planning", community: { name: "Other", slug: "elsewhere" } }),
-    project("c", { kind: "paid", title: "Cover band" }),
+    project("c", { kind: "paid", title: "Cover band", budgetType: "amount", budget: 300 }),
   ];
-  const base = { rows, view: "projects" as const, stage: "", query: "", community: "exchange" as const, fund: FUND, money };
+  const base = { rows, lens: "projects" as const, stage: "", query: "", community: "exchange" as const, fund: FUND, money };
 
-  it("lists the Projects view in the server's order, without the fund in The Exchange", () => {
+  it("lists the Projects chip in the server's order, without the fund in The Exchange", () => {
     expect(ids(projectsCards(base))).toEqual(["project:a", "project:b"]);
   });
   it("puts the fund note first in The Garden, and keeps The Garden's own and unplaced projects", () => {
     expect(ids(projectsCards({ ...base, community: "garden" }))).toEqual(["fund", "project:a"]);
   });
-  it("drops the fund once a stage, a search or Work narrows the list", () => {
+  it("drops the fund once a stage, a search or another chip narrows the list", () => {
     const garden = { ...base, community: "garden" as const };
     expect(ids(projectsCards({ ...garden, stage: "working" }))).toEqual(["project:a"]);
     expect(ids(projectsCards({ ...garden, query: "harbor" }))).toEqual(["project:a"]);
-    expect(ids(projectsCards({ ...garden, view: "work" }))).toEqual(["project:c"]);
+    expect(ids(projectsCards({ ...garden, lens: "work" }))).toEqual(["project:c"]);
+    expect(ids(projectsCards({ ...garden, lens: "funding" }))).not.toContain("fund");
+    expect(ids(projectsCards({ ...garden, lens: "people" }))).not.toContain("fund");
+  });
+  it("narrows by what a project is asking for, together with its stage", () => {
+    const asking = [
+      project("a", { stage: "planning", goal: 500 }),
+      project("b", { stage: "planning" }),
+      project("c", { stage: "working", openRoles: [{ title: "Writer", budgetType: "volunteer" }] }),
+      project("d", { stage: "working", goal: 500, openRoles: [{ title: "Writer", budgetType: "volunteer" }] }),
+    ];
+    const pick = (lens: "projects" | "funding" | "people" | "work", stage: string) => ids(projectsCards({ ...base, rows: asking, lens, stage }));
+    expect(pick("funding", "")).toEqual(["project:a", "project:d"]);
+    expect(pick("funding", "planning")).toEqual(["project:a"]);
+    expect(pick("people", "")).toEqual(["project:c", "project:d"]);
+    expect(pick("people", "working")).toEqual(["project:c", "project:d"]);
+    expect(pick("people", "planning")).toEqual([]);
+    expect(pick("projects", "planning")).toEqual(["project:a", "project:b"]);
+  });
+  it("Jobs and gigs: jobs, recurring gigs and projects with a paid role; unpaid postings go to Seeking people", () => {
+    const gig = { status: "open", cadence: "Every Friday", timeRange: "8–10pm" };
+    const mixed = [
+      project("job", { kind: "paid", budgetType: "amount", budget: 400 }),
+      project("gig", { kind: "paid", budgetType: "amount", budget: 150, gig }),
+      project("vol", { kind: "paid", budgetType: "volunteer" }),
+      project("roles", { openRoles: [{ title: "Drummer", budgetType: "amount", budget: 200 }] }),
+      project("unpaid", { openRoles: [{ title: "Stagehand", budgetType: "volunteer" }] }),
+      project("plain"),
+    ];
+    const work = projectsCards({ ...base, rows: mixed, lens: "work" });
+    expect(ids(work)).toEqual(["project:job", "project:gig", "project:roles"]);
+    expect(work.map((c) => c.face.kicker)).toEqual(["JOB", "RECURRING GIG · FRIDAYS 8–10PM", "ROLE ON PROJECT ROLES · PAID"]);
+    expect(ids(projectsCards({ ...base, rows: mixed, lens: "people" }))).toEqual(["project:vol", "project:roles", "project:unpaid"]);
+    expect(ids(projectsCards({ ...base, rows: mixed, lens: "projects" }))).toEqual(["project:roles", "project:unpaid", "project:plain"]);
+  });
+  it("Jobs and gigs: a project with a paid role leads with that role and its pay, and only here", () => {
+    const withRole = project("roles", {
+      title: "Harbor Mural",
+      openRoles: [{ title: "Drummer", budgetType: "amount", budget: 200 }],
+    });
+    const [lead] = projectsCards({ ...base, rows: [withRole], lens: "work" });
+    expect(lead.face).toEqual({ kicker: "ROLE ON HARBOR MURAL · PAID", title: "Drummer", foot: "$200 · Dana Lee" });
+    expect(lead.detail.meta).toBe("ROLE ON HARBOR MURAL · PAID · THE GARDEN");
+    expect(lead.detail.title).toBe("Drummer");
+    expect(lead.detail.facts).toContainEqual({ label: "Paid role", value: "Drummer · $200" });
+    expect(lead.href).toBe("/projects/roles");
+    // The same project under Seeking people is the project.
+    const [plain] = projectsCards({ ...base, rows: [withRole], lens: "people" });
+    expect(plain.face.title).toBe("Harbor Mural");
+    expect(plain.face.kicker).toBe("PLANNING");
+    expect(plain.detail.facts?.some((f) => f.label === "Paid role")).toBe(false);
   });
   it("searches the title and description", () => {
     expect(ids(projectsCards({ ...base, query: "making" }))).toEqual(["project:a", "project:b"]);

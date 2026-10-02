@@ -32,6 +32,7 @@ import { query } from "../_generated/server";
 import type { QueryCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import { COMMUNITY_KIND, isListedCommunity } from "./communities";
+import { isHiddenCommunity } from "./hiddenCommunity";
 
 /** Same set as projectsPublic.ts / projects.ts VISIBLE_STATUSES. */
 const VISIBLE_STATUSES = new Set(["active", "in_progress", "completed"]);
@@ -169,7 +170,14 @@ export const publicCounts = query({
       .query("hostOrgs")
       .withIndex("by_kind_status", (q) => q.eq("kind", COMMUNITY_KIND))
       .collect();
-    const communities = communityRows.filter(isListedCommunity).length;
+    // A hidden (test) community is never counted, and neither is anything
+    // posted into one: these are public numbers, the same for every viewer.
+    const hiddenCommunityIds = new Set(
+      communityRows.filter((o) => isHiddenCommunity(o)).map((o) => String(o._id)),
+    );
+    const communities = communityRows.filter(
+      (o) => isListedCommunity(o) && !hiddenCommunityIds.has(String(o._id)),
+    ).length;
 
     // — projects —
     const projectRows = (
@@ -186,6 +194,7 @@ export const publicCounts = query({
     let paidOpportunities = 0;
     for (const p of projectRows) {
       if (!VISIBLE_STATUSES.has(p.status) || !isPosted(p)) continue;
+      if (p.hostOrgId && hiddenCommunityIds.has(String(p.hostOrgId))) continue;
       if (await seedCheck.isSeed(p.userId)) continue;
       activeProjects++;
       locations.add(p, "projects");

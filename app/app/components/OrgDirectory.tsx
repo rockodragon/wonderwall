@@ -2,6 +2,7 @@ import { useQuery } from "convex/react";
 import { useMemo } from "react";
 import { Link } from "react-router";
 import { api } from "../../convex/_generated/api";
+import { filterOrgs } from "../lib/browse/orgFilter";
 import { OrgLogo } from "./OrgLogo";
 
 // The Organizations tab on People (/people?tab=orgs;
@@ -14,11 +15,7 @@ export function OrgDirectory({ query }: { query: string }) {
 
   const filtered = useMemo(() => {
     if (!orgs) return undefined;
-    const q = query.trim().toLowerCase();
-    if (!q) return orgs;
-    return orgs.filter((o) =>
-      [o.name, o.category, o.location, o.tagline].some((field) => field?.toLowerCase().includes(q)),
-    );
+    return filterOrgs(orgs, query);
   }, [orgs, query]);
 
   if (filtered === undefined) {

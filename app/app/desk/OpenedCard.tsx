@@ -1,5 +1,6 @@
 // The panel of an opened card: meta line and close button, title, who's
-// behind it, a few lines, and the one thing to do. Beside a picture it takes
+// behind it, a few lines, and the one thing to do. A project adds a few
+// labelled rows (stage, funding, open roles, pay) before the button. Beside a picture it takes
 // the right-hand side (the picture's width is set in DeskCard.tsx); a card
 // with no picture is this panel alone, a centered sheet. From the handoff,
 // "Opened card".
@@ -8,7 +9,7 @@
 // its queries (a profile's bio, whether I'm going) only run while it's up.
 // Hooks run unconditionally; a query that doesn't apply is skipped.
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { Link } from "react-router";
 import { X } from "@phosphor-icons/react";
@@ -20,6 +21,9 @@ import type { DeskAction, DeskCard } from "./deskCards";
 import { plainText } from "./deskCards";
 import { DESK, DESK_SANS, FOCUS_RING_CLASS, monoLabel } from "./tokens";
 import { useUpdateClick } from "./useUpdateReads";
+
+/** Five lines of the description, then an ellipsis. */
+const CLAMP_5: CSSProperties = { display: "-webkit-box", WebkitLineClamp: 5, WebkitBoxOrient: "vertical", overflow: "hidden" };
 
 const BUTTON_CLASS = `inline-flex h-[52px] items-center justify-center rounded-[10px] px-7 text-base font-semibold no-underline transition-colors ${FOCUS_RING_CLASS}`;
 
@@ -54,6 +58,10 @@ export function DetailPanel({
   const description = card.detail.description || plainText(profile?.bio, 500);
   const host = card.detail.host ?? (profile?.location || null);
   const action = card.detail.action;
+  // A project's panel carries rows under the description, so it spends less
+  // space between its parts to fit a laptop-height window.
+  const project = card.kind === "project";
+  const facts = card.detail.facts ?? [];
 
   return (
     <div
@@ -65,7 +73,7 @@ export function DetailPanel({
         bottom: 0,
         left: sheet ? 0 : `${share * 100}%`,
         background: DESK.panel,
-        padding: sheet ? 48 : 56,
+        padding: sheet || project ? 48 : 56,
         display: "flex",
         flexDirection: "column",
         gap: 20,
@@ -91,7 +99,7 @@ export function DetailPanel({
         </button>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col justify-center gap-5">
+      <div className="flex min-h-0 flex-1 flex-col justify-center" style={{ gap: project ? 14 : 20 }}>
         {/* A word never breaks mid-way; only one wider than the whole panel gives way. */}
         <h2 style={{ margin: 0, fontSize: 44, lineHeight: 1.08, fontWeight: 500, letterSpacing: "-0.02em", overflowWrap: "break-word", hyphens: "manual" }}>
           {card.detail.title}
@@ -101,20 +109,41 @@ export function DetailPanel({
           <p
             style={{
               margin: 0,
-              fontSize: 18,
-              lineHeight: 1.65,
+              fontSize: project ? 17 : 18,
+              lineHeight: project ? 1.6 : 1.65,
               color: DESK.textSoft,
               maxWidth: "46ch",
               overflowWrap: "break-word",
               hyphens: "manual",
               // An Update's body is written whole, line breaks and all.
               whiteSpace: card.kind === "update" ? "pre-line" : undefined,
+              ...(project ? CLAMP_5 : {}),
             }}
           >
             {description}
           </p>
         )}
-        <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-3">
+        {facts.length > 0 && (
+          <dl
+            style={{
+              margin: 0,
+              display: "grid",
+              gridTemplateColumns: "max-content minmax(0, 1fr)",
+              columnGap: 20,
+              rowGap: 8,
+              fontSize: 15,
+              lineHeight: 1.45,
+            }}
+          >
+            {facts.map((fact) => (
+              <Fragment key={fact.label}>
+                <dt style={{ color: DESK.muted }}>{fact.label}</dt>
+                <dd style={{ margin: 0, color: DESK.text, overflowWrap: "break-word", hyphens: "manual" }}>{fact.value}</dd>
+              </Fragment>
+            ))}
+          </dl>
+        )}
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-3" style={{ marginTop: project ? 4 : 8 }}>
           {action?.kind === "link" && <ActionLink action={action} />}
           {action?.kind === "rsvp" && <JoinButton action={action} />}
           {action?.kind === "update" && <UpdateButton action={action} />}

@@ -8,12 +8,14 @@
 // the caller passes the app's own formatter.
 
 import { CLAIMS } from "../constants/claims";
+import { isRaising } from "../lib/browse/projectsFilter";
 import { hostNamesLine, type EventHost } from "../lib/eventHosts";
 import { isTicketedEvent } from "../lib/eventTickets";
 import { coverOf, fundingOf, moneyOf, pickProjects, type PickableProject } from "../lib/projectPick";
+import { gigPhrase, leadRoles, projectKindLabel, rolePay, type GigLike, type OpenRoleLike } from "../lib/projectKind";
 import { GARDEN_SLUG } from "../lib/communitySlugs";
 import { richDocExcerpt } from "../lib/richText";
-import { resolveStage, stageLabel } from "../lib/stage";
+import { isStage, resolveStage, stageLabel } from "../lib/stage";
 import type { DeskCommunity, DeskCardId, DeskView } from "./deskState";
 import { hashSeed } from "../components/AbstractCover";
 import { actionTarget, updateCardId } from "../lib/updates";
@@ -22,7 +24,7 @@ import { actionTarget, updateCardId } from "../lib/updates";
 // Types
 // ——————————————————————————————————————————————————————————————
 
-export type DeskCardKind = "update" | "event" | "fund" | "grant" | "project" | "person";
+export type DeskCardKind = "update" | "event" | "fund" | "grant" | "project" | "person" | "org";
 
 /** What the opened card's button does. An RSVP is a mutation; the rest are
  * links. An Update's button records the press (api.updates.click) and then
@@ -31,6 +33,10 @@ export type DeskAction =
   | { kind: "link"; label: string; href: string }
   | { kind: "rsvp"; label: string; eventId: string }
   | { kind: "update"; label: string; href: string; external: boolean; updateId: string };
+
+/** One labelled line in an opened card's panel: "Stage", "Planning". A row
+ * that isn't true of the card isn't in the list. */
+export type DeskFact = { label: string; value: string };
 
 export type DeskCard = {
   id: DeskCardId;
@@ -50,6 +56,9 @@ export type DeskCard = {
     description: string;
     /** Small print beside the button: "3 going", "Tax-deductible". */
     aside: string | null;
+    /** Labelled rows under the description (a project's stage, funding, roles,
+     * pay). Absent on cards that don't have any. */
+    facts?: readonly DeskFact[];
     action: DeskAction | null;
   };
   /** The full page for this card. */
@@ -92,7 +101,13 @@ export type DeskProjectInput = PickableProject & {
   creator?: { name: string } | null;
   community?: { name: string; slug: string } | null;
   budgetType?: string;
-  gig?: { status: string } | null;
+  /** The server's own read of "asking for backing" (a goal, the raising
+   * stage or an active tier); an older backend leaves it off. */
+  raising?: boolean;
+  /** A recurring gig's summary, as api.garden.projects.listProjects sends it. */
+  gig?: GigLike | null;
+  /** The open roles, as api.garden.projects.listProjects sends them. */
+  openRoles?: readonly OpenRoleLike[] | null;
 };
 
 export type DeskPersonInput = {
@@ -100,6 +115,21 @@ export type DeskPersonInput = {
   name: string;
   imageUrl?: string | null;
   interests?: readonly string[] | null;
+};
+
+/** An organization as api.organizations.list returns it: the same rows the
+ * Organizations tab on /people shows. */
+export type DeskOrgInput = {
+  _id: string;
+  name: string;
+  slug: string;
+  /** "Nonprofit", "Church", "Collective" (organizationRules.ORG_CATEGORIES). */
+  category?: string | null;
+  tagline?: string | null;
+  location?: string | null;
+  logoUrl?: string | null;
+  /** Current members. */
+  peopleCount?: number;
 };
 
 export type DeskFundInput = {
@@ -339,20 +369,86 @@ export function grantCard(amountCents: number, money: (cents: number) => string)
   };
 }
 
-export function projectCard(p: DeskProjectInput, sections: DeskView[], money: (cents: number) => string): DeskCard {
-  const id: DeskCardId = `project:${p._id}`;
-  const kicker = p.kind === "paid" ? "PAID WORK" : stageLabel(resolveStage(p)).toUpperCase();
-  const owner = p.creator?.name ?? null;
+/** "2 open: Writer, Director" · "3 open: Writer, Director +1". Null when no
+ * role is open. */
+export function rolesLine(roles: readonly { title: string }[] | null | undefined): string | null {
+  const titles = (roles ?? []).map((r) => r.title.trim()).filter(Boolean);
+  if (titles.length === 0) return null;
+  const shown = titles.slice(0, 2).join(", ");
+  const more = titles.length > 2 ? ` +${titles.length - 2}` : "";
+  return `${titles.length} open: ${shown}${more}`;
+}
 
-  // Same two lines the Today page prints under a project: what a passion
-  // project has raised, and what a paid posting pays.
-  let aside: string | null = null;
+/** "$370 of $1,000 · 37%" · "$1,200 of $1,000 · Goal reached". The percent
+ * is left off while nothing has come in (never "0%"), and is never 100
+ * before the goal is met. Null for a project that isn't asking for money. */
+export function fundingLine(p: DeskProjectInput, money: (cents: number) => string): string | null {
   const funded = fundingOf(p, money);
-  if (funded) {
-    aside = `${funded.raised} of ${funded.goal} raised`;
-  } else if (p.kind === "paid") {
-    aside = moneyOf(p);
-  }
+  if (!funded) return null;
+  const raisedCents = p.raisedCents ?? 0;
+  const base = `${funded.raised} of ${funded.goal}`;
+  if (raisedCents >= (p.goal ?? 0) * 100) return `${base} · Goal reached`;
+  const pct = Math.min(99, funded.pct);
+  return pct >= 1 ? `${base} · ${pct}%` : base;
+}
+
+/** "Drummer · $200; Singer · Open to proposals". */
+function paidRolesLine(roles: readonly OpenRoleLike[]): string {
+  return roles
+    .map((r) => [r.title.trim(), rolePay(r)].filter(Boolean).join(" · "))
+    .join("; ");
+}
+
+/** The rows of an opened project card, top to bottom: the paid role (on the
+ * Jobs and gigs list), stage, schedule, funding, open roles, pay. A paid
+ * posting's stage is only shown when its owner set one; the derived "Forming
+ * team" would read as an invitation to apply. A project that is raising
+ * without a goal (an active tier) says it is open to backing.
+ *
+ * `onJobsAndGigs`: the card was opened from the Jobs and gigs list, where a
+ * project with a paid role leads with that role and its pay. */
+export function projectFacts(
+  p: DeskProjectInput,
+  money: (cents: number) => string,
+  opts: { onJobsAndGigs?: boolean } = {},
+): DeskFact[] {
+  const facts: DeskFact[] = [];
+  const lead = leadRoles(p, opts.onJobsAndGigs ?? false);
+  if (lead.length > 0) facts.push({ label: lead.length === 1 ? "Paid role" : "Paid roles", value: paidRolesLine(lead) });
+  if (p.kind !== "paid" || isStage(p.stage)) facts.push({ label: "Stage", value: stageLabel(resolveStage(p)) });
+  const when = p.kind === "paid" ? gigPhrase(p.gig) : null;
+  if (when) facts.push({ label: "Schedule", value: when });
+  const funding = fundingLine(p, money) ?? (p.kind === "passion" && isRaising(p) ? "Open to backing" : null);
+  if (funding) facts.push({ label: "Funding", value: funding });
+  // The roles the lead row did not already name.
+  const others = lead.length > 0 ? (p.openRoles ?? []).filter((r) => !lead.includes(r)) : p.openRoles;
+  const roles = rolesLine(others);
+  if (roles) facts.push({ label: "Roles", value: roles });
+  const pay = p.kind === "paid" ? moneyOf(p) : null;
+  if (pay) facts.push({ label: "Pay", value: pay });
+  return facts;
+}
+
+/**
+ * A project on the desk. The first line says what it is (lib/projectKind):
+ * "JOB", "RECURRING GIG · FRIDAYS 8–10PM", "VOLUNTEER", or the stage for a
+ * project. On the Jobs and gigs list a project with a paid role leads with
+ * that role and its pay instead: "ROLE ON HARBOR MURAL · PAID", the role as
+ * the title, its pay in the foot.
+ */
+export function projectCard(
+  p: DeskProjectInput,
+  sections: DeskView[],
+  money: (cents: number) => string,
+  opts: { onJobsAndGigs?: boolean } = {},
+): DeskCard {
+  const id: DeskCardId = `project:${p._id}`;
+  const onJobsAndGigs = opts.onJobsAndGigs ?? false;
+  const role = leadRoles(p, onJobsAndGigs)[0] ?? null;
+  const kind = projectKindLabel(p, { onJobsAndGigs }).toUpperCase();
+  const kicker = p.kind === "paid" || role ? kind : stageLabel(resolveStage(p)).toUpperCase();
+  const owner = p.creator?.name ?? null;
+  const title = role ? role.title : p.title;
 
   return {
     id,
@@ -361,13 +457,18 @@ export function projectCard(p: DeskProjectInput, sections: DeskView[], money: (c
     note: false,
     tone: toneFor(id),
     image: coverOf(p),
-    face: { kicker, title: p.title, foot: owner ?? p.community?.name ?? null },
+    face: {
+      kicker,
+      title,
+      foot: role ? ([rolePay(role), owner ?? p.community?.name].filter(Boolean).join(" · ") || null) : (owner ?? p.community?.name ?? null),
+    },
     detail: {
-      meta: [kicker, p.community?.name.toUpperCase()].filter(Boolean).join(" · "),
-      title: p.title,
+      meta: `${kind} · ${(p.community?.name ?? "The Garden").toUpperCase()}`,
+      title,
       host: owner ? `By ${owner}` : null,
       description: plainText(p.blurb || richDocExcerpt(p.body, 400)),
-      aside,
+      aside: null,
+      facts: projectFacts(p, money, { onJobsAndGigs }),
       action: { kind: "link", label: "See project", href: `/projects/${p._id}` },
     },
     href: `/projects/${p._id}`,
@@ -397,6 +498,44 @@ export function personCard(p: DeskPersonInput): DeskCard {
     },
     href: `/profile/${p._id}`,
     profileId: p._id,
+  };
+}
+
+/** "1 person" · "12 people". */
+export function peopleLine(n: number): string {
+  return `${n} ${n === 1 ? "person" : "people"}`;
+}
+
+/**
+ * An organization: a logo (or a monogram) with its name. The kicker says what
+ * it is, since an organization sits among people in the same grid. Opened, the
+ * tagline stands for "about" and the button goes to its page.
+ */
+export function orgCard(o: DeskOrgInput, sections: DeskView[] = ["people"]): DeskCard {
+  const id: DeskCardId = `org:${o._id}`;
+  // "Other" is the catch-all a category falls back to, which says nothing.
+  const category = o.category?.trim() && o.category.trim() !== "Other" ? o.category.trim() : null;
+  const location = o.location?.trim() || null;
+  const people = o.peopleCount ?? 0;
+  const where = [category, location].filter(Boolean).join(" · ");
+  return {
+    id,
+    kind: "org",
+    sections,
+    note: false,
+    tone: toneFor(id),
+    image: o.logoUrl || null,
+    face: { kicker: "ORGANIZATION", title: o.name, foot: where || (people > 0 ? peopleLine(people) : null) },
+    detail: {
+      meta: ["ORGANIZATION", category?.toUpperCase()].filter(Boolean).join(" · "),
+      title: o.name,
+      host: location,
+      description: plainText(o.tagline),
+      // Only a real number: nothing at zero.
+      aside: people > 0 ? peopleLine(people) : null,
+      action: { kind: "link", label: "See organization", href: `/orgs/${o.slug}` },
+    },
+    href: `/orgs/${o.slug}`,
   };
 }
 
@@ -462,6 +601,15 @@ const TAIL_NOUN: Partial<Record<DeskView, string>> = {
   people: "people",
   fav: "favorites",
 };
+
+/** Cards whose picture side, once open, is a mouse click target for the
+ * full page: a project, an event, a person or an organization. The yellow button stays the
+ * keyboard way there. A card with no picture side (a sheet) has nothing to
+ * click. */
+export function picturePage(card: Pick<DeskCard, "kind" | "image" | "note" | "href">): string | null {
+  if (opensAsSheet(card)) return null;
+  return card.kind === "project" || card.kind === "event" || card.kind === "person" || card.kind === "org" ? card.href : null;
+}
 
 /** A card with no picture and no designed face (a paper note has one) opens
  * as a centered sheet, the detail panel alone: with nothing to show on the

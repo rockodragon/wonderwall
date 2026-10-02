@@ -31,6 +31,19 @@ describe("visibleChips", () => {
     expect(visibleChips([100, 100], { ...opts, available: 80 })).toEqual([]);
   });
 
+  it("never folds any of several active chips", () => {
+    // Chips 1 and 3 are on: More 60 + (8+100) + (8+100) = 276 fits in 300; chip 0 would pass it.
+    expect(visibleChips([100, 100, 100, 100], { ...opts, available: 300, activeIndex: [1, 3] })).toEqual([1, 3]);
+  });
+
+  it("keeps active chips even when they overflow, and ignores indices that are not chips", () => {
+    expect(visibleChips([100, 100, 100], { ...opts, available: 100, activeIndex: [0, 2, 2, 9, -1] })).toEqual([0, 2]);
+  });
+
+  it("treats an empty list of active chips as none", () => {
+    expect(visibleChips([100, 100, 100, 100], { ...opts, available: 300, activeIndex: [] })).toEqual([0, 1]);
+  });
+
   it("handles an empty row", () => {
     expect(visibleChips([], { ...opts, available: 100 })).toEqual([]);
   });

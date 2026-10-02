@@ -27,7 +27,14 @@ import type { MetaFunction } from "react-router";
 import { Link } from "react-router";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
-import { PAGE_WIDTH } from "../lib/pageWidth";
+import { admin } from "../components/admin/adminStyles";
+import {
+  AdminAccessDenied,
+  AdminFrame,
+  AdminHeader,
+  AdminLoading,
+  AdminNotice,
+} from "../components/admin/AdminUi";
 
 export const meta: MetaFunction = () => [
   { title: "Showcase jury | TheCreative.exchange" },
@@ -57,24 +64,26 @@ const STATUSES: { value: Status; label: string }[] = [
 ];
 
 const STATUS_STYLE: Record<Status, string> = {
-  new: "bg-gray-100 text-gray-700",
-  shortlisted: "bg-amber-100 text-amber-800",
-  selected: "bg-green-100 text-green-800",
-  declined: "bg-gray-100 text-gray-400 line-through",
+  new: admin.chip.neutral,
+  shortlisted: admin.chip.amber,
+  selected: admin.chip.green,
+  declined: `${admin.chip.neutral} line-through`,
 };
 
+// A vote you have cast is a filled button; one you have not is an outline in
+// its own colour. Filled ones carry ink text, as the citron buttons do.
 const VOTE_STYLE: Record<Vote, { on: string; off: string }> = {
   yes: {
-    on: "bg-green-600 text-white border-green-600",
-    off: "bg-white text-green-700 border-gray-300 hover:border-green-600",
+    on: "bg-green-300 text-[color:var(--garden-ink)] border-green-300",
+    off: "text-green-300 border-[color:var(--app-hairline-raised)] hover:border-green-300",
   },
   maybe: {
-    on: "bg-amber-500 text-white border-amber-500",
-    off: "bg-white text-amber-700 border-gray-300 hover:border-amber-500",
+    on: "bg-amber-300 text-[color:var(--garden-ink)] border-amber-300",
+    off: "text-amber-300 border-[color:var(--app-hairline-raised)] hover:border-amber-300",
   },
   no: {
-    on: "bg-gray-700 text-white border-gray-700",
-    off: "bg-white text-gray-600 border-gray-300 hover:border-gray-700",
+    on: "bg-[var(--app-text-muted)] text-[color:var(--garden-ink)] border-[color:var(--app-text-muted)]",
+    off: "text-[color:var(--app-text-muted)] border-[color:var(--app-hairline-raised)] hover:border-[color:var(--app-text-muted)]",
   },
 };
 
@@ -97,13 +106,16 @@ function WorkLink({ url }: { url: string }) {
   } catch {
     safe = null;
   }
-  if (!safe) return <span className="text-gray-600 break-all">{url}</span>;
+  if (!safe)
+    return (
+      <span className="text-[color:var(--app-text-muted)] break-all">{url}</span>
+    );
   return (
     <a
       href={safe}
       target="_blank"
       rel="noopener noreferrer"
-      className="text-blue-600 hover:text-blue-800 break-all"
+      className={`break-all ${admin.link}`}
     >
       {url}
     </a>
@@ -130,39 +142,39 @@ function ApplicationCard({
 
   return (
     <div
-      className={`bg-white shadow-sm rounded-lg p-5 border ${
-        a.status === "selected" ? "border-green-400" : "border-gray-200"
+      className={`rounded-xl border bg-[var(--app-surface-raised)] p-5 ${
+        a.status === "selected"
+          ? "border-green-300/60"
+          : "border-[color:var(--app-hairline)]"
       }`}
     >
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div className="min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <h2 className="text-lg font-semibold text-gray-900">
+            <h2 className={admin.h2}>
               {a.name || a.email}
             </h2>
-            <span
-              className={`text-xs px-2 py-0.5 rounded-full ${STATUS_STYLE[a.status as Status]}`}
-            >
+            <span className={STATUS_STYLE[a.status as Status]}>
               {STATUSES.find((s) => s.value === a.status)?.label ?? a.status}
             </span>
             {incomplete && (
-              <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">
+              <span className={admin.chip.neutral}>
                 Email only — never finished
               </span>
             )}
           </div>
-          <p className="text-sm text-gray-500 mt-1">
+          <p className={`mt-1 ${admin.meta}`}>
             {a.email}
             {a.city ? ` · ${a.city}` : ""}
             {a.interests?.length ? ` · ${a.interests.join(", ")}` : ""}
           </p>
           {a.instagram && (
-            <p className="text-sm mt-1">
+            <p className="mt-1 text-[14px]">
               <a
                 href={`https://instagram.com/${a.instagram}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-blue-600 hover:text-blue-800"
+                className={admin.link}
               >
                 @{a.instagram}
               </a>
@@ -174,7 +186,7 @@ function ApplicationCard({
           value={a.status}
           disabled={busy}
           onChange={(e) => onStatus(a._id, e.target.value as Status)}
-          className="text-sm border border-gray-300 rounded-md px-2 py-1.5 bg-white disabled:opacity-50"
+          className={admin.select}
           aria-label={`Decision for ${a.name || a.email}`}
         >
           {STATUSES.map((s) => (
@@ -186,13 +198,13 @@ function ApplicationCard({
       </div>
 
       {a.portfolioUrl && (
-        <p className="text-sm mt-3">
+        <p className="mt-3 text-[14px]">
           <WorkLink url={a.portfolioUrl} />
         </p>
       )}
 
       {a.workDescription && (
-        <p className="text-sm text-gray-700 mt-3 whitespace-pre-wrap">
+        <p className={`mt-3 whitespace-pre-wrap ${admin.body}`}>
           {a.workDescription}
         </p>
       )}
@@ -200,10 +212,7 @@ function ApplicationCard({
       {a.participation && a.participation.length > 0 && (
         <div className="flex gap-2 flex-wrap mt-3">
           {a.participation.map((p) => (
-            <span
-              key={p}
-              className="text-xs px-2 py-0.5 rounded bg-blue-50 text-blue-800"
-            >
+            <span key={p} className={admin.chip.sky}>
               {PARTICIPATION_LABEL[p] ?? p}
             </span>
           ))}
@@ -211,7 +220,7 @@ function ApplicationCard({
       )}
 
       {/* Voting */}
-      <div className="mt-4 pt-4 border-t border-gray-100">
+      <div className={`mt-4 pt-4 ${admin.ruleTop}`}>
         <div className="flex items-center gap-2 flex-wrap">
           {(["yes", "maybe", "no"] as Vote[]).map((vote) => {
             const on = a.myVote === vote;
@@ -222,7 +231,7 @@ function ApplicationCard({
                 disabled={busy}
                 aria-pressed={on}
                 onClick={() => onVote(a._id, vote, note)}
-                className={`text-sm px-3 py-1.5 rounded-md border font-medium disabled:opacity-50 ${
+                className={`rounded-lg border px-3 py-1.5 text-[13.5px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${admin.focus} ${
                   on ? VOTE_STYLE[vote].on : VOTE_STYLE[vote].off
                 }`}
               >
@@ -236,7 +245,7 @@ function ApplicationCard({
               type="button"
               disabled={busy}
               onClick={() => onClearVote(a._id)}
-              className="text-sm text-gray-500 hover:text-gray-700 underline disabled:opacity-50"
+              className={admin.btnText}
             >
               Clear my vote
             </button>
@@ -245,7 +254,7 @@ function ApplicationCard({
           <button
             type="button"
             onClick={() => setNoteOpen((open) => !open)}
-            className="text-sm text-gray-500 hover:text-gray-700 underline ml-auto"
+            className={`ml-auto ${admin.btnText}`}
           >
             {noteOpen ? "Hide note" : "Add a note"}
           </button>
@@ -256,23 +265,24 @@ function ApplicationCard({
             value={note}
             onChange={(e) => setNote(e.target.value)}
             placeholder="Why — saved with your next vote on this one"
-            className="mt-3 w-full text-sm border border-gray-300 rounded-md px-3 py-2"
+            aria-label="Note for your vote"
+            className={`mt-3 ${admin.input}`}
           />
         )}
 
-        <div className="mt-3 text-sm text-gray-600">
-          <span className="font-medium text-gray-900">
+        <div className={`mt-3 ${admin.meta}`}>
+          <span className="font-medium text-[color:var(--app-text)]">
             {a.tally.yes} yes · {a.tally.maybe} maybe · {a.tally.no} no
           </span>
           {a.votes.length > 0 && (
             <ul className="mt-2 space-y-1">
               {a.votes.map((v) => (
-                <li key={v.userId} className="text-gray-600">
-                  <span className="font-medium">{v.voter}</span>{" "}
-                  <span className="text-gray-500">{VOTE_LABEL[v.vote]}</span>
-                  {v.note ? (
-                    <span className="text-gray-500"> — {v.note}</span>
-                  ) : null}
+                <li key={v.userId}>
+                  <span className="font-medium text-[color:var(--app-text)]">
+                    {v.voter}
+                  </span>{" "}
+                  <span>{VOTE_LABEL[v.vote]}</span>
+                  {v.note ? <span> — {v.note}</span> : null}
                 </li>
               ))}
             </ul>
@@ -310,26 +320,11 @@ export default function AdminShowcasePage() {
   }
 
   if (profile === undefined) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-gray-500">Checking access…</div>
-      </div>
-    );
+    return <AdminLoading>Checking access…</AdminLoading>;
   }
 
   if (!profile?.isAdmin) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">
-            Access Denied
-          </h1>
-          <p className="text-gray-500">
-            You don't have permission to access this page.
-          </p>
-        </div>
-      </div>
-    );
+    return <AdminAccessDenied />;
   }
 
   const all = applications ?? [];
@@ -338,97 +333,86 @@ export default function AdminShowcasePage() {
   const selected = all.filter((a) => a.status === "selected").length;
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
-      <div className={`${PAGE_WIDTH.list} mx-auto`}>
-        <div className="mb-6">
-          <Link to="/admin" className="text-sm text-blue-600 hover:text-blue-800">
-            ← Admin Dashboard
-          </Link>
-          <h1 className="text-3xl font-bold text-gray-900 mt-1">
-            Showcase jury
-          </h1>
-          <p className="mt-1 text-sm text-gray-600">
-            {applications === undefined
-              ? "Loading…"
-              : `${all.length} applications · ${completed} complete · ${selected} of 20 selected`}
-          </p>
-          <p className="mt-2 text-sm text-gray-500">
-            Any admin can vote. Votes don't decide anything on their own — set
-            the decision yourself once the room agrees.{" "}
-            <Link to="/showcase" className="text-blue-600 hover:text-blue-800">
-              View the public call
-            </Link>
-          </p>
-        </div>
+    // A column of cards, not a table, so the narrower list width.
+    <AdminFrame width="list">
+      <AdminHeader
+        back
+        title="Showcase jury"
+        sub={
+          applications === undefined
+            ? "Loading…"
+            : `${all.length} applications · ${completed} complete · ${selected} of 20 selected`
+        }
+      />
+      <p className={`-mt-3 mb-6 max-w-2xl ${admin.body}`}>
+        Any admin can vote. Votes don't decide anything on their own — set the
+        decision yourself once the room agrees.{" "}
+        <Link to="/showcase" className={admin.link}>
+          View the public call
+        </Link>
+      </p>
 
-        <div className="mb-5 flex gap-2 flex-wrap">
-          {(["all", ...STATUSES.map((s) => s.value)] as const).map((value) => {
-            const count =
-              value === "all"
-                ? all.length
-                : all.filter((a) => a.status === value).length;
-            return (
-              <button
-                key={value}
-                type="button"
-                onClick={() => setFilter(value)}
-                aria-pressed={filter === value}
-                className={`text-sm px-3 py-1.5 rounded-md border ${
-                  filter === value
-                    ? "bg-gray-900 text-white border-gray-900"
-                    : "bg-white text-gray-700 border-gray-300 hover:border-gray-500"
-                }`}
-              >
-                {value === "all"
-                  ? "All"
-                  : STATUSES.find((s) => s.value === value)?.label}{" "}
-                ({count})
-              </button>
-            );
-          })}
-        </div>
-
-        {error && (
-          <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-lg text-sm">
-            {error}
-          </div>
-        )}
-
-        {applications === undefined ? (
-          <div className="text-gray-500">Loading applications…</div>
-        ) : shown.length === 0 ? (
-          <div className="bg-white shadow-sm rounded-lg p-8 text-center text-gray-500">
-            {all.length === 0
-              ? "No applications yet."
-              : "Nothing in this bucket."}
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {shown.map((application) => (
-              <ApplicationCard
-                key={application._id}
-                application={application}
-                busy={busyId === application._id}
-                onVote={(id, vote, note) =>
-                  run(id, () =>
-                    castVote({
-                      applicationId: id,
-                      vote,
-                      note: note.trim() || undefined,
-                    }),
-                  )
-                }
-                onClearVote={(id) =>
-                  run(id, () => clearVote({ applicationId: id }))
-                }
-                onStatus={(id, status) =>
-                  run(id, () => setStatus({ id, status }))
-                }
-              />
-            ))}
-          </div>
-        )}
+      <div className="mb-5 flex flex-wrap gap-2">
+        {(["all", ...STATUSES.map((s) => s.value)] as const).map((value) => {
+          const count =
+            value === "all"
+              ? all.length
+              : all.filter((a) => a.status === value).length;
+          return (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setFilter(value)}
+              aria-pressed={filter === value}
+              className={filter === value ? admin.pillOn : admin.pillOff}
+            >
+              {value === "all"
+                ? "All"
+                : STATUSES.find((s) => s.value === value)?.label}{" "}
+              ({count})
+            </button>
+          );
+        })}
       </div>
-    </div>
+
+      {error && (
+        <AdminNotice tone="error" className="mb-4">
+          {error}
+        </AdminNotice>
+      )}
+
+      {applications === undefined ? (
+        <p className={admin.meta}>Loading applications…</p>
+      ) : shown.length === 0 ? (
+        <div className={`${admin.panel} text-center ${admin.meta}`}>
+          {all.length === 0 ? "No applications yet." : "Nothing in this bucket."}
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {shown.map((application) => (
+            <ApplicationCard
+              key={application._id}
+              application={application}
+              busy={busyId === application._id}
+              onVote={(id, vote, note) =>
+                run(id, () =>
+                  castVote({
+                    applicationId: id,
+                    vote,
+                    note: note.trim() || undefined,
+                  }),
+                )
+              }
+              onClearVote={(id) =>
+                run(id, () => clearVote({ applicationId: id }))
+              }
+              onStatus={(id, status) =>
+                run(id, () => setStatus({ id, status }))
+              }
+            />
+          ))}
+        </div>
+      )}
+    </AdminFrame>
   );
 }

@@ -35,6 +35,7 @@ import { escapeHtml } from "../email/template";
 import { isAdminProfile } from "../helpers";
 import { SPLITS } from "./capabilities";
 import { getCommunityMember } from "./communities";
+import { communityVisibility } from "./communityVisibility";
 
 // ——————————————————————————————————————————————————————————————
 // Pure core
@@ -859,10 +860,14 @@ export const listProjectsForGift = query({
     const gift = await ctx.db.get(args.giftId);
     if (!gift || gift.userId !== userId) return [];
 
-    const rows = await ctx.db
-      .query("projects")
-      .withIndex("by_kind_status", (q) => q.eq("kind", "passion").eq("status", "active"))
-      .collect();
+    // A project in a hidden (test) community isn't offered to people who
+    // can't see that community.
+    const rows = await communityVisibility(ctx).filter(
+      await ctx.db
+        .query("projects")
+        .withIndex("by_kind_status", (q) => q.eq("kind", "passion").eq("status", "active"))
+        .collect(),
+    );
     const needle = (args.query ?? "").trim().toLowerCase();
     const mine = String(userId);
     const candidates = rows

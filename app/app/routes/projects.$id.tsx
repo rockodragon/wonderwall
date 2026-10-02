@@ -10,10 +10,10 @@
 // (the list page) rather than re-implemented — same convention offerings.
 // $id.tsx already uses for PostOfferingForm/SignupModal.
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useMutation, useQuery } from "convex/react";
-import { Link, useNavigate, useParams, useRouteError } from "react-router";
+import { Link, useNavigate, useParams, useRouteError, useSearchParams } from "react-router";
 import { api } from "../../convex/_generated/api";
 import { EMBED_PROVIDER_LABEL, toEmbedUrl } from "../lib/videoEmbed";
 import type { Id } from "../../convex/_generated/dataModel";
@@ -23,6 +23,9 @@ import { EmbedPlayer } from "../components/EmbedPlayer";
 import { describeMediaLink, MediaLinkField } from "../components/MediaLinkField";
 import { FavoriteButton } from "../components/FavoriteButton";
 import { LocationAutocomplete, LocationVerifiedHint } from "../components/LocationAutocomplete";
+import { ProjectMenu } from "../components/project/ProjectMenu";
+import { StageChip } from "../components/project/StageChip";
+import { TabPanel, Tabs } from "../components/project/Tabs";
 import { ProjectUpdates } from "../components/ProjectUpdates";
 import { ProjectModal } from "../components/ProjectModal";
 import { RichContent } from "../components/RichContent";
@@ -31,13 +34,12 @@ import { useLocationField } from "../lib/useLocationField";
 import { isRichDocEmpty, toStoredDoc, type ResolvedRichBlock } from "../lib/richText";
 import { budgetAmountLabel, budgetKindLabel, budgetLabel } from "../lib/budgetLabel";
 import { GigSchedule } from "../components/GigSchedule";
+import { projectTabs, readProjectTab, withProjectTab, type ProjectTab } from "../lib/projectTabs";
 import { useBack } from "../lib/useBack";
-import { resolveStage, stageLabel } from "../lib/stage";
 import { INTERESTS } from "../constants/interests";
 import { errorMessage } from "../lib/convexError";
 import {
   STATUS_LABELS,
-  StageSelect,
   SupportModal,
   SupportButtons,
   GoalProgress,
@@ -170,15 +172,32 @@ function mediaThumb(project: { mediaPreviewUrl?: string | null; media?: any[] })
   return null;
 }
 
+// The page's sections are tabs (lib/projectTabs.ts): About, Team (Dates for a
+// gig), Updates, and Support for a project. The chosen one lives in ?tab=.
+const TABS_BASE = "project";
+const TABS_ROW_ID = "project-tabs";
+
 export default function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
   const project = useQuery(api.garden.projects.getProject, id ? { projectId: id } : "skip");
   const myProfile = useQuery(api.profiles.getMyProfile);
+  // The team is read here, once, so the Team tab can say how many requests are
+  // waiting; TeamCard draws from the same answer.
+  const team = useQuery(api.garden.projectTeam.getTeam, id ? { projectId: id as Id<"projects"> } : "skip");
+  const [searchParams, setSearchParams] = useSearchParams();
   const [supportMode, setSupportMode] = useState<SupportMode | null>(null);
   // Lifted so the owner's "Next steps" nudge can open the support editor.
   const [editingSupport, setEditingSupport] = useState(false);
   // The same three-step modal "Start a project" uses, opened on this project.
   const [editingProject, setEditingProject] = useState(false);
+  // "Next steps" switches tab, then scrolls to the tabs once they've changed.
+  const scrollAfterTab = useRef(false);
+  const rawTab = searchParams.get("tab");
+  useEffect(() => {
+    if (!scrollAfterTab.current) return;
+    scrollAfterTab.current = false;
+    document.getElementById(TABS_ROW_ID)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [rawTab]);
 
   if (project === undefined) {
     return (
@@ -204,7 +223,7 @@ export default function ProjectDetail() {
   const raising = isRaising(project);
   const isPassion = project.kind === "passion";
   const kindWord =
-    project.kind === "paid" ? budgetKindLabel(project) : raising ? "Raising" : "Project";
+    project.kind === "paid" ? budgetKindLabel(project) : raising ? "Seeking funding" : "Project";
   const moneyAmount = project.kind === "paid" ? budgetAmountLabel(project) : null;
   // Live booking (docs/features/live-booking.md): a gig's money is per date.
   const isGig = !!project.gig;
@@ -220,12 +239,34 @@ export default function ProjectDetail() {
   const thumb = project.resolvedPhotoUrl || (mediaEmbed || hasPieces ? null : mediaThumb(project));
 
   const hiddenByAdmin = project.status === "hidden";
+  const showGoal = raising && (project.goal ?? 0) > 0;
+
+  // Requests waiting on the owner are the one thing worth a number on a tab.
+  const requests = isOwner ? (team?.pending?.length ?? 0) : 0;
+  const tabs = projectTabs({ isGig, isPassion, requests });
+  const tab = readProjectTab(rawTab, tabs);
+  function selectTab(next: ProjectTab) {
+    // Replace the history entry, and stay where the page is scrolled.
+    setSearchParams(withProjectTab(searchParams, next), { replace: true, preventScrollReset: true });
+  }
+  // The owner's "Next steps" buttons: show the tab first, then scroll to it.
+  function showTab(next: ProjectTab) {
+    if (next === tab) {
+      document.getElementById(TABS_ROW_ID)?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+    scrollAfterTab.current = true;
+    selectTab(next);
+  }
 
   return (
     <PageShell>
       <div className="flex items-start justify-between gap-3">
         <BackLink />
-        <AdminMenu target={{ kind: "project", id: project._id }} title={project.title} hidden={hiddenByAdmin} />
+        <div className="flex items-center gap-1">
+          {isOwner && <ProjectMenu project={project} />}
+          <AdminMenu target={{ kind: "project", id: project._id }} title={project.title} hidden={hiddenByAdmin} />
+        </div>
       </div>
 
       {hiddenByAdmin && (
@@ -252,8 +293,6 @@ export default function ProjectDetail() {
           style={{ backgroundColor: "var(--garden-ink-raised)" }}
         />
       )}
-
-      {hasPieces && <AttachedPieces project={project} />}
 
       {isOwner && <InlineEditableMediaLink project={project} />}
 
@@ -289,7 +328,12 @@ export default function ProjectDetail() {
         />
       )}
 
-      <InlineEditableTitle project={project} isOwner={isOwner} />
+      {/* The pencil sits right after the title and edits only the title; the
+          stage is its own chip beside it. */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 mb-2">
+        <InlineEditableTitle project={project} isOwner={isOwner} />
+        <StageChip project={project} isOwner={isOwner} />
+      </div>
 
       {project.creator && (
         <div className="flex items-center gap-3 mb-4">
@@ -330,105 +374,89 @@ export default function ProjectDetail() {
         </span>
       )}
 
-      <InlineEditableInterests project={project} isOwner={isOwner} />
-
       <InlineEditableBlurb project={project} isOwner={isOwner} />
 
-      <InlineEditableStory project={project} isOwner={isOwner} />
+      <InlineEditableInterests project={project} isOwner={isOwner} />
 
-      {/* A gig is booked date by date, not staffed as a team — the schedule
-          card replaces the team/roles card, and the patron support widget
-          below stays off: a bar's Friday-night slot isn't backed, it's paid. */}
+      {/* How it's going, and the two ways to show up. Support is for
+          projects, not hires: a job or a gig is paid, not backed. */}
+      {isPassion && (showGoal || !isOwner) && (
+        <div className="mb-6 flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
+          {showGoal && (
+            <div className="min-w-[14rem] flex-1 [&>div]:mb-0">
+              <GoalProgress raisedCents={project.raisedCents ?? 0} goal={project.goal!} />
+            </div>
+          )}
+          {!isOwner && <SupportButtons raising={raising} onSupport={setSupportMode} />}
+        </div>
+      )}
+
       {isOwner && isPassion && !raising && (project.openRoles?.length ?? 0) === 0 && (
         <NextSteps
-          onFindPeople={() => document.getElementById("team")?.scrollIntoView({ behavior: "smooth" })}
+          onFindPeople={() => showTab("team")}
           onAskForSupport={() => {
             setEditingSupport(true);
-            // After the editor mounts, so there's something to scroll to.
-            requestAnimationFrame(() =>
-              document.getElementById("support")?.scrollIntoView({ behavior: "smooth" }),
-            );
+            showTab("support");
           }}
         />
       )}
 
-      {isGig ? (
-        <GigSchedule project={project} isOwner={isOwner} myProfile={myProfile} />
-      ) : (
-        <div id="team">
-          <TeamCard project={project} isOwner={isOwner} myProfile={myProfile} />
-        </div>
-      )}
+      <Tabs tabs={tabs} selected={tab} onSelect={selectTab} label="Project sections" base={TABS_BASE} id={TABS_ROW_ID} />
 
-      {project.benefitsNonprofit && (
-        <DetailCard label="Nonprofit">
-          <p className="text-sm" style={{ color: "var(--garden-body)" }}>
-            Funded via {project.nonprofitName || "a nonprofit"}, a 501(c)(3).
-          </p>
-        </DetailCard>
-      )}
+      <TabPanel base={TABS_BASE} id="about" selected={tab === "about"}>
+        <InlineEditableStory project={project} isOwner={isOwner} />
 
-      <InlineEditableLocation project={project} isOwner={isOwner} />
+        {/* Pieces play and sound; they stop when you leave the tab. */}
+        {tab === "about" && hasPieces && <AttachedPieces project={project} />}
 
-      {/* Support is for projects, not hires: a job or a gig is paid, not
-          backed (docs/features/project-ia.md). */}
-      {isPassion && (
-        <div id="support" className="pt-4" style={{ borderTop: "1px solid var(--garden-hairline)" }}>
-          <div
-            className="text-xs font-semibold uppercase tracking-[0.08em] mb-3"
-            style={{ color: "var(--garden-dim)", fontFamily: "var(--garden-font-mono)" }}
-          >
-            Support
-          </div>
-          {isOwner && (
-            <AskForSupport
-              project={project}
-              raising={raising}
-              editing={editingSupport}
-              setEditing={setEditingSupport}
-            />
-          )}
-          {!isOwner && raising && (project.goal ?? 0) > 0 && (
-            <GoalProgress raisedCents={project.raisedCents ?? 0} goal={project.goal!} />
-          )}
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <span className="text-sm" style={{ color: "var(--garden-dim)" }}>
-              {project.supportCount > 0
-                ? `${project.supportCount} ${project.supportCount === 1 ? "supporter" : "supporters"}`
-                : "No supporters yet"}
-            </span>
-            {!isOwner && <SupportButtons raising={raising} onSupport={setSupportMode} />}
-          </div>
-          <SupportersList projectId={project._id} />
-        </div>
-      )}
+        <InlineEditableLocation project={project} isOwner={isOwner} />
 
-      <div className="mt-8">
-        <ProjectUpdates
-          projectId={project._id}
-          isOwner={isOwner}
-          myUserId={myProfile?.userId}
-        />
-      </div>
-
-      {isOwner && (
-        <>
-          <DetailCard label="Manage">
-            <div className="flex items-center gap-3 flex-wrap">
-              <div className="flex items-center gap-2">
-                <label className="text-xs uppercase tracking-[0.06em]" style={{ color: "var(--garden-dim)" }}>
-                  Stage
-                </label>
-                <StageSelect project={project} />
-              </div>
-              <ArchiveButton project={project} />
-            </div>
+        {/* Owner only (Rick, 2026-10-02). The nonprofit is typed in, not
+            verified, and backing money still goes to the project lead
+            (docs/features/payout-accounts.md §6a), so visitors aren't told
+            a gift goes to a 501(c)(3) until a verified payout account
+            routes it there. */}
+        {isOwner && project.benefitsNonprofit && (
+          <DetailCard label="Nonprofit">
+            <p className="text-sm" style={{ color: "var(--garden-body)" }}>
+              {project.nonprofitName || "A nonprofit"}. Only you see this until the nonprofit is verified.
+            </p>
           </DetailCard>
-          {isPassion && raising && <TierManager projectId={project._id} />}
-          <div className="mb-6">
+        )}
+      </TabPanel>
+
+      {isGig ? (
+        <TabPanel base={TABS_BASE} id="dates" selected={tab === "dates"}>
+          <GigSchedule project={project} isOwner={isOwner} myProfile={myProfile} />
+        </TabPanel>
+      ) : (
+        <TabPanel base={TABS_BASE} id="team" selected={tab === "team"}>
+          <TeamCard project={project} team={team} isOwner={isOwner} myProfile={myProfile} />
+        </TabPanel>
+      )}
+
+      <TabPanel base={TABS_BASE} id="updates" selected={tab === "updates"}>
+        <ProjectUpdates projectId={project._id} isOwner={isOwner} myUserId={myProfile?.userId} />
+        {isOwner && (
+          <div className="mt-8 mb-6">
             <AnnouncementComposer targetType="project" targetId={project._id} heading="Message team and supporters" />
           </div>
-        </>
+        )}
+      </TabPanel>
+
+      {isPassion && (
+        <TabPanel base={TABS_BASE} id="support" selected={tab === "support"}>
+          {isOwner && (
+            <AskForSupport project={project} raising={raising} editing={editingSupport} setEditing={setEditingSupport} />
+          )}
+          {isOwner && raising && <TierManager projectId={project._id} />}
+          <p className="mb-3 text-sm" style={{ color: "var(--garden-dim)" }}>
+            {project.supportCount > 0
+              ? `${project.supportCount} ${project.supportCount === 1 ? "supporter" : "supporters"}`
+              : "No supporters yet"}
+          </p>
+          <SupportersList projectId={project._id} />
+        </TabPanel>
       )}
 
       {supportMode && (
@@ -744,9 +772,7 @@ function AskForSupport({
 
   return (
     <div className="mb-5">
-      {(project.goal ?? 0) > 0 && (
-        <GoalProgress raisedCents={project.raisedCents ?? 0} goal={project.goal!} />
-      )}
+      {/* How much has come in is the bar above the tabs. */}
       <div className="flex flex-wrap items-center gap-3">
         <button
           type="button"
@@ -770,40 +796,6 @@ function AskForSupport({
       </div>
       {error && <p className="text-sm text-red-400 mt-2">{error}</p>}
     </div>
-  );
-}
-
-// Minimal utility control, same convention as StatusSelect/StageSelect in
-// routes/projects.tsx — a creator moving their own project to archived via
-// the existing updateProjectStatus mutation. Kept as a separate action from
-// stage: stage is a label on live work, archiving changes lifecycle/
-// visibility (docs/features/project-teams.md §1).
-function ArchiveButton({ project }: { project: any }) {
-  const updateProjectStatus = useMutation(api.garden.projects.updateProjectStatus);
-  const [saving, setSaving] = useState(false);
-
-  async function handleClick() {
-    if (!window.confirm(`Archive "${project.title}"? It'll stop showing on /projects.`)) return;
-    setSaving(true);
-    try {
-      await updateProjectStatus({ projectId: project._id, status: "archived" });
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  // A hidden project's status is the admin's to change (moderation.ts).
-  if (project.status === "archived" || project.status === "hidden") return null;
-
-  return (
-    <button
-      onClick={handleClick}
-      disabled={saving}
-      className="text-xs underline underline-offset-2 hover:opacity-80 disabled:opacity-50"
-      style={{ color: "var(--garden-dim)" }}
-    >
-      Archive
-    </button>
   );
 }
 
@@ -1045,6 +1037,8 @@ function InlineEditableMediaLink({ project }: { project: any }) {
   );
 }
 
+// The title and, right after it, the pencil that edits it. Only the title:
+// the stage is its own chip (components/project/StageChip.tsx).
 function InlineEditableTitle({ project, isOwner }: { project: any; isOwner: boolean }) {
   const updateProject = useMutation((api as any).garden.projects.updateProject);
   const [editing, setEditing] = useState(false);
@@ -1070,7 +1064,7 @@ function InlineEditableTitle({ project, isOwner }: { project: any; isOwner: bool
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2 mb-2">
+    <div className={`flex items-center gap-2 min-w-0 ${editing ? "w-full" : ""}`}>
       {editing ? (
         <input
           autoFocus
@@ -1079,23 +1073,18 @@ function InlineEditableTitle({ project, isOwner }: { project: any; isOwner: bool
           onBlur={save}
           onKeyDown={(e) => { if (e.key === "Enter") save(); if (e.key === "Escape") { setDraft(project.title); setEditing(false); } }}
           disabled={saving}
+          aria-label="Project title"
           className="text-2xl sm:text-3xl font-semibold px-1 rounded border outline-none min-w-0 flex-1"
           style={{ backgroundColor: "var(--garden-ink)", borderColor: "var(--garden-hairline-raised)", color: "var(--garden-paper)", fontFamily: "var(--garden-font-display)" }}
         />
       ) : (
         <h1
-          className="text-2xl sm:text-3xl font-semibold"
+          className="text-2xl sm:text-3xl font-semibold min-w-0 break-words"
           style={{ color: "var(--garden-paper)", fontFamily: "var(--garden-font-display)" }}
         >
           {project.title}
         </h1>
       )}
-      <span
-        className="px-2 py-0.5 rounded-full text-xs font-medium uppercase tracking-[0.06em]"
-        style={{ fontFamily: "var(--garden-font-mono)", backgroundColor: "rgba(198,198,190,0.1)", color: "var(--garden-muted)" }}
-      >
-        {stageLabel(resolveStage(project))}
-      </span>
       {isOwner && !editing && <EditButton onClick={() => { setDraft(project.title); setEditing(true); }} label="Edit title" />}
     </div>
   );
@@ -1619,14 +1608,17 @@ function TeamMemberRow({
 // tools. See docs/features/project-teams.md §2-4 and §7.
 function TeamCard({
   project,
+  team,
   isOwner,
   myProfile,
 }: {
   project: any;
+  /** api.garden.projectTeam.getTeam, read by the page (which also counts the
+   * requests on the tab). Undefined while loading. */
+  team: any;
   isOwner: boolean;
   myProfile: any;
 }) {
-  const team = useQuery(api.garden.projectTeam.getTeam, { projectId: project._id });
   // null = closed; {} = the free-text flow (generic Apply/Ask-to-join
   // button); {roleId,title} = applying for a specific posted role (from
   // RolesSection's Apply button) — TeamCard owns this so both entry points

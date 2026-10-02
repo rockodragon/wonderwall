@@ -17,6 +17,7 @@ import type { Doc, Id } from "../_generated/dataModel";
 import { shapeCredits } from "./allocations";
 import { notifyFollowers } from "../follows";
 import { isHidden } from "../moderationRules";
+import { communityVisibility, isHiddenCommunityId } from "./communityVisibility";
 import {
   normalizeRichDoc,
   orphanedStorageIds,
@@ -216,6 +217,9 @@ export const postStoryUpdate = mutation({
     // an update nobody hears about is a diary entry. Fire-and-forget — a
     // notification failure must never roll back the post itself.
     try {
+      // Nobody is told about an update on a project in a hidden (test)
+      // community — they couldn't open it.
+      if (await isHiddenCommunityId(ctx, project!.hostOrgId)) return { storyUpdateId: id };
       const profile = await ctx.db
         .query("profiles")
         .withIndex("by_userId", (q) => q.eq("userId", userId))
@@ -430,6 +434,14 @@ export const getStoryPage = query({
       .unique();
     // An admin-hidden project (moderation.ts) has no public story page.
     if (!project || isHidden(project)) return null;
+    // Nor does one posted into a hidden (test) community, for anyone but its
+    // lead, admins and that community's members.
+    if (project.hostOrgId) {
+      const viewerId = await getAuthUserId(ctx);
+      if (viewerId !== project.userId && !(await communityVisibility(ctx, viewerId).idVisible(project.hostOrgId))) {
+        return null;
+      }
+    }
 
     const [ownerProfile, updateRows, allocationRows, memberships, supportRows, gigSeries, mediaRows] = await Promise.all([
       ctx.db

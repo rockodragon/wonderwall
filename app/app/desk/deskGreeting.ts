@@ -41,3 +41,13 @@ export function countLabel(view: DeskView, count: number): string {
   if (!noun) return "";
   return `${count} ${count === 1 ? noun[0] : noun[1]}`;
 }
+
+/** The People view's count: "30 people", or "30 people · 4 organizations" when
+ *  organizations are mixed in. `orgsOnly` is the Organizations toggle, which
+ *  says "0 organizations" rather than "0 people" when nothing matches. */
+export function peopleCountLabel(people: number, orgs: number, orgsOnly = false): string {
+  const orgsPart = `${orgs} ${orgs === 1 ? "organization" : "organizations"}`;
+  if (orgsOnly) return orgsPart;
+  if (orgs === 0) return countLabel("people", people);
+  return people === 0 ? orgsPart : `${countLabel("people", people)} · ${orgsPart}`;
+}

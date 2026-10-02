@@ -32,6 +32,7 @@ import {
   isInDates,
   isValidActionUrl,
   listMine,
+  listPastMine,
   open,
   save,
   sendNow,
@@ -393,9 +394,9 @@ const world = (extra: Record<string, Row[]> = {}): Record<string, Row[]> => ({
     { _id: OTHER_COMMUNITY, name: "Other", slug: "other", kind: "community" },
   ],
   communityMembers: [
-    { _id: "communityMembers:1", hostOrgId: COMMUNITY, userId: ANN, role: "member", status: "active" },
-    { _id: "communityMembers:2", hostOrgId: COMMUNITY, userId: BEN, role: "member", status: "pending" },
-    { _id: "communityMembers:3", hostOrgId: OTHER_COMMUNITY, userId: BEN, role: "member", status: "active" },
+    { _id: "communityMembers:1", hostOrgId: COMMUNITY, userId: ANN, role: "member", status: "active", joinedAt: NOW - 90 * DAY },
+    { _id: "communityMembers:2", hostOrgId: COMMUNITY, userId: BEN, role: "member", status: "pending", joinedAt: NOW - 50 * DAY },
+    { _id: "communityMembers:3", hostOrgId: OTHER_COMMUNITY, userId: BEN, role: "member", status: "active", joinedAt: NOW - 50 * DAY },
   ],
   updates: [],
   updateReads: [],
@@ -663,6 +664,177 @@ describe("listMine", () => {
     expect(titles(await run(listMine, makeCtx(tables, ANN)))).toEqual(["Unread"]);
     expect(titles(await run(listMine, makeCtx(tables, BEN)))).toEqual(["Read"]);
     expect(titles(await run(listMine, makeCtx(tables, NEW1)))).toEqual(["Read", "Unread"]);
+  });
+});
+
+describe("listPastMine", () => {
+  const archivedRow = (n: number, who: string, u: Row, at: number): Row => ({
+    _id: `updateReads:p${n}`,
+    userId: who,
+    updateId: u._id,
+    openedAt: at,
+    archivedAt: at,
+  });
+
+  it("is empty when signed out", async () => {
+    const u = update({ endsAt: NOW - HOUR });
+    expect(await run(listPastMine, makeCtx(world({ updates: [u] }), null))).toEqual([]);
+  });
+
+  it("returns the card shape, plus when they archived it and when it ended", async () => {
+    const full = update({
+      title: "Full",
+      imageStorageId: "_storage:pic",
+      actionLabel: "Go",
+      actionUrl: "/events",
+      startsAt: NOW - 3 * DAY,
+      endsAt: NOW + DAY,
+    });
+    const ended = update({ title: "Ended", startsAt: NOW - 3 * DAY, endsAt: NOW - DAY });
+    const tables = world({ updates: [full, ended], updateReads: [archivedRow(1, ANN, full, NOW - 2 * HOUR)] });
+    expect(await run(listPastMine, makeCtx(tables, ANN))).toEqual([
+      {
+        _id: full._id,
+        title: "Full",
+        body: full.body,
+        imageUrl: "https://files.test/_storage:pic",
+        actionLabel: "Go",
+        actionUrl: "/events",
+        archivedAt: NOW - 2 * HOUR,
+        endsAt: NOW + DAY,
+      },
+      {
+        _id: ended._id,
+        title: "Ended",
+        body: ended.body,
+        imageUrl: null,
+        actionLabel: null,
+        actionUrl: null,
+        archivedAt: null,
+        endsAt: NOW - DAY,
+      },
+    ]);
+  });
+
+  it("holds what they archived and what ended, newest first, and nothing still on their desk", async () => {
+    const readOld = update({ title: "Read last week", startsAt: NOW - 10 * DAY });
+    const readNew = update({ title: "Read just now", startsAt: NOW - 2 * DAY });
+    const endedRecently = update({ title: "Ended yesterday", startsAt: NOW - 5 * DAY, endsAt: NOW - DAY });
+    const endedLongAgo = update({ title: "Ended in August", startsAt: NOW - 40 * DAY, endsAt: NOW - 30 * DAY });
+    const tables = world({
+      updates: [
+        readOld,
+        readNew,
+        endedRecently,
+        endedLongAgo,
+        update({ title: "Still on the desk" }),
+        update({ title: "Ends next week", endsAt: NOW + 7 * DAY }),
+        update({ title: "Not started", startsAt: NOW + HOUR }),
+      ],
+      updateReads: [
+        archivedRow(1, ANN, readOld, NOW - 7 * DAY),
+        archivedRow(2, ANN, readNew, NOW - HOUR),
+        // Opened but not archived is still on the desk.
+        { _id: "updateReads:p3", userId: ANN, updateId: "updates:none", openedAt: NOW },
+      ],
+    });
+    expect(titles(await run(listPastMine, makeCtx(tables, ANN)))).toEqual([
+      "Read just now",
+      "Ended yesterday",
+      "Read last week",
+      "Ended in August",
+    ]);
+  });
+
+  it("never shows a draft, even one they archived before it went back to draft", async () => {
+    const draft = update({ title: "Draft", status: "draft", endsAt: NOW - HOUR });
+    const reverted = update({ title: "Reverted", status: "draft" });
+    const tables = world({ updates: [draft, reverted], updateReads: [archivedRow(1, ANN, reverted, NOW - HOUR)] });
+    expect(await run(listPastMine, makeCtx(tables, ANN))).toEqual([]);
+  });
+
+  it("keeps an Update an admin archived only if they had archived it too", async () => {
+    const theirs = update({ title: "Archived by both", status: "archived", startsAt: NOW - 3 * DAY });
+    const never = update({ title: "Archived by the admin", status: "archived", endsAt: NOW - HOUR });
+    const tables = world({ updates: [theirs, never], updateReads: [archivedRow(1, ANN, theirs, NOW - DAY)] });
+    expect(titles(await run(listPastMine, makeCtx(tables, ANN)))).toEqual(["Archived by both"]);
+  });
+
+  it("is theirs alone: another person's archive or an ended Update they were never in doesn't show", async () => {
+    const mine = update({ title: "Mine" });
+    const bens = update({ title: "Ben's" });
+    const tables = world({
+      updates: [mine, bens],
+      updateReads: [archivedRow(1, ANN, mine, NOW - HOUR), archivedRow(2, BEN, bens, NOW - HOUR)],
+    });
+    expect(titles(await run(listPastMine, makeCtx(tables, ANN)))).toEqual(["Mine"]);
+    expect(titles(await run(listPastMine, makeCtx(tables, BEN)))).toEqual(["Ben's"]);
+    expect(await run(listPastMine, makeCtx(tables, NEW1))).toEqual([]);
+  });
+
+  it("matches the audience, for both an archived and an ended Update", async () => {
+    const garden = update({ title: "Garden", audience: "community", hostOrgId: COMMUNITY });
+    const gardenEnded = update({
+      title: "Garden ended",
+      audience: "community",
+      hostOrgId: COMMUNITY,
+      startsAt: NOW - 3 * DAY,
+      endsAt: NOW - DAY,
+    });
+    const tables = world({
+      updates: [garden, gardenEnded],
+      updateReads: [
+        // Ben is pending in the Garden. Writing a read row doesn't put him in the audience.
+        archivedRow(1, BEN, garden, NOW - HOUR),
+        archivedRow(2, ANN, garden, NOW - HOUR),
+      ],
+    });
+    expect(titles(await run(listPastMine, makeCtx(tables, ANN)))).toEqual(["Garden", "Garden ended"]);
+    expect(await run(listPastMine, makeCtx(tables, BEN))).toEqual([]);
+    expect(await run(listPastMine, makeCtx(tables, NEW1))).toEqual([]);
+  });
+
+  it("leaves out an Update that ended before they joined the community or the platform", async () => {
+    const everyone = update({ title: "Everyone", startsAt: NOW - 10 * DAY, endsAt: NOW - 5 * DAY });
+    const garden = update({
+      title: "Garden",
+      audience: "community",
+      hostOrgId: COMMUNITY,
+      startsAt: NOW - 10 * DAY,
+      endsAt: NOW - 5 * DAY,
+    });
+    const tables = world({
+      updates: [everyone, garden],
+      communityMembers: [
+        // Ann joined the Garden two days ago; the Update ended five days ago.
+        { _id: "communityMembers:1", hostOrgId: COMMUNITY, userId: ANN, role: "member", status: "active", joinedAt: NOW - 2 * DAY },
+        { _id: "communityMembers:2", hostOrgId: COMMUNITY, userId: BEN, role: "member", status: "active", joinedAt: NOW - 20 * DAY },
+      ],
+    });
+    // Ann's account is old, so she saw "Everyone"; she wasn't in the Garden for the other.
+    expect(titles(await run(listPastMine, makeCtx(tables, ANN)))).toEqual(["Everyone"]);
+    expect(titles(await run(listPastMine, makeCtx(tables, BEN)))).toEqual(["Everyone", "Garden"]);
+    // The new account was created yesterday, after both ended.
+    expect(await run(listPastMine, makeCtx(tables, NEW1))).toEqual([]);
+  });
+
+  it("keeps a new-members Update after they stop being new, but only if they were", async () => {
+    const welcome = update({ title: "Add a photo", audience: "new", newForDays: 14 });
+    const tables = world({
+      users: [
+        // Created 30 days ago: new until 16 days ago. Archived it on day 3.
+        { _id: ANN, _creationTime: NOW - 30 * DAY },
+        // Created 60 days ago, never new while this Update was live.
+        { _id: BEN, _creationTime: NOW - 60 * DAY },
+      ],
+      updates: [{ ...welcome, startsAt: NOW - 40 * DAY }],
+      updateReads: [
+        archivedRow(1, ANN, welcome, NOW - 27 * DAY),
+        archivedRow(2, BEN, welcome, NOW - 27 * DAY),
+      ],
+    });
+    expect(titles(await run(listPastMine, makeCtx(tables, ANN)))).toEqual(["Add a photo"]);
+    expect(await run(listPastMine, makeCtx(tables, BEN))).toEqual([]);
   });
 });
 

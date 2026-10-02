@@ -102,6 +102,12 @@ Admin (`requireAdmin`):
 
   Each Update can be edited, published, or archived from the list. The editor previews the card and shows the audience count. "Send it now" shows a confirm with the count. "Add starter drafts" creates the drafts below.
 
+**Past Updates in Messages.** `listPastMine()` returns the Updates a person archived, plus published ones whose dates have ended. Each comes with `archivedAt` and `endsAt`, newest first. It never includes drafts.
+- Audience is judged by time. An Update a member read while they were new stays in their list after they stop being new.
+- An Update that ended before they joined is left out.
+
+The inbox shows these under an "Updates" heading, below the conversations. Tapping a row opens the full body.
+
 ## Starter drafts (copy)
 
 1. **Welcome**
@@ -124,5 +130,4 @@ Admin (`requireAdmin`):
 
 - A "What's new" digest email, daily or weekly, sent from the bulk `updates.` subdomain.
 - Community hosts writing Updates for their own community.
-- A "Past updates" list, so a member can find an archived one.
 - "Done when" conditions, such as hiding "Add a photo" once there is one.

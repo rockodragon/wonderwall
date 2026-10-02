@@ -16,7 +16,7 @@ The project is **creatives.exchange** (repo: wonderwall). Four documents are the
 
 - [Phase 1B spec](phase-1b/spec.md) — the October build plan (money foundation, entitlements, coverage codes)
 - [Live booking](features/live-booking.md) — a venue posts recurring paid gigs, artists answer with clips, the venue picks and pays directly; includes the payment-linking research
-- [Projects IA](features/project-ia.md) — **current** posting, browsing, support and profile model: one Project; Start a project / Hire someone; Projects vs Work views; Cheer / Back; Portfolio = completed projects. Also lists where plan and code still disagree.
+- [Projects IA](features/project-ia.md) — **current** posting, browsing, support and profile model: one Project; Start a project / Hire someone; one row of chips (Projects, Seeking funding, Seeking people, Jobs and gigs); Cheer / Back; Portfolio = completed projects. Also lists where plan and code still disagree.
 - [V1 PRD](the-exchange-v1-prd.md) — partly superseded: §7 "Projects, not Portfolios" is live (finished in Projects IA); the nav section is out of date
 - [Entitlements — live status](features/entitlements-live-status.md) — what the code enforces vs. the plan, the payout-rail gap, open decisions · [Seat, Pool, Payout](features/seat-pool-payout.html) — the money model on one page (open in a browser)
 - [Backing payouts](features/backing-payouts.md) — how backer money reaches creatives: Stripe Connect vs Venmo/Zelle vs direct pay, costs, legal risk, taxes, the $50 minimum, and what's decided vs open

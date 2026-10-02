@@ -191,7 +191,7 @@ export function GigSeriesForm({
       return;
     }
     if (!location.value.trim()) {
-      setError("A show happens somewhere — pick the venue's location.");
+      setError("A recurring gig happens somewhere — pick the venue's location.");
       return;
     }
     // Mirrors PaidProjectForm's client-side mirror of
@@ -502,7 +502,7 @@ export function GigSeriesForm({
                   ))}
                 </div>
                 <p className="text-xs mt-1.5" style={{ color: "var(--garden-dim)" }}>
-                  What's this show about — helps people find it, separate from your own profile tags.
+                  What's this gig about — helps people find it, separate from your own profile tags.
                 </p>
               </>
             ) : (

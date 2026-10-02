@@ -22,6 +22,7 @@ import { assertCanPure, getGardenUser } from "./entitlements";
 import { scheduleNotificationEmail } from "../emailHelpers";
 import { toEmbedUrl } from "../videoEmbed";
 import { isHidden } from "../moderationRules";
+import { communityVisibility } from "./communityVisibility";
 
 // ——————————————————————————————————————————————————————————————
 // Stage — TWIN of app/app/lib/stage.ts (STAGES, isStage, stageLabel,
@@ -1615,10 +1616,16 @@ export const listAffiliations = query({
       seen.add(String(project._id));
       rows.push({ project, role: row.role });
     }
-    rows.sort((a, b) => b.project.createdAt - a.project.createdAt);
+    // A project posted into a hidden (test) community shows on someone's
+    // profile only to admins and that community's members.
+    const gate = communityVisibility(ctx);
+    const shown = (
+      await Promise.all(rows.map(async (r) => ((await gate.idVisible(r.project.hostOrgId)) ? r : null)))
+    ).filter((r): r is (typeof rows)[number] => r !== null);
+    shown.sort((a, b) => b.project.createdAt - a.project.createdAt);
 
     return await Promise.all(
-      rows.map(async ({ project, role }) => {
+      shown.map(async ({ project, role }) => {
         const [imageUrl, openRoles, gig, tiers] = await Promise.all([
           projectCover(ctx, project),
           ctx.db

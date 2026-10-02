@@ -1,43 +1,64 @@
 // What /projects (routes/projects.tsx) and the desk's Projects view do to the
-// projects the server returns: which of the two views a project belongs to,
-// the stage / "show" pills, the interest tags, the soft "matches first"
-// signal, and (desk) a text search. Pure; the page keeps the URL reading and
-// the rendering.
+// projects the server returns: which chip a project answers to, the Stage
+// menu, the interest tags, the soft "matches first" signal, and (desk) a text
+// search. Pure; the pages keep the URL reading and the rendering.
+//
+// One exclusive row of four chips, by what the VISITOR is looking for
+// (docs/features/project-ia.md). A project can answer to more than one:
+//
+//   Projects         things people are making (kind = passion, every stage)
+//   Seeking funding  a goal, the Raising stage, or an active tier
+//   Seeking people   an open role, paid or volunteer; plus unpaid postings
+//   Jobs and gigs    paid postings (one-off jobs and recurring gigs); plus a
+//                    project's paid roles
+//
+// Stage is a menu beside the chips and narrows any of them but Jobs and gigs.
 
-import { isStage, resolveStage, stageLabel, type Stage } from "../stage";
+import { resolveStage, stageLabel, type Stage } from "../stage";
 import { richDocPlainText } from "../richText";
+import { budgetKindLabel } from "../budgetLabel";
+import { paidRoles } from "../projectKind";
 
-// Two views, split by what the VISITOR wants rather than how the poster
-// filed it (docs/features/project-ia.md): Projects is things to back or
-// join; Work is things to get hired for — paid postings, gig dates, and the
-// open roles on projects. A project with open roles shows in both.
-export type ProjectsView = "projects" | "work";
-export const PROJECT_VIEWS: { label: string; value: ProjectsView }[] = [
+export type ProjectsLens = "projects" | "funding" | "people" | "work";
+
+/** The chips, in order. The first is the default and carries no URL param. */
+export const PROJECT_LENSES: { label: string; value: ProjectsLens }[] = [
   { label: "Projects", value: "projects" },
-  { label: "Work", value: "work" },
+  { label: "Seeking funding", value: "funding" },
+  { label: "Seeking people", value: "people" },
+  { label: "Jobs and gigs", value: "work" },
 ];
 
-// The stages a visitor browsing for something to back or join cares about —
-// the same ids and labels as the stage pill on every card (lib/stage.ts).
-// Paused / completed / cancelled aren't things to back or join, so no pill.
-export const BROWSE_STAGES: Stage[] = ["planning", "raising", "forming", "working", "releasing"];
+export const DEFAULT_LENS: ProjectsLens = "projects";
 
-export const SHOW_FILTERS: Record<ProjectsView, { label: string; value: string }[]> = {
-  projects: [
-    { label: "All", value: "" },
-    ...BROWSE_STAGES.map((s) => ({ label: stageLabel(s), value: s })),
-  ],
-  work: [
-    { label: "All", value: "" },
-    { label: "Jobs", value: "jobs" },
-    // Live booking (docs/features/live-booking.md §5): a recurring paid gig
-    // is a paid project with a schedule attached (`gig` on the row). Labelled
-    // "Shows" because "Gigs" read as the name of the whole Work view; the
-    // value stays `gigs` so existing links keep landing here.
-    { label: "Shows", value: "gigs" },
-    { label: "Roles on projects", value: "roles" },
-  ],
-};
+/** The stages a visitor browsing for something to back or join cares about,
+ * with the same ids and labels as the stage pill on every card (lib/stage.ts).
+ * Paused / completed / cancelled aren't things to back or join. Raising is
+ * something a project is DOING (it has a goal, or active tiers), not a step
+ * it is at, so it is "Seeking funding" and not here; an owner can still set
+ * the stage to Raising. */
+export const BROWSE_STAGES: Stage[] = ["planning", "forming", "working", "releasing"];
+
+/** The Stage menu: "Any stage" first, which carries no URL param. */
+export const STAGE_OPTIONS: { label: string; value: string }[] = [
+  { label: "Any stage", value: "" },
+  ...BROWSE_STAGES.map((s) => ({ label: stageLabel(s), value: s })),
+];
+
+/** The menu's caption: "Stage", or the stage that is chosen. */
+export function stageCaption(stage: string): string {
+  return isBrowseStage(stage) ? stageLabel(stage) : "Stage";
+}
+
+function isBrowseStage(value: unknown): value is Stage {
+  return typeof value === "string" && (BROWSE_STAGES as readonly string[]).includes(value);
+}
+
+/** The create button each chip goes with: Hire someone on Jobs and gigs, Start
+ * a project on the rest. */
+export function lensCreate(lens: ProjectsLens): { kind: "project" | "hire"; label: string } {
+  return lens === "work" ? { kind: "hire", label: "Hire someone" } : { kind: "project", label: "Start a project" };
+}
 
 export function hasOpenRoles(p: any): boolean {
   return (p.openRoles?.length ?? 0) > 0;
@@ -50,50 +71,122 @@ export function isRaising(p: any): boolean {
   return p.raising ?? ((p.goal ?? 0) > 0 || p.stage === "raising");
 }
 
-export function inView(p: any, view: ProjectsView): boolean {
-  return view === "projects" ? p.kind === "passion" : p.kind === "paid" || hasOpenRoles(p);
+/** Seeking people: a project with an open role (paid or volunteer), or a
+ * posting that says plainly it is unpaid. */
+export function seeksPeople(p: any): boolean {
+  if (p.kind === "paid") return budgetKindLabel(p) === "Volunteer";
+  return p.kind === "passion" && hasOpenRoles(p);
 }
 
-// A stage pill matches the stage the card's own pill shows (resolveStage) —
-// except Raising, which matches isRaising: a project with a goal or active
-// tiers shows the "Raising" badge and the "Back this" button whatever its
-// stage, so the pill has to agree with them.
-export function matchesShow(p: any, show: string): boolean {
-  switch (show) {
-    case "raising":
-      return isRaising(p);
-    case "jobs":
-      return p.kind === "paid" && !p.gig;
-    case "gigs":
-      return !!p.gig;
-    case "roles":
-      return p.kind === "passion" && hasOpenRoles(p);
-    default:
-      return isStage(show) ? resolveStage(p) === show : true;
+/** Jobs and gigs: a paid posting, or a project with an open role that pays
+ * (only a role that declared its pay, the way its card prints it). */
+export function isJobOrGig(p: any): boolean {
+  if (p.kind === "paid") return budgetKindLabel(p) !== "Volunteer";
+  return p.kind === "passion" && paidRoles(p.openRoles).length > 0;
+}
+
+/** Whether a project answers to a chip. */
+export function matchesLens(p: any, lens: ProjectsLens): boolean {
+  switch (lens) {
+    case "projects":
+      return p.kind === "passion";
+    case "funding":
+      return p.kind === "passion" && isRaising(p);
+    case "people":
+      return seeksPeople(p);
+    case "work":
+      return isJobOrGig(p);
   }
 }
 
+/** A Stage choice matches the stage the card's own pill shows (resolveStage).
+ * "" is any stage. */
+export function matchesStage(p: any, stage: string): boolean {
+  return !isBrowseStage(stage) || resolveStage(p) === stage;
+}
+
+// The URL. Canonical: ?show=funding|people|work (absent = Projects) and
+// ?stage=planning|forming|working|releasing. Old links keep landing where they
+// did, below.
+const LENS_WORDS = new Map<string, ProjectsLens>([
+  ["projects", "projects"],
+  ["funding", "funding"],
+  ["raising", "funding"],
+  ["people", "people"],
+  ["roles", "people"],
+  ["work", "work"],
+  ["jobs", "work"],
+  ["gigs", "work"],
+]);
+
+function lensWord(raw: string | null | undefined): ProjectsLens | null {
+  return (raw && LENS_WORDS.get(raw)) || null;
+}
+
 /**
- * The view and its pill from the URL's raw values. The old ?kind=passion|paid|
- * gigs links still land in the right place, and the old ?show=people (Looking
- * for people) lands on Forming team. An unknown value reads as "All" ("").
+ * The chip and the Stage choice from the URL's raw values.
  *
- * `view` is the page's ?view=; the desk, whose own ?view= names the tool, passes
- * null and says "work" through `work`.
+ * `show` and `stage` each take either kind of word, because the two pages used
+ * to put different things in them: the /projects page's ?show= and the desk's
+ * ?stage= both held "gigs", "roles", "raising" or a stage. So:
+ *
+ *   work     show|stage = work, jobs, gigs · view=work · kind=paid|gigs · the
+ *            desk's old Work toggle (`work`)
+ *   people   show|stage = people, roles · seek=people
+ *   funding  show|stage = funding, raising · seek=funding
+ *   projects anything else: view=projects, kind=passion, an unknown word
+ *   stage    a stage word in show or stage (an old ?show=working), read with
+ *            whichever chip is on
+ *
+ * An explicit ?seek= beats a chip an old param implies; then show, stage, and
+ * last the old view/kind/Work toggle. Jobs and gigs has no Stage.
+ *
+ * `view` is the page's ?view=; the desk, whose own ?view= names the tool,
+ * passes null and says "work" through `work` (its old ?tab=work).
  */
 export function readProjectsView(raw: {
   view?: string | null;
   kind?: string | null;
   show?: string | null;
+  stage?: string | null;
+  seek?: string | null;
   work?: boolean;
-}): { view: ProjectsView; show: string } {
-  const legacyKind = raw.kind || "";
-  const view: ProjectsView =
-    raw.work || raw.view === "work" || legacyKind === "paid" || legacyKind === "gigs" ? "work" : "projects";
-  const rawShow = raw.show || (legacyKind === "gigs" ? "gigs" : "");
-  const showParam = rawShow === "people" ? "forming" : rawShow;
-  const show = SHOW_FILTERS[view].some((f) => f.value === showParam) ? showParam : "";
-  return { view, show };
+}): { lens: ProjectsLens; stage: string } {
+  const seekLens = raw.seek === "funding" || raw.seek === "people" ? raw.seek : null;
+  const oldView = raw.work || raw.view === "work" || raw.kind === "paid" || raw.kind === "gigs" ? "work" : null;
+  const lens = seekLens ?? lensWord(raw.show) ?? lensWord(raw.stage) ?? oldView ?? DEFAULT_LENS;
+  const stage = [raw.stage, raw.show].find(isBrowseStage) ?? "";
+  return { lens, stage: lens === "work" ? "" : stage };
+}
+
+/**
+ * The chip and Stage a click on `clicked` leads to. Projects resets both.
+ * Another chip keeps the Stage, except Jobs and gigs, which has none.
+ */
+export function selectLens(
+  now: { lens: ProjectsLens; stage: string },
+  clicked: ProjectsLens,
+): { lens: ProjectsLens; stage: string } {
+  if (clicked === DEFAULT_LENS) return { lens: DEFAULT_LENS, stage: "" };
+  return { lens: clicked, stage: clicked === "work" ? "" : now.stage };
+}
+
+/**
+ * Puts a chip and Stage into `params` the way both pages write them. The old
+ * params in `legacy` (the page's view / kind / seek; the desk's tab / seek)
+ * are dropped, so a click on a chip cleans up a link that used them.
+ */
+export function writeProjectsView(
+  params: URLSearchParams,
+  next: { lens: ProjectsLens; stage: string },
+  legacy: readonly string[],
+): void {
+  for (const key of legacy) params.delete(key);
+  if (next.lens === DEFAULT_LENS) params.delete("show");
+  else params.set("show", next.lens);
+  const stage = next.lens === "work" || !isBrowseStage(next.stage) ? "" : next.stage;
+  if (stage) params.set("stage", stage);
+  else params.delete("stage");
 }
 
 // A project's own declared interests win when it has any; a project with
@@ -135,15 +228,16 @@ export function matchesProjectQuery(p: any, query: string): boolean {
 }
 
 /**
- * The projects to show: those in the view and under its pill, then (each
+ * The projects to show: those under the chip and the Stage choice, then (each
  * optional) a community, a text search, the hard interest tags, and finally
  * the soft interest/location signal floating its matches to the top.
  */
 export function filterProjects<T>(
   projects: readonly T[],
   opts: {
-    view: ProjectsView;
-    show: string;
+    lens: ProjectsLens;
+    /** The Stage menu's choice; "" is any. Ignored under Jobs and gigs. */
+    stage?: string;
     /** Keep only projects in the chosen community. Omit for all of them. */
     inCommunity?: ((p: T) => boolean) | null;
     /** Text search (any case). The /projects page has none; the desk does. */
@@ -154,7 +248,8 @@ export function filterProjects<T>(
     soft?: { interests: readonly string[]; location: string } | null;
   },
 ): T[] {
-  let list = projects.filter((p) => inView(p, opts.view) && matchesShow(p, opts.show));
+  const stage = opts.lens === "work" ? "" : (opts.stage ?? "");
+  let list = projects.filter((p) => matchesLens(p, opts.lens) && matchesStage(p, stage));
   if (opts.inCommunity) list = list.filter(opts.inCommunity);
   const q = (opts.query ?? "").trim().toLowerCase();
   if (q) list = list.filter((p) => matchesProjectQuery(p, q));

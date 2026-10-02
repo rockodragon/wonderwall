@@ -11,6 +11,7 @@ import { mergeGuests, summarizeGuests, type GuestInput } from "./eventGuests";
 import { getUserEmail } from "./emailHelpers";
 import { isEventHost, planAddCoHost, planRemoveCoHost, planDisplayHosts } from "./eventHosts";
 import { canSeeEvent, eventVisibilityChecker, isFreeEvent } from "./garden/eventVisibility";
+import { communityVisibility, isHiddenCommunityId } from "./garden/communityVisibility";
 import { hostUserIdsForOrg, primaryOrgByUserId } from "./organizations";
 import { isAdmin } from "./helpers";
 import { isHidden } from "./moderationRules";
@@ -332,6 +333,10 @@ export const list = query({
     const visibility = await Promise.all(events.map((e) => isPublic(e)));
     events = events.filter((_, i) => visibility[i]);
 
+    // An event posted into a hidden (test) community is listed only for
+    // admins and that community's members.
+    events = await communityVisibility(ctx).filter(events);
+
     // Sort by date — the archive reads newest-first, everything else reads
     // next-up-first.
     events.sort((a, b) => (args.past ? b.datetime - a.datetime : a.datetime - b.datetime));
@@ -384,11 +389,12 @@ export const listForOrganization = query({
     const hostIds = await hostUserIdsForOrg(ctx, organizationId);
     if (hostIds.size === 0) return { upcoming: [], past: [] };
     const isPublic = eventVisibilityChecker(ctx);
+    const gate = communityVisibility(ctx);
     const now = Date.now();
     const mine: Doc<"events">[] = [];
     for (const e of await ctx.db.query("events").withIndex("by_status", (q) => q.eq("status", "published")).collect()) {
       const hosted = hostIds.has(String(e.organizerId)) || (e.coHostIds ?? []).some((id) => hostIds.has(String(id)));
-      if (hosted && (await isPublic(e))) mine.push(e);
+      if (hosted && (await isPublic(e)) && (await gate.idVisible(e.hostOrgId))) mine.push(e);
     }
     const upcoming = mine.filter((e) => e.datetime > now).sort((a, b) => a.datetime - b.datetime);
     const past = mine
@@ -429,6 +435,9 @@ export const get = query({
     // from one that never existed) — and admins, who need the page to
     // unhide or delete it.
     if (!isPublic && !isHost && !(userId && (await isAdmin(ctx, userId)))) return null;
+    // Posted into a hidden (test) community: not found to everyone but its
+    // hosts, admins and that community's members.
+    if (!isHost && !(await communityVisibility(ctx, userId).idVisible(event.hostOrgId))) return null;
 
     // Get organizer profile
     const profile = await ctx.db
@@ -660,7 +669,9 @@ export const create = mutation({
       ticketTiers: tiers,
       organizerId: userId,
     });
-    if (isPublic) {
+    // Nor for an event posted into a hidden (test) community — followers
+    // would be told about something they can't open.
+    if (isPublic && !(await isHiddenCommunityId(ctx, args.hostOrgId))) {
       await notifyFollowers(ctx, userId, {
         type: "followed_created_event",
         title: `${organizerName} is hosting ${title}`,
@@ -1220,6 +1231,10 @@ export const search = query({
       if (!org) return [];
       events = events.filter((e) => e.hostOrgId && String(e.hostOrgId) === String(org._id));
     }
+    // Events in a hidden (test) community come back only for admins and its
+    // members (covers the communitySlug case too: a stranger's search scoped
+    // to a hidden community finds nothing).
+    events = await communityVisibility(ctx).filter(events);
 
     // Filter by search query
     const filtered = events.filter(

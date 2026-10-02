@@ -787,10 +787,10 @@ export default function Profile() {
 function ProjectStatusLine({ project: a }: { project: any }) {
   const chips: { label: string; detail: string }[] = [];
   if (a.gig) {
-    chips.push({ label: "Booking", detail: a.gig.venueName ? `dates at ${a.gig.venueName}` : "dates open" });
+    chips.push({ label: "Recurring gig", detail: a.gig.venueName ? `dates at ${a.gig.venueName}` : "dates open" });
   } else if (a.kind === "paid") {
     const pay = a.budgetType ? budgetAmountLabel(a) ?? budgetKindLabel(a) : null;
-    chips.push({ label: "Hiring", detail: pay ?? "" });
+    chips.push({ label: budgetKindLabel(a) === "Volunteer" ? "Volunteer" : "Job", detail: pay ?? "" });
   }
   if (a.openRoles?.length > 0) {
     const roles = a.openRoles
@@ -801,11 +801,11 @@ function ProjectStatusLine({ project: a }: { project: any }) {
       })
       .join(", ");
     const more = a.openRoles.length > 3 ? ` +${a.openRoles.length - 3} more` : "";
-    chips.push({ label: "Hiring", detail: roles + more });
+    chips.push({ label: "Seeking people", detail: roles + more });
   }
   if (a.raising) {
     chips.push({
-      label: "Raising",
+      label: "Seeking funding",
       detail: a.goal
         ? `$${(a.raisedCents / 100).toLocaleString("en-US")} of $${a.goal.toLocaleString("en-US")}`
         : "",
