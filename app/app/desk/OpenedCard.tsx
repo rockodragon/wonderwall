@@ -132,7 +132,10 @@ export function DetailPanel({
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col justify-center" style={{ gap: project ? 14 : 20 }}>
+      {/* Grows to fill the panel and centers when there's room, but never
+          shrinks below its content: a centered column that overflows spills
+          out of the top too, over the meta line. Long text scrolls instead. */}
+      <div className="flex shrink-0 grow flex-col justify-center" style={{ gap: project ? 14 : 20 }}>
         {card.detail.status && (
           <p
             style={{
