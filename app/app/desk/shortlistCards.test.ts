@@ -70,6 +70,16 @@ describe("the actions table", () => {
     expect(labels(p(project("leading", "Hymns")))[0]).toBe("See team*");
   });
 
+  it("Leading a recurring gig: its Dates tab, which stands where Team would", () => {
+    const gig = project("leading", "Friday Nights", { kind: "paid", isGig: true });
+    expect(labels(p(gig))).toEqual(["See dates*", "Project page →"]);
+    expect(buttons(p(gig))[0]).toMatchObject({ kind: "link", href: "/projects/friday-nights?tab=dates" });
+    const asked = { ...gig, pendingRequests: 1 };
+    expect(buttons(p(asked))[0]).toMatchObject({ label: "Review requests", href: "/projects/friday-nights?tab=dates" });
+    const savedRole = project("saved", "Friday Nights", { isGig: true, role: role("Pianist") });
+    expect(buttons(p(savedRole))[0]).toMatchObject({ label: "Apply", href: "/projects/friday-nights?tab=dates" });
+  });
+
   it("Applied or asked to join: Withdraw request", () => {
     const waiting = project("waiting", "Films", { role: role("Motion Designer") });
     expect(labels(p(waiting))).toEqual(["Withdraw request", "Project page →"]);
@@ -119,6 +129,15 @@ describe("the actions table", () => {
       { kind: "link", label: "Review requests", solid: true, href: "/events/zine?tab=guests" },
     ]);
     expect(labels({ type: "event", event: event("hosting", "Zine", on(10, 15)) })).toEqual(["Manage event*"]);
+  });
+
+  it("Past is the Shortlist's own rule: over at its end, so one that's on now isn't past yet", () => {
+    const on_now = event("going", "Long Lunch", NOW - 60 * 60 * 1000, { endTime: NOW + 60 * 60 * 1000 });
+    expect(labels({ type: "event", event: on_now })).toEqual(["[You're going]"]);
+    expect(card({ type: "event", event: on_now }).detail.status).toMatch(/^You're going · /);
+    const ended = { ...on_now, endTime: NOW - 1 };
+    expect(labels({ type: "event", event: ended })).toEqual([]);
+    expect(card({ type: "event", event: ended }).detail.status).toBe("This event has passed");
   });
 
   it("Past: nothing to do, except let go of a saved one", () => {
@@ -210,6 +229,20 @@ describe("the card", () => {
     const c = card({ type: "event", event: event("going", "Supper", on(10, 17, 17), { goingCount: 86 }) }, { ...CTX, events: [desk] });
     expect(c.detail).toMatchObject({ host: "Hosted by Ruth Benton", description: "Bring a dish.", aside: "86 going", meta: "OCT 17 · 5PM · ST. BRIGID'S HALL" });
     expect(c).toMatchObject({ id: "event:supper", kind: "event", eventId: "supper", href: "/events/supper" });
+  });
+
+  it("shows a past event with no count and no picture, as the backend sends it (0 going, no cover)", () => {
+    const c = card({ type: "event", event: event("saved", "Darkroom", on(9, 12, 13), { goingCount: 0, coverUrl: null }) });
+    expect(c.detail.aside).toBeNull();
+    expect(c.image).toBeNull();
+    expect(opensAsSheet(c)).toBe(true);
+    expect(JSON.stringify(c)).not.toContain("0 going");
+  });
+
+  it("names a free-text role's card apart from its project's", () => {
+    const team = project("team", "Choir", { role: { id: null, title: "Alto", neededBy: null } });
+    expect(card(p(team)).id).toBe("project:choir:member");
+    expect(card(p(project("backing", "Choir"))).id).toBe("project:choir");
   });
 
   it("builds an event the desk doesn't list from the Shortlist alone", () => {

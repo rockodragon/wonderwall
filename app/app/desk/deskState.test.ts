@@ -7,11 +7,13 @@ import {
   SHORTLIST_VIEW,
   deskCreateHref,
   deskHref,
+  isOpenCard,
   parseDeskCreate,
   parseDeskView,
   parseShortlistArea,
   parseShortlistKind,
   shortlistHref,
+  stepTo,
 } from "./deskState";
 
 describe("parseDeskView", () => {
@@ -133,5 +135,31 @@ describe("the Shortlist's params", () => {
     expect(parseShortlistKind("paid", "events")).toBeNull();
     expect(parseShortlistKind("paid", "people")).toBeNull();
     expect(parseShortlistKind("paid", null)).toBeNull();
+  });
+});
+
+describe("an opened card's actions and steps", () => {
+  const search = (qs: string) => new URLSearchParams(qs);
+
+  it("closes only its own card: one the member closed, or stepped away from, stays as it is", () => {
+    expect(isOpenCard(search("view=shortlist&card=role:a"), "role:a")).toBe(true);
+    // Stepped on to the next card while the call ran.
+    expect(isOpenCard(search("view=shortlist&card=role:b"), "role:a")).toBe(false);
+    // Closed meanwhile (Escape, Back), or closed and another opened.
+    expect(isOpenCard(search("view=shortlist"), "role:a")).toBe(false);
+    expect(isOpenCard(search("view=today&card=event:x"), "role:a")).toBe(false);
+  });
+
+  it("steps within the list, and not past either end", () => {
+    expect(stepTo({ index: 0, total: 3 }, 1)).toBe(1);
+    expect(stepTo({ index: 2, total: 3 }, -1)).toBe(1);
+    expect(stepTo({ index: 0, total: 3 }, -1)).toBeNull();
+    expect(stepTo({ index: 2, total: 3 }, 1)).toBeNull();
+  });
+
+  it("holds still while the card's action runs, so it lands on the card it started on", () => {
+    expect(stepTo({ index: 1, total: 3, busy: true }, 1)).toBeNull();
+    expect(stepTo({ index: 1, total: 3, busy: true }, -1)).toBeNull();
+    expect(stepTo({ index: 1, total: 3, busy: false }, 1)).toBe(2);
   });
 });

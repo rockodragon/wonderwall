@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { renderToString } from "react-dom/server";
 import { MemoryRouter } from "react-router";
 import { formatMoney } from "../garden/ui";
-import { NOW, follow, on, sampleShortlist, shortlist } from "../lib/shortlist/fixtures";
+import { NOW, event, follow, on, sampleShortlist, shortlist } from "../lib/shortlist/fixtures";
 import { summary } from "../lib/shortlist/model";
 import { needsYou } from "../lib/shortlist/needsYou";
 import type { ShortlistState } from "../lib/shortlist/useShortlist";
@@ -57,6 +57,7 @@ describe("the overview", () => {
     expect(html).toContain("Open Studio Night");
     expect(html).not.toContain("Printmaking Workshop");
     expect(html).toContain("2 more →");
+    expect(page(SAMPLE)).toMatch(/aria-expanded="false"[^>]*>2 more →/);
   });
 
   it("sets three tiles: counts, breakdowns, the paid · passion split and a next step", () => {
@@ -106,6 +107,17 @@ describe("an area", () => {
     expect(html).toContain('href="/today?view=shortlist"');
   });
 
+  it("rings the crumb when it has the keyboard's focus", () => {
+    expect(page(SAMPLE, "projects")).toMatch(/<a[^>]*class="[^"]*focus-visible:outline-\[#FFE066\][^"]*"[^>]*href="\/today\?view=shortlist"[^>]*>Shortlist<\/a>/);
+  });
+
+  it("gives each group a heading focus can land on", () => {
+    const html = page(SAMPLE, "projects");
+    for (const key of ["needs", "leading", "team", "waiting", "backing", "saved", "closed"]) {
+      expect(html).toMatch(new RegExp(`<p tabindex="-1" data-shortlist-heading="${key}"`));
+    }
+  });
+
   it("chips the areas with counts and a dot where something needs you, then Paid and Passion", () => {
     const html = page(SAMPLE, "projects");
     expect(text(html)).toContain("All 39 Projects 15 Events 10 People 14 Paid 7 Passion 8");
@@ -141,6 +153,28 @@ describe("an area", () => {
     expect(html).toContain("This week 2");
     expect(html).toContain("Show 3 past events");
     expect(html).not.toContain("Late Summer Potluck");
+  });
+
+  it("folds behind one toggle that says whether it's open", () => {
+    const html = page(SAMPLE, "events");
+    expect(html).toMatch(/<button[^>]*data-fold="past"[^>]*aria-expanded="false"[^>]*aria-controls="([^"]+)"[^>]*>Show 3 past events/);
+    const controls = html.match(/data-fold="past"[^>]*aria-controls="([^"]+)"/)![1];
+    expect(html).toContain(`id="${controls}"`);
+  });
+
+  it("offers Remove past events beside Past when a saved event is in it", () => {
+    expect(text(page(SAMPLE, "events"))).toContain("Show 3 past events Remove past events");
+  });
+
+  it("offers no Remove past events when Past holds only what you went to", () => {
+    const went = ready(shortlist({ events: [event("going", "Potluck", on(9, 19)), event("hosting", "Salon", on(9, 2))] }));
+    const html = text(page(went, "events"));
+    expect(html).toContain("Show 2 past events");
+    expect(html).not.toContain("Remove past events");
+  });
+
+  it("offers no Remove past events on Projects' Closed", () => {
+    expect(text(page(SAMPLE, "projects"))).not.toContain("Remove");
   });
 
   it("groups People by first interest", () => {

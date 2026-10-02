@@ -1,14 +1,19 @@
 import { BookmarkSimple } from "@phosphor-icons/react";
 import { usePostHog } from "@posthog/react";
 import { useMutation, useQuery } from "convex/react";
+import { useState, type ReactNode } from "react";
 import { api } from "../../convex/_generated/api";
 import type { FavoriteTargetType } from "../../convex/favorites";
+import { errorMessage } from "../lib/convexError";
 
 interface FavoriteButtonProps {
   targetType: FavoriteTargetType;
   targetId: string;
   size?: "sm" | "md";
   showCount?: boolean;
+  /** What a save is of, named in its accessible name ("Save Cellist"),
+   *  where several Save buttons share a page. */
+  name?: string;
 }
 
 // Every target but an event gets a worded pill: what pressing it does, the
@@ -33,8 +38,13 @@ export function FavoriteButton({
   targetId,
   size = "md",
   showCount = false,
+  name,
 }: FavoriteButtonProps) {
   const posthog = usePostHog();
+  // One call at a time: a double click would save and unsave. The button
+  // says so with aria-disabled, not disabled, which would drop its focus.
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const isFavorited = useQuery(api.favorites.isFavorited, {
     targetType,
     targetId,
@@ -49,14 +59,37 @@ export function FavoriteButton({
   async function handleClick(e: React.MouseEvent) {
     e.preventDefault();
     e.stopPropagation();
-    await toggleFavorite({ targetType, targetId });
+    if (pending) return;
+    setPending(true);
+    setError(null);
+    try {
+      await toggleFavorite({ targetType, targetId });
 
-    // Track favorite toggled
-    posthog?.capture("favorite_toggled", {
-      target_type: targetType,
-      action: isFavorited ? "unfavorited" : "favorited",
-    });
+      // Track favorite toggled
+      posthog?.capture("favorite_toggled", {
+        target_type: targetType,
+        action: isFavorited ? "unfavorited" : "favorited",
+      });
+    } catch (err) {
+      // A role that closed since the page loaded, say: the server's reason.
+      setError(errorMessage(err));
+    } finally {
+      setPending(false);
+    }
   }
+
+  // The button as it always was; after it, only when a call fails, the
+  // server's reason, read out as the app's other inline errors are.
+  const withError = (button: ReactNode) => (
+    <>
+      {button}
+      {error && (
+        <span role="alert" className="text-xs text-red-700 dark:text-red-400">
+          {error}
+        </span>
+      )}
+    </>
+  );
 
   // A profile favorite is a follow (docs/features/following.md §1). The
   // control says so in words: a hidden heart never read as "follow", and
@@ -69,7 +102,8 @@ export function FavoriteButton({
       md: "px-3 py-1.5 text-sm",
     };
     // A save also carries the Shortlist's bookmark, filled once saved. Its
-    // accessible name is pinned to Save or Saved, whatever the icon does.
+    // accessible name is pinned to Save or Saved, whatever the icon does,
+    // and names what's saved when the page passes `name`.
     const isSave = targetType !== "profile";
     const icon = isSave ? (
       <BookmarkSimple
@@ -78,7 +112,8 @@ export function FavoriteButton({
         aria-hidden="true"
       />
     ) : null;
-    const ariaLabel = isSave ? (isFavorited ? words.done : words.idle) : undefined;
+    const status = isFavorited ? words.done : words.idle;
+    const ariaLabel = isSave ? (name ? `${status} ${name}` : status) : undefined;
 
     // "Following" is a status, not a call to action, so it is quiet: no
     // fill, a raised hairline, muted text. It only speaks up when you point at
@@ -90,9 +125,10 @@ export function FavoriteButton({
     const base = `${pillSizeClasses[size]} rounded-full font-medium border transition-colors duration-200 whitespace-nowrap${isSave ? " inline-flex items-center gap-1" : ""}`;
 
     if (isFavorited) {
-      return (
+      return withError(
         <button
           onClick={handleClick}
+          aria-disabled={pending || undefined}
           className={`${base} group bg-transparent text-[var(--app-text-muted)] border-[var(--app-hairline-raised)] hover:text-[var(--app-text)] hover:border-[var(--app-text)] focus-visible:text-[var(--app-text)] focus-visible:border-[var(--app-text)]`}
           title={words.undo}
           aria-label={ariaLabel}
@@ -109,13 +145,14 @@ export function FavoriteButton({
               {words.undo}
             </span>
           </span>
-        </button>
+        </button>,
       );
     }
 
-    return (
+    return withError(
       <button
         onClick={handleClick}
+        aria-disabled={pending || undefined}
         className={base}
         style={{
           backgroundColor: "transparent",
@@ -133,7 +170,7 @@ export function FavoriteButton({
       >
         {icon}
         {words.idle}
-      </button>
+      </button>,
     );
   }
 
@@ -147,9 +184,10 @@ export function FavoriteButton({
     md: "w-5 h-5",
   };
 
-  return (
+  return withError(
     <button
       onClick={handleClick}
+      aria-disabled={pending || undefined}
       className={`${sizeClasses[size]} rounded-full flex items-center justify-center transition-all duration-200 ${
         isFavorited
           ? "bg-red-100 dark:bg-red-900/30 text-red-500"
@@ -173,6 +211,6 @@ export function FavoriteButton({
       {showCount && favoriteCount !== undefined && favoriteCount > 0 && (
         <span className="ml-1 text-xs font-medium">{favoriteCount}</span>
       )}
-    </button>
+    </button>,
   );
 }

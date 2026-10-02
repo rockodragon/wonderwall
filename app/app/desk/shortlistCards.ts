@@ -27,7 +27,7 @@ import { addressName, KIND_LABEL, whenLabel } from "../components/shortlist/rowM
 import { cardIdOf, type ShortlistItem } from "../components/shortlist/items";
 import { calendarDay, shortDay } from "../lib/dates";
 import { withProjectTab } from "../lib/projectTabs";
-import { payText } from "../lib/shortlist/model";
+import { isPast, payText } from "../lib/shortlist/model";
 import type { ShortlistEvent, ShortlistFollow, ShortlistProject, ShortlistRequest } from "../lib/shortlist/types";
 import { stageLabel } from "../lib/stage";
 import {
@@ -76,7 +76,9 @@ const link = (label: string, solid: boolean, href: string): ShortlistButton => (
 
 const projectHref = (id: string) => `/projects/${id}`;
 // The project page's Team tab: open roles to apply for, requests to answer.
-const teamHref = (id: string) => `/projects/${id}?${withProjectTab(new URLSearchParams(), "team")}`;
+// A gig has Dates in its place (lib/projectTabs).
+const teamHref = (id: string, isGig = false) =>
+  `/projects/${id}?${withProjectTab(new URLSearchParams(), isGig ? "dates" : "team")}`;
 const eventHref = (id: string) => `/events/${id}`;
 
 const REMOVE = "Remove from shortlist";
@@ -153,7 +155,7 @@ function projectStatus(row: ShortlistProject): string {
 }
 
 function projectButtons(row: ShortlistProject): ShortlistButton[] {
-  const { projectId, title } = row;
+  const { projectId, title, isGig } = row;
   const roleId = row.role?.id;
   const unsave = call(REMOVE, false, roleId ? { fn: "unsave", targetType: "role", targetId: roleId } : { fn: "unsave", targetType: "project", targetId: projectId }, REMOVED);
   switch (row.relation) {
@@ -163,14 +165,17 @@ function projectButtons(row: ShortlistProject): ShortlistButton[] {
         call("Decline", false, { fn: "respondToInvite", projectId, accept: false }, `Declined. ${addressName(row.lead.name)} will see it.`),
       ];
     case "leading":
-      return [link(row.pendingRequests ? "Review requests" : "See team", true, teamHref(projectId)), link("Project page →", false, projectHref(projectId))];
+      return [
+        link(row.pendingRequests ? "Review requests" : isGig ? "See dates" : "See team", true, teamHref(projectId, isGig)),
+        link("Project page →", false, projectHref(projectId)),
+      ];
     case "team":
     case "backing":
       return [link("See project", true, projectHref(projectId))];
     case "waiting":
       return [call("Withdraw request", false, { fn: "withdrawRequest", projectId }, "Request withdrawn."), link("Project page →", false, projectHref(projectId))];
     case "saved":
-      return roleId ? [link("Apply", true, teamHref(projectId)), unsave] : [link("See project", true, projectHref(projectId)), unsave];
+      return roleId ? [link("Apply", true, teamHref(projectId, isGig)), unsave] : [link("See project", true, projectHref(projectId)), unsave];
     case "closed":
       // A filled role is still a save: it can be let go.
       return row.closedReason === "filled" ? [link("Project page →", false, projectHref(projectId)), unsave] : [link("Project page →", false, projectHref(projectId))];
@@ -251,10 +256,6 @@ function requestCard(request: ShortlistRequest): DeskCard {
 }
 
 // ——— Events ———
-
-function isPast(event: ShortlistEvent, now: number): boolean {
-  return event.cancelled || event.datetime < now;
-}
 
 function eventStatus(event: ShortlistEvent, now: number): string {
   if (isPast(event, now)) return event.cancelled ? "Cancelled by the host" : "This event has passed";

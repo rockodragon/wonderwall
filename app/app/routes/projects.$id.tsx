@@ -1915,7 +1915,7 @@ function RolesSection({
                   {/* listRoles only sends an open role while the project
                       is taking people, the same test the save makes. */}
                   {canSave && r.status === "open" && (
-                    <FavoriteButton targetType="role" targetId={r.roleId} size="sm" />
+                    <FavoriteButton targetType="role" targetId={r.roleId} size="sm" name={r.title} />
                   )}
                   {r.status === "filled" ? (
                     <span className="text-xs whitespace-nowrap pt-0.5" style={{ color: "var(--garden-dim)" }}>

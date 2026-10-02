@@ -1,9 +1,11 @@
 // A Shortlist card's buttons (shortlistCards.ts decides which): links go,
 // calls run the mutation the item's own page would. A button is disabled
 // while its call runs, and so are the others, so Accept and Decline can't
-// race. When it lands, a toast says what happened and the card closes; the
-// Shortlist updates itself from the query. A failure stays on the card,
-// read out, the way the event button reports one.
+// race, and ← / → wait too, so the call lands on the card it started on. When
+// it lands, a toast says what happened and the card closes, if it's still the
+// one open: the member may have closed it, or opened another, meanwhile. The
+// Shortlist updates itself from the query. A failure stays on the card, read
+// out, the way the event button reports one.
 //
 // Mutations come from the hooks Convex gives every page; nothing new is
 // read. useMutation only binds a function, so all six cost nothing until one
@@ -16,6 +18,7 @@ import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { errorMessage } from "../lib/convexError";
 import { showDeskToast } from "./DeskToast";
+import type { DeskCardId } from "./deskState";
 import type { ShortlistButton, ShortlistCall } from "./shortlistCards";
 import { CARD_BUTTON_CLASS, DESK, FOCUS_RING_CLASS } from "./tokens";
 
@@ -53,7 +56,20 @@ function useShortlistCall(): (call: ShortlistCall) => Promise<unknown> {
   };
 }
 
-export function ShortlistActions({ buttons, onDone }: { buttons: ShortlistButton[]; onDone: () => void }) {
+export function ShortlistActions({
+  id,
+  buttons,
+  onDone,
+  onBusy,
+}: {
+  /** The card the buttons are on. */
+  id: DeskCardId;
+  buttons: ShortlistButton[];
+  /** A call landed: close card `id`, unless it has closed already. */
+  onDone: (id: DeskCardId) => void;
+  /** A call started (true) or settled (false). */
+  onBusy?: (busy: boolean) => void;
+}) {
   const run = useShortlistCall();
   const [running, setRunning] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -62,14 +78,16 @@ export function ShortlistActions({ buttons, onDone }: { buttons: ShortlistButton
     if (running !== null) return;
     setRunning(i);
     setError(null);
+    onBusy?.(true);
     try {
       await run(button.call);
       showDeskToast(button.done);
-      onDone();
+      onDone(id);
     } catch (err) {
       setError(errorMessage(err));
     } finally {
       setRunning(null);
+      onBusy?.(false);
     }
   }
 

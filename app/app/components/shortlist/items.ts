@@ -4,15 +4,18 @@
 // the phone pages list the same rows in the same order.
 //
 // Card ids follow the desk's URL (deskState DeskCardId): a role row is
-// `role:<roleId>`, any other project row `project:<projectId>`, then
-// `request:<id>`, `event:<id>` and `person:<profileId>`. The backend keeps one
-// row per role and one roleless row per project, so each id names one row,
-// and it holds while the row moves between groups (an accepted invite is the
-// same role:<id>, now On the team).
+// `role:<roleId>`, a row on the member's own free-text role
+// `project:<projectId>:member`, the project itself `project:<projectId>`,
+// then `request:<id>`, `event:<id>` and `person:<profileId>`. The backend
+// keeps one row per posted role, per free-text place and per project
+// (types.ts), so each id names one row, and it holds while the row moves
+// between groups (an accepted invite is the same role:<id>, now On the team).
+// A link from before free-text rows had their own id, `project:<id>` for one,
+// still opens it when the project has no row of its own.
 
 import type { DeskCardId, ShortlistArea } from "../../desk/deskState";
 import { SHORTLIST_GROUPS, eventGroups, peopleGroups, projectGroups } from "../../lib/shortlist/model";
-import { needsYou } from "../../lib/shortlist/needsYou";
+import { needsYou, type NeedsYouItem } from "../../lib/shortlist/needsYou";
 import type {
   ProjectKind,
   ShortlistData,
@@ -36,11 +39,17 @@ export const AREA_LABEL: Record<ShortlistArea, string> = {
   people: "People",
 };
 
+/** The tail of a free-text row's card id: the member's own place, no posting. */
+const MEMBER = "member";
+
 /** The card an item opens as. */
 export function cardIdOf(item: ShortlistItem): DeskCardId {
   switch (item.type) {
-    case "project":
-      return item.row.role?.id ? `role:${item.row.role.id}` : `project:${item.row.projectId}`;
+    case "project": {
+      const { role, projectId } = item.row;
+      if (role?.id) return `role:${role.id}`;
+      return role ? `project:${projectId}:${MEMBER}` : `project:${projectId}`;
+    }
     case "request":
       return `request:${item.request.requestId}`;
     case "event":
@@ -65,7 +74,11 @@ export function findItem(data: ShortlistData, id: string): ShortlistItem | null 
       break;
     }
     case "project": {
-      const row = data.projects.find((r) => r.projectId === key && !r.role?.id);
+      // The project itself, or with `:member` the member's own place on it.
+      const [projectId, place] = key.split(":");
+      const on = data.projects.filter((r) => r.projectId === projectId && !r.role?.id);
+      const row =
+        place === MEMBER ? on.find((r) => r.role) : place === undefined ? (on.find((r) => !r.role) ?? on[0]) : undefined;
       found = row && { type: "project", row };
       break;
     }
@@ -145,6 +158,13 @@ export function areaGroups(data: ShortlistData, now: number, area: ShortlistArea
   }
 }
 
+/** The saved events in Past: what "Remove past events" lets go of, in one
+ *  call. Going, hosting and requested are history, and stay. */
+export function pastSaveIds(group: ListGroup): string[] {
+  if (group.key !== "past") return [];
+  return group.items.flatMap((item) => (item.type === "event" && item.event.relation === "saved" ? [item.event.eventId] : []));
+}
+
 /** Every live item, area by area in group order: what the overview lists
  *  under its tiles when there are few. Requests are left out, as they are
  *  from every count: they belong to the project or event you run. */
@@ -155,6 +175,16 @@ export function everything(data: ShortlistData, now: number): ShortlistItem[] {
 
 /** The overview lists everything under its tiles at this many items or fewer. */
 export const LIST_ALL_UNDER = 8;
+
+/** Needs you shows this many rows, on the overview and on Today, then "N more". */
+export const NEEDS_SHOWN = 3;
+
+/** The events in the Needs you rows Today shows. Today's next-event card
+ *  skips these, and only these: an event further down Needs you is out of
+ *  sight there, so the card may show it. */
+export function todayNeedsEventIds(needs: readonly NeedsYouItem[]): string[] {
+  return needs.slice(0, NEEDS_SHOWN).flatMap((item) => (item.type === "event" ? [item.event.eventId] : []));
+}
 
 // ——————————————————————————————————————————————————————————————
 // Stepping through a list from an opened card
@@ -193,16 +223,18 @@ export function stepIds(data: ShortlistData, now: number, scope: ShortlistScope,
 
 /** The card `id` opens in `scope`, with the list it steps through, or null
  *  when the Shortlist doesn't hold it there. Today opens only its Needs you
- *  rows as Shortlist cards; the rest of Today is the desk's own. */
+ *  rows as Shortlist cards; the rest of Today is the desk's own. `id` comes
+ *  back as the item's own card id, which an old link may not have used. */
 export function openInScope(
   data: ShortlistData,
   now: number,
   scope: ShortlistScope,
   id: string,
-): { item: ShortlistItem; ids: DeskCardId[] } | null {
+): { item: ShortlistItem; id: DeskCardId; ids: DeskCardId[] } | null {
   const item = findItem(data, id);
   if (!item) return null;
-  const ids = stepIds(data, now, scope, id);
+  const own = cardIdOf(item);
+  const ids = stepIds(data, now, scope, own);
   if (scope.view === "today" && ids.length === 0) return null;
-  return { item, ids };
+  return { item, id: own, ids };
 }

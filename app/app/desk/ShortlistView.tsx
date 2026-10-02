@@ -13,11 +13,24 @@
 // useShortlist() the Desk holds, so the counts, the dots and Needs you can't
 // disagree with the palette's.
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useMutation } from "convex/react";
 import { Link, useSearchParams } from "react-router";
-import { AREA_LABEL, LIST_ALL_UNDER, areaGroups, cardIdOf, everything, type ListGroup, type ShortlistItem } from "../components/shortlist/items";
+import { api } from "../../convex/_generated/api";
+import {
+  AREA_LABEL,
+  LIST_ALL_UNDER,
+  NEEDS_SHOWN,
+  areaGroups,
+  cardIdOf,
+  everything,
+  pastSaveIds,
+  type ListGroup,
+  type ShortlistItem,
+} from "../components/shortlist/items";
 import { KIND_LABEL, rowModel, type RowModel } from "../components/shortlist/rowModel";
 import { ShortlistRows } from "../components/shortlist/ShortlistRow";
+import { errorMessage } from "../lib/convexError";
 import { initialsOf } from "../lib/initials";
 import type { NeedsYouItem } from "../lib/shortlist/needsYou";
 import type { AreaSummary, ShortlistSummary } from "../lib/shortlist/model";
@@ -25,6 +38,7 @@ import type { ShortlistState } from "../lib/shortlist/useShortlist";
 import type { ProjectKind, ShortlistData } from "../lib/shortlist/types";
 import { pillClass } from "./deskBrowse";
 import { countLabel } from "./deskGreeting";
+import { showDeskToast } from "./DeskToast";
 import type { HeaderParts } from "./DeskHeader";
 import { GRID_SIDE } from "./deskLayout";
 import { SHORTLIST_AREAS, deskHref, shortlistHref, useDeskSpacing, type ShortlistArea } from "./deskState";
@@ -32,8 +46,6 @@ import { DESK, DESK_MONO, FOCUS_RING_CLASS, monoLabel } from "./tokens";
 
 type Ready = Extract<ShortlistState, { status: "ready" }>;
 
-/** The overview shows this many Needs you rows, then "N more →". */
-const NEEDS_SHOWN = 3;
 /** Rows read best at this measure; past it the status drifts from the title. */
 const ROWS_MAX_W = 920;
 
@@ -57,6 +69,17 @@ function kicker(hot = false) {
   return { ...monoLabel(12, "0.2em"), margin: "0 0 10px", color: hot ? DESK.accent : DESK.muted, display: "flex", alignItems: "center", gap: 10 } as const;
 }
 const kickerCount = { color: DESK.muted, letterSpacing: "0.12em" } as const;
+
+/** A section's heading. Focus can land on it (tabIndex -1): Desk.tsx sends it
+ *  here when a card closes and the row it was opened from has gone, with no
+ *  row left beside it. `id` names it on the page. */
+function Heading({ id, hot = false, children }: { id: string; hot?: boolean; children: ReactNode }) {
+  return (
+    <p tabIndex={-1} data-shortlist-heading={id} className={FOCUS_RING_CLASS} style={kicker(hot)}>
+      {children}
+    </p>
+  );
+}
 
 /** A row for a Needs you item. */
 function needsRow(item: NeedsYouItem, withArea: boolean, money: (cents: number) => string): RowModel {
@@ -83,7 +106,7 @@ export function shortlistHeader(state: ShortlistState, area: ShortlistArea | nul
   }
   return {
     crumb: (
-      <Link to={shortlistHref()} className="text-[#ACACA4] no-underline transition-colors hover:text-[#FFE066]">
+      <Link to={shortlistHref()} className={`text-[#ACACA4] no-underline transition-colors hover:text-[#FFE066] ${FOCUS_RING_CLASS}`}>
         Shortlist
       </Link>
     ),
@@ -208,9 +231,7 @@ function Overview({ state, money, onOpen }: { state: Ready; money: (cents: numbe
       </div>
       {listed.length <= LIST_ALL_UNDER && listed.length > 0 && (
         <section style={{ maxWidth: ROWS_MAX_W, marginTop: 40 }}>
-          <p style={kicker()}>
-            Everything on your shortlist · {listed.length}
-          </p>
+          <Heading id="everything">Everything on your shortlist · {listed.length}</Heading>
           <ShortlistRows
             rows={listed.map((item) => rowModel(item, { hot: hot.has(cardIdOf(item)), withArea: true, money }))}
             onOpen={onOpen}
@@ -227,11 +248,13 @@ function NeedsYouList({ needs, money, onOpen }: { needs: NeedsYouItem[]; money: 
   const shown = all ? needs : needs.slice(0, NEEDS_SHOWN);
   return (
     <>
-      <p style={kicker(true)}>Needs you · {needs.length}</p>
+      <Heading id="needs" hot>
+        Needs you · {needs.length}
+      </Heading>
       <ShortlistRows rows={shown.map((item) => needsRow(item, true, money))} onOpen={onOpen} />
       {needs.length > NEEDS_SHOWN && (
         <div style={{ marginTop: 12 }}>
-          <button type="button" onClick={() => setAll((v) => !v)} className={`${QUIET_BUTTON} text-[#D6D6D6]`}>
+          <button type="button" aria-expanded={all} onClick={() => setAll((v) => !v)} className={`${QUIET_BUTTON} text-[#D6D6D6]`}>
             {all ? "Show fewer" : `${needs.length - NEEDS_SHOWN} more →`}
           </button>
         </div>
@@ -397,9 +420,26 @@ function AreaRows({
   onOpen: (row: RowModel) => void;
 }) {
   const groups = areaGroups(state.data, state.now, area, kind);
+  const rootRef = useRef<HTMLDivElement>(null);
+  // Once "Remove past events" has landed and its rows have gone (the query
+  // may bring that before the call returns, or after), focus goes to Past's
+  // toggle, else (Past went with them) to the heading above it, rather than
+  // to the page.
+  const [removed, setRemoved] = useState<string[] | null>(null);
+  const pastSaves = pastSaveIds(groups.find((g) => g.key === "past") ?? NO_GROUP).join(" ");
+  useEffect(() => {
+    if (!removed || pastSaves.split(" ").some((id) => removed.includes(id))) return;
+    setRemoved(null);
+    const root = rootRef.current;
+    const headings = root?.querySelectorAll<HTMLElement>("[data-shortlist-heading]");
+    const next = root?.querySelector<HTMLElement>('[data-fold="past"]') ?? headings?.[headings.length - 1] ?? root?.querySelector<HTMLElement>("a[href]");
+    next?.focus();
+  }, [removed, pastSaves]);
+
   if (groups.length === 0) {
     return (
       <div
+        ref={rootRef}
         style={{
           maxWidth: ROWS_MAX_W,
           marginTop: 12,
@@ -422,25 +462,35 @@ function AreaRows({
     );
   }
   return (
-    <div style={{ maxWidth: ROWS_MAX_W }}>
+    <div ref={rootRef} style={{ maxWidth: ROWS_MAX_W }}>
       {groups.map((group) => (
-        <Group key={group.key} group={group} money={money} onOpen={onOpen} />
+        <Group key={group.key} group={group} money={money} onOpen={onOpen} onRemoved={setRemoved} />
       ))}
     </div>
   );
 }
 
-function Group({ group, money, onOpen }: { group: ListGroup; money: (cents: number) => string; onOpen: (row: RowModel) => void }) {
+const NO_GROUP: ListGroup = { key: "", label: "", hot: false, folded: false, items: [], months: null };
+
+function Group({
+  group,
+  money,
+  onOpen,
+  onRemoved,
+}: {
+  group: ListGroup;
+  money: (cents: number) => string;
+  onOpen: (row: RowModel) => void;
+  onRemoved: (eventIds: string[]) => void;
+}) {
   const [open, setOpen] = useState(false);
+  const rowsId = useId();
   const rows = (items: ShortlistItem[]) => items.map((item) => rowModel(item, { hot: group.hot, withArea: false, past: group.folded, money }));
   const n = group.items.length;
+  const noun = FOLD_NOUN[group.key] ?? group.label.toLowerCase();
   let body: ReactNode;
   if (group.folded && !open) {
-    body = (
-      <button type="button" onClick={() => setOpen(true)} className={QUIET_BUTTON}>
-        Show {n} {FOLD_NOUN[group.key] ?? group.label.toLowerCase()}
-      </button>
-    );
+    body = null;
   } else if (group.months) {
     body = group.months.map((month) => (
       <div key={month.key}>
@@ -456,19 +506,129 @@ function Group({ group, money, onOpen }: { group: ListGroup; money: (cents: numb
   return (
     <section aria-label={group.label || undefined} style={{ marginTop: group.label ? 32 : 12 }}>
       {group.label && (
-        <p style={kicker(group.hot)}>
+        <Heading id={group.key} hot={group.hot}>
           {group.label} <span style={kickerCount}>{n}</span>
-        </p>
+        </Heading>
       )}
-      {body}
-      {group.folded && open && (
-        <div style={{ marginTop: 12 }}>
-          <button type="button" onClick={() => setOpen(false)} className={QUIET_BUTTON}>
-            Hide
-          </button>
-        </div>
+      {group.folded ? (
+        <>
+          {/* One toggle that stays put, so focus and aria-expanded stay with it. */}
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: "4px 24px", marginBottom: open ? 12 : 0 }}>
+            <button
+              type="button"
+              data-fold={group.key}
+              aria-expanded={open}
+              aria-controls={rowsId}
+              onClick={() => setOpen((v) => !v)}
+              className={QUIET_BUTTON}
+            >
+              {open ? `Hide ${noun}` : `Show ${n} ${noun}`}
+            </button>
+            <RemovePast eventIds={pastSaveIds(group)} onRemoved={onRemoved} />
+          </div>
+          <div id={rowsId}>{body}</div>
+        </>
+      ) : (
+        body
       )}
     </section>
+  );
+}
+
+function pastEvents(n: number): string {
+  return `${n} past ${n === 1 ? "event" : "events"}`;
+}
+
+/** "Remove past events", beside Past: lets go, in one call, of the member's
+ *  saves on events that are over. Only saves: going, hosting and requested
+ *  are history, and stay. It asks first, on the page (the desk never shows
+ *  confirm()): "Remove 12 past events? · Remove · Cancel". */
+function RemovePast({ eventIds, onRemoved }: { eventIds: string[]; onRemoved: (eventIds: string[]) => void }) {
+  const [asking, setAsking] = useState(false);
+  const askRef = useRef<HTMLButtonElement>(null);
+  // Cancel hands focus back to the button that asked.
+  const back = useRef(false);
+  useEffect(() => {
+    if (asking || !back.current) return;
+    back.current = false;
+    askRef.current?.focus();
+  }, [asking]);
+  if (eventIds.length === 0) return null;
+  if (asking) {
+    return (
+      <ConfirmRemovePast
+        eventIds={eventIds}
+        onCancel={() => {
+          back.current = true;
+          setAsking(false);
+        }}
+        onRemoved={(ids) => {
+          setAsking(false);
+          onRemoved(ids);
+        }}
+      />
+    );
+  }
+  return (
+    <button ref={askRef} type="button" onClick={() => setAsking(true)} className={QUIET_BUTTON}>
+      Remove past events
+    </button>
+  );
+}
+
+/** The question, and the call. Its own component, so the mutation is only
+ *  bound once someone asks. */
+function ConfirmRemovePast({
+  eventIds,
+  onCancel,
+  onRemoved,
+}: {
+  eventIds: string[];
+  onCancel: () => void;
+  onRemoved: (eventIds: string[]) => void;
+}) {
+  const removeMany = useMutation(api.favorites.removeMany);
+  const [running, setRunning] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const cancelRef = useRef<HTMLButtonElement>(null);
+  // Focus starts on Cancel: the safe answer, and the question is read with it.
+  useEffect(() => cancelRef.current?.focus(), []);
+  const what = pastEvents(eventIds.length);
+
+  async function remove() {
+    if (running) return;
+    setRunning(true);
+    setError(null);
+    const ids = eventIds;
+    try {
+      await removeMany({ targets: ids.map((targetId) => ({ targetType: "event" as const, targetId })) });
+      showDeskToast(`Removed ${pastEvents(ids.length)}.`);
+      onRemoved(ids);
+    } catch (err) {
+      setError(errorMessage(err));
+      setRunning(false);
+    }
+  }
+
+  return (
+    <span role="group" aria-label={`Remove ${what}?`} style={{ display: "inline-flex", flexWrap: "wrap", alignItems: "baseline", gap: "4px 10px", fontSize: 14, color: DESK.textSoft }}>
+      <span>Remove {what}?</span>
+      <span aria-hidden style={{ color: DESK.textQuiet }}>
+        ·
+      </span>
+      <button type="button" onClick={remove} aria-disabled={running || undefined} className={`${QUIET_BUTTON} text-[#FFE066]`}>
+        {running ? "Removing…" : "Remove"}
+      </button>
+      <span aria-hidden style={{ color: DESK.textQuiet }}>
+        ·
+      </span>
+      <button ref={cancelRef} type="button" onClick={() => !running && onCancel()} aria-disabled={running || undefined} className={QUIET_BUTTON}>
+        Cancel
+      </button>
+      <span role="status" aria-live="polite" style={{ color: "#FF9B8F", flexBasis: error ? "100%" : undefined }}>
+        {error}
+      </span>
+    </span>
   );
 }
 
@@ -493,7 +653,9 @@ export function TodayNeedsYou({
   const more = needs.length - NEEDS_SHOWN;
   return (
     <section aria-label="Needs you" style={{ maxWidth: ROWS_MAX_W, marginTop: 18 }}>
-      <p style={kicker(true)}>Needs you · {needs.length}</p>
+      <Heading id="needs" hot>
+        Needs you · {needs.length}
+      </Heading>
       <ShortlistRows rows={needs.slice(0, NEEDS_SHOWN).map((item) => needsRow(item, true, money))} onOpen={onOpen} />
       {more > 0 && (
         <div style={{ marginTop: 12 }}>

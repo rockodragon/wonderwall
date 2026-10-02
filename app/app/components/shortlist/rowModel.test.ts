@@ -5,6 +5,7 @@ import {
   PROPOSALS,
   VOLUNTEER,
   amount,
+  day,
   event,
   eventRequest,
   follow,
@@ -55,6 +56,18 @@ describe("a role row", () => {
   it("says Apply on a saved role that closes soon, and when it closes", () => {
     const saved = project("saved", "Psalms Zine", { role: role("Copy Editor", on(10, 7)), pay: amount(300) });
     expect(row(p(saved), HOT)).toMatchObject({ status: "Closes Oct 7", action: "Apply", meta: "$300" });
+  });
+
+  it("reads the closing date as the calendar date it's stored as, west of UTC too", () => {
+    // neededBy is that day's UTC midnight: the evening before in Los Angeles.
+    const zone = process.env.TZ;
+    process.env.TZ = "America/Los_Angeles";
+    try {
+      const saved = project("saved", "Psalms Zine", { role: role("Copy Editor", day(10, 7)) });
+      expect(row(p(saved)).status).toBe("Closes Oct 7");
+    } finally {
+      process.env.TZ = zone;
+    }
   });
 
   it("writes pay in budgetLabel's words", () => {
@@ -176,6 +189,15 @@ describe("an event row", () => {
 
   it("says nothing about a going count of zero", () => {
     expect(row({ type: "event", event: event("saved", "Quiet", on(10, 24)) }).meta).toBeNull();
+  });
+
+  it("shows a past event, sent with no count and no cover, as a date block and nothing about who went", () => {
+    const over = event("going", "Potluck", on(9, 19, 18), { goingCount: 0, coverUrl: null });
+    expect(row({ type: "event", event: over }, { ...CALM, past: true })).toMatchObject({
+      meta: null,
+      thumb: { kind: "date", month: "SEP", day: "19" },
+      status: "Past",
+    });
   });
 
   it("says where you stand: hosting, requested, saved", () => {

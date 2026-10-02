@@ -18,10 +18,11 @@ import type { RowModel, Thumb } from "./rowModel";
 const MONO = { fontFamily: DESK_MONO, fontSize: 12, textTransform: "uppercase" } as const;
 const CLIP = { whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } as const;
 
-/** A list of rows: a hairline above the first, and under each. */
+/** A list of rows: a hairline above the first, and under each. Marked, so
+ *  the desk can find a row's neighbours when focus needs a new home. */
 export function ShortlistRows({ rows, onOpen }: { rows: RowModel[]; onOpen: (row: RowModel) => void }) {
   return (
-    <ul style={{ listStyle: "none", margin: 0, padding: 0, borderTop: `1px solid ${DESK.line}` }}>
+    <ul data-shortlist-rows style={{ listStyle: "none", margin: 0, padding: 0, borderTop: `1px solid ${DESK.line}` }}>
       {rows.map((row) => (
         <li key={row.id} style={{ borderBottom: `1px solid ${DESK.line}` }}>
           <ShortlistRow row={row} onOpen={onOpen} />

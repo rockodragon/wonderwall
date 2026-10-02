@@ -22,6 +22,7 @@ import type { Id } from "../../convex/_generated/dataModel";
 import { useReducedMotion } from "../hooks/useMediaQuery";
 import { errorMessage } from "../lib/convexError";
 import type { DeskAction, DeskCard } from "./deskCards";
+import type { DeskCardId } from "./deskState";
 import { plainText } from "./deskCards";
 import { ShortlistActions } from "./ShortlistActions";
 import { CARD_BUTTON_CLASS, DESK, DESK_MONO, DESK_SANS, FOCUS_RING_CLASS, monoLabel } from "./tokens";
@@ -29,8 +30,17 @@ import { useUpdateClick } from "./useUpdateReads";
 
 /** ← / → through the list a card was opened from: "2 of 6". `arrived` is
  *  the way the last step went, when this card was reached by one: focus
- *  lands on that step button again, so the next press goes on. */
-export type Stepper = { index: number; total: number; onStep: (by: -1 | 1) => void; arrived?: -1 | 1 };
+ *  lands on that step button again, so the next press goes on. `busy`: the
+ *  card's action is running, and stepping waits for it (ShortlistActions
+ *  reports through `onBusy`). */
+export type Stepper = {
+  index: number;
+  total: number;
+  onStep: (by: -1 | 1) => void;
+  arrived?: -1 | 1;
+  busy?: boolean;
+  onBusy?: (busy: boolean) => void;
+};
 
 const ROUND_CLASS = `flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#333] bg-transparent text-[#F4F4F2] transition-colors enabled:hover:border-[#FFE066] enabled:hover:text-[#FFE066] disabled:opacity-35 ${FOCUS_RING_CLASS}`;
 
@@ -51,7 +61,8 @@ export function DetailPanel({
   sheet: boolean;
   /** Width of the picture side, as a share of the open card. */
   share: number;
-  onClose: () => void;
+  /** Closes the card; given an id, only if that card is still the one open. */
+  onClose: (only?: DeskCardId) => void;
   stepper?: Stepper;
 }) {
   const reduced = useReducedMotion();
@@ -112,7 +123,7 @@ export function DetailPanel({
           <button
             ref={closeRef}
             type="button"
-            onClick={onClose}
+            onClick={() => onClose()}
             aria-label="Close"
             className={ROUND_CLASS}
           >
@@ -186,7 +197,9 @@ export function DetailPanel({
           {action?.kind === "rsvp" && <JoinButton action={action} />}
           {action?.kind === "update" && <UpdateButton action={action} />}
           {/* Keyed by card: stepping to the next item starts its buttons fresh. */}
-          {action?.kind === "shortlist" && <ShortlistActions key={card.id} buttons={action.buttons} onDone={onClose} />}
+          {action?.kind === "shortlist" && (
+            <ShortlistActions key={card.id} id={card.id} buttons={action.buttons} onDone={onClose} onBusy={stepper?.onBusy} />
+          )}
           {card.detail.aside && <span style={{ fontSize: 14, color: DESK.muted }}>{card.detail.aside}</span>}
           {card.kind === "event" && (
             <Link
@@ -203,16 +216,16 @@ export function DetailPanel({
 }
 
 function StepControls({ stepper }: { stepper: Stepper }) {
-  const { index, total, onStep } = stepper;
+  const { index, total, onStep, busy } = stepper;
   return (
     <div className="flex items-center gap-2" style={{ fontFamily: DESK_MONO, fontSize: 12, letterSpacing: "0.14em", color: DESK.muted, whiteSpace: "nowrap" }}>
-      <button type="button" data-step="-1" onClick={() => onStep(-1)} disabled={index === 0} aria-label="Previous" className={ROUND_CLASS}>
+      <button type="button" data-step="-1" onClick={() => onStep(-1)} disabled={busy || index === 0} aria-label="Previous" className={ROUND_CLASS}>
         <CaretLeft size={16} weight="regular" aria-hidden />
       </button>
       <span aria-live="polite">
         {index + 1} of {total}
       </span>
-      <button type="button" data-step="1" onClick={() => onStep(1)} disabled={index === total - 1} aria-label="Next" className={ROUND_CLASS}>
+      <button type="button" data-step="1" onClick={() => onStep(1)} disabled={busy || index === total - 1} aria-label="Next" className={ROUND_CLASS}>
         <CaretRight size={16} weight="regular" aria-hidden />
       </button>
     </div>

@@ -262,6 +262,14 @@ function readers(ctx: QueryCtx) {
       const doc = await project(id);
       return doc && projectCoverUrl(ctx, doc);
     }),
+    // A gig is a project with a series beside it (gigSummary.ts), 1:1.
+    isGig: once(
+      async (id: Id<"projects">) =>
+        (await ctx.db
+          .query("gigSeries")
+          .withIndex("by_projectId", (q) => q.eq("projectId", id))
+          .first()) !== null,
+    ),
   };
 }
 
@@ -349,7 +357,11 @@ export const getMine = query({
       role: { posting: Doc<"projectRoles"> | null; title: string } | null,
       extra: Pick<ShortlistProject, "pendingRequests" | "backing" | "closedReason"> = {},
     ): Promise<ShortlistProject> {
-      const [lead, coverUrl] = await Promise.all([read.person(project.userId), read.projectCover(project._id)]);
+      const [lead, coverUrl, isGig] = await Promise.all([
+        read.person(project.userId),
+        read.projectCover(project._id),
+        read.isGig(project._id),
+      ]);
       const about = role && {
         id: role.posting?._id ?? null,
         title: role.posting?.title ?? role.title,
@@ -359,6 +371,7 @@ export const getMine = query({
         key: `${relation}:${projectThing({ projectId: project._id, role: about })}`,
         relation,
         kind: projectKind(project.kind),
+        isGig,
         projectId: project._id,
         title: project.title,
         stage: resolveStage(project),

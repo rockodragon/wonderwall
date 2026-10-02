@@ -156,7 +156,8 @@ export const DeskCardView = memo(function DeskCardView({
   inert: boolean;
   vh: number;
   onOpen: (id: DeskCard["id"]) => void;
-  onClose: () => void;
+  /** Closes the card; given an id, only if that card is still the one open. */
+  onClose: (only?: DeskCard["id"]) => void;
   /** Open from a Shortlist list: ← / → through it. */
   stepper?: Stepper;
 }) {

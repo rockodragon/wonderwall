@@ -56,6 +56,9 @@ export interface ShortlistProject {
   key: string;
   relation: ProjectRelation;
   kind: ProjectKind;
+  /** A recurring gig (a gigSeries hangs on it): booked date by date, so its
+   *  page has a Dates tab where a project has Team (lib/projectTabs). */
+  isGig: boolean;
   projectId: string;
   title: string;
   /** resolveStage(project); null when it has none. */

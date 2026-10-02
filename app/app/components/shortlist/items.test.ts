@@ -1,8 +1,20 @@
 import { describe, expect, it } from "vitest";
-import { NOW, event, follow, on, project, projectRequest, role, sampleShortlist, shortlist } from "../../lib/shortlist/fixtures";
+import { DAY, NOW, event, follow, on, project, projectRequest, role, sampleShortlist, shortlist } from "../../lib/shortlist/fixtures";
 import { needsYou } from "../../lib/shortlist/needsYou";
 import { summary } from "../../lib/shortlist/model";
-import { LIST_ALL_UNDER, areaGroups, cardIdOf, everything, findItem, openInScope, stepIds, type ShortlistItem } from "./items";
+import {
+  LIST_ALL_UNDER,
+  NEEDS_SHOWN,
+  areaGroups,
+  cardIdOf,
+  everything,
+  findItem,
+  openInScope,
+  pastSaveIds,
+  stepIds,
+  todayNeedsEventIds,
+  type ShortlistItem,
+} from "./items";
 
 const data = sampleShortlist();
 
@@ -20,13 +32,22 @@ function titleOf(item: ShortlistItem): string {
 }
 
 describe("cardIdOf", () => {
-  it("names a role row by its role, any other project row by its project", () => {
+  it("names a role row by its role, the project itself by its project", () => {
     const roleRow = project("invited", "Hollow Creek", { role: role("Sound Mixer") });
     expect(cardIdOf({ type: "project", row: roleRow })).toBe("role:sound-mixer");
     expect(cardIdOf({ type: "project", row: project("leading", "Hymns") })).toBe("project:hymns");
-    // A free-text role (no posting) has no id of its own: the project's row.
+  });
+
+  it("names a free-text role (no posting) as the member's own place on the project", () => {
     const freeText = project("team", "Choir", { role: { id: null, title: "Alto", neededBy: null } });
-    expect(cardIdOf({ type: "project", row: freeText })).toBe("project:choir");
+    expect(cardIdOf({ type: "project", row: freeText })).toBe("project:choir:member");
+  });
+
+  it("tells a free-text row from a backing row on the same project", () => {
+    const team = project("team", "Choir", { role: { id: null, title: "Alto", neededBy: null } });
+    const backing = project("backing", "Choir", { backing: { amountCents: 1000, recurring: true } });
+    const ids = [team, backing].map((row) => cardIdOf({ type: "project", row }));
+    expect(ids).toEqual(["project:choir:member", "project:choir"]);
   });
 
   it("names requests, events and people by their own ids", () => {
@@ -63,6 +84,25 @@ describe("findItem", () => {
   it("doesn't take a role's project for the project's own row", () => {
     const only = shortlist({ projects: [project("saved", "Psalms Zine", { role: role("Copy Editor") })] });
     expect(findItem(only, "project:psalms-zine")).toBeNull();
+  });
+
+  it("finds a free-text row and the project's own row on one project apart", () => {
+    const team = project("team", "Choir", { role: { id: null, title: "Alto", neededBy: null } });
+    const backing = project("backing", "Choir", { backing: { amountCents: 1000, recurring: true } });
+    const both = shortlist({ projects: [team, backing] });
+    expect(findItem(both, "project:choir:member")).toEqual({ type: "project", row: team });
+    expect(findItem(both, "project:choir")).toEqual({ type: "project", row: backing });
+  });
+
+  it("opens an old link to a free-text row, from before it had its own id, when the project has no row of its own", () => {
+    const team = project("team", "Choir", { role: { id: null, title: "Alto", neededBy: null } });
+    expect(findItem(shortlist({ projects: [team] }), "project:choir")).toEqual({ type: "project", row: team });
+  });
+
+  it("finds no free-text row on a project that has none, and no row by a tail it doesn't know", () => {
+    const backing = project("backing", "Choir");
+    expect(findItem(shortlist({ projects: [backing] }), "project:choir:member")).toBeNull();
+    expect(findItem(shortlist({ projects: [backing] }), "project:choir:alto")).toBeNull();
   });
 
   it("finds nothing for an id that isn't on the Shortlist, or isn't an id", () => {
@@ -204,5 +244,68 @@ describe("openInScope", () => {
 
   it("opens nothing for an item that has left the Shortlist", () => {
     expect(openInScope(data, NOW, { view: "shortlist", area: null, kind: null }, "request:answered")).toBeNull();
+  });
+
+  it("gives back the item's own id, so an old link can be put right, and steps from it", () => {
+    const team = project("team", "Choir", { role: { id: null, title: "Alto", neededBy: null }, since: NOW - 2 * DAY });
+    const other = project("team", "Hymns", { role: role("Cellist"), since: NOW - DAY });
+    const opened = openInScope(shortlist({ projects: [team, other] }), NOW, { view: "shortlist", area: "projects", kind: null }, "project:choir");
+    expect(opened?.id).toBe("project:choir:member");
+    expect(opened?.ids).toEqual(["role:cellist", "project:choir:member"]);
+    expect(openInScope(data, NOW, { view: "today" }, "event:open-studio-night")?.id).toBe("event:open-studio-night");
+  });
+});
+
+describe("todayNeedsEventIds", () => {
+  const needs = needsYou(data, NOW);
+
+  it("is the events in the Needs you rows Today shows, and not one further down", () => {
+    expect(needs.length).toBeGreaterThan(NEEDS_SHOWN);
+    expect(needs.map(cardIdOf).slice(0, 4)).toEqual([
+      "role:sound-mixer",
+      "request:hana-cho-hymns-for-the-commons",
+      "event:open-studio-night",
+      "event:printmaking-workshop",
+    ]);
+    // Printmaking is in Needs you, but out of sight on Today: its card may show it.
+    expect(todayNeedsEventIds(needs)).toEqual(["open-studio-night"]);
+  });
+
+  it("is every event Needs you holds when it's three or fewer", () => {
+    const two = shortlist({ events: [event("going", "Open Studio", on(10, 3, 19)), event("hosting", "Zine", on(10, 5, 18))] });
+    expect(todayNeedsEventIds(needsYou(two, NOW))).toEqual(["open-studio", "zine"]);
+  });
+
+  it("is nothing when nothing needs you, or no event does", () => {
+    expect(todayNeedsEventIds([])).toEqual([]);
+    expect(todayNeedsEventIds(needsYou(shortlist({ requests: data.requests }), NOW))).toEqual([]);
+  });
+});
+
+describe("pastSaveIds", () => {
+  const past = () => areaGroups(data, NOW, "events").find((g) => g.key === "past")!;
+
+  it("is the saved events in Past, and only those: going and cancelled are history and stay", () => {
+    expect(past().items.map((item) => item.type === "event" && item.event.relation)).toEqual(["going", "going", "saved"]);
+    expect(pastSaveIds(past())).toEqual(["darkroom-basics"]);
+  });
+
+  it("is every saved event that has ended, hosting and requested left out", () => {
+    const over = shortlist({
+      events: [
+        event("saved", "A", on(9, 1)),
+        event("saved", "B", on(9, 20), { cancelled: true }),
+        event("hosting", "C", on(9, 2)),
+        event("requested", "D", on(9, 3)),
+        event("saved", "Upcoming", on(10, 20)),
+      ],
+    });
+    const group = areaGroups(over, NOW, "events").find((g) => g.key === "past")!;
+    expect(pastSaveIds(group).sort()).toEqual(["a", "b"]);
+  });
+
+  it("is nothing for any group but Past", () => {
+    for (const group of areaGroups(data, NOW, "events").filter((g) => g.key !== "past")) expect(pastSaveIds(group)).toEqual([]);
+    for (const group of areaGroups(data, NOW, "projects")) expect(pastSaveIds(group)).toEqual([]);
   });
 });

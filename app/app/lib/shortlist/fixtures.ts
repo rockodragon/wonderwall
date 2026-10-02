@@ -59,6 +59,7 @@ export function project(
     key: role ? `${relation}:${projectId}:${role.id ?? "member"}` : `${relation}:${projectId}`,
     relation,
     kind: "passion",
+    isGig: false,
     projectId,
     title,
     stage: null,

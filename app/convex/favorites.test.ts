@@ -9,11 +9,13 @@
 
 import { describe, expect, it } from "vitest";
 import {
+  REMOVE_MANY_LIMIT,
   favoriteTargetTypeValidator,
   getFavoriteCount,
   getMyFavorites,
   isFavorited,
   remove,
+  removeMany,
   toggle,
 } from "./favorites";
 
@@ -379,6 +381,50 @@ describe("remove — unsave, and only that", () => {
     await expect(run(remove, makeCtx(world(), null), { targetType: "project", targetId: PROJECT })).rejects.toThrow(
       "Not authenticated",
     );
+  });
+});
+
+describe("removeMany — remove, for several at once", () => {
+  const PAST = ["events:a", "events:b", "events:c"];
+  const saves = (userId = MEMBER) => PAST.map((id) => ({ ...fav("event", id, userId), _id: `favorites:${userId}-${id}` }));
+  const targets = (ids: readonly string[]) => ids.map((targetId) => ({ targetType: "event", targetId }));
+
+  it("removes every save it names in one call, silently, and says how many", async () => {
+    const ctx = makeCtx(world({ favorites: [...saves(), fav("profile", "profiles:owner")] }), MEMBER);
+    expect(await run(removeMany, ctx, { targets: targets(PAST) })).toEqual({ removed: 3 });
+    expect(ctx.store.favorites.map((f: Row) => f.targetId)).toEqual(["profiles:owner"]);
+    expect(ctx.store.notifications).toEqual([]);
+  });
+
+  it("is idempotent: a save already gone, or named twice, is skipped", async () => {
+    const ctx = makeCtx(world({ favorites: saves() }), MEMBER);
+    expect(await run(removeMany, ctx, { targets: targets(["events:a", "events:a", "events:gone"]) })).toEqual({ removed: 1 });
+    expect(await run(removeMany, ctx, { targets: targets(PAST) })).toEqual({ removed: 2 });
+    expect(await run(removeMany, ctx, { targets: targets(PAST) })).toEqual({ removed: 0 });
+    expect(ctx.store.favorites).toEqual([]);
+  });
+
+  it("removes only the member's own saves", async () => {
+    const ctx = makeCtx(world({ favorites: [...saves(OWNER), ...saves()] }), MEMBER);
+    await run(removeMany, ctx, { targets: targets(PAST) });
+    expect(ctx.store.favorites.map((f: Row) => f.userId)).toEqual([OWNER, OWNER, OWNER]);
+  });
+
+  it("takes nothing at all as a no-op", async () => {
+    const ctx = makeCtx(world({ favorites: saves() }), MEMBER);
+    expect(await run(removeMany, ctx, { targets: [] })).toEqual({ removed: 0 });
+    expect(ctx.store.favorites).toHaveLength(3);
+  });
+
+  it(`refuses more than ${REMOVE_MANY_LIMIT} at once, and removes none of them`, async () => {
+    const ctx = makeCtx(world({ favorites: saves() }), MEMBER);
+    const many = targets([...PAST, ...Array.from({ length: REMOVE_MANY_LIMIT }, (_, i) => `events:x${i}`)]);
+    expect(await thrown(run(removeMany, ctx, { targets: many }))).toMatchObject({ code: "too_many" });
+    expect(ctx.store.favorites).toHaveLength(3);
+  });
+
+  it("is for signed-in members only", async () => {
+    await expect(run(removeMany, makeCtx(world(), null), { targets: targets(PAST) })).rejects.toThrow("Not authenticated");
   });
 });
 

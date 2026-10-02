@@ -21,7 +21,7 @@ export const favoriteTargetTypeValidator = v.union(
 export type FavoriteTargetType = Infer<typeof favoriteTargetTypeValidator>;
 
 /** The member's own favorite of one target, or null. The one lookup behind
- * toggle, remove and isFavorited. */
+ * toggle, remove, removeMany and isFavorited. */
 function findFavorite(
   ctx: QueryCtx,
   userId: Id<"users">,
@@ -125,24 +125,62 @@ export const toggle = mutation({
   },
 });
 
+/** Deletes the member's favorite of one target if it's there, and does
+ * nothing if it isn't; true when there was one. Silent, as toggle's unsave
+ * is. The one unsave behind remove and removeMany. */
+async function unsave(
+  ctx: MutationCtx,
+  userId: Id<"users">,
+  target: { targetType: FavoriteTargetType; targetId: string },
+): Promise<boolean> {
+  const existing = await findFavorite(ctx, userId, target);
+  if (existing) await ctx.db.delete(existing._id);
+  return existing !== null;
+}
+
+const targetArgs = {
+  targetType: favoriteTargetTypeValidator,
+  targetId: v.string(),
+};
+
 /** Unsave, unfollow or unheart, and only that: deletes the member's favorite
  * if it's there and does nothing if it isn't. The Shortlist's Remove calls
  * this rather than toggle, so a second press, or one after the save went
  * elsewhere, can't save it again. It never looks at the target, so a save
  * of something since hidden, closed or deleted can always go. */
 export const remove = mutation({
-  args: {
-    targetType: favoriteTargetTypeValidator,
-    targetId: v.string(),
-  },
+  args: targetArgs,
   handler: async (ctx, args) => {
     const userId = await auth.getUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
 
-    const existing = await findFavorite(ctx, userId, args);
-    // Silent, as toggle's unsave is.
-    if (existing) await ctx.db.delete(existing._id);
+    await unsave(ctx, userId, args);
     return { favorited: false };
+  },
+});
+
+/** How many targets one removeMany takes. The Shortlist sends at most its
+ * ended events (shortlist.ts ENDED_EVENTS_KEPT); this bounds a call's work. */
+export const REMOVE_MANY_LIMIT = 100;
+
+/** remove, for several targets in one call: the Shortlist's "Remove past
+ * events". Each goes as remove takes it, one after another, so a target
+ * already gone, or named twice, is skipped and the call can be repeated.
+ * Returns how many were there to remove. */
+export const removeMany = mutation({
+  args: { targets: v.array(v.object(targetArgs)) },
+  handler: async (ctx, { targets }) => {
+    const userId = await auth.getUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+    if (targets.length > REMOVE_MANY_LIMIT) {
+      throw new ConvexError({ code: "too_many", reason: `That's more than ${REMOVE_MANY_LIMIT} at once.` });
+    }
+
+    let removed = 0;
+    for (const target of targets) {
+      if (await unsave(ctx, userId, target)) removed++;
+    }
+    return { removed };
   },
 });
 

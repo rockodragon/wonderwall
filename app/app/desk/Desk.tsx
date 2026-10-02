@@ -20,7 +20,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { useReducedMotion } from "../hooks/useMediaQuery";
-import { cardIdOf, openInScope, type ShortlistScope } from "../components/shortlist/items";
+import { cardIdOf, openInScope, todayNeedsEventIds, type ShortlistScope } from "../components/shortlist/items";
 import type { RowModel } from "../components/shortlist/rowModel";
 import { useShortlist } from "../lib/shortlist/useShortlist";
 import { buildDeskCards, cardsInView, opensAsSheet, type DeskCard } from "./deskCards";
@@ -34,9 +34,11 @@ import { DEFAULT_HEADER_H, Z_DIM, layoutDeskFull, type LayoutCard, type Place } 
 import {
   DESK_VIEW_LABEL,
   SHORTLIST_VIEW,
+  isOpenCard,
   parseDeskView,
   parseShortlistArea,
   parseShortlistKind,
+  stepTo,
   useDeskCommunity,
   useDeskSpacing,
   type DeskCardId,
@@ -110,12 +112,14 @@ export function Desk() {
 
   // ——— Cards ———
 
-  // Events Needs you already lists (rule 2): Today's next-event card skips them.
-  const needsYouEventIds = useMemo(
-    () => (shortlist.status === "ready" ? shortlist.needs.flatMap((item) => (item.type === "event" ? [item.event.eventId] : [])) : NO_IDS),
-    [shortlist],
-  );
+  // Events Today's Needs you rows show (rule 2): its next-event card skips
+  // them. Keyed by the ids, so the clock's minute tick doesn't rebuild the cards.
+  const todayEvents = shortlist.status === "ready" ? todayNeedsEventIds(shortlist.needs).join(" ") : "";
+  const needsYouEventIds = useMemo(() => (todayEvents ? todayEvents.split(" ") : NO_IDS), [todayEvents]);
   const deskCards = useMemo(() => buildDeskCards({ ...input, needsYouEventIds }, community), [input, community, needsYouEventIds]);
+  // Today's card row waits for the Shortlist: which event is next depends on
+  // Needs you, and a card that swaps once it arrives reads as a glitch.
+  const todayHeld = view === "today" && shortlist.status !== "ready";
 
   // A Shortlist item opened as a card, and the list ← / → step through. On
   // Today only Needs you's rows open this way; the rest is the desk's own.
@@ -210,8 +214,9 @@ export function Desk() {
 
   const layoutCards: LayoutCard[] = useMemo(() => {
     const gone = new Set(leaving.map((c) => c.id));
-    return allCards.map((c) => ({ id: c.id, sections: gone.has(c.id) ? [] : c.sections, note: c.note, sheet: opensAsSheet(c) }));
-  }, [allCards, leaving]);
+    // Held, Today's cards wait below the window, as cards of another view do.
+    return allCards.map((c) => ({ id: c.id, sections: gone.has(c.id) || todayHeld ? [] : c.sections, note: c.note, sheet: opensAsSheet(c) }));
+  }, [allCards, leaving, todayHeld]);
   const shownIds = useMemo(() => (browsing ? (shown ?? []).map((c) => c.id) : undefined), [browsing, shown]);
 
   // Today's card row starts under Needs you when Needs you is there.
@@ -268,16 +273,32 @@ export function Desk() {
     [navigate],
   );
 
-  const close = useCallback(() => {
-    if (pushed.current) {
-      navigate(-1);
-      return;
-    }
+  // Given a card, closes it only if it's still the one open: an action that
+  // lands late must not close whatever the member moved on to.
+  const close = useCallback(
+    (only?: DeskCardId) => {
+      if (only && !isOpenCard(paramsRef.current, only)) return;
+      if (pushed.current) {
+        navigate(-1);
+        return;
+      }
+      const next = new URLSearchParams(paramsRef.current);
+      next.delete("card");
+      const qs = next.toString();
+      navigate({ search: qs ? `?${qs}` : "" }, { replace: true });
+    },
+    [navigate],
+  );
+
+  // A link from before a Shortlist card took its own id (items.ts) opens it
+  // under the old one: the URL takes the card's own, so it opens and steps.
+  useEffect(() => {
+    if (!opened || !cardParam || opened.card.id === cardParam) return;
+    if (openedFirst.current === cardParam) openedFirst.current = opened.card.id;
     const next = new URLSearchParams(paramsRef.current);
-    next.delete("card");
-    const qs = next.toString();
-    navigate({ search: qs ? `?${qs}` : "" }, { replace: true });
-  }, [navigate]);
+    next.set("card", opened.card.id);
+    navigate({ search: `?${next.toString()}` }, { replace: true });
+  }, [opened, cardParam, navigate]);
 
   // Once nothing is open, Back is just Back again.
   useEffect(() => {
@@ -287,27 +308,32 @@ export function Desk() {
   const openRow = useCallback((row: RowModel) => open(row.id), [open]);
 
   // ← / → through the list a Shortlist card was opened from. The step
-  // replaces the URL, so Back still closes the card.
+  // replaces the URL, so Back still closes the card. While the card's action
+  // runs, stepping waits (busyCard), so the action lands where it started.
   const stepped = useRef<{ id: string; by: -1 | 1 } | null>(null);
+  const [busyCard, setBusyCard] = useState<DeskCardId | null>(null);
   const stepper: Stepper | undefined = useMemo(() => {
     if (!opened || opened.card.id !== openId) return undefined;
     const { ids } = opened;
-    const index = ids.indexOf(opened.card.id);
+    const id = opened.card.id;
+    const index = ids.indexOf(id);
     if (index < 0 || ids.length < 2) return undefined;
+    const step = { index, total: ids.length, busy: busyCard === id };
     return {
-      index,
-      total: ids.length,
+      ...step,
       arrived: stepped.current?.id === openId ? stepped.current.by : undefined,
+      onBusy: (busy) => setBusyCard((was) => (busy ? id : was === id ? null : was)),
       onStep: (by) => {
-        const to = ids[index + by];
-        if (!to) return;
+        const at = stepTo(step, by);
+        if (at === null) return;
+        const to = ids[at];
         stepped.current = { id: to, by };
         const next = new URLSearchParams(paramsRef.current);
         next.set("card", to);
         navigate({ search: `?${next.toString()}` }, { replace: true });
       },
     };
-  }, [opened, openId, navigate]);
+  }, [opened, openId, busyCard, navigate]);
   const stepRef = useRef(stepper);
   stepRef.current = stepper;
   // A card opened afresh, not stepped to, starts with focus on Close.
@@ -332,8 +358,7 @@ export function Desk() {
         if (!step || e.defaultPrevented || e.altKey || e.metaKey || e.ctrlKey || e.shiftKey || isTyping(e.target)) return;
         if (e.target instanceof Element && e.target.closest(PALETTE_SELECTOR)) return;
         const by = e.key === "ArrowLeft" ? -1 : 1;
-        const to = step.index + by;
-        if (to < 0 || to >= step.total) return;
+        if (stepTo(step, by) === null) return;
         e.preventDefault();
         step.onStep(by);
       }
@@ -342,30 +367,44 @@ export function Desk() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [openId, close]);
 
-  // Hand focus back to the card that was open.
+  // Where focus goes if the open card's row has gone by the time it closes
+  // (its action removed it). Read off the page while the row is still there.
+  const focusNext = useRef<string[]>([]);
+  useLayoutEffect(() => {
+    if (openId) focusNext.current = focusFallbacks(rootRef.current, openId);
+  }, [openId]);
+
+  // Hand focus back to the card that was open; else, its row gone, to a row
+  // beside it or its heading; else (stepped to one with no row on show) to
+  // the one the member opened. A card that's hidden or leaving is inert and
+  // won't take focus, so the next in line does.
   useEffect(() => {
     const was = lastOpen.current;
     lastOpen.current = openId;
-    if (was && !openId) {
-      // The card that was open, else (stepped to one with no row on show)
-      // the one the member opened.
-      for (const id of [was, openedFirst.current]) {
-        if (!id) continue;
-        rootRef.current?.querySelector<HTMLElement>(`[data-desk-card="${CSS.escape(id)}"]`)?.focus({ preventScroll: true });
-        if (document.activeElement?.getAttribute("data-desk-card") === id) break;
-      }
+    if (!was || openId) return;
+    const first = openedFirst.current;
+    for (const selector of [cardSelector(was), ...focusNext.current, ...(first ? [cardSelector(first)] : [])]) {
+      const el = rootRef.current?.querySelector<HTMLElement>(selector);
+      if (!el) continue;
+      el.focus({ preventScroll: true });
+      if (document.activeElement !== el) continue;
+      // A row or heading is in the page's flow: bring it into view if it's
+      // out of it. A card is still flying back to its place, so it's left be.
+      if (el.closest("[data-shortlist-rows]") || el.hasAttribute("data-shortlist-heading")) el.scrollIntoView({ block: "nearest" });
+      break;
     }
   }, [openId]);
 
   // ——— Header and empty view ———
 
-  // How many cards are on show; null while the list is still arriving.
-  const listed = browsing ? browse.cards : loaded ? (shown ?? []) : undefined;
+  // How many cards are on show; null while the list is still arriving (or held).
+  const listed = browsing ? browse.cards : loaded && !todayHeld ? (shown ?? []) : undefined;
   const shownCount = listed ? listed.length : null;
   // What the header counts beside the view's name; Today's include its Needs you rows.
   const count = headerCount(view, listed, shortlist.status === "ready" ? shortlist.needs.map(cardIdOf) : undefined);
-  // The Shortlist has empty states of its own.
-  const empty = shownCount === 0 && !shortlistOn;
+  // The Shortlist has empty states of its own; Today with Needs you rows
+  // isn't empty, even with no cards.
+  const empty = shownCount === 0 && !shortlistOn && !todayNeeds;
   const greeting = greetingFor(new Date().getHours(), profile?.name);
 
   const money = input.formatMoney;
@@ -446,7 +485,7 @@ export function Desk() {
 
       <div
         aria-hidden
-        onClick={close}
+        onClick={() => close()}
         style={{
           position: "absolute",
           inset: 0,
@@ -570,6 +609,39 @@ function useDeskSize(ref: React.RefObject<HTMLElement | null>) {
     return () => ro.disconnect();
   }, [ref]);
   return size;
+}
+
+function cardSelector(id: string): string {
+  return `[data-desk-card="${CSS.escape(id)}"]`;
+}
+
+/** `items` other than the one at `at`, nearest first, the one after before
+ *  the one before. */
+function nearestFirst<T>(items: readonly T[], at: number): T[] {
+  const out: T[] = [];
+  for (let d = 1; d < items.length; d++) {
+    if (at + d < items.length) out.push(items[at + d]);
+    if (at - d >= 0) out.push(items[at - d]);
+  }
+  return out;
+}
+
+/** Where focus goes if card `id`'s Shortlist row is gone when the card
+ *  closes: the rows beside it in its list, then its section's heading, then
+ *  the headings nearest that. As selectors, read while the row is on the
+ *  page; none when the card wasn't opened from a row. */
+function focusFallbacks(root: HTMLElement | null, id: string): string[] {
+  const row = root?.querySelector<HTMLElement>(`[data-shortlist-rows] ${cardSelector(id)}`);
+  const list = row?.closest("[data-shortlist-rows]");
+  if (!root || !row || !list) return [];
+  const rows = [...list.querySelectorAll<HTMLElement>("[data-desk-card]")].map((el) => el.dataset.deskCard ?? "");
+  const headings = [...root.querySelectorAll<HTMLElement>("[data-shortlist-heading]")].map((el) => el.dataset.shortlistHeading ?? "");
+  const own = row.closest("section")?.querySelector<HTMLElement>("[data-shortlist-heading]")?.dataset.shortlistHeading;
+  const at = own === undefined ? -1 : headings.indexOf(own);
+  return [
+    ...nearestFirst(rows, rows.indexOf(id)).map((rowId) => `[data-shortlist-rows] ${cardSelector(rowId)}`),
+    ...(at < 0 ? [] : [headings[at], ...nearestFirst(headings, at)]).map((key) => `[data-shortlist-heading="${CSS.escape(key)}"]`),
+  ];
 }
 
 /** The palette's corner: it sits above the opened card on purpose, so the

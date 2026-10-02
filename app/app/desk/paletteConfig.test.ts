@@ -110,19 +110,19 @@ describe("the Shortlist stack", () => {
     expect(people.trailing).toBe(String(s.summary.people.count));
   });
 
-  it("says how many need you, in the accent, and lights the dot", () => {
+  it("says how many need you, in the accent, and lights the dot with the same words", () => {
     const s = loaded(sampleShortlist());
     expect(s.needs).toBeGreaterThan(0);
     const t = shortlistTool({ shortlist: s });
     expect(t.items[0].trailing).toBe(needYouText(s.needs));
     expect(t.items[0].trailingAccent).toBe(true);
-    expect(t.dot).toBe(true);
+    expect(t.dot).toBe(needYouText(s.needs));
   });
 
   it("says nothing and shows no dot when nothing needs you", () => {
     const t = shortlistTool({ shortlist: loaded(shortlist()) });
     expect(t.items[0].trailing).toBeUndefined();
-    expect(t.dot).toBe(false);
+    expect(t.dot).toBeUndefined();
     // An empty area still reads 0: the rows are there to browse.
     expect(t.items.slice(1).map((i) => i.trailing)).toEqual(["0", "0", "0"]);
   });
@@ -131,7 +131,7 @@ describe("the Shortlist stack", () => {
     const t = shortlistTool({ shortlist: null });
     expect(t.items).toHaveLength(4);
     expect(t.items.map((i) => i.trailing)).toEqual([undefined, undefined, undefined, undefined]);
-    expect(t.dot).toBe(false);
+    expect(t.dot).toBeUndefined();
   });
 });
 

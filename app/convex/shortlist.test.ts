@@ -158,6 +158,7 @@ function row(relation: ProjectRelation, projectId: string, roleId: string | null
     key: roleId ? `${relation}:${projectId}:${roleId}` : `${relation}:${projectId}`,
     relation,
     kind: "passion",
+    isGig: false,
     projectId,
     title: projectId,
     stage: "planning",
@@ -631,6 +632,7 @@ describe("getMine — projects", () => {
       key: "invited:projects:invite:member",
       relation: "invited",
       kind: "paid",
+      isGig: false,
       projectId: "projects:invite",
       title: "Project invite",
       stage: "forming",
@@ -689,6 +691,18 @@ describe("getMine — projects", () => {
       ["projects:mineHidden", 0, null],
     ]);
     expect(data.projects.some((p: ShortlistProject) => p.projectId === "projects:portfolio")).toBe(false);
+  });
+
+  it("flags a recurring gig, the project a gigSeries hangs on, on every row of it, reading the series once", async () => {
+    const w = WORLD();
+    w.gigSeries = [{ _id: "gigSeries:fridays", projectId: "projects:invite", hostUserId: LEAD, status: "open" }];
+    const { data, lookups } = await mine(ME, w);
+    const flags = data.projects.map((p: ShortlistProject) => [p.key, p.isGig]);
+    expect(flags.filter(([, isGig]: [string, boolean]) => isGig)).toEqual([
+      ["invited:projects:invite:member", true],
+      ["backing:projects:invite", true],
+    ]);
+    expect(lookups.filter((l) => l === "gigSeries.by_projectId(projects:invite)")).toHaveLength(1);
   });
 
   it("backing: recurring money shown, an unfinished checkout ignored, since the first", async () => {

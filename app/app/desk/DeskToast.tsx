@@ -2,23 +2,34 @@
 // joined Hymns for the Commons as Cellist." The card that did it has usually
 // closed by then, so the note lives with the desk, not the card. One at a
 // time; a new one replaces the last. Read out politely (role="status").
+//
+// The last note outlives the desk (it's kept here, in the module), so a desk
+// that mounts again, back from another page, would say it again. It's
+// stamped instead: a desk shows only what's left of a note's time, and
+// nothing once that's spent.
 
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { useReducedMotion } from "../hooks/useMediaQuery";
 import { DESK } from "./tokens";
 
 /** How long a note stays up. */
-const SHOW_MS = 2600;
+export const SHOW_MS = 2600;
 
-type Toast = { id: number; text: string };
+/** A note, and when it went up. */
+export type Toast = { id: number; text: string; at: number };
 
 const listeners = new Set<() => void>();
 let current: Toast | null = null;
 
 /** Say `text` at the bottom of the desk. */
 export function showDeskToast(text: string) {
-  current = { id: (current?.id ?? 0) + 1, text };
+  current = { id: (current?.id ?? 0) + 1, text, at: Date.now() };
   listeners.forEach((l) => l());
+}
+
+/** How much longer `toast` stays up, as of `now`: 0 once its time is spent. */
+export function toastTimeLeft(toast: Toast, now: number): number {
+  return Math.max(0, toast.at + SHOW_MS - now);
 }
 
 function subscribe(listener: () => void) {
@@ -33,14 +44,20 @@ export function DeskToast() {
     () => null,
   );
   const reduced = useReducedMotion();
-  const [shown, setShown] = useState<number | null>(null);
+  // The note this desk put up, and whether it's still up (it keeps its words
+  // while it fades). One whose time was spent before the desk mounted never
+  // goes up, nor into the live region.
+  const [shown, setShown] = useState<{ id: number; on: boolean } | null>(null);
   useEffect(() => {
     if (!toast) return;
-    setShown(toast.id);
-    const timer = setTimeout(() => setShown(null), SHOW_MS);
+    const left = toastTimeLeft(toast, Date.now());
+    if (left === 0) return;
+    setShown({ id: toast.id, on: true });
+    const timer = setTimeout(() => setShown({ id: toast.id, on: false }), left);
     return () => clearTimeout(timer);
   }, [toast]);
-  const on = toast !== null && shown === toast.id;
+  const mine = toast !== null && shown !== null && shown.id === toast.id;
+  const on = mine && shown.on;
 
   return (
     // Always in the page, so a screen reader is listening before the words change.
@@ -66,7 +83,7 @@ export function DeskToast() {
         transition: reduced ? "none" : `opacity 250ms ease, transform 300ms ${DESK.ease}`,
       }}
     >
-      {toast?.text}
+      {mine ? toast.text : null}
     </div>
   );
 }

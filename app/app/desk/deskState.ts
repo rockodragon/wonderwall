@@ -86,6 +86,21 @@ export function deskHref(view: DeskView = "all", card?: DeskCardId | null, creat
   return qs ? `${DESK_PATH}?${qs}` : DESK_PATH;
 }
 
+/** Whether `card` is the one the URL has open. A Shortlist action that lands
+ *  after the member closed its card, or stepped to another, closes nothing:
+ *  it only ever closes its own. */
+export function isOpenCard(search: URLSearchParams, card: string): boolean {
+  return search.get("card") === card;
+}
+
+/** Where ← (-1) or → (1) goes in the list an opened card steps through, or
+ *  null: past either end, or while the card's action runs, so the action
+ *  lands on the card it started on. */
+export function stepTo(step: { index: number; total: number; busy?: boolean }, by: -1 | 1): number | null {
+  const to = step.index + by;
+  return step.busy || to < 0 || to >= step.total ? null : to;
+}
+
 // ——————————————————————————————————————————————————————————————
 // The Shortlist's own params
 // ——————————————————————————————————————————————————————————————

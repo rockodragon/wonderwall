@@ -51,9 +51,10 @@ export interface PaletteTool {
   items: PaletteItem[];
   /** Unread count chip on the tool. */
   badge?: number;
-  /** A small accent dot: something on the Shortlist needs you. A dot, not a
+  /** A small accent dot when something on the Shortlist needs you, and the
+   *  words a screen reader hears for it ("4 need you"). A dot, not a
    *  number, so the count chip only ever means messages. */
-  dot?: boolean;
+  dot?: string;
 }
 
 // ——————————————————————————————————————————————————————————————
@@ -199,7 +200,7 @@ export function buildSignedInTools(d: SignedInDeps): PaletteTool[] {
       active: isActive("shortlist"),
       to: shortlistHref(),
       items: shortlistItems(d.shortlist),
-      dot: (d.shortlist?.needs ?? 0) > 0,
+      dot: d.shortlist && d.shortlist.needs > 0 ? needYouText(d.shortlist.needs) : undefined,
     },
     {
       id: "profile",

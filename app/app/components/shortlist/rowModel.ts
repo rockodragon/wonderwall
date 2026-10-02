@@ -4,12 +4,13 @@
 // action. Pure, so the copy for every relation lives in one place and is
 // tested; ShortlistRow.tsx draws it.
 //
-// Dates, names and pay come from the app's own helpers (shortDay,
-// firstNameOf, payText) and the desk's (timeLabel, venueName).
+// Dates, names and pay come from the app's own helpers (shortDay, calendarDay
+// for a role's deadline, firstNameOf, payText) and the desk's (timeLabel,
+// venueName).
 
 import { timeLabel, venueName } from "../../desk/deskCards";
 import type { DeskCardId } from "../../desk/deskState";
-import { shortDay } from "../../lib/dates";
+import { calendarDay, shortDay } from "../../lib/dates";
 import { firstNameOf } from "../../lib/names";
 import { payText } from "../../lib/shortlist/model";
 import { closesAt } from "../../lib/shortlist/needsYou";
@@ -104,8 +105,9 @@ function projectStatus(row: ShortlistProject, money: RowContext["money"]): strin
       return row.backing?.recurring ? `Backing ${money(cents)} recurring` : `Backed ${money(cents)}`;
     }
     case "saved": {
+      // neededBy is a calendar date: calendarDay reads it in UTC, as stored.
       const at = closesAt(row);
-      return at ? `Closes ${shortDay(at)}` : `Saved ${shortDay(row.since)}`;
+      return at ? `Closes ${calendarDay(at)}` : `Saved ${shortDay(row.since)}`;
     }
     case "closed":
       return row.closedReason ? CLOSED[row.closedReason] : "Closed";
