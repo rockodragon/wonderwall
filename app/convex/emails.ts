@@ -5,6 +5,7 @@ import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { getEmailProvider } from "./email/index";
 import { renderNotificationEmail } from "./email/template";
+import { chooseFromName, defaultSenderFor } from "./email/sender";
 
 const emailCategoryValidator = v.union(
   v.literal("activity"),
@@ -13,10 +14,19 @@ const emailCategoryValidator = v.union(
   v.literal("transactional"),
 );
 
+const emailSenderValidator = v.union(v.literal("platform"), v.literal("community"));
+
 /**
  * Send an email notification via the configured provider (Resend, or the
  * console provider when no API key is set — see convex/email/).
  * Called from mutations via ctx.scheduler.runAfter(0, ...).
+ *
+ * `sender` picks the From display name (convex/email/sender.ts): "community"
+ * sends under the community's name (The Garden), "platform" under the
+ * default "TheCreative.exchange". Unset, it follows `category` — activity,
+ * digest and announcements are community; transactional is platform. Pass it
+ * only to break that rule (waitlist approval is transactional but comes from
+ * The Garden). The sending address is the same either way.
  */
 export const sendNotificationEmail = internalAction({
   args: {
@@ -29,6 +39,7 @@ export const sendNotificationEmail = internalAction({
     ctaUrl: v.optional(v.string()),
     category: v.optional(emailCategoryValidator),
     unsubscribeToken: v.optional(v.string()),
+    sender: v.optional(emailSenderValidator),
   },
   handler: async (ctx, args) => {
     const to = args.to.trim().toLowerCase();
@@ -38,6 +49,15 @@ export const sendNotificationEmail = internalAction({
       console.log(`[email] skipping send to suppressed address: ${to}`);
       return;
     }
+
+    // Read The Garden's name from its row so a rename carries over; when it
+    // isn't seeded this is null and the default sender name is kept.
+    const sender = args.sender ?? defaultSenderFor(args.category);
+    const communityName =
+      sender === "community"
+        ? await ctx.runQuery(internal.emailDeliveries.getCommunitySenderName, {})
+        : null;
+    const fromName = chooseFromName({ sender, communityName });
 
     const baseUrl = process.env.SITE_URL || "https://thecreative.exchange";
 
@@ -53,6 +73,7 @@ export const sendNotificationEmail = internalAction({
       ctaUrl: args.ctaUrl,
       baseUrl,
       unsubscribeUrl,
+      brandName: fromName,
     });
 
     // The footer link is the frontend page (SITE_URL). The one-click POST
@@ -76,6 +97,7 @@ export const sendNotificationEmail = internalAction({
       html,
       text,
       headers,
+      fromName,
     });
 
     if (!result.ok) {

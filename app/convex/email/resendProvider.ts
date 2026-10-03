@@ -2,6 +2,7 @@
 
 import { Resend } from "resend";
 import type { EmailMessage, EmailProvider, EmailSendResult } from "./types";
+import { withDisplayName } from "./sender";
 
 const DEFAULT_FROM = "TheCreative.exchange <hello@thecreative.exchange>";
 
@@ -13,7 +14,7 @@ export function createResendProvider(apiKey: string): EmailProvider {
     name: "resend",
     async send(msg: EmailMessage): Promise<EmailSendResult> {
       const { data, error } = await resend.emails.send({
-        from,
+        from: withDisplayName(from, msg.fromName),
         to: [msg.to],
         subject: msg.subject,
         html: msg.html,

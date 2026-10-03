@@ -254,9 +254,15 @@ const NO_TAGS: string[] = [];
 type NearControls = {
   on: boolean;
   loading: boolean;
+  /** Why the last request failed, in plain words; "" when it hasn't. */
   error: string;
+  /** Near me was asked for by a link, not a tap: the row shows a "Use my
+   * location" button, since the browser only prompts for a tap. */
+  ask: boolean;
   radius: number;
   toggle: () => void;
+  /** Ask the browser for the location. Only from a tap. */
+  request: () => void;
   setRadius: (miles: number) => void;
 };
 
@@ -313,15 +319,18 @@ export function useDeskBrowse(view: BrowseView, community: DeskCommunity, fallba
   geoRef.current = geo;
   const scope = onDesk ? `${view}:${tab}` : "off";
   useEffect(() => {
-    if (geoRef.current.nearMe) geoRef.current.toggleNearMe();
+    geoRef.current.resetNearMe();
   }, [scope]);
-  // ?near=1 (the palette's "Meet people near me") turns Near me on, as it
+  // ?near=1 (the palette's "Meet people near me") gets Near me going, as it
   // does on /people, then leaves the URL (replace) so Back and refresh don't
-  // ask for location again.
+  // start it again. An effect is not a tap, so this never asks the browser:
+  // it raises the row's "Use my location" button (or, when the position is
+  // known or already allowed, just turns Near me on). The person's tap on that
+  // button is what asks, so Safari shows its prompt instead of saying no.
   const wantsNear = peopleOn && url.searchParams.get("near") === "1";
   useEffect(() => {
     if (!wantsNear) return;
-    geoRef.current.requestLocation();
+    geoRef.current.askForLocation();
     url.edit((params) => params.delete("near"));
     // The param is the trigger.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -331,11 +340,13 @@ export function useDeskBrowse(view: BrowseView, community: DeskCommunity, fallba
       on: geo.nearMe,
       loading: geo.geoLoading,
       error: geo.geoError,
+      ask: geo.geoAsk,
       radius: geo.radius,
       toggle: geo.toggleNearMe,
+      request: geo.requestLocation,
       setRadius: geo.setRadius,
     });
-  }, [geo.nearMe, geo.geoLoading, geo.geoError, geo.radius, geo.toggleNearMe, geo.setRadius]);
+  }, [geo.nearMe, geo.geoLoading, geo.geoError, geo.geoAsk, geo.radius, geo.toggleNearMe, geo.requestLocation, geo.setRadius]);
   useEffect(() => () => publishNear(null), []);
   const near = useMemo(
     () => (geo.nearMe && geo.userPos ? { pos: geo.userPos, radius: geo.radius } : null),
@@ -426,7 +437,7 @@ export function useDeskBrowse(view: BrowseView, community: DeskCommunity, fallba
   const clearParams = url.clearParams;
   const clear = useCallback(() => {
     clearParams();
-    if (geoRef.current.nearMe) geoRef.current.toggleNearMe();
+    geoRef.current.resetNearMe();
   }, [clearParams]);
 
   // People mixes organizations in, so its count and its empty line say both.
@@ -696,6 +707,7 @@ export function DeskFilterBar({ view }: { view: BrowseView }) {
         : "Search events";
 
   return (
+    <>
     <div
       ref={rootRef}
       role="search"
@@ -712,11 +724,6 @@ export function DeskFilterBar({ view }: { view: BrowseView }) {
               </button>
             ))}
           </div>
-        )}
-        {canNear && near?.error && (
-          <span role="status" className="whitespace-nowrap text-[13.5px] text-[#FF9B8F]">
-            {near.error}
-          </span>
         )}
       </div>
 
@@ -749,6 +756,24 @@ export function DeskFilterBar({ view }: { view: BrowseView }) {
         ))}
         <MenuPillGhost on={false} caption="More" />
       </div>
+    </div>
+      {canNear && near && !near.on && (near.ask || near.error) && <NearNotice near={near} noun={view === "events" ? "events" : "people"} />}
+    </>
+  );
+}
+
+/** What stands between the person and Near me, with the one button that moves
+ * it along. Location can only be asked for by a tap, so a link into Near me
+ * ("Meet people near me") lands here first, and every failure has a "Try
+ * again" instead of a dead end. */
+export function NearNotice({ near, noun }: { near: Pick<NearControls, "ask" | "error" | "loading" | "request">; noun: string }) {
+  const failed = near.error !== "";
+  return (
+    <div role="status" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12, marginTop: 10, fontSize: 14, lineHeight: 1.45, color: DESK.text }}>
+      <span style={{ maxWidth: 560 }}>{failed ? near.error : `Share your location to see ${noun} near you.`}</span>
+      <button type="button" disabled={near.loading} onClick={() => near.request()} className={pillClass(false)}>
+        {near.loading ? "Locating…" : failed ? "Try again" : "Use my location"}
+      </button>
     </div>
   );
 }

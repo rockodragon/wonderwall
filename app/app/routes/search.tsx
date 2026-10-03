@@ -51,22 +51,26 @@ export default function Search() {
     userPos,
     geoError,
     geoLoading,
+    geoAsk,
     radius,
     setRadius,
     requestLocation,
+    askForLocation,
     toggleNearMe,
   } = useNearMe();
 
-  // /people?near=1 (the palette's "Meet people near me") turns Near me on, the
-  // same as pressing the toggle: the browser asks for location, or Near me
-  // stays on if it already is. The param is a one-shot request, so it comes
-  // out of the URL (replace, no history entry) once taken: Back and refresh
-  // don't ask again, and choosing "Meet people near me" a second time sets it
-  // again and fires again.
+  // /people?near=1 (the palette's "Meet people near me") gets Near me going.
+  // An effect is not a tap, and the browser only prompts for location on a
+  // tap (iPad Safari answers "denied" at once otherwise), so this never asks
+  // the browser: it shows "Use my location" below, and that tap asks. If the
+  // position is known or already allowed, Near me just turns on. The param is
+  // a one-shot request, so it comes out of the URL (replace, no history entry)
+  // once taken: Back and refresh don't start it again, and choosing "Meet
+  // people near me" a second time sets it again and fires again.
   const wantsNear = searchParams.get("near") === "1";
   useEffect(() => {
     if (!wantsNear) return;
-    requestLocation();
+    askForLocation();
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev);
@@ -75,7 +79,7 @@ export default function Search() {
       },
       { replace: true },
     );
-    // requestLocation changes when the position arrives; the param is the trigger.
+    // askForLocation changes when the position arrives; the param is the trigger.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wantsNear]);
 
@@ -232,8 +236,21 @@ export default function Search() {
             </div>
           )}
 
-          {geoError && (
-            <p className="text-sm text-red-500 mb-4">{geoError}</p>
+          {/* Why Near me isn't on yet, and the tap that moves it along: location
+              is only ever requested from this button or the Near me toggle. */}
+          {!nearMe && (geoAsk || geoError) && (
+            <div role="status" className="mb-4 flex flex-wrap items-center gap-3 text-sm" style={{ color: "var(--app-text)" }}>
+              <span className="max-w-xl">{geoError || "Share your location to see people near you."}</span>
+              <button
+                type="button"
+                onClick={() => requestLocation()}
+                disabled={geoLoading}
+                className="px-3 py-1.5 rounded-lg border text-sm font-medium transition-colors disabled:opacity-60"
+                style={{ borderColor: "var(--app-accent)", backgroundColor: "var(--app-accent-wash)", color: "var(--app-accent-ink)" }}
+              >
+                {geoLoading ? "Locating…" : geoError ? "Try again" : "Use my location"}
+              </button>
+            </div>
           )}
 
           {/* Filter panel content */}
