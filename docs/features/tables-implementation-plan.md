@@ -1,10 +1,10 @@
 # Tables: IA, architecture, migration, and test plan
 
-Prepared 2026-10-03 on branch `tables`. Table-domain work remains planning; the accompanying application change updates the shared Sophia Grant Fund title. Production data is unchanged.
+Prepared 2026-10-03 on branch `tables`. The MVP is now implemented using Claude’s latest Turn 3 design. See [MVP rollout and handoff](tables-mvp-rollout.md) for shipped behavior, verification, deployment order, compatibility, and deferred work. Production data is unchanged.
 
-The [accepted Tables ADR](../adr/tables-primary-community-container.md) defines the domain direction. This document translates it into the current codebase. Recommendations below are provisional where a product decision remains open.
+The [accepted Tables ADR](../adr/tables-primary-community-container.md) defines the domain direction. This document translates it into the current codebase. The confirmed policies below govern the MVP; remaining phases describe follow-up work.
 
-Codex owns information architecture, domain architecture, reuse, tests, and implementation planning. Claude owns visuals and UX. Coordinate through this contract; avoid concurrent edits to the same route/component files. No design changes are included in this planning pass.
+Codex owns information architecture, domain architecture, reuse, tests, and implementation planning. Claude owns visuals and UX. Coordinate through this contract; avoid concurrent edits to the same route/component files. The implemented UI uses Claude’s Turn 3 design, with shared components and the policies below.
 
 ## Confirmed scope and enrollment rules
 
@@ -49,7 +49,7 @@ Rick confirmed: keep the roster private until guests join. Joining means accepte
 
 This policy keeps discovery useful while protecting the private participation relationship.
 
-## What exists today
+## Baseline before this MVP
 
 | Domain/surface | Implementation | Reconciliation needed |
 | --- | --- | --- |
@@ -61,7 +61,7 @@ This policy keeps discovery useful while protecting the private participation re
 | Paid/community membership | `garden/entitlements.ts`, `garden/capabilities.ts`, `garden/communities.ts` | Different relationship from belonging to a Table. Keep those identities and authorization scopes distinct. |
 | Public routes | `app/app/routes.ts`: `/tables`, `/tables/:slug`, `/offerings`, `/offerings/:offeringId`, `/events`, `/events/:eventId` | Preserve deep links; unify the domain underneath the surfaces before retiring routes. Desk event cards, shortlist, profiles, community pages and share previews are consumers too. |
 
-The live discussion brief and class-payment spec disagree in places with one another and with code. For example, the brief requires community membership for offering a class; the existing mutation requires authentication and, when tagged to a community, `assertCommunityMember`. The creator policy above supersedes the older host-only Table gate and unrestricted offering creation as these objects are reconciled; it is not yet implemented.
+The live discussion brief and class-payment spec disagree in places with one another and with code. For example, the brief requires community membership for offering a class; the existing mutation requires authentication and, when tagged to a community, `assertCommunityMember`. The creator policy above supersedes the older host-only Table gate and unrestricted offering creation as these objects are reconciled; it is now implemented for canonical Tables; legacy writes remain during the additive rollout.
 
 Existing Table roster names are public, while offering signup details are creator/admin-only. An ADR access value such as `invite` does not by itself answer whether the Table, roster, or profile membership is public. Do not inherit one of these contradictory privacy policies accidentally.
 

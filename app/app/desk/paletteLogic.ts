@@ -10,6 +10,7 @@ export type ToolId =
   | "people"
   | "projects"
   | "events"
+  | "tables"
   | "shortlist"
   | "profile"
   | "signin";
@@ -21,7 +22,7 @@ export const PALETTE = {
   button: 56,
   inset: 28,
   tool: 44,
-  radius: 150,
+  radius: 170,
   zone: 280,
   stagger: 35,
   fanMs: 340,
@@ -73,6 +74,7 @@ export function activeToolId(pathname: string, search: string): ToolId | null {
   if (["/people", "/search", "/profile"].some((base) => isUnder(pathname, base))) return "people";
   if (isUnder(pathname, "/projects")) return "projects";
   if (isUnder(pathname, "/events")) return "events";
+  if (isUnder(pathname, "/tables")) return "tables";
   if (["/settings", "/messages"].some((base) => isUnder(pathname, base))) return "profile";
   return null;
 }

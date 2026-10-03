@@ -52,6 +52,9 @@ describe("activeToolId", () => {
     expect(activeToolId("/projects/abc", "")).toBe("projects");
     expect(activeToolId("/events", "?tab=past")).toBe("events");
     expect(activeToolId("/events/abc", "")).toBe("events");
+    expect(activeToolId("/tables", "")).toBe("tables");
+    expect(activeToolId("/tables/new", "")).toBe("tables");
+    expect(activeToolId("/tables/creative-studio", "")).toBe("tables");
     expect(activeToolId("/settings", "?tab=network")).toBe("profile");
     expect(activeToolId("/messages", "")).toBe("profile");
     expect(activeToolId("/messages/xyz", "")).toBe("profile");
@@ -88,7 +91,7 @@ describe("fan geometry", () => {
 
   it("keeps every tool, circle and all, inside the 280px hover zone", () => {
     const centre = PALETTE.inset + PALETTE.button / 2;
-    for (const angle of fanAngles(6)) {
+    for (const angle of fanAngles(7)) {
       const { x, y } = fanOffset(angle);
       expect(centre + x + PALETTE.tool / 2).toBeLessThanOrEqual(PALETTE.zone);
       expect(centre + y + PALETTE.tool / 2).toBeLessThanOrEqual(PALETTE.zone);
@@ -326,5 +329,15 @@ describe("createGrace", () => {
     vi.advanceTimersByTime(500);
     expect(fn).not.toHaveBeenCalled();
     expect(grace.waiting).toBe(false);
+  });
+});
+
+
+describe("seven-tool palette clearance", () => {
+  it("keeps adjacent tools from overlapping with Tables added", () => {
+    const points = fanAngles(7).map((angle) => fanOffset(angle));
+    for (let i = 1; i < points.length; i++) {
+      expect(Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y)).toBeGreaterThanOrEqual(PALETTE.tool);
+    }
   });
 });

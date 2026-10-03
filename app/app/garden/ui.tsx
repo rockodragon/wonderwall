@@ -75,6 +75,7 @@ const ALL_NAV_ITEMS = [
   { to: "/people", label: "People" },
   { to: "/projects", publicTo: "/opportunities", label: "Projects" },
   { to: "/events", publicTo: "/garden/events", label: "Events" },
+  { to: "/tables", label: "Tables" },
   // "Spaces" is /communities (2026-09-14, product decision) — the directory
   // of named groups/hosts. Was briefly pointed at /tables on the reasoning
   // that page's own <title> called itself "Spaces" — that title is now the

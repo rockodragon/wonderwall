@@ -51,6 +51,7 @@ import { SpacingControl } from "./SpacingControl";
 import { DESK, DESK_SANS, FOCUS_RING_CLASS, MOTION_MS, motion, deskSurfaceStyle, useDeskTint } from "./tokens";
 import { useDeskData } from "./useDeskData";
 import { useUpdateReads } from "./useUpdateReads";
+import { DeskTables } from "../tables/DeskTables";
 
 /** Cards that aren't on show wait below the page. Past this many, the extras
  *  aren't drawn at all. */
@@ -497,6 +498,7 @@ export function Desk() {
             />
           ))}
         </div>
+        {view === "all" && <DeskTables inert={!!openId} />}
       </div>
 
       <div

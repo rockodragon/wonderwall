@@ -46,3 +46,5 @@ Earlier eras of the same idea. Their money splits and vocabulary are out of date
 - TheCrossBoard era: [strategic plan](thecrossboard-strategic-plan.md) · [core PRD](prd.md) · [priority brief](priority-brief.md) · [board deck](decks/)
 - The Exchange era: [vision](the-exchange-vision.md) · [MVP](the-exchange-mvp.md) · [discernment brief](the-exchange-discernment-brief.md) · [stakeholder one-pager](the-exchange-stakeholder-one-pager.md)
 - The Garden era: [old P&L](the-garden-pnl.xlsx) (superseded by the financial model) · [triage](triage.md)
+
+- [Tables MVP rollout and handoff](features/tables-mvp-rollout.md) — implemented scope, safe migration, deployment, and follow-up work.

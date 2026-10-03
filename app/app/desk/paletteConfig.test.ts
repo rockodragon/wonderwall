@@ -45,10 +45,10 @@ function tool(tools: PaletteTool[], id: string): PaletteTool {
 const shortlistTool = (over: Partial<SignedInDeps> = {}) => tool(buildSignedInTools(deps(over)), "shortlist");
 
 describe("buildSignedInTools", () => {
-  it("fans six tools, with Shortlist in the Desk tool's old slot", () => {
+  it("fans seven tools including platform-wide Tables", () => {
     const tools = buildSignedInTools(deps());
-    expect(tools.map((t) => t.id)).toEqual(["today", "people", "projects", "events", "shortlist", "profile"]);
-    expect(tools).toHaveLength(fanAngles(6).length);
+    expect(tools.map((t) => t.id)).toEqual(["today", "people", "projects", "events", "tables", "shortlist", "profile"]);
+    expect(tools).toHaveLength(fanAngles(7).length);
   });
 
   it("has no switch to The Exchange while there's one community, and About goes to The Garden's page", () => {
@@ -148,6 +148,6 @@ describe("the Shortlist stack", () => {
 describe("buildSignedOutTools", () => {
   it("has no Shortlist: it needs an account", () => {
     const tools = buildSignedOutTools({ active: null, loginTo: "/login" });
-    expect(tools.map((t) => t.id)).toEqual(["people", "projects", "events", "signin"]);
+    expect(tools.map((t) => t.id)).toEqual(["people", "projects", "events", "tables", "signin"]);
   });
 });

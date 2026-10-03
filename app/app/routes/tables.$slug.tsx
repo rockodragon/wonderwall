@@ -1,128 +1,175 @@
-// /tables/:slug — a single table's public page (spec §1.5): who's on the
-// roster, what's coming up, and the join path. Meeting links only ever
-// appear for roster members (server-enforced in tables.ts's
-// visibleMeetingUrl) — this page just renders whatever the query hands back,
-// it never has the link to withhold on its own.
-
 import { useState } from "react";
-import { useConvexAuth, useMutation, useQuery } from "convex/react";
-import { Link, useParams, useRouteError } from "react-router";
+import { useAction, useMutation, useQuery } from "convex/react";
+import { Link, useParams, useRouteError, useSearchParams } from "react-router";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
-import {
-  DenialPanel,
-  FactRow,
-  GardenErrorState,
-  GardenLoading,
-  GardenPage,
-  SectionLabel,
-  formatDateTime,
-  formatDuration,
-} from "../garden/ui";
-import "../garden/garden.css";
+import { ChairIcon, TablePortrait } from "../tables/TableCard";
+import { GuestRsvp } from "../tables/GuestRsvp";
+import { HostManagement } from "../tables/HostManagement";
+import { AddTableEvent } from "../tables/AddTableEvent";
+import { tableBadge, tablePrice } from "../tables/presentation";
+import "../tables/tables.css";
 
 export function meta() {
-  return [
-    { title: "Table — The Garden" },
-    { name: "robots", content: "noindex" },
-  ];
+  return [{ title: "Table — Creative Exchange" }];
 }
-
 export function ErrorBoundary() {
   useRouteError();
   return (
-    <GardenPage bare>
-      <div style={{ marginTop: 28 }}>
-        <GardenErrorState message="This table isn't live yet — check back soon." />
-      </div>
-    </GardenPage>
+    <main className="tables-page">
+      <h1 className="tables-heading">Table unavailable</h1>
+      <p className="tables-error" role="alert">
+        We couldn't load this Table. Please refresh or{" "}
+        <Link to="/tables">explore Tables</Link>.
+      </p>
+    </main>
   );
 }
 
-const MODE_LINE: Record<string, string> = {
-  open: "Anyone can join, account or not.",
-  member: "A seat gets you a place at it — no walk-ins.",
-  cohort: "A fixed group for a fixed term.",
-};
+export function ParticipationState({
+  action,
+  reason,
+  priceCents,
+  slug,
+  pending,
+  onJoin,
+  onCheckout,
+}: {
+  action: string;
+  reason?: string;
+  priceCents?: number;
+  slug: string;
+  pending: boolean;
+  onJoin: () => void;
+  onCheckout: () => void;
+}) {
+  const price = new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+  }).format((priceCents ?? 0) / 100);
+  if (action === "sign_in")
+    return (
+      <Link
+        className="tables-button"
+        to={`/login?redirect=${encodeURIComponent(`/tables/${slug}`)}`}
+      >
+        Sign in to pull up a chair
+      </Link>
+    );
+  if (action === "joined")
+    return (
+      <p className="tables-status">
+        <ChairIcon /> You have a chair.
+      </p>
+    );
+  if (
+    action === "join" ||
+    action === "request" ||
+    action === "accept_invitation"
+  )
+    return (
+      <button
+        type="button"
+        className="tables-button tables-button-primary"
+        disabled={pending}
+        onClick={onJoin}
+      >
+        <ChairIcon />
+        {pending
+          ? "Saving…"
+          : action === "request"
+            ? "Ask for a chair"
+            : action === "accept_invitation"
+              ? "Take your seat"
+              : "Pull Up a Chair"}
+      </button>
+    );
+  if (action === "checkout")
+    return (
+      <button
+        type="button"
+        className="tables-button tables-button-primary"
+        disabled={pending}
+        onClick={onCheckout}
+      >
+        <ChairIcon />
+        {pending ? "Opening checkout…" : `Pull Up a Chair · ${price}`}
+      </button>
+    );
+  return (
+    <p className="tables-note">
+      {reason ||
+        (action === "membership_required"
+          ? "Membership in this Table's community is required."
+          : action === "full"
+            ? "This Table is full."
+            : action === "closed"
+              ? "Enrollment is closed."
+              : action === "pending"
+                ? "Your request is with the host."
+                : "This Table isn't accepting participation right now.")}
+    </p>
+  );
+}
 
-type Session = {
-  _id: Id<"tableSessions">;
-  title?: string;
-  startsAt: number;
-  durationMins?: number;
-  meetingUrl?: string;
-};
-
-function SessionRow({
+function LegacySession({
   session,
   isMember,
-  isAuthenticated,
 }: {
-  session: Session;
+  session: {
+    _id: Id<"tableSessions">;
+    title?: string;
+    startsAt: number;
+    durationMins?: number;
+    meetingUrl?: string;
+  };
   isMember: boolean;
-  isAuthenticated: boolean;
 }) {
   const rsvpSession = useMutation(api.garden.tables.rsvpSession);
   const [status, setStatus] = useState<"going" | "out" | null>(null);
   const [pending, setPending] = useState(false);
-
-  const duration = formatDuration(session.durationMins);
-
+  const [error, setError] = useState("");
   async function rsvp(next: "going" | "out") {
     setPending(true);
+    setError("");
     try {
       await rsvpSession({ sessionId: session._id, status: next });
       setStatus(next);
-    } catch {
-      // Warm, silent-ish failure — the RSVP just doesn't stick; the button
-      // stays available to try again rather than surfacing a stack trace.
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Could not save your RSVP. Try again.",
+      );
     } finally {
       setPending(false);
     }
   }
-
   return (
-    <div
-      style={{
-        padding: "14px 0",
-        borderBottom: "1px solid var(--g-hairline)",
-      }}
-    >
-      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: 12 }}>
-        <span style={{ fontSize: 14.5, color: "var(--g-paper)" }}>
-          {formatDateTime(session.startsAt)}
-        </span>
-        {duration && (
-          <span className="g-mono" style={{ fontSize: 12.5, color: "var(--g-dim)" }}>
-            {duration}
-          </span>
-        )}
-        {session.title && (
-          <span style={{ fontSize: 14.5, color: "var(--g-muted)" }}>{session.title}</span>
-        )}
-      </div>
-
-      {session.meetingUrl ? (
+    <article className="tables-session">
+      <p className="tables-session-title">{session.title || "Gathering"}</p>
+      <p className="tables-session-detail">
+        {new Date(session.startsAt).toLocaleString(undefined, {
+          dateStyle: "medium",
+          timeStyle: "short",
+        })}
+        {session.durationMins ? ` · ${session.durationMins} minutes` : ""}
+      </p>
+      {session.meetingUrl && (
         <a
+          className="tables-button tables-button-small"
           href={session.meetingUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="g-btn g-btn-citron"
-          style={{ marginTop: 10, display: "inline-block" }}
         >
-          Join link →
+          Join meeting ↗
         </a>
-      ) : (
-        <p className="g-hint" style={{ marginTop: 8 }}>
-          Join link visible to members.
-        </p>
       )}
-
-      {isMember && isAuthenticated && (
-        <div style={{ marginTop: 10, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+      {isMember && (
+        <div className="tables-session-actions">
           <button
             type="button"
-            className="g-btn g-btn-ghost"
+            className="tables-chip"
             disabled={pending}
             aria-pressed={status === "going"}
             onClick={() => rsvp("going")}
@@ -131,179 +178,303 @@ function SessionRow({
           </button>
           <button
             type="button"
-            className="g-btn g-btn-ghost"
+            className="tables-chip"
             disabled={pending}
             aria-pressed={status === "out"}
             onClick={() => rsvp("out")}
           >
             Can't make it
           </button>
-          {status && (
-            <span className="g-hint">
-              {status === "going" ? "You're down as going." : "Marked — you're out."}
-            </span>
-          )}
         </div>
       )}
-    </div>
-  );
-}
-
-function JoinPanel({
-  tableId,
-  mode,
-  priceCents,
-  isMember,
-  canJoin,
-}: {
-  tableId: Id<"gardenTables">;
-  mode: string;
-  priceCents?: number;
-  isMember: boolean;
-  canJoin: { allowed: boolean; reason?: string; upgradePath?: string };
-}) {
-  const { isAuthenticated, isLoading } = useConvexAuth();
-  const joinTable = useMutation(api.garden.tables.joinTable);
-  const [note, setNote] = useState<string | null>(null);
-  const [joining, setJoining] = useState(false);
-
-  if (isLoading) return null;
-
-  if (!isAuthenticated) {
-    return (
-      <Link to="/login" className="g-btn g-btn-ghost">
-        Sign in to join
-      </Link>
-    );
-  }
-
-  if (isMember) {
-    return <p style={{ fontSize: 14.5, color: "var(--g-paper)" }}>You're on the roster.</p>;
-  }
-
-  if (!canJoin.allowed) {
-    return <DenialPanel reason={canJoin.reason} upgradePath={canJoin.upgradePath} />;
-  }
-
-  async function handleJoin() {
-    setJoining(true);
-    try {
-      const result = await joinTable({ tableId });
-      setNote(
-        result.paymentPending
-          ? "Seat held — an operator will follow up on payment."
-          : "Joined.",
-      );
-    } catch (err) {
-      setNote(err instanceof Error ? err.message : "Couldn't join — try again.");
-    } finally {
-      setJoining(false);
-    }
-  }
-
-  const label =
-    mode === "cohort" && priceCents
-      ? `Join — ${(priceCents / 100).toLocaleString(undefined, { style: "currency", currency: "USD" })}`
-      : "Join";
-
-  return (
-    <div>
-      <button className="g-btn g-btn-citron" onClick={handleJoin} disabled={joining}>
-        {joining ? "Joining…" : label}
-      </button>
-      {note && <p style={{ marginTop: 12, fontSize: 14.5, color: "var(--g-citron)" }}>{note}</p>}
-    </div>
+      {error && (
+        <p role="alert" className="tables-error">
+          {error}
+        </p>
+      )}
+    </article>
   );
 }
 
 export default function TableDetailPage() {
   const { slug } = useParams();
+  const [params] = useSearchParams();
   const table = useQuery(api.garden.tables.getTable, slug ? { slug } : "skip");
-  const { isAuthenticated } = useConvexAuth();
-
-  if (table === undefined) {
-    return (
-      <GardenPage bare>
-          <div style={{ marginTop: 28 }}>
-          <GardenLoading />
-        </div>
-      </GardenPage>
-    );
+  const joinTable = useMutation(api.garden.tables.joinTable);
+  const leaveTable = useMutation(api.garden.tables.leaveTable);
+  const checkout = useAction(api.garden.stripe.createTableCheckout);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+  async function join() {
+    if (!table) return;
+    setPending(true);
+    setError("");
+    try {
+      await joinTable({ tableId: table._id });
+      setMessage(
+        table.viewer.action === "request"
+          ? "Your request has been sent to the host."
+          : "Your chair is ready.",
+      );
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "We couldn't join this Table. Please try again.",
+      );
+    } finally {
+      setPending(false);
+    }
   }
-
-  if (table === null) {
-    return (
-      <GardenPage bare>
-          <div style={{ marginTop: 28 }}>
-          <GardenErrorState message="Check the link — this table isn't set up here." />
-        </div>
-      </GardenPage>
-    );
+  async function pay() {
+    if (!table) return;
+    setPending(true);
+    setError("");
+    try {
+      const result = await checkout({ tableId: table._id });
+      if (!result.url)
+        throw new Error("Checkout is unavailable. Please try again.");
+      window.location.assign(result.url);
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "We couldn't open checkout. Please try again.",
+      );
+      setPending(false);
+    }
   }
-
-  return (
-    <GardenPage bare>
-
-      <div style={{ marginTop: 28 }}>
-        {table.format && <span className="g-badge g-badge-line">{table.format}</span>}
-        <h1 className="g-h" style={{ marginTop: 12, fontSize: "clamp(28px,5vw,40px)" }}>
-          {table.name}
-        </h1>
-        {table.program && (
-          <div className="g-credit" style={{ marginTop: 8 }}>
-            <b>{table.program}</b>
-          </div>
-        )}
-        {table.blurb && (
-          <p style={{ marginTop: 16, fontSize: 15, lineHeight: 1.6, maxWidth: "62ch" }}>
-            {table.blurb}
-          </p>
-        )}
-      </div>
-
-      <div style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 10, maxWidth: 460 }}>
-        {table.cadence && <FactRow k="Cadence" v={table.cadence} />}
-        <FactRow k="Mode" v={MODE_LINE[table.mode] ?? table.mode} />
-      </div>
-
-      <div style={{ marginTop: 24 }}>
-        <SectionLabel>Roster</SectionLabel>
-        <p style={{ marginTop: 8, fontSize: 14.5 }}>
-          {table.roster.length === 0
-            ? "No one's joined yet — be the first."
-            : `${table.roster.join(", ")}.`}
+  async function leave() {
+    if (!table) return;
+    setPending(true);
+    setError("");
+    try {
+      await leaveTable({ tableId: table._id });
+      setMessage("You've left this Table.");
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "We couldn't leave this Table. Please try again.",
+      );
+    } finally {
+      setPending(false);
+    }
+  }
+  if (table === undefined)
+    return (
+      <main className="tables-page">
+        <p role="status" className="tables-note">
+          Loading Table…
         </p>
-      </div>
-
-      <div style={{ marginTop: 28 }}>
-        <SectionLabel>Upcoming sessions</SectionLabel>
-        {table.sessions.length === 0 ? (
-          <p style={{ marginTop: 12, fontSize: 14.5 }}>
-            No sessions scheduled yet.
-          </p>
-        ) : (
-          <div style={{ marginTop: 12 }}>
-            {table.sessions.map((s) => (
-              <SessionRow
-                key={s._id}
-                session={s}
-                isMember={table.viewer.isMember}
-                isAuthenticated={isAuthenticated}
-              />
-            ))}
+      </main>
+    );
+  if (!table)
+    return (
+      <main className="tables-page">
+        <h1 className="tables-heading">We couldn't find this Table</h1>
+        <p className="tables-intro">
+          The link may have changed, or this Table may be private.
+        </p>
+        <Link className="tables-button" style={{ marginTop: 24 }} to="/tables">
+          Explore Tables
+        </Link>
+      </main>
+    );
+  return (
+    <main className="tables-page">
+      <Link className="tables-note" to="/tables">
+        ← Find a Table
+      </Link>
+      <div className="tables-detail">
+        <div className="tables-detail-art">
+          <TablePortrait table={table} large joined={table.viewer.isMember} />
+        </div>
+        <div className="tables-detail-copy">
+          <span className="tables-eyebrow">
+            {table.community?.name ?? "Creative Exchange"}
+          </span>
+          <h1 className="tables-heading">{table.name}</h1>
+          <div className="tables-detail-meta">
+            <span className="tables-badge">{tableBadge(table)}</span>
+            <span>{tablePrice(table)}</span>
+            {table.capacity && (
+              <span>
+                {table.spotsRemaining ??
+                  Math.max(0, table.capacity - table.memberCount)}{" "}
+                chairs available
+              </span>
+            )}
           </div>
-        )}
+          {table.host?.name && (
+            <p className="tables-note">
+              {table.hostRoleLabel || "Hosted"} by {table.host.name}
+              {table.community ? (
+                <>
+                  {" "}
+                  ·{" "}
+                  <Link to={`/communities/${table.community.slug}`}>
+                    {table.community.name}
+                  </Link>
+                </>
+              ) : null}
+            </p>
+          )}
+          {(table.description || table.blurb) && (
+            <p className="tables-description">
+              {table.description || table.blurb}
+            </p>
+          )}
+          <section aria-label="Schedule">
+            <h2 className="tables-subheading">Around this Table</h2>
+            {table.events.length ? (
+              table.events.map((event) => (
+                <article key={event._id} className="tables-session">
+                  <div className="tables-session-top">
+                    <p className="tables-session-title">{event.title}</p>
+                    <Link className="tables-note" to={`/events/${event._id}`}>
+                      Event details ↗
+                    </Link>
+                  </div>
+                  <p className="tables-session-detail">
+                    {new Date(event.datetime).toLocaleString(undefined, {
+                      dateStyle: "medium",
+                      timeStyle: "short",
+                    })}
+                    {event.location
+                      ? ` · ${event.location}`
+                      : event.locationType === "online"
+                        ? " · Online"
+                        : ""}
+                  </p>
+                  <p className="tables-note" style={{ marginTop: 8 }}>
+                    RSVP, calendar and joining details are on the Event page.
+                  </p>
+                  {table.viewer.canGuestRsvp && (
+                    <GuestRsvp eventId={event._id} />
+                  )}
+                </article>
+              ))
+            ) : table.sessions.length ? (
+              table.sessions.map((session) => (
+                <LegacySession
+                  key={session._id}
+                  session={session}
+                  isMember={table.viewer.isMember}
+                />
+              ))
+            ) : (
+              <p className="tables-note">No Events are scheduled yet.</p>
+            )}
+          </section>
+          <section aria-label="Table roster">
+            <h2 className="tables-subheading">People at this Table</h2>
+            {table.viewer.canSeeRoster ? (
+              table.rosterProfiles.length ? (
+                <div className="tables-roster">
+                  {table.rosterProfiles.map((person) => (
+                    <Link
+                      className="tables-roster-person"
+                      to={`/profile/${person.profileId}`}
+                      key={person.userId}
+                    >
+                      {person.name}
+                    </Link>
+                  ))}
+                </div>
+              ) : (
+                <p className="tables-note">No participants have joined yet.</p>
+              )
+            ) : (
+              <p className="tables-note">
+                The roster is private. Accepted participants can see one another
+                after joining and satisfying membership and payment
+                requirements.
+              </p>
+            )}
+          </section>
+          <section
+            className="tables-participation tables-participation-sticky"
+            aria-label="Participation"
+          >
+            {table.viewer.action === "checkout" &&
+            table.externalPaymentLinkUrl ? (
+              <>
+                <a
+                  className="tables-button tables-button-primary"
+                  href={table.externalPaymentLinkUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Host signup page ↗
+                </a>
+                <p className="tables-note">
+                  Enrollment is handled by the host. An external signup does not
+                  automatically grant roster access.
+                </p>
+              </>
+            ) : (
+              <ParticipationState
+                action={table.viewer.action}
+                reason={table.viewer.reason}
+                priceCents={table.priceCents}
+                slug={table.slug}
+                pending={pending}
+                onJoin={join}
+                onCheckout={pay}
+              />
+            )}
+            {table.viewer.action === "membership_required" &&
+              table.community && (
+                <Link
+                  className="tables-button"
+                  to={`/communities/${table.community.slug}`}
+                >
+                  View community membership
+                </Link>
+              )}
+            {params.get("paid") === "1" && !table.viewer.isMember && (
+              <p className="tables-note" role="status">
+                We're confirming your payment. Your chair and roster access
+                appear once payment is confirmed.
+              </p>
+            )}
+            {params.get("checkout") === "cancelled" && (
+              <p className="tables-note">
+                Checkout was cancelled. You can return to checkout when you're
+                ready.
+              </p>
+            )}
+            {message && (
+              <p role="status" className="tables-status">
+                {message}
+              </p>
+            )}
+            {error && (
+              <p role="alert" className="tables-error">
+                {error}
+              </p>
+            )}
+            {table.viewer.isMember && !table.viewer.isHost && (
+              <button
+                className="tables-button tables-button-small"
+                type="button"
+                disabled={pending}
+                onClick={leave}
+              >
+                Leave this Table
+              </button>
+            )}
+          </section>
+        </div>
       </div>
-
-      <div style={{ marginTop: 28 }}>
-        <JoinPanel
-          tableId={table._id}
-          mode={table.mode}
-          priceCents={table.priceCents}
-          isMember={table.viewer.isMember}
-          canJoin={table.viewer.canJoin}
-        />
-      </div>
-    </GardenPage>
+      {table.viewer.isHost && (
+        <HostManagement tableId={table._id} events={table.events} />
+      )}
+      {table.viewer.isHost && table.scheduleType === "series" && (
+        <AddTableEvent tableId={table._id} />
+      )}
+    </main>
   );
 }

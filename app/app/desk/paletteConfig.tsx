@@ -11,6 +11,7 @@ import {
   PersonSimple,
   SignIn,
   Sun,
+  UsersThree,
 } from "@phosphor-icons/react";
 import { needYouText } from "../components/shortlist/copy";
 import type { ShortlistSummary } from "../lib/shortlist/model";
@@ -187,8 +188,19 @@ export function buildSignedInTools(d: SignedInDeps): PaletteTool[] {
         { id: "host", label: "Host an event", to: deskHref("events", null, "event") },
       ],
     },
-    // In the slot the Desk tool had: the main button already does what Desk
-    // did, and a seventh tool would crowd the arc.
+    {
+      id: "tables",
+      label: "Tables",
+      header: "Tables",
+      icon: <UsersThree size={TOOL_ICON_SIZE} weight="regular" />,
+      active: isActive("tables"),
+      to: "/tables",
+      items: [
+        { id: "find", label: "Find a Table", to: "/tables" },
+        { id: "mine", label: "Your Tables", to: "/tables?view=mine" },
+        { id: "set", label: "Set a Table", to: "/tables/new" },
+      ],
+    },
     {
       id: "shortlist",
       label: "Shortlist",
@@ -255,6 +267,15 @@ export function buildSignedOutTools(d: SignedOutDeps): PaletteTool[] {
       active: d.active === "events",
       to: events,
       items: [{ id: "browse", label: "Browse events", to: events }],
+    },
+    {
+      id: "tables",
+      label: "Tables",
+      header: "Tables",
+      icon: <UsersThree size={TOOL_ICON_SIZE} weight="regular" />,
+      active: d.active === "tables",
+      to: "/tables",
+      items: [{ id: "find", label: "Find a Table", to: "/tables" }, { id: "set", label: "Set a Table", to: "/tables/new" }],
     },
     {
       id: "signin",

@@ -142,6 +142,7 @@ export default [
     // above; routes/_app.tsx's public-path matcher exempts /tables so a
     // signed-out guest still browses freely instead of bouncing to /login.
     route("tables", "routes/tables._index.tsx"),
+    route("tables/new", "routes/tables.new.tsx"),
     route("tables/:slug", "routes/tables.$slug.tsx"),
   ]),
 
