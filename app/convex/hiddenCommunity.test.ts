@@ -312,18 +312,55 @@ describe("a community's front door", () => {
 describe("joining", () => {
   it("a stranger can't join one they can't see, even with its id", async () => {
     const ctx = asStranger();
-    const err = await thrown(run(joinCommunity, ctx, { hostOrgId: HID }));
+    const err = await thrown(run(joinCommunity, ctx, { hostOrgId: HID, agreed: true }));
     expect(err).toMatchObject({ code: "not_found" });
     expect(ctx.store.communityMembers.filter((m: Row) => m.userId === STRANGER)).toEqual([]);
   });
 
   it("an admin can, which is how a team gets in", async () => {
     const ctx = as(ADMIN);
-    expect(await run(joinCommunity, ctx, { hostOrgId: HID })).toMatchObject({ ok: true, status: "active" });
+    expect(await run(joinCommunity, ctx, { hostOrgId: HID, agreed: true })).toMatchObject({
+      ok: true,
+      status: "active",
+    });
   });
 
   it("an ordinary community is still open to join", async () => {
-    expect(await run(joinCommunity, asStranger(), { hostOrgId: PUB })).toMatchObject({ ok: true });
+    expect(await run(joinCommunity, asStranger(), { hostOrgId: PUB, agreed: true })).toMatchObject({ ok: true });
+  });
+
+  it("nobody joins without agreeing to the agreements", async () => {
+    const ctx = asStranger();
+    const err = await thrown(run(joinCommunity, ctx, { hostOrgId: PUB }));
+    expect(err).toMatchObject({ code: "agreements_required" });
+    expect(ctx.store.communityMembers.filter((m: Row) => m.userId === STRANGER)).toEqual([]);
+  });
+
+  it("records when they agreed", async () => {
+    const ctx = asStranger();
+    await run(joinCommunity, ctx, { hostOrgId: PUB, agreed: true });
+    const row = ctx.store.communityMembers.find((m: Row) => m.userId === STRANGER);
+    expect(typeof row?.agreedAt).toBe("number");
+  });
+
+  it("a member from before agreements agrees later, and the page knows", async () => {
+    const ctx = as(MEMBER);
+    const row = () => ctx.store.communityMembers.find((m: Row) => m.userId === MEMBER && m.hostOrgId === HID);
+    expect(row()?.agreedAt).toBeUndefined();
+    const before = await run(getCommunity, ctx, { slug: "teamtest" });
+    expect(before?.viewer.membership).toMatchObject({ status: "active", agreed: false });
+
+    expect(await run(joinCommunity, ctx, { hostOrgId: HID, agreed: true })).toMatchObject({ alreadyMember: true });
+    expect(typeof row()?.agreedAt).toBe("number");
+    const after = await run(getCommunity, ctx, { slug: "teamtest" });
+    expect(after?.viewer.membership).toMatchObject({ agreed: true });
+  });
+
+  it("an already-member call without agreeing changes nothing", async () => {
+    const ctx = as(MEMBER);
+    await run(joinCommunity, ctx, { hostOrgId: HID });
+    const row = ctx.store.communityMembers.find((m: Row) => m.userId === MEMBER && m.hostOrgId === HID);
+    expect(row?.agreedAt).toBeUndefined();
   });
 });
 

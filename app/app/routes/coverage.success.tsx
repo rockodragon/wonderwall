@@ -144,7 +144,7 @@ export default function CoverageSuccess() {
         )}
 
         <div style={{ marginTop: 22, display: "flex", gap: 12, flexWrap: "wrap" }}>
-          <Link to="/garden" className="g-btn g-btn-ghost">
+          <Link to="/communities/the-garden" className="g-btn g-btn-ghost">
             Back to The Garden
           </Link>
           <Link to="/settings" className="g-btn g-btn-ghost">

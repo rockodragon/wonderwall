@@ -1041,6 +1041,12 @@ export default defineSchema({
     // checkout/migration design, not a field removal).
     isHome: v.optional(v.boolean()),
     joinedAt: v.number(),
+    // When the member agreed to the community's agreements and the
+    // platform's (2026-10-02: every join asks). Set by joinCommunity's
+    // "Agree and join" and by the signup auto-join into The Garden, whose
+    // consent line shows both lists. Unset on rows that predate it, on the
+    // backfill, and on a host's own community.
+    agreedAt: v.optional(v.number()),
   })
     .index("by_hostOrgId", ["hostOrgId"])
     .index("by_userId", ["userId"])

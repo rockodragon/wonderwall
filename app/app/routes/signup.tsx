@@ -8,6 +8,7 @@ import { api } from "../../convex/_generated/api";
 import { normalizePhone } from "../../convex/phone";
 import { normalizeInviteCode } from "../../convex/inviteCode";
 import { ensureOAuthHost } from "../lib/oauthHost";
+import { AgreementsConsent } from "../components/AgreementsConsent";
 import { setPendingIntent } from "../lib/pendingIntent";
 import { isCheckoutSessionId } from "../../convex/garden/ticketLink";
 
@@ -731,17 +732,7 @@ export default function Signup() {
               Google button — because it has to cover whichever one is used.
               Links are public routes on purpose: there is no account yet to
               authenticate, see routes.ts. */}
-          <p className="mt-6 text-center text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
-            By creating an account you agree to our{" "}
-            <Link to="/legal/terms" className="text-blue-600 hover:text-blue-500">
-              Terms of Service
-            </Link>{" "}
-            and{" "}
-            <Link to="/legal/privacy" className="text-blue-600 hover:text-blue-500">
-              Privacy Policy
-            </Link>
-            .
-          </p>
+          <AgreementsConsent lead="By creating an account" className="mt-6" />
 
           <p className="mt-4 text-center text-sm text-gray-600 dark:text-gray-400">
             Already have an account?{" "}

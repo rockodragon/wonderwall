@@ -8,12 +8,25 @@
   - /signup/:inviteSlug, /events/:eventId, /fund/:slug and friends: per-record
     URLs with no stable list to enumerate.
   - /demo/*: a mock world, not the product.
+
+  Communities are listed by hand: add /communities/<slug> when one opens
+  publicly (its page sets its own title, description and canonical).
 -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://thecreative.exchange/</loc>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://thecreative.exchange/communities</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://thecreative.exchange/communities/the-garden</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
   </url>
   <url>
     <loc>https://thecreative.exchange/about/</loc>

@@ -577,7 +577,9 @@ export const getCommunity = query({
         })),
       viewer: {
         isSignedIn: !!userId,
-        membership: mine ? { role: mine.role, status: mine.status, isHome: !!mine.isHome } : null,
+        membership: mine
+          ? { role: mine.role, status: mine.status, isHome: !!mine.isHome, agreed: !!mine.agreedAt }
+          : null,
         canManage: viewerManages,
         isOwner: !!userId && !!org.ownerUserId && String(org.ownerUserId) === String(userId),
         canJoin: decision.alreadyMember
@@ -704,7 +706,10 @@ export const applyToHost = mutation({
 });
 
 export const joinCommunity = mutation({
-  args: { hostOrgId: v.id("hostOrgs") },
+  // `agreed`: the person pressed "Agree and join" under the community's
+  // agreements and the platform's. Optional in the validator so a client
+  // that leaves it out gets the reason below, not a validator error.
+  args: { hostOrgId: v.id("hostOrgs"), agreed: v.optional(v.boolean()) },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new ConvexError({ code: "unauthenticated" });
@@ -718,22 +723,36 @@ export const joinCommunity = mutation({
 
     const existing = await getCommunityMember(ctx, args.hostOrgId, userId);
     const decision = resolveCommunityJoin({ community: org, existing });
-    if (decision.alreadyMember) return { alreadyMember: true, status: existing?.status };
+    if (decision.alreadyMember) {
+      // Already in: agreeing here records it. That's how members who joined
+      // before every join asked get to agree — a link to the community's
+      // agreements, sent in an Update.
+      if (args.agreed === true && existing) await ctx.db.patch(existing._id, { agreedAt: Date.now() });
+      return { alreadyMember: true, status: existing?.status };
+    }
     if (!decision.allowed) {
       throw new ConvexError({ code: "cannot_join", reason: decision.reason });
     }
+    if (args.agreed !== true) {
+      throw new ConvexError({
+        code: "agreements_required",
+        reason: "Agree to the community's agreements to join.",
+      });
+    }
 
     const status = decision.newStatus ?? "active";
+    const now = Date.now();
     if (existing) {
       // A previously removed member rejoining — reuse the row.
-      await ctx.db.patch(existing._id, { status, role: "member", joinedAt: Date.now() });
+      await ctx.db.patch(existing._id, { status, role: "member", joinedAt: now, agreedAt: now });
     } else {
       await ctx.db.insert("communityMembers", {
         hostOrgId: args.hostOrgId,
         userId,
         role: "member",
         status,
-        joinedAt: Date.now(),
+        joinedAt: now,
+        agreedAt: now,
       });
     }
     return { ok: true, status };

@@ -5,6 +5,7 @@
 
 import type { ReactNode } from "react";
 import { Link } from "react-router";
+import { PLATFORM_AGREEMENTS } from "../constants/agreements";
 import { CLAIMS } from "../constants/claims";
 import { FF_V2 } from "../lib/featureFlags";
 import { PAGE_WIDTH } from "../lib/pageWidth";
@@ -22,16 +23,6 @@ export function meta() {
     { property: "og:image", content: "https://thecreative.exchange/og-image.png" },
   ];
 }
-
-/** The platform-wide agreements every community holds in common. Shown on
- * /about and /about/agreements; communities add their own on their page. */
-export const PLATFORM_AGREEMENTS = [
-  "No harassment. No fraud.",
-  "Credit your sources. If AI made any part of the work, say so on it.",
-  "Put your name only on work that's yours.",
-  "Each community can add its own agreements.",
-  "Break these and you lose your account, in every community.",
-];
 
 const AUDIENCES = [
   {
@@ -168,11 +159,7 @@ export default function About() {
 
       <SectionLabel>Community agreements</SectionLabel>
       <AgreementList />
-      <p style={{ margin: "20px 0 0" }}>
-        <Link to="/about/agreements" style={{ color: "var(--garden-citron)", fontSize: 16 }}>
-          Read the agreements →
-        </Link>
-      </p>
+      <p style={{ ...ledeStyle, margin: "20px 0 0" }}>Each community can add its own agreements.</p>
     </AboutShell>
   );
 }

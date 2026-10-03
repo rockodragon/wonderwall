@@ -451,7 +451,7 @@ export default function IAPage() {
           flexWrap: "wrap",
         }}
       >
-        <Link to="/garden" className="g-nav">
+        <Link to="/communities/the-garden" className="g-nav">
           The Garden
         </Link>
         <Link to="/demo/app" className="g-nav">

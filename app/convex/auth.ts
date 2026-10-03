@@ -135,7 +135,9 @@ async function afterUserCreatedOrUpdated(
   }
 
   // Every account is a member of The Garden (garden/defaultCommunity.ts).
-  await joinDefaultCommunity(ctx, userId);
+  // Signup and login show its agreements and the platform's beside every
+  // way in ("By continuing you agree to…"), so this join counts as agreed.
+  await joinDefaultCommunity(ctx, userId, { agreedAt: Date.now() });
 }
 
 async function uniqueUserWithVerifiedEmail(ctx: MutationCtx, email: string) {
