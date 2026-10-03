@@ -16,6 +16,9 @@ export default [
   route("signup", "routes/signup.tsx"),
   route("signup/:inviteSlug", "routes/signup.tsx", { id: "signup-invite" }),
   route("oauth-callback", "routes/oauth-callback.tsx"),
+  // Signed in but not in the invite-only community new accounts join: enter
+  // a member's code or join the waitlist (_app.tsx sends people here).
+  route("invite", "routes/invite.tsx"),
   route("onboarding", "routes/onboarding.tsx"),
   // Organizations (Host-tier pricing/lead-gen page) un-published for V1 —
   // not wired to the real Host/Table data model, see PRD §10

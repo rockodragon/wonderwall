@@ -22,6 +22,8 @@ import {
   type DeskCommunity,
 } from "./deskState";
 import { badgeText, type ToolId } from "./paletteLogic";
+import { FF_V2 } from "../lib/featureFlags";
+import { GARDEN_SLUG } from "../lib/communitySlugs";
 
 const TOOL_ICON_SIZE = 19;
 
@@ -126,13 +128,12 @@ export function buildSignedInTools(d: SignedInDeps): PaletteTool[] {
     {
       id: "about",
       label: `About ${COMMUNITY_LABEL[d.community]}`,
-      to: d.community === "garden" ? "/garden" : "/about",
+      to: d.community === "garden" ? `/communities/${GARDEN_SLUG}` : "/about",
     },
-    {
-      id: "switch",
-      label: `Switch to ${COMMUNITY_LABEL[other]}`,
-      onSelect: () => d.onSwitchCommunity(other),
-    },
+    // No switch to The Exchange while there's one community (FF_V2).
+    ...(FF_V2
+      ? [{ id: "switch", label: `Switch to ${COMMUNITY_LABEL[other]}`, onSelect: () => d.onSwitchCommunity(other) }]
+      : []),
   ];
   if (d.isAdmin) profileItems.push({ id: "admin", label: "Admin", to: "/admin" });
   profileItems.push({ id: "signout", label: "Sign out", onSelect: d.onSignOut });

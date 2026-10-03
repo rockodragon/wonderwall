@@ -5,8 +5,14 @@
 //   npx convex run garden/defaultCommunity:backfillDefaultCommunity '{"dryRun":true}' [--prod]
 //   npx convex run garden/defaultCommunity:backfillSeatCommunity '{"dryRun":true}' [--prod]
 //   npx convex run garden/defaultCommunity:seedCreateSd [--prod]
+//
+// Run the backfill BEFORE switching The Garden to invite-only (joinPolicy
+// "invite"): once it is, joinDefaultCommunity adds nobody — signups join
+// through joinCommunity with their code instead — so the backfill refuses to
+// run rather than skip everyone.
 
 import { v } from "convex/values";
+import { getAuthUserId } from "@convex-dev/auth/server";
 import { internalMutation, internalQuery, query } from "../_generated/server";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
@@ -31,8 +37,10 @@ export async function getDefaultCommunity(ctx: QueryCtx | MutationCtx) {
 }
 
 /** Adds the user to The Garden as an active member. Does nothing when The
- * Garden isn't seeded or the user already has a row — including a
- * "removed" row, so someone a host removed is never quietly re-added.
+ * Garden isn't seeded, when it's invite-only (the new account joins with its
+ * code via communities.ts joinCommunity, which is what checks the code), or
+ * when the user already has a row — including a "removed" row, so someone a
+ * host removed is never quietly re-added.
  * `agreedAt` only when the person saw the agreements: signup and login
  * carry the consent line that lists them (AgreementsConsent.tsx); the
  * backfill doesn't pass it. */
@@ -41,8 +49,10 @@ export async function joinDefaultCommunity(
   userId: Id<"users">,
   opts: { hostOrgId?: Id<"hostOrgs">; agreedAt?: number } = {},
 ): Promise<boolean> {
-  const orgId = opts.hostOrgId ?? (await getDefaultCommunity(ctx))?._id;
-  if (!orgId) return false;
+  const org = opts.hostOrgId ? await ctx.db.get(opts.hostOrgId) : await getDefaultCommunity(ctx);
+  if (!org) return false;
+  if (org.joinPolicy === "invite") return false;
+  const orgId = org._id;
   const existing = await ctx.db
     .query("communityMembers")
     .withIndex("by_hostOrgId_userId", (q) => q.eq("hostOrgId", orgId).eq("userId", userId))
@@ -64,13 +74,32 @@ export async function joinDefaultCommunity(
  * platform's. One default community today. When entry domains route
  * signups (communityDomains.ts resolveEntryCommunity), this and the join in
  * auth.ts change together, so what people read is what they join. Public:
- * there's no account yet. Null when the default isn't seeded. */
+ * there's no account yet. Null when the default isn't seeded.
+ *
+ * `inviteOnly`: the new account doesn't join on its own — signup asks for a
+ * code and joins through joinCommunity. `viewer` tells that page whether
+ * the person is signed in and already in, e.g. someone who signed in with
+ * Google before they had a code. */
 export const getSignupCommunity = query({
   args: {},
   handler: async (ctx) => {
     const org = await getDefaultCommunity(ctx);
     if (!org) return null;
-    return { slug: org.slug, name: org.name, agreements: org.agreements ?? [] };
+    const userId = await getAuthUserId(ctx);
+    const row = userId
+      ? await ctx.db
+          .query("communityMembers")
+          .withIndex("by_hostOrgId_userId", (q) => q.eq("hostOrgId", org._id).eq("userId", userId))
+          .unique()
+      : null;
+    return {
+      id: org._id,
+      slug: org.slug,
+      name: org.name,
+      agreements: org.agreements ?? [],
+      inviteOnly: org.joinPolicy === "invite",
+      viewer: { signedIn: !!userId, isMember: row?.status === "active" },
+    };
   },
 });
 
@@ -84,6 +113,13 @@ export const backfillDefaultCommunity = internalMutation({
   handler: async (ctx, args) => {
     const org = await getDefaultCommunity(ctx);
     if (!org) throw new Error(`"${DEFAULT_COMMUNITY_SLUG}" isn't seeded`);
+    // joinDefaultCommunity adds nobody to an invite-only Garden, so this would
+    // count people as added and add none.
+    if (org.joinPolicy === "invite") {
+      throw new Error(
+        `"${DEFAULT_COMMUNITY_SLUG}" is invite-only — run the backfill while it's still open, then switch it`,
+      );
+    }
 
     const page = await ctx.db
       .query("users")

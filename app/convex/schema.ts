@@ -997,7 +997,7 @@ export default defineSchema({
     ownerUserId: v.optional(v.id("users")), // the host who applied / runs it
     status: v.optional(v.string()), // "pending" | "active" | "declined" | "archived"
     visibility: v.optional(v.string()), // "public" | "unlisted"
-    joinPolicy: v.optional(v.string()), // "open" | "apply"
+    joinPolicy: v.optional(v.string()), // "open" | "apply" | "invite"
     applicantNote: v.optional(v.string()), // "what you already gather" — from the apply form
     approvedAt: v.optional(v.number()),
     // Membership in this community (2026-09-29: tiers and dues are per

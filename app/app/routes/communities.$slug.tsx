@@ -12,7 +12,11 @@ import { useAction, useConvexAuth, useMutation, useQuery } from "convex/react";
 import { ConvexError } from "convex/values";
 import { Link, useParams, useRouteError, useSearchParams } from "react-router";
 import { FF_V2 } from "../lib/featureFlags";
-import { PLATFORM_AGREEMENTS } from "../constants/agreements";
+import { descriptionBlocks, descriptionPlainText } from "../lib/descriptionBlocks";
+import { joinWithInvite } from "../lib/joinWithInvite";
+import { normalizeInviteCode } from "../../convex/inviteCode";
+import { stripInlineMarks } from "../lib/richText";
+import { RichContent } from "../components/RichContent";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { formatDateTime, formatMoney } from "../garden/ui";
@@ -124,6 +128,8 @@ type Community = {
     isOwner: boolean;
     canJoin: { allowed: boolean; reason?: string };
     joinWouldBePending: boolean;
+    /** Invite-only and not a member: a code box instead of the button. */
+    joinNeedsInvite?: boolean;
   };
 };
 
@@ -224,7 +230,11 @@ function JoinControl({ community }: { community: Community }) {
   }
 
   // Not (currently) a member: either free to join, or denied.
-  const { canJoin, joinWouldBePending } = community.viewer;
+  const { canJoin, joinWouldBePending, joinNeedsInvite } = community.viewer;
+
+  if (joinNeedsInvite) {
+    return <InviteCodeJoin community={community} />;
+  }
 
   if (!canJoin.allowed) {
     return (
@@ -256,11 +266,55 @@ function JoinControl({ community }: { community: Community }) {
   );
 }
 
+/** Invite-only: join with a member's code (the server checks it). No code
+ * means the waitlist, which lives on the signup page and /invite. */
+function InviteCodeJoin({ community }: { community: Community }) {
+  const joinCommunity = useMutation(api.garden.communities.joinCommunity);
+  const [code, setCode] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+
+  async function onSubmit(e: FormEvent) {
+    e.preventDefault();
+    const inviteCode = normalizeInviteCode(code);
+    if (!inviteCode) {
+      setNote("Paste a member's invite code.");
+      return;
+    }
+    setBusy(true);
+    setNote(null);
+    const refused = await joinWithInvite(joinCommunity, community._id, inviteCode);
+    if (refused) setNote(refused);
+    setBusy(false);
+  }
+
+  return (
+    <form onSubmit={onSubmit}>
+      <div className="flex items-center gap-2 flex-wrap">
+        <input
+          className={inputClass}
+          style={{ ...inputStyle, width: 180 }}
+          value={code}
+          onChange={(e) => setCode(e.target.value)}
+          placeholder="Invite code"
+          aria-label="Invite code"
+          autoComplete="off"
+        />
+        <button className={btnPrimaryClass} style={btnPrimaryStyle} disabled={busy} type="submit">
+          {busy ? "Joining…" : "Agree and join"}
+        </button>
+      </div>
+      {note && <p className="mt-2.5 text-sm" style={{ color: "var(--garden-body)" }}>{note}</p>}
+    </form>
+  );
+}
+
 // ————— Host tools: edit form + roster —————
 
 const JOIN_POLICIES = [
   { value: "open", label: "Open — anyone can join" },
   { value: "apply", label: "Ask to join — you approve people" },
+  { value: "invite", label: "Invite only — a member's invite code; no code, the waitlist" },
 ] as const;
 const VISIBILITIES = [
   { value: "public", label: "Public — listed in the directory" },
@@ -270,8 +324,9 @@ const VISIBILITIES = [
 function EditCommunityForm({ community }: { community: Community }) {
   const updateCommunity = useMutation(api.garden.communities.updateCommunity);
   const [tagline, setTagline] = useState(community.tagline ?? "");
+  // One description (2026-10-03): no "Why we're here" — the old field
+  // isn't shown anywhere, and saving clears it.
   const [description, setDescription] = useState(community.description ?? "");
-  const [whyHere, setWhyHere] = useState(community.whyHere ?? "");
   const [agreements, setAgreements] = useState((community.agreements ?? []).join("\n"));
   const [locationLabel, setLocationLabel] = useState(community.locationLabel ?? "");
   const [websiteUrl, setWebsiteUrl] = useState(community.websiteUrl ?? "");
@@ -287,9 +342,10 @@ function EditCommunityForm({ community }: { community: Community }) {
     try {
       await updateCommunity({
         hostOrgId: community._id,
-        tagline: tagline.trim() || undefined,
-        description: description.trim() || undefined,
-        whyHere: whyHere.trim() || undefined,
+        // Sent as typed: an empty field clears it (updateCommunity trims).
+        tagline,
+        description,
+        whyHere: "",
         agreements: agreements
           .split("\n")
           .map((a) => a.trim())
@@ -312,6 +368,7 @@ function EditCommunityForm({ community }: { community: Community }) {
       <div>
         <label className={labelClass} style={labelStyle}>Tagline</label>
         <input className={inputClass} style={inputStyle} value={tagline} onChange={(e) => setTagline(e.target.value)} />
+        <Hint>One plain line: who you are.</Hint>
       </div>
       <div className="mt-3.5">
         <label className={labelClass} style={labelStyle}>Description</label>
@@ -320,22 +377,12 @@ function EditCommunityForm({ community }: { community: Community }) {
           style={inputStyle}
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          rows={4}
+          rows={10}
         />
+        <Hint>Why you're here and what you're about. Blank line between paragraphs; **bold**, *italic*, "- " for a list, "## " for a heading, [link](https://…).</Hint>
       </div>
       <div className="mt-3.5">
-        <label className={labelClass} style={labelStyle}>Why we're here</label>
-        <textarea
-          className={`${inputClass} resize-y`}
-          style={inputStyle}
-          value={whyHere}
-          onChange={(e) => setWhyHere(e.target.value)}
-          rows={6}
-        />
-        <Hint>Paragraphs separated by a blank line.</Hint>
-      </div>
-      <div className="mt-3.5">
-        <label className={labelClass} style={labelStyle}>Community agreements</label>
+        <label className={labelClass} style={labelStyle}>Agreements</label>
         <textarea
           className={`${inputClass} resize-y`}
           style={inputStyle}
@@ -343,7 +390,7 @@ function EditCommunityForm({ community }: { community: Community }) {
           onChange={(e) => setAgreements(e.target.value)}
           rows={6}
         />
-        <Hint>One per line. People agree to these, and the platform's, when they join.</Hint>
+        <Hint>One per line. These are what people agree to when they join.</Hint>
       </div>
       <div className="mt-3.5">
         <label className={labelClass} style={labelStyle}>Location</label>
@@ -400,6 +447,7 @@ function MemberRoster({ hostOrgId, isOwner }: { hostOrgId: Id<"hostOrgs">; isOwn
   const [error, setError] = useState<string | null>(null);
   // Two-step inline confirm for "Transfer ownership" — never window.confirm.
   const [confirmTransferId, setConfirmTransferId] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
 
   async function act(userId: string, next: "active" | "removed") {
     setBusyId(userId);
@@ -441,69 +489,119 @@ function MemberRoster({ hostOrgId, isOwner }: { hostOrgId: Id<"hostOrgs">; isOwn
   if (members === undefined) {
     return <Loading label="Loading members…" />;
   }
-  if (members === null || members.length === 0) {
+  if (members === null) {
     return <Hint>No members yet.</Hint>;
+  }
+
+  // Admins listed; everyone else is found by name (2026-10-02 — the whole
+  // member list read as a wall). Pending requests stay listed: they need a
+  // decision.
+  const admins = members.filter((m) => m.status === "active" && (m.role === "host" || m.role === "moderator"));
+  const pending = members.filter((m) => m.status === "pending");
+  const needle = query.trim().toLowerCase();
+  const found = needle
+    ? members
+        .filter((m) => m.status === "active" && m.role === "member" && m.name.toLowerCase().includes(needle))
+        .slice(0, 8)
+    : [];
+
+  function row(m: (typeof admins)[number], actions: ReactNode) {
+    return (
+      <div
+        key={m.userId}
+        className={cellClass}
+        style={{ ...cardStyle, padding: "10px 12px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}
+      >
+        <div>
+          <span className="text-sm font-semibold" style={{ color: "var(--garden-paper)" }}>{m.name}</span>
+          <span className="text-xs ml-2" style={{ color: "var(--garden-dim)" }}>{memberLabel(m)}</span>
+        </div>
+        <div className="flex gap-2 flex-wrap items-center">{actions}</div>
+      </div>
+    );
   }
 
   return (
     <div className="flex flex-col gap-2">
-      {members.map((m) => {
+      {admins.map((m) => {
         const busy = busyId === m.userId;
         const confirmingTransfer = confirmTransferId === m.userId;
-        return (
-          <div
-            key={m.userId}
-            className={cellClass}
-            style={{ ...cardStyle, padding: "10px 12px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}
-          >
-            <div>
-              <span className="text-sm font-semibold" style={{ color: "var(--garden-paper)" }}>{m.name}</span>
-              <span className="text-xs ml-2" style={{ color: "var(--garden-dim)" }}>{memberLabel(m)}</span>
-            </div>
-            <div className="flex gap-2 flex-wrap items-center">
-              {m.role !== "host" && (
+        return row(
+          m,
+          isOwner && !m.isOwner && (
+            <>
+              <button className={btnGhostClass} style={btnGhostStyle} disabled={busy} onClick={() => changeRole(m.userId, "member")}>
+                Remove admin
+              </button>
+              {confirmingTransfer ? (
                 <>
-                  {m.status === "pending" && (
-                    <button className={btnGhostClass} style={btnGhostStyle} disabled={busy} onClick={() => act(m.userId, "active")}>
-                      Approve
-                    </button>
-                  )}
-                  <button className={btnGhostClass} style={btnGhostStyle} disabled={busy} onClick={() => act(m.userId, "removed")}>
-                    Remove
+                  <button className={btnGhostClass} style={btnGhostStyle} disabled={busy} onClick={() => confirmTransfer(m.userId)}>
+                    {busy ? "Transferring…" : "Confirm transfer"}
+                  </button>
+                  <button className={btnGhostClass} style={btnGhostStyle} disabled={busy} onClick={() => setConfirmTransferId(null)}>
+                    Cancel
                   </button>
                 </>
+              ) : (
+                <button className={btnGhostClass} style={btnGhostStyle} disabled={busy} onClick={() => setConfirmTransferId(m.userId)}>
+                  Transfer ownership
+                </button>
               )}
-              {isOwner && !m.isOwner && m.status === "active" && (
-                <>
-                  {m.role === "host" ? (
-                    <button className={btnGhostClass} style={btnGhostStyle} disabled={busy} onClick={() => changeRole(m.userId, "member")}>
-                      Remove admin
-                    </button>
-                  ) : (
-                    <button className={btnGhostClass} style={btnGhostStyle} disabled={busy} onClick={() => changeRole(m.userId, "host")}>
-                      Make admin
-                    </button>
-                  )}
-                  {confirmingTransfer ? (
-                    <>
-                      <button className={btnGhostClass} style={btnGhostStyle} disabled={busy} onClick={() => confirmTransfer(m.userId)}>
-                        {busy ? "Transferring…" : "Confirm transfer"}
-                      </button>
-                      <button className={btnGhostClass} style={btnGhostStyle} disabled={busy} onClick={() => setConfirmTransferId(null)}>
-                        Cancel
-                      </button>
-                    </>
-                  ) : (
-                    <button className={btnGhostClass} style={btnGhostStyle} disabled={busy} onClick={() => setConfirmTransferId(m.userId)}>
-                      Transfer ownership
-                    </button>
-                  )}
-                </>
-              )}
-            </div>
-          </div>
+            </>
+          ),
         );
       })}
+
+      {pending.length > 0 && (
+        <>
+          <div className="text-sm font-semibold mt-3" style={{ color: "var(--garden-paper)" }}>Asking to join</div>
+          {pending.map((m) => {
+            const busy = busyId === m.userId;
+            return row(
+              m,
+              <>
+                <button className={btnGhostClass} style={btnGhostStyle} disabled={busy} onClick={() => act(m.userId, "active")}>
+                  Approve
+                </button>
+                <button className={btnGhostClass} style={btnGhostStyle} disabled={busy} onClick={() => act(m.userId, "removed")}>
+                  Decline
+                </button>
+              </>,
+            );
+          })}
+        </>
+      )}
+
+      <label className="text-sm font-semibold mt-3" style={{ color: "var(--garden-paper)" }} htmlFor="member-search">
+        Find a member
+      </label>
+      <input
+        id="member-search"
+        className={inputClass}
+        style={inputStyle}
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder="Name"
+        autoComplete="off"
+      />
+      {needle && found.length === 0 && <Hint>No member by that name.</Hint>}
+      {found.map((m) => {
+        const busy = busyId === m.userId;
+        return row(
+          m,
+          <>
+            {isOwner && (
+              <button className={btnGhostClass} style={btnGhostStyle} disabled={busy} onClick={() => changeRole(m.userId, "host")}>
+                Make admin
+              </button>
+            )}
+            <button className={btnGhostClass} style={btnGhostStyle} disabled={busy} onClick={() => act(m.userId, "removed")}>
+              Remove
+            </button>
+          </>,
+        );
+      })}
+      {!isOwner && <Hint>Only the owner can make admins.</Hint>}
       {error && <p className="text-xs" style={{ color: "var(--garden-body)" }}>{error}</p>}
     </div>
   );
@@ -1003,7 +1101,7 @@ function HostToolsPanel({ community }: { community: Community }) {
             <EditCommunityForm community={community} />
             <div>
               <div className="text-sm font-semibold mb-2.5" style={{ color: "var(--garden-paper)" }}>
-                Members {community.pendingCount > 0 ? `(${community.pendingCount} pending)` : ""}
+                Admins
               </div>
               <MemberRoster hostOrgId={community._id} isOwner={community.viewer.isOwner} />
             </div>
@@ -1032,19 +1130,10 @@ function HostToolsPanel({ community }: { community: Community }) {
   );
 }
 
-function AgreementGroup({ title, items }: { title: string; items: string[] }) {
-  return (
-    <div className="mt-3">
-      <p className="text-[15px] font-semibold" style={{ color: "var(--garden-paper)" }}>{title}</p>
-      <ul className="mt-1.5 list-disc pl-5 space-y-1.5">
-        {items.map((a, i) => (
-          <li key={i} className="text-[15px] leading-relaxed" style={{ color: "var(--garden-body)" }}>
-            {a}
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
+function CommunityDescription({ text }: { text: string }) {
+  const blocks = descriptionBlocks(text);
+  if (!blocks.length) return null;
+  return <RichContent blocks={blocks} className="mt-4 max-w-[62ch]" />;
 }
 
 /** Search-facing head for a community page, from its record (host tools).
@@ -1057,7 +1146,9 @@ function CommunityHead({ community }: { community: Community }) {
   useEffect(() => {
     document.title = title;
   }, [title]);
-  const description = community.tagline ?? community.description;
+  const description = community.tagline
+    ? stripInlineMarks(community.tagline)
+    : descriptionPlainText(community.description);
   const indexable = community.status === "active" && community.visibility === "public";
   return (
     <>
@@ -1070,8 +1161,8 @@ function CommunityHead({ community }: { community: Community }) {
 
 // ————— Page —————
 
-/** The full community page body: header, why-we're-here, agreements (its
- * own, then the platform's), join/browse row, products, fund link, and
+/** The full community page body: header, description, agreements,
+ * join/browse row, products, fund link, and
  * (for hosts) the host tools panel.
  * Used both by /communities/:slug (below) and by /communities, which shows
  * The Garden's page directly and appends its own `footer` links. */
@@ -1128,7 +1219,7 @@ export function CommunityPage({
       </h1>
       {community.tagline && (
         <p className="mt-2.5 text-[15px] leading-relaxed max-w-[58ch]" style={{ color: "var(--garden-body)" }}>
-          {community.tagline}
+          {stripInlineMarks(community.tagline)}
         </p>
       )}
       {community.websiteUrl && (
@@ -1142,50 +1233,31 @@ export function CommunityPage({
           Website →
         </a>
       )}
-      {community.description && (
-        <p className="mt-4 text-[15px] leading-relaxed max-w-[62ch]" style={{ color: "var(--garden-body)" }}>
-          {community.description}
-        </p>
-      )}
+      {/* One formatted description from host tools — who we are and
+          whatever else the hosts want said. No "why we're here" section
+          (2026-10-03); the old field isn't shown. */}
+      <CommunityDescription text={community.description ?? ""} />
 
-      {community.whyHere && (
-        <div className="mt-7 max-w-[62ch]">
-          <SectionLabel>Why we're here</SectionLabel>
-          <div className="mt-2.5 space-y-3">
-            {community.whyHere.split(/\n\s*\n/).map((para, i) => (
-              <p key={i} className="text-[15px] leading-relaxed" style={{ color: "var(--garden-body)" }}>
-                {para}
-              </p>
+      {/* The community's agreements, exactly as its hosts wrote them in host
+          tools (2026-10-03: no second list from the platform). Shown in
+          full: the join button right below is "Agree and join". */}
+      {community.agreements && community.agreements.length > 0 && (
+        <div id="agreements" className="mt-7 max-w-[62ch] scroll-mt-4">
+          <SectionLabel>Agreements</SectionLabel>
+          <ul className="mt-2.5 list-disc pl-5 space-y-1.5">
+            {community.agreements.map((a, i) => (
+              <li key={i} className="text-[15px] leading-relaxed" style={{ color: "var(--garden-body)" }}>
+                {a}
+              </li>
             ))}
-          </div>
+          </ul>
         </div>
       )}
 
-      {/* The community's agreements, then the platform's, in full — the
-          join button right below is "Agree and join", so everything it
-          agrees to is on the page (2026-10-02). */}
-      <div id="agreements" className="mt-7 max-w-[62ch] scroll-mt-4">
-        <SectionLabel>Agreements</SectionLabel>
-        {community.agreements && community.agreements.length > 0 && (
-          <AgreementGroup title={community.name} items={community.agreements} />
-        )}
-        <AgreementGroup title="Every community on TheCreative.exchange" items={PLATFORM_AGREEMENTS} />
-      </div>
-
-      {/* One row: the membership action, then where to browse. The per-
-          section lists that used to follow (tables, events, projects,
-          classes) duplicated these three links, so the page stops at the
-          links — the filtered list pages are the browse surface. */}
-      <div className="mt-5 flex items-center gap-x-5 gap-y-3 flex-wrap text-[13.5px]">
+      {/* The membership action. The "or browse Projects / Events" links
+          that sat beside it are gone (2026-10-03); the nav has both. */}
+      <div className="mt-5 text-[13.5px]">
         <JoinControl community={community} />
-        <div className="flex items-baseline gap-3.5 flex-wrap">
-          <span style={{ color: "var(--garden-muted)" }}>or browse</span>
-          <Link to={`/projects?community=${community.slug}`} style={{ color: "var(--garden-citron)" }}>Projects →</Link>
-          <Link to={`/events?community=${community.slug}`} style={{ color: "var(--garden-citron)" }}>Events →</Link>
-          {FF_V2 && (
-            <Link to={`/offerings?community=${community.slug}`} style={{ color: "var(--garden-citron)" }}>Classes →</Link>
-          )}
-        </div>
       </div>
 
       {/* Member products are classes and paid extras — not in the launch

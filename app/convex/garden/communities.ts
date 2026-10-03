@@ -15,6 +15,8 @@ import type { MutationCtx, QueryCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { isAdminProfile } from "../helpers";
+import { findInviterProfile } from "../inviteLookup";
+import { isCheckoutSessionId } from "./ticketLink";
 import { can } from "./capabilities";
 import { getGardenUser, throwDenial } from "./entitlements";
 import { eventVisibilityChecker } from "./eventVisibility";
@@ -30,7 +32,9 @@ import { communityVisibility } from "./communityVisibility";
 
 export type CommunityStatus = "pending" | "active" | "declined" | "archived";
 export type CommunityVisibility = "public" | "unlisted";
-export type CommunityJoinPolicy = "open" | "apply";
+// "invite": joining takes a code from a member (inviteAdmits below) — or a
+// ticket to one of the community's events, which stands in for an invite.
+export type CommunityJoinPolicy = "open" | "apply" | "invite";
 export type CommunityRole = "host" | "moderator" | "member";
 
 export const COMMUNITY_KIND = "community";
@@ -104,8 +108,13 @@ export function validateApplication(input: ApplicationInput): { code: string; re
       return { code: "invalid_website", reason: "That website doesn't look like a real URL." };
     }
   }
-  if (input.joinPolicy !== undefined && input.joinPolicy !== "open" && input.joinPolicy !== "apply") {
-    return { code: "invalid_join_policy", reason: 'Join policy is "open" or "apply".' };
+  if (
+    input.joinPolicy !== undefined &&
+    input.joinPolicy !== "open" &&
+    input.joinPolicy !== "apply" &&
+    input.joinPolicy !== "invite"
+  ) {
+    return { code: "invalid_join_policy", reason: 'Join policy is "open", "apply", or "invite".' };
   }
   return null;
 }
@@ -115,14 +124,25 @@ export interface JoinDecision {
   alreadyMember?: boolean;
   /** The communityMembers.status the join should write. */
   newStatus?: "active" | "pending";
+  /** Set when the only thing missing is an invite (joinPolicy "invite" and
+   * the caller has none): the page shows a code box instead of a button. */
+  needsInvite?: boolean;
   reason?: string;
 }
 
+/** What an invite-only community tells someone who has no code. One string
+ * so the page's reason and joinCommunity's invite_required error match. */
+export const INVITE_REQUIRED_REASON = "Joining takes an invite code from a member.";
+
 /** The join decision: community status × join policy × existing row. Pure
- * so getCommunity's viewer.canJoin and joinCommunity's gate can't drift. */
+ * so getCommunity's viewer.canJoin and joinCommunity's gate can't drift.
+ * `hasInvite` means the caller already holds an invite that checked out
+ * (inviteAdmits) — this function only knows whether one is needed, not
+ * whether a given code is good. */
 export function resolveCommunityJoin(args: {
   community: CommunityLike;
   existing: { status: string } | null;
+  hasInvite?: boolean;
 }): JoinDecision {
   const c = normalizeCommunity(args.community);
   if (args.community.kind !== COMMUNITY_KIND) {
@@ -139,6 +159,9 @@ export function resolveCommunityJoin(args: {
           ? "This community is still being set up — it opens once it's approved."
           : "This community isn't open right now.",
     };
+  }
+  if (c.joinPolicy === "invite" && !args.hasInvite) {
+    return { allowed: false, needsInvite: true, reason: INVITE_REQUIRED_REASON };
   }
   return { allowed: true, newStatus: c.joinPolicy === "apply" ? "pending" : "active" };
 }
@@ -257,6 +280,50 @@ export async function getCommunityMember(
     .query("communityMembers")
     .withIndex("by_hostOrgId_userId", (q) => q.eq("hostOrgId", hostOrgId).eq("userId", userId))
     .unique();
+}
+
+export type InviteAdmission =
+  | { ok: true }
+  | { ok: false; code: "invite_invalid"; reason: string };
+
+/** Does this code let `userId` into an invite-only community? Two kinds of
+ * code work:
+ * - a paid event ticket's checkout session id (the /signup/<session id>
+ *   link) — it stands in for an invite. A signup may claim the ticket (set
+ *   rsvp.userId) just before joining, so the RSVP counts if it's unclaimed
+ *   or already this person's; one on someone else's account doesn't.
+ * - a member's invite code, or an admin's waitlist-approval code (same
+ *   lookup as invites.ts), as long as whoever it belongs to is an ACTIVE
+ *   member here — you can't get into a community through someone who isn't
+ *   in it.
+ * Doesn't credit the inviter: redeemBySlug does that, once, at signup. */
+export async function inviteAdmits(
+  ctx: Ctx,
+  org: Doc<"hostOrgs">,
+  code: string,
+  userId: Id<"users">,
+): Promise<InviteAdmission> {
+  if (isCheckoutSessionId(code)) {
+    const rsvp = await ctx.db
+      .query("eventRsvps")
+      .withIndex("by_stripeRef", (q) => q.eq("stripeRef", `ap:${code}`))
+      .first();
+    if (rsvp && !!rsvp.paidCents && (!rsvp.userId || String(rsvp.userId) === String(userId))) {
+      return { ok: true };
+    }
+    return { ok: false, code: "invite_invalid", reason: "That ticket link isn't valid for joining." };
+  }
+
+  const inviter = await findInviterProfile(ctx, code);
+  if (!inviter) {
+    return { ok: false, code: "invite_invalid", reason: "We don't recognise that code." };
+  }
+  const inviterRow = await getCommunityMember(ctx, org._id, inviter.userId);
+  if (!inviterRow || inviterRow.status !== "active") {
+    return { ok: false, code: "invite_invalid", reason: `That code isn't from a member of ${org.name}.` };
+  }
+  // No limit on how many people one code lets in (2026-10-03).
+  return { ok: true };
 }
 
 /** Throws unless `userId` is an ACTIVE member of an ACTIVE community.
@@ -586,6 +653,8 @@ export const getCommunity = query({
           ? { allowed: false, reason: undefined }
           : { allowed: decision.allowed, reason: decision.reason },
         joinWouldBePending: decision.newStatus === "pending",
+        // Not in yet and the door takes a code: show a code box, not a button.
+        joinNeedsInvite: decision.needsInvite === true,
       },
     };
   },
@@ -691,7 +760,9 @@ export const applyToHost = mutation({
       ownerUserId: userId,
       status: "pending",
       visibility: "public",
-      joinPolicy: args.joinPolicy === "apply" ? "apply" : "open",
+      // Passed through as asked — an "invite" request must never quietly
+      // become an open door.
+      joinPolicy: args.joinPolicy === "apply" || args.joinPolicy === "invite" ? args.joinPolicy : "open",
       createdAt: now,
     });
     await ctx.db.insert("communityMembers", {
@@ -709,7 +780,14 @@ export const joinCommunity = mutation({
   // `agreed`: the person pressed "Agree and join" under the community's
   // agreements and the platform's. Optional in the validator so a client
   // that leaves it out gets the reason below, not a validator error.
-  args: { hostOrgId: v.id("hostOrgs"), agreed: v.optional(v.boolean()) },
+  // `inviteCode`: what an invite-only community asks for — a member's code,
+  // an admin's waitlist code, or a ticket's checkout session id (see
+  // inviteAdmits). Ignored by every other community.
+  args: {
+    hostOrgId: v.id("hostOrgs"),
+    agreed: v.optional(v.boolean()),
+    inviteCode: v.optional(v.string()),
+  },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new ConvexError({ code: "unauthenticated" });
@@ -722,13 +800,20 @@ export const joinCommunity = mutation({
     }
 
     const existing = await getCommunityMember(ctx, args.hostOrgId, userId);
-    const decision = resolveCommunityJoin({ community: org, existing });
+    let decision = resolveCommunityJoin({ community: org, existing });
     if (decision.alreadyMember) {
       // Already in: agreeing here records it. That's how members who joined
       // before every join asked get to agree — a link to the community's
       // agreements, sent in an Update.
       if (args.agreed === true && existing) await ctx.db.patch(existing._id, { agreedAt: Date.now() });
       return { alreadyMember: true, status: existing?.status };
+    }
+    if (decision.needsInvite) {
+      const code = args.inviteCode?.trim();
+      if (!code) throw new ConvexError({ code: "invite_required", reason: INVITE_REQUIRED_REASON });
+      const admitted = await inviteAdmits(ctx, org, code, userId);
+      if (!admitted.ok) throw new ConvexError({ code: admitted.code, reason: admitted.reason });
+      decision = resolveCommunityJoin({ community: org, existing, hasInvite: true });
     }
     if (!decision.allowed) {
       throw new ConvexError({ code: "cannot_join", reason: decision.reason });

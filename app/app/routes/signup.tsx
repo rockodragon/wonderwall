@@ -1,6 +1,6 @@
 import { useAuthActions } from "@convex-dev/auth/react";
 import { usePostHog } from "@posthog/react";
-import { useMutation, useQuery } from "convex/react";
+import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import confetti from "canvas-confetti";
@@ -9,6 +9,8 @@ import { normalizePhone } from "../../convex/phone";
 import { normalizeInviteCode } from "../../convex/inviteCode";
 import { ensureOAuthHost } from "../lib/oauthHost";
 import { AgreementsConsent } from "../components/AgreementsConsent";
+import { InviteGate } from "../components/InviteGate";
+import { joinWithInvite } from "../lib/joinWithInvite";
 import { setPendingIntent } from "../lib/pendingIntent";
 import { isCheckoutSessionId } from "../../convex/garden/ticketLink";
 
@@ -46,7 +48,17 @@ export function meta() {
 
 export default function Signup() {
   const { inviteSlug } = useParams();
-  const { signIn } = useAuthActions();
+  const { signIn, signOut } = useAuthActions();
+  const { isAuthenticated } = useConvexAuth();
+
+  /** Someone still signed in (a shared device, a second account) is signed
+   * out before a new account is made. Otherwise the steps that run right
+   * after sign-up — joining with the invite, crediting it — go out on the
+   * old session's token before the new one lands, and land on the wrong
+   * account (seen 2026-10-02). Signed out, they wait for the new one. */
+  async function signOutStaleSession() {
+    if (isAuthenticated) await signOut();
+  }
   const navigate = useNavigate();
   const posthog = usePostHog();
   const [name, setName] = useState("");
@@ -101,11 +113,34 @@ export default function Signup() {
   const redeemInvite = useMutation(api.invites.redeemBySlug);
   const generateSlug = useMutation(api.invites.generateInviteSlug);
   const fillMissingBasics = useMutation(api.profiles.fillMissingBasics);
+  const joinCommunity = useMutation(api.garden.communities.joinCommunity);
+
+  // The community a new account joins. While it's invite-only (2026-10-02)
+  // an account needs a code that opens it: a member's code we found, or an
+  // unclaimed ticket. No code shows InviteGate (code box + waitlist)
+  // instead of the form. The server checks the code again when they join.
+  const signupCommunity = useQuery(api.garden.defaultCommunity.getSignupCommunity, {});
+  const inviteOnly = !!signupCommunity?.inviteOnly;
+  const inviteChecking =
+    !!inviteSlug && (ticketSession ? ticketOpensSignup === undefined : inviterInfo === undefined);
+  const hasInvite = ticketSession ? ticketOpensSignup === true : !!inviterInfo;
+  const needsCode = inviteOnly && !inviteChecking && !hasInvite;
+
+  /** Right after the account exists: join the invite-only community with
+   * the code that opened signup, before crediting it (crediting counts
+   * against the code's limit). A refusal is logged, not shown here: the
+   * app's gate sends them to /invite to try another code. */
+  async function joinSignupCommunity() {
+    if (!inviteOnly || !signupCommunity || !inviteSlug) return;
+    const refused = await joinWithInvite(joinCommunity, signupCommunity.id, inviteSlug);
+    if (refused) posthog?.capture("signup_invite_join_refused", { reason: refused, invite_slug: inviteSlug });
+  }
 
   // Sign-up is open: an invite only credits whoever sent it. The one gate
   // left is a paid ticket's checkout session (one account per ticket).
   // Returns the error message to show, or null when it's fine to proceed.
   function inviteGateError(): string | null {
+    if (inviteOnly && !hasInvite) return "You need an invite code from a member to join.";
     if (!inviteSlug) return null;
     if (ticketSession) {
       if (ticketOpensSignup === undefined) return "Checking your ticket...";
@@ -121,6 +156,7 @@ export default function Signup() {
   // then generateInviteSlug, then on to onboarding — reusing those mutations
   // rather than inventing new ones.
   async function redeemInviteAfterSignIn() {
+    await joinSignupCommunity();
     if (creditSlug && !ticketSession) {
       try {
         await redeemInvite({ slug: creditSlug });
@@ -167,6 +203,7 @@ export default function Signup() {
 
     setPhoneLoading(true);
     try {
+      await signOutStaleSession();
       await signIn("phone", { phone: normalized.value });
       setPhone(normalized.value);
       setPhoneStep("code");
@@ -260,6 +297,7 @@ export default function Signup() {
 
     try {
       // Sign up with password
+      await signOutStaleSession();
       await signIn("password", {
         email,
         password,
@@ -269,6 +307,8 @@ export default function Signup() {
 
       // Wait a moment for Convex auth session to fully establish
       await new Promise((resolve) => setTimeout(resolve, 500));
+
+      await joinSignupCommunity();
 
       // Credit the inviter, when there is one. Never blocks sign-up.
       if (creditSlug && !ticketSession) {
@@ -337,6 +377,7 @@ export default function Signup() {
       // Pass invite slug via redirectTo URL param so it survives OAuth
       // redirect. No invite: oauth-callback still sends a new account to
       // onboarding (new=1 only marks the sign-up path; it isn't read).
+      await signOutStaleSession();
       await signIn("google", {
         redirectTo: creditSlug
           ? `/oauth-callback?invite=${encodeURIComponent(creditSlug)}`
@@ -404,10 +445,17 @@ export default function Signup() {
             className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-lg border border-gray-200 dark:border-gray-700"
           >
             <p className="text-[13.5px] text-gray-700 dark:text-gray-300">
-              That invite link didn't work. You can still sign up.
+              {inviteOnly ? "That invite code didn't work." : "That invite link didn't work. You can still sign up."}
             </p>
           </div>
         )}
+
+        {/* Invite-only and no code that opens it: the code box and the
+            waitlist, not the form. Until we know (the community, or the
+            code's lookup, still loading), nothing — no flash of a form
+            that then disappears. */}
+        {(signupCommunity === undefined || (inviteOnly && inviteChecking)) && <div className="h-64" />}
+        {needsCode && signupCommunity && <InviteGate community={signupCommunity} signedIn={false} />}
 
         {/* Inviter Card */}
         {inviterInfo && (
@@ -488,6 +536,7 @@ export default function Signup() {
         )}
 
         {/* Signup Form */}
+        {signupCommunity !== undefined && !(inviteOnly && inviteChecking) && !needsCode && (
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 p-8">
           <h1
             className={`text-2xl font-bold text-gray-900 dark:text-white ${
@@ -744,13 +793,16 @@ export default function Signup() {
             </Link>
           </p>
         </div>
+        )}
       </div>
     </div>
   );
 }
 
 // ——— Optional invite code ————————————————————————————————————————————————
-// Sign-up is open, so this is only a way to credit whoever sent the code.
+// While sign-up is open, this is only a way to credit whoever sent the
+// code; while the signup community is invite-only, InviteGate takes its
+// place until there's a code.
 // Accepts a bare code or a pasted /signup/<code> link and lands on
 // /signup/<code>, where the inviter card shows (or the "didn't work" note).
 

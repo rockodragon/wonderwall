@@ -8,6 +8,7 @@ import { Reveal } from "../hooks/useReveal";
 import { CLAIMS } from "../constants/claims";
 import { api } from "../../convex/_generated/api";
 import { GARDEN_SLUG } from "../lib/communitySlugs";
+import { stripInlineMarks } from "../lib/richText";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -159,7 +160,7 @@ export default function Home() {
               back it. Partners open their doors. Hosts run the tables where
               it all starts. Nothing here gets made alone.
             </p>
-            {garden?.tagline && <p className="text-[var(--garden-dim)]">{garden.tagline}</p>}
+            {garden?.tagline && <p className="text-[var(--garden-dim)]">{stripInlineMarks(garden.tagline)}</p>}
             <div className="flex items-center gap-6 self-start">
               <Link
                 to="/communities/the-garden"

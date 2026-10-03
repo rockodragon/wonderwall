@@ -34,8 +34,6 @@ export function useInviteLink(variant: "sidebar" | "settings" | "people" | "pale
   const url = inviteLink?.slug ? `${origin}/signup/${inviteLink.slug}` : "";
   // What we show: the same link without the scheme, so it fits and wraps.
   const displayUrl = url.replace(/^https?:\/\//, "");
-  const unlimited = Boolean(inviteLink?.unlimitedInvites);
-  const hasUsesLeft = unlimited || (inviteLink?.remainingUses ?? 0) > 0;
 
   async function copy() {
     if (!url) return;
@@ -48,7 +46,6 @@ export function useInviteLink(variant: "sidebar" | "settings" | "people" | "pale
     posthog?.capture("invite_link_copied", {
       variant,
       invites_used: inviteLink?.usageCount,
-      invites_remaining: unlimited ? "unlimited" : inviteLink?.remainingUses,
     });
     if (copiedTimer.current) clearTimeout(copiedTimer.current);
     copiedTimer.current = setTimeout(() => setCopied(false), 2000);
@@ -75,20 +72,9 @@ export function useInviteLink(variant: "sidebar" | "settings" | "people" | "pale
     inviteLink,
     url,
     displayUrl,
-    unlimited,
-    hasUsesLeft,
     copied,
     copy,
     canShare,
     share,
   };
-}
-
-/** "Unlimited invites" / "3 of 8 invites left" — one phrasing for both surfaces. */
-export function inviteAllowanceLabel(
-  link: { remainingUses: number; currentLimit: number; unlimitedInvites?: boolean } | null | undefined,
-): string {
-  if (!link) return "";
-  if (link.unlimitedInvites) return "Unlimited invites";
-  return `${link.remainingUses} of ${link.currentLimit} invites left`;
 }

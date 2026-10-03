@@ -15,6 +15,7 @@
 //   kind   — Projects only: paid | passion (absent = both)
 
 import { useSyncExternalStore } from "react";
+import { FF_V2 } from "../lib/featureFlags";
 import type { ProjectKind } from "../lib/shortlist/types";
 import type { ShortlistArea } from "../lib/shortlist/url";
 
@@ -167,9 +168,13 @@ function localStore<T>(key: string, parse: (raw: string | null) => T, fallback: 
   return { use, set };
 }
 
+// The Exchange side is behind FF_V2 (Rick, 2026-10-02): with one
+// community, a second place to switch to read as two missions. Anyone who
+// switched before reads The Garden again; their saved choice comes back
+// with FF_V2.
 const communityStore = localStore<DeskCommunity>(
   "desk.community",
-  (raw) => (raw === "exchange" ? "exchange" : "garden"),
+  (raw) => (FF_V2 && raw === "exchange" ? "exchange" : "garden"),
   "garden",
 );
 
