@@ -34,6 +34,19 @@ The public language should also feel native to **The Garden**, rather than impor
 
 Introduce **Table** as the primary community container.
 
+**Scope clarification, 2026-10-03:** Table is a platform-wide domain entity, available to every community. The Garden's public vocabulary and visual metaphor sit on top of this shared model.
+
+Membership eligibility and Table pricing are independent. A Table may be:
+
+| Membership required | Table enrollment price | Participation |
+|---|---|---|
+| No | Free | Join without buying a membership or paying a Table fee. |
+| No | One-off fee | Pay for the Table without buying a membership. |
+| Yes | Free to eligible members | Required membership includes participation in this Table. |
+| Yes | Additional one-off fee | Hold the required membership and pay the Table fee. |
+
+“No membership required” refers to community membership, not to the Table's own participation record. Joining still creates a Table Membership. A paid Table does not automatically become member-only; a member-only Table does not automatically have an additional price. **Membership-gated Tables require membership in their own community** (confirmed 2026-10-03); membership in another community does not qualify. Eligibility and any additional payment are checked independently on the server.
+
 A Table is the persistent group or program that people join.
 
 An Event is a scheduled occurrence associated with a Table.
@@ -43,6 +56,8 @@ The core conceptual model is:
 > **People set Tables. Other people pull up chairs. Tables contain Events.**
 
 A Table is therefore similar to a conventional **group**, but with additional structure around programming, participation, access, scheduling, and payment.
+
+**Creation and launch direction, 2026-10-03:** Free account holders can set free, one-time Tables. Publishing paid or ongoing Tables requires membership in the Table's community; no separate approved-host tier is required. This follows the existing distinction between free Event posting and membership-backed paid/ongoing programming. Guests are permitted only when the Table allows external guests; guest Event participation does not silently create an account-level Table Membership. First-release pricing is free or a fixed one-time payment. Donation and pay-what-you-can pricing remain later options. **Roster privacy is confirmed:** visitors and guest Event RSVPs cannot see the roster; joining with any required acceptance, membership and payment satisfied unlocks participant visibility. Public profiles remain governed by their existing profile visibility; private Table membership is not revealed publicly. See the implementation plan for further privacy recommendations.
 
 Conceptually:
 
@@ -310,7 +325,7 @@ Example:
 
 ## Member Table
 
-Restricted to Garden members or a particular membership level.
+Restricted to members of the Table's own community, at any required membership level. Participation can be included with that membership or require an additional Table fee.
 
 Example:
 
