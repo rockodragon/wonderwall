@@ -13,16 +13,11 @@ export function InviteIcon({ className }: { className?: string }) {
 }
 
 /** Whether one click can copy the invite link. When it can't (still
- *  generating, out of invites, or no clipboard), the invite row goes to
- *  Settings → Network, which says why. Shared by this row and the palette's. */
-export function canCopyInvite(link: {
-  loading: boolean;
-  url: string;
-  hasUsesLeft: boolean;
-}): boolean {
+ *  generating, or no clipboard), the invite row goes to Settings → Network.
+ *  Shared by this row and the palette's. No invite limit (2026-10-03). */
+export function canCopyInvite(link: { loading: boolean; url: string }): boolean {
   return (
     !link.loading &&
-    link.hasUsesLeft &&
     Boolean(link.url) &&
     typeof navigator !== "undefined" &&
     !!navigator.clipboard
@@ -39,11 +34,11 @@ export function inviteRowLabel(copied: boolean): string {
 // invited live on Settings → Network, which the row falls back to when
 // there's no link to copy (canCopyInvite).
 export function InviteCTA() {
-  const { loading, url, hasUsesLeft, copied, copy } = useInviteLink("sidebar");
+  const { loading, url, copied, copy } = useInviteLink("sidebar");
   const rowClass =
     "flex w-full items-center gap-3 px-4 py-2.5 rounded-lg text-[15px] text-left transition-colors hover:bg-[var(--app-hairline)]";
 
-  if (!canCopyInvite({ loading, url, hasUsesLeft })) {
+  if (!canCopyInvite({ loading, url })) {
     return (
       <Link to="/settings?tab=network" className={rowClass} style={{ color: "var(--app-text-muted)" }}>
         <InviteIcon className="w-5 h-5" />
@@ -68,8 +63,8 @@ export function InviteCTA() {
 
 /** "+ Invite" for a page header (People): copies your link in one click. */
 export function InviteButton() {
-  const { loading, url, hasUsesLeft, copied, copy } = useInviteLink("people");
-  if (loading || !hasUsesLeft || !url) return null;
+  const { loading, url, copied, copy } = useInviteLink("people");
+  if (loading || !url) return null;
   return (
     <button
       type="button"

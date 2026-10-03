@@ -25,6 +25,9 @@ describe("normalizeCommunity — legacy rows read as active/public/open", () => 
       joinPolicy: "open",
     });
   });
+  it("keeps an invite-only policy as it is", () => {
+    expect(normalizeCommunity({ kind: "community", joinPolicy: "invite" }).joinPolicy).toBe("invite");
+  });
   it("never overrides a value that is set", () => {
     expect(normalizeCommunity({ kind: "community", status: "pending", joinPolicy: "apply" })).toMatchObject({
       status: "pending",
@@ -82,9 +85,11 @@ describe("validateApplication", () => {
     expect(validateApplication({ name: "ok", websiteUrl: "ftp://x.org" })?.code).toBe("invalid_website");
     expect(validateApplication({ name: "ok", websiteUrl: "  " })).toBeNull();
   });
-  it("only knows two join policies", () => {
-    expect(validateApplication({ name: "ok", joinPolicy: "invite" })?.code).toBe("invalid_join_policy");
-    expect(validateApplication({ name: "ok", joinPolicy: "apply" })).toBeNull();
+  it("knows three join policies: open, apply, invite", () => {
+    for (const joinPolicy of ["open", "apply", "invite"]) {
+      expect(validateApplication({ name: "ok", joinPolicy })).toBeNull();
+    }
+    expect(validateApplication({ name: "ok", joinPolicy: "closed" })?.code).toBe("invalid_join_policy");
   });
 });
 
@@ -98,6 +103,67 @@ describe("resolveCommunityJoin", () => {
   it("apply community: joins as pending, for a host to approve", () => {
     expect(
       resolveCommunityJoin({ community: { ...garden, joinPolicy: "apply" }, existing: null }),
+    ).toEqual({ allowed: true, newStatus: "pending" });
+  });
+  it("invite-only community: no invite means a code is needed, and it says so", () => {
+    expect(
+      resolveCommunityJoin({ community: { ...garden, joinPolicy: "invite" }, existing: null }),
+    ).toEqual({
+      allowed: false,
+      needsInvite: true,
+      reason: "Joining takes an invite code from a member.",
+    });
+  });
+  it("invite-only community: holding an invite joins as active", () => {
+    expect(
+      resolveCommunityJoin({
+        community: { ...garden, joinPolicy: "invite" },
+        existing: null,
+        hasInvite: true,
+      }),
+    ).toEqual({ allowed: true, newStatus: "active" });
+  });
+  it("invite-only community: a removed member needs an invite to come back", () => {
+    const community = { ...garden, joinPolicy: "invite" };
+    expect(resolveCommunityJoin({ community, existing: { status: "removed" } }).needsInvite).toBe(true);
+    expect(
+      resolveCommunityJoin({ community, existing: { status: "removed" }, hasInvite: true }),
+    ).toEqual({ allowed: true, newStatus: "active" });
+  });
+  it("invite-only community: members are unaffected, with or without an invite", () => {
+    const community = { ...garden, joinPolicy: "invite" };
+    for (const status of ["active", "pending"]) {
+      const d = resolveCommunityJoin({ community, existing: { status } });
+      expect(d).toEqual({ allowed: true, alreadyMember: true });
+    }
+  });
+  it("invite-only community that isn't open yet reports that, not a missing code", () => {
+    const d = resolveCommunityJoin({
+      community: { ...garden, joinPolicy: "invite", status: "pending" },
+      existing: null,
+    });
+    expect(d.allowed).toBe(false);
+    expect(d.needsInvite).toBeUndefined();
+    expect(d.reason).toMatch(/approved/);
+  });
+  it("an invite doesn't open a community that's closed or isn't a community", () => {
+    const community = { ...garden, joinPolicy: "invite" };
+    expect(
+      resolveCommunityJoin({ community: { ...community, status: "archived" }, existing: null, hasInvite: true })
+        .allowed,
+    ).toBe(false);
+    expect(
+      resolveCommunityJoin({ community: { kind: "org", joinPolicy: "invite" }, existing: null, hasInvite: true })
+        .allowed,
+    ).toBe(false);
+  });
+  it("an invite changes nothing on an open or apply community", () => {
+    expect(resolveCommunityJoin({ community: garden, existing: null, hasInvite: true })).toEqual({
+      allowed: true,
+      newStatus: "active",
+    });
+    expect(
+      resolveCommunityJoin({ community: { ...garden, joinPolicy: "apply" }, existing: null, hasInvite: true }),
     ).toEqual({ allowed: true, newStatus: "pending" });
   });
   it("already a member (active or pending) is an idempotent yes", () => {

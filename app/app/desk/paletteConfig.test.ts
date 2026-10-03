@@ -51,6 +51,16 @@ describe("buildSignedInTools", () => {
     expect(tools).toHaveLength(fanAngles(6).length);
   });
 
+  it("has no switch to The Exchange while there's one community, and About goes to The Garden's page", () => {
+    const profile = tool(buildSignedInTools(deps()), "profile");
+    const items = profile.items ?? [];
+    expect(items.map((i) => i.id)).not.toContain("switch");
+    expect(items.find((i) => i.id === "about")).toMatchObject({
+      label: "About The Garden",
+      to: "/communities/the-garden",
+    });
+  });
+
   it("gives Shortlist the bookmark, and sends its click to the Shortlist", () => {
     const t = shortlistTool();
     expect(t.label).toBe("Shortlist");

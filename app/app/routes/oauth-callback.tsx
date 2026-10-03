@@ -5,11 +5,15 @@ import { useConvexAuth } from "convex/react";
 import { usePostHog } from "@posthog/react";
 import { isCheckoutSessionId } from "../../convex/garden/ticketLink";
 import { api } from "../../convex/_generated/api";
+import { joinWithInvite } from "../lib/joinWithInvite";
 
 /**
  * OAuth callback handler for Google sign-up flow.
- * With an invite slug in the URL: redeems the invite and goes to onboarding.
- * Without one: a new account goes to onboarding, anyone else to /today.
+ * With an invite slug in the URL: joins the signup community with it when
+ * that's invite-only, redeems the invite and goes to onboarding (or to
+ * /invite if the code was refused).
+ * Without one: a new account goes to onboarding — or /invite while the
+ * signup community is invite-only — anyone else to /today.
  */
 export default function OAuthCallback() {
   const [searchParams] = useSearchParams();
@@ -18,6 +22,12 @@ export default function OAuthCallback() {
   const { isAuthenticated, isLoading } = useConvexAuth();
   const redeemInvite = useMutation(api.invites.redeemBySlug);
   const generateSlug = useMutation(api.invites.generateInviteSlug);
+  const joinCommunity = useMutation(api.garden.communities.joinCommunity);
+  // The community a new account joins. While it's invite-only, the code
+  // that opened signup is what gets them in (joinWithInvite); without one,
+  // or if it's refused, they go to /invite instead of onboarding.
+  const signupCommunity = useQuery(api.garden.defaultCommunity.getSignupCommunity, isAuthenticated ? {} : "skip");
+  const handledInvite = useRef(false);
   const [status, setStatus] = useState<"loading" | "processing" | "error">(
     "loading",
   );
@@ -43,6 +53,10 @@ export default function OAuthCallback() {
       return;
     }
 
+    // Wait for the signup community: it decides whether a code is needed.
+    if (signupCommunity === undefined) return;
+    const inviteOnly = !!signupCommunity?.inviteOnly;
+
     if (!inviteSlug) {
       // undefined = still loading; null/no primaryRole = new account.
       if (profile === undefined || handledNoInvite.current) return;
@@ -63,14 +77,32 @@ export default function OAuthCallback() {
             error: err instanceof Error ? err.message : "Unknown error",
           });
         }
-        navigate("/onboarding", { replace: true });
+        navigate(inviteOnly ? "/invite" : "/onboarding", { replace: true });
       })();
       return;
     }
 
+    if (handledInvite.current) return;
+    handledInvite.current = true;
+
     // Process the invite for new OAuth signups
     async function processInvite() {
       setStatus("processing");
+
+      // Join first: crediting the invite counts against its limit.
+      if (inviteOnly && signupCommunity) {
+        const refused = await joinWithInvite(joinCommunity, signupCommunity.id, inviteSlug!);
+        if (refused) {
+          posthog?.capture("oauth_invite_join_refused", { reason: refused, invite_slug: inviteSlug });
+          try {
+            await generateSlug({});
+          } catch {
+            // Their own link can wait; /invite comes first.
+          }
+          navigate("/invite", { replace: true });
+          return;
+        }
+      }
 
       try {
         // Redeem the invite
@@ -110,6 +142,8 @@ export default function OAuthCallback() {
     navigate,
     redeemInvite,
     generateSlug,
+    joinCommunity,
+    signupCommunity,
     posthog,
   ]);
 

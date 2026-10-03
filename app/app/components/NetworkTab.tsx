@@ -2,7 +2,7 @@ import { useQuery } from "convex/react";
 import { useState } from "react";
 import { Link } from "react-router";
 import { api } from "../../convex/_generated/api";
-import { inviteAllowanceLabel, useInviteLink } from "../lib/useInviteLink";
+import { useInviteLink } from "../lib/useInviteLink";
 
 // Settings → Network: your invite link (in full, copy/share) and the
 // people behind the "N in network" count — who invited you, who you
@@ -82,9 +82,7 @@ export function NetworkTab() {
 function InviteLinkPanel() {
   const {
     loading,
-    inviteLink,
     url,
-    hasUsesLeft,
     copied,
     copy,
     canShare,
@@ -104,11 +102,6 @@ function InviteLinkPanel() {
       {loading ? (
         <p className="text-sm" style={{ color: "var(--app-text-dim)" }}>
           Getting your link…
-        </p>
-      ) : !hasUsesLeft ? (
-        <p className="text-sm" style={{ color: "var(--app-text-dim)" }}>
-          You've used all {inviteLink?.currentLimit} invites. More unlock as
-          the people you invited join and invite others.
         </p>
       ) : (
         <>
@@ -144,9 +137,6 @@ function InviteLinkPanel() {
                 Share…
               </button>
             )}
-            <span className="text-xs" style={{ color: "var(--app-text-dim)" }}>
-              {inviteAllowanceLabel(inviteLink)}
-            </span>
           </div>
         </>
       )}

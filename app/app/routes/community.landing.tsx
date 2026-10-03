@@ -15,6 +15,9 @@ import { useParams } from "react-router";
 import { api } from "../../convex/_generated/api";
 import { CommunityPage } from "./communities.$slug";
 import NotFound from "./404";
+import { RichContent } from "../components/RichContent";
+import { descriptionBlocks } from "../lib/descriptionBlocks";
+import { stripInlineMarks } from "../lib/richText";
 
 export function meta() {
   return [{ title: "TheCreative.exchange" }];
@@ -97,14 +100,10 @@ function ComingSoon({
         </h1>
         {landing.tagline && (
           <p style={{ color: "var(--garden-body)", fontSize: 18, margin: "14px 0 0" }}>
-            {landing.tagline}
+            {stripInlineMarks(landing.tagline)}
           </p>
         )}
-        {landing.description && (
-          <p style={{ color: "var(--garden-body)", fontSize: 16, lineHeight: 1.6, margin: "14px 0 0" }}>
-            {landing.description}
-          </p>
-        )}
+        <RichContent blocks={descriptionBlocks(landing.description)} style={{ marginTop: 14 }} />
 
         <section
           className="rounded-xl"

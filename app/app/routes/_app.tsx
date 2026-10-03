@@ -157,8 +157,28 @@ export default function AppLayout() {
   // "You're in". They go through onboarding on their next visit anywhere else.
   const mustOnboard = needsOnboarding(profile);
   const onEventPage = location.pathname.startsWith("/events/");
+
+  // While the community new accounts join is invite-only (2026-10-02),
+  // someone signed in who isn't in it — a Google sign-up without a code, a
+  // refused code, a tab closed mid-signup — goes to /invite before anything
+  // else, onboarding included. Never a platform admin (nobody locks the
+  // operators out), and not on an event page, same as onboarding.
+  const signupCommunity = useQuery(
+    api.garden.defaultCommunity.getSignupCommunity,
+    isAuthenticated ? {} : "skip",
+  );
+  const mustInvite =
+    isAuthenticated &&
+    !!signupCommunity?.inviteOnly &&
+    signupCommunity.viewer?.isMember === false &&
+    profile !== undefined &&
+    !profile?.isAdmin;
   useEffect(() => {
-    if (isAuthenticated && mustOnboard && !onEventPage) {
+    if (mustInvite && !onEventPage) navigate("/invite", { replace: true });
+  }, [mustInvite, onEventPage, navigate]);
+
+  useEffect(() => {
+    if (isAuthenticated && mustOnboard && !onEventPage && !mustInvite) {
       // Come back here afterwards — onboarding ends on /today, which
       // replays the pending intent.
       if (location.pathname !== "/today") {
@@ -166,7 +186,7 @@ export default function AppLayout() {
       }
       navigate("/onboarding", { replace: true });
     }
-  }, [isAuthenticated, mustOnboard, onEventPage, navigate, location.pathname, location.search]);
+  }, [isAuthenticated, mustOnboard, onEventPage, mustInvite, navigate, location.pathname, location.search]);
 
   // Identify user in PostHog when authenticated and profile loaded
   useEffect(() => {
@@ -411,7 +431,8 @@ export default function AppLayout() {
             The chips of other communities, "Host your own", the wordmark
             link to the marketing home and a separate "Account →" all lived
             here too and read as the same thing said three ways; they're
-            behind FF_V2 until there's more than one community to switch to. */}
+            behind FF_V2 until there's more than one community to switch to,
+            and so is the switch itself (2026-10-02). */}
         <div className="mt-auto pt-6">
           {isAuthenticated && (
             <div className="px-4 pb-3">
@@ -422,9 +443,10 @@ export default function AppLayout() {
             </div>
           )}
 
-          {/* Where am I: The Garden, or the exchange it sits on. Two
-              places, one control. The exchange side is the directory of
-              every community on the platform. */}
+          {/* Where am I: The Garden, or the exchange it sits on. Behind
+              FF_V2 (Rick, 2026-10-02): with one community, a second place
+              to switch to read as two missions; The Garden is the place. */}
+          {FF_V2 && (
           <div className="px-4 py-3 border-t" style={{ borderColor: "var(--app-hairline)" }}>
             <div
               className="grid grid-cols-2 gap-1 rounded-lg p-1"
@@ -479,6 +501,7 @@ export default function AppLayout() {
               </div>
             )}
           </div>
+          )}
 
           {isAuthenticated ? (
             <div className="px-4 py-3 border-t" style={{ borderColor: "var(--app-hairline)" }}>
@@ -553,14 +576,16 @@ export default function AppLayout() {
             </div>
           ) : null}
 
-          {/* What this all is. One line; the page it opens says the rest. */}
+          {/* What this all is. One line; the page it opens says the rest:
+              The Garden's own page — who we are, why we're here, the
+              agreements (2026-10-02; was the platform's /about). */}
           <div className="px-4 pt-1 pb-5">
             <Link
-              to="/about"
+              to={`/communities/${GARDEN_SLUG}`}
               className="text-xs uppercase tracking-[0.04em] whitespace-nowrap hover:underline"
               style={{ fontFamily: "var(--garden-font-mono)", color: "var(--app-text-dim)" }}
             >
-              About TheCreative.exchange →
+              About The Garden →
             </Link>
           </div>
         </div>

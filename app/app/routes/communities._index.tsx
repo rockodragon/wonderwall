@@ -14,8 +14,12 @@ import { api } from "../../convex/_generated/api";
 import { FF_V2 } from "../lib/featureFlags";
 import { CommunityPage } from "./communities.$slug";
 import { PAGE_WIDTH } from "../lib/pageWidth";
+import { stripInlineMarks } from "../lib/richText";
 
+// Without FF_V2 this page is The Garden's page, so The Garden's head
+// (CommunityPage) sets the title, description and canonical.
 export function meta() {
+  if (!FF_V2) return [{ title: "The Garden — TheCreative.exchange" }];
   return [
     { title: "Communities — TheCreative.exchange" },
     {
@@ -112,7 +116,7 @@ function CommunitiesIntro() {
           </b>
           {garden?.tagline && (
             <p className="text-[15px]" style={{ color: "var(--garden-body)" }}>
-              {garden.tagline}
+              {stripInlineMarks(garden.tagline)}
             </p>
           )}
           <a href="#the-garden" className="text-[15px] mt-auto pt-1" style={{ color: "var(--garden-citron)" }}>
@@ -137,9 +141,12 @@ export default function CommunitiesIndex() {
   }, []);
   return (
     <>
-      <CommunitiesIntro />
+      {/* The platform intro and The Creative Exchange card are behind FF_V2
+          (Rick, 2026-10-02): two communities side by side read as two
+          missions while there's one. */}
+      {FF_V2 && <CommunitiesIntro />}
       <div id="the-garden" className="scroll-mt-4">
-        <CommunityPage slug="the-garden" footer={<IndexFooter />} head={false} />
+        <CommunityPage slug="the-garden" footer={<IndexFooter />} head={!FF_V2} />
       </div>
     </>
   );

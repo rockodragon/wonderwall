@@ -117,7 +117,7 @@ export const getCommunityLanding = query({
 export const RESERVED_SLUGS = new Set(
   (
     "about admin api assets c campaign claim communities coverage create demo events faq " +
-    "favorites for fund garden grant-program host ia j jobs join legal login messages " +
+    "favorites for fund garden grant-program host ia invite j jobs join legal login messages " +
     "oauth-callback offerings offers onboarding opportunities patron people profile projects " +
     "search settings showcase signup story tables today unsubscribe works"
   ).split(" "),

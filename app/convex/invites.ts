@@ -1,49 +1,18 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import type { QueryCtx, MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { auth } from "./auth";
 import { scheduleNotificationEmail } from "./emailHelpers";
 import { escapeHtml } from "./garden/projectTeam";
 import { generateInviteCode } from "./inviteCode";
 import { followEachOther } from "./follows";
-
-// A pasted or emailed code can be either kind of invite: a member's own
-// inviteSlug, or an admin's fixed waitlist-approval code (adminCode, set by
-// waitlist.ts's approveEntry). Both live on the profiles table and both
-// land at /signup/:code, so every lookup here tries inviteSlug first —
-// the far more common case — and falls back to adminCode.
+// findInviterProfile lives in inviteLookup.ts so garden/communities.ts can
+// check a code without importing this file.
 //
-// Old invites got a name-based inviteSlug ("rick-moy"); new ones get a
-// short generated code ("K7M4QD", see generateInviteSlug below and
-// convex/inviteCode.ts). Both are stored as-is in the same field, so the
-// exact-match lookup finds either one — every link already shared keeps
-// redeeming forever, nothing was migrated. The uppercased retry only helps
-// a short code typed in a different case; it can never accidentally match
-// an old lowercase, dashed slug, since uppercasing one of those doesn't
-// produce another real slug.
-async function findInviterProfile(ctx: QueryCtx | MutationCtx, code: string) {
-  // However the code arrived — typed, pasted, any case — try the shapes it
-  // could be stored in: as given, lowercase (old name-based slugs like
-  // "rick-moy"), and uppercase without dashes (new 6-character codes and
-  // admin codes). Each is one indexed lookup.
-  const candidates = [...new Set([code, code.toLowerCase(), code.toUpperCase().replace(/[\s-]+/g, "")])];
-  for (const candidate of candidates) {
-    const bySlug = await ctx.db
-      .query("profiles")
-      .withIndex("by_inviteSlug", (q) => q.eq("inviteSlug", candidate))
-      .first();
-    if (bySlug) return bySlug;
-  }
-  for (const candidate of [...new Set([code, code.toUpperCase()])]) {
-    const byAdmin = await ctx.db
-      .query("profiles")
-      .withIndex("by_adminCode", (q) => q.eq("adminCode", candidate))
-      .first();
-    if (byAdmin) return byAdmin;
-  }
-  return null;
-}
+// No limits on invites (Rick, 2026-10-03): a code works for as many people
+// as its owner shares it with, and anyone can make as many one-time codes
+// as they like. inviteUsageCount still counts uses, for the network stats.
+import { findInviterProfile } from "./inviteLookup";
 
 function generateCode(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -54,37 +23,11 @@ function generateCode(): string {
   return code;
 }
 
-const MAX_UNUSED_INVITES = 3;
-
-// Progressive invite rewards system
-// Start with 3, then unlock 5 more, then 10 more, etc.
-function getInviteLimit(usageCount: number): number {
-  if (usageCount < 3) return 3;
-  if (usageCount < 8) return 8; // 3 + 5
-  if (usageCount < 18) return 18; // 8 + 10
-  if (usageCount < 38) return 38; // 18 + 20
-  return usageCount + 20; // Keep expanding by 20
-}
-
 export const create = mutation({
   args: {},
   handler: async (ctx) => {
     const userId = await auth.getUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
-
-    // Check how many unused invites the user has
-    const existingInvites = await ctx.db
-      .query("invites")
-      .withIndex("by_inviterId", (q) => q.eq("inviterId", userId))
-      .collect();
-
-    const unusedCount = existingInvites.filter((i) => !i.usedBy).length;
-
-    if (unusedCount >= MAX_UNUSED_INVITES) {
-      throw new Error(
-        `You can only have ${MAX_UNUSED_INVITES} unused invites at a time`,
-      );
-    }
 
     const code = generateCode();
 
@@ -244,26 +187,15 @@ export const getMyInviteLink = query({
 
     // If profile doesn't have a slug yet, we'll need to create one
     if (!profile.inviteSlug) {
-      return {
-        slug: null,
-        usageCount: 0,
-        remainingUses: 3,
-        currentLimit: 3,
-      };
+      return { slug: null, usageCount: 0, unlimitedInvites: true };
     }
 
-    const usageCount = profile.inviteUsageCount || 0;
-    const currentLimit = profile.unlimitedInvites
-      ? Infinity
-      : getInviteLimit(usageCount);
     return {
       slug: profile.inviteSlug,
-      usageCount,
-      remainingUses: profile.unlimitedInvites
-        ? Infinity
-        : Math.max(0, currentLimit - usageCount),
-      currentLimit,
-      unlimitedInvites: profile.unlimitedInvites || false,
+      usageCount: profile.inviteUsageCount || 0,
+      // A frontend from before 2026-10-03 reads these to decide whether the
+      // link still works; tell it yes, always.
+      unlimitedInvites: true,
     };
   },
 });
@@ -316,13 +248,6 @@ export const getInviterInfo = query({
 
     if (!profile) return null;
 
-    const usageCount = profile.inviteUsageCount || 0;
-    const hasUnlimited = profile.unlimitedInvites || false;
-    const currentLimit = hasUnlimited ? Infinity : getInviteLimit(usageCount);
-    const remainingUses = hasUnlimited
-      ? Infinity
-      : Math.max(0, currentLimit - usageCount);
-
     // Get the 2 most recent people who accepted this person's invite
     const invites = await ctx.db
       .query("invites")
@@ -356,9 +281,7 @@ export const getInviterInfo = query({
       name: profile.name,
       imageUrl: profile.imageUrl,
       interests: profile.interests,
-      usageCount,
-      remainingUses,
-      canAcceptMore: remainingUses > 0,
+      usageCount: profile.inviteUsageCount || 0,
       recentInvitees,
     };
   },
@@ -433,13 +356,6 @@ export const redeemBySlug = mutation({
     if (!inviterProfile) throw new Error("Invalid invite link");
 
     const usageCount = inviterProfile.inviteUsageCount || 0;
-    const currentLimit = getInviteLimit(usageCount);
-    // Skip limit check for accounts with unlimited invites
-    if (!inviterProfile.unlimitedInvites && usageCount >= currentLimit) {
-      throw new Error(
-        "This invite link has reached its current limit. The owner needs to wait for more invites to unlock.",
-      );
-    }
 
     // Create an invite record (for backward compatibility with stats)
     await ctx.db.insert("invites", {
