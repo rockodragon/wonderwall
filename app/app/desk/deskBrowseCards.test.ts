@@ -163,7 +163,7 @@ describe("peopleNoun", () => {
 function project(id: string, extra: Partial<DeskProjectInput> = {}): DeskProjectInput {
   return { _id: id, kind: "passion", status: "active", title: `Project ${id}`, blurb: "Making a thing.", media: [], creator: { name: "Dana Lee" }, community: null, ...extra };
 }
-const FUND: DeskFundInput = { slug: "abiding-practice", name: "The Sophia Fund", orgName: "Abiding Practice", availableCents: 1_000_000, openCall: null };
+const FUND: DeskFundInput = { slug: "abiding-practice", name: "The Sophia Grant Fund", orgName: "Abiding Practice", availableCents: 1_000_000, openCall: null };
 
 describe("projectsCards", () => {
   const rows = [

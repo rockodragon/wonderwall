@@ -66,7 +66,7 @@ function project(id: string, extra: Partial<DeskProjectInput> = {}): DeskProject
 
 const FUND = {
   slug: "abiding-practice",
-  name: "The Sophia Fund",
+  name: "The Sophia Grant Fund",
   orgName: "Abiding Practice",
   availableCents: 1_002_500,
   openCall: CLAIMS.sophiaSchedule,
@@ -317,12 +317,12 @@ describe("the fund card", () => {
     const card = byId(buildDeskCards(input(), "garden"), "fund");
     expect(card.note).toBe(true);
     expect(card.sections).toEqual(["all", "projects", "today"]);
-    expect(card.face).toEqual({ kicker: "THE SOPHIA FUND", title: "$10,025", foot: "available to grant" });
+    expect(card.face).toEqual({ kicker: "THE SOPHIA GRANT FUND", title: "$10,025", foot: "available to grant" });
   });
 
   it("opens to its name, who runs it, the open call and Give", () => {
     const card = byId(buildDeskCards(input(), "garden"), "fund");
-    expect(card.detail.title).toBe("The Sophia Fund");
+    expect(card.detail.title).toBe("The Sophia Grant Fund");
     expect(card.detail.host).toBe("Run by Abiding Practice");
     expect(card.detail.description).toBe(CLAIMS.sophiaSchedule);
     expect(card.detail.aside).toBe(CLAIMS.grantFundDeductibleShort);

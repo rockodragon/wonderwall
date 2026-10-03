@@ -11,7 +11,7 @@ export type NamedFund = { name: string; about: string; openCall?: string; seedCe
 
 export const NAMED_FUNDS: Record<string, NamedFund> = {
   [SOPHIA_FUND_SLUG]: {
-    name: "The Sophia Fund",
+    name: "The Sophia Grant Fund",
     openCall: CLAIMS.sophiaSchedule,
     // Money the fund holds that isn't in this ledger (Rick, 2026-09-29).
     // Tickets and gifts recorded here add to it; grants made come off it.

@@ -10,7 +10,7 @@ describe("fundFrom", () => {
     const fund = fundFrom({ org: { slug: SOPHIA_FUND_SLUG, name: "Abiding Practice" }, balanceCents: 250_000 });
     expect(fund).toEqual({
       slug: SOPHIA_FUND_SLUG,
-      name: "The Sophia Fund",
+      name: "The Sophia Grant Fund",
       orgName: "Abiding Practice",
       availableCents: 1_250_000,
       openCall: CLAIMS.sophiaSchedule,
