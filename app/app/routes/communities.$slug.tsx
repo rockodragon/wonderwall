@@ -1254,20 +1254,10 @@ export function CommunityPage({
         </div>
       )}
 
-      {/* One row: the membership action, then where to browse. The per-
-          section lists that used to follow (tables, events, projects,
-          classes) duplicated these three links, so the page stops at the
-          links — the filtered list pages are the browse surface. */}
-      <div className="mt-5 flex items-center gap-x-5 gap-y-3 flex-wrap text-[13.5px]">
+      {/* The membership action. The "or browse Projects / Events" links
+          that sat beside it are gone (2026-10-03); the nav has both. */}
+      <div className="mt-5 text-[13.5px]">
         <JoinControl community={community} />
-        <div className="flex items-baseline gap-3.5 flex-wrap">
-          <span style={{ color: "var(--garden-muted)" }}>or browse</span>
-          <Link to={`/projects?community=${community.slug}`} style={{ color: "var(--garden-citron)" }}>Projects →</Link>
-          <Link to={`/events?community=${community.slug}`} style={{ color: "var(--garden-citron)" }}>Events →</Link>
-          {FF_V2 && (
-            <Link to={`/offerings?community=${community.slug}`} style={{ color: "var(--garden-citron)" }}>Classes →</Link>
-          )}
-        </div>
       </div>
 
       {/* Member products are classes and paid extras — not in the launch
