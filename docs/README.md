@@ -14,6 +14,7 @@ The project is **creatives.exchange** (repo: wonderwall). Four documents are the
 
 ## Feature specs
 
+- [Tables ADR](adr/tables-primary-community-container.md) — accepted domain direction: Tables contain Events; membership and attendance are separate. [Tables implementation plan](features/tables-implementation-plan.md) — current-code reconciliation, IA, migration, shared rules, test strategy, and pending scope decisions.
 - [Phase 1B spec](phase-1b/spec.md) — the October build plan (money foundation, entitlements, coverage codes)
 - [Live booking](features/live-booking.md) — a venue posts recurring paid gigs, artists answer with clips, the venue picks and pays directly; includes the payment-linking research
 - [Projects IA](features/project-ia.md) — **current** posting, browsing, support and profile model: one Project; Start a project / Hire someone; one row of chips (Projects, Seeking funding, Seeking people, Jobs and gigs); Cheer / Back; Portfolio = completed projects. Also lists where plan and code still disagree.
