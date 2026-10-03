@@ -66,7 +66,10 @@ describe("a role row", () => {
       const saved = project("saved", "Psalms Zine", { role: role("Copy Editor", day(10, 7)) });
       expect(row(p(saved)).status).toBe("Closes Oct 7");
     } finally {
-      process.env.TZ = zone;
+      // Assigning undefined would set TZ to the string "undefined", which
+      // reads as UTC for the rest of the file.
+      if (zone === undefined) delete process.env.TZ;
+      else process.env.TZ = zone;
     }
   });
 
