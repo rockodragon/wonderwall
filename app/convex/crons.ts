@@ -86,4 +86,13 @@ crons.daily(
   {},
 );
 
+// Table checkout holds reserve seats while card checkout is open. Expired
+// holds cease counting immediately; this bounded sweep records that state.
+crons.interval(
+  "expire-table-checkout-holds",
+  { minutes: 15 },
+  internal.garden.tablesCheckout.expireHolds,
+  { limit: 100 },
+);
+
 export default crons;

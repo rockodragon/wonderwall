@@ -25,6 +25,8 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { isEventHost } from "./eventHosts";
 import { resolveVideoRole, eventAccessType, type EventVideoRole } from "./eventAccess";
 import { visibleMeetingUrl } from "./garden/tables";
+import { getTableParticipation } from "./garden/tablePolicy";
+import { canSeeEvent } from "./garden/eventVisibility";
 
 const MAX_URL_LENGTH = 2048;
 
@@ -64,11 +66,11 @@ export function normalizeVideoUrl(raw: string | undefined): string | undefined {
  * no business resolving.
  */
 export function publicJoinTarget(
-  event: { status: string; accessType?: string } | null,
+  event: { status: string; accessType?: string; tableId?: unknown } | null,
   row: { meetingUrl?: string } | null,
 ): string | null {
   if (!event) return null;
-  if (event.status === "cancelled") return null;
+  if (event.status === "cancelled" || event.tableId) return null;
   // A sessionless caller can never establish entitlement, so it never gets
   // an answer for a paid event — it falls through to the event page, which
   // does the check with a real viewer.
@@ -148,7 +150,13 @@ export const get = query({
     if (!event) return null;
 
     const userId = await getAuthUserId(ctx);
-    const role = await resolveVideoRole(ctx, event, userId);
+    if (!(await canSeeEvent(ctx, event, userId))) return null;
+    let role = await resolveVideoRole(ctx, event, userId);
+    if (event.tableId) {
+      const table = await ctx.db.get(event.tableId);
+      const viewer = table ? await getTableParticipation(ctx, table, userId) : null;
+      role = viewer?.isHost ? "organizer" : viewer?.isMember ? "entitled" : "none";
+    }
 
     const base = {
       role,

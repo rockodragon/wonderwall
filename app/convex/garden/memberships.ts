@@ -28,6 +28,11 @@ import { DEFAULT_DUES, getDefaultCommunity } from "./defaultCommunity";
 import { resolveTierCommunity, seatAppliesIn } from "./entitlements";
 import { notifyGiftReceived, openMemberGift, scheduleTransferFor } from "./giving";
 import { applyConnectAccountStatus } from "./connectState";
+import {
+  confirmTableCheckout,
+  reconcileLegacyOfferingEnrollment,
+  releaseTableCheckout,
+} from "./tablesCheckout";
 
 // ——— Backing-received email (docs/features live-booking-style pattern) ———
 //
@@ -97,6 +102,12 @@ const LEVEL_RANK: Record<string, number> = { seat: 1, five: 2, host: 3 };
 // written before classes existed still satisfies it.
 function makeConvexDb(ctx: MutationCtx): Db & ClassPaymentDb {
   return {
+    async confirmTableCheckout(session) {
+      await confirmTableCheckout(ctx, session);
+    },
+    async releaseTableCheckout(session) {
+      await releaseTableCheckout(ctx, session);
+    },
     async getBillingCustomerByStripeId(stripeCustomerId: string) {
       const row = await ctx.db
         .query("billingCustomers")
@@ -468,7 +479,8 @@ function makeConvexDb(ctx: MutationCtx): Db & ClassPaymentDb {
 
     async insertClassPayment(row) {
       await ctx.db.insert("classPayments", {
-        offeringId: row.offeringId as Id<"offerings">,
+        offeringId: row.offeringId as Id<"offerings"> | undefined,
+        tableId: row.tableId as Id<"gardenTables"> | undefined,
         payeeUserId: row.payeeUserId as Id<"users"> | undefined,
         buyerUserId: row.buyerUserId as Id<"users">,
         grossCents: row.grossCents,
@@ -482,15 +494,27 @@ function makeConvexDb(ctx: MutationCtx): Db & ClassPaymentDb {
       // Notify the host — skip when the host is the buyer (shouldn't happen;
       // classCheckoutRefusal's "own_class" refuses that checkout, but this
       // stays defensive) and when the offering has no resolvable teacher.
-      if (row.payeeUserId && String(row.payeeUserId) !== String(row.buyerUserId)) {
-        const offering = await ctx.db.get(row.offeringId as Id<"offerings">);
+      if (
+        row.payeeUserId &&
+        String(row.payeeUserId) !== String(row.buyerUserId)
+      ) {
+        const offering = row.offeringId
+          ? await ctx.db.get(row.offeringId as Id<"offerings">)
+          : null;
+        const table = row.tableId
+          ? await ctx.db.get(row.tableId as Id<"gardenTables">)
+          : null;
         const buyerProfile = await ctx.db
           .query("profiles")
-          .withIndex("by_userId", (q) => q.eq("userId", row.buyerUserId as Id<"users">))
+          .withIndex("by_userId", (q) =>
+            q.eq("userId", row.buyerUserId as Id<"users">),
+          )
           .unique();
         const buyerName = buyerProfile?.name || "Someone";
-        const classTitle = offering?.title ?? "your class";
-        const linkUrl = `/offerings/${row.offeringId}`;
+        const classTitle = table?.name ?? offering?.title ?? "your class";
+        const linkUrl = table
+          ? `/tables/${table.slug}`
+          : `/offerings/${row.offeringId}`;
 
         await ctx.db.insert("notifications", {
           userId: row.payeeUserId as Id<"users">,
@@ -589,7 +613,9 @@ function makeConvexDb(ctx: MutationCtx): Db & ClassPaymentDb {
         )
         .unique();
       if (existing) {
-        if (existing.status !== "confirmed") await ctx.db.patch(existing._id, { status: "confirmed" });
+        if (existing.status !== "confirmed")
+          await ctx.db.patch(existing._id, { status: "confirmed" });
+        await reconcileLegacyOfferingEnrollment(ctx, id, userId as Id<"users">);
         return;
       }
       // Row gone (or never written): create it, but not for a class that no
@@ -606,6 +632,7 @@ function makeConvexDb(ctx: MutationCtx): Db & ClassPaymentDb {
         status: "confirmed",
         createdAt: Date.now(),
       });
+      await reconcileLegacyOfferingEnrollment(ctx, id, userId as Id<"users">);
     },
 
     async getCodeByCode(code: string) {

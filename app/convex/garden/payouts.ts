@@ -78,11 +78,17 @@ export function computeCreativeEarnings(
 export const UNASSIGNED = "unassigned";
 
 export interface ClassPaymentLike {
-  offeringId: string;
+  offeringId?: string;
+  tableId?: string;
   payeeUserId?: string;
   grossCents: number;
   platformCents: number;
   teacherCents: number;
+}
+
+/** Historical rows have no status; unreconciled payments cannot be paid out. */
+export function isPayableClassPayment(p: {status?: string}): boolean {
+  return p.status === undefined || p.status === "paid";
 }
 
 /** A class payment as a line on the creative ledger. The teacher's share is
@@ -97,8 +103,8 @@ export function classPaymentToEarningsPayment(
 ): BackingPaymentLike & { payeeUserId?: string; projectId: string; title: string } {
   return {
     payeeUserId: p.payeeUserId,
-    projectId: p.offeringId,
-    title: offeringTitle ?? "A deleted class",
+    projectId: p.tableId ?? p.offeringId ?? UNASSIGNED,
+    title: offeringTitle ?? (p.tableId ? "A deleted Table" : "A deleted class"),
     grossCents: p.grossCents,
     platformCents: p.platformCents,
     workCents: p.teacherCents,

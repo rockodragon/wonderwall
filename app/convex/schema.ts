@@ -244,6 +244,9 @@ export default defineSchema({
 
   // Community events
   events: defineTable({
+    tableId: v.optional(v.id("gardenTables")),
+    sourceSessionId: v.optional(v.id("tableSessions")),
+    sourceOfferingId: v.optional(v.id("offerings")),
     organizerId: v.id("users"),
     // Co-hosts: can edit the event and see the guest list; only the organizer
     // can cancel it or change this list. See eventHosts.ts.
@@ -362,6 +365,9 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
   })
+    .index("by_tableId", ["tableId"])
+    .index("by_sourceSessionId", ["sourceSessionId"])
+    .index("by_sourceOfferingId", ["sourceOfferingId"])
     .index("by_organizerId", ["organizerId"])
     .index("by_datetime", ["datetime"])
     .index("by_status", ["status"])
@@ -1508,31 +1514,102 @@ export default defineSchema({
   gardenTables: defineTable({
     name: v.string(),
     slug: v.string(),
-    hostOrgId: v.id("hostOrgs"),
+    hostOrgId: v.optional(v.id("hostOrgs")),
     hostUserId: v.optional(v.id("users")),
-    mode: v.string(), // "open" | "member" | "cohort"
-    format: v.optional(v.string()), // "Class" | "Mentorship" | "Critique" | "Open mic" | "Workshop" | "Show"
-    program: v.optional(v.string()), // e.g. "Pathfinding · Abiding Practice"
+    coHostIds: v.optional(v.array(v.id("users"))),
+    mode: v.string(), // legacy compatibility; new policy uses independent axes below
+    format: v.optional(v.string()),
+    program: v.optional(v.string()),
     cadence: v.optional(v.string()),
     blurb: v.optional(v.string()),
+    description: v.optional(v.string()),
     photoUrl: v.optional(v.string()),
-    priceCents: v.optional(v.number()), // cohorts only; free-table rule enforced in mutations
-    meetingUrl: v.optional(v.string()), // default link; sessions can override (D8: Daily.co)
-    status: v.string(), // "active" | "archived"
+    priceCents: v.optional(v.number()),
+    currency: v.optional(v.string()),
+    meetingUrl: v.optional(v.string()),
+    scheduleType: v.optional(v.union(v.literal("one_time"), v.literal("series"))),
+    pricingType: v.optional(v.union(v.literal("free"), v.literal("fixed"))),
+    membershipRequired: v.optional(v.boolean()),
+    access: v.optional(v.union(v.literal("open"), v.literal("approval"), v.literal("invite"))),
+    visibility: v.optional(v.union(v.literal("public"), v.literal("unlisted"))),
+    allowsExternalGuests: v.optional(v.boolean()),
+    capacity: v.optional(v.number()),
+    hostRoleLabel: v.optional(v.string()),
+    topic: v.optional(v.string()),
+    enrollmentClosed: v.optional(v.boolean()),
+    sourceOfferingId: v.optional(v.id("offerings")),
+    pausedAt: v.optional(v.number()),
+    pausedByUserId: v.optional(v.id("users")),
+    pausedReason: v.optional(v.string()),
+    externalPaymentLinkUrl: v.optional(v.string()),
+    status: v.string(),
     createdAt: v.number(),
+    updatedAt: v.optional(v.number()),
   })
     .index("by_slug", ["slug"])
     .index("by_hostOrgId", ["hostOrgId"])
+    .index("by_hostUserId", ["hostUserId"])
+    .index("by_sourceOfferingId", ["sourceOfferingId"])
     .index("by_status", ["status"]),
 
   tableMemberships: defineTable({
     tableId: v.id("gardenTables"),
     userId: v.id("users"),
     joinedAt: v.number(),
+    status: v.optional(v.string()), // active | pending | left | removed
+    role: v.optional(v.string()), // participant | host | co_host
+    paymentStatus: v.optional(v.string()), // not_required | pending | confirmed | external_unverified
+    paidCents: v.optional(v.number()),
+    currency: v.optional(v.string()),
+    stripeCheckoutSessionId: v.optional(v.string()),
+    updatedAt: v.optional(v.number()),
+    leftAt: v.optional(v.number()),
+    sourceSignupId: v.optional(v.id("offeringSignups")),
   })
     .index("by_tableId", ["tableId"])
     .index("by_userId", ["userId"])
+    .index("by_sourceSignupId", ["sourceSignupId"])
     .index("by_tableId_userId", ["tableId", "userId"]),
+
+  tableMembershipHistory: defineTable({
+    tableId: v.id("gardenTables"),
+    userId: v.id("users"),
+    status: v.string(),
+    previousStatus: v.optional(v.string()),
+    recordedByUserId: v.optional(v.id("users")),
+    createdAt: v.number(),
+  }).index("by_tableId_userId", ["tableId", "userId"]),
+
+  tableCheckoutHolds: defineTable({
+    tableId: v.id("gardenTables"),
+    userId: v.id("users"),
+    status: v.string(),
+    title: v.string(),
+    slug: v.string(),
+    payeeUserId: v.optional(v.id("users")),
+    priceCents: v.number(),
+    currency: v.string(),
+    expiresAt: v.number(),
+    createdAt: v.number(),
+    stripeCheckoutSessionId: v.optional(v.string()),
+    paymentIntentId: v.optional(v.string()),
+    classPaymentId: v.optional(v.id("classPayments")),
+  })
+    .index("by_tableId", ["tableId"])
+    .index("by_tableId_userId", ["tableId", "userId"])
+    .index("by_stripeCheckoutSessionId", ["stripeCheckoutSessionId"])
+    .index("by_status_expiresAt", ["status", "expiresAt"]),
+
+  tableAttendance: defineTable({
+    tableId: v.id("gardenTables"),
+    eventId: v.id("events"),
+    userId: v.id("users"),
+    status: v.union(v.literal("attended"), v.literal("absent")),
+    recordedByUserId: v.id("users"),
+    recordedAt: v.number(),
+  })
+    .index("by_eventId", ["eventId"])
+    .index("by_eventId_userId", ["eventId", "userId"]),
 
   tableSessions: defineTable({
     tableId: v.id("gardenTables"),
@@ -1554,6 +1631,7 @@ export default defineSchema({
 
   // Event RSVPs with a guest path (W4 — the first-table page's mailto dies here).
   eventRsvps: defineTable({
+    sourceSessionRsvpId: v.optional(v.id("sessionRsvps")),
     eventId: v.id("events"),
     userId: v.optional(v.id("users")), // absent for guests
     name: v.string(),
@@ -1578,6 +1656,7 @@ export default defineSchema({
     stripeRef: v.optional(v.string()),
     createdAt: v.number(),
   })
+    .index("by_sourceSessionRsvpId", ["sourceSessionRsvpId"])
     .index("by_eventId", ["eventId"])
     .index("by_eventId_email", ["eventId", "email"])
     .index("by_stripeRef", ["stripeRef"])
@@ -1895,7 +1974,11 @@ export default defineSchema({
   // their backing payments) + sum(teacherCents on their class payments) −
   // sum(their creativePayouts). Written only by the Stripe webhook.
   classPayments: defineTable({
-    offeringId: v.id("offerings"),
+    stripeRefundId: v.optional(v.string()),
+    status: v.optional(v.string()), // confirmed | refund_required; legacy absence is confirmed
+    paymentIntentId: v.optional(v.string()),
+    offeringId: v.optional(v.id("offerings")),
+    tableId: v.optional(v.id("gardenTables")),
     // The teacher (offerings.userId) when the money arrived. Absent only when
     // the class was deleted before the webhook landed — the payment is still
     // on the ledger, unassigned, for an operator to resolve, never dropped.
@@ -1908,6 +1991,7 @@ export default defineSchema({
     period: v.string(), // "YYYY-MM", UTC — same convention as backingPayments
     createdAt: v.number(),
   })
+    .index("by_status", ["status"])
     .index("by_offeringId", ["offeringId"])
     .index("by_payeeUserId", ["payeeUserId"])
     .index("by_stripeRef", ["stripeRef"]),

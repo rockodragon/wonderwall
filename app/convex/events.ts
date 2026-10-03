@@ -15,6 +15,7 @@ import { communityVisibility, isHiddenCommunityId } from "./garden/communityVisi
 import { hostUserIdsForOrg, primaryOrgByUserId } from "./organizations";
 import { isAdmin } from "./helpers";
 import { isHidden } from "./moderationRules";
+import { getTableParticipation } from "./garden/tablePolicy";
 
 // ——— Pure validation helpers (unit-tested in events.test.ts) ———
 
@@ -891,6 +892,13 @@ export const apply = mutation({
     if (!event || !(await canSeeEvent(ctx, event, userId))) throw new Error("Event not found");
     if (event.status !== "published")
       throw new Error("Event is not accepting applications");
+    if (event.tableId) {
+      const table = await ctx.db.get(event.tableId);
+      const participation = table ? await getTableParticipation(ctx, table, userId) : null;
+      if (!participation || (!participation.isMember && !participation.isHost)) {
+        throw new Error("Join the Table and complete its requirements first");
+      }
+    }
 
     // Check if already applied
     const existing = await ctx.db
@@ -1105,6 +1113,13 @@ export const getAttendees = query({
     const event = await ctx.db.get(args.eventId);
     const viewerId = await auth.getUserId(ctx);
     if (!event || !(await canSeeEvent(ctx, event, viewerId))) return [];
+    let canSeeApplicationMessages = true;
+    if (event.tableId) {
+      const table = await ctx.db.get(event.tableId);
+      const participation = table ? await getTableParticipation(ctx, table, viewerId) : null;
+      if (!participation?.canSeeRoster) return [];
+      canSeeApplicationMessages = participation.isHost;
+    }
     const acceptedApplications = await ctx.db
       .query("eventApplications")
       .withIndex("by_eventId", (q) => q.eq("eventId", args.eventId))
@@ -1128,7 +1143,7 @@ export const getAttendees = query({
         key: String(app._id),
         userId: app.applicantId as Id<"users"> | null,
         ...(await member(app.applicantId)),
-        message: app.message || null,
+        message: canSeeApplicationMessages ? app.message || null : null,
         joinedAt: app.createdAt,
         // Tickets beyond their own — shown as "+2", never the names.
         extraTickets: 0,
@@ -1288,7 +1303,7 @@ export const getEventForTicketCheckout = internalQuery({
   args: { eventId: v.id("events"), tierName: v.string() },
   handler: async (ctx, args) => {
     const event = await ctx.db.get(args.eventId);
-    if (!event) return null;
+    if (!event || event.tableId) return null; // Table enrollment owns its price and access.
 
     // A ticketed event whose organizer can't sell tickets refuses checkout
     // the same way a deleted event does ("isn't there anymore" —

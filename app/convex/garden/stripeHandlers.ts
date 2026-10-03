@@ -66,6 +66,9 @@ export interface StripeCheckoutSessionLike {
   /** "paid" | "unpaid" | "no_payment_required". A class payment is recorded
    * only when this is "paid" (handleClassCheckoutCompleted). */
   payment_status?: string;
+  currency?: string | null;
+  status?: string | null;
+  payment_intent?: string | { id: string } | null;
   /** Seconds since epoch. Used as the contribution `period` fallback for
    * one-time pool contributions, which (unlike invoices) carry no
    * period_start. */
@@ -303,7 +306,8 @@ export interface BackingPaymentRow {
  * here. teacherCents accrues as owed to payeeUserId until an operator records
  * a creativePayouts row against it. Written by handleClassCheckoutCompleted. */
 export interface ClassPaymentRow {
-  offeringId: string;
+  offeringId?: string;
+  tableId?: string;
   payeeUserId?: string; // the class's teacher when the money arrived; absent if the class is gone
   buyerUserId: string;
   grossCents: number;
@@ -311,6 +315,13 @@ export interface ClassPaymentRow {
   teacherCents: number; // 90%, owed to the payee
   stripeRef: string; // checkout session id — idempotency key
   period: string; // "YYYY-MM"
+}
+
+/** The adapter atomically reconciles a Table hold, its owed ledger entry,
+ * and participation. Stripe metadata alone never grants Table access. */
+export interface TablePaymentDb {
+  confirmTableCheckout(session: StripeCheckoutSessionLike): Promise<void>;
+  releaseTableCheckout(session: StripeCheckoutSessionLike): Promise<void>;
 }
 
 /** The Db surface a class payment needs. Folded into Db only as Partial<>
@@ -377,14 +388,21 @@ export interface GiftDb {
   }): Promise<void>;
 }
 
-export interface Db extends Partial<ClassPaymentDb>, Partial<GiftDb> {
-  getBillingCustomerByStripeId(stripeCustomerId: string): Promise<BillingCustomerRow | null>;
+export interface Db
+  extends Partial<ClassPaymentDb>, Partial<GiftDb>, Partial<TablePaymentDb> {
+  getBillingCustomerByStripeId(
+    stripeCustomerId: string,
+  ): Promise<BillingCustomerRow | null>;
   upsertBillingCustomer(row: BillingCustomerRow): Promise<void>;
 
-  getMembershipBySubscription(stripeSubscriptionId: string): Promise<MembershipRow | null>;
+  getMembershipBySubscription(
+    stripeSubscriptionId: string,
+  ): Promise<MembershipRow | null>;
   upsertMembership(row: MembershipRow): Promise<void>;
 
-  getCodeBySubscription(stripeSubscriptionId: string): Promise<CoverageCodeRow | null>;
+  getCodeBySubscription(
+    stripeSubscriptionId: string,
+  ): Promise<CoverageCodeRow | null>;
   updateCode(
     stripeSubscriptionId: string,
     patch: Partial<Pick<CoverageCodeRow, "seats" | "status">>,
@@ -409,13 +427,17 @@ export interface Db extends Partial<ClassPaymentDb>, Partial<GiftDb> {
    * upsertMembership/upsertTicketPurchase, but contributions are
    * insert-once (never patched), so this is a lookup-before-insert instead
    * of an upsert. */
-  getContributionByStripeRef(stripeRef: string): Promise<{ stripeRef: string } | null>;
+  getContributionByStripeRef(
+    stripeRef: string,
+  ): Promise<{ stripeRef: string } | null>;
   insertContribution(row: ContributionRow): Promise<void>;
 
   /** Idempotency check for productPurchases, keyed by stripeRef (a checkout
    * session id for a first payment, an invoice id for a renewal) — same
    * lookup-before-insert pattern as getContributionByStripeRef. */
-  getProductPurchaseByRef(stripeRef: string): Promise<{ stripeRef: string } | null>;
+  getProductPurchaseByRef(
+    stripeRef: string,
+  ): Promise<{ stripeRef: string } | null>;
   insertProductPurchase(row: ProductPurchaseRow): Promise<void>;
 
   /** Propagates a subscription's status/period-end onto every
@@ -434,7 +456,14 @@ export interface Db extends Partial<ClassPaymentDb>, Partial<GiftDb> {
    * subscription id, without needing a stripeRef column projectSupport
    * doesn't have. insertProjectSupport is the fallback for a session whose
    * pending row is gone (or predates it). */
-  getProjectSupportById(supportId: string): Promise<{ id: string; status: string; amountCents: number; projectId: string } | null>;
+  getProjectSupportById(
+    supportId: string,
+  ): Promise<{
+    id: string;
+    status: string;
+    amountCents: number;
+    projectId: string;
+  } | null>;
   updateProjectSupport(
     supportId: string,
     patch: Partial<Pick<ProjectSupportRow, "status" | "amountCents">>,
@@ -447,7 +476,9 @@ export interface Db extends Partial<ClassPaymentDb>, Partial<GiftDb> {
    * lookup-before-insert idempotency check, keyed by stripeRef like
    * getProductPurchaseByRef. getProjectLeadUserId resolves who a payment's
    * work share is owed to — null when the project no longer exists. */
-  getBackingPaymentByRef(stripeRef: string): Promise<{ stripeRef: string } | null>;
+  getBackingPaymentByRef(
+    stripeRef: string,
+  ): Promise<{ stripeRef: string } | null>;
   insertBackingPayment(row: BackingPaymentRow): Promise<void>;
   getProjectLeadUserId(projectId: string): Promise<string | null>;
 
@@ -469,7 +500,10 @@ export interface Db extends Partial<ClassPaymentDb>, Partial<GiftDb> {
   /** Atomically adds amountCents to the project's raisedCents running total.
    * Called once per confirmed backing — idempotency is the caller's job (the
    * "already confirmed" early return in handleBackingCheckoutCompleted). */
-  incrementProjectRaisedCents(projectId: string, amountCents: number): Promise<void>;
+  incrementProjectRaisedCents(
+    projectId: string,
+    amountCents: number,
+  ): Promise<void>;
 
   /** Coverage-code issuance (garden/stripe.ts's createCoverageCheckout).
    * getCodeByCode is the uniqueness check for a freshly generated code
@@ -1241,6 +1275,44 @@ export function classCheckoutParts(args: {
   };
 }
 
+/** Tables reuse the class sale split and card gross-up. The hold snapshots
+ * the commercial terms; future edits cannot change an in-flight payment. */
+export function tableCheckoutParts(args: {
+  tableId: string;
+  slug: string;
+  holdId: string;
+  title: string;
+  priceCents: number;
+  buyerUserId: string;
+  currency: string;
+}) {
+  const legacy = classCheckoutParts({
+    offeringId: args.tableId,
+    title: args.title,
+    priceCents: args.priceCents,
+    buyerUserId: args.buyerUserId,
+    signupId: args.holdId,
+  });
+  return {
+    lineItems: legacy.lineItems.map((item) => ({
+      ...item,
+      price_data: { ...item.price_data, currency: args.currency },
+    })),
+    metadata: {
+      kind: "table",
+      tableId: args.tableId,
+      holdId: args.holdId,
+      userId: args.buyerUserId,
+      amountCents: String(args.priceCents),
+      currency: args.currency,
+    },
+    paths: {
+      success: `/tables/${encodeURIComponent(args.slug)}?paid=1`,
+      cancel: `/tables/${encodeURIComponent(args.slug)}?checkout=cancelled`,
+    },
+  };
+}
+
 /** A whole number of cents out of a metadata string, or null when it isn't
  * one. Stricter than Number(): "", "0", "-5", "12.5" and "1e3" all read as
  * "not a price" — we wrote this string ourselves from a validated integer. */
@@ -1348,9 +1420,12 @@ async function handleCoverageCheckoutCompleted(
   const subId = subscriptionId(session);
 
   if (!hostOrgId || !subId) {
-    console.warn("[stripe] coverage checkout.session.completed missing hostOrgId or subscription", {
-      sessionId: session.id,
-    });
+    console.warn(
+      "[stripe] coverage checkout.session.completed missing hostOrgId or subscription",
+      {
+        sessionId: session.id,
+      },
+    );
     return;
   }
 
@@ -1361,7 +1436,7 @@ async function handleCoverageCheckoutCompleted(
   const seatCount =
     Number.isInteger(parsedSeats) && parsedSeats > 0
       ? parsedSeats
-      : (sub ? extractQuantity(sub) : undefined) ?? 1;
+      : ((sub ? extractQuantity(sub) : undefined) ?? 1);
 
   // Issue ACTIVE unless the subscription is already visibly in trouble. An
   // unexpanded or "incomplete" subscription issues active on purpose: the
@@ -1370,7 +1445,12 @@ async function handleCoverageCheckoutCompleted(
   // almost-always-following subscription.updated converges it either way
   // (see handleCoverageSubscriptionUpdate).
   const mapped = sub ? mapSubscriptionStatus(sub.status) : "active";
-  const status = mapped === "past_due" ? "suspended" : mapped === "canceled" ? "canceled" : "active";
+  const status =
+    mapped === "past_due"
+      ? "suspended"
+      : mapped === "canceled"
+        ? "canceled"
+        : "active";
 
   await db.insertCoverageCode({
     hostOrgId,
@@ -1386,6 +1466,13 @@ async function handleCheckoutSessionCompleted(
   db: Db,
 ): Promise<void> {
   const metadata = session.metadata ?? {};
+
+  if (metadata.kind === "table") {
+    if (session.mode !== "payment" || session.payment_status !== "paid") return;
+    if (!db.confirmTableCheckout)
+      throw new Error("[stripe] this Db adapter has no Table payment support");
+    return db.confirmTableCheckout(session);
+  }
 
   if (metadata.kind === "community_product") {
     return handleProductCheckoutCompleted(session, db);
@@ -1429,9 +1516,12 @@ async function handleCheckoutSessionCompleted(
   // self-paid checkouts carry no hostOrgId at all.
   const { userId, level } = metadata;
   if (!userId || !level) {
-    console.warn("[stripe] checkout.session.completed missing required metadata", {
-      sessionId: session.id,
-    });
+    console.warn(
+      "[stripe] checkout.session.completed missing required metadata",
+      {
+        sessionId: session.id,
+      },
+    );
     return;
   }
 
@@ -1902,15 +1992,38 @@ async function handleInvoicePaid(invoice: StripeInvoiceLike, db: Db): Promise<vo
 
 // ——— Dispatcher ———
 
-export async function handleStripeEvent(event: StripeWebhookEvent, db: Db): Promise<void> {
+export async function handleStripeEvent(
+  event: StripeWebhookEvent,
+  db: Db,
+): Promise<void> {
   switch (event.type) {
     case "checkout.session.completed":
-      return handleCheckoutSessionCompleted(event.data.object as StripeCheckoutSessionLike, db);
+    case "checkout.session.async_payment_succeeded":
+      return handleCheckoutSessionCompleted(
+        event.data.object as StripeCheckoutSessionLike,
+        db,
+      );
+    case "checkout.session.expired":
+    case "checkout.session.async_payment_failed": {
+      const session = event.data.object as StripeCheckoutSessionLike;
+      if (session.metadata?.kind !== "table") return;
+      if (!db.releaseTableCheckout)
+        throw new Error(
+          "[stripe] this Db adapter has no Table payment support",
+        );
+      return db.releaseTableCheckout(session);
+    }
     case "customer.subscription.created":
     case "customer.subscription.updated":
-      return handleSubscriptionUpdated(event.data.object as StripeSubscriptionLike, db);
+      return handleSubscriptionUpdated(
+        event.data.object as StripeSubscriptionLike,
+        db,
+      );
     case "customer.subscription.deleted":
-      return handleSubscriptionDeleted(event.data.object as StripeSubscriptionLike, db);
+      return handleSubscriptionDeleted(
+        event.data.object as StripeSubscriptionLike,
+        db,
+      );
     case "invoice.paid":
       return handleInvoicePaid(event.data.object as StripeInvoiceLike, db);
     case "account.updated":

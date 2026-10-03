@@ -1,7 +1,8 @@
 // Real event RSVPs. Spec §1.6 once said "no account required"; the owner
 // reversed that: an RSVP needs an account, and the event page's form makes
 // one in a single step (code by email or text). Paid tickets still check out
-// through Stripe without an account (garden/apGifts.ts).
+// through Stripe without an account (garden/apGifts.ts). Tables have a
+// separate, explicitly configured free guest RSVP endpoint below.
 //
 // ctx typed loosely (`any`) — same reasoning as tables.ts / entitlements.ts:
 // the generated DataModel predates eventRsvps.
@@ -13,6 +14,7 @@ import { mutation, query, type MutationCtx } from "../_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { isEventHost } from "../eventHosts";
 import { canSeeEvent } from "./eventVisibility";
+import { getTableParticipation } from "./tablePolicy";
 import { isCheckoutSessionId, type TicketClaimResult } from "./ticketLink";
 import { nextTicketState } from "./ticketLink";
 
@@ -243,6 +245,14 @@ export const rsvpToEvent = mutation({
       });
     }
 
+    if (event.tableId) {
+      const table = await ctx.db.get(event.tableId);
+      const participation = table ? await getTableParticipation(ctx, table, userId) : null;
+      if (!participation || (!participation.isMember && !participation.isHost)) {
+        throw new ConvexError({code: "table_enrollment_required", reason: "Join the Table and complete its requirements first."});
+      }
+    }
+
     const [profile, userDoc] = await Promise.all([
       ctx.db
         .query("profiles")
@@ -275,6 +285,66 @@ export const rsvpToEvent = mutation({
     });
 
     return { ok: true, alreadyRsvpd: result.alreadyRsvpd };
+  },
+});
+
+/** Table-specific guest exception: never grants enrollment or roster access. */
+export const rsvpGuestToTableEvent = mutation({
+  args: { eventId: v.id("events"), name: v.string(), email: v.string() },
+  handler: async (ctx, args) => {
+    const event = await ctx.db.get(args.eventId);
+    const viewerId = await getAuthUserId(ctx);
+    if (
+      !event?.tableId ||
+      event.status !== "published" ||
+      event.datetime <= Date.now() ||
+      !(await canSeeEvent(ctx, event, viewerId))
+    ) {
+      throw new ConvexError({
+        code: "not_found",
+        reason: "This Event is not accepting guest RSVPs.",
+      });
+    }
+    const table = await ctx.db.get(event.tableId);
+    const participation = table
+      ? await getTableParticipation(ctx, table, viewerId)
+      : null;
+    if (!participation?.canGuestRsvp)
+      throw new ConvexError({
+        code: "guests_not_allowed",
+        reason: "This Table requires enrollment.",
+      });
+    const name = args.name.trim();
+    if (
+      !name ||
+      name.length > 120 ||
+      args.email.length > 254 ||
+      !isValidEmail(args.email)
+    )
+      throw new ConvexError({
+        code: "invalid_rsvp",
+        reason: "Enter your name and a valid email.",
+      });
+    const rows = await ctx.db
+      .query("eventRsvps")
+      .withIndex("by_eventId", (q) => q.eq("eventId", event._id))
+      .collect();
+    const existing = rows.find(
+      (row) => row.email === normalizeEmail(args.email),
+    );
+    // A guest cannot overwrite an account-backed participant's identity.
+    if (existing?.userId)
+      throw new ConvexError({
+        code: "account_rsvp",
+        reason: "Sign in to manage your existing RSVP.",
+      });
+    if (!existing && participation.spotsRemaining === 0)
+      throw new ConvexError({ code: "full", reason: "This Event is full." });
+    return await upsertEventRsvp(ctx, {
+      eventId: event._id,
+      name,
+      email: args.email,
+    });
   },
 });
 
@@ -351,6 +421,14 @@ export const getEventRsvps = query({
       .query("eventRsvps")
       .withIndex("by_eventId", (q) => q.eq("eventId", args.eventId))
       .collect();
+
+    if (event.tableId) {
+      const table = await ctx.db.get(event.tableId);
+      const viewer = table ? await getTableParticipation(ctx, table, userId) : null;
+      if (!viewer?.canSeeRoster) return {count: rows.length, names: []};
+      // Only Table hosts see contact details. Participants see first names.
+      canViewFull = viewer.isHost;
+    }
 
     return buildRsvpVisibility({
       rows: rows.map((r: any) => ({

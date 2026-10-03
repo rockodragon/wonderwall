@@ -315,8 +315,8 @@ describe("every writer keeps eventCoHosts in step", () => {
   // coHostIds is listed here by what it does with it, so a new one has to say
   // which it is, and a writer has to sync.
   it("no file writes coHostIds without syncCoHosts", () => {
-    const WRITERS = ["admin/mergeUsers.ts", "events.ts"];
-    const READERS = ["announcements.ts", "eventHosts.ts", "schema.ts", "shortlist.ts"];
+    const WRITERS = ["admin/mergeUsers.ts", "events.ts", "garden/tables.ts", "garden/tablesMigration.ts"];
+    const READERS = ["announcements.ts", "eventHosts.ts", "schema.ts", "shortlist.ts", "garden/tablePolicy.ts"];
     const source = (file: string) => readFileSync(join(__dirname, file), "utf8");
     const naming = (readdirSync(__dirname, { recursive: true }) as string[])
       .filter((f) => f.endsWith(".ts") && !f.endsWith(".test.ts") && !f.startsWith("_generated"))
