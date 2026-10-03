@@ -8,7 +8,9 @@ beforeAll(() => {
   process.env.TZ = "America/Los_Angeles";
 });
 afterAll(() => {
-  process.env.TZ = zone;
+  // Assigning undefined would set TZ to the string "undefined" (UTC).
+  if (zone === undefined) delete process.env.TZ;
+  else process.env.TZ = zone;
 });
 
 const OCT_7 = Date.UTC(2026, 9, 7);
