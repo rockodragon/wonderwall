@@ -299,12 +299,26 @@ export default function TableDetailPage() {
         </Link>
       </main>
     );
+  // A frontend can ship before its backend. The older getTable has no
+  // `events` and a viewer with only canJoin/isMember: read missing lists as
+  // empty and missing participation as unavailable rather than crash.
+  const events = table.events ?? [];
+  const sessions = table.sessions ?? [];
+  const rosterProfiles = table.rosterProfiles ?? [];
+  const viewer = {
+    ...table.viewer,
+    action: table.viewer?.action ?? "unavailable",
+    isMember: table.viewer?.isMember ?? false,
+    isHost: table.viewer?.isHost ?? false,
+    canSeeRoster: table.viewer?.canSeeRoster ?? false,
+    canGuestRsvp: table.viewer?.canGuestRsvp ?? false,
+  };
   return (
     <main className="tables-page">
       <BackLink fallback="/tables" className="tables-note" />
       <div className="tables-detail">
         <div className="tables-detail-art">
-          <TablePortrait table={table} large joined={table.viewer.isMember} />
+          <TablePortrait table={table} large joined={viewer.isMember} />
         </div>
         <div className="tables-detail-copy">
           <span className="tables-eyebrow">
@@ -323,7 +337,7 @@ export default function TableDetailPage() {
             )}
           </div>
           <TableScheduleSummary
-            event={table.nextEvent ?? table.events.find((event) => (event.endTime ?? event.datetime) >= Date.now()) ?? table.events.at(-1) ?? null}
+            event={table.nextEvent ?? events.find((event) => (event.endTime ?? event.datetime) >= Date.now()) ?? events.at(-1) ?? null}
             legacyStartsAt={table.nextEventAt}
           />
           {table.host?.name && (
@@ -352,7 +366,7 @@ export default function TableDetailPage() {
             className="tables-participation tables-participation-sticky"
             aria-label="Participation"
           >
-            {table.viewer.action === "checkout" &&
+            {viewer.action === "checkout" &&
             table.externalPaymentLinkUrl ? (
               <>
                 <a
@@ -370,8 +384,8 @@ export default function TableDetailPage() {
               </>
             ) : (
               <ParticipationState
-                action={table.viewer.action}
-                reason={table.viewer.reason}
+                action={viewer.action}
+                reason={viewer.reason}
                 priceCents={table.priceCents}
                 slug={table.slug}
                 pending={pending}
@@ -379,7 +393,7 @@ export default function TableDetailPage() {
                 onCheckout={pay}
               />
             )}
-            {table.viewer.action === "membership_required" &&
+            {viewer.action === "membership_required" &&
               table.community && (
                 <Link
                   className="tables-button"
@@ -388,7 +402,7 @@ export default function TableDetailPage() {
                   View community membership
                 </Link>
               )}
-            {params.get("paid") === "1" && !table.viewer.isMember && (
+            {params.get("paid") === "1" && !viewer.isMember && (
               <p className="tables-note" role="status">
                 We're confirming your payment. Your chair and roster access
                 appear once payment is confirmed.
@@ -410,7 +424,7 @@ export default function TableDetailPage() {
                 {error}
               </p>
             )}
-            {table.viewer.isMember && !table.viewer.isHost && (
+            {viewer.isMember && !viewer.isHost && (
               <button
                 className="tables-button tables-button-small"
                 type="button"
@@ -428,8 +442,8 @@ export default function TableDetailPage() {
           )}
           <section aria-label="Schedule">
             <h2 className="tables-subheading">Around this Table</h2>
-            {table.events.length ? (
-              table.events.map((event) => (
+            {events.length ? (
+              events.map((event) => (
                 <article key={event._id} className="tables-session">
                   <div className="tables-session-top">
                     <Link className="tables-session-title" to={`/events/${event._id}`}>
@@ -447,17 +461,17 @@ export default function TableDetailPage() {
                         ? " · Online"
                         : ""}
                   </p>
-                  {table.viewer.canGuestRsvp && (
+                  {viewer.canGuestRsvp && (
                     <GuestRsvp eventId={event._id} />
                   )}
                 </article>
               ))
-            ) : table.sessions.length ? (
-              table.sessions.map((session) => (
+            ) : sessions.length ? (
+              sessions.map((session) => (
                 <LegacySession
                   key={session._id}
                   session={session}
-                  isMember={table.viewer.isMember}
+                  isMember={viewer.isMember}
                 />
               ))
             ) : (
@@ -466,10 +480,10 @@ export default function TableDetailPage() {
           </section>
           <section aria-label="Table roster">
             <h2 className="tables-subheading">People at this Table</h2>
-            {table.viewer.canSeeRoster ? (
-              table.rosterProfiles.length ? (
+            {viewer.canSeeRoster ? (
+              rosterProfiles.length ? (
                 <div className="tables-roster">
-                  {table.rosterProfiles.map((person) => (
+                  {rosterProfiles.map((person) => (
                     <Link
                       className="tables-roster-person"
                       to={`/profile/${person.profileId}`}
@@ -493,10 +507,10 @@ export default function TableDetailPage() {
 
         </div>
       </div>
-      {table.viewer.isHost && (
-        <HostManagement tableId={table._id} events={table.events} />
+      {viewer.isHost && (
+        <HostManagement tableId={table._id} events={events} />
       )}
-      {table.viewer.isHost && table.scheduleType === "series" && (
+      {viewer.isHost && table.scheduleType === "series" && (
         <AddTableEvent tableId={table._id} />
       )}
     </main>

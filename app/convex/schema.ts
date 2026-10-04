@@ -1728,6 +1728,27 @@ export default defineSchema({
     createdAt: v.number(),
   }).index("by_subscriptionId", ["subscriptionId"]),
 
+  // A paid AP ticket the webhook could not honor (garden/apGifts.ts): the
+  // Event belongs to a Table whose rules don't admit this buyer. No RSVP and
+  // no ticket_in row are written. The money sits in AP's Stripe account, so
+  // an operator refunds it there and marks the row refunded (/admin/ledger).
+  externalTicketExceptions: defineTable({
+    stripeRef: v.string(), // "ap:<checkout session id>" — idempotency key
+    eventId: v.id("events"),
+    tableId: v.optional(v.id("gardenTables")),
+    grossCents: v.number(),
+    currency: v.string(),
+    ticketCount: v.number(),
+    reason: v.string(), // guests_not_allowed | full | event_unavailable | …
+    payerName: v.optional(v.string()),
+    status: v.string(), // refund_required | refunded
+    resolvedAt: v.optional(v.number()),
+    resolvedByUserId: v.optional(v.id("users")),
+    createdAt: v.number(),
+  })
+    .index("by_stripeRef", ["stripeRef"])
+    .index("by_status", ["status"]),
+
   grantContributions: defineTable({
     hostOrgId: v.id("hostOrgs"), // the pool owner: the platform row, or a community
     type: v.string(), // "dues_share" | "contribution_in" | "topup_in" | "sponsor_in" | "entry_fee_in" | "adjustment" | "ticket_in" | "member_gift_out"

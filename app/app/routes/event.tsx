@@ -268,6 +268,10 @@ export default function EventDetail() {
   // a button that would reject on click.
   const canApply =
     !isPast && !event.userApplication && !event.isOrganizer && isAuthenticated;
+  // Server-decided per viewer: an accepted Table participant joins a Table
+  // Event without applying again. Falls back to the Event's flag for a
+  // backend that predates applyNeedsApproval.
+  const needsApproval = event.applyNeedsApproval ?? event.requiresApproval;
   const isHost = !!(event.isHost ?? event.isOrganizer);
   const tabs: { id: EventTab; label: string }[] = isHost
     ? [
@@ -667,7 +671,7 @@ export default function EventDetail() {
                 </p>
               </div>
             ) : canApply ? (
-              event.requiresApproval ? (
+              needsApproval ? (
                 showApplyForm ? (
                   <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl">
                     <h3 className="font-medium text-gray-900 dark:text-white mb-3 text-sm">
@@ -845,7 +849,7 @@ export default function EventDetail() {
               </p>
             </div>
           ) : canApply ? (
-            event.requiresApproval ? (
+            needsApproval ? (
               showApplyForm ? (
                 <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl">
                   <h3 className="font-medium text-gray-900 dark:text-white mb-3">

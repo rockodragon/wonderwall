@@ -520,8 +520,18 @@ export const get = query({
 
     const chosenHosts = await loadDisplayHosts(ctx, event);
 
+    let tableParticipant = false;
+    if (event.tableId && userId) {
+      const table = await ctx.db.get(event.tableId);
+      const viewer = table ? await getTableParticipation(ctx, table, userId) : null;
+      tableParticipant = !!viewer && (viewer.isMember || viewer.isHost);
+    }
+
     return {
       ...event,
+      // What this viewer's Apply/Join leads to (events.apply): an accepted
+      // Table participant joins without a second approval.
+      applyNeedsApproval: applicationNeedsApproval(event, tableParticipant),
       coHosts,
       // Who "Hosted by" shows when the host set the list; null = default.
       shownHosts: chosenHosts
@@ -878,6 +888,19 @@ export const removeCoHost = mutation({
   },
 });
 
+/** Whether this person's application waits for a host. A Table Event's
+ * approval is the Table's, given once at enrollment: an accepted
+ * participant is never asked again per Event. The MVP has no separate
+ * Event-level approval policy for Table Events, so their requiresApproval
+ * flag (older ones copied it from the Table's access) is not one. */
+export function applicationNeedsApproval(
+  event: { tableId?: unknown; requiresApproval: boolean },
+  tableParticipant: boolean,
+): boolean {
+  if (event.tableId && tableParticipant) return false;
+  return event.requiresApproval;
+}
+
 export const apply = mutation({
   args: {
     eventId: v.id("events"),
@@ -892,12 +915,14 @@ export const apply = mutation({
     if (!event || !(await canSeeEvent(ctx, event, userId))) throw new Error("Event not found");
     if (event.status !== "published")
       throw new Error("Event is not accepting applications");
+    let tableParticipant = false;
     if (event.tableId) {
       const table = await ctx.db.get(event.tableId);
       const participation = table ? await getTableParticipation(ctx, table, userId) : null;
       if (!participation || (!participation.isMember && !participation.isHost)) {
         throw new Error("Join the Table and complete its requirements first");
       }
+      tableParticipant = true;
     }
 
     // Check if already applied
@@ -915,7 +940,7 @@ export const apply = mutation({
       eventId: args.eventId,
       applicantId: userId,
       message: args.message?.trim(),
-      status: event.requiresApproval ? "pending" : "accepted",
+      status: applicationNeedsApproval(event, tableParticipant) ? "pending" : "accepted",
       createdAt: now,
       updatedAt: now,
     });

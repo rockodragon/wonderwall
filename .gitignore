@@ -22,3 +22,7 @@ node_modules/
 .env
 .env.local
 .env.production
+
+# Editor swap files (an .env.local swap once got committed, 2026-10-03)
+*.swp
+*.swo

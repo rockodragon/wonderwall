@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { joinTable, getTable } from "./tables";
-import { getEventForTicketCheckout, apply, getAttendees } from "../events";
+import { joinTable, getTable, manageEnrollment } from "./tables";
+import {
+  getEventForTicketCheckout,
+  apply,
+  getAttendees,
+  get as getEvent,
+} from "../events";
+import { applyApStripeEvent } from "./apGifts";
 import { makeCtx, run, type Row } from "../../test-support/convexContext";
 import { canSeeEvent, eventVisibilityChecker } from "./eventVisibility";
 import {
@@ -485,6 +491,124 @@ describe("Table parent policy applies to existing Event endpoints", () => {
       expect(video.recordingUrl).toBeUndefined();
     },
   );
+  it("a guest RSVP is checked against its own Event, not the series' busiest Event", async () => {
+    const data = world();
+    Object.assign(data.gardenTables[0], { capacity: 3, scheduleType: "series" });
+    const SECOND_EVENT = "events:second";
+    data.events.push({
+      ...data.events[0],
+      _id: SECOND_EVENT,
+      datetime: Date.now() + 7200000,
+    });
+    for (const n of [1, 2, 3])
+      data.eventRsvps.push({
+        _id: `eventRsvps:a${n}`,
+        eventId: EVENT,
+        email: `a${n}@example.com`,
+        name: `Guest ${n}`,
+        createdAt: 0,
+      });
+    const guest = makeCtx(data, null);
+    await expect(
+      run(rsvpGuestToTableEvent, guest, {
+        eventId: EVENT,
+        name: "Late",
+        email: "late@example.com",
+      }),
+    ).rejects.toThrow();
+    await run(rsvpGuestToTableEvent, guest, {
+      eventId: SECOND_EVENT,
+      name: "Second-date guest",
+      email: "b1@example.com",
+    });
+    expect(
+      guest.store.eventRsvps.filter((r: Row) => r.eventId === SECOND_EVENT),
+    ).toHaveLength(1);
+    // Persistent enrollment keeps the aggregate rule: the full first Event
+    // still leaves no chair for someone joining every date.
+    const account = {
+      ...guest,
+      auth: { getUserIdentity: async () => ({ subject: `${USER}|session` }) },
+    };
+    await expect(run(joinTable, account, { tableId: TABLE })).rejects.toThrow();
+    expect(guest.store.tableMemberships).toHaveLength(0);
+  });
+  it("enrollments and live holds take a chair on every Event before its guests", async () => {
+    const data = world();
+    Object.assign(data.gardenTables[0], { capacity: 3, scheduleType: "series" });
+    member(data);
+    data.tableCheckoutHolds.push({
+      _id: "tableCheckoutHolds:h",
+      tableId: TABLE,
+      userId: OTHER,
+      status: "pending",
+      expiresAt: Date.now() + 60000,
+    });
+    const SECOND_EVENT = "events:second";
+    data.events.push({
+      ...data.events[0],
+      _id: SECOND_EVENT,
+      datetime: Date.now() + 7200000,
+    });
+    const guest = makeCtx(data, null);
+    await run(rsvpGuestToTableEvent, guest, {
+      eventId: SECOND_EVENT,
+      name: "One",
+      email: "one@example.com",
+    });
+    await expect(
+      run(rsvpGuestToTableEvent, guest, {
+        eventId: SECOND_EVENT,
+        name: "Two",
+        email: "two@example.com",
+      }),
+    ).rejects.toThrow();
+    // The first Event's guests are counted on their own.
+    await run(rsvpGuestToTableEvent, guest, {
+      eventId: EVENT,
+      name: "First-date guest",
+      email: "first@example.com",
+    });
+    expect(guest.store.eventRsvps).toHaveLength(2);
+  });
+  it("an accepted participant of an approval Table joins its Event without a second approval", async () => {
+    const data = world();
+    Object.assign(data.gardenTables[0], {
+      access: "approval",
+      allowsExternalGuests: false,
+    });
+    // Older Table Events copied the Table's approval onto the Event.
+    data.events[0].requiresApproval = true;
+    const participant = makeCtx(data, USER);
+    await run(joinTable, participant, { tableId: TABLE });
+    // A pending request still can't get in through the Event.
+    await expect(
+      run(apply, participant, { eventId: EVENT, message: "Let me in" }),
+    ).rejects.toThrow();
+    const host = makeCtx(participant.store, HOST);
+    await run(manageEnrollment, host, {
+      tableId: TABLE,
+      userId: USER,
+      decision: "accept",
+    });
+    const accepted = makeCtx(host.store, USER);
+    expect(
+      (await run(getEvent, accepted, { eventId: EVENT })).applyNeedsApproval,
+    ).toBe(false);
+    await run(apply, accepted, { eventId: EVENT });
+    expect(accepted.store.eventApplications).toHaveLength(1);
+    expect(accepted.store.eventApplications[0]).toMatchObject({
+      applicantId: USER,
+      status: "accepted",
+    });
+    // A stranger still sees the Event's flag, and still can't apply.
+    const stranger = makeCtx(accepted.store, OTHER);
+    expect(
+      (await run(getEvent, stranger, { eventId: EVENT })).applyNeedsApproval,
+    ).toBe(true);
+    await expect(run(apply, stranger, { eventId: EVENT })).rejects.toThrow();
+    expect(stranger.store.eventApplications).toHaveLength(1);
+  });
   it("accepted free participant can read private room, and /j proxy stays closed", async () => {
     const data = world();
     member(data);
@@ -500,5 +624,152 @@ describe("Table parent policy applies to existing Event endpoints", () => {
         { meetingUrl: "https://private.example/room" },
       ),
     ).toBeNull();
+  });
+});
+
+describe("AP ticket webhook follows Table rules and trusted identity", () => {
+  /** Real Convex ids have no ":" and a ticket ref carries them bare; the
+   * harness's ids do, so the ref carries the part after it. */
+  function webhookCtx(data: Record<string, Row[]>) {
+    data.hostOrgs.push({
+      _id: "hostOrgs:ap",
+      kind: "fund",
+      status: "active",
+      name: "Abiding Practice",
+      slug: "abiding-practice",
+    });
+    const ctx = makeCtx(data, null);
+    const normalize = ctx.db.normalizeId;
+    ctx.db.normalizeId = (table: string, id: string) =>
+      normalize(table, `${table}:${id}`);
+    return ctx;
+  }
+  let session = 0;
+  function paidTicket(ref: string, email: string, amountTotal = 2000) {
+    return {
+      event: {
+        id: `evt_${++session}`,
+        type: "checkout.session.completed",
+        data: {
+          object: {
+            id: `cs_test_ticket${session}`,
+            payment_status: "paid",
+            currency: "usd",
+            amount_total: amountTotal,
+            client_reference_id: ref,
+            customer_details: { name: "Ticket Buyer", email },
+            created: 1_800_000_000,
+          },
+        },
+      },
+    };
+  }
+  const verified = (data: Record<string, Row[]>, id: string) =>
+    Object.assign(data.users.find((u) => u._id === id)!, {
+      emailVerificationTime: 1,
+    });
+
+  it("a closed paid Table without guests gets no RSVP from a forged ref; the payment is flagged for refund", async () => {
+    const data = world();
+    Object.assign(data.gardenTables[0], {
+      pricingType: "fixed",
+      priceCents: 2000,
+      enrollmentClosed: true,
+      allowsExternalGuests: false,
+    });
+    verified(data, OTHER);
+    const ctx = webhookCtx(data);
+    const forged = paidTicket("evt-event-u-other", "buyer@example.com");
+    await run(applyApStripeEvent, ctx, forged);
+    await run(applyApStripeEvent, ctx, forged); // Stripe replay
+    expect(ctx.store.eventRsvps).toHaveLength(0);
+    expect(ctx.store.grantContributions ?? []).toHaveLength(0);
+    expect(ctx.store.tableMemberships).toHaveLength(0);
+    expect(ctx.store.externalTicketExceptions).toHaveLength(1);
+    expect(ctx.store.externalTicketExceptions[0]).toMatchObject({
+      eventId: EVENT,
+      tableId: TABLE,
+      grossCents: 2000,
+      reason: "guests_not_allowed",
+      status: "refund_required",
+    });
+  });
+
+  it("a standalone Event's ticket goes on an account only when Stripe's email is that account's verified email", async () => {
+    const data = world();
+    data.events.push({
+      _id: "events:standalone",
+      organizerId: HOST,
+      title: "Standalone",
+      datetime: Date.now() + 3600000,
+      status: "published",
+    });
+    const ctx = webhookCtx(data);
+    // Someone else's id in the ref, paid with another email: an email guest.
+    await run(
+      applyApStripeEvent,
+      ctx,
+      paidTicket("evt-standalone-u-other", "buyer@example.com"),
+    );
+    // The right email, but the account never verified it: still a guest.
+    await run(
+      applyApStripeEvent,
+      ctx,
+      paidTicket("evt-standalone-u-other", "other@example.com"),
+    );
+    expect(ctx.store.eventRsvps.map((r: Row) => [r.email, r.userId])).toEqual([
+      ["buyer@example.com", undefined],
+      ["other@example.com", undefined],
+    ]);
+    expect(
+      ctx.store.grantContributions.every((c: Row) => c.userId === undefined),
+    ).toBe(true);
+    // Verified and matching: the purchase is theirs.
+    verified(ctx.store, OTHER);
+    await run(
+      applyApStripeEvent,
+      ctx,
+      paidTicket("evt-standalone-u-other", "Other@Example.com"),
+    );
+    expect(ctx.store.eventRsvps).toHaveLength(2);
+    expect(ctx.store.eventRsvps[1]).toMatchObject({
+      email: "other@example.com",
+      userId: OTHER,
+    });
+    expect(ctx.store.externalTicketExceptions ?? []).toHaveLength(0);
+  });
+
+  it("a guest Table's ticket seats a participant on their account and anyone else as a guest, within the Event's chairs", async () => {
+    const data = world();
+    data.gardenTables[0].capacity = 2;
+    member(data);
+    verified(data, USER);
+    verified(data, OTHER);
+    const ctx = webhookCtx(data);
+    // A verified account that isn't a participant is a guest, not a member.
+    await run(
+      applyApStripeEvent,
+      ctx,
+      paidTicket("evt-event-u-other", "other@example.com"),
+    );
+    await run(
+      applyApStripeEvent,
+      ctx,
+      paidTicket("evt-event-u-participant", "participant@example.com"),
+    );
+    expect(ctx.store.eventRsvps.map((r: Row) => [r.email, r.userId])).toEqual([
+      ["other@example.com", undefined],
+      ["participant@example.com", USER],
+    ]);
+    // One enrollment plus one guest fill both chairs.
+    await run(
+      applyApStripeEvent,
+      ctx,
+      paidTicket("evt-event", "late@example.com"),
+    );
+    expect(ctx.store.eventRsvps).toHaveLength(2);
+    expect(ctx.store.externalTicketExceptions).toHaveLength(1);
+    expect(ctx.store.externalTicketExceptions[0].reason).toBe("full");
+    expect(ctx.store.grantContributions).toHaveLength(2);
   });
 });

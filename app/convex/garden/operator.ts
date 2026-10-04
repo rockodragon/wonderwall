@@ -207,6 +207,23 @@ export const addSession = mutation({
   },
 });
 
+/** An operator refunded a refused AP ticket (externalTicketExceptions) in
+ * AP's own Stripe account and records that here. Idempotent. */
+export const markExternalTicketRefunded = mutation({
+  args: { exceptionId: v.id("externalTicketExceptions") },
+  handler: async (ctx, args) => {
+    const operatorId = await requireOperator(ctx);
+    const row = await ctx.db.get(args.exceptionId);
+    if (!row) throw new ConvexError({ code: "not_found" });
+    if (row.status === "refunded") return;
+    await ctx.db.patch(row._id, {
+      status: "refunded",
+      resolvedAt: Date.now(),
+      resolvedByUserId: operatorId,
+    });
+  },
+});
+
 export const createCoverageCode = mutation({
   args: {
     code: v.string(),

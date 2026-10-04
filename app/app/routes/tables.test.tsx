@@ -195,6 +195,20 @@ describe("Table detail server projection", () => {
     };
     expect(render("/tables/our-studio")).toContain("RSVP as an external guest");
   });
+  it("renders the older getTable shape (no events, viewer of canJoin/isMember) instead of crashing", () => {
+    state.signedIn = true;
+    const { events: _events, rosterProfiles: _profiles, viewer: _viewer, ...legacy } = detail;
+    state.queries["garden/tables:getTable"] = {
+      ...legacy,
+      sessions: [{ _id: "session1", title: "Old session", startsAt: Date.UTC(2026, 9, 20, 18) }],
+      viewer: { canJoin: { allowed: true }, isMember: false },
+    };
+    const markup = render("/tables/our-studio");
+    expect(markup).toContain("Our creative studio");
+    expect(markup).toContain("Old session");
+    expect(markup).toContain("isn&#x27;t accepting participation right now");
+    expect(markup).toContain("The roster is private");
+  });
   it("gracefully handles missing/private Tables", () => {
     state.queries["garden/tables:getTable"] = null;
     expect(render("/tables/missing")).toContain(

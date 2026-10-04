@@ -16,3 +16,7 @@ package-lock.json
 # bv (beads viewer) local config and caches
 .bv/
 .wrangler
+
+# Editor swap files (an .env.local swap once got committed, 2026-10-03)
+*.swp
+*.swo
