@@ -53,7 +53,10 @@ Event and project covers become portrait 4:5, the Instagram feed shape (1080 × 
   - **The desk.** Its cards are about 3:4, close enough. A 4:5 picture loses about 6% at the edges, and wide ones are already framed.
   - **Small thumbs.** The 44 px shortlist and 48 px profile thumbs.
   - **Gallery squares.**
-  - **Link previews (OG).** These crop a portrait to a strip. That's a separate later fix.
+  - **Link previews.** Event links now use the small card: the cover as a thumbnail beside the title (`functions/events/[id].ts`). The large card cropped a portrait to a wide strip through the middle.
+    - X, Slack and Discord follow this.
+    - iMessage, Facebook and WhatsApp choose for themselves and may still crop.
+    - A preview image made for each event (the poster whole on a blurred background) would fix those too, as a later pass.
 
 ## Fixed along the way
 
@@ -71,7 +74,9 @@ Event and project covers become portrait 4:5, the Instagram feed shape (1080 × 
   - wide flyer → banner on desktop and phone
   - poster layout, with the rule forced
 - **Cards:** /garden/events and /projects.
-- **Not seen in a browser** (they need sign-in):
-  - the project page
-  - Today on a phone
-  - the cover picker inside "Host an event"
+- **Signed in, on a throwaway local backend** with a test account and seeded data:
+  - **Project page:** Add image, then the framer, then the poster beside the title (desktop) and full width (phone). The saved file is 1080 × 1350.
+  - **Today on a phone:** the featured project as a 4:5 poster.
+  - **/opportunities** shows the uploaded photo (the backend fix).
+  - **Host an event:** the framer opens above the form, the 4:5 preview shows on step 2, and the created event shows the poster beside the title.
+  - **Event Setup tab:** Whole with a wide picture saves it uncut, and the page switches to the banner.
