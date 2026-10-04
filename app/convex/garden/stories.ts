@@ -15,6 +15,7 @@ import { internalMutation, mutation, query } from "../_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import { shapeCredits } from "./allocations";
+import { resolveProjectPhotoUrl } from "./projectsPublic";
 import { notifyFollowers } from "../follows";
 import { isHidden } from "../moderationRules";
 import { communityVisibility, isHiddenCommunityId } from "./communityVisibility";
@@ -520,7 +521,8 @@ export const getStoryPage = query({
         kind: project.kind,
         goal: project.goal,
         raisedCents: project.raisedCents,
-        photoUrl: project.photoUrl,
+        // The uploaded photo first, then the pasted link (projectsPublic.ts).
+        photoUrl: await resolveProjectPhotoUrl(ctx.storage, project),
         // A pasted reel or video link the page plays as its hero when there
         // is no photo (docs/features/creator-media-cross-post.md), and the
         // still behind it for a card. The project's own pasted link (Round

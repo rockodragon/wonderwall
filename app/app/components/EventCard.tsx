@@ -3,7 +3,7 @@ import { toEmbedUrl } from "../lib/videoEmbed";
 import { EmbedStill } from "./EmbedStill";
 import { FavoriteButton } from "./FavoriteButton";
 import { hostNamesLine, type EventHost } from "../lib/eventHosts";
-import { ImageFill } from "./ImageFill";
+import { CoverFrame } from "./CoverFrame";
 import { paidPriceCents } from "../lib/eventTickets";
 
 // The one event card. /events (routes/events.tsx), search (routes/search.tsx)
@@ -133,6 +133,12 @@ export function EventCard({
 
   const mediaEmbed = event.coverImageUrl ? null : toEmbedUrl(event.mediaUrl ?? undefined);
 
+  const favorite = (
+    <div className="absolute top-2 right-2 z-10">
+      <FavoriteButton targetType="event" targetId={event._id} size="sm" />
+    </div>
+  );
+
   return (
     <Link
       to={`/events/${event._id}`}
@@ -145,44 +151,45 @@ export function EventCard({
           backgroundColor: "var(--garden-ink-raised)",
         }}
       >
-        <div
-          className="relative aspect-[16/10] overflow-hidden flex items-center justify-center"
-          style={{
-            background:
-              event.coverImageUrl || mediaEmbed
-                ? "var(--garden-ink)"
-                : coverFallback(event._id),
-          }}
-        >
-          {event.coverImageUrl ? (
-            <ImageFill src={event.coverImageUrl} alt={event.title} />
-          ) : mediaEmbed ? (
-            <EmbedStill
-              embed={mediaEmbed}
-              previewUrl={event.mediaPreviewUrl}
-              title={event.title}
-              badgeSize="sm"
-            />
-          ) : (
-            <svg
-              className="w-10 h-10"
-              style={{ color: "var(--garden-hairline-raised)" }}
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1}
-                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+        {/* The cover is 4:5 whichever of the three it is, so a row of
+            cards lines up (docs/features/cover-4x5.md). */}
+        {event.coverImageUrl ? (
+          <CoverFrame src={event.coverImageUrl} alt={event.title}>
+            {favorite}
+          </CoverFrame>
+        ) : (
+          <div
+            className="relative aspect-[4/5] overflow-hidden flex items-center justify-center"
+            style={{
+              background: mediaEmbed ? "var(--garden-ink)" : coverFallback(event._id),
+            }}
+          >
+            {mediaEmbed ? (
+              <EmbedStill
+                embed={mediaEmbed}
+                previewUrl={event.mediaPreviewUrl}
+                title={event.title}
+                badgeSize="sm"
               />
-            </svg>
-          )}
-          <div className="absolute top-2 right-2 z-10">
-            <FavoriteButton targetType="event" targetId={event._id} size="sm" />
+            ) : (
+              <svg
+                className="w-10 h-10"
+                style={{ color: "var(--garden-hairline-raised)" }}
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1}
+                  d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                />
+              </svg>
+            )}
+            {favorite}
           </div>
-        </div>
+        )}
 
         <div className="p-4 flex-1 flex flex-col min-w-0">
           <div className="flex items-start justify-between gap-2 mb-1.5">

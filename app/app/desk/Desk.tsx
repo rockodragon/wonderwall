@@ -40,14 +40,12 @@ import {
   parseShortlistKind,
   stepTo,
   useDeskCommunity,
-  useDeskSpacing,
   type DeskCardId,
   type DeskView,
 } from "./deskState";
 import type { Stepper } from "./OpenedCard";
 import { shortlistCard } from "./shortlistCards";
 import { ShortlistBody, TodayNeedsYou, shortlistHeader } from "./ShortlistView";
-import { SpacingControl } from "./SpacingControl";
 import { DESK, DESK_SANS, FOCUS_RING_CLASS, MOTION_MS, motion, deskSurfaceStyle, useDeskTint } from "./tokens";
 import { useDeskData } from "./useDeskData";
 import { useUpdateReads } from "./useUpdateReads";
@@ -77,7 +75,6 @@ export function Desk() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const community = useDeskCommunity();
-  const space = useDeskSpacing();
   const tint = useDeskTint();
   const reduced = useReducedMotion();
 
@@ -247,10 +244,9 @@ export function Desk() {
         top: header.total,
         scrollTop,
         shown: shownIds,
-        space,
         rowTop: todayNeeds ? header.total + BELOW_NEEDS : undefined,
       }),
-    [layoutCards, view, openId, size.w, size.h, header.total, scrollTop, shownIds, space, todayNeeds],
+    [layoutCards, view, openId, size.w, size.h, header.total, scrollTop, shownIds, todayNeeds],
   );
   const places = layout.places;
 
@@ -514,7 +510,6 @@ export function Desk() {
       />
 
       <DeskCreate />
-      {profile?.isAdmin && <SpacingControl />}
       <DeskToast />
     </div>
   );

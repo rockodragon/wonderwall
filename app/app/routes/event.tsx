@@ -40,6 +40,10 @@ import type { Id } from "../../convex/_generated/dataModel";
 import { normalizePhone } from "../../convex/phone";
 import { LocationMapCard } from "../components/LocationMapCard";
 import { ImageFill } from "../components/ImageFill";
+import { CoverFrame } from "../components/CoverFrame";
+import { useCoverPick } from "../lib/useCoverPick";
+import { uploadToStorage } from "../lib/uploadFile";
+import { isWideCover, useImageAspect } from "../lib/useImageAspect";
 import { useBack } from "../lib/useBack";
 import { YOUTUBE_LIVE_LABEL, YOUTUBE_LIVE_URL } from "../constants/broadcast";
 import { FavoriteButton } from "../components/FavoriteButton";
@@ -195,6 +199,12 @@ export default function EventDetail() {
     }
   }
 
+  // The cover's shape picks the header: a poster beside the title, or a
+  // banner above it. Measured before the early returns (hooks).
+  const coverRatio = useImageAspect(
+    event ? event.coverImageUrl || event.galleryImageUrls?.[0] : null,
+  );
+
   if (event === undefined) {
     return (
       <div className={`p-6 ${PAGE_WIDTH.list} mx-auto`}>
@@ -310,6 +320,7 @@ export default function EventDetail() {
   // recording links are a different thing (EventVideoSection below).
   const mediaEmbed = toEmbedUrl(event.mediaUrl);
   const playerIsHero = !!mediaEmbed && !bannerImageUrl;
+  const poster = !!bannerImageUrl && !isWideCover(coverRatio);
 
   return (
     <div className={`${PAGE_WIDTH.list} mx-auto`}>
@@ -369,21 +380,33 @@ export default function EventDetail() {
           <EmbedPlayer embed={mediaEmbed} title={event.title} />
         </div>
       )}
-      {/* The cover stands alone — posters carry their own type, so the
-          title sits below it rather than on top. */}
-      {/* Shown whole (ImageFill) — a fixed-height strip used to crop a
-          flyer to a slice and trim a banner's edges. */}
-      {!playerIsHero && (
-        <div className="relative h-56 md:h-72 overflow-hidden">
-          {bannerImageUrl ? (
-            <ImageFill src={bannerImageUrl} alt={event.title} />
-          ) : (
-            <div className={`w-full h-full bg-gradient-to-br ${coverGradient}`} />
-          )}
-        </div>
-      )}
-      <div>
-        <div className="px-6 pt-5">
+      {/* A 4:5 cover is a poster (docs/features/cover-4x5.md): full width
+          on a phone (capped at ~70vh) with the title below; from md up it
+          sits left of the title. A wide cover — an old landscape one, or a
+          flyer kept whole — stays the full-width banner above the title,
+          shown whole (ImageFill), as does the gradient when there's none.
+          Posters carry their own type, so the title never sits on top. */}
+      <div className={poster ? "md:flex md:items-start md:gap-8 md:px-6 md:pt-5" : undefined}>
+        {poster && bannerImageUrl ? (
+          <div className="pt-3 md:pt-0 md:w-80 md:shrink-0">
+            <CoverFrame
+              src={bannerImageUrl}
+              alt={event.title}
+              className="mx-auto max-w-[min(100%,56vh)] md:max-w-none md:rounded-2xl"
+            />
+          </div>
+        ) : (
+          !playerIsHero && (
+            <div className="relative h-56 md:h-72 overflow-hidden">
+              {bannerImageUrl ? (
+                <ImageFill src={bannerImageUrl} alt={event.title} />
+              ) : (
+                <div className={`w-full h-full bg-gradient-to-br ${coverGradient}`} />
+              )}
+            </div>
+          )
+        )}
+        <div className={poster ? "min-w-0 flex-1 px-6 pt-5 md:px-0 md:pt-0" : "px-6 pt-5"}>
           <div className="flex items-center gap-3 mb-2">
             <h1
               className={`text-2xl md:text-3xl font-bold ${
@@ -2580,40 +2603,29 @@ function EventImageManager({
   const coverInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
 
-  async function handleCoverUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (!file.type.startsWith("image/")) {
-      alert("Please select an image file");
-      return;
-    }
-
-    if (file.size > 5 * 1024 * 1024) {
-      alert("Image must be less than 5MB");
-      return;
-    }
-
+  // The hook checks the file (image, up to 20MB), frames it 4:5 and hands
+  // back a small JPEG; we upload that.
+  const [coverError, setCoverError] = useState<string | null>(null);
+  const coverPick = useCoverPick(async (blob) => {
     setUploading("cover");
+    setCoverError(null);
     try {
-      const uploadUrl = await generateUploadUrl();
-      const result = await fetch(uploadUrl, {
-        method: "POST",
-        headers: { "Content-Type": file.type },
-        body: file,
-      });
-
-      if (!result.ok) throw new Error("Upload failed");
-
-      const { storageId } = await result.json();
+      const storageId = await uploadToStorage(generateUploadUrl, blob);
       await saveEventCoverImage({ eventId, storageId });
     } catch (err) {
       console.error("Upload error:", err);
-      alert("Failed to upload image. Please try again.");
+      setCoverError("Failed to upload image. Please try again.");
     } finally {
       setUploading(null);
-      if (coverInputRef.current) coverInputRef.current.value = "";
     }
+  });
+
+  function handleCoverUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setCoverError(null);
+    coverPick.pick(file);
   }
 
   async function handleGalleryUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -2676,7 +2688,7 @@ function EventImageManager({
           Cover Image
         </h3>
         <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">
-          Landscape, 1600 × 900 works best.
+          Portrait 4:5 works best (1080 × 1350).
         </p>
         <input
           ref={coverInputRef}
@@ -2685,26 +2697,43 @@ function EventImageManager({
           onChange={handleCoverUpload}
           className="hidden"
         />
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => coverInputRef.current?.click()}
-            disabled={uploading === "cover"}
-            className="px-3 py-1.5 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg text-sm font-medium hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50"
-          >
-            {uploading === "cover"
-              ? "Uploading..."
-              : event.coverImageUrl
-                ? "Change Cover"
-                : "Add Cover"}
-          </button>
+        {coverPick.picker}
+        <div className="flex items-start gap-4">
           {event.coverImageUrl && (
-            <button
-              onClick={() => deleteEventCoverImage({ eventId })}
-              className="px-3 py-1.5 text-red-600 hover:text-red-500 text-sm font-medium"
-            >
-              Remove
-            </button>
+            <CoverFrame
+              src={event.coverImageUrl}
+              alt="Current cover"
+              className="w-32 shrink-0 rounded-lg"
+            />
           )}
+          <div className="min-w-0">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => coverInputRef.current?.click()}
+                disabled={uploading === "cover" || coverPick.busy}
+                className="px-3 py-1.5 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg text-sm font-medium hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50"
+              >
+                {uploading === "cover" || coverPick.busy
+                  ? "Uploading..."
+                  : event.coverImageUrl
+                    ? "Change Cover"
+                    : "Add Cover"}
+              </button>
+              {event.coverImageUrl && (
+                <button
+                  onClick={() => deleteEventCoverImage({ eventId })}
+                  className="px-3 py-1.5 text-red-600 hover:text-red-500 text-sm font-medium"
+                >
+                  Remove
+                </button>
+              )}
+            </div>
+            {(coverPick.error || coverError) && (
+              <p role="alert" className="mt-2 text-sm text-red-600 dark:text-red-400">
+                {coverPick.error || coverError}
+              </p>
+            )}
+          </div>
         </div>
 
         {/* Cover Color (shown when no cover image) */}
