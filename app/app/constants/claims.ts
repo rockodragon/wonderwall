@@ -62,9 +62,9 @@ export const CLAIMS = {
   partner: "Post paid work with the pay stated up front, or offer your space. Creatives respond, and you pick.",
   theGarden:
     "The platform is open to any creative. The Garden is the Christian creative community on it, and it is where this started.",
-  /** What The Garden is, on the deck and its About page (Rick, 2026-10-04).
-   * "Many of us are both": creatives back other creatives, too. */
-  gardenMemberFunded: "A faith-based, member-funded community of creatives and patrons. Many of us are both.",
+  /** Rick, 2026-10-04. Dues pay for The Garden; its grant fund also takes
+   * tax-deductible gifts through Abiding Practice, so never "only" member-funded. */
+  memberFunded: "The Garden is member-funded.",
   /** Member-directed giving (docs/features/member-directed-giving.md). The
    * dollar amount is never in a claim: the page computes it from the
    * member's own invoice. Server twins: GIVING_SENTENCES in

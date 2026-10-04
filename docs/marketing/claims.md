@@ -32,7 +32,7 @@ Every sentence we say about money is defined here, word for word. Do not write a
 | **coverage** | $10 a month covers one creative's membership. A covered membership is a full membership. |
 | **partner** | Post paid work with the pay stated up front, or offer your space. Creatives respond, and you pick. |
 | **the garden** | The platform is open to any creative. The Garden is the Christian creative community on it, and it is where this started. |
-| **the garden, member-funded** | A faith-based, member-funded community of creatives and patrons. Many of us are both. |
+| **member-funded** | The Garden is member-funded. |
 | **member-directed** | Each month you choose who gets your monthly grant: a creative, a project, or the grant fund. |
 | **member-directed, default** | If you don't pick within a week, it goes to the grant fund. |
 | **member-directed, full** | What you give goes to them in full. |
