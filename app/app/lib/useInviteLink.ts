@@ -2,7 +2,7 @@ import { usePostHog } from "@posthog/react";
 import { useMutation, useQuery } from "convex/react";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../../convex/_generated/api";
-import { GARDEN, useBrand } from "../brand/brands";
+import { GARDEN, PLATFORM_NAME, useBrand } from "../brand/brands";
 
 /**
  * The signed-in member's personal invite link, shared by the sidebar card
@@ -59,7 +59,7 @@ export function useInviteLink(variant: "sidebar" | "settings" | "people" | "pale
     if (!url || !canShare) return;
     try {
       // On a Garden domain the link is to The Garden, so the words are too.
-      const place = brand === "garden" ? GARDEN.name : "TheCreative.exchange";
+      const place = brand === "garden" ? GARDEN.name : PLATFORM_NAME;
       await navigator.share({
         title: brand === "garden" ? `Join me in ${place}` : `Join me on ${place}`,
         text: `Here's my invite to ${place}.`,

@@ -3,9 +3,10 @@
 // themselves live with the backend's (convex/garden/brandHosts.ts), which
 // also lets sign-in return to them.
 
-import { GARDEN_HOSTS, GARDEN_NAME, isGardenHost, normalizeHost } from "../../convex/garden/brandHosts";
+import { GARDEN_HOSTS, GARDEN_NAME, PLATFORM_NAME, isGardenHost, normalizeHost } from "../../convex/garden/brandHosts";
+import { GARDEN_SLUG } from "../lib/communitySlugs";
 
-export { GARDEN_HOSTS, normalizeHost };
+export { GARDEN_HOSTS, PLATFORM_NAME, normalizeHost };
 
 export type BrandId = "exchange" | "garden";
 
@@ -17,7 +18,7 @@ const OVERRIDE_KEY = "brand-override";
 const OVERRIDE_HOSTS = /^(localhost|127\.0\.0\.1|.+\.pages\.dev)$/;
 
 export const GARDEN = {
-  communitySlug: "the-garden",
+  communitySlug: GARDEN_SLUG,
   name: GARDEN_NAME,
   /** The mark on the dark site; on paper it's CRIMSON_PAPER. Never text. */
   crimson: "#D93A4B",
