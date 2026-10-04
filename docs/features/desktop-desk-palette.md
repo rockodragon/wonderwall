@@ -102,8 +102,8 @@ The visual spec is the handoff README. What follows covers the build.
 | Profile | Sign out | `signOut()`, then `/`, the same as settings.tsx |
 
 **Signed out.**
-- Tools: People goes to `/people`, Projects to `/projects`, Events to `/events`, and Sign in (Phosphor `sign-in`) to `/login?redirect=<here>`.
-- Stacks: People has "Find people". Projects has "Browse projects". Events has "Browse events". Sign in has "Sign in" and "About The Garden".
+- Tools: People goes to `/people`, Projects to `/projects`, Events to `/events`, Tables to `/tables`, and Sign in (Phosphor `sign-in`) to `/login?redirect=<here>`.
+- Stacks: People has "Find people". Projects has "Browse projects". Events has "Browse events". Tables has "Find a Table" and "Set a Table". Sign in has "Sign in" and "About The Garden".
 
 **Main button.** Signed in, a click goes to `deskHref("all")`, which also closes any open card. Signed out, it goes to `/garden`.
 
@@ -128,6 +128,13 @@ The visual spec is the handoff README. What follows covers the build.
 - The main button: `aria-label="Navigation"`, plus `aria-expanded`.
 - Tools: buttons named by their label.
 - Stacks: `role="menu"`, with items as `role="menuitem"`.
+
+**First visit** (Rick, 2026-10-03; `PaletteHint.tsx`). Nothing else on a desktop page says the corner button is the menu, so a note points at it once per browser:
+- "This is your menu" / "Hover or click it to get to People, Projects, Events, Tables and more." / **Got it**. An accent ring pulses around the main button three times while it shows.
+- Shows 900ms after the shell settles: signed out at once, signed in only once the profile has loaded and neither onboarding nor `/invite` is about to take over.
+- Gone for good (`localStorage["desk.paletteHint"] = "seen"`) on Got it or the first time the fan opens. Blocked storage brings it back next visit.
+- Desktop only: it renders with the palette, which phones don't show.
+- Reduced motion: no slide-in, no pulse.
 
 ## Desk
 
