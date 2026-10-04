@@ -24,10 +24,9 @@ test.describe("Garden production surfaces", () => {
     // The route stays /tables but the page's noun keeps moving (Tables, then
     // Spaces), so assert a page title rendered rather than which word it is.
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-    // Empty state ("… are coming") or populated (descriptor + cards) — both valid.
-    await expect(
-      page.getByText(/are coming|Groups you join and keep coming back to/i).first(),
-    ).toBeVisible();
+    // The Tables page's intro shows whether it's empty or full (the Tables
+    // UI, 2026-10-03, replaced the "… are coming" empty state).
+    await expect(page.getByText(/pull up a chair/i).first()).toBeVisible();
     await expect(page.getByText(/isn't live yet/i)).not.toBeVisible();
   });
 
