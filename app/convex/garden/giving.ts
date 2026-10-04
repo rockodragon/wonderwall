@@ -623,6 +623,7 @@ export async function openMemberGift(
   await scheduleNotificationEmail(ctx, {
     userId: args.userId,
     category: "activity",
+    communityId: args.communityId,
     ...buildGiftOpenedEmail({ amountCents, linkUrl: "/give" }),
   });
   return giftId;
@@ -643,6 +644,9 @@ export async function notifyGiftReceived(
     recurring: boolean;
     note?: string;
     projectTitle?: string;
+    // The community whose pool the gift came from (the gift's communityId);
+    // names it as the sender. Unset: the payee's own community.
+    communityId?: Id<"hostOrgs">;
   },
 ) {
   if (args.giverUserId && String(args.giverUserId) === String(args.payeeUserId)) return;
@@ -666,7 +670,12 @@ export async function notifyGiftReceived(
     linkUrl: email.ctaUrl,
     relatedUserId: args.visible ? args.giverUserId : undefined,
   });
-  await scheduleNotificationEmail(ctx, { userId: args.payeeUserId, category: "activity", ...email });
+  await scheduleNotificationEmail(ctx, {
+    userId: args.payeeUserId,
+    category: "activity",
+    communityId: args.communityId,
+    ...email,
+  });
 }
 
 /** Kicks the Connect transfer sweep for one payee (garden/connect.ts). A
@@ -1023,6 +1032,7 @@ export const decideGift = mutation({
         source: "allowance",
         recurring: false,
         note,
+        communityId: gift.communityId,
       });
       await scheduleTransferFor(ctx, recipientUserId);
       return {
@@ -1118,6 +1128,7 @@ export const decideGift = mutation({
       recurring: false,
       note,
       projectTitle: project!.title,
+      communityId: gift.communityId,
     });
     await scheduleTransferFor(ctx, project!.userId);
     return {

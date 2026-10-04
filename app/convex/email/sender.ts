@@ -10,6 +10,9 @@
 //               waitlist approval. Sent under the community's name, so a
 //               Garden member sees The Garden and not an unfamiliar brand.
 //
+// Which community's name goes on a community email is pickSenderCommunity
+// below; the database reads that feed it are in senderCommunity.ts.
+//
 // Only the display name changes. The address stays the verified sending
 // address (EMAIL_FROM, or DEFAULT_FROM in resendProvider.ts).
 
@@ -28,6 +31,59 @@ export function defaultSenderFor(category: EmailCategoryName | undefined): Email
   return category === "activity" || category === "digest" || category === "announcements"
     ? "community"
     : "platform";
+}
+
+/** The few hostOrgs fields the choice needs; a hostOrgs row fits. */
+export interface SenderCommunity {
+  _id: string;
+  name: string;
+  kind: string;
+  status?: string;
+}
+
+/** A community a person belongs to, and when they joined it. */
+export interface SenderMembership<C extends SenderCommunity = SenderCommunity> {
+  community: C;
+  joinedAt: number;
+}
+
+/** An open community: kind "community" and active. A missing status reads
+ * as active, the same as everywhere else hostOrgs is read (communities.ts).
+ * A fund or the platform row isn't one, nor is a pending or archived
+ * community. */
+export function isActiveCommunity(org: Pick<SenderCommunity, "kind" | "status">): boolean {
+  return org.kind === "community" && (org.status ?? "active") === "active";
+}
+
+/** Which community a community email is from, in order:
+ *   1. the community the email is about (`explicit`), if it's active;
+ *   2. the recipient's own community: the one they're an active member of,
+ *      or when they're in several, the default community if they're in it,
+ *      else the one they joined first;
+ *   3. the default community (The Garden);
+ *   4. null — the caller keeps the platform sender.
+ * Callers pass `memberships` as the recipient's active memberships; the
+ * communities in them are checked for being open here. */
+export function pickSenderCommunity<C extends SenderCommunity>(args: {
+  explicit?: C | null;
+  memberships?: SenderMembership<C>[];
+  defaultCommunity?: C | null;
+}): C | null {
+  const { explicit, defaultCommunity } = args;
+  if (explicit && isActiveCommunity(explicit)) return explicit;
+
+  const open = (args.memberships ?? []).filter((m) => isActiveCommunity(m.community));
+  if (open.length === 1) return open[0].community;
+  if (open.length > 1) {
+    const inDefault = defaultCommunity
+      ? open.find((m) => m.community._id === defaultCommunity._id)
+      : undefined;
+    if (inDefault) return inDefault.community;
+    // Array.prototype.sort is stable, so equal join times keep their order.
+    return [...open].sort((a, b) => a.joinedAt - b.joinedAt)[0].community;
+  }
+
+  return defaultCommunity ?? null;
 }
 
 /** Strips what could break a header line (CR/LF and other control

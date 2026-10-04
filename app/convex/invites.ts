@@ -14,6 +14,7 @@ import { followEachOther } from "./follows";
 // as they like. inviteUsageCount still counts uses, for the network stats.
 import { findInviterProfile } from "./inviteLookup";
 import { getDefaultCommunity } from "./garden/defaultCommunity";
+import { resolveSenderCommunity } from "./email/senderCommunity";
 
 function generateCode(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -384,9 +385,16 @@ export const redeemBySlug = mutation({
       .first();
 
     const newUserName = newUserProfile?.name || "Someone";
-    // The Garden is where they joined; fall back to the platform name when
-    // it isn't seeded.
-    const placeName = (await getDefaultCommunity(ctx))?.name ?? "TheCreative.exchange";
+    // The community they joined. Every signup joins The Garden today, so
+    // that's the default community; when signups can join another community
+    // (communityDomains.ts resolveEntryCommunity), use the one they joined
+    // here. Named the way the email's From name is chosen, so the text and
+    // the sender agree; the platform name only when no community exists.
+    const joinedCommunity = await resolveSenderCommunity(ctx, {
+      communityId: (await getDefaultCommunity(ctx))?._id,
+      userId: inviterProfile.userId,
+    });
+    const placeName = joinedCommunity?.name ?? "TheCreative.exchange";
     const newUserImageUrl = newUserProfile?.imageUrl;
     // /profile/:id takes a profile id, not the invite slug (favorites.ts
     // and likesDigest.ts link the same way).
@@ -408,6 +416,7 @@ export const redeemBySlug = mutation({
     await scheduleNotificationEmail(ctx, {
       userId: inviterProfile.userId,
       category: "activity",
+      communityId: joinedCommunity?._id,
       subject: `${newUserName} joined ${placeName} using your invite`,
       previewText: `${newUserName} joined ${placeName} using your invite link.`,
       heading: `${newUserName} joined`,
