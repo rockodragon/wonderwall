@@ -447,6 +447,7 @@ function makeConvexDb(ctx: MutationCtx): Db & ClassPaymentDb {
       await scheduleNotificationEmail(ctx, {
         userId: project.userId,
         category: "activity",
+        communityId: project.hostOrgId,
         ...buildBackingReceivedEmail({
           supporterName: args.supporterName,
           visible: args.visible,
@@ -508,6 +509,7 @@ function makeConvexDb(ctx: MutationCtx): Db & ClassPaymentDb {
         await scheduleNotificationEmail(ctx, {
           userId: row.payeeUserId as Id<"users">,
           category: "activity",
+          communityId: offering?.hostOrgId,
           ...buildClassPurchasedEmail({
             buyerName,
             classTitle,
@@ -557,6 +559,11 @@ function makeConvexDb(ctx: MutationCtx): Db & ClassPaymentDb {
         period: row.period,
         createdAt: Date.now(),
       });
+      // A plus-up that came from a member's gift is about that gift's
+      // community; one with no gift has none and falls back to the payee's.
+      const gift = row.memberGiftId
+        ? await ctx.db.get(row.memberGiftId as Id<"memberGifts">)
+        : null;
       await notifyGiftReceived(ctx, {
         payeeUserId,
         giverUserId,
@@ -565,6 +572,7 @@ function makeConvexDb(ctx: MutationCtx): Db & ClassPaymentDb {
         amountCents: row.grossCents,
         source: "plus_up",
         recurring: row.billing !== "one_time",
+        communityId: gift?.communityId,
       });
       await scheduleTransferFor(ctx, payeeUserId);
     },

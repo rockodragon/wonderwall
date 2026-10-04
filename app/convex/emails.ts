@@ -22,11 +22,13 @@ const emailSenderValidator = v.union(v.literal("platform"), v.literal("community
  * Called from mutations via ctx.scheduler.runAfter(0, ...).
  *
  * `sender` picks the From display name (convex/email/sender.ts): "community"
- * sends under the community's name (The Garden), "platform" under the
- * default "TheCreative.exchange". Unset, it follows `category` — activity,
- * digest and announcements are community; transactional is platform. Pass it
- * only to break that rule (waitlist approval is transactional but comes from
- * The Garden). The sending address is the same either way.
+ * sends under a community's name, "platform" under the default
+ * "TheCreative.exchange". Unset, it follows `category` — activity, digest and
+ * announcements are community; transactional is platform. Pass it only to
+ * break that rule (waitlist approval is transactional but comes from the
+ * community). Which community: `communityId` if given and active, else the
+ * recipient's own (`recipientUserId`), else The Garden — see
+ * pickSenderCommunity. The sending address is the same either way.
  */
 export const sendNotificationEmail = internalAction({
   args: {
@@ -40,6 +42,11 @@ export const sendNotificationEmail = internalAction({
     category: v.optional(emailCategoryValidator),
     unsubscribeToken: v.optional(v.string()),
     sender: v.optional(emailSenderValidator),
+    // The community this email is about; the From name is that community's.
+    communityId: v.optional(v.id("hostOrgs")),
+    // The recipient, when they have an account: with no communityId (or one
+    // that isn't active), the From name is the recipient's own community.
+    recipientUserId: v.optional(v.id("users")),
   },
   handler: async (ctx, args) => {
     const to = args.to.trim().toLowerCase();
@@ -50,12 +57,16 @@ export const sendNotificationEmail = internalAction({
       return;
     }
 
-    // Read The Garden's name from its row so a rename carries over; when it
-    // isn't seeded this is null and the default sender name is kept.
+    // Read the community's name from its row so a rename carries over; when
+    // there's no community to name this is null and the default sender name
+    // is kept.
     const sender = args.sender ?? defaultSenderFor(args.category);
     const communityName =
       sender === "community"
-        ? await ctx.runQuery(internal.emailDeliveries.getCommunitySenderName, {})
+        ? await ctx.runQuery(internal.emailDeliveries.getCommunitySenderName, {
+            communityId: args.communityId,
+            userId: args.recipientUserId,
+          })
         : null;
     const fromName = chooseFromName({ sender, communityName });
 

@@ -15,7 +15,7 @@ import {
   query,
 } from "./_generated/server";
 import { requireAdminCtx } from "./helpers";
-import { getDefaultCommunity } from "./garden/defaultCommunity";
+import { resolveSenderCommunityName } from "./email/senderCommunity";
 
 const statusValidator = v.union(
   v.literal("sent"),
@@ -77,16 +77,17 @@ export const isSuppressed = internalQuery({
   },
 });
 
-/** The name community email is sent under: The Garden's, from its hostOrgs
- * row. Null when it isn't seeded, and the sender keeps its default name. One
- * community today; when email follows a member's own community (a second
- * community with members of its own), this takes that community's id. */
+/** The name a community email is sent under (order: email/sender.ts's
+ * pickSenderCommunity). `communityId` is the community the email is about,
+ * `userId` the recipient. Null when there is no community to name, and the
+ * sender keeps its default name. */
 export const getCommunitySenderName = internalQuery({
-  args: {},
-  handler: async (ctx) => {
-    const org = await getDefaultCommunity(ctx);
-    return org?.name ?? null;
+  args: {
+    communityId: v.optional(v.id("hostOrgs")),
+    userId: v.optional(v.id("users")),
   },
+  handler: async (ctx, args): Promise<string | null> =>
+    resolveSenderCommunityName(ctx, { communityId: args.communityId, userId: args.userId }),
 });
 
 // ——— Adapter methods for resendWebhook.ts's ResendWebhookDb interface ———

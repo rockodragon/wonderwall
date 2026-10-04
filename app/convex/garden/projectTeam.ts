@@ -847,6 +847,7 @@ export const requestToJoin = mutation({
     await scheduleNotificationEmail(ctx, {
       userId: project.userId,
       category: "activity",
+      communityId: project.hostOrgId,
       ...buildJoinRequestEmail({
         requesterName: name,
         projectTitle: project.title,
@@ -979,6 +980,7 @@ export const inviteMember = mutation({
       await scheduleNotificationEmail(ctx, {
         userId: targetId,
         category: "activity",
+        communityId: project.hostOrgId,
         ...buildInviteEmail({
           leadName,
           projectTitle: project.title,
@@ -1118,6 +1120,7 @@ export const decideRequest = mutation({
       await scheduleNotificationEmail(ctx, {
         userId: row.userId,
         category: "activity",
+        communityId: project.hostOrgId,
         ...buildRequestDecidedEmail({
           projectTitle: project.title,
           role: row.role,

@@ -8,8 +8,11 @@ import {
   chooseFromName,
   cleanDisplayName,
   defaultSenderFor,
+  isActiveCommunity,
+  pickSenderCommunity,
   PLATFORM_NAME,
   withDisplayName,
+  type SenderCommunity,
 } from "./sender";
 
 const DEFAULT_FROM = "TheCreative.exchange <hello@thecreative.exchange>";
@@ -109,5 +112,131 @@ describe("withDisplayName", () => {
 
   it("uses the platform name constant for the default sender", () => {
     expect(DEFAULT_FROM.startsWith(PLATFORM_NAME)).toBe(true);
+  });
+});
+
+const community = (id: string, name: string, extra: Partial<SenderCommunity> = {}): SenderCommunity => ({
+  _id: id,
+  name,
+  kind: "community",
+  ...extra,
+});
+
+const GARDEN = community("garden", "The Garden");
+const SD = community("sd", "The Creative Exchange San Diego", { status: "active" });
+const OPEN = community("open", "Open Circle");
+
+describe("isActiveCommunity", () => {
+  it("is true for a community with no status (reads as active) or an active one", () => {
+    expect(isActiveCommunity({ kind: "community" })).toBe(true);
+    expect(isActiveCommunity({ kind: "community", status: "active" })).toBe(true);
+  });
+
+  it("is false for pending, declined and archived communities", () => {
+    for (const status of ["pending", "declined", "archived"]) {
+      expect(isActiveCommunity({ kind: "community", status })).toBe(false);
+    }
+  });
+
+  it("is false for the platform row and for funds", () => {
+    expect(isActiveCommunity({ kind: "platform", status: "active" })).toBe(false);
+    expect(isActiveCommunity({ kind: "org" })).toBe(false);
+    expect(isActiveCommunity({ kind: "church" })).toBe(false);
+  });
+});
+
+describe("pickSenderCommunity", () => {
+  it("1. the community the email is about wins, even over the recipient's own", () => {
+    const picked = pickSenderCommunity({
+      explicit: SD,
+      memberships: [{ community: GARDEN, joinedAt: 1 }],
+      defaultCommunity: GARDEN,
+    });
+    expect(picked).toBe(SD);
+  });
+
+  it("1. an explicit community that isn't active or isn't a community is skipped", () => {
+    const pending = community("p", "Not Yet", { status: "pending" });
+    const fund = { _id: "f", name: "Abiding Practice", kind: "org" };
+    for (const explicit of [pending, fund]) {
+      expect(
+        pickSenderCommunity({
+          explicit,
+          memberships: [{ community: SD, joinedAt: 1 }],
+          defaultCommunity: GARDEN,
+        }),
+      ).toBe(SD);
+    }
+  });
+
+  it("2. a member of exactly one active community gets that one, not the default", () => {
+    expect(
+      pickSenderCommunity({
+        memberships: [{ community: SD, joinedAt: 5 }],
+        defaultCommunity: GARDEN,
+      }),
+    ).toBe(SD);
+  });
+
+  it("2. in several, the default community wins if they're in it", () => {
+    expect(
+      pickSenderCommunity({
+        memberships: [
+          { community: SD, joinedAt: 1 },
+          { community: GARDEN, joinedAt: 9 },
+        ],
+        defaultCommunity: GARDEN,
+      }),
+    ).toBe(GARDEN);
+  });
+
+  it("2. in several without the default, the one they joined first", () => {
+    expect(
+      pickSenderCommunity({
+        memberships: [
+          { community: OPEN, joinedAt: 30 },
+          { community: SD, joinedAt: 10 },
+        ],
+        defaultCommunity: GARDEN,
+      }),
+    ).toBe(SD);
+  });
+
+  it("2. memberships in communities that aren't active don't count", () => {
+    const archived = community("a", "Gone", { status: "archived" });
+    // Only SD is open, so it is the one community — not "several".
+    expect(
+      pickSenderCommunity({
+        memberships: [
+          { community: archived, joinedAt: 1 },
+          { community: SD, joinedAt: 2 },
+        ],
+        defaultCommunity: GARDEN,
+      }),
+    ).toBe(SD);
+    // None open: on to the default.
+    expect(
+      pickSenderCommunity({
+        memberships: [{ community: archived, joinedAt: 1 }],
+        defaultCommunity: GARDEN,
+      }),
+    ).toBe(GARDEN);
+  });
+
+  it("3. no explicit community and no memberships gives the default", () => {
+    expect(pickSenderCommunity({ defaultCommunity: GARDEN })).toBe(GARDEN);
+    expect(pickSenderCommunity({ explicit: null, memberships: [], defaultCommunity: GARDEN })).toBe(
+      GARDEN,
+    );
+  });
+
+  it("4. nothing at all gives null, so the platform sender is kept", () => {
+    expect(pickSenderCommunity({})).toBeNull();
+    expect(pickSenderCommunity({ defaultCommunity: null, memberships: [] })).toBeNull();
+  });
+
+  it("returns the same object it was given, so callers keep their full row", () => {
+    const row = { ...GARDEN, extra: 1 };
+    expect(pickSenderCommunity({ defaultCommunity: row })).toBe(row);
   });
 });

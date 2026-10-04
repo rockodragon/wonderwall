@@ -45,6 +45,9 @@ export async function getUserEmail(
  *
  * `sender` overrides which name the email is sent under (see
  * convex/email/sender.ts); leave it out and the category decides.
+ * `communityId` is the community the email is about — an event's, a
+ * project's, a class's — and names it as the sender. Leave it out when
+ * there isn't one (messages, digests): the recipient's own community is used.
  */
 export async function scheduleNotificationEmail(
   ctx: MutationCtx,
@@ -58,6 +61,7 @@ export async function scheduleNotificationEmail(
     ctaUrl?: string;
     category: EmailCategory | "transactional";
     sender?: EmailSender;
+    communityId?: Id<"hostOrgs">;
   },
 ) {
   const email = await getUserEmail(ctx, opts.userId);
@@ -81,5 +85,7 @@ export async function scheduleNotificationEmail(
     category: opts.category,
     unsubscribeToken,
     sender: opts.sender,
+    communityId: opts.communityId,
+    recipientUserId: opts.userId,
   });
 }
