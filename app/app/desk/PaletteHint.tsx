@@ -2,71 +2,30 @@
 // button in the corner is the whole menu on desktop, and nothing else on the
 // page says so. One short note points at it, once per browser. It goes away
 // for good on "Got it" or the first time the palette opens, since either way
-// they have found it. Phones keep their bottom bar, always in view, and never
-// see it.
+// they have found it. Phones get their own note, on the bottom bar
+// (components/PhoneNavNote.tsx).
 //
 // It sits beside the palette rather than inside its root, so the palette's
 // own focus and key handling never see the note's button.
 
-import { useCallback, useEffect, useId, useState } from "react";
+import { useId } from "react";
+import { useOnceNote } from "../hooks/useOnceNote";
 import { PALETTE, withAlpha } from "./paletteLogic";
 import { MAIN_RING, STACK_PANEL_BG, STACK_PANEL_SHADOW } from "./PaletteParts";
 import { DESK, DESK_SANS, FOCUS_RING_CLASS } from "./tokens";
 
 export const HINT_KEY = "desk.paletteHint";
-/** Long enough for the page to settle first, so it never flashes on the way somewhere else. */
-export const HINT_DELAY_MS = 900;
 
 export const HINT_TITLE = "This is your menu";
 export const HINT_BODY = "Hover or click it to get to People, Projects, Events, Tables and more.";
 
-export function hintSeen(): boolean {
-  try {
-    return localStorage.getItem(HINT_KEY) === "seen";
-  } catch {
-    return false;
-  }
-}
-
-export function markHintSeen() {
-  try {
-    localStorage.setItem(HINT_KEY, "seen");
-  } catch {
-    // Storage blocked: it comes back next visit, which is fine.
-  }
-}
-
 /**
- * @param ready    nothing is about to send this person elsewhere (sign-in
- *                 settling, onboarding, /invite)
- * @param fanOpen  the palette is open right now
+ * @param ready    nothing is about to send this person elsewhere
+ * @param fanOpen  the palette is open right now: opening it, with or without
+ *                 the note, means they've found it
  */
 export function usePaletteHint(ready: boolean, fanOpen: boolean) {
-  const [show, setShow] = useState(false);
-  const [done, setDone] = useState(false);
-
-  const dismiss = useCallback(() => {
-    setDone(true);
-    setShow(false);
-    markHintSeen();
-  }, []);
-
-  // They opened it, with or without the note: it has done its job.
-  useEffect(() => {
-    if (fanOpen && !done) dismiss();
-  }, [fanOpen, done, dismiss]);
-
-  useEffect(() => {
-    if (!ready || done) return;
-    if (hintSeen()) {
-      setDone(true);
-      return;
-    }
-    const timer = window.setTimeout(() => setShow(true), HINT_DELAY_MS);
-    return () => window.clearTimeout(timer);
-  }, [ready, done]);
-
-  return { show: show && !done, dismiss };
+  return useOnceNote(HINT_KEY, ready, fanOpen);
 }
 
 const GAP = 16;

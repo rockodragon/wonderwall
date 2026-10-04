@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderToString } from "react-dom/server";
-import { HINT_BODY, HINT_KEY, HINT_TITLE, PaletteHint, hintSeen, markHintSeen } from "./PaletteHint";
+import { markNoteSeen, noteSeen } from "../hooks/useOnceNote";
+import { HINT_BODY, HINT_KEY, HINT_TITLE, PaletteHint } from "./PaletteHint";
 
 function fakeStorage() {
   const store = new Map<string, string>();
@@ -19,10 +20,10 @@ describe("the palette's first-visit note", () => {
   it("is unseen until dismissed, then stays seen", () => {
     const storage = fakeStorage();
     vi.stubGlobal("localStorage", storage);
-    expect(hintSeen()).toBe(false);
-    markHintSeen();
+    expect(noteSeen(HINT_KEY)).toBe(false);
+    markNoteSeen(HINT_KEY);
     expect(storage.store.get(HINT_KEY)).toBe("seen");
-    expect(hintSeen()).toBe(true);
+    expect(noteSeen(HINT_KEY)).toBe(true);
   });
 
   it("treats blocked storage as unseen and doesn't throw", () => {
@@ -34,8 +35,8 @@ describe("the palette's first-visit note", () => {
         throw new Error("blocked");
       },
     });
-    expect(hintSeen()).toBe(false);
-    expect(() => markHintSeen()).not.toThrow();
+    expect(noteSeen(HINT_KEY)).toBe(false);
+    expect(() => markNoteSeen(HINT_KEY)).not.toThrow();
   });
 
   it("says where the menu is, names Tables, and can be dismissed", () => {

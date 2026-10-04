@@ -135,8 +135,9 @@ The visual spec is the handoff README. What follows covers the build.
 - "This is your menu" / "Hover or click it to get to People, Projects, Events, Tables and more." / **Got it**. An accent ring pulses around the main button three times while it shows.
 - Shows 900ms after the shell settles: signed out at once, signed in only once the profile has loaded and neither onboarding nor `/invite` is about to take over.
 - Gone for good (`localStorage["desk.paletteHint"] = "seen"`) on Got it or the first time the fan opens. Blocked storage brings it back next visit.
-- Desktop only: it renders with the palette, which phones don't show.
 - Reduced motion: no slide-in, no pulse.
+- Phones get their own (Rick, 2026-10-04; `components/PhoneNavNote.tsx`). The bar is icons only, so each icon's name sits above it on a short line down to the icon, with "This is your menu" / "Tap an icon to go there." / **Got it** above them. Names alternate rows so neighbours never touch (one row for 5 icons or fewer, two for 6, three above that; checked at 320px). Gone for good (`nav.phoneNote`) on Got it or the first tap on the bar.
+- Both notes share `hooks/useOnceNote.ts` and the same readiness from the shell.
 
 ## Desk
 
