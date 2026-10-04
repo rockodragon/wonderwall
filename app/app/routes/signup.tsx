@@ -7,12 +7,14 @@ import confetti from "canvas-confetti";
 import { api } from "../../convex/_generated/api";
 import { normalizePhone } from "../../convex/phone";
 import { normalizeInviteCode } from "../../convex/inviteCode";
-import { ensureOAuthHost } from "../lib/oauthHost";
+import { codeRequestParams, ensureOAuthHost, oauthReturnTo } from "../lib/oauthHost";
 import { AgreementsConsent } from "../components/AgreementsConsent";
 import { InviteGate } from "../components/InviteGate";
 import { joinWithInvite } from "../lib/joinWithInvite";
 import { setPendingIntent } from "../lib/pendingIntent";
 import { isCheckoutSessionId } from "../../convex/garden/ticketLink";
+import { useBrand } from "../brand/brands";
+import { GardenLockupThemed } from "../brand/GardenMark";
 
 export function meta() {
   return [
@@ -48,6 +50,7 @@ export function meta() {
 
 export default function Signup() {
   const { inviteSlug } = useParams();
+  const garden = useBrand() === "garden";
   const { signIn, signOut } = useAuthActions();
   const { isAuthenticated } = useConvexAuth();
 
@@ -204,7 +207,7 @@ export default function Signup() {
     setPhoneLoading(true);
     try {
       await signOutStaleSession();
-      await signIn("phone", { phone: normalized.value });
+      await signIn("phone", { phone: normalized.value, ...codeRequestParams() });
       setPhone(normalized.value);
       setPhoneStep("code");
       posthog?.capture("phone_signup_code_sent", { invite_slug: inviteSlug });
@@ -379,9 +382,9 @@ export default function Signup() {
       // onboarding (new=1 only marks the sign-up path; it isn't read).
       await signOutStaleSession();
       await signIn("google", {
-        redirectTo: creditSlug
-          ? `/oauth-callback?invite=${encodeURIComponent(creditSlug)}`
-          : "/oauth-callback?new=1",
+        redirectTo: oauthReturnTo(
+          creditSlug ? `/oauth-callback?invite=${encodeURIComponent(creditSlug)}` : "/oauth-callback?new=1",
+        ),
       });
     } catch (err) {
       setError("Failed to sign up with Google");
@@ -413,8 +416,9 @@ export default function Signup() {
           <Link
             to="/"
             className="text-xl font-bold text-gray-900 dark:text-white"
+            aria-label={garden ? "The Garden home" : undefined}
           >
-            TheCreative.exchange
+            {garden ? <GardenLockupThemed fontSize={20} /> : "TheCreative.exchange"}
           </Link>
           <Link
             to="/login"

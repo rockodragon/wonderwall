@@ -19,6 +19,33 @@ describe("escapeHtml", () => {
   });
 });
 
+describe("renderNotificationEmail brandName", () => {
+  const base = {
+    heading: "Sam joined",
+    previewText: "preview",
+    body: "body",
+    baseUrl: BASE_URL,
+  };
+
+  it("shows the platform name in the header by default", () => {
+    const { html } = renderNotificationEmail(base);
+    expect(html).toContain('color:#111111">TheCreative.exchange</span>');
+  });
+
+  it("shows the community's name in the header when one is given", () => {
+    const { html } = renderNotificationEmail({ ...base, brandName: "The Garden" });
+    expect(html).toContain('color:#111111">The Garden</span>');
+    expect(html).not.toContain('color:#111111">TheCreative.exchange</span>');
+  });
+
+  it("escapes the name and falls back when it is blank", () => {
+    const escaped = renderNotificationEmail({ ...base, brandName: "Fish & <Chips>" }).html;
+    expect(escaped).toContain("Fish &amp; &lt;Chips&gt;</span>");
+    const blank = renderNotificationEmail({ ...base, brandName: "  " }).html;
+    expect(blank).toContain('color:#111111">TheCreative.exchange</span>');
+  });
+});
+
 describe("renderNotificationEmail", () => {
   it("escapes heading and previewText but leaves trusted body HTML intact", () => {
     const { html } = renderNotificationEmail({

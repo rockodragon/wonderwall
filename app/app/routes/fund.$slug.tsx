@@ -18,7 +18,7 @@
 // (still has to look designed, not blank), and an unknown slug or an
 // undeployed backend (both read as "isn't live yet").
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import { useAction, useConvexAuth, useMutation, useQuery } from "convex/react";
 import { ConvexError } from "convex/values";
@@ -483,7 +483,7 @@ export default function FundPage() {
                   flexWrap: "wrap",
                   alignItems: "baseline",
                   gap: 12,
-                  padding: "14px 0",
+                  padding: "10px 0",
                   borderBottom: "1px solid var(--g-hairline)",
                 }}
               >
@@ -724,39 +724,18 @@ export default function FundPage() {
   );
 }
 
-// ——— The Sophia Fund page (Claude Design "Sophia Fund.dc.html") ———
-// One column: header, The fund (available / granted / total), Upcoming, Grants
-// made, then a Give panel. Colors are the design's, mapped to garden tokens
-// where they match (citron = its accent). Money copy comes from CLAIMS.
 
-const SF = {
-  text: "#F4F4F2",
-  n200: "#D6D6D6",
-  n300: "#B3B3B3",
-  n400: "#8F8F8F",
-  n700: "#3A3A3A",
-  n800: "#262626",
-  section: "#1A1A1A",
-  glow: "#2A2515",
-  ghost: "#333333",
-  accent800: "#2E2812",
-  accent700: "#6B5A1E",
-  mono: "ui-monospace, 'JetBrains Mono', Menlo, monospace",
-};
+// ——— The Sophia Fund page ———
+// The first screen carries the whole ask: the fund's name, one line about it,
+// the Give button, and the fund's numbers beside it (under it on a phone).
+// What's coming and the grants made sit below; the Give controls repeat after
+// the ledger only once there is a ledger to scroll past. Explanations (the tax
+// receipt, who administers, where checkout runs) are behind the "i". Money
+// copy comes from CLAIMS. Colors are the garden tokens.
 
-function SfLabel({ children, accent }: { children: ReactNode; accent?: boolean }) {
+function SfLabel({ children }: { children: ReactNode }) {
   return (
-    <h2
-      style={{
-        margin: 0,
-        fontSize: 13,
-        fontWeight: 500,
-        letterSpacing: "0.2em",
-        textTransform: "uppercase",
-        fontFamily: SF.mono,
-        color: accent ? "var(--g-citron)" : SF.n400,
-      }}
-    >
+    <h2 className="g-label" style={{ margin: 0, fontWeight: 500 }}>
       {children}
     </h2>
   );
@@ -764,6 +743,112 @@ function SfLabel({ children, accent }: { children: ReactNode; accent?: boolean }
 
 function formatDollars(cents: number): string {
   return (cents / 100).toLocaleString("en-US", { style: "currency", currency: "USD" });
+}
+
+/** One-time / Monthly, the Give button, and "Tax-deductible" with an "i" that
+ * opens the fine print inline (not a floating popover, so it can't clip on a
+ * phone). Used at the top of the page and again after a long ledger; the
+ * one-time/monthly choice is lifted so both stay in step. */
+function GiveControls({
+  orgName,
+  oneTimeHref,
+  monthlyHref,
+  monthly,
+  onMonthly,
+  gaveThanks,
+}: {
+  orgName: string;
+  oneTimeHref: string | null;
+  monthlyHref: string | null;
+  monthly: boolean;
+  onMonthly: (monthly: boolean) => void;
+  gaveThanks: boolean;
+}) {
+  const [showInfo, setShowInfo] = useState(false);
+  const noteId = useId();
+  const href = monthly && monthlyHref ? monthlyHref : oneTimeHref;
+
+  if (gaveThanks) {
+    return (
+      <p style={{ margin: 0, fontSize: 17, lineHeight: 1.5, color: "var(--g-paper)" }}>
+        Thank you. Your receipt comes from {orgName}.
+      </p>
+    );
+  }
+  if (!href) {
+    return <p style={{ margin: 0, fontSize: 16, color: "var(--g-body)" }}>Giving opens soon.</p>;
+  }
+
+  const pick = (on: boolean) =>
+    on ? { borderColor: "var(--g-citron)", color: "var(--g-citron)" } : undefined;
+
+  return (
+    <div>
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10 }}>
+        {monthlyHref && (
+          <div role="radiogroup" aria-label="How often" style={{ display: "flex", gap: 8 }}>
+            {[
+              { on: !monthly, label: "One time", set: () => onMonthly(false) },
+              { on: monthly, label: "Monthly", set: () => onMonthly(true) },
+            ].map((o) => (
+              <button
+                key={o.label}
+                type="button"
+                role="radio"
+                aria-checked={o.on}
+                onClick={o.set}
+                className="g-btn g-btn-ghost"
+                style={{ padding: "13px 16px", ...pick(o.on) }}
+              >
+                {o.label}
+              </button>
+            ))}
+          </div>
+        )}
+        <a
+          href={href}
+          className="g-btn g-btn-citron sm:max-w-[240px]"
+          style={{ flex: "1 1 160px", textAlign: "center", padding: "14px 28px" }}
+        >
+          {monthly && monthlyHref ? "Give monthly →" : "Give →"}
+        </a>
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10 }}>
+        <span style={{ fontSize: 14, color: "var(--g-body)" }}>{CLAIMS.grantFundDeductibleShort}</span>
+        <button
+          type="button"
+          aria-label="Where your gift goes"
+          aria-expanded={showInfo}
+          aria-controls={noteId}
+          onClick={() => setShowInfo((s) => !s)}
+          style={{
+            width: 28,
+            height: 28,
+            borderRadius: 9999,
+            border: `1px solid ${showInfo ? "var(--g-citron)" : "var(--g-hairline)"}`,
+            background: "transparent",
+            color: showInfo ? "var(--g-citron)" : "var(--g-paper)",
+            fontFamily: "'JetBrains Mono', monospace",
+            fontSize: 14,
+            fontStyle: "italic",
+            cursor: "pointer",
+          }}
+        >
+          i
+        </button>
+      </div>
+      {showInfo && (
+        <div id={noteId} role="note" style={{ marginTop: 8, maxWidth: "52ch" }}>
+          <p style={{ margin: 0, fontSize: 14, lineHeight: 1.55, color: "var(--g-body)" }}>
+            {CLAIMS.grantFundDeductible} Grants to creatives, administered by {orgName}.
+          </p>
+          <p style={{ margin: "6px 0 0", fontSize: 14, lineHeight: 1.55, color: "var(--g-body)" }}>
+            Secure checkout on {orgName}'s Stripe page. Your receipt comes from them, then you return here.
+          </p>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function SophiaFundView({
@@ -790,253 +875,117 @@ function SophiaFundView({
   gaveThanks: boolean;
 }) {
   const [monthly, setMonthly] = useState(false);
-  const href = monthly && monthlyHref ? monthlyHref : oneTimeHref;
-  const row = {
+  const give = (
+    <GiveControls
+      orgName={orgName}
+      oneTimeHref={oneTimeHref}
+      monthlyHref={monthlyHref}
+      monthly={monthly}
+      onMonthly={setMonthly}
+      gaveThanks={gaveThanks}
+    />
+  );
+  const statRow = {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "baseline",
-    gap: 22,
-    padding: "22px 0",
+    gap: 16,
+    padding: "11px 0",
   } as const;
 
   return (
     <main
       style={{
-        maxWidth: 1120,
-        margin: "0 auto",
-        padding: "72px 0 120px",
+        // GardenPage's wrap adds its own top padding under the header; pull
+        // the name up so the first screen starts closer to the nav.
+        marginTop: "calc(-1 * clamp(8px, 2.5vw, 24px))",
         display: "flex",
         flexDirection: "column",
-        gap: 96,
-        color: SF.text,
+        gap: 36,
+        color: "var(--g-paper)",
         fontVariantNumeric: "tabular-nums",
       }}
     >
-      <header style={{ display: "flex", flexDirection: "column", gap: 22, maxWidth: 720 }}>
-        <span
-          style={{
-            fontSize: 12,
-            letterSpacing: "0.2em",
-            textTransform: "uppercase",
-            fontFamily: SF.mono,
-            color: "var(--g-citron)",
-          }}
-        >
-          Grant fund
-        </span>
-        <h1
-          style={{
-            margin: 0,
-            fontSize: "clamp(44px, 9vw, 72px)",
-            fontWeight: 500,
-            letterSpacing: "-0.03em",
-            lineHeight: 1,
-            color: SF.text,
-          }}
-        >
-          {name}
-        </h1>
-        {about && (
-          <p style={{ margin: 0, fontSize: 19, lineHeight: 1.65, color: SF.n200, maxWidth: "54ch" }}>
-            {about}
-          </p>
-        )}
-        <p style={{ margin: 0, fontSize: 15, color: SF.n400 }}>
-          Grants to creatives, administered by {orgName}.
-        </p>
-      </header>
+      <div className="grid gap-x-12 gap-y-6 md:grid-cols-[minmax(0,1fr)_300px] md:items-start">
+        <header id="give">
+          <h1 className="g-h" style={{ margin: 0, fontSize: "clamp(32px, 6vw, 48px)", lineHeight: 1.05 }}>
+            {name}
+          </h1>
+          {about && (
+            <p style={{ margin: "12px 0 0", fontSize: 17, lineHeight: 1.55, color: "var(--g-body)", maxWidth: "52ch" }}>
+              {about}
+            </p>
+          )}
+          <div style={{ marginTop: 20 }}>{give}</div>
+        </header>
 
-      <section style={{ display: "flex", flexDirection: "column", gap: 33, maxWidth: 720 }}>
-        <SfLabel>The fund</SfLabel>
-        <div style={{ display: "flex", flexDirection: "column" }}>
-          <div
-            style={{
-              ...row,
-              background: `linear-gradient(to right, transparent, ${SF.n800} 48px, ${SF.n800} calc(100% - 48px), transparent) no-repeat bottom / 100% 1px`,
-            }}
-          >
-            <span style={{ fontSize: 17, color: SF.n200 }}>Available to grant</span>
-            <span style={{ fontSize: 22, fontWeight: 500 }}>{formatDollars(availableCents)}</span>
+        <dl className="g-card" style={{ margin: 0, padding: "4px 18px" }}>
+          <div style={{ ...statRow, borderBottom: "1px solid var(--g-hairline)" }}>
+            <dt style={{ fontSize: 15, color: "var(--g-body)" }}>Available to grant</dt>
+            <dd className="g-h" style={{ margin: 0, fontSize: 20 }}>{formatDollars(availableCents)}</dd>
           </div>
-          <div style={row}>
-            <span style={{ fontSize: 17, color: SF.n200 }}>Granted to date</span>
-            <span style={{ fontSize: 22, fontWeight: 500, color: SF.n300 }}>{formatDollars(grantedCents)}</span>
+          <div style={{ ...statRow, borderBottom: "1px solid var(--g-hairline)" }}>
+            <dt style={{ fontSize: 15, color: "var(--g-body)" }}>Granted to date</dt>
+            <dd className="g-h" style={{ margin: 0, fontSize: 20 }}>{formatDollars(grantedCents)}</dd>
           </div>
-          <div
-            style={{
-              ...row,
-              alignItems: "center",
-              paddingTop: 28,
-              background: `linear-gradient(to right, var(--g-citron), ${SF.accent700} 60%, transparent) no-repeat top / 100% 1px`,
-            }}
-          >
-            <span
-              style={{
-                fontSize: 13,
-                letterSpacing: "0.2em",
-                textTransform: "uppercase",
-                fontFamily: SF.mono,
-                color: SF.n300,
-              }}
-            >
-              Total
-            </span>
-            <span style={{ fontSize: "clamp(32px, 7vw, 48px)", fontWeight: 500, letterSpacing: "-0.02em", lineHeight: 1 }}>
+          <div style={{ ...statRow, alignItems: "center", padding: "12px 0" }}>
+            <dt className="g-label">Total</dt>
+            <dd className="g-h" style={{ margin: 0, fontSize: 28 }}>
               {formatDollars(availableCents + grantedCents)}
-            </span>
+            </dd>
           </div>
-        </div>
-      </section>
+        </dl>
+      </div>
 
       {schedule && (
-        <section style={{ display: "flex", flexDirection: "column", gap: 22, maxWidth: 720 }}>
+        <section style={{ display: "flex", flexDirection: "column", gap: 8, maxWidth: 720 }}>
           <SfLabel>Upcoming</SfLabel>
           <p
             style={{
               margin: 0,
-              fontSize: "clamp(24px, 5vw, 32px)",
+              fontSize: "clamp(18px, 3vw, 22px)",
               fontWeight: 500,
-              letterSpacing: "-0.015em",
-              lineHeight: 1.25,
+              lineHeight: 1.35,
               textWrap: "balance",
-              color: SF.text,
+              color: "var(--g-paper)",
             }}
           >
             {schedule}
           </p>
-          <div style={{ marginTop: 11 }}>
-            <Link
-              to="/join"
-              style={{
-                display: "inline-block",
-                padding: "11px 22px",
-                borderRadius: 8,
-                border: `1px solid ${SF.n700}`,
-                color: SF.text,
-                fontSize: 15,
-                fontWeight: 500,
-                textDecoration: "none",
-              }}
-            >
-              Become a member and create a project →
-            </Link>
-          </div>
+          <Link
+            to="/join"
+            style={{
+              alignSelf: "flex-start",
+              padding: "6px 0",
+              fontSize: 15,
+              fontWeight: 500,
+              color: "var(--g-citron)",
+              textDecoration: "none",
+            }}
+          >
+            Become a member and create a project →
+          </Link>
         </section>
       )}
 
-      <section style={{ display: "flex", flexDirection: "column", gap: 33, maxWidth: 720 }}>
+      <section style={{ display: "flex", flexDirection: "column", gap: 4, maxWidth: 720 }}>
         <SfLabel>Grants made</SfLabel>
         {ledgerList ?? (
-          <p style={{ margin: 0, fontSize: 17, lineHeight: 1.6, color: SF.n300 }}>
+          <p style={{ margin: "8px 0 0", fontSize: 15, lineHeight: 1.55, color: "var(--g-body)" }}>
             None yet. Grants will be listed here as they're made.
           </p>
         )}
       </section>
 
-      <section
-        id="give"
-        style={{
-          borderRadius: 14,
-          background: `radial-gradient(800px 420px at 85% 0%, ${SF.glow}, transparent 70%), ${SF.section}`,
-          padding: "clamp(40px, 8vw, 78px) clamp(20px, 5vw, 56px)",
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 400px), 1fr))",
-          gap: "clamp(32px, 6vw, 67px)",
-          alignItems: "center",
-        }}
-      >
-        <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
-          <SfLabel accent>Give</SfLabel>
-          <p
-            style={{
-              margin: 0,
-              fontSize: "clamp(32px, 6vw, 44px)",
-              fontWeight: 500,
-              letterSpacing: "-0.02em",
-              lineHeight: 1.08,
-              textWrap: "balance",
-              color: SF.text,
-            }}
-          >
+      {/* A second chance, only when there's a ledger long enough to scroll past. */}
+      {ledgerList && !gaveThanks && (
+        <section style={{ maxWidth: 720, borderTop: "1px solid var(--g-hairline)", paddingTop: 24 }}>
+          <p className="g-h" style={{ margin: "0 0 14px", fontSize: 22, lineHeight: 1.2 }}>
             Fund the next creative in Sophia's name.
           </p>
-          <p style={{ margin: 0, fontSize: 16, lineHeight: 1.65, color: SF.n200, maxWidth: "44ch" }}>
-            {CLAIMS.grantFundDeductible}
-          </p>
-        </div>
-
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: 22,
-            padding: 33,
-            borderRadius: 14,
-            background: "rgba(18,18,18,0.7)",
-            boxShadow: `0 16px 40px rgba(0,0,0,0.65), inset 0 0 0 1px ${SF.ghost}`,
-          }}
-        >
-          {gaveThanks ? (
-            <p style={{ margin: 0, fontSize: 17, lineHeight: 1.6, color: SF.text }}>
-              Thank you. Your receipt comes from {orgName}.
-            </p>
-          ) : href ? (
-            <>
-              {monthlyHref && (
-                <div role="radiogroup" aria-label="How often" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 11 }}>
-                  {[
-                    { on: !monthly, label: "One time", pick: () => setMonthly(false) },
-                    { on: monthly, label: "Monthly", pick: () => setMonthly(true) },
-                  ].map((o) => (
-                    <button
-                      key={o.label}
-                      type="button"
-                      role="radio"
-                      aria-checked={o.on}
-                      onClick={o.pick}
-                      style={{
-                        height: 48,
-                        borderRadius: 8,
-                        cursor: "pointer",
-                        fontSize: 16,
-                        fontWeight: 500,
-                        color: o.on ? "var(--g-citron)" : SF.n200,
-                        background: o.on ? SF.accent800 : "transparent",
-                        border: `1px solid ${o.on ? "var(--g-citron)" : SF.n700}`,
-                      }}
-                    >
-                      {o.label}
-                    </button>
-                  ))}
-                </div>
-              )}
-              <a
-                href={href}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  height: 60,
-                  borderRadius: 8,
-                  color: "#121212",
-                  background: "var(--g-citron)",
-                  fontSize: 18,
-                  fontWeight: 600,
-                  textDecoration: "none",
-                  boxShadow: "0 10px 40px rgba(254,226,104,0.25)",
-                }}
-              >
-                {monthly ? "Give monthly →" : "Give →"}
-              </a>
-              <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.6, color: SF.n300 }}>
-                Secure checkout on {orgName}'s Stripe page. Your receipt comes from them, then you return here.
-              </p>
-            </>
-          ) : (
-            <p style={{ margin: 0, fontSize: 16, color: SF.n300 }}>Giving opens soon.</p>
-          )}
-        </div>
-      </section>
+          {give}
+        </section>
+      )}
     </main>
   );
 }

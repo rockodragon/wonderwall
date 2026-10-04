@@ -53,6 +53,7 @@ import { AdminMenu, HiddenNotice } from "../components/AdminMenu";
 import { AddToCalendar } from "../components/AddToCalendar";
 import { EmbedPlayer } from "../components/EmbedPlayer";
 import { joinProxyUrl } from "../lib/eventCalendar";
+import { codeRequestParams } from "../lib/oauthHost";
 import { toEmbedUrl } from "../lib/videoEmbed";
 import { buildTicketLink, isCheckoutSessionId } from "../../convex/garden/ticketLink";
 import { claimPendingTickets, stashTicketSession } from "../lib/pendingTicket";
@@ -1188,8 +1189,8 @@ function useGuestRsvp(eventId: Id<"events"> | undefined) {
     setSubmitting(true);
     setError(null);
     try {
-      if (usePhone) await signIn("phone", { phone: phoneValue });
-      else await signIn("email-otp", { email: cleanEmail });
+      if (usePhone) await signIn("phone", { phone: phoneValue, ...codeRequestParams() });
+      else await signIn("email-otp", { email: cleanEmail, ...codeRequestParams() });
       setSentTo(destination);
       setCode("");
       setStep("code");

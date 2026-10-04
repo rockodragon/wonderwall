@@ -38,7 +38,7 @@ export function meta() {
   return [
     {
       title:
-        "The Creative Economy We All Need — November 6, Encinitas | TheCreative.exchange",
+        "The Creative Economy We All Need — November 6, Encinitas | The Garden",
     },
     {
       name: "description",

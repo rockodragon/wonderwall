@@ -3,10 +3,17 @@ import { useState } from "react";
 import { Link } from "react-router";
 import { NAV_ITEMS } from "../garden/ui";
 import { Wordmark } from "./Wordmark";
+import { GardenLockup } from "../brand/GardenMark";
 
 // The public site header — wordmark, the same five items GardenNav carries,
-// and Sign in / Go to App. Home renders it over the hero (`overlay`); the
-// audience pages, /opportunities, credits and claim render it in flow.
+// and, on the right, Sign in for a visitor or a quiet "Today" link for someone
+// signed in. (It used to show a filled "Go to App" button to a signed-in
+// person — a marketing CTA on pages like a fund's, where the one filled button
+// should be the page's own action. Today is a plain link now, and nothing
+// shows at all while the sign-in state is still loading, so a signed-in person
+// doesn't see "Sign in" flash first.) Home renders it over the hero
+// (`overlay`); the audience pages, /opportunities, credits, claim, unsubscribe
+// and every Garden page (GardenPage) render it in flow.
 //
 // One component so a visitor moving from the landing page to a /for page
 // sees the same header, not the credit-sheet nav the Garden pages use.
@@ -14,7 +21,7 @@ import { Wordmark } from "./Wordmark";
 // and not the other.
 
 export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
-  const { isAuthenticated } = useConvexAuth();
+  const { isAuthenticated, isLoading } = useConvexAuth();
   // Below md the five nav items don't fit beside the wordmark, so they live
   // behind a menu button. Same NAV_ITEMS list, same publicTo rule, so the
   // phone menu can't drift from the desktop row.
@@ -25,7 +32,9 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
     <header
       className={`${overlay ? "absolute top-0 left-0 right-0 z-50" : "relative z-40"} px-4 sm:px-6 py-4 sm:py-6 flex items-center justify-between gap-3 max-w-7xl mx-auto`}
     >
-      <Link to="/" className="min-w-0" aria-label="TheCreative.exchange home">
+      {/* Both brands ship in the prerendered HTML; CSS shows the one for
+          this domain (app/brand/brands.ts), so neither flashes. */}
+      <Link to="/" className="brand-exchange min-w-0" aria-label="TheCreative.exchange home">
         <div className="sm:hidden">
           <Wordmark size="sm" />
         </div>
@@ -33,13 +42,21 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
           <Wordmark size="lg" tagline />
         </div>
       </Link>
+      <Link to="/" className="brand-garden min-w-0" aria-label="The Garden home">
+        <span className="flex sm:hidden">
+          <GardenLockup fontSize={16} />
+        </span>
+        <span className="hidden sm:flex">
+          <GardenLockup fontSize={20} />
+        </span>
+      </Link>
       <div className="flex items-center gap-4 shrink-0">
-        <nav aria-label="Site" className="hidden md:flex items-center gap-5 mr-2">
+        <nav aria-label="Site" className="hidden md:flex items-center gap-4 lg:gap-5 mr-2">
           {NAV_ITEMS.map((item) => (
             <Link
               key={item.to}
               to={href(item)}
-              className="text-[14px] text-[var(--garden-body)] hover:text-[var(--garden-paper)] transition-colors"
+              className="text-[15px] text-[var(--garden-body)] hover:text-[var(--garden-paper)] transition-colors"
             >
               {item.label}
             </Link>
@@ -48,14 +65,18 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
         {isAuthenticated ? (
           <Link
             to="/today"
-            className="px-4 py-2 sm:px-6 sm:py-2.5 text-[14px] sm:text-base whitespace-nowrap bg-[var(--garden-citron)] text-[var(--garden-ink)] rounded-xl font-semibold hover:opacity-90 transition-all"
+            className="px-3 py-2 text-[15px] whitespace-nowrap text-[var(--garden-paper)] font-medium hover:text-[var(--garden-citron)] transition-colors"
           >
-            Go to App
+            Today
           </Link>
         ) : (
+          // Kept in the markup while loading (prerender and first paint read
+          // as signed out) but invisible, so it neither flashes for a
+          // signed-in person nor shifts the layout when the answer arrives.
           <Link
             to="/login"
-            className="px-4 py-2 text-[14px] sm:text-[15px] whitespace-nowrap text-[var(--garden-body)] hover:text-[var(--garden-paper)] font-medium transition-colors"
+            className="px-3 py-2 text-[15px] whitespace-nowrap text-[var(--garden-body)] hover:text-[var(--garden-paper)] font-medium transition-colors"
+            style={isLoading ? { visibility: "hidden" } : undefined}
           >
             Sign in
           </Link>

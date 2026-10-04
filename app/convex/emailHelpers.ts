@@ -2,6 +2,7 @@ import type { QueryCtx, MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 import { getOrCreatePreferences, type EmailCategory } from "./emailPreferences";
+import type { EmailSender } from "./email/sender";
 
 /**
  * Look up a user's email — first from the users table (OAuth),
@@ -41,6 +42,12 @@ export async function getUserEmail(
  * category means this returns without scheduling anything. "transactional"
  * email (waitlist approval, team invite claim links) has no opt-out, so it
  * skips the preferences lookup and carries no unsubscribe token.
+ *
+ * `sender` overrides which name the email is sent under (see
+ * convex/email/sender.ts); leave it out and the category decides.
+ * `communityId` is the community the email is about — an event's, a
+ * project's, a class's — and names it as the sender. Leave it out when
+ * there isn't one (messages, digests): the recipient's own community is used.
  */
 export async function scheduleNotificationEmail(
   ctx: MutationCtx,
@@ -53,6 +60,8 @@ export async function scheduleNotificationEmail(
     ctaText?: string;
     ctaUrl?: string;
     category: EmailCategory | "transactional";
+    sender?: EmailSender;
+    communityId?: Id<"hostOrgs">;
   },
 ) {
   const email = await getUserEmail(ctx, opts.userId);
@@ -75,5 +84,8 @@ export async function scheduleNotificationEmail(
     ctaUrl: opts.ctaUrl,
     category: opts.category,
     unsubscribeToken,
+    sender: opts.sender,
+    communityId: opts.communityId,
+    recipientUserId: opts.userId,
   });
 }

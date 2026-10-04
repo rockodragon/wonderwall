@@ -13,6 +13,8 @@ import { followEachOther } from "./follows";
 // as its owner shares it with, and anyone can make as many one-time codes
 // as they like. inviteUsageCount still counts uses, for the network stats.
 import { findInviterProfile } from "./inviteLookup";
+import { getDefaultCommunity } from "./garden/defaultCommunity";
+import { resolveSenderCommunity } from "./email/senderCommunity";
 
 function generateCode(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -383,6 +385,16 @@ export const redeemBySlug = mutation({
       .first();
 
     const newUserName = newUserProfile?.name || "Someone";
+    // The community they joined. Every signup joins The Garden today, so
+    // that's the default community; when signups can join another community
+    // (communityDomains.ts resolveEntryCommunity), use the one they joined
+    // here. Named the way the email's From name is chosen, so the text and
+    // the sender agree; the platform name only when no community exists.
+    const joinedCommunity = await resolveSenderCommunity(ctx, {
+      communityId: (await getDefaultCommunity(ctx))?._id,
+      userId: inviterProfile.userId,
+    });
+    const placeName = joinedCommunity?.name ?? "TheCreative.exchange";
     const newUserImageUrl = newUserProfile?.imageUrl;
     // /profile/:id takes a profile id, not the invite slug (favorites.ts
     // and likesDigest.ts link the same way).
@@ -393,7 +405,7 @@ export const redeemBySlug = mutation({
       userId: inviterProfile.userId,
       type: "invite_accepted",
       title: "New member joined!",
-      message: `${newUserName} joined TheCreative.exchange using your invite link.`,
+      message: `${newUserName} joined ${placeName} using your invite link.`,
       linkUrl: profileLinkUrl,
       imageUrl: newUserImageUrl,
       relatedUserId: userId,
@@ -404,10 +416,11 @@ export const redeemBySlug = mutation({
     await scheduleNotificationEmail(ctx, {
       userId: inviterProfile.userId,
       category: "activity",
-      subject: `${newUserName} joined using your invite`,
-      previewText: `${newUserName} joined TheCreative.exchange using your invite link.`,
+      communityId: joinedCommunity?._id,
+      subject: `${newUserName} joined ${placeName} using your invite`,
+      previewText: `${newUserName} joined ${placeName} using your invite link.`,
       heading: `${newUserName} joined`,
-      body: `<strong>${escapedName}</strong> joined TheCreative.exchange using your invite link.`,
+      body: `<strong>${escapedName}</strong> joined ${escapeHtml(placeName)} using your invite link.`,
       ...(profileLinkUrl ? { ctaText: "See their profile", ctaUrl: profileLinkUrl } : {}),
     });
 

@@ -171,12 +171,19 @@ function rowShrink(count: number, vw: number, vh: number): number {
 export const PIC_MIN = 0.46;
 export const PIC_MAX = 0.62;
 
+/** The text side never goes under this, so a title wraps between words on
+ *  a tablet (an iPad's portrait card left it ~274px and broke "Renaissance"
+ *  mid-word, 2026-10-03). On a narrow card the picture gives way first. */
+export const TEXT_MIN_PX = 360;
+
 /** The picture side's share of an open card `w` by `h`, for a picture whose
  *  width over height is `aspect` (0 while unknown): the share at which the
- *  side is the picture's own shape, held to PIC_MIN..PIC_MAX. */
+ *  side is the picture's own shape, held to PIC_MIN..PIC_MAX — and capped
+ *  so the text side keeps TEXT_MIN_PX, down to PIC_MIN. */
 export function pictureShare(aspect: number, w: number, h: number): number {
   if (!(aspect > 0) || !(w > 0)) return PIC_MIN;
-  return clamp((h * aspect) / w, PIC_MIN, PIC_MAX);
+  const hi = Math.max(PIC_MIN, Math.min(PIC_MAX, 1 - TEXT_MIN_PX / w));
+  return clamp((h * aspect) / w, PIC_MIN, hi);
 }
 
 // ——————————————————————————————————————————————————————————————

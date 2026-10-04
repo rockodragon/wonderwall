@@ -21,6 +21,7 @@ import type { Id } from "./_generated/dataModel";
 import { getUserEmail, scheduleNotificationEmail } from "./emailHelpers";
 import { escapeHtml } from "./email/template";
 import { normalizeEmail } from "./garden/eventRsvps";
+import { resolveSenderCommunityName } from "./email/senderCommunity";
 import { normalizeUpdateBody } from "./garden/stories";
 
 const targetTypeValidator = v.union(
@@ -48,6 +49,9 @@ interface TargetInfo {
   /** Event co-hosts: may read/send like the owner. */
   coHostIds?: Id<"users">[];
   title: string;
+  /** The community it was posted into, when it has one. Names the sender of
+   * the emails about it. */
+  hostOrgId?: Id<"hostOrgs">;
 }
 
 async function loadTarget(
@@ -59,17 +63,22 @@ async function loadTarget(
     case "project": {
       const doc = await ctx.db.get(targetId as Id<"projects">);
       if (!doc) return null;
-      return { ownerId: doc.userId, title: doc.title };
+      return { ownerId: doc.userId, title: doc.title, hostOrgId: doc.hostOrgId };
     }
     case "event": {
       const doc = await ctx.db.get(targetId as Id<"events">);
       if (!doc) return null;
-      return { ownerId: doc.organizerId, coHostIds: doc.coHostIds, title: doc.title };
+      return {
+        ownerId: doc.organizerId,
+        coHostIds: doc.coHostIds,
+        title: doc.title,
+        hostOrgId: doc.hostOrgId,
+      };
     }
     case "offering": {
       const doc = await ctx.db.get(targetId as Id<"offerings">);
       if (!doc) return null;
-      return { ownerId: doc.userId, title: doc.title };
+      return { ownerId: doc.userId, title: doc.title, hostOrgId: doc.hostOrgId };
     }
   }
 }
@@ -570,11 +579,18 @@ export const deliverAnnouncementBatch = internalMutation({
     const escapedBody = escapedBodyHtml(announcement.body);
     const provenance = provenanceLine(announcement.targetType, targetTitle);
     // Broadcast emails append a reply line; system reminders carry none
-    // (PRD, Reply routing #4).
-    const emailBodyHtml =
-      announcement.kind === "broadcast"
-        ? `${escapedBody}<br><br>${provenance}<br><br>To reply, message ${senderName ?? "the sender"} on TheCreative.exchange.`
-        : `${escapedBody}<br><br>${provenance}`;
+    // (PRD, Reply routing #4). The line names the community the email is
+    // sent as — the event's or project's, else the reader's own — chosen the
+    // same way as the From name, so the two agree.
+    const emailBodyFor = async (readerUserId: Id<"users"> | undefined): Promise<string> => {
+      if (announcement.kind !== "broadcast") return `${escapedBody}<br><br>${provenance}`;
+      const placeName =
+        (await resolveSenderCommunityName(ctx, {
+          communityId: target?.hostOrgId,
+          userId: readerUserId,
+        })) ?? "TheCreative.exchange";
+      return `${escapedBody}<br><br>${provenance}<br><br>To reply, message ${escapeHtml(senderName ?? "the sender")} on ${escapeHtml(placeName)}.`;
+    };
     const previewText =
       announcement.kind === "reminder" ? announcement.body : announcement.body.slice(0, 120);
 
@@ -629,10 +645,11 @@ export const deliverAnnouncementBatch = internalMutation({
               subject: emailSubject,
               previewText,
               heading: targetTitle,
-              body: emailBodyHtml,
+              body: await emailBodyFor(recipient.userId),
               ctaText,
               ctaUrl,
               category: "announcements",
+              communityId: target?.hostOrgId,
             });
           } else {
             // Guest (email-only) recipient — no userId, so no preferences
@@ -642,10 +659,11 @@ export const deliverAnnouncementBatch = internalMutation({
               subject: emailSubject,
               previewText,
               heading: targetTitle,
-              body: emailBodyHtml,
+              body: await emailBodyFor(undefined),
               ctaText,
               ctaUrl,
               category: "announcements",
+              communityId: target?.hostOrgId,
             });
           }
           emailQueuedAt = now;

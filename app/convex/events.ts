@@ -946,6 +946,7 @@ export const apply = mutation({
         ctaText: "View Application",
         ctaUrl: `/events/${args.eventId}`,
         category: "activity",
+        communityId: event.hostOrgId,
       });
     }
 
