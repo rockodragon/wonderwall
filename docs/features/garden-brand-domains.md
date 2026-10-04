@@ -4,9 +4,10 @@ Status, 2026-10-03: built on `claude/garden-brand` (PR #61 into `tables`, with m
 
 ## Addresses
 
-- **garden.thecreative.exchange**: The Garden's address for now (Rick, 2026-10-03).
-- **createthegarden.com**: later, once Rick has the domain.
-- **thegarden.thecreative.exchange**: also recognized, in case that's the one that gets set up.
+- **garden.thecreative.exchange**: The Garden's address (Rick, 2026-10-03; DNS set up the same day).
+- **thegarden.thecreative.exchange**: also recognized.
+- **createthegarden.com**: **not listed yet.** Every listed address is also a place sign-in may return a one-time code to. createthegarden.com is registered to someone (Squarespace, 2026-09-29) and isn't pointed at the site, so whoever holds it could finish someone else's Google sign-in. Add it once it's Rick's and on the Pages project.
+- `www.` versions of these addresses count too, for both the brand and sign-in.
 
 The list is `GARDEN_HOSTS` in `app/convex/garden/brandHosts.ts`, shared by the backend, the site and the edge. `hostOrgs.domains` for `the-garden` should list the same.
 
@@ -66,7 +67,7 @@ How sign-in knows the address: on a Garden address, the page asks for a code or 
 
 ## Order to go live
 
-1. **Deploy the backend from this branch first.** A Garden address's phone, email and Google sign-ins pass their own address, and the old backend refuses it. thecreative.exchange is unaffected either way.
+1. **Deploy the backend from this branch first.** A Garden address's phone, email and Google sign-ins pass their own address, and the old backend refuses it. The new "add a phone" argument is only sent from a Garden address, so thecreative.exchange works with either backend.
 2. **Add garden.thecreative.exchange as a Custom Domain on the Pages project.**
 3. **Run `setCommunityDomains` for `the-garden` on prod** with `garden.thecreative.exchange`, so waitlist and signup there are tagged The Garden.
 4. **Try it on the live address:** phone code text, Google sign-in, `/`, link preview.

@@ -14,7 +14,7 @@ import { normalizePhone } from "./phone";
 import { sendSms } from "./smsSender";
 import { decideCreateOrUpdateUser } from "./authLinking";
 import { joinDefaultCommunity } from "./garden/defaultCommunity";
-import { allowedAuthRedirect, siteNameForUrl } from "./garden/brandHosts";
+import { allowedAuthRedirect, gardenNameForUrl, siteNameForUrl } from "./garden/brandHosts";
 
 const CODE_MAX_AGE_SECONDS = 10 * 60; // 10 minutes
 
@@ -471,7 +471,8 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
         await ctx.runAction(internal.emails.sendSignInCode, {
           to: identifier,
           code: token,
-          siteName: siteNameForUrl(url),
+          // Set only on a Garden address; elsewhere the email is as it was.
+          siteName: gardenNameForUrl(url),
         });
       },
     }),
@@ -482,7 +483,7 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
     // so someone who starts on one finishes there, signed in on it.
     async redirect({ redirectTo }) {
       const siteUrl = process.env.SITE_URL;
-      if (!siteUrl) throw new Error("Missing environment variable `SITE_URL`");
+      if (siteUrl === undefined) throw new Error("Missing environment variable `SITE_URL`");
       return allowedAuthRedirect(redirectTo, siteUrl);
     },
     createOrUpdateUser,

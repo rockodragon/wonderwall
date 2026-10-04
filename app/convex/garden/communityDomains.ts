@@ -11,15 +11,11 @@ import type { MutationCtx, QueryCtx } from "../_generated/server";
 import type { Doc } from "../_generated/dataModel";
 import { isHiddenCommunity } from "./hiddenCommunity";
 import { communityVisibility } from "./communityVisibility";
+import { normalizeHost } from "./brandHosts";
 
-/** "WWW.CreateSD.org:443" → "createsd.org". Empty for anything unusable. */
-export function normalizeHost(host: string | null | undefined): string {
-  if (!host) return "";
-  let h = host.trim().toLowerCase();
-  h = h.replace(/^https?:\/\//, "").split("/")[0].split(":")[0];
-  if (h.startsWith("www.")) h = h.slice(4);
-  return h;
-}
+// "WWW.CreateSD.org:443" → "createsd.org": one rule for every host the
+// site compares, so it lives with The Garden's addresses.
+export { normalizeHost };
 
 /** The community whose domains include `host`, if any. */
 export function findCommunityForHost<T extends { domains?: string[] }>(
