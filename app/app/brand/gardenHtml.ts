@@ -42,11 +42,12 @@ export function gardenizeHtml(html: string, origin: string): string {
   );
 
   // The icons come from their usual addresses (GARDEN_ROOT_FILES). The
-  // manifest, theme color and Jost aren't React's, so they can be added.
+  // manifest and theme color aren't React's, so they can be added. (Jost
+  // loads on every page, root.tsx: the signed-in desk shows the lockup on
+  // any address.)
   const add: string[] = [];
   if (!/rel="manifest"/.test(head)) add.push(`<link rel="manifest" href="${GARDEN.icons}/site.webmanifest">`);
   if (!/name="theme-color"/.test(head)) add.push(`<meta name="theme-color" content="${GARDEN.themeColor}">`);
-  if (!/family=Jost/.test(head)) add.push(`<link rel="stylesheet" href="${GARDEN.jostHref.replace(/&/g, "&amp;")}">`);
 
   // The share picture: the disc on ink, square, so a summary card.
   const shared = head.replace(DEFAULT_OG_IMAGE, `$1${origin}${GARDEN.icons}/social-avatar-800.png$2`);

@@ -22,7 +22,7 @@ import type { Id } from "../../convex/_generated/dataModel";
 import { formatDateTime, formatMoney } from "../garden/ui";
 import { PAGE_WIDTH } from "../lib/pageWidth";
 import { SITE_ORIGIN } from "../lib/eventCalendar";
-import { GARDEN, useBrand } from "../brand/brands";
+import { GARDEN } from "../brand/brands";
 import { GardenLockup } from "../brand/GardenMark";
 
 // Indexed (Rick, 2026-10-02: communities should be findable). The title,
@@ -153,18 +153,18 @@ function priceLabel(priceCents: number, billing: string): string {
   return billing === "monthly" ? `${formatMoney(priceCents)}/mo` : `${formatMoney(priceCents)} one-time`;
 }
 
-/** The Garden's own page on one of The Garden's own domains
- * (docs/features/garden-brand-domains.md): its lockup, and a Join button for
- * strangers. Everywhere else the page is every community's page. */
-function useGardenHome(community: { slug: string } | null | undefined): boolean {
-  return useBrand() === "garden" && community?.slug === GARDEN.communitySlug;
+/** The Garden's own page, on any address (docs/features/
+ * garden-brand-domains.md): its lockup, and a Join button for strangers.
+ * Every other community's page is as it was. */
+function isGardenPage(community: { slug: string } | null | undefined): boolean {
+  return community?.slug === GARDEN.communitySlug;
 }
 
 // ————— Join / membership control —————
 
 function JoinControl({ community }: { community: Community }) {
   const { isAuthenticated, isLoading } = useConvexAuth();
-  const gardenHome = useGardenHome(community);
+  const gardenHome = isGardenPage(community);
   const joinCommunity = useMutation(api.garden.communities.joinCommunity);
   const leaveCommunity = useMutation(api.garden.communities.leaveCommunity);
   const [busy, setBusy] = useState(false);
@@ -173,9 +173,9 @@ function JoinControl({ community }: { community: Community }) {
   if (isLoading) return null;
 
   if (!isAuthenticated) {
-    // On The Garden's own domain a stranger is the likeliest visitor, and
-    // they have no account to sign in to: joining (signup, which asks for an
-    // invite code or offers the waitlist) leads, signing in follows.
+    // On The Garden's page a stranger is the likeliest signed-out visitor,
+    // and they have no account to sign in to: joining (signup, which asks
+    // for an invite code or offers the waitlist) leads, signing in follows.
     if (gardenHome) {
       return (
         <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
@@ -1212,7 +1212,7 @@ export function CommunityPage({
     api.garden.communities.getCommunity,
     slug ? { slug } : "skip",
   ) as Community | null | undefined;
-  const gardenHome = useGardenHome(community);
+  const gardenHome = isGardenPage(community);
 
   if (community === undefined) {
     return (
@@ -1242,8 +1242,8 @@ export function CommunityPage({
       )}
 
       {gardenHome ? (
-        // The Garden's own page on its own domain wears its lockup, and the
-        // tagline (still the hosts' words, from host tools) takes its font.
+        // The Garden's own page wears its lockup, and the tagline (still the
+        // hosts' words, from host tools) takes its font.
         <>
           <h1 style={{ margin: 0 }}>
             <GardenLockup fontSize={32} grow surface="#121212" />

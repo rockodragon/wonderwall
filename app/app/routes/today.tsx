@@ -30,8 +30,8 @@ import { useIsDesktop } from "../hooks/useMediaQuery";
 import { UpdatesStack } from "../components/UpdatesStack";
 import { PhoneNeedsYou } from "../components/shortlist/PhoneParts";
 import { useShortlist } from "../lib/shortlist/useShortlist";
-import { useBrand } from "../brand/brands";
 import { GardenLockup } from "../brand/GardenMark";
+import { useDeskCommunity } from "../desk/deskState";
 
 export function meta() {
   return [{ title: "Today — The Garden" }];
@@ -82,14 +82,14 @@ function TodayPage() {
   const shownOpen = open.slice(0, LIST_LIMIT);
   const shownGigs = gigs.slice(0, LIST_LIMIT);
 
-  const garden = useBrand() === "garden";
+  const garden = useDeskCommunity() === "garden";
 
   const profileEmpty = profile !== undefined && profile !== null && !profile.bio && !profile.imageUrl;
   const loading = projects === undefined;
 
   return (
     <div className="mx-auto max-w-5xl px-4 md:px-10 pt-8 md:pt-14 pb-24" style={{ color: "var(--app-text)" }}>
-      {/* On The Garden's own domains its lockup leads, never in capitals
+      {/* The Garden's lockup leads, never in capitals, on any address
           (docs/features/garden-brand-domains.md); the heading stays for
           screen readers. */}
       {garden ? (

@@ -7,6 +7,7 @@ describe("brandForHost", () => {
     expect(brandForHost("createthegarden.com")).toBe("garden");
     expect(brandForHost("WWW.CreateTheGarden.com:443")).toBe("garden");
     expect(brandForHost("thegarden.thecreative.exchange")).toBe("garden");
+    expect(brandForHost("garden.thecreative.exchange")).toBe("garden");
   });
 
   it("stays TheCreative.exchange everywhere else", () => {

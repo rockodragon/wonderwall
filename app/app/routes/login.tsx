@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { useConvexAuth } from "convex/react";
 import { normalizePhone } from "../../convex/phone";
-import { ensureOAuthHost } from "../lib/oauthHost";
+import { codeRequestParams, ensureOAuthHost, oauthReturnTo } from "../lib/oauthHost";
 import { AgreementsConsent } from "../components/AgreementsConsent";
 import { useBrand } from "../brand/brands";
 import { GardenLockupThemed } from "../brand/GardenMark";
@@ -116,7 +116,7 @@ export default function Login() {
 
     setPhoneLoading(true);
     try {
-      await signIn("phone", { phone: normalized.value });
+      await signIn("phone", { phone: normalized.value, ...codeRequestParams() });
       setPhone(normalized.value);
       setPhoneStep("code");
       posthog?.capture("phone_code_sent");
@@ -161,7 +161,7 @@ export default function Login() {
       // Convex Auth returns to SITE_URL — the marketing home, which doesn't
       // forward signed-in people — so a successful Google sign-in looked
       // like nothing happened. The effect above takes it from here.
-      await signIn("google", { redirectTo: window.location.pathname + window.location.search });
+      await signIn("google", { redirectTo: oauthReturnTo() });
       posthog?.capture("google_sign_in_initiated");
       // Redirect happens automatically via useEffect when auth state updates
     } catch (err) {

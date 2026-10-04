@@ -1077,7 +1077,7 @@ function PhoneSection() {
     setError("");
     setPending(true);
     try {
-      await startAddPhone({ phone: phoneInput });
+      await startAddPhone({ phone: phoneInput, host: window.location.hostname });
       setStep("enterCode");
     } catch (err) {
       setError(errorMessage(err));
