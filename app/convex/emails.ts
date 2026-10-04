@@ -140,17 +140,19 @@ export const sendNotificationEmail = internalAction({
  */
 export const sendSignInCode = internalAction({
   // siteName: "The Garden" when the code was asked for on one of its
-  // addresses (auth.ts), so the email says where it's from.
+  // addresses (auth.ts): the email's words, header and sender name say so.
+  // Unset, the email is exactly the platform's, as before.
   args: { to: v.string(), code: v.string(), siteName: v.optional(v.string()) },
   handler: async (_ctx, { to, code, siteName }) => {
     const baseUrl = process.env.SITE_URL || "https://thecreative.exchange";
-    const name = siteName ?? "TheCreative.exchange";
-    const line = `Your code for ${name} is ${code}. It expires in 10 minutes. If you didn't ask for it, ignore this email.`;
+    const whose = siteName ? `Your code for ${siteName} is` : "Your TheCreative.exchange code is";
+    const line = `${whose} ${code}. It expires in 10 minutes. If you didn't ask for it, ignore this email.`;
     const { html } = renderNotificationEmail({
       heading: `Your code: ${code}`,
-      body: `<p style="margin:0">Your code for ${name} is <strong>${code}</strong>. It expires in 10 minutes. If you didn't ask for it, ignore this email.</p>`,
+      body: `<p style="margin:0">${whose} <strong>${code}</strong>. It expires in 10 minutes. If you didn't ask for it, ignore this email.</p>`,
       previewText: `Your code: ${code}`,
       baseUrl,
+      ...(siteName ? { brandName: siteName } : {}),
     });
     const provider = getEmailProvider();
     const result = await provider.send({

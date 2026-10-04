@@ -4,14 +4,14 @@ import { GARDEN_G_PATH, growFrame } from "./GardenMark";
 
 describe("brandForHost", () => {
   it("wears The Garden on its own domains, www and ports included", () => {
-    expect(brandForHost("createthegarden.com")).toBe("garden");
-    expect(brandForHost("WWW.CreateTheGarden.com:443")).toBe("garden");
-    expect(brandForHost("thegarden.thecreative.exchange")).toBe("garden");
     expect(brandForHost("garden.thecreative.exchange")).toBe("garden");
+    expect(brandForHost("WWW.Garden.TheCreative.Exchange:443")).toBe("garden");
+    expect(brandForHost("thegarden.thecreative.exchange")).toBe("garden");
   });
 
   it("stays TheCreative.exchange everywhere else", () => {
-    for (const host of ["thecreative.exchange", "www.thecreative.exchange", "localhost", "wonderwall.pages.dev", "garden.com"]) {
+    // createthegarden.com joins once it's Rick's and points at the site.
+    for (const host of ["thecreative.exchange", "www.thecreative.exchange", "localhost", "wonderwall.pages.dev", "garden.com", "createthegarden.com"]) {
       expect(brandForHost(host)).toBe("exchange");
     }
   });
@@ -50,7 +50,7 @@ describe("allowsBrandOverride", () => {
     expect(allowsBrandOverride("127.0.0.1")).toBe(true);
     expect(allowsBrandOverride("abc123.wonderwall.pages.dev")).toBe(true);
     expect(allowsBrandOverride("thecreative.exchange")).toBe(false);
-    expect(allowsBrandOverride("createthegarden.com")).toBe(false);
+    expect(allowsBrandOverride("garden.thecreative.exchange")).toBe(false);
   });
 });
 
