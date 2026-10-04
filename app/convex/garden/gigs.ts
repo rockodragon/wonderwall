@@ -674,6 +674,7 @@ export const updateGigSeries = mutation({
           await scheduleNotificationEmail(ctx, {
             userId: slot.bookedUserId,
             category: "activity",
+            communityId: project.hostOrgId,
             ...buildTimeChangedEmail({
               venueName: series.venueName ?? project.title,
               gigTitle: project.title,
@@ -804,6 +805,7 @@ export const cancelSlot = mutation({
       await scheduleNotificationEmail(ctx, {
         userId: slot.bookedUserId,
         category: "activity",
+        communityId: project.hostOrgId,
         ...buildCancelledEmail({
           venueName: series.venueName ?? project.title,
           gigTitle: project.title,
@@ -888,6 +890,7 @@ export const bookSlot = mutation({
     await scheduleNotificationEmail(ctx, {
       userId: response.userId,
       category: "activity",
+      communityId: project.hostOrgId,
       ...buildBookedEmail({
         venueName: series.venueName ?? project.title,
         gigTitle: project.title,
@@ -933,6 +936,7 @@ export const unbookSlot = mutation({
     await scheduleNotificationEmail(ctx, {
       userId: slot.bookedUserId,
       category: "activity",
+      communityId: project.hostOrgId,
       ...buildUnbookedEmail({
         venueName: series.venueName ?? project.title,
         gigTitle: project.title,
@@ -979,6 +983,7 @@ export const markSlotPaid = mutation({
     await scheduleNotificationEmail(ctx, {
       userId: slot.bookedUserId,
       category: "activity",
+      communityId: project.hostOrgId,
       ...buildPaidEmail({
         venueName: series.venueName ?? project.title,
         gigTitle: project.title,
@@ -1018,6 +1023,7 @@ export const confirmSlotPaid = mutation({
     await scheduleNotificationEmail(ctx, {
       userId: series.hostUserId,
       category: "activity",
+      communityId: project.hostOrgId,
       ...buildPaidConfirmedEmail({
         artistName: artist?.name ?? "The artist",
         gigTitle: project.title,
@@ -1126,6 +1132,7 @@ export const respondAvailable = mutation({
       await scheduleNotificationEmail(ctx, {
         userId: series.hostUserId,
         category: "activity",
+        communityId: project.hostOrgId,
         ...buildOfferedDatesEmail({
           artistName: profile.name,
           gigTitle: project.title,
@@ -1172,6 +1179,7 @@ export const withdrawResponse = mutation({
       await scheduleNotificationEmail(ctx, {
         userId: series.hostUserId,
         category: "activity",
+        communityId: project.hostOrgId,
         ...buildArtistWithdrewEmail({
           artistName: profile?.name ?? "Your artist",
           gigTitle: project.title,

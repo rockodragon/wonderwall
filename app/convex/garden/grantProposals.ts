@@ -372,6 +372,8 @@ export const decideProposal = mutation({
     await scheduleNotificationEmail(ctx, {
       userId: row.userId,
       category: "activity",
+      // A fund that isn't a community is ignored when the sender is chosen.
+      communityId: row.hostOrgId,
       ...buildProposalDecidedEmail({
         title: row.title,
         approved: args.approve,

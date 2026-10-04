@@ -756,6 +756,9 @@ export const deliverBatch = internalMutation({
         ctaText,
         ctaUrl,
         category: "announcements",
+        // Only a community-audience Update is about one community; "everyone"
+        // and "new" go out under each reader's own community.
+        communityId: update.audience === "community" ? update.hostOrgId : undefined,
       });
     }
 

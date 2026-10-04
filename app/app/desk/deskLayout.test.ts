@@ -27,6 +27,7 @@ import {
   layoutDesk,
   layoutDeskFull,
   pictureShare,
+  TEXT_MIN_PX,
   rectsOverlap,
   rotatedBounds,
   rowFit,
@@ -732,6 +733,14 @@ describe("the picture side of an opened card", () => {
       expect(share).toBeLessThanOrEqual(PIC_MAX);
     }
     expect(pictureShare(2, W, H)).toBe(PIC_MAX);
+  });
+
+  it("keeps the text side at least TEXT_MIN_PX on a tablet-width card", () => {
+    // An iPad portrait card, ~720 wide, with a tall poster that would take the max.
+    const share = pictureShare(2, 720, 900);
+    expect(720 * (1 - share)).toBeGreaterThanOrEqual(TEXT_MIN_PX - 0.001);
+    // Narrower still: the picture stops at PIC_MIN rather than vanishing.
+    expect(pictureShare(2, 500, 900)).toBe(PIC_MIN);
   });
 
   it("takes the narrowest share until the picture has been measured", () => {
