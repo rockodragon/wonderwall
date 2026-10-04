@@ -66,6 +66,10 @@ export type TicketClaimResult =
   | "not_found" // webhook hasn't landed yet (or never will) — try again later
   | "taken"; // on another account
 
+/** ConvexError code claimTicketBySession throws when a Table's guest ticket
+ * can't move to this account. Final: the client stops retrying it. */
+export const TICKET_CLAIM_REFUSED = "ticket_claim_refused";
+
 // ——— Several tickets on one Payment Link (2026-09-29) ———
 // AP's Payment Link lets the buyer pick a quantity and has one optional
 // text box for the other guests' names. The webhook payload carries the

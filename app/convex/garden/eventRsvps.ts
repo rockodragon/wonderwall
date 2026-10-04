@@ -20,7 +20,11 @@ import {
   guestSeatsFit,
   normalizeTable,
 } from "./tablePolicy";
-import { isCheckoutSessionId, type TicketClaimResult } from "./ticketLink";
+import {
+  isCheckoutSessionId,
+  TICKET_CLAIM_REFUSED,
+  type TicketClaimResult,
+} from "./ticketLink";
 import { nextTicketState } from "./ticketLink";
 
 // ——— Pure core ———
@@ -33,6 +37,22 @@ export function normalizeEmail(email: string): string {
 
 export function isValidEmail(email: string): boolean {
   return EMAIL_RE.test(email.trim());
+}
+
+/** True when this account's verified email is the one Stripe took the
+ * payment with. A ticket link's client_reference_id and a checkout session
+ * id can both be passed to someone else, so neither proves who paid; this
+ * does (garden/apGifts.ts's trustedTicketBuyer, claimTicketBySession). */
+export function paidWithVerifiedEmail(
+  user: { email?: string; emailVerificationTime?: number } | null | undefined,
+  paidWith: string | null | undefined,
+): boolean {
+  return (
+    !!user?.email &&
+    !!paidWith &&
+    user.emailVerificationTime !== undefined &&
+    normalizeEmail(user.email) === normalizeEmail(paidWith)
+  );
 }
 
 export interface ExistingRsvp {
@@ -459,6 +479,94 @@ export const getEventRsvps = query({
   },
 });
 
+// ——— A paid ticket for a Table's Event ———
+//
+// Used by AP's ticket webhook (garden/apGifts.ts) when a ticket is bought,
+// and by claimTicketBySession below when a guest ticket is moved onto an
+// account afterwards, so both follow one rule.
+
+export type TableTicketDecision =
+  | { ok: true; userId?: Id<"users"> }
+  | { ok: false; reason: string; tableId?: Id<"gardenTables"> };
+
+/** A ticket for an Event that belongs to a Table follows the Table's rules,
+ * the same ones the RSVP endpoints apply:
+ *   - an accepted participant (trusted identity, see paidWithVerifiedEmail)
+ *     gets their one RSVP on their account. Extra tickets would seat
+ *     guests on an account row, outside the guest count, so a participant
+ *     buying more than one seat is not honored here;
+ *   - anyone else is an external guest: the Table must accept guests
+ *     (canGuestRsvp: public, open, free, no membership gate, guests on),
+ *     and this Event must have a chair for every ticket (guestSeatsFit).
+ * Anything else is refused. `claiming` is the guest RSVP being moved onto
+ * an account, left out so the ticket isn't counted against itself. */
+export async function decideTableTicket(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ctx: any,
+  eventDoc: { _id: Id<"events">; tableId: Id<"gardenTables">; status?: string },
+  buyer: { userId?: Id<"users">; email: string; tickets: number },
+  claiming?: Id<"eventRsvps">,
+): Promise<TableTicketDecision> {
+  const table = await ctx.db.get(eventDoc.tableId);
+  if (!table) return { ok: false, reason: "table_missing" };
+  const refuse = (reason: string): TableTicketDecision => ({ ok: false, reason, tableId: table._id });
+  if (eventDoc.status !== "published") return refuse("event_unavailable");
+  const rows: { _id: Id<"eventRsvps">; userId?: Id<"users">; email: string; ticketCount?: number; paidCents?: number }[] = (
+    await ctx.db
+      .query("eventRsvps")
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .withIndex("by_eventId", (q: any) => q.eq("eventId", eventDoc._id))
+      .collect()
+  ).filter((row: { _id: Id<"eventRsvps"> }) => row._id !== claiming);
+  const existing = rows.find((row) => row.email === normalizeEmail(buyer.email));
+  if (buyer.userId) {
+    const participant = await getTableParticipation(ctx, table, buyer.userId);
+    if (participant.isMember || participant.isHost) {
+      if (existing?.userId && existing.userId !== buyer.userId) return refuse("account_rsvp");
+      const held = existing ? (existing.ticketCount ?? (existing.paidCents ? 1 : 0)) : 0;
+      return buyer.tickets === 1 && held === 0
+        ? { ok: true, userId: buyer.userId }
+        : refuse("participant_extra_tickets");
+    }
+  }
+  const guest = await getTableParticipation(ctx, table, null);
+  if (!guest.canGuestRsvp) return refuse("guests_not_allowed");
+  // Same rule as rsvpGuestToTableEvent: a guest never takes over an
+  // account-backed RSVP.
+  if (existing?.userId) return refuse("account_rsvp");
+  if (!guestSeatsFit(normalizeTable(table).capacity, guest.persistentChairs, guestSeatCount(rows), buyer.tickets))
+    return refuse("full");
+  return { ok: true };
+}
+
+/** Whether a guest ticket for a Table's Event may move onto this account.
+ * Holding the checkout session id isn't enough: it's in a URL anyone can be
+ * sent. The account must have paid with its own verified email (the RSVP's
+ * email is the one Stripe took), hold no other RSVP for this Event, and
+ * pass decideTableTicket as a participant taking one seat. Anyone else's
+ * ticket stays the guest ticket it was bought as. */
+async function tableTicketClaimAllowed(
+  ctx: MutationCtx,
+  eventDoc: { _id: Id<"events">; tableId: Id<"gardenTables">; status?: string },
+  rsvp: { _id: Id<"eventRsvps">; email: string; ticketCount?: number },
+  userId: Id<"users">,
+): Promise<boolean> {
+  const user = await ctx.db.get(userId);
+  if (!paidWithVerifiedEmail(user, rsvp.email)) return false;
+  const rows = await ctx.db
+    .query("eventRsvps")
+    .withIndex("by_eventId", (q) => q.eq("eventId", eventDoc._id))
+    .collect();
+  if (rows.some((row) => row._id !== rsvp._id && row.userId === userId)) return false;
+  const decision = await decideTableTicket(
+    ctx,
+    eventDoc,
+    { userId, email: rsvp.email, tickets: rsvp.ticketCount ?? 1 },
+    rsvp._id,
+  );
+  return decision.ok && decision.userId === userId;
+}
+
 // ——— Claim a ticket by its Stripe checkout session ———
 //
 // AP's Payment Link redirects back with `?session={CHECKOUT_SESSION_ID}`
@@ -467,6 +575,8 @@ export const getEventRsvps = query({
 // redirect URL — the buyer — can attach the ticket to the account they're
 // signed in with, whatever email they paid with. Only an RSVP with no
 // account yet is ever claimed; one already on an account stays put.
+// A Table's Event is stricter (tableTicketClaimAllowed above): the ticket
+// moves only to an accepted participant who paid with their verified email.
 
 export { isCheckoutSessionId, type TicketClaimResult } from "./ticketLink";
 
@@ -493,6 +603,15 @@ export const claimTicketBySession = mutation({
       .unique();
     const result = planTicketClaim(rsvp, String(userId));
     if (result !== "claimed" || !rsvp) return result;
+
+    const event = await ctx.db.get(rsvp.eventId);
+    if (event?.tableId && !(await tableTicketClaimAllowed(ctx, { ...event, tableId: event.tableId }, rsvp, userId))) {
+      throw new ConvexError({
+        code: TICKET_CLAIM_REFUSED,
+        reason:
+          "This ticket stays a guest ticket. It moves to your account only if you're in this Table, paid with your account's email, and bought one seat.",
+      });
+    }
 
     await ctx.db.patch(rsvp._id, { userId });
     const contribution = await ctx.db

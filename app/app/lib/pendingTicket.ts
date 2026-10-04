@@ -6,7 +6,12 @@
 // seconds after the redirect, so a "not_found" stays stashed for a retry;
 // anything older than a week is dropped.
 
-import { isCheckoutSessionId, type TicketClaimResult } from "../../convex/garden/ticketLink";
+import { ConvexError } from "convex/values";
+import {
+  isCheckoutSessionId,
+  TICKET_CLAIM_REFUSED,
+  type TicketClaimResult,
+} from "../../convex/garden/ticketLink";
 
 const KEY = "pendingTicketSessions";
 const MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
@@ -53,8 +58,12 @@ export async function claimPendingTickets(
       const result = await claim({ sessionId: id });
       if (result === "not_found") waiting = true;
       else delete stash[id];
-    } catch {
-      waiting = true;
+    } catch (err) {
+      // A Table's ticket that can't move to this account stays a guest
+      // ticket; asking again won't change that.
+      const code = err instanceof ConvexError ? (err.data as { code?: string } | null)?.code : undefined;
+      if (code === TICKET_CLAIM_REFUSED) delete stash[id];
+      else waiting = true;
     }
   }
   write(stash);

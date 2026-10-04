@@ -17,6 +17,8 @@ Implemented on branch `tables` on 2026-10-03, using the latest **Garden Tables v
 
 Table details put the next gathering's date/time/location and participation action near the title in the right column. Host names reuse Event host labeling and link to existing profile and organization pages. Gathering titles open their canonical Event routes, and enrollment shows one chair confirmation. Person previews show a small portrait; organization previews reuse named member faces rather than only a count. Table and profile detail pages share a history-aware Back control.
 
+Rick's decision (2026-10-04): on a Table's dates, an accepted participant (or host) never needs a second approval, even if a date's own approval setting is turned on.
+
 The local design preview at `http://127.0.0.1:8802/tables` is an isolated fixture with a visible sample-data notice. Its checkout and linked detail destinations are demonstrations: it does not persist enrollment, collect payment details, or charge money. The normal app continues to use the existing Convex/Stripe transport and requires the rollout below for a live Table checkout.
 
 ## Verification
