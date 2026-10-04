@@ -14,7 +14,12 @@ import { mutation, query, type MutationCtx } from "../_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { isEventHost } from "../eventHosts";
 import { canSeeEvent } from "./eventVisibility";
-import { getTableParticipation } from "./tablePolicy";
+import {
+  getTableParticipation,
+  guestSeatCount,
+  guestSeatsFit,
+  normalizeTable,
+} from "./tablePolicy";
 import { isCheckoutSessionId, type TicketClaimResult } from "./ticketLink";
 import { nextTicketState } from "./ticketLink";
 
@@ -309,7 +314,7 @@ export const rsvpGuestToTableEvent = mutation({
     const participation = table
       ? await getTableParticipation(ctx, table, viewerId)
       : null;
-    if (!participation?.canGuestRsvp)
+    if (!table || !participation?.canGuestRsvp)
       throw new ConvexError({
         code: "guests_not_allowed",
         reason: "This Table requires enrollment.",
@@ -338,7 +343,18 @@ export const rsvpGuestToTableEvent = mutation({
         code: "account_rsvp",
         reason: "Sign in to manage your existing RSVP.",
       });
-    if (!existing && participation.spotsRemaining === 0)
+    // A guest takes a chair on this Event only: persistent chairs plus the
+    // guests already here, not the series' busiest Event (spotsRemaining,
+    // which still governs enrollment and checkout).
+    if (
+      !existing &&
+      !guestSeatsFit(
+        normalizeTable(table).capacity,
+        participation.persistentChairs,
+        guestSeatCount(rows),
+        1,
+      )
+    )
       throw new ConvexError({ code: "full", reason: "This Event is full." });
     return await upsertEventRsvp(ctx, {
       eventId: event._id,

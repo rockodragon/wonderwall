@@ -64,6 +64,7 @@ const USER_ID_FIELDS: { table: string; field: string; array?: boolean }[] = [
   { table: "eventRsvps", field: "userId" },
   { table: "ticketPurchases", field: "userId" },
   { table: "grantContributions", field: "userId" },
+  { table: "externalTicketExceptions", field: "resolvedByUserId" },
   { table: "grantProposals", field: "userId" },
   { table: "grantProposals", field: "decidedByUserId" },
   { table: "productPurchases", field: "userId" },

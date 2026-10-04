@@ -91,6 +91,7 @@ function EmptyRow({ children }: { children: React.ReactNode }) {
 type PlatformReport = {
   generatedAt: number;
   tablePaymentExceptions?: {paymentId: string; title: string; grossCents: number; stripeRef: string; paymentIntentId?: string; createdAt: number}[];
+  externalTicketExceptions?: {exceptionId: string; title: string; grossCents: number; ticketCount: number; reason: string; stripeRef: string; createdAt: number}[];
   periods: string[];
   fees: {
     totalPlatformCents: number;
@@ -511,6 +512,35 @@ function TablePaymentExceptions({rows}: {rows: NonNullable<PlatformReport["table
   </section>;
 }
 
+function TicketRefundRow({row}: {row: NonNullable<PlatformReport["externalTicketExceptions"]>[number]}) {
+  const markRefunded = useMutation(api.garden.operator.markExternalTicketRefunded);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState("");
+  async function submit() {
+    if (!window.confirm(`Mark the ticket payment for ${row.title} as refunded? Refund it in Abiding Practice's Stripe account first.`)) return;
+    setPending(true);
+    setError("");
+    try { await markRefunded({exceptionId: row.exceptionId as Id<"externalTicketExceptions">}); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : "Could not save. Try again."); }
+    finally { setPending(false); }
+  }
+  return <div className="g-cell" style={{marginTop: 12, padding: 16}}>
+    <strong>{row.title}</strong> · {formatMoney(row.grossCents)} · {row.ticketCount} ticket{row.ticketCount === 1 ? "" : "s"}
+    <div className="g-hint">Reason: {row.reason.replace(/_/g, " ")} · Stripe reference: {row.stripeRef.replace(/^ap:/, "")}</div>
+    <button type="button" className="g-btn g-btn-sm" style={{marginTop: 12}} disabled={pending} onClick={submit}>{pending ? "Saving…" : "Mark refunded"}</button>
+    {error && <p role="alert" className="g-hint">{error}</p>}
+  </div>;
+}
+
+function TicketPaymentExceptions({rows}: {rows: NonNullable<PlatformReport["externalTicketExceptions"]>}) {
+  if (!rows.length) return null;
+  return <section style={{marginTop: 40}}>
+    <SectionLabel>Ticket payments needing a refund</SectionLabel>
+    <p className="g-hint" style={{marginTop: 8}}>Paid through Abiding Practice for a Table's Event the buyer can't attend under the Table's rules. No RSVP was made. Refund each in Abiding Practice's Stripe account, then mark it here.</p>
+    {rows.map(row => <TicketRefundRow key={row.exceptionId} row={row} />)}
+  </section>;
+}
+
 // ————— 4. Communities and members —————
 
 function CommunitiesMembersSection({ communities }: { communities: PlatformReport["communities"] }) {
@@ -816,6 +846,7 @@ export default function AdminLedgerPage() {
           <HostEarningsSection hostEarnings={report.hostEarnings} />
           <CreativeEarningsSection creativeEarnings={report.creativeEarnings ?? []} />
           <TablePaymentExceptions rows={report.tablePaymentExceptions ?? []} />
+          <TicketPaymentExceptions rows={report.externalTicketExceptions ?? []} />
           <CommunitiesMembersSection communities={report.communities} />
           <MembershipsSection memberships={report.memberships} />
           <RecentSection recent={report.recent} />

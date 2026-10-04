@@ -422,6 +422,7 @@ export const getPlatformReport = query({
       creativePayouts,
       classPayments,
       giftPayments,
+      ticketExceptions,
     ] = await Promise.all([
       ctx.db.query("hostOrgs").collect(),
       ctx.db.query("communityMembers").collect(),
@@ -439,6 +440,10 @@ export const getPlatformReport = query({
       ctx.db.query("creativePayouts").collect(),
       ctx.db.query("classPayments").collect(),
       ctx.db.query("giftPayments").collect(),
+      ctx.db
+        .query("externalTicketExceptions")
+        .withIndex("by_status", (q) => q.eq("status", "refund_required"))
+        .collect(),
     ]);
 
     const hostOrgById = new Map(hostOrgs.map((o) => [String(o._id), o]));
@@ -802,6 +807,17 @@ export const getPlatformReport = query({
         title: p.tableId ? tableTitleById.get(String(p.tableId)) ?? "A deleted Table" : "Table payment",
         grossCents: p.grossCents, buyerUserId: p.buyerUserId, stripeRef: p.stripeRef,
         paymentIntentId: p.paymentIntentId, createdAt: p.createdAt,
+      })),
+      // AP ticket payments a Table's rules refused (garden/apGifts.ts):
+      // refunded in AP's Stripe account, then marked here.
+      externalTicketExceptions: ticketExceptions.map((x) => ({
+        exceptionId: x._id,
+        title: eventById.get(String(x.eventId))?.title ?? "A deleted Event",
+        grossCents: x.grossCents,
+        ticketCount: x.ticketCount,
+        reason: x.reason,
+        stripeRef: x.stripeRef,
+        createdAt: x.createdAt,
       })),
       communities,
       memberships: { ...membershipsSummary, coverageCodes: coverageCodesOut },

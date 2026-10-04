@@ -38,6 +38,8 @@ export default {
     "/showcase",
     "/grant-program",
     "/legal/credits",
+    // Static page; real HTML for when it is eventually linked (noindex until then).
+    "/pricing",
   ],
   // Deep links must hydrate the SPA shell, not the prerendered home page.
   // Cloudflare Pages only treats exactly "/* /index.html 200" as an SPA

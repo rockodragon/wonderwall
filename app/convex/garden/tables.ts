@@ -432,7 +432,10 @@ export const leaveTable = mutation({
         q.eq("tableId", args.tableId).eq("userId", userId),
       )
       .unique();
-    if (existing && (existing.status ?? "active") !== "left")
+    // Leaving ends your own chair or your own request. A host's removal is
+    // not yours to change: turning it into "left" would let joinTable seat
+    // you again. Only a host (manageEnrollment accept) restores it.
+    if (existing && ["active", "pending"].includes(existing.status ?? "active"))
       await transitionMembership(ctx, args.tableId, userId, {
         status: "left",
         leftAt: Date.now(),
@@ -604,7 +607,10 @@ async function insertTableOccurrence(
     description: table.description ?? table.blurb ?? "",
     hostOrgId: table.hostOrgId,
     tags: [],
-    requiresApproval: normalizeTable(table).access !== "open",
+    // The Table's access rule is applied once, at enrollment. Event apply
+    // and RSVP already require an accepted participant, so copying the
+    // Table's approval onto each Event only asked them a second time.
+    requiresApproval: false,
     status: "published",
     createdAt: now,
     updatedAt: now,

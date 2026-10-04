@@ -36,6 +36,21 @@ Every sentence we say about money is defined here, word for word. Do not write a
 | **member-directed, default** | If you don't pick within a week, it goes to the grant fund. |
 | **member-directed, full** | What you give goes to them in full. |
 
+### Added 2026-10-03 for /pricing — awaiting Rick's OK
+
+From the plan's Tables update (2026-10-03) and §3; checked against the code on `tables`. `/pricing` is not linked anywhere until these are approved.
+
+| Name | The sentence |
+|---|---|
+| **per community** | Each community sets its own membership price. |
+| **tables, free** | Anyone can set a free, one-time Table. |
+| **tables, paid** | Charging for a Table, or running one that meets again, takes membership in its community. |
+| **tables, join paid** | Anyone can join an open paid Table by paying its price. |
+| **table split** | On a paid Table, you keep 90% of what you sell. |
+| **table processing fee** | Card processing is added on top of the Table's price. |
+| **tickets** | Anyone can post an event. Selling tickets takes membership. |
+| **direct pay** | When a patron pays a creative directly, we take nothing. |
+
 ## Where these sentences live
 
 **Imported, so they change with `claims.ts`:** the home page, the `/for/...` audience pages, `/ia`, the backing modal on `/projects`, the paid-class sign-up on `/offerings`, and the demo pages (`demo.create`, `demo.join`, `demo.host.dashboard`).

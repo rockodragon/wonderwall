@@ -252,6 +252,45 @@ describe("Tables canonical handler policies", () => {
       "active",
     ]);
   });
+  it("leaving cannot undo a host removal; only the host restores the chair", async () => {
+    const ctx = makeCtx(world(), USER);
+    await run(joinTable, ctx, { tableId: "gardenTables:t" });
+    const host = makeCtx(ctx.store, HOST);
+    await run(manageEnrollment, host, {
+      tableId: "gardenTables:t",
+      userId: USER,
+      decision: "remove",
+    });
+    const removed = makeCtx(host.store, USER);
+    await run(leaveTable, removed, { tableId: "gardenTables:t" });
+    expect(removed.store.tableMemberships[0].status).toBe("removed");
+    await expect(
+      run(joinTable, removed, { tableId: "gardenTables:t" }),
+    ).rejects.toThrow();
+    expect(removed.store.tableMemberships[0].status).toBe("removed");
+    expect(
+      (await run(getTable, removed, { slug: "table" })).viewer.action,
+    ).toBe("closed");
+    const restore = makeCtx(removed.store, HOST);
+    await run(manageEnrollment, restore, {
+      tableId: "gardenTables:t",
+      userId: USER,
+      decision: "accept",
+    });
+    expect(restore.store.tableMemberships[0].status).toBe("active");
+    expect(
+      restore.store.tableMembershipHistory.map((m: Row) => m.status),
+    ).toEqual(["active", "removed", "active"]);
+  });
+  it("Events of an approval Table don't carry a second, per-Event approval", async () => {
+    const ctx = makeCtx(world(), USER);
+    const result = await run(createTable, ctx, {
+      ...freeCreate,
+      access: "approval",
+    });
+    const event = ctx.store.events.find((e: Row) => e.tableId === result.tableId);
+    expect(event?.requiresApproval).toBe(false);
+  });
   it("open paid enrollment asks for checkout and never grants roster early", async () => {
     const data = world();
     Object.assign(data.gardenTables[0], {

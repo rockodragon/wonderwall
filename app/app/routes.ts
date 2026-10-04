@@ -52,6 +52,9 @@ export default [
   // and gating them would defeat the point.
   route("for/:audience", "routes/for.$audience.tsx"),
 
+  // Pricing. Unlinked and noindex until Rick approves the new claims.
+  route("pricing", "routes/pricing.tsx"),
+
   // Public browse (/opportunities). Outside the _app layout for the same
   // reason the audience pages are: /projects lives inside it and bounces a
   // logged-out visitor to /login, so there was no honest destination for

@@ -36,7 +36,7 @@ The project is **creatives.exchange** (repo: wonderwall). Four documents are the
 
 ## Runbooks and research
 
-- [Step 0: go live in Stripe test mode](runbooks/step-0-go-live.md)
+- [Stripe test mode on the dev backend](runbooks/step-0-go-live.md) — keys, prices, webhook and env vars for `giant-wildebeest-814`, and what prod needs before paid Tables
 - [Entity structure research](entity-structure-research.md) · [research/](research/)
 
 ## Historical (superseded — do not quote from these)

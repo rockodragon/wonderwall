@@ -61,6 +61,29 @@ export function isActiveEnrollment(
   return true;
 }
 
+/** Chairs external guests hold on one Event: its RSVPs with no account. */
+export function guestSeatCount(
+  rows: { userId?: unknown; ticketCount?: number }[],
+): number {
+  return rows
+    .filter((row) => !row.userId)
+    .reduce((count, row) => count + (row.ticketCount ?? 1), 0);
+}
+
+/** Whether `seats` more external guests fit on one Event. A guest holds a
+ * chair on that date only, so the check is the Table's persistent chairs
+ * (active enrollments plus live checkout holds) and the guests already on
+ * this Event — not the busiest Event in the series, which is the rule for
+ * persistent enrollment (spotsRemaining). */
+export function guestSeatsFit(
+  capacity: number | undefined,
+  persistentChairs: number,
+  eventGuests: number,
+  seats: number,
+): boolean {
+  return capacity == null || persistentChairs + eventGuests + seats <= capacity;
+}
+
 export type TableAction =
   | "join"
   | "checkout"
@@ -189,6 +212,9 @@ export async function getTableParticipation(
     memberCount,
     spotsRemaining,
     guestReservations,
+    // Enrollments and live holds: the chairs taken on every Event. A guest
+    // RSVP adds the guests on its own Event to these (guestSeatsFit).
+    persistentChairs: memberCount + held,
     canSeeRoster: visible && !!(isMember || isHost),
     canGuestRsvp:
       visible &&
