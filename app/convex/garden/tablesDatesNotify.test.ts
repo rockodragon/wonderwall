@@ -10,6 +10,7 @@ import {
   getTableGuests,
   manageEnrollment,
   runTableAgain,
+  membershipName,
 } from "./tables";
 import {
   getEventRsvps,
@@ -217,11 +218,18 @@ describe("Add a date to any Table", () => {
     expect(ctx.store.tableMembershipHistory).toEqual([]);
   });
 
+  it("names the membership without a leading 'The'", () => {
+    expect(membershipName("The Garden")).toBe("Garden");
+    expect(membershipName("the garden")).toBe("garden");
+    expect(membershipName("Creative Exchange")).toBe("Creative Exchange");
+    expect(membershipName("Theater Club")).toBe("Theater Club");
+  });
+
   it("a host without paid membership is told why in plain words", async () => {
     const ctx = as(world(), HOST);
     expect(
       await reason(run(addTableEvent, ctx, { tableId: TABLE, event: nextDate })),
-    ).toBe("Adding more dates takes The Garden membership.");
+    ).toBe("Adding more dates takes Garden membership.");
     expect(ctx.store.events).toHaveLength(1);
     expect(ctx.store.gardenTables[0].scheduleType).toBe("one_time");
   });

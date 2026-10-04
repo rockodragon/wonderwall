@@ -1027,8 +1027,14 @@ async function addDatesDenial(
     };
   return {
     code: "hosting_membership_required",
-    reason: `Adding more dates takes ${org.name} membership.`,
+    reason: `Adding more dates takes ${membershipName(org.name)} membership.`,
   };
+}
+
+/** A community's name as it reads before "membership": "The Garden" →
+ * "Garden membership", not "The Garden membership". */
+export function membershipName(name: string): string {
+  return name.trim().replace(/^the\s+/i, "") || name.trim();
 }
 
 /** A host adds a date. A one-time Table becomes a series; everyone already
