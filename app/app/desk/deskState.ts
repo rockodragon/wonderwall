@@ -181,27 +181,3 @@ const communityStore = localStore<DeskCommunity>(
 export const setDeskCommunity = communityStore.set;
 export const useDeskCommunity = communityStore.use;
 
-// ——————————————————————————————————————————————————————————————
-// Spacing: an admin's dial for the desk's negative space
-// ——————————————————————————————————————————————————————————————
-
-/** 1 is the layout as designed. Gaps and margins scale by it; scattered
- *  cards shrink by its square root. Per browser, admins only, while the
- *  right value is found — then it becomes the default here. */
-export const DESK_SPACING = { min: 0.75, max: 2, step: 0.05, initial: 1 } as const;
-
-export function clampSpacing(n: number): number {
-  if (!Number.isFinite(n)) return DESK_SPACING.initial;
-  return Math.min(DESK_SPACING.max, Math.max(DESK_SPACING.min, n));
-}
-
-const spacingStore = localStore<number>(
-  "desk.spacing",
-  (raw) => (raw === null ? DESK_SPACING.initial : clampSpacing(Number(raw))),
-  DESK_SPACING.initial,
-);
-
-export const useDeskSpacing = spacingStore.use;
-export function setDeskSpacing(n: number) {
-  spacingStore.set(clampSpacing(n));
-}

@@ -129,6 +129,30 @@ export function resolveMoneyLine(project: {
 }
 
 /**
+ * The picture to show for a project: the uploaded file (`photoStorageId`)
+ * first, then the pasted external link (`photoUrl`). garden/projects.ts reads
+ * a project the same way for the signed-in pages (`resolvedPhotoUrl`); the
+ * public cards and the story page read only `photoUrl` and so missed every
+ * uploaded photo. A stored file that no longer resolves falls back to the
+ * link rather than to a blank. Takes `storage` duck-typed — pass `ctx.storage`.
+ */
+export async function resolveProjectPhotoUrl(
+  storage: { getUrl: (id: any) => Promise<string | null> },
+  project: { photoStorageId?: unknown; photoUrl?: string },
+): Promise<string | undefined> {
+  if (project.photoStorageId) {
+    let stored: string | null = null;
+    try {
+      stored = await storage.getUrl(project.photoStorageId);
+    } catch {
+      stored = null;
+    }
+    if (stored) return stored;
+  }
+  return project.photoUrl || undefined;
+}
+
+/**
  * Shapes a raw project row + its resolved owner name into the plain-JSON
  * card both listProjects and getProject return — one mapper, so the browse
  * grid and the detail page never disagree on a project's display shape.
@@ -231,7 +255,10 @@ export const listProjects = query({
     const now = Date.now();
     return Promise.all(
       newestFirst.map(async (p) => ({
-        ...shapeProjectCard(p, nameByUserId.get(String(p.userId)) ?? FALLBACK_OWNER_NAME),
+        ...shapeProjectCard(
+          { ...p, photoUrl: await resolveProjectPhotoUrl(ctx.storage, p) },
+          nameByUserId.get(String(p.userId)) ?? FALLBACK_OWNER_NAME,
+        ),
         community: p.hostOrgId ? communityById.get(String(p.hostOrgId)) ?? null : null,
         gig: await summarizeGig(ctx, p._id, now),
       })),
@@ -276,7 +303,10 @@ export const getProject = query({
     }
 
     return {
-      ...shapeProjectCard(project, ownerProfile?.name ?? FALLBACK_OWNER_NAME),
+      ...shapeProjectCard(
+        { ...project, photoUrl: await resolveProjectPhotoUrl(ctx.storage, project) },
+        ownerProfile?.name ?? FALLBACK_OWNER_NAME,
+      ),
       credits,
       gig: await summarizeGig(ctx, project._id, Date.now()),
     };

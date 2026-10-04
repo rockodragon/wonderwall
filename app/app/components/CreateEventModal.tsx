@@ -17,7 +17,9 @@ import {
   type TicketTierDraft,
 } from "./TicketTierEditor";
 import { describeMediaLink, MediaLinkField } from "./MediaLinkField";
-import { ImageFill } from "./ImageFill";
+import { CoverFrame } from "./CoverFrame";
+import { uploadToStorage } from "../lib/uploadFile";
+import { useCoverPick } from "../lib/useCoverPick";
 import { FocusBackdrop } from "./FocusBackdrop";
 
 // One modal for hosting AND editing an event (Rick, 2026-10-01: edit uses the
@@ -32,8 +34,6 @@ import { FocusBackdrop } from "./FocusBackdrop";
 
 const STEPS = ["What and when", "Tell people about it", "Options"] as const;
 type Step = 1 | 2 | 3;
-
-const MAX_COVER_BYTES = 5 * 1024 * 1024;
 
 const inputBase =
   "w-full py-2 border rounded-lg focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent placeholder:text-[var(--app-text-dim)]";
@@ -305,17 +305,23 @@ export function CreateEventModal({
   const [showTickets, setShowTickets] = useState(false);
   const [showMedia, setShowMedia] = useState(false);
 
-  // Cover image: uploaded as soon as it's picked, so Create only has to
-  // attach the storageId. `previewUrl` is a local object URL for the preview.
+  // Cover image: framed 4:5 and uploaded as soon as it's picked, so Create
+  // only has to attach the storageId. `previewUrl` is a local object URL for
+  // the preview.
   const [cover, setCover] = useState<{
     storageId: Id<"_storage">;
     previewUrl: string;
   } | null>(null);
-  const [coverUploading, setCoverUploading] = useState(false);
-  const [coverError, setCoverError] = useState("");
   const coverInputRef = useRef<HTMLInputElement>(null);
   const coverRef = useRef(cover);
   coverRef.current = cover;
+  const coverPick = useCoverPick(async (blob) => {
+    const storageId = await uploadToStorage(generateUploadUrl, blob);
+    if (coverRef.current) URL.revokeObjectURL(coverRef.current.previewUrl);
+    setCover({ storageId, previewUrl: URL.createObjectURL(blob) });
+  });
+  const coverUploading = coverPick.busy;
+  const coverError = coverPick.error ?? "";
   const shownCoverUrl = cover?.previewUrl ?? existingCoverUrl;
 
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -360,46 +366,16 @@ export function CreateEventModal({
     );
   }
 
-  async function handleCoverPick(e: React.ChangeEvent<HTMLInputElement>) {
+  function handleCoverPick(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = "";
-    if (!file) return;
-    setCoverError("");
-
-    if (!file.type.startsWith("image/")) {
-      setCoverError("Pick an image file.");
-      return;
-    }
-    if (file.size > MAX_COVER_BYTES) {
-      setCoverError("Image must be under 5 MB.");
-      return;
-    }
-
-    setCoverUploading(true);
-    try {
-      const uploadUrl = await generateUploadUrl();
-      const result = await fetch(uploadUrl, {
-        method: "POST",
-        headers: { "Content-Type": file.type },
-        body: file,
-      });
-      if (!result.ok) throw new Error("Upload failed");
-      const { storageId } = await result.json();
-      if (coverRef.current) URL.revokeObjectURL(coverRef.current.previewUrl);
-      setCover({ storageId, previewUrl: URL.createObjectURL(file) });
-    } catch (err) {
-      console.error("Cover upload error:", err);
-      setCoverError("Couldn't upload that image. Try again.");
-    } finally {
-      setCoverUploading(false);
-    }
+    if (file) coverPick.pick(file);
   }
 
   function removeCover() {
     if (cover) URL.revokeObjectURL(cover.previewUrl);
     setCover(null);
     setExistingCoverUrl(null);
-    setCoverError("");
   }
 
   const whenFilled = !!title.trim() && !!date && !!time;
@@ -799,15 +775,11 @@ export function CreateEventModal({
                 />
                 {shownCoverUrl ? (
                   <div className="flex items-center gap-4">
-                    <div
-                      className="relative overflow-hidden aspect-[16/10] w-40 flex-shrink-0 rounded-lg border"
-                      style={{
-                        borderColor: "var(--app-hairline)",
-                        backgroundColor: "var(--app-surface-raised)",
-                      }}
-                    >
-                      <ImageFill src={shownCoverUrl} alt="Cover preview" />
-                    </div>
+                    <CoverFrame
+                      src={shownCoverUrl}
+                      alt="Cover preview"
+                      className="w-32 flex-shrink-0 rounded-lg border border-[color:var(--app-hairline)] bg-[var(--app-surface-raised)]"
+                    />
                     <div className="flex flex-col items-start gap-1">
                       <button
                         type="button"
@@ -866,7 +838,7 @@ export function CreateEventModal({
                     className="mt-1.5 text-sm"
                     style={{ color: "var(--app-text-dim)" }}
                   >
-                    Landscape, 1600 × 900 works best.
+                    Portrait 4:5 works best (1080 × 1350).
                   </p>
                 )}
               </div>
@@ -1084,6 +1056,7 @@ export function CreateEventModal({
           </div>
         </form>
       </div>
+      {coverPick.picker}
     </FocusBackdrop>
   );
 }

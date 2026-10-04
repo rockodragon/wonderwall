@@ -111,3 +111,17 @@ describe("a funding card", () => {
     expect(html).toContain("Back this");
   });
 });
+
+describe("a project card's cover", () => {
+  it("is a 4:5 frame, whole, whatever shape the picture is", () => {
+    const html = card({ resolvedPhotoUrl: "https://files.example/wide.jpg" });
+    expect(html).toContain("aspect-[4/5]");
+    expect(html).toContain("object-contain");
+    expect(html).not.toContain("16/10");
+  });
+  it("keeps a strip on a phone and the full 4:5 box from sm up when there is no picture", () => {
+    const html = card({});
+    expect(html).toContain("sm:aspect-[4/5]");
+    expect(html).toContain("h-16");
+  });
+});

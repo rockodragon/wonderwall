@@ -6,6 +6,7 @@ import { CreateWorkComposer } from "../components/CreateWorkComposer";
 import { EmbedStill, PlayBadge } from "../components/EmbedStill";
 import { toEmbedUrl, type EmbedAspect } from "../lib/videoEmbed";
 import { PAGE_WIDTH } from "../lib/pageWidth";
+import { useImageAspect } from "../lib/useImageAspect";
 
 const TYPE_FILTERS = [
   { label: "All", value: "" },
@@ -168,31 +169,6 @@ export default function Works() {
 
     </div>
   );
-}
-
-// Measures an image's own aspect ratio client-side — nothing in the
-// artifacts schema stores width/height, so this is the only way to know a
-// piece's real shape. Resets to null (unknown) whenever the url changes, so
-// a recycled card (filter change) never briefly shows the previous image's
-// ratio while the new one loads.
-function useImageAspect(url: string | null | undefined): number | null {
-  const [ratio, setRatio] = useState<number | null>(null);
-  useEffect(() => {
-    setRatio(null);
-    if (!url) return;
-    let cancelled = false;
-    const img = new window.Image();
-    img.onload = () => {
-      if (!cancelled && img.naturalWidth && img.naturalHeight) {
-        setRatio(img.naturalWidth / img.naturalHeight);
-      }
-    };
-    img.src = url;
-    return () => {
-      cancelled = true;
-    };
-  }, [url]);
-  return ratio;
 }
 
 // The bento span: recency wins outright (the newest piece is always

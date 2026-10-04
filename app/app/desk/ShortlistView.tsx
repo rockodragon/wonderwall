@@ -42,7 +42,7 @@ import { countLabel } from "./deskGreeting";
 import { showDeskToast } from "./DeskToast";
 import type { HeaderParts } from "./DeskHeader";
 import { GRID_SIDE } from "./deskLayout";
-import { SHORTLIST_AREAS, deskHref, shortlistHref, useDeskSpacing, type ShortlistArea } from "./deskState";
+import { SHORTLIST_AREAS, deskHref, shortlistHref, type ShortlistArea } from "./deskState";
 import { DESK, DESK_MONO, FOCUS_RING_CLASS, monoLabel } from "./tokens";
 
 type Ready = Extract<ShortlistState, { status: "ready" }>;
@@ -187,7 +187,7 @@ export function ShortlistBody({
   /** A card is open over it. */
   inert: boolean;
 }) {
-  const side = GRID_SIDE * useDeskSpacing();
+  const side = GRID_SIDE;
   if (state.status !== "ready") return null;
   return (
     // Clear of the palette's corner at the bottom of a long list.

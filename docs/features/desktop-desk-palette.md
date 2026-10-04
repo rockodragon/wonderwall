@@ -333,11 +333,7 @@ A UX analyst's recommendations are folded in below. Rick: keep the two-step entr
 - Organizations belong to no community, so the community switch doesn't scope them (as on `/people`).
 - Not in this pass: a People-only state (turn on a Discipline for that), following an organization, Near me for organizations (the list doesn't send coordinates).
 
-**Spacing dial (admins, experiment).** Rick wants to try more negative space.
-- Admins get a "Spacing" pill in the desk's lower right. It opens a slider from 0.75× to 2×, plus Reset.
-- The value is saved in that browser only (`desk.spacing`), so trying values never changes the desk for anyone else.
-- It scales the grid's gap and side margins, the header's left edge, and Today's row gap. Scattered cards on home shrink by its square root, so their slots keep their places.
-- Once a value is chosen, it becomes the default (`GRID_GAP`, `GRID_SIDE`, `ROW_GAP` in `deskLayout.ts`) and the dial goes.
+**Spacing (settled 2026-10-03).** Rick tried an admin dial for negative space and kept the layout as designed (1.00×). The dial is gone; `GRID_GAP`, `GRID_SIDE`, `ROW_GAP` and `HEADER_SIDE` in `deskLayout.ts` are the values.
 
 **Who owns what.**
 - Desk presentation (header, grid, opened card, fallbacks): `Desk.tsx`, `DeskCard.tsx`, `OpenedCard.tsx`, `deskLayout.ts`, `DeskHeader.tsx`.
