@@ -8,6 +8,8 @@ import { GuestRsvp } from "../tables/GuestRsvp";
 import { HostManagement } from "../tables/HostManagement";
 import { AddTableEvent } from "../tables/AddTableEvent";
 import { tableBadge, tablePrice } from "../tables/presentation";
+import { hostLabels } from "../lib/eventHosts";
+import { BackLink } from "../components/BackLink";
 import "../tables/tables.css";
 
 export function meta() {
@@ -196,6 +198,25 @@ function LegacySession({
   );
 }
 
+export function TableScheduleSummary({ event, legacyStartsAt }: {
+  event: { title: string; datetime: number; endTime?: number; location?: string; locationType?: string } | null;
+  legacyStartsAt?: number;
+}) {
+  const start = event?.datetime ?? legacyStartsAt;
+  if (start === undefined) return null;
+  return (
+    <div className="tables-schedule-summary" aria-label="Next gathering">
+      <p>
+        <time dateTime={new Date(start).toISOString()}>
+          {new Date(start).toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+        </time>
+        {event?.endTime ? ` – ${new Date(event.endTime).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}` : ""}
+      </p>
+      <p>{event?.locationType === "online" ? "Online" : event?.location || "Location to be announced"}</p>
+    </div>
+  );
+}
+
 export default function TableDetailPage() {
   const { slug } = useParams();
   const [params] = useSearchParams();
@@ -212,11 +233,7 @@ export default function TableDetailPage() {
     setError("");
     try {
       await joinTable({ tableId: table._id });
-      setMessage(
-        table.viewer.action === "request"
-          ? "Your request has been sent to the host."
-          : "Your chair is ready.",
-      );
+      setMessage("");
     } catch (cause) {
       setError(
         cause instanceof Error
@@ -284,9 +301,7 @@ export default function TableDetailPage() {
     );
   return (
     <main className="tables-page">
-      <Link className="tables-note" to="/tables">
-        ← Find a Table
-      </Link>
+      <BackLink fallback="/tables" className="tables-note" />
       <div className="tables-detail">
         <div className="tables-detail-art">
           <TablePortrait table={table} large joined={table.viewer.isMember} />
@@ -307,93 +322,32 @@ export default function TableDetailPage() {
               </span>
             )}
           </div>
+          <TableScheduleSummary
+            event={table.nextEvent ?? table.events.find((event) => (event.endTime ?? event.datetime) >= Date.now()) ?? table.events.at(-1) ?? null}
+            legacyStartsAt={table.nextEventAt}
+          />
           {table.host?.name && (
-            <p className="tables-note">
-              {table.hostRoleLabel || "Hosted"} by {table.host.name}
-              {table.community ? (
-                <>
-                  {" "}
-                  ·{" "}
-                  <Link to={`/communities/${table.community.slug}`}>
-                    {table.community.name}
-                  </Link>
-                </>
-              ) : null}
-            </p>
-          )}
-          {(table.description || table.blurb) && (
-            <p className="tables-description">
-              {table.description || table.blurb}
-            </p>
-          )}
-          <section aria-label="Schedule">
-            <h2 className="tables-subheading">Around this Table</h2>
-            {table.events.length ? (
-              table.events.map((event) => (
-                <article key={event._id} className="tables-session">
-                  <div className="tables-session-top">
-                    <p className="tables-session-title">{event.title}</p>
-                    <Link className="tables-note" to={`/events/${event._id}`}>
-                      Event details ↗
-                    </Link>
-                  </div>
-                  <p className="tables-session-detail">
-                    {new Date(event.datetime).toLocaleString(undefined, {
-                      dateStyle: "medium",
-                      timeStyle: "short",
-                    })}
-                    {event.location
-                      ? ` · ${event.location}`
-                      : event.locationType === "online"
-                        ? " · Online"
-                        : ""}
-                  </p>
-                  <p className="tables-note" style={{ marginTop: 8 }}>
-                    RSVP, calendar and joining details are on the Event page.
-                  </p>
-                  {table.viewer.canGuestRsvp && (
-                    <GuestRsvp eventId={event._id} />
+            <p className="tables-note tables-host-line">
+              {table.hostRoleLabel?.replace(/\s+by$/i, "") || "Hosted"} by{" "}
+              {hostLabels([table.host]).map((host) => (
+                <span key={host.primary}>
+                  {host.orgSlug ? (
+                    <Link to={`/orgs/${host.orgSlug}`}>{host.primary}</Link>
+                  ) : host.profileId ? (
+                    <Link to={`/profile/${host.profileId}`}>{host.primary}</Link>
+                  ) : table.host?.href ? (
+                    <Link to={table.host.href}>{host.primary}</Link>
+                  ) : host.primary}
+                  {host.person && (
+                    <> ({host.profileId ? <Link to={`/profile/${host.profileId}`}>{host.person}</Link> : host.person})</>
                   )}
-                </article>
-              ))
-            ) : table.sessions.length ? (
-              table.sessions.map((session) => (
-                <LegacySession
-                  key={session._id}
-                  session={session}
-                  isMember={table.viewer.isMember}
-                />
-              ))
-            ) : (
-              <p className="tables-note">No Events are scheduled yet.</p>
-            )}
-          </section>
-          <section aria-label="Table roster">
-            <h2 className="tables-subheading">People at this Table</h2>
-            {table.viewer.canSeeRoster ? (
-              table.rosterProfiles.length ? (
-                <div className="tables-roster">
-                  {table.rosterProfiles.map((person) => (
-                    <Link
-                      className="tables-roster-person"
-                      to={`/profile/${person.profileId}`}
-                      key={person.userId}
-                    >
-                      {person.name}
-                    </Link>
-                  ))}
-                </div>
-              ) : (
-                <p className="tables-note">No participants have joined yet.</p>
-              )
-            ) : (
-              <p className="tables-note">
-                The roster is private. Accepted participants can see one another
-                after joining and satisfying membership and payment
-                requirements.
-              </p>
-            )}
-          </section>
+                </span>
+              ))}
+              {table.community && table.host.profileId && (
+                <> · <Link to={`/communities/${table.community.slug}`}>{table.community.name}</Link></>
+              )}
+            </p>
+          )}
           <section
             className="tables-participation tables-participation-sticky"
             aria-label="Participation"
@@ -467,6 +421,76 @@ export default function TableDetailPage() {
               </button>
             )}
           </section>
+          {(table.description || table.blurb) && (
+            <p className="tables-description">
+              {table.description || table.blurb}
+            </p>
+          )}
+          <section aria-label="Schedule">
+            <h2 className="tables-subheading">Around this Table</h2>
+            {table.events.length ? (
+              table.events.map((event) => (
+                <article key={event._id} className="tables-session">
+                  <div className="tables-session-top">
+                    <Link className="tables-session-title" to={`/events/${event._id}`}>
+                      {event.title} ↗
+                    </Link>
+                  </div>
+                  <p className="tables-session-detail">
+                    {new Date(event.datetime).toLocaleString(undefined, {
+                      dateStyle: "medium",
+                      timeStyle: "short",
+                    })}
+                    {event.location
+                      ? ` · ${event.location}`
+                      : event.locationType === "online"
+                        ? " · Online"
+                        : ""}
+                  </p>
+                  {table.viewer.canGuestRsvp && (
+                    <GuestRsvp eventId={event._id} />
+                  )}
+                </article>
+              ))
+            ) : table.sessions.length ? (
+              table.sessions.map((session) => (
+                <LegacySession
+                  key={session._id}
+                  session={session}
+                  isMember={table.viewer.isMember}
+                />
+              ))
+            ) : (
+              <p className="tables-note">No Events are scheduled yet.</p>
+            )}
+          </section>
+          <section aria-label="Table roster">
+            <h2 className="tables-subheading">People at this Table</h2>
+            {table.viewer.canSeeRoster ? (
+              table.rosterProfiles.length ? (
+                <div className="tables-roster">
+                  {table.rosterProfiles.map((person) => (
+                    <Link
+                      className="tables-roster-person"
+                      to={`/profile/${person.profileId}`}
+                      key={person.userId}
+                    >
+                      {person.name}
+                    </Link>
+                  ))}
+                </div>
+              ) : (
+                <p className="tables-note">No participants have joined yet.</p>
+              )
+            ) : (
+              <p className="tables-note">
+                The roster is private. Accepted participants can see one another
+                after joining and satisfying membership and payment
+                requirements.
+              </p>
+            )}
+          </section>
+
         </div>
       </div>
       {table.viewer.isHost && (

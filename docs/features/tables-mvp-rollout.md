@@ -13,10 +13,16 @@ Implemented on branch `tables` on 2026-10-03, using the latest **Garden Tables v
 - Fixed-price checkout reserves capacity atomically, reuses retry terms/idempotency keys, confirms access from the webhook, and preserves the shared class payment ledger and historical references. Unfulfillable paid checkouts are flagged for full operator refund and excluded from earnings. The operator ledger supplies an admin-only idempotent refund action, including the processing fee.
 - Existing Offering links and new checkout attempts resolve to the migrated Table when one exists. Already-issued class checkout sessions keep their original references and reconcile Table enrollment when confirmed. Legacy Offering/session rows and reports are retained.
 
+## Review refinements
+
+Table details put the next gathering's date/time/location and participation action near the title in the right column. Host names reuse Event host labeling and link to existing profile and organization pages. Gathering titles open their canonical Event routes, and enrollment shows one chair confirmation. Person previews show a small portrait; organization previews reuse named member faces rather than only a count. Table and profile detail pages share a history-aware Back control.
+
+The local design preview at `http://127.0.0.1:8802/tables` is an isolated fixture with a visible sample-data notice. Its checkout and linked detail destinations are demonstrations: it does not persist enrollment, collect payment details, or charge money. The normal app continues to use the existing Convex/Stripe transport and requires the rollout below for a live Table checkout.
+
 ## Verification
 
-- `npm test -- --pool=forks`: 131 suites, 2,769 tests passing. The committed `vitest.config.ts` runs unit/handler tests without framework dev-server watchers.
-- `npm run test:e2e:tables`: 9 Playwright tests exercise the actual React client handlers against a reactive API fixture, including creation payloads, community eligibility, join/checkout states, guest RSVP, host approval, attendance, and additional Events. These tests use no live Convex or Stripe connection and do not replace the deployment smoke tests below.
+- `npm test -- --pool=forks`: 132 suites, 2,776 tests passing. The committed `vitest.config.ts` runs unit/handler tests without framework dev-server watchers.
+- `npm run test:e2e:tables`: 10 Playwright tests exercise the actual React client handlers against a reactive API fixture, including creation payloads, community eligibility, join/checkout states, guest RSVP, host approval, attendance, and additional Events. These tests use no live Convex or Stripe connection and do not replace the deployment smoke tests below.
 - `npm run typecheck` and `npm run build`: passing.
 - Desktop/mobile visual checks for browse, detail and create: no horizontal overflow or broken images. Visual fixture data is isolated from the product.
 - GitNexus change detection reviewed before each commit. The shared Event visibility/payment paths have broad impact; existing Event/payment regression suites and new Table handler tests pass.

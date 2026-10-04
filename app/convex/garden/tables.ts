@@ -21,6 +21,7 @@ import {
   isActiveEnrollment,
 } from "./tablePolicy";
 import { syncCoHosts } from "../eventHosts";
+import { primaryOrgByUserId } from "../organizations";
 import { MIN_CLASS_PRICE_CENTS, MAX_CLASS_PRICE_CENTS } from "./stripeHandlers";
 
 /** Batches hostOrgs lookups into one Map keyed by hostOrgId string — every
@@ -139,6 +140,16 @@ async function tableSummary(
     .filter((s) => s.startsAt >= Date.now())
     .sort((a, b) => a.startsAt - b.startsAt)[0];
   const { membership: _private, ...publicViewer } = viewer;
+  const imageUrl = profile
+    ? profile.imageStorageId
+      ? await ctx.storage.getUrl(profile.imageStorageId)
+      : profile.imageUrl || null
+    : null;
+  const primaryOrg = profile
+    ? await primaryOrgByUserId(ctx, profile.userId)
+    : null;
+  const communityHost = community.get(String(table.hostOrgId)) ?? null;
+  const hostName = profile?.name ?? communityHost?.name ?? "Community host";
   return {
     _id: table._id,
     name: table.name,
@@ -153,8 +164,21 @@ async function tableSummary(
     ...normalizeTable(table),
     hostRoleLabel: table.hostRoleLabel ?? "Hosted by",
     hostLabel: table.hostRoleLabel ?? "Hosted by",
-    hostName: profile?.name ?? "Community host",
-    host: { name: profile?.name ?? "Community host", userId: table.hostUserId },
+    hostName,
+    host: {
+      name: hostName,
+      userId: table.hostUserId,
+      profileId: profile?._id,
+      imageUrl,
+      href: profile
+        ? `/profile/${profile._id}`
+        : communityHost
+          ? `/communities/${communityHost.slug}`
+          : undefined,
+      orgName: primaryOrg?.name,
+      orgSlug: primaryOrg?.slug,
+      orgHref: primaryOrg ? `/orgs/${primaryOrg.slug}` : undefined,
+    },
     memberCount: viewer.memberCount,
     spotsRemaining: viewer.spotsRemaining,
     eventCount: occurrences.length || sessions.length,
@@ -174,7 +198,7 @@ async function tableSummary(
       nextEvent?.locationType === "online" ||
       (!nextEvent && !!table.meetingUrl),
     location: nextEvent?.location,
-    community: community.get(String(table.hostOrgId)) ?? null,
+    community: communityHost,
     viewer: {
       ...publicViewer,
       canJoin: {

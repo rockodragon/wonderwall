@@ -17,7 +17,7 @@ vi.mock("convex/react", async () => {
         case "profiles:getMyProfile":
           return { _id: scene.me, name: "Ana Reyes" };
         case "profiles:getProfile":
-          return { _id: "ana", userId: "u-ana", name: "Ana Reyes", interests: ["Photography"], artifacts: [], organizations: [] };
+          return { _id: "ana", userId: "u-ana", name: "Ana Reyes", imageUrl: "/ana.jpg", interests: ["Photography"], artifacts: [], organizations: [] };
         default:
           return undefined;
       }
@@ -46,5 +46,12 @@ describe("a profile page", () => {
     const html = await profilePage();
     expect(html).not.toContain("Your shortlist");
     expect(html).not.toContain('href="/favorites"');
+  });
+
+  it("offers a universal back link on a person profile", async () => {
+    scene.me = "someone-else";
+    const html = await profilePage();
+    expect(html).toMatch(/<a [^>]*href="\/people"[^>]*>.*?Back<\/a>/);
+    expect(html).toContain('src="/ana.jpg"');
   });
 });

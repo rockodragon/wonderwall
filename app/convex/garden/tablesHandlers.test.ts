@@ -115,6 +115,41 @@ const freeCreate = {
 };
 
 describe("Tables canonical handler policies", () => {
+  it("projects a host as a linked person with avatar and primary organization", async () => {
+    const data = world();
+    data.profiles[0].imageUrl = "https://images.example/host.png";
+    data.organizations = [
+      { _id: "organizations:studio", name: "Studio", slug: "studio", createdByUserId: HOST, createdAt: NOW, updatedAt: NOW },
+    ];
+    data.orgPositions = [
+      { _id: "orgPositions:host", organizationId: "organizations:studio", userId: HOST, profileId: "profiles:h", isAdmin: false, order: 0, createdAt: NOW },
+    ];
+    const summary = await run(getTable, makeCtx(data, null), { slug: "table" });
+    expect(summary.host).toMatchObject({
+      name: "Host",
+      userId: HOST,
+      profileId: "profiles:h",
+      imageUrl: "https://images.example/host.png",
+      href: "/profile/profiles:h",
+      orgName: "Studio",
+      orgSlug: "studio",
+      orgHref: "/orgs/studio",
+    });
+  });
+
+  it("links community host fallback when the host has no profile", async () => {
+    const data = world();
+    data.gardenTables[0].hostUserId = undefined;
+    data.profiles = data.profiles.filter((p) => p.userId !== HOST);
+    const summary = await run(getTable, makeCtx(data, null), { slug: "table" });
+    expect(summary.host).toMatchObject({
+      name: "Creative Exchange",
+      imageUrl: null,
+      href: "/communities/the-garden",
+    });
+    expect(summary.host.profileId).toBeUndefined();
+  });
+
   it("free accounts create one free occurrence, parent Event and persistent host role", async () => {
     const ctx = makeCtx(world(), USER);
     const result = await run(createTable, ctx, freeCreate);

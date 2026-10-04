@@ -36,7 +36,7 @@ const card = {
   scheduleType: "one_time",
   membershipRequired: false,
   priceCents: undefined,
-  host: { name: "Marta", userId: "host1" },
+  host: { name: "Marta", userId: "host1", profileId: "host-profile" },
   community: null,
 };
 const detail = {
@@ -138,6 +138,26 @@ describe("Table detail server projection", () => {
     expect(markup).not.toContain("tables-roster-person");
     expect(markup).toContain('href="/events/event1"');
     expect(markup).toContain("Sign in to pull up a chair");
+  });
+  it("puts the next gathering and participation before the description and links the real host profile", () => {
+    const markup = render("/tables/our-studio");
+    expect(markup).toContain('href="/profile/host-profile"');
+    expect(markup).toContain('aria-label="Next gathering"');
+    expect(markup.indexOf('aria-label="Next gathering"')).toBeLessThan(markup.indexOf('tables-description'));
+    expect(markup.indexOf('aria-label="Participation"')).toBeLessThan(markup.indexOf('tables-description'));
+    expect(markup).not.toContain("Event details");
+    expect(markup).toContain("First gathering ↗");
+  });
+  it("uses the existing organization host label with separate person and organization links", () => {
+    state.queries["garden/tables:getTable"] = {
+      ...detail,
+      host: { ...detail.host, orgName: "Creative studio", orgSlug: "creative-studio" },
+    };
+    const markup = render("/tables/our-studio");
+    expect(markup).toContain('href="/orgs/creative-studio"');
+    expect(markup).toContain('href="/profile/host-profile"');
+    expect(markup).toContain("Creative studio");
+    expect(markup).not.toContain("Hosted by by");
   });
   it("renders only the permitted roster profile projection", () => {
     state.signedIn = true;

@@ -107,7 +107,7 @@ test("personal free one-time hosting submits a canonical in-person Event", async
     }),
   ).toBeVisible();
   await expect(
-    page.getByRole("link", { name: "Event details ↗", exact: true }),
+    page.getByRole("link", { name: "Browser-tested gathering ↗", exact: true }),
   ).toHaveAttribute("href", "/events/created-event-0");
   expect(transports).toEqual([]);
 });
@@ -173,6 +173,7 @@ test("free join remains private during the mutation and reveals the server-autho
 }) => {
   await fixture(page, "/tables/fixture-gathering?scenario=free");
   await expect(page.getByText(/The roster is private\./)).toBeVisible();
+  await expect(page.getByText("Your chair is ready", { exact: true })).toHaveCount(0);
   await expect(
     page.getByRole("link", { name: "Accepted participant", exact: true }),
   ).toHaveCount(0);
@@ -244,9 +245,41 @@ test("paid checkout uses the Table action and cannot reveal the roster while che
   await page.evaluate((name) => window.tablesFixture.complete(name), checkout);
   await expect(page).toHaveURL(/\/checkout-target$/);
   await expect(
-    page.getByText("Mock checkout opened", { exact: true }),
+    page.getByRole("heading", { name: "Demo checkout", exact: true }),
   ).toBeVisible();
+  await expect(page.getByText(/no charge will be made/i)).toBeVisible();
+  await expect(page.getByText(/No payment details are collected/i)).toBeVisible();
+  await page.getByRole("link", { name: "Return to the Table", exact: true }).click();
+  await expect(page).toHaveURL(/\/tables\/fixture-gathering\?scenario=paid$/);
   expect(transports).toEqual([]);
+});
+
+test("fixture Event, profile, and community destinations resolve to demo pages", async ({ page }) => {
+  await fixture(page, "/tables/fixture-gathering?scenario=host");
+  const scheduleBeforeDescription = await page.evaluate(() => {
+    const schedule = document.querySelector(".tables-schedule-summary");
+    const description = document.querySelector(".tables-description");
+    return Boolean(schedule && description && (schedule.compareDocumentPosition(description) & 4));
+  });
+  expect(scheduleBeforeDescription).toBe(true);
+  await expect(page.getByRole("link", { name: "Fixture host", exact: true })).toHaveAttribute("href", "/profile/host-profile");
+  await expect(page.getByText("Your chair is ready", { exact: true })).toHaveCount(0);
+  await page.locator('a[href^="/events/"]').first().click();
+  await expect(page).toHaveURL(/\/events\/fixture-event$/);
+  await expect(page.getByRole("heading", { name: "First gathering", exact: true })).toBeVisible();
+  await page.goto("/tables/fixture-gathering?scenario=host");
+  await page.waitForFunction(() => Boolean(window.tablesFixture));
+  await page.getByRole("link", { name: "Fixture host", exact: true }).click();
+  await expect(page).toHaveURL(/\/profile\/host-profile$/);
+  await expect(page.getByRole("heading", { name: "Marta", exact: true })).toBeVisible();
+  await page.goto("/tables/fixture-gathering?scenario=free");
+  await page.evaluate(() => window.tablesFixture.setAction("membership_required"));
+  await page.getByRole("link", { name: "View community membership", exact: true }).click();
+  await expect(page).toHaveURL(/\/communities\/member-studio$/);
+  await expect(page.getByRole("heading", { name: "Member studio", exact: true })).toBeVisible();
+  await page.goto("/orgs/member-studio");
+  await expect(page.getByRole("heading", { name: "Member studio", exact: true })).toBeVisible();
+  await expect(page.getByText("Local design preview · sample data · no real enrollment or payments", { exact: true })).toBeVisible();
 });
 
 test("a payment return URL does not unlock identities before payment confirmation arrives", async ({
@@ -389,6 +422,6 @@ test("host can append a manually scheduled canonical Event", async ({
     page.getByText("Event added to this Table's schedule.", { exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByRole("link", { name: "Event details ↗", exact: true }),
+    page.locator('a[href^="/events/"]'),
   ).toHaveCount(2);
 });

@@ -27,6 +27,8 @@ import { plainText } from "./deskCards";
 import { ShortlistActions } from "./ShortlistActions";
 import { CARD_BUTTON_CLASS, DESK, DESK_MONO, DESK_SANS, FOCUS_RING_CLASS, monoLabel } from "./tokens";
 import { useUpdateClick } from "./useUpdateReads";
+import { PersonAvatar } from "../components/PersonAvatar";
+import { PeopleFaces } from "../components/PeopleFaces";
 
 /** ← / → through the list a card was opened from: "2 of 6". `arrived` is
  *  the way the last step went, when this card was reached by one: focus
@@ -153,9 +155,18 @@ export function DetailPanel({
           </p>
         )}
         {/* A word never breaks mid-way; only one wider than the whole panel gives way. */}
-        <h2 style={{ margin: 0, fontSize: 44, lineHeight: 1.08, fontWeight: 500, letterSpacing: "-0.02em", overflowWrap: "break-word", hyphens: "manual" }}>
-          {card.detail.title}
-        </h2>
+        {card.kind === "person" ? (
+          <div className="flex items-center gap-3">
+            <PersonAvatar name={card.detail.title} imageUrl={profile?.imageUrl ?? card.image} />
+            <h2 style={{ margin: 0, fontSize: 44, lineHeight: 1.08, fontWeight: 500, letterSpacing: "-0.02em", overflowWrap: "break-word", hyphens: "manual" }}>
+              {card.detail.title}
+            </h2>
+          </div>
+        ) : (
+          <h2 style={{ margin: 0, fontSize: 44, lineHeight: 1.08, fontWeight: 500, letterSpacing: "-0.02em", overflowWrap: "break-word", hyphens: "manual" }}>
+            {card.detail.title}
+          </h2>
+        )}
         {host && <p style={{ margin: 0, fontSize: 15, color: DESK.muted, overflowWrap: "break-word", hyphens: "manual" }}>{host}</p>}
         {description && (
           <p
@@ -195,6 +206,9 @@ export function DetailPanel({
             ))}
           </dl>
         )}
+        {card.kind === "org" && card.detail.people && (
+          <PeopleFaces faces={card.detail.people} count={card.detail.peopleCount ?? 0} />
+        )}
         <div className="flex flex-wrap items-center gap-x-5 gap-y-3" style={{ marginTop: project ? 4 : 8 }}>
           {action?.kind === "link" && <ActionLink action={action} />}
           {action?.kind === "rsvp" && <JoinButton action={action} />}
@@ -203,7 +217,9 @@ export function DetailPanel({
           {action?.kind === "shortlist" && (
             <ShortlistActions key={card.id} id={card.id} buttons={action.buttons} onDone={onClose} onBusy={stepper?.onBusy} />
           )}
-          {card.detail.aside && <span style={{ fontSize: 14, color: DESK.muted }}>{card.detail.aside}</span>}
+          {card.detail.aside && !(card.kind === "org" && card.detail.people?.length) && (
+            <span style={{ fontSize: 14, color: DESK.muted }}>{card.detail.aside}</span>
+          )}
           {card.kind === "event" && (
             <Link
               to={card.href}

@@ -106,9 +106,9 @@ let table = {
   membershipRequired: false,
   allowsExternalGuests: scenario === "guest",
   access: "open",
-  host: { name: "Fixture host", userId: "host-user" },
-  hostRoleLabel: "Host",
-  community: null as { name: string; slug: string } | null,
+  host: { name: "Fixture host", userId: "host-user", profileId: "host-profile" },
+  hostRoleLabel: "Hosted",
+  community: { name: "Member studio", slug: "member-studio" } as { name: string; slug: string } | null,
   events: [
     {
       _id: "fixture-event",
@@ -252,6 +252,7 @@ async function invoke(name: string, args: Record<string, unknown>) {
       };
       emit();
       return { ok: true };
+    // The fixture returns an internal demo route. No payment provider is called.
     case "garden/stripe:createTableCheckout":
       return { url: "/checkout-target" };
     case "garden/eventRsvps:rsvpGuestToTableEvent":

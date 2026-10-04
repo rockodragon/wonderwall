@@ -645,13 +645,15 @@ describe("organization cards", () => {
     expect(card.face.foot).toBe("3 people");
     expect(card.detail.meta).toBe("ORGANIZATION");
   });
-  it("open to the tagline, the place, the people count and a button to its page", () => {
-    const { detail, href } = orgCard(org());
+  it("open to the tagline, place, named faces, and a button to its page", () => {
+    const { detail, href } = orgCard(org({ faces: [{ name: "Mara Lin", imageUrl: "/mara.jpg" }] }));
     expect(detail.meta).toBe("ORGANIZATION \u00b7 COLLECTIVE");
     expect(detail.title).toBe("Abiding Practice");
     expect(detail.host).toBe("San Diego, CA");
     expect(detail.description).toBe("Spiritual formation for artists");
     expect(detail.aside).toBe("3 people");
+    expect(detail.peopleCount).toBe(3);
+    expect(detail.people).toEqual([{ name: "Mara Lin", imageUrl: "/mara.jpg" }]);
     expect(detail.action).toEqual({ kind: "link", label: "See organization", href: "/orgs/abiding-practice" });
     expect(href).toBe("/orgs/abiding-practice");
   });

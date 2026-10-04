@@ -574,3 +574,24 @@
     transform: none;
   }
 }
+
+.tables-schedule-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  font-size: 16px;
+  line-height: 1.5;
+}
+.tables-schedule-summary p:last-child {
+  color: var(--t-muted);
+}
+.tables-host-line a {
+  text-underline-offset: 3px;
+}
+.tables-session-title[href] {
+  text-decoration: none;
+}
+.tables-session-title[href]:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
