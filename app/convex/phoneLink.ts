@@ -19,6 +19,7 @@ import {
   isCodeExpired,
   isOverStartLimit,
 } from "./phoneLinkCore";
+import { GARDEN_NAME, PLATFORM_NAME, isGardenHost } from "./garden/brandHosts";
 
 /** Masks everything but the last 4 digits, e.g. "+16195550100" -> "•••• 0100". */
 function maskPhone(phone: string): string {
@@ -37,8 +38,10 @@ export const getMyPhone = query({
 });
 
 export const startAddPhone = mutation({
-  args: { phone: v.string() },
-  handler: async (ctx, { phone }) => {
+  // host: the page's address, so a code asked for on one of The Garden's
+  // says The Garden (convex/garden/brandHosts.ts).
+  args: { phone: v.string(), host: v.optional(v.string()) },
+  handler: async (ctx, { phone, host }) => {
     const userId = await auth.getUserId(ctx);
     if (!userId) throw new ConvexError("Sign in first.");
 
@@ -99,6 +102,7 @@ export const startAddPhone = mutation({
     await ctx.scheduler.runAfter(0, internal.phoneLink.sendLinkCode, {
       phone: normalized,
       code,
+      siteName: host && isGardenHost(host) ? GARDEN_NAME : PLATFORM_NAME,
     });
 
     return null;
@@ -109,9 +113,9 @@ export const startAddPhone = mutation({
 // provider (factored into convex/smsSender.ts) — this is a different
 // mutation but the same kind of code text.
 export const sendLinkCode = internalAction({
-  args: { phone: v.string(), code: v.string() },
-  handler: async (_ctx, { phone, code }) => {
-    const message = `TheCreative.exchange verification code: ${code}. It expires in 10 minutes.`;
+  args: { phone: v.string(), code: v.string(), siteName: v.optional(v.string()) },
+  handler: async (_ctx, { phone, code, siteName }) => {
+    const message = `${siteName ?? PLATFORM_NAME} verification code: ${code}. It expires in 10 minutes.`;
     await sendSms(phone, message);
   },
 });

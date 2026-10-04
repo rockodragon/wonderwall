@@ -2,7 +2,7 @@
 // On a Garden domain every HTML page gets The Garden's title, icons and share
 // picture before it leaves (app/brand/gardenHtml.ts), so link previews and
 // crawlers see The Garden too, and the root icon paths browsers ask for on
-// their own serve The Garden's files. Every other host passes straight
+// their own serve The Garden's files. "/" there is The Garden's page. Every other host passes straight
 // through, untouched and unbuffered. public/_routes.json keeps static files
 // from running this at all.
 //
@@ -30,7 +30,12 @@ export const onRequest = async (context: {
     if (file.ok) return file;
   }
 
-  const res = await context.next();
+  // The front door there is The Garden's page (routes/home.tsx), so "/"
+  // gets the plain app shell, not the Exchange home prerendered into it.
+  const res =
+    url.pathname === "/"
+      ? await context.env.ASSETS.fetch(new URL("/__spa-fallback", url))
+      : await context.next();
   if (!(res.headers.get("content-type") ?? "").includes("text/html")) return res;
   try {
     const html = await res.clone().text();

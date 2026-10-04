@@ -79,7 +79,9 @@ describe("Today on a phone", () => {
     const html = await today();
     expect(html).not.toContain('aria-label="Needs you"');
     expect(html).not.toContain("Needs you");
-    expect(text(html)).toContain("Today in The Garden");
+    // The Garden's lockup heads the page; "Today" is the heading for screen readers.
+    expect(text(html)).toContain("The Garden");
+    expect(html).toContain('<h1 class="sr-only">Today</h1>');
   });
 
   it("is hidden while the Shortlist loads", async () => {

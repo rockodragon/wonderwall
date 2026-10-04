@@ -1,9 +1,13 @@
 // The brand settings with no React in them, so the edge
-// (functions/_middleware.ts) can share them. See brands.ts.
+// (functions/_middleware.ts) can share them. See brands.ts. The addresses
+// themselves live with the backend's (convex/garden/brandHosts.ts), which
+// also lets sign-in return to them.
+
+import { GARDEN_HOSTS, GARDEN_NAME, isGardenHost, normalizeHost } from "../../convex/garden/brandHosts";
+
+export { GARDEN_HOSTS, normalizeHost };
 
 export type BrandId = "exchange" | "garden";
-
-export const GARDEN_HOSTS = ["createthegarden.com", "thegarden.thecreative.exchange"] as const;
 
 /** `?brand=garden` (or `exchange`) sets the brand for the rest of the tab's
  *  session — only on localhost and Pages preview hosts, which have no Garden
@@ -14,8 +18,7 @@ const OVERRIDE_HOSTS = /^(localhost|127\.0\.0\.1|.+\.pages\.dev)$/;
 
 export const GARDEN = {
   communitySlug: "the-garden",
-  name: "The Garden",
-  tagline: "Loving our neighbors through our craft.",
+  name: GARDEN_NAME,
   /** The mark on the dark site; on paper it's CRIMSON_PAPER. Never text. */
   crimson: "#D93A4B",
   crimsonPaper: "#A51C30",
@@ -24,16 +27,10 @@ export const GARDEN = {
   /** The browser's theme color: the site's own ink, so the bar matches the page. */
   themeColor: "#121212",
   icons: "/brand/garden",
-  jostHref: "https://fonts.googleapis.com/css2?family=Jost:wght@500&display=swap",
 } as const;
 
-/** "WWW.CreateTheGarden.com:443" → "createthegarden.com". */
-export function normalizeHost(host: string): string {
-  return host.trim().toLowerCase().split(":")[0].replace(/^www\./, "");
-}
-
 export function brandForHost(host: string): BrandId {
-  return (GARDEN_HOSTS as readonly string[]).includes(normalizeHost(host)) ? "garden" : "exchange";
+  return isGardenHost(host) ? "garden" : "exchange";
 }
 
 /** Words for a Garden domain: "Sign In - TheCreative.exchange" reads "Sign In
@@ -67,6 +64,5 @@ if(b!=="garden")return;
 var p=${JSON.stringify(GARDEN.icons)};
 var add=function(rel,href){if(document.querySelector('link[rel="'+rel+'"][href="'+href+'"]'))return;var l=document.createElement("link");l.rel=rel;l.href=href;document.head.appendChild(l);};
 if(!document.querySelector('link[rel="manifest"]'))add("manifest",p+"/site.webmanifest");
-add("stylesheet",${JSON.stringify(GARDEN.jostHref)});
 var m=document.querySelector('meta[name="theme-color"]');if(!m){m=document.createElement("meta");m.name="theme-color";document.head.appendChild(m);}m.content=${JSON.stringify(GARDEN.themeColor)};
 }catch(e){}})();`;

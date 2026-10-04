@@ -25,12 +25,11 @@ describe("gardenizeHtml", () => {
     expect(out).toContain('content="https://thecreative.exchange/login"');
   });
 
-  it("leaves the icon links to React and adds The Garden's manifest, color and font", () => {
+  it("leaves the icon links to React and adds The Garden's manifest and color", () => {
     expect(out).toContain('href="/favicon.svg"');
     expect(out).toContain('href="/apple-touch-icon.png"');
     expect(out).toContain('<link rel="manifest" href="/brand/garden/site.webmanifest">');
     expect(out).toContain('<meta name="theme-color" content="#121212">');
-    expect(out).toContain("family=Jost:wght@500&amp;display=swap");
     expect(out).toContain('href="/tokens.css"');
   });
 
@@ -53,7 +52,6 @@ describe("gardenizeHtml", () => {
   it("is safe to run twice", () => {
     const twice = gardenizeHtml(out, ORIGIN);
     expect(twice.match(/data-brand/g)).toHaveLength(1);
-    expect(twice.match(/family=Jost/g)).toHaveLength(1);
     expect(twice.match(/rel="manifest"/g)).toHaveLength(1);
   });
 });

@@ -15,10 +15,12 @@
 // sticky`, and a sticky row stays pinned only while its parent is as tall as
 // the page. Both go straight into the page's scroll content; Desk owns that.
 //
-// On The Garden's own domains the mono community line is The Garden's lockup
-// instead (docs/features/garden-brand-domains.md): the brand is never set in
-// capitals, and the greeting or the view's title already says where you are,
-// so the view's name doesn't follow it. A crumb (the Shortlist's) still does.
+// When the community is The Garden, the mono community line is The Garden's
+// lockup instead, on any address (docs/features/garden-brand-domains.md;
+// Rick, 2026-10-03: everyone signs in to The Garden, so the desk shows it).
+// The brand is never set in capitals, and the greeting or the view's title
+// already says where you are, so the view's name doesn't follow it. A crumb
+// (the Shortlist's) still does.
 //
 // Hooks stay above every return.
 
@@ -26,7 +28,6 @@ import { useLayoutEffect, useRef, type ReactNode } from "react";
 import { Link, useSearchParams } from "react-router";
 import { canCopyInvite, inviteRowLabel } from "../components/InviteCTA";
 import { useInviteLink } from "../lib/useInviteLink";
-import { useBrand } from "../brand/brands";
 import { GardenLockup } from "../brand/GardenMark";
 import { DeskFilterBar, browseCreate, isBrowseView, type BrowseView } from "./deskBrowse";
 import { countLabel } from "./deskGreeting";
@@ -97,7 +98,7 @@ export function DeskHeader({
   const tint = useDeskTint();
   const report = useRef(onMeasure);
   report.current = onMeasure;
-  const gardenMark = useBrand() === "garden" && community === "garden";
+  const gardenMark = community === "garden";
 
   const home = view === "all";
   const browse = isBrowseView(view);
