@@ -1542,6 +1542,9 @@ export default defineSchema({
     pausedByUserId: v.optional(v.id("users")),
     pausedReason: v.optional(v.string()),
     externalPaymentLinkUrl: v.optional(v.string()),
+    // "Run it again": the Table this one was copied from (tables.ts
+    // runTableAgain). Provenance only; grants nothing.
+    previousTableId: v.optional(v.id("gardenTables")),
     status: v.string(),
     createdAt: v.number(),
     updatedAt: v.optional(v.number()),
@@ -1654,12 +1657,22 @@ export default defineSchema({
     ticketCount: v.optional(v.number()),
     guestNames: v.optional(v.string()),
     stripeRef: v.optional(v.string()),
+    // Table guest RSVPs only (garden/eventRsvps.ts rsvpGuestToTableEvent).
+    // Host-only contact details: never in public or roster projections.
+    phone: v.optional(v.string()), // E.164, convex/phone.ts
+    // "Tell me when this Table adds a date" — the guest's opt-in.
+    notifyNewDates: v.optional(v.boolean()),
+    // The guest's stop link (garden/tableNotify.ts). Set when they pressed
+    // it; no more Table email goes to this address for this Table.
+    notifyToken: v.optional(v.string()),
+    notifyStoppedAt: v.optional(v.number()),
     createdAt: v.number(),
   })
     .index("by_sourceSessionRsvpId", ["sourceSessionRsvpId"])
     .index("by_eventId", ["eventId"])
     .index("by_eventId_email", ["eventId", "email"])
     .index("by_stripeRef", ["stripeRef"])
+    .index("by_notifyToken", ["notifyToken"])
     // The member's own RSVPs, for the Shortlist's Going (convex/shortlist.ts).
     .index("by_userId", ["userId"]),
 

@@ -12,6 +12,7 @@ import { query, mutation } from "./_generated/server";
 import type { MutationCtx } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import type { Doc, Id } from "./_generated/dataModel";
+import { isGuestEmailToken, stopGuestEmails } from "./garden/eventRsvps";
 
 const categoryValidator = v.union(
   v.literal("activity"),
@@ -114,9 +115,13 @@ export const getByToken = query({
 
 // Public, no auth. No category = turn off all three (the RFC 8058
 // one-click unsubscribe target, and the plain "unsubscribe" link).
+// A Table guest's stop token (no account, so no preferences row) stops
+// email about that Table instead — garden/eventRsvps.ts stopGuestEmails.
 export const unsubscribeByToken = mutation({
   args: { token: v.string(), category: v.optional(categoryValidator) },
   handler: async (ctx, args) => {
+    if (isGuestEmailToken(args.token))
+      return { ok: await stopGuestEmails(ctx, args.token) };
     const row = await ctx.db
       .query("emailPreferences")
       .withIndex("by_unsubscribeToken", (q) => q.eq("unsubscribeToken", args.token))

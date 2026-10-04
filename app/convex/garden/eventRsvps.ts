@@ -8,7 +8,7 @@
 // the generated DataModel predates eventRsvps.
 
 import { v } from "convex/values";
-import type { Id } from "../_generated/dataModel";
+import type { Doc, Id } from "../_generated/dataModel";
 import { ConvexError } from "convex/values";
 import { mutation, query, type MutationCtx } from "../_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
@@ -26,6 +26,7 @@ import {
   type TicketClaimResult,
 } from "./ticketLink";
 import { nextTicketState } from "./ticketLink";
+import { normalizePhone } from "../phone";
 
 // ——— Pure core ———
 
@@ -313,9 +314,123 @@ export const rsvpToEvent = mutation({
   },
 });
 
-/** Table-specific guest exception: never grants enrollment or roster access. */
+// ——— Table guest email: opt-in and the stop link ———
+//
+// A guest has no account, so no email preferences row. Each guest RSVP gets
+// its own stop token instead; Table emails to that guest carry it as their
+// unsubscribe token (garden/tableNotify.ts). The prefix keeps it apart from
+// emailPreferences tokens (32 hex characters), so the existing
+// /unsubscribe/:token page and one-click POST route both handle it.
+
+export const GUEST_EMAIL_TOKEN_PREFIX = "table-";
+
+export function newGuestEmailToken(): string {
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  return (
+    GUEST_EMAIL_TOKEN_PREFIX +
+    Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("")
+  );
+}
+
+export function isGuestEmailToken(token: string): boolean {
+  return token.startsWith(GUEST_EMAIL_TOKEN_PREFIX);
+}
+
+/** Every guest (no account) RSVP this address has on the Table's dates. */
+async function guestRowsOnTable(
+  ctx: MutationCtx,
+  tableId: Id<"gardenTables">,
+  email: string,
+): Promise<Doc<"eventRsvps">[]> {
+  const events = await ctx.db
+    .query("events")
+    .withIndex("by_tableId", (q) => q.eq("tableId", tableId))
+    .collect();
+  const out: Doc<"eventRsvps">[] = [];
+  for (const event of events) {
+    const rows = await ctx.db
+      .query("eventRsvps")
+      .withIndex("by_eventId_email", (q) =>
+        q.eq("eventId", event._id).eq("email", normalizeEmail(email)),
+      )
+      .collect();
+    out.push(...rows.filter((row) => !row.userId));
+  }
+  return out;
+}
+
+/** The guest's latest answer to "Tell me when this Table adds a date"
+ * holds for all their RSVPs on the Table. Saying yes again also lifts an
+ * earlier stop. */
+async function setGuestTableChoice(
+  ctx: MutationCtx,
+  tableId: Id<"gardenTables">,
+  email: string,
+  notifyNewDates: boolean,
+) {
+  for (const row of await guestRowsOnTable(ctx, tableId, email))
+    await ctx.db.patch(row._id, {
+      notifyNewDates,
+      ...(notifyNewDates ? { notifyStoppedAt: undefined } : {}),
+    });
+}
+
+/** The stop link: no more email about this Table to this guest address.
+ * False for a token that isn't a guest token or isn't on file. */
+export async function stopGuestEmails(
+  ctx: MutationCtx,
+  token: string,
+): Promise<boolean> {
+  if (!isGuestEmailToken(token)) return false;
+  const row = await ctx.db
+    .query("eventRsvps")
+    .withIndex("by_notifyToken", (q) => q.eq("notifyToken", token))
+    .first();
+  if (!row) return false;
+  const event = await ctx.db.get(row.eventId);
+  const rows = event?.tableId
+    ? await guestRowsOnTable(ctx, event.tableId, row.email)
+    : [];
+  const now = Date.now();
+  for (const id of new Set([row._id, ...rows.map((r) => r._id)]))
+    await ctx.db.patch(id, { notifyNewDates: false, notifyStoppedAt: now });
+  return true;
+}
+
+/** For the stop page: which Table, and whether it's already stopped. The
+ * token is the credential; nothing else about the guest is returned. */
+export const getGuestEmailStop = query({
+  args: { token: v.string() },
+  handler: async (ctx, args) => {
+    if (!isGuestEmailToken(args.token)) return null;
+    const row = await ctx.db
+      .query("eventRsvps")
+      .withIndex("by_notifyToken", (q) => q.eq("notifyToken", args.token))
+      .first();
+    if (!row) return null;
+    const event = await ctx.db.get(row.eventId);
+    const table = event?.tableId ? await ctx.db.get(event.tableId) : null;
+    return {
+      tableName: table?.name ?? event?.title ?? "this Table",
+      stopped: !!row.notifyStoppedAt,
+    };
+  },
+});
+
+/** Table-specific guest exception: never grants enrollment or roster access.
+ * Name and email are required; a phone number is optional (US/Canada, as
+ * everywhere else). `notifyNewDates` is the guest's answer to "Tell me when
+ * this Table adds a date"; an older page that doesn't send it leaves the
+ * answer as it was. */
 export const rsvpGuestToTableEvent = mutation({
-  args: { eventId: v.id("events"), name: v.string(), email: v.string() },
+  args: {
+    eventId: v.id("events"),
+    name: v.string(),
+    email: v.string(),
+    phone: v.optional(v.string()),
+    notifyNewDates: v.optional(v.boolean()),
+  },
   handler: async (ctx, args) => {
     const event = await ctx.db.get(args.eventId);
     const viewerId = await getAuthUserId(ctx);
@@ -350,6 +465,16 @@ export const rsvpGuestToTableEvent = mutation({
         code: "invalid_rsvp",
         reason: "Enter your name and a valid email.",
       });
+    let phone: string | undefined;
+    if (args.phone?.trim()) {
+      const parsed = normalizePhone(args.phone);
+      if (!parsed.ok)
+        throw new ConvexError({
+          code: "invalid_phone",
+          reason: "Enter a US or Canadian phone number, or leave it blank.",
+        });
+      phone = parsed.value;
+    }
     const rows = await ctx.db
       .query("eventRsvps")
       .withIndex("by_eventId", (q) => q.eq("eventId", event._id))
@@ -376,11 +501,22 @@ export const rsvpGuestToTableEvent = mutation({
       )
     )
       throw new ConvexError({ code: "full", reason: "This Event is full." });
-    return await upsertEventRsvp(ctx, {
+    const result = await upsertEventRsvp(ctx, {
       eventId: event._id,
       name,
       email: args.email,
     });
+    // Contact details and the stop token sit on the RSVP; only the Table's
+    // hosts read them back (tables.ts getTableGuests). A blank phone on a
+    // repeat RSVP keeps the one on file.
+    const saved = await ctx.db.get(result.rsvpId);
+    await ctx.db.patch(result.rsvpId, {
+      ...(phone ? { phone } : {}),
+      ...(saved?.notifyToken ? {} : { notifyToken: newGuestEmailToken() }),
+    });
+    if (args.notifyNewDates !== undefined)
+      await setGuestTableChoice(ctx, table._id, args.email, args.notifyNewDates);
+    return result;
   },
 });
 

@@ -7,6 +7,7 @@ const guest = "garden/eventRsvps:rsvpGuestToTableEvent";
 const approve = "garden/tables:manageEnrollment";
 const attendance = "garden/tables:recordAttendance";
 const addEvent = "garden/tables:addTableEvent";
+const again = "garden/tables:runTableAgain";
 
 async function fixture(page: Page, url: string) {
   const unexpectedTransports: string[] = [];
@@ -312,6 +313,12 @@ test("external guest submits an Event RSVP without Table enrollment or roster ac
     .click();
   await page.getByLabel("Your name", { exact: true }).fill("Guest participant");
   await page.getByLabel("Email", { exact: true }).fill("guest@example.test");
+  await page
+    .getByLabel("Phone (optional)", { exact: true })
+    .fill("(619) 555-0100");
+  await expect(
+    page.getByLabel("Tell me when this Table adds a date", { exact: true }),
+  ).toBeChecked();
   await page.evaluate((name) => window.tablesFixture.hold(name), guest);
   await page
     .getByRole("button", { name: "Confirm guest RSVP", exact: true })
@@ -320,6 +327,8 @@ test("external guest submits an Event RSVP without Table enrollment or roster ac
     eventId: "fixture-event",
     name: "Guest participant",
     email: "guest@example.test",
+    phone: "(619) 555-0100",
+    notifyNewDates: true,
   });
   await expect(
     page.getByRole("button", { name: "Saving…", exact: true }),
@@ -399,8 +408,11 @@ test("host can append a manually scheduled canonical Event", async ({
 }) => {
   await fixture(page, "/tables/fixture-gathering?scenario=host");
   await page
-    .getByRole("button", { name: "+ Add an Event", exact: true })
+    .getByRole("button", { name: "+ Add a date", exact: true })
     .click();
+  await expect(page.getByLabel("Title", { exact: true })).toHaveValue(
+    "Fixture gathering",
+  );
   await page.getByLabel("Title", { exact: true }).fill("Follow-up gathering");
   await page
     .getByLabel("Date and time", { exact: true })
@@ -408,7 +420,7 @@ test("host can append a manually scheduled canonical Event", async ({
   await page
     .getByLabel("City or venue label", { exact: true })
     .fill("Pasadena studio");
-  await page.getByRole("button", { name: "Add Event", exact: true }).click();
+  await page.getByRole("button", { name: "Add date", exact: true }).click();
   const args = await payload(page, addEvent);
   expect(args).toMatchObject({
     tableId: "fixture-table",
@@ -419,9 +431,153 @@ test("host can append a manually scheduled canonical Event", async ({
     },
   });
   await expect(
-    page.getByText("Event added to this Table's schedule.", { exact: true }),
+    page.getByText("Date added. People at this Table will get an email.", {
+      exact: true,
+    }),
   ).toBeVisible();
   await expect(
     page.locator('a[href^="/events/"]'),
   ).toHaveCount(2);
+});
+
+test("a one-time Table offers Add a date and shows the server's refusal in plain words", async ({
+  page,
+}) => {
+  await fixture(page, "/tables/fixture-gathering?scenario=host-once");
+  await expect(page.getByText("One time", { exact: true })).toBeVisible();
+  await page
+    .getByRole("button", { name: "+ Add a date", exact: true })
+    .click();
+  await expect(page.getByText(/This makes the Table a series/)).toBeVisible();
+  await page
+    .getByLabel("Date and time", { exact: true })
+    .fill("2099-10-27T18:00");
+  await page.evaluate((name) => window.tablesFixture.hold(name), addEvent);
+  await page.getByRole("button", { name: "Add date", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Adding…", exact: true }),
+  ).toBeDisabled();
+  await page.evaluate(
+    (name) =>
+      window.tablesFixture.fail(
+        name,
+        "Adding more dates takes Member studio membership.",
+      ),
+    addEvent,
+  );
+  await expect(page.getByRole("alert")).toHaveText(
+    "Adding more dates takes Member studio membership.",
+  );
+  await expect(page.locator('a[href^="/events/"]')).toHaveCount(1);
+  await page.getByRole("button", { name: "Add date", exact: true }).click();
+  expect(await payload(page, addEvent)).toMatchObject({
+    tableId: "fixture-table",
+    event: { title: "Fixture gathering", locationType: "venue" },
+  });
+  await expect(page.locator('a[href^="/events/"]')).toHaveCount(2);
+  await expect(page.getByText("Series", { exact: true })).toBeVisible();
+});
+
+test("Run it again starts a new Table from this one with the date the host picks", async ({
+  page,
+}) => {
+  const transports = await fixture(
+    page,
+    "/tables/fixture-gathering?scenario=host-once",
+  );
+  await page
+    .getByRole("button", { name: "Run it again", exact: true })
+    .click();
+  await expect(
+    page.getByText(/We'll email this Table's people so they can join\./),
+  ).toBeVisible();
+  await page
+    .getByLabel("Date and time", { exact: true })
+    .fill("2099-11-17T18:00");
+  await page
+    .getByLabel("City or venue label", { exact: true })
+    .fill("Pasadena studio");
+  await page
+    .getByRole("button", { name: "Run it again", exact: true })
+    .click();
+  const args = await payload(page, again);
+  expect(args).toMatchObject({
+    tableId: "fixture-table",
+    event: {
+      title: "Fixture gathering",
+      locationType: "venue",
+      location: "Pasadena studio",
+    },
+  });
+  expect((args.event as { datetime: number }).datetime).toBe(
+    Date.parse("2099-11-17T18:00:00-08:00"),
+  );
+  await expect(page).toHaveURL(/\/tables\/fixture-gathering-2\?again=1$/);
+  await expect(
+    page.getByText(
+      "Your new Table is set. We emailed the people from last time.",
+      { exact: true },
+    ),
+  ).toBeVisible();
+  // Invited people join on their own: nothing enrolls them from here.
+  expect(
+    await page.evaluate(() =>
+      window.tablesFixture.calls.some(
+        (call) => call.name === "garden/tables:joinTable",
+      ),
+    ),
+  ).toBe(false);
+  expect(transports).toEqual([]);
+});
+
+test("hosts see guest contact details; the public page never shows them", async ({
+  page,
+}) => {
+  await fixture(page, "/tables/fixture-gathering?scenario=host");
+  const management = page.getByRole("region", {
+    name: "Host management",
+    exact: true,
+  });
+  const row = management
+    .locator(".tables-session")
+    .filter({ hasText: "Guest participant" });
+  await expect(
+    row.getByRole("link", { name: "guest@example.test", exact: true }),
+  ).toHaveAttribute("href", "mailto:guest@example.test");
+  await expect(
+    row.getByRole("link", { name: "(619) 555-0100", exact: true }),
+  ).toHaveAttribute("href", "tel:+16195550100");
+  await expect(row.getByText(/Wants new dates/)).toBeVisible();
+  await page.goto("/tables/fixture-gathering?scenario=guest");
+  await page.waitForFunction(() => Boolean(window.tablesFixture));
+  await expect(
+    page.getByRole("heading", { name: "Fixture gathering", exact: true }),
+  ).toBeVisible();
+  await expect(page.getByText(/555-0100|guest@example\.test/)).toHaveCount(0);
+  await expect(
+    page.getByRole("region", { name: "Host management", exact: true }),
+  ).toHaveCount(0);
+});
+
+test("a guest can RSVP without asking for new-date email", async ({
+  page,
+}) => {
+  await fixture(page, "/tables/fixture-gathering?scenario=guest");
+  await page
+    .getByRole("button", { name: "RSVP as an external guest", exact: true })
+    .click();
+  await page.getByLabel("Your name", { exact: true }).fill("Quiet guest");
+  await page.getByLabel("Email", { exact: true }).fill("quiet@example.test");
+  await page
+    .getByLabel("Tell me when this Table adds a date", { exact: true })
+    .uncheck();
+  await page
+    .getByRole("button", { name: "Confirm guest RSVP", exact: true })
+    .click();
+  expect(await payload(page, guest)).toEqual({
+    eventId: "fixture-event",
+    name: "Quiet guest",
+    email: "quiet@example.test",
+    notifyNewDates: false,
+  });
 });

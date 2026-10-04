@@ -38,8 +38,81 @@ const EMAIL_TOGGLES: {
   },
 ];
 
+/** A Table guest's stop token (convex/garden/eventRsvps.ts
+ * GUEST_EMAIL_TOKEN_PREFIX). Guests have no account, so no preferences:
+ * the page offers one button instead. */
+const isGuestToken = (token: string | undefined) => !!token?.startsWith("table-");
+
+function GuestStop({ token }: { token: string }) {
+  const info = useQuery(api.garden.eventRsvps.getGuestEmailStop, { token });
+  const stop = useMutation(api.emailPreferences.unsubscribeByToken);
+  const [pending, setPending] = useState(false);
+  const [done, setDone] = useState(false);
+  async function handleStop() {
+    setPending(true);
+    try {
+      await stop({ token });
+      setDone(true);
+    } catch (err) {
+      console.error("Stop error:", err);
+    } finally {
+      setPending(false);
+    }
+  }
+  if (info === undefined)
+    return <p className="text-[var(--garden-dim)] text-sm">Loading…</p>;
+  if (info === null)
+    return (
+      <h1 className="text-2xl font-bold text-[var(--garden-paper)] mb-4">
+        This link is no longer valid.
+      </h1>
+    );
+  if (done || info.stopped)
+    return (
+      <>
+        <h1 className="text-2xl font-bold text-[var(--garden-paper)] mb-3 leading-tight">
+          Done.
+        </h1>
+        <p className="text-[var(--garden-body)]">
+          You won't get more email about {info.tableName}.
+        </p>
+      </>
+    );
+  return (
+    <>
+      <h1 className="text-2xl font-bold text-[var(--garden-paper)] mb-3 leading-tight">
+        Stop email about {info.tableName}?
+      </h1>
+      <p className="text-[var(--garden-body)] mb-6">
+        No more new dates or changes from this Table.
+      </p>
+      <button
+        type="button"
+        onClick={handleStop}
+        disabled={pending}
+        className="px-6 py-3 rounded-xl font-semibold bg-[var(--garden-citron)] text-[var(--garden-ink)] hover:opacity-90 transition-all disabled:opacity-50"
+      >
+        {pending ? "Stopping…" : "Stop these emails"}
+      </button>
+    </>
+  );
+}
+
 export default function Unsubscribe() {
   const { token } = useParams();
+  if (token && isGuestToken(token))
+    return (
+      <div className="min-h-screen bg-[var(--garden-ink)]">
+        <SiteHeader />
+        <main className="px-6 pt-8 pb-24 max-w-[560px] mx-auto">
+          <GuestStop token={token} />
+        </main>
+      </div>
+    );
+  return <PreferencesByToken token={token} />;
+}
+
+function PreferencesByToken({ token }: { token: string | undefined }) {
   const prefs = useQuery(
     api.emailPreferences.getByToken,
     token ? { token } : "skip",

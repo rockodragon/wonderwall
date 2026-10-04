@@ -27,6 +27,8 @@ type Attendance = { userId: string; status: string; eventId: string };
 
 const scenario =
   new URLSearchParams(window.location.search).get("scenario") ?? "free";
+// "host" hosts a series; "host-once" hosts a one-time Table.
+const hosting = scenario === "host" || scenario === "host-once";
 let version = 0;
 const listeners = new Set<() => void>();
 const calls: Call[] = [];
@@ -69,7 +71,7 @@ const myCommunities = communities.map((community) => ({
   isHome: false,
 }));
 let people: Person[] =
-  scenario === "host"
+  hosting
     ? [
         {
           userId: "host-user",
@@ -101,6 +103,7 @@ let table = {
   capacity: 12,
   spotsRemaining: 11,
   scheduleType: scenario === "host" ? "series" : "one_time",
+  previousTableId: undefined as string | undefined,
   pricingType: scenario === "paid" ? "fixed" : "free",
   priceCents: scenario === "paid" ? 2500 : (undefined as number | undefined),
   membershipRequired: false,
@@ -123,13 +126,13 @@ let table = {
   rosterProfiles: [] as { userId: string; profileId: string; name: string }[],
   viewer: {
     isMember: false,
-    isHost: scenario === "host",
-    canSeeRoster: scenario === "host",
+    isHost: hosting,
+    canSeeRoster: hosting,
     canGuestRsvp: scenario === "guest",
     action:
       scenario === "paid"
         ? "checkout"
-        : scenario === "host"
+        : hosting
           ? "joined"
           : scenario === "guest"
             ? "sign_in"
@@ -187,7 +190,10 @@ window.tablesFixture = {
     held.delete(name);
     const waiting = pending.get(name) ?? [];
     pending.delete(name);
-    waiting.forEach((waiter) => waiter.reject(new Error(message)));
+    // A server refusal carries its reason on data, as ConvexError does.
+    waiting.forEach((waiter) =>
+      waiter.reject(Object.assign(new Error(message), { data: { reason: message } })),
+    );
   },
   confirmPayment: activateParticipant,
   setAction(action, reason) {
@@ -282,9 +288,26 @@ async function invoke(name: string, args: Record<string, unknown>) {
       return { ok: true };
     case "garden/tables:addTableEvent": {
       const event = { ...(args.event as Occurrence), _id: "added-event" };
-      table = { ...table, events: [...table.events, event] };
+      table = { ...table, scheduleType: "series", events: [...table.events, event] };
       emit();
-      return { eventId: event._id };
+      return { eventId: event._id, scheduleType: "series", notified: 2 };
+    }
+    case "garden/tables:runTableAgain": {
+      const event = { ...(args.event as Occurrence), _id: "again-event" };
+      table = {
+        ...table,
+        slug: "fixture-gathering-2",
+        scheduleType: "one_time",
+        previousTableId: tableId,
+        events: [event],
+      };
+      emit();
+      return {
+        tableId: "fixture-table-2",
+        slug: "fixture-gathering-2",
+        eventIds: [event._id],
+        invited: 3,
+      };
     }
     default:
       throw new Error(`Unconfigured fixture operation: ${name}`);
@@ -329,6 +352,23 @@ export function useQuery<Query extends FunctionReference<"query">>(
       break;
     case "garden/tables:getAttendance":
       result = attendance;
+      break;
+    // Host-only on the server; the page asks only when hosting.
+    case "garden/tables:getTableGuests":
+      result = hosting
+        ? [
+            {
+              rsvpId: "fixture-guest-rsvp",
+              eventId: "fixture-event",
+              eventTitle: "First gathering",
+              datetime: Date.parse("2099-10-20T18:00:00-07:00"),
+              name: "Guest participant",
+              email: "guest@example.test",
+              phone: "+16195550100",
+              wantsNewDates: true,
+            },
+          ]
+        : [];
       break;
     default:
       throw new Error(`Unconfigured fixture query: ${name}`);

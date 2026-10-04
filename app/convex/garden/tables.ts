@@ -23,6 +23,11 @@ import {
 import { syncCoHosts } from "../eventHosts";
 import { primaryOrgByUserId } from "../organizations";
 import { MIN_CLASS_PRICE_CENTS, MAX_CLASS_PRICE_CENTS } from "./stripeHandlers";
+import {
+  inviteToRunAgain,
+  notifyNewDate,
+  notifyRequestAccepted,
+} from "./tableNotify";
 
 /** Batches hostOrgs lookups into one Map keyed by hostOrgId string — every
  * gardenTables row has a hostOrgId (it's required, unlike projects/events/
@@ -626,6 +631,151 @@ const occurrenceValidator = v.object({
   location: v.optional(v.string()),
   locationType: v.optional(v.string()),
 });
+
+type NewTable = {
+  name: string;
+  slug?: string;
+  hostOrgId?: Id<"hostOrgs">;
+  format?: string;
+  description: string;
+  scheduleType: "one_time" | "series";
+  membershipRequired: boolean;
+  access: "open" | "approval" | "invite";
+  allowsExternalGuests: boolean;
+  pricingType: "free" | "fixed";
+  priceCents?: number;
+  capacity?: number;
+  hostRoleLabel?: string;
+  photoUrl?: string;
+  events: TableOccurrence[];
+};
+
+/** Every creation rule lives here, so createTable and runTableAgain can't
+ * drift: who may charge or run a series, guest policy, capacity, price,
+ * dates. `userId` becomes the host. */
+async function createTableFor(
+  ctx: MutationCtx,
+  userId: Id<"users">,
+  args: NewTable,
+  extra: { previousTableId?: Id<"gardenTables"> } = {},
+) {
+  if (
+    !args.name.trim() ||
+    args.name.length > 120 ||
+    !args.description.trim() ||
+    args.description.length > 10000
+  )
+    throw new ConvexError({
+      code: "invalid_table",
+      reason: "Add a Table name and description.",
+    });
+  if (
+    args.events.length < 1 ||
+    args.events.length > 24 ||
+    (args.scheduleType === "one_time" && args.events.length !== 1)
+  )
+    throw new ConvexError({
+      code: "invalid_schedule",
+      reason: "A one-time Table has one Event; a series has up to 24.",
+    });
+  if (
+    args.capacity !== undefined &&
+    (!Number.isInteger(args.capacity) ||
+      args.capacity < 1 ||
+      args.capacity > 1000)
+  )
+    throw new ConvexError({ code: "invalid_capacity" });
+  const price = args.priceCents ?? 0;
+  if (
+    !Number.isInteger(price) ||
+    price < 0 ||
+    price > MAX_CLASS_PRICE_CENTS ||
+    (args.pricingType === "fixed" && price < MIN_CLASS_PRICE_CENTS) ||
+    (args.pricingType === "free" && price !== 0)
+  )
+    throw new ConvexError({
+      code: "invalid_price",
+      reason: "Choose free or a fixed price of at least $1.00.",
+    });
+  if (args.hostOrgId)
+    await assertCommunityMember(ctx, args.hostOrgId, userId);
+  if (
+    (args.pricingType === "fixed" || args.scheduleType === "series") &&
+    !(await hasTableCommunityMembership(ctx, userId, args.hostOrgId))
+  )
+    throw new ConvexError({
+      code: "hosting_membership_required",
+      reason:
+        "Join this community's paid membership to host paid Tables or a series.",
+    });
+  if (args.membershipRequired && !args.hostOrgId)
+    throw new ConvexError({ code: "community_required" });
+  if (
+    args.allowsExternalGuests &&
+    (args.membershipRequired ||
+      args.access !== "open" ||
+      args.pricingType !== "free")
+  )
+    throw new ConvexError({
+      code: "invalid_guest_policy",
+      reason: "External guest RSVPs are available for open free Tables.",
+    });
+  for (const event of args.events) validateTableOccurrence(event);
+  const base = (args.slug ?? args.name)
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+  if (!base) throw new ConvexError({ code: "invalid_slug" });
+  let slug = base;
+  for (
+    let n = 2;
+    await ctx.db
+      .query("gardenTables")
+      .withIndex("by_slug", (q) => q.eq("slug", slug))
+      .unique();
+    n++
+  )
+    slug = `${base}-${n}`;
+  const now = Date.now();
+  const tableId = await ctx.db.insert("gardenTables", {
+    name: args.name.trim(),
+    slug,
+    hostOrgId: args.hostOrgId,
+    hostUserId: userId,
+    mode: args.membershipRequired ? "member" : "open",
+    format: args.format,
+    description: args.description.trim(),
+    blurb: args.description.trim().slice(0, 240),
+    photoUrl: args.photoUrl,
+    scheduleType: args.scheduleType,
+    membershipRequired: args.membershipRequired,
+    access: args.access,
+    visibility: args.access === "invite" ? "unlisted" : "public",
+    allowsExternalGuests: args.allowsExternalGuests,
+    pricingType: args.pricingType,
+    priceCents: price,
+    currency: "usd",
+    capacity: args.capacity,
+    hostRoleLabel: args.hostRoleLabel ?? "Hosted by",
+    ...(extra.previousTableId ? { previousTableId: extra.previousTableId } : {}),
+    status: "active",
+    createdAt: now,
+    updatedAt: now,
+  });
+  const table = await ctx.db.get(tableId);
+  if (!table) throw new Error("Table was not saved.");
+  const eventIds = [];
+  for (const event of args.events)
+    eventIds.push(await insertTableOccurrence(ctx, table, event, userId));
+  await transitionMembership(ctx, tableId, userId, {
+    status: "active",
+    role: "host",
+    paymentStatus: "not_required",
+  });
+  return { tableId, slug, eventIds };
+}
+
 export const createTable = mutation({
   args: {
     name: v.string(),
@@ -651,120 +801,7 @@ export const createTable = mutation({
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new ConvexError({ code: "unauthenticated" });
-    if (
-      !args.name.trim() ||
-      args.name.length > 120 ||
-      !args.description.trim() ||
-      args.description.length > 10000
-    )
-      throw new ConvexError({
-        code: "invalid_table",
-        reason: "Add a Table name and description.",
-      });
-    if (
-      args.events.length < 1 ||
-      args.events.length > 24 ||
-      (args.scheduleType === "one_time" && args.events.length !== 1)
-    )
-      throw new ConvexError({
-        code: "invalid_schedule",
-        reason: "A one-time Table has one Event; a series has up to 24.",
-      });
-    if (
-      args.capacity !== undefined &&
-      (!Number.isInteger(args.capacity) ||
-        args.capacity < 1 ||
-        args.capacity > 1000)
-    )
-      throw new ConvexError({ code: "invalid_capacity" });
-    const price = args.priceCents ?? 0;
-    if (
-      !Number.isInteger(price) ||
-      price < 0 ||
-      price > MAX_CLASS_PRICE_CENTS ||
-      (args.pricingType === "fixed" && price < MIN_CLASS_PRICE_CENTS) ||
-      (args.pricingType === "free" && price !== 0)
-    )
-      throw new ConvexError({
-        code: "invalid_price",
-        reason: "Choose free or a fixed price of at least $1.00.",
-      });
-    if (args.hostOrgId)
-      await assertCommunityMember(ctx, args.hostOrgId, userId);
-    if (
-      (args.pricingType === "fixed" || args.scheduleType === "series") &&
-      !(await hasTableCommunityMembership(ctx, userId, args.hostOrgId))
-    )
-      throw new ConvexError({
-        code: "hosting_membership_required",
-        reason:
-          "Join this community's paid membership to host paid Tables or a series.",
-      });
-    if (args.membershipRequired && !args.hostOrgId)
-      throw new ConvexError({ code: "community_required" });
-    if (
-      args.allowsExternalGuests &&
-      (args.membershipRequired ||
-        args.access !== "open" ||
-        args.pricingType !== "free")
-    )
-      throw new ConvexError({
-        code: "invalid_guest_policy",
-        reason: "External guest RSVPs are available for open free Tables.",
-      });
-    for (const event of args.events) validateTableOccurrence(event);
-    const base = (args.slug ?? args.name)
-      .trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-|-$/g, "");
-    if (!base) throw new ConvexError({ code: "invalid_slug" });
-    let slug = base;
-    for (
-      let n = 2;
-      await ctx.db
-        .query("gardenTables")
-        .withIndex("by_slug", (q) => q.eq("slug", slug))
-        .unique();
-      n++
-    )
-      slug = `${base}-${n}`;
-    const now = Date.now();
-    const tableId = await ctx.db.insert("gardenTables", {
-      name: args.name.trim(),
-      slug,
-      hostOrgId: args.hostOrgId,
-      hostUserId: userId,
-      mode: args.membershipRequired ? "member" : "open",
-      format: args.format,
-      description: args.description.trim(),
-      blurb: args.description.trim().slice(0, 240),
-      photoUrl: args.photoUrl,
-      scheduleType: args.scheduleType,
-      membershipRequired: args.membershipRequired,
-      access: args.access,
-      visibility: args.access === "invite" ? "unlisted" : "public",
-      allowsExternalGuests: args.allowsExternalGuests,
-      pricingType: args.pricingType,
-      priceCents: price,
-      currency: "usd",
-      capacity: args.capacity,
-      hostRoleLabel: args.hostRoleLabel ?? "Hosted by",
-      status: "active",
-      createdAt: now,
-      updatedAt: now,
-    });
-    const table = await ctx.db.get(tableId);
-    if (!table) throw new Error("Table was not saved.");
-    const eventIds = [];
-    for (const event of args.events)
-      eventIds.push(await insertTableOccurrence(ctx, table, event, userId));
-    await transitionMembership(ctx, tableId, userId, {
-      status: "active",
-      role: "host",
-      paymentStatus: "not_required",
-    });
-    return { tableId, slug, eventIds };
+    return await createTableFor(ctx, userId, args);
   },
 });
 
@@ -839,6 +876,9 @@ export const manageEnrollment = mutation({
       throw new ConvexError({ code: "membership_required" });
     if (participant.spotsRemaining === 0 && !participant.isMember)
       throw new ConvexError({ code: "full" });
+    // Only an answer to a request is news to them; restoring a removed
+    // chair or re-accepting an active one sends nothing.
+    const answeringRequest = participant.membership?.status === "pending";
     // Approval accepts the application; payment remains a separate gate.
     await transitionMembership(
       ctx,
@@ -854,6 +894,7 @@ export const manageEnrollment = mutation({
       },
       actor,
     );
+    if (answeringRequest) await notifyRequestAccepted(ctx, table, args.userId);
     return { ok: true };
   },
 });
@@ -964,6 +1005,41 @@ export const getTableForOffering = query({
   },
 });
 
+/** More than one date is a series, and a series takes paid or covered
+ * membership in the Table's own community — the rule createTable applies
+ * (hasTableCommunityMembership). Null when this person may add dates. */
+async function addDatesDenial(
+  ctx: MutationCtx,
+  userId: Id<"users">,
+  hostOrgId: Id<"hostOrgs"> | undefined,
+): Promise<{ code: string; reason: string } | null> {
+  if (await hasTableCommunityMembership(ctx, userId, hostOrgId)) return null;
+  const org = hostOrgId ? await ctx.db.get(hostOrgId) : null;
+  if (
+    !org ||
+    org.kind !== COMMUNITY_KIND ||
+    (org.status && org.status !== "active")
+  )
+    return {
+      code: "community_required",
+      reason:
+        "Adding more dates takes community membership, and this Table isn't in a community.",
+    };
+  return {
+    code: "hosting_membership_required",
+    reason: `Adding more dates takes ${membershipName(org.name)} membership.`,
+  };
+}
+
+/** A community's name as it reads before "membership": "The Garden" →
+ * "Garden membership", not "The Garden membership". */
+export function membershipName(name: string): string {
+  return name.trim().replace(/^the\s+/i, "") || name.trim();
+}
+
+/** A host adds a date. A one-time Table becomes a series; everyone already
+ * at the Table stays in. The people at the Table and guests who asked are
+ * emailed (garden/tableNotify.ts). */
 export const addTableEvent = mutation({
   args: { tableId: v.id("gardenTables"), event: occurrenceValidator },
   handler: async (ctx, args) => {
@@ -974,22 +1050,137 @@ export const addTableEvent = mutation({
     const viewer = await getTableParticipation(ctx, table, userId);
     if (!viewer.isHost) throw new ConvexError({ code: "forbidden" });
     if (table.status !== "active" || table.pausedAt)
-      throw new ConvexError({ code: "unavailable" });
-    if (normalizeTable(table).scheduleType !== "series")
       throw new ConvexError({
-        code: "one_time_table",
-        reason: "A one-time Table has one Event.",
+        code: "unavailable",
+        reason: "This Table isn't open right now, so it can't get new dates.",
       });
-    if (!(await hasTableCommunityMembership(ctx, userId, table.hostOrgId)))
-      throw new ConvexError({ code: "hosting_membership_required" });
+    const denial = await addDatesDenial(ctx, userId, table.hostOrgId);
+    if (denial) throw new ConvexError(denial);
     const events = await ctx.db
       .query("events")
       .withIndex("by_tableId", (q) => q.eq("tableId", table._id))
       .collect();
-    if (events.length >= 24) throw new ConvexError({ code: "schedule_limit" });
+    if (events.length >= 24)
+      throw new ConvexError({
+        code: "schedule_limit",
+        reason: "A Table can have up to 24 dates.",
+      });
     validateTableOccurrence(args.event);
-    return {
-      eventId: await insertTableOccurrence(ctx, table, args.event, userId),
-    };
+    const eventId = await insertTableOccurrence(
+      ctx,
+      table,
+      args.event,
+      userId,
+    );
+    if (table.scheduleType !== "series")
+      await ctx.db.patch(table._id, {
+        scheduleType: "series",
+        updatedAt: Date.now(),
+      });
+    const notified = await notifyNewDate(ctx, table, eventId, userId);
+    return { eventId, scheduleType: "series" as const, notified };
+  },
+});
+
+/** "Run it again": a new Table with this one's title, description, photo,
+ * community, access, guest setting, capacity and price, and the first date
+ * the host picks. The same creation rules as createTable apply (a paid
+ * Table still takes membership). The old Table's people are invited by
+ * email (tableNotify.ts runAgainInvitees) — never enrolled. */
+export const runTableAgain = mutation({
+  args: { tableId: v.id("gardenTables"), event: occurrenceValidator },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new ConvexError({ code: "unauthenticated" });
+    const old = await ctx.db.get(args.tableId);
+    if (!old) throw new ConvexError({ code: "not_found" });
+    const viewer = await getTableParticipation(ctx, old, userId);
+    if (!viewer.isHost) throw new ConvexError({ code: "forbidden" });
+    if (old.status !== "active" || old.pausedAt)
+      throw new ConvexError({
+        code: "unavailable",
+        reason: "This Table isn't open right now, so it can't run again.",
+      });
+    const policy = normalizeTable(old);
+    // An invitation-only Table is unlisted and can't be joined from a link,
+    // so an emailed invite would lead nowhere.
+    if (policy.access === "invite")
+      throw new ConvexError({
+        code: "invite_only",
+        reason: "Run it again works for open Tables and Tables you approve.",
+      });
+    const created = await createTableFor(
+      ctx,
+      userId,
+      {
+        name: old.name,
+        hostOrgId: old.hostOrgId,
+        format: old.format,
+        description: old.description || old.blurb || old.name,
+        scheduleType: "one_time",
+        membershipRequired: policy.membershipRequired,
+        access: policy.access,
+        allowsExternalGuests: policy.allowsExternalGuests,
+        pricingType: policy.pricingType,
+        priceCents: policy.pricingType === "fixed" ? policy.priceCents : 0,
+        capacity: policy.capacity,
+        hostRoleLabel: old.hostRoleLabel,
+        photoUrl: old.photoUrl,
+        events: [args.event],
+      },
+      { previousTableId: old._id },
+    );
+    const table = await ctx.db.get(created.tableId);
+    if (!table) throw new Error("Table was not saved.");
+    const invited = await inviteToRunAgain(
+      ctx,
+      old,
+      table,
+      created.eventIds[0],
+      userId,
+    );
+    return { ...created, invited };
+  },
+});
+
+/** Guests (no account) who RSVP'd to this Table's dates, with the contact
+ * details they gave. Hosts and co-hosts only; never part of getTable or any
+ * roster. */
+export const getTableGuests = query({
+  args: { tableId: v.id("gardenTables") },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new ConvexError({ code: "unauthenticated" });
+    const table = await ctx.db.get(args.tableId);
+    if (!table) throw new ConvexError({ code: "not_found" });
+    const viewer = await getTableParticipation(ctx, table, userId);
+    if (!viewer.isHost) throw new ConvexError({ code: "forbidden" });
+    const events = (
+      await ctx.db
+        .query("events")
+        .withIndex("by_tableId", (q) => q.eq("tableId", table._id))
+        .collect()
+    ).sort((a, b) => a.datetime - b.datetime);
+    const guests = [];
+    for (const event of events) {
+      const rows = await ctx.db
+        .query("eventRsvps")
+        .withIndex("by_eventId", (q) => q.eq("eventId", event._id))
+        .collect();
+      for (const row of rows) {
+        if (row.userId) continue;
+        guests.push({
+          rsvpId: row._id,
+          eventId: event._id,
+          eventTitle: event.title,
+          datetime: event.datetime,
+          name: row.name,
+          email: row.email,
+          phone: row.phone,
+          wantsNewDates: row.notifyNewDates === true && !row.notifyStoppedAt,
+        });
+      }
+    }
+    return guests;
   },
 });
