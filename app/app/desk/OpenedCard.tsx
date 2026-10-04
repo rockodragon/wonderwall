@@ -12,6 +12,12 @@
 // The panel mounts when a card opens and unmounts a beat after it closes, so
 // its queries (a profile's bio, whether I'm going) only run while it's up.
 // Hooks run unconditionally; a query that doesn't apply is skipped.
+//
+// The panel is a size container (`@container`), and its padding and its title
+// follow its own width, not the window's: the picture side's share is set in
+// DeskCard.tsx, so on a tablet held upright the column can be well under 400px
+// and the type has to fit it. Container queries and cqi units, so the same rule
+// holds from a phone to a wide desk with no device checks.
 
 import { Fragment, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
@@ -42,10 +48,50 @@ export type Stepper = {
   onBusy?: (busy: boolean) => void;
 };
 
-const ROUND_CLASS = `flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#333] bg-transparent text-[#F4F4F2] transition-colors enabled:hover:border-[#FFE066] enabled:hover:text-[#FFE066] disabled:opacity-35 ${FOCUS_RING_CLASS}`;
+// 40px with a mouse, 44px under a finger (the tap target the platforms ask for).
+const ROUND_CLASS = `flex h-10 w-10 pointer-coarse:h-11 pointer-coarse:w-11 shrink-0 items-center justify-center rounded-full border border-[#333] bg-transparent text-[#F4F4F2] transition-colors enabled:hover:border-[#FFE066] enabled:hover:text-[#FFE066] disabled:opacity-35 ${FOCUS_RING_CLASS}`;
 
 /** Five lines of the description, then an ellipsis. */
 const CLAMP_5: CSSProperties = { display: "-webkit-box", WebkitLineClamp: 5, WebkitBoxOrient: "vertical", overflow: "hidden" };
+
+/** The panel's padding, from its own width: 24px in a narrow column, the full
+ *  56px (48px for a project or a sheet) from about 560px, as it always was. */
+const PAD = "clamp(24px, 10cqi, 56px)";
+const PAD_TIGHT = "clamp(24px, 10cqi, 48px)";
+/** The title: 44px from a 440px panel up, 28px at the narrowest, so a long word
+ *  still fits a line of its own in the column. */
+const TITLE_SIZE = "clamp(28px, 10cqi, 44px)";
+/** The header: meta line and close button. With a stepper, a panel 28rem or
+ *  wider has room for all three on one row; narrower, the stepper drops to a
+ *  row of its own under them and the close button stays at the top right. */
+const HEADER = "grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-4 gap-y-3";
+const HEADER_STEPPED = `${HEADER} @[28rem]:grid-cols-[minmax(0,1fr)_auto_auto]`;
+
+/** "NOV 6 · 6PM · LIGHT CHURCH" as its items. The meta line wraps between
+ *  them, so a date or a place is never split. */
+export function metaParts(meta: string): string[] {
+  return meta
+    .split(/\s+·\s+/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+}
+
+/** The meta line. Each item is one unit that moves to the next line whole (and
+ *  only wraps inside itself if it is wider than the line); the separator stays
+ *  with the item before it. The text reads the same as the string it came from. */
+function MetaLine({ meta }: { meta: string }) {
+  const parts = metaParts(meta);
+  return (
+    <p className="min-w-0 pt-2.5 pointer-coarse:pt-3" style={{ ...monoLabel(12, "0.2em"), color: DESK.accent, margin: 0, lineHeight: 1.6 }}>
+      {parts.map((part, i) => (
+        <Fragment key={i}>
+          {i > 0 && " "}
+          <span style={{ display: "inline-block", maxWidth: "100%", overflowWrap: "break-word" }}>{i < parts.length - 1 ? `${part} ·` : part}</span>
+        </Fragment>
+      ))}
+    </p>
+  );
+}
 
 export function DetailPanel({
   card,
@@ -91,11 +137,14 @@ export function DetailPanel({
   // space between its parts to fit a laptop-height window.
   const project = card.kind === "project";
   const facts = card.detail.facts ?? [];
+  // A Shortlist card steps through its list: the stepper joins the close button.
+  const stepped = !!stepper && stepper.total > 1;
 
   return (
     <div
       ref={rootRef}
       aria-hidden={!visible}
+      className="@container"
       style={{
         position: "absolute",
         top: 0,
@@ -103,10 +152,6 @@ export function DetailPanel({
         bottom: 0,
         left: sheet ? 0 : `${share * 100}%`,
         background: DESK.panel,
-        padding: sheet || project ? 48 : 56,
-        display: "flex",
-        flexDirection: "column",
-        gap: 20,
         overflowY: "auto",
         color: DESK.text,
         fontFamily: DESK_SANS,
@@ -116,102 +161,122 @@ export function DetailPanel({
         transition: reduced ? "none" : visible ? `opacity 400ms ${DESK.ease} 260ms` : "opacity 160ms linear",
       }}
     >
-      <div className="flex items-start justify-between gap-6">
-        <p style={{ ...monoLabel(12, "0.2em"), color: DESK.accent, margin: 0, paddingTop: 10 }}>{card.detail.meta}</p>
-        <div className="flex shrink-0 items-center gap-3">
-          {stepper && stepper.total > 1 && <StepControls stepper={stepper} />}
+      {/* The padding lives here, not on the scroller, so it follows the panel's
+          width (a container's own padding can't use its own cqi). */}
+      <div className="flex flex-col" style={{ minHeight: "100%", boxSizing: "border-box", padding: sheet || project ? PAD_TIGHT : PAD, gap: 20 }}>
+        <div className={stepped ? HEADER_STEPPED : HEADER}>
+          <MetaLine meta={card.detail.meta} />
+          {stepped && stepper && (
+            <div className="col-span-2 row-start-2 justify-self-end @[28rem]:col-span-1 @[28rem]:col-start-2 @[28rem]:row-start-1">
+              <StepControls stepper={stepper} />
+            </div>
+          )}
           <button
             ref={closeRef}
             type="button"
             onClick={() => onClose()}
             aria-label="Close"
-            className={ROUND_CLASS}
+            className={stepped ? `${ROUND_CLASS} col-start-2 row-start-1 @[28rem]:col-start-3` : `${ROUND_CLASS} col-start-2 row-start-1`}
           >
             <X size={18} weight="regular" aria-hidden />
           </button>
         </div>
-      </div>
 
-      {/* Grows to fill the panel and centers when there's room, but never
-          shrinks below its content: a centered column that overflows spills
-          out of the top too, over the meta line. Long text scrolls instead. */}
-      <div className="flex shrink-0 grow flex-col justify-center" style={{ gap: project ? 14 : 20 }}>
-        {card.detail.status && (
-          <p
-            style={{
-              ...monoLabel(12, "0.14em"),
-              alignSelf: "flex-start",
-              margin: 0,
-              padding: "7px 10px",
-              borderRadius: 6,
-              border: "1px solid rgba(255,224,102,.35)",
-              background: "rgba(255,224,102,.08)",
-              color: DESK.accent,
-            }}
-          >
-            {card.detail.status}
-          </p>
-        )}
-        {/* A word never breaks mid-way; only one wider than the whole panel gives way. */}
-        <h2 style={{ margin: 0, fontSize: 44, lineHeight: 1.08, fontWeight: 500, letterSpacing: "-0.02em", overflowWrap: "break-word", hyphens: "manual" }}>
-          {card.detail.title}
-        </h2>
-        {host && <p style={{ margin: 0, fontSize: 15, color: DESK.muted, overflowWrap: "break-word", hyphens: "manual" }}>{host}</p>}
-        {description && (
-          <p
+        {/* Grows to fill the panel and centers when there's room, but never
+            shrinks below its content: a centered column that overflows spills
+            out of the top too, over the meta line. Long text scrolls instead. */}
+        <div className="flex shrink-0 grow flex-col justify-center" style={{ gap: project ? 14 : 20 }}>
+          {card.detail.status && (
+            <p
+              style={{
+                ...monoLabel(12, "0.14em"),
+                alignSelf: "flex-start",
+                margin: 0,
+                padding: "7px 10px",
+                borderRadius: 6,
+                border: "1px solid rgba(255,224,102,.35)",
+                background: "rgba(255,224,102,.08)",
+                color: DESK.accent,
+              }}
+            >
+              {card.detail.status}
+            </p>
+          )}
+          {/* The title wraps between words. A word breaks mid-way only when it is
+              wider than the whole line (break-word, not anywhere), and the size
+              follows the column so that is rare: see TITLE_SIZE. */}
+          <h2
             style={{
               margin: 0,
-              fontSize: project ? 17 : 18,
-              lineHeight: project ? 1.6 : 1.65,
-              color: DESK.textSoft,
-              maxWidth: "46ch",
+              fontSize: TITLE_SIZE,
+              lineHeight: 1.08,
+              fontWeight: 500,
+              letterSpacing: "-0.02em",
+              wordBreak: "normal",
               overflowWrap: "break-word",
               hyphens: "manual",
-              // An Update's body is written whole, line breaks and all.
-              whiteSpace: card.kind === "update" ? "pre-line" : undefined,
-              ...(project ? CLAMP_5 : {}),
+              textWrap: "balance",
             }}
           >
-            {description}
-          </p>
-        )}
-        {facts.length > 0 && (
-          <dl
-            style={{
-              margin: 0,
-              display: "grid",
-              gridTemplateColumns: "max-content minmax(0, 1fr)",
-              columnGap: 20,
-              rowGap: 8,
-              fontSize: 15,
-              lineHeight: 1.45,
-            }}
-          >
-            {facts.map((fact) => (
-              <Fragment key={fact.label}>
-                <dt style={{ color: DESK.muted }}>{fact.label}</dt>
-                <dd style={{ margin: 0, color: DESK.text, overflowWrap: "break-word", hyphens: "manual" }}>{fact.value}</dd>
-              </Fragment>
-            ))}
-          </dl>
-        )}
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-3" style={{ marginTop: project ? 4 : 8 }}>
-          {action?.kind === "link" && <ActionLink action={action} />}
-          {action?.kind === "rsvp" && <JoinButton action={action} />}
-          {action?.kind === "update" && <UpdateButton action={action} />}
-          {/* Keyed by card: stepping to the next item starts its buttons fresh. */}
-          {action?.kind === "shortlist" && (
-            <ShortlistActions key={card.id} id={card.id} buttons={action.buttons} onDone={onClose} onBusy={stepper?.onBusy} />
-          )}
-          {card.detail.aside && <span style={{ fontSize: 14, color: DESK.muted }}>{card.detail.aside}</span>}
-          {card.kind === "event" && (
-            <Link
-              to={card.href}
-              className={`text-[15px] text-[#F4F4F2] underline-offset-4 transition-colors hover:text-[#FFE066] hover:underline ${FOCUS_RING_CLASS}`}
+            {card.detail.title}
+          </h2>
+          {host && <p style={{ margin: 0, fontSize: 15, color: DESK.muted, overflowWrap: "break-word", hyphens: "manual" }}>{host}</p>}
+          {description && (
+            <p
+              style={{
+                margin: 0,
+                fontSize: project ? 17 : 18,
+                lineHeight: project ? 1.6 : 1.65,
+                color: DESK.textSoft,
+                maxWidth: "46ch",
+                overflowWrap: "break-word",
+                hyphens: "manual",
+                // An Update's body is written whole, line breaks and all.
+                whiteSpace: card.kind === "update" ? "pre-line" : undefined,
+                ...(project ? CLAMP_5 : {}),
+              }}
             >
-              Event page →
-            </Link>
+              {description}
+            </p>
           )}
+          {facts.length > 0 && (
+            <dl
+              style={{
+                margin: 0,
+                display: "grid",
+                gridTemplateColumns: "max-content minmax(0, 1fr)",
+                columnGap: 20,
+                rowGap: 8,
+                fontSize: 15,
+                lineHeight: 1.45,
+              }}
+            >
+              {facts.map((fact) => (
+                <Fragment key={fact.label}>
+                  <dt style={{ color: DESK.muted }}>{fact.label}</dt>
+                  <dd style={{ margin: 0, color: DESK.text, overflowWrap: "break-word", hyphens: "manual" }}>{fact.value}</dd>
+                </Fragment>
+              ))}
+            </dl>
+          )}
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-3" style={{ marginTop: project ? 4 : 8 }}>
+            {action?.kind === "link" && <ActionLink action={action} />}
+            {action?.kind === "rsvp" && <JoinButton action={action} />}
+            {action?.kind === "update" && <UpdateButton action={action} />}
+            {/* Keyed by card: stepping to the next item starts its buttons fresh. */}
+            {action?.kind === "shortlist" && (
+              <ShortlistActions key={card.id} id={card.id} buttons={action.buttons} onDone={onClose} onBusy={stepper?.onBusy} />
+            )}
+            {card.detail.aside && <span style={{ fontSize: 14, color: DESK.muted }}>{card.detail.aside}</span>}
+            {card.kind === "event" && (
+              <Link
+                to={card.href}
+                className={`text-[15px] text-[#F4F4F2] underline-offset-4 transition-colors hover:text-[#FFE066] hover:underline ${FOCUS_RING_CLASS}`}
+              >
+                Event page →
+              </Link>
+            )}
+          </div>
         </div>
       </div>
     </div>

@@ -13,6 +13,7 @@ import { followEachOther } from "./follows";
 // as its owner shares it with, and anyone can make as many one-time codes
 // as they like. inviteUsageCount still counts uses, for the network stats.
 import { findInviterProfile } from "./inviteLookup";
+import { getDefaultCommunity } from "./garden/defaultCommunity";
 
 function generateCode(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -383,6 +384,9 @@ export const redeemBySlug = mutation({
       .first();
 
     const newUserName = newUserProfile?.name || "Someone";
+    // The Garden is where they joined; fall back to the platform name when
+    // it isn't seeded.
+    const placeName = (await getDefaultCommunity(ctx))?.name ?? "TheCreative.exchange";
     const newUserImageUrl = newUserProfile?.imageUrl;
     // /profile/:id takes a profile id, not the invite slug (favorites.ts
     // and likesDigest.ts link the same way).
@@ -393,7 +397,7 @@ export const redeemBySlug = mutation({
       userId: inviterProfile.userId,
       type: "invite_accepted",
       title: "New member joined!",
-      message: `${newUserName} joined TheCreative.exchange using your invite link.`,
+      message: `${newUserName} joined ${placeName} using your invite link.`,
       linkUrl: profileLinkUrl,
       imageUrl: newUserImageUrl,
       relatedUserId: userId,
@@ -404,10 +408,10 @@ export const redeemBySlug = mutation({
     await scheduleNotificationEmail(ctx, {
       userId: inviterProfile.userId,
       category: "activity",
-      subject: `${newUserName} joined using your invite`,
-      previewText: `${newUserName} joined TheCreative.exchange using your invite link.`,
+      subject: `${newUserName} joined ${placeName} using your invite`,
+      previewText: `${newUserName} joined ${placeName} using your invite link.`,
       heading: `${newUserName} joined`,
-      body: `<strong>${escapedName}</strong> joined TheCreative.exchange using your invite link.`,
+      body: `<strong>${escapedName}</strong> joined ${escapeHtml(placeName)} using your invite link.`,
       ...(profileLinkUrl ? { ctaText: "See their profile", ctaUrl: profileLinkUrl } : {}),
     });
 

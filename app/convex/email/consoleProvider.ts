@@ -9,7 +9,7 @@ export function createConsoleProvider(): EmailProvider {
     name: "console",
     async send(msg: EmailMessage): Promise<EmailSendResult> {
       console.log(
-        `[console email provider] to=${msg.to} subject=${JSON.stringify(msg.subject)} text=${JSON.stringify(msg.text.slice(0, 200))}`,
+        `[console email provider] to=${msg.to} fromName=${JSON.stringify(msg.fromName ?? null)} subject=${JSON.stringify(msg.subject)} text=${JSON.stringify(msg.text.slice(0, 200))}`,
       );
       return { ok: true };
     },

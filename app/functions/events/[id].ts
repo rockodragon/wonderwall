@@ -70,7 +70,9 @@ export const onRequestGet = async (context: {
     return passThrough;
   }
 
-  const shellRes = await env.ASSETS.fetch(new URL("/", request.url));
+  // The SPA shell, not "/": that's the prerendered home page, and hydrating
+  // it as an event page throws React #418 (react-router.config.ts buildEnd).
+  const shellRes = await env.ASSETS.fetch(new URL("/__spa-fallback", request.url));
   const shell = await shellRes.text();
 
   let event: any = null;
@@ -84,7 +86,7 @@ export const onRequestGet = async (context: {
   const image = event?.coverImageUrl ?? event?.mediaPreviewUrl;
   const html = event
     ? injectHead(shell, {
-        title: `${event.title} — TheCrossBoard`,
+        title: `${event.title} — TheCreative.exchange`,
         description: (event.description ?? "").slice(0, 200) || "A community event.",
         url: request.url,
         image: typeof image === "string" && /^https:\/\//.test(image) ? image : undefined,

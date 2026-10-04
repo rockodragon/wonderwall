@@ -15,6 +15,7 @@ import {
   query,
 } from "./_generated/server";
 import { requireAdminCtx } from "./helpers";
+import { getDefaultCommunity } from "./garden/defaultCommunity";
 
 const statusValidator = v.union(
   v.literal("sent"),
@@ -73,6 +74,18 @@ export const isSuppressed = internalQuery({
       .withIndex("by_email", (q) => q.eq("email", normalizeEmail(args.email)))
       .first();
     return row !== null;
+  },
+});
+
+/** The name community email is sent under: The Garden's, from its hostOrgs
+ * row. Null when it isn't seeded, and the sender keeps its default name. One
+ * community today; when email follows a member's own community (a second
+ * community with members of its own), this takes that community's id. */
+export const getCommunitySenderName = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const org = await getDefaultCommunity(ctx);
+    return org?.name ?? null;
   },
 });
 

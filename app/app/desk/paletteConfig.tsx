@@ -118,17 +118,18 @@ export function buildSignedInTools(d: SignedInDeps): PaletteTool[] {
   const isActive = (id: ToolId) => d.active === id;
 
   const profileItems: PaletteItem[] = [
-    { id: "edit", label: "Edit my profile", to: "/settings" },
+    { id: "edit", label: "My Profile", to: "/settings" },
+    // Your community's page, right under your profile (2026-10-03).
+    {
+      id: "about",
+      label: COMMUNITY_LABEL[d.community],
+      to: d.community === "garden" ? `/communities/${GARDEN_SLUG}` : "/about",
+    },
     {
       id: "messages",
       label: "Read messages",
       to: "/messages",
       trailing: d.badgeCount > 0 ? badgeText(d.badgeCount) : undefined,
-    },
-    {
-      id: "about",
-      label: `About ${COMMUNITY_LABEL[d.community]}`,
-      to: d.community === "garden" ? `/communities/${GARDEN_SLUG}` : "/about",
     },
     // No switch to The Exchange while there's one community (FF_V2).
     ...(FF_V2

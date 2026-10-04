@@ -1,4 +1,6 @@
 import type { Config } from "@react-router/dev/config";
+import { copyFileSync, existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 
 export default {
   // SPA mode - all data fetching happens client-side via Convex.
@@ -37,4 +39,24 @@ export default {
     "/grant-program",
     "/legal/credits",
   ],
+  // Deep links must hydrate the SPA shell, not the prerendered home page.
+  // Cloudflare Pages only treats exactly "/* /index.html 200" as an SPA
+  // fallback that yields to real files (any other target runs before them
+  // and loops or shadows /assets — commit 7866a75), so the fallback has to
+  // BE index.html. After prerendering: the home document moves to
+  // __home.html and is served at "/" by a rule added here (only when the
+  // move happened), and the shell React Router built for every other path
+  // becomes index.html. Before this, every deep link hydrated the home
+  // markup and threw React #418 (2026-10-03).
+  async buildEnd({ reactRouterConfig }) {
+    const client = join(reactRouterConfig.buildDirectory, "client");
+    const shell = join(client, "__spa-fallback.html");
+    const index = join(client, "index.html");
+    if (!existsSync(shell) || !existsSync(index)) return;
+    renameSync(index, join(client, "__home.html"));
+    copyFileSync(shell, index);
+    const redirects = join(client, "_redirects");
+    const rules = existsSync(redirects) ? readFileSync(redirects, "utf8") : "";
+    writeFileSync(redirects, `/ /__home 200\n${rules}`);
+  },
 } satisfies Config;
