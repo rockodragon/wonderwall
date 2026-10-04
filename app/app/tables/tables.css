@@ -474,6 +474,22 @@
   flex-direction: column;
   gap: 16px;
 }
+/* Host date tools: "Add a date" and "Run it again" side by side; an open
+   form takes the full row. */
+.tables-date-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-start;
+  margin-top: 24px;
+}
+.tables-date-tool.is-open {
+  flex: 1 1 100%;
+  order: -1;
+}
+.tables-date-tool .tables-status {
+  margin-top: 12px;
+}
 .tables-location-filter {
   width: 180px;
 }

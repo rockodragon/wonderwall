@@ -7,6 +7,7 @@ import { ChairIcon, TablePortrait } from "../tables/TableCard";
 import { GuestRsvp } from "../tables/GuestRsvp";
 import { HostManagement } from "../tables/HostManagement";
 import { AddTableEvent } from "../tables/AddTableEvent";
+import { RunTableAgain } from "../tables/RunTableAgain";
 import { tableBadge, tablePrice } from "../tables/presentation";
 import { hostLabels } from "../lib/eventHosts";
 import { BackLink } from "../components/BackLink";
@@ -408,6 +409,11 @@ export default function TableDetailPage() {
                 appear once payment is confirmed.
               </p>
             )}
+            {params.get("again") === "1" && viewer.isHost && (
+              <p className="tables-status" role="status">
+                Your new Table is set. We emailed the people from last time.
+              </p>
+            )}
             {params.get("checkout") === "cancelled" && (
               <p className="tables-note">
                 Checkout was cancelled. You can return to checkout when you're
@@ -510,8 +516,15 @@ export default function TableDetailPage() {
       {viewer.isHost && (
         <HostManagement tableId={table._id} events={events} />
       )}
-      {viewer.isHost && table.scheduleType === "series" && (
-        <AddTableEvent tableId={table._id} />
+      {viewer.isHost && (
+        <section className="tables-date-tools" aria-label="Dates">
+          <AddTableEvent
+            tableId={table._id}
+            tableName={table.name}
+            oneTime={table.scheduleType !== "series"}
+          />
+          <RunTableAgain tableId={table._id} tableName={table.name} />
+        </section>
       )}
     </main>
   );

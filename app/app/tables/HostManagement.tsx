@@ -80,6 +80,48 @@ function AttendancePanel({
   );
 }
 
+/** "+16195550100" → "(619) 555-0100"; anything else as stored. */
+export function displayPhone(phone: string): string {
+  const match = /^\+1(\d{3})(\d{3})(\d{4})$/.exec(phone);
+  return match ? `(${match[1]}) ${match[2]}-${match[3]}` : phone;
+}
+
+/** Guests who RSVP'd without an account, with the contact details they
+ * gave. The query is host-only; nothing here reaches the public page. */
+function GuestList({ tableId }: { tableId: Id<"gardenTables"> }) {
+  const guests = useQuery(api.garden.tables.getTableGuests, { tableId });
+  if (!guests?.length) return null;
+  return (
+    <div style={{ marginTop: 24 }}>
+      <h3 className="tables-subheading">Guests</h3>
+      <p className="tables-note">Only hosts see this.</p>
+      {guests.map((guest) => (
+        <div className="tables-session" key={guest.rsvpId}>
+          <div className="tables-session-top">
+            <span>{guest.name}</span>
+            <span className="tables-note">
+              {new Date(guest.datetime).toLocaleDateString(undefined, {
+                month: "short",
+                day: "numeric",
+              })}
+            </span>
+          </div>
+          <p className="tables-session-detail">
+            <a href={`mailto:${guest.email}`}>{guest.email}</a>
+            {guest.phone && (
+              <>
+                {" · "}
+                <a href={`tel:${guest.phone}`}>{displayPhone(guest.phone)}</a>
+              </>
+            )}
+            {guest.wantsNewDates ? " · Wants new dates" : ""}
+          </p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function HostManagement({
   tableId,
   events,
@@ -176,6 +218,7 @@ export function HostManagement({
           {error}
         </p>
       )}
+      <GuestList tableId={tableId} />
       {events.length > 0 && (
         <div style={{ marginTop: 24 }}>
           <h3 className="tables-subheading">Record attendance</h3>

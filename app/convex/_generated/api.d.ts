@@ -90,6 +90,7 @@ import type * as garden_stories from "../garden/stories.js";
 import type * as garden_stripe from "../garden/stripe.js";
 import type * as garden_stripeHandlers from "../garden/stripeHandlers.js";
 import type * as garden_support from "../garden/support.js";
+import type * as garden_tableNotify from "../garden/tableNotify.js";
 import type * as garden_tablePolicy from "../garden/tablePolicy.js";
 import type * as garden_tables from "../garden/tables.js";
 import type * as garden_tablesCheckout from "../garden/tablesCheckout.js";
@@ -224,6 +225,7 @@ declare const fullApi: ApiFromModules<{
   "garden/stripe": typeof garden_stripe;
   "garden/stripeHandlers": typeof garden_stripeHandlers;
   "garden/support": typeof garden_support;
+  "garden/tableNotify": typeof garden_tableNotify;
   "garden/tablePolicy": typeof garden_tablePolicy;
   "garden/tables": typeof garden_tables;
   "garden/tablesCheckout": typeof garden_tablesCheckout;

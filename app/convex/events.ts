@@ -16,6 +16,7 @@ import { hostUserIdsForOrg, primaryOrgByUserId } from "./organizations";
 import { isAdmin } from "./helpers";
 import { isHidden } from "./moderationRules";
 import { getTableParticipation } from "./garden/tablePolicy";
+import { notifyDateCanceled, notifyDateChanged } from "./garden/tableNotify";
 
 // ——— Pure validation helpers (unit-tested in events.test.ts) ———
 
@@ -818,6 +819,13 @@ export const update = mutation({
     });
 
     await schedulePreviewFetch(ctx, "event", args.eventId, fetchMediaUrl);
+
+    // A Table date that moved (time or place, not words) tells the people
+    // coming to it and the people at the Table (garden/tableNotify.ts).
+    if (event.tableId) {
+      const saved = await ctx.db.get(args.eventId);
+      if (saved) await notifyDateChanged(ctx, event, saved, userId);
+    }
   },
 });
 
@@ -838,6 +846,8 @@ export const cancel = mutation({
       status: "cancelled",
       updatedAt: Date.now(),
     });
+    // A canceled Table date tells the same people as a change.
+    if (event.tableId) await notifyDateCanceled(ctx, event, userId);
   },
 });
 

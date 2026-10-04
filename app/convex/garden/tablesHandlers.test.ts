@@ -509,7 +509,7 @@ describe("Tables canonical handler policies", () => {
       await run(listTablesForUser, makeCtx(data, OTHER), { userId: USER }),
     ).toEqual([]);
   });
-  it("manual series Events require host role and ongoing membership while one-time Tables cannot grow", async () => {
+  it("added dates require host role and ongoing membership, for one-time and series Tables alike", async () => {
     const data = world();
     const ctx = makeCtx(data, HOST);
     const event = { title: "Next", datetime: NOW + 3000000 };
