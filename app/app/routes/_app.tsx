@@ -177,6 +177,12 @@ export default function AppLayout() {
     if (mustInvite && !onEventPage) navigate("/invite", { replace: true });
   }, [mustInvite, onEventPage, navigate]);
 
+  // The palette's first-visit note (desk/PaletteHint.tsx) waits until
+  // nothing above is about to send this person somewhere else.
+  const paletteHintReady =
+    !isLoading &&
+    (!isAuthenticated || (profile !== undefined && signupCommunity !== undefined && !mustOnboard && !mustInvite));
+
   useEffect(() => {
     if (isAuthenticated && mustOnboard && !onEventPage && !mustInvite) {
       // Come back here afterwards — onboarding ends on /today, which
@@ -307,6 +313,7 @@ export default function AppLayout() {
             isAuthenticated={isAuthenticated}
             profile={profile}
             badgeCount={sidebarBadgeCount}
+            hintReady={paletteHintReady}
           />
         </div>
       )}

@@ -40,6 +40,7 @@ import {
   loginHref,
 } from "./paletteLogic";
 import { DESK, FOCUS_RING_CLASS, useDeskTint } from "./tokens";
+import { PaletteHint, usePaletteHint } from "./PaletteHint";
 import { usePaletteController } from "./usePaletteController";
 
 export interface PaletteProfile {
@@ -53,22 +54,27 @@ export interface PaletteProps {
   profile: PaletteProfile | null | undefined;
   /** Unread messages plus notifications. */
   badgeCount: number;
+  /** The first-visit note may show: nothing is about to send this person
+   *  elsewhere (PaletteHint.tsx). */
+  hintReady?: boolean;
 }
 
-export function Palette({ isAuthenticated, profile, badgeCount }: PaletteProps) {
+export function Palette({ isAuthenticated, profile, badgeCount, hintReady = false }: PaletteProps) {
   return isAuthenticated ? (
-    <SignedInPalette profile={profile} badgeCount={badgeCount} />
+    <SignedInPalette profile={profile} badgeCount={badgeCount} hintReady={hintReady} />
   ) : (
-    <SignedOutPalette />
+    <SignedOutPalette hintReady={hintReady} />
   );
 }
 
 function SignedInPalette({
   profile,
   badgeCount,
+  hintReady,
 }: {
   profile: PaletteProfile | null | undefined;
   badgeCount: number;
+  hintReady: boolean;
 }) {
   const location = useLocation();
   const navigate = useNavigate();
@@ -115,18 +121,19 @@ function SignedInPalette({
       badge={badgeCount}
       mainTitle="Canvas"
       onMain={() => navigate(deskHref("all"))}
+      hintReady={hintReady}
     />
   );
 }
 
-function SignedOutPalette() {
+function SignedOutPalette({ hintReady }: { hintReady: boolean }) {
   const location = useLocation();
   const navigate = useNavigate();
   const tools = buildSignedOutTools({
     active: activeToolId(location.pathname, location.search),
     loginTo: loginHref(location.pathname, location.search),
   });
-  return <PaletteShell tools={tools} badge={0} onMain={() => navigate("/garden")} />;
+  return <PaletteShell tools={tools} badge={0} onMain={() => navigate("/garden")} hintReady={hintReady} />;
 }
 
 function PaletteShell({
@@ -134,6 +141,7 @@ function PaletteShell({
   badge,
   mainTitle,
   onMain,
+  hintReady,
 }: {
   tools: PaletteTool[];
   /** Unread count for the main button. */
@@ -141,10 +149,12 @@ function PaletteShell({
   /** The main button's tooltip: signed in, it is the way back to the desk. */
   mainTitle?: string;
   onMain: () => void;
+  hintReady: boolean;
 }) {
   const reduced = useReducedMotion();
   const pal = usePaletteController(tools, onMain);
   const { open, stackId, roving } = pal;
+  const hint = usePaletteHint(hintReady, open);
 
   const angles = fanAngles(tools.length);
   const mainBadge = badge > 0 ? badgeText(badge) : null;
@@ -153,181 +163,184 @@ function PaletteShell({
 
   const tint = useDeskTint();
   return (
-    <div
-      ref={pal.rootRef}
-      className="desk-pal"
-      onKeyDown={pal.onRootKeyDown}
-      onBlur={pal.onRootBlur}
-      // A zero-size anchor in the corner; everything inside is absolute. z-40:
-      // above the desk and its opened card, below page modals (z-50).
-      style={{ position: "fixed", left: 0, bottom: 0, width: 0, height: 0, zIndex: 40 }}
-    >
-      <style>{paletteCss(reduced)}</style>
-
-      {/* The hover zone takes no pointer events until the fan is open, so it
-          never blocks a click on the page underneath. */}
+    <>
       <div
-        style={{
-          position: "absolute",
-          left: 0,
-          bottom: 0,
-          width: PALETTE.zone,
-          height: PALETTE.zone,
-          pointerEvents: open ? "auto" : "none",
-        }}
-        onPointerEnter={pal.onZonePointerEnter}
-        onPointerLeave={pal.onZonePointerLeave}
+        ref={pal.rootRef}
+        className="desk-pal"
+        onKeyDown={pal.onRootKeyDown}
+        onBlur={pal.onRootBlur}
+        // A zero-size anchor in the corner; everything inside is absolute. z-40:
+        // above the desk and its opened card, below page modals (z-50).
+        style={{ position: "fixed", left: 0, bottom: 0, width: 0, height: 0, zIndex: 40 }}
       >
-        <button
-          ref={pal.mainRef}
-          type="button"
-          aria-label="Navigation"
-          title={mainTitle}
-          aria-expanded={open}
-          aria-describedby={mainBadge ? "desk-pal-unread" : undefined}
-          data-pal-hit
-          className={FOCUS_RING_CLASS}
-          onPointerDown={pal.onMainPointerDown}
-          onPointerEnter={pal.onMainPointerEnter}
-          onClick={pal.onMainClick}
-          onFocus={pal.onMainFocus}
-          onKeyDown={pal.onMainKeyDown}
+        <style>{paletteCss(reduced)}</style>
+
+        {/* The hover zone takes no pointer events until the fan is open, so it
+            never blocks a click on the page underneath. */}
+        <div
           style={{
             position: "absolute",
-            left: PALETTE.inset,
-            bottom: PALETTE.inset,
-            width: PALETTE.button,
-            height: PALETTE.button,
-            borderRadius: "50%",
-            border: `1px solid ${DESK.accent}`,
-            // The handoff's faint accent wash, over an opaque base so the
-            // icon still reads on a light page.
-            background: `linear-gradient(${MAIN_WASH}, ${MAIN_WASH}), ${tint.surface}`,
-            boxShadow: `0 0 0 6px ${MAIN_RING}`,
-            color: DESK.accent,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            cursor: "pointer",
-            padding: 0,
-            zIndex: 10,
-            pointerEvents: "auto",
+            left: 0,
+            bottom: 0,
+            width: PALETTE.zone,
+            height: PALETTE.zone,
+            pointerEvents: open ? "auto" : "none",
           }}
+          onPointerEnter={pal.onZonePointerEnter}
+          onPointerLeave={pal.onZonePointerLeave}
         >
-          <PaletteGlyph size={24} weight="regular" aria-hidden />
-          {mainBadge && <CountChip text={mainBadge} offset={-5} />}
-        </button>
-        {mainBadge && (
-          <span id="desk-pal-unread" className="sr-only">
-            {badge} unread
-          </span>
-        )}
+          <button
+            ref={pal.mainRef}
+            type="button"
+            aria-label="Navigation"
+            title={mainTitle}
+            aria-expanded={open}
+            aria-describedby={mainBadge ? "desk-pal-unread" : undefined}
+            data-pal-hit
+            className={FOCUS_RING_CLASS}
+            onPointerDown={pal.onMainPointerDown}
+            onPointerEnter={pal.onMainPointerEnter}
+            onClick={pal.onMainClick}
+            onFocus={pal.onMainFocus}
+            onKeyDown={pal.onMainKeyDown}
+            style={{
+              position: "absolute",
+              left: PALETTE.inset,
+              bottom: PALETTE.inset,
+              width: PALETTE.button,
+              height: PALETTE.button,
+              borderRadius: "50%",
+              border: `1px solid ${DESK.accent}`,
+              // The handoff's faint accent wash, over an opaque base so the
+              // icon still reads on a light page.
+              background: `linear-gradient(${MAIN_WASH}, ${MAIN_WASH}), ${tint.surface}`,
+              boxShadow: `0 0 0 6px ${MAIN_RING}`,
+              color: DESK.accent,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "pointer",
+              padding: 0,
+              zIndex: 10,
+              pointerEvents: "auto",
+            }}
+          >
+            <PaletteGlyph size={24} weight="regular" aria-hidden />
+            {mainBadge && <CountChip text={mainBadge} offset={-5} />}
+          </button>
+          {mainBadge && (
+            <span id="desk-pal-unread" className="sr-only">
+              {badge} unread
+            </span>
+          )}
 
-        {tools.map((tool, i) => {
-          const { x, y } = fanOffset(angles[i]);
-          const stackOpen = open && stackId === tool.id;
-          const hasBadge = (tool.badge ?? 0) > 0;
-          // The dot is read out as the main button's count is: a description.
-          const dotId = tool.dot ? `desk-pal-dot-${tool.id}` : undefined;
-          return (
-            <div
-              key={tool.id}
-              data-pal-hit
-              onPointerEnter={(e) => pal.onToolPointerEnter(e, tool)}
-              onPointerLeave={pal.onToolPointerLeave}
-              style={{
-                position: "absolute",
-                left: centre + x - half,
-                bottom: centre + y - half,
-                width: PALETTE.tool,
-                height: PALETTE.tool,
-                borderRadius: "50%",
-                // Closed: back at the button, small and invisible.
-                transform: open ? "none" : `translate(${-x}px, ${y}px) scale(.4)`,
-                opacity: open ? 1 : 0,
-                pointerEvents: open ? "auto" : "none",
-                // Visible the moment the fan opens (so the keyboard can focus a
-                // tool at once); only transform and opacity are staggered.
-                visibility: open ? "visible" : "hidden",
-                transition: fanTransition(open, i, reduced),
-                zIndex: stackOpen ? 6 : 2,
-              }}
-            >
-              <button
-                ref={pal.toolRef(tool.id)}
-                type="button"
-                aria-label={tool.label}
-                aria-haspopup="menu"
-                aria-expanded={stackOpen}
-                aria-current={tool.active ? "true" : undefined}
-                aria-describedby={dotId}
-                tabIndex={open && i === roving ? 0 : -1}
-                className={`desk-pal-tool ${FOCUS_RING_CLASS}`}
-                onPointerDown={pal.onToolPointerDown}
-                onClick={(e) => pal.onToolClick(e, tool)}
-                onKeyDown={(e) => pal.onToolKeyDown(e, i, tool)}
-                onFocus={() => pal.setRoving(i)}
+          {tools.map((tool, i) => {
+            const { x, y } = fanOffset(angles[i]);
+            const stackOpen = open && stackId === tool.id;
+            const hasBadge = (tool.badge ?? 0) > 0;
+            // The dot is read out as the main button's count is: a description.
+            const dotId = tool.dot ? `desk-pal-dot-${tool.id}` : undefined;
+            return (
+              <div
+                key={tool.id}
+                data-pal-hit
+                onPointerEnter={(e) => pal.onToolPointerEnter(e, tool)}
+                onPointerLeave={pal.onToolPointerLeave}
                 style={{
-                  position: "relative",
-                  // Above the menu's bridge, which reaches in behind the button.
-                  zIndex: 1,
+                  position: "absolute",
+                  left: centre + x - half,
+                  bottom: centre + y - half,
                   width: PALETTE.tool,
                   height: PALETTE.tool,
                   borderRadius: "50%",
-                  border: `1px solid ${tool.active ? DESK.accent : DESK.lineStrong}`,
-                  color: tool.active ? DESK.accent : DESK.text,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  cursor: "pointer",
-                  padding: 0,
+                  // Closed: back at the button, small and invisible.
+                  transform: open ? "none" : `translate(${-x}px, ${y}px) scale(.4)`,
+                  opacity: open ? 1 : 0,
+                  pointerEvents: open ? "auto" : "none",
+                  // Visible the moment the fan opens (so the keyboard can focus a
+                  // tool at once); only transform and opacity are staggered.
+                  visibility: open ? "visible" : "hidden",
+                  transition: fanTransition(open, i, reduced),
+                  zIndex: stackOpen ? 6 : 2,
                 }}
               >
-                {tool.avatar ? <Avatar {...tool.avatar} /> : tool.icon}
-                {hasBadge && <CountChip text={badgeText(tool.badge ?? 0)} offset={-6} />}
-                {tool.dot && <Dot />}
-              </button>
-              {tool.dot && (
-                <span id={dotId} className="sr-only">
-                  {tool.dot}
-                </span>
-              )}
-
-              {stackOpen && (
-                <div
-                  data-pal-hit
-                  data-stack={tool.id}
-                  className="desk-pal-stack"
-                  // The left padding is the bridge the cursor crosses: 28px, as
-                  // tall as the menu. It starts 14px inside the tool's box
-                  // (behind its button, which sits above it), so the empty
-                  // corners of the circle are covered, and the menu stays 14px
-                  // clear of the tool. The panel's bottom edge sits at the
-                  // tool's centre, so it grows up and right, clear of the
-                  // tools further round the arc. 8px of padding below it keeps
-                  // the bridge under a cursor that leaves the circle just low
-                  // of centre.
+                <button
+                  ref={pal.toolRef(tool.id)}
+                  type="button"
+                  aria-label={tool.label}
+                  aria-haspopup="menu"
+                  aria-expanded={stackOpen}
+                  aria-current={tool.active ? "true" : undefined}
+                  aria-describedby={dotId}
+                  tabIndex={open && i === roving ? 0 : -1}
+                  className={`desk-pal-tool ${FOCUS_RING_CLASS}`}
+                  onPointerDown={pal.onToolPointerDown}
+                  onClick={(e) => pal.onToolClick(e, tool)}
+                  onKeyDown={(e) => pal.onToolKeyDown(e, i, tool)}
+                  onFocus={() => pal.setRoving(i)}
                   style={{
-                    position: "absolute",
-                    left: PALETTE.tool - PALETTE.bridge / 2,
-                    bottom: half - 8,
-                    paddingLeft: PALETTE.bridge,
-                    paddingBottom: 8,
-                    zIndex: 0,
+                    position: "relative",
+                    // Above the menu's bridge, which reaches in behind the button.
+                    zIndex: 1,
+                    width: PALETTE.tool,
+                    height: PALETTE.tool,
+                    borderRadius: "50%",
+                    border: `1px solid ${tool.active ? DESK.accent : DESK.lineStrong}`,
+                    color: tool.active ? DESK.accent : DESK.text,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    cursor: "pointer",
+                    padding: 0,
                   }}
                 >
-                  <StackPanel
-                    tool={tool}
-                    onSelect={pal.selectItem}
-                    onItemKeyDown={(e) => pal.onItemKeyDown(e, tool)}
-                    onNavigate={() => pal.closeAll()}
-                  />
-                </div>
-              )}
-            </div>
-          );
-        })}
+                  {tool.avatar ? <Avatar {...tool.avatar} /> : tool.icon}
+                  {hasBadge && <CountChip text={badgeText(tool.badge ?? 0)} offset={-6} />}
+                  {tool.dot && <Dot />}
+                </button>
+                {tool.dot && (
+                  <span id={dotId} className="sr-only">
+                    {tool.dot}
+                  </span>
+                )}
+
+                {stackOpen && (
+                  <div
+                    data-pal-hit
+                    data-stack={tool.id}
+                    className="desk-pal-stack"
+                    // The left padding is the bridge the cursor crosses: 28px, as
+                    // tall as the menu. It starts 14px inside the tool's box
+                    // (behind its button, which sits above it), so the empty
+                    // corners of the circle are covered, and the menu stays 14px
+                    // clear of the tool. The panel's bottom edge sits at the
+                    // tool's centre, so it grows up and right, clear of the
+                    // tools further round the arc. 8px of padding below it keeps
+                    // the bridge under a cursor that leaves the circle just low
+                    // of centre.
+                    style={{
+                      position: "absolute",
+                      left: PALETTE.tool - PALETTE.bridge / 2,
+                      bottom: half - 8,
+                      paddingLeft: PALETTE.bridge,
+                      paddingBottom: 8,
+                      zIndex: 0,
+                    }}
+                  >
+                    <StackPanel
+                      tool={tool}
+                      onSelect={pal.selectItem}
+                      onItemKeyDown={(e) => pal.onItemKeyDown(e, tool)}
+                      onNavigate={() => pal.closeAll()}
+                    />
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
       </div>
-    </div>
+      {hint.show && <PaletteHint onDismiss={hint.dismiss} reduced={reduced} />}
+    </>
   );
 }
