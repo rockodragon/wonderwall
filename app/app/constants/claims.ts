@@ -69,6 +69,18 @@ export const CLAIMS = {
   memberDirected: "Each month you choose who gets your monthly grant: a creative, a project, or the grant fund.",
   memberDirectedDefault: "If you don't pick within a week, it goes to the grant fund.",
   memberDirectedFull: "What you give goes to them in full.",
+
+  // Added 2026-10-03 for /pricing, awaiting Rick's OK (claims.md, "Added
+  // 2026-10-03"). From the plan's Tables update and §3, checked against the
+  // code on `tables` (tablePolicy.ts, tables.ts, stripeHandlers.ts).
+  perCommunity: "Each community sets its own membership price.",
+  tablesFree: "Anyone can set a free, one-time Table.",
+  tablesPaid: "Charging for a Table, or running one that meets again, takes membership in its community.",
+  tablesJoinPaid: "Anyone can join an open paid Table by paying its price.",
+  tableSplit: "On a paid Table, you keep 90% of what you sell.",
+  tableProcessingFee: "Card processing is added on top of the Table's price.",
+  tickets: "Anyone can post an event. Selling tickets takes membership.",
+  directPay: "When a patron pays a creative directly, we take nothing.",
 } as const;
 
 /** Phrases we dropped. claims.test.ts fails if any shows up in site source —
