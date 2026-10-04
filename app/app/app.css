@@ -19,3 +19,13 @@ body {
 :root:not([data-theme="light"]) {
   color-scheme: dark;
 }
+
+/* The Garden's brand on its own domains (app/brand/brands.ts). A page that is
+   prerendered carries both versions of a brand mark; the one that doesn't
+   match <html data-brand> hides, so nothing flashes and hydration matches. */
+html:not([data-brand="garden"]) .brand-garden {
+  display: none !important;
+}
+html[data-brand="garden"] .brand-exchange {
+  display: none !important;
+}

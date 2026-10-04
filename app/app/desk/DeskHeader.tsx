@@ -15,12 +15,20 @@
 // sticky`, and a sticky row stays pinned only while its parent is as tall as
 // the page. Both go straight into the page's scroll content; Desk owns that.
 //
+// When the community is The Garden, the mono community line is The Garden's
+// lockup instead, on any address (docs/features/garden-brand-domains.md;
+// Rick, 2026-10-03: everyone signs in to The Garden, so the desk shows it).
+// The brand is never set in capitals, and the greeting or the view's title
+// already says where you are, so the view's name doesn't follow it. A crumb
+// (the Shortlist's) still does.
+//
 // Hooks stay above every return.
 
 import { useLayoutEffect, useRef, type ReactNode } from "react";
 import { Link, useSearchParams } from "react-router";
 import { canCopyInvite, inviteRowLabel } from "../components/InviteCTA";
 import { useInviteLink } from "../lib/useInviteLink";
+import { GardenLockup } from "../brand/GardenMark";
 import { DeskFilterBar, browseCreate, isBrowseView, type BrowseView } from "./deskBrowse";
 import { countLabel } from "./deskGreeting";
 import { GRID_SIDE } from "./deskLayout";
@@ -90,6 +98,7 @@ export function DeskHeader({
   const tint = useDeskTint();
   const report = useRef(onMeasure);
   report.current = onMeasure;
+  const gardenMark = community === "garden";
 
   const home = view === "all";
   const browse = isBrowseView(view);
@@ -119,9 +128,13 @@ export function DeskHeader({
     <>
       {home ? (
         <div ref={titleRef} inert={inert} style={{ position: "absolute", left: side, top: 44, display: "flex", flexDirection: "column", gap: 10 }}>
-          <p style={mono}>
-            {COMMUNITY_LABEL[community]} · {DESK_VIEW_LABEL[view]}
-          </p>
+          {gardenMark ? (
+            <GardenLockup fontSize={16} />
+          ) : (
+            <p style={mono}>
+              {COMMUNITY_LABEL[community]} · {DESK_VIEW_LABEL[view]}
+            </p>
+          )}
           <h1 style={{ ...titleStyle, visibility: greetingReady ? "visible" : "hidden" }}>{greeting}</h1>
         </div>
       ) : (
@@ -130,10 +143,17 @@ export function DeskHeader({
           inert={inert}
           style={{ position: "relative", padding: `44px ${side}px ${pinned ? 14 : 24}px`, display: "flex", flexDirection: "column", gap: 10 }}
         >
-          <p style={mono}>
-            {COMMUNITY_LABEL[community]}
-            {parts?.crumb && <> · {parts.crumb}</>}
-          </p>
+          {gardenMark ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <GardenLockup fontSize={16} />
+              {parts?.crumb && <p style={mono}>· {parts.crumb}</p>}
+            </div>
+          ) : (
+            <p style={mono}>
+              {COMMUNITY_LABEL[community]}
+              {parts?.crumb && <> · {parts.crumb}</>}
+            </p>
+          )}
           <h1 style={{ ...titleStyle, display: "flex", alignItems: "baseline", gap: 14 }}>
             <span>{parts?.title ?? DESK_VIEW_LABEL[view]}</span>
             {shownCount !== null && (

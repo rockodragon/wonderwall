@@ -22,6 +22,8 @@ import type { Id } from "../../convex/_generated/dataModel";
 import { formatDateTime, formatMoney } from "../garden/ui";
 import { PAGE_WIDTH } from "../lib/pageWidth";
 import { SITE_ORIGIN } from "../lib/eventCalendar";
+import { GARDEN } from "../brand/brands";
+import { GardenLockup } from "../brand/GardenMark";
 
 // Indexed (Rick, 2026-10-02: communities should be findable). The title,
 // description and canonical URL are the community's own — CommunityHead.
@@ -151,10 +153,18 @@ function priceLabel(priceCents: number, billing: string): string {
   return billing === "monthly" ? `${formatMoney(priceCents)}/mo` : `${formatMoney(priceCents)} one-time`;
 }
 
+/** The Garden's own page, on any address (docs/features/
+ * garden-brand-domains.md): its lockup, and a Join button for strangers.
+ * Every other community's page is as it was. */
+function isGardenPage(community: { slug: string } | null | undefined): boolean {
+  return community?.slug === GARDEN.communitySlug;
+}
+
 // ————— Join / membership control —————
 
 function JoinControl({ community }: { community: Community }) {
   const { isAuthenticated, isLoading } = useConvexAuth();
+  const gardenHome = isGardenPage(community);
   const joinCommunity = useMutation(api.garden.communities.joinCommunity);
   const leaveCommunity = useMutation(api.garden.communities.leaveCommunity);
   const [busy, setBusy] = useState(false);
@@ -163,6 +173,25 @@ function JoinControl({ community }: { community: Community }) {
   if (isLoading) return null;
 
   if (!isAuthenticated) {
+    // On The Garden's page a stranger is the likeliest signed-out visitor,
+    // and they have no account to sign in to: joining (signup, which asks
+    // for an invite code or offers the waitlist) leads, signing in follows.
+    if (gardenHome) {
+      return (
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
+          <Link to="/signup" className={btnPrimaryClass} style={btnPrimaryStyle}>
+            Join {community.name}
+          </Link>
+          <Link
+            to={`/login?redirect=/communities/${community.slug}`}
+            className="text-[13.5px] underline-offset-4 hover:underline"
+            style={{ color: "var(--garden-body)" }}
+          >
+            Sign in
+          </Link>
+        </div>
+      );
+    }
     return (
       <Link
         to={`/login?redirect=/communities/${community.slug}`}
@@ -1183,6 +1212,7 @@ export function CommunityPage({
     api.garden.communities.getCommunity,
     slug ? { slug } : "skip",
   ) as Community | null | undefined;
+  const gardenHome = isGardenPage(community);
 
   if (community === undefined) {
     return (
@@ -1211,16 +1241,43 @@ export function CommunityPage({
         </div>
       )}
 
-      <h1
-        className="text-2xl sm:text-3xl font-semibold"
-        style={{ color: "var(--garden-paper)", fontFamily: "var(--garden-font-display)" }}
-      >
-        {community.name}
-      </h1>
-      {community.tagline && (
-        <p className="mt-2.5 text-[15px] leading-relaxed max-w-[58ch]" style={{ color: "var(--garden-body)" }}>
-          {stripInlineMarks(community.tagline)}
-        </p>
+      {gardenHome ? (
+        // The Garden's own page wears its lockup, and the tagline (still the
+        // hosts' words, from host tools) takes its font.
+        <>
+          <h1 style={{ margin: 0 }}>
+            <GardenLockup fontSize={32} grow surface="#121212" />
+          </h1>
+          {community.tagline && (
+            <p
+              className="mt-3 max-w-[40ch]"
+              style={{
+                color: "var(--garden-paper)",
+                fontFamily: "'Jost', var(--garden-font-sans, sans-serif)",
+                fontWeight: 500,
+                fontSize: 20,
+                lineHeight: 1.3,
+                letterSpacing: "-0.01em",
+              }}
+            >
+              {stripInlineMarks(community.tagline)}
+            </p>
+          )}
+        </>
+      ) : (
+        <>
+          <h1
+            className="text-2xl sm:text-3xl font-semibold"
+            style={{ color: "var(--garden-paper)", fontFamily: "var(--garden-font-display)" }}
+          >
+            {community.name}
+          </h1>
+          {community.tagline && (
+            <p className="mt-2.5 text-[15px] leading-relaxed max-w-[58ch]" style={{ color: "var(--garden-body)" }}>
+              {stripInlineMarks(community.tagline)}
+            </p>
+          )}
+        </>
       )}
       {community.websiteUrl && (
         <a
