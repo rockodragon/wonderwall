@@ -14,6 +14,7 @@ import { normalizePhone } from "./phone";
 import { sendSms } from "./smsSender";
 import { decideCreateOrUpdateUser } from "./authLinking";
 import { joinDefaultCommunity } from "./garden/defaultCommunity";
+import { allowedAuthRedirect, gardenNameForUrl, siteNameForUrl } from "./garden/brandHosts";
 
 const CODE_MAX_AGE_SECONDS = 10 * 60; // 10 minutes
 
@@ -422,7 +423,10 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
         const code = array[0] % 1_000_000;
         return code.toString().padStart(6, "0");
       },
-      async sendVerificationRequest({ identifier, token }, ctx) {
+      // `url` is where the code's link would land, built from the page's
+      // redirectTo: on one of The Garden's addresses the text says The
+      // Garden (convex/garden/brandHosts.ts).
+      async sendVerificationRequest({ identifier, token, url }, ctx) {
         const allowed = await ctx.runMutation(
           internal.auth.recordAndCheckPhoneSendLimit,
           { phone: identifier },
@@ -433,7 +437,7 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
           );
         }
 
-        const message = `TheCreative.exchange sign-in code: ${token}. It expires in 10 minutes.`;
+        const message = `${siteNameForUrl(url)} sign-in code: ${token}. It expires in 10 minutes.`;
         await sendSms(identifier, message);
       },
     }),
@@ -453,7 +457,7 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
       },
       // The library passes the action ctx as a second argument to email
       // providers too (signIn.js), but Email()'s type only declares one.
-      async sendVerificationRequest({ identifier, token }, actionCtx?: unknown) {
+      async sendVerificationRequest({ identifier, token, url }, actionCtx?: unknown) {
         const ctx = actionCtx as GenericActionCtx<DataModel>;
         const allowed = await ctx.runMutation(
           internal.auth.recordAndCheckEmailSendLimit,
@@ -467,11 +471,21 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
         await ctx.runAction(internal.emails.sendSignInCode, {
           to: identifier,
           code: token,
+          // Set only on a Garden address; elsewhere the email is as it was.
+          siteName: gardenNameForUrl(url),
         });
       },
     }),
   ],
   callbacks: {
+    // Where Google sign-in returns, and the page a code is for: the
+    // library's rule (a path, or SITE_URL) plus The Garden's own addresses,
+    // so someone who starts on one finishes there, signed in on it.
+    async redirect({ redirectTo }) {
+      const siteUrl = process.env.SITE_URL;
+      if (siteUrl === undefined) throw new Error("Missing environment variable `SITE_URL`");
+      return allowedAuthRedirect(redirectTo, siteUrl);
+    },
     createOrUpdateUser,
     // Kept for documentation/parity with the library's shape — with
     // `createOrUpdateUser` specified above, the library itself never calls

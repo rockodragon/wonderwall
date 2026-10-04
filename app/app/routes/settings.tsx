@@ -18,6 +18,7 @@ import { errorMessage } from "../lib/convexError";
 import { NetworkTab } from "../components/NetworkTab";
 import { OrganizationsEditor } from "../components/OrganizationsEditor";
 import { PAGE_WIDTH } from "../lib/pageWidth";
+import { isGardenHost } from "../../convex/garden/brandHosts";
 
 const SETTINGS_TABS = [
   { id: "profile", label: "Profile" },
@@ -1077,7 +1078,12 @@ function PhoneSection() {
     setError("");
     setPending(true);
     try {
-      await startAddPhone({ phone: phoneInput });
+      // The host only on a Garden address, so the code says The Garden; the
+      // argument is new, and leaving it off elsewhere works with any backend.
+      await startAddPhone({
+        phone: phoneInput,
+        ...(isGardenHost(window.location.hostname) ? { host: window.location.hostname } : {}),
+      });
       setStep("enterCode");
     } catch (err) {
       setError(errorMessage(err));

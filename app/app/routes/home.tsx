@@ -9,6 +9,8 @@ import { CLAIMS } from "../constants/claims";
 import { api } from "../../convex/_generated/api";
 import { GARDEN_SLUG } from "../lib/communitySlugs";
 import { stripInlineMarks } from "../lib/richText";
+import { useBrand } from "../brand/brands";
+import { CommunityPage } from "./communities.$slug";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -66,6 +68,21 @@ export default function Home() {
       navigate(`/signup/${encodeURIComponent(inviteParam)}`, { replace: true });
     }
   }, [navigate]);
+
+  const brand = useBrand();
+
+  // On The Garden's own address the front door is The Garden's page
+  // (docs/features/garden-brand-domains.md, D2). The edge serves this path
+  // there without the prerendered Exchange home, so it doesn't flash first.
+  if (brand === "garden") {
+    return (
+      <div className="min-h-screen bg-[var(--garden-ink)]">
+        <link rel="stylesheet" href="/tokens.css" />
+        <SiteHeader />
+        <CommunityPage slug={GARDEN_SLUG} />
+      </div>
+    );
+  }
 
   const displayFont = "'Bricolage Grotesque', sans-serif";
   const monoFont = "'JetBrains Mono', monospace";

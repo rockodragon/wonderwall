@@ -139,15 +139,20 @@ export const sendNotificationEmail = internalAction({
  * code included, so local sign-in works.
  */
 export const sendSignInCode = internalAction({
-  args: { to: v.string(), code: v.string() },
-  handler: async (_ctx, { to, code }) => {
+  // siteName: "The Garden" when the code was asked for on one of its
+  // addresses (auth.ts): the email's words, header and sender name say so.
+  // Unset, the email is exactly the platform's, as before.
+  args: { to: v.string(), code: v.string(), siteName: v.optional(v.string()) },
+  handler: async (_ctx, { to, code, siteName }) => {
     const baseUrl = process.env.SITE_URL || "https://thecreative.exchange";
-    const line = `Your TheCreative.exchange code is ${code}. It expires in 10 minutes. If you didn't ask for it, ignore this email.`;
+    const whose = siteName ? `Your code for ${siteName} is` : "Your TheCreative.exchange code is";
+    const line = `${whose} ${code}. It expires in 10 minutes. If you didn't ask for it, ignore this email.`;
     const { html } = renderNotificationEmail({
       heading: `Your code: ${code}`,
-      body: `<p style="margin:0">Your TheCreative.exchange code is <strong>${code}</strong>. It expires in 10 minutes. If you didn't ask for it, ignore this email.</p>`,
+      body: `<p style="margin:0">${whose} <strong>${code}</strong>. It expires in 10 minutes. If you didn't ask for it, ignore this email.</p>`,
       previewText: `Your code: ${code}`,
       baseUrl,
+      ...(siteName ? { brandName: siteName } : {}),
     });
     const provider = getEmailProvider();
     const result = await provider.send({
@@ -155,6 +160,7 @@ export const sendSignInCode = internalAction({
       subject: `Your code: ${code}`,
       html,
       text: line,
+      ...(siteName ? { fromName: siteName } : {}),
     });
     if (!result.ok) {
       console.error(`Failed to send sign-in code via ${provider.name}:`, result.error);
