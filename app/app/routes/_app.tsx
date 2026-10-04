@@ -15,6 +15,7 @@ import { initialsOf } from "../lib/initials";
 import { GARDEN_SLUG } from "../lib/communitySlugs";
 import { PHONE_BAR_HEIGHT } from "../lib/phoneBar";
 import { Palette } from "../desk/Palette";
+import { PhoneNavName, PhoneNavNoteCard, usePhoneNavNote } from "../components/PhoneNavNote";
 import { NeedsYouDot } from "../components/shortlist/NeedsYouDot";
 import { useShortlist } from "../lib/shortlist/useShortlist";
 
@@ -180,11 +181,13 @@ export default function AppLayout() {
     if (mustInvite && !onEventPage && !onTablePage) navigate("/invite", { replace: true });
   }, [mustInvite, onEventPage, onTablePage, navigate]);
 
-  // The palette's first-visit note (desk/PaletteHint.tsx) waits until
-  // nothing above is about to send this person somewhere else.
-  const paletteHintReady =
+  // The first-visit notes that say where the menu is (desk/PaletteHint.tsx,
+  // components/PhoneNavNote.tsx) wait until nothing above is about to send
+  // this person somewhere else.
+  const navNoteReady =
     !isLoading &&
     (!isAuthenticated || (profile !== undefined && signupCommunity !== undefined && !mustOnboard && !mustInvite));
+  const phoneNote = usePhoneNavNote(navNoteReady);
 
   useEffect(() => {
     if (isAuthenticated && mustOnboard && !onEventPage && !onTablePage && !mustInvite) {
@@ -261,6 +264,8 @@ export default function AppLayout() {
   const navItems = isAuthenticated
     ? [...primaryNavItems, ...secondaryNavItems]
     : primaryNavItems;
+  // Messages follows them on the bar, signed in.
+  const barCount = navItems.length + (isAuthenticated ? 1 : 0);
 
   // Shared active/inactive treatment for every sidebar/bottom-nav link —
   // citron wash + accessible accent-ink when active (readable in both
@@ -316,7 +321,7 @@ export default function AppLayout() {
             isAuthenticated={isAuthenticated}
             profile={profile}
             badgeCount={sidebarBadgeCount}
-            hintReady={paletteHintReady}
+            hintReady={navNoteReady}
           />
         </div>
       )}
@@ -335,8 +340,9 @@ export default function AppLayout() {
           boxShadow: "0 -8px 24px -6px rgba(0, 0, 0, 0.35)",
         }}
       >
+        {phoneNote.show && <PhoneNavNoteCard count={barCount} onDismiss={phoneNote.dismiss} />}
         <div className="h-full flex items-center justify-around">
-          {navItems.map((item) => {
+          {navItems.map((item, i) => {
             const isActive = location.pathname.startsWith(item.path);
             const isProfileItem = item.path === "/settings";
             const hasDot = item.path === SHORTLIST_PATH && needsYou > 0;
@@ -344,11 +350,13 @@ export default function AppLayout() {
               <Link
                 key={item.path}
                 to={item.path}
-                className="flex items-center justify-center p-2"
+                className="relative flex items-center justify-center p-2"
                 style={{ color: isActive ? "var(--app-accent-ink)" : "var(--app-text-dim)" }}
                 aria-label={item.label}
                 aria-describedby={hasDot ? `${dotId}-bar` : undefined}
+                onClick={phoneNote.dismiss}
               >
+                {phoneNote.show && <PhoneNavName label={item.label} index={i} count={barCount} />}
                 {hasDot ? (
                   <span className="relative">
                     <item.icon className="w-6 h-6" />
@@ -370,14 +378,16 @@ export default function AppLayout() {
           {isAuthenticated && (
             <Link
               to="/messages"
-              className="flex items-center justify-center p-2"
+              className="relative flex items-center justify-center p-2"
               style={{
                 color: location.pathname.startsWith("/messages")
                   ? "var(--app-accent-ink)"
                   : "var(--app-text-dim)",
               }}
               aria-label="Messages"
+              onClick={phoneNote.dismiss}
             >
+              {phoneNote.show && <PhoneNavName label="Messages" index={barCount - 1} count={barCount} />}
               <div className="relative">
                 <EnvelopeIcon className="w-6 h-6" />
                 {sidebarBadgeCount > 0 && (
