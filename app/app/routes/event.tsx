@@ -1082,7 +1082,9 @@ export default function EventDetail() {
         <CreateEventModal
           edit={{
             eventId: event._id,
-            canEditTickets: !!event.isOrganizer,
+            // A Table's dates don't sell their own tickets: the Table's
+            // price covers them (events.update refuses a link on one).
+            canEditTickets: !!event.isOrganizer && !event.tableId,
             coverImageUrl: event.coverImageUrl,
             initialValues: {
             title: event.title,

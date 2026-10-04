@@ -5,6 +5,7 @@ import {
   apply,
   getAttendees,
   get as getEvent,
+  update as updateEvent,
 } from "../events";
 import { applyApStripeEvent } from "./apGifts";
 import { makeCtx, run, type Row } from "../../test-support/convexContext";
@@ -13,6 +14,7 @@ import {
   rsvpToEvent,
   rsvpGuestToTableEvent,
   getEventRsvps,
+  claimTicketBySession,
 } from "./eventRsvps";
 import {
   get as getVideo,
@@ -609,6 +611,67 @@ describe("Table parent policy applies to existing Event endpoints", () => {
     await expect(run(apply, stranger, { eventId: EVENT })).rejects.toThrow();
     expect(stranger.store.eventApplications).toHaveLength(1);
   });
+  it("a Table's Event can't be given its own ticket link; a link it already had stays as it was", async () => {
+    const LINK = "https://buy.stripe.com/test_tablelink";
+    const save = (extra: Record<string, unknown> = {}) => ({
+      eventId: EVENT,
+      title: "An Event",
+      description: "",
+      datetime: Date.now() + 3600000,
+      tags: [],
+      requiresApproval: false,
+      ...extra,
+    });
+    const host = makeCtx(world(), HOST);
+    const tableEvent = () =>
+      host.store.events.find((e: Row) => e._id === EVENT);
+    await expect(
+      run(updateEvent, host, save({ externalTicketUrl: LINK, externalTicketPriceCents: 2000 })),
+    ).rejects.toThrow("A Table's dates don't sell their own tickets");
+    expect(tableEvent().externalTicketUrl).toBeUndefined();
+    // Other edits still save.
+    await run(updateEvent, host, save({ title: "Renamed" }));
+    expect(tableEvent().title).toBe("Renamed");
+    // A link from before the rule isn't rewritten by an edit, and an older
+    // edit form sending it back unchanged still saves...
+    Object.assign(tableEvent(), {
+      externalTicketUrl: LINK,
+      externalTicketPriceCents: 2000,
+    });
+    await run(updateEvent, host, save());
+    await run(
+      updateEvent,
+      host,
+      save({ externalTicketUrl: LINK, externalTicketPriceCents: 2000 }),
+    );
+    expect(tableEvent()).toMatchObject({
+      externalTicketUrl: LINK,
+      externalTicketPriceCents: 2000,
+    });
+    // ...but it can't be swapped for another link.
+    await expect(
+      run(updateEvent, host, save({ externalTicketUrl: "https://buy.stripe.com/test_another" })),
+    ).rejects.toThrow("A Table's dates don't sell their own tickets");
+    expect(tableEvent().externalTicketUrl).toBe(LINK);
+    // A standalone Event still sells through its link.
+    host.store.events.push({
+      _id: "events:standalone",
+      organizerId: HOST,
+      title: "Standalone",
+      datetime: Date.now() + 3600000,
+      status: "published",
+      tags: [],
+      requiresApproval: false,
+    });
+    await run(
+      updateEvent,
+      host,
+      save({ eventId: "events:standalone", externalTicketUrl: LINK, externalTicketPriceCents: 2000 }),
+    );
+    expect(
+      host.store.events.find((e: Row) => e._id === "events:standalone"),
+    ).toMatchObject({ externalTicketUrl: LINK, externalTicketPriceCents: 2000 });
+  });
   it("accepted free participant can read private room, and /j proxy stays closed", async () => {
     const data = world();
     member(data);
@@ -652,7 +715,8 @@ describe("AP ticket webhook follows Table rules and trusted identity", () => {
         type: "checkout.session.completed",
         data: {
           object: {
-            id: `cs_test_ticket${session}`,
+            // isCheckoutSessionId wants at least 10 characters after cs_test_.
+            id: `cs_test_ticketsession${session}`,
             payment_status: "paid",
             currency: "usd",
             amount_total: amountTotal,
@@ -771,5 +835,63 @@ describe("AP ticket webhook follows Table rules and trusted identity", () => {
     expect(ctx.store.externalTicketExceptions).toHaveLength(1);
     expect(ctx.store.externalTicketExceptions[0].reason).toBe("full");
     expect(ctx.store.grantContributions).toHaveLength(2);
+  });
+
+  it("a Table's guest ticket moves to an account by its session id only for a participant who paid with that account's verified email, for one seat", async () => {
+    const data = world();
+    data.events[0].externalTicketPriceCents = 2000;
+    data.events.push({
+      _id: "events:standalone",
+      organizerId: HOST,
+      title: "Standalone",
+      datetime: Date.now() + 3600000,
+      status: "published",
+    });
+    member(data);
+    for (const id of [HOST, USER, OTHER]) verified(data, id);
+    const webhook = webhookCtx(data);
+    // All bought signed out, so each lands as a guest ticket.
+    const othersTicket = paidTicket("evt-event", "other@example.com");
+    const participantsTicket = paidTicket("evt-event", "participant@example.com");
+    const hostsPair = paidTicket("evt-event", "host@example.com", 4000);
+    const standaloneTicket = paidTicket("evt-standalone", "someone@example.com");
+    for (const t of [othersTicket, participantsTicket, hostsPair, standaloneTicket])
+      await run(applyApStripeEvent, webhook, t);
+    expect(webhook.store.eventRsvps.map((r: Row) => [r.email, r.userId, r.ticketCount])).toEqual([
+      ["other@example.com", undefined, 1],
+      ["participant@example.com", undefined, 1],
+      ["host@example.com", undefined, 2],
+      ["someone@example.com", undefined, 1],
+    ]);
+    const sessionId = (t: ReturnType<typeof paidTicket>) => t.event.data.object.id;
+    const claimAs = (store: Record<string, Row[]>, userId: string, t: ReturnType<typeof paidTicket>) => {
+      const ctx = makeCtx(store, userId);
+      return { ctx, result: run(claimTicketBySession, ctx, { sessionId: sessionId(t) }) };
+    };
+    const refused = "This ticket stays a guest ticket";
+
+    // A participant holding someone else's session id: not their email.
+    let claim = claimAs(webhook.store, USER, othersTicket);
+    await expect(claim.result).rejects.toThrow(refused);
+    // The buyer's own verified email, but not in the Table: stays a guest.
+    claim = claimAs(claim.ctx.store, OTHER, othersTicket);
+    await expect(claim.result).rejects.toThrow(refused);
+    // The host bought two seats: an account row holds one.
+    claim = claimAs(claim.ctx.store, HOST, hostsPair);
+    await expect(claim.result).rejects.toThrow(refused);
+    expect(claim.ctx.store.eventRsvps.every((r: Row) => r.userId === undefined)).toBe(true);
+    expect(claim.ctx.store.grantContributions.every((c: Row) => c.userId === undefined)).toBe(true);
+
+    // The participant who paid with their own verified email, one seat.
+    claim = claimAs(claim.ctx.store, USER, participantsTicket);
+    expect(await claim.result).toBe("claimed");
+    const rsvpRef = `ap:${sessionId(participantsTicket)}`;
+    expect(claim.ctx.store.eventRsvps.find((r: Row) => r.stripeRef === rsvpRef).userId).toBe(USER);
+    expect(claim.ctx.store.grantContributions.find((c: Row) => c.stripeRef === rsvpRef).userId).toBe(USER);
+
+    // A standalone Event keeps the old rule: whoever holds the session id.
+    claim = claimAs(claim.ctx.store, OTHER, standaloneTicket);
+    expect(await claim.result).toBe("claimed");
+    expect(claim.ctx.store.eventRsvps.find((r: Row) => r.email === "someone@example.com").userId).toBe(OTHER);
   });
 });

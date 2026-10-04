@@ -1,4 +1,4 @@
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { escapeHtml } from "./email/template";
 import { internalQuery, mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
@@ -145,6 +145,22 @@ export function normalizeExternalTicket(
   }
 
   return { externalTicketUrl: trimmed, externalTicketPriceCents: input.priceCents };
+}
+
+/** A Table's price covers its dates, so a Table's Event never sells its
+ * own tickets (Rick, 2026-10-04). */
+export const TABLE_EVENT_TICKETS_ERROR =
+  "A Table's dates don't sell their own tickets — set the price on the Table.";
+
+/** Whether a save would put a ticket link on a Table's Event. A link the
+ * Event already had from before this rule isn't a new one: it stays as it
+ * is, and AP's ticket webhook applies the Table's rules to its sales
+ * (garden/eventRsvps.ts's decideTableTicket). */
+export function addsTableEventTicketLink(
+  event: { tableId?: unknown; externalTicketUrl?: string },
+  nextUrl: string | undefined,
+): boolean {
+  return !!event.tableId && !!nextUrl && nextUrl !== event.externalTicketUrl;
 }
 
 // Ticket-gated visibility (isFreeEvent / eventVisibilityChecker) lives in
@@ -760,6 +776,9 @@ export const update = mutation({
       priceCents: args.externalTicketPriceCents,
     });
     if (ticketLinkError) throw new Error(ticketLinkError);
+    if (addsTableEventTicketLink(event, externalTicketUrl)) {
+      throw new ConvexError({ code: "table_event_tickets", reason: TABLE_EVENT_TICKETS_ERROR });
+    }
 
     if (args.hostOrgId) {
       await assertCommunityMember(ctx, args.hostOrgId, userId);
@@ -802,7 +821,9 @@ export const update = mutation({
       endTime: args.endTime,
       // Tickets are the organizer's: a co-host's save keeps them as they
       // were, so a co-host can't point the ticket link at their own Stripe.
-      ...(event.organizerId === userId
+      // A Table's Event sells none (the Table's price covers it), so its
+      // ticket fields are never written here; the edit form leaves them out.
+      ...(event.organizerId === userId && !event.tableId
         ? { ticketTiers: tiers, externalTicketUrl, externalTicketPriceCents }
         : {}),
       location: args.location?.trim(),
