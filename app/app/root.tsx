@@ -10,6 +10,8 @@ import {
 import type { Route } from "./+types/root";
 import { ConvexClientProvider } from "./providers";
 import { Analytics } from "./components/Analytics";
+import { BRAND_BOOT } from "./brand/brands";
+import { BrandTitle } from "./brand/BrandTitle";
 import "./app.css";
 
 export const links: Route.LinksFunction = () => [
@@ -37,7 +39,8 @@ export const links: Route.LinksFunction = () => [
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    // BRAND_BOOT sets data-brand on <html> before React hydrates it.
+    <html lang="en" suppressHydrationWarning>
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -59,6 +62,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
           sizes="180x180"
           href="/apple-touch-icon.png"
         />
+        {/* After the icon links (it re-points them on a Garden domain) and
+            before anything paints. See app/brand/brands.ts. */}
+        <script dangerouslySetInnerHTML={{ __html: BRAND_BOOT }} />
         <Meta />
         <Links />
       </head>
@@ -75,6 +81,7 @@ export default function App() {
   return (
     <ConvexClientProvider>
       <Analytics />
+      <BrandTitle />
       <Outlet />
     </ConvexClientProvider>
   );

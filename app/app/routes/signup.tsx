@@ -13,6 +13,8 @@ import { InviteGate } from "../components/InviteGate";
 import { joinWithInvite } from "../lib/joinWithInvite";
 import { setPendingIntent } from "../lib/pendingIntent";
 import { isCheckoutSessionId } from "../../convex/garden/ticketLink";
+import { useBrand } from "../brand/brands";
+import { GardenLockupThemed } from "../brand/GardenMark";
 
 export function meta() {
   return [
@@ -48,6 +50,7 @@ export function meta() {
 
 export default function Signup() {
   const { inviteSlug } = useParams();
+  const garden = useBrand() === "garden";
   const { signIn, signOut } = useAuthActions();
   const { isAuthenticated } = useConvexAuth();
 
@@ -413,8 +416,9 @@ export default function Signup() {
           <Link
             to="/"
             className="text-xl font-bold text-gray-900 dark:text-white"
+            aria-label={garden ? "The Garden home" : undefined}
           >
-            TheCreative.exchange
+            {garden ? <GardenLockupThemed fontSize={20} /> : "TheCreative.exchange"}
           </Link>
           <Link
             to="/login"

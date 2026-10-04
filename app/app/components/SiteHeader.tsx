@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Link } from "react-router";
 import { NAV_ITEMS } from "../garden/ui";
 import { Wordmark } from "./Wordmark";
+import { GardenLockup } from "../brand/GardenMark";
 
 // The public site header — wordmark, the same five items GardenNav carries,
 // and, on the right, Sign in for a visitor or a quiet "Today" link for someone
@@ -31,13 +32,23 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
     <header
       className={`${overlay ? "absolute top-0 left-0 right-0 z-50" : "relative z-40"} px-4 sm:px-6 py-4 sm:py-6 flex items-center justify-between gap-3 max-w-7xl mx-auto`}
     >
-      <Link to="/" className="min-w-0" aria-label="TheCreative.exchange home">
+      {/* Both brands ship in the prerendered HTML; CSS shows the one for
+          this domain (app/brand/brands.ts), so neither flashes. */}
+      <Link to="/" className="brand-exchange min-w-0" aria-label="TheCreative.exchange home">
         <div className="sm:hidden">
           <Wordmark size="sm" />
         </div>
         <div className="hidden sm:flex">
           <Wordmark size="lg" tagline />
         </div>
+      </Link>
+      <Link to="/" className="brand-garden min-w-0" aria-label="The Garden home">
+        <span className="flex sm:hidden">
+          <GardenLockup fontSize={16} />
+        </span>
+        <span className="hidden sm:flex">
+          <GardenLockup fontSize={20} />
+        </span>
       </Link>
       <div className="flex items-center gap-4 shrink-0">
         <nav aria-label="Site" className="hidden md:flex items-center gap-4 lg:gap-5 mr-2">

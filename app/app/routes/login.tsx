@@ -6,6 +6,8 @@ import { useConvexAuth } from "convex/react";
 import { normalizePhone } from "../../convex/phone";
 import { ensureOAuthHost } from "../lib/oauthHost";
 import { AgreementsConsent } from "../components/AgreementsConsent";
+import { useBrand } from "../brand/brands";
+import { GardenLockupThemed } from "../brand/GardenMark";
 
 export function meta() {
   return [
@@ -44,6 +46,7 @@ export function meta() {
 
 export default function Login() {
   const { signIn } = useAuthActions();
+  const garden = useBrand() === "garden";
   const { isAuthenticated, isLoading: authLoading } = useConvexAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -174,12 +177,25 @@ export default function Login() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950 px-4">
       <div className="max-w-md w-full space-y-8">
         <div className="text-center">
+          {/* On The Garden's own domains (docs/features/garden-brand-domains.md):
+              its lockup, its name, and word that the account is the one
+              they may already have on TheCreative.exchange. */}
+          {garden && (
+            <div className="mb-5 flex justify-center">
+              <GardenLockupThemed fontSize={24} />
+            </div>
+          )}
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
             Welcome back
           </h1>
           <p className="mt-2 text-gray-600 dark:text-gray-400">
-            Sign in to TheCreative.exchange
+            {garden ? "Sign in to The Garden" : "Sign in to TheCreative.exchange"}
           </p>
+          {garden && (
+            <p className="mt-1.5 text-[13.5px] text-gray-600 dark:text-gray-400">
+              Same account as TheCreative.exchange.
+            </p>
+          )}
         </div>
 
         {phoneStep === "phone" ? (

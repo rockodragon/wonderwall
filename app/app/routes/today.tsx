@@ -29,6 +29,8 @@ import { useIsDesktop } from "../hooks/useMediaQuery";
 import { UpdatesStack } from "../components/UpdatesStack";
 import { PhoneNeedsYou } from "../components/shortlist/PhoneParts";
 import { useShortlist } from "../lib/shortlist/useShortlist";
+import { useBrand } from "../brand/brands";
+import { GardenLockup } from "../brand/GardenMark";
 
 export function meta() {
   return [{ title: "Today — The Garden" }];
@@ -79,15 +81,28 @@ function TodayPage() {
   const shownOpen = open.slice(0, LIST_LIMIT);
   const shownGigs = gigs.slice(0, LIST_LIMIT);
 
+  const garden = useBrand() === "garden";
+
   const profileEmpty = profile !== undefined && profile !== null && !profile.bio && !profile.imageUrl;
   const loading = projects === undefined;
 
   return (
     <div className="mx-auto max-w-5xl px-4 md:px-10 pt-8 md:pt-14 pb-24" style={{ color: "var(--app-text)" }}>
-      <div className="flex items-baseline justify-between gap-4 mb-14">
-        <MonoLabel as="h1">Today in The Garden</MonoLabel>
-        <MonoLabel>{formatToday()}</MonoLabel>
-      </div>
+      {/* On The Garden's own domains its lockup leads, never in capitals
+          (docs/features/garden-brand-domains.md); the heading stays for
+          screen readers. */}
+      {garden ? (
+        <div className="flex items-center justify-between gap-4 mb-14">
+          <GardenLockup fontSize={16} />
+          <h1 className="sr-only">Today</h1>
+          <MonoLabel>{formatToday()}</MonoLabel>
+        </div>
+      ) : (
+        <div className="flex items-baseline justify-between gap-4 mb-14">
+          <MonoLabel as="h1">Today in The Garden</MonoLabel>
+          <MonoLabel>{formatToday()}</MonoLabel>
+        </div>
+      )}
 
       {/* Needs you leads (docs/handoff/favorites-redesign/README.md): what
           you owe a reply or an appearance to, the Shortlist's own rows, up to
