@@ -33,6 +33,7 @@ import { plainText } from "./deskCards";
 import { ShortlistActions } from "./ShortlistActions";
 import { LinkedText } from "../components/LinkedText";
 import { CARD_BUTTON_CLASS, DESK, DESK_MONO, DESK_SANS, FOCUS_RING_CLASS, monoLabel } from "./tokens";
+import { GoingLine } from "./GoingLine";
 import { useUpdateClick } from "./useUpdateReads";
 import { useFinishCelebration } from "./useCelebrations";
 
@@ -88,7 +89,9 @@ export function metaParts(meta: string): string[] {
 function MetaLine({ meta }: { meta: string }) {
   const parts = metaParts(meta);
   return (
-    <p className="min-w-0 pt-2.5 pointer-coarse:pt-3" style={{ ...monoLabel(12, "0.2em"), color: DESK.accent, margin: 0, lineHeight: 1.6 }}>
+    // 15px, the nav size: at 12px the date and place read as fine print beside
+    // a 44px title (Rick, 2026-10-05).
+    <p className="min-w-0 pt-2 pointer-coarse:pt-2.5" style={{ ...monoLabel(15, "0.14em"), color: DESK.accent, margin: 0, lineHeight: 1.5 }}>
       {parts.map((part, i) => (
         <Fragment key={i}>
           {i > 0 && " "}
@@ -274,7 +277,11 @@ export function DetailPanel({
             {action?.kind === "shortlist" && (
               <ShortlistActions key={card.id} id={card.id} buttons={action.buttons} onDone={onClose} onBusy={stepper?.onBusy} />
             )}
-            {card.detail.aside && <span style={{ fontSize: 14, color: DESK.muted }}>{card.detail.aside}</span>}
+            {card.kind === "event" && card.eventId ? (
+              <GoingLine eventId={card.eventId} fallback={card.detail.aside} />
+            ) : (
+              card.detail.aside && <span style={{ fontSize: 14, color: DESK.muted }}>{card.detail.aside}</span>
+            )}
             {card.kind === "event" && (
               <Link
                 to={card.href}
