@@ -332,7 +332,9 @@ export default function ProjectDetail() {
             />
           )}
 
-          {isOwner && <InlineEditableMediaLink project={project} />}
+          {/* A project sets its link in Edit project (step 2). A job or gig has
+              no edit form, so its lead keeps this row. */}
+          {isOwner && !isPassion && <InlineEditableMediaLink project={project} />}
 
           {isOwner && isPassion && (
             <div className="mb-2">
@@ -1235,7 +1237,8 @@ function InlineEditableBlurb({ project, isOwner }: { project: any; isOwner: bool
 
   return (
     <div className="flex items-start gap-1 mb-6">
-      <p className="text-sm leading-relaxed flex-1" style={{ color: "var(--garden-body)" }}>
+      {/* pre-line: the blank lines between paragraphs show as written. */}
+      <p className="text-sm leading-relaxed flex-1 whitespace-pre-line" style={{ color: "var(--garden-body)" }}>
         {project.blurb || (isOwner ? "No description yet" : "")}
       </p>
       {isOwner && <EditButton onClick={() => { setDraft(project.blurb ?? ""); setEditing(true); }} label="Edit description" />}
@@ -1673,15 +1676,15 @@ function TeamMemberRow({
           className="px-1.5 py-0.5 rounded border text-sm outline-none min-w-0"
           style={{ backgroundColor: "var(--garden-ink)", borderColor: "var(--garden-hairline-raised)", color: "var(--garden-paper)", maxWidth: "14rem" }}
         />
-      ) : (
+      ) : roleLabel || memberId ? (
         <span
           style={{ color: "var(--garden-dim)", cursor: memberId ? "pointer" : undefined }}
           onClick={memberId ? () => { setDraft(roleLabel); setEditing(true); } : undefined}
           title={memberId ? "Click to edit role" : undefined}
         >
-          — {roleLabel}
+          — {roleLabel || "add role"}
         </span>
-      )}
+      ) : null}
       {showMessage && userId && <MessageButton userId={userId} />}
     </div>
   );
@@ -1742,7 +1745,7 @@ function TeamCard({
         {team.credits.map((c: any) => (
           <div key={c.memberId} className="flex items-center gap-2 text-sm">
             <span style={{ color: "var(--garden-paper)" }}>{c.name}</span>
-            <span style={{ color: "var(--garden-dim)" }}>— {c.role}</span>
+            {c.role && <span style={{ color: "var(--garden-dim)" }}>— {c.role}</span>}
             <span
               className="text-xs uppercase tracking-[0.06em]"
               style={{ fontFamily: "var(--garden-font-mono)", color: "var(--garden-dim)" }}
@@ -2267,7 +2270,7 @@ function ViewerTeamActions({
 
       {mine?.status === "pending" && (
         <div className="flex items-center gap-3 text-sm" style={{ color: "var(--garden-body)" }}>
-          <span>Requested as {mine.role}</span>
+          <span>{mine.role ? `Requested as ${mine.role}` : "Requested"}</span>
           <button
             disabled={busy}
             onClick={() => run(() => withdrawRequest({ projectId: project._id }))}
@@ -2282,7 +2285,7 @@ function ViewerTeamActions({
       {mine?.status === "invited" && (
         <div className="flex items-center gap-3 text-sm flex-wrap" style={{ color: "var(--garden-body)" }}>
           <span>
-            {leadName} invited you as {mine.role}
+            {leadName} invited you{mine.role ? ` as ${mine.role}` : ""}
           </span>
           <button
             disabled={busy}
@@ -2305,7 +2308,7 @@ function ViewerTeamActions({
 
       {mine?.status === "accepted" && (
         <div className="flex items-center gap-3 text-sm" style={{ color: "var(--garden-body)" }}>
-          <span>You're on this project as {mine.role}</span>
+          <span>You're on this project{mine.role ? ` as ${mine.role}` : ""}</span>
           <button
             disabled={busy}
             onClick={() => {
@@ -2527,7 +2530,7 @@ function LeadTeamTools({
                     <Link to={`/profile/${r.profileId}`} className="hover:opacity-80" style={{ color: "var(--garden-paper)" }}>
                       {r.name}
                     </Link>
-                    <span style={{ color: "var(--garden-dim)" }}> — {r.role}</span>
+                    {r.role && <span style={{ color: "var(--garden-dim)" }}> — {r.role}</span>}
                     {r.message && (
                       <p className="text-xs mt-0.5" style={{ color: "var(--garden-dim)" }}>
                         "{r.message}"
@@ -2619,7 +2622,7 @@ function LeadTeamTools({
                 ) : (
                   <span style={{ color: "var(--garden-paper)" }}>{inv.name}</span>
                 )}
-                <span style={{ color: "var(--garden-dim)" }}>— {inv.role}</span>
+                {inv.role && <span style={{ color: "var(--garden-dim)" }}>— {inv.role}</span>}
                 <button
                   disabled={busyId === inv.memberId}
                   onClick={() => run(inv.memberId, () => removeMember({ memberId: inv.memberId }))}
@@ -2673,11 +2676,8 @@ function AddSomeone({ projectId }: { projectId: string }) {
 
   async function sendPersonInvite(userId: string) {
     const picked = openRoles.find((r: any) => r.roleId === selectedRoleId);
+    // The role is optional (Rick, 2026-10-05).
     const role = picked ? picked.title : roleDraft.trim();
-    if (!role) {
-      setError("Say what role you're inviting them for.");
-      return;
-    }
     setError("");
     setSubmitting(true);
     try {
@@ -2707,10 +2707,6 @@ function AddSomeone({ projectId }: { projectId: string }) {
     }
     const picked = openRoles.find((r: any) => r.roleId === creditRoleId);
     const role = picked ? picked.title : creditRole.trim();
-    if (!role) {
-      setError("Say what role they had.");
-      return;
-    }
     setSubmitting(true);
     try {
       await inviteMember({
@@ -2830,7 +2826,7 @@ function AddSomeone({ projectId }: { projectId: string }) {
                           type="text"
                           value={roleDraft}
                           onChange={(e) => setRoleDraft(e.target.value.slice(0, 60))}
-                          placeholder="Role"
+                          placeholder="Role (optional)"
                           maxLength={60}
                           className="w-24 px-2 py-1 rounded-lg border text-xs outline-none"
                           style={inputStyle}
@@ -2900,7 +2896,7 @@ function AddSomeone({ projectId }: { projectId: string }) {
               type="text"
               value={creditRole}
               onChange={(e) => setCreditRole(e.target.value.slice(0, 60))}
-              placeholder="Role"
+              placeholder="Role (optional)"
               maxLength={60}
               className="w-full px-3 py-2 rounded-lg border text-sm outline-none"
               style={inputStyle}

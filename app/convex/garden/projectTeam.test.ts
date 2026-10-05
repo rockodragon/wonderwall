@@ -16,6 +16,7 @@ import {
   STAGES,
   buildClaimEmail,
   buildInviteEmail,
+  optionalRole,
   buildJoinRequestEmail,
   buildRequestDecidedEmail,
   canLeadReinvite,
@@ -398,5 +399,27 @@ describe("isRoleListed — listRoles' rule", () => {
     expect(isRoleListed({ status: "open" }, null)).toBe(false);
     expect(isRoleListed({ status: "closed" }, null)).toBe(false);
     expect(isRoleListed({ status: "filled" }, null)).toBe(true);
+  });
+});
+
+describe("a person added without a role", () => {
+  it("optionalRole keeps a blank role blank and trims the rest", () => {
+    expect(optionalRole(undefined)).toBe("");
+    expect(optionalRole("   ")).toBe("");
+    expect(optionalRole("  Editor ")).toBe("Editor");
+    expect(() => optionalRole("x".repeat(500))).toThrow();
+  });
+
+  it("the invite email leaves out the role", () => {
+    const email = buildInviteEmail({ leadName: "Rick", projectTitle: "Small Acts", role: "", linkUrl: "/projects/abc" });
+    expect(email.subject).toBe("Rick invited you to Small Acts");
+    expect(email.body).toBe("Rick invited you to <strong>Small Acts</strong>.");
+  });
+
+  it("the credit email leaves out the role", () => {
+    const email = buildClaimEmail({ leadName: "Rick", projectTitle: "Small Acts", role: "" }, "tok");
+    expect(email.previewText).toBe("You're listed on Small Acts.");
+    expect(email.body).toContain("Rick listed you on <strong>Small Acts</strong>");
+    expect(email.body).not.toContain(" as ");
   });
 });
