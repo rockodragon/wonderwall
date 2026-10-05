@@ -772,11 +772,11 @@ export function SignupModal({ offering, onClose }: { offering: any; onClose: () 
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto"
+      className="fixed inset-0 z-50 flex p-4 overflow-y-auto"
       style={{ backgroundColor: "rgba(0,0,0,0.6)" }}
     >
       <div
-        className="w-full max-w-md rounded-2xl border p-6 my-8"
+        className="w-full max-w-md rounded-2xl border p-6 m-auto"
         style={{ backgroundColor: "var(--garden-ink-raised)", borderColor: "var(--garden-hairline)" }}
       >
         <h2
@@ -1168,9 +1168,9 @@ export function PostOfferingForm({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto" style={{ backgroundColor: "rgba(0,0,0,0.6)" }}>
+    <div className="fixed inset-0 z-50 flex p-4 overflow-y-auto" style={{ backgroundColor: "rgba(0,0,0,0.6)" }}>
       <div
-        className="w-full max-w-2xl rounded-2xl border p-6 my-8"
+        className="w-full max-w-2xl rounded-2xl border p-6 m-auto"
         style={{ backgroundColor: "var(--garden-ink-raised)", borderColor: "var(--garden-hairline)" }}
       >
         <h2

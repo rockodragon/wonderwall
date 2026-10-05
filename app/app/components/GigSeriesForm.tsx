@@ -21,6 +21,7 @@ import { errorMessage } from "../lib/convexError";
 import { FocusBackdrop } from "./FocusBackdrop";
 import { HireWhenToggle, type HireDraft } from "./HireWhenToggle";
 import { HORIZON_WEEKS, MAX_COUNT, WEEKDAY_SHORT, compareDates } from "../../convex/garden/gigRules";
+import { shiftEndTime } from "../lib/shiftEndTime";
 
 // Same four money states PaidProjectForm offers, mirrored here rather than
 // imported since PaidProjectForm doesn't export its copy.
@@ -351,7 +352,12 @@ export function GigSeriesForm({
               <input
                 type="time"
                 value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
+                onChange={(e) => {
+                  // The end moves with the start; a gig may run past midnight.
+                  const next = e.target.value;
+                  setEndTime((end) => shiftEndTime(startTime, next, end, { overnight: true }));
+                  setStartTime(next);
+                }}
                 className="w-full px-3 py-2 rounded-lg border text-sm outline-none"
                 style={fieldStyle}
               />

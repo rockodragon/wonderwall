@@ -12,6 +12,7 @@ import { api } from "../../convex/_generated/api";
 import { errorMessage } from "../lib/convexError";
 import { toEmbedUrl } from "../lib/videoEmbed";
 import { MAX_CLIPS, MAX_NOTE_LENGTH, PAID_METHODS, isClipArtifact, type PaidMethod } from "../../convex/garden/gigRules";
+import { shiftEndTime } from "../lib/shiftEndTime";
 
 const PAID_METHOD_LABELS: Record<PaidMethod, string> = {
   venmo: "Venmo",
@@ -486,11 +487,11 @@ function GigRespondModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto"
+      className="fixed inset-0 z-50 flex p-4 overflow-y-auto"
       style={{ backgroundColor: "rgba(0,0,0,0.6)" }}
     >
       <div
-        className="w-full max-w-lg rounded-2xl border p-6 my-8"
+        className="w-full max-w-lg rounded-2xl border p-6 m-auto"
         style={{ backgroundColor: "var(--garden-ink-raised)", borderColor: "var(--garden-hairline)" }}
       >
         <h2
@@ -898,7 +899,12 @@ function SeriesControls({ schedule }: { schedule: any }) {
           <input
             type="time"
             value={editStart}
-            onChange={(e) => setEditStart(e.target.value)}
+            onChange={(e) => {
+              // The end moves with the start; a gig may run past midnight.
+              const next = e.target.value;
+              setEditEnd((end: string) => shiftEndTime(editStart, next, end, { overnight: true }));
+              setEditStart(next);
+            }}
             className="px-2 py-1.5 rounded-lg border text-sm outline-none"
             style={{ backgroundColor: "var(--garden-ink)", borderColor: "var(--garden-hairline-raised)", color: "var(--garden-paper)" }}
           />

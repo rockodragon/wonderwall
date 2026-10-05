@@ -21,6 +21,7 @@ import { CoverFrame } from "./CoverFrame";
 import { uploadToStorage } from "../lib/uploadFile";
 import { useCoverPick } from "../lib/useCoverPick";
 import { FocusBackdrop } from "./FocusBackdrop";
+import { shiftEndTime } from "../lib/shiftEndTime";
 
 // One modal for hosting AND editing an event (Rick, 2026-10-01: edit uses the
 // same steps as create). Pass `edit` to open it on an existing event.
@@ -705,7 +706,12 @@ export function CreateEventModal({
                     id={startId}
                     type="time"
                     value={time}
-                    onChange={(e) => setTime(e.target.value)}
+                    onChange={(e) => {
+                      // The end moves with the start, keeping the length.
+                      const next = e.target.value;
+                      setEndTimeStr((end) => shiftEndTime(time, next, end));
+                      setTime(next);
+                    }}
                     className={inputTightClass}
                     style={inputStyle}
                   />
