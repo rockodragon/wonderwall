@@ -79,6 +79,9 @@ export type DeskCard = {
     script?: boolean;
     /** The title is an amount, set as large as a paper note's. */
     large?: boolean;
+    /** A small mono tag in the face's lower-right corner, at rest only: an
+     *  organization's "ORG", in place of a kicker at the top. */
+    tag?: string;
   };
   detail: {
     meta: string;
@@ -608,9 +611,10 @@ export function peopleLine(n: number): string {
 }
 
 /**
- * An organization: a logo (or a monogram) with its name. The kicker says what
- * it is, since an organization sits among people in the same grid. Opened, the
- * tagline stands for "about" and the button goes to its page.
+ * An organization: a logo (or a monogram) with its name. A small "ORG" tag in
+ * the lower-right corner says what it is, since an organization sits among
+ * people in the same grid; there is no kicker at the top. Opened, the tagline
+ * stands for "about" and the button goes to its page.
  */
 export function orgCard(o: DeskOrgInput, sections: DeskView[] = ["people"]): DeskCard {
   const id: DeskCardId = `org:${o._id}`;
@@ -626,7 +630,7 @@ export function orgCard(o: DeskOrgInput, sections: DeskView[] = ["people"]): Des
     note: false,
     tone: toneFor(id),
     image: o.logoUrl || null,
-    face: { kicker: "ORGANIZATION", title: o.name, foot: where || (people > 0 ? peopleLine(people) : null) },
+    face: { kicker: "", tag: "ORG", title: o.name, foot: where || (people > 0 ? peopleLine(people) : null) },
     detail: {
       meta: ["ORGANIZATION", category?.toUpperCase()].filter(Boolean).join(" · "),
       title: o.name,

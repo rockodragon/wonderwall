@@ -624,12 +624,13 @@ describe("organization cards", () => {
     ...extra,
   });
 
-  it("belong to People alone, with their own id and kicker", () => {
+  it("belong to People alone, with their own id and an ORG tag in place of a kicker", () => {
     const card = orgCard(org());
     expect(card.id).toBe("org:o1");
     expect(card.kind).toBe("org");
     expect(card.sections).toEqual(["people"]);
-    expect(card.face.kicker).toBe("ORGANIZATION");
+    expect(card.face.kicker).toBe("");
+    expect(card.face.tag).toBe("ORG");
     expect(card.face.title).toBe("Abiding Practice");
   });
   it("show the logo as the picture, and no picture without one", () => {

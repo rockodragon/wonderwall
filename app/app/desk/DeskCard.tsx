@@ -11,7 +11,10 @@
 // On a project, event, person or organization, the picture side is also a
 // mouse click target for the full page (the yellow button is the keyboard way
 // there). An organization's logo is never cropped: it sits whole on a light
-// plate, and with no logo the face is its monogram in a square frame.
+// plate, and with no logo the face is its monogram in a square frame. At rest
+// the plate (or the monogram's field) is the card's top two-thirds, edge to
+// edge, the name and foot are under it, and a small "ORG" tag is in the lower
+// right corner; there is no kicker at the top.
 //
 // Geometry comes from deskLayout.ts; this file draws it. All motion is 620ms
 // DESK.ease, and none of it runs under prefers-reduced-motion.
@@ -42,6 +45,10 @@ const SHADOW_OPEN = "0 40px 120px rgba(0,0,0,.65)";
 const SCRIM =
   "linear-gradient(to top, rgba(18,18,18,.94) 0%, rgba(18,18,18,.8) 32%, rgba(18,18,18,0) 62%), linear-gradient(to bottom, rgba(18,18,18,.55), transparent 30%)";
 const FILL: CSSProperties = { position: "absolute", inset: 0, width: "100%", height: "100%" };
+/** An organization at rest: the band under its logo plate (or monogram) that is
+ * left for the name and foot. A little over a third, so a two-line name and a
+ * foot fit under the plate on the smallest grid card without touching it. */
+const ORG_BAND = "36%";
 
 /** False on the first frame, true after: a card that has just arrived starts
  * below the window and rises to its place. Two animation frames let the
@@ -197,7 +204,9 @@ export const DeskCardView = memo(function DeskCardView({
   const pagePath = picturePage(card);
   const lift = hovered && place.opacity > 0 && !open;
   const radius = open ? RADIUS_OPEN : RADIUS;
-  const label = [card.face.kicker, card.face.title, card.face.foot].filter(Boolean).join(", ");
+  // An organization has no kicker (its "ORG" tag is a corner mark), so its name is
+  // said in the label: "Organization, Abiding Practice, Collective · San Diego".
+  const label = [card.face.kicker || (card.kind === "org" ? "Organization" : ""), card.face.title, card.face.foot].filter(Boolean).join(", ");
 
   return (
     <Shell
@@ -393,6 +402,14 @@ function Face({
   const small = Math.min(1, scale);
   // The card's side padding at rest: where its words start.
   const edge = Math.round(22 * Math.min(1, Math.max(0.7, scale)));
+  // An organization has no kicker at the top: it wears a small tag in the lower
+  // right corner instead, and the words keep clear of it. With a logo, the plate
+  // fills the card's top, edge to edge, and the name is held to two lines and the
+  // foot to one so they stay in the band under it.
+  const kickerless = logo && !face.kicker;
+  const plated = logo && Boolean(pic);
+  // The tag is 12px mono at 0.2em tracking (0.8em a letter), plus a gap.
+  const tagRoom = face.tag && !split ? Math.ceil(face.tag.length * 12 * 0.8) + 10 : 0;
 
   return (
     <div
@@ -473,16 +490,22 @@ function Face({
             style={{
               position: "absolute",
               // Open, the side is the poster's own shape, so a small margin
-              // lets the poster fill its larger side. A logo's plate lines up
-              // with the card's words instead.
-              ...(split ? { top: 28, left: 28, right: 28, bottom: 28 } : { top: 50, left: logo ? edge : 14, right: logo ? edge : 14, bottom: "44%" }),
+              // lets the poster fill its larger side. A resting logo's plate
+              // is the card's top, edge to edge (the card's own clip rounds
+              // its corners), with the name and foot in the band below.
+              ...(split
+                ? { top: 28, left: 28, right: 28, bottom: 28 }
+                : logo
+                  ? { top: 0, left: 0, right: 0, bottom: ORG_BAND }
+                  : { top: 50, left: 14, right: 14, bottom: "44%" }),
               opacity: framed ? 1 : 0,
               transition: tPic(["opacity", "top", "left", "right", "bottom"]),
             }}
           >
-            {/* A logo's plate: the whole card-width resting, a shorter one
-                centered in the picture side open, so it reads as a mat around
-                the logo and not as a light slab. */}
+            {/* A logo's plate: the card's whole top resting, with the logo
+                as large as a modest margin allows; a shorter one centered in
+                the picture side open, so it reads as a mat around the logo
+                and not as a light slab. */}
             <div
               style={{
                 position: "absolute",
@@ -491,7 +514,7 @@ function Face({
                 top: logo && split ? "14%" : 0,
                 bottom: logo && split ? "14%" : 0,
                 boxSizing: "border-box",
-                ...(logo ? { background: DESK.plate, borderRadius: split ? 8 : 4, padding: split ? 56 : 16 } : {}),
+                ...(logo ? { background: DESK.plate, borderRadius: split ? 8 : 0, padding: split ? 56 : "11%" } : {}),
                 transition: tPic(["top", "bottom", "padding", "border-radius"]),
               }}
             >
@@ -565,7 +588,7 @@ function Face({
         >
           {face.kicker}
         </p>
-      ) : (
+      ) : kickerless ? null : (
         <p
           style={{
             position: "relative",
@@ -613,18 +636,22 @@ function Face({
       )}
 
       {orgMark && (
-        // No logo: the initials, in a square frame (a person's are round-feeling and bare).
-        <div aria-hidden style={{ position: "relative", flex: 1, display: "flex", alignItems: "center", minHeight: 0 }}>
+        // No logo: the initials, in a square frame (a person's are round-feeling
+        // and bare), centered in the same top area a logo's plate fills.
+        <div
+          aria-hidden
+          style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: ORG_BAND, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}
+        >
           <span
             style={{
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              width: Math.max(64, Math.round(92 * Math.min(1.15, scale))),
-              height: Math.max(64, Math.round(92 * Math.min(1.15, scale))),
+              width: Math.max(72, Math.round(120 * Math.min(1.25, scale))),
+              height: Math.max(72, Math.round(120 * Math.min(1.25, scale))),
               border: "1.5px solid rgba(237,227,180,.5)",
               borderRadius: 6,
-              fontSize: Math.max(26, Math.round(40 * Math.min(1.15, scale))),
+              fontSize: Math.max(30, Math.round(52 * Math.min(1.25, scale))),
               fontWeight: 500,
               lineHeight: 1,
               letterSpacing: "-0.02em",
@@ -638,7 +665,8 @@ function Face({
         </div>
       )}
 
-      <div style={{ position: "relative", minWidth: 0, opacity: wordsGo ? 0 : 1, transition: t(["opacity"]) }}>
+      {/* An organization's words are the only thing in the flow, so they hold the bottom themselves. */}
+      <div style={{ position: "relative", minWidth: 0, marginTop: logo ? "auto" : undefined, opacity: wordsGo ? 0 : 1, transition: t(["opacity"]) }}>
         {fromTheHouse && <span aria-hidden style={{ display: "block", width: 28, height: 2, marginBottom: 12, background: paper ? ink : DESK.accent }} />}
         <h3
           style={{
@@ -652,8 +680,10 @@ function Face({
             // A word never breaks mid-way; only one wider than its whole line gives way.
             overflowWrap: "break-word",
             hyphens: "manual",
-            transition: t(["font-size"]),
-            ...(split ? {} : { display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical" as const, overflow: "hidden" }),
+            // With a foot, the foot's row is the tag's; without one, the name's last line is.
+            paddingRight: face.foot || !tagRoom ? undefined : tagRoom,
+            transition: t(["font-size", "padding-right"]),
+            ...(split ? {} : { display: "-webkit-box", WebkitLineClamp: plated ? 2 : 3, WebkitBoxOrient: "vertical" as const, overflow: "hidden" }),
           }}
         >
           {face.title}
@@ -684,14 +714,40 @@ function Face({
               opacity: 0.85,
               hyphens: "manual",
               overflowWrap: "break-word",
-              transition: t(["font-size"]),
-              ...(split ? {} : { display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" as const, overflow: "hidden" }),
+              paddingRight: tagRoom || undefined,
+              transition: t(["font-size", "padding-right"]),
+              ...(split ? {} : { display: "-webkit-box", WebkitLineClamp: plated ? 1 : 2, WebkitBoxOrient: "vertical" as const, overflow: "hidden" }),
             }}
           >
             {face.foot}
           </p>
         )}
       </div>
+
+      {face.tag && (
+        // A small tag in the lower-right corner, on the last line of the words
+        // (the foot, or the name without one). The tracking leaves a gap after
+        // the last letter, which the negative margin takes back so the letters,
+        // not the gap, sit on the edge. The label says what it stands for.
+        <span
+          aria-hidden
+          style={{
+            position: "absolute",
+            right: edge,
+            bottom: edge,
+            marginRight: "-0.2em",
+            fontFamily: DESK_MONO,
+            fontSize: 12,
+            lineHeight: 1.35,
+            letterSpacing: "0.2em",
+            textTransform: "uppercase",
+            opacity: split ? 0 : 0.9,
+            transition: t(["opacity"]),
+          }}
+        >
+          {face.tag}
+        </span>
+      )}
     </div>
   );
 }
