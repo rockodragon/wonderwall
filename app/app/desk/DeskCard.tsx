@@ -372,8 +372,9 @@ function Face({
   const personCard = waiting && card.kind === "person";
   // No logo (or not loaded yet): the monogram, in a square frame where a person's are bare.
   const orgMark = waiting && logo;
-  // An Update is from the house: its kicker is the accent, with or without a picture.
-  const fromTheHouse = card.kind === "update";
+  // An Update is from the house, and a celebration is for you: both wear the
+  // accent kicker, with or without a picture.
+  const fromTheHouse = card.kind === "update" || card.kind === "celebration";
   const dateCard = waiting && card.kind === "event";
   // Paper is the fund and grant notes' alone; a person with no photo is a dark
   // card with their initials in the paper's color.

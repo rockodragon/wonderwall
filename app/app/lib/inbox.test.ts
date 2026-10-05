@@ -31,6 +31,16 @@ describe("inboxIcon", () => {
     expect(inboxIcon("new_follower")).toBe("heart");
   });
 
+  it("gives cheers and offers of help a heart, and money a coin", () => {
+    expect(inboxIcon("encouragement")).toBe("heart");
+    expect(inboxIcon("help_offered")).toBe("heart");
+    expect(inboxIcon("backing_received")).toBe("money");
+    expect(inboxIcon("gift_received")).toBe("money");
+    expect(inboxIcon("fund_award")).toBe("money");
+    expect(inboxIcon("grant_proposal_approved")).toBe("money");
+    expect(inboxIcon("grant_proposal_decided")).toBe("money");
+  });
+
   it("groups gigs with jobs, except getting paid", () => {
     expect(inboxIcon("gig_booked")).toBe("job");
     expect(inboxIcon("gig_time_changed")).toBe("job");

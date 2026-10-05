@@ -198,6 +198,13 @@ function fundLink(slug: string): string {
   return `/fund/${slug}`;
 }
 
+/** The notification type for a decision. Approvals get their own type: the
+ * canvas celebrates them (celebrationTypes.ts); a decline stays a quiet
+ * inbox row. */
+export function proposalNotificationType(approved: boolean): "grant_proposal_approved" | "grant_proposal_decided" {
+  return approved ? "grant_proposal_approved" : "grant_proposal_decided";
+}
+
 /** decideProposal's email to the proposer — subject/heading plain text (the
  * template escapes them), body HTML with the title and operator note
  * escaped. Same shape as projectTeam.ts's builders. */
@@ -362,7 +369,7 @@ export const decideProposal = mutation({
     const linkUrl = hostOrg ? fundLink(hostOrg.slug) : undefined;
     await ctx.db.insert("notifications", {
       userId: row.userId,
-      type: "grant_proposal_decided",
+      type: proposalNotificationType(args.approve),
       title: args.approve ? "Your grant proposal was approved" : "Your grant proposal wasn't approved",
       message: row.title,
       linkUrl,

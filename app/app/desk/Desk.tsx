@@ -49,6 +49,7 @@ import { ShortlistBody, TodayNeedsYou, shortlistHeader } from "./ShortlistView";
 import { DESK, DESK_SANS, FOCUS_RING_CLASS, MOTION_MS, motion, deskSurfaceStyle, useDeskTint } from "./tokens";
 import { useDeskData } from "./useDeskData";
 import { useUpdateReads } from "./useUpdateReads";
+import { useAwardConfetti, useCelebrationReads } from "./useCelebrations";
 
 /** Cards that aren't on show wait below the page. Past this many, the extras
  *  aren't drawn at all. */
@@ -172,7 +173,11 @@ export function Desk() {
   const openId = cardParam && current.some((c) => c.id === cardParam) ? cardParam : null;
 
   // An Update that opens is seen; one that closes is done and leaves the desk.
+  // A celebration that closes is read and leaves too. An award on show gets
+  // its confetti once.
   useUpdateReads(openId);
+  useCelebrationReads(openId);
+  useAwardConfetti(shown, loaded);
 
   // ——— Scroll ———
 
@@ -570,7 +575,7 @@ function EmptyDesk({
       ) : (
         <>
           <p style={{ margin: 0, fontSize: 20, color: DESK.muted }}>
-            {view === "all" ? "Nothing on your desk yet." : `Nothing from ${DESK_VIEW_LABEL[view]} on the desk yet.`}
+            {view === "all" ? "Nothing on your canvas yet." : `Nothing from ${DESK_VIEW_LABEL[view]} on the canvas yet.`}
           </p>
           {findPeople && (
             <Link to="/people" className={linkClass}>

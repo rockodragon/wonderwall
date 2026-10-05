@@ -5,9 +5,12 @@
 
 import { describe, expect, it } from "vitest";
 import {
+  buildFundAwardEmail,
   computeFundTotals,
   computePoolBalance,
   computePoolInflows,
+  fundAwardNotice,
+  fundDisplayName,
   isValidAmountCents,
   resolveRecipientName,
   shapeCredits,
@@ -226,5 +229,58 @@ describe("computePoolBalance", () => {
 
   it("allocations with no contributions yield a negative balance (spent ahead of the ledger — not clamped)", () => {
     expect(computePoolBalance([], [{ amountCents: 500, period: "2026-08" }])).toBe(-500);
+  });
+});
+
+describe("fundDisplayName", () => {
+  it("uses the name the fund page shows for a named fund", () => {
+    expect(fundDisplayName({ slug: "abiding-practice", name: "Abiding Practice" })).toBe("The Sophia Fund");
+  });
+
+  it("uses the org's own name for any other fund", () => {
+    expect(fundDisplayName({ slug: "garden", name: "The Garden" })).toBe("The Garden");
+  });
+});
+
+describe("fundAwardNotice", () => {
+  it("says who awarded what, and for which project", () => {
+    expect(
+      fundAwardNotice({ fundName: "The Sophia Fund", amountCents: 50000, projectTitle: "Psalms for the 2AM" }),
+    ).toEqual({ title: "The Sophia Fund awarded you $500", message: "Psalms for the 2AM" });
+  });
+
+  it("keeps cents only when there are some", () => {
+    expect(fundAwardNotice({ fundName: "F", amountCents: 125050, projectTitle: "P" }).title).toBe(
+      "F awarded you $1,250.50",
+    );
+  });
+});
+
+describe("buildFundAwardEmail", () => {
+  const input = {
+    fundName: "The Sophia Fund",
+    amountCents: 50000,
+    projectTitle: `Short Film <Rewrites> & more`,
+    linkUrl: "/fund/abiding-practice",
+  };
+
+  it("heading is the notice title, CTA is 'See the fund'", () => {
+    const email = buildFundAwardEmail(input);
+    expect(email.subject).toBe("The Sophia Fund awarded you $500");
+    expect(email.heading).toBe("The Sophia Fund awarded you $500");
+    expect(email.ctaText).toBe("See the fund");
+    expect(email.ctaUrl).toBe("/fund/abiding-practice");
+  });
+
+  it("body names the fund, the amount and the project, escaped", () => {
+    expect(buildFundAwardEmail(input).body).toBe(
+      "<strong>The Sophia Fund</strong> awarded <strong>$500</strong> to <strong>Short Film &lt;Rewrites&gt; &amp; more</strong>.",
+    );
+  });
+
+  it("escapes a fund name that has markup in it", () => {
+    const email = buildFundAwardEmail({ ...input, fundName: `Fund <x>` });
+    expect(email.body).toContain("<strong>Fund &lt;x&gt;</strong>");
+    expect(email.body).not.toContain("<x>");
   });
 });

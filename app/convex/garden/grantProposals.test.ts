@@ -13,6 +13,7 @@ import {
   hasOpenProposal,
   isOpenProposalStatus,
   isValidProposalAmountCents,
+  proposalNotificationType,
   toMyProposalEntry,
   toReviewProposalEntry,
   validateProposalSummary,
@@ -202,5 +203,15 @@ describe("buildProposalDecidedEmail", () => {
 
   it("omits the note block when there is no operator note", () => {
     expect(buildProposalDecidedEmail({ ...input, approved: true }).body).not.toContain('"');
+  });
+});
+
+describe("proposalNotificationType", () => {
+  it("approved proposals get the celebrated type", () => {
+    expect(proposalNotificationType(true)).toBe("grant_proposal_approved");
+  });
+
+  it("declined proposals keep the quiet one", () => {
+    expect(proposalNotificationType(false)).toBe("grant_proposal_decided");
   });
 });

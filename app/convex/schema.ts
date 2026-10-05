@@ -708,6 +708,13 @@ export default defineSchema({
     imageUrl: v.optional(v.string()), // Avatar or related image
     relatedUserId: v.optional(v.id("users")), // User who triggered the notification
     readAt: v.optional(v.number()),
+    // A celebration's card (celebrationTypes.ts) is done: closed on the
+    // canvas, "Got it" on a phone, or its button pressed. Kept apart from
+    // readAt on purpose: opening Messages marks every notification read, and
+    // that mustn't take a cheer off the canvas before it was ever seen there.
+    celebratedAt: v.optional(v.number()),
+    // Went out in the daily email (supportDigest.ts), so it never goes twice.
+    digestedAt: v.optional(v.number()),
     createdAt: v.number(),
   })
     .index("by_userId", ["userId"])

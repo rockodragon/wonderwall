@@ -37,7 +37,7 @@ export const DESK = {
 export const DESK_SANS = "Inter, ui-sans-serif, system-ui, sans-serif";
 export const DESK_MONO = "var(--garden-font-mono), ui-monospace, Menlo, monospace";
 
-/** Mono label: the "THE GARDEN · YOUR DESK" voice. */
+/** Mono label: the "THE GARDEN · YOUR CANVAS" voice. */
 export function monoLabel(size = 12, tracking = "0.24em"): CSSProperties {
   return {
     fontFamily: DESK_MONO,

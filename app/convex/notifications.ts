@@ -1,6 +1,9 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import type { Doc, Id } from "./_generated/dataModel";
+import type { QueryCtx } from "./_generated/server";
 import { auth } from "./auth";
+import { AWARD_TYPES, isCelebrationType } from "./celebrationTypes";
 
 // Get notifications for the current user
 export const getNotifications = query({
@@ -64,6 +67,138 @@ export const getUnreadCount = query({
       .collect();
 
     return unread.length;
+  },
+});
+
+// ——— Celebrations (the canvas's cards) ———
+
+/** The canvas shows at most this many celebration cards at once. */
+export const MAX_CELEBRATIONS = 8;
+
+/** A celebration nobody closed leaves the canvas after this long. */
+export const CELEBRATION_DAYS = 30;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** How far back listCelebrations looks: a person's newest notifications,
+ * enough to hold a month of celebrations among everything else. */
+const CELEBRATION_SCAN = 200;
+
+/** The rows worth celebrating (celebrationTypes.ts) that haven't been done
+ * yet and are under a month old, newest first, capped. Read or unread doesn't
+ * matter: Messages marks everything read on sight (see schema celebratedAt).
+ * Pure, so the rules are pinned without Convex. */
+export function pickCelebrations<T extends { type: string; createdAt: number; celebratedAt?: number }>(
+  rows: readonly T[],
+  now: number,
+): T[] {
+  const since = now - CELEBRATION_DAYS * DAY_MS;
+  return rows
+    .filter((n) => isCelebrationType(n.type) && n.celebratedAt === undefined && n.createdAt >= since)
+    .sort((a, b) => b.createdAt - a.createdAt)
+    .slice(0, MAX_CELEBRATIONS);
+}
+
+export type Celebration = {
+  _id: Id<"notifications">;
+  type: string;
+  title: string;
+  message: string;
+  linkUrl: string | null;
+  createdAt: number;
+  from: { userId: Id<"users">; profileId: Id<"profiles">; name: string; imageUrl: string | null } | null;
+};
+
+/** One notification as the canvas gets it. `from` is who it came from (the
+ * cheerer, the giver) and is null when nobody is named or they have no
+ * profile; `imageUrl` is already resolved, so the card needs no second lookup. */
+export function toCelebration(
+  n: {
+    _id: Id<"notifications">;
+    type: string;
+    title: string;
+    message: string;
+    linkUrl?: string;
+    createdAt: number;
+  },
+  from: { userId: Id<"users">; profileId: Id<"profiles">; name: string; imageUrl: string | null } | null,
+): Celebration {
+  return {
+    _id: n._id,
+    type: n.type,
+    title: n.title,
+    message: n.message,
+    linkUrl: n.linkUrl ?? null,
+    createdAt: n.createdAt,
+    from,
+  };
+}
+
+// A profile photo is either an uploaded file or an external URL.
+async function resolveProfileImage(ctx: QueryCtx, profile: Doc<"profiles">): Promise<string | null> {
+  if (profile.imageStorageId) return await ctx.storage.getUrl(profile.imageStorageId);
+  return profile.imageUrl || null;
+}
+
+// Cheers, offers of help, backings, gifts and awards for the signed-in user
+// that are still on the canvas, newest first. Reads the newest few hundred
+// notifications and filters them (the type filter can't use the index). One
+// leaves when finishCelebration marks it done, or after CELEBRATION_DAYS.
+export const listCelebrations = query({
+  args: {},
+  handler: async (ctx): Promise<Celebration[]> => {
+    const userId = await auth.getUserId(ctx);
+    if (!userId) return [];
+
+    const recent = await ctx.db
+      .query("notifications")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .order("desc")
+      .take(CELEBRATION_SCAN);
+
+    return await Promise.all(
+      pickCelebrations(recent, Date.now()).map(async (n) => {
+        // An award is from the fund, not from the operator who recorded it
+        // (decideProposal names them), so it carries no person.
+        const relatedUserId = AWARD_TYPES.has(n.type) ? undefined : n.relatedUserId;
+        const profile = relatedUserId
+          ? await ctx.db
+              .query("profiles")
+              .withIndex("by_userId", (q) => q.eq("userId", relatedUserId))
+              .first()
+          : null;
+        return toCelebration(
+          n,
+          relatedUserId && profile
+            ? {
+                userId: relatedUserId,
+                profileId: profile._id,
+                name: profile.name,
+                imageUrl: await resolveProfileImage(ctx, profile),
+              }
+            : null,
+        );
+      }),
+    );
+  },
+});
+
+// A celebration's card is done (closed, "Got it", or its button pressed): it
+// leaves the canvas and Today, and counts as read. Idempotent.
+export const finishCelebration = mutation({
+  args: { notificationId: v.id("notifications") },
+  handler: async (ctx, args) => {
+    const userId = await auth.getUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
+    const notification = await ctx.db.get(args.notificationId);
+    if (!notification) return false;
+    if (notification.userId !== userId) throw new Error("Not authorized");
+
+    if (notification.celebratedAt === undefined) {
+      const now = Date.now();
+      await ctx.db.patch(args.notificationId, { celebratedAt: now, readAt: notification.readAt ?? now });
+    }
+    return true;
   },
 });
 

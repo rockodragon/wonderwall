@@ -28,6 +28,7 @@ import { FF_DESK } from "../lib/featureFlags";
 import { Desk } from "../desk/Desk";
 import { useIsDesktop } from "../hooks/useMediaQuery";
 import { UpdatesStack } from "../components/UpdatesStack";
+import { CelebrationStack } from "../components/CelebrationStack";
 import { PhoneNeedsYou } from "../components/shortlist/PhoneParts";
 import { useShortlist } from "../lib/shortlist/useShortlist";
 import { GardenLockup } from "../brand/GardenMark";
@@ -114,7 +115,9 @@ function TodayPage() {
         </div>
       )}
 
-      {/* Updates come next (docs/features/desk-updates.md). */}
+      {/* What people did for you comes next, then the Updates
+          (lib/celebrations.ts, docs/features/desk-updates.md). */}
+      <CelebrationStack />
       <UpdatesStack />
 
       {openGift && <YourHalfCard amountCents={openGift.amountCents} />}

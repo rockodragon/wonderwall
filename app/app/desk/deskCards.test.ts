@@ -5,6 +5,7 @@ import {
   ALL_VIEW_UPDATES,
   buildDeskCards,
   cardsInView,
+  celebrationCard,
   dateKicker,
   fundingLine,
   inCommunity,
@@ -21,6 +22,7 @@ import {
   updateCard,
   venueName,
   type DeskCard,
+  type DeskCelebrationInput,
   type DeskEventInput,
   type DeskInput,
   type DeskOrgInput,
@@ -79,6 +81,7 @@ function update(n: number, extra: Partial<DeskUpdateInput> = {}): DeskUpdateInpu
 function input(extra: Partial<DeskInput> = {}): DeskInput {
   return {
     now: NOW,
+    celebrations: [],
     updates: [],
     events: [event(1), event(2), event(3), event(4), event(5)],
     people: [],
@@ -778,6 +781,81 @@ describe("update cards", () => {
       href: "https://example.com/post",
       external: true,
       updateId: "u2",
+    });
+  });
+});
+
+function celebration(n: number, extra: Partial<DeskCelebrationInput> = {}): DeskCelebrationInput {
+  return {
+    _id: `n${n}`,
+    type: "encouragement",
+    title: `Dana cheered on Project ${n}`,
+    message: "Love where this is going.",
+    linkUrl: `/projects/p${n}`,
+    createdAt: NOW - n * 60_000,
+    from: { userId: "user-dana", profileId: "profile-dana", name: "Dana Lee", imageUrl: null },
+    ...extra,
+  };
+}
+
+describe("Celebrations on the canvas", () => {
+  it("come first, ahead of the Updates, and share their two resting slots", () => {
+    const cards = buildDeskCards(input({ celebrations: [celebration(1)], updates: [update(1), update(2)] }), "garden");
+    expect(ids(cards).slice(0, 3)).toEqual(["celebration:n1", "update:u1", "update:u2"]);
+    const resting = ids(cardsInView(cards, "all"));
+    expect(resting).toContain("celebration:n1");
+    expect(resting).toContain("update:u1");
+    expect(resting).not.toContain("update:u2");
+    expect(ids(cardsInView(cards, "today")).slice(0, 3)).toEqual(["celebration:n1", "update:u1", "update:u2"]);
+  });
+
+  it("leave the default canvas's count where it was", () => {
+    const without = cardsInView(buildDeskCards(input({ updates: [update(1), update(2)] }), "garden"), "all").length;
+    const withThree = cardsInView(
+      buildDeskCards(input({ celebrations: [celebration(1), celebration(2), celebration(3)], updates: [update(1), update(2)] }), "garden"),
+      "all",
+    );
+    expect(withThree.length).toBe(without);
+    expect(ids(withThree).filter((id) => id.startsWith("update:"))).toEqual([]);
+  });
+
+  it("lead a cheer with their words, and say thanks to the person", () => {
+    const card = celebrationCard(celebration(1), ["all"]);
+    expect(card.kind).toBe("celebration");
+    expect(card.face).toEqual({ kicker: "CHEER", title: "“Love where this is going.”", foot: "Dana cheered on Project 1" });
+    expect(card.detail.title).toBe("Dana cheered on Project 1");
+    expect(card.detail.description).toBe("Love where this is going.");
+    expect(card.detail.action).toEqual({
+      kind: "celebration",
+      button: { kind: "thanks", label: "Say thanks", userId: "user-dana" },
+      notificationId: "n1",
+    });
+    expect(card.href).toBe("/projects/p1");
+  });
+
+  it("lead an award with what happened, and link to the fund", () => {
+    const card = celebrationCard(
+      celebration(2, { type: "fund_award", title: "The Sophia Fund awarded you $500", message: "Small Acts", linkUrl: "/fund/abiding-practice", from: null }),
+      ["all"],
+    );
+    expect(card.face).toEqual({ kicker: "AWARD", title: "The Sophia Fund awarded you $500", foot: "Small Acts" });
+    expect(card.detail.action).toEqual({
+      kind: "celebration",
+      button: { kind: "link", label: "See the fund", href: "/fund/abiding-practice" },
+      notificationId: "n2",
+    });
+    expect(card.celebrationType).toBe("fund_award");
+  });
+
+  it("wear the person's photo when there is one, and nothing when it's someone unnamed", () => {
+    const named = celebrationCard(celebration(1, { from: { userId: "u", profileId: "p", name: "Dana", imageUrl: "https://img/dana.jpg" } }), []);
+    expect(named.image).toBe("https://img/dana.jpg");
+    const hidden = celebrationCard(celebration(1, { title: "Someone cheered on Project 1", from: null }), []);
+    expect(hidden.image).toBeNull();
+    expect(hidden.detail.action).toEqual({
+      kind: "celebration",
+      button: { kind: "link", label: "See the project", href: "/projects/p1" },
+      notificationId: "n1",
     });
   });
 });
