@@ -5,7 +5,8 @@
 //
 // Opened, a card with a picture splits: the picture on the left, as wide as
 // the picture's shape wants (46 to 62 percent), and the detail panel beside
-// it. A card with no picture is a centered sheet, the panel alone.
+// it. A card with no picture is a centered sheet, the panel alone. An award's
+// paper side is its trophy, large, and nothing else: the panel has the rest.
 //
 // On a project, event, person or organization, the picture side is also a
 // mouse click target for the full page (the yellow button is the keyboard way
@@ -383,6 +384,12 @@ function Face({
   const ink = paper ? DESK.paperInk : DESK.text;
   const t = (props: string[]) => motion(props, reduced);
   const tPic = (props: string[]) => (armed ? t(props) : "none");
+  // An award's mark: opened, it is the whole paper side. Its amount and fund
+  // are in the panel, so saying them on the paper too would say them twice.
+  const trophy = card.kind === "celebration" && note ? face.icon : undefined;
+  // The words (and the corner mark) leave the face when it opens: from a
+  // photo, and from an award, whose trophy takes their place.
+  const wordsGo = split && (Boolean(pic) || Boolean(trophy));
   const small = Math.min(1, scale);
   // The card's side padding at rest: where its words start.
   const edge = Math.round(22 * Math.min(1, Math.max(0.7, scale)));
@@ -502,20 +509,43 @@ function Face({
       {face.icon && (
         // A celebration's mark in the top corner, so a cheer, a backing and
         // an award tell apart at a glance. Over a photo it goes with the
-        // words when the card opens.
+        // words when the card opens; an award's goes too, for its big one.
+        // That one holds its resting size and place as it fades, so it
+        // doesn't jump on the way out.
         <CelebrationMark
           icon={face.icon}
-          size={split ? 44 : Math.max(24, Math.round(32 * small))}
+          size={split && !trophy ? 44 : Math.max(24, Math.round(32 * small))}
           color={paper ? ink : DESK.accent}
           style={{
             position: "absolute",
-            top: split ? 52 : edge - 2,
-            right: split ? 52 : edge - 2,
+            top: split && !trophy ? 52 : edge - 2,
+            right: split && !trophy ? 52 : edge - 2,
             filter: pic ? "drop-shadow(0 1px 8px rgba(0,0,0,.65))" : undefined,
-            opacity: split && pic ? 0 : 1,
+            opacity: wordsGo ? 0 : 1,
             transition: t(["opacity", "top", "right"]),
           }}
         />
+      )}
+
+      {trophy && (
+        // Opened, the award's paper side is its trophy alone, centered both
+        // ways and sized by the side, not by pixels, so it fills a wide
+        // window and a narrow one alike; the cap keeps it off the edges on a
+        // short one. It grows in a little as the card opens.
+        <div aria-hidden style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
+          <div
+            style={{
+              width: "42%",
+              maxWidth: 260,
+              aspectRatio: "1",
+              opacity: split ? 1 : 0,
+              transform: `scale(${split ? 1 : 0.85})`,
+              transition: t(["opacity", "transform"]),
+            }}
+          >
+            <CelebrationMark icon={trophy} size="100%" color={ink} />
+          </div>
+        </div>
       )}
 
       {dateCard ? (
@@ -555,7 +585,7 @@ function Face({
             paddingRight: face.icon ? 40 : undefined,
             // Over a picture the accent needs a little help to stay readable.
             textShadow: fromTheHouse && pic ? "0 1px 10px rgba(0,0,0,.65)" : undefined,
-            opacity: split && pic ? 0 : fromTheHouse ? 1 : 0.9,
+            opacity: wordsGo ? 0 : fromTheHouse ? 1 : 0.9,
             transition: t(["opacity"]),
           }}
         >
@@ -608,7 +638,7 @@ function Face({
         </div>
       )}
 
-      <div style={{ position: "relative", minWidth: 0, opacity: split && pic ? 0 : 1, transition: t(["opacity"]) }}>
+      <div style={{ position: "relative", minWidth: 0, opacity: wordsGo ? 0 : 1, transition: t(["opacity"]) }}>
         {fromTheHouse && <span aria-hidden style={{ display: "block", width: 28, height: 2, marginBottom: 12, background: paper ? ink : DESK.accent }} />}
         <h3
           style={{

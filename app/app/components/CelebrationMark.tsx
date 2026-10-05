@@ -15,7 +15,7 @@ const ICONS: Record<CelebrationIcon, Icon> = {
   trophy: Trophy,
 };
 
-export function CelebrationMark({ icon, size, color, style }: { icon: CelebrationIcon; size: number; color: string; style?: CSSProperties }) {
+export function CelebrationMark({ icon, size, color, style }: { icon: CelebrationIcon; size: number | string; color: string; style?: CSSProperties }) {
   const Mark = ICONS[icon];
   return <Mark aria-hidden size={size} weight="fill" color={color} style={style} />;
 }
