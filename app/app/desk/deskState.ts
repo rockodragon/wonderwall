@@ -28,9 +28,9 @@ export const SHORTLIST_VIEW = "shortlist";
 export const DESK_VIEWS = ["all", "today", "people", "projects", "events", SHORTLIST_VIEW] as const;
 export type DeskView = (typeof DESK_VIEWS)[number];
 
-/** Greeting label for each view: "THE GARDEN · YOUR DESK". */
+/** Greeting label for each view: "THE GARDEN · YOUR CANVAS". */
 export const DESK_VIEW_LABEL: Record<DeskView, string> = {
-  all: "Your desk",
+  all: "Your canvas",
   today: "Today",
   people: "People",
   projects: "Projects",
@@ -51,6 +51,7 @@ export function parseDeskView(raw: string | null | undefined): DeskView {
  *  and a request are the Shortlist's (`role:<projectRoles id>`,
  *  `request:<projectMembers or eventApplications id>`). */
 export type DeskCardId =
+  | `celebration:${string}`
   | `update:${string}`
   | `event:${string}`
   | `project:${string}`

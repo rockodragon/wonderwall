@@ -41,7 +41,7 @@ const DESTINATIONS: readonly Destination[] = [
   {
     to: "/admin/updates",
     title: "Updates",
-    blurb: "Write the cards members see on their desk.",
+    blurb: "Write the cards members see on their canvas.",
   },
   {
     to: "/admin/showcase",

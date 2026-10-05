@@ -19,6 +19,20 @@ import { isStage, resolveStage, stageLabel } from "../lib/stage";
 import type { DeskCommunity, DeskCardId, DeskView } from "./deskState";
 import { hashSeed } from "../components/AbstractCover";
 import { actionTarget, updateCardId } from "../lib/updates";
+import {
+  celebrationButton,
+  celebrationCardId,
+  celebrationIcon,
+  celebrationKicker,
+  celebrationLinks,
+  isAward,
+  leadsWithAmount,
+  leadsWithTheirWords,
+  type CelebrationButton,
+  type CelebrationIcon,
+  type CelebrationLike,
+  type TextLink,
+} from "../lib/celebrations";
 import { shortDay } from "../lib/dates";
 import type { ShortlistButton } from "./shortlistCards";
 
@@ -26,16 +40,19 @@ import type { ShortlistButton } from "./shortlistCards";
 // Types
 // ——————————————————————————————————————————————————————————————
 
-export type DeskCardKind = "update" | "event" | "fund" | "grant" | "project" | "person" | "org";
+export type DeskCardKind = "celebration" | "update" | "event" | "fund" | "grant" | "project" | "person" | "org";
 
 /** What the opened card's button does. An RSVP is a mutation; the rest are
  * links. An Update's button records the press (api.updates.click) and then
  * goes where its link says: in the app, or to another site in a new tab. A
- * Shortlist card's buttons follow the item's state (shortlistCards.ts). */
+ * Shortlist card's buttons follow the item's state (shortlistCards.ts). A
+ * celebration's button marks it done, then says thanks or goes to its link
+ * (lib/celebrations.ts). */
 export type DeskAction =
   | { kind: "link"; label: string; href: string }
   | { kind: "rsvp"; label: string; eventId: string }
   | { kind: "update"; label: string; href: string; external: boolean; updateId: string }
+  | { kind: "celebration"; button: CelebrationButton; notificationId: string }
   | { kind: "shortlist"; buttons: ShortlistButton[] };
 
 /** One labelled line in an opened card's panel: "Stage", "Planning". A row
@@ -52,7 +69,20 @@ export type DeskCard = {
   /** The dark hue behind the face when there's no picture. */
   tone: string;
   image: string | null;
-  face: { kicker: string; title: string; foot: string | null };
+  face: {
+    kicker: string;
+    title: string;
+    foot: string | null;
+    /** A celebration's mark beside the kicker (lib/celebrations.ts). */
+    icon?: CelebrationIcon;
+    /** The foot is a signature, set in handwriting: an award's fund. */
+    script?: boolean;
+    /** The title is an amount, set as large as a paper note's. */
+    large?: boolean;
+    /** A small mono tag in the face's lower-right corner, at rest only: an
+     *  organization's "ORG", in place of a kicker at the top. */
+    tag?: string;
+  };
   detail: {
     meta: string;
     title: string;
@@ -67,6 +97,9 @@ export type DeskCard = {
     action: DeskAction | null;
     /** A Shortlist card's status line: "Mara invited you Sep 30 · Waiting on you". */
     status?: string;
+    /** Names in the title and description that link to their pages: a
+     *  celebration's person, project and fund. */
+    links?: readonly TextLink[];
   };
   /** The full page for this card. */
   href: string;
@@ -74,6 +107,9 @@ export type DeskCard = {
   eventId?: string;
   /** Updates only. */
   updateId?: string;
+  /** Celebrations only: the notification it reads from, and its type. */
+  notificationId?: string;
+  celebrationType?: string;
   /** People only: the profile to ask for a bio when the card opens. */
   profileId?: string;
   /** A Shortlist role or project: the project, whose id picks the cover
@@ -164,8 +200,13 @@ export type DeskUpdateInput = {
   actionUrl: string | null;
 };
 
+/** One celebration, as api.notifications.listCelebrations returns it. */
+export type DeskCelebrationInput = CelebrationLike;
+
 export type DeskInput = {
   now: number;
+  /** Unread celebrations, newest first (lib/celebrations.ts). */
+  celebrations: readonly DeskCelebrationInput[];
   /** The Updates this member should see, in the order the server gave. */
   updates: readonly DeskUpdateInput[];
   events: readonly DeskEventInput[];
@@ -184,8 +225,8 @@ export type DeskInput = {
 /** How many cards rest on the desk in the default view. */
 export const ALL_VIEW_MAX = 6;
 const ALL_VIEW_EVENTS = 3;
-/** Updates take the first slots on the desk, at most this many; the Today
- * view shows all of them. */
+/** Celebrations, then Updates, take the first slots on the desk, at most this
+ * many between them; the Today view shows all of them. */
 export const ALL_VIEW_UPDATES = 2;
 
 // ——————————————————————————————————————————————————————————————
@@ -271,6 +312,58 @@ function eventFoot(e: DeskEventInput): string | null {
 // ——————————————————————————————————————————————————————————————
 // Cards
 // ——————————————————————————————————————————————————————————————
+
+/** Something someone did for you: a cheer, an offer of help, a backing, a
+ * gift, an award. Each kind wears its own mark (hands clapping, a handshake,
+ * coins, a gift, a trophy) beside the accent kicker. A cheer or an offer
+ * leads with their words, with the person's photo when they're named and
+ * have one. Money leads with the amount, set large. An award is a paper note,
+ * like the fund's, signed with the fund's name in handwriting. */
+export function celebrationCard(c: DeskCelebrationInput, sections: DeskView[], money: (cents: number) => string): DeskCard {
+  const id = celebrationCardId(c._id);
+  const kicker = celebrationKicker(c.type).toUpperCase();
+  const icon = celebrationIcon(c.type) ?? undefined;
+  const award = isAward(c);
+  const amount = leadsWithAmount(c) && c.amountCents ? money(c.amountCents) : null;
+  const button = celebrationButton(c);
+
+  let face: DeskCard["face"];
+  if (award) {
+    // The amount, else what was approved; signed by the fund.
+    const title = amount ?? (plainText(c.message, 140) || c.title);
+    face = c.fund ? { kicker, title, foot: c.fund.name, icon, script: true } : { kicker, title, foot: amount ? c.title : null, icon };
+  } else if (leadsWithTheirWords(c)) {
+    const words = plainText(c.message, 140);
+    face = { kicker, title: c.type === "encouragement" ? `“${words}”` : words, foot: c.title, icon };
+  } else if (amount) {
+    face = { kicker, title: amount, foot: c.title, icon, large: true };
+  } else {
+    face = { kicker, title: c.title, foot: plainText(c.message, 140) || null, icon };
+  }
+
+  return {
+    id,
+    kind: "celebration",
+    sections,
+    note: award,
+    tone: toneFor(id),
+    image: award ? null : c.from?.imageUrl || null,
+    face,
+    detail: {
+      meta: `${kicker} · ${dateKicker(c.createdAt)}`,
+      title: c.title,
+      host: null,
+      // Their words whole, line breaks and all.
+      description: c.message,
+      aside: null,
+      action: button ? { kind: "celebration", button, notificationId: c._id } : null,
+      links: celebrationLinks(c),
+    },
+    href: c.linkUrl ?? `/today?card=${id}`,
+    notificationId: c._id,
+    celebrationType: c.type,
+  };
+}
 
 /** An Update from the house: a dark card (or a picture) with the kicker UPDATE,
  * and the whole text and button once it's open. */
@@ -518,9 +611,10 @@ export function peopleLine(n: number): string {
 }
 
 /**
- * An organization: a logo (or a monogram) with its name. The kicker says what
- * it is, since an organization sits among people in the same grid. Opened, the
- * tagline stands for "about" and the button goes to its page.
+ * An organization: a logo (or a monogram) with its name. A small "ORG" tag in
+ * the lower-right corner says what it is, since an organization sits among
+ * people in the same grid; there is no kicker at the top. Opened, the tagline
+ * stands for "about" and the button goes to its page.
  */
 export function orgCard(o: DeskOrgInput, sections: DeskView[] = ["people"]): DeskCard {
   const id: DeskCardId = `org:${o._id}`;
@@ -536,7 +630,7 @@ export function orgCard(o: DeskOrgInput, sections: DeskView[] = ["people"]): Des
     note: false,
     tone: toneFor(id),
     image: o.logoUrl || null,
-    face: { kicker: "ORGANIZATION", title: o.name, foot: where || (people > 0 ? peopleLine(people) : null) },
+    face: { kicker: "", tag: "ORG", title: o.name, foot: where || (people > 0 ? peopleLine(people) : null) },
     detail: {
       meta: ["ORGANIZATION", category?.toUpperCase()].filter(Boolean).join(" · "),
       title: o.name,
@@ -556,21 +650,28 @@ export function orgCard(o: DeskOrgInput, sections: DeskView[] = ["people"]): Des
  * monthly grant, the featured project, other projects, then followed people
  * (who stand in on People until its own list arrives).
  *
- * Updates are from the house, so they come before everything else: the first
- * two rest on the desk, and the Today view opens with all of them. They count
- * against the six on the default desk, so the events give way (the third
- * first), never the fund, the grant or the featured project.
+ * Celebrations (someone did something for you) come first, then Updates from
+ * the house: between them the first two rest on the desk, and the Today view
+ * opens with all of them. They count against the six on the default desk, so
+ * the events give way (the third first), never the fund, the grant or the
+ * featured project.
  */
 export function buildDeskCards(input: DeskInput, community: DeskCommunity): DeskCard[] {
   const needsYou = new Set(input.needsYouEventIds);
   const money = input.formatMoney;
 
-  const updateCards = input.updates.map((u, i) => {
+  const celebrationCards = input.celebrations.map((c, i) => {
     const sections: DeskView[] = ["today"];
     if (i < ALL_VIEW_UPDATES) sections.push("all");
+    return celebrationCard(c, sections, money);
+  });
+  const celebrating = celebrationCards.filter((c) => c.sections.includes("all")).length;
+  const updateCards = input.updates.map((u, i) => {
+    const sections: DeskView[] = ["today"];
+    if (i < ALL_VIEW_UPDATES - celebrating) sections.push("all");
     return updateCard(u, sections);
   });
-  const resting = updateCards.filter((c) => c.sections.includes("all")).length;
+  const resting = celebrating + updateCards.filter((c) => c.sections.includes("all")).length;
 
   const { featured, open, gigs } = pickProjects(input.projects.filter((p) => inCommunity(p, community)));
   const hasFund = community === "garden" && input.fund !== null;
@@ -590,7 +691,7 @@ export function buildDeskCards(input: DeskInput, community: DeskCommunity): Desk
     return eventCard(e, sections);
   });
 
-  const cards: DeskCard[] = [...updateCards, ...eventCards];
+  const cards: DeskCard[] = [...celebrationCards, ...updateCards, ...eventCards];
 
   // The fund belongs to The Garden; The Exchange doesn't show it.
   if (community === "garden" && input.fund) cards.push(fundCard(input.fund, money));

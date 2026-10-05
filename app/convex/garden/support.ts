@@ -32,6 +32,65 @@ import { isHidden } from "../moderationRules";
 const FINANCIAL_TYPES = new Set(["financial_one_time", "financial_recurring", "financial_annual"]);
 const VALID_TYPES = new Set([...FINANCIAL_TYPES, "encouragement", "resource"]);
 
+// ——— Telling the project's owner (cheers and offers of help) ———
+//
+// Backings tell their owner through memberships.ts's notifyBackingConfirmed;
+// cheers and offers of help used to tell nobody. The pure notice is below,
+// covered by support.test.ts; the email goes in the daily one
+// (supportDigest.ts).
+
+export type SupportNotice = {
+  type: "encouragement" | "help_offered";
+  title: string;
+  message: string;
+  relatedUserId?: Id<"users">;
+};
+
+/** A cheer shows the person's name only when they ticked "Show me as a
+ * supporter"; otherwise it's "Someone". */
+function cheererName(profileName: string | undefined, visible: boolean): string {
+  return visible ? profileName || "Someone" : "Someone";
+}
+
+/** What the project's owner is told when someone cheers them on or offers
+ * help. Null for their own project (nobody needs telling about themselves),
+ * for money (backings tell through notifyBackingConfirmed), and for any type
+ * this file doesn't know. */
+export function supportNotice(input: {
+  type: string;
+  supporterUserId: Id<"users">;
+  supporterName?: string;
+  ownerUserId: Id<"users">;
+  projectTitle: string;
+  visible: boolean;
+  message?: string;
+  resourceDescription?: string;
+}): SupportNotice | null {
+  if (input.supporterUserId === input.ownerUserId) return null;
+
+  if (input.type === "encouragement") {
+    return {
+      type: "encouragement",
+      title: `${cheererName(input.supporterName, input.visible)} cheered on ${input.projectTitle}`,
+      message: input.message?.trim() ?? "",
+      ...(input.visible ? { relatedUserId: input.supporterUserId } : {}),
+    };
+  }
+
+  if (input.type === "resource") {
+    // An offer of help is always named, whatever the box says: the owner has
+    // to be able to answer it. The checkbox only governs the public page.
+    return {
+      type: "help_offered",
+      title: `${input.supporterName || "Someone"} offered help on ${input.projectTitle}`,
+      message: input.resourceDescription?.trim() ?? "",
+      relatedUserId: input.supporterUserId,
+    };
+  }
+
+  return null;
+}
+
 export const supportProject = mutation({
   args: {
     projectId: v.id("projects"),
@@ -88,6 +147,30 @@ export const supportProject = mutation({
       status: FINANCIAL_TYPES.has(args.type) ? "pledged" : "confirmed",
       createdAt: Date.now(),
     });
+
+    // Tell the owner about a cheer or an offer of help. Same link rule as
+    // notifyBackingConfirmed: the public story when there is one. The email
+    // waits for the daily one (supportDigest.ts).
+    const notice = supportNotice({
+      type: args.type,
+      supporterUserId: userId,
+      supporterName: profile?.name,
+      ownerUserId: project.userId,
+      projectTitle: project.title,
+      visible: args.visible,
+      message: args.message,
+      resourceDescription: args.resourceDescription,
+    });
+    if (notice) {
+      const linkUrl = project.storySlug ? `/story/${project.storySlug}` : `/projects/${project._id}`;
+      await ctx.db.insert("notifications", {
+        userId: project.userId,
+        ...notice,
+        linkUrl,
+        projectId: project._id,
+        createdAt: Date.now(),
+      });
+    }
 
     return { supportId };
   },

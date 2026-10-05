@@ -194,11 +194,12 @@ export function isSmallDesk(vw: number, vh: number): boolean {
   return vw < SMALL_W || vh < SMALL_H;
 }
 
-/** Which cards a small desk keeps, by priority: Updates (in their own order),
+/** Which cards a small desk keeps, by priority: celebrations, then Updates (each in their own order),
  *  the next event, the fund, the grant, the featured project, then other
  *  events. Ids are typed (deskState DeskCardId); anything else ranks last. The
  *  rest wait offscreen as unmatched cards do. */
 function priorityRank(c: LayoutCard, i: number, firstEvent: number): number {
+  if (c.id.startsWith("celebration:")) return i - 200;
   if (c.id.startsWith("update:")) return i - 100;
   if (c.id.startsWith("event:")) return i === firstEvent ? 0 : 4 + i;
   if (c.id === "fund") return 1;

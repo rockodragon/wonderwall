@@ -236,7 +236,7 @@ export const STARTER_UPDATES: readonly StarterUpdate[] = [
   },
   {
     title: "Your tools are in the corner",
-    body: "On a computer, everything is behind the yellow button in the lower left. Hover it. Each tool sorts your desk, and its menu takes you where you want to go.",
+    body: "On a computer, everything is behind the yellow button in the lower left. Hover it. Each tool sorts your canvas, and its menu takes you where you want to go.",
     audience: "everyone",
     order: 2,
   },

@@ -29,7 +29,7 @@ import { resolveTierCommunity, seatAppliesIn } from "./entitlements";
 import { notifyGiftReceived, openMemberGift, scheduleTransferFor } from "./giving";
 import { applyConnectAccountStatus } from "./connectState";
 
-// ——— Backing-received email (docs/features live-booking-style pattern) ———
+// ——— Class-purchase email (docs/features live-booking-style pattern) ———
 //
 // Pure builder, same shape as gigs.ts's buildBookedEmail and projectTeam.ts's
 // buildClaimEmail — subject/previewText/heading are plain text (the
@@ -37,7 +37,7 @@ import { applyConnectAccountStatus } from "./connectState";
 // through escapeHtml. Covered by memberships.test.ts.
 
 /** Class purchase notification to the teacher (memberships.ts's
- * insertClassPayment adapter). Same shape as buildBackingReceivedEmail. */
+ * insertClassPayment adapter). */
 export function buildClassPurchasedEmail(input: {
   buyerName: string;
   classTitle: string;
@@ -56,32 +56,6 @@ export function buildClassPurchasedEmail(input: {
     heading: `${input.buyerName} signed up for ${input.classTitle}`,
     body: `<strong>${name}</strong> signed up for <strong>${title}</strong> and paid $${amount}.`,
     ctaText: "See the class",
-    ctaUrl: input.linkUrl,
-  };
-}
-
-export function buildBackingReceivedEmail(input: {
-  supporterName: string;
-  visible: boolean;
-  projectTitle: string;
-  amountCents: number;
-  recurring: boolean;
-  linkUrl: string;
-}): { subject: string; previewText: string; heading: string; body: string; ctaText: string; ctaUrl: string } {
-  const displayName = input.visible ? input.supporterName : "Someone";
-  const name = escapeHtml(displayName);
-  const title = escapeHtml(input.projectTitle);
-  const amount = (input.amountCents / 100).toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-  const monthlyWord = input.recurring ? " a month" : "";
-  return {
-    subject: `${displayName} backed ${input.projectTitle}`,
-    previewText: `${displayName} backed ${input.projectTitle} with $${amount}${monthlyWord}.`,
-    heading: "New backing",
-    body: `<strong>${name}</strong> backed <strong>${title}</strong> with $${amount}${monthlyWord}.`,
-    ctaText: "See the project",
     ctaUrl: input.linkUrl,
   };
 }
@@ -440,23 +414,14 @@ function makeConvexDb(ctx: MutationCtx): Db & ClassPaymentDb {
         title: `${displayName} backed ${project.title}`,
         message: `$${amount}${monthlyWord}`,
         linkUrl,
-        relatedUserId: args.backerUserId as Id<"users"> | undefined,
+        // Named only when they chose to be: a hidden backer's account isn't
+        // attached either, or the inbox and the canvas would show their face.
+        relatedUserId: args.visible ? (args.backerUserId as Id<"users"> | undefined) : undefined,
+        projectId: project._id,
+        amountCents: args.amountCents,
         createdAt: Date.now(),
       });
-
-      await scheduleNotificationEmail(ctx, {
-        userId: project.userId,
-        category: "activity",
-        communityId: project.hostOrgId,
-        ...buildBackingReceivedEmail({
-          supporterName: args.supporterName,
-          visible: args.visible,
-          projectTitle: project.title,
-          amountCents: args.amountCents,
-          recurring: args.recurring,
-          linkUrl,
-        }),
-      });
+      // The email waits for the daily one (supportDigest.ts).
     },
 
     async getClassPaymentByRef(stripeRef: string) {
@@ -572,7 +537,6 @@ function makeConvexDb(ctx: MutationCtx): Db & ClassPaymentDb {
         amountCents: row.grossCents,
         source: "plus_up",
         recurring: row.billing !== "one_time",
-        communityId: gift?.communityId,
       });
       await scheduleTransferFor(ctx, payeeUserId);
     },

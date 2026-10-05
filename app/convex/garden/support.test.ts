@@ -2,7 +2,15 @@
 // No Convex, no network.
 
 import { describe, expect, it } from "vitest";
-import { fundMoneyKind, isGivenSupport, supportCadence, supportKind, supporterView, totalPaidCents } from "./support";
+import {
+  fundMoneyKind,
+  isGivenSupport,
+  supportCadence,
+  supportKind,
+  supportNotice,
+  supporterView,
+  totalPaidCents,
+} from "./support";
 import type { Id } from "../_generated/dataModel";
 
 describe("supportKind", () => {
@@ -106,5 +114,61 @@ describe("supporterView", () => {
     const anon = supporterView({ ...row, visible: false }, true) as Record<string, unknown>;
     expect(anon.supporterName).toBe("Anonymous");
     expect(anon).not.toHaveProperty("supporterUserId");
+  });
+});
+
+describe("supportNotice — what the project's owner is told", () => {
+  const supporter = "user_supporter" as Id<"users">;
+  const owner = "user_owner" as Id<"users">;
+  const base = {
+    supporterUserId: supporter,
+    supporterName: "Dana",
+    ownerUserId: owner,
+    projectTitle: "Small Acts",
+    visible: true,
+  };
+
+  it("a cheer names the person and carries their words", () => {
+    expect(supportNotice({ ...base, type: "encouragement", message: "  Keep going!  " })).toEqual({
+      type: "encouragement",
+      title: "Dana cheered on Small Acts",
+      message: "Keep going!",
+      relatedUserId: supporter,
+    });
+  });
+
+  it("a hidden cheer says Someone and names no user", () => {
+    const notice = supportNotice({ ...base, type: "encouragement", message: "Yes.", visible: false });
+    expect(notice).toEqual({ type: "encouragement", title: "Someone cheered on Small Acts", message: "Yes." });
+    expect(notice).not.toHaveProperty("relatedUserId");
+  });
+
+  it("a cheer from someone with no profile name says Someone but still links the user", () => {
+    const notice = supportNotice({ ...base, type: "encouragement", message: "Yes.", supporterName: undefined });
+    expect(notice?.title).toBe("Someone cheered on Small Acts");
+    expect(notice?.relatedUserId).toBe(supporter);
+  });
+
+  it("an offer of help is always named, even when the box is unticked", () => {
+    expect(
+      supportNotice({ ...base, type: "resource", resourceDescription: " I can lend a PA ", visible: false }),
+    ).toEqual({
+      type: "help_offered",
+      title: "Dana offered help on Small Acts",
+      message: "I can lend a PA",
+      relatedUserId: supporter,
+    });
+  });
+
+  it("is null on your own project", () => {
+    expect(supportNotice({ ...base, ownerUserId: supporter, type: "encouragement", message: "Me!" })).toBeNull();
+    expect(supportNotice({ ...base, ownerUserId: supporter, type: "resource", resourceDescription: "Me!" })).toBeNull();
+  });
+
+  it("is null for money and for a type it doesn't know", () => {
+    expect(supportNotice({ ...base, type: "financial_one_time" })).toBeNull();
+    expect(supportNotice({ ...base, type: "financial_recurring" })).toBeNull();
+    expect(supportNotice({ ...base, type: "financial_annual" })).toBeNull();
+    expect(supportNotice({ ...base, type: "something_else" })).toBeNull();
   });
 });

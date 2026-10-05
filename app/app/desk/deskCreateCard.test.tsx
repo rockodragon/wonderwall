@@ -221,7 +221,7 @@ describe("empty states", () => {
 
   it("People, empty: its own words and no card", () => {
     const html = desk("/today?view=people");
-    expect(words(html)).toContain("Nothing from People on the desk yet.");
+    expect(words(html)).toContain("Nothing from People on the canvas yet.");
     expect(createCards(html)).toEqual([]);
   });
 });
