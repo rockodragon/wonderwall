@@ -167,6 +167,7 @@ export const supportProject = mutation({
         userId: project.userId,
         ...notice,
         linkUrl,
+        projectId: project._id,
         createdAt: Date.now(),
       });
     }

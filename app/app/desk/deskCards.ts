@@ -19,7 +19,20 @@ import { isStage, resolveStage, stageLabel } from "../lib/stage";
 import type { DeskCommunity, DeskCardId, DeskView } from "./deskState";
 import { hashSeed } from "../components/AbstractCover";
 import { actionTarget, updateCardId } from "../lib/updates";
-import { celebrationButton, celebrationCardId, celebrationKicker, leadsWithTheirWords, type CelebrationButton, type CelebrationLike } from "../lib/celebrations";
+import {
+  celebrationButton,
+  celebrationCardId,
+  celebrationIcon,
+  celebrationKicker,
+  celebrationLinks,
+  isAward,
+  leadsWithAmount,
+  leadsWithTheirWords,
+  type CelebrationButton,
+  type CelebrationIcon,
+  type CelebrationLike,
+  type TextLink,
+} from "../lib/celebrations";
 import { shortDay } from "../lib/dates";
 import type { ShortlistButton } from "./shortlistCards";
 
@@ -56,7 +69,17 @@ export type DeskCard = {
   /** The dark hue behind the face when there's no picture. */
   tone: string;
   image: string | null;
-  face: { kicker: string; title: string; foot: string | null };
+  face: {
+    kicker: string;
+    title: string;
+    foot: string | null;
+    /** A celebration's mark beside the kicker (lib/celebrations.ts). */
+    icon?: CelebrationIcon;
+    /** The foot is a signature, set in handwriting: an award's fund. */
+    script?: boolean;
+    /** The title is an amount, set as large as a paper note's. */
+    large?: boolean;
+  };
   detail: {
     meta: string;
     title: string;
@@ -71,6 +94,9 @@ export type DeskCard = {
     action: DeskAction | null;
     /** A Shortlist card's status line: "Mara invited you Sep 30 · Waiting on you". */
     status?: string;
+    /** Names in the title and description that link to their pages: a
+     *  celebration's person, project and fund. */
+    links?: readonly TextLink[];
   };
   /** The full page for this card. */
   href: string;
@@ -285,23 +311,41 @@ function eventFoot(e: DeskEventInput): string | null {
 // ——————————————————————————————————————————————————————————————
 
 /** Something someone did for you: a cheer, an offer of help, a backing, a
- * gift, an award. Dressed like an Update (the accent kicker, the warm light),
- * with the person's photo when they're named and have one. A cheer's face is
- * their words; the rest say what happened. */
-export function celebrationCard(c: DeskCelebrationInput, sections: DeskView[]): DeskCard {
+ * gift, an award. Each kind wears its own mark (hands clapping, a handshake,
+ * coins, a gift, a trophy) beside the accent kicker. A cheer or an offer
+ * leads with their words, with the person's photo when they're named and
+ * have one. Money leads with the amount, set large. An award is a paper note,
+ * like the fund's, signed with the fund's name in handwriting. */
+export function celebrationCard(c: DeskCelebrationInput, sections: DeskView[], money: (cents: number) => string): DeskCard {
   const id = celebrationCardId(c._id);
   const kicker = celebrationKicker(c.type).toUpperCase();
-  const words = leadsWithTheirWords(c);
-  const quote = c.type === "encouragement" ? `“${plainText(c.message, 140)}”` : plainText(c.message, 140);
+  const icon = celebrationIcon(c.type) ?? undefined;
+  const award = isAward(c);
+  const amount = leadsWithAmount(c) && c.amountCents ? money(c.amountCents) : null;
   const button = celebrationButton(c);
+
+  let face: DeskCard["face"];
+  if (award) {
+    // The amount, else what was approved; signed by the fund.
+    const title = amount ?? (plainText(c.message, 140) || c.title);
+    face = c.fund ? { kicker, title, foot: c.fund.name, icon, script: true } : { kicker, title, foot: amount ? c.title : null, icon };
+  } else if (leadsWithTheirWords(c)) {
+    const words = plainText(c.message, 140);
+    face = { kicker, title: c.type === "encouragement" ? `“${words}”` : words, foot: c.title, icon };
+  } else if (amount) {
+    face = { kicker, title: amount, foot: c.title, icon, large: true };
+  } else {
+    face = { kicker, title: c.title, foot: plainText(c.message, 140) || null, icon };
+  }
+
   return {
     id,
     kind: "celebration",
     sections,
-    note: false,
+    note: award,
     tone: toneFor(id),
-    image: c.from?.imageUrl || null,
-    face: words ? { kicker, title: quote, foot: c.title } : { kicker, title: c.title, foot: plainText(c.message, 140) || null },
+    image: award ? null : c.from?.imageUrl || null,
+    face,
     detail: {
       meta: `${kicker} · ${dateKicker(c.createdAt)}`,
       title: c.title,
@@ -310,6 +354,7 @@ export function celebrationCard(c: DeskCelebrationInput, sections: DeskView[]): 
       description: c.message,
       aside: null,
       action: button ? { kind: "celebration", button, notificationId: c._id } : null,
+      links: celebrationLinks(c),
     },
     href: c.linkUrl ?? `/today?card=${id}`,
     notificationId: c._id,
@@ -614,7 +659,7 @@ export function buildDeskCards(input: DeskInput, community: DeskCommunity): Desk
   const celebrationCards = input.celebrations.map((c, i) => {
     const sections: DeskView[] = ["today"];
     if (i < ALL_VIEW_UPDATES) sections.push("all");
-    return celebrationCard(c, sections);
+    return celebrationCard(c, sections, money);
   });
   const celebrating = celebrationCards.filter((c) => c.sections.includes("all")).length;
   const updateCards = input.updates.map((u, i) => {

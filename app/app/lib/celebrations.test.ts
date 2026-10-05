@@ -4,10 +4,14 @@ import {
   celebratedIds,
   celebrationButton,
   celebrationCardId,
+  celebrationIcon,
   celebrationIdOf,
   celebrationKicker,
+  celebrationLinks,
   isAward,
+  leadsWithAmount,
   leadsWithTheirWords,
+  linkParts,
   rememberCelebrated,
 } from "./celebrations";
 
@@ -40,6 +44,73 @@ describe("what the card says", () => {
     expect(isAward({ type: "fund_award" })).toBe(true);
     expect(isAward({ type: "grant_proposal_approved" })).toBe(true);
     expect(isAward({ type: "backing_received" })).toBe(false);
+  });
+});
+
+describe("telling the kinds apart", () => {
+  it("gives each kind its own mark", () => {
+    expect(celebrationIcon("encouragement")).toBe("clap");
+    expect(celebrationIcon("help_offered")).toBe("handshake");
+    expect(celebrationIcon("backing_received")).toBe("coins");
+    expect(celebrationIcon("gift_received")).toBe("gift");
+    expect(celebrationIcon("fund_award")).toBe("trophy");
+    expect(celebrationIcon("grant_proposal_approved")).toBe("trophy");
+    expect(celebrationIcon("new_follower")).toBeNull();
+  });
+
+  it("leads with the amount for money, never for someone's words", () => {
+    expect(leadsWithAmount({ type: "backing_received", amountCents: 2500 })).toBe(true);
+    expect(leadsWithAmount({ type: "fund_award", amountCents: 50_000 })).toBe(true);
+    expect(leadsWithAmount({ type: "gift_received", amountCents: null })).toBe(false);
+    expect(leadsWithAmount({ type: "gift_received" })).toBe(false);
+    expect(leadsWithAmount({ type: "encouragement", amountCents: 100 })).toBe(false);
+  });
+});
+
+describe("links on the names", () => {
+  it("links the person, the project and the fund, and never Someone", () => {
+    expect(
+      celebrationLinks({
+        from: { userId: "u", profileId: "p1", name: "Dana Lee", imageUrl: null },
+        project: { title: "Small Acts", href: "/projects/x" },
+        fund: { name: "The Sophia Fund", href: "/fund/abiding-practice" },
+      }),
+    ).toEqual([
+      { text: "Dana Lee", href: "/profile/p1" },
+      { text: "Small Acts", href: "/projects/x" },
+      { text: "The Sophia Fund", href: "/fund/abiding-practice" },
+    ]);
+    expect(celebrationLinks({ from: null })).toEqual([]);
+  });
+
+  it("cuts text into plain and linked parts, in order", () => {
+    const links = [
+      { text: "Small Acts", href: "/projects/x" },
+      { text: "Dana Lee", href: "/profile/p1" },
+    ];
+    expect(linkParts("Dana Lee cheered on Small Acts", links)).toEqual([
+      { text: "Dana Lee", href: "/profile/p1" },
+      { text: " cheered on " },
+      { text: "Small Acts", href: "/projects/x" },
+    ]);
+  });
+
+  it("links a name once, leaves out names that aren't there, and keeps text with no links whole", () => {
+    expect(linkParts("Dana and Dana", [{ text: "Dana", href: "/a" }])).toEqual([
+      { text: "Dana", href: "/a" },
+      { text: " and Dana" },
+    ]);
+    expect(linkParts("Someone cheered", [{ text: "Dana", href: "/a" }])).toEqual([{ text: "Someone cheered" }]);
+    expect(linkParts("", [])).toEqual([]);
+  });
+
+  it("lets the longer name win where two overlap", () => {
+    // A project named "Dana" inside "Dana Lee" doesn't take the person's link.
+    expect(linkParts("Dana Lee cheered on Dana", [{ text: "Dana", href: "/project" }, { text: "Dana Lee", href: "/person" }])).toEqual([
+      { text: "Dana Lee", href: "/person" },
+      { text: " cheered on " },
+      { text: "Dana", href: "/project" },
+    ]);
   });
 });
 

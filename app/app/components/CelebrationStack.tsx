@@ -20,11 +20,19 @@ import {
   awardsToCelebrate,
   celebratedIds,
   celebrationButton,
+  celebrationIcon,
   celebrationKicker,
+  celebrationLinks,
+  isAward,
+  leadsWithAmount,
   rememberCelebrated,
   type CelebrationLike,
 } from "../lib/celebrations";
 import { errorMessage } from "../lib/convexError";
+import { formatMoney } from "../garden/ui";
+import { DESK, DESK_SCRIPT } from "../desk/tokens";
+import { CelebrationMark } from "./CelebrationMark";
+import { LinkedText } from "./LinkedText";
 
 const MONO: CSSProperties = { fontFamily: "var(--garden-font-mono)" };
 const DISPLAY: CSSProperties = { fontFamily: "var(--garden-font-display)" };
@@ -34,6 +42,8 @@ const CARD: CSSProperties = {
 };
 const BUTTON = "inline-flex items-center rounded-lg px-4 py-2.5 text-[13.5px] font-semibold transition-opacity hover:opacity-90 disabled:opacity-60";
 const PRIMARY: CSSProperties = { backgroundColor: "var(--garden-citron)", color: "var(--garden-ink)" };
+/** The button on an award's paper: ink, so it holds against the cream. */
+const ON_PAPER: CSSProperties = { backgroundColor: DESK.paperInk, color: DESK.paper };
 
 /** Renders nothing if anything under it fails, so Today never goes down with it. */
 class Quiet extends Component<{ children: ReactNode }, { failed: boolean }> {
@@ -102,41 +112,87 @@ function Stack() {
   );
 }
 
+/** The paper an award is written on, the canvas's note colors (desk/tokens.ts). */
+const PAPER: CSSProperties = { backgroundColor: DESK.paper, borderColor: DESK.paper, color: DESK.paperInk };
+const NAME_LINK = "underline decoration-1 underline-offset-[0.18em] hover:opacity-80";
+
 function CelebrationCard({ celebration: c, onFinish }: { celebration: CelebrationLike; onFinish: (id: string) => void }) {
   const button = celebrationButton(c);
-  const quote = c.type === "encouragement" && c.message.trim() ? `“${c.message.trim()}”` : c.message.trim();
+  const icon = celebrationIcon(c.type);
+  const links = celebrationLinks(c);
+  const award = isAward(c);
+  const amount = leadsWithAmount(c) && c.amountCents ? formatMoney(c.amountCents) : null;
+  const message = c.message.trim();
+  const quote = c.type === "encouragement" && message ? `“${message}”` : message;
+  const ink = award ? DESK.paperInk : "var(--app-text)";
 
   return (
-    <article className="overflow-hidden rounded-xl border" style={CARD}>
+    <article className="relative overflow-hidden rounded-xl border" style={award ? PAPER : CARD}>
+      {icon && (
+        <CelebrationMark
+          icon={icon}
+          size={30}
+          color={award ? DESK.paperInk : "var(--app-accent-ink)"}
+          style={{ position: "absolute", top: 18, right: 18 }}
+        />
+      )}
       <div className="flex gap-4 p-5">
-        {c.from?.imageUrl && (
+        {!award && c.from?.imageUrl && (
           <img src={c.from.imageUrl} alt="" loading="lazy" className="h-12 w-12 shrink-0 rounded-full object-cover" />
         )}
-        <div className="min-w-0 flex-1">
-          <p className="text-xs uppercase tracking-[0.16em]" style={{ ...MONO, color: "var(--app-accent-ink)" }}>
+        <div className="min-w-0 flex-1 pr-10">
+          <p className="text-xs uppercase tracking-[0.16em]" style={{ ...MONO, color: award ? DESK.paperInk : "var(--app-accent-ink)" }}>
             {celebrationKicker(c.type)}
           </p>
-          <span aria-hidden className="mt-3 block h-0.5 w-7" style={{ backgroundColor: "var(--garden-citron)" }} />
-          <h2 className="mt-3 text-2xl font-semibold leading-tight break-words" style={{ ...DISPLAY, color: "var(--app-text)" }}>
-            {c.title}
-          </h2>
-          {quote && (
-            <p className="mt-3 whitespace-pre-line text-[15px] leading-relaxed break-words" style={{ color: "var(--app-text)" }}>
-              {quote}
-            </p>
+          <span aria-hidden className="mt-3 block h-0.5 w-7" style={{ backgroundColor: award ? DESK.paperInk : "var(--garden-citron)" }} />
+          {award ? (
+            // An award: the amount (or what was approved) large, signed by the fund.
+            <>
+              <h2 className="mt-3 text-4xl font-semibold leading-none break-words" style={{ ...DISPLAY, color: ink }}>
+                {amount ?? (message || c.title)}
+              </h2>
+              {c.fund && (
+                <p className="mt-2 -rotate-2 text-[28px] leading-tight" style={{ fontFamily: DESK_SCRIPT, fontWeight: 600, color: ink }}>
+                  <LinkedText text={c.fund.name} links={links} className={NAME_LINK} />
+                </p>
+              )}
+              {amount && message && (
+                <p className="mt-3 text-[15px] leading-relaxed break-words" style={{ color: ink }}>
+                  <LinkedText text={message} links={links} className={NAME_LINK} />
+                </p>
+              )}
+            </>
+          ) : (
+            <>
+              {amount && (
+                <p className="mt-3 text-4xl font-semibold leading-none" style={{ ...DISPLAY, color: ink }}>
+                  {amount}
+                </p>
+              )}
+              <h2 className="mt-3 text-2xl font-semibold leading-tight break-words" style={{ ...DISPLAY, color: ink }}>
+                <LinkedText text={c.title} links={links} className={NAME_LINK} />
+              </h2>
+              {quote && (
+                <p className="mt-3 whitespace-pre-line text-[15px] leading-relaxed break-words" style={{ color: ink }}>
+                  {quote}
+                </p>
+              )}
+            </>
           )}
           <div className="mt-5 flex flex-wrap items-center gap-2">
             {button?.kind === "link" && (
-              <Link to={button.href} onClick={() => onFinish(c._id)} className={BUTTON} style={PRIMARY}>
+              <Link to={button.href} onClick={() => onFinish(c._id)} className={BUTTON} style={award ? ON_PAPER : PRIMARY}>
                 {button.label}
               </Link>
             )}
-            {button?.kind === "thanks" && <ThanksButton userId={button.userId} label={button.label} onDone={() => onFinish(c._id)} />}
+            {button?.kind === "thanks" && (
+              <ThanksButton userId={button.userId} label={button.label} onDone={() => onFinish(c._id)} style={award ? ON_PAPER : PRIMARY} />
+            )}
             <button
               type="button"
               onClick={() => onFinish(c._id)}
               className={`${BUTTON} border font-medium hover:bg-[var(--app-hairline)]`}
-              style={{ borderColor: "var(--app-hairline-raised)", color: "var(--app-text)", backgroundColor: "transparent" }}
+              style={{ borderColor: award ? "rgba(29,27,18,.35)" : "var(--app-hairline-raised)", color: ink, backgroundColor: "transparent" }}
             >
               Got it
             </button>
@@ -149,7 +205,7 @@ function CelebrationCard({ celebration: c, onFinish }: { celebration: Celebratio
 
 /** "Say thanks": starts (or reopens) a conversation with them, the way a
  * profile's Message button does, and marks the card done once it's open. */
-function ThanksButton({ userId, label, onDone }: { userId: string; label: string; onDone: () => void }) {
+function ThanksButton({ userId, label, onDone, style }: { userId: string; label: string; onDone: () => void; style: CSSProperties }) {
   const getOrCreateConversation = useMutation(api.messaging.getOrCreateConversation);
   const navigate = useNavigate();
   const [starting, setStarting] = useState(false);
@@ -171,7 +227,7 @@ function ThanksButton({ userId, label, onDone }: { userId: string; label: string
 
   return (
     <>
-      <button type="button" onClick={onClick} disabled={starting} className={BUTTON} style={PRIMARY}>
+      <button type="button" onClick={onClick} disabled={starting} className={BUTTON} style={style}>
         {label}
       </button>
       {error && (

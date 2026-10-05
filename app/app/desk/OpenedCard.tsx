@@ -31,6 +31,7 @@ import type { DeskAction, DeskCard } from "./deskCards";
 import type { DeskCardId } from "./deskState";
 import { plainText } from "./deskCards";
 import { ShortlistActions } from "./ShortlistActions";
+import { LinkedText } from "../components/LinkedText";
 import { CARD_BUTTON_CLASS, DESK, DESK_MONO, DESK_SANS, FOCUS_RING_CLASS, monoLabel } from "./tokens";
 import { useUpdateClick } from "./useUpdateReads";
 import { useFinishCelebration } from "./useCelebrations";
@@ -51,6 +52,10 @@ export type Stepper = {
 
 // 40px with a mouse, 44px under a finger (the tap target the platforms ask for).
 const ROUND_CLASS = `flex h-10 w-10 pointer-coarse:h-11 pointer-coarse:w-11 shrink-0 items-center justify-center rounded-full border border-[#333] bg-transparent text-[#F4F4F2] transition-colors enabled:hover:border-[#FFE066] enabled:hover:text-[#FFE066] disabled:opacity-35 ${FOCUS_RING_CLASS}`;
+
+/** A name in the panel's words that goes to its page (a celebration's person,
+ *  project or fund): underlined in the words' own color, the accent on hover. */
+const NAME_LINK_CLASS = `underline decoration-1 underline-offset-[0.18em] transition-colors hover:text-[#FFE066] ${FOCUS_RING_CLASS}`;
 
 /** Five lines of the description, then an ellipsis. */
 const CLAMP_5: CSSProperties = { display: "-webkit-box", WebkitLineClamp: 5, WebkitBoxOrient: "vertical", overflow: "hidden" };
@@ -219,7 +224,7 @@ export function DetailPanel({
               textWrap: "balance",
             }}
           >
-            {card.detail.title}
+            <LinkedText text={card.detail.title} links={card.detail.links} className={NAME_LINK_CLASS} />
           </h2>
           {host && <p style={{ margin: 0, fontSize: 15, color: DESK.muted, overflowWrap: "break-word", hyphens: "manual" }}>{host}</p>}
           {description && (
@@ -237,7 +242,7 @@ export function DetailPanel({
                 ...(project ? CLAMP_5 : {}),
               }}
             >
-              {description}
+              <LinkedText text={description} links={card.detail.links} className={NAME_LINK_CLASS} />
             </p>
           )}
           {facts.length > 0 && (

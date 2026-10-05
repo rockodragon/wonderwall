@@ -18,6 +18,7 @@
 import { memo, useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { Link } from "react-router";
 import { AbstractCover } from "../components/AbstractCover";
+import { CelebrationMark } from "../components/CelebrationMark";
 import { CreateCard } from "../components/CreateCard";
 import { useReducedMotion } from "../hooks/useMediaQuery";
 import { initialsOf } from "../lib/initials";
@@ -25,7 +26,7 @@ import type { DeskCreateLink } from "./deskBrowse";
 import { opensAsSheet, picturePage, type DeskCard } from "./deskCards";
 import { PIC_MIN, Z_HOVER, pictureShare, type Place } from "./deskLayout";
 import { DetailPanel, type Stepper } from "./OpenedCard";
-import { DESK, DESK_MONO, DESK_SANS, FOCUS_RING_CLASS, MOTION_MS, isFocusVisible, motion } from "./tokens";
+import { DESK, DESK_MONO, DESK_SANS, DESK_SCRIPT, FOCUS_RING_CLASS, MOTION_MS, isFocusVisible, motion } from "./tokens";
 
 const RADIUS = 4;
 /** The handoff's card width at scale 1; a card's face type scales from it. */
@@ -416,7 +417,7 @@ function Face({
         </div>
       )}
 
-      {fromTheHouse && waiting && (
+      {fromTheHouse && waiting && !paper && (
         // An Update with no picture: a letterhead. A warm light from the top
         // corner and a thin accent frame inset from the edge, so it reads as
         // a note from the house and not as an event or a person.
@@ -498,6 +499,25 @@ function Face({
         </div>
       )}
 
+      {face.icon && (
+        // A celebration's mark in the top corner, so a cheer, a backing and
+        // an award tell apart at a glance. Over a photo it goes with the
+        // words when the card opens.
+        <CelebrationMark
+          icon={face.icon}
+          size={split ? 44 : Math.max(24, Math.round(32 * small))}
+          color={paper ? ink : DESK.accent}
+          style={{
+            position: "absolute",
+            top: split ? 52 : edge - 2,
+            right: split ? 52 : edge - 2,
+            filter: pic ? "drop-shadow(0 1px 8px rgba(0,0,0,.65))" : undefined,
+            opacity: split && pic ? 0 : 1,
+            transition: t(["opacity", "top", "right"]),
+          }}
+        />
+      )}
+
       {dateCard ? (
         // No poster: the date, set large, is the face.
         <p
@@ -530,7 +550,9 @@ function Face({
             WebkitBoxOrient: "vertical" as const,
             overflow: "hidden",
             overflowWrap: "break-word",
-            color: fromTheHouse ? DESK.accent : undefined,
+            color: fromTheHouse && !paper ? DESK.accent : undefined,
+            // Room for a celebration's mark in the corner.
+            paddingRight: face.icon ? 40 : undefined,
             // Over a picture the accent needs a little help to stay readable.
             textShadow: fromTheHouse && pic ? "0 1px 10px rgba(0,0,0,.65)" : undefined,
             opacity: split && pic ? 0 : fromTheHouse ? 1 : 0.9,
@@ -587,13 +609,13 @@ function Face({
       )}
 
       <div style={{ position: "relative", minWidth: 0, opacity: split && pic ? 0 : 1, transition: t(["opacity"]) }}>
-        {fromTheHouse && <span aria-hidden style={{ display: "block", width: 28, height: 2, marginBottom: 12, background: DESK.accent }} />}
+        {fromTheHouse && <span aria-hidden style={{ display: "block", width: 28, height: 2, marginBottom: 12, background: paper ? ink : DESK.accent }} />}
         <h3
           style={{
             margin: 0,
             // Type follows the card's size on small desks, never below 17px.
             // A sheet keeps the resting size while its face fades.
-            fontSize: split ? 72 : Math.max(17, Math.round((note ? 40 : 26) * small)),
+            fontSize: split ? 72 : Math.max(17, Math.round((note || face.large ? 40 : 26) * small)),
             fontWeight: 500,
             lineHeight: split ? 1 : 1.04,
             letterSpacing: "-0.02em",
@@ -606,7 +628,24 @@ function Face({
         >
           {face.title}
         </h3>
-        {face.foot && (
+        {face.foot && face.script ? (
+          // A signature: the fund's name in handwriting under an award.
+          <p
+            style={{
+              margin: "8px 0 0",
+              fontFamily: DESK_SCRIPT,
+              fontWeight: 600,
+              fontSize: split ? 40 : Math.max(20, Math.round(26 * small)),
+              lineHeight: 1.05,
+              transform: "rotate(-2deg)",
+              transformOrigin: "left center",
+              overflowWrap: "break-word",
+              transition: t(["font-size"]),
+            }}
+          >
+            {face.foot}
+          </p>
+        ) : face.foot && (
           <p
             style={{
               margin: "10px 0 0",

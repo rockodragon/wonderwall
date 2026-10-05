@@ -36,6 +36,9 @@ export const DESK = {
 
 export const DESK_SANS = "Inter, ui-sans-serif, system-ui, sans-serif";
 export const DESK_MONO = "var(--garden-font-mono), ui-monospace, Menlo, monospace";
+/** Handwriting, for a signature on a paper note (an award's fund). Caveat is
+ * loaded with the other Google fonts in root.tsx. */
+export const DESK_SCRIPT = "Caveat, 'Bradley Hand', 'Segoe Print', cursive";
 
 /** Mono label: the "THE GARDEN · YOUR CANVAS" voice. */
 export function monoLabel(size = 12, tracking = "0.24em"): CSSProperties {

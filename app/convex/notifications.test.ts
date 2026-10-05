@@ -4,7 +4,15 @@
 import { describe, expect, it } from "vitest";
 import type { Id } from "./_generated/dataModel";
 import { CELEBRATION_TYPES } from "./celebrationTypes";
-import { CELEBRATION_DAYS, MAX_CELEBRATIONS, pickCelebrations, toCelebration } from "./notifications";
+import {
+  CELEBRATION_DAYS,
+  MAX_CELEBRATIONS,
+  fundSlugFromLink,
+  pickCelebrations,
+  projectHref,
+  projectRefFromLink,
+  toCelebration,
+} from "./notifications";
 
 const row = (id: string, type: string, createdAt: number, celebratedAt?: number) => ({ id, type, createdAt, celebratedAt });
 // Every row above is within the month before this.
@@ -78,6 +86,8 @@ describe("toCelebration", () => {
     createdAt: 42,
   };
 
+  const nothing = { from: null, project: null, fund: null };
+
   it("returns exactly the fields the canvas reads", () => {
     const from = {
       userId: "u1" as Id<"users">,
@@ -85,7 +95,10 @@ describe("toCelebration", () => {
       name: "Dana",
       imageUrl: "https://example.com/dana.jpg",
     };
-    expect(toCelebration({ ...note, readAt: undefined, userId: "owner" } as typeof note, from)).toEqual({
+    const project = { title: "Small Acts", href: "/story/small-acts" };
+    expect(
+      toCelebration({ ...note, readAt: undefined, userId: "owner" } as typeof note, { from, project, fund: null }),
+    ).toEqual({
       _id: "n1",
       type: "encouragement",
       title: "Dana cheered on Small Acts",
@@ -93,13 +106,79 @@ describe("toCelebration", () => {
       linkUrl: "/story/small-acts",
       createdAt: 42,
       from,
+      project,
+      fund: null,
+      amountCents: null,
     });
   });
 
-  it("uses null, not undefined, for a missing link and a missing sender", () => {
+  it("uses null, not undefined, for a missing link, sender, project, fund and amount", () => {
     const { linkUrl: _link, ...noLink } = note;
-    const card = toCelebration(noLink, null);
+    const card = toCelebration(noLink, nothing);
     expect(card.linkUrl).toBeNull();
     expect(card.from).toBeNull();
+    expect(card.project).toBeNull();
+    expect(card.fund).toBeNull();
+    expect(card.amountCents).toBeNull();
+  });
+
+  it("carries the amount and the fund's name for an award", () => {
+    const fund = { name: "The Sophia Fund", href: "/fund/abiding-practice" };
+    const card = toCelebration(
+      { ...note, type: "fund_award", linkUrl: "/fund/abiding-practice", amountCents: 50_000 },
+      { ...nothing, fund },
+    );
+    expect(card.amountCents).toBe(50_000);
+    expect(card.fund).toEqual(fund);
+  });
+
+  it("keeps an amount of zero rather than turning it into null", () => {
+    expect(toCelebration({ ...note, amountCents: 0 }, nothing).amountCents).toBe(0);
+  });
+});
+
+describe("projectRefFromLink", () => {
+  it("reads a project id out of /projects/<id>", () => {
+    expect(projectRefFromLink("/projects/abc123")).toEqual({ id: "abc123" });
+  });
+
+  it("reads a story slug out of /story/<slug>", () => {
+    expect(projectRefFromLink("/story/small-acts")).toEqual({ slug: "small-acts" });
+  });
+
+  it("ignores a query string, a hash and a trailing slash", () => {
+    expect(projectRefFromLink("/story/small-acts?ref=email#top")).toEqual({ slug: "small-acts" });
+    expect(projectRefFromLink("/projects/abc123/")).toEqual({ id: "abc123" });
+  });
+
+  it("finds no project in any other link", () => {
+    expect(projectRefFromLink(undefined)).toBeNull();
+    expect(projectRefFromLink("")).toBeNull();
+    expect(projectRefFromLink("/give")).toBeNull();
+    expect(projectRefFromLink("/fund/abiding-practice")).toBeNull();
+    expect(projectRefFromLink("/projects/abc123/edit")).toBeNull();
+    expect(projectRefFromLink("/offerings/o1")).toBeNull();
+  });
+});
+
+describe("fundSlugFromLink", () => {
+  it("reads the slug out of /fund/<slug>", () => {
+    expect(fundSlugFromLink("/fund/abiding-practice")).toBe("abiding-practice");
+    expect(fundSlugFromLink("/fund/garden?x=1")).toBe("garden");
+  });
+
+  it("finds no fund in any other link", () => {
+    expect(fundSlugFromLink(undefined)).toBeNull();
+    expect(fundSlugFromLink("/give")).toBeNull();
+    expect(fundSlugFromLink("/funds/garden")).toBeNull();
+    expect(fundSlugFromLink("/fund/")).toBeNull();
+  });
+});
+
+describe("projectHref", () => {
+  it("prefers the public story, else the project page", () => {
+    expect(projectHref({ _id: "p1", storySlug: "small-acts" })).toBe("/story/small-acts");
+    expect(projectHref({ _id: "p1" })).toBe("/projects/p1");
+    expect(projectHref({ _id: "p1", storySlug: "" })).toBe("/projects/p1");
   });
 });

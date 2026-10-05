@@ -417,6 +417,8 @@ function makeConvexDb(ctx: MutationCtx): Db & ClassPaymentDb {
         // Named only when they chose to be: a hidden backer's account isn't
         // attached either, or the inbox and the canvas would show their face.
         relatedUserId: args.visible ? (args.backerUserId as Id<"users"> | undefined) : undefined,
+        projectId: project._id,
+        amountCents: args.amountCents,
         createdAt: Date.now(),
       });
       // The email waits for the daily one (supportDigest.ts).

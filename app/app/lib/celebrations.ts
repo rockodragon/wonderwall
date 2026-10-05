@@ -22,6 +22,13 @@ export type CelebrationLike = {
   createdAt: number;
   /** The person behind it, when they let themselves be named. */
   from: { userId: string; profileId: string; name: string; imageUrl: string | null } | null;
+  /** The project it's about, when there is one. Optional: an older backend
+   *  doesn't send these three. */
+  project?: { title: string; href: string } | null;
+  /** The fund behind an award. */
+  fund?: { name: string; href: string } | null;
+  /** The money, for a backing, a gift or an award. */
+  amountCents?: number | null;
 };
 
 // ——————————————————————————————————————————————————————————————
@@ -58,9 +65,36 @@ export function celebrationKicker(type: string): string {
   return KICKERS[type] ?? "For you";
 }
 
+/** The kinds that carry someone's own words. */
+const WORDS_TYPES: ReadonlySet<string> = new Set(["encouragement", "help_offered"]);
+
 /** Their own words lead a cheer or an offer; anything else leads with what happened. */
 export function leadsWithTheirWords(c: Pick<CelebrationLike, "type" | "message">): boolean {
-  return (c.type === "encouragement" || c.type === "help_offered") && c.message.trim() !== "";
+  return WORDS_TYPES.has(c.type) && c.message.trim() !== "";
+}
+
+/** Each kind's mark, so the cards tell apart at a glance: hands clapping
+ * for a cheer, a handshake for an offer of help, coins for a backing, a gift
+ * for a gift, a trophy for an award. Names, not components: this file has no
+ * React. The canvas and the phone map them to icons. */
+export type CelebrationIcon = "clap" | "handshake" | "coins" | "gift" | "trophy";
+
+const ICONS: Record<string, CelebrationIcon> = {
+  encouragement: "clap",
+  help_offered: "handshake",
+  backing_received: "coins",
+  gift_received: "gift",
+  fund_award: "trophy",
+  grant_proposal_approved: "trophy",
+};
+
+export function celebrationIcon(type: string): CelebrationIcon | null {
+  return ICONS[type] ?? null;
+}
+
+/** Money leads a backing, a gift or an award: the amount, set large. */
+export function leadsWithAmount(c: Pick<CelebrationLike, "type" | "amountCents">): boolean {
+  return !WORDS_TYPES.has(c.type) && (c.amountCents ?? 0) > 0;
 }
 
 /** An award from a fund: confetti the first time it shows. */
@@ -85,6 +119,56 @@ function linkLabel(href: string): string {
   if (href.startsWith("/settings")) return "Get paid";
   if (href.startsWith("/projects/") || href.startsWith("/story/")) return "See the project";
   return "See it";
+}
+
+// ——————————————————————————————————————————————————————————————
+// Links on the names
+// ——————————————————————————————————————————————————————————————
+
+export type TextLink = { text: string; href: string };
+
+/** The names a celebration mentions, each with its page: the person, the
+ * project, the fund. "Someone" is never one of them. */
+export function celebrationLinks(c: Pick<CelebrationLike, "from" | "project" | "fund">): TextLink[] {
+  const links: TextLink[] = [];
+  if (c.from?.name) links.push({ text: c.from.name, href: `/profile/${c.from.profileId}` });
+  if (c.project?.title) links.push({ text: c.project.title, href: c.project.href });
+  if (c.fund?.name) links.push({ text: c.fund.name, href: c.fund.href });
+  return links;
+}
+
+export type TextPart = { text: string; href?: string };
+
+/** `text` cut into plain parts and linked parts: the first time each link's
+ * words appear, they link. A name that isn't in the text (renamed since)
+ * simply isn't linked. Longer names are placed first, so a project called
+ * "Dana" can't take Dana Lee's link. */
+export function linkParts(text: string, links: readonly TextLink[]): TextPart[] {
+  const spans: { start: number; end: number; href: string }[] = [];
+  for (const link of [...links].sort((a, b) => b.text.length - a.text.length)) {
+    if (!link.text) continue;
+    let from = 0;
+    while (from <= text.length) {
+      const start = text.indexOf(link.text, from);
+      if (start < 0) break;
+      const end = start + link.text.length;
+      if (spans.every((s) => end <= s.start || start >= s.end)) {
+        spans.push({ start, end, href: link.href });
+        break;
+      }
+      from = start + 1;
+    }
+  }
+  spans.sort((a, b) => a.start - b.start);
+  const parts: TextPart[] = [];
+  let at = 0;
+  for (const s of spans) {
+    if (s.start > at) parts.push({ text: text.slice(at, s.start) });
+    parts.push({ text: text.slice(s.start, s.end), href: s.href });
+    at = s.end;
+  }
+  if (at < text.length) parts.push({ text: text.slice(at) });
+  return parts;
 }
 
 // ——————————————————————————————————————————————————————————————

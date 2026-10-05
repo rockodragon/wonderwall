@@ -374,6 +374,7 @@ export const decideProposal = mutation({
       message: row.title,
       linkUrl,
       relatedUserId: actorId,
+      projectId: row.projectId,
       createdAt: now,
     });
     await scheduleNotificationEmail(ctx, {

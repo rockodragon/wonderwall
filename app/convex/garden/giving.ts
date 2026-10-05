@@ -573,7 +573,16 @@ async function profileFor(ctx: QueryCtx | MutationCtx, userId: Id<"users">) {
 
 async function insertNotification(
   ctx: MutationCtx,
-  args: { userId: Id<"users">; type: string; title: string; message: string; linkUrl: string; relatedUserId?: Id<"users"> },
+  args: {
+    userId: Id<"users">;
+    type: string;
+    title: string;
+    message: string;
+    linkUrl: string;
+    relatedUserId?: Id<"users">;
+    projectId?: Id<"projects">;
+    amountCents?: number;
+  },
 ) {
   await ctx.db.insert("notifications", { ...args, createdAt: Date.now() });
 }
@@ -645,6 +654,8 @@ export async function notifyGiftReceived(
     recurring: boolean;
     note?: string;
     projectTitle?: string;
+    // The project the gift went to, when there is one: the card links it.
+    projectId?: Id<"projects">;
   },
 ) {
   if (args.giverUserId && String(args.giverUserId) === String(args.payeeUserId)) return;
@@ -667,6 +678,8 @@ export async function notifyGiftReceived(
     message: connected ? (args.note ?? "") : "Connect your bank in Settings to get it.",
     linkUrl: email.ctaUrl,
     relatedUserId: args.visible ? args.giverUserId : undefined,
+    projectId: args.projectId,
+    amountCents: args.amountCents,
   });
   // The email waits for the daily one (supportDigest.ts); its words name
   // the notification above.
@@ -1121,6 +1134,7 @@ export const decideGift = mutation({
       recurring: false,
       note,
       projectTitle: project!.title,
+      projectId,
     });
     await scheduleTransferFor(ctx, project!.userId);
     return {

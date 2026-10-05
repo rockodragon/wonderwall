@@ -388,6 +388,8 @@ export const recordAllocation = mutation({
           projectTitle: project.title,
         }),
         linkUrl,
+        projectId: project._id,
+        amountCents: args.amountCents,
         createdAt: Date.now(),
       });
       await scheduleNotificationEmail(ctx, {

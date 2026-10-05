@@ -15,6 +15,7 @@ import type { Id } from "./_generated/dataModel";
 import { DIGEST_TYPES } from "./celebrationTypes";
 import { scheduleNotificationEmail } from "./emailHelpers";
 import { escapeHtml } from "./email/template";
+import { celebrationContext, type CelebrationContext } from "./notifications";
 
 /** How far back a run looks. A row older than this that somehow wasn't sent
  * (the job didn't run for days) is stale news and is skipped. */
@@ -52,20 +53,64 @@ export function pickDigestRows<T extends DigestRow>(rows: readonly T[], now: num
   return byUser;
 }
 
-/** One line of the email: what happened, then their words in quotes for a
- * cheer or an offer, or the rest of the notice ("$25.00 a month", "Connect
- * your bank in Settings to get it.") for money. */
-export function digestLine(n: Pick<DigestRow, "type" | "title" | "message">): string {
-  const title = escapeHtml(n.title);
+/** Words in a line that link somewhere: the person's name, the project's
+ * title. `href` is an app path; the template makes it absolute for mail. */
+export type DigestLink = { text: string; href: string };
+
+/** The links for one notification: the person (when it names one) and the
+ * project (when it has one). Pure. */
+export function digestLinks(context: Pick<CelebrationContext, "from" | "project">): DigestLink[] {
+  const links: DigestLink[] = [];
+  if (context.from) links.push({ text: context.from.name, href: `/profile/${context.from.profileId}` });
+  if (context.project) links.push({ text: context.project.title, href: context.project.href });
+  return links;
+}
+
+/** The title, escaped, with each link's text wrapped in an anchor at its
+ * first occurrence. Matched on the raw title and escaped piece by piece, so a
+ * name can't match inside an entity like &amp;. A link whose text isn't in the
+ * title is left out, and so is "Someone" (a hidden supporter has nothing to
+ * link to). Two links never share the same words: a later one skips past
+ * words an earlier one already took, so there's never an anchor in an anchor. */
+function linkTitle(title: string, links: readonly DigestLink[]): string {
+  const taken: { start: number; end: number; href: string }[] = [];
+  for (const { text, href } of links) {
+    if (!text || text === "Someone") continue;
+    const overlaps = (start: number) => taken.some((t) => start < t.end && start + text.length > t.start);
+    let start = title.indexOf(text);
+    while (start !== -1 && overlaps(start)) start = title.indexOf(text, start + 1);
+    if (start !== -1) taken.push({ start, end: start + text.length, href });
+  }
+  taken.sort((a, b) => a.start - b.start);
+
+  let out = "";
+  let at = 0;
+  for (const t of taken) {
+    const anchor = `<a href="${escapeHtml(t.href)}" style="color:#111111;text-decoration:underline">${escapeHtml(title.slice(t.start, t.end))}</a>`;
+    out += escapeHtml(title.slice(at, t.start)) + anchor;
+    at = t.end;
+  }
+  return out + escapeHtml(title.slice(at));
+}
+
+/** One line of the email: what happened (the person and project linked), then
+ * their words in quotes for a cheer or an offer, or the rest of the notice
+ * ("$25.00 a month", "Connect your bank in Settings to get it.") for money.
+ * What they wrote is never linked. */
+export function digestLine(n: Pick<DigestRow, "type" | "title" | "message">, links: readonly DigestLink[]): string {
+  const title = linkTitle(n.title, links);
   const message = n.message.trim();
   if (!message) return title;
   if (n.type === "encouragement" || n.type === "help_offered") return `${title}: “${escapeHtml(message)}”`;
   return `${title} — ${escapeHtml(message)}`;
 }
 
-/** The email for one person's day. One thing: its own words are the subject.
- * More: the first, and how many more. */
-export function buildSupportDigestEmail(rows: readonly Pick<DigestRow, "type" | "title" | "message">[]): {
+/** The email for one person's day. One thing: its own words are the subject
+ * (plain text, so never linked). More: the first, and how many more. Each row
+ * carries the links for its line. */
+export function buildSupportDigestEmail(
+  rows: readonly (Pick<DigestRow, "type" | "title" | "message"> & { links: readonly DigestLink[] })[],
+): {
   subject: string;
   previewText: string;
   heading: string;
@@ -75,7 +120,7 @@ export function buildSupportDigestEmail(rows: readonly Pick<DigestRow, "type" | 
 } {
   const first = rows[0]?.title ?? "";
   const subject = rows.length > 1 ? `${first}, and ${rows.length - 1} more` : first;
-  const shown = rows.slice(0, DIGEST_MAX_LINES).map(digestLine);
+  const shown = rows.slice(0, DIGEST_MAX_LINES).map((r) => digestLine(r, r.links));
   const hidden = rows.length - shown.length;
   const lines = hidden > 0 ? [...shown, `And ${hidden} more.`] : shown;
   return {
@@ -101,7 +146,15 @@ export const sendSupportDigest = internalMutation({
 
     let people = 0;
     for (const [userId, rows] of pickDigestRows(recent, now)) {
-      await scheduleNotificationEmail(ctx, { userId, category: "activity", ...buildSupportDigestEmail(rows) });
+      const lines = await Promise.all(
+        rows.map(async (n) => ({
+          type: n.type,
+          title: n.title,
+          message: n.message,
+          links: digestLinks(await celebrationContext(ctx, n)),
+        })),
+      );
+      await scheduleNotificationEmail(ctx, { userId, category: "activity", ...buildSupportDigestEmail(lines) });
       // Marked whether or not the person takes activity email: either way
       // these rows have had their turn.
       for (const n of rows) await ctx.db.patch(n._id, { digestedAt: now });

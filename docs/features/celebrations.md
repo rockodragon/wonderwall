@@ -39,15 +39,24 @@ Follows and likes are not celebrations. They stay in Messages only.
 - **Your own project.** Cheering or offering help on your own project tells nobody.
 - **Fund awards.** An award recorded with a project tells the project's owner ("The Sophia Fund awarded you $500"). An award recorded with only a name tells nobody, because there's no account to tell. The fund's name is the one its page shows.
 - **On the canvas.** Celebrations come first, then Updates. Between them they take the first two resting slots, so the default canvas still holds six cards. The Today view shows all of them. Newest first, at most eight.
-- **The card.** It wears the accent kicker (Cheer, Offer of help, Backing, Support, Award, Grant approved) and the person's photo when they're named and have one. A cheer's face is their words in quotes. Opened, the button is **Say thanks** (opens a conversation with them) when a person is named, else a link to where it happened (See the project, See the fund, Get paid).
+- **The card.** Each kind has its own mark in the top corner: hands clapping (cheer), a handshake (offer of help), coins (backing), a gift (gift), a trophy (award). The kicker names it: Cheer, Offer of help, Backing, Support, Award, Grant approved.
+  - A cheer or an offer leads with their words, with the person's photo when they're named and have one.
+  - A backing or a gift leads with the amount, set large.
+  - An award is a paper note like the fund's: the amount large, signed with the fund's name in handwriting (Caveat).
+  - Opened, the button is **Say thanks** (opens a conversation with them) when a person is named, else a link to where it happened (See the project, See the fund, Get paid).
+- **Links.** In an opened card, on a phone card, and in the daily email, the person's name links to their profile, the project's title to the project, and an award's fund to the fund page. "Someone" never links. The resting card on the canvas has no links, because the whole card is the button that opens it.
 - **When it leaves.** Closing the opened card, pressing its button, or "Got it" on a phone marks it done (`notifications.celebratedAt`). It also leaves after 30 days. Reading Messages does not take it off. Messages marks every notification read on sight, and that mustn't eat a cheer before the canvas has shown it.
 - **Confetti.** An award (`fund_award`, `grant_proposal_approved`) throws confetti the first time it's on show, once per award per browser. Nothing when the person has asked for reduced motion.
 
 ## Backend contract (`app/convex/notifications.ts`)
 
-- `listCelebrations()` returns up to eight `{ _id, type, title, message, linkUrl, createdAt, from }`, newest first. `from` is `{ userId, profileId, name, imageUrl }` or null. It's always null for an award, which comes from the fund, not from the operator who recorded it. Signed out, it returns `[]`.
+- `listCelebrations()` returns up to eight `{ _id, type, title, message, linkUrl, createdAt, from, project, fund, amountCents }`, newest first. Signed out, it returns `[]`.
+  - `from` is `{ userId, profileId, name, imageUrl }` or null. It's always null for an award, which comes from the fund, not from the operator who recorded it.
+  - `project` is `{ title, href }` or null, from `notifications.projectId`. Older rows fall back to the project in `linkUrl`.
+  - `fund` is `{ name, href }` for an award, else null.
+  - `amountCents` comes from `notifications.amountCents`. It's null on older rows, and those cards lead with words instead.
 - `finishCelebration({ notificationId })` sets `celebratedAt` and `readAt`. It is idempotent and owner-only.
 
 ## Deploy
 
-`notifications.celebratedAt` and `notifications.digestedAt` are new optional fields. `listCelebrations` / `finishCelebration` and the daily `support-digest` cron are new. Deploy the backend before merging: the canvas and phone Today call `listCelebrations` on load.
+`notifications.celebratedAt`, `digestedAt`, `projectId` and `amountCents` are new optional fields. `listCelebrations` / `finishCelebration` and the daily `support-digest` cron are new. Deploy the backend before merging: the canvas and phone Today call `listCelebrations` on load.

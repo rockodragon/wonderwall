@@ -59,8 +59,17 @@ function stripTagsToText(html: string): string {
     .trim();
 }
 
+// A mail client has no site to resolve a relative link against, so a link
+// written as href="/story/x" goes nowhere. Callers write app paths in the body
+// (the daily email's names link to profiles and projects); this makes them
+// absolute, the way ctaUrl is. A "//host" link is already absolute: left alone.
+function absolutizeLinks(body: string, baseUrl: string): string {
+  return body.replace(/href="\/(?!\/)/g, `href="${baseUrl}/`);
+}
+
 export function renderNotificationEmail(args: RenderNotificationEmailArgs): RenderedEmail {
-  const { heading, body, previewText, ctaText, baseUrl, unsubscribeUrl } = args;
+  const { heading, previewText, ctaText, baseUrl, unsubscribeUrl } = args;
+  const body = absolutizeLinks(args.body, baseUrl);
   const ctaUrl = args.ctaUrl ? `${baseUrl}${args.ctaUrl}` : undefined;
 
   const safeHeading = escapeHtml(heading);

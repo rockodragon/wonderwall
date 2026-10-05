@@ -707,6 +707,12 @@ export default defineSchema({
     linkUrl: v.optional(v.string()), // URL to navigate to when clicked
     imageUrl: v.optional(v.string()), // Avatar or related image
     relatedUserId: v.optional(v.id("users")), // User who triggered the notification
+    // The project it's about. linkUrl can't say: a gift's points at /give and
+    // an award's at the fund. The canvas card and the daily email link it.
+    projectId: v.optional(v.id("projects")),
+    // The money, in cents, for a backing, a gift or a fund award, so the card
+    // can show it without reading it back out of the title.
+    amountCents: v.optional(v.number()),
     readAt: v.optional(v.number()),
     // A celebration's card (celebrationTypes.ts) is done: closed on the
     // canvas, "Got it" on a phone, or its button pressed. Kept apart from

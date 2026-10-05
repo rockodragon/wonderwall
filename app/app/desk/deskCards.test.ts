@@ -819,10 +819,11 @@ describe("Celebrations on the canvas", () => {
     expect(ids(withThree).filter((id) => id.startsWith("update:"))).toEqual([]);
   });
 
-  it("lead a cheer with their words, and say thanks to the person", () => {
-    const card = celebrationCard(celebration(1), ["all"]);
+  it("lead a cheer with their words and hands clapping, and say thanks to the person", () => {
+    const card = celebrationCard(celebration(1), ["all"], money);
     expect(card.kind).toBe("celebration");
-    expect(card.face).toEqual({ kicker: "CHEER", title: "“Love where this is going.”", foot: "Dana cheered on Project 1" });
+    expect(card.note).toBe(false);
+    expect(card.face).toEqual({ kicker: "CHEER", title: "“Love where this is going.”", foot: "Dana cheered on Project 1", icon: "clap" });
     expect(card.detail.title).toBe("Dana cheered on Project 1");
     expect(card.detail.description).toBe("Love where this is going.");
     expect(card.detail.action).toEqual({
@@ -833,25 +834,73 @@ describe("Celebrations on the canvas", () => {
     expect(card.href).toBe("/projects/p1");
   });
 
-  it("lead an award with what happened, and link to the fund", () => {
+  it("link the person and the project they mention", () => {
     const card = celebrationCard(
-      celebration(2, { type: "fund_award", title: "The Sophia Fund awarded you $500", message: "Small Acts", linkUrl: "/fund/abiding-practice", from: null }),
+      celebration(1, {
+        title: "Dana Lee cheered on Project 1",
+        from: { userId: "user-dana", profileId: "profile-dana", name: "Dana Lee", imageUrl: null },
+        project: { title: "Project 1", href: "/projects/p1" },
+      }),
       ["all"],
+      money,
     );
-    expect(card.face).toEqual({ kicker: "AWARD", title: "The Sophia Fund awarded you $500", foot: "Small Acts" });
+    expect(card.detail.links).toEqual([
+      { text: "Dana Lee", href: "/profile/profile-dana" },
+      { text: "Project 1", href: "/projects/p1" },
+    ]);
+  });
+
+  it("make an award a paper note: the amount, signed by the fund, with a trophy", () => {
+    const card = celebrationCard(
+      celebration(2, {
+        type: "fund_award",
+        title: "The Sophia Fund awarded you $500",
+        message: "Small Acts",
+        linkUrl: "/fund/abiding-practice",
+        from: null,
+        amountCents: 50_000,
+        fund: { name: "The Sophia Fund", href: "/fund/abiding-practice" },
+        project: { title: "Small Acts", href: "/projects/p2" },
+      }),
+      ["all"],
+      money,
+    );
+    expect(card.note).toBe(true);
+    expect(card.image).toBeNull();
+    expect(card.face).toEqual({ kicker: "AWARD", title: money(50_000), foot: "The Sophia Fund", icon: "trophy", script: true });
     expect(card.detail.action).toEqual({
       kind: "celebration",
       button: { kind: "link", label: "See the fund", href: "/fund/abiding-practice" },
       notificationId: "n2",
     });
+    expect(card.detail.links?.map((l) => l.text)).toEqual(["Small Acts", "The Sophia Fund"]);
     expect(card.celebrationType).toBe("fund_award");
   });
 
+  it("keep an older award (no amount, no fund) readable", () => {
+    const card = celebrationCard(
+      celebration(2, { type: "fund_award", title: "The Sophia Fund awarded you $500", message: "Small Acts", linkUrl: "/fund/x", from: null }),
+      ["all"],
+      money,
+    );
+    expect(card.face).toEqual({ kicker: "AWARD", title: "Small Acts", foot: null, icon: "trophy" });
+  });
+
+  it("lead a backing with the amount and coins", () => {
+    const card = celebrationCard(
+      celebration(3, { type: "backing_received", title: "Dana backed Project 3", message: "$25.00 a month", amountCents: 2500 }),
+      ["all"],
+      money,
+    );
+    expect(card.face).toEqual({ kicker: "BACKING", title: money(2500), foot: "Dana backed Project 3", icon: "coins", large: true });
+  });
+
   it("wear the person's photo when there is one, and nothing when it's someone unnamed", () => {
-    const named = celebrationCard(celebration(1, { from: { userId: "u", profileId: "p", name: "Dana", imageUrl: "https://img/dana.jpg" } }), []);
+    const named = celebrationCard(celebration(1, { from: { userId: "u", profileId: "p", name: "Dana", imageUrl: "https://img/dana.jpg" } }), [], money);
     expect(named.image).toBe("https://img/dana.jpg");
-    const hidden = celebrationCard(celebration(1, { title: "Someone cheered on Project 1", from: null }), []);
+    const hidden = celebrationCard(celebration(1, { title: "Someone cheered on Project 1", from: null }), [], money);
     expect(hidden.image).toBeNull();
+    expect(hidden.detail.links).toEqual([]);
     expect(hidden.detail.action).toEqual({
       kind: "celebration",
       button: { kind: "link", label: "See the project", href: "/projects/p1" },

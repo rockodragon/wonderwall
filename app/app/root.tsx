@@ -34,7 +34,9 @@ export const links: Route.LinksFunction = () => [
   {
     rel: "stylesheet",
     // Jost Medium is The Garden's wordmark (app/brand/GardenMark.tsx).
-    href: "https://fonts.googleapis.com/css2?family=Archivo+Black&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Jost:wght@500&display=swap",
+    // Caveat is the handwriting an award's note is signed in (desk/tokens.ts
+    // DESK_SCRIPT); a browser only fetches it on a page that uses it.
+    href: "https://fonts.googleapis.com/css2?family=Archivo+Black&family=Caveat:wght@600&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Jost:wght@500&display=swap",
   },
 ];
 
