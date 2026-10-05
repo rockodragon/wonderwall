@@ -41,7 +41,10 @@ export const getNotifications = query({
                 // is a users id, which no client route accepts.
                 profileId: relatedUserProfile._id,
                 name: relatedUserProfile.name,
-                imageUrl: relatedUserProfile.imageUrl,
+                // An uploaded photo resolves to its storage URL, the way
+                // getConversations does; the raw `imageUrl` field alone is
+                // only the legacy external link and misses uploads.
+                imageUrl: await resolveProfileImage(ctx, relatedUserProfile),
                 inviteSlug: relatedUserProfile.inviteSlug,
               }
             : null,

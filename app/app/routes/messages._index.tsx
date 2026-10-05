@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "convex/react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
 import {
   Bell,
@@ -15,9 +15,11 @@ import {
   type Icon,
 } from "@phosphor-icons/react";
 import { api } from "../../convex/_generated/api";
+import { NewMessage } from "../components/NewMessage";
 import { PastUpdates } from "../components/PastUpdates";
 import { PAGE_WIDTH } from "../lib/pageWidth";
 import { buildInbox, type InboxIcon, type InboxRow } from "../lib/inbox";
+import { initialsOf } from "../lib/initials";
 
 // Notifications fetched for the inbox. Retention deletes read ones after
 // 30 days, so this covers the archive for nearly everyone.
@@ -58,6 +60,14 @@ export default function MessagesIndex() {
   });
   const [showArchive, setShowArchive] = useState(false);
 
+  // The New message box, and the button that opens it.
+  const [composing, setComposing] = useState(false);
+  const newMessageButton = useRef<HTMLButtonElement>(null);
+  const closeComposer = useCallback((restoreFocus: boolean) => {
+    setComposing(false);
+    if (restoreFocus) newMessageButton.current?.focus();
+  }, []);
+
   // The unread badge is Messages + Notifications combined, and this page is
   // where notifications are read — so mounting it clears them.
   const markAllNotificationsRead = useMutation(api.notifications.markAllAsRead);
@@ -85,9 +95,23 @@ export default function MessagesIndex() {
 
   return (
     <div className={`p-6 ${PAGE_WIDTH.reading} mx-auto`}>
-      <h1 className="text-3xl font-bold mb-6" style={{ color: "var(--app-text)" }}>
-        Messages
-      </h1>
+      <div className="flex items-center justify-between gap-3 mb-6">
+        <h1 className="text-3xl font-bold" style={{ color: "var(--app-text)" }}>
+          Messages
+        </h1>
+        <button
+          ref={newMessageButton}
+          type="button"
+          aria-expanded={composing}
+          onClick={() => setComposing((v) => !v)}
+          className="px-4 py-2 rounded-lg text-[13.5px] font-semibold flex-shrink-0 transition-opacity hover:opacity-90"
+          style={{ backgroundColor: "var(--app-accent)", color: "var(--garden-ink)" }}
+        >
+          New message
+        </button>
+      </div>
+
+      {composing && <NewMessage onClose={closeComposer} anchorRef={newMessageButton} />}
 
       {inbox === null ? (
         <div className="flex items-center justify-center py-16">
@@ -102,7 +126,7 @@ export default function MessagesIndex() {
           <p className="text-lg font-medium mb-1" style={{ color: "var(--app-text-muted)" }}>
             No messages yet
           </p>
-          <p className="text-sm">Start a conversation from someone's profile.</p>
+          <p className="text-sm">Start one with New message.</p>
         </div>
       ) : (
         <>
@@ -158,17 +182,38 @@ function InboxList({ rows }: { rows: InboxRow[] }) {
 
 function InboxRowView({ row }: { row: InboxRow }) {
   const RowIcon = ICONS[row.icon];
+  // The person's photo, else their initials, else the icon for the kind of
+  // row. The title already says who, so the picture is decoration.
+  const [photoFailed, setPhotoFailed] = useState(false);
+  const photo = row.avatar?.imageUrl && !photoFailed ? row.avatar.imageUrl : null;
+  const hasName = Boolean(row.avatar?.name.trim());
   const className = `flex items-start gap-3 px-4 py-3 transition-colors ${
     row.href ? "hover:bg-[var(--app-hairline-raised)]" : ""
   }`;
   const content = (
     <>
       <span
-        className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
-        style={{ backgroundColor: "var(--app-hairline-raised)", color: "var(--app-text-muted)" }}
+        className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden"
+        style={
+          !photo && hasName
+            ? { backgroundColor: "var(--app-accent-wash)", color: "var(--app-text)" }
+            : { backgroundColor: "var(--app-hairline-raised)", color: "var(--app-text-muted)" }
+        }
         aria-hidden
       >
-        <RowIcon className="w-[18px] h-[18px]" />
+        {photo ? (
+          <img
+            src={photo}
+            alt=""
+            loading="lazy"
+            onError={() => setPhotoFailed(true)}
+            className="w-full h-full object-cover"
+          />
+        ) : hasName ? (
+          <span className="text-[13px] font-semibold">{initialsOf(row.avatar?.name)}</span>
+        ) : (
+          <RowIcon className="w-[18px] h-[18px]" />
+        )}
       </span>
       <div className="flex-1 min-w-0">
         <div className="flex items-baseline justify-between gap-2">

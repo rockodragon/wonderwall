@@ -755,3 +755,193 @@ export const listBlocked = query({
     return rows;
   },
 });
+
+// ——— Starting a conversation ———
+//
+// "New message" on /messages: an autocomplete over people to write to. The
+// people you follow come first. Nothing here is a new rule: it only leaves out
+// who getOrCreateConversation would refuse (a block either way) plus yourself
+// and unnamed placeholder profiles. The daily limit on messages to people who
+// haven't written back is checked when a message is sent (sendMessage), not
+// when a conversation is opened, so it doesn't shape this list.
+
+/** Most people one search returns. */
+export const PEOPLE_TO_MESSAGE_LIMIT = 8;
+
+/** A typed search this short only narrows the people you follow. From here it
+ * also looks through every member. */
+export const PEOPLE_SEARCH_MIN_CHARS = 2;
+
+// Follows read, newest first. An empty box needs a few more than it shows (some
+// get skipped); a typed one has to see them all to match by name.
+const FOLLOWS_READ_EMPTY = 40;
+const FOLLOWS_READ_TYPED = 500;
+
+/** What's typed, ready to compare: trimmed and lowercased. */
+export function normalizePeopleQuery(text: string): string {
+  return text.trim().toLowerCase();
+}
+
+const PLACEHOLDER_NAME = "new user";
+
+/**
+ * Who to offer, and in what order. Pure; searchPeopleToMessage loads the rows.
+ *
+ *  - Never offered: yourself, anyone in `blockedUserIds`, or a profile with no
+ *    name or the "New User" placeholder.
+ *  - Nothing typed: the people you follow, in the order `followed` comes
+ *    (newest follow first). `members` is ignored.
+ *  - One character: the same, narrowed to names containing it.
+ *  - Two or more: followed people whose name contains the text, then other
+ *    members whose name does. Case doesn't matter.
+ *  - Inside each group a name that starts with the text comes first, then one
+ *    with a word that starts with it, then any other match. Ties keep the
+ *    order given for followed people (newest follow first) and go A to Z for
+ *    other members.
+ *  - Up to `limit` in all. `following` says which group a row came from.
+ */
+export function rankPeopleToMessage<T extends { userId: string; name: string }>(args: {
+  followed: readonly T[];
+  members: readonly T[];
+  query: string;
+  selfUserId: string;
+  blockedUserIds: ReadonlySet<string>;
+  limit?: number;
+}): Array<T & { following: boolean }> {
+  const limit = args.limit ?? PEOPLE_TO_MESSAGE_LIMIT;
+  const needle = normalizePeopleQuery(args.query);
+
+  // 0: name starts with it. 1: a word in it does. 2: it's somewhere inside.
+  // null: no match. Nothing typed matches everyone, in the order given.
+  const matchRank = (name: string): number | null => {
+    if (!needle) return 0;
+    const at = name.toLowerCase().indexOf(needle);
+    if (at === -1) return null;
+    if (at === 0) return 0;
+    return /[^\p{L}\p{N}]/u.test(name[at - 1]) ? 1 : 2;
+  };
+
+  const pick = (people: readonly T[], aToZ: boolean): T[] => {
+    const seen = new Set<string>();
+    const hits: { person: T; rank: number; order: number }[] = [];
+    people.forEach((person, order) => {
+      const name = person.name.trim();
+      if (
+        !name ||
+        name.toLowerCase() === PLACEHOLDER_NAME ||
+        person.userId === args.selfUserId ||
+        args.blockedUserIds.has(person.userId) ||
+        seen.has(person.userId)
+      ) {
+        return;
+      }
+      const rank = matchRank(name);
+      if (rank === null) return;
+      seen.add(person.userId);
+      hits.push({ person, rank, order });
+    });
+    hits.sort((a, b) => {
+      if (a.rank !== b.rank) return a.rank - b.rank;
+      if (aToZ) {
+        const an = a.person.name.trim().toLowerCase();
+        const bn = b.person.name.trim().toLowerCase();
+        if (an !== bn) return an < bn ? -1 : 1;
+      }
+      return a.order - b.order;
+    });
+    return hits.map((h) => h.person);
+  };
+
+  const followedIds = new Set(args.followed.map((p) => p.userId));
+  const followedHits = pick(args.followed, false);
+  const memberHits =
+    needle.length >= PEOPLE_SEARCH_MIN_CHARS
+      ? pick(
+          args.members.filter((p) => !followedIds.has(p.userId)),
+          true,
+        )
+      : [];
+
+  return [
+    ...followedHits.map((p) => ({ ...p, following: true })),
+    ...memberHits.map((p) => ({ ...p, following: false })),
+  ].slice(0, limit);
+}
+
+/**
+ * People to start a conversation with, for the New message box. Signed out:
+ * none. The people you follow (a `favorites` row with targetType "profile")
+ * are read by index; every profile is only read for a typed search of two or
+ * more characters. Order and caps are rankPeopleToMessage's. Each row has
+ * what getConversations gives for a participant (uploaded photos resolved the
+ * same way) plus `following`.
+ */
+export const searchPeopleToMessage = query({
+  args: {
+    query: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const me = await auth.getUserId(ctx);
+    if (!me) return [];
+
+    const text = args.query ?? "";
+    const needle = normalizePeopleQuery(text);
+    const blockedUserIds = await getBlockedUserIds(ctx, me);
+
+    type Candidate = {
+      userId: Id<"users">;
+      profileId: Id<"profiles">;
+      name: string;
+      profile: Doc<"profiles">;
+    };
+    const candidate = (profile: Doc<"profiles">): Candidate => ({
+      userId: profile.userId,
+      profileId: profile._id,
+      name: profile.name,
+      profile,
+    });
+
+    // Who I follow, newest first. targetId is a PROFILE id.
+    const follows = await ctx.db
+      .query("favorites")
+      .withIndex("by_userId_type", (q) => q.eq("userId", me).eq("targetType", "profile"))
+      .order("desc")
+      .take(needle ? FOLLOWS_READ_TYPED : FOLLOWS_READ_EMPTY);
+    const followedProfiles = await Promise.all(
+      follows.map((f) => {
+        const profileId = ctx.db.normalizeId("profiles", f.targetId);
+        return profileId ? ctx.db.get(profileId) : null;
+      }),
+    );
+    const followed = followedProfiles
+      .filter((p): p is Doc<"profiles"> => p !== null)
+      .map(candidate);
+
+    // Everyone else, only for a real search. The read is every profile; only
+    // the ones whose name contains the text are kept.
+    const members: Candidate[] = [];
+    if (needle.length >= PEOPLE_SEARCH_MIN_CHARS) {
+      for await (const profile of ctx.db.query("profiles")) {
+        if (profile.name.toLowerCase().includes(needle)) members.push(candidate(profile));
+      }
+    }
+
+    const ranked = rankPeopleToMessage({
+      followed,
+      members,
+      query: text,
+      selfUserId: me,
+      blockedUserIds,
+    });
+
+    return await Promise.all(
+      ranked.map(async (p) => ({
+        userId: p.userId,
+        profileId: p.profileId,
+        name: p.name,
+        imageUrl: await resolveImageUrl(ctx, p.profile),
+        following: p.following,
+      })),
+    );
+  },
+});
