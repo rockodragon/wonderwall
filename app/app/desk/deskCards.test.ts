@@ -219,6 +219,28 @@ describe("event cards", () => {
     }
   });
 
+  it("offer 'RSVP' on another site's link with no price, 'Get tickets' once it has one", () => {
+    const cards = buildDeskCards(
+      input({
+        events: [
+          event(1, { externalTicketUrl: "https://partiful.com/e/abc" }),
+          event(2, { externalTicketUrl: "https://partiful.com/e/abc", externalTicketPriceCents: 1500 }),
+        ],
+      }),
+      "garden",
+    );
+    expect(byId(cards, "event:e1").detail.action).toEqual({ kind: "link", label: "RSVP", href: "/events/e1" });
+    expect(byId(cards, "event:e2").detail.action).toEqual({ kind: "link", label: "Get tickets", href: "/events/e2" });
+  });
+
+  it("send an event that has ended to its page", () => {
+    // Over yesterday evening, still listed through today (eventWindow.ts).
+    const hour = 60 * 60 * 1000;
+    const ended = event(1, { datetime: NOW - 20 * hour, endTime: NOW - 18 * hour });
+    const card = byId(buildDeskCards(input({ events: [ended] }), "garden"), "event:e1");
+    expect(card.detail.action).toEqual({ kind: "link", label: "See event", href: "/events/e1" });
+  });
+
   it("send an event that needs approval to its page", () => {
     const card = byId(buildDeskCards(input({ events: [event(1, { requiresApproval: true })] }), "garden"), "event:e1");
     expect(card.detail.action).toEqual({ kind: "link", label: "Apply to Attend", href: "/events/e1" });

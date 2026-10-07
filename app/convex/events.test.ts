@@ -128,23 +128,40 @@ describe("normalizeExternalTicket", () => {
     expect(result.externalTicketPriceCents).toBeUndefined();
   });
 
+  it.each([
+    "https://www.eventbrite.com/e/salon-tickets-123456",
+    "https://partiful.com/e/AbC123",
+    "https://tickets.venue.example/shows/42?ref=garden",
+  ])("accepts any https link: %s", (url) => {
+    expect(normalizeExternalTicket({ url, priceCents: 1500 })).toEqual({
+      externalTicketUrl: url,
+      externalTicketPriceCents: 1500,
+    });
+  });
+
   it("trims the url", () => {
-    const result = normalizeExternalTicket({ url: "  https://buy.stripe.com/test_abc123  " });
-    expect(result.externalTicketUrl).toBe("https://buy.stripe.com/test_abc123");
+    const result = normalizeExternalTicket({ url: "  https://partiful.com/e/AbC123  " });
+    expect(result.externalTicketUrl).toBe("https://partiful.com/e/AbC123");
   });
 
   it.each([
-    "http://buy.stripe.com/test_abc123", // wrong protocol
-    "https://stripe.com/test_abc123", // wrong host
-    "https://evil.com/buy.stripe.com", // host spoofing attempt in the path
+    "http://partiful.com/e/AbC123", // not https
+    "http://buy.stripe.com/test_abc123", // not https
+    "https://user:pass@partiful.com/e/AbC123", // embedded credentials
+    "https://user@partiful.com/e/AbC123", // embedded username
+    "javascript:alert(1)",
+    "ftp://partiful.com/e/AbC123",
+    "partiful.com/e/AbC123", // no scheme
+    "https://localhost/e/1", // no dot in the host
     "not a url",
-  ])("rejects a non-Stripe-Payment-Link url: %s", (url) => {
-    expect(normalizeExternalTicket({ url }).error).toMatch(/buy\.stripe\.com/);
+    `https://partiful.com/${"a".repeat(2000)}`, // too long
+  ])("rejects an unsafe or malformed url: %s", (url) => {
+    expect(normalizeExternalTicket({ url }).error).toMatch(/https/);
   });
 
   it.each([0, -100, 25.5])("rejects an invalid price %s", (priceCents) => {
     expect(
-      normalizeExternalTicket({ url: "https://buy.stripe.com/test_abc123", priceCents }).error,
+      normalizeExternalTicket({ url: "https://partiful.com/e/AbC123", priceCents }).error,
     ).toMatch(/whole number of cents/);
   });
 });

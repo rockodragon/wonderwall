@@ -12,6 +12,7 @@ import {
   parseTicketRef,
   type ApCheckoutSessionLike,
 } from "./apGifts";
+import { isStripePaymentLink } from "./ticketLink";
 
 function makeSession(overrides: Partial<ApCheckoutSessionLike> = {}): ApCheckoutSessionLike {
   return {
@@ -154,6 +155,34 @@ describe("buildTicketLink", () => {
     const parsed = new URL(link);
     expect(parsed.searchParams.get("locale")).toBe("en");
     expect(parsed.searchParams.get("client_reference_id")).toBe("evt-event123");
+  });
+});
+
+describe("buildTicketLink on a link that isn't Stripe's", () => {
+  it("returns it unchanged, whoever is signed in", () => {
+    const url = "https://www.eventbrite.com/e/salon-tickets-123456?aff=garden";
+    expect(buildTicketLink(url, "event123")).toBe(url);
+    expect(buildTicketLink(url, "event123", { userId: "user456", email: "diane@example.com" })).toBe(url);
+  });
+});
+
+describe("isStripePaymentLink", () => {
+  it("is true only for https on buy.stripe.com", () => {
+    expect(isStripePaymentLink("https://buy.stripe.com/test_abc123")).toBe(true);
+    expect(isStripePaymentLink("https://buy.stripe.com/test_abc123?locale=en")).toBe(true);
+  });
+
+  it.each([
+    "http://buy.stripe.com/test_abc123",
+    "https://stripe.com/test_abc123",
+    "https://evil.com/buy.stripe.com",
+    "https://buy.stripe.com.evil.com/x",
+    "not a url",
+    "",
+    null,
+    undefined,
+  ])("is false for %s", (url) => {
+    expect(isStripePaymentLink(url)).toBe(false);
   });
 });
 

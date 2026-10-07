@@ -10,7 +10,7 @@
 import { CLAIMS } from "../constants/claims";
 import { isRaising } from "../lib/browse/projectsFilter";
 import { hostNamesLine, type EventHost } from "../lib/eventHosts";
-import { isTicketedEvent } from "../lib/eventTickets";
+import { ctaLabel, eventCta, type EventCta, type EventTierLike } from "../lib/eventCta";
 import { coverOf, fundingOf, moneyOf, pickProjects, type PickableProject } from "../lib/projectPick";
 import { gigPhrase, leadRoles, projectKindLabel, rolePay, type GigLike, type OpenRoleLike } from "../lib/projectKind";
 import { GARDEN_SLUG } from "../lib/communitySlugs";
@@ -131,8 +131,10 @@ export type DeskEventInput = {
   mediaPreviewUrl?: string | null;
   attendeeCount?: number;
   hosts?: (EventHost | null | undefined)[];
-  ticketTiers?: readonly unknown[] | null;
+  status?: string | null;
+  ticketTiers?: readonly EventTierLike[] | null;
   externalTicketUrl?: string | null;
+  externalTicketPriceCents?: number | null;
   accessType?: string | null;
   priceCents?: number | null;
   requiresApproval?: boolean;
@@ -397,18 +399,32 @@ export function updateCard(u: DeskUpdateInput, sections: DeskView[]): DeskCard {
   };
 }
 
-export function eventCard(e: DeskEventInput, sections: DeskView[]): DeskCard {
+/** The button on an event's card: lib/eventCta.ts decides what the event
+ *  asks of a person, this turns it into the desk's button. Tickets, another
+ *  site's link and approval all go to the event page; a plain RSVP is made
+ *  right here. */
+function eventAction(cta: EventCta, eventId: string): DeskAction {
+  const label = ctaLabel(cta);
+  switch (cta.kind) {
+    case "applied":
+    case "join":
+    case "guestRsvp":
+    case "none":
+      return { kind: "rsvp", label, eventId };
+    default:
+      return { kind: "link", label, href: `/events/${eventId}` };
+  }
+}
+
+/** `now` lets an event that has ended read as ended; a caller with no clock
+ *  leaves it off. */
+export function eventCard(e: DeskEventInput, sections: DeskView[], now?: number): DeskCard {
   const id: DeskCardId = `event:${e._id}`;
   const foot = eventFoot(e);
   const going = e.attendeeCount ?? 0;
   const hostLine = hostNamesLine(e.hosts);
-  const ticketed = isTicketedEvent(e);
   const page = `/events/${e._id}`;
-  const action: DeskAction = ticketed
-    ? { kind: "link", label: "Get tickets", href: page }
-    : e.requiresApproval
-      ? { kind: "link", label: "Apply to Attend", href: page }
-      : { kind: "rsvp", label: "I'm going", eventId: e._id };
+  const action = eventAction(eventCta(e, { now }), e._id);
   return {
     id,
     kind: "event",
@@ -692,7 +708,7 @@ export function buildDeskCards(input: DeskInput, community: DeskCommunity): Desk
     const sections: DeskView[] = ["events"];
     if (i < eventSlots) sections.push("all");
     if (e === next) sections.push("today");
-    return eventCard(e, sections);
+    return eventCard(e, sections, input.now);
   });
 
   const cards: DeskCard[] = [...celebrationCards, ...updateCards, ...eventCards];

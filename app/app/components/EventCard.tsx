@@ -4,7 +4,8 @@ import { EmbedStill } from "./EmbedStill";
 import { FavoriteButton } from "./FavoriteButton";
 import { hostNamesLine, type EventHost } from "../lib/eventHosts";
 import { CoverFrame } from "./CoverFrame";
-import { paidPriceCents } from "../lib/eventTickets";
+import { formatDollars } from "../../convex/eventGuests";
+import { eventPriceCents, type EventTierLike } from "../lib/eventCta";
 
 // The one event card. /events (routes/events.tsx), search (routes/search.tsx)
 // and an org's page (routes/orgs.$slug.tsx) render this, so the same event
@@ -82,6 +83,10 @@ export type EventCardEvent = {
   description?: string | null;
   accessType?: string;
   priceCents?: number;
+  /** What the price chip reads (lib/eventCta.ts eventPriceCents). Absent from
+   * the favorites projection too, so a saved event shows no price there. */
+  ticketTiers?: readonly EventTierLike[] | null;
+  externalTicketPriceCents?: number | null;
   /** Public "this event has an online room" flag (convex/schema.ts). It is a
    * boolean by design and carries no URL — the join and recording links live
    * in the separate eventVideo table and never reach a list payload
@@ -115,7 +120,7 @@ export function EventCard({
    */
   videoBadge?: boolean;
 }) {
-  const priceCents = paidPriceCents(event);
+  const priceCents = eventPriceCents(event);
 
   // Date only, no time: this renders during SSR as well as on the client, and
   // a timezone-sensitive time string is the kind of thing that hydrates
@@ -330,7 +335,7 @@ export function EventCard({
                     color: "var(--garden-citron)",
                   }}
                 >
-                  ${(priceCents / 100).toLocaleString()}
+                  {formatDollars(priceCents)}
                 </span>
               )}
             </div>

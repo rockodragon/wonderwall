@@ -97,9 +97,15 @@ export function summarizeGuests(rows: (Pick<GuestRow, "status" | "paidCents"> & 
   return { going, paid, collectedCents };
 }
 
+/** The one way an amount of cents reads in dollars: "$25", "$12.50",
+ *  "$1,500". The event page, the event cards, the community list and the
+ *  guest CSV all use it. */
 export function formatDollars(cents: number): string {
   const d = cents / 100;
-  return `$${Number.isInteger(d) ? d.toString() : d.toFixed(2)}`;
+  return `$${d.toLocaleString("en-US", {
+    minimumFractionDigits: Number.isInteger(d) ? 0 : 2,
+    maximumFractionDigits: 2,
+  })}`;
 }
 
 function csvCell(v: string): string {

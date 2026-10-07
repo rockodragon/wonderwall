@@ -1,4 +1,4 @@
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { escapeHtml } from "./email/template";
 import { internalQuery, mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
@@ -16,6 +16,7 @@ import { hostUserIdsForOrg, primaryOrgByUserId } from "./organizations";
 import { isAdmin } from "./helpers";
 import { isHidden } from "./moderationRules";
 import { isEventListed } from "./eventWindow";
+import { isSafeHttpsUrl } from "./garden/richText";
 
 // ——— Pure validation helpers (unit-tested in events.test.ts) ———
 
@@ -100,9 +101,7 @@ const ticketTiersValidator = v.optional(
   ),
 );
 
-// ——— External ticketing (schema.ts's events.externalTicketUrl comment) ———
-
-const STRIPE_PAYMENT_LINK_HOST = "buy.stripe.com";
+// ——— Tickets or RSVP on another site (schema.ts's events.externalTicketUrl comment) ———
 
 export interface ExternalTicketInput {
   url?: string;
@@ -117,24 +116,19 @@ export interface ExternalTicketResult {
 
 /** Validates + normalizes the external-ticket fields together, since a
  * price with no link is meaningless: an empty/absent url clears BOTH
- * fields, regardless of what priceCents was. The url must be a Stripe
- * Payment Link — nothing else, because AP's webhook (garden/apGifts.ts)
- * is the only thing watching for a purchase to come back, and it only
- * knows how to read a checkout.session event off that one Stripe account. */
+ * fields, regardless of what priceCents was. The url can be any https link
+ * (Eventbrite, Partiful, a venue's own page...); Stripe-specific behavior
+ * keys off the host afterwards (garden/ticketLink.ts isStripePaymentLink),
+ * because AP's webhook (garden/apGifts.ts) only sees purchases made through
+ * a Payment Link on its own Stripe account. */
 export function normalizeExternalTicket(
   input: ExternalTicketInput,
 ): ExternalTicketResult {
   const trimmed = input.url?.trim();
   if (!trimmed) return {};
 
-  let parsed: URL;
-  try {
-    parsed = new URL(trimmed);
-  } catch {
-    return { error: "Use a Stripe Payment Link (buy.stripe.com/…)." };
-  }
-  if (parsed.protocol !== "https:" || parsed.hostname !== STRIPE_PAYMENT_LINK_HOST) {
-    return { error: "Use a Stripe Payment Link (buy.stripe.com/…)." };
+  if (!isSafeHttpsUrl(trimmed)) {
+    return { error: "Use a full https:// link to the ticket or RSVP page." };
   }
 
   if (
@@ -601,11 +595,14 @@ export const create = mutation({
     const userId = await auth.getUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
 
+    // ConvexError, not Error: in production only a ConvexError's data
+    // reaches the client, and these messages are written for the person
+    // filling in the form (app/lib/convexError.ts).
     const endTimeError = validateEndTime(args.datetime, args.endTime);
-    if (endTimeError) throw new Error(endTimeError);
+    if (endTimeError) throw new ConvexError(endTimeError);
 
     const { tiers, error: tiersError } = normalizeTicketTiers(args.ticketTiers);
-    if (tiersError) throw new Error(tiersError);
+    if (tiersError) throw new ConvexError(tiersError);
 
     const {
       externalTicketUrl,
@@ -615,7 +612,7 @@ export const create = mutation({
       url: args.externalTicketUrl,
       priceCents: args.externalTicketPriceCents,
     });
-    if (ticketLinkError) throw new Error(ticketLinkError);
+    if (ticketLinkError) throw new ConvexError(ticketLinkError);
 
     const mediaUrl = canonicalMediaUrl(args.mediaUrl);
 
@@ -737,11 +734,14 @@ export const update = mutation({
     if (!event) throw new Error("Event not found");
     if (!isEventHost(event, userId)) throw new Error("Not authorized");
 
+    // ConvexError, not Error: in production only a ConvexError's data
+    // reaches the client, and these messages are written for the person
+    // filling in the form (app/lib/convexError.ts).
     const endTimeError = validateEndTime(args.datetime, args.endTime);
-    if (endTimeError) throw new Error(endTimeError);
+    if (endTimeError) throw new ConvexError(endTimeError);
 
     const { tiers, error: tiersError } = normalizeTicketTiers(args.ticketTiers);
-    if (tiersError) throw new Error(tiersError);
+    if (tiersError) throw new ConvexError(tiersError);
 
     const {
       externalTicketUrl,
@@ -751,7 +751,7 @@ export const update = mutation({
       url: args.externalTicketUrl,
       priceCents: args.externalTicketPriceCents,
     });
-    if (ticketLinkError) throw new Error(ticketLinkError);
+    if (ticketLinkError) throw new ConvexError(ticketLinkError);
 
     if (args.hostOrgId) {
       await assertCommunityMember(ctx, args.hostOrgId, userId);
