@@ -257,6 +257,8 @@ export default defineSchema({
         v.union(
           v.object({ kind: v.literal("user"), userId: v.id("users") }),
           v.object({ kind: v.literal("org"), organizationId: v.id("organizations") }),
+          // Someone not on the platform yet: shown by name, no page to link.
+          v.object({ kind: v.literal("name"), name: v.string() }),
         ),
       ),
     ),

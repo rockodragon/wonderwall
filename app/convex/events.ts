@@ -9,7 +9,7 @@ import { formatFollowedEventDate, notifyFollowers } from "./follows";
 import { canonicalMediaUrl, schedulePreviewFetch } from "./linkPreview";
 import { mergeGuests, summarizeGuests, type GuestInput } from "./eventGuests";
 import { getUserEmail } from "./emailHelpers";
-import { isEventHost, planAddCoHost, planRemoveCoHost, planDisplayHosts, syncCoHosts } from "./eventHosts";
+import { isEventHost, planAddCoHost, planRemoveCoHost, planDisplayHosts, syncCoHosts, MAX_HOST_NAME } from "./eventHosts";
 import { canSeeEvent, eventVisibilityChecker, isFreeEvent } from "./garden/eventVisibility";
 import { communityVisibility, isHiddenCommunityId } from "./garden/communityVisibility";
 import { hostUserIdsForOrg, primaryOrgByUserId } from "./organizations";
@@ -239,11 +239,14 @@ type LoadedHost = { name: string; profileId?: Id<"profiles">; exact?: boolean } 
 async function loadDisplayHosts(
   ctx: QueryCtx,
   event: Doc<"events">,
-): Promise<(LoadedHost & { kind: "user" | "org"; refId: string; imageUrl: string | null })[] | null> {
+): Promise<(LoadedHost & { kind: "user" | "org" | "name"; refId: string; imageUrl: string | null })[] | null> {
   if (!event.displayHosts || event.displayHosts.length === 0) return null;
-  const out: (LoadedHost & { kind: "user" | "org"; refId: string; imageUrl: string | null })[] = [];
+  const out: (LoadedHost & { kind: "user" | "org" | "name"; refId: string; imageUrl: string | null })[] = [];
   for (const d of event.displayHosts) {
-    if (d.kind === "org") {
+    if (d.kind === "name") {
+      // Not on the platform: the name alone, no page to link.
+      out.push({ kind: "name", refId: d.name, name: d.name, imageUrl: null, exact: true });
+    } else if (d.kind === "org") {
       const o = await ctx.db.get(d.organizationId);
       if (!o) continue;
       const logo = o.logoStorageId ? await ctx.storage.getUrl(o.logoStorageId) : null;
@@ -1348,6 +1351,8 @@ export const setDisplayHosts = mutation({
       v.union(
         v.object({ kind: v.literal("user"), id: v.id("users") }),
         v.object({ kind: v.literal("org"), id: v.id("organizations") }),
+        // Someone not on the platform yet (Rick, 2026-10-07).
+        v.object({ kind: v.literal("name"), name: v.string() }),
       ),
     ),
   },
@@ -1357,18 +1362,26 @@ export const setDisplayHosts = mutation({
     const event = await ctx.db.get(args.eventId);
     if (!event) throw new Error("Event not found");
     if (!isEventHost(event, userId)) throw new Error("Only a host can change who is shown as host");
-    const plan = planDisplayHosts(args.hosts.map((h) => ({ kind: h.kind, id: String(h.id) })));
+    const hosts = args.hosts.map((h) => (h.kind === "name" ? { ...h, name: h.name.trim() } : h));
+    for (const h of hosts) {
+      if (h.kind === "name" && (!h.name || h.name.length > MAX_HOST_NAME)) {
+        throw new ConvexError({ code: "invalid", reason: `A host's name needs 1 to ${MAX_HOST_NAME} characters.` });
+      }
+    }
+    const plan = planDisplayHosts(hosts.map((h) => (h.kind === "name" ? { kind: h.kind, id: h.name } : { kind: h.kind, id: String(h.id) })));
     if (!plan.ok) {
       throw new Error(plan.reason === "full" ? "Show at most 10 hosts" : "Each host can be listed once");
     }
     await ctx.db.patch(args.eventId, {
       displayHosts:
-        args.hosts.length === 0
+        hosts.length === 0
           ? undefined
-          : args.hosts.map((h) =>
+          : hosts.map((h) =>
               h.kind === "user"
                 ? { kind: "user" as const, userId: h.id as Id<"users"> }
-                : { kind: "org" as const, organizationId: h.id as Id<"organizations"> },
+                : h.kind === "org"
+                  ? { kind: "org" as const, organizationId: h.id as Id<"organizations"> }
+                  : { kind: "name" as const, name: h.name },
             ),
       updatedAt: Date.now(),
     });

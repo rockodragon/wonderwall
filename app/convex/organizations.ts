@@ -487,6 +487,20 @@ export const addByName = mutation({
   },
 });
 
+/** Create an organization by name to show as an event's host, or find the
+ * one that already has that name (Rick, 2026-10-07: "sometimes we'll need
+ * the ability to create the organization ... if they're not found"). Unlike
+ * addByName it doesn't put the creator in it; the first person to add a
+ * position there becomes its admin, as always. */
+export const createForHosting = mutation({
+  args: { name: v.string() },
+  handler: async (ctx, args) => {
+    const { userId } = await requireMe(ctx);
+    const { org, created } = await findOrCreate(ctx, userId, args.name);
+    return { organizationId: org._id, name: org.name, slug: org.slug, created };
+  },
+});
+
 export const join = mutation({
   args: { organizationId: v.id("organizations"), title: v.optional(v.string()) },
   handler: async (ctx, args) => {

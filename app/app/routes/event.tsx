@@ -51,6 +51,7 @@ import { ShareButton } from "../components/ShareButton";
 import { ShowcaseContent, SHOWCASE_EVENT_ID } from "../components/ShowcaseContent";
 import { hostLabels } from "../lib/eventHosts";
 import { HostedBy } from "../components/HostedBy";
+import { errorMessage } from "../lib/convexError";
 import { CreateEventModal } from "../components/CreateEventModal";
 import type { TicketTier } from "../components/TicketTierEditor";
 import { AnnouncementComposer } from "../components/AnnouncementComposer";
@@ -2174,7 +2175,7 @@ function HostsPanel({
   organizer: { name: string; imageUrl: string | null; profileId: Id<"profiles"> } | null;
   coHosts: { userId: Id<"users">; name: string; imageUrl: string | null; profileId: Id<"profiles"> | null }[];
   organizerUserId: Id<"users">;
-  savedShown: { kind: "user" | "org"; refId: string; name: string; imageUrl: string | null }[];
+  savedShown: ShownRow[];
   isOrganizer: boolean;
   isGuest: boolean;
 }) {
@@ -2302,7 +2303,8 @@ function HostsPanel({
   );
 }
 
-type ShownRow = { kind: "user" | "org"; refId: string; name: string; imageUrl: string | null };
+/** "name": someone not on the platform yet, shown by name (refId is the name). */
+type ShownRow = { kind: "user" | "org" | "name"; refId: string; name: string; imageUrl: string | null };
 
 /** Who "Hosted by" shows, and in what order: people and/or organizations.
  * Any host can set it. Display only; it changes no one's access. */
@@ -2320,6 +2322,7 @@ function ShownHostsEditor({
   savedShown: ShownRow[];
 }) {
   const setDisplayHosts = useMutation(api.events.setDisplayHosts);
+  const createOrg = useMutation(api.organizations.createForHosting);
   const defaults: ShownRow[] = [
     ...(organizer ? [{ kind: "user" as const, refId: String(organizerUserId), name: organizer.name, imageUrl: organizer.imageUrl }] : []),
     ...coHosts.map((c) => ({ kind: "user" as const, refId: String(c.userId), name: c.name, imageUrl: c.imageUrl })),
@@ -2335,6 +2338,28 @@ function ShownHostsEditor({
   const has = (kind: string, id: string) => rows.some((r) => r.kind === kind && r.refId === id);
   const personHits = (people ?? []).filter((r) => !has("user", String(r.userId))).slice(0, 5);
   const orgHits = (orgs ?? []).filter((o) => !has("org", String(o._id))).slice(0, 5);
+  // Not found (Rick, 2026-10-07): create the organization, or add a person
+  // who isn't on the platform yet by name. Offered unless an exact match
+  // (same name, any case) is already in the results or the list.
+  const typed = q.trim();
+  const same = (a: string) => a.trim().toLowerCase() === typed.toLowerCase();
+  const searched = !!typed && people !== undefined && orgs !== undefined;
+  const offerOrg = searched && !(orgs ?? []).some((o) => same(o.name)) && !rows.some((r) => r.kind === "org" && same(r.name));
+  const offerName = searched && !rows.some((r) => r.kind !== "org" && same(r.name));
+
+  async function addNewOrg() {
+    setBusy(true);
+    setError(null);
+    try {
+      const o = await createOrg({ name: typed });
+      if (!has("org", String(o.organizationId))) add({ kind: "org", refId: String(o.organizationId), name: o.name, imageUrl: null });
+      else setQ("");
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  }
 
   function move(i: number, d: -1 | 1) {
     const j = i + d;
@@ -2358,7 +2383,9 @@ function ShownHostsEditor({
         hosts: list.map((r) =>
           r.kind === "user"
             ? { kind: "user" as const, id: r.refId as Id<"users"> }
-            : { kind: "org" as const, id: r.refId as Id<"organizations"> },
+            : r.kind === "org"
+              ? { kind: "org" as const, id: r.refId as Id<"organizations"> }
+              : { kind: "name" as const, name: r.name },
         ),
       });
       setSaved(true);
@@ -2387,7 +2414,7 @@ function ShownHostsEditor({
             <div className="flex-1 min-w-0">
               <span className="block text-[15px] font-medium text-gray-900 dark:text-white truncate">{r.name}</span>
               <span className="text-[13px] text-gray-600 dark:text-gray-300">
-                {r.kind === "org" ? "Organization" : "Person"}
+                {r.kind === "org" ? "Organization" : r.kind === "name" ? "Not on the platform yet" : "Person"}
               </span>
             </div>
             <button className={btn} disabled={busy || i === 0} onClick={() => move(i, -1)} aria-label={`Move ${r.name} up`}>
@@ -2455,8 +2482,32 @@ function ShownHostsEditor({
           ))}
         </ul>
       )}
-      {q.trim() && people !== undefined && orgs !== undefined && personHits.length === 0 && orgHits.length === 0 && (
+      {searched && personHits.length === 0 && orgHits.length === 0 && (
         <p className="mt-2 text-[14px] text-gray-700 dark:text-gray-200">No one found.</p>
+      )}
+      {(offerOrg || offerName) && (
+        <div className="mt-2 flex flex-wrap gap-2">
+          {offerOrg && (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={addNewOrg}
+              className="px-3 py-1.5 rounded-lg text-[13.5px] font-medium border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-50"
+            >
+              Create “{typed}” as an organization
+            </button>
+          )}
+          {offerName && (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => add({ kind: "name", refId: typed, name: typed, imageUrl: null })}
+              className="px-3 py-1.5 rounded-lg text-[13.5px] font-medium border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-50"
+            >
+              Add “{typed}” (not on the platform yet)
+            </button>
+          )}
+        </div>
       )}
 
       {error && <p className="mt-3 text-[14px] text-red-600 dark:text-red-400">{error}</p>}
