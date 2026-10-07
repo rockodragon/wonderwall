@@ -5,6 +5,7 @@
 // ErrorBoundary "isn't live yet" state appearing when the backend is wired.
 
 import { expect, test } from "@playwright/test";
+import { FF_TABLES } from "../app/lib/featureFlags";
 
 test.describe("Garden production surfaces", () => {
   test("/fund/abiding-practice renders the fund, not the error state", async ({ page }) => {
@@ -21,6 +22,13 @@ test.describe("Garden production surfaces", () => {
 
   test("/tables renders browse (empty state or cards), never an error", async ({ page }) => {
     await page.goto("/tables");
+    // Tables is switched off until it ships (FF_TABLES): the page sends
+    // people to Events instead.
+    if (!FF_TABLES) {
+      await expect(page).toHaveURL(/\/events$/);
+      await expect(page.getByText(/isn't live yet/i)).not.toBeVisible();
+      return;
+    }
     // The route stays /tables but the page's noun keeps moving (Tables, then
     // Spaces), so assert a page title rendered rather than which word it is.
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
