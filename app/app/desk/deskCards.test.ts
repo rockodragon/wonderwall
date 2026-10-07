@@ -138,9 +138,10 @@ describe("event cards", () => {
     for (const card of cards) expect(card.sections as string[]).not.toContain("fav");
   });
 
-  it("drop an event that already started", () => {
-    const cards = buildDeskCards(input({ events: [event(-1), event(1)] }), "garden");
-    expect(ids(cardsInView(cards, "events"))).toEqual(["event:e1"]);
+  it("keep an event through the day after it ends, then drop it (eventWindow.ts)", () => {
+    // event(-1) ended a day ago, still within the day after; event(-3) is long gone.
+    const cards = buildDeskCards(input({ events: [event(-3), event(-1), event(1)] }), "garden");
+    expect(ids(cardsInView(cards, "events"))).toEqual(["event:e-1", "event:e1"]);
   });
 
   it("read date, title and venue on the face", () => {

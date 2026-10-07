@@ -17,7 +17,8 @@ import { DESK, DESK_SANS, FOCUS_RING_CLASS } from "./tokens";
 export const HINT_KEY = "desk.paletteHint";
 
 export const HINT_TITLE = "This is your menu";
-export const HINT_BODY = "Hover or click it to get to People, Projects, Events, Tables and more.";
+// No Tables until that ships (it lives on the `tables` branch).
+export const HINT_BODY = "Hover or click it to get to People, Projects, Events and more.";
 
 /**
  * @param ready    nothing is about to send this person elsewhere

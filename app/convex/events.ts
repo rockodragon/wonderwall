@@ -15,6 +15,7 @@ import { communityVisibility, isHiddenCommunityId } from "./garden/communityVisi
 import { hostUserIdsForOrg, primaryOrgByUserId } from "./organizations";
 import { isAdmin } from "./helpers";
 import { isHidden } from "./moderationRules";
+import { isEventListed } from "./eventWindow";
 
 // ——— Pure validation helpers (unit-tested in events.test.ts) ———
 
@@ -316,15 +317,17 @@ export const list = query({
       events = events.filter((e) => e.status === "published");
     }
 
-    // Filter to upcoming only
+    // Upcoming keeps an event through the day after it ends, so a person can
+    // join late and see what they missed (eventWindow.ts); Past is exactly
+    // the rest, so the two tabs never overlap or drop one.
     if (args.upcoming) {
       const now = Date.now();
-      events = events.filter((e) => e.datetime > now);
+      events = events.filter((e) => isEventListed(e, now));
     }
 
     if (args.past) {
       const now = Date.now();
-      events = events.filter((e) => e.datetime <= now);
+      events = events.filter((e) => !isEventListed(e, now));
     }
 
     // A ticketed event stays off every public browse surface until its
@@ -396,9 +399,9 @@ export const listForOrganization = query({
       const hosted = hostIds.has(String(e.organizerId)) || (e.coHostIds ?? []).some((id) => hostIds.has(String(id)));
       if (hosted && (await isPublic(e)) && (await gate.idVisible(e.hostOrgId))) mine.push(e);
     }
-    const upcoming = mine.filter((e) => e.datetime > now).sort((a, b) => a.datetime - b.datetime);
+    const upcoming = mine.filter((e) => isEventListed(e, now)).sort((a, b) => a.datetime - b.datetime);
     const past = mine
-      .filter((e) => e.datetime <= now)
+      .filter((e) => !isEventListed(e, now))
       .sort((a, b) => b.datetime - a.datetime)
       .slice(0, 6);
     return { upcoming: await toCardEvents(ctx, upcoming), past: await toCardEvents(ctx, past) };
@@ -1224,7 +1227,7 @@ export const search = query({
     // Get published, upcoming events
     const now = Date.now();
     let events = await ctx.db.query("events").collect();
-    events = events.filter((e) => e.status === "published" && e.datetime > now);
+    events = events.filter((e) => e.status === "published" && isEventListed(e, now));
 
     if (args.communitySlug) {
       const org = await ctx.db

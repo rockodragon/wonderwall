@@ -35,6 +35,7 @@ import {
 } from "../lib/celebrations";
 import { shortDay } from "../lib/dates";
 import type { ShortlistButton } from "./shortlistCards";
+import { isEventListed } from "../../convex/eventWindow";
 
 // ——————————————————————————————————————————————————————————————
 // Types
@@ -122,6 +123,7 @@ export type DeskEventInput = {
   title: string;
   description?: string | null;
   datetime: number;
+  endTime?: number | null;
   location?: string | null;
   locationType?: string | null;
   coverImageUrl?: string | null;
@@ -680,7 +682,9 @@ export function buildDeskCards(input: DeskInput, community: DeskCommunity): Desk
   const eventSlots = Math.max(0, Math.min(ALL_VIEW_EVENTS, ALL_VIEW_MAX - fixed));
 
   const events = input.events
-    .filter((e) => e.datetime > input.now && inCommunity(e, community))
+    // Through the day after it ends (eventWindow.ts): running ones stay, so
+    // a person can still join late.
+    .filter((e) => isEventListed(e, input.now) && inCommunity(e, community))
     .sort((a, b) => a.datetime - b.datetime);
   // Today's next event, unless Needs you already lists it: then the one after.
   const next = events.find((e) => !needsYou.has(e._id));

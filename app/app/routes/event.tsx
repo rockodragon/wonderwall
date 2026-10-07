@@ -64,6 +64,7 @@ import { claimPendingTickets, stashTicketSession } from "../lib/pendingTicket";
 import { setPendingIntent } from "../lib/pendingIntent";
 import { guestsToCsv, summarizeGuests, formatDollars } from "../../convex/eventGuests";
 import { PAGE_WIDTH } from "../lib/pageWidth";
+import { eventHasEnded } from "../../convex/eventWindow";
 
 const COVER_COLORS = [
   { name: "Blue", value: "blue", gradient: "from-blue-500 to-blue-600" },
@@ -267,7 +268,13 @@ export default function EventDetail() {
     await updateStatus({ applicationId, status });
   }
 
-  const isPast = event.datetime < Date.now();
+  // Two different "past"s (Rick, 2026-10-07: people couldn't join late).
+  // Started: ticket sales (the server refuses them after the start) and Add
+  // to calendar stop. Ended (convex/eventWindow.ts, three hours when there's
+  // no end time): joining, RSVP and Apply stop, and the page says it ended.
+  const now = Date.now();
+  const hasStarted = event.datetime < now;
+  const isPast = eventHasEnded(event, now);
   // AP's own Stripe Payment Link (garden/apGifts.ts). When set, the ticket
   // card takes the join button's place, above the video section.
   const ticketUrl =
@@ -796,7 +803,7 @@ export default function EventDetail() {
         />
 
         {/* Add to calendar — the invite carries /j/{eventId}, not the room */}
-        {!isPast && !cancelled && (
+        {!hasStarted && !cancelled && (
           <AddToCalendar
             className="mb-8"
             event={{
@@ -955,7 +962,7 @@ export default function EventDetail() {
             eventId={event._id}
             tiers={event.ticketTiers}
             soldByTier={event.ticketsSoldByTier}
-            isPast={isPast}
+            isPast={hasStarted}
           />
         )}
 
