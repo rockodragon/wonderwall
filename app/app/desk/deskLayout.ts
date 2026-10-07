@@ -142,10 +142,17 @@ export function rectsOverlap(a: Rect, b: Rect): boolean {
   return a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
 }
 
-/** The two zones a resting card keeps out of, for a viewport. */
-export function clearZones(vh: number): { greeting: Rect; palette: Rect } {
+/** Something shown under the greeting (the invite card, InviteNudge.tsx):
+ *  how wide it reaches from the left edge, and how much height it adds. */
+export type BelowGreeting = { w: number; h: number };
+
+/** The two zones a resting card keeps out of, for a viewport. The
+ *  greeting's zone grows to cover anything shown under it. */
+export function clearZones(vh: number, below?: BelowGreeting): { greeting: Rect; palette: Rect } {
   return {
-    greeting: GREETING_BOX,
+    greeting: below
+      ? { ...GREETING_BOX, w: Math.max(GREETING_BOX.w, below.w), h: GREETING_BOX.h + below.h }
+      : GREETING_BOX,
     palette: { x: 0, y: vh - PALETTE.zone, w: PALETTE.zone, h: PALETTE.zone },
   };
 }
@@ -311,7 +318,12 @@ function settle(p: Place, placed: readonly Place[], greeting: Rect, palette: Rec
   return best;
 }
 
-function scatter(cards: readonly LayoutCard[], vw: number, vh: number): Map<string, Place> {
+function scatter(
+  cards: readonly LayoutCard[],
+  vw: number,
+  vh: number,
+  belowGreeting?: BelowGreeting,
+): Map<string, Place> {
   const s = deskScale(vw, vh);
   const slots = assignSlots(isSmallDesk(vw, vh) ? pickForSmallDesk(cards) : cards);
   const out = new Map<string, Place>();
@@ -323,7 +335,7 @@ function scatter(cards: readonly LayoutCard[], vw: number, vh: number): Map<stri
   // Center the cluster that's actually there, not the whole artboard.
   const offX = (vw - (maxX - minX) * s) / 2 - minX * s;
   const offY = Math.max(0, (vh - REF_H * s) / 2);
-  const { greeting, palette } = clearZones(vh);
+  const { greeting, palette } = clearZones(vh, belowGreeting);
 
   let z = 1;
   for (const c of cards) {
@@ -478,6 +490,9 @@ export type LayoutInput = {
   /** The cards on show in this view, in order. Without it, the cards whose
    *  sections name the view, in the order given. */
   shown?: readonly string[];
+  /** The home canvas: what shows under the greeting (the invite card),
+   *  which resting cards keep clear of. */
+  belowGreeting?: BelowGreeting;
 };
 
 export type DeskLayout = {
@@ -503,6 +518,7 @@ export function layoutDeskFull({
   scrollTop = 0,
   shown,
   rowTop,
+  belowGreeting,
 }: LayoutInput): DeskLayout {
   // Where each resting card would sit: also where an unmatched card falls
   // from and returns to, so it drops straight down.
@@ -510,6 +526,7 @@ export function layoutDeskFull({
     cards.filter((c) => matchesView(c, "all")),
     vw,
     vh,
+    belowGreeting,
   );
 
   const onShow = (): LayoutCard[] => {

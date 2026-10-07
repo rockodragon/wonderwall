@@ -27,19 +27,25 @@ const COLORS: Record<Tone, { text: string; soft: string; line: string; bg: strin
   },
 };
 
-export function InviteNudge({ tone, className }: { tone: Tone; className?: string }) {
+/** Counts today's visit; whether the card is up, and how to close it. The
+ *  canvas holds this itself, since its layout keeps cards clear of it. */
+export function useInviteNudge() {
   const [days, setDays] = useState(0);
   useEffect(() => setDays(recordVisitDay()), []);
-  const note = useOnceNote(INVITE_NUDGE_KEY, days >= NUDGE_ON_DAY);
+  return useOnceNote(INVITE_NUDGE_KEY, days >= NUDGE_ON_DAY);
+}
+
+export function InviteNudge({ tone, className }: { tone: Tone; className?: string }) {
+  const note = useInviteNudge();
   if (!note.show) return null;
   return (
     <div className={className}>
-      <NudgeCard tone={tone} onClose={note.dismiss} />
+      <InviteNudgeCard tone={tone} onClose={note.dismiss} />
     </div>
   );
 }
 
-function NudgeCard({ tone, onClose }: { tone: Tone; onClose: () => void }) {
+export function InviteNudgeCard({ tone, onClose }: { tone: Tone; onClose: () => void }) {
   const c = COLORS[tone];
   const link = useInviteLink("nudge");
   async function copy() {
@@ -54,12 +60,14 @@ function NudgeCard({ tone, onClose }: { tone: Tone; onClose: () => void }) {
       className="flex flex-wrap items-center gap-x-4 gap-y-3 rounded-xl border px-5 py-4"
       style={{ borderColor: c.line, background: c.bg, maxWidth: 920 }}
     >
-      <p className="min-w-0 flex-1 text-[15px]" style={{ color: c.text }}>
+      {/* Wide enough to read as one line; on a phone the button goes under it. */}
+      <p className="min-w-[13rem] flex-1 text-[15px]" style={{ color: c.text }}>
         Know someone who'd like it here?
       </p>
       <button
         type="button"
         onClick={copy}
+        title={link.url ? `Copy ${link.url}` : undefined}
         disabled={link.loading || !link.url}
         className={`inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-[13.5px] font-medium disabled:opacity-50 ${FOCUS_RING_CLASS}`}
         style={{ borderColor: link.copied ? c.accent : c.line, color: link.copied ? c.accent : c.text }}

@@ -63,6 +63,7 @@ function InviteCard({ path, title, onDone }: { path: string; title: string; onDo
         <button
           type="button"
           onClick={link.copy}
+          title={link.url ? `Copy ${link.url}` : undefined}
           disabled={link.loading || !link.url}
           className={buttonClass}
           style={{

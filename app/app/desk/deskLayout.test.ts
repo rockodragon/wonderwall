@@ -241,6 +241,20 @@ describe("a small desk", () => {
   it("keeps the palette's zone the palette's size", () => {
     expect(clearZones(600).palette).toEqual({ x: 0, y: 600 - PALETTE.zone, w: PALETTE.zone, h: PALETTE.zone });
   });
+
+  it("grows the greeting's zone to cover what's under it", () => {
+    expect(clearZones(600, { w: 600, h: 72 }).greeting).toEqual({ ...GREETING_BOX, w: 600, h: GREETING_BOX.h + 72 });
+    expect(clearZones(600, { w: 300, h: 10 }).greeting.w).toBe(GREETING_BOX.w);
+  });
+
+  it.each(VIEWPORTS)("keeps clear of the invite card under the greeting at %i x %i", (vw, vh) => {
+    const below = { w: 600, h: 72 };
+    const places = layoutDesk({ cards: FULL_DESK, view: "all", vw, vh, belowGreeting: below });
+    const { greeting } = clearZones(vh, below);
+    for (const id of shownIds(places)) {
+      expect(rectsOverlap(rotatedBounds(places.get(id)!), greeting), `${id} over the invite card`).toBe(false);
+    }
+  });
 });
 
 describe("row (Today)", () => {
