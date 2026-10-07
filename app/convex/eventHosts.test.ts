@@ -11,6 +11,7 @@ import {
   planAddCoHost,
   planCoHostSync,
   planDisplayHosts,
+  newlyListedUsers,
   planRemoveCoHost,
   syncCoHosts,
 } from "./eventHosts";
@@ -391,5 +392,27 @@ describe("planDisplayHosts — someone not on the platform", () => {
       ok: false,
       reason: "duplicate",
     });
+  });
+});
+
+describe("newlyListedUsers — who hears they were listed as a host", () => {
+  it("names people new to the list, not the one saving, not names or orgs", () => {
+    expect(
+      newlyListedUsers(
+        ["u-org"],
+        [
+          { kind: "user", id: "u-org" },
+          { kind: "user", id: "u-new" },
+          { kind: "user", id: "u-me" },
+          { kind: "org", id: "o1" },
+          { kind: "name", id: "Jane Doe" },
+        ],
+        "u-me",
+      ),
+    ).toEqual(["u-new"]);
+  });
+
+  it("names each person once", () => {
+    expect(newlyListedUsers([], [{ kind: "user", id: "a" }, { kind: "user", id: "a" }], "me")).toEqual(["a"]);
   });
 });

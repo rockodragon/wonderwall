@@ -75,6 +75,8 @@ const EXACT: Record<string, InboxIcon> = {
   event_application: "event",
   followed_created_event: "event",
   reminder: "event",
+  event_cohost_added: "event",
+  event_host_listed: "event",
   job_interest: "job",
   invite_accepted: "member",
   followed_posted_project: "project",

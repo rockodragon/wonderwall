@@ -9,7 +9,7 @@ import { formatFollowedEventDate, notifyFollowers } from "./follows";
 import { canonicalMediaUrl, schedulePreviewFetch } from "./linkPreview";
 import { mergeGuests, summarizeGuests, type GuestInput } from "./eventGuests";
 import { getUserEmail } from "./emailHelpers";
-import { isEventHost, planAddCoHost, planRemoveCoHost, planDisplayHosts, syncCoHosts, MAX_HOST_NAME } from "./eventHosts";
+import { isEventHost, planAddCoHost, planRemoveCoHost, planDisplayHosts, syncCoHosts, MAX_HOST_NAME, newlyListedUsers } from "./eventHosts";
 import { canSeeEvent, eventVisibilityChecker, isFreeEvent } from "./garden/eventVisibility";
 import { communityVisibility, isHiddenCommunityId } from "./garden/communityVisibility";
 import { hostUserIdsForOrg, primaryOrgByUserId } from "./organizations";
@@ -895,6 +895,52 @@ async function saveCoHosts(ctx: MutationCtx, eventId: Id<"events">, coHostIds: s
   await syncCoHosts(ctx, eventId, ids);
 }
 
+/** Tell someone they were made a co-host, or listed as a host (Rick,
+ * 2026-10-07): a notification and an email. Never the person who did it. */
+async function notifyHostAdded(
+  ctx: MutationCtx,
+  event: Doc<"events">,
+  actorId: Id<"users">,
+  targetId: Id<"users">,
+  how: "cohost" | "listed",
+) {
+  if (targetId === actorId) return;
+  const actor = await ctx.db
+    .query("profiles")
+    .withIndex("by_userId", (q) => q.eq("userId", actorId))
+    .first();
+  const actorName = actor?.name || "Someone";
+  const title =
+    how === "cohost"
+      ? `${actorName} made you a co-host of ${event.title}`
+      : `${actorName} listed you as a host of ${event.title}`;
+  const message =
+    how === "cohost" ? "You can edit the event and see the guest list." : "Your name shows on the event page.";
+  const linkUrl = `/events/${event._id}`;
+  await ctx.db.insert("notifications", {
+    userId: targetId,
+    type: how === "cohost" ? "event_cohost_added" : "event_host_listed",
+    title,
+    message,
+    linkUrl,
+    relatedUserId: actorId,
+    createdAt: Date.now(),
+  });
+  await scheduleNotificationEmail(ctx, {
+    userId: targetId,
+    subject: title,
+    previewText: message,
+    heading: title,
+    body: `<strong>${escapeHtml(actorName)}</strong> ${
+      how === "cohost" ? "made you a co-host of" : "listed you as a host of"
+    } <strong>${escapeHtml(event.title)}</strong>. ${escapeHtml(message)}`,
+    ctaText: "See the event",
+    ctaUrl: linkUrl,
+    category: "activity",
+    communityId: event.hostOrgId,
+  });
+}
+
 export const addCoHost = mutation({
   args: { eventId: v.id("events"), userId: v.id("users") },
   handler: async (ctx, args) => {
@@ -912,6 +958,8 @@ export const addCoHost = mutation({
     const target = await ctx.db.get(args.userId);
     if (!target) throw new Error("User not found");
     await saveCoHosts(ctx, args.eventId, plan.coHostIds);
+    const actorId = await auth.getUserId(ctx);
+    if (actorId) await notifyHostAdded(ctx, event, actorId, args.userId, "cohost");
   },
 });
 
@@ -1443,6 +1491,16 @@ export const setDisplayHosts = mutation({
     if (!plan.ok) {
       throw new Error(plan.reason === "full" ? "Show at most 10 hosts" : "Each host can be listed once");
     }
+    // Who was shown before this save: the saved list, else the default
+    // (organizer, then co-hosts). The newly listed hear about it below.
+    const shownBefore = event.displayHosts
+      ? event.displayHosts.flatMap((d) => (d.kind === "user" ? [String(d.userId)] : []))
+      : [String(event.organizerId), ...(event.coHostIds ?? []).map(String)];
+    const listed = newlyListedUsers(
+      shownBefore,
+      hosts.map((h) => (h.kind === "name" ? { kind: h.kind, id: h.name } : { kind: h.kind, id: String(h.id) })),
+      String(userId),
+    );
     await ctx.db.patch(args.eventId, {
       displayHosts:
         hosts.length === 0
@@ -1456,5 +1514,6 @@ export const setDisplayHosts = mutation({
             ),
       updatedAt: Date.now(),
     });
+    for (const id of listed) await notifyHostAdded(ctx, event, userId, id as Id<"users">, "listed");
   },
 });
