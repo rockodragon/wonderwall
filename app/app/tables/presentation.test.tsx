@@ -4,6 +4,8 @@ import { MemoryRouter } from "react-router";
 import {
   filterTables,
   fullnessSegments,
+  hostedByWords,
+  rosterStatusWords,
   tablePrice,
   type TableSummary,
 } from "./presentation";
@@ -141,4 +143,36 @@ describe("browse filters use real occurrence data", () => {
         (row) => row._id,
       ),
     ).toEqual(["t2"]));
+});
+
+describe("hostedByWords", () => {
+  it("turns the host's title into how the page says it", () => {
+    expect(hostedByWords("Host")).toBe("Hosted by");
+    expect(hostedByWords("Instructor")).toBe("Taught by");
+    expect(hostedByWords("Facilitator")).toBe("Facilitated by");
+  });
+  it("keeps a stored phrase, and falls back to Hosted by", () => {
+    expect(hostedByWords("Hosted by")).toBe("Hosted by");
+    expect(hostedByWords(undefined)).toBe("Hosted by");
+    expect(hostedByWords("Wizard")).toBe("Hosted by");
+  });
+});
+
+describe("rosterStatusWords", () => {
+  const person = (status: string, paymentStatus = "not_required", role = "participant") => ({
+    status,
+    paymentStatus,
+    role,
+  });
+  it("says it plainly, not as stored", () => {
+    expect(rosterStatusWords(person("active"), false)).toBe("Joined");
+    expect(rosterStatusWords(person("pending"), false)).toBe("Asked to join");
+    expect(rosterStatusWords(person("active", "not_required", "host"), false)).toBe("Host");
+    expect(rosterStatusWords(person("active", "not_required", "co_host"), true)).toBe("Co-host");
+  });
+  it("says whether they've paid on a paid Table", () => {
+    expect(rosterStatusWords(person("active", "confirmed"), true)).toBe("Paid");
+    expect(rosterStatusWords(person("active", "pending"), true)).toBe("Accepted · hasn't paid");
+    expect(rosterStatusWords(person("active", "external_unverified"), true)).toBe("Signed up on your page");
+  });
 });

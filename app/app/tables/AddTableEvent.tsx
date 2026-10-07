@@ -4,20 +4,29 @@ import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { TableDateForm } from "./TableDateForm";
 
-/** "Add a date", on any Table. A one-time Table becomes a series; the
- * server checks the host's membership and says why when it refuses. */
+/** "Add a date", on any Table. A one-time Table becomes a series. A host
+ * who can't add dates (getTable's addDatesBlocked) sees why instead of a
+ * form; the server checks again either way. */
 export function AddTableEvent({
   tableId,
   tableName,
   oneTime,
+  blocked,
 }: {
   tableId: Id<"gardenTables">;
   tableName: string;
   oneTime: boolean;
+  blocked: string | null;
 }) {
   const add = useMutation(api.garden.tables.addTableEvent);
   const [open, setOpen] = useState(false);
   const [message, setMessage] = useState("");
+  if (blocked)
+    return (
+      <div className="tables-date-tool">
+        <p className="tables-note">{blocked}</p>
+      </div>
+    );
   return (
     <div className={`tables-date-tool${open ? " is-open" : ""}`}>
       {open ? (

@@ -4,6 +4,7 @@ import type { MutationCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import { getTableParticipation, normalizeTable } from "./tablePolicy";
 import { transitionMembership } from "./tables";
+import { notifyHostsOfJoin } from "./tableNotify";
 import { requireAdmin } from "../helpers";
 import { isPayableClassPayment } from "./payouts";
 import {
@@ -250,6 +251,7 @@ export async function confirmTableCheckout(
     stripeCheckoutSessionId: session.id,
     leftAt: undefined,
   });
+  if (table) await notifyHostsOfJoin(ctx, table, hold.userId, "paid");
   if (table?.sourceOfferingId) {
     const signup = await ctx.db
       .query("offeringSignups")

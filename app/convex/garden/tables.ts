@@ -21,11 +21,14 @@ import {
   isActiveEnrollment,
 } from "./tablePolicy";
 import { syncCoHosts } from "../eventHosts";
+import { eventHasStarted } from "../eventWindow";
 import { primaryOrgByUserId } from "../organizations";
 import { MIN_CLASS_PRICE_CENTS, MAX_CLASS_PRICE_CENTS } from "./stripeHandlers";
 import {
   inviteToRunAgain,
+  notifyHostsOfJoin,
   notifyNewDate,
+  notifyRemoved,
   notifyRequestAccepted,
 } from "./tableNotify";
 
@@ -113,6 +116,16 @@ export function visibleMeetingUrl(
 }
 
 // Canonical public projections. Never expose enrollment rows or contact details.
+/** The cover: an uploaded picture (4:5, from the cover picker), else the
+ * older pasted address. */
+async function tablePhotoUrl(ctx: QueryCtx, table: Doc<"gardenTables">) {
+  if (table.photoStorageId) {
+    const url = await ctx.storage.getUrl(table.photoStorageId);
+    if (url) return url;
+  }
+  return table.photoUrl;
+}
+
 async function tableSummary(
   ctx: QueryCtx,
   table: Doc<"gardenTables">,
@@ -165,7 +178,7 @@ async function tableSummary(
     program: table.program,
     cadence: table.cadence,
     blurb: table.blurb,
-    photoUrl: table.photoUrl,
+    photoUrl: await tablePhotoUrl(ctx, table),
     ...normalizeTable(table),
     hostRoleLabel: table.hostRoleLabel ?? "Hosted by",
     hostLabel: table.hostRoleLabel ?? "Hosted by",
@@ -302,8 +315,14 @@ export const getTable = query({
         }));
       roster = rosterProfiles.map((p) => p.name);
     }
+    // A host who can't add dates sees why instead of a form that refuses.
+    const addDates =
+      summary.viewer.isHost && userId
+        ? await addDatesDenial(ctx, userId, table.hostOrgId)
+        : null;
     return {
       ...summary,
+      addDatesBlocked: addDates?.reason ?? null,
       description: table.description ?? table.blurb ?? "",
       externalPaymentLinkUrl: table.externalPaymentLinkUrl,
       roster,
@@ -400,7 +419,7 @@ export const joinTable = mutation({
     if (viewer.action === "checkout")
       return { paymentPending: true, action: "checkout" };
     if (viewer.action === "request") {
-      if (viewer.membership?.status !== "pending")
+      if (viewer.membership?.status !== "pending") {
         await transitionMembership(ctx, table._id, userId, {
           status: "pending",
           role: "participant",
@@ -409,6 +428,8 @@ export const joinTable = mutation({
               ? "not_required"
               : "pending",
         });
+        await notifyHostsOfJoin(ctx, table, userId, "asked");
+      }
       return { ok: true, action: "request" };
     }
     if (viewer.action !== "join")
@@ -422,6 +443,7 @@ export const joinTable = mutation({
           : "not_required",
       leftAt: undefined,
     });
+    await notifyHostsOfJoin(ctx, table, userId, "joined");
     return { ok: true, action: "joined" };
   },
 });
@@ -611,6 +633,8 @@ async function insertTableOccurrence(
     coHostIds: table.coHostIds,
     description: table.description ?? table.blurb ?? "",
     hostOrgId: table.hostOrgId,
+    // Each date wears the Table's cover on its event card and page.
+    ...(table.photoStorageId ? { coverImageStorageId: table.photoStorageId } : {}),
     tags: [],
     // The Table's access rule is applied once, at enrollment. Event apply
     // and RSVP already require an accepted participant, so copying the
@@ -647,6 +671,7 @@ type NewTable = {
   capacity?: number;
   hostRoleLabel?: string;
   photoUrl?: string;
+  photoStorageId?: Id<"_storage">;
   events: TableOccurrence[];
 };
 
@@ -748,6 +773,7 @@ async function createTableFor(
     description: args.description.trim(),
     blurb: args.description.trim().slice(0, 240),
     photoUrl: args.photoUrl,
+    ...(args.photoStorageId ? { photoStorageId: args.photoStorageId } : {}),
     scheduleType: args.scheduleType,
     membershipRequired: args.membershipRequired,
     access: args.access,
@@ -796,6 +822,7 @@ export const createTable = mutation({
     capacity: v.optional(v.number()),
     hostRoleLabel: v.optional(v.string()),
     photoUrl: v.optional(v.string()),
+    photoStorageId: v.optional(v.id("_storage")),
     events: v.array(occurrenceValidator),
   },
   handler: async (ctx, args) => {
@@ -859,12 +886,22 @@ export const manageEnrollment = mutation({
       throw new ConvexError({ code: "cannot_remove_owner" });
     const participant = await getTableParticipation(ctx, table, args.userId);
     if (args.decision === "remove") {
+      const was = participant.membership?.status ?? "active";
       if (participant.membership)
         await transitionMembership(
           ctx,
           table._id,
           args.userId,
           { status: "removed" },
+          actor,
+        );
+      // Only someone who was in, or waiting, hears about it.
+      if (participant.membership && ["active", "pending"].includes(was))
+        await notifyRemoved(
+          ctx,
+          table,
+          args.userId,
+          was === "pending" ? "declined" : "removed",
           actor,
         );
       return { ok: true };
@@ -894,7 +931,8 @@ export const manageEnrollment = mutation({
       },
       actor,
     );
-    if (answeringRequest) await notifyRequestAccepted(ctx, table, args.userId);
+    if (answeringRequest)
+      await notifyRequestAccepted(ctx, table, args.userId, actor);
     return { ok: true };
   },
 });
@@ -914,6 +952,11 @@ export const recordAttendance = mutation({
     if (!table) throw new ConvexError({ code: "not_found" });
     const host = await getTableParticipation(ctx, table, actor);
     if (!host.isHost) throw new ConvexError({ code: "forbidden" });
+    if (!eventHasStarted(event, Date.now()))
+      throw new ConvexError({
+        code: "not_started",
+        reason: "You can mark who came once the date starts.",
+      });
     const participant = await getTableParticipation(ctx, table, args.userId);
     if (!participant.isMember && !participant.isHost)
       throw new ConvexError({ code: "not_a_member" });
@@ -1009,7 +1052,7 @@ export const getTableForOffering = query({
  * membership in the Table's own community — the rule createTable applies
  * (hasTableCommunityMembership). Null when this person may add dates. */
 async function addDatesDenial(
-  ctx: MutationCtx,
+  ctx: QueryCtx,
   userId: Id<"users">,
   hostOrgId: Id<"hostOrgs"> | undefined,
 ): Promise<{ code: string; reason: string } | null> {
@@ -1126,6 +1169,7 @@ export const runTableAgain = mutation({
         capacity: policy.capacity,
         hostRoleLabel: old.hostRoleLabel,
         photoUrl: old.photoUrl,
+        photoStorageId: old.photoStorageId,
         events: [args.event],
       },
       { previousTableId: old._id },

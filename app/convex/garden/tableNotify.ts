@@ -1,5 +1,7 @@
 // Table email: a new date, a date that moved or was canceled, an accepted
-// request, and "Run it again". One path for all of them:
+// request, and "Run it again"; and, in the app as well as by email, the
+// host hears when someone joins or asks, and a person hears when the host
+// answers or removes them. One email path for all of them:
 //   - people with an account go through scheduleNotificationEmail, so their
 //     email preferences apply and the footer carries their unsubscribe link;
 //   - guests with no account (Table guest RSVPs) go straight to
@@ -415,12 +417,16 @@ export async function notifyDateCanceled(
   });
 }
 
-/** The host accepted someone's request to join: that person. */
+/** The host accepted someone's request to join: that person, in the app
+ * and by email. */
 export async function notifyRequestAccepted(
   ctx: MutationCtx,
   table: Doc<"gardenTables">,
   userId: Id<"users">,
+  actorId?: Id<"users">,
 ): Promise<number> {
+  const paid = normalizeTable(table).pricingType === "fixed";
+  await insertTableNote(ctx, table, userId, personNote(table.name, paid ? "accepted_pay" : "accepted"), actorId);
   return emailTableAudience(ctx, {
     table,
     userIds: [userId],
@@ -490,4 +496,120 @@ export async function inviteToRunAgain(
     exceptUserId: actorId,
     build: () => runAgainEmail(newTable, firstEvent),
   });
+}
+
+// ——— In the app: joins, requests, answers ———
+
+export interface TableNote {
+  type: string;
+  title: string;
+  message: string;
+}
+
+/** What a host reads when someone takes a chair, pays for one, or asks. */
+export function hostNote(name: string, tableName: string, how: "joined" | "paid" | "asked"): TableNote {
+  if (how === "asked")
+    return {
+      type: "table_join_request",
+      title: `${name} asked to join ${tableName}`,
+      message: "Say yes or no on the Table page.",
+    };
+  return {
+    type: "table_joined",
+    title: how === "paid" ? `${name} paid and joined ${tableName}` : `${name} joined ${tableName}`,
+    message: "See who's at your Table.",
+  };
+}
+
+/** What a person reads when the host answers their request or removes them. */
+export function personNote(
+  tableName: string,
+  how: "accepted" | "accepted_pay" | "declined" | "removed",
+): TableNote {
+  switch (how) {
+    case "accepted":
+      return { type: "table_request_accepted", title: `You're in: ${tableName}`, message: "The host said yes." };
+    case "accepted_pay":
+      return {
+        type: "table_request_accepted",
+        title: `The host said yes: ${tableName}`,
+        message: "Pay to take your chair.",
+      };
+    case "declined":
+      return {
+        type: "table_request_declined",
+        title: `Your request to join ${tableName} wasn't accepted`,
+        message: "The host can't take you this time.",
+      };
+    case "removed":
+      return {
+        type: "table_removed",
+        title: `You're no longer at ${tableName}`,
+        message: "The host removed you from this Table.",
+      };
+  }
+}
+
+async function insertTableNote(
+  ctx: MutationCtx,
+  table: Doc<"gardenTables">,
+  userId: Id<"users">,
+  note: TableNote,
+  relatedUserId?: Id<"users">,
+) {
+  await ctx.db.insert("notifications", {
+    userId,
+    type: note.type,
+    title: note.title,
+    message: note.message,
+    linkUrl: `/tables/${table.slug}`,
+    ...(relatedUserId ? { relatedUserId } : {}),
+    createdAt: Date.now(),
+  });
+}
+
+function noteEmail(table: Doc<"gardenTables">, note: TableNote): TableEmail {
+  return {
+    subject: note.title,
+    previewText: note.message,
+    heading: note.title,
+    body: p(escapeHtml(note.message)),
+    ctaText: "See the Table",
+    ctaUrl: `/tables/${table.slug}`,
+  };
+}
+
+/** Someone took a chair, paid for one, or asked: the Table's hosts (not
+ * that person), in the app and by email. */
+export async function notifyHostsOfJoin(
+  ctx: MutationCtx,
+  table: Doc<"gardenTables">,
+  userId: Id<"users">,
+  how: "joined" | "paid" | "asked",
+): Promise<void> {
+  const hosts = [...new Set([table.hostUserId, ...(table.coHostIds ?? [])])].filter(
+    (id): id is Id<"users"> => !!id && id !== userId,
+  );
+  if (hosts.length === 0) return;
+  const profile = await ctx.db
+    .query("profiles")
+    .withIndex("by_userId", (q) => q.eq("userId", userId))
+    .first();
+  const note = hostNote(profile?.name?.trim() || "Someone", table.name, how);
+  for (const host of hosts) await insertTableNote(ctx, table, host, note, userId);
+  await emailTableAudience(ctx, { table, userIds: hosts, guests: [], build: () => noteEmail(table, note) });
+}
+
+/** The host declined someone's request or removed them: that person, in
+ * the app and by email. */
+export async function notifyRemoved(
+  ctx: MutationCtx,
+  table: Doc<"gardenTables">,
+  userId: Id<"users">,
+  how: "declined" | "removed",
+  actorId: Id<"users">,
+): Promise<void> {
+  const note = personNote(table.name, how);
+  await insertTableNote(ctx, table, userId, note, actorId);
+  await emailTableAudience(ctx, { table, userIds: [userId], guests: [], build: () => noteEmail(table, note) });
 }

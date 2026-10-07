@@ -1544,7 +1544,8 @@ export default defineSchema({
     cadence: v.optional(v.string()),
     blurb: v.optional(v.string()),
     description: v.optional(v.string()),
-    photoUrl: v.optional(v.string()),
+    photoUrl: v.optional(v.string()), // a pasted address (older Tables)
+    photoStorageId: v.optional(v.id("_storage")), // the uploaded 4:5 cover
     priceCents: v.optional(v.number()),
     currency: v.optional(v.string()),
     meetingUrl: v.optional(v.string()),

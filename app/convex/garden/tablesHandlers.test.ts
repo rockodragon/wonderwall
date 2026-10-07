@@ -441,6 +441,15 @@ describe("Tables canonical handler policies", () => {
     ).rejects.toThrow();
     const ctx = makeCtx(data, HOST);
     expect(ctx.store.tableAttendance).toEqual([]);
+    // Not before the date starts.
+    await expect(
+      run(recordAttendance, ctx, {
+        eventId: "events:e",
+        userId: USER,
+        status: "attended",
+      }),
+    ).rejects.toThrow(/once the date starts/);
+    ctx.store.events.find((e: { _id: string }) => e._id === "events:e").datetime = NOW - 1000;
     await run(recordAttendance, ctx, {
       eventId: "events:e",
       userId: USER,
@@ -588,5 +597,93 @@ describe("Tables canonical handler policies", () => {
         allowsExternalGuests: true,
       }),
     ).rejects.toThrow();
+  });
+});
+
+describe("Tables tell people", () => {
+  const notes = (store: Record<string, Row[]>, userId: string) =>
+    (store.notifications ?? []).filter((n) => n.userId === userId);
+
+  it("tells the host when someone joins, never the person who joined", async () => {
+    const ctx = makeCtx(world(), USER);
+    await run(joinTable, ctx, { tableId: "gardenTables:t" });
+    expect(notes(ctx.store, HOST)).toEqual([
+      expect.objectContaining({
+        type: "table_joined",
+        title: "Participant joined Table",
+        linkUrl: "/tables/table",
+        relatedUserId: USER,
+      }),
+    ]);
+    expect(notes(ctx.store, USER)).toEqual([]);
+  });
+
+  it("tells the host once when someone asks, and the person when the host says yes", async () => {
+    const data = world();
+    data.gardenTables[0].access = "approval";
+    const ctx = makeCtx(data, USER);
+    await run(joinTable, ctx, { tableId: "gardenTables:t" });
+    await run(joinTable, ctx, { tableId: "gardenTables:t" });
+    expect(notes(ctx.store, HOST).map((n) => n.type)).toEqual(["table_join_request"]);
+    expect(notes(ctx.store, HOST)[0].title).toBe("Participant asked to join Table");
+    const host = makeCtx(ctx.store, HOST);
+    await run(manageEnrollment, host, {
+      tableId: "gardenTables:t",
+      userId: USER,
+      decision: "accept",
+    });
+    expect(notes(host.store, USER)).toEqual([
+      expect.objectContaining({ type: "table_request_accepted", title: "You're in: Table" }),
+    ]);
+  });
+
+  it("tells a person the host said no, or removed them", async () => {
+    const data = world();
+    data.gardenTables[0].access = "approval";
+    const asker = makeCtx(data, USER);
+    await run(joinTable, asker, { tableId: "gardenTables:t" });
+    const decider = makeCtx(asker.store, HOST);
+    await run(manageEnrollment, decider, {
+      tableId: "gardenTables:t",
+      userId: USER,
+      decision: "remove",
+    });
+    expect(notes(decider.store, USER).map((n) => n.type)).toEqual(["table_request_declined"]);
+
+    const open = makeCtx(world(), USER);
+    await run(joinTable, open, { tableId: "gardenTables:t" });
+    const host = makeCtx(open.store, HOST);
+    await run(manageEnrollment, host, { tableId: "gardenTables:t", userId: USER, decision: "remove" });
+    expect(notes(host.store, USER)).toEqual([
+      expect.objectContaining({ type: "table_removed", title: "You're no longer at Table" }),
+    ]);
+    // Removing them again tells them nothing new.
+    await run(manageEnrollment, host, { tableId: "gardenTables:t", userId: USER, decision: "remove" });
+    expect(notes(host.store, USER)).toHaveLength(1);
+  });
+
+  it("tells nobody when a person leaves on their own", async () => {
+    const ctx = makeCtx(world(), USER);
+    await run(joinTable, ctx, { tableId: "gardenTables:t" });
+    await run(leaveTable, ctx, { tableId: "gardenTables:t" });
+    expect(notes(ctx.store, USER)).toEqual([]);
+    expect(notes(ctx.store, HOST)).toHaveLength(1);
+  });
+
+  it("tells a host who can't add dates why, and nobody else", async () => {
+    const data = world();
+    const forHost = await run(getTable, makeCtx(data, HOST), { slug: "table" });
+    expect(forHost.addDatesBlocked).toBe("Adding more dates takes Creative Exchange membership.");
+    const forMember = await run(getTable, makeCtx(data, USER), { slug: "table" });
+    expect(forMember.addDatesBlocked).toBeNull();
+    data.memberships.push({
+      _id: "memberships:h",
+      userId: HOST,
+      communityId: COMMUNITY,
+      status: "active",
+      level: "seat",
+    });
+    const paidHost = await run(getTable, makeCtx(data, HOST), { slug: "table" });
+    expect(paidHost.addDatesBlocked).toBeNull();
   });
 });

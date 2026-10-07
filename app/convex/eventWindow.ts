@@ -23,6 +23,12 @@ export function eventEndsAt(event: Timed): number {
   return event.endTime ?? event.datetime + DEFAULT_EVENT_LENGTH_MS;
 }
 
+/** Started: its start time has come. A Table host marks who came from
+ *  here on, never before. */
+export function eventHasStarted(event: Timed, now: number): boolean {
+  return event.datetime <= now;
+}
+
 /** Over: it has ended. One that's on right now hasn't, so a person can still
  *  join late. */
 export function eventHasEnded(event: Timed, now: number): boolean {

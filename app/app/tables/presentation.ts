@@ -60,6 +60,35 @@ export function tableBadge(
   return table.format || "Table";
 }
 
+/** "Hosted by", in the host's own title: an Instructor's Table is "Taught
+ *  by". Older Tables stored the phrase itself ("Hosted by"), which stays. */
+const BY_TITLE: Record<string, string> = {
+  host: "Hosted by",
+  instructor: "Taught by",
+  facilitator: "Facilitated by",
+  guide: "Guided by",
+  convener: "Convened by",
+};
+export function hostedByWords(label: string | undefined): string {
+  const title = (label ?? "").trim();
+  if (/\sby$/i.test(title)) return title;
+  return BY_TITLE[title.toLowerCase()] ?? "Hosted by";
+}
+
+/** Where someone stands, as a host reads it on their list. */
+export function rosterStatusWords(
+  person: { status: string; role: string; paymentStatus: string },
+  paid: boolean,
+): string {
+  if (person.role === "host") return "Host";
+  if (person.role === "co_host") return "Co-host";
+  if (person.status === "pending") return "Asked to join";
+  if (!paid) return "Joined";
+  if (person.paymentStatus === "confirmed") return "Paid";
+  if (person.paymentStatus === "external_unverified") return "Signed up on your page";
+  return "Accepted · hasn't paid";
+}
+
 /** Ten fixed segments communicate rough fullness, never individual seats. */
 export function fullnessSegments(memberCount: number, capacity?: number) {
   if (!capacity || capacity < 1) return 0;

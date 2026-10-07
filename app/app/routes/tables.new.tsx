@@ -1,9 +1,12 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { Link, useNavigate, useRouteError } from "react-router";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { TableCard } from "../tables/TableCard";
+import { CoverFrame } from "../components/CoverFrame";
+import { uploadToStorage } from "../lib/uploadFile";
+import { useCoverPick } from "../lib/useCoverPick";
 import { tableEventInput } from "../tables/eventInput";
 import "../tables/tables.css";
 import { FF_TABLES, useFeatureGate } from "../lib/featureFlags";
@@ -41,7 +44,31 @@ function NewTablePage() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [format, setFormat] = useState("Community");
-  const [photoUrl, setPhotoUrl] = useState("");
+  // The cover goes through the same 4:5 framer as events and projects
+  // (docs/features/cover-4x5.md); each date's event card wears it too.
+  const generateUploadUrl = useMutation(api.files.generateUploadUrl);
+  const [cover, setCover] = useState<{
+    storageId: Id<"_storage">;
+    previewUrl: string;
+  } | null>(null);
+  const coverRef = useRef(cover);
+  coverRef.current = cover;
+  const coverInputRef = useRef<HTMLInputElement>(null);
+  const coverPick = useCoverPick(async (blob) => {
+    const storageId = await uploadToStorage(generateUploadUrl, blob);
+    if (coverRef.current) URL.revokeObjectURL(coverRef.current.previewUrl);
+    setCover({ storageId, previewUrl: URL.createObjectURL(blob) });
+  });
+  useEffect(
+    () => () => {
+      if (coverRef.current) URL.revokeObjectURL(coverRef.current.previewUrl);
+    },
+    [],
+  );
+  function removeCover() {
+    if (cover) URL.revokeObjectURL(cover.previewUrl);
+    setCover(null);
+  }
   const [hostRoleLabel, setHostRoleLabel] = useState("Host");
   const [scheduleType, setScheduleType] = useState<"one_time" | "series">(
     "one_time",
@@ -122,7 +149,7 @@ function NewTablePage() {
         name: name.trim(),
         description: description.trim(),
         format,
-        photoUrl: photoUrl.trim() || undefined,
+        photoStorageId: cover?.storageId,
         hostOrgId,
         hostRoleLabel,
         scheduleType,
@@ -265,7 +292,7 @@ function NewTablePage() {
                     </select>
                   </label>
                   <label className="tables-field">
-                    Your host label
+                    Your title
                     <select
                       className="tables-input"
                       value={hostRoleLabel}
@@ -283,19 +310,60 @@ function NewTablePage() {
                     </select>
                   </label>
                 </div>
-                <label className="tables-field">
-                  Cover image URL{" "}
-                  <span className="tables-note">
-                    Optional. Use an image you have permission to share.
+                <div className="tables-field">
+                  <span>
+                    Cover picture{" "}
+                    <span className="tables-note">Optional</span>
                   </span>
                   <input
-                    className="tables-input"
-                    type="url"
-                    value={photoUrl}
-                    onChange={(event) => setPhotoUrl(event.target.value)}
-                    placeholder="https://…"
+                    ref={coverInputRef}
+                    type="file"
+                    accept="image/*"
+                    hidden
+                    tabIndex={-1}
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      event.target.value = "";
+                      if (file) coverPick.pick(file);
+                    }}
                   />
-                </label>
+                  <div className="tables-cover-row">
+                    {cover && (
+                      <CoverFrame
+                        src={cover.previewUrl}
+                        alt="Cover preview"
+                        className="tables-cover-preview"
+                      />
+                    )}
+                    <button
+                      type="button"
+                      className="tables-button tables-button-small"
+                      disabled={coverPick.busy}
+                      onClick={() => coverInputRef.current?.click()}
+                    >
+                      {coverPick.busy
+                        ? "Uploading…"
+                        : cover
+                          ? "Change"
+                          : "Add a cover picture"}
+                    </button>
+                    {cover && (
+                      <button
+                        type="button"
+                        className="tables-button tables-button-small"
+                        disabled={coverPick.busy}
+                        onClick={removeCover}
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                  {coverPick.error && (
+                    <p className="tables-error" role="alert">
+                      {coverPick.error}
+                    </p>
+                  )}
+                </div>
               </div>
             </fieldset>
             <fieldset>
@@ -501,8 +569,7 @@ function NewTablePage() {
                   reveal the Table roster.
                 </label>
                 <p className="tables-note">
-                  The roster stays private until a participant joins, is
-                  accepted, and meets any membership and payment requirements.
+                  Only people at this Table can see who's here.
                 </p>
               </div>
             </fieldset>
@@ -568,6 +635,7 @@ function NewTablePage() {
               {pending ? "Setting the Table…" : "Set the Table"}
             </button>
           </form>
+          {coverPick.picker}
           <aside
             className="tables-create-preview"
             aria-label="Table card preview"
@@ -580,7 +648,7 @@ function NewTablePage() {
                 slug: "preview",
                 name: name || "Your Table",
                 format,
-                photoUrl: photoUrl || undefined,
+                photoUrl: cover?.previewUrl,
                 scheduleType,
                 membershipRequired,
                 priceCents:

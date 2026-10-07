@@ -2,6 +2,8 @@ import { useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
+import { eventHasStarted } from "../../convex/eventWindow";
+import { rosterStatusWords } from "./presentation";
 
 type HostPerson = {
   userId: Id<"users">;
@@ -46,7 +48,9 @@ function AttendancePanel({
           <div className="tables-session" key={person.userId}>
             <div className="tables-session-top">
               <span>{person.name}</span>
-              <span className="tables-note">{status ?? "Not recorded"}</span>
+              <span className="tables-note">
+                {status === "attended" ? "Came" : status === "absent" ? "Didn't come" : "Not marked"}
+              </span>
             </div>
             <div className="tables-session-actions">
               <button
@@ -56,7 +60,7 @@ function AttendancePanel({
                 aria-pressed={status === "attended"}
                 onClick={() => mark(person.userId, "attended")}
               >
-                Attended
+                Came
               </button>
               <button
                 type="button"
@@ -65,7 +69,7 @@ function AttendancePanel({
                 aria-pressed={status === "absent"}
                 onClick={() => mark(person.userId, "absent")}
               >
-                Absent
+                Didn't come
               </button>
             </div>
           </div>
@@ -125,18 +129,37 @@ function GuestList({ tableId }: { tableId: Id<"gardenTables"> }) {
 export function HostManagement({
   tableId,
   events,
+  paid,
 }: {
   tableId: Id<"gardenTables">;
   events: { _id: Id<"events">; title: string; datetime: number }[];
+  /** A paid Table: people you accept still pay before they're in. */
+  paid: boolean;
 }) {
   const roster = useQuery(api.garden.tables.getHostRoster, { tableId });
   const manage = useMutation(api.garden.tables.manageEnrollment);
+  // Who came is marked once a date starts, never ahead of it (the server
+  // refuses too). The latest one is picked first.
+  const started = events.filter((event) => eventHasStarted(event, Date.now()));
   const [selectedEvent, setSelectedEvent] = useState<Id<"events"> | undefined>(
-    events[0]?._id,
+    started.at(-1)?._id,
   );
   const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState("");
-  async function decide(userId: Id<"users">, decision: "accept" | "remove") {
+  async function decide(
+    person: { userId: Id<"users">; name: string; status: string },
+    decision: "accept" | "remove",
+  ) {
+    if (
+      decision === "remove" &&
+      !window.confirm(
+        person.status === "pending"
+          ? `Say no to ${person.name}? They'll be told.`
+          : `Remove ${person.name} from this Table? They'll be told.`,
+      )
+    )
+      return;
+    const userId = person.userId;
     setPending(userId);
     setError("");
     try {
@@ -159,10 +182,11 @@ export function HostManagement({
   return (
     <section className="tables-management" aria-label="Host management">
       <h2 className="tables-subheading">Your host tools</h2>
-      <p className="tables-note">
-        Enrollment and payment stay separate. Approving a paid request still
-        requires checkout before roster access.
-      </p>
+      {paid && (
+        <p className="tables-note">
+          People you accept pay before they're in.
+        </p>
+      )}
       {roster === undefined ? (
         <p role="status">Loading participants…</p>
       ) : roster.length === 0 ? (
@@ -181,8 +205,7 @@ export function HostManagement({
                 <div className="tables-session-top">
                   <span>{person.name}</span>
                   <span className="tables-note">
-                    {person.status} ·{" "}
-                    {person.paymentStatus.replaceAll("_", " ")}
+                    {rosterStatusWords(person, paid)}
                   </span>
                 </div>
                 {!["host", "co_host"].includes(person.role) && (
@@ -192,20 +215,20 @@ export function HostManagement({
                         type="button"
                         className="tables-button tables-button-primary tables-button-small"
                         disabled={pending === person.userId}
-                        onClick={() => decide(person.userId, "accept")}
+                        onClick={() => decide(person, "accept")}
                       >
-                        Accept request
+                        Say yes
                       </button>
                     )}
                     <button
                       type="button"
                       className="tables-button tables-button-small"
                       disabled={pending === person.userId}
-                      onClick={() => decide(person.userId, "remove")}
+                      onClick={() => decide(person, "remove")}
                     >
                       {person.status === "pending"
-                        ? "Decline request"
-                        : "Remove from Table"}
+                        ? "Say no"
+                        : "Remove"}
                     </button>
                   </div>
                 )}
@@ -221,39 +244,43 @@ export function HostManagement({
       <GuestList tableId={tableId} />
       {events.length > 0 && (
         <div style={{ marginTop: 24 }}>
-          <h3 className="tables-subheading">Record attendance</h3>
-          <p className="tables-note">
-            Record what happened at an Event. Joining or RSVPing never marks
-            someone as attended.
-          </p>
-          <label className="tables-field" style={{ marginTop: 12 }}>
-            Event
-            <select
-              className="tables-input"
-              value={selectedEvent ?? ""}
-              onChange={(event) =>
-                setSelectedEvent(event.target.value as Id<"events">)
-              }
-            >
-              {events.map((event) => (
-                <option key={event._id} value={event._id}>
-                  {event.title} ·{" "}
-                  {new Date(event.datetime).toLocaleDateString()}
-                </option>
-              ))}
-            </select>
-          </label>
-          {selectedEvent && (
-            <AttendancePanel
-              key={selectedEvent}
-              eventId={selectedEvent}
-              people={active}
-            />
-          )}
-          {active.length === 0 && (
-            <p className="tables-note" style={{ marginTop: 12 }}>
-              Attendance becomes available after participants join.
+          <h3 className="tables-subheading">Who came</h3>
+          {started.length === 0 ? (
+            <p className="tables-note">
+              Once a date starts, you can mark who came.
             </p>
+          ) : (
+            <>
+              <label className="tables-field" style={{ marginTop: 12 }}>
+                Date
+                <select
+                  className="tables-input"
+                  value={selectedEvent ?? ""}
+                  onChange={(event) =>
+                    setSelectedEvent(event.target.value as Id<"events">)
+                  }
+                >
+                  {started.map((event) => (
+                    <option key={event._id} value={event._id}>
+                      {event.title} ·{" "}
+                      {new Date(event.datetime).toLocaleDateString()}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {selectedEvent && (
+                <AttendancePanel
+                  key={selectedEvent}
+                  eventId={selectedEvent}
+                  people={active}
+                />
+              )}
+              {active.length === 0 && (
+                <p className="tables-note" style={{ marginTop: 12 }}>
+                  Once people join, you can mark who came.
+                </p>
+              )}
+            </>
           )}
         </div>
       )}

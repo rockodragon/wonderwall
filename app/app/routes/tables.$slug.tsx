@@ -8,7 +8,7 @@ import { GuestRsvp } from "../tables/GuestRsvp";
 import { HostManagement } from "../tables/HostManagement";
 import { AddTableEvent } from "../tables/AddTableEvent";
 import { RunTableAgain } from "../tables/RunTableAgain";
-import { tableBadge, tablePrice } from "../tables/presentation";
+import { hostedByWords, tableBadge, tablePrice } from "../tables/presentation";
 import { hostLabels } from "../lib/eventHosts";
 import { BackLink } from "../components/BackLink";
 import "../tables/tables.css";
@@ -272,6 +272,7 @@ function TableDetailPage() {
   }
   async function leave() {
     if (!table) return;
+    if (!window.confirm("Leave this Table? You'll give up your chair.")) return;
     setPending(true);
     setError("");
     try {
@@ -350,7 +351,7 @@ function TableDetailPage() {
           />
           {table.host?.name && (
             <p className="tables-note tables-host-line">
-              {table.hostRoleLabel?.replace(/\s+by$/i, "") || "Hosted"} by{" "}
+              {hostedByWords(table.hostRoleLabel)}{" "}
               {hostLabels([table.host]).map((host) => (
                 <span key={host.primary}>
                   {host.orgSlug ? (
@@ -511,9 +512,7 @@ function TableDetailPage() {
               )
             ) : (
               <p className="tables-note">
-                The roster is private. Accepted participants can see one another
-                after joining and satisfying membership and payment
-                requirements.
+                Only people at this Table can see who's here.
               </p>
             )}
           </section>
@@ -521,7 +520,11 @@ function TableDetailPage() {
         </div>
       </div>
       {viewer.isHost && (
-        <HostManagement tableId={table._id} events={events} />
+        <HostManagement
+          tableId={table._id}
+          events={events}
+          paid={table.pricingType === "fixed"}
+        />
       )}
       {viewer.isHost && (
         <section className="tables-date-tools" aria-label="Dates">
@@ -529,6 +532,7 @@ function TableDetailPage() {
             tableId={table._id}
             tableName={table.name}
             oneTime={table.scheduleType !== "series"}
+            blocked={table.addDatesBlocked ?? null}
           />
           <RunTableAgain tableId={table._id} tableName={table.name} />
         </section>

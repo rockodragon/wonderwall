@@ -141,7 +141,7 @@ describe("Tables browse and creation routes", () => {
 describe("Table detail server projection", () => {
   it("withholds roster identities and links for an unjoined viewer", () => {
     const markup = render("/tables/our-studio");
-    expect(markup).toContain("The roster is private");
+    expect(markup).toContain("Only people at this Table can see");
     expect(markup).not.toContain("tables-roster-person");
     expect(markup).toContain('href="/events/event1"');
     expect(markup).toContain("Sign in to pull up a chair");
@@ -184,12 +184,12 @@ describe("Table detail server projection", () => {
     const markup = render("/tables/our-studio");
     expect(markup).toContain('href="/profile/profile2"');
     expect(markup).toContain("You have a chair");
-    expect(markup).not.toContain("The roster is private");
+    expect(markup).not.toContain("Only people at this Table can see");
   });
   it("never activates enrollment or reveals a roster from a successful checkout URL alone", () => {
     const markup = render("/tables/our-studio?paid=1");
     expect(markup).toContain("confirming your payment");
-    expect(markup).toContain("The roster is private");
+    expect(markup).toContain("Only people at this Table can see");
     expect(markup).not.toContain("You have a chair");
   });
   it("offers guest RSVP only when the server allows it", () => {
@@ -214,7 +214,7 @@ describe("Table detail server projection", () => {
     expect(markup).toContain("Our creative studio");
     expect(markup).toContain("Old session");
     expect(markup).toContain("isn&#x27;t accepting participation right now");
-    expect(markup).toContain("The roster is private");
+    expect(markup).toContain("Only people at this Table can see");
   });
   it("gracefully handles missing/private Tables", () => {
     state.queries["garden/tables:getTable"] = null;

@@ -611,3 +611,16 @@
   text-decoration: underline;
   text-underline-offset: 3px;
 }
+
+/* Set a Table: the cover picture, framed 4:5 like events and projects. */
+.tables-cover-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.tables-cover-preview {
+  width: 96px;
+  flex-shrink: 0;
+  border-radius: 8px;
+}
