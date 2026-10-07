@@ -48,6 +48,7 @@ import { useBack } from "../lib/useBack";
 import { YOUTUBE_LIVE_LABEL, YOUTUBE_LIVE_URL } from "../constants/broadcast";
 import { FavoriteButton } from "../components/FavoriteButton";
 import { ShareButton } from "../components/ShareButton";
+import { InviteToThis } from "../components/InviteToThis";
 import { ShowcaseContent, SHOWCASE_EVENT_ID } from "../components/ShowcaseContent";
 import { hostLabels } from "../lib/eventHosts";
 import { HostedBy } from "../components/HostedBy";
@@ -317,6 +318,9 @@ export default function EventDetail() {
           <HiddenNotice kind="event" />
         </div>
       )}
+
+      {/* Just published: "Invite people", once (components/InviteToThis.tsx). */}
+      <InviteToThis path={`/events/${event._id}`} title={event.title} owner={isHost} className="px-6 pt-4" />
 
       {/* Ticketed events stay hidden from everyone but their organizer
           until the organizer can sell tickets (product rule, 2026-09-27).

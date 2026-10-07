@@ -56,7 +56,7 @@ export type HeaderParts = {
   title?: string;
   /** In place of countLabel(view, count); null for none. */
   count?: string | null;
-  /** Under the title, scrolling away with it. */
+  /** Under the title (on the home canvas, under the greeting), scrolling away with it. */
   below?: ReactNode;
   /** The row that pins, in place of a browse view's filter row. */
   row?: ReactNode;
@@ -136,6 +136,7 @@ export function DeskHeader({
             </p>
           )}
           <h1 style={{ ...titleStyle, visibility: greetingReady ? "visible" : "hidden" }}>{greeting}</h1>
+          {parts?.below}
         </div>
       ) : (
         <div

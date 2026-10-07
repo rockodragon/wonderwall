@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from "react-router";
 import { HireFlow } from "../components/HireFlow";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../../convex/_generated/api";
+import { justPublished } from "../lib/justPublished";
 import { INTERESTS } from "../constants/interests";
 import { budgetAmountLabel, budgetKindLabel } from "../lib/budgetLabel";
 import {
@@ -328,7 +329,7 @@ export default function Projects() {
       {hiring && (
         <HireFlow
           onClose={() => setHiring(false)}
-          onCreated={(projectId) => navigate(`/projects/${projectId}`)}
+          onCreated={(projectId) => navigate(justPublished(`/projects/${projectId}`))}
           onSwitchToProject={() => {
             setHiring(false);
             setShowPassionForm(true);
@@ -338,7 +339,7 @@ export default function Projects() {
       {showPassionForm && (
         <ProjectModal
           onClose={() => setShowPassionForm(false)}
-          onCreated={(projectId) => navigate(`/projects/${projectId}`)}
+          onCreated={(projectId) => navigate(justPublished(`/projects/${projectId}`))}
         />
       )}
       {supporting && (

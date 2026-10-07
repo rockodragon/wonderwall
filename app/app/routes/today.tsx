@@ -27,6 +27,7 @@ import { coverOf, fundingOf, moneyOf, pickProjects } from "../lib/projectPick";
 import { FF_DESK } from "../lib/featureFlags";
 import { Desk } from "../desk/Desk";
 import { useIsDesktop } from "../hooks/useMediaQuery";
+import { InviteNudge } from "../components/InviteNudge";
 import { UpdatesStack } from "../components/UpdatesStack";
 import { CelebrationStack } from "../components/CelebrationStack";
 import { PhoneNeedsYou } from "../components/shortlist/PhoneParts";
@@ -119,6 +120,8 @@ function TodayPage() {
           (lib/celebrations.ts, docs/features/desk-updates.md). */}
       <CelebrationStack />
       <UpdatesStack />
+      {/* The third day back: their invite link, once (components/InviteNudge.tsx). */}
+      <InviteNudge tone="page" className="mb-10" />
 
       {openGift && <YourHalfCard amountCents={openGift.amountCents} />}
 

@@ -5,6 +5,7 @@ import { usePostHog } from "@posthog/react";
 import { BookmarkSimple } from "@phosphor-icons/react";
 import { api } from "../../convex/_generated/api";
 import { setPendingIntent, takePendingIntent } from "../lib/pendingIntent";
+import { inviteFromSearch, rememberInvite } from "../lib/carriedInvite";
 import { needsOnboarding } from "../lib/onboardingGate";
 import { claimPendingTickets } from "../lib/pendingTicket";
 import { useMarkNotificationsReadForPath } from "../lib/useMarkNotificationsReadForPath";
@@ -118,6 +119,13 @@ export default function AppLayout() {
   // navigated to, so reaching a page from an email CTA or a direct link
   // clears the badge same as clicking the bell would.
   useMarkNotificationsReadForPath();
+
+  // A shared link's invite (?invite=<code>, lib/carriedInvite.ts) is kept
+  // for signup and the invite-only door, whatever page it came on.
+  useEffect(() => {
+    const code = inviteFromSearch(location.search);
+    if (code) rememberInvite(code);
+  }, [location.search]);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated && !isPublicPath) {

@@ -11,6 +11,7 @@ import { codeRequestParams, ensureOAuthHost, oauthReturnTo } from "../lib/oauthH
 import { AgreementsConsent } from "../components/AgreementsConsent";
 import { InviteGate } from "../components/InviteGate";
 import { joinWithInvite } from "../lib/joinWithInvite";
+import { rememberedInvite } from "../lib/carriedInvite";
 import { setPendingIntent } from "../lib/pendingIntent";
 import { isCheckoutSessionId } from "../../convex/garden/ticketLink";
 import { useBrand } from "../brand/brands";
@@ -78,6 +79,14 @@ export default function Signup() {
     const redirect = new URLSearchParams(window.location.search).get("redirect");
     if (redirect) setPendingIntent(redirect);
   }, []);
+
+  // No code in the address, but a shared link left one in this browser
+  // (lib/carriedInvite.ts): sign up with it, as from /signup/<code>.
+  useEffect(() => {
+    if (inviteSlug) return;
+    const carried = rememberedInvite();
+    if (carried) navigate(`/signup/${encodeURIComponent(carried)}${window.location.search}`, { replace: true });
+  }, [inviteSlug, navigate]);
 
   // Phone sign-up: mobile number -> text a code -> enter the code.
   const [phone, setPhone] = useState("");

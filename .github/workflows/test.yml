@@ -8,6 +8,10 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    # A whole run takes about 3 minutes. Without a limit a hung download
+    # sits for GitHub's default 6 hours (2026-10-07: 50 minutes stuck on
+    # the browser install before anyone noticed).
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: app
@@ -28,6 +32,7 @@ jobs:
         run: VITE_CONVEX_URL=https://courteous-rabbit-750.convex.cloud npm run build
 
       - name: Install Playwright browsers
+        timeout-minutes: 8
         run: npx playwright install --with-deps chromium
 
       - name: E2E tests (playwright)
