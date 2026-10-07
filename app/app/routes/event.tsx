@@ -50,6 +50,7 @@ import { FavoriteButton } from "../components/FavoriteButton";
 import { ShareButton } from "../components/ShareButton";
 import { ShowcaseContent, SHOWCASE_EVENT_ID } from "../components/ShowcaseContent";
 import { hostLabels } from "../lib/eventHosts";
+import { HostedBy } from "../components/HostedBy";
 import { CreateEventModal } from "../components/CreateEventModal";
 import type { TicketTier } from "../components/TicketTierEditor";
 import { AnnouncementComposer } from "../components/AnnouncementComposer";
@@ -549,47 +550,10 @@ export default function EventDetail() {
                 layout, so a guest gets plain person names. */}
             {event.organizer && (
               <p className="mb-4 text-[15px] text-gray-700 dark:text-gray-200">
-                Hosted by{" "}
-                {hostLabels(
-                  event.shownHosts ?? [event.organizer, ...(event.coHosts ?? [])],
-                ).map((h, idx) => (
-                  <span key={`${h.primary}-${idx}`}>
-                    {idx > 0 && ", "}
-                    {h.orgSlug ? (
-                      <Link
-                        to={`/orgs/${h.orgSlug}`}
-                        className="font-medium text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400"
-                      >
-                        {h.primary}
-                      </Link>
-                    ) : h.profileId && !isGuest && !h.person ? (
-                      <Link
-                        to={`/profile/${h.profileId}`}
-                        className="font-medium text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400"
-                      >
-                        {h.primary}
-                      </Link>
-                    ) : (
-                      <span className="font-medium text-gray-900 dark:text-white">{h.primary}</span>
-                    )}
-                    {h.person && (
-                      <span className="text-gray-600 dark:text-gray-300">
-                        {" ("}
-                        {h.profileId && !isGuest ? (
-                          <Link
-                            to={`/profile/${h.profileId}`}
-                            className="hover:text-blue-600 dark:hover:text-blue-400"
-                          >
-                            {h.person}
-                          </Link>
-                        ) : (
-                          h.person
-                        )}
-                        {")"}
-                      </span>
-                    )}
-                  </span>
-                ))}
+                <HostedBy
+                  hosts={hostLabels(event.shownHosts ?? [event.organizer, ...(event.coHosts ?? [])])}
+                  linkPeople={!isGuest}
+                />
               </p>
             )}
 

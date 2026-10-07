@@ -9,7 +9,7 @@
 
 import { CLAIMS } from "../constants/claims";
 import { isRaising } from "../lib/browse/projectsFilter";
-import { hostNamesLine, type EventHost } from "../lib/eventHosts";
+import { hostNamesLine, type EventHost, hostLabels, type HostLabel } from "../lib/eventHosts";
 import { ctaLabel, eventCta, type EventCta, type EventTierLike } from "../lib/eventCta";
 import { coverOf, fundingOf, moneyOf, pickProjects, type PickableProject } from "../lib/projectPick";
 import { gigPhrase, leadRoles, projectKindLabel, rolePay, type GigLike, type OpenRoleLike } from "../lib/projectKind";
@@ -88,6 +88,9 @@ export type DeskCard = {
     meta: string;
     title: string;
     host: string | null;
+    /** An event's hosts as links (components/HostedBy.tsx); `host` is the
+     *  same line as plain text, for anything that can't hold links. */
+    hosts?: HostLabel[];
     description: string;
     /** Small print beside the button: "3 going", "Tax-deductible". */
     aside: string | null;
@@ -437,6 +440,7 @@ export function eventCard(e: DeskEventInput, sections: DeskView[], now?: number)
       meta: [dateKicker(e.datetime), timeLabel(e.datetime), foot?.toUpperCase()].filter(Boolean).join(" · "),
       title: e.title,
       host: hostLine ? `Hosted by ${hostLine}` : null,
+      hosts: hostLabels(e.hosts),
       description: plainText(e.description),
       // Only a real number: nothing at zero.
       aside: going > 0 ? `${going} going` : null,
