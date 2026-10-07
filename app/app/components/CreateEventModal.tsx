@@ -21,6 +21,7 @@ import { describeMediaLink, MediaLinkField } from "./MediaLinkField";
 import { CoverFrame } from "./CoverFrame";
 import { uploadToStorage } from "../lib/uploadFile";
 import { useCoverPick } from "../lib/useCoverPick";
+import { justPublished } from "../lib/justPublished";
 import { FocusBackdrop } from "./FocusBackdrop";
 import { shiftEndTime } from "../lib/shiftEndTime";
 import { errorMessage } from "../lib/convexError";
@@ -535,7 +536,8 @@ export function CreateEventModal({
               : mediaLink.kind,
       });
 
-      navigate(`/events/${eventId}`);
+      // Lands with ?new=1: the page offers "Invite people" once.
+      navigate(justPublished(`/events/${eventId}`));
     } catch (err) {
       // The server's own reason when it gave one (a bad ticket link, a tier
       // price); otherwise the generic line.

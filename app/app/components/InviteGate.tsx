@@ -7,13 +7,14 @@
 
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useMutation } from "convex/react";
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { normalizeInviteCode } from "../../convex/inviteCode";
 import { isCheckoutSessionId } from "../../convex/garden/ticketLink";
 import { joinWithInvite } from "../lib/joinWithInvite";
+import { rememberedInvite } from "../lib/carriedInvite";
 import { takePendingIntent } from "../lib/pendingIntent";
 import { AgreementsConsent } from "./AgreementsConsent";
 
@@ -36,6 +37,12 @@ export function InviteGate({
   const addToWaitlist = useMutation(api.waitlist.addToWaitlist);
 
   const [code, setCode] = useState("");
+  // A code a shared link left in this browser is filled in (lib/carriedInvite.ts),
+  // after the first paint so a prerendered page matches.
+  useEffect(() => {
+    const carried = rememberedInvite();
+    if (carried) setCode((typed) => typed || carried);
+  }, []);
   const [codeError, setCodeError] = useState("");
   const [joining, setJoining] = useState(false);
 

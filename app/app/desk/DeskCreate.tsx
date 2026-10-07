@@ -25,6 +25,7 @@ import { HireFlow } from "../components/HireFlow";
 import { ProjectModal } from "../components/ProjectModal";
 import { parseDeskCreate } from "./deskState";
 import { loginHref } from "./paletteLogic";
+import { justPublished } from "../lib/justPublished";
 
 export function DeskCreate() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -66,7 +67,7 @@ export function DeskCreate() {
 
   const onCreated = (projectId: string) => {
     created.current = true;
-    navigate(`/projects/${projectId}`);
+    navigate(justPublished(`/projects/${projectId}`));
   };
 
   // Into <body>: the desk is its own stacking context, and the palette (z-40)

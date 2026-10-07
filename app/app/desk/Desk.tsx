@@ -46,6 +46,7 @@ import {
 import type { Stepper } from "./OpenedCard";
 import { shortlistCard } from "./shortlistCards";
 import { ShortlistBody, TodayNeedsYou, shortlistHeader } from "./ShortlistView";
+import { InviteNudge } from "../components/InviteNudge";
 import { DESK, DESK_SANS, FOCUS_RING_CLASS, MOTION_MS, motion, deskSurfaceStyle, useDeskTint } from "./tokens";
 import { useDeskData } from "./useDeskData";
 import { useUpdateReads } from "./useUpdateReads";
@@ -425,7 +426,15 @@ export function Desk() {
   const headerParts: HeaderParts | undefined = shortlistOn
     ? shortlistHeader(shortlist, area, kind)
     : view === "today"
-      ? { below: <TodayNeedsYou state={shortlist} money={money} onOpen={openRow} /> }
+      ? {
+          below: (
+            <>
+              {/* The third day back: their invite link, once (components/InviteNudge.tsx). */}
+              <InviteNudge tone="desk" className="mt-[18px]" />
+              <TodayNeedsYou state={shortlist} money={money} onOpen={openRow} />
+            </>
+          ),
+        }
       : undefined;
   // A Shortlist card rises from below the window, wherever the rows were scrolled to.
   const enterFrom = size.h + (shortlistOn ? openScroll : 0);

@@ -20,6 +20,7 @@ import type { Id } from "../../convex/_generated/dataModel";
 import { VISIBLE_PROJECT_STATUSES } from "../../convex/moderationRules";
 import { AnnouncementComposer } from "../components/AnnouncementComposer";
 import { AdminMenu, HiddenNotice } from "../components/AdminMenu";
+import { InviteToThis } from "../components/InviteToThis";
 import { EmbedPlayer } from "../components/EmbedPlayer";
 import { CoverFrame } from "../components/CoverFrame";
 import { ImageFill } from "../components/ImageFill";
@@ -298,6 +299,9 @@ export default function ProjectDetail() {
           <AdminMenu target={{ kind: "project", id: project._id }} title={project.title} hidden={hiddenByAdmin} />
         </div>
       </div>
+
+      {/* Just published: "Invite people", once (components/InviteToThis.tsx). */}
+      <InviteToThis path={`/projects/${project._id}`} title={project.title} owner={isOwner} className="mt-4" />
 
       {hiddenByAdmin && (
         <div className="mb-5">

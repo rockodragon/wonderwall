@@ -3,14 +3,22 @@ import { useMutation, useQuery } from "convex/react";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import { GARDEN, PLATFORM_NAME, useBrand } from "../brand/brands";
+import { withInvite } from "./carriedInvite";
 
 /**
  * The signed-in member's personal invite link, shared by the sidebar card
  * (InviteCTA) and the Network tab in Settings. Generates the slug on first
  * use if the account doesn't have one yet, and owns the copy-to-clipboard
  * state so both surfaces behave the same.
+ *
+ * With `page`, the link is that page carrying the invite
+ * (/events/<id>?invite=<code>, lib/carriedInvite.ts): the "Invite people"
+ * card after publishing (components/InviteToThis.tsx).
  */
-export function useInviteLink(variant: "sidebar" | "settings" | "people" | "palette") {
+export function useInviteLink(
+  variant: "sidebar" | "settings" | "people" | "palette" | "published" | "nudge",
+  page?: { path: string; title: string },
+) {
   const posthog = usePostHog();
   const brand = useBrand();
   const inviteLink = useQuery(api.invites.getMyInviteLink);
@@ -33,7 +41,11 @@ export function useInviteLink(variant: "sidebar" | "settings" | "people" | "pale
   }, []);
 
   const origin = typeof window === "undefined" ? "" : window.location.origin;
-  const url = inviteLink?.slug ? `${origin}/signup/${inviteLink.slug}` : "";
+  const url = !inviteLink?.slug
+    ? ""
+    : page
+      ? withInvite(`${origin}${page.path}`, inviteLink.slug)
+      : `${origin}/signup/${inviteLink.slug}`;
   // What we show: the same link without the scheme, so it fits and wraps.
   const displayUrl = url.replace(/^https?:\/\//, "");
 
@@ -60,11 +72,15 @@ export function useInviteLink(variant: "sidebar" | "settings" | "people" | "pale
     try {
       // On a Garden domain the link is to The Garden, so the words are too.
       const place = brand === "garden" ? GARDEN.name : PLATFORM_NAME;
-      await navigator.share({
-        title: brand === "garden" ? `Join me in ${place}` : `Join me on ${place}`,
-        text: `Here's my invite to ${place}.`,
-        url,
-      });
+      await navigator.share(
+        page
+          ? { title: page.title, text: page.title, url }
+          : {
+              title: brand === "garden" ? `Join me in ${place}` : `Join me on ${place}`,
+              text: `Here's my invite to ${place}.`,
+              url,
+            },
+      );
       posthog?.capture("invite_link_shared", { variant });
     } catch {
       // Dismissed share sheet — nothing to do.
