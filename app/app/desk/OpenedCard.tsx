@@ -34,6 +34,7 @@ import { ShortlistActions } from "./ShortlistActions";
 import { LinkedText } from "../components/LinkedText";
 import { CARD_BUTTON_CLASS, DESK, DESK_MONO, DESK_SANS, FOCUS_RING_CLASS, monoLabel } from "./tokens";
 import { GoingLine } from "./GoingLine";
+import { HostedBy } from "../components/HostedBy";
 import { useUpdateClick } from "./useUpdateReads";
 import { useFinishCelebration } from "./useCelebrations";
 
@@ -229,7 +230,14 @@ export function DetailPanel({
           >
             <LinkedText text={card.detail.title} links={card.detail.links} className={NAME_LINK_CLASS} />
           </h2>
-          {host && <p style={{ margin: 0, fontSize: 15, color: DESK.muted, overflowWrap: "break-word", hyphens: "manual" }}>{host}</p>}
+          {/* An event's hosts link to their pages, as on the event page. */}
+          {card.detail.hosts && card.detail.hosts.length > 0 ? (
+            <p style={{ margin: 0, fontSize: 15, color: DESK.muted, overflowWrap: "break-word", hyphens: "manual" }}>
+              <HostedBy hosts={card.detail.hosts} linkPeople tone="desk" />
+            </p>
+          ) : (
+            host && <p style={{ margin: 0, fontSize: 15, color: DESK.muted, overflowWrap: "break-word", hyphens: "manual" }}>{host}</p>
+          )}
           {description && (
             <p
               style={{

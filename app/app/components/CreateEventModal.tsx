@@ -1,5 +1,6 @@
 import { usePostHog } from "@posthog/react";
 import { useMutation, useQuery } from "convex/react";
+import { ConvexError } from "convex/values";
 import { useEffect, useId, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { api } from "../../convex/_generated/api";
@@ -22,6 +23,8 @@ import { uploadToStorage } from "../lib/uploadFile";
 import { useCoverPick } from "../lib/useCoverPick";
 import { FocusBackdrop } from "./FocusBackdrop";
 import { shiftEndTime } from "../lib/shiftEndTime";
+import { errorMessage } from "../lib/convexError";
+import { ticketLinkHost } from "../lib/eventCta";
 
 // One modal for hosting AND editing an event (Rick, 2026-10-01: edit uses the
 // same steps as create). Pass `edit` to open it on an existing event.
@@ -262,8 +265,8 @@ export function CreateEventModal({
   const descriptionId = `${uid}-description`;
   const ticketsPanelId = `${uid}-tickets`;
   const mediaPanelId = `${uid}-media`;
-  const stripeLinkId = `${uid}-stripe-link`;
-  const stripePriceId = `${uid}-stripe-price`;
+  const ticketLinkId = `${uid}-ticket-link`;
+  const ticketPriceId = `${uid}-ticket-price`;
 
   const [step, setStep] = useState<Step>(1);
 
@@ -534,7 +537,15 @@ export function CreateEventModal({
 
       navigate(`/events/${eventId}`);
     } catch (err) {
-      setError(edit ? "Failed to update event" : "Failed to create event");
+      // The server's own reason when it gave one (a bad ticket link, a tier
+      // price); otherwise the generic line.
+      setError(
+        err instanceof ConvexError
+          ? errorMessage(err)
+          : edit
+            ? "Failed to update event"
+            : "Failed to create event",
+      );
     } finally {
       setSaving(false);
     }
@@ -569,7 +580,7 @@ export function CreateEventModal({
   const ticketSummary =
     [
       filledTiers > 0 ? `${filledTiers} tier${filledTiers > 1 ? "s" : ""}` : "",
-      externalTicketUrl.trim() ? "Stripe link" : "",
+      externalTicketUrl.trim() ? (ticketLinkHost(externalTicketUrl.trim()) ?? "Link") : "",
     ]
       .filter(Boolean)
       .join(" · ") || "Free";
@@ -950,25 +961,28 @@ export function CreateEventModal({
                     tiers={ticketTiers}
                     onChange={setTicketTiers}
                   />
-                  <div className="grid grid-cols-1 sm:grid-cols-[1fr_7rem] gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-[1fr_12rem] gap-3">
                     <div>
-                      <FieldLabel htmlFor={stripeLinkId}>
-                        Stripe Payment Link
+                      <FieldLabel htmlFor={ticketLinkId}>
+                        Tickets or RSVP on another site
                       </FieldLabel>
                       <input
-                        id={stripeLinkId}
+                        id={ticketLinkId}
                         type="text"
+                        inputMode="url"
                         value={externalTicketUrl}
                         onChange={(e) => setExternalTicketUrl(e.target.value)}
-                        placeholder="https://buy.stripe.com/..."
+                        placeholder="https://…"
                         className={inputClass}
                         style={inputStyle}
                       />
                     </div>
                     <div>
-                      <FieldLabel htmlFor={stripePriceId}>Price ($)</FieldLabel>
+                      <FieldLabel htmlFor={ticketPriceId} optional>
+                        Price shown ($)
+                      </FieldLabel>
                       <input
-                        id={stripePriceId}
+                        id={ticketPriceId}
                         type="number"
                         min="0"
                         step="0.01"
@@ -980,12 +994,12 @@ export function CreateEventModal({
                       />
                     </div>
                   </div>
-                  {!isMember && (
+                  {!isMember && filledTiers > 0 && (
                     <p
                       className="text-sm"
                       style={{ color: "var(--app-text-muted)" }}
                     >
-                      Ticketed events go live once you're a member.
+                      Events with ticket tiers go live once you're a member.
                     </p>
                   )}
                 </div>

@@ -109,7 +109,7 @@ describe("the actions table", () => {
 
   it("Saved event: the event page's way in when it sells tickets or needs approval", () => {
     const saved = event("saved", "Salon", on(10, 22));
-    const ticketed: DeskEventInput = { _id: "salon", title: "Salon", datetime: on(10, 22), externalTicketUrl: "https://tix.test" };
+    const ticketed: DeskEventInput = { _id: "salon", title: "Salon", datetime: on(10, 22), externalTicketUrl: "https://tix.test", externalTicketPriceCents: 2500 };
     expect(buttons({ type: "event", event: saved }, { ...CTX, events: [ticketed] })[0]).toEqual({ kind: "link", label: "Get tickets", solid: true, href: "/events/salon" });
     const approval: DeskEventInput = { _id: "salon", title: "Salon", datetime: on(10, 22), requiresApproval: true };
     expect(buttons({ type: "event", event: saved }, { ...CTX, events: [approval] })[0]).toEqual({ kind: "link", label: "Apply to Attend", solid: true, href: "/events/salon" });

@@ -130,6 +130,31 @@ export function isSafeHttpUrl(raw: string | undefined | null): boolean {
   }
 }
 
+const MAX_SAFE_URL_LENGTH = 2000;
+
+/**
+ * A link to someone else's site that we will send people to: https only (no
+ * plain http), no `user:pass@` in front of the host (the classic way to make
+ * `https://bank.com@evil.com` read as the first one), a host with a dot in it,
+ * and a sane length. Stricter than isSafeHttpUrl on purpose; used for
+ * organizer-supplied ticket and RSVP links (events.ts).
+ */
+export function isSafeHttpsUrl(raw: string | undefined | null): boolean {
+  const trimmed = (raw ?? "").trim();
+  if (!trimmed || trimmed.length > MAX_SAFE_URL_LENGTH) return false;
+  try {
+    const url = new URL(trimmed);
+    return (
+      url.protocol === "https:" &&
+      !url.username &&
+      !url.password &&
+      url.hostname.includes(".")
+    );
+  } catch {
+    return false;
+  }
+}
+
 /** Adds https:// to a bare host the author pasted ("vimeo.com/123"), so the
     safety check below judges what they meant rather than failing them for a
     missing scheme. Anything that already carries a scheme is left alone —

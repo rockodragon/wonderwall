@@ -34,7 +34,7 @@ import { ShortlistRows } from "../components/shortlist/ShortlistRow";
 import { errorMessage } from "../lib/convexError";
 import { initialsOf } from "../lib/initials";
 import type { NeedsYouItem } from "../lib/shortlist/needsYou";
-import { areaCount, type AreaSummary, type ShortlistSummary } from "../lib/shortlist/model";
+import { areaCount, isPast, projectGroups, type AreaSummary, type ShortlistSummary } from "../lib/shortlist/model";
 import type { ShortlistState } from "../lib/shortlist/useShortlist";
 import type { ProjectKind, ShortlistData } from "../lib/shortlist/types";
 import { pillClass } from "./deskBrowse";
@@ -217,7 +217,7 @@ function Overview({ state, money, onOpen }: { state: Ready; money: (cents: numbe
       )}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 300px))", gap: 24 }}>
         {SHORTLIST_AREAS.map((area) => (
-          <Tile key={area} area={area} summary={summary} data={data} />
+          <Tile key={area} area={area} summary={summary} data={data} now={now} />
         ))}
       </div>
       {listed.length <= LIST_ALL_UNDER && listed.length > 0 && (
@@ -265,7 +265,7 @@ const TILE = {
   textAlign: "left",
 } as const;
 
-function Tile({ area, summary, data }: { area: ShortlistArea; summary: ShortlistSummary; data: ShortlistData }) {
+function Tile({ area, summary, data, now }: { area: ShortlistArea; summary: ShortlistSummary; data: ShortlistData; now: number }) {
   const s: AreaSummary = summary[area];
   const name = AREA_LABEL[area];
   const tileKicker = { ...monoLabel(12, "0.2em"), color: DESK.muted } as const;
@@ -303,7 +303,7 @@ function Tile({ area, summary, data }: { area: ShortlistArea; summary: Shortlist
         )}
       </span>
       <span style={{ marginTop: 16, display: "flex", alignItems: "center", height: 56 }}>
-        {area === "people" && <Faces data={data} />}
+        {area === "people" ? <ThumbStack shape="circle" items={faceThumbs(data)} /> : <ThumbStack shape="cover" items={coverThumbs(area, data, now)} />}
         {count}
       </span>
       <span style={{ fontSize: 13, color: DESK.muted, margin: "10px 0 12px", lineHeight: 1.45 }}>
@@ -330,18 +330,71 @@ function Tile({ area, summary, data }: { area: ShortlistArea; summary: Shortlist
   );
 }
 
-/** The five people followed most recently, overlapping. */
-function Faces({ data }: { data: ShortlistData }) {
-  const faces = [...data.people].sort((a, b) => b.since - a.since).slice(0, 5);
+/** A tile's stack shows this many. */
+const STACK_MAX = 5;
+
+/** One picture in a ThumbStack. `initials` stand in for a missing `src`
+ *  (people only: a cover that's missing is left out of the stack instead). */
+interface Thumb {
+  key: string;
+  src: string | null;
+  initials?: string;
+}
+
+/** The five people followed most recently. */
+function faceThumbs(data: ShortlistData): Thumb[] {
+  return [...data.people]
+    .sort((a, b) => b.since - a.since)
+    .slice(0, STACK_MAX)
+    .map((p) => ({ key: p.profileId, src: p.imageUrl, initials: initialsOf(p.name) }));
+}
+
+/** Up to five covers for the Projects or Events tile, most relevant first,
+ *  one per project or event, and only those that have a picture. Projects
+ *  follow the area's own order (Needs you, Leading, …); events, the live
+ *  ones soonest first. Past and Closed aren't counted, so they aren't here. */
+function coverThumbs(area: ShortlistArea, data: ShortlistData, now: number): Thumb[] {
+  let covers: { id: string; src: string | null }[] = [];
+  if (area === "projects") {
+    covers = projectGroups(data, now)
+      .filter((group) => !group.folded)
+      .flatMap((group) => group.items.flatMap((item) => (item.type === "project" ? [{ id: item.row.projectId, src: item.row.coverUrl }] : [])));
+  } else if (area === "events") {
+    covers = data.events
+      .filter((event) => !isPast(event, now))
+      .sort((a, b) => a.datetime - b.datetime)
+      .map((event) => ({ id: event.eventId, src: event.coverUrl }));
+  }
+  const seen = new Set<string>();
+  const thumbs: Thumb[] = [];
+  for (const { id, src } of covers) {
+    if (!src || seen.has(id)) continue;
+    seen.add(id);
+    thumbs.push({ key: id, src });
+    if (thumbs.length === STACK_MAX) break;
+  }
+  return thumbs;
+}
+
+const THUMB_SIZE = {
+  circle: { width: 34, height: 34, borderRadius: "50%" },
+  // Covers are 4:5.
+  cover: { width: 28, height: 35, borderRadius: 6 },
+} as const;
+
+/** Small pictures overlapping beside a tile's count: faces (circles) for
+ *  People, covers (4:5, rounded) for Projects and Events. Each has a ring in
+ *  the tile's color so it parts from the next. Decorative: the count and the
+ *  label say what it is. Nothing at all when there's nothing to show. */
+function ThumbStack({ items, shape }: { items: Thumb[]; shape: keyof typeof THUMB_SIZE }) {
+  if (items.length === 0) return null;
   return (
     <span aria-hidden style={{ display: "flex", marginRight: 12 }}>
-      {faces.map((p, i) => (
+      {items.map((item, i) => (
         <span
-          key={p.profileId}
+          key={item.key}
           style={{
-            width: 34,
-            height: 34,
-            borderRadius: "50%",
+            ...THUMB_SIZE[shape],
             marginLeft: i === 0 ? 0 : -8,
             overflow: "hidden",
             display: "flex",
@@ -355,7 +408,7 @@ function Faces({ data }: { data: ShortlistData }) {
             boxShadow: `0 0 0 2px ${DESK.panel}`,
           }}
         >
-          {p.imageUrl ? <img src={p.imageUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : initialsOf(p.name)}
+          {item.src ? <img src={item.src} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : item.initials}
         </span>
       ))}
     </span>

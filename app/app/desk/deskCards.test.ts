@@ -138,9 +138,10 @@ describe("event cards", () => {
     for (const card of cards) expect(card.sections as string[]).not.toContain("fav");
   });
 
-  it("drop an event that already started", () => {
-    const cards = buildDeskCards(input({ events: [event(-1), event(1)] }), "garden");
-    expect(ids(cardsInView(cards, "events"))).toEqual(["event:e1"]);
+  it("keep an event through the day after it ends, then drop it (eventWindow.ts)", () => {
+    // event(-1) ended a day ago, still within the day after; event(-3) is long gone.
+    const cards = buildDeskCards(input({ events: [event(-3), event(-1), event(1)] }), "garden");
+    expect(ids(cardsInView(cards, "events"))).toEqual(["event:e-1", "event:e1"]);
   });
 
   it("read date, title and venue on the face", () => {
@@ -216,6 +217,28 @@ describe("event cards", () => {
     for (const id of ["event:e1", "event:e2", "event:e3"]) {
       expect(byId(cards, id).detail.action).toEqual({ kind: "link", label: "Get tickets", href: `/events/${id.slice(6)}` });
     }
+  });
+
+  it("offer 'RSVP' on another site's link with no price, 'Get tickets' once it has one", () => {
+    const cards = buildDeskCards(
+      input({
+        events: [
+          event(1, { externalTicketUrl: "https://partiful.com/e/abc" }),
+          event(2, { externalTicketUrl: "https://partiful.com/e/abc", externalTicketPriceCents: 1500 }),
+        ],
+      }),
+      "garden",
+    );
+    expect(byId(cards, "event:e1").detail.action).toEqual({ kind: "link", label: "RSVP", href: "/events/e1" });
+    expect(byId(cards, "event:e2").detail.action).toEqual({ kind: "link", label: "Get tickets", href: "/events/e2" });
+  });
+
+  it("send an event that has ended to its page", () => {
+    // Over yesterday evening, still listed through today (eventWindow.ts).
+    const hour = 60 * 60 * 1000;
+    const ended = event(1, { datetime: NOW - 20 * hour, endTime: NOW - 18 * hour });
+    const card = byId(buildDeskCards(input({ events: [ended] }), "garden"), "event:e1");
+    expect(card.detail.action).toEqual({ kind: "link", label: "See event", href: "/events/e1" });
   });
 
   it("send an event that needs approval to its page", () => {

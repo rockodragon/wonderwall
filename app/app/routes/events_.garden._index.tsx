@@ -26,6 +26,8 @@ import {
   useCommunityContext,
 } from "../components/CommunityFilter";
 import { CoverFrame } from "../components/CoverFrame";
+import { formatDollars } from "../../convex/eventGuests";
+import { eventPriceCents } from "../lib/eventCta";
 import "../garden/garden.css";
 
 export function meta() {
@@ -62,23 +64,13 @@ type EventRow = {
   mediaPreviewUrl?: string;
 };
 
-/** The `events` table has no dedicated price field today — if one lands
-    later (priceCents, or a "$"-style tag) this picks it up; until then
-    every event reads as free, which is also just the truth right now. */
+/** What the card says it costs. The ticket price (the other site's, else the
+    cheapest tier) when there is one, never "Free"; else a plain price; else a
+    "$"-style tag; else Free. */
 function costLine(event: EventRow): string {
-  // A ticketed event shows its ticket price (the Payment Link's, else the
-  // cheapest tier), never "Free".
-  const ticketCents =
-    event.externalTicketPriceCents ??
-    (event.ticketTiers?.length ? Math.min(...event.ticketTiers.map((t) => t.priceCents)) : undefined);
-  if (ticketCents && ticketCents > 0) {
-    return `$${(ticketCents / 100).toLocaleString("en-US", { minimumFractionDigits: 0 })}`;
-  }
-  if (typeof event.priceCents === "number") {
-    return event.priceCents > 0
-      ? `$${(event.priceCents / 100).toLocaleString("en-US", { minimumFractionDigits: 0 })}`
-      : "Free";
-  }
+  const cents = eventPriceCents(event) ?? (event.priceCents && event.priceCents > 0 ? event.priceCents : null);
+  if (cents !== null) return formatDollars(cents);
+  if (typeof event.priceCents === "number") return "Free";
   const priceTag = event.tags?.find((t) => /^\$\d/.test(t.trim()));
   if (priceTag) return priceTag.trim();
   return "Free";

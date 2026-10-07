@@ -1036,13 +1036,14 @@ describe("getMine — going by ticket", () => {
 });
 
 describe("getMine — events that have ended", () => {
-  // Before CLOCK, so over; each would cost a count, a cover and (hosted)
-  // its requests if it were upcoming.
+  // Ended before CLOCK, so over; each would cost a count, a cover and
+  // (hosted) its requests if it were upcoming. An event with no end time
+  // runs three hours (eventWindow.ts), so the past ones say when they ended.
   function world() {
     const w = WORLD();
     w.events.push(
-      event("pastHosted", { organizerId: ME, datetime: 900, coverImageStorageId: "_storage:pastHosted-cover" }),
-      event("pastGoing", { datetime: 800, imageStorageIds: ["_storage:pastGoing-gallery"] }),
+      event("pastHosted", { organizerId: ME, datetime: 900, endTime: 950, coverImageStorageId: "_storage:pastHosted-cover" }),
+      event("pastGoing", { datetime: 800, endTime: 850, imageStorageIds: ["_storage:pastGoing-gallery"] }),
       event("endedEarly", { datetime: 500, endTime: 999 }),
       // On now: started before CLOCK, ends after it.
       event("onNow", { organizerId: ME, datetime: 900, endTime: 2000 }),
@@ -1100,7 +1101,7 @@ describe("getMine — events that have ended", () => {
     const w = WORLD();
     for (let i = 0; i < 30; i++) {
       // The two most recent are hidden: older ones take their place.
-      w.events.push(event(`past${i}`, { datetime: 100 + i, ...(i >= 28 ? { status: "hidden" } : {}) }));
+      w.events.push(event(`past${i}`, { datetime: 100 + i, endTime: 200 + i, ...(i >= 28 ? { status: "hidden" } : {}) }));
       if (i % 2) w.favorites.push(fav("event", `events:past${i}`, 400 + i));
       else w.eventRsvps.push(rsvp(`mePast${i}`, `past${i}`, ME, 400 + i));
     }

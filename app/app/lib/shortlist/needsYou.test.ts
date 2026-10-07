@@ -162,7 +162,8 @@ describe("needsYou — rule 2, an event you're going to or hosting this week", (
   });
 
   it.each(EDGES)("an event $name is in: $inside", ({ at, inside }) => {
-    const data = shortlist({ events: [event("going", "Edge", at)] });
+    // A moment-long event, so this tests the window's edges, not its length.
+    const data = shortlist({ events: [event("going", "Edge", at, { endTime: at })] });
     expect(needsYou(data, NOW)).toHaveLength(inside ? 1 : 0);
   });
 
@@ -236,7 +237,8 @@ describe("needsYou — rule order", () => {
 
 describe("hasEnded — the one rule for over", () => {
   it.each([
-    { at: NOW - 1, ended: true, name: "started a millisecond ago, no end time" },
+    { at: NOW - 3 * HOUR - 1, ended: true, name: "started three hours ago, no end time" },
+    { at: NOW - 1, ended: false, name: "started a millisecond ago, no end time (still on)" },
     { at: NOW, ended: false, name: "starts now, no end time" },
     { at: NOW + 1, ended: false, name: "starts in a millisecond" },
   ])("$name: $ended", ({ at, ended }) => {

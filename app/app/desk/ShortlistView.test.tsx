@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { renderToString } from "react-dom/server";
 import { MemoryRouter } from "react-router";
 import { formatMoney } from "../garden/ui";
-import { NOW, event, follow, on, sampleShortlist, shortlist } from "../lib/shortlist/fixtures";
+import { NOW, event, follow, on, project, role, sampleShortlist, shortlist } from "../lib/shortlist/fixtures";
 import { summary } from "../lib/shortlist/model";
 import { needsYou } from "../lib/shortlist/needsYou";
 import type { ShortlistState } from "../lib/shortlist/useShortlist";
@@ -96,6 +96,71 @@ describe("the overview", () => {
   it("shows nothing while the Shortlist loads", () => {
     expect(text(page({ status: "loading" })).trim()).toBe("");
     expect(shortlistHeader({ status: "loading" }, "projects", null)).toMatchObject({ title: "Projects", count: null, row: null });
+  });
+});
+
+describe("the tiles' thumbnails", () => {
+  const cover = (name: string) => `https://img.test/${name}.jpg`;
+  /** The overview's tile for one area: its link, and everything in it. */
+  const tile = (state: ShortlistState, name: string) => page(state).match(new RegExp(`<a[^>]*aria-label="${name}, [^"]*"[^>]*>.*?</a>`, "s"))![0];
+  const srcs = (html: string) => [...html.matchAll(/<img[^>]*src="([^"]+)"/g)].map((m) => m[1]);
+
+  it("stacks the covers of up to five projects beside the count, one each, in the list's order", () => {
+    const data = shortlist({
+      projects: [
+        project("saved", "Saved One", { coverUrl: cover("saved"), since: on(9, 1) }),
+        project("leading", "Leading Old", { coverUrl: cover("old"), since: on(9, 1) }),
+        project("leading", "Leading New", { coverUrl: cover("new"), since: on(9, 20) }),
+        // Two roles on one project: one cover.
+        project("team", "Two Roles", { coverUrl: cover("roles"), role: role("Sound") }),
+        project("team", "Two Roles", { coverUrl: cover("roles"), role: role("Camera") }),
+        project("backing", "Backed", { coverUrl: cover("backed") }),
+        project("waiting", "Waiting", { coverUrl: cover("waiting") }),
+      ],
+    });
+    const html = tile(ready(data), "Projects");
+    expect(srcs(html)).toEqual([cover("new"), cover("old"), cover("roles"), cover("waiting"), cover("backed")]);
+    expect(html).toContain('aria-hidden="true"');
+    expect(html).toContain('alt=""');
+    expect(html).toContain("border-radius:6px");
+  });
+
+  it("stacks event covers soonest first, leaving out events that are over", () => {
+    const data = shortlist({
+      events: [
+        event("saved", "Later", on(11, 20), { coverUrl: cover("later") }),
+        event("going", "Soon", on(10, 5), { coverUrl: cover("soon") }),
+        event("hosting", "Bare", on(10, 8)),
+        event("saved", "Over", on(9, 20), { coverUrl: cover("over") }),
+        event("saved", "Middle", on(10, 30), { coverUrl: cover("middle") }),
+      ],
+    });
+    expect(srcs(tile(ready(data), "Events"))).toEqual([cover("soon"), cover("middle"), cover("later")]);
+  });
+
+  it("shows no more than five", () => {
+    const events = Array.from({ length: 7 }, (_, i) => event("saved", `Night ${i}`, on(10, 10 + i), { coverUrl: cover(`n${i}`) }));
+    expect(srcs(tile(ready(shortlist({ events })), "Events"))).toHaveLength(5);
+  });
+
+  it("shows none, and no placeholder, when nothing has a cover", () => {
+    const data = shortlist({ projects: [project("saved", "No Picture")], events: [event("saved", "No Picture Either", on(10, 20))] });
+    for (const name of ["Projects", "Events"]) {
+      const html = tile(ready(data), name);
+      expect(html).not.toContain("<img");
+      expect(html).not.toContain("box-shadow:0 0 0 2px");
+    }
+  });
+
+  it("keeps People's faces round, with initials where there's no picture", () => {
+    const data = shortlist({
+      projects: [project("saved", "With Cover", { coverUrl: cover("p") })],
+      people: [follow("Mara Lin", [], on(9, 10)), { ...follow("Theo Okafor", [], on(9, 20)), imageUrl: cover("theo") }],
+    });
+    const html = tile(ready(data), "People");
+    expect(srcs(html)).toEqual([cover("theo")]);
+    expect(html).toContain("border-radius:50%");
+    expect(text(html)).toContain("ML");
   });
 });
 

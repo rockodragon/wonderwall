@@ -9,8 +9,8 @@
 
 import { CLAIMS } from "../constants/claims";
 import { isRaising } from "../lib/browse/projectsFilter";
-import { hostNamesLine, type EventHost } from "../lib/eventHosts";
-import { isTicketedEvent } from "../lib/eventTickets";
+import { hostNamesLine, type EventHost, hostLabels, type HostLabel } from "../lib/eventHosts";
+import { ctaLabel, eventCta, type EventCta, type EventTierLike } from "../lib/eventCta";
 import { coverOf, fundingOf, moneyOf, pickProjects, type PickableProject } from "../lib/projectPick";
 import { gigPhrase, leadRoles, projectKindLabel, rolePay, type GigLike, type OpenRoleLike } from "../lib/projectKind";
 import { GARDEN_SLUG } from "../lib/communitySlugs";
@@ -35,6 +35,7 @@ import {
 } from "../lib/celebrations";
 import { shortDay } from "../lib/dates";
 import type { ShortlistButton } from "./shortlistCards";
+import { isEventListed } from "../../convex/eventWindow";
 
 // ——————————————————————————————————————————————————————————————
 // Types
@@ -87,6 +88,9 @@ export type DeskCard = {
     meta: string;
     title: string;
     host: string | null;
+    /** An event's hosts as links (components/HostedBy.tsx); `host` is the
+     *  same line as plain text, for anything that can't hold links. */
+    hosts?: HostLabel[];
     description: string;
     /** Small print beside the button: "3 going", "Tax-deductible". */
     aside: string | null;
@@ -122,6 +126,7 @@ export type DeskEventInput = {
   title: string;
   description?: string | null;
   datetime: number;
+  endTime?: number | null;
   location?: string | null;
   locationType?: string | null;
   coverImageUrl?: string | null;
@@ -129,8 +134,10 @@ export type DeskEventInput = {
   mediaPreviewUrl?: string | null;
   attendeeCount?: number;
   hosts?: (EventHost | null | undefined)[];
-  ticketTiers?: readonly unknown[] | null;
+  status?: string | null;
+  ticketTiers?: readonly EventTierLike[] | null;
   externalTicketUrl?: string | null;
+  externalTicketPriceCents?: number | null;
   accessType?: string | null;
   priceCents?: number | null;
   requiresApproval?: boolean;
@@ -395,18 +402,32 @@ export function updateCard(u: DeskUpdateInput, sections: DeskView[]): DeskCard {
   };
 }
 
-export function eventCard(e: DeskEventInput, sections: DeskView[]): DeskCard {
+/** The button on an event's card: lib/eventCta.ts decides what the event
+ *  asks of a person, this turns it into the desk's button. Tickets, another
+ *  site's link and approval all go to the event page; a plain RSVP is made
+ *  right here. */
+function eventAction(cta: EventCta, eventId: string): DeskAction {
+  const label = ctaLabel(cta);
+  switch (cta.kind) {
+    case "applied":
+    case "join":
+    case "guestRsvp":
+    case "none":
+      return { kind: "rsvp", label, eventId };
+    default:
+      return { kind: "link", label, href: `/events/${eventId}` };
+  }
+}
+
+/** `now` lets an event that has ended read as ended; a caller with no clock
+ *  leaves it off. */
+export function eventCard(e: DeskEventInput, sections: DeskView[], now?: number): DeskCard {
   const id: DeskCardId = `event:${e._id}`;
   const foot = eventFoot(e);
   const going = e.attendeeCount ?? 0;
   const hostLine = hostNamesLine(e.hosts);
-  const ticketed = isTicketedEvent(e);
   const page = `/events/${e._id}`;
-  const action: DeskAction = ticketed
-    ? { kind: "link", label: "Get tickets", href: page }
-    : e.requiresApproval
-      ? { kind: "link", label: "Apply to Attend", href: page }
-      : { kind: "rsvp", label: "I'm going", eventId: e._id };
+  const action = eventAction(eventCta(e, { now }), e._id);
   return {
     id,
     kind: "event",
@@ -419,6 +440,7 @@ export function eventCard(e: DeskEventInput, sections: DeskView[]): DeskCard {
       meta: [dateKicker(e.datetime), timeLabel(e.datetime), foot?.toUpperCase()].filter(Boolean).join(" · "),
       title: e.title,
       host: hostLine ? `Hosted by ${hostLine}` : null,
+      hosts: hostLabels(e.hosts),
       description: plainText(e.description),
       // Only a real number: nothing at zero.
       aside: going > 0 ? `${going} going` : null,
@@ -680,7 +702,9 @@ export function buildDeskCards(input: DeskInput, community: DeskCommunity): Desk
   const eventSlots = Math.max(0, Math.min(ALL_VIEW_EVENTS, ALL_VIEW_MAX - fixed));
 
   const events = input.events
-    .filter((e) => e.datetime > input.now && inCommunity(e, community))
+    // Through the day after it ends (eventWindow.ts): running ones stay, so
+    // a person can still join late.
+    .filter((e) => isEventListed(e, input.now) && inCommunity(e, community))
     .sort((a, b) => a.datetime - b.datetime);
   // Today's next event, unless Needs you already lists it: then the one after.
   const next = events.find((e) => !needsYou.has(e._id));
@@ -688,7 +712,7 @@ export function buildDeskCards(input: DeskInput, community: DeskCommunity): Desk
     const sections: DeskView[] = ["events"];
     if (i < eventSlots) sections.push("all");
     if (e === next) sections.push("today");
-    return eventCard(e, sections);
+    return eventCard(e, sections, input.now);
   });
 
   const cards: DeskCard[] = [...celebrationCards, ...updateCards, ...eventCards];
