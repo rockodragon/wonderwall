@@ -29,3 +29,26 @@ html:not([data-brand="garden"]) .brand-garden {
 html[data-brand="garden"] .brand-exchange {
   display: none !important;
 }
+
+/* Date and time boxes. iOS Safari gives them a fixed width of their own, so in
+   a narrow column they ran past the screen's edge (Rick, 2026-10-05: Edit
+   event on a phone). In the base layer, so a utility class still wins. */
+@layer base {
+  input[type="date"],
+  input[type="time"],
+  input[type="datetime-local"] {
+    min-width: 0;
+  }
+  @supports (-webkit-touch-callout: none) {
+    input[type="date"],
+    input[type="time"],
+    input[type="datetime-local"] {
+      -webkit-appearance: none;
+      appearance: none;
+      display: block;
+    }
+    input::-webkit-date-and-time-value {
+      text-align: left;
+    }
+  }
+}

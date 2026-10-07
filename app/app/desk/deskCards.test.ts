@@ -5,6 +5,7 @@ import {
   ALL_VIEW_UPDATES,
   buildDeskCards,
   cardsInView,
+  celebrationCard,
   dateKicker,
   fundingLine,
   inCommunity,
@@ -21,6 +22,7 @@ import {
   updateCard,
   venueName,
   type DeskCard,
+  type DeskCelebrationInput,
   type DeskEventInput,
   type DeskInput,
   type DeskOrgInput,
@@ -79,6 +81,7 @@ function update(n: number, extra: Partial<DeskUpdateInput> = {}): DeskUpdateInpu
 function input(extra: Partial<DeskInput> = {}): DeskInput {
   return {
     now: NOW,
+    celebrations: [],
     updates: [],
     events: [event(1), event(2), event(3), event(4), event(5)],
     people: [],
@@ -135,9 +138,10 @@ describe("event cards", () => {
     for (const card of cards) expect(card.sections as string[]).not.toContain("fav");
   });
 
-  it("drop an event that already started", () => {
-    const cards = buildDeskCards(input({ events: [event(-1), event(1)] }), "garden");
-    expect(ids(cardsInView(cards, "events"))).toEqual(["event:e1"]);
+  it("keep an event through the day after it ends, then drop it (eventWindow.ts)", () => {
+    // event(-1) ended a day ago, still within the day after; event(-3) is long gone.
+    const cards = buildDeskCards(input({ events: [event(-3), event(-1), event(1)] }), "garden");
+    expect(ids(cardsInView(cards, "events"))).toEqual(["event:e-1", "event:e1"]);
   });
 
   it("read date, title and venue on the face", () => {
@@ -213,6 +217,28 @@ describe("event cards", () => {
     for (const id of ["event:e1", "event:e2", "event:e3"]) {
       expect(byId(cards, id).detail.action).toEqual({ kind: "link", label: "Get tickets", href: `/events/${id.slice(6)}` });
     }
+  });
+
+  it("offer 'RSVP' on another site's link with no price, 'Get tickets' once it has one", () => {
+    const cards = buildDeskCards(
+      input({
+        events: [
+          event(1, { externalTicketUrl: "https://partiful.com/e/abc" }),
+          event(2, { externalTicketUrl: "https://partiful.com/e/abc", externalTicketPriceCents: 1500 }),
+        ],
+      }),
+      "garden",
+    );
+    expect(byId(cards, "event:e1").detail.action).toEqual({ kind: "link", label: "RSVP", href: "/events/e1" });
+    expect(byId(cards, "event:e2").detail.action).toEqual({ kind: "link", label: "Get tickets", href: "/events/e2" });
+  });
+
+  it("send an event that has ended to its page", () => {
+    // Over yesterday evening, still listed through today (eventWindow.ts).
+    const hour = 60 * 60 * 1000;
+    const ended = event(1, { datetime: NOW - 20 * hour, endTime: NOW - 18 * hour });
+    const card = byId(buildDeskCards(input({ events: [ended] }), "garden"), "event:e1");
+    expect(card.detail.action).toEqual({ kind: "link", label: "See event", href: "/events/e1" });
   });
 
   it("send an event that needs approval to its page", () => {
@@ -621,12 +647,13 @@ describe("organization cards", () => {
     ...extra,
   });
 
-  it("belong to People alone, with their own id and kicker", () => {
+  it("belong to People alone, with their own id and an ORG tag in place of a kicker", () => {
     const card = orgCard(org());
     expect(card.id).toBe("org:o1");
     expect(card.kind).toBe("org");
     expect(card.sections).toEqual(["people"]);
-    expect(card.face.kicker).toBe("ORGANIZATION");
+    expect(card.face.kicker).toBe("");
+    expect(card.face.tag).toBe("ORG");
     expect(card.face.title).toBe("Abiding Practice");
   });
   it("show the logo as the picture, and no picture without one", () => {
@@ -780,6 +807,130 @@ describe("update cards", () => {
       href: "https://example.com/post",
       external: true,
       updateId: "u2",
+    });
+  });
+});
+
+function celebration(n: number, extra: Partial<DeskCelebrationInput> = {}): DeskCelebrationInput {
+  return {
+    _id: `n${n}`,
+    type: "encouragement",
+    title: `Dana cheered on Project ${n}`,
+    message: "Love where this is going.",
+    linkUrl: `/projects/p${n}`,
+    createdAt: NOW - n * 60_000,
+    from: { userId: "user-dana", profileId: "profile-dana", name: "Dana Lee", imageUrl: null },
+    ...extra,
+  };
+}
+
+describe("Celebrations on the canvas", () => {
+  it("come first, ahead of the Updates, and share their two resting slots", () => {
+    const cards = buildDeskCards(input({ celebrations: [celebration(1)], updates: [update(1), update(2)] }), "garden");
+    expect(ids(cards).slice(0, 3)).toEqual(["celebration:n1", "update:u1", "update:u2"]);
+    const resting = ids(cardsInView(cards, "all"));
+    expect(resting).toContain("celebration:n1");
+    expect(resting).toContain("update:u1");
+    expect(resting).not.toContain("update:u2");
+    expect(ids(cardsInView(cards, "today")).slice(0, 3)).toEqual(["celebration:n1", "update:u1", "update:u2"]);
+  });
+
+  it("leave the default canvas's count where it was", () => {
+    const without = cardsInView(buildDeskCards(input({ updates: [update(1), update(2)] }), "garden"), "all").length;
+    const withThree = cardsInView(
+      buildDeskCards(input({ celebrations: [celebration(1), celebration(2), celebration(3)], updates: [update(1), update(2)] }), "garden"),
+      "all",
+    );
+    expect(withThree.length).toBe(without);
+    expect(ids(withThree).filter((id) => id.startsWith("update:"))).toEqual([]);
+  });
+
+  it("lead a cheer with their words and hands clapping, and say thanks to the person", () => {
+    const card = celebrationCard(celebration(1), ["all"], money);
+    expect(card.kind).toBe("celebration");
+    expect(card.note).toBe(false);
+    expect(card.face).toEqual({ kicker: "CHEER", title: "“Love where this is going.”", foot: "Dana cheered on Project 1", icon: "clap" });
+    expect(card.detail.title).toBe("Dana cheered on Project 1");
+    expect(card.detail.description).toBe("Love where this is going.");
+    expect(card.detail.action).toEqual({
+      kind: "celebration",
+      button: { kind: "thanks", label: "Say thanks", userId: "user-dana" },
+      notificationId: "n1",
+    });
+    expect(card.href).toBe("/projects/p1");
+  });
+
+  it("link the person and the project they mention", () => {
+    const card = celebrationCard(
+      celebration(1, {
+        title: "Dana Lee cheered on Project 1",
+        from: { userId: "user-dana", profileId: "profile-dana", name: "Dana Lee", imageUrl: null },
+        project: { title: "Project 1", href: "/projects/p1" },
+      }),
+      ["all"],
+      money,
+    );
+    expect(card.detail.links).toEqual([
+      { text: "Dana Lee", href: "/profile/profile-dana" },
+      { text: "Project 1", href: "/projects/p1" },
+    ]);
+  });
+
+  it("make an award a paper note: the amount, signed by the fund, with a trophy", () => {
+    const card = celebrationCard(
+      celebration(2, {
+        type: "fund_award",
+        title: "The Sophia Fund awarded you $500",
+        message: "Small Acts",
+        linkUrl: "/fund/abiding-practice",
+        from: null,
+        amountCents: 50_000,
+        fund: { name: "The Sophia Fund", href: "/fund/abiding-practice" },
+        project: { title: "Small Acts", href: "/projects/p2" },
+      }),
+      ["all"],
+      money,
+    );
+    expect(card.note).toBe(true);
+    expect(card.image).toBeNull();
+    expect(card.face).toEqual({ kicker: "AWARD", title: money(50_000), foot: "The Sophia Fund", icon: "trophy", script: true });
+    expect(card.detail.action).toEqual({
+      kind: "celebration",
+      button: { kind: "link", label: "See the fund", href: "/fund/abiding-practice" },
+      notificationId: "n2",
+    });
+    expect(card.detail.links?.map((l) => l.text)).toEqual(["Small Acts", "The Sophia Fund"]);
+    expect(card.celebrationType).toBe("fund_award");
+  });
+
+  it("keep an older award (no amount, no fund) readable", () => {
+    const card = celebrationCard(
+      celebration(2, { type: "fund_award", title: "The Sophia Fund awarded you $500", message: "Small Acts", linkUrl: "/fund/x", from: null }),
+      ["all"],
+      money,
+    );
+    expect(card.face).toEqual({ kicker: "AWARD", title: "Small Acts", foot: null, icon: "trophy" });
+  });
+
+  it("lead a backing with the amount and coins", () => {
+    const card = celebrationCard(
+      celebration(3, { type: "backing_received", title: "Dana backed Project 3", message: "$25.00 a month", amountCents: 2500 }),
+      ["all"],
+      money,
+    );
+    expect(card.face).toEqual({ kicker: "BACKING", title: money(2500), foot: "Dana backed Project 3", icon: "coins", large: true });
+  });
+
+  it("wear the person's photo when there is one, and nothing when it's someone unnamed", () => {
+    const named = celebrationCard(celebration(1, { from: { userId: "u", profileId: "p", name: "Dana", imageUrl: "https://img/dana.jpg" } }), [], money);
+    expect(named.image).toBe("https://img/dana.jpg");
+    const hidden = celebrationCard(celebration(1, { title: "Someone cheered on Project 1", from: null }), [], money);
+    expect(hidden.image).toBeNull();
+    expect(hidden.detail.links).toEqual([]);
+    expect(hidden.detail.action).toEqual({
+      kind: "celebration",
+      button: { kind: "link", label: "See the project", href: "/projects/p1" },
+      notificationId: "n1",
     });
   });
 });

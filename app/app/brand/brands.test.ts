@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { BRAND_BOOT, GARDEN_HOSTS, allowsBrandOverride, brandForHost, gardenText } from "./brands";
-import { GARDEN_G_PATH, growFrame } from "./GardenMark";
+import { GARDEN_G_PATH, IN_DISC, growFrame } from "./GardenMark";
 
 describe("brandForHost", () => {
   it("wears The Garden on its own domains, www and ports included", () => {
@@ -37,6 +37,10 @@ describe("growFrame", () => {
     expect(end.stemOffset).toBe(-0);
     expect(end.stemWidth).toBeCloseTo(3.4);
     expect(end.groundOpacity).toBe(0);
+    // It ends on the still disc's G, same scale and offset, so GardenGrow
+    // hands over to GardenDisc without a jump.
+    const numbers = (t: string) => (t.match(/-?\d+(?:\.\d+)?/g) ?? []).map(Number);
+    expect(numbers(end.groupTransform)).toEqual(numbers(IN_DISC));
     // The stem has become the G: same points as the still mark.
     expect(end.stemD.replace(/\.?0+(?=[ C]|$)/g, "")).toBe(
       GARDEN_G_PATH.replace(/\.?0+(?=[ C]|$)/g, ""),

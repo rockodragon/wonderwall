@@ -11,7 +11,9 @@ import type { DeskInput } from "./deskCards";
 import { toDeskInput } from "./deskInput";
 
 export function useDeskData() {
-  // Updates are first on the desk (docs/features/desk-updates.md); [] signed out.
+  // Celebrations, then Updates, are first on the desk (lib/celebrations.ts,
+  // docs/features/desk-updates.md); [] signed out.
+  const celebrations = useQuery(api.notifications.listCelebrations);
   const updates = useQuery(api.updates.listMine);
   const events = useQuery(api.events.list, { upcoming: true });
   const projects = useQuery(api.garden.projects.listProjects);
@@ -22,11 +24,12 @@ export function useDeskData() {
   const profile = useQuery(api.profiles.getMyProfile);
 
   const input: DeskInput = useMemo(
-    () => toDeskInput({ updates, events, projects, fundPage, favorites, giving }, Date.now(), formatMoney),
-    [updates, events, projects, fundPage, favorites, giving],
+    () => toDeskInput({ celebrations, updates, events, projects, fundPage, favorites, giving }, Date.now(), formatMoney),
+    [celebrations, updates, events, projects, fundPage, favorites, giving],
   );
 
   const loaded =
+    celebrations !== undefined &&
     updates !== undefined &&
     events !== undefined &&
     projects !== undefined &&

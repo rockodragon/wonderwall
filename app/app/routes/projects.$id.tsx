@@ -21,6 +21,8 @@ import { VISIBLE_PROJECT_STATUSES } from "../../convex/moderationRules";
 import { AnnouncementComposer } from "../components/AnnouncementComposer";
 import { AdminMenu, HiddenNotice } from "../components/AdminMenu";
 import { EmbedPlayer } from "../components/EmbedPlayer";
+import { CoverFrame } from "../components/CoverFrame";
+import { ImageFill } from "../components/ImageFill";
 import { describeMediaLink, MediaLinkField } from "../components/MediaLinkField";
 import { FavoriteButton } from "../components/FavoriteButton";
 import { LocationAutocomplete, LocationVerifiedHint } from "../components/LocationAutocomplete";
@@ -37,6 +39,9 @@ import { budgetAmountLabel, budgetKindLabel, budgetLabel } from "../lib/budgetLa
 import { GigSchedule } from "../components/GigSchedule";
 import { projectTabs, readProjectTab, withProjectTab, type ProjectTab } from "../lib/projectTabs";
 import { useBack } from "../lib/useBack";
+import { useCoverPick } from "../lib/useCoverPick";
+import { isWideCover, useImageAspect } from "../lib/useImageAspect";
+import { uploadToStorage } from "../lib/uploadFile";
 import { INTERESTS } from "../constants/interests";
 import { errorMessage } from "../lib/convexError";
 import {
@@ -159,6 +164,18 @@ function EditButton({ onClick, label }: { onClick: () => void; label: string }) 
 // own thumbnail for a YouTube link, or the file itself. A pasted reel's page
 // URL is never an <img src> (convex/videoEmbed.ts) — before this, a video
 // link rendered a broken image.
+/** The hero picture: the uploaded photo, else a still of the pasted link —
+ *  unless that link plays on the page, or attached pieces play below. */
+function heroThumb(project: {
+  resolvedPhotoUrl?: string | null;
+  mediaUrl?: string | null;
+  mediaPreviewUrl?: string | null;
+  media?: any[];
+}): string | null {
+  const hasPieces = (project.media?.length ?? 0) > 0;
+  return project.resolvedPhotoUrl || (toEmbedUrl(project.mediaUrl ?? undefined) || hasPieces ? null : mediaThumb(project));
+}
+
 function mediaThumb(project: { mediaPreviewUrl?: string | null; media?: any[] }): string | null {
   if (project.mediaPreviewUrl) return project.mediaPreviewUrl;
   for (const m of project.media ?? []) {
@@ -201,6 +218,10 @@ export default function ProjectDetail() {
     document.getElementById(TABS_ROW_ID)?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [rawTab]);
 
+  // The hero's shape picks the header: a 4:5 poster beside the title, or a
+  // wide picture as a banner above it. Measured before the early returns.
+  const heroRatio = useImageAspect(project ? heroThumb(project) : null);
+
   if (project === undefined) {
     return (
       <PageShell>
@@ -242,9 +263,10 @@ export default function ProjectDetail() {
   // hero's place when there isn't. Its still is for cards, not for here.
   const mediaEmbed = toEmbedUrl(project.mediaUrl);
   // Attached pieces play in their own section below, so a still of the
-  // first one isn't repeated as the hero.
+  // first one isn't repeated as the hero (heroThumb).
   const hasPieces = (project.media?.length ?? 0) > 0;
-  const thumb = project.resolvedPhotoUrl || (mediaEmbed || hasPieces ? null : mediaThumb(project));
+  const thumb = heroThumb(project);
+  const poster = !!thumb && !isWideCover(heroRatio);
 
   const hiddenByAdmin = project.status === "hidden";
   const showGoal = raising && (project.goal ?? 0) > 0;
@@ -283,113 +305,127 @@ export default function ProjectDetail() {
         </div>
       )}
 
-      <ProjectHero
-        thumb={thumb}
-        title={project.title}
-        kindWord={kindWord}
-        hasMoney={hasMoney}
-        moneyWord={moneyWord}
-        projectId={project._id}
-        isOwner={isOwner}
-      />
-
-      {mediaEmbed && (
-        <EmbedPlayer
-          embed={mediaEmbed}
+      {/* With a photo, the header is a 4:5 poster (docs/features/cover-4x5.md).
+          Phone: poster, then the pasted-link player, then the title block.
+          md up: poster left, title block right, the player on its own row
+          beneath both (CSS order — the markup keeps the phone order). With
+          no photo it's a plain stack, as before. */}
+      <div className={poster ? "flex flex-col md:flex-row md:flex-wrap md:items-start md:gap-x-6" : undefined}>
+        <ProjectHero
+          thumb={thumb}
+          poster={poster}
           title={project.title}
-          className="mb-6 rounded-2xl overflow-hidden"
-          style={{ backgroundColor: "var(--garden-ink-raised)" }}
+          kindWord={kindWord}
+          hasMoney={hasMoney}
+          moneyWord={moneyWord}
+          projectId={project._id}
+          isOwner={isOwner}
         />
-      )}
 
-      {isOwner && <InlineEditableMediaLink project={project} />}
+        <div className="order-2 md:order-4 md:w-full">
+          {mediaEmbed && (
+            <EmbedPlayer
+              embed={mediaEmbed}
+              title={project.title}
+              className="mb-6 rounded-2xl overflow-hidden"
+              style={{ backgroundColor: "var(--garden-ink-raised)" }}
+            />
+          )}
 
-      {isOwner && isPassion && (
-        <div className="mb-2">
-          <button
-            type="button"
-            onClick={() => setEditingProject(true)}
-            className="text-[13.5px] font-medium underline underline-offset-2 hover:opacity-80"
-            style={{ color: "var(--garden-citron)" }}
-          >
-            Edit project
-          </button>
-        </div>
-      )}
-      {editingProject && (
-        <ProjectModal
-          edit={{
-            projectId: project._id,
-            title: project.title,
-            blurb: project.blurb,
-            mediaUrl: project.mediaUrl,
-            interests: project.interests,
-            remote: project.remote,
-            location: project.location,
-            locationType: project.locationType,
-            address: project.address,
-            coordinates: project.coordinates,
-            placeId: project.placeId,
-            hostOrgId: project.hostOrgId,
-          }}
-          onClose={() => setEditingProject(false)}
-        />
-      )}
+          {/* A project sets its link in Edit project (step 2). A job or gig has
+              no edit form, so its lead keeps this row. */}
+          {isOwner && !isPassion && <InlineEditableMediaLink project={project} />}
 
-      {/* The pencil sits right after the title and edits only the title; the
-          stage is its own chip beside it, and a visitor's Save ends the row. */}
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 mb-2">
-        <InlineEditableTitle project={project} isOwner={isOwner} />
-        <StageChip project={project} isOwner={isOwner} />
-        {canSave && (
-          <div className="ml-auto">
-            <FavoriteButton targetType="project" targetId={project._id} size="sm" />
-          </div>
-        )}
-      </div>
-
-      {project.creator && (
-        <div className="flex items-center gap-3 mb-4">
-          <Link to={`/profile/${project.creator._id}`} className="flex items-center gap-2 w-fit hover:opacity-80">
-            {project.creator.imageUrl ? (
-              <img
-                src={project.creator.imageUrl}
-                alt={project.creator.name}
-                className="w-6 h-6 rounded-full object-cover shrink-0"
-              />
-            ) : (
-              <div
-                className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-                style={{ backgroundColor: "var(--garden-hairline-raised)", color: "var(--garden-paper)" }}
+          {isOwner && isPassion && (
+            <div className="mb-2">
+              <button
+                type="button"
+                onClick={() => setEditingProject(true)}
+                className="text-[13.5px] font-medium underline underline-offset-2 hover:opacity-80"
+                style={{ color: "var(--garden-citron)" }}
               >
-                {project.creator.name.charAt(0).toUpperCase()}
-              </div>
-            )}
-            <span className="text-sm" style={{ color: "var(--garden-muted)" }}>
-              {project.creator.name}
-              {project.community && (
-                <span style={{ color: "var(--garden-dim)" }}> · in {project.community.name}</span>
-              )}
-            </span>
-          </Link>
-          {!isOwner && (
-            <FavoriteButton targetType="profile" targetId={project.creator._id} size="sm" />
+                Edit project
+              </button>
+            </div>
+          )}
+          {editingProject && (
+            <ProjectModal
+              edit={{
+                projectId: project._id,
+                title: project.title,
+                blurb: project.blurb,
+                mediaUrl: project.mediaUrl,
+                interests: project.interests,
+                remote: project.remote,
+                location: project.location,
+                locationType: project.locationType,
+                address: project.address,
+                coordinates: project.coordinates,
+                placeId: project.placeId,
+                hostOrgId: project.hostOrgId,
+              }}
+              onClose={() => setEditingProject(false)}
+            />
           )}
         </div>
-      )}
 
-      {project.status === "archived" && (
-        <span
-          className="inline-block mb-4 px-2 py-0.5 rounded-full text-xs font-medium uppercase tracking-[0.06em]"
-          style={{ fontFamily: "var(--garden-font-mono)", backgroundColor: "rgba(198,198,190,0.1)", color: "var(--garden-muted)" }}
-        >
-          {STATUS_LABELS[project.status] ?? project.status}
-        </span>
-      )}
+        <div className="order-3 md:order-2 md:min-w-0 md:flex-1">
+          {/* The pencil sits right after the title and edits only the title; the
+              stage is its own chip beside it, and a visitor's Save ends the row. */}
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 mb-2">
+            <InlineEditableTitle project={project} isOwner={isOwner} />
+            <StageChip project={project} isOwner={isOwner} />
+            {canSave && (
+              <div className="ml-auto">
+                <FavoriteButton targetType="project" targetId={project._id} size="sm" />
+              </div>
+            )}
+          </div>
 
-      <InlineEditableBlurb project={project} isOwner={isOwner} />
+          {project.creator && (
+            <div className="flex items-center gap-3 mb-4">
+              <Link to={`/profile/${project.creator._id}`} className="flex items-center gap-2 w-fit hover:opacity-80">
+                {project.creator.imageUrl ? (
+                  <img
+                    src={project.creator.imageUrl}
+                    alt={project.creator.name}
+                    className="w-6 h-6 rounded-full object-cover shrink-0"
+                  />
+                ) : (
+                  <div
+                    className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+                    style={{ backgroundColor: "var(--garden-hairline-raised)", color: "var(--garden-paper)" }}
+                  >
+                    {project.creator.name.charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <span className="text-sm" style={{ color: "var(--garden-muted)" }}>
+                  {project.creator.name}
+                  {project.community && (
+                    <span style={{ color: "var(--garden-dim)" }}> · in {project.community.name}</span>
+                  )}
+                </span>
+              </Link>
+              {!isOwner && (
+                <FavoriteButton targetType="profile" targetId={project.creator._id} size="sm" />
+              )}
+            </div>
+          )}
 
-      <InlineEditableInterests project={project} isOwner={isOwner} />
+          {project.status === "archived" && (
+            <span
+              className="inline-block mb-4 px-2 py-0.5 rounded-full text-xs font-medium uppercase tracking-[0.06em]"
+              style={{ fontFamily: "var(--garden-font-mono)", backgroundColor: "rgba(198,198,190,0.1)", color: "var(--garden-muted)" }}
+            >
+              {STATUS_LABELS[project.status] ?? project.status}
+            </span>
+          )}
+
+          <InlineEditableBlurb project={project} isOwner={isOwner} />
+
+          <InlineEditableInterests project={project} isOwner={isOwner} />
+        </div>
+      </div>
 
       {/* How it's going, and the two ways to show up. Support is for
           projects, not hires: a job or a gig is paid, not backed. */}
@@ -814,6 +850,7 @@ function AskForSupport({
 
 function ProjectHero({
   thumb,
+  poster,
   title,
   kindWord,
   hasMoney,
@@ -822,6 +859,8 @@ function ProjectHero({
   isOwner,
 }: {
   thumb: string | null | undefined;
+  /** A 4:5 poster beside the title; false for a wide picture, a banner above it. */
+  poster: boolean;
   title: string;
   kindWord: string;
   hasMoney: boolean;
@@ -833,40 +872,58 @@ function ProjectHero({
   const saveProjectImage = useMutation((api as any).files.saveProjectImage);
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
-  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!file.type.startsWith("image/")) return;
-    if (file.size > 5 * 1024 * 1024) {
-      alert("Image must be under 5 MB.");
-      return;
-    }
+  // The hook checks the file (image, up to 20MB), frames it 4:5 and hands
+  // back a small JPEG; we upload that.
+  const coverPick = useCoverPick(async (blob) => {
     setUploading(true);
+    setUploadError(null);
     try {
-      const uploadUrl = await generateUploadUrl();
-      const result = await fetch(uploadUrl, {
-        method: "POST",
-        headers: { "Content-Type": file.type },
-        body: file,
-      });
-      const { storageId } = await result.json();
+      const storageId = await uploadToStorage(generateUploadUrl, blob);
       await saveProjectImage({ projectId, storageId });
     } catch {
-      alert("Upload failed — try again.");
+      setUploadError("Upload failed — try again.");
     } finally {
       setUploading(false);
-      if (fileRef.current) fileRef.current.value = "";
     }
+  });
+  const busy = uploading || coverPick.busy;
+  const imageError = coverPick.error || uploadError;
+
+  function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setUploadError(null);
+    coverPick.pick(file);
   }
 
   if (thumb) {
-    return (
-      <div
-        className="group relative rounded-2xl overflow-hidden border aspect-[16/9] flex items-center justify-center mb-6"
-        style={{ borderColor: "var(--garden-hairline)", backgroundColor: "var(--garden-ink-raised)" }}
-      >
-        <img src={thumb} alt={title} className="w-full h-full object-cover" />
+    // A poster is 4:5 (CoverFrame). Phone: full width, never taller than
+    // ~70vh (width follows the height cap, so the ratio stays exact). md up:
+    // a fixed column; the parent puts the title block beside it. A wide
+    // picture stays a 16:9 banner above the title, shown whole.
+    const frame = "group rounded-2xl border border-[color:var(--garden-hairline)] bg-[var(--garden-ink-raised)] mb-6";
+    // A plain function, not a component: a component defined here would be
+    // a new type every render and remount the open framer.
+    const wrap = (children: React.ReactNode) =>
+      poster ? (
+        <CoverFrame
+          src={thumb}
+          alt={title}
+          className={`${frame} mx-auto md:mx-0 w-full max-w-[min(100%,56vh)] md:max-w-none md:w-72 md:shrink-0`}
+        >
+          {children}
+        </CoverFrame>
+      ) : (
+        <div className={`${frame} relative aspect-[16/9] overflow-hidden`}>
+          <ImageFill src={thumb} alt={title} />
+          {children}
+        </div>
+      );
+    return wrap(
+      <>
         <span
           className="absolute top-3 left-3 px-2.5 py-1 rounded-full text-xs font-semibold uppercase tracking-[0.06em]"
           style={{ fontFamily: "var(--garden-font-mono)", backgroundColor: "rgba(20,20,18,0.72)", color: "var(--garden-paper)" }}
@@ -884,20 +941,30 @@ function ProjectHero({
         {isOwner && (
           <>
             <input ref={fileRef} type="file" accept="image/*" onChange={handleImageUpload} hidden />
+            {coverPick.picker}
+            {imageError && (
+              <p
+                role="alert"
+                className="absolute left-3 right-3 bottom-14 rounded-lg px-3 py-2 text-sm text-red-300"
+                style={{ backgroundColor: "rgba(20,20,18,0.88)" }}
+              >
+                {imageError}
+              </p>
+            )}
             {/* Hidden until hover only where hover exists — on a phone there
                 is no hover, and the button used to be unreachable there. */}
             <button
               onClick={() => fileRef.current?.click()}
-              disabled={uploading}
-              className="absolute bottom-3 right-3 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-opacity disabled:opacity-50 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 focus-visible:opacity-100"
+              disabled={busy}
+              className="absolute bottom-3 right-3 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[13.5px] font-medium transition-opacity disabled:opacity-50 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 focus-visible:opacity-100"
               style={{ backgroundColor: "rgba(20,20,18,0.72)", color: "var(--garden-paper)" }}
             >
               <PencilIcon size={12} />
-              {uploading ? "Uploading…" : "Change image"}
+              {busy ? "Uploading…" : "Change image"}
             </button>
           </>
         )}
-      </div>
+      </>,
     );
   }
 
@@ -920,15 +987,21 @@ function ProjectHero({
       {isOwner && (
         <>
           <input ref={fileRef} type="file" accept="image/*" onChange={handleImageUpload} hidden />
+          {coverPick.picker}
           <button
             onClick={() => fileRef.current?.click()}
-            disabled={uploading}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-opacity hover:opacity-80 disabled:opacity-50"
+            disabled={busy}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[13.5px] font-medium transition-opacity hover:opacity-80 disabled:opacity-50"
             style={{ backgroundColor: "rgba(198,198,190,0.1)", color: "var(--garden-muted)" }}
           >
             <PencilIcon size={12} />
-            {uploading ? "Uploading…" : "Add image"}
+            {busy ? "Uploading…" : "Add image"}
           </button>
+          {imageError && (
+            <p role="alert" className="w-full text-sm text-red-300">
+              {imageError}
+            </p>
+          )}
         </>
       )}
     </div>
@@ -1164,7 +1237,8 @@ function InlineEditableBlurb({ project, isOwner }: { project: any; isOwner: bool
 
   return (
     <div className="flex items-start gap-1 mb-6">
-      <p className="text-sm leading-relaxed flex-1" style={{ color: "var(--garden-body)" }}>
+      {/* pre-line: the blank lines between paragraphs show as written. */}
+      <p className="text-sm leading-relaxed flex-1 whitespace-pre-line" style={{ color: "var(--garden-body)" }}>
         {project.blurb || (isOwner ? "No description yet" : "")}
       </p>
       {isOwner && <EditButton onClick={() => { setDraft(project.blurb ?? ""); setEditing(true); }} label="Edit description" />}
@@ -1602,15 +1676,15 @@ function TeamMemberRow({
           className="px-1.5 py-0.5 rounded border text-sm outline-none min-w-0"
           style={{ backgroundColor: "var(--garden-ink)", borderColor: "var(--garden-hairline-raised)", color: "var(--garden-paper)", maxWidth: "14rem" }}
         />
-      ) : (
+      ) : roleLabel || memberId ? (
         <span
           style={{ color: "var(--garden-dim)", cursor: memberId ? "pointer" : undefined }}
           onClick={memberId ? () => { setDraft(roleLabel); setEditing(true); } : undefined}
           title={memberId ? "Click to edit role" : undefined}
         >
-          — {roleLabel}
+          — {roleLabel || "add role"}
         </span>
-      )}
+      ) : null}
       {showMessage && userId && <MessageButton userId={userId} />}
     </div>
   );
@@ -1671,7 +1745,7 @@ function TeamCard({
         {team.credits.map((c: any) => (
           <div key={c.memberId} className="flex items-center gap-2 text-sm">
             <span style={{ color: "var(--garden-paper)" }}>{c.name}</span>
-            <span style={{ color: "var(--garden-dim)" }}>— {c.role}</span>
+            {c.role && <span style={{ color: "var(--garden-dim)" }}>— {c.role}</span>}
             <span
               className="text-xs uppercase tracking-[0.06em]"
               style={{ fontFamily: "var(--garden-font-mono)", color: "var(--garden-dim)" }}
@@ -2196,7 +2270,7 @@ function ViewerTeamActions({
 
       {mine?.status === "pending" && (
         <div className="flex items-center gap-3 text-sm" style={{ color: "var(--garden-body)" }}>
-          <span>Requested as {mine.role}</span>
+          <span>{mine.role ? `Requested as ${mine.role}` : "Requested"}</span>
           <button
             disabled={busy}
             onClick={() => run(() => withdrawRequest({ projectId: project._id }))}
@@ -2211,7 +2285,7 @@ function ViewerTeamActions({
       {mine?.status === "invited" && (
         <div className="flex items-center gap-3 text-sm flex-wrap" style={{ color: "var(--garden-body)" }}>
           <span>
-            {leadName} invited you as {mine.role}
+            {leadName} invited you{mine.role ? ` as ${mine.role}` : ""}
           </span>
           <button
             disabled={busy}
@@ -2234,7 +2308,7 @@ function ViewerTeamActions({
 
       {mine?.status === "accepted" && (
         <div className="flex items-center gap-3 text-sm" style={{ color: "var(--garden-body)" }}>
-          <span>You're on this project as {mine.role}</span>
+          <span>You're on this project{mine.role ? ` as ${mine.role}` : ""}</span>
           <button
             disabled={busy}
             onClick={() => {
@@ -2302,11 +2376,11 @@ function JoinRequestModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto"
+      className="fixed inset-0 z-50 flex p-4 overflow-y-auto"
       style={{ backgroundColor: "rgba(0,0,0,0.6)" }}
     >
       <div
-        className="w-full max-w-md rounded-2xl border p-6 my-8"
+        className="w-full max-w-md rounded-2xl border p-6 m-auto"
         style={{ backgroundColor: "var(--garden-ink-raised)", borderColor: "var(--garden-hairline)" }}
       >
         <h2
@@ -2456,7 +2530,7 @@ function LeadTeamTools({
                     <Link to={`/profile/${r.profileId}`} className="hover:opacity-80" style={{ color: "var(--garden-paper)" }}>
                       {r.name}
                     </Link>
-                    <span style={{ color: "var(--garden-dim)" }}> — {r.role}</span>
+                    {r.role && <span style={{ color: "var(--garden-dim)" }}> — {r.role}</span>}
                     {r.message && (
                       <p className="text-xs mt-0.5" style={{ color: "var(--garden-dim)" }}>
                         "{r.message}"
@@ -2548,7 +2622,7 @@ function LeadTeamTools({
                 ) : (
                   <span style={{ color: "var(--garden-paper)" }}>{inv.name}</span>
                 )}
-                <span style={{ color: "var(--garden-dim)" }}>— {inv.role}</span>
+                {inv.role && <span style={{ color: "var(--garden-dim)" }}>— {inv.role}</span>}
                 <button
                   disabled={busyId === inv.memberId}
                   onClick={() => run(inv.memberId, () => removeMember({ memberId: inv.memberId }))}
@@ -2602,11 +2676,8 @@ function AddSomeone({ projectId }: { projectId: string }) {
 
   async function sendPersonInvite(userId: string) {
     const picked = openRoles.find((r: any) => r.roleId === selectedRoleId);
+    // The role is optional (Rick, 2026-10-05).
     const role = picked ? picked.title : roleDraft.trim();
-    if (!role) {
-      setError("Say what role you're inviting them for.");
-      return;
-    }
     setError("");
     setSubmitting(true);
     try {
@@ -2636,10 +2707,6 @@ function AddSomeone({ projectId }: { projectId: string }) {
     }
     const picked = openRoles.find((r: any) => r.roleId === creditRoleId);
     const role = picked ? picked.title : creditRole.trim();
-    if (!role) {
-      setError("Say what role they had.");
-      return;
-    }
     setSubmitting(true);
     try {
       await inviteMember({
@@ -2759,7 +2826,7 @@ function AddSomeone({ projectId }: { projectId: string }) {
                           type="text"
                           value={roleDraft}
                           onChange={(e) => setRoleDraft(e.target.value.slice(0, 60))}
-                          placeholder="Role"
+                          placeholder="Role (optional)"
                           maxLength={60}
                           className="w-24 px-2 py-1 rounded-lg border text-xs outline-none"
                           style={inputStyle}
@@ -2829,7 +2896,7 @@ function AddSomeone({ projectId }: { projectId: string }) {
               type="text"
               value={creditRole}
               onChange={(e) => setCreditRole(e.target.value.slice(0, 60))}
-              placeholder="Role"
+              placeholder="Role (optional)"
               maxLength={60}
               className="w-full px-3 py-2 rounded-lg border text-sm outline-none"
               style={inputStyle}

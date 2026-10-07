@@ -911,8 +911,8 @@ function WelcomeModal({ onContinue }: { onContinue: () => void }) {
   }, []);
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl max-w-lg w-full p-10 text-center">
+    <div className="fixed inset-0 bg-black/50 flex p-4 z-50 overflow-y-auto">
+      <div className="m-auto bg-white dark:bg-gray-800 rounded-3xl shadow-2xl max-w-lg w-full p-6 sm:p-10 text-center">
         <div className="w-24 h-24 bg-gradient-to-br from-blue-500 via-purple-600 to-pink-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg">
           <svg
             className="w-14 h-14 text-white"

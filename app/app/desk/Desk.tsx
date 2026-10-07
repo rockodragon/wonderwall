@@ -40,18 +40,17 @@ import {
   parseShortlistKind,
   stepTo,
   useDeskCommunity,
-  useDeskSpacing,
   type DeskCardId,
   type DeskView,
 } from "./deskState";
 import type { Stepper } from "./OpenedCard";
 import { shortlistCard } from "./shortlistCards";
 import { ShortlistBody, TodayNeedsYou, shortlistHeader } from "./ShortlistView";
-import { SpacingControl } from "./SpacingControl";
 import { DESK, DESK_SANS, FOCUS_RING_CLASS, MOTION_MS, motion, deskSurfaceStyle, useDeskTint } from "./tokens";
 import { useDeskData } from "./useDeskData";
 import { useUpdateReads } from "./useUpdateReads";
 import { DeskTables } from "../tables/DeskTables";
+import { useAwardConfetti, useCelebrationReads } from "./useCelebrations";
 
 /** Cards that aren't on show wait below the page. Past this many, the extras
  *  aren't drawn at all. */
@@ -78,7 +77,6 @@ export function Desk() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const community = useDeskCommunity();
-  const space = useDeskSpacing();
   const tint = useDeskTint();
   const reduced = useReducedMotion();
 
@@ -176,7 +174,11 @@ export function Desk() {
   const openId = cardParam && current.some((c) => c.id === cardParam) ? cardParam : null;
 
   // An Update that opens is seen; one that closes is done and leaves the desk.
+  // A celebration that closes is read and leaves too. An award on show gets
+  // its confetti once.
   useUpdateReads(openId);
+  useCelebrationReads(openId);
+  useAwardConfetti(shown, loaded);
 
   // ——— Scroll ———
 
@@ -248,10 +250,9 @@ export function Desk() {
         top: header.total,
         scrollTop,
         shown: shownIds,
-        space,
         rowTop: todayNeeds ? header.total + BELOW_NEEDS : undefined,
       }),
-    [layoutCards, view, openId, size.w, size.h, header.total, scrollTop, shownIds, space, todayNeeds],
+    [layoutCards, view, openId, size.w, size.h, header.total, scrollTop, shownIds, todayNeeds],
   );
   const places = layout.places;
 
@@ -516,7 +517,6 @@ export function Desk() {
       />
 
       <DeskCreate />
-      {profile?.isAdmin && <SpacingControl />}
       <DeskToast />
     </div>
   );
@@ -577,7 +577,7 @@ function EmptyDesk({
       ) : (
         <>
           <p style={{ margin: 0, fontSize: 20, color: DESK.muted }}>
-            {view === "all" ? "Nothing on your desk yet." : `Nothing from ${DESK_VIEW_LABEL[view]} on the desk yet.`}
+            {view === "all" ? "Nothing on your canvas yet." : `Nothing from ${DESK_VIEW_LABEL[view]} on the canvas yet.`}
           </p>
           {findPeople && (
             <Link to="/people" className={linkClass}>

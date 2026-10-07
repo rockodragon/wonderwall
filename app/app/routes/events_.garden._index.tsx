@@ -25,6 +25,9 @@ import {
   communityNameFor,
   useCommunityContext,
 } from "../components/CommunityFilter";
+import { CoverFrame } from "../components/CoverFrame";
+import { formatDollars } from "../../convex/eventGuests";
+import { eventPriceCents } from "../lib/eventCta";
 import "../garden/garden.css";
 
 export function meta() {
@@ -61,23 +64,13 @@ type EventRow = {
   mediaPreviewUrl?: string;
 };
 
-/** The `events` table has no dedicated price field today — if one lands
-    later (priceCents, or a "$"-style tag) this picks it up; until then
-    every event reads as free, which is also just the truth right now. */
+/** What the card says it costs. The ticket price (the other site's, else the
+    cheapest tier) when there is one, never "Free"; else a plain price; else a
+    "$"-style tag; else Free. */
 function costLine(event: EventRow): string {
-  // A ticketed event shows its ticket price (the Payment Link's, else the
-  // cheapest tier), never "Free".
-  const ticketCents =
-    event.externalTicketPriceCents ??
-    (event.ticketTiers?.length ? Math.min(...event.ticketTiers.map((t) => t.priceCents)) : undefined);
-  if (ticketCents && ticketCents > 0) {
-    return `$${(ticketCents / 100).toLocaleString("en-US", { minimumFractionDigits: 0 })}`;
-  }
-  if (typeof event.priceCents === "number") {
-    return event.priceCents > 0
-      ? `$${(event.priceCents / 100).toLocaleString("en-US", { minimumFractionDigits: 0 })}`
-      : "Free";
-  }
+  const cents = eventPriceCents(event) ?? (event.priceCents && event.priceCents > 0 ? event.priceCents : null);
+  if (cents !== null) return formatDollars(cents);
+  if (typeof event.priceCents === "number") return "Free";
   const priceTag = event.tags?.find((t) => /^\$\d/.test(t.trim()));
   if (priceTag) return priceTag.trim();
   return "Free";
@@ -92,19 +85,12 @@ function EventCard({ event }: { event: EventRow }) {
       style={{ display: "block", textDecoration: "none", color: "inherit", overflow: "hidden" }}
     >
       {(event.coverImageUrl || event.mediaPreviewUrl) && (
-        <img
-          src={event.coverImageUrl ?? event.mediaPreviewUrl}
+        // Bleeds to the card's edges: .g-card pads 20px / 24px. 4:5, whole
+        // (docs/features/cover-4x5.md); the link's aria-label names it.
+        <CoverFrame
+          src={(event.coverImageUrl ?? event.mediaPreviewUrl)!}
           alt=""
-          loading="lazy"
-          style={{
-            display: "block",
-            // Bleeds to the card's edges: .g-card pads 20px / 24px.
-            width: "calc(100% + 48px)",
-            margin: "-20px -24px 14px",
-            aspectRatio: "16 / 9",
-            objectFit: "cover",
-            background: "var(--g-ink)",
-          }}
+          className="-mx-6 -mt-5 mb-3.5"
         />
       )}
       <div className="g-h" style={{ fontSize: 17 }}>

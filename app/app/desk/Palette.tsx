@@ -119,7 +119,7 @@ function SignedInPalette({
     <PaletteShell
       tools={tools}
       badge={badgeCount}
-      mainTitle="Desk"
+      mainTitle="Canvas"
       onMain={() => navigate(deskHref("all"))}
       hintReady={hintReady}
     />

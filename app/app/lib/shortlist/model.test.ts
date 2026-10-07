@@ -229,7 +229,7 @@ describe("eventGroups", () => {
   it("Past holds what started before now and anything cancelled, newest first, folded", () => {
     const data = shortlist({
       events: [
-        event("going", "A minute ago", NOW - 60_000),
+        event("going", "Earlier today", NOW - 4 * 60 * 60 * 1000),
         event("saved", "Last month", NOW - 30 * DAY),
         event("hosting", "Cancelled, next week", NOW + 5 * DAY, { cancelled: true }),
         event("saved", "Cancelled, next month", NOW + 30 * DAY, { cancelled: true }),
@@ -241,7 +241,7 @@ describe("eventGroups", () => {
     expect(past.items.map((e) => e.title)).toEqual([
       "Cancelled, next month",
       "Cancelled, next week",
-      "A minute ago",
+      "Earlier today",
       "Last month",
     ]);
   });
@@ -266,8 +266,10 @@ describe("eventGroups", () => {
     expect(s.events.next).toBe("Next: Workshop, on now, Oct 2");
   });
 
-  it("isPast: cancelled, or ended by its end time, else its start", () => {
-    expect(isPast(event("going", "A", NOW - 1), NOW)).toBe(true);
+  it("isPast: cancelled, or ended by its end time, else three hours after its start", () => {
+    const THREE_HOURS = 3 * 60 * 60 * 1000;
+    expect(isPast(event("going", "A", NOW - THREE_HOURS - 1), NOW)).toBe(true);
+    expect(isPast(event("going", "A", NOW - 1), NOW)).toBe(false);
     expect(isPast(event("going", "A", NOW), NOW)).toBe(false);
     expect(isPast(event("going", "A", NOW - 1, { endTime: NOW }), NOW)).toBe(false);
     expect(isPast(event("going", "A", NOW - 2, { endTime: NOW - 1 }), NOW)).toBe(true);

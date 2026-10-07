@@ -573,7 +573,16 @@ async function profileFor(ctx: QueryCtx | MutationCtx, userId: Id<"users">) {
 
 async function insertNotification(
   ctx: MutationCtx,
-  args: { userId: Id<"users">; type: string; title: string; message: string; linkUrl: string; relatedUserId?: Id<"users"> },
+  args: {
+    userId: Id<"users">;
+    type: string;
+    title: string;
+    message: string;
+    linkUrl: string;
+    relatedUserId?: Id<"users">;
+    projectId?: Id<"projects">;
+    amountCents?: number;
+  },
 ) {
   await ctx.db.insert("notifications", { ...args, createdAt: Date.now() });
 }
@@ -630,7 +639,8 @@ export async function openMemberGift(
 }
 
 /** Tells a creative money is waiting, with the Connect nudge when they
- * haven't set up payouts. Used for allowance gifts here and plus-ups by
+ * haven't set up payouts. In-app now; the daily email (supportDigest.ts)
+ * carries it to their inbox. Used for allowance gifts here and plus-ups by
  * the Stripe adapter. Never notifies someone about their own money. */
 export async function notifyGiftReceived(
   ctx: MutationCtx,
@@ -644,9 +654,8 @@ export async function notifyGiftReceived(
     recurring: boolean;
     note?: string;
     projectTitle?: string;
-    // The community whose pool the gift came from (the gift's communityId);
-    // names it as the sender. Unset: the payee's own community.
-    communityId?: Id<"hostOrgs">;
+    // The project the gift went to, when there is one: the card links it.
+    projectId?: Id<"projects">;
   },
 ) {
   if (args.giverUserId && String(args.giverUserId) === String(args.payeeUserId)) return;
@@ -669,13 +678,11 @@ export async function notifyGiftReceived(
     message: connected ? (args.note ?? "") : "Connect your bank in Settings to get it.",
     linkUrl: email.ctaUrl,
     relatedUserId: args.visible ? args.giverUserId : undefined,
+    projectId: args.projectId,
+    amountCents: args.amountCents,
   });
-  await scheduleNotificationEmail(ctx, {
-    userId: args.payeeUserId,
-    category: "activity",
-    communityId: args.communityId,
-    ...email,
-  });
+  // The email waits for the daily one (supportDigest.ts); its words name
+  // the notification above.
 }
 
 /** Kicks the Connect transfer sweep for one payee (garden/connect.ts). A
@@ -1032,7 +1039,6 @@ export const decideGift = mutation({
         source: "allowance",
         recurring: false,
         note,
-        communityId: gift.communityId,
       });
       await scheduleTransferFor(ctx, recipientUserId);
       return {
@@ -1128,7 +1134,7 @@ export const decideGift = mutation({
       recurring: false,
       note,
       projectTitle: project!.title,
-      communityId: gift.communityId,
+      projectId,
     });
     await scheduleTransferFor(ctx, project!.userId);
     return {

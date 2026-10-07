@@ -21,7 +21,7 @@
 
 import { Fragment, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { CaretLeft, CaretRight, X } from "@phosphor-icons/react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
@@ -33,8 +33,12 @@ import type { DeskAction, DeskCard } from "./deskCards";
 import type { DeskCardId } from "./deskState";
 import { plainText } from "./deskCards";
 import { ShortlistActions } from "./ShortlistActions";
+import { LinkedText } from "../components/LinkedText";
 import { CARD_BUTTON_CLASS, DESK, DESK_MONO, DESK_SANS, FOCUS_RING_CLASS, monoLabel } from "./tokens";
+import { GoingLine } from "./GoingLine";
+import { HostedBy } from "../components/HostedBy";
 import { useUpdateClick } from "./useUpdateReads";
+import { useFinishCelebration } from "./useCelebrations";
 
 /** ← / → through the list a card was opened from: "2 of 6". `arrived` is
  *  the way the last step went, when this card was reached by one: focus
@@ -52,6 +56,10 @@ export type Stepper = {
 
 // 40px with a mouse, 44px under a finger (the tap target the platforms ask for).
 const ROUND_CLASS = `flex h-10 w-10 pointer-coarse:h-11 pointer-coarse:w-11 shrink-0 items-center justify-center rounded-full border border-[#333] bg-transparent text-[#F4F4F2] transition-colors enabled:hover:border-[#FFE066] enabled:hover:text-[#FFE066] disabled:opacity-35 ${FOCUS_RING_CLASS}`;
+
+/** A name in the panel's words that goes to its page (a celebration's person,
+ *  project or fund): underlined in the words' own color, the accent on hover. */
+const NAME_LINK_CLASS = `underline decoration-1 underline-offset-[0.18em] transition-colors hover:text-[#FFE066] ${FOCUS_RING_CLASS}`;
 
 /** Five lines of the description, then an ellipsis. */
 const CLAMP_5: CSSProperties = { display: "-webkit-box", WebkitLineClamp: 5, WebkitBoxOrient: "vertical", overflow: "hidden" };
@@ -95,7 +103,9 @@ export function metaParts(meta: string): string[] {
 function MetaLine({ meta }: { meta: string }) {
   const parts = metaParts(meta);
   return (
-    <p className="min-w-0 pt-2.5 pointer-coarse:pt-3" style={{ ...monoLabel(12, "0.2em"), color: DESK.accent, margin: 0, lineHeight: 1.6 }}>
+    // 15px, the nav size: at 12px the date and place read as fine print beside
+    // a 44px title (Rick, 2026-10-05).
+    <p className="min-w-0 pt-2 pointer-coarse:pt-2.5" style={{ ...monoLabel(15, "0.14em"), color: DESK.accent, margin: 0, lineHeight: 1.5 }}>
       {parts.map((part, i) => (
         <Fragment key={i}>
           {i > 0 && " "}
@@ -221,12 +231,23 @@ export function DetailPanel({
           {card.kind === "person" ? (
             <div className="flex items-center gap-3">
               <PersonAvatar name={card.detail.title} imageUrl={profile?.imageUrl ?? card.image} />
-              <h2 style={TITLE_STYLE}>{card.detail.title}</h2>
+              <h2 style={TITLE_STYLE}>
+                <LinkedText text={card.detail.title} links={card.detail.links} className={NAME_LINK_CLASS} />
+              </h2>
             </div>
           ) : (
-            <h2 style={TITLE_STYLE}>{card.detail.title}</h2>
+            <h2 style={TITLE_STYLE}>
+              <LinkedText text={card.detail.title} links={card.detail.links} className={NAME_LINK_CLASS} />
+            </h2>
           )}
-          {host && <p style={{ margin: 0, fontSize: 15, color: DESK.muted, overflowWrap: "break-word", hyphens: "manual" }}>{host}</p>}
+          {/* An event's hosts link to their pages, as on the event page. */}
+          {card.detail.hosts && card.detail.hosts.length > 0 ? (
+            <p style={{ margin: 0, fontSize: 15, color: DESK.muted, overflowWrap: "break-word", hyphens: "manual" }}>
+              <HostedBy hosts={card.detail.hosts} linkPeople tone="desk" />
+            </p>
+          ) : (
+            host && <p style={{ margin: 0, fontSize: 15, color: DESK.muted, overflowWrap: "break-word", hyphens: "manual" }}>{host}</p>
+          )}
           {description && (
             <p
               style={{
@@ -237,12 +258,12 @@ export function DetailPanel({
                 maxWidth: "46ch",
                 overflowWrap: "break-word",
                 hyphens: "manual",
-                // An Update's body is written whole, line breaks and all.
-                whiteSpace: card.kind === "update" ? "pre-line" : undefined,
+                // An Update's body, and someone's words to you, are written whole, line breaks and all.
+                whiteSpace: card.kind === "update" || card.kind === "celebration" ? "pre-line" : undefined,
                 ...(project ? CLAMP_5 : {}),
               }}
             >
-              {description}
+              <LinkedText text={description} links={card.detail.links} className={NAME_LINK_CLASS} />
             </p>
           )}
           {facts.length > 0 && (
@@ -272,12 +293,17 @@ export function DetailPanel({
             {action?.kind === "link" && <ActionLink action={action} />}
             {action?.kind === "rsvp" && <JoinButton action={action} />}
             {action?.kind === "update" && <UpdateButton action={action} />}
+            {action?.kind === "celebration" && <CelebrationButton action={action} />}
             {/* Keyed by card: stepping to the next item starts its buttons fresh. */}
             {action?.kind === "shortlist" && (
               <ShortlistActions key={card.id} id={card.id} buttons={action.buttons} onDone={onClose} onBusy={stepper?.onBusy} />
             )}
-            {card.detail.aside && !(card.kind === "org" && card.detail.people?.length) && (
-              <span style={{ fontSize: 14, color: DESK.muted }}>{card.detail.aside}</span>
+            {card.kind === "event" && card.eventId ? (
+              <GoingLine eventId={card.eventId} fallback={card.detail.aside} />
+            ) : (
+              card.detail.aside && !(card.kind === "org" && card.detail.people?.length) && (
+                <span style={{ fontSize: 14, color: DESK.muted }}>{card.detail.aside}</span>
+              )
             )}
             {card.kind === "event" && (
               <Link
@@ -336,6 +362,57 @@ function UpdateButton({ action }: { action: Extract<DeskAction, { kind: "update"
     <Link to={action.href} onClick={() => pressed(action.updateId)} className={className}>
       {action.label}
     </Link>
+  );
+}
+
+/** A celebration's button: marks it done, then says thanks (a conversation
+ * with the person, the way a profile's Message button starts one) or goes to
+ * its link. */
+function CelebrationButton({ action }: { action: Extract<DeskAction, { kind: "celebration" }> }): ReactNode {
+  const finishCard = useFinishCelebration();
+  const getOrCreateConversation = useMutation(api.messaging.getOrCreateConversation);
+  const navigate = useNavigate();
+  const [starting, setStarting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const className = `${CARD_BUTTON_CLASS} bg-[#FFE066] text-[#121212] hover:bg-[#FFEA94]`;
+  const { button, notificationId } = action;
+
+  if (button.kind === "link") {
+    return (
+      <Link to={button.href} onClick={() => finishCard(notificationId)} className={className}>
+        {button.label}
+      </Link>
+    );
+  }
+
+  const userId = button.userId;
+  async function onClick() {
+    if (starting) return;
+    setStarting(true);
+    setError(null);
+    try {
+      const conversation = await getOrCreateConversation({ otherUserId: userId as Id<"users"> });
+      // Done only once the way there is open: that takes the card off the
+      // canvas, and it shouldn't go before the conversation comes up.
+      finishCard(notificationId);
+      if (conversation) navigate(`/messages/${conversation._id}`);
+    } catch (err) {
+      setError(errorMessage(err));
+      setStarting(false);
+    }
+  }
+
+  return (
+    <>
+      <button type="button" onClick={onClick} disabled={starting} className={className}>
+        {button.label}
+      </button>
+      {error && (
+        <span role="alert" style={{ fontSize: 14, color: DESK.muted }}>
+          {error}
+        </span>
+      )}
+    </>
   );
 }
 

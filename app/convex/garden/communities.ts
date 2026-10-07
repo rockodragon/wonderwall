@@ -25,6 +25,7 @@ import { canSeeOffering } from "../offerings";
 import { isPostedProject, VISIBLE_PROJECT_STATUSES } from "../moderationRules";
 import { canSeeCommunity, isHiddenCommunity } from "./hiddenCommunity";
 import { communityVisibility } from "./communityVisibility";
+import { isEventListed } from "../eventWindow";
 
 // ——————————————————————————————————————————————————————————————
 // Pure core
@@ -580,7 +581,8 @@ export const getCommunity = query({
 
     // A ticketed event stays off the community page until its organizer
     // can sell tickets (product rule, 2026-09-27).
-    const upcomingEvents = events.filter((e) => e.status === "published" && e.datetime > now);
+    // Through the day after it ends, as on every events list (eventWindow.ts).
+    const upcomingEvents = events.filter((e) => e.status === "published" && isEventListed(e, now));
     const isEventPublic = eventVisibilityChecker(ctx);
     const upcomingVisibility = await Promise.all(upcomingEvents.map((e) => isEventPublic(e)));
     const visibleEvents = upcomingEvents.filter((_, i) => upcomingVisibility[i]);

@@ -21,8 +21,13 @@ import { GARDEN } from "./brands";
 
 export const GARDEN_G_PATH =
   "M23.4 10.4C21.7 8.3 19.1 7 16.2 7C10.8 7 6.6 11.2 6.6 16.5C6.6 21.8 10.8 26 16.2 26C21.2 26 25.2 22.3 25.4 17.2C22.6 17.2 19.8 17.2 17 17.2";
-/** The G inside the disc: smaller, heavier, a touch lower. */
-const IN_DISC = "translate(16 16) scale(0.66) translate(-16 -16.5)";
+/** The G inside the disc, full size (it was drawn at 0.66) and a touch lower.
+ *  The cut-out's stroke (3.4) is in path units, so it grows with the G; the
+ *  gap from the disc edge to the G is about half what it was. GardenGrow ends
+ *  on this same scale, so it hands over to GardenDisc without a jump. The
+ *  disc SVGs in public/brand/garden/ carry the same scale. */
+const IN_DISC_SCALE = 1;
+export const IN_DISC = `translate(16 16) scale(${IN_DISC_SCALE}) translate(-16 -16.5)`;
 
 type Ground = "dark" | "paper";
 const crimsonOn = (ground: Ground) => (ground === "dark" ? GARDEN.crimson : GARDEN.crimsonPaper);
@@ -132,7 +137,8 @@ export function growFrame(t: number) {
   const p = ease(seg(t, 0.2, 1.4));
   const m = ease(seg(t, 3.0, 4.3));
   const shrink = 1 - ease(seg(t, 3.0, 3.6));
-  const scale = 1 - 0.34 * m;
+  // Ends on IN_DISC_SCALE, the still disc's G.
+  const scale = 1 - (1 - IN_DISC_SCALE) * m;
   return {
     stemD: toD(STEM.map((v, i) => v + (GPTS[i] - v) * m)),
     stemWidth: 2.2 + 1.2 * m,

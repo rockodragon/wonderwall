@@ -55,6 +55,14 @@ crons.daily(
   internal.garden.gigs.extendGigSeries,
 );
 
+// The one daily email about cheers, offers of help, backings and gifts
+// (supportDigest.ts): at most one a day per person, nothing on a quiet day.
+crons.daily(
+  "support-digest",
+  { hourUTC: 17, minuteUTC: 0 }, // 10am Pacific (9am in winter)
+  internal.supportDigest.sendSupportDigest,
+);
+
 // Notification retention: there's no archiving of in-app notifications
 // otherwise, so rows accumulate forever. Read notifications older than 30
 // days and unread notifications older than 90 days are deleted (see

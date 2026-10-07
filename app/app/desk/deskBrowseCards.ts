@@ -200,5 +200,5 @@ export function eventsCards(opts: {
     near: opts.near,
   });
   const shown = tab === "favorites" ? onlyFavorites(found, opts.favoriteIds) : found;
-  return shown.map((e) => (tab === "past" ? pastEventCard(e, opts.now) : eventCard(e, ["events"])));
+  return shown.map((e) => (tab === "past" ? pastEventCard(e, opts.now) : eventCard(e, ["events"], opts.now)));
 }

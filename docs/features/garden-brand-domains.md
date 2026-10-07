@@ -1,6 +1,6 @@
 # The Garden brand on its own domains
 
-Status, 2026-10-03: built on `claude/garden-brand` (PR #61 into `tables`, with main merged in). The UX review (BMAD UX designer) and Rick's answers are folded in.
+Status, 2026-10-03: merged into `tables` (PR #61), and the same commits go to main on their own (`claude/garden-brand-main`) so The Garden's address works before Tables ships. The UX review (BMAD UX designer), an adversarial sign-in review and Rick's answers are folded in.
 
 ## Addresses
 

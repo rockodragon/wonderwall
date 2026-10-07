@@ -1,4 +1,5 @@
-// Ticket link helpers for AP's Stripe Payment Link. No server imports, so
+// Ticket link helpers for AP's Stripe Payment Link (and the check that tells
+// one from any other ticket or RSVP link). No server imports, so
 // the event page (app/routes/event.tsx) can use buildTicketLink in the
 // browser; the webhook (apGifts.ts) uses parseTicketRef.
 
@@ -13,9 +14,26 @@ export interface TicketRef {
   userId?: string;
 }
 
-/** Appends `client_reference_id` (and `prefilled_email` when known) to an
- * event's externalTicketUrl (events.ts's normalizeExternalTicket already
- * verified it's a buy.stripe.com link). The ref format is
+/** The one place that knows what a Stripe Payment Link looks like. An event's
+ * externalTicketUrl can point anywhere (events.ts's normalizeExternalTicket
+ * takes any https link); only these get Stripe's checkout params, the
+ * "Admission / Buy tickets" card, and the claim-by-session flow. */
+const STRIPE_PAYMENT_LINK_HOST = "buy.stripe.com";
+
+export function isStripePaymentLink(url: string | null | undefined): boolean {
+  if (!url) return false;
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "https:" && parsed.hostname === STRIPE_PAYMENT_LINK_HOST;
+  } catch {
+    return false;
+  }
+}
+
+/** For a Stripe Payment Link, appends `client_reference_id` (and
+ * `prefilled_email` when known) to an event's externalTicketUrl. Any other
+ * link comes back unchanged: those params mean nothing off Stripe, and we
+ * don't add anything to someone else's URL. The ref format is
  * `evt-<eventId>` or `evt-<eventId>-u-<userId>` — Convex ids are already
  * alphanumeric with no hyphens, so splitting on the first `-u-` is
  * unambiguous; parseTicketRef below is the inverse. */
@@ -24,6 +42,7 @@ export function buildTicketLink(
   eventId: string,
   opts: { userId?: string; email?: string } = {},
 ): string {
+  if (!isStripePaymentLink(externalTicketUrl)) return externalTicketUrl;
   const ref = (opts.userId ? `evt-${eventId}-u-${opts.userId}` : `evt-${eventId}`).slice(
     0,
     TICKET_REF_MAX_LENGTH,

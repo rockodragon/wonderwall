@@ -331,9 +331,11 @@ export default function AppLayout() {
           visitor on a public path). Sits fixed over scrolling content, so
           it needs a real shadow (not just the fill color) to read as a
           solid bar instead of blending with whatever scrolls underneath
-          it. */}
+          it. z-40, under dialogs (z-50): a full-screen form on a phone
+          covers the bar, so its Next/Save row at the bottom is never hidden
+          behind it (Rick, 2026-10-05). */}
       <nav
-        className={`fixed bottom-0 left-0 right-0 z-50 border-t md:hidden ${PHONE_BAR_HEIGHT}`}
+        className={`fixed bottom-0 left-0 right-0 z-40 border-t md:hidden ${PHONE_BAR_HEIGHT}`}
         style={{
           backgroundColor: "var(--app-surface-raised)",
           borderColor: "var(--app-hairline)",

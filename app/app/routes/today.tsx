@@ -22,11 +22,13 @@ import { CLAIMS } from "../constants/claims";
 import { resolveStage, stageLabel } from "../lib/stage";
 import { Dissolve } from "../hooks/useReveal";
 import { AbstractCover } from "../components/AbstractCover";
+import { CoverFrame } from "../components/CoverFrame";
 import { coverOf, fundingOf, moneyOf, pickProjects } from "../lib/projectPick";
 import { FF_DESK } from "../lib/featureFlags";
 import { Desk } from "../desk/Desk";
 import { useIsDesktop } from "../hooks/useMediaQuery";
 import { UpdatesStack } from "../components/UpdatesStack";
+import { CelebrationStack } from "../components/CelebrationStack";
 import { PhoneNeedsYou } from "../components/shortlist/PhoneParts";
 import { useShortlist } from "../lib/shortlist/useShortlist";
 import { GardenLockup } from "../brand/GardenMark";
@@ -113,7 +115,9 @@ function TodayPage() {
         </div>
       )}
 
-      {/* Updates come next (docs/features/desk-updates.md). */}
+      {/* What people did for you comes next, then the Updates
+          (lib/celebrations.ts, docs/features/desk-updates.md). */}
+      <CelebrationStack />
       <UpdatesStack />
 
       {openGift && <YourHalfCard amountCents={openGift.amountCents} />}
@@ -420,6 +424,20 @@ function StatusPill({ live, when }: { live: boolean; when: string | null }) {
 // Projects
 // ——————————————————————————————————————————————————————————————
 
+/** A project's picture in the 4:5 cover shape (docs/features/cover-4x5.md),
+    shown whole; without one, the abstract cover in the same box so the
+    page doesn't jump when a picture arrives. */
+function ProjectCover({ cover, seed, className = "" }: { cover: string | null; seed: string; className?: string }) {
+  if (cover) return <CoverFrame src={cover} alt="" className={className} />;
+  return (
+    <div className={`relative aspect-[4/5] overflow-hidden ${className}`}>
+      <div className="absolute inset-0">
+        <AbstractCover seed={seed} />
+      </div>
+    </div>
+  );
+}
+
 function FeaturedProject({ project }: { project: Project }) {
   // The team and its open roles are what someone deciding whether to join
   // needs; only the featured card pays for these two lookups.
@@ -443,9 +461,12 @@ function FeaturedProject({ project }: { project: Project }) {
 
   return (
     <article className="grid overflow-hidden rounded-xl border md:grid-cols-[2fr_3fr]" style={CARD}>
-      <Link to={`/projects/${project._id}`} className="block aspect-[16/9] md:aspect-auto md:min-h-[240px]" style={{ backgroundColor: "#121212" }} tabIndex={-1} aria-hidden>
+      {/* A 4:5 picture, full width on a phone. Beside the words (md up) the
+          picture's box takes the row's height instead, so it never leaves a
+          gap under it; the picture still shows whole. */}
+      <Link to={`/projects/${project._id}`} className="block md:min-h-[240px]" style={{ backgroundColor: "#121212" }} tabIndex={-1} aria-hidden>
         <Dissolve className="h-full w-full">
-          {cover ? <img src={cover} alt="" className="h-full w-full object-cover" /> : <AbstractCover seed={project._id} />}
+          <ProjectCover cover={cover} seed={project._id} className="md:aspect-auto md:h-full" />
         </Dissolve>
       </Link>
       <div className="flex flex-col p-7 md:p-10">
@@ -511,13 +532,15 @@ function ProjectRow({ project, flip }: { project: Project; flip: boolean }) {
   return (
     <Link
       to={`/projects/${project._id}`}
-      className="group grid items-center gap-8 md:grid-cols-2 md:gap-14"
+      className={`group grid items-center gap-8 md:gap-14 ${flip ? "md:grid-cols-[1fr_320px]" : "md:grid-cols-[320px_1fr]"}`}
     >
+      {/* 4:5, full width on a phone; beside the words it is a fixed 320px
+          wide, so a portrait picture doesn't run taller than the text. */}
       <Dissolve
-        className={`aspect-[4/3] overflow-hidden rounded-xl transition-transform duration-300 group-hover:scale-[1.01] ${flip ? "md:order-2" : ""}`}
+        className={`overflow-hidden rounded-xl transition-transform duration-300 group-hover:scale-[1.01] ${flip ? "md:order-2" : ""}`}
         style={{ backgroundColor: "#121212" }}
       >
-        {cover ? <img src={cover} alt="" className="h-full w-full object-cover" /> : <AbstractCover seed={project._id} />}
+        <ProjectCover cover={cover} seed={project._id} />
       </Dissolve>
       <div className={`min-w-0 ${flip ? "md:order-1" : ""}`}>
         <Badges project={project} />

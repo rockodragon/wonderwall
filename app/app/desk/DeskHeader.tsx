@@ -32,7 +32,7 @@ import { GardenLockup } from "../brand/GardenMark";
 import { DeskFilterBar, browseCreate, isBrowseView, type BrowseView } from "./deskBrowse";
 import { countLabel } from "./deskGreeting";
 import { GRID_SIDE } from "./deskLayout";
-import { COMMUNITY_LABEL, DESK_VIEW_LABEL, useDeskSpacing, type DeskCommunity, type DeskView } from "./deskState";
+import { COMMUNITY_LABEL, DESK_VIEW_LABEL, type DeskCommunity, type DeskView } from "./deskState";
 import { DESK, FOCUS_RING_CLASS, monoLabel, tintAlpha, useDeskTint } from "./tokens";
 
 /** The header's left edge, shared with the grid's first column. */
@@ -93,8 +93,8 @@ export function DeskHeader({
 }) {
   const titleRef = useRef<HTMLDivElement>(null);
   const rowRef = useRef<HTMLDivElement>(null);
-  // The header's left edge is the grid's: both follow the spacing dial.
-  const side = HEADER_SIDE * useDeskSpacing();
+  // The header's left edge is the grid's.
+  const side = HEADER_SIDE;
   const tint = useDeskTint();
   const report = useRef(onMeasure);
   report.current = onMeasure;

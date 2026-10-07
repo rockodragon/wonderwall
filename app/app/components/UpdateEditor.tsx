@@ -359,7 +359,7 @@ export function UpdateEditor({
       </div>
 
       <aside className="lg:sticky lg:top-6 lg:self-start" aria-label="Preview">
-        <p className={`${labelClass} mb-2`}>On the desk</p>
+        <p className={`${labelClass} mb-2`}>On the canvas</p>
         <Preview update={update} form={form} />
       </aside>
     </form>

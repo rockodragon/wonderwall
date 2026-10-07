@@ -567,7 +567,7 @@ export default function Profile() {
                         {a.title}
                       </span>
                       <span className="text-sm" style={{ color: "var(--app-text-muted)" }}>
-                        {a.role || "Lead"}
+                        {a.role || "Team"}
                       </span>
                     </div>
                     <span className="text-sm shrink-0" style={{ color: "var(--app-text-muted)" }}>

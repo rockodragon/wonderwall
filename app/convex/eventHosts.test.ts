@@ -375,3 +375,21 @@ describe("backfillCoHosts", () => {
     expect(ctx.store.eventCoHosts).toEqual(after);
   });
 });
+
+describe("planDisplayHosts — someone not on the platform", () => {
+  it("takes a name beside people and organizations", () => {
+    const plan = planDisplayHosts([
+      { kind: "org", id: "o1" },
+      { kind: "name", id: "Jane Doe" },
+      { kind: "user", id: "u1" },
+    ]);
+    expect(plan.ok).toBe(true);
+  });
+
+  it("treats the same name twice, any case, as a repeat", () => {
+    expect(planDisplayHosts([{ kind: "name", id: "Jane Doe" }, { kind: "name", id: " jane doe " }])).toEqual({
+      ok: false,
+      reason: "duplicate",
+    });
+  });
+});

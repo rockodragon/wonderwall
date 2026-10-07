@@ -2,6 +2,8 @@
 
 Status: building on branch `desktop` (2026-10-01). Design source: `docs/handoff/garden-desk-palette/README.md` (Claude Design, option 3a "Desk + Palette"). That README is the visual spec. This file records how it maps onto the app, and where the build departs from it.
 
+> **On screen it's the canvas** (Rick, 2026-10-04). Members see "Canvas" and "Your canvas"; the code (`app/app/desk/`, `DeskCard`, `FF_DESK`) and this file still say desk. The code rename waits until the open branches that touch `app/app/desk/` (`tables`, the pricing page) have merged.
+
 > **Superseded in part by the Shortlist** (`docs/handoff/favorites-redesign/README.md`, 2026-10-02). The Desk tool is gone; Shortlist takes its slot, and the main button is the Desk. The `fav` view is now `shortlist` (`?view=fav` still opens it). "See my favorites" has left the Events stack. Today leads with Needs you. Where this file says otherwise about those parts, the Shortlist spec wins.
 
 ## Scope
@@ -341,11 +343,7 @@ A UX analyst's recommendations are folded in below. Rick: keep the two-step entr
 - Organizations belong to no community, so the community switch doesn't scope them (as on `/people`).
 - Not in this pass: a People-only state (turn on a Discipline for that), following an organization, Near me for organizations (the list doesn't send coordinates).
 
-**Spacing dial (admins, experiment).** Rick wants to try more negative space.
-- Admins get a "Spacing" pill in the desk's lower right. It opens a slider from 0.75× to 2×, plus Reset.
-- The value is saved in that browser only (`desk.spacing`), so trying values never changes the desk for anyone else.
-- It scales the grid's gap and side margins, the header's left edge, and Today's row gap. Scattered cards on home shrink by its square root, so their slots keep their places.
-- Once a value is chosen, it becomes the default (`GRID_GAP`, `GRID_SIDE`, `ROW_GAP` in `deskLayout.ts`) and the dial goes.
+**Spacing (settled 2026-10-03).** Rick tried an admin dial for negative space and kept the layout as designed (1.00×). The dial is gone; `GRID_GAP`, `GRID_SIDE`, `ROW_GAP` and `HEADER_SIDE` in `deskLayout.ts` are the values.
 
 **Who owns what.**
 - Desk presentation (header, grid, opened card, fallbacks): `Desk.tsx`, `DeskCard.tsx`, `OpenedCard.tsx`, `deskLayout.ts`, `DeskHeader.tsx`.

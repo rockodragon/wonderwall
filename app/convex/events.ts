@@ -9,7 +9,7 @@ import { formatFollowedEventDate, notifyFollowers } from "./follows";
 import { canonicalMediaUrl, schedulePreviewFetch } from "./linkPreview";
 import { mergeGuests, summarizeGuests, type GuestInput } from "./eventGuests";
 import { getUserEmail } from "./emailHelpers";
-import { isEventHost, planAddCoHost, planRemoveCoHost, planDisplayHosts, syncCoHosts } from "./eventHosts";
+import { isEventHost, planAddCoHost, planRemoveCoHost, planDisplayHosts, syncCoHosts, MAX_HOST_NAME } from "./eventHosts";
 import { canSeeEvent, eventVisibilityChecker, isFreeEvent } from "./garden/eventVisibility";
 import { communityVisibility, isHiddenCommunityId } from "./garden/communityVisibility";
 import { hostUserIdsForOrg, primaryOrgByUserId } from "./organizations";
@@ -17,6 +17,8 @@ import { isAdmin } from "./helpers";
 import { isHidden } from "./moderationRules";
 import { getTableParticipation } from "./garden/tablePolicy";
 import { notifyDateCanceled, notifyDateChanged } from "./garden/tableNotify";
+import { isEventListed } from "./eventWindow";
+import { isSafeHttpsUrl } from "./garden/richText";
 
 // ——— Pure validation helpers (unit-tested in events.test.ts) ———
 
@@ -101,9 +103,7 @@ const ticketTiersValidator = v.optional(
   ),
 );
 
-// ——— External ticketing (schema.ts's events.externalTicketUrl comment) ———
-
-const STRIPE_PAYMENT_LINK_HOST = "buy.stripe.com";
+// ——— Tickets or RSVP on another site (schema.ts's events.externalTicketUrl comment) ———
 
 export interface ExternalTicketInput {
   url?: string;
@@ -118,24 +118,19 @@ export interface ExternalTicketResult {
 
 /** Validates + normalizes the external-ticket fields together, since a
  * price with no link is meaningless: an empty/absent url clears BOTH
- * fields, regardless of what priceCents was. The url must be a Stripe
- * Payment Link — nothing else, because AP's webhook (garden/apGifts.ts)
- * is the only thing watching for a purchase to come back, and it only
- * knows how to read a checkout.session event off that one Stripe account. */
+ * fields, regardless of what priceCents was. The url can be any https link
+ * (Eventbrite, Partiful, a venue's own page...); Stripe-specific behavior
+ * keys off the host afterwards (garden/ticketLink.ts isStripePaymentLink),
+ * because AP's webhook (garden/apGifts.ts) only sees purchases made through
+ * a Payment Link on its own Stripe account. */
 export function normalizeExternalTicket(
   input: ExternalTicketInput,
 ): ExternalTicketResult {
   const trimmed = input.url?.trim();
   if (!trimmed) return {};
 
-  let parsed: URL;
-  try {
-    parsed = new URL(trimmed);
-  } catch {
-    return { error: "Use a Stripe Payment Link (buy.stripe.com/…)." };
-  }
-  if (parsed.protocol !== "https:" || parsed.hostname !== STRIPE_PAYMENT_LINK_HOST) {
-    return { error: "Use a Stripe Payment Link (buy.stripe.com/…)." };
+  if (!isSafeHttpsUrl(trimmed)) {
+    return { error: "Use a full https:// link to the ticket or RSVP page." };
   }
 
   if (
@@ -262,11 +257,14 @@ type LoadedHost = { name: string; profileId?: Id<"profiles">; exact?: boolean } 
 async function loadDisplayHosts(
   ctx: QueryCtx,
   event: Doc<"events">,
-): Promise<(LoadedHost & { kind: "user" | "org"; refId: string; imageUrl: string | null })[] | null> {
+): Promise<(LoadedHost & { kind: "user" | "org" | "name"; refId: string; imageUrl: string | null })[] | null> {
   if (!event.displayHosts || event.displayHosts.length === 0) return null;
-  const out: (LoadedHost & { kind: "user" | "org"; refId: string; imageUrl: string | null })[] = [];
+  const out: (LoadedHost & { kind: "user" | "org" | "name"; refId: string; imageUrl: string | null })[] = [];
   for (const d of event.displayHosts) {
-    if (d.kind === "org") {
+    if (d.kind === "name") {
+      // Not on the platform: the name alone, no page to link.
+      out.push({ kind: "name", refId: d.name, name: d.name, imageUrl: null, exact: true });
+    } else if (d.kind === "org") {
       const o = await ctx.db.get(d.organizationId);
       if (!o) continue;
       const logo = o.logoStorageId ? await ctx.storage.getUrl(o.logoStorageId) : null;
@@ -334,15 +332,17 @@ export const list = query({
       events = events.filter((e) => e.status === "published");
     }
 
-    // Filter to upcoming only
+    // Upcoming keeps an event through the day after it ends, so a person can
+    // join late and see what they missed (eventWindow.ts); Past is exactly
+    // the rest, so the two tabs never overlap or drop one.
     if (args.upcoming) {
       const now = Date.now();
-      events = events.filter((e) => e.datetime > now);
+      events = events.filter((e) => isEventListed(e, now));
     }
 
     if (args.past) {
       const now = Date.now();
-      events = events.filter((e) => e.datetime <= now);
+      events = events.filter((e) => !isEventListed(e, now));
     }
 
     // A ticketed event stays off every public browse surface until its
@@ -414,9 +414,9 @@ export const listForOrganization = query({
       const hosted = hostIds.has(String(e.organizerId)) || (e.coHostIds ?? []).some((id) => hostIds.has(String(id)));
       if (hosted && (await isPublic(e)) && (await gate.idVisible(e.hostOrgId))) mine.push(e);
     }
-    const upcoming = mine.filter((e) => e.datetime > now).sort((a, b) => a.datetime - b.datetime);
+    const upcoming = mine.filter((e) => isEventListed(e, now)).sort((a, b) => a.datetime - b.datetime);
     const past = mine
-      .filter((e) => e.datetime <= now)
+      .filter((e) => !isEventListed(e, now))
       .sort((a, b) => b.datetime - a.datetime)
       .slice(0, 6);
     return { upcoming: await toCardEvents(ctx, upcoming), past: await toCardEvents(ctx, past) };
@@ -626,11 +626,14 @@ export const create = mutation({
     const userId = await auth.getUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
 
+    // ConvexError, not Error: in production only a ConvexError's data
+    // reaches the client, and these messages are written for the person
+    // filling in the form (app/lib/convexError.ts).
     const endTimeError = validateEndTime(args.datetime, args.endTime);
-    if (endTimeError) throw new Error(endTimeError);
+    if (endTimeError) throw new ConvexError(endTimeError);
 
     const { tiers, error: tiersError } = normalizeTicketTiers(args.ticketTiers);
-    if (tiersError) throw new Error(tiersError);
+    if (tiersError) throw new ConvexError(tiersError);
 
     const {
       externalTicketUrl,
@@ -640,7 +643,7 @@ export const create = mutation({
       url: args.externalTicketUrl,
       priceCents: args.externalTicketPriceCents,
     });
-    if (ticketLinkError) throw new Error(ticketLinkError);
+    if (ticketLinkError) throw new ConvexError(ticketLinkError);
 
     const mediaUrl = canonicalMediaUrl(args.mediaUrl);
 
@@ -762,11 +765,14 @@ export const update = mutation({
     if (!event) throw new Error("Event not found");
     if (!isEventHost(event, userId)) throw new Error("Not authorized");
 
+    // ConvexError, not Error: in production only a ConvexError's data
+    // reaches the client, and these messages are written for the person
+    // filling in the form (app/lib/convexError.ts).
     const endTimeError = validateEndTime(args.datetime, args.endTime);
-    if (endTimeError) throw new Error(endTimeError);
+    if (endTimeError) throw new ConvexError(endTimeError);
 
     const { tiers, error: tiersError } = normalizeTicketTiers(args.ticketTiers);
-    if (tiersError) throw new Error(tiersError);
+    if (tiersError) throw new ConvexError(tiersError);
 
     const {
       externalTicketUrl,
@@ -776,7 +782,7 @@ export const update = mutation({
       url: args.externalTicketUrl,
       priceCents: args.externalTicketPriceCents,
     });
-    if (ticketLinkError) throw new Error(ticketLinkError);
+    if (ticketLinkError) throw new ConvexError(ticketLinkError);
     if (addsTableEventTicketLink(event, externalTicketUrl)) {
       throw new ConvexError({ code: "table_event_tickets", reason: TABLE_EVENT_TICKETS_ERROR });
     }
@@ -1295,7 +1301,7 @@ export const search = query({
     // Get published, upcoming events
     const now = Date.now();
     let events = await ctx.db.query("events").collect();
-    events = events.filter((e) => e.status === "published" && e.datetime > now);
+    events = events.filter((e) => e.status === "published" && isEventListed(e, now));
 
     if (args.communitySlug) {
       const org = await ctx.db
@@ -1416,6 +1422,8 @@ export const setDisplayHosts = mutation({
       v.union(
         v.object({ kind: v.literal("user"), id: v.id("users") }),
         v.object({ kind: v.literal("org"), id: v.id("organizations") }),
+        // Someone not on the platform yet (Rick, 2026-10-07).
+        v.object({ kind: v.literal("name"), name: v.string() }),
       ),
     ),
   },
@@ -1425,18 +1433,26 @@ export const setDisplayHosts = mutation({
     const event = await ctx.db.get(args.eventId);
     if (!event) throw new Error("Event not found");
     if (!isEventHost(event, userId)) throw new Error("Only a host can change who is shown as host");
-    const plan = planDisplayHosts(args.hosts.map((h) => ({ kind: h.kind, id: String(h.id) })));
+    const hosts = args.hosts.map((h) => (h.kind === "name" ? { ...h, name: h.name.trim() } : h));
+    for (const h of hosts) {
+      if (h.kind === "name" && (!h.name || h.name.length > MAX_HOST_NAME)) {
+        throw new ConvexError({ code: "invalid", reason: `A host's name needs 1 to ${MAX_HOST_NAME} characters.` });
+      }
+    }
+    const plan = planDisplayHosts(hosts.map((h) => (h.kind === "name" ? { kind: h.kind, id: h.name } : { kind: h.kind, id: String(h.id) })));
     if (!plan.ok) {
       throw new Error(plan.reason === "full" ? "Show at most 10 hosts" : "Each host can be listed once");
     }
     await ctx.db.patch(args.eventId, {
       displayHosts:
-        args.hosts.length === 0
+        hosts.length === 0
           ? undefined
-          : args.hosts.map((h) =>
+          : hosts.map((h) =>
               h.kind === "user"
                 ? { kind: "user" as const, userId: h.id as Id<"users"> }
-                : { kind: "org" as const, organizationId: h.id as Id<"organizations"> },
+                : h.kind === "org"
+                  ? { kind: "org" as const, organizationId: h.id as Id<"organizations"> }
+                  : { kind: "name" as const, name: h.name },
             ),
       updatedAt: Date.now(),
     });

@@ -1,4 +1,4 @@
-// /admin/updates — write the Updates members see on their desk
+// /admin/updates — write the Updates members see on their canvas
 // (docs/features/desk-updates.md). The list shows each Update's status,
 // audience, dates and how many people opened it, pressed its button and
 // archived it; each can be edited, published, archived, or sent now. Sending
@@ -129,7 +129,7 @@ export default function AdminUpdatesPage() {
               </div>
             )}
           </div>
-          {!showEditor && <p className="mt-1 text-sm text-gray-700">Cards members see on their desk until they've read them.</p>}
+          {!showEditor && <p className="mt-1 text-sm text-gray-700">Cards members see on their canvas until they've read them.</p>}
         </div>
 
         {notice && (

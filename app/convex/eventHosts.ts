@@ -51,7 +51,11 @@ export function planRemoveCoHost(
 
 export const MAX_DISPLAY_HOSTS = 10;
 
-export type DisplayHostRef = { kind: "user"; id: string } | { kind: "org"; id: string };
+/** For a "name" host (someone not on the platform), `id` is the name. */
+export type DisplayHostRef = { kind: "user"; id: string } | { kind: "org"; id: string } | { kind: "name"; id: string };
+
+/** The longest name a "not on the platform" host can have. */
+export const MAX_HOST_NAME = 80;
 
 /** Pure rule for the "show as host" list: at most 10, no repeats, order kept. */
 export function planDisplayHosts(
@@ -60,7 +64,7 @@ export function planDisplayHosts(
   if (refs.length > MAX_DISPLAY_HOSTS) return { ok: false, reason: "full" };
   const seen = new Set<string>();
   for (const r of refs) {
-    const key = `${r.kind}:${r.id}`;
+    const key = `${r.kind}:${r.kind === "name" ? r.id.trim().toLowerCase() : r.id}`;
     if (seen.has(key)) return { ok: false, reason: "duplicate" };
     seen.add(key);
   }

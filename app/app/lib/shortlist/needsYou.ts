@@ -8,6 +8,7 @@
 import { workKind } from "./kind";
 import { calendarDayEnd } from "../dates";
 import type { ShortlistData, ShortlistEvent, ShortlistProject, ShortlistRequest } from "./types";
+import { eventHasEnded } from "../../../convex/eventWindow";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -36,11 +37,12 @@ export function isAppearance(event: ShortlistEvent): boolean {
   return (event.relation === "going" || event.relation === "hosting") && !event.cancelled;
 }
 
-/** Whether an event is over: its end has passed, or its start when it has no
- *  end. One that's on right now hasn't ended. The one rule for Past, This
- *  week's lower bound, and what the backend stops reading. */
+/** Whether an event is over: its end has passed, and one with no end time
+ *  runs three hours (convex/eventWindow.ts), so it no longer drops to Past
+ *  the moment it starts. One that's on right now hasn't ended. The one rule
+ *  for Past, This week's lower bound, and what the backend stops reading. */
 export function hasEnded(event: { datetime: number; endTime?: number | null }, now: number): boolean {
-  return (event.endTime ?? event.datetime) < now;
+  return eventHasEnded(event, now);
 }
 
 /** When a saved role stops taking people (`projectRoles.neededBy`), a

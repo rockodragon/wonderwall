@@ -260,6 +260,8 @@ export default defineSchema({
         v.union(
           v.object({ kind: v.literal("user"), userId: v.id("users") }),
           v.object({ kind: v.literal("org"), organizationId: v.id("organizations") }),
+          // Someone not on the platform yet: shown by name, no page to link.
+          v.object({ kind: v.literal("name"), name: v.string() }),
         ),
       ),
     ),
@@ -286,17 +288,23 @@ export default defineSchema({
     // See garden/ticketRouting.ts for the rule and why it refuses rather
     // than falling back.
     beneficiaryHostOrgId: v.optional(v.id("hostOrgs")),
-    // An external ticketing path (docs/phase-1b/stripe-runbook.md §5 "On-site
-    // donations to the grant fund" interim step, extended to tickets):
-    // instead of the platform's own ticketTiers/Stripe Connect checkout
-    // above, sell through a Payment Link on Abiding Practice's OWN Stripe
-    // account (buy.stripe.com/... only — enforced in events.ts) and let AP's
-    // existing /stripe/ap/webhook (garden/apGifts.ts) add the buyer to this
-    // event and record the ticket into grantContributions as a benefit for
-    // the artist grant fund. Coexists with ticketTiers; most events use one
-    // or the other. externalTicketPriceCents is display-only copy (the real
-    // price lives on the Payment Link itself) — optional because a link
-    // whose price varies (donor's choice) has none to show.
+    // Tickets or RSVP on another site: a link to the page where people
+    // actually get in (Eventbrite, Partiful, a venue's own page, a Stripe
+    // Payment Link...), shown on the event page in place of the join button.
+    // Any https link (events.ts normalizeExternalTicket). Coexists with
+    // ticketTiers; most events use one or the other. It does NOT gate
+    // visibility (garden/eventVisibility.ts looks at tiers only).
+    //
+    // A link on `buy.stripe.com` (garden/ticketLink.ts isStripePaymentLink) is
+    // also the original path (docs/phase-1b/stripe-runbook.md §5 "On-site
+    // donations to the grant fund" interim step, extended to tickets): it's a
+    // Payment Link on Abiding Practice's OWN Stripe account, and AP's
+    // existing /stripe/ap/webhook (garden/apGifts.ts) adds the buyer to this
+    // event and records the ticket into grantContributions as a benefit for
+    // the artist grant fund. Nothing is watching any other site, so a buyer
+    // there isn't added to the guest list. externalTicketPriceCents is
+    // display-only copy (the real price lives on the other site) — optional
+    // because a link whose price varies has none to show.
     externalTicketUrl: v.optional(v.string()),
     externalTicketPriceCents: v.optional(v.number()),
     // Location fields — one box: the same LocationAutocomplete/Google
@@ -713,7 +721,20 @@ export default defineSchema({
     linkUrl: v.optional(v.string()), // URL to navigate to when clicked
     imageUrl: v.optional(v.string()), // Avatar or related image
     relatedUserId: v.optional(v.id("users")), // User who triggered the notification
+    // The project it's about. linkUrl can't say: a gift's points at /give and
+    // an award's at the fund. The canvas card and the daily email link it.
+    projectId: v.optional(v.id("projects")),
+    // The money, in cents, for a backing, a gift or a fund award, so the card
+    // can show it without reading it back out of the title.
+    amountCents: v.optional(v.number()),
     readAt: v.optional(v.number()),
+    // A celebration's card (celebrationTypes.ts) is done: closed on the
+    // canvas, "Got it" on a phone, or its button pressed. Kept apart from
+    // readAt on purpose: opening Messages marks every notification read, and
+    // that mustn't take a cheer off the canvas before it was ever seen there.
+    celebratedAt: v.optional(v.number()),
+    // Went out in the daily email (supportDigest.ts), so it never goes twice.
+    digestedAt: v.optional(v.number()),
     createdAt: v.number(),
   })
     .index("by_userId", ["userId"])

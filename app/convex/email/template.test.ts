@@ -87,6 +87,19 @@ describe("renderNotificationEmail", () => {
     expect(text).toContain("View Message: https://thecreative.exchange/messages/abc123");
   });
 
+  it("makes relative links in the body absolute, and leaves the rest alone", () => {
+    const { html } = renderNotificationEmail({
+      heading: "Digest",
+      previewText: "preview",
+      body: `<a href="/profile/p1">Dana</a> cheered on <a href="/story/small-acts">Small Acts</a>, see <a href="https://example.com/x">this</a> or <a href="//cdn.example.com/y">that</a>`,
+      baseUrl: BASE_URL,
+    });
+    expect(html).toContain('<a href="https://thecreative.exchange/profile/p1">Dana</a>');
+    expect(html).toContain('<a href="https://thecreative.exchange/story/small-acts">Small Acts</a>');
+    expect(html).toContain('<a href="https://example.com/x">this</a>');
+    expect(html).toContain('<a href="//cdn.example.com/y">that</a>');
+  });
+
   it("includes the unsubscribe link only when unsubscribeUrl is given", () => {
     const withToken = renderNotificationEmail({
       heading: "Digest",

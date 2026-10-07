@@ -18,6 +18,10 @@ import { mutation, query } from "../_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import type { Id } from "../_generated/dataModel";
 import { isAdminProfile } from "../helpers";
+import { scheduleNotificationEmail } from "../emailHelpers";
+import { escapeHtml } from "../email/template";
+import { NAMED_FUNDS } from "../../app/lib/namedFunds";
+import { formatCents } from "./giving";
 
 // ——————————————————————————————————————————————————————————————
 // Pure core
@@ -141,6 +145,46 @@ export function shapeCredits(
 /** Allocations are entered in cents; must be a positive whole number. */
 export function isValidAmountCents(amountCents: number): boolean {
   return Number.isInteger(amountCents) && amountCents > 0;
+}
+
+/** The name a fund goes by: the one its page shows for a named fund (The
+ * Sophia Fund), the org's own name for any other. */
+export function fundDisplayName(hostOrg: { slug: string; name: string }): string {
+  return NAMED_FUNDS[hostOrg.slug]?.name ?? hostOrg.name;
+}
+
+/** The notice a recipient gets when a fund awards them money — the same
+ * words feed the notification and the email. */
+export function fundAwardNotice(input: { fundName: string; amountCents: number; projectTitle: string }): {
+  title: string;
+  message: string;
+} {
+  return {
+    title: `${input.fundName} awarded you ${formatCents(input.amountCents)}`,
+    message: input.projectTitle,
+  };
+}
+
+/** recordAllocation's email to the project's owner, sent right away (an
+ * award doesn't wait for the daily email). Same shape as grantProposals.ts's
+ * buildProposalDecidedEmail: subject/previewText/heading plain text, body
+ * HTML with every typed value through escapeHtml. */
+export function buildFundAwardEmail(input: {
+  fundName: string;
+  amountCents: number;
+  projectTitle: string;
+  linkUrl: string;
+}): { subject: string; previewText: string; heading: string; body: string; ctaText: string; ctaUrl: string } {
+  const { title } = fundAwardNotice(input);
+  const amount = formatCents(input.amountCents);
+  return {
+    subject: title,
+    previewText: `${input.fundName} awarded ${amount} to ${input.projectTitle}.`,
+    heading: title,
+    body: `<strong>${escapeHtml(input.fundName)}</strong> awarded <strong>${amount}</strong> to <strong>${escapeHtml(input.projectTitle)}</strong>.`,
+    ctaText: "See the fund",
+    ctaUrl: input.linkUrl,
+  };
 }
 
 // ——————————————————————————————————————————————————————————————
@@ -295,9 +339,11 @@ export const recordAllocation = mutation({
       });
     }
 
+    // One read serves both the name lookup and the notice after the insert.
+    const project = args.projectId ? await ctx.db.get(args.projectId) : null;
+
     let ownerProfileName: string | undefined;
     if (args.projectId && !args.recipientName) {
-      const project = await ctx.db.get(args.projectId);
       if (project) {
         const ownerProfile = await ctx.db
           .query("profiles")
@@ -327,6 +373,38 @@ export const recordAllocation = mutation({
       note: args.note,
       createdAt: Date.now(),
     });
+
+    // Tell the person who got the money. A name-only allocation has no
+    // account to tell, so it notifies nobody.
+    if (project) {
+      const linkUrl = `/fund/${hostOrg.slug}`;
+      const fundName = fundDisplayName(hostOrg);
+      await ctx.db.insert("notifications", {
+        userId: project.userId,
+        type: "fund_award",
+        ...fundAwardNotice({
+          fundName,
+          amountCents: args.amountCents,
+          projectTitle: project.title,
+        }),
+        linkUrl,
+        projectId: project._id,
+        amountCents: args.amountCents,
+        createdAt: Date.now(),
+      });
+      await scheduleNotificationEmail(ctx, {
+        userId: project.userId,
+        category: "activity",
+        communityId: hostOrg._id,
+        ...buildFundAwardEmail({
+          fundName,
+          amountCents: args.amountCents,
+          projectTitle: project.title,
+          linkUrl,
+        }),
+      });
+    }
+
     return { allocationId: id };
   },
 });

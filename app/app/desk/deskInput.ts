@@ -4,6 +4,7 @@
 
 import { NAMED_FUNDS, availableCents } from "../lib/namedFunds";
 import type {
+  DeskCelebrationInput,
   DeskEventInput,
   DeskFundInput,
   DeskInput,
@@ -27,6 +28,9 @@ export type GivingLike = { open?: readonly { amountCents: number }[] };
 /** Each query's result as the hook has it: undefined while loading, null when
  *  there is nothing (signed out, or an unknown fund). */
 export type DeskRaw = {
+  /** api.notifications.listCelebrations: [] when signed out. Optional: an
+   *  older backend doesn't have it, and the desk shows without them. */
+  celebrations?: readonly DeskCelebrationInput[] | undefined;
   /** api.updates.listMine: [] when signed out. */
   updates: readonly DeskUpdateInput[] | undefined;
   events: readonly DeskEventInput[] | undefined;
@@ -64,6 +68,7 @@ export function toDeskInput(raw: DeskRaw, now: number, formatMoney: (cents: numb
   );
   return {
     now,
+    celebrations: raw.celebrations ?? [],
     updates: raw.updates ?? [],
     events: raw.events ?? [],
     people,

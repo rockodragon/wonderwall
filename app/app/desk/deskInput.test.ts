@@ -30,6 +30,7 @@ describe("toDeskInput", () => {
   it("reads a desk that hasn't loaded as an empty one", () => {
     expect(toDeskInput(empty, 42, money)).toEqual({
       now: 42,
+      celebrations: [],
       updates: [],
       events: [],
       people: [],

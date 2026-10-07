@@ -33,19 +33,25 @@
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useAction, useConvexAuth, useMutation, useQuery } from "convex/react";
 import { ConvexError } from "convex/values";
-import { type FormEvent, useEffect, useRef, useState } from "react";
+import { type FormEvent, type ReactNode, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { normalizePhone } from "../../convex/phone";
 import { LocationMapCard } from "../components/LocationMapCard";
 import { ImageFill } from "../components/ImageFill";
+import { CoverFrame } from "../components/CoverFrame";
+import { useCoverPick } from "../lib/useCoverPick";
+import { uploadToStorage } from "../lib/uploadFile";
+import { isWideCover, useImageAspect } from "../lib/useImageAspect";
 import { useBack } from "../lib/useBack";
 import { YOUTUBE_LIVE_LABEL, YOUTUBE_LIVE_URL } from "../constants/broadcast";
 import { FavoriteButton } from "../components/FavoriteButton";
 import { ShareButton } from "../components/ShareButton";
 import { ShowcaseContent, SHOWCASE_EVENT_ID } from "../components/ShowcaseContent";
 import { hostLabels } from "../lib/eventHosts";
+import { HostedBy } from "../components/HostedBy";
+import { errorMessage } from "../lib/convexError";
 import { CreateEventModal } from "../components/CreateEventModal";
 import type { TicketTier } from "../components/TicketTierEditor";
 import { AnnouncementComposer } from "../components/AnnouncementComposer";
@@ -60,6 +66,7 @@ import { claimPendingTickets, stashTicketSession } from "../lib/pendingTicket";
 import { setPendingIntent } from "../lib/pendingIntent";
 import { guestsToCsv, summarizeGuests, formatDollars } from "../../convex/eventGuests";
 import { PAGE_WIDTH } from "../lib/pageWidth";
+import { eventCta, type EventCta } from "../lib/eventCta";
 
 const COVER_COLORS = [
   { name: "Blue", value: "blue", gradient: "from-blue-500 to-blue-600" },
@@ -115,11 +122,6 @@ function formatEventDateTime(start: number, end?: number): string {
   return `${startDay} · ${startShort}–${endTime}`;
 }
 
-function formatTierPrice(priceCents: number): string {
-  const dollars = priceCents / 100;
-  return `$${priceCents % 100 === 0 ? dollars.toFixed(0) : dollars.toFixed(2)}`;
-}
-
 /** Back to wherever they came from (a profile, an org, Today), else the
  *  events list (Rick, 2026-10-01) — rendered in every state of this page
  *  (loading, not-found, loaded), so there's always a way out. /events itself
@@ -149,7 +151,6 @@ export default function EventDetail() {
     eventId ? { eventId: eventId as Id<"events"> } : "skip",
   );
   const [searchParams, setSearchParams] = useSearchParams();
-  const applyToEvent = useMutation(api.events.apply);
   const cancelEvent = useMutation(api.events.cancel);
   const applications = useQuery(
     api.events.getApplications,
@@ -163,17 +164,11 @@ export default function EventDetail() {
     eventId ? { eventId: eventId as Id<"events"> } : "skip",
   );
 
-  const [message, setMessage] = useState("");
-  const [applying, setApplying] = useState(false);
-  const [showApplyForm, setShowApplyForm] = useState(false);
-  const [showJoinForm, setShowJoinForm] = useState(false);
-  const [joining, setJoining] = useState(false);
   const [showEditForm, setShowEditForm] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
   // Held here rather than inside the card so the desktop and mobile render
-  // sites stay in sync — the same reason `message`/`showApplyForm` above are
-  // parent state and not local to each button.
+  // sites stay in sync.
   const rsvp = useGuestRsvp(eventId as Id<"events"> | undefined);
 
   async function handleCancelEvent() {
@@ -195,6 +190,12 @@ export default function EventDetail() {
       setCancelling(false);
     }
   }
+
+  // The cover's shape picks the header: a poster beside the title, or a
+  // banner above it. Measured before the early returns (hooks).
+  const coverRatio = useImageAspect(
+    event ? event.coverImageUrl || event.galleryImageUrls?.[0] : null,
+  );
 
   if (event === undefined) {
     return (
@@ -220,36 +221,6 @@ export default function EventDetail() {
     );
   }
 
-  async function handleJoin() {
-    if (!eventId) return;
-    setJoining(true);
-    try {
-      await applyToEvent({
-        eventId: eventId as Id<"events">,
-        message: message || undefined,
-      });
-      setShowJoinForm(false);
-      setMessage("");
-    } finally {
-      setJoining(false);
-    }
-  }
-
-  async function handleApply() {
-    if (!eventId) return;
-    setApplying(true);
-    try {
-      await applyToEvent({
-        eventId: eventId as Id<"events">,
-        message: message || undefined,
-      });
-      setShowApplyForm(false);
-      setMessage("");
-    } finally {
-      setApplying(false);
-    }
-  }
-
   async function handleUpdateStatus(
     applicationId: Id<"eventApplications">,
     status: string,
@@ -257,21 +228,29 @@ export default function EventDetail() {
     await updateStatus({ applicationId, status });
   }
 
-  const isPast = event.datetime < Date.now();
-  // AP's own Stripe Payment Link (garden/apGifts.ts). When set, the ticket
-  // card takes the join button's place, above the video section.
-  const ticketUrl =
-    event.externalTicketUrl && !isPast ? event.externalTicketUrl : null;
+  // Two different "past"s (Rick, 2026-10-07: people couldn't join late).
+  // Started: ticket sales (the server refuses them after the start) and Add
+  // to calendar stop. Ended (convex/eventWindow.ts, three hours when there's
+  // no end time): joining, RSVP, Apply and the link to another site stop,
+  // and the page says it ended (eventCta's "ended").
+  const now = Date.now();
+  const hasStarted = event.datetime < now;
   const cancelled = event.status === "cancelled";
-  // events.apply throws "Not authenticated", so the Apply/Join buttons are
-  // for signed-in visitors only. A guest gets showGuestRsvp instead — never
-  // a button that would reject on click.
-  const canApply =
-    !isPast && !event.userApplication && !event.isOrganizer && isAuthenticated;
-  // Server-decided per viewer: an accepted Table participant joins a Table
-  // Event without applying again. Falls back to the Event's flag for a
-  // backend that predates applyNeedsApproval.
+  // What the event asks of this viewer (lib/eventCta.ts), decided once and
+  // shown by one card, in the desktop rail and on a phone. events.apply
+  // throws "Not authenticated", so a guest gets the guest RSVP instead of a
+  // button that would reject on click.
+  // Tables: an accepted Table participant joins a Table Event without
+  // applying again (server-decided, applyNeedsApproval); an older backend
+  // without it falls back to the Event's own flag.
   const needsApproval = event.applyNeedsApproval ?? event.requiresApproval;
+  const cta = eventCta({ ...event, requiresApproval: needsApproval }, {
+    now,
+    who: isGuest ? "guest" : isAuthenticated ? "member" : "unknown",
+    isOrganizer: event.isOrganizer,
+    application: event.userApplication,
+  });
+  const ctaCard = <EventCtaCard eventId={event._id} cta={cta} rsvp={rsvp} />;
   const isHost = !!(event.isHost ?? event.isOrganizer);
   const tabs: { id: EventTab; label: string }[] = isHost
     ? [
@@ -294,7 +273,6 @@ export default function EventDetail() {
     else params.set("tab", next);
     setSearchParams(params, { replace: true });
   }
-  const showGuestRsvp = isGuest && !isPast && !cancelled;
 
   // Get gradient class for cover color
   const coverGradient =
@@ -315,6 +293,7 @@ export default function EventDetail() {
   // recording links are a different thing (EventVideoSection below).
   const mediaEmbed = toEmbedUrl(event.mediaUrl);
   const playerIsHero = !!mediaEmbed && !bannerImageUrl;
+  const poster = !!bannerImageUrl && !isWideCover(coverRatio);
 
   return (
     <div className={`${PAGE_WIDTH.list} mx-auto`}>
@@ -374,21 +353,33 @@ export default function EventDetail() {
           <EmbedPlayer embed={mediaEmbed} title={event.title} />
         </div>
       )}
-      {/* The cover stands alone — posters carry their own type, so the
-          title sits below it rather than on top. */}
-      {/* Shown whole (ImageFill) — a fixed-height strip used to crop a
-          flyer to a slice and trim a banner's edges. */}
-      {!playerIsHero && (
-        <div className="relative h-56 md:h-72 overflow-hidden">
-          {bannerImageUrl ? (
-            <ImageFill src={bannerImageUrl} alt={event.title} />
-          ) : (
-            <div className={`w-full h-full bg-gradient-to-br ${coverGradient}`} />
-          )}
-        </div>
-      )}
-      <div>
-        <div className="px-6 pt-5">
+      {/* A 4:5 cover is a poster (docs/features/cover-4x5.md): full width
+          on a phone (capped at ~70vh) with the title below; from md up it
+          sits left of the title. A wide cover — an old landscape one, or a
+          flyer kept whole — stays the full-width banner above the title,
+          shown whole (ImageFill), as does the gradient when there's none.
+          Posters carry their own type, so the title never sits on top. */}
+      <div className={poster ? "md:flex md:items-start md:gap-8 md:px-6 md:pt-5" : undefined}>
+        {poster && bannerImageUrl ? (
+          <div className="pt-3 md:pt-0 md:w-80 md:shrink-0">
+            <CoverFrame
+              src={bannerImageUrl}
+              alt={event.title}
+              className="mx-auto max-w-[min(100%,56vh)] md:max-w-none md:rounded-2xl"
+            />
+          </div>
+        ) : (
+          !playerIsHero && (
+            <div className="relative h-56 md:h-72 overflow-hidden">
+              {bannerImageUrl ? (
+                <ImageFill src={bannerImageUrl} alt={event.title} />
+              ) : (
+                <div className={`w-full h-full bg-gradient-to-br ${coverGradient}`} />
+              )}
+            </div>
+          )
+        )}
+        <div className={poster ? "min-w-0 flex-1 px-6 pt-5 md:px-0 md:pt-0" : "px-6 pt-5"}>
           <div className="flex items-center gap-3 mb-2">
             <h1
               className={`text-2xl md:text-3xl font-bold ${
@@ -564,47 +555,10 @@ export default function EventDetail() {
                 layout, so a guest gets plain person names. */}
             {event.organizer && (
               <p className="mb-4 text-[15px] text-gray-700 dark:text-gray-200">
-                Hosted by{" "}
-                {hostLabels(
-                  event.shownHosts ?? [event.organizer, ...(event.coHosts ?? [])],
-                ).map((h, idx) => (
-                  <span key={`${h.primary}-${idx}`}>
-                    {idx > 0 && ", "}
-                    {h.orgSlug ? (
-                      <Link
-                        to={`/orgs/${h.orgSlug}`}
-                        className="font-medium text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400"
-                      >
-                        {h.primary}
-                      </Link>
-                    ) : h.profileId && !isGuest && !h.person ? (
-                      <Link
-                        to={`/profile/${h.profileId}`}
-                        className="font-medium text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400"
-                      >
-                        {h.primary}
-                      </Link>
-                    ) : (
-                      <span className="font-medium text-gray-900 dark:text-white">{h.primary}</span>
-                    )}
-                    {h.person && (
-                      <span className="text-gray-600 dark:text-gray-300">
-                        {" ("}
-                        {h.profileId && !isGuest ? (
-                          <Link
-                            to={`/profile/${h.profileId}`}
-                            className="hover:text-blue-600 dark:hover:text-blue-400"
-                          >
-                            {h.person}
-                          </Link>
-                        ) : (
-                          h.person
-                        )}
-                        {")"}
-                      </span>
-                    )}
-                  </span>
-                ))}
+                <HostedBy
+                  hosts={hostLabels(event.shownHosts ?? [event.organizer, ...(event.coHosts ?? [])])}
+                  linkPeople={!isGuest}
+                />
               </p>
             )}
 
@@ -625,149 +579,26 @@ export default function EventDetail() {
             )}
           </div>
 
-          {/* Right: Join Button (desktop) — or the ticket card, when the
-              event sells through a Payment Link */}
+          {/* Right: the event's one call to action (desktop). The same card
+              renders on a phone, below. A link to tickets or an RSVP on
+              another site gets a wider rail. */}
           <div
-            className={`hidden md:block flex-shrink-0 ${ticketUrl ? "w-72" : "w-56"}`}
+            className={`hidden md:block flex-shrink-0 ${cta.kind === "external" ? "w-72" : "w-56"}`}
           >
-            {ticketUrl ? (
-              <ExternalTicketCard
-                eventId={event._id}
-                url={ticketUrl}
-                priceCents={event.externalTicketPriceCents}
-              />
-            ) : rsvp.active && !cancelled ? (
-              <GuestRsvpCard rsvp={rsvp} />
-            ) : isPast ? (
-              <div className="p-3 bg-gray-100 dark:bg-gray-800 rounded-xl text-center">
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Event ended
-                </p>
-              </div>
-            ) : event.userApplication ? (
-              <div
-                className={`p-3 rounded-xl text-center ${
-                  event.userApplication.status === "accepted"
-                    ? "bg-green-50 dark:bg-green-900/20"
-                    : event.userApplication.status === "declined"
-                      ? "bg-red-50 dark:bg-red-900/20"
-                      : "bg-blue-50 dark:bg-blue-900/20"
-                }`}
-              >
-                <p
-                  className={`text-sm font-medium ${
-                    event.userApplication.status === "accepted"
-                      ? "text-green-700 dark:text-green-300"
-                      : event.userApplication.status === "declined"
-                        ? "text-red-700 dark:text-red-300"
-                        : "text-blue-700 dark:text-blue-300"
-                  }`}
-                >
-                  {event.userApplication.status === "accepted"
-                    ? "You're in!"
-                    : event.userApplication.status === "declined"
-                      ? "Declined"
-                      : "Pending"}
-                </p>
-              </div>
-            ) : canApply ? (
-              needsApproval ? (
-                showApplyForm ? (
-                  <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl">
-                    <h3 className="font-medium text-gray-900 dark:text-white mb-3 text-sm">
-                      Apply to attend
-                    </h3>
-                    <textarea
-                      value={message}
-                      onChange={(e) => setMessage(e.target.value)}
-                      placeholder="Why you'd like to attend..."
-                      rows={3}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-900 dark:text-white resize-none mb-3 text-sm"
-                    />
-                    <div className="flex flex-col gap-2">
-                      <button
-                        onClick={handleApply}
-                        disabled={applying}
-                        className="w-full py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 text-sm"
-                      >
-                        {applying ? "Applying..." : "Submit"}
-                      </button>
-                      <button
-                        onClick={() => setShowApplyForm(false)}
-                        className="py-2 text-gray-600 dark:text-gray-400 text-sm"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => setShowApplyForm(true)}
-                    className="w-full py-2.5 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors"
-                  >
-                    Apply to Attend
-                  </button>
-                )
-              ) : showJoinForm ? (
-                <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl">
-                  <h3 className="font-medium text-gray-900 dark:text-white mb-3 text-sm">
-                    Join this event
-                  </h3>
-                  <textarea
-                    value={message}
-                    onChange={(e) => setMessage(e.target.value)}
-                    placeholder="Share why you're excited! (optional)"
-                    rows={2}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent dark:bg-gray-900 dark:text-white resize-none mb-3 text-sm"
-                  />
-                  <div className="flex flex-col gap-2">
-                    <button
-                      onClick={handleJoin}
-                      disabled={joining}
-                      className="w-full py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:opacity-50 text-sm"
-                    >
-                      {joining ? "Joining..." : "Join"}
-                    </button>
-                    <button
-                      onClick={() => {
-                        setShowJoinForm(false);
-                        setMessage("");
-                      }}
-                      className="py-2 text-gray-600 dark:text-gray-400 text-sm"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <button
-                  onClick={() => setShowJoinForm(true)}
-                  className="w-full py-2.5 bg-green-600 text-white rounded-xl font-medium hover:bg-green-700 transition-colors"
-                >
-                  Join Event
-                </button>
-              )
-            ) : showGuestRsvp ? (
-              <GuestRsvpCard rsvp={rsvp} />
-            ) : null}
+            {ctaCard}
           </div>
         </div>
+
+        {/* A phone gets the other-site card here, above the video; every other
+            card is lower down. Back from a Stripe checkout, the ticket is
+            claimed for this account. */}
+        {cta.kind === "external" && cta.stripe && <TicketSessionClaimer />}
+        {cta.kind === "external" && <div className="md:hidden mb-8">{ctaCard}</div>}
 
         {/* Video: join link + recording (docs/gated-event-video-prd.md).
             The URLs live in the separate eventVideo table and arrive only
             through api.eventVideo.get, which resolves a role first — they
             are never on the event document this page already has. */}
-        {ticketUrl && <TicketSessionClaimer />}
-        {ticketUrl && (
-          <div className="md:hidden mb-8">
-            <ExternalTicketCard
-              eventId={event._id}
-              url={ticketUrl}
-              priceCents={event.externalTicketPriceCents}
-            />
-          </div>
-        )}
-
         <EventVideoSection
           eventId={event._id}
           title={event.title}
@@ -777,7 +608,7 @@ export default function EventDetail() {
         />
 
         {/* Add to calendar — the invite carries /j/{eventId}, not the room */}
-        {!isPast && !cancelled && (
+        {!hasStarted && !cancelled && (
           <AddToCalendar
             className="mb-8"
             event={{
@@ -811,124 +642,9 @@ export default function EventDetail() {
             </div>
           )}
 
-        {/* Mobile Join Button - between description/gallery and location.
-            A ticketed event shows its ticket card above the video instead. */}
-        <div className={ticketUrl ? "hidden" : "md:hidden mb-8"}>
-          {rsvp.active && !cancelled ? (
-            <GuestRsvpCard rsvp={rsvp} />
-          ) : isPast ? (
-            <div className="p-4 bg-gray-100 dark:bg-gray-800 rounded-xl text-center">
-              <p className="text-gray-500 dark:text-gray-400">
-                This event has ended
-              </p>
-            </div>
-          ) : event.userApplication ? (
-            <div
-              className={`p-4 rounded-xl ${
-                event.userApplication.status === "accepted"
-                  ? "bg-green-50 dark:bg-green-900/20"
-                  : event.userApplication.status === "declined"
-                    ? "bg-red-50 dark:bg-red-900/20"
-                    : "bg-blue-50 dark:bg-blue-900/20"
-              }`}
-            >
-              <p
-                className={`font-medium ${
-                  event.userApplication.status === "accepted"
-                    ? "text-green-700 dark:text-green-300"
-                    : event.userApplication.status === "declined"
-                      ? "text-red-700 dark:text-red-300"
-                      : "text-blue-700 dark:text-blue-300"
-                }`}
-              >
-                {event.userApplication.status === "accepted"
-                  ? "You're in! See you there."
-                  : event.userApplication.status === "declined"
-                    ? "Your application was declined"
-                    : "Your application is pending approval"}
-              </p>
-            </div>
-          ) : canApply ? (
-            needsApproval ? (
-              showApplyForm ? (
-                <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl">
-                  <h3 className="font-medium text-gray-900 dark:text-white mb-3">
-                    Apply to attend
-                  </h3>
-                  <textarea
-                    value={message}
-                    onChange={(e) => setMessage(e.target.value)}
-                    placeholder="Tell the organizer why you'd like to attend..."
-                    rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-900 dark:text-white resize-none mb-3"
-                  />
-                  <div className="flex gap-2">
-                    <button
-                      onClick={handleApply}
-                      disabled={applying}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50"
-                    >
-                      {applying ? "Applying..." : "Submit Application"}
-                    </button>
-                    <button
-                      onClick={() => setShowApplyForm(false)}
-                      className="px-4 py-2 text-gray-600 dark:text-gray-400"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <button
-                  onClick={() => setShowApplyForm(true)}
-                  className="w-full py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors"
-                >
-                  Apply to Attend
-                </button>
-              )
-            ) : showJoinForm ? (
-              <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl">
-                <h3 className="font-medium text-gray-900 dark:text-white mb-3">
-                  Join this event
-                </h3>
-                <textarea
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  placeholder="Share why you're excited to attend! (optional)"
-                  rows={2}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent dark:bg-gray-900 dark:text-white resize-none mb-3"
-                />
-                <div className="flex gap-2">
-                  <button
-                    onClick={handleJoin}
-                    disabled={joining}
-                    className="px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:opacity-50"
-                  >
-                    {joining ? "Joining..." : "Join Event"}
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowJoinForm(false);
-                      setMessage("");
-                    }}
-                    className="px-4 py-2 text-gray-600 dark:text-gray-400"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <button
-                onClick={() => setShowJoinForm(true)}
-                className="w-full py-3 bg-green-600 text-white rounded-xl font-medium hover:bg-green-700 transition-colors"
-              >
-                Join Event
-              </button>
-            )
-          ) : showGuestRsvp ? (
-            <GuestRsvpCard rsvp={rsvp} />
-          ) : null}
-        </div>
+        {/* The same card on a phone, between the photos and the tickets. A
+            link to another site's tickets sits above the video instead. */}
+        {cta.kind !== "external" && <div className="md:hidden mb-8">{ctaCard}</div>}
 
         {/* Tickets */}
         {event.ticketTiers && event.ticketTiers.length > 0 && (
@@ -936,7 +652,7 @@ export default function EventDetail() {
             eventId={event._id}
             tiers={event.ticketTiers}
             soldByTier={event.ticketsSoldByTier}
-            isPast={isPast}
+            isPast={hasStarted || cancelled}
           />
         )}
 
@@ -1120,7 +836,7 @@ export default function EventDetail() {
 // in (creating the account if needed) and saves the RSVP. Codes come from
 // convex/auth.ts's "email-otp" and "phone" providers; the RSVP itself is
 // garden/eventRsvps.ts's rsvpToEvent, which needs the signed-in account.
-// Paid tickets don't come through here (ExternalTicketCard, Stripe).
+// Paid tickets don't come through here (StripeTicketCard, Stripe).
 // ——————————————————————————————————————————————————————————————
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -1310,6 +1026,25 @@ const GUEST_LINK_CLASS =
 /** Rendered twice (desktop rail + mobile block), same as the Join button it
  *  stands in for. State lives in the parent so the two stay in sync. */
 function GuestRsvpCard({ rsvp }: { rsvp: GuestRsvpState }) {
+  // A visitor sees one button first; the form opens on it and says plainly
+  // that an RSVP makes a free account (Rick, 2026-10-07: the bare form read
+  // as an RSVP and then surprised them with an account). Anything already
+  // typed keeps it open.
+  const [open, setOpen] = useState(false);
+  const expanded = open || !!rsvp.name || !!rsvp.email || !!rsvp.phone || !!rsvp.error;
+  const signIn = (
+    <p className="mt-3 text-sm text-gray-700 dark:text-gray-200">
+      Already a member?{" "}
+      <Link
+        to="/login"
+        onClick={() => setPendingIntent(window.location.pathname)}
+        className={GUEST_LINK_CLASS}
+      >
+        Sign in
+      </Link>
+    </p>
+  );
+
   if (rsvp.step === "done" && rsvp.done) {
     return (
       <div className="p-4 rounded-xl bg-green-50 dark:bg-green-900/20">
@@ -1380,6 +1115,22 @@ function GuestRsvpCard({ rsvp }: { rsvp: GuestRsvpState }) {
     );
   }
 
+  if (!expanded) {
+    return (
+      <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl">
+        <h3 className="font-medium text-gray-900 dark:text-white text-sm">Going?</h3>
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="mt-3 w-full py-2.5 bg-green-600 text-white rounded-xl font-medium hover:bg-green-700 transition-colors"
+        >
+          RSVP
+        </button>
+        {signIn}
+      </div>
+    );
+  }
+
   return (
     <form
       onSubmit={rsvp.sendCode}
@@ -1389,8 +1140,7 @@ function GuestRsvpCard({ rsvp }: { rsvp: GuestRsvpState }) {
         RSVP
       </h3>
       <p className="mt-1 mb-3 text-sm text-gray-800 dark:text-gray-200">
-        We'll send you a code. Entering it makes your account and saves your
-        spot.
+        RSVPs need a free account. We'll {rsvp.usePhone ? "text" : "email"} you a code to confirm.
       </p>
       <input
         className={GUEST_INPUT_CLASS}
@@ -1429,7 +1179,7 @@ function GuestRsvpCard({ rsvp }: { rsvp: GuestRsvpState }) {
         disabled={!rsvp.valid || rsvp.submitting}
         className="mt-3 w-full py-2.5 bg-green-600 text-white rounded-xl font-medium hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        {rsvp.submitting ? "Sending…" : "Send my code"}
+        {rsvp.submitting ? "Sending…" : rsvp.usePhone ? "Text me a code" : "Email me a code"}
       </button>
       <button
         type="button"
@@ -1441,16 +1191,7 @@ function GuestRsvpCard({ rsvp }: { rsvp: GuestRsvpState }) {
       {/* Members sign in the usual way: a code sign-in on a password
           account replaces the password, and a phone-only member would get
           a second account. After sign-in they come back here (pendingIntent). */}
-      <p className="mt-3 text-sm text-gray-700 dark:text-gray-200">
-        Already have an account?{" "}
-        <Link
-          to="/login"
-          onClick={() => setPendingIntent(window.location.pathname)}
-          className={GUEST_LINK_CLASS}
-        >
-          Sign in
-        </Link>
-      </p>
+      {signIn}
       {rsvp.error && (
         <p className="mt-2 text-sm text-red-800 dark:text-red-200">
           {rsvp.error}
@@ -1877,7 +1618,7 @@ function TicketsCard({
                 <p className="font-medium text-gray-900 dark:text-white">
                   {tier.name}{" "}
                   <span className="text-gray-500 dark:text-gray-400 font-normal">
-                    · {formatTierPrice(tier.priceCents)}
+                    · {formatDollars(tier.priceCents)}
                   </span>
                 </p>
                 {tier.description && (
@@ -1903,7 +1644,7 @@ function TicketsCard({
                 >
                   {buyingTier === tier.name
                     ? "Redirecting..."
-                    : `Buy ${formatTierPrice(tier.priceCents)}`}
+                    : `Buy ${formatDollars(tier.priceCents)}`}
                 </button>
               )}
             </div>
@@ -1915,14 +1656,193 @@ function TicketsCard({
 }
 
 // ——————————————————————————————————————————————————————————————
-// External ticket card — sells through an AP Payment Link instead of the
-// platform's own checkout (garden/apGifts.ts). The link carries the
+// The event's one call to action (lib/eventCta.ts decides which). Rendered
+// in the desktop rail and in the phone block, so the two cannot drift.
+// ——————————————————————————————————————————————————————————————
+
+const NOTICE_CLASS = "p-4 rounded-xl text-center";
+
+function EventCtaCard({
+  eventId,
+  cta,
+  rsvp,
+}: {
+  eventId: Id<"events">;
+  cta: EventCta;
+  rsvp: GuestRsvpState;
+}) {
+  if (cta.kind === "external") {
+    return cta.stripe ? (
+      <StripeTicketCard eventId={eventId} url={cta.href} priceCents={cta.priceCents} />
+    ) : (
+      <LinkOutCard
+        kicker={cta.priceCents ? "Tickets" : "RSVP"}
+        priceCents={cta.priceCents}
+        href={cta.href}
+        label={`Continue on ${cta.host}`}
+        note="You'll finish on their site."
+        newTab
+      />
+    );
+  }
+
+  if (cta.kind === "cancelled") {
+    return (
+      <div className={`${NOTICE_CLASS} bg-red-50 dark:bg-red-900/20`}>
+        <p className="font-medium text-red-800 dark:text-red-200">
+          This event was cancelled
+        </p>
+      </div>
+    );
+  }
+
+  // A guest partway through the RSVP (or done with it) keeps their card even
+  // once the code has signed them in and the page sees a member.
+  if (rsvp.active) return <GuestRsvpCard rsvp={rsvp} />;
+
+  // Paid tiers are sold in the Tickets section of the page; a free RSVP
+  // works next to them, so the card is the viewer's way in.
+  const entry = cta.kind === "tiers" ? cta.entry : cta;
+  switch (entry.kind) {
+    case "ended":
+      return (
+        <div className={`${NOTICE_CLASS} bg-gray-100 dark:bg-gray-800`}>
+          <p className="text-gray-700 dark:text-gray-200">This event has ended</p>
+        </div>
+      );
+    case "applied": {
+      const tone =
+        entry.status === "accepted"
+          ? "bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300"
+          : entry.status === "declined"
+            ? "bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300"
+            : "bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300";
+      return (
+        <div className={`p-4 rounded-xl ${tone}`}>
+          <p className="font-medium">
+            {entry.status === "accepted"
+              ? "You're in! See you there."
+              : entry.status === "declined"
+                ? "Your application was declined"
+                : "Your application is pending approval"}
+          </p>
+        </div>
+      );
+    }
+    case "apply":
+    case "join":
+      return <JoinOrApplyCard eventId={eventId} mode={entry.kind} />;
+    case "guestRsvp":
+      return <GuestRsvpCard rsvp={rsvp} />;
+    default:
+      return null;
+  }
+}
+
+// Apply (the host approves) and Join (straight in) are one card: a button
+// that opens a note box. Signed-in viewers only; events.apply throws
+// "Not authenticated".
+const JOIN_OR_APPLY = {
+  apply: {
+    open: "Apply to Attend",
+    heading: "Apply to attend",
+    placeholder: "Why you'd like to attend...",
+    submit: "Submit",
+    busy: "Applying...",
+    rows: 3,
+    fill: "bg-blue-600 hover:bg-blue-700",
+    ring: "focus:ring-blue-500",
+  },
+  join: {
+    open: "Join Event",
+    heading: "Join this event",
+    placeholder: "Share why you're excited! (optional)",
+    submit: "Join",
+    busy: "Joining...",
+    rows: 2,
+    fill: "bg-green-600 hover:bg-green-700",
+    ring: "focus:ring-green-500",
+  },
+} as const;
+
+function JoinOrApplyCard({ eventId, mode }: { eventId: Id<"events">; mode: "apply" | "join" }) {
+  const applyToEvent = useMutation(api.events.apply);
+  const words = JOIN_OR_APPLY[mode];
+  const [open, setOpen] = useState(false);
+  const [message, setMessage] = useState("");
+  const [sending, setSending] = useState(false);
+
+  async function submit() {
+    setSending(true);
+    try {
+      await applyToEvent({ eventId, message: message || undefined });
+      setOpen(false);
+      setMessage("");
+    } finally {
+      setSending(false);
+    }
+  }
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        className={`w-full py-2.5 text-white rounded-xl font-medium transition-colors ${words.fill}`}
+      >
+        {words.open}
+      </button>
+    );
+  }
+
+  return (
+    <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl">
+      <h3 className="font-medium text-gray-900 dark:text-white mb-3 text-sm">
+        {words.heading}
+      </h3>
+      <textarea
+        value={message}
+        onChange={(e) => setMessage(e.target.value)}
+        placeholder={words.placeholder}
+        rows={words.rows}
+        className={`w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:border-transparent dark:bg-gray-900 dark:text-white resize-none mb-3 text-sm ${words.ring}`}
+      />
+      <div className="flex flex-col gap-2">
+        <button
+          onClick={submit}
+          disabled={sending}
+          className={`w-full py-2 text-white rounded-lg font-medium disabled:opacity-50 text-sm ${words.fill}`}
+        >
+          {sending ? words.busy : words.submit}
+        </button>
+        <button
+          onClick={() => {
+            setOpen(false);
+            setMessage("");
+          }}
+          className="py-2 text-gray-600 dark:text-gray-400 text-sm"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ——————————————————————————————————————————————————————————————
+// Getting in on another site. Both cards share one face (LinkOutCard); they
+// differ in what they promise.
+//
+// StripeTicketCard is a Payment Link on AP's own Stripe account instead of
+// the platform's checkout (garden/apGifts.ts). The link carries the
 // signed-in viewer's userId/email when known (buildTicketLink) so AP's
 // webhook can add them to the event without asking them to type anything
 // on Stripe's page; a guest just gets a plain link and RSVPs by whatever
 // email they enter at checkout. Opens in the same tab — the Payment Link's
 // own "After payment" redirect (set in the Stripe dashboard, see
 // docs/phase-1b/stripe-runbook.md) brings them back here with `?paid=1`.
+//
+// Any other link just sends them there in a new tab. Nothing comes back, so
+// the page doesn't say they're in; the other site does.
 // ——————————————————————————————————————————————————————————————
 
 // Back from Stripe with ?session=<checkout session id>: remember it, and
@@ -1959,14 +1879,80 @@ function TicketSessionClaimer() {
   return null;
 }
 
-function ExternalTicketCard({
+function TicketCardShell({ children }: { children: ReactNode }) {
+  return (
+    <div
+      className="p-5 rounded-xl"
+      style={{
+        backgroundColor: "var(--garden-ink-raised)",
+        border: "1px solid var(--garden-hairline-raised)",
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+function LinkOutCard({
+  kicker,
+  priceCents,
+  href,
+  label,
+  note,
+  newTab = false,
+}: {
+  kicker: string;
+  priceCents: number | null;
+  href: string;
+  label: string;
+  note: string;
+  newTab?: boolean;
+}) {
+  return (
+    <TicketCardShell>
+      <p style={{ color: "var(--garden-dim)", fontSize: 13, margin: 0 }}>{kicker}</p>
+      {priceCents ? (
+        <p
+          style={{
+            color: "var(--garden-paper)",
+            fontSize: 32,
+            fontWeight: 700,
+            lineHeight: 1.1,
+            margin: "2px 0 16px",
+          }}
+        >
+          {formatDollars(priceCents)}
+        </p>
+      ) : (
+        <div style={{ height: 12 }} />
+      )}
+      <a
+        href={href}
+        {...(newTab ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+        className="block w-full text-center rounded-lg transition-opacity hover:opacity-90 break-words"
+        style={{
+          backgroundColor: "var(--garden-citron)",
+          color: "#141414",
+          fontSize: 16,
+          fontWeight: 700,
+          padding: "14px 16px",
+        }}
+      >
+        {label}
+      </a>
+      <p style={{ color: "var(--garden-dim)", fontSize: 13, margin: "10px 0 0" }}>{note}</p>
+    </TicketCardShell>
+  );
+}
+
+function StripeTicketCard({
   eventId,
   url,
   priceCents,
 }: {
   eventId: Id<"events">;
   url: string;
-  priceCents?: number;
+  priceCents: number | null;
 }) {
   const profile = useQuery(api.profiles.getMyProfile);
   const myRsvp = useQuery(api.garden.eventRsvps.getMyRsvpStatus, { eventId });
@@ -1975,14 +1961,9 @@ function ExternalTicketCard({
   const [searchParams] = useSearchParams();
   const justPaid = searchParams.get("paid") === "1";
 
-  const cardStyle = {
-    backgroundColor: "var(--garden-ink-raised)",
-    border: "1px solid var(--garden-hairline-raised)",
-  };
-
   if (myRsvp?.paidCents) {
     return (
-      <div className="p-5 rounded-xl" style={cardStyle}>
+      <TicketCardShell>
         <p style={{ color: "var(--garden-citron)", fontSize: 17, fontWeight: 600, margin: 0 }}>
           You're in
         </p>
@@ -1991,88 +1972,63 @@ function ExternalTicketCard({
             ? `${myRsvp.ticketCount} tickets confirmed. See you there.`
             : "Ticket confirmed. See you there."}
         </p>
-      </div>
+      </TicketCardShell>
     );
   }
 
-  const href = buildTicketLink(url, eventId, {
-    userId: profile?.userId ? String(profile.userId) : undefined,
-    email: profile?.email ?? undefined,
-  });
+  if (justPaid && !isAuthenticated) {
+    return (
+      <TicketCardShell>
+        <p style={{ color: "var(--garden-citron)", fontSize: 17, fontWeight: 600, margin: 0 }}>
+          You're in
+        </p>
+        <p style={{ color: "var(--garden-body)", fontSize: 14, margin: "4px 0 16px" }}>
+          Payment received. Stripe is emailing your receipt.
+        </p>
+        <button
+          type="button"
+          onClick={() => {
+            setPendingIntent(`/events/${eventId}`);
+            // The ticket stands in for an invite (signup.tsx).
+            const session = searchParams.get("session");
+            navigate(isCheckoutSessionId(session) ? `/signup/${session}` : "/signup");
+          }}
+          className="block w-full text-center rounded-lg transition-opacity hover:opacity-90"
+          style={{
+            backgroundColor: "var(--garden-citron)",
+            color: "#141414",
+            fontSize: 15,
+            fontWeight: 700,
+            padding: "12px 16px",
+          }}
+        >
+          Make an account to see who's going
+        </button>
+      </TicketCardShell>
+    );
+  }
 
-  return (
-    <div className="p-5 rounded-xl" style={cardStyle}>
-      {justPaid && !isAuthenticated ? (
-        <>
-          <p style={{ color: "var(--garden-citron)", fontSize: 17, fontWeight: 600, margin: 0 }}>
-            You're in
-          </p>
-          <p style={{ color: "var(--garden-body)", fontSize: 14, margin: "4px 0 16px" }}>
-            Payment received. Stripe is emailing your receipt.
-          </p>
-          <button
-            type="button"
-            onClick={() => {
-              setPendingIntent(`/events/${eventId}`);
-              // The ticket stands in for an invite (signup.tsx).
-              const session = searchParams.get("session");
-              navigate(isCheckoutSessionId(session) ? `/signup/${session}` : "/signup");
-            }}
-            className="block w-full text-center rounded-lg transition-opacity hover:opacity-90"
-            style={{
-              backgroundColor: "var(--garden-citron)",
-              color: "#141414",
-              fontSize: 15,
-              fontWeight: 700,
-              padding: "12px 16px",
-            }}
-          >
-            Make an account to see who's going
-          </button>
-        </>
-      ) : justPaid ? (
+  if (justPaid) {
+    return (
+      <TicketCardShell>
         <p style={{ color: "var(--garden-paper)", fontSize: 15, margin: 0 }}>
           Payment received. Your ticket will show here within a minute.
         </p>
-      ) : (
-        <>
-          <p style={{ color: "var(--garden-dim)", fontSize: 13, margin: 0 }}>
-            Admission
-          </p>
-          {priceCents ? (
-            <p
-              style={{
-                color: "var(--garden-paper)",
-                fontSize: 32,
-                fontWeight: 700,
-                lineHeight: 1.1,
-                margin: "2px 0 16px",
-              }}
-            >
-              {formatTierPrice(priceCents)}
-            </p>
-          ) : (
-            <div style={{ height: 12 }} />
-          )}
-          <a
-            href={href}
-            className="block w-full text-center rounded-lg transition-opacity hover:opacity-90"
-            style={{
-              backgroundColor: "var(--garden-citron)",
-              color: "#141414",
-              fontSize: 16,
-              fontWeight: 700,
-              padding: "14px 16px",
-            }}
-          >
-            Buy tickets
-          </a>
-          <p style={{ color: "var(--garden-dim)", fontSize: 13, margin: "10px 0 0" }}>
-            Secure checkout with Stripe.
-          </p>
-        </>
-      )}
-    </div>
+      </TicketCardShell>
+    );
+  }
+
+  return (
+    <LinkOutCard
+      kicker="Admission"
+      priceCents={priceCents}
+      href={buildTicketLink(url, eventId, {
+        userId: profile?.userId ? String(profile.userId) : undefined,
+        email: profile?.email ?? undefined,
+      })}
+      label="Buy tickets"
+      note="Secure checkout with Stripe."
+    />
   );
 }
 
@@ -2250,7 +2206,7 @@ function HostsPanel({
   organizer: { name: string; imageUrl: string | null; profileId: Id<"profiles"> } | null;
   coHosts: { userId: Id<"users">; name: string; imageUrl: string | null; profileId: Id<"profiles"> | null }[];
   organizerUserId: Id<"users">;
-  savedShown: { kind: "user" | "org"; refId: string; name: string; imageUrl: string | null }[];
+  savedShown: ShownRow[];
   isOrganizer: boolean;
   isGuest: boolean;
 }) {
@@ -2378,7 +2334,8 @@ function HostsPanel({
   );
 }
 
-type ShownRow = { kind: "user" | "org"; refId: string; name: string; imageUrl: string | null };
+/** "name": someone not on the platform yet, shown by name (refId is the name). */
+type ShownRow = { kind: "user" | "org" | "name"; refId: string; name: string; imageUrl: string | null };
 
 /** Who "Hosted by" shows, and in what order: people and/or organizations.
  * Any host can set it. Display only; it changes no one's access. */
@@ -2396,6 +2353,7 @@ function ShownHostsEditor({
   savedShown: ShownRow[];
 }) {
   const setDisplayHosts = useMutation(api.events.setDisplayHosts);
+  const createOrg = useMutation(api.organizations.createForHosting);
   const defaults: ShownRow[] = [
     ...(organizer ? [{ kind: "user" as const, refId: String(organizerUserId), name: organizer.name, imageUrl: organizer.imageUrl }] : []),
     ...coHosts.map((c) => ({ kind: "user" as const, refId: String(c.userId), name: c.name, imageUrl: c.imageUrl })),
@@ -2411,6 +2369,28 @@ function ShownHostsEditor({
   const has = (kind: string, id: string) => rows.some((r) => r.kind === kind && r.refId === id);
   const personHits = (people ?? []).filter((r) => !has("user", String(r.userId))).slice(0, 5);
   const orgHits = (orgs ?? []).filter((o) => !has("org", String(o._id))).slice(0, 5);
+  // Not found (Rick, 2026-10-07): create the organization, or add a person
+  // who isn't on the platform yet by name. Offered unless an exact match
+  // (same name, any case) is already in the results or the list.
+  const typed = q.trim();
+  const same = (a: string) => a.trim().toLowerCase() === typed.toLowerCase();
+  const searched = !!typed && people !== undefined && orgs !== undefined;
+  const offerOrg = searched && !(orgs ?? []).some((o) => same(o.name)) && !rows.some((r) => r.kind === "org" && same(r.name));
+  const offerName = searched && !rows.some((r) => r.kind !== "org" && same(r.name));
+
+  async function addNewOrg() {
+    setBusy(true);
+    setError(null);
+    try {
+      const o = await createOrg({ name: typed });
+      if (!has("org", String(o.organizationId))) add({ kind: "org", refId: String(o.organizationId), name: o.name, imageUrl: null });
+      else setQ("");
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  }
 
   function move(i: number, d: -1 | 1) {
     const j = i + d;
@@ -2434,7 +2414,9 @@ function ShownHostsEditor({
         hosts: list.map((r) =>
           r.kind === "user"
             ? { kind: "user" as const, id: r.refId as Id<"users"> }
-            : { kind: "org" as const, id: r.refId as Id<"organizations"> },
+            : r.kind === "org"
+              ? { kind: "org" as const, id: r.refId as Id<"organizations"> }
+              : { kind: "name" as const, name: r.name },
         ),
       });
       setSaved(true);
@@ -2463,7 +2445,7 @@ function ShownHostsEditor({
             <div className="flex-1 min-w-0">
               <span className="block text-[15px] font-medium text-gray-900 dark:text-white truncate">{r.name}</span>
               <span className="text-[13px] text-gray-600 dark:text-gray-300">
-                {r.kind === "org" ? "Organization" : "Person"}
+                {r.kind === "org" ? "Organization" : r.kind === "name" ? "Not on the platform yet" : "Person"}
               </span>
             </div>
             <button className={btn} disabled={busy || i === 0} onClick={() => move(i, -1)} aria-label={`Move ${r.name} up`}>
@@ -2531,8 +2513,32 @@ function ShownHostsEditor({
           ))}
         </ul>
       )}
-      {q.trim() && people !== undefined && orgs !== undefined && personHits.length === 0 && orgHits.length === 0 && (
+      {searched && personHits.length === 0 && orgHits.length === 0 && (
         <p className="mt-2 text-[14px] text-gray-700 dark:text-gray-200">No one found.</p>
+      )}
+      {(offerOrg || offerName) && (
+        <div className="mt-2 flex flex-wrap gap-2">
+          {offerOrg && (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={addNewOrg}
+              className="px-3 py-1.5 rounded-lg text-[13.5px] font-medium border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-50"
+            >
+              Create “{typed}” as an organization
+            </button>
+          )}
+          {offerName && (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => add({ kind: "name", refId: typed, name: typed, imageUrl: null })}
+              className="px-3 py-1.5 rounded-lg text-[13.5px] font-medium border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-50"
+            >
+              Add “{typed}” (not on the platform yet)
+            </button>
+          )}
+        </div>
       )}
 
       {error && <p className="mt-3 text-[14px] text-red-600 dark:text-red-400">{error}</p>}
@@ -2587,40 +2593,29 @@ function EventImageManager({
   const coverInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
 
-  async function handleCoverUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (!file.type.startsWith("image/")) {
-      alert("Please select an image file");
-      return;
-    }
-
-    if (file.size > 5 * 1024 * 1024) {
-      alert("Image must be less than 5MB");
-      return;
-    }
-
+  // The hook checks the file (image, up to 20MB), frames it 4:5 and hands
+  // back a small JPEG; we upload that.
+  const [coverError, setCoverError] = useState<string | null>(null);
+  const coverPick = useCoverPick(async (blob) => {
     setUploading("cover");
+    setCoverError(null);
     try {
-      const uploadUrl = await generateUploadUrl();
-      const result = await fetch(uploadUrl, {
-        method: "POST",
-        headers: { "Content-Type": file.type },
-        body: file,
-      });
-
-      if (!result.ok) throw new Error("Upload failed");
-
-      const { storageId } = await result.json();
+      const storageId = await uploadToStorage(generateUploadUrl, blob);
       await saveEventCoverImage({ eventId, storageId });
     } catch (err) {
       console.error("Upload error:", err);
-      alert("Failed to upload image. Please try again.");
+      setCoverError("Failed to upload image. Please try again.");
     } finally {
       setUploading(null);
-      if (coverInputRef.current) coverInputRef.current.value = "";
     }
+  });
+
+  function handleCoverUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setCoverError(null);
+    coverPick.pick(file);
   }
 
   async function handleGalleryUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -2683,7 +2678,7 @@ function EventImageManager({
           Cover Image
         </h3>
         <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">
-          Landscape, 1600 × 900 works best.
+          Portrait 4:5 works best (1080 × 1350).
         </p>
         <input
           ref={coverInputRef}
@@ -2692,26 +2687,43 @@ function EventImageManager({
           onChange={handleCoverUpload}
           className="hidden"
         />
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => coverInputRef.current?.click()}
-            disabled={uploading === "cover"}
-            className="px-3 py-1.5 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg text-sm font-medium hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50"
-          >
-            {uploading === "cover"
-              ? "Uploading..."
-              : event.coverImageUrl
-                ? "Change Cover"
-                : "Add Cover"}
-          </button>
+        {coverPick.picker}
+        <div className="flex items-start gap-4">
           {event.coverImageUrl && (
-            <button
-              onClick={() => deleteEventCoverImage({ eventId })}
-              className="px-3 py-1.5 text-red-600 hover:text-red-500 text-sm font-medium"
-            >
-              Remove
-            </button>
+            <CoverFrame
+              src={event.coverImageUrl}
+              alt="Current cover"
+              className="w-32 shrink-0 rounded-lg"
+            />
           )}
+          <div className="min-w-0">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => coverInputRef.current?.click()}
+                disabled={uploading === "cover" || coverPick.busy}
+                className="px-3 py-1.5 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg text-sm font-medium hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50"
+              >
+                {uploading === "cover" || coverPick.busy
+                  ? "Uploading..."
+                  : event.coverImageUrl
+                    ? "Change Cover"
+                    : "Add Cover"}
+              </button>
+              {event.coverImageUrl && (
+                <button
+                  onClick={() => deleteEventCoverImage({ eventId })}
+                  className="px-3 py-1.5 text-red-600 hover:text-red-500 text-sm font-medium"
+                >
+                  Remove
+                </button>
+              )}
+            </div>
+            {(coverPick.error || coverError) && (
+              <p role="alert" className="mt-2 text-sm text-red-600 dark:text-red-400">
+                {coverPick.error || coverError}
+              </p>
+            )}
+          </div>
         </div>
 
         {/* Cover Color (shown when no cover image) */}

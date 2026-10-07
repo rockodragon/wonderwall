@@ -2,7 +2,12 @@
 // plain fixtures, same style as allocations.test.ts and stories.test.ts.
 
 import { describe, expect, it } from "vitest";
-import { resolveMoneyLine, shapeProjectCard, type ProjectLike } from "./projectsPublic";
+import {
+  resolveMoneyLine,
+  resolveProjectPhotoUrl,
+  shapeProjectCard,
+  type ProjectLike,
+} from "./projectsPublic";
 
 describe("resolveMoneyLine", () => {
   it("paid with a set amount reads as a whole-dollar budget line", () => {
@@ -131,5 +136,69 @@ describe("shapeProjectCard", () => {
     expect(card.blurb).toBeUndefined();
     expect(card.photoUrl).toBeUndefined();
     expect(card.storySlug).toBeUndefined();
+  });
+});
+
+// An uploaded project photo (photoStorageId) was invisible on /opportunities,
+// the /projects index and the story page, which read only the pasted
+// photoUrl. These cover the resolver both callers now share.
+describe("resolveProjectPhotoUrl", () => {
+  const storage = (urls: Record<string, string | null>) => ({
+    getUrl: async (id: string) => urls[id] ?? null,
+  });
+
+  it("an uploaded photo resolves to its storage URL", async () => {
+    const url = await resolveProjectPhotoUrl(storage({ s1: "https://files.example/s1" }), {
+      photoStorageId: "s1",
+    });
+    expect(url).toBe("https://files.example/s1");
+  });
+
+  it("the uploaded photo wins over a pasted link", async () => {
+    const url = await resolveProjectPhotoUrl(storage({ s1: "https://files.example/s1" }), {
+      photoStorageId: "s1",
+      photoUrl: "https://example.com/pasted.jpg",
+    });
+    expect(url).toBe("https://files.example/s1");
+  });
+
+  it("a pasted link alone is returned as it was, without touching storage", async () => {
+    let asked = false;
+    const url = await resolveProjectPhotoUrl(
+      {
+        getUrl: async () => {
+          asked = true;
+          return null;
+        },
+      },
+      { photoUrl: "https://example.com/pasted.jpg" },
+    );
+    expect(url).toBe("https://example.com/pasted.jpg");
+    expect(asked).toBe(false);
+  });
+
+  it("a stored file that no longer resolves falls back to the pasted link", async () => {
+    const url = await resolveProjectPhotoUrl(storage({}), {
+      photoStorageId: "gone",
+      photoUrl: "https://example.com/pasted.jpg",
+    });
+    expect(url).toBe("https://example.com/pasted.jpg");
+  });
+
+  it("a storage lookup that throws falls back too, not a failed page", async () => {
+    const url = await resolveProjectPhotoUrl(
+      {
+        getUrl: async () => {
+          throw new Error("storage unavailable");
+        },
+      },
+      { photoStorageId: "s1", photoUrl: "https://example.com/pasted.jpg" },
+    );
+    expect(url).toBe("https://example.com/pasted.jpg");
+  });
+
+  it("no photo at all is undefined, never an empty string", async () => {
+    expect(await resolveProjectPhotoUrl(storage({}), {})).toBeUndefined();
+    expect(await resolveProjectPhotoUrl(storage({}), { photoUrl: "" })).toBeUndefined();
   });
 });

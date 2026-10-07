@@ -235,11 +235,13 @@ export function buildClaimEmail(input: ClaimEmailInput, token: string): {
   const note = input.message?.trim() ? `<br><br>"${escapeHtml(input.message.trim())}"` : "";
   return {
     subject: `${input.leadName} credited you on ${input.projectTitle}`,
-    previewText: `You're listed as ${input.role} on ${input.projectTitle}.`,
+    previewText: input.role
+      ? `You're listed as ${input.role} on ${input.projectTitle}.`
+      : `You're listed on ${input.projectTitle}.`,
     // Plain text — sendNotificationEmail's template HTML-escapes heading itself.
     heading: `${input.leadName} credited you on ${input.projectTitle}`,
     body:
-      `${lead} listed you as <strong>${role}</strong> on <strong>${title}</strong> at TheCreative.exchange.` +
+      `${lead} listed you${role ? ` as <strong>${role}</strong>` : ""} on <strong>${title}</strong> at TheCreative.exchange.` +
       `${note}<br><br>Claim the credit to put it on your own profile — the link works for 30 days.`,
     ctaText: "Claim your credit",
     ctaUrl: `/claim/${token}`,
@@ -269,10 +271,10 @@ export function buildInviteEmail(input: InviteEmailInput): {
   const role = escapeHtml(input.role);
   const note = input.message?.trim() ? `<br><br>"${escapeHtml(input.message.trim())}"` : "";
   return {
-    subject: `${input.leadName} invited you to ${input.projectTitle} as ${input.role}`,
+    subject: `${input.leadName} invited you to ${input.projectTitle}${input.role ? ` as ${input.role}` : ""}`,
     previewText: `${input.leadName} invited you to join ${input.projectTitle}.`,
     heading: `${input.leadName} invited you to ${input.projectTitle}`,
-    body: `${lead} invited you to <strong>${title}</strong> as <strong>${role}</strong>.${note}`,
+    body: `${lead} invited you to <strong>${title}</strong>${role ? ` as <strong>${role}</strong>` : ""}.${note}`,
     ctaText: "Answer the invite",
     ctaUrl: input.linkUrl,
   };
@@ -342,6 +344,20 @@ export function buildRequestDecidedEmail(input: RequestDecidedEmailInput): {
     ctaText: "See the project",
     ctaUrl: input.linkUrl,
   };
+}
+
+/** A role the lead may leave blank when adding someone or crediting them
+ * (Rick, 2026-10-05: people added without a role were never listed). Same
+ * length rule as validateRole; blank stays blank. */
+export function optionalRole(role: string | undefined): string {
+  const trimmed = (role ?? "").trim();
+  if (trimmed.length > MAX_ROLE_LENGTH) {
+    throw new ConvexError({
+      code: "invalid_role",
+      reason: `Keep the role under ${MAX_ROLE_LENGTH} characters.`,
+    });
+  }
+  return trimmed;
 }
 
 export function validateRole(role: string): string {
@@ -710,7 +726,9 @@ function projectLink(projectId: Id<"projects">): string {
 }
 
 function withNote(role: string, note: string | undefined): string {
-  return note ? `as ${role} — ${note}` : `as ${role}`;
+  const as = role ? `as ${role}` : "";
+  if (!note) return as;
+  return as ? `${as} — ${note}` : note;
 }
 
 /** Field-complete patch for reusing a row: every optional column is set
@@ -899,7 +917,8 @@ export const inviteMember = mutation({
     userId: v.optional(v.id("users")),
     name: v.optional(v.string()),
     email: v.optional(v.string()),
-    role: v.string(),
+    // Optional: a person can be added or credited without one.
+    role: v.optional(v.string()),
     message: v.optional(v.string()),
     // Inviting someone directly into a specific open role posting — see
     // resolveRoleForRequest. Omit for the original free-text flow.
@@ -913,7 +932,7 @@ export const inviteMember = mutation({
       throw new ConvexError({ code: "project_archived", reason: "This project is archived." });
     }
     const postedRoleTitle = await resolveRoleForRequest(ctx, args.projectId, args.roleId);
-    const role = postedRoleTitle ?? validateRole(args.role);
+    const role = postedRoleTitle ?? optionalRole(args.role);
     const message = validateMessage(args.message);
     const now = Date.now();
     const rows = await listProjectRows(ctx, args.projectId);

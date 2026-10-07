@@ -45,7 +45,7 @@ describe("DeskHeader brand", () => {
       expect(home).toContain("<svg");
       expect(home).toContain("Jost");
       expect(home).toContain(">The Garden</span>");
-      expect(home).not.toContain("Your desk");
+      expect(home).not.toContain("Your canvas");
       expect(home).toContain("Good evening, Rick.");
       expect(header("people")).toContain(">The Garden</span>");
     }
@@ -54,6 +54,6 @@ describe("DeskHeader brand", () => {
   it("keeps the mono line for the Exchange community", () => {
     const html = header("all", "exchange");
     expect(html).not.toContain("<svg");
-    expect(html).toContain("The Exchange<!-- --> · <!-- -->Your desk");
+    expect(html).toContain("The Exchange<!-- --> · <!-- -->Your canvas");
   });
 });

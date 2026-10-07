@@ -14,38 +14,45 @@ import {
   type Destination,
 } from "../components/admin/DestinationCards";
 import { MembersTable } from "../components/admin/MembersTable";
+import { Binoculars, HourglassMedium, Megaphone, Plant, Receipt, Trophy } from "@phosphor-icons/react";
 
 // Where each admin tool lives. A grid of cards, not a column of rows.
 const DESTINATIONS: readonly Destination[] = [
   {
     to: "/admin/garden",
     title: "Garden Operator Console",
+    icon: Plant,
     blurb:
       "Create tables, sessions, coverage codes, and record AP fund allocations.",
   },
   {
     to: "/admin/ledger",
     title: "Platform Ledger",
+    icon: Receipt,
     blurb: "Fees, grant pools, host earnings, and platform seats.",
   },
   {
     to: "/admin/crawler",
     title: "Lead Crawler",
+    icon: Binoculars,
     blurb: "Find and classify faith-aligned organizations.",
   },
   {
     to: "/admin/waitlist",
     title: "Waitlist",
+    icon: HourglassMedium,
     blurb: "Review answers and approve people off the waitlist.",
   },
   {
     to: "/admin/updates",
     title: "Updates",
-    blurb: "Write the cards members see on their desk.",
+    icon: Megaphone,
+    blurb: "Write the cards members see on their canvas.",
   },
   {
     to: "/admin/showcase",
     title: "Showcase jury",
+    icon: Trophy,
     blurb: "Vote on open call applications.",
   },
 ];

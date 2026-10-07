@@ -194,11 +194,12 @@ export function isSmallDesk(vw: number, vh: number): boolean {
   return vw < SMALL_W || vh < SMALL_H;
 }
 
-/** Which cards a small desk keeps, by priority: Updates (in their own order),
+/** Which cards a small desk keeps, by priority: celebrations, then Updates (each in their own order),
  *  the next event, the fund, the grant, the featured project, then other
  *  events. Ids are typed (deskState DeskCardId); anything else ranks last. The
  *  rest wait offscreen as unmatched cards do. */
 function priorityRank(c: LayoutCard, i: number, firstEvent: number): number {
+  if (c.id.startsWith("celebration:")) return i - 200;
   if (c.id.startsWith("update:")) return i - 100;
   if (c.id.startsWith("event:")) return i === firstEvent ? 0 : 4 + i;
   if (c.id === "fund") return 1;
@@ -310,10 +311,8 @@ function settle(p: Place, placed: readonly Place[], greeting: Rect, palette: Rec
   return best;
 }
 
-function scatter(cards: readonly LayoutCard[], vw: number, vh: number, space = 1): Map<string, Place> {
+function scatter(cards: readonly LayoutCard[], vw: number, vh: number): Map<string, Place> {
   const s = deskScale(vw, vh);
-  // More space keeps the slots where they are and shrinks the cards in them.
-  const shrink = 1 / Math.sqrt(space);
   const slots = assignSlots(isSmallDesk(vw, vh) ? pickForSmallDesk(cards) : cards);
   const out = new Map<string, Place>();
   if (slots.size === 0) return out;
@@ -331,10 +330,10 @@ function scatter(cards: readonly LayoutCard[], vw: number, vh: number, space = 1
     const sl = slots.get(c.id);
     if (!sl) continue;
     const p: Place = {
-      x: offX + (sl.x + (sl.w * (1 - shrink)) / 2) * s,
-      y: offY + (sl.y + (sl.h * (1 - shrink)) / 2) * s,
-      w: sl.w * s * shrink,
-      h: sl.h * s * shrink,
+      x: offX + sl.x * s,
+      y: offY + sl.y * s,
+      w: sl.w * s,
+      h: sl.h * s,
       r: sl.r,
       opacity: 1,
       z: z++,
@@ -357,7 +356,6 @@ function row(
   matched: readonly LayoutCard[],
   vw: number,
   vh: number,
-  space = 1,
   minTop = 0,
 ): { places: Map<string, Place>; bottom: number } {
   const out = new Map<string, Place>();
@@ -373,7 +371,7 @@ function row(
   // half size; past that the page scrolls.
   if (top > ROW_TOP * s) k = Math.min(k, clamp((vh - top - ROW_BOTTOM) / (ROW_H * s), 0.5, 1));
   const w = ROW_W * s * k;
-  const gap = ROW_GAP * s * k * space;
+  const gap = ROW_GAP * s * k;
   const tall = ROW_H * s * k;
   const total = count * w + (count - 1) * gap;
   const startX = (vw - total) / 2;
@@ -403,9 +401,9 @@ export type GridMetrics = {
 /** The grid for a window `vw` wide: as many columns as fit at GRID_MIN_W,
  *  filling the width up to GRID_MAX_W per card; whatever is left of a wide
  *  window stays on the right, so the left edge is always the header's. */
-export function gridMetrics(vw: number, space = 1): GridMetrics {
-  const side = GRID_SIDE * space;
-  const gap = GRID_GAP * space;
+export function gridMetrics(vw: number): GridMetrics {
+  const side = GRID_SIDE;
+  const gap = GRID_GAP;
   const avail = Math.max(0, vw - 2 * side);
   const cols = Math.max(1, Math.floor((avail + gap) / (GRID_MIN_W + gap)));
   const w = Math.min(GRID_MAX_W, (avail - (cols - 1) * gap) / cols);
@@ -480,10 +478,6 @@ export type LayoutInput = {
   /** The cards on show in this view, in order. Without it, the cards whose
    *  sections name the view, in the order given. */
   shown?: readonly string[];
-  /** Negative space, 1 = as designed: scales gaps and margins (grid, Today's
-   *  row) and shrinks scattered cards. An admin-only dial (deskState
-   *  useDeskSpacing) while the right value is found. */
-  space?: number;
 };
 
 export type DeskLayout = {
@@ -508,7 +502,6 @@ export function layoutDeskFull({
   top = DEFAULT_HEADER_H,
   scrollTop = 0,
   shown,
-  space = 1,
   rowTop,
 }: LayoutInput): DeskLayout {
   // Where each resting card would sit: also where an unmatched card falls
@@ -517,7 +510,6 @@ export function layoutDeskFull({
     cards.filter((c) => matchesView(c, "all")),
     vw,
     vh,
-    space,
   );
 
   const onShow = (): LayoutCard[] => {
@@ -533,12 +525,12 @@ export function layoutDeskFull({
     arranged = home;
   } else if (isGridView(view)) {
     const matched = onShow();
-    metrics = gridMetrics(vw, space);
+    metrics = gridMetrics(vw);
     const gridTop = top + GRID_BELOW_HEADER;
     arranged = grid(matched, metrics, gridTop);
     height = gridHeight(matched.length, metrics, gridTop, vh);
   } else {
-    const laid = row(onShow(), vw, vh, space, rowTop);
+    const laid = row(onShow(), vw, vh, rowTop);
     arranged = laid.places;
     if (rowTop !== undefined) height = Math.max(vh, laid.bottom + ROW_BOTTOM);
   }

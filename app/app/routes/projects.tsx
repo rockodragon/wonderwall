@@ -32,6 +32,7 @@ import { CLAIMS } from "../constants/claims";
 import { toEmbedUrl } from "../lib/videoEmbed";
 import { Dissolve } from "../hooks/useReveal";
 import { EmbedStill } from "../components/EmbedStill";
+import { CoverFrame } from "../components/CoverFrame";
 import { CreateCard } from "../components/CreateCard";
 import { errorMessage } from "../lib/convexError";
 import { ProjectModal } from "../components/ProjectModal";
@@ -472,7 +473,6 @@ export function ProjectCard({
   const thumb =
     photo ??
     (mediaEmbed ? null : (project.media.find((m: any) => m.resolvedMediaUrl)?.resolvedMediaUrl ?? null));
-  const hasCover = !!thumb || !!mediaEmbed;
   // Passion-only campaign deadline (docs/the-exchange-v1-prd.md §7 review
   // follow-up) — a past raiseByDate just means the badge doesn't render;
   // building a distinct "expired" state is explicitly out of scope.
@@ -514,35 +514,33 @@ export function ProjectCard({
           of the image area, in the SAME place whether or not there's a
           photo — founder item (Classes redesign) was explicit that a
           photo-dependent position defeats the point of a fixed badge.
-          Without a photo the area collapses to a strip on a phone, where a
-          16:10 empty box was most of a screen of nothing; it keeps the full
-          box from sm up, where cards sit side by side and rows must line up. */}
-      <div
-        className={`relative overflow-hidden flex items-center justify-center ${
-          hasCover ? "aspect-[16/10]" : "h-16 sm:h-auto sm:aspect-[16/10]"
-        }`}
-        style={hasCover ? { backgroundColor: "var(--garden-ink)" } : EMPTY_COVER}
-      >
-        {/* The picture dissolves in as the card scrolls into view; the
-            badges over it don't, so the card's facts are readable at once. */}
-        {thumb && (
-          <Dissolve className="w-full h-full">
-            <img
-              src={thumb}
-              alt={project.title}
-              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-            />
+          The cover is 4:5 (docs/features/cover-4x5.md). Without a photo the
+          area collapses to a strip on a phone, where a portrait empty box
+          was most of a screen of nothing; it keeps the full 4:5 box from sm
+          up, where cards sit side by side and rows must line up. The
+          badges sit beside the cover, not inside it, so the picture
+          dissolves in as the card scrolls into view and they don't. */}
+      <div className="relative">
+        {thumb ? (
+          <Dissolve>
+            <CoverFrame src={thumb} alt={project.title} />
           </Dissolve>
-        )}
-        {mediaEmbed && (
-          <Dissolve className="absolute inset-0">
-            <EmbedStill
-              embed={mediaEmbed}
-              previewUrl={project.mediaPreviewUrl}
-              title={project.title}
-              badgeSize="sm"
-            />
+        ) : mediaEmbed ? (
+          <Dissolve>
+            <div
+              className="relative aspect-[4/5] overflow-hidden"
+              style={{ backgroundColor: "var(--garden-ink)" }}
+            >
+              <EmbedStill
+                embed={mediaEmbed}
+                previewUrl={project.mediaPreviewUrl}
+                title={project.title}
+                badgeSize="sm"
+              />
+            </div>
           </Dissolve>
+        ) : (
+          <div className="h-16 sm:h-auto sm:aspect-[4/5]" style={EMPTY_COVER} />
         )}
         {/* One row, so a long first line and the money never sit on each other. */}
         <div className="absolute inset-x-2 top-2 flex items-start justify-between gap-2">
@@ -1070,9 +1068,9 @@ export function SupportModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto" style={{ backgroundColor: "rgba(0,0,0,0.6)" }}>
+    <div className="fixed inset-0 z-50 flex p-4 overflow-y-auto" style={{ backgroundColor: "rgba(0,0,0,0.6)" }}>
       <div
-        className="w-full max-w-md rounded-2xl border p-6 my-8"
+        className="w-full max-w-md rounded-2xl border p-6 m-auto"
         style={{ backgroundColor: "var(--garden-ink-raised)", borderColor: "var(--garden-hairline)" }}
       >
         <h2
