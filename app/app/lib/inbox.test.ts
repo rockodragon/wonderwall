@@ -25,6 +25,8 @@ describe("inboxIcon", () => {
   it("names the common kinds", () => {
     expect(inboxIcon("new_message")).toBe("message");
     expect(inboxIcon("event_application")).toBe("event");
+    expect(inboxIcon("event_cohost_added")).toBe("event");
+    expect(inboxIcon("event_host_listed")).toBe("event");
     expect(inboxIcon("job_interest")).toBe("job");
     expect(inboxIcon("invite_accepted")).toBe("member");
     expect(inboxIcon("update")).toBe("news");

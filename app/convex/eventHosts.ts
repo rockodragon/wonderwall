@@ -54,6 +54,24 @@ export const MAX_DISPLAY_HOSTS = 10;
 /** For a "name" host (someone not on the platform), `id` is the name. */
 export type DisplayHostRef = { kind: "user"; id: string } | { kind: "org"; id: string } | { kind: "name"; id: string };
 
+/** The people a "Shown as host" save newly lists, to tell them (Rick,
+ * 2026-10-07): in the new list, not shown before (the saved list, or the
+ * organizer and co-hosts when there wasn't one), and not the person saving.
+ * Someone already shown, a co-host included, already knows. */
+export function newlyListedUsers(
+  before: readonly string[],
+  after: readonly DisplayHostRef[],
+  actorId: string,
+): string[] {
+  const shown = new Set(before);
+  const out: string[] = [];
+  for (const r of after) {
+    if (r.kind !== "user" || r.id === actorId || shown.has(r.id) || out.includes(r.id)) continue;
+    out.push(r.id);
+  }
+  return out;
+}
+
 /** The longest name a "not on the platform" host can have. */
 export const MAX_HOST_NAME = 80;
 
