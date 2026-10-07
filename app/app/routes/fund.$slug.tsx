@@ -64,7 +64,7 @@ const PRESET_AMOUNTS_CENTS = [1000, 2500, 5000, 10000]; // $10 · $25 · $50 · 
 
 export function meta() {
   return [
-    { title: "The Sophia Fund — TheCreative.exchange" },
+    { title: "The Sophia Grant Fund — TheCreative.exchange" },
     { name: "robots", content: "noindex" },
   ];
 }
@@ -466,8 +466,8 @@ export default function FundPage() {
   // to their giving page until the link exists.
   const givingHref = org.paymentLinkUrl ?? org.givingUrl;
 
-  // Named funds (the Sophia Fund) get their own page, SophiaFundView below
-  // (from the Claude Design file "Sophia Fund", 2026-09-29).
+  // Named funds (the Sophia Grant Fund) get their own page, SophiaFundView below
+  // (from the Claude Design file "Sophia Grant Fund", 2026-09-29).
   const named = seedCents !== undefined;
   const ledgerList = (ledger.length === 0 ? (
           <p style={{ marginTop: 12, fontSize: 14.5, maxWidth: "50ch" }}>
@@ -725,7 +725,7 @@ export default function FundPage() {
 }
 
 
-// ——— The Sophia Fund page ———
+// ——— The Sophia Grant Fund page ———
 // The first screen carries the whole ask: the fund's name, one line about it,
 // the Give button, and the fund's numbers beside it (under it on a phone).
 // What's coming and the grants made sit below; the Give controls repeat after

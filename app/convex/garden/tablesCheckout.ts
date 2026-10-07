@@ -316,21 +316,6 @@ export async function releaseTableCheckout(
   });
 }
 
-export const expireHolds = internalMutation({
-  args: { limit: v.optional(v.number()) },
-  handler: async (ctx, args) => {
-    const limit = Math.min(100, Math.max(1, Math.floor(args.limit ?? 100)));
-    const rows = await ctx.db
-      .query("tableCheckoutHolds")
-      .withIndex("by_status_expiresAt", (q) =>
-        q.eq("status", "pending").lte("expiresAt", Date.now()),
-      )
-      .take(limit);
-    for (const row of rows) await ctx.db.patch(row._id, { status: "expired" });
-    return { expired: rows.length, hasMore: rows.length === limit };
-  },
-});
-
 export const getRefundTerms = internalQuery({
   args: { paymentId: v.id("classPayments"), userId: v.id("users") },
   handler: async (ctx, args) => {

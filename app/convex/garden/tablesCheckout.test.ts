@@ -3,7 +3,6 @@ import type { MutationCtx } from "../_generated/server";
 import {
   attach,
   confirmTableCheckout,
-  expireHolds,
   getRefundTerms,
   recordRefund,
   reconcileLegacyOfferingEnrollment,
@@ -320,23 +319,6 @@ describe("atomic Table checkout adapter", () => {
     expect(
       await handler(start, ctx, { tableId: "table", userId: "student" }),
     ).toHaveProperty("holdId");
-  });
-
-  it("cleans expired holds in bounded batches", async () => {
-    const ctx = fakeCtx({
-      tableCheckoutHolds: [
-        { _id: "expired", status: "pending", expiresAt: NOW - 1 },
-        { _id: "live", status: "pending", expiresAt: NOW + 1 },
-      ],
-    });
-    expect(await handler(expireHolds, ctx, { limit: 1 })).toEqual({
-      expired: 1,
-      hasMore: true,
-    });
-    expect(ctx.rows("tableCheckoutHolds").map((row) => row.status)).toEqual([
-      "expired",
-      "pending",
-    ]);
   });
 
   it("gates refunds to operators and refund-required Table payments", async () => {

@@ -257,7 +257,7 @@ export function ShowcaseContent({ embedded = false }: { embedded?: boolean }) {
         <P>
           {CLAIMS.ticketFund}{" "}
           <Link to="/fund/sophia" style={{ color: "var(--g-citron)" }}>
-            About the Sophia Fund →
+            About the Sophia Grant Fund →
           </Link>
         </P>
       </Section>
@@ -302,10 +302,10 @@ export function ShowcaseContent({ embedded = false }: { embedded?: boolean }) {
         <div style={{ display: "grid", gap: 10 }}>
           <Faq q="What does it cost?">
             {TICKET.price} a ticket. Every ticket goes into
-            the Sophia Fund, an artist grant fund that backs projects by
+            the Sophia Grant Fund, an artist grant fund that backs projects by
             creatives in the community.{" "}
             <Link to="/fund/sophia" style={{ color: "var(--g-citron)" }}>
-              About the Sophia Fund →
+              About the Sophia Grant Fund →
             </Link>
           </Faq>
           <Faq q="Do I have to be a creative to come?">

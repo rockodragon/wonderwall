@@ -1622,8 +1622,7 @@ export default defineSchema({
   })
     .index("by_tableId", ["tableId"])
     .index("by_tableId_userId", ["tableId", "userId"])
-    .index("by_stripeCheckoutSessionId", ["stripeCheckoutSessionId"])
-    .index("by_status_expiresAt", ["status", "expiresAt"]),
+    .index("by_stripeCheckoutSessionId", ["stripeCheckoutSessionId"]),
 
   tableAttendance: defineTable({
     tableId: v.id("gardenTables"),

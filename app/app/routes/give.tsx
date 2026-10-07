@@ -844,7 +844,7 @@ function DoneBlock({
       ? done.recipientName ?? "them"
       : done.target === "project"
         ? (done.projectTitle ?? "the project")
-        : "the Sophia Fund";
+        : "the Sophia Grant Fund";
   const tipLines =
     done.target === "fund" ? GIVING_TIP_LINES : [...GIVING_TIP_LINES, "90% goes to them. Card processing is added at checkout."];
 
@@ -1025,7 +1025,7 @@ function FundPlusUp({
             className="g-btn g-btn-citron"
             onClick={() => capture("giving_plus_up_started", { target: "fund", recurring: false })}
           >
-            One-time gift to the Sophia Fund
+            One-time gift to the Sophia Grant Fund
           </a>
         )}
       </div>

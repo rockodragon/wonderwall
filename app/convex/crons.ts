@@ -94,13 +94,9 @@ crons.daily(
   {},
 );
 
-// Table checkout holds reserve seats while card checkout is open. Expired
-// holds cease counting immediately; this bounded sweep records that state.
-crons.interval(
-  "expire-table-checkout-holds",
-  { minutes: 15 },
-  internal.garden.tablesCheckout.expireHolds,
-  { limit: 100 },
-);
+// No sweep for Table checkout holds: a hold stops counting the moment it
+// expires (every read checks expiresAt), Stripe's checkout.session.expired
+// releases it, and the next checkout marks old ones expired (Rick,
+// 2026-10-07: no 15-minute jobs).
 
 export default crons;
