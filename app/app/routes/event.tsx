@@ -1020,6 +1020,25 @@ const GUEST_LINK_CLASS =
 /** Rendered twice (desktop rail + mobile block), same as the Join button it
  *  stands in for. State lives in the parent so the two stay in sync. */
 function GuestRsvpCard({ rsvp }: { rsvp: GuestRsvpState }) {
+  // A visitor sees one button first; the form opens on it and says plainly
+  // that an RSVP makes a free account (Rick, 2026-10-07: the bare form read
+  // as an RSVP and then surprised them with an account). Anything already
+  // typed keeps it open.
+  const [open, setOpen] = useState(false);
+  const expanded = open || !!rsvp.name || !!rsvp.email || !!rsvp.phone || !!rsvp.error;
+  const signIn = (
+    <p className="mt-3 text-sm text-gray-700 dark:text-gray-200">
+      Already a member?{" "}
+      <Link
+        to="/login"
+        onClick={() => setPendingIntent(window.location.pathname)}
+        className={GUEST_LINK_CLASS}
+      >
+        Sign in
+      </Link>
+    </p>
+  );
+
   if (rsvp.step === "done" && rsvp.done) {
     return (
       <div className="p-4 rounded-xl bg-green-50 dark:bg-green-900/20">
@@ -1090,6 +1109,22 @@ function GuestRsvpCard({ rsvp }: { rsvp: GuestRsvpState }) {
     );
   }
 
+  if (!expanded) {
+    return (
+      <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl">
+        <h3 className="font-medium text-gray-900 dark:text-white text-sm">Going?</h3>
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="mt-3 w-full py-2.5 bg-green-600 text-white rounded-xl font-medium hover:bg-green-700 transition-colors"
+        >
+          RSVP
+        </button>
+        {signIn}
+      </div>
+    );
+  }
+
   return (
     <form
       onSubmit={rsvp.sendCode}
@@ -1099,8 +1134,7 @@ function GuestRsvpCard({ rsvp }: { rsvp: GuestRsvpState }) {
         RSVP
       </h3>
       <p className="mt-1 mb-3 text-sm text-gray-800 dark:text-gray-200">
-        We'll send you a code. Entering it makes your account and saves your
-        spot.
+        RSVPs need a free account. We'll {rsvp.usePhone ? "text" : "email"} you a code to confirm.
       </p>
       <input
         className={GUEST_INPUT_CLASS}
@@ -1139,7 +1173,7 @@ function GuestRsvpCard({ rsvp }: { rsvp: GuestRsvpState }) {
         disabled={!rsvp.valid || rsvp.submitting}
         className="mt-3 w-full py-2.5 bg-green-600 text-white rounded-xl font-medium hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        {rsvp.submitting ? "Sending…" : "Send my code"}
+        {rsvp.submitting ? "Sending…" : rsvp.usePhone ? "Text me a code" : "Email me a code"}
       </button>
       <button
         type="button"
@@ -1151,16 +1185,7 @@ function GuestRsvpCard({ rsvp }: { rsvp: GuestRsvpState }) {
       {/* Members sign in the usual way: a code sign-in on a password
           account replaces the password, and a phone-only member would get
           a second account. After sign-in they come back here (pendingIntent). */}
-      <p className="mt-3 text-sm text-gray-700 dark:text-gray-200">
-        Already have an account?{" "}
-        <Link
-          to="/login"
-          onClick={() => setPendingIntent(window.location.pathname)}
-          className={GUEST_LINK_CLASS}
-        >
-          Sign in
-        </Link>
-      </p>
+      {signIn}
       {rsvp.error && (
         <p className="mt-2 text-sm text-red-800 dark:text-red-200">
           {rsvp.error}
