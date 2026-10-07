@@ -6,6 +6,7 @@ import type { Id } from "../../convex/_generated/dataModel";
 import { TableCard } from "../tables/TableCard";
 import { tableEventInput } from "../tables/eventInput";
 import "../tables/tables.css";
+import { FF_TABLES, useFeatureGate } from "../lib/featureFlags";
 
 export function meta() {
   return [{ title: "Set a Table — Creative Exchange" }];
@@ -22,7 +23,13 @@ export function ErrorBoundary() {
   );
 }
 
-export default function NewTablePage() {
+// Tables is off until FF_TABLES (lib/featureFlags.ts): the page sends
+// people to Events instead.
+export default function NewTablePageGate() {
+  return useFeatureGate(FF_TABLES, "/events") ? <NewTablePage /> : null;
+}
+
+function NewTablePage() {
   const { isAuthenticated, isLoading } = useConvexAuth();
   const navigate = useNavigate();
   const createTable = useMutation(api.garden.tables.createTable);

@@ -9,6 +9,7 @@ import {
 import { TableCard } from "../tables/TableCard";
 import { filterTables } from "../tables/presentation";
 import "../tables/tables.css";
+import { FF_TABLES, useFeatureGate } from "../lib/featureFlags";
 
 export function meta() {
   return [{ title: "Tables — Creative Exchange" }];
@@ -26,7 +27,13 @@ export function ErrorBoundary() {
   );
 }
 
-export default function TablesIndex() {
+// Tables is off until FF_TABLES (lib/featureFlags.ts): the page sends
+// people to Events instead.
+export default function TablesIndexGate() {
+  return useFeatureGate(FF_TABLES, "/events") ? <TablesIndex /> : null;
+}
+
+function TablesIndex() {
   const tables = useQuery(api.garden.tables.listTables, {});
   const { isAuthenticated } = useConvexAuth();
   const [params] = useSearchParams();

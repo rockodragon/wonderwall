@@ -1,6 +1,6 @@
 import { BookmarkSimple } from "@phosphor-icons/react";
 import type { ReactElement } from "react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { needYouText } from "../components/shortlist/copy";
 import { NOW, sampleShortlist, shortlist } from "../lib/shortlist/fixtures";
 import { summary } from "../lib/shortlist/model";
@@ -15,6 +15,13 @@ import {
   type SignedInDeps,
 } from "./paletteConfig";
 import { fanAngles } from "./paletteLogic";
+
+// These cover Tables itself, so they run with it open (FF_TABLES).
+vi.mock("../lib/featureFlags", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../lib/featureFlags")>()),
+  FF_TABLES: true,
+}));
+
 
 function deps(over: Partial<SignedInDeps> = {}): SignedInDeps {
   return {

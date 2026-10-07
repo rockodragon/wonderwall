@@ -51,6 +51,7 @@ import { useDeskData } from "./useDeskData";
 import { useUpdateReads } from "./useUpdateReads";
 import { DeskTables } from "../tables/DeskTables";
 import { useAwardConfetti, useCelebrationReads } from "./useCelebrations";
+import { FF_TABLES } from "../lib/featureFlags";
 
 /** Cards that aren't on show wait below the page. Past this many, the extras
  *  aren't drawn at all. */
@@ -499,7 +500,7 @@ export function Desk() {
             />
           ))}
         </div>
-        {view === "all" && <DeskTables inert={!!openId} />}
+        {FF_TABLES && view === "all" && <DeskTables inert={!!openId} />}
       </div>
 
       <div

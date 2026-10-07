@@ -13,11 +13,13 @@ import { useOnceNote } from "../hooks/useOnceNote";
 import { PALETTE, withAlpha } from "./paletteLogic";
 import { MAIN_RING, STACK_PANEL_BG, STACK_PANEL_SHADOW } from "./PaletteParts";
 import { DESK, DESK_SANS, FOCUS_RING_CLASS } from "./tokens";
+import { FF_TABLES } from "../lib/featureFlags";
 
 export const HINT_KEY = "desk.paletteHint";
 
 export const HINT_TITLE = "This is your menu";
-export const HINT_BODY = "Hover or click it to get to People, Projects, Events, Tables and more.";
+// Names Tables only once Tables is open (FF_TABLES).
+export const HINT_BODY = `Hover or click it to get to People, Projects, Events${FF_TABLES ? ", Tables" : ""} and more.`;
 
 /**
  * @param ready    nothing is about to send this person elsewhere

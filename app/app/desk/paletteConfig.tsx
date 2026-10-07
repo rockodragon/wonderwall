@@ -23,7 +23,7 @@ import {
   type DeskCommunity,
 } from "./deskState";
 import { badgeText, type ToolId } from "./paletteLogic";
-import { FF_V2 } from "../lib/featureFlags";
+import { FF_TABLES, FF_V2 } from "../lib/featureFlags";
 import { GARDEN_SLUG } from "../lib/communitySlugs";
 
 const TOOL_ICON_SIZE = 19;
@@ -140,7 +140,7 @@ export function buildSignedInTools(d: SignedInDeps): PaletteTool[] {
   if (d.isAdmin) profileItems.push({ id: "admin", label: "Admin", to: "/admin" });
   profileItems.push({ id: "signout", label: "Sign out", onSelect: d.onSignOut });
 
-  return [
+  const tools: PaletteTool[] = [
     {
       id: "today",
       label: "Today",
@@ -222,6 +222,8 @@ export function buildSignedInTools(d: SignedInDeps): PaletteTool[] {
       items: profileItems,
     },
   ];
+  // Tables waits for FF_TABLES (lib/featureFlags.ts).
+  return FF_TABLES ? tools : tools.filter((t) => t.id !== "tables");
 }
 
 // ——————————————————————————————————————————————————————————————
@@ -241,7 +243,7 @@ export function buildSignedOutTools(d: SignedOutDeps): PaletteTool[] {
   const people = "/people";
   const projects = "/projects";
   const events = "/events";
-  return [
+  const tools: PaletteTool[] = [
     {
       id: "people",
       label: "People",
@@ -291,4 +293,6 @@ export function buildSignedOutTools(d: SignedOutDeps): PaletteTool[] {
       ],
     },
   ];
+  // Tables waits for FF_TABLES (lib/featureFlags.ts).
+  return FF_TABLES ? tools : tools.filter((t) => t.id !== "tables");
 }

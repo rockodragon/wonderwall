@@ -12,6 +12,7 @@ import { tableBadge, tablePrice } from "../tables/presentation";
 import { hostLabels } from "../lib/eventHosts";
 import { BackLink } from "../components/BackLink";
 import "../tables/tables.css";
+import { FF_TABLES, useFeatureGate } from "../lib/featureFlags";
 
 export function meta() {
   return [{ title: "Table — Creative Exchange" }];
@@ -218,7 +219,13 @@ export function TableScheduleSummary({ event, legacyStartsAt }: {
   );
 }
 
-export default function TableDetailPage() {
+// Tables is off until FF_TABLES (lib/featureFlags.ts): the page sends
+// people to Events instead.
+export default function TableDetailPageGate() {
+  return useFeatureGate(FF_TABLES, "/events") ? <TableDetailPage /> : null;
+}
+
+function TableDetailPage() {
   const { slug } = useParams();
   const [params] = useSearchParams();
   const table = useQuery(api.garden.tables.getTable, slug ? { slug } : "skip");

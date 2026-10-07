@@ -16,6 +16,7 @@ import { yearsLabel } from "../../convex/organizationRules";
 import { PAGE_WIDTH } from "../lib/pageWidth";
 import { favoritesHref } from "../lib/shortlist/url";
 import { BackLink } from "../components/BackLink";
+import { FF_TABLES } from "../lib/featureFlags";
 
 // Matches listAffiliations's return shape (project-teams.md §4). Annotated
 // explicitly here — not inferred from the query — so this section still
@@ -37,7 +38,8 @@ export default function Profile() {
   // can follow a person into a community instead of hitting a dead end.
   const theirTables = useQuery(
     api.garden.tables.listTablesForUser,
-    profile?.userId ? { userId: profile.userId } : "skip",
+    // Tables stay hidden until FF_TABLES.
+    FF_TABLES && profile?.userId ? { userId: profile.userId } : "skip",
   );
   // Projects this person leads or is accepted on (project-teams.md §7).
   const affiliations = useQuery(

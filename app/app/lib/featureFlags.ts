@@ -40,3 +40,12 @@ export const FF_V2 = false;
 // desktop-desk-palette.md). Phones keep the bottom bar and the Today page
 // either way. Set to false to bring the sidebar back.
 export const FF_DESK = true;
+
+// FF_TABLES — Tables: a regular gathering with seats, set dates and, for
+// some, paid checkout (the `tables` branch, merged 2026-10-07). Shipped dark
+// until it has had a real run, signed in and in Stripe test mode (Rick,
+// 2026-10-07). Off hides every way in: the palette's Tables tool, the
+// canvas's Tables row, the public nav link, a profile's Tables list and the
+// first-visit note's mention; the /tables pages send people to Events. Set
+// to true to open it.
+export const FF_TABLES = false;

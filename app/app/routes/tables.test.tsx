@@ -5,6 +5,13 @@ import TablesIndex from "./tables._index";
 import TableDetailPage, { ParticipationState } from "./tables.$slug";
 import NewTablePage from "./tables.new";
 
+// These cover Tables itself, so they run with it open (FF_TABLES).
+vi.mock("../lib/featureFlags", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../lib/featureFlags")>()),
+  FF_TABLES: true,
+}));
+
+
 const state = vi.hoisted(() => ({
   signedIn: false,
   queries: {} as Record<string, unknown>,
