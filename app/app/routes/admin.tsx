@@ -14,10 +14,16 @@ import {
   type Destination,
 } from "../components/admin/DestinationCards";
 import { MembersTable } from "../components/admin/MembersTable";
-import { Binoculars, HourglassMedium, Megaphone, Plant, Receipt, Trophy } from "@phosphor-icons/react";
+import { Binoculars, HourglassMedium, Megaphone, Plant, Pulse, Receipt, Trophy } from "@phosphor-icons/react";
 
 // Where each admin tool lives. A grid of cards, not a column of rows.
 const DESTINATIONS: readonly Destination[] = [
+  {
+    to: "/admin/activity",
+    title: "Activity",
+    icon: Pulse,
+    blurb: "Who joined and what people made, newest first.",
+  },
   {
     to: "/admin/garden",
     title: "Garden Operator Console",

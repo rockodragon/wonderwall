@@ -44,6 +44,7 @@ import type * as events from "../events.js";
 import type * as favorites from "../favorites.js";
 import type * as files from "../files.js";
 import type * as follows from "../follows.js";
+import type * as garden_activity from "../garden/activity.js";
 import type * as garden_allocations from "../garden/allocations.js";
 import type * as garden_apGifts from "../garden/apGifts.js";
 import type * as garden_artifactsMigration from "../garden/artifactsMigration.js";
@@ -181,6 +182,7 @@ declare const fullApi: ApiFromModules<{
   favorites: typeof favorites;
   files: typeof files;
   follows: typeof follows;
+  "garden/activity": typeof garden_activity;
   "garden/allocations": typeof garden_allocations;
   "garden/apGifts": typeof garden_apGifts;
   "garden/artifactsMigration": typeof garden_artifactsMigration;
