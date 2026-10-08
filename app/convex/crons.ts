@@ -94,4 +94,9 @@ crons.daily(
   {},
 );
 
+// No sweep for Table checkout holds: a hold stops counting the moment it
+// expires (every read checks expiresAt), Stripe's checkout.session.expired
+// releases it, and the next checkout marks old ones expired (Rick,
+// 2026-10-07: no 15-minute jobs).
+
 export default crons;

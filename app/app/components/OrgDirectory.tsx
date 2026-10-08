@@ -4,6 +4,7 @@ import { Link } from "react-router";
 import { api } from "../../convex/_generated/api";
 import { filterOrgs } from "../lib/browse/orgFilter";
 import { OrgLogo } from "./OrgLogo";
+import { PeopleFaces } from "./PeopleFaces";
 
 // The Organizations tab on People (/people?tab=orgs;
 // docs/features/organizations.md). Same footprint as a person card, with a
@@ -57,34 +58,7 @@ export function OrgDirectory({ query }: { query: string }) {
                   {line}
                 </p>
               )}
-              {o.peopleCount > 0 && (
-                <div className="mt-2 flex items-center gap-2">
-                  <div className="flex -space-x-1.5">
-                    {o.faces.map((f, i) => (
-                      <span
-                        key={i}
-                        title={f.name}
-                        className="w-6 h-6 rounded-full overflow-hidden flex items-center justify-center text-xs font-medium ring-2"
-                        style={{
-                          backgroundColor: "var(--app-hairline-raised)",
-                          color: "var(--app-text-muted)",
-                          // the ring matches the card so overlapping faces read as separate
-                          ["--tw-ring-color" as string]: "var(--app-surface-raised)",
-                        }}
-                      >
-                        {f.imageUrl ? (
-                          <img src={f.imageUrl} alt="" className="w-full h-full object-cover" />
-                        ) : (
-                          f.name.trim().charAt(0).toUpperCase()
-                        )}
-                      </span>
-                    ))}
-                  </div>
-                  <span className="text-xs whitespace-nowrap" style={{ color: "var(--app-text-dim)" }}>
-                    {o.peopleCount} {o.peopleCount === 1 ? "person" : "people"}
-                  </span>
-                </div>
-              )}
+              <PeopleFaces faces={o.faces} count={o.peopleCount} />
             </div>
           </Link>
         );

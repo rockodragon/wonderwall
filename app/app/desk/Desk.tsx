@@ -50,7 +50,9 @@ import { InviteNudgeCard, useInviteNudge } from "../components/InviteNudge";
 import { DESK, DESK_SANS, FOCUS_RING_CLASS, MOTION_MS, motion, deskSurfaceStyle, useDeskTint } from "./tokens";
 import { useDeskData } from "./useDeskData";
 import { useUpdateReads } from "./useUpdateReads";
+import { DeskTables } from "../tables/DeskTables";
 import { useAwardConfetti, useCelebrationReads } from "./useCelebrations";
+import { FF_TABLES } from "../lib/featureFlags";
 
 /** Cards that aren't on show wait below the page. Past this many, the extras
  *  aren't drawn at all. */
@@ -517,6 +519,7 @@ export function Desk() {
             />
           ))}
         </div>
+        {FF_TABLES && view === "all" && <DeskTables inert={!!openId} />}
       </div>
 
       <div

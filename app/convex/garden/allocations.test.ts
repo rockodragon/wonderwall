@@ -234,7 +234,7 @@ describe("computePoolBalance", () => {
 
 describe("fundDisplayName", () => {
   it("uses the name the fund page shows for a named fund", () => {
-    expect(fundDisplayName({ slug: "abiding-practice", name: "Abiding Practice" })).toBe("The Sophia Fund");
+    expect(fundDisplayName({ slug: "abiding-practice", name: "Abiding Practice" })).toBe("The Sophia Grant Fund");
   });
 
   it("uses the org's own name for any other fund", () => {

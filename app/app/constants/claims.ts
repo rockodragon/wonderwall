@@ -47,8 +47,8 @@ export const CLAIMS = {
   duesCellRest: "keeps this running",
   pool: `${DUES_EVERY} Members propose projects, and a review team decides.`,
   grantFund:
-    "The Sophia Fund, The Garden's grant fund, is run by Abiding Practice, a 501(c)(3), so gifts to it are tax-deductible. About 87% of each gift is granted.",
-  /** The Sophia Fund's open call (Rick, 2026-09-29). The amount itself is
+    "The Sophia Grant Fund, The Garden's grant fund, is run by Abiding Practice, a 501(c)(3), so gifts to it are tax-deductible. About 87% of each gift is granted.",
+  /** The Sophia Grant Fund's open call (Rick, 2026-09-29). The amount itself is
    * computed on the page (fund.$slug.tsx NAMED_FUNDS seedCents). Proposing
    * takes a paid membership (capabilities.ts pool.propose). */
   sophiaSchedule: "The first grants go out in November, from projects submitted in October.",
@@ -56,7 +56,7 @@ export const CLAIMS = {
   /** The desk's fund card, beside the Give button. */
   grantFundDeductibleShort: "Tax-deductible",
   ticketFund:
-    "Every ticket goes into the Sophia Fund, an artist grant fund that backs projects by creatives in the community. Creatives propose projects, and a review team decides.",
+    "Every ticket goes into the Sophia Grant Fund, an artist grant fund that backs projects by creatives in the community. Creatives propose projects, and a review team decides.",
   patron: "Back a specific person or project. 90% goes to them. You can be named on the work, or stay anonymous.",
   coverage: "$10 a month covers one creative's membership. A covered membership is a full membership.",
   partner: "Post paid work with the pay stated up front, or offer your space. Creatives respond, and you pick.",
@@ -69,6 +69,18 @@ export const CLAIMS = {
   memberDirected: "Each month you choose who gets your monthly grant: a creative, a project, or the grant fund.",
   memberDirectedDefault: "If you don't pick within a week, it goes to the grant fund.",
   memberDirectedFull: "What you give goes to them in full.",
+
+  // Added 2026-10-03 for /pricing, awaiting Rick's OK (claims.md, "Added
+  // 2026-10-03"). From the plan's Tables update and §3, checked against the
+  // code on `tables` (tablePolicy.ts, tables.ts, stripeHandlers.ts).
+  perCommunity: "Each community sets its own membership price.",
+  tablesFree: "Anyone can set a free, one-time Table.",
+  tablesPaid: "Charging for a Table, or running one that meets again, takes membership in its community.",
+  tablesJoinPaid: "Anyone can join an open paid Table by paying its price.",
+  tableSplit: "On a paid Table, you keep 90% of what you sell.",
+  tableProcessingFee: "Card processing is added on top of the Table's price.",
+  tickets: "Anyone can post an event. Selling tickets takes membership.",
+  directPay: "When a patron pays a creative directly, we take nothing.",
 } as const;
 
 /** Phrases we dropped. claims.test.ts fails if any shows up in site source —

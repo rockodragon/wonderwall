@@ -43,7 +43,7 @@ export function meta() {
     {
       name: "description",
       content:
-        "A night of creative work at Lightchurch, Encinitas. Tickets $25, and every ticket goes into the Sophia Fund. November 6, 2026.",
+        "A night of creative work at Lightchurch, Encinitas. Tickets $25, and every ticket goes into the Sophia Grant Fund. November 6, 2026.",
     },
     {
       property: "og:title",
@@ -52,7 +52,7 @@ export function meta() {
     {
       property: "og:description",
       content:
-        "A night of creative work at Lightchurch, Encinitas. Tickets $25. Every ticket goes into the Sophia Fund.",
+        "A night of creative work at Lightchurch, Encinitas. Tickets $25. Every ticket goes into the Sophia Grant Fund.",
     },
     { property: "og:type", content: "website" },
     // Absolute — a relative og:image doesn't unfurl on Instagram, iMessage
@@ -68,7 +68,7 @@ export function meta() {
     {
       name: "twitter:description",
       content:
-        "A night of creative work at Lightchurch, Encinitas. Tickets $25. Every ticket goes into the Sophia Fund.",
+        "A night of creative work at Lightchurch, Encinitas. Tickets $25. Every ticket goes into the Sophia Grant Fund.",
     },
     { name: "twitter:image", content: OG_IMAGE },
   ];

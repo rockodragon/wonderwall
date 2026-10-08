@@ -68,7 +68,7 @@ function project(id: string, extra: Partial<DeskProjectInput> = {}): DeskProject
 
 const FUND = {
   slug: "abiding-practice",
-  name: "The Sophia Fund",
+  name: "The Sophia Grant Fund",
   orgName: "Abiding Practice",
   availableCents: 1_002_500,
   openCall: CLAIMS.sophiaSchedule,
@@ -343,12 +343,12 @@ describe("the fund card", () => {
     const card = byId(buildDeskCards(input(), "garden"), "fund");
     expect(card.note).toBe(true);
     expect(card.sections).toEqual(["all", "projects", "today"]);
-    expect(card.face).toEqual({ kicker: "THE SOPHIA FUND", title: "$10,025", foot: "available to grant" });
+    expect(card.face).toEqual({ kicker: "THE SOPHIA GRANT FUND", title: "$10,025", foot: "available to grant" });
   });
 
   it("opens to its name, who runs it, the open call and Give", () => {
     const card = byId(buildDeskCards(input(), "garden"), "fund");
-    expect(card.detail.title).toBe("The Sophia Fund");
+    expect(card.detail.title).toBe("The Sophia Grant Fund");
     expect(card.detail.host).toBe("Run by Abiding Practice");
     expect(card.detail.description).toBe(CLAIMS.sophiaSchedule);
     expect(card.detail.aside).toBe(CLAIMS.grantFundDeductibleShort);
@@ -672,13 +672,15 @@ describe("organization cards", () => {
     expect(card.face.foot).toBe("3 people");
     expect(card.detail.meta).toBe("ORGANIZATION");
   });
-  it("open to the tagline, the place, the people count and a button to its page", () => {
-    const { detail, href } = orgCard(org());
+  it("open to the tagline, place, named faces, and a button to its page", () => {
+    const { detail, href } = orgCard(org({ faces: [{ name: "Mara Lin", imageUrl: "/mara.jpg" }] }));
     expect(detail.meta).toBe("ORGANIZATION \u00b7 COLLECTIVE");
     expect(detail.title).toBe("Abiding Practice");
     expect(detail.host).toBe("San Diego, CA");
     expect(detail.description).toBe("Spiritual formation for artists");
     expect(detail.aside).toBe("3 people");
+    expect(detail.peopleCount).toBe(3);
+    expect(detail.people).toEqual([{ name: "Mara Lin", imageUrl: "/mara.jpg" }]);
     expect(detail.action).toEqual({ kind: "link", label: "See organization", href: "/orgs/abiding-practice" });
     expect(href).toBe("/orgs/abiding-practice");
   });

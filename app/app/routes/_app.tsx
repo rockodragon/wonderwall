@@ -2,7 +2,7 @@ import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router";
 import { useEffect, useId, useState, type CSSProperties, type ReactNode } from "react";
 import { usePostHog } from "@posthog/react";
-import { BookmarkSimple } from "@phosphor-icons/react";
+import { BookmarkSimple, UsersThree } from "@phosphor-icons/react";
 import { api } from "../../convex/_generated/api";
 import { setPendingIntent, takePendingIntent } from "../lib/pendingIntent";
 import { inviteFromSearch, rememberInvite } from "../lib/carriedInvite";
@@ -82,6 +82,7 @@ const NAV_ICONS = {
   "/people": PersonIcon,
   "/projects": BrushIcon,
   "/events": CalendarIcon,
+  "/tables": UsersThree,
   "/communities": GridIcon,
   "/offerings": ClassesIcon,
 } as const;
@@ -166,6 +167,8 @@ export default function AppLayout() {
   // "You're in". They go through onboarding on their next visit anywhere else.
   const mustOnboard = needsOnboarding(profile);
   const onEventPage = location.pathname.startsWith("/events/");
+  // Platform-wide Tables keep free hosting outside community invite/onboarding gates.
+  const onTablePage = location.pathname === "/tables" || location.pathname.startsWith("/tables/");
 
   // While the community new accounts join is invite-only (2026-10-02),
   // someone signed in who isn't in it — a Google sign-up without a code, a
@@ -183,8 +186,8 @@ export default function AppLayout() {
     profile !== undefined &&
     !profile?.isAdmin;
   useEffect(() => {
-    if (mustInvite && !onEventPage) navigate("/invite", { replace: true });
-  }, [mustInvite, onEventPage, navigate]);
+    if (mustInvite && !onEventPage && !onTablePage) navigate("/invite", { replace: true });
+  }, [mustInvite, onEventPage, onTablePage, navigate]);
 
   // The first-visit notes that say where the menu is (desk/PaletteHint.tsx,
   // components/PhoneNavNote.tsx) wait until nothing above is about to send
@@ -195,7 +198,7 @@ export default function AppLayout() {
   const phoneNote = usePhoneNavNote(navNoteReady);
 
   useEffect(() => {
-    if (isAuthenticated && mustOnboard && !onEventPage && !mustInvite) {
+    if (isAuthenticated && mustOnboard && !onEventPage && !onTablePage && !mustInvite) {
       // Come back here afterwards — onboarding ends on /today, which
       // replays the pending intent.
       if (location.pathname !== "/today") {
@@ -203,7 +206,7 @@ export default function AppLayout() {
       }
       navigate("/onboarding", { replace: true });
     }
-  }, [isAuthenticated, mustOnboard, onEventPage, mustInvite, navigate, location.pathname, location.search]);
+  }, [isAuthenticated, mustOnboard, onEventPage, onTablePage, mustInvite, navigate, location.pathname, location.search]);
 
   // Identify user in PostHog when authenticated and profile loaded
   useEffect(() => {

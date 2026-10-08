@@ -7,7 +7,7 @@ import type { ReactNode } from "react";
 import { useConvexAuth } from "convex/react";
 import { Link } from "react-router";
 import { SiteHeader } from "../components/SiteHeader";
-import { FF_V2 } from "../lib/featureFlags";
+import { FF_V2, FF_TABLES } from "../lib/featureFlags";
 
 // ————— Page shell —————
 
@@ -75,6 +75,7 @@ const ALL_NAV_ITEMS = [
   { to: "/people", label: "People" },
   { to: "/projects", publicTo: "/opportunities", label: "Projects" },
   { to: "/events", publicTo: "/garden/events", label: "Events" },
+  { to: "/tables", label: "Tables" },
   // "Spaces" is /communities (2026-09-14, product decision) — the directory
   // of named groups/hosts. Was briefly pointed at /tables on the reasoning
   // that page's own <title> called itself "Spaces" — that title is now the
@@ -88,7 +89,10 @@ const ALL_NAV_ITEMS = [
 // behind FF_V2 everywhere this list is read — the public header, the app
 // rail and the mobile bar. The routes themselves stay live.
 const V2_NAV = new Set<string>(["/communities", "/offerings"]);
-export const NAV_ITEMS = ALL_NAV_ITEMS.filter((item) => FF_V2 || !V2_NAV.has(item.to));
+// Tables waits for FF_TABLES (lib/featureFlags.ts).
+export const NAV_ITEMS = ALL_NAV_ITEMS.filter(
+  (item) => (FF_V2 || !V2_NAV.has(item.to)) && (FF_TABLES || item.to !== "/tables"),
+);
 
 export function GardenNav({ active }: { active?: string }) {
   // During prerender and the first paint this reads false, so the markup a

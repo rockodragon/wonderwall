@@ -25,7 +25,7 @@ import {
   type ContributionLike,
 } from "./allocations";
 import { computeHostEarnings, type EarningsLike } from "./products";
-import { buildCreativeEarningsRows, classPaymentToEarningsPayment, giftPaymentToEarningsPayment } from "./payouts";
+import { buildCreativeEarningsRows, classPaymentToEarningsPayment, isPayableClassPayment, giftPaymentToEarningsPayment } from "./payouts";
 import { assertCanManageCommunity, normalizeCommunity, COMMUNITY_KIND } from "./communities";
 
 // ——————————————————————————————————————————————————————————————
@@ -53,7 +53,7 @@ export function computePeriods(periods: string[], max = 12): string[] {
 
 // ——— Fees ———
 
-export type FeeSourceKey = "dues" | "pool_contributions" | "host_sales" | "event_tickets";
+export type FeeSourceKey = "dues" | "pool_contributions" | "host_sales" | "event_tickets" | "table_sales";
 
 const FEE_SOURCE_ORDER: { source: FeeSourceKey; label: string; splitRecorded: boolean }[] = [
   { source: "dues", label: "Member dues", splitRecorded: true },
@@ -62,6 +62,7 @@ const FEE_SOURCE_ORDER: { source: FeeSourceKey; label: string; splitRecorded: bo
   // ticketPurchases carries no split fields (no platformCents column) —
   // the report says so rather than implying a real 0% split was recorded.
   { source: "event_tickets", label: "Event tickets", splitRecorded: false },
+  { source: "table_sales", label: "Table and class sales", splitRecorded: true },
 ];
 
 /** A single money-in row, shaped for fee rollup. `pool_other` is the other
@@ -421,6 +422,7 @@ export const getPlatformReport = query({
       creativePayouts,
       classPayments,
       giftPayments,
+      ticketExceptions,
     ] = await Promise.all([
       ctx.db.query("hostOrgs").collect(),
       ctx.db.query("communityMembers").collect(),
@@ -438,6 +440,10 @@ export const getPlatformReport = query({
       ctx.db.query("creativePayouts").collect(),
       ctx.db.query("classPayments").collect(),
       ctx.db.query("giftPayments").collect(),
+      ctx.db
+        .query("externalTicketExceptions")
+        .withIndex("by_status", (q) => q.eq("status", "refund_required"))
+        .collect(),
     ]);
 
     const hostOrgById = new Map(hostOrgs.map((o) => [String(o._id), o]));
@@ -456,6 +462,7 @@ export const getPlatformReport = query({
     // ——— Fees + periods ———
     const nonRefundedPurchases = productPurchases.filter((p) => p.status !== "refunded");
     const paidTickets = ticketPurchases.filter((t) => t.status === "paid");
+    const payableClassPayments = classPayments.filter(isPayableClassPayment);
 
     const feeEvents: FeeEvent[] = [
       ...grantContributions.map((c) => ({
@@ -481,6 +488,7 @@ export const getPlatformReport = query({
         platformCents: 0,
       })),
     ];
+    feeEvents.push(...payableClassPayments.map(p => ({source: "table_sales" as const, period: p.period, grossCents: p.grossCents, platformCents: p.platformCents})));
     const fees = computeFeeSummary(feeEvents);
 
     const periods = computePeriods([
@@ -488,6 +496,7 @@ export const getPlatformReport = query({
       ...allocations.map((a) => a.period),
       ...nonRefundedPurchases.map((p) => p.period),
       ...paidTickets.map((t) => periodOf(t.createdAt)),
+      ...payableClassPayments.map((p) => p.period),
     ]);
 
     // ——— Pools: one per hostOrg with any grantContributions/allocations ———
@@ -567,8 +576,9 @@ export const getPlatformReport = query({
     for (const p of giftPayments) payeeIds.add(String(p.payeeUserId));
     for (const p of creativePayouts) payeeIds.add(String(p.payeeUserId));
     const projectIds = new Set(backingPayments.map((p) => String(p.projectId)));
-    const offeringIds = new Set(classPayments.map((p) => String(p.offeringId)));
-    const [payeeProfiles, ledgerProjects, ledgerOfferings] = await Promise.all([
+    const offeringIds = new Set(classPayments.flatMap((p) => p.offeringId ? [String(p.offeringId)] : []));
+    const tableIds = new Set(classPayments.flatMap((p) => p.tableId ? [String(p.tableId)] : []));
+    const [payeeProfiles, ledgerProjects, ledgerOfferings, ledgerTables] = await Promise.all([
       Promise.all(
         [...payeeIds].map((id) =>
           ctx.db
@@ -579,6 +589,7 @@ export const getPlatformReport = query({
       ),
       Promise.all([...projectIds].map((id) => ctx.db.get(id as Id<"projects">))),
       Promise.all([...offeringIds].map((id) => ctx.db.get(id as Id<"offerings">))),
+      Promise.all([...tableIds].map((id) => ctx.db.get(id as Id<"gardenTables">))),
     ]);
     const payeeProfileById = new Map(
       payeeProfiles.filter((pr) => pr !== null).map((pr) => [String(pr!.userId), pr!]),
@@ -589,6 +600,7 @@ export const getPlatformReport = query({
     const offeringTitleById = new Map(
       ledgerOfferings.filter((o) => o !== null).map((o) => [String(o!._id), o!.title]),
     );
+    const tableTitleById = new Map(ledgerTables.filter((t) => t !== null).map((t) => [String(t!._id), t!.name]));
     const creativeEarnings = buildCreativeEarningsRows(
       [
         ...backingPayments.map((p) => ({
@@ -598,16 +610,17 @@ export const getPlatformReport = query({
           platformCents: p.platformCents,
           workCents: p.workCents,
         })),
-        ...classPayments.map((p) =>
+        ...classPayments.filter(isPayableClassPayment).map((p) =>
           classPaymentToEarningsPayment(
             {
-              offeringId: String(p.offeringId),
+              offeringId: p.offeringId ? String(p.offeringId) : undefined,
+              tableId: p.tableId ? String(p.tableId) : undefined,
               payeeUserId: p.payeeUserId ? String(p.payeeUserId) : undefined,
               grossCents: p.grossCents,
               platformCents: p.platformCents,
               teacherCents: p.teacherCents,
             },
-            offeringTitleById.get(String(p.offeringId)),
+            p.tableId ? tableTitleById.get(String(p.tableId)) : offeringTitleById.get(String(p.offeringId)),
           ),
         ),
         // Member-directed gifts (garden/giving.ts): owed to a person, no
@@ -789,6 +802,23 @@ export const getPlatformReport = query({
       pools,
       hostEarnings,
       creativeEarnings,
+      tablePaymentExceptions: classPayments.filter(p => p.status === "refund_required").map(p => ({
+        paymentId: p._id, tableId: p.tableId,
+        title: p.tableId ? tableTitleById.get(String(p.tableId)) ?? "A deleted Table" : "Table payment",
+        grossCents: p.grossCents, buyerUserId: p.buyerUserId, stripeRef: p.stripeRef,
+        paymentIntentId: p.paymentIntentId, createdAt: p.createdAt,
+      })),
+      // AP ticket payments a Table's rules refused (garden/apGifts.ts):
+      // refunded in AP's Stripe account, then marked here.
+      externalTicketExceptions: ticketExceptions.map((x) => ({
+        exceptionId: x._id,
+        title: eventById.get(String(x.eventId))?.title ?? "A deleted Event",
+        grossCents: x.grossCents,
+        ticketCount: x.ticketCount,
+        reason: x.reason,
+        stripeRef: x.stripeRef,
+        createdAt: x.createdAt,
+      })),
       communities,
       memberships: { ...membershipsSummary, coverageCodes: coverageCodesOut },
       recent,

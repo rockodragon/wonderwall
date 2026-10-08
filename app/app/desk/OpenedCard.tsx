@@ -25,6 +25,8 @@ import { Link, useNavigate } from "react-router";
 import { CaretLeft, CaretRight, X } from "@phosphor-icons/react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
+import { PersonAvatar } from "../components/PersonAvatar";
+import { PeopleFaces } from "../components/PeopleFaces";
 import { useReducedMotion } from "../hooks/useMediaQuery";
 import { errorMessage } from "../lib/convexError";
 import type { DeskAction, DeskCard } from "./deskCards";
@@ -69,6 +71,17 @@ const PAD_TIGHT = "clamp(24px, 10cqi, 48px)";
 /** The title: 44px from a 440px panel up, 28px at the narrowest, so a long word
  *  still fits a line of its own in the column. */
 const TITLE_SIZE = "clamp(28px, 10cqi, 44px)";
+const TITLE_STYLE: CSSProperties = {
+  margin: 0,
+  fontSize: TITLE_SIZE,
+  lineHeight: 1.08,
+  fontWeight: 500,
+  letterSpacing: "-0.02em",
+  wordBreak: "normal",
+  overflowWrap: "break-word",
+  hyphens: "manual",
+  textWrap: "balance",
+};
 /** The header: meta line and close button. With a stepper, a panel 28rem or
  *  wider has room for all three on one row; narrower, the stepper drops to a
  *  row of its own under them and the close button stays at the top right. */
@@ -215,21 +228,18 @@ export function DetailPanel({
           {/* The title wraps between words. A word breaks mid-way only when it is
               wider than the whole line (break-word, not anywhere), and the size
               follows the column so that is rare: see TITLE_SIZE. */}
-          <h2
-            style={{
-              margin: 0,
-              fontSize: TITLE_SIZE,
-              lineHeight: 1.08,
-              fontWeight: 500,
-              letterSpacing: "-0.02em",
-              wordBreak: "normal",
-              overflowWrap: "break-word",
-              hyphens: "manual",
-              textWrap: "balance",
-            }}
-          >
-            <LinkedText text={card.detail.title} links={card.detail.links} className={NAME_LINK_CLASS} />
-          </h2>
+          {card.kind === "person" ? (
+            <div className="flex items-center gap-3">
+              <PersonAvatar name={card.detail.title} imageUrl={profile?.imageUrl ?? card.image} />
+              <h2 style={TITLE_STYLE}>
+                <LinkedText text={card.detail.title} links={card.detail.links} className={NAME_LINK_CLASS} />
+              </h2>
+            </div>
+          ) : (
+            <h2 style={TITLE_STYLE}>
+              <LinkedText text={card.detail.title} links={card.detail.links} className={NAME_LINK_CLASS} />
+            </h2>
+          )}
           {/* An event's hosts link to their pages, as on the event page. */}
           {card.detail.hosts && card.detail.hosts.length > 0 ? (
             <p style={{ margin: 0, fontSize: 15, color: DESK.muted, overflowWrap: "break-word", hyphens: "manual" }}>
@@ -276,6 +286,9 @@ export function DetailPanel({
               ))}
             </dl>
           )}
+          {card.kind === "org" && card.detail.people && (
+            <PeopleFaces faces={card.detail.people} count={card.detail.peopleCount ?? 0} />
+          )}
           <div className="flex flex-wrap items-center gap-x-5 gap-y-3" style={{ marginTop: project ? 4 : 8 }}>
             {action?.kind === "link" && <ActionLink action={action} />}
             {action?.kind === "rsvp" && <JoinButton action={action} />}
@@ -288,7 +301,9 @@ export function DetailPanel({
             {card.kind === "event" && card.eventId ? (
               <GoingLine eventId={card.eventId} fallback={card.detail.aside} />
             ) : (
-              card.detail.aside && <span style={{ fontSize: 14, color: DESK.muted }}>{card.detail.aside}</span>
+              card.detail.aside && !(card.kind === "org" && card.detail.people?.length) && (
+                <span style={{ fontSize: 14, color: DESK.muted }}>{card.detail.aside}</span>
+              )
             )}
             {card.kind === "event" && (
               <Link

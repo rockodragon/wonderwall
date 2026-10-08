@@ -3,6 +3,7 @@ import {
   DEFAULT_EVENT_LENGTH_MS,
   eventEndsAt,
   eventHasEnded,
+  eventHasStarted,
   eventListedUntil,
   isEventListed,
 } from "./eventWindow";
@@ -67,5 +68,14 @@ describe("isEventListed", () => {
 
   it("drops off at midnight after the next day", () => {
     expect(isEventListed(event, pdt("2026-10-08T00:00:00"))).toBe(false);
+  });
+});
+
+describe("eventHasStarted", () => {
+  it("is false before the start and true from it on", () => {
+    const start = pdt("2026-10-07T19:00");
+    expect(eventHasStarted({ datetime: start }, start - 1)).toBe(false);
+    expect(eventHasStarted({ datetime: start }, start)).toBe(true);
+    expect(eventHasStarted({ datetime: start }, start + 5 * H)).toBe(true);
   });
 });

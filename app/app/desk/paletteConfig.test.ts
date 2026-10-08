@@ -1,6 +1,6 @@
 import { BookmarkSimple } from "@phosphor-icons/react";
 import type { ReactElement } from "react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { needYouText } from "../components/shortlist/copy";
 import { NOW, sampleShortlist, shortlist } from "../lib/shortlist/fixtures";
 import { summary } from "../lib/shortlist/model";
@@ -15,6 +15,13 @@ import {
   type SignedInDeps,
 } from "./paletteConfig";
 import { fanAngles } from "./paletteLogic";
+
+// These cover Tables itself, so they run with it open (FF_TABLES).
+vi.mock("../lib/featureFlags", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../lib/featureFlags")>()),
+  FF_TABLES: true,
+}));
+
 
 function deps(over: Partial<SignedInDeps> = {}): SignedInDeps {
   return {
@@ -45,10 +52,10 @@ function tool(tools: PaletteTool[], id: string): PaletteTool {
 const shortlistTool = (over: Partial<SignedInDeps> = {}) => tool(buildSignedInTools(deps(over)), "shortlist");
 
 describe("buildSignedInTools", () => {
-  it("fans six tools, with Shortlist in the Desk tool's old slot", () => {
+  it("fans seven tools including platform-wide Tables", () => {
     const tools = buildSignedInTools(deps());
-    expect(tools.map((t) => t.id)).toEqual(["today", "people", "projects", "events", "shortlist", "profile"]);
-    expect(tools).toHaveLength(fanAngles(6).length);
+    expect(tools.map((t) => t.id)).toEqual(["today", "people", "projects", "events", "tables", "shortlist", "profile"]);
+    expect(tools).toHaveLength(fanAngles(7).length);
   });
 
   it("reads My Profile, then the community's page, and has no switch to The Exchange", () => {
@@ -148,6 +155,6 @@ describe("the Shortlist stack", () => {
 describe("buildSignedOutTools", () => {
   it("has no Shortlist: it needs an account", () => {
     const tools = buildSignedOutTools({ active: null, loginTo: "/login" });
-    expect(tools.map((t) => t.id)).toEqual(["people", "projects", "events", "signin"]);
+    expect(tools.map((t) => t.id)).toEqual(["people", "projects", "events", "tables", "signin"]);
   });
 });

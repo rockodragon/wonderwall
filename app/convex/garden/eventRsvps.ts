@@ -1,20 +1,32 @@
 // Real event RSVPs. Spec §1.6 once said "no account required"; the owner
 // reversed that: an RSVP needs an account, and the event page's form makes
 // one in a single step (code by email or text). Paid tickets still check out
-// through Stripe without an account (garden/apGifts.ts).
+// through Stripe without an account (garden/apGifts.ts). Tables have a
+// separate, explicitly configured free guest RSVP endpoint below.
 //
 // ctx typed loosely (`any`) — same reasoning as tables.ts / entitlements.ts:
 // the generated DataModel predates eventRsvps.
 
 import { v } from "convex/values";
-import type { Id } from "../_generated/dataModel";
+import type { Doc, Id } from "../_generated/dataModel";
 import { ConvexError } from "convex/values";
 import { mutation, query, type MutationCtx } from "../_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { isEventHost } from "../eventHosts";
 import { canSeeEvent } from "./eventVisibility";
-import { isCheckoutSessionId, type TicketClaimResult } from "./ticketLink";
+import {
+  getTableParticipation,
+  guestSeatCount,
+  guestSeatsFit,
+  normalizeTable,
+} from "./tablePolicy";
+import {
+  isCheckoutSessionId,
+  TICKET_CLAIM_REFUSED,
+  type TicketClaimResult,
+} from "./ticketLink";
 import { nextTicketState } from "./ticketLink";
+import { normalizePhone } from "../phone";
 
 // ——— Pure core ———
 
@@ -26,6 +38,22 @@ export function normalizeEmail(email: string): string {
 
 export function isValidEmail(email: string): boolean {
   return EMAIL_RE.test(email.trim());
+}
+
+/** True when this account's verified email is the one Stripe took the
+ * payment with. A ticket link's client_reference_id and a checkout session
+ * id can both be passed to someone else, so neither proves who paid; this
+ * does (garden/apGifts.ts's trustedTicketBuyer, claimTicketBySession). */
+export function paidWithVerifiedEmail(
+  user: { email?: string; emailVerificationTime?: number } | null | undefined,
+  paidWith: string | null | undefined,
+): boolean {
+  return (
+    !!user?.email &&
+    !!paidWith &&
+    user.emailVerificationTime !== undefined &&
+    normalizeEmail(user.email) === normalizeEmail(paidWith)
+  );
 }
 
 export interface ExistingRsvp {
@@ -243,6 +271,14 @@ export const rsvpToEvent = mutation({
       });
     }
 
+    if (event.tableId) {
+      const table = await ctx.db.get(event.tableId);
+      const participation = table ? await getTableParticipation(ctx, table, userId) : null;
+      if (!participation || (!participation.isMember && !participation.isHost)) {
+        throw new ConvexError({code: "table_enrollment_required", reason: "Join the Table and complete its requirements first."});
+      }
+    }
+
     const [profile, userDoc] = await Promise.all([
       ctx.db
         .query("profiles")
@@ -275,6 +311,212 @@ export const rsvpToEvent = mutation({
     });
 
     return { ok: true, alreadyRsvpd: result.alreadyRsvpd };
+  },
+});
+
+// ——— Table guest email: opt-in and the stop link ———
+//
+// A guest has no account, so no email preferences row. Each guest RSVP gets
+// its own stop token instead; Table emails to that guest carry it as their
+// unsubscribe token (garden/tableNotify.ts). The prefix keeps it apart from
+// emailPreferences tokens (32 hex characters), so the existing
+// /unsubscribe/:token page and one-click POST route both handle it.
+
+export const GUEST_EMAIL_TOKEN_PREFIX = "table-";
+
+export function newGuestEmailToken(): string {
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  return (
+    GUEST_EMAIL_TOKEN_PREFIX +
+    Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("")
+  );
+}
+
+export function isGuestEmailToken(token: string): boolean {
+  return token.startsWith(GUEST_EMAIL_TOKEN_PREFIX);
+}
+
+/** Every guest (no account) RSVP this address has on the Table's dates. */
+async function guestRowsOnTable(
+  ctx: MutationCtx,
+  tableId: Id<"gardenTables">,
+  email: string,
+): Promise<Doc<"eventRsvps">[]> {
+  const events = await ctx.db
+    .query("events")
+    .withIndex("by_tableId", (q) => q.eq("tableId", tableId))
+    .collect();
+  const out: Doc<"eventRsvps">[] = [];
+  for (const event of events) {
+    const rows = await ctx.db
+      .query("eventRsvps")
+      .withIndex("by_eventId_email", (q) =>
+        q.eq("eventId", event._id).eq("email", normalizeEmail(email)),
+      )
+      .collect();
+    out.push(...rows.filter((row) => !row.userId));
+  }
+  return out;
+}
+
+/** The guest's latest answer to "Tell me when this Table adds a date"
+ * holds for all their RSVPs on the Table. Saying yes again also lifts an
+ * earlier stop. */
+async function setGuestTableChoice(
+  ctx: MutationCtx,
+  tableId: Id<"gardenTables">,
+  email: string,
+  notifyNewDates: boolean,
+) {
+  for (const row of await guestRowsOnTable(ctx, tableId, email))
+    await ctx.db.patch(row._id, {
+      notifyNewDates,
+      ...(notifyNewDates ? { notifyStoppedAt: undefined } : {}),
+    });
+}
+
+/** The stop link: no more email about this Table to this guest address.
+ * False for a token that isn't a guest token or isn't on file. */
+export async function stopGuestEmails(
+  ctx: MutationCtx,
+  token: string,
+): Promise<boolean> {
+  if (!isGuestEmailToken(token)) return false;
+  const row = await ctx.db
+    .query("eventRsvps")
+    .withIndex("by_notifyToken", (q) => q.eq("notifyToken", token))
+    .first();
+  if (!row) return false;
+  const event = await ctx.db.get(row.eventId);
+  const rows = event?.tableId
+    ? await guestRowsOnTable(ctx, event.tableId, row.email)
+    : [];
+  const now = Date.now();
+  for (const id of new Set([row._id, ...rows.map((r) => r._id)]))
+    await ctx.db.patch(id, { notifyNewDates: false, notifyStoppedAt: now });
+  return true;
+}
+
+/** For the stop page: which Table, and whether it's already stopped. The
+ * token is the credential; nothing else about the guest is returned. */
+export const getGuestEmailStop = query({
+  args: { token: v.string() },
+  handler: async (ctx, args) => {
+    if (!isGuestEmailToken(args.token)) return null;
+    const row = await ctx.db
+      .query("eventRsvps")
+      .withIndex("by_notifyToken", (q) => q.eq("notifyToken", args.token))
+      .first();
+    if (!row) return null;
+    const event = await ctx.db.get(row.eventId);
+    const table = event?.tableId ? await ctx.db.get(event.tableId) : null;
+    return {
+      tableName: table?.name ?? event?.title ?? "this Table",
+      stopped: !!row.notifyStoppedAt,
+    };
+  },
+});
+
+/** Table-specific guest exception: never grants enrollment or roster access.
+ * Name and email are required; a phone number is optional (US/Canada, as
+ * everywhere else). `notifyNewDates` is the guest's answer to "Tell me when
+ * this Table adds a date"; an older page that doesn't send it leaves the
+ * answer as it was. */
+export const rsvpGuestToTableEvent = mutation({
+  args: {
+    eventId: v.id("events"),
+    name: v.string(),
+    email: v.string(),
+    phone: v.optional(v.string()),
+    notifyNewDates: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const event = await ctx.db.get(args.eventId);
+    const viewerId = await getAuthUserId(ctx);
+    if (
+      !event?.tableId ||
+      event.status !== "published" ||
+      event.datetime <= Date.now() ||
+      !(await canSeeEvent(ctx, event, viewerId))
+    ) {
+      throw new ConvexError({
+        code: "not_found",
+        reason: "This Event is not accepting guest RSVPs.",
+      });
+    }
+    const table = await ctx.db.get(event.tableId);
+    const participation = table
+      ? await getTableParticipation(ctx, table, viewerId)
+      : null;
+    if (!table || !participation?.canGuestRsvp)
+      throw new ConvexError({
+        code: "guests_not_allowed",
+        reason: "This Table requires enrollment.",
+      });
+    const name = args.name.trim();
+    if (
+      !name ||
+      name.length > 120 ||
+      args.email.length > 254 ||
+      !isValidEmail(args.email)
+    )
+      throw new ConvexError({
+        code: "invalid_rsvp",
+        reason: "Enter your name and a valid email.",
+      });
+    let phone: string | undefined;
+    if (args.phone?.trim()) {
+      const parsed = normalizePhone(args.phone);
+      if (!parsed.ok)
+        throw new ConvexError({
+          code: "invalid_phone",
+          reason: "Enter a US or Canadian phone number, or leave it blank.",
+        });
+      phone = parsed.value;
+    }
+    const rows = await ctx.db
+      .query("eventRsvps")
+      .withIndex("by_eventId", (q) => q.eq("eventId", event._id))
+      .collect();
+    const existing = rows.find(
+      (row) => row.email === normalizeEmail(args.email),
+    );
+    // A guest cannot overwrite an account-backed participant's identity.
+    if (existing?.userId)
+      throw new ConvexError({
+        code: "account_rsvp",
+        reason: "Sign in to manage your existing RSVP.",
+      });
+    // A guest takes a chair on this Event only: persistent chairs plus the
+    // guests already here, not the series' busiest Event (spotsRemaining,
+    // which still governs enrollment and checkout).
+    if (
+      !existing &&
+      !guestSeatsFit(
+        normalizeTable(table).capacity,
+        participation.persistentChairs,
+        guestSeatCount(rows),
+        1,
+      )
+    )
+      throw new ConvexError({ code: "full", reason: "This Event is full." });
+    const result = await upsertEventRsvp(ctx, {
+      eventId: event._id,
+      name,
+      email: args.email,
+    });
+    // Contact details and the stop token sit on the RSVP; only the Table's
+    // hosts read them back (tables.ts getTableGuests). A blank phone on a
+    // repeat RSVP keeps the one on file.
+    const saved = await ctx.db.get(result.rsvpId);
+    await ctx.db.patch(result.rsvpId, {
+      ...(phone ? { phone } : {}),
+      ...(saved?.notifyToken ? {} : { notifyToken: newGuestEmailToken() }),
+    });
+    if (args.notifyNewDates !== undefined)
+      await setGuestTableChoice(ctx, table._id, args.email, args.notifyNewDates);
+    return result;
   },
 });
 
@@ -352,6 +594,14 @@ export const getEventRsvps = query({
       .withIndex("by_eventId", (q) => q.eq("eventId", args.eventId))
       .collect();
 
+    if (event.tableId) {
+      const table = await ctx.db.get(event.tableId);
+      const viewer = table ? await getTableParticipation(ctx, table, userId) : null;
+      if (!viewer?.canSeeRoster) return {count: rows.length, names: []};
+      // Only Table hosts see contact details. Participants see first names.
+      canViewFull = viewer.isHost;
+    }
+
     return buildRsvpVisibility({
       rows: rows.map((r: any) => ({
         name: r.name,
@@ -365,6 +615,94 @@ export const getEventRsvps = query({
   },
 });
 
+// ——— A paid ticket for a Table's Event ———
+//
+// Used by AP's ticket webhook (garden/apGifts.ts) when a ticket is bought,
+// and by claimTicketBySession below when a guest ticket is moved onto an
+// account afterwards, so both follow one rule.
+
+export type TableTicketDecision =
+  | { ok: true; userId?: Id<"users"> }
+  | { ok: false; reason: string; tableId?: Id<"gardenTables"> };
+
+/** A ticket for an Event that belongs to a Table follows the Table's rules,
+ * the same ones the RSVP endpoints apply:
+ *   - an accepted participant (trusted identity, see paidWithVerifiedEmail)
+ *     gets their one RSVP on their account. Extra tickets would seat
+ *     guests on an account row, outside the guest count, so a participant
+ *     buying more than one seat is not honored here;
+ *   - anyone else is an external guest: the Table must accept guests
+ *     (canGuestRsvp: public, open, free, no membership gate, guests on),
+ *     and this Event must have a chair for every ticket (guestSeatsFit).
+ * Anything else is refused. `claiming` is the guest RSVP being moved onto
+ * an account, left out so the ticket isn't counted against itself. */
+export async function decideTableTicket(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ctx: any,
+  eventDoc: { _id: Id<"events">; tableId: Id<"gardenTables">; status?: string },
+  buyer: { userId?: Id<"users">; email: string; tickets: number },
+  claiming?: Id<"eventRsvps">,
+): Promise<TableTicketDecision> {
+  const table = await ctx.db.get(eventDoc.tableId);
+  if (!table) return { ok: false, reason: "table_missing" };
+  const refuse = (reason: string): TableTicketDecision => ({ ok: false, reason, tableId: table._id });
+  if (eventDoc.status !== "published") return refuse("event_unavailable");
+  const rows: { _id: Id<"eventRsvps">; userId?: Id<"users">; email: string; ticketCount?: number; paidCents?: number }[] = (
+    await ctx.db
+      .query("eventRsvps")
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .withIndex("by_eventId", (q: any) => q.eq("eventId", eventDoc._id))
+      .collect()
+  ).filter((row: { _id: Id<"eventRsvps"> }) => row._id !== claiming);
+  const existing = rows.find((row) => row.email === normalizeEmail(buyer.email));
+  if (buyer.userId) {
+    const participant = await getTableParticipation(ctx, table, buyer.userId);
+    if (participant.isMember || participant.isHost) {
+      if (existing?.userId && existing.userId !== buyer.userId) return refuse("account_rsvp");
+      const held = existing ? (existing.ticketCount ?? (existing.paidCents ? 1 : 0)) : 0;
+      return buyer.tickets === 1 && held === 0
+        ? { ok: true, userId: buyer.userId }
+        : refuse("participant_extra_tickets");
+    }
+  }
+  const guest = await getTableParticipation(ctx, table, null);
+  if (!guest.canGuestRsvp) return refuse("guests_not_allowed");
+  // Same rule as rsvpGuestToTableEvent: a guest never takes over an
+  // account-backed RSVP.
+  if (existing?.userId) return refuse("account_rsvp");
+  if (!guestSeatsFit(normalizeTable(table).capacity, guest.persistentChairs, guestSeatCount(rows), buyer.tickets))
+    return refuse("full");
+  return { ok: true };
+}
+
+/** Whether a guest ticket for a Table's Event may move onto this account.
+ * Holding the checkout session id isn't enough: it's in a URL anyone can be
+ * sent. The account must have paid with its own verified email (the RSVP's
+ * email is the one Stripe took), hold no other RSVP for this Event, and
+ * pass decideTableTicket as a participant taking one seat. Anyone else's
+ * ticket stays the guest ticket it was bought as. */
+async function tableTicketClaimAllowed(
+  ctx: MutationCtx,
+  eventDoc: { _id: Id<"events">; tableId: Id<"gardenTables">; status?: string },
+  rsvp: { _id: Id<"eventRsvps">; email: string; ticketCount?: number },
+  userId: Id<"users">,
+): Promise<boolean> {
+  const user = await ctx.db.get(userId);
+  if (!paidWithVerifiedEmail(user, rsvp.email)) return false;
+  const rows = await ctx.db
+    .query("eventRsvps")
+    .withIndex("by_eventId", (q) => q.eq("eventId", eventDoc._id))
+    .collect();
+  if (rows.some((row) => row._id !== rsvp._id && row.userId === userId)) return false;
+  const decision = await decideTableTicket(
+    ctx,
+    eventDoc,
+    { userId, email: rsvp.email, tickets: rsvp.ticketCount ?? 1 },
+    rsvp._id,
+  );
+  return decision.ok && decision.userId === userId;
+}
+
 // ——— Claim a ticket by its Stripe checkout session ———
 //
 // AP's Payment Link redirects back with `?session={CHECKOUT_SESSION_ID}`
@@ -373,6 +711,8 @@ export const getEventRsvps = query({
 // redirect URL — the buyer — can attach the ticket to the account they're
 // signed in with, whatever email they paid with. Only an RSVP with no
 // account yet is ever claimed; one already on an account stays put.
+// A Table's Event is stricter (tableTicketClaimAllowed above): the ticket
+// moves only to an accepted participant who paid with their verified email.
 
 export { isCheckoutSessionId, type TicketClaimResult } from "./ticketLink";
 
@@ -399,6 +739,15 @@ export const claimTicketBySession = mutation({
       .unique();
     const result = planTicketClaim(rsvp, String(userId));
     if (result !== "claimed" || !rsvp) return result;
+
+    const event = await ctx.db.get(rsvp.eventId);
+    if (event?.tableId && !(await tableTicketClaimAllowed(ctx, { ...event, tableId: event.tableId }, rsvp, userId))) {
+      throw new ConvexError({
+        code: TICKET_CLAIM_REFUSED,
+        reason:
+          "This ticket stays a guest ticket. It moves to your account only if you're in this Table, paid with your account's email, and bought one seat.",
+      });
+    }
 
     await ctx.db.patch(rsvp._id, { userId });
     const contribution = await ctx.db

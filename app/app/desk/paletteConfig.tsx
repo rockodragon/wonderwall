@@ -11,6 +11,7 @@ import {
   PersonSimple,
   SignIn,
   Sun,
+  UsersThree,
 } from "@phosphor-icons/react";
 import { needYouText } from "../components/shortlist/copy";
 import type { ShortlistSummary } from "../lib/shortlist/model";
@@ -22,7 +23,7 @@ import {
   type DeskCommunity,
 } from "./deskState";
 import { badgeText, type ToolId } from "./paletteLogic";
-import { FF_V2 } from "../lib/featureFlags";
+import { FF_TABLES, FF_V2 } from "../lib/featureFlags";
 import { GARDEN_SLUG } from "../lib/communitySlugs";
 
 const TOOL_ICON_SIZE = 19;
@@ -139,7 +140,7 @@ export function buildSignedInTools(d: SignedInDeps): PaletteTool[] {
   if (d.isAdmin) profileItems.push({ id: "admin", label: "Admin", to: "/admin" });
   profileItems.push({ id: "signout", label: "Sign out", onSelect: d.onSignOut });
 
-  return [
+  const tools: PaletteTool[] = [
     {
       id: "today",
       label: "Today",
@@ -188,8 +189,19 @@ export function buildSignedInTools(d: SignedInDeps): PaletteTool[] {
         { id: "host", label: "Host an event", to: deskHref("events", null, "event") },
       ],
     },
-    // In the slot the Desk tool had: the main button already does what Desk
-    // did, and a seventh tool would crowd the arc.
+    {
+      id: "tables",
+      label: "Tables",
+      header: "Tables",
+      icon: <UsersThree size={TOOL_ICON_SIZE} weight="regular" />,
+      active: isActive("tables"),
+      to: "/tables",
+      items: [
+        { id: "find", label: "Find a Table", to: "/tables" },
+        { id: "mine", label: "Your Tables", to: "/tables?view=mine" },
+        { id: "set", label: "Set a Table", to: "/tables/new" },
+      ],
+    },
     {
       id: "shortlist",
       label: "Shortlist",
@@ -210,6 +222,8 @@ export function buildSignedInTools(d: SignedInDeps): PaletteTool[] {
       items: profileItems,
     },
   ];
+  // Tables waits for FF_TABLES (lib/featureFlags.ts).
+  return FF_TABLES ? tools : tools.filter((t) => t.id !== "tables");
 }
 
 // ——————————————————————————————————————————————————————————————
@@ -229,7 +243,7 @@ export function buildSignedOutTools(d: SignedOutDeps): PaletteTool[] {
   const people = "/people";
   const projects = "/projects";
   const events = "/events";
-  return [
+  const tools: PaletteTool[] = [
     {
       id: "people",
       label: "People",
@@ -258,6 +272,15 @@ export function buildSignedOutTools(d: SignedOutDeps): PaletteTool[] {
       items: [{ id: "browse", label: "Browse events", to: events }],
     },
     {
+      id: "tables",
+      label: "Tables",
+      header: "Tables",
+      icon: <UsersThree size={TOOL_ICON_SIZE} weight="regular" />,
+      active: d.active === "tables",
+      to: "/tables",
+      items: [{ id: "find", label: "Find a Table", to: "/tables" }, { id: "set", label: "Set a Table", to: "/tables/new" }],
+    },
+    {
       id: "signin",
       label: "Sign in",
       header: "Sign in",
@@ -270,4 +293,6 @@ export function buildSignedOutTools(d: SignedOutDeps): PaletteTool[] {
       ],
     },
   ];
+  // Tables waits for FF_TABLES (lib/featureFlags.ts).
+  return FF_TABLES ? tools : tools.filter((t) => t.id !== "tables");
 }

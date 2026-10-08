@@ -5,6 +5,8 @@
 
 This is the plan as it stands. Open questions are at the end. Everything above them is how it works.
 
+**Architecture update, 2026-10-03:** The [Tables ADR](adr/tables-primary-community-container.md) now defines the platform-wide programming model. Classes, workshops, gatherings and groups are configurations of a Table; Events are its dated occurrences. Free accounts can set free one-time Tables. Publishing paid or ongoing Tables takes membership in the Table's community. Participants may pay a one-time Table fee without buying community membership when the Table is open; member-only Tables may be included with membership or charge an additional fee. External guest access is configured per Table. First-release pricing is free or fixed one-time payment. The [implementation plan](features/tables-implementation-plan.md) records migration and pending privacy recommendations; this update is architecture direction, not a claim that the existing implementation has changed.
+
 ---
 
 ## 1 · What it is

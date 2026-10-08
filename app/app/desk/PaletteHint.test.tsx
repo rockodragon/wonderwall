@@ -39,7 +39,7 @@ describe("the palette's first-visit note", () => {
     expect(() => markNoteSeen(HINT_KEY)).not.toThrow();
   });
 
-  it("says where the menu is, names the places, and can be dismissed", () => {
+  it("says where the menu is, names Tables, and can be dismissed", () => {
     const html = renderToString(<PaletteHint onDismiss={() => {}} reduced={false} />);
     expect(html).toContain(HINT_TITLE);
     expect(HINT_BODY).toContain("People, Projects, Events");

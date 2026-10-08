@@ -15,6 +15,8 @@ import { OrgLogo } from "../components/OrgLogo";
 import { yearsLabel } from "../../convex/organizationRules";
 import { PAGE_WIDTH } from "../lib/pageWidth";
 import { favoritesHref } from "../lib/shortlist/url";
+import { BackLink } from "../components/BackLink";
+import { FF_TABLES } from "../lib/featureFlags";
 
 // Matches listAffiliations's return shape (project-teams.md §4). Annotated
 // explicitly here — not inferred from the query — so this section still
@@ -36,7 +38,8 @@ export default function Profile() {
   // can follow a person into a community instead of hitting a dead end.
   const theirTables = useQuery(
     api.garden.tables.listTablesForUser,
-    profile?.userId ? { userId: profile.userId } : "skip",
+    // Tables stay hidden until FF_TABLES.
+    FF_TABLES && profile?.userId ? { userId: profile.userId } : "skip",
   );
   // Projects this person leads or is accepted on (project-teams.md §7).
   const affiliations = useQuery(
@@ -131,6 +134,7 @@ export default function Profile() {
   if (profile === undefined) {
     return (
       <div className={`p-6 ${PAGE_WIDTH.list} mx-auto`}>
+        <BackLink fallback="/people" className="mb-6" />
         <div className="animate-pulse">
           <div className="flex items-start gap-6 mb-8">
             <div className="w-24 h-24 bg-gray-200 dark:bg-gray-700 rounded-full" />
@@ -147,6 +151,7 @@ export default function Profile() {
   if (!profile) {
     return (
       <div className={`p-6 ${PAGE_WIDTH.list} mx-auto text-center py-12`}>
+        <BackLink fallback="/people" className="mb-6" />
         <p className="text-gray-500 dark:text-gray-400">Profile not found</p>
       </div>
     );
@@ -154,6 +159,7 @@ export default function Profile() {
 
   return (
     <div className={`p-4 sm:p-6 ${PAGE_WIDTH.list} mx-auto`}>
+      <BackLink fallback="/people" className="mb-6" />
       {/* Profile header. Identity (name/role/location/network) sits on the
           left, all the ways to act on this person are grouped on the right
           — Follow/Message/Share stay one click away, Block moves into the

@@ -1,15 +1,13 @@
-import { defineConfig, mergeConfig } from "vitest/config";
-import viteConfig from "./vite.config";
+import { fileURLToPath } from "node:url";
+import { configDefaults, defineConfig } from "vitest/config";
 
-// Vitest's default include glob (**/*.{test,spec}.*) also matches the
-// Playwright specs under e2e/, and Playwright's test.describe() throws when
-// invoked outside the Playwright runner. Keep vitest scoped to unit tests by
-// excluding e2e/, while reusing the app's existing Vite config unchanged.
-export default mergeConfig(
-  viteConfig,
-  defineConfig({
-    test: {
-      exclude: ["**/node_modules/**", "**/dist/**", "e2e/**"],
-    },
-  }),
-);
+// Unit/handler tests run without the framework dev server or its file watchers.
+// Browser fixtures have their own Playwright config and mocked API transport.
+export default defineConfig({
+  resolve: { alias: { "~": fileURLToPath(new URL("./app", import.meta.url)) } },
+  test: {
+    exclude: [...configDefaults.exclude, "e2e/**"],
+    environment: "node",
+    maxWorkers: 4,
+  },
+});

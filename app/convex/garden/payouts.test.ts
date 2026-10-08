@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildCreativeEarningsRows, computeCreativeEarnings, UNASSIGNED } from "./payouts";
+import { buildCreativeEarningsRows, computeCreativeEarnings, classPaymentToEarningsPayment, isPayableClassPayment, UNASSIGNED } from "./payouts";
 
 describe("computeCreativeEarnings", () => {
   it("totals the split and subtracts what's been paid out", () => {
@@ -77,5 +77,32 @@ describe("buildCreativeEarningsRows", () => {
   it("shows a payee who was paid but has no payments yet", () => {
     const rows = buildCreativeEarningsRows([], [{ payeeUserId: "u_bo", amountCents: 300 }], lookup);
     expect(rows).toEqual([expect.objectContaining({ name: "Bo", owedCents: -300, paymentsCount: 0 })]);
+  });
+});
+
+describe("Table payments on the shared earnings ledger", () => {
+  it("preserves legacy class earnings and groups new payments by Table", () => {
+    const money = { grossCents: 1000, platformCents: 100, teacherCents: 900 };
+    expect(
+      classPaymentToEarningsPayment({ ...money, offeringId: "old" }, "A class"),
+    ).toMatchObject({ projectId: "old", title: "A class", workCents: 900 });
+    expect(
+      classPaymentToEarningsPayment(
+        { ...money, tableId: "table", offeringId: "old" },
+        "Our Table",
+      ),
+    ).toMatchObject({ projectId: "table", title: "Our Table", workCents: 900 });
+    expect(
+      classPaymentToEarningsPayment(
+        { ...money, tableId: "missing" },
+        undefined,
+      ),
+    ).toMatchObject({ projectId: "missing", title: "A deleted Table" });
+  });
+  it("keeps historical payments payable while excluding refund exceptions", () => {
+    expect(isPayableClassPayment({})).toBe(true);
+    expect(isPayableClassPayment({ status: "paid" })).toBe(true);
+    expect(isPayableClassPayment({ status: "refund_required" })).toBe(false);
+    expect(isPayableClassPayment({ status: "refunded" })).toBe(false);
   });
 });

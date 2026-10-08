@@ -98,18 +98,19 @@ describe("computeFeeSummary", () => {
       "pool_contributions",
       "host_sales",
       "event_tickets",
+      "table_sales",
     ]);
   });
 
-  it("excludes pool_other from bySource entirely — no fifth row leaks in", () => {
+  it("excludes pool_other from bySource entirely — no extra source row leaks in", () => {
     const fees = computeFeeSummary([{ source: "pool_other", period: "2026-08", grossCents: 500, platformCents: 50 }]);
-    expect(fees.bySource).toHaveLength(4);
+    expect(fees.bySource).toHaveLength(5);
     expect(fees.bySource.every((s) => s.count === 0)).toBe(true);
     // but the platform cut still counts toward the total
     expect(fees.totalPlatformCents).toBe(50);
   });
 
-  it("flags event_tickets as split-not-recorded while the other three are recorded", () => {
+  it("flags event_tickets as split-not-recorded while sales and membership splits are recorded", () => {
     const fees = computeFeeSummary([]);
     const bySource = Object.fromEntries(fees.bySource.map((s) => [s.source, s.splitRecorded]));
     expect(bySource).toEqual({
@@ -117,6 +118,7 @@ describe("computeFeeSummary", () => {
       pool_contributions: true,
       host_sales: true,
       event_tickets: false,
+      table_sales: true,
     });
   });
 
@@ -151,7 +153,7 @@ describe("computeFeeSummary", () => {
     const fees = computeFeeSummary([]);
     expect(fees.totalPlatformCents).toBe(0);
     expect(fees.byPeriod).toEqual([]);
-    expect(fees.bySource).toHaveLength(4);
+    expect(fees.bySource).toHaveLength(5);
     for (const s of fees.bySource) {
       expect(s.grossCents).toBe(0);
       expect(s.platformCents).toBe(0);
@@ -403,5 +405,15 @@ describe("buildRecent", () => {
     expect(out.find((i) => i.source === "allocation")!.grossCents).toBeLessThan(0);
     expect(out.find((i) => i.source === "host_payout")!.grossCents).toBeLessThan(0);
     expect(out.find((i) => i.source === "host_sale")!.grossCents).toBeGreaterThan(0);
+  });
+});
+
+
+describe("Table sale fee reporting", () => {
+  it("counts the recorded Table split in monthly and platform totals", () => {
+    const result = computeFeeSummary([{source: "table_sales", period: "2026-10", grossCents: 2500, platformCents: 250}]);
+    expect(result.totalPlatformCents).toBe(250);
+    expect(result.bySource.find(row => row.source === "table_sales")).toMatchObject({grossCents: 2500, platformCents: 250, count: 1, splitRecorded: true});
+    expect(result.byPeriod).toEqual([{period: "2026-10", grossCents: 2500, platformCents: 250}]);
   });
 });

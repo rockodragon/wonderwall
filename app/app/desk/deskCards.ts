@@ -94,6 +94,9 @@ export type DeskCard = {
     description: string;
     /** Small print beside the button: "3 going", "Tax-deductible". */
     aside: string | null;
+    /** A few actual faces behind an organization, alongside its member count. */
+    people?: readonly { name: string; imageUrl?: string | null }[];
+    peopleCount?: number;
     /** Labelled rows under the description (a project's stage, funding, roles,
      * pay; a Shortlist role's pay and closing date). Absent on cards that
      * don't have any. */
@@ -183,6 +186,8 @@ export type DeskOrgInput = {
   logoUrl?: string | null;
   /** Current members. */
   peopleCount?: number;
+  /** The first few current members, returned by api.organizations.list. */
+  faces?: readonly { name: string; imageUrl?: string | null }[];
 };
 
 export type DeskFundInput = {
@@ -660,6 +665,8 @@ export function orgCard(o: DeskOrgInput, sections: DeskView[] = ["people"]): Des
       description: plainText(o.tagline),
       // Only a real number: nothing at zero.
       aside: people > 0 ? peopleLine(people) : null,
+      people: o.faces ?? [],
+      peopleCount: people,
       action: { kind: "link", label: "See organization", href: `/orgs/${o.slug}` },
     },
     href: `/orgs/${o.slug}`,

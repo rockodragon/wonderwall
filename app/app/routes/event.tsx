@@ -241,7 +241,11 @@ export default function EventDetail() {
   // shown by one card, in the desktop rail and on a phone. events.apply
   // throws "Not authenticated", so a guest gets the guest RSVP instead of a
   // button that would reject on click.
-  const cta = eventCta(event, {
+  // Tables: an accepted Table participant joins a Table Event without
+  // applying again (server-decided, applyNeedsApproval); an older backend
+  // without it falls back to the Event's own flag.
+  const needsApproval = event.applyNeedsApproval ?? event.requiresApproval;
+  const cta = eventCta({ ...event, requiresApproval: needsApproval }, {
     now,
     who: isGuest ? "guest" : isAuthenticated ? "member" : "unknown",
     isOrganizer: event.isOrganizer,
@@ -798,7 +802,9 @@ export default function EventDetail() {
         <CreateEventModal
           edit={{
             eventId: event._id,
-            canEditTickets: !!event.isOrganizer,
+            // A Table's dates don't sell their own tickets: the Table's
+            // price covers them (events.update refuses a link on one).
+            canEditTickets: !!event.isOrganizer && !event.tableId,
             coverImageUrl: event.coverImageUrl,
             initialValues: {
             title: event.title,

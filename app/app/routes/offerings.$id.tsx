@@ -15,7 +15,7 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
 import { useMutation, useQuery } from "convex/react";
-import { Link, useNavigate, useParams, useRouteError, useSearchParams } from "react-router";
+import { Link, Navigate, useNavigate, useParams, useRouteError, useSearchParams } from "react-router";
 import { useBack } from "../lib/useBack";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
@@ -112,6 +112,9 @@ export default function OfferingDetail() {
     api.offerings.getOffering,
     offeringId ? { offeringId } : "skip",
   );
+  const migratedTable = useQuery(api.garden.tables.getTableForOffering,
+    offeringId ? {offeringId: offeringId as Id<"offerings">} : "skip",
+  );
   const myProfile = useQuery(api.profiles.getMyProfile);
   const [showEditForm, setShowEditForm] = useState(false);
   const [showSignupModal, setShowSignupModal] = useState(false);
@@ -127,6 +130,8 @@ export default function OfferingDetail() {
     api.offerings.getMySignup,
     justPaid && offeringId ? { offeringId } : "skip",
   );
+
+  if (migratedTable) return <Navigate replace to={`/tables/${migratedTable.slug}${searchParams.size ? `?${searchParams}` : ""}`} />;
 
   if (offering === undefined) {
     return (

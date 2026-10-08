@@ -31,7 +31,7 @@
 import { v } from "convex/values";
 import { internalMutation } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
-import { upsertEventRsvp } from "./eventRsvps";
+import { decideTableTicket, paidWithVerifiedEmail, upsertEventRsvp } from "./eventRsvps";
 import { parseGiftRef } from "./givingLink";
 
 const AP_HOST_ORG_SLUG = "abiding-practice";
@@ -307,20 +307,47 @@ async function getApHostOrg(ctx: any) {
   return org;
 }
 
+/** The buyer an AP ticket session may be attributed to.
+ * client_reference_id is built in the browser and anyone can edit it, so
+ * its user id alone proves nothing. The account is used only when Stripe's
+ * checkout email matches that account's verified email; otherwise the
+ * buyer is an email guest (claimTicketBySession can still attach a
+ * standalone Event's RSVP to whoever holds the checkout session id; a
+ * Table's Event only to the participant who paid with that email). */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function trustedTicketBuyer(ctx: any, session: ApCheckoutSessionLike, ref: TicketRef): Promise<Id<"users"> | undefined> {
+  if (!ref.userId) return undefined;
+  const userId = ctx.db.normalizeId("users", ref.userId) as Id<"users"> | null;
+  const user = userId
+    ? ((await ctx.db.get(userId)) as { email?: string; emailVerificationTime?: number } | null)
+    : null;
+  if (!paidWithVerifiedEmail(user, session.customer_details?.email)) return undefined;
+  return userId ?? undefined;
+}
+
 /** The ticket branch: session.client_reference_id resolved to an event via
  * parseTicketRef. Adds the buyer to the event (through the same
  * insert/dedupe helper a free RSVP uses) and records the ticket into
  * grantContributions. Never throws on a bad/stale ref — Stripe would just
- * retry forever for a session this route can never make sense of. */
+ * retry forever for a session this route can never make sense of.
+ *
+ * Standalone Events take any paid ticket, as before. A Table's Event first
+ * passes decideTableTicket (eventRsvps.ts); a refused purchase writes neither an RSVP nor
+ * a ticket_in row (the money is going back), only an
+ * externalTicketExceptions row for an operator to refund in AP's Stripe
+ * account. Table checkout's own refund path (classPayments refund_required)
+ * doesn't fit: it refunds through the platform's Stripe account and needs
+ * a buyer account. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function applyApTicketSession(ctx: any, event: ApStripeWebhookEvent, session: ApCheckoutSessionLike, ref: TicketRef) {
   const stripeRef = `ap:${session.id}`;
 
-  // Idempotent on ap:<session id> — checked on BOTH tables a replay could
+  // Idempotent on ap:<session id> — checked on every table a replay could
   // have already written (the RSVP and the money land in one call below,
   // but a retried webhook after a partial prior failure should still be
-  // caught by either one already being there).
-  const [existingContribution, existingRsvp] = await Promise.all([
+  // caught by either one already being there; a refused ticket leaves
+  // only its exception row).
+  const [existingContribution, existingRsvp, existingException] = await Promise.all([
     ctx.db
       .query("grantContributions")
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -331,8 +358,13 @@ async function applyApTicketSession(ctx: any, event: ApStripeWebhookEvent, sessi
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .withIndex("by_stripeRef", (q: any) => q.eq("stripeRef", stripeRef))
       .unique(),
+    ctx.db
+      .query("externalTicketExceptions")
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .withIndex("by_stripeRef", (q: any) => q.eq("stripeRef", stripeRef))
+      .unique(),
   ]);
-  if (existingContribution || existingRsvp) {
+  if (existingContribution || existingRsvp || existingException) {
     console.log("[ap stripe webhook] ticket session already applied, ignoring replay", event.id, session.id);
     return;
   }
@@ -348,13 +380,7 @@ async function applyApTicketSession(ctx: any, event: ApStripeWebhookEvent, sessi
     return;
   }
 
-  let userId: Id<"users"> | undefined;
-  if (ref.userId) {
-    const normalizedUserId = ctx.db.normalizeId("users", ref.userId) as Id<"users"> | null;
-    if (normalizedUserId && (await ctx.db.get(normalizedUserId))) {
-      userId = normalizedUserId;
-    }
-  }
+  let userId = await trustedTicketBuyer(ctx, session, ref);
 
   let name: string | undefined;
   let email: string | undefined;
@@ -380,6 +406,35 @@ async function applyApTicketSession(ctx: any, event: ApStripeWebhookEvent, sessi
   }
 
   const grossCents = session.amount_total ?? 0;
+  // The link lets the buyer pick a quantity; the payload has the total.
+  const tickets = ticketCountFor(grossCents, eventDoc.externalTicketPriceCents);
+
+  if (eventDoc.tableId) {
+    const decision = await decideTableTicket(ctx, eventDoc, { userId, email, tickets });
+    if (!decision.ok) {
+      console.error("[ap stripe webhook] Table ticket refused, flagged for refund", event.id, session.id, decision.reason);
+      await ctx.db.insert("externalTicketExceptions", {
+        stripeRef,
+        eventId: normalizedEventId,
+        tableId: decision.tableId,
+        grossCents,
+        currency: (session.currency ?? "usd").toLowerCase(),
+        ticketCount: tickets,
+        reason: decision.reason,
+        payerName: session.customer_details?.name || undefined,
+        status: "refund_required",
+        createdAt: Date.now(),
+      });
+      return;
+    }
+    // A buyer who isn't an accepted participant is recorded as a guest
+    // (no account on the row), which is how guest chairs are counted.
+    if (!decision.userId) {
+      userId = undefined;
+      name = session.customer_details?.name ?? undefined;
+      email = session.customer_details?.email ?? email;
+    }
+  }
 
   await upsertEventRsvp(ctx, {
     eventId: normalizedEventId,
@@ -388,8 +443,7 @@ async function applyApTicketSession(ctx: any, event: ApStripeWebhookEvent, sessi
     email,
     paidCents: grossCents,
     stripeRef,
-    // The link lets the buyer pick a quantity; the payload has the total.
-    tickets: ticketCountFor(grossCents, eventDoc.externalTicketPriceCents),
+    tickets,
     guestNames: guestNamesFrom(session.custom_fields),
   });
 

@@ -23,11 +23,11 @@ Every sentence we say about money is defined here, word for word. Do not write a
 | **dues** | Half of your membership funds grants for other creatives. |
 | **dues, other half** | The other half keeps this running. |
 | **pool** | Half of every membership funds grants for other creatives. Members propose projects, and a review team decides. |
-| **ticket fund** | Every ticket goes into the Sophia Fund, an artist grant fund that backs projects by creatives in the community. Creatives propose projects, and a review team decides. |
+| **ticket fund** | Every ticket goes into the Sophia Grant Fund, an artist grant fund that backs projects by creatives in the community. Creatives propose projects, and a review team decides. |
 | **sophia schedule** | The first grants go out in November, from projects submitted in October. |
 | **gift deductible** | Abiding Practice is a 501(c)(3), so your gift is tax-deductible. |
 | **gift deductible, short** | Tax-deductible |
-| **grant fund** | The Sophia Fund, The Garden's grant fund, is run by Abiding Practice, a 501(c)(3), so gifts to it are tax-deductible. About 87% of each gift is granted. |
+| **grant fund** | The Sophia Grant Fund, The Garden's grant fund, is run by Abiding Practice, a 501(c)(3), so gifts to it are tax-deductible. About 87% of each gift is granted. |
 | **patron** | Back a specific person or project. 90% goes to them. You can be named on the work, or stay anonymous. |
 | **coverage** | $10 a month covers one creative's membership. A covered membership is a full membership. |
 | **partner** | Post paid work with the pay stated up front, or offer your space. Creatives respond, and you pick. |
@@ -35,6 +35,21 @@ Every sentence we say about money is defined here, word for word. Do not write a
 | **member-directed** | Each month you choose who gets your monthly grant: a creative, a project, or the grant fund. |
 | **member-directed, default** | If you don't pick within a week, it goes to the grant fund. |
 | **member-directed, full** | What you give goes to them in full. |
+
+### Added 2026-10-03 for /pricing — awaiting Rick's OK
+
+From the plan's Tables update (2026-10-03) and §3; checked against the code on `tables`. `/pricing` is not linked anywhere until these are approved.
+
+| Name | The sentence |
+|---|---|
+| **per community** | Each community sets its own membership price. |
+| **tables, free** | Anyone can set a free, one-time Table. |
+| **tables, paid** | Charging for a Table, or running one that meets again, takes membership in its community. |
+| **tables, join paid** | Anyone can join an open paid Table by paying its price. |
+| **table split** | On a paid Table, you keep 90% of what you sell. |
+| **table processing fee** | Card processing is added on top of the Table's price. |
+| **tickets** | Anyone can post an event. Selling tickets takes membership. |
+| **direct pay** | When a patron pays a creative directly, we take nothing. |
 
 ## Where these sentences live
 

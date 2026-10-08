@@ -2,6 +2,8 @@ import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir: "e2e",
+  // Tables client interactions have their own isolated API fixture and server.
+  testIgnore: "tables.browser.ts",
   fullyParallel: true,
   retries: process.env.CI ? 2 : 0,
   reporter: "list",

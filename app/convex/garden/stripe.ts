@@ -25,6 +25,7 @@ import {
   backingProcessingFeeCents,
   backingReturnPaths,
   classCheckoutParts,
+  tableCheckoutParts,
   guestBackingRefusal,
   resolveGuestSupporterName,
   validateBackingAmount,
@@ -873,19 +874,37 @@ export const createClassCheckout = action({
   args: {
     offeringId: v.id("offerings"),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<{ url: string }> => {
     const userId = await auth.getUserId(ctx);
     if (!userId) {
-      throw new ConvexError({ code: "unauthenticated", reason: "Sign in to sign up for a class." });
+      throw new ConvexError({
+        code: "unauthenticated",
+        reason: "Sign in to sign up for a class.",
+      });
+    }
+
+    const migratedTableId = await ctx.runQuery(
+      internal.garden.tablesCheckout.resolveOfferingTable,
+      {
+        offeringId: args.offeringId,
+      },
+    );
+    if (migratedTableId) {
+      return await ctx.runAction(api.garden.stripe.createTableCheckout, {
+        tableId: migratedTableId,
+      });
     }
 
     // Every "may this student pay?" rule lives in classCheckoutRefusal
     // (stripeHandlers.ts), run inside the same mutation that writes the
     // sign-up row, so nothing can change between the check and the write.
-    const started = await ctx.runMutation((internal as any).offerings.startClassCheckout, {
-      offeringId: args.offeringId,
-      userId: String(userId),
-    });
+    const started = await ctx.runMutation(
+      (internal as any).offerings.startClassCheckout,
+      {
+        offeringId: args.offeringId,
+        userId: String(userId),
+      },
+    );
     if (!started.ok) {
       throw new ConvexError(started.refusal);
     }
@@ -906,11 +925,14 @@ export const createClassCheckout = action({
         metadata: { userId: String(userId) },
       });
       stripeCustomerId = customer.id;
-      await ctx.runMutation((internal as any).garden.memberships.saveBillingCustomer, {
-        userId: String(userId),
-        stripeCustomerId,
-        email: identity?.email ?? undefined,
-      });
+      await ctx.runMutation(
+        (internal as any).garden.memberships.saveBillingCustomer,
+        {
+          userId: String(userId),
+          stripeCustomerId,
+          email: identity?.email ?? undefined,
+        },
+      );
     }
 
     const parts = classCheckoutParts({
@@ -936,10 +958,142 @@ export const createClassCheckout = action({
     });
 
     if (!session.url) {
-      throw new ConvexError({ code: "no_checkout_url", reason: "Stripe did not return a checkout URL." });
+      throw new ConvexError({
+        code: "no_checkout_url",
+        reason: "Stripe did not return a checkout URL.",
+      });
     }
 
     return { url: session.url };
+  },
+});
+
+/** Fixed one-time enrollment; capacity and authorization are checked by
+ * one atomic policy mutation before any payment session is created. */
+export const createTableCheckout = action({
+  args: { tableId: v.id("gardenTables") },
+  handler: async (ctx, args): Promise<{ url: string }> => {
+    const userId = await auth.getUserId(ctx);
+    if (!userId) throw new ConvexError("Sign in to join this Table.");
+    const stripe = getStripeClient();
+    const started = await ctx.runMutation(
+      internal.garden.tablesCheckout.start,
+      {
+        tableId: args.tableId,
+        userId,
+      },
+    );
+    if (started.stripeCheckoutSessionId) {
+      const existingSession = await stripe.checkout.sessions.retrieve(
+        started.stripeCheckoutSessionId,
+      );
+      if (existingSession.status === "open" && existingSession.url)
+        return { url: existingSession.url };
+      throw new ConvexError(
+        "This checkout has finished. Refresh the Table to see your enrollment.",
+      );
+    }
+    const billing = await ctx.runQuery(
+      internal.garden.memberships.getBillingCustomerForUser,
+      {
+        userId,
+      },
+    );
+    const identity = await ctx.auth.getUserIdentity();
+    const parts = tableCheckoutParts({
+      tableId: String(args.tableId),
+      holdId: String(started.holdId),
+      title: started.title,
+      slug: started.slug,
+      priceCents: started.priceCents,
+      currency: started.currency,
+      buyerUserId: String(userId),
+    });
+    const session = await stripe.checkout.sessions
+      .create(
+        {
+          mode: "payment",
+          payment_method_types: ["card"],
+          ...(billing?.stripeCustomerId
+            ? { customer: billing.stripeCustomerId }
+            : { customer_email: identity?.email ?? undefined }),
+          line_items: parts.lineItems,
+          metadata: parts.metadata,
+          payment_intent_data: { metadata: parts.metadata },
+          success_url: `${siteUrl()}${parts.paths.success}`,
+          cancel_url: `${siteUrl()}${parts.paths.cancel}`,
+          expires_at: Math.floor(started.expiresAt / 1000),
+          allow_promotion_codes: false,
+        },
+        { idempotencyKey: `table-checkout:${started.holdId}` },
+      )
+      .catch(async (error: unknown) => {
+        if (
+          error &&
+          typeof error === "object" &&
+          "param" in error &&
+          error.param === "expires_at" &&
+          "type" in error &&
+          error.type === "StripeInvalidRequestError"
+        ) {
+          await ctx.runMutation(
+            internal.garden.tablesCheckout.releaseUncreated,
+            {
+              holdId: started.holdId,
+              userId,
+            },
+          );
+          throw new ConvexError(
+            "This checkout reservation expired before it could open. Try again to reserve a new chair.",
+          );
+        }
+        throw error;
+      });
+    await ctx.runMutation(internal.garden.tablesCheckout.attach, {
+      holdId: started.holdId,
+      userId,
+      stripeCheckoutSessionId: session.id,
+    });
+    if (!session.url)
+      throw new ConvexError("Stripe did not return a checkout URL.");
+    return { url: session.url };
+  },
+});
+
+/** Operator reconciliation for a confirmed payment that could not acquire
+ * a seat. Full refund includes the payer's processing charge. */
+export const refundTablePayment = action({
+  args: { paymentId: v.id("classPayments") },
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{ status: "refunded"; refundId?: string }> => {
+    const userId = await auth.getUserId(ctx);
+    if (!userId)
+      throw new ConvexError("Sign in as an operator to refund a payment.");
+    const terms = await ctx.runQuery(
+      internal.garden.tablesCheckout.getRefundTerms,
+      { paymentId: args.paymentId, userId },
+    );
+    if (terms.alreadyRefunded)
+      return { status: "refunded", refundId: terms.refundId };
+    const refund = await getStripeClient().refunds.create(
+      { payment_intent: terms.paymentIntentId },
+      {
+        idempotencyKey: `table-refund:${args.paymentId}`,
+      },
+    );
+    if (refund.status !== "succeeded")
+      throw new ConvexError(
+        "Stripe has not confirmed this refund yet. Retry to check its status.",
+      );
+    await ctx.runMutation(internal.garden.tablesCheckout.recordRefund, {
+      paymentId: args.paymentId,
+      userId,
+      refundId: refund.id,
+      paymentIntentId: terms.paymentIntentId,
+    });
+    return { status: "refunded", refundId: refund.id };
   },
 });
 

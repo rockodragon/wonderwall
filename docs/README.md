@@ -14,6 +14,7 @@ The project is **creatives.exchange** (repo: wonderwall). Four documents are the
 
 ## Feature specs
 
+- [Tables ADR](adr/tables-primary-community-container.md) — accepted domain direction: Tables contain Events; membership and attendance are separate. [Tables implementation plan](features/tables-implementation-plan.md) — current-code reconciliation, IA, migration, shared rules, test strategy, and pending scope decisions.
 - [Phase 1B spec](phase-1b/spec.md) — the October build plan (money foundation, entitlements, coverage codes)
 - [Live booking](features/live-booking.md) — a venue posts recurring paid gigs, artists answer with clips, the venue picks and pays directly; includes the payment-linking research
 - [Projects IA](features/project-ia.md) — **current** posting, browsing, support and profile model: one Project; Start a project / Hire someone; one row of chips (Projects, Seeking funding, Seeking people, Jobs and gigs); Cheer / Back; Portfolio = completed projects. Also lists where plan and code still disagree.
@@ -35,7 +36,7 @@ The project is **creatives.exchange** (repo: wonderwall). Four documents are the
 
 ## Runbooks and research
 
-- [Step 0: go live in Stripe test mode](runbooks/step-0-go-live.md)
+- [Stripe test mode on the dev backend](runbooks/step-0-go-live.md) — keys, prices, webhook and env vars for `giant-wildebeest-814`, and what prod needs before paid Tables
 - [Entity structure research](entity-structure-research.md) · [research/](research/)
 
 ## Historical (superseded — do not quote from these)
@@ -45,3 +46,5 @@ Earlier eras of the same idea. Their money splits and vocabulary are out of date
 - TheCrossBoard era: [strategic plan](thecrossboard-strategic-plan.md) · [core PRD](prd.md) · [priority brief](priority-brief.md) · [board deck](decks/)
 - The Exchange era: [vision](the-exchange-vision.md) · [MVP](the-exchange-mvp.md) · [discernment brief](the-exchange-discernment-brief.md) · [stakeholder one-pager](the-exchange-stakeholder-one-pager.md)
 - The Garden era: [old P&L](the-garden-pnl.xlsx) (superseded by the financial model) · [triage](triage.md)
+
+- [Tables MVP rollout and handoff](features/tables-mvp-rollout.md) — implemented scope, safe migration, deployment, and follow-up work.

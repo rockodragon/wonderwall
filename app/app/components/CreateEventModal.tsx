@@ -205,7 +205,8 @@ function OptionRow({
 export type EventEditTarget = {
   eventId: Id<"events">;
   /** Tickets are the organizer's; a co-host's save leaves them as they were
-   * (events.update), so the ticket row isn't shown to co-hosts. */
+   * (events.update), so the ticket row isn't shown to co-hosts. Nor on a
+   * Table's Event, which sells no tickets of its own. */
   canEditTickets: boolean;
   coverImageUrl?: string | null;
   initialValues: {

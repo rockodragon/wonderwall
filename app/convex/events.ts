@@ -15,6 +15,8 @@ import { communityVisibility, isHiddenCommunityId } from "./garden/communityVisi
 import { hostUserIdsForOrg, primaryOrgByUserId } from "./organizations";
 import { isAdmin } from "./helpers";
 import { isHidden } from "./moderationRules";
+import { getTableParticipation } from "./garden/tablePolicy";
+import { notifyDateCanceled, notifyDateChanged } from "./garden/tableNotify";
 import { isEventListed } from "./eventWindow";
 import { isSafeHttpsUrl } from "./garden/richText";
 
@@ -139,6 +141,22 @@ export function normalizeExternalTicket(
   }
 
   return { externalTicketUrl: trimmed, externalTicketPriceCents: input.priceCents };
+}
+
+/** A Table's price covers its dates, so a Table's Event never sells its
+ * own tickets (Rick, 2026-10-04). */
+export const TABLE_EVENT_TICKETS_ERROR =
+  "A Table's dates don't sell their own tickets — set the price on the Table.";
+
+/** Whether a save would put a ticket link on a Table's Event. A link the
+ * Event already had from before this rule isn't a new one: it stays as it
+ * is, and AP's ticket webhook applies the Table's rules to its sales
+ * (garden/eventRsvps.ts's decideTableTicket). */
+export function addsTableEventTicketLink(
+  event: { tableId?: unknown; externalTicketUrl?: string },
+  nextUrl: string | undefined,
+): boolean {
+  return !!event.tableId && !!nextUrl && nextUrl !== event.externalTicketUrl;
 }
 
 // Ticket-gated visibility (isFreeEvent / eventVisibilityChecker) lives in
@@ -519,8 +537,18 @@ export const get = query({
 
     const chosenHosts = await loadDisplayHosts(ctx, event);
 
+    let tableParticipant = false;
+    if (event.tableId && userId) {
+      const table = await ctx.db.get(event.tableId);
+      const viewer = table ? await getTableParticipation(ctx, table, userId) : null;
+      tableParticipant = !!viewer && (viewer.isMember || viewer.isHost);
+    }
+
     return {
       ...event,
+      // What this viewer's Apply/Join leads to (events.apply): an accepted
+      // Table participant joins without a second approval.
+      applyNeedsApproval: applicationNeedsApproval(event, tableParticipant),
       coHosts,
       // Who "Hosted by" shows when the host set the list; null = default.
       shownHosts: chosenHosts
@@ -755,6 +783,9 @@ export const update = mutation({
       priceCents: args.externalTicketPriceCents,
     });
     if (ticketLinkError) throw new ConvexError(ticketLinkError);
+    if (addsTableEventTicketLink(event, externalTicketUrl)) {
+      throw new ConvexError({ code: "table_event_tickets", reason: TABLE_EVENT_TICKETS_ERROR });
+    }
 
     if (args.hostOrgId) {
       await assertCommunityMember(ctx, args.hostOrgId, userId);
@@ -797,7 +828,9 @@ export const update = mutation({
       endTime: args.endTime,
       // Tickets are the organizer's: a co-host's save keeps them as they
       // were, so a co-host can't point the ticket link at their own Stripe.
-      ...(event.organizerId === userId
+      // A Table's Event sells none (the Table's price covers it), so its
+      // ticket fields are never written here; the edit form leaves them out.
+      ...(event.organizerId === userId && !event.tableId
         ? { ticketTiers: tiers, externalTicketUrl, externalTicketPriceCents }
         : {}),
       location: args.location?.trim(),
@@ -813,6 +846,13 @@ export const update = mutation({
     });
 
     await schedulePreviewFetch(ctx, "event", args.eventId, fetchMediaUrl);
+
+    // A Table date that moved (time or place, not words) tells the people
+    // coming to it and the people at the Table (garden/tableNotify.ts).
+    if (event.tableId) {
+      const saved = await ctx.db.get(args.eventId);
+      if (saved) await notifyDateChanged(ctx, event, saved, userId);
+    }
   },
 });
 
@@ -833,6 +873,8 @@ export const cancel = mutation({
       status: "cancelled",
       updatedAt: Date.now(),
     });
+    // A canceled Table date tells the same people as a change.
+    if (event.tableId) await notifyDateCanceled(ctx, event, userId);
   },
 });
 
@@ -931,6 +973,19 @@ export const removeCoHost = mutation({
   },
 });
 
+/** Whether this person's application waits for a host. A Table Event's
+ * approval is the Table's, given once at enrollment: an accepted
+ * participant is never asked again per Event. The MVP has no separate
+ * Event-level approval policy for Table Events, so their requiresApproval
+ * flag (older ones copied it from the Table's access) is not one. */
+export function applicationNeedsApproval(
+  event: { tableId?: unknown; requiresApproval: boolean },
+  tableParticipant: boolean,
+): boolean {
+  if (event.tableId && tableParticipant) return false;
+  return event.requiresApproval;
+}
+
 export const apply = mutation({
   args: {
     eventId: v.id("events"),
@@ -945,6 +1000,15 @@ export const apply = mutation({
     if (!event || !(await canSeeEvent(ctx, event, userId))) throw new Error("Event not found");
     if (event.status !== "published")
       throw new Error("Event is not accepting applications");
+    let tableParticipant = false;
+    if (event.tableId) {
+      const table = await ctx.db.get(event.tableId);
+      const participation = table ? await getTableParticipation(ctx, table, userId) : null;
+      if (!participation || (!participation.isMember && !participation.isHost)) {
+        throw new Error("Join the Table and complete its requirements first");
+      }
+      tableParticipant = true;
+    }
 
     // Check if already applied
     const existing = await ctx.db
@@ -961,7 +1025,7 @@ export const apply = mutation({
       eventId: args.eventId,
       applicantId: userId,
       message: args.message?.trim(),
-      status: event.requiresApproval ? "pending" : "accepted",
+      status: applicationNeedsApproval(event, tableParticipant) ? "pending" : "accepted",
       createdAt: now,
       updatedAt: now,
     });
@@ -1160,6 +1224,13 @@ export const getAttendees = query({
     const event = await ctx.db.get(args.eventId);
     const viewerId = await auth.getUserId(ctx);
     if (!event || !(await canSeeEvent(ctx, event, viewerId))) return [];
+    let canSeeApplicationMessages = true;
+    if (event.tableId) {
+      const table = await ctx.db.get(event.tableId);
+      const participation = table ? await getTableParticipation(ctx, table, viewerId) : null;
+      if (!participation?.canSeeRoster) return [];
+      canSeeApplicationMessages = participation.isHost;
+    }
     const acceptedApplications = await ctx.db
       .query("eventApplications")
       .withIndex("by_eventId", (q) => q.eq("eventId", args.eventId))
@@ -1183,7 +1254,7 @@ export const getAttendees = query({
         key: String(app._id),
         userId: app.applicantId as Id<"users"> | null,
         ...(await member(app.applicantId)),
-        message: app.message || null,
+        message: canSeeApplicationMessages ? app.message || null : null,
         joinedAt: app.createdAt,
         // Tickets beyond their own — shown as "+2", never the names.
         extraTickets: 0,
@@ -1343,7 +1414,7 @@ export const getEventForTicketCheckout = internalQuery({
   args: { eventId: v.id("events"), tierName: v.string() },
   handler: async (ctx, args) => {
     const event = await ctx.db.get(args.eventId);
-    if (!event) return null;
+    if (!event || event.tableId) return null; // Table enrollment owns its price and access.
 
     // A ticketed event whose organizer can't sell tickets refuses checkout
     // the same way a deleted event does ("isn't there anymore" —
