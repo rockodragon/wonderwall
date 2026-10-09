@@ -21,6 +21,7 @@ import {
   richDocValidator,
 } from "./richText";
 import { summarizeGig } from "./gigSummary";
+import { trackEvent } from "../posthog";
 // A pasted Instagram, TikTok, YouTube or Vimeo link that IS the project's
 // media — the Instagram post a poster is hiring from, the reel a passion
 // project is (docs/features/creator-media-cross-post.md, Round 2) — is
@@ -182,6 +183,7 @@ export const createPassionProject = mutation({
     // The still for the card (Instagram, TikTok); a no-op for the rest.
     await schedulePreviewFetch(ctx, "project", id, mediaUrl);
     await notifyFollowersOfProject(ctx, userId, id, args.title, args.hostOrgId);
+    await trackEvent(ctx, "project_created", userId, { kind: "passion", project_id: id, community_id: args.hostOrgId ?? null });
     return { projectId: id, storySlug };
   },
 });
@@ -813,6 +815,7 @@ export const createPaidProject = mutation({
     // The still for the card (Instagram, TikTok); a no-op for the rest.
     await schedulePreviewFetch(ctx, "project", id, mediaUrl);
     await notifyFollowersOfProject(ctx, userId, id, args.title, args.hostOrgId);
+    await trackEvent(ctx, "project_created", userId, { kind: "paid", project_id: id, community_id: args.hostOrgId ?? null });
     return { projectId: id, storySlug };
   },
 });
