@@ -4,6 +4,7 @@ import { Link } from "react-router";
 import { NAV_ITEMS } from "../garden/ui";
 import { Wordmark } from "./Wordmark";
 import { GardenLockup } from "../brand/GardenMark";
+import { useMediaQuery } from "../hooks/useMediaQuery";
 
 // The public site header — wordmark, the same five items GardenNav carries,
 // and, on the right, Sign in for a visitor or a quiet "Today" link for someone
@@ -20,8 +21,20 @@ import { GardenLockup } from "../brand/GardenMark";
 // The link set matches GardenNav so nothing is reachable from one header
 // and not the other.
 
-export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
+export function SiteHeader({
+  overlay = false,
+  growMark,
+}: {
+  overlay?: boolean;
+  /** The Garden's front door only (brand/GardenHome.tsx): the color under the
+   *  mark, so its lockup plays the grow on load (once a day per device, never
+   *  under reduced motion; GardenGrow). Then it's one lockup sized to the
+   *  screen, not the phone and wide pair: the grow plays once a day, and a
+   *  hidden copy would use it up. Off everywhere else. */
+  growMark?: string;
+}) {
   const { isAuthenticated, isLoading } = useConvexAuth();
+  const wide = useMediaQuery("(min-width: 640px)");
   // Below md the five nav items don't fit beside the wordmark, so they live
   // behind a menu button. Same NAV_ITEMS list, same publicTo rule, so the
   // phone menu can't drift from the desktop row.
@@ -43,12 +56,20 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
         </div>
       </Link>
       <Link to="/" className="brand-garden min-w-0" aria-label="The Garden home">
-        <span className="flex sm:hidden">
-          <GardenLockup fontSize={16} />
-        </span>
-        <span className="hidden sm:flex">
-          <GardenLockup fontSize={20} />
-        </span>
+        {growMark ? (
+          <span className="flex">
+            <GardenLockup fontSize={wide ? 20 : 16} grow surface={growMark} />
+          </span>
+        ) : (
+          <>
+            <span className="flex sm:hidden">
+              <GardenLockup fontSize={16} />
+            </span>
+            <span className="hidden sm:flex">
+              <GardenLockup fontSize={20} />
+            </span>
+          </>
+        )}
       </Link>
       <div className="flex items-center gap-4 shrink-0">
         <nav aria-label="Site" className="hidden md:flex items-center gap-4 lg:gap-5 mr-2">

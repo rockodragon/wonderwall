@@ -140,7 +140,7 @@ export function GardenHome() {
     >
       <link rel="stylesheet" href="/tokens.css" />
       <style>{PAGE_CSS}</style>
-      <SiteHeader />
+      <SiteHeader growMark={TINT.surface} />
 
       <main>
         <section className="gh-wrap grid gap-x-12 gap-y-9 pt-5 pb-4 md:gap-y-14 md:pt-14 xl:grid-cols-12">
