@@ -45,7 +45,7 @@ describe("summary and csv", () => {
   });
   it("escapes csv cells", () => {
     const csv = guestsToCsv([
-      { key: "k", name: 'Smith, "J"', email: "j@x.com", status: "going", paidCents: null, tickets: 1, guestNames: null, applicationId: null, addedAt: 0 },
+      { key: "k", userId: null, name: 'Smith, "J"', email: "j@x.com", status: "going", paidCents: null, tickets: 1, guestNames: null, applicationId: null, message: null, addedAt: 0 },
     ]);
     expect(csv.split("\n")[1]).toBe('"Smith, ""J""",j@x.com,going,1,,Free,1970-01-01');
   });
@@ -63,5 +63,20 @@ describe("applicationId", () => {
   it("rides along so a host can approve from the list", () => {
     const rows = mergeGuests([{ userId: "u1", name: "Cy", status: "pending", applicationId: "app1", addedAt: 1 }]);
     expect(rows[0].applicationId).toBe("app1");
+  });
+});
+
+describe("userId and message", () => {
+  it("keep the account and the join note so a host can reply", () => {
+    const rows = mergeGuests([
+      { name: "Di", email: "di@x.com", status: "going", paidCents: 2500, addedAt: 1 },
+      { userId: "u9", name: "Di", email: "di@x.com", status: "going", message: "Can't wait", addedAt: 2 },
+    ]);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ userId: "u9", message: "Can't wait" });
+  });
+  it("are null for a guest with no account", () => {
+    const rows = mergeGuests([{ name: "Ed", email: "ed@x.com", status: "going", addedAt: 1 }]);
+    expect(rows[0]).toMatchObject({ userId: null, message: null });
   });
 });
