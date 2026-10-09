@@ -22,6 +22,8 @@ describe("allowedAuthRedirect", () => {
     expect(allowedAuthRedirect("https://www.garden.thecreative.exchange/x", SITE)).toBe(
       "https://www.garden.thecreative.exchange/x",
     );
+    expect(allowedAuthRedirect("https://createthegarden.com/login", SITE)).toBe("https://createthegarden.com/login");
+    expect(allowedAuthRedirect("https://www.createthegarden.com/", SITE)).toBe("https://www.createthegarden.com/");
   });
 
   it("refuses anywhere else, look-alikes and plain http included", () => {
@@ -32,8 +34,8 @@ describe("allowedAuthRedirect", () => {
       "http://garden.thecreative.exchange/login",
       "https://garden.thecreative.exchange@evil.example/",
       "https://garden.thecreative.exchange:8443/",
-      // Not Rick's yet (2026-10-03): never a place to send a sign-in code.
-      "https://createthegarden.com/x",
+      "http://createthegarden.com/login",
+      "https://createthegarden.com.evil.example/",
     ]) {
       expect(() => allowedAuthRedirect(bad, SITE)).toThrow(/Invalid `redirectTo`/);
     }
@@ -44,7 +46,7 @@ describe("siteNameForUrl", () => {
   it("names The Garden for its addresses and the platform otherwise", () => {
     expect(siteNameForUrl("https://garden.thecreative.exchange/?code=123456")).toBe("The Garden");
     expect(siteNameForUrl("https://www.garden.thecreative.exchange/login?code=1")).toBe("The Garden");
-    expect(siteNameForUrl("https://createthegarden.com/login?code=1")).toBe("TheCreative.exchange");
+    expect(siteNameForUrl("https://createthegarden.com/login?code=1")).toBe("The Garden");
     expect(siteNameForUrl("https://thecreative.exchange?code=1")).toBe("TheCreative.exchange");
     expect(siteNameForUrl(undefined)).toBe("TheCreative.exchange");
     expect(siteNameForUrl("not a url")).toBe("TheCreative.exchange");

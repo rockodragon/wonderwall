@@ -6,17 +6,20 @@
 //
 // Every address here is also a place sign-in may hand a one-time code to
 // (allowedAuthRedirect), so list only addresses Rick controls that point at
-// the site. garden.thecreative.exchange is the one for now (Rick,
-// 2026-10-03). createthegarden.com joins once it's his and pointed at the
-// Pages project — until then whoever holds it could finish someone else's
-// sign-in. hostOrgs.domains for the-garden (communityDomains.ts) should list
-// the same.
+// the site. garden.thecreative.exchange came first (Rick, 2026-10-03);
+// createthegarden.com joined 2026-10-08, once its DNS was on Rick's
+// Cloudflare and pointed at the Pages project. hostOrgs.domains for
+// the-garden (communityDomains.ts) should list the same.
 
 import { PLATFORM_NAME } from "../email/sender";
 
 export { PLATFORM_NAME };
 
-export const GARDEN_HOSTS = ["garden.thecreative.exchange", "thegarden.thecreative.exchange"] as const;
+export const GARDEN_HOSTS = [
+  "garden.thecreative.exchange",
+  "thegarden.thecreative.exchange",
+  "createthegarden.com",
+] as const;
 
 export const GARDEN_NAME = "The Garden";
 
