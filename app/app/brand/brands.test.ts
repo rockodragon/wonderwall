@@ -7,11 +7,12 @@ describe("brandForHost", () => {
     expect(brandForHost("garden.thecreative.exchange")).toBe("garden");
     expect(brandForHost("WWW.Garden.TheCreative.Exchange:443")).toBe("garden");
     expect(brandForHost("thegarden.thecreative.exchange")).toBe("garden");
+    expect(brandForHost("createthegarden.com")).toBe("garden");
+    expect(brandForHost("www.createthegarden.com")).toBe("garden");
   });
 
   it("stays TheCreative.exchange everywhere else", () => {
-    // createthegarden.com joins once it's Rick's and points at the site.
-    for (const host of ["thecreative.exchange", "www.thecreative.exchange", "localhost", "wonderwall.pages.dev", "garden.com", "createthegarden.com"]) {
+    for (const host of ["thecreative.exchange", "www.thecreative.exchange", "localhost", "wonderwall.pages.dev", "garden.com", "thegarden.com"]) {
       expect(brandForHost(host)).toBe("exchange");
     }
   });

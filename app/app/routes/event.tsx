@@ -60,7 +60,6 @@ import { AnnouncementComposer } from "../components/AnnouncementComposer";
 import { AdminMenu, HiddenNotice } from "../components/AdminMenu";
 import { AddToCalendar } from "../components/AddToCalendar";
 import { EmbedPlayer } from "../components/EmbedPlayer";
-import { joinProxyUrl } from "../lib/eventCalendar";
 import { codeRequestParams } from "../lib/oauthHost";
 import { toEmbedUrl } from "../lib/videoEmbed";
 import { buildTicketLink, isCheckoutSessionId, isPayPalPaymentLink } from "../../convex/garden/ticketLink";
@@ -270,10 +269,12 @@ export default function EventDetail() {
   });
   const ctaCard = <EventCtaCard eventId={event._id} cta={cta} rsvp={rsvp} spot={spot} isGuest={!!isGuest} />;
   const isHost = !!(event.isHost ?? event.isOrganizer);
+  // Hosts get one list of people, Guests (emails, payments, approvals,
+  // messaging), in place of the public Who's going — two lists of the same
+  // people read as two different things.
   const tabs: { id: EventTab; label: string }[] = isHost
     ? [
         { id: "details", label: "Details" },
-        { id: "going", label: "Who's going" },
         { id: "guests", label: "Guests" },
         { id: "setup", label: "Setup" },
         { id: "hosts", label: "Hosts" },
@@ -282,7 +283,8 @@ export default function EventDetail() {
         { id: "details", label: "Details" },
         { id: "going", label: "Who's going" },
       ];
-  const rawTab = searchParams.get("tab");
+  const askedTab = searchParams.get("tab");
+  const rawTab = isHost && askedTab === "going" ? "guests" : askedTab;
   const tab: EventTab = tabs.some((t) => t.id === rawTab) ? (rawTab as EventTab) : "details";
   function selectTab(next: EventTab) {
     // Keep other params (paid, session) — the ticket flows read them.
@@ -609,6 +611,12 @@ export default function EventDetail() {
             {ctaCard}
           </div>
         </div>
+
+        {isHost && (
+          <div className="mb-8">
+            <AnnouncementComposer targetType="event" targetId={event._id} heading="Message attendees" />
+          </div>
+        )}
 
         {/* A phone gets the other-site card here, above the video; every other
             card is lower down. Back from a Stripe checkout, the ticket is
@@ -1479,6 +1487,9 @@ function OrganizerVideoManager({
 }) {
   const setEventVideo = useMutation(api.eventVideo.setEventVideo);
   const postEventRecording = useMutation(api.eventVideo.postEventRecording);
+  // The recording is an after-the-event thing: tucked away until asked for,
+  // or until there is one.
+  const [advanced, setAdvanced] = useState(!!recordingUrl);
 
   return (
     <div
@@ -1489,7 +1500,7 @@ function OrganizerVideoManager({
       }}
     >
       <h3
-        className="font-semibold mb-1"
+        className="font-semibold mb-3"
         style={{
           color: "var(--garden-paper)",
           fontFamily: "var(--garden-font-display)",
@@ -1497,50 +1508,44 @@ function OrganizerVideoManager({
       >
         Video
       </h3>
-      <p className="text-sm mb-4" style={{ color: "var(--garden-dim)" }}>
-        Run the session wherever you already do — YouTube Live, Zoom, Meet.
-        Attendees see a Join button that points at{" "}
-        <code className="text-xs">
-          {joinProxyUrl(eventId).replace(/^https?:\/\//, "")}
-        </code>
-        , so you can repaste the link any time without breaking calendar
-        invites.
-      </p>
-      <p className="text-sm mb-4" style={{ color: "var(--garden-dim)" }}>
-        A YouTube or Vimeo link plays right here on the event page. Zoom, Meet
-        and anything else open in a new tab — they refuse to be embedded.
-      </p>
 
+      {/* Any https link works. YouTube and Vimeo play on the page; Zoom and
+          Meet refuse to be embedded and open in a new tab. Attendees get
+          /j/{eventId}, never the raw link, so it can be changed any time. */}
       <VideoLinkField
         label="Join link"
-        placeholder="https://zoom.us/j/… or https://youtube.com/live/…"
+        placeholder="Zoom, Google Meet or YouTube link"
         initialValue={meetingUrl ?? ""}
         savedLabel="Join link saved"
         onSave={(value) => setEventVideo({ eventId, meetingUrl: value })}
         suggestion={{
           label: YOUTUBE_LIVE_LABEL,
-          value: YOUTUBE_LIVE_URL,
           // The channel's /live URL always resolves to whatever is streaming
-          // right now, so it can be set weeks ahead and never needs repasting
-          // when a broadcast is rescheduled or recreated.
-          hint: "Always points at whatever the channel is streaming — set it now, it won't go stale.",
+          // right now, so it can be set weeks ahead and never goes stale.
+          value: YOUTUBE_LIVE_URL,
         }}
       />
 
-      <div className="mt-4">
-        <VideoLinkField
-          label="Recording link"
-          placeholder="Paste the replay link after the session"
-          initialValue={recordingUrl ?? ""}
-          savedLabel="Recording posted"
-          onSave={(value) => postEventRecording({ eventId, recordingUrl: value })}
-        />
-      </div>
-
-      <p className="mt-4 text-xs" style={{ color: "var(--garden-dim)" }}>
-        This is a public event, so anyone on the event page can open the link.
-        It is a convenience, not a gate.
-      </p>
+      {advanced ? (
+        <div className="mt-5">
+          <VideoLinkField
+            label="Recording link"
+            placeholder="Paste the replay after the event"
+            initialValue={recordingUrl ?? ""}
+            savedLabel="Recording posted"
+            onSave={(value) => postEventRecording({ eventId, recordingUrl: value })}
+          />
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setAdvanced(true)}
+          className="mt-4 font-medium hover:opacity-80"
+          style={{ color: "var(--garden-muted)", fontSize: 13.5 }}
+        >
+          Advanced…
+        </button>
+      )}
     </div>
   );
 }
@@ -1621,8 +1626,8 @@ function VideoLinkField({
           <button
             type="button"
             onClick={() => setValue(suggestion.value)}
-            className="text-xs font-medium underline underline-offset-2"
-            style={{ color: "var(--garden-citron)" }}
+            className="font-medium underline underline-offset-2"
+            style={{ color: "var(--garden-citron)", fontSize: 13.5 }}
           >
             {suggestion.label}
           </button>
@@ -2655,6 +2660,7 @@ function GuestsPanel({
 }) {
   const guests = useQuery(api.events.getGuestList, { eventId });
   const waitlist = useQuery(api.garden.eventWaitlist.getWaitlist, { eventId });
+  const me = useQuery(api.profiles.getMyProfile);
   const setStatus = useMutation(api.events.updateApplicationStatus);
   const [filter, setFilter] = useState<GuestFilter>("going");
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -2759,10 +2765,16 @@ function GuestsPanel({
                 {g.guestNames && (
                   <p className="text-[13.5px] text-gray-700 dark:text-gray-200">With {g.guestNames}</p>
                 )}
+                {g.message && (
+                  <p className="mt-1 text-[13.5px] text-gray-800 dark:text-gray-100">"{g.message}"</p>
+                )}
               </div>
-              {g.applicationId && filter !== "going" && (
-                <div className="flex gap-2">
-                  {filter === "pending" && (
+              <div className="flex flex-wrap gap-2">
+                {/* Someone who RSVP'd by email alone has no account to write
+                    to; the group message still emails them. */}
+                {g.userId && g.userId !== me?.userId && <MessageGuestButton userId={g.userId} />}
+                {g.applicationId && filter === "pending" && (
+                  <>
                     <button
                       disabled={busyId === g.applicationId}
                       onClick={() => decide(g.applicationId!, "accepted")}
@@ -2770,8 +2782,6 @@ function GuestsPanel({
                     >
                       Approve
                     </button>
-                  )}
-                  {filter === "pending" && (
                     <button
                       disabled={busyId === g.applicationId}
                       onClick={() => decide(g.applicationId!, "declined")}
@@ -2779,18 +2789,18 @@ function GuestsPanel({
                     >
                       Decline
                     </button>
-                  )}
-                  {filter === "declined" && (
-                    <button
-                      disabled={busyId === g.applicationId}
-                      onClick={() => decide(g.applicationId!, "accepted")}
-                      className="px-3 py-1.5 rounded-lg text-[13.5px] font-medium bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-100 disabled:opacity-50"
-                    >
-                      Approve
-                    </button>
-                  )}
-                </div>
-              )}
+                  </>
+                )}
+                {g.applicationId && filter === "declined" && (
+                  <button
+                    disabled={busyId === g.applicationId}
+                    onClick={() => decide(g.applicationId!, "accepted")}
+                    className="px-3 py-1.5 rounded-lg text-[13.5px] font-medium bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-100 disabled:opacity-50"
+                  >
+                    Approve
+                  </button>
+                )}
+              </div>
             </li>
           ))}
         </ul>
@@ -2798,6 +2808,47 @@ function GuestsPanel({
 
       <AnnouncementComposer targetType="event" targetId={eventId} heading="Message attendees" />
     </div>
+  );
+}
+
+/** Opens a conversation with one guest, the way a profile's Message
+ * button does (routes/profile.tsx). */
+function MessageGuestButton({ userId }: { userId: string }) {
+  const getOrCreateConversation = useMutation(api.messaging.getOrCreateConversation);
+  const navigate = useNavigate();
+  const [starting, setStarting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function open() {
+    if (starting) return;
+    setStarting(true);
+    setError(null);
+    try {
+      const conversation = await getOrCreateConversation({ otherUserId: userId as Id<"users"> });
+      if (conversation) navigate(`/messages/${conversation._id}`);
+    } catch (err) {
+      const blocked = (err as { data?: { code?: string } })?.data?.code === "blocked";
+      setError(blocked ? "You can't message this person." : errorMessage(err));
+      setStarting(false);
+    }
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={open}
+        disabled={starting}
+        className="px-3 py-1.5 rounded-lg text-[13.5px] font-medium bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50"
+      >
+        Message
+      </button>
+      {error && (
+        <span role="alert" className="text-[13.5px] text-red-600 dark:text-red-400">
+          {error}
+        </span>
+      )}
+    </>
   );
 }
 

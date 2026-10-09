@@ -6,7 +6,7 @@ Status, 2026-10-03: merged into `tables` (PR #61), and the same commits go to ma
 
 - **garden.thecreative.exchange**: The Garden's address (Rick, 2026-10-03; DNS set up the same day).
 - **thegarden.thecreative.exchange**: also recognized.
-- **createthegarden.com**: **not listed yet.** Every listed address is also a place sign-in may return a one-time code to. createthegarden.com is registered to someone (Squarespace, 2026-09-29) and isn't pointed at the site, so whoever holds it could finish someone else's Google sign-in. Add it once it's Rick's and on the Pages project.
+- **createthegarden.com**: listed 2026-10-08. Registered at Squarespace (2026-09-29, expires 2029-09-29); its DNS is on Rick's Cloudflare. Every listed address is also a place sign-in may return a one-time code to, so whoever controls the registration controls those codes: keep it renewed, and move the registration to Rick's account if it isn't there.
 - `www.` versions of these addresses count too, for both the brand and sign-in.
 
 The list is `GARDEN_HOSTS` in `app/convex/garden/brandHosts.ts`, shared by the backend, the site and the edge. `hostOrgs.domains` for `the-garden` should list the same.
@@ -71,6 +71,19 @@ How sign-in knows the address: on a Garden address, the page asks for a code or 
 2. **Add garden.thecreative.exchange as a Custom Domain on the Pages project.**
 3. **Run `setCommunityDomains` for `the-garden` on prod** with `garden.thecreative.exchange`, so waitlist and signup there are tagged The Garden.
 4. **Try it on the live address:** phone code text, Google sign-in, `/`, link preview.
+
+## Adding createthegarden.com (2026-10-08)
+
+Same steps as above, for the new address:
+
+1. **Deploy the backend first.** Until it's out, sign-in on createthegarden.com is refused.
+2. **Merge.** The site then wears The Garden on createthegarden.com.
+3. **Cloudflare, createthegarden.com zone:** delete the redirect rule to garden.thecreative.exchange, and delete the four Squarespace `A` records and the `www` CNAME.
+4. **Pages project → Custom domains:** add `createthegarden.com` and `www.createthegarden.com`. Pages adds the DNS records.
+5. **Run `setCommunityDomains` for `the-garden` on prod** with createthegarden.com added. It replaces the list, so read the current one first and pass it back with the new address.
+6. **Try it on the live address:** phone code text, Google sign-in, `/`, link preview.
+
+Sessions are per address: someone signed in on garden.thecreative.exchange is signed out on createthegarden.com.
 
 ## Open
 

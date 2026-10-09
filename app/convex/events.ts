@@ -1166,6 +1166,7 @@ export const getGuestList = query({
       inputs.push({
         userId: String(app.applicantId),
         applicationId: String(app._id),
+        message: app.message ?? null,
         name: profile?.name ?? "Anonymous",
         email: await getUserEmail(ctx, app.applicantId),
         status:
