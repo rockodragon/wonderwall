@@ -81,6 +81,8 @@ export default [
     route("about", "routes/about.tsx"),
     route("about/agreements", "routes/about.agreements.tsx"),
     route("about/:audience", "routes/about.$audience.tsx"),
+    // How-to for event hosts: tickets and payment links. Public; _app.tsx lists "/docs".
+    route("docs/tickets", "routes/docs.tickets.tsx"),
     // People. /search was its address before it was called People; it
     // stays mounted (same page) so old links keep working.
     route("people", "routes/search.tsx", { id: "routes/people" }),

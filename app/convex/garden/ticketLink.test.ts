@@ -1,5 +1,25 @@
 import { describe, expect, it } from "vitest";
-import { guestNamesFrom, nextTicketState, ticketCountFor } from "./ticketLink";
+import { guestNamesFrom, isPayPalPaymentLink, isStripePaymentLink, nextTicketState, ticketCountFor } from "./ticketLink";
+
+describe("isPayPalPaymentLink", () => {
+  it("is PayPal's no-code pay link", () => {
+    expect(isPayPalPaymentLink("https://www.paypal.com/ncp/payment/BVJYP3SUBYXWS")).toBe(true);
+    expect(isPayPalPaymentLink("https://paypal.com/ncp/payment/BVJYP3SUBYXWS/")).toBe(true);
+    expect(isPayPalPaymentLink(" https://www.paypal.com/ncp/payment/BVJYP3SUBYXWS ")).toBe(true);
+  });
+  it("is not any other PayPal page, a look-alike host, or plain http", () => {
+    expect(isPayPalPaymentLink("https://www.paypal.com/donate/?hosted_button_id=X")).toBe(false);
+    expect(isPayPalPaymentLink("https://www.paypal.me/someone")).toBe(false);
+    expect(isPayPalPaymentLink("https://paypal.com.evil.example/ncp/payment/BVJYP3SUBYXWS")).toBe(false);
+    expect(isPayPalPaymentLink("http://www.paypal.com/ncp/payment/BVJYP3SUBYXWS")).toBe(false);
+    expect(isPayPalPaymentLink("https://www.paypal.com/ncp/payment/")).toBe(false);
+    expect(isPayPalPaymentLink(undefined)).toBe(false);
+  });
+  it("never overlaps a Stripe link", () => {
+    expect(isStripePaymentLink("https://www.paypal.com/ncp/payment/BVJYP3SUBYXWS")).toBe(false);
+    expect(isPayPalPaymentLink("https://buy.stripe.com/test_abc")).toBe(false);
+  });
+});
 
 describe("ticketCountFor", () => {
   it("divides the total by the ticket price", () => {

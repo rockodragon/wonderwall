@@ -8,6 +8,17 @@ import { assertCommunityMember } from "./garden/communities";
 import { formatFollowedEventDate, notifyFollowers } from "./follows";
 import { canonicalMediaUrl, schedulePreviewFetch } from "./linkPreview";
 import { mergeGuests, summarizeGuests, type GuestInput } from "./eventGuests";
+import {
+  assertEventHasRoom,
+  eventCapacity,
+  isEventFull,
+  isGoing,
+  loadGoingCount,
+  normalizeCapacity,
+  waitlistOn,
+} from "./eventSpots";
+import { findMyRsvp } from "./eventGuests";
+import { addressIsHidden, redactHiddenAddress } from "./eventAddress";
 import { getUserEmail } from "./emailHelpers";
 import { isEventHost, planAddCoHost, planRemoveCoHost, planDisplayHosts, syncCoHosts, MAX_HOST_NAME, newlyListedUsers } from "./eventHosts";
 import { canSeeEvent, eventVisibilityChecker, isFreeEvent } from "./garden/eventVisibility";
@@ -182,61 +193,20 @@ async function resolveCommunities(
   return out;
 }
 
-/** How many people are going, counted one way for the list and the detail:
- * accepted applications + RSVPs (each `ticketCount ?? 1`) + paid tickets,
- * one person once (userId, then email), keeping their largest ticket count. */
-export function countGoing(input: {
-  acceptedApplicantIds: string[];
-  rsvps: { userId?: string | null; email?: string | null; ticketCount?: number | null }[];
-  paidPurchases: { userId?: string | null; buyerEmail?: string | null }[];
-}): number {
-  const rows: GuestInput[] = [
-    ...input.acceptedApplicantIds.map((id) => ({
-      userId: id,
-      name: "",
-      status: "going" as const,
-      addedAt: 0,
-    })),
-    ...input.rsvps.map((r) => ({
-      userId: r.userId ?? null,
-      name: "",
-      email: r.email ?? null,
-      status: "going" as const,
-      tickets: r.ticketCount ?? 1,
-      addedAt: 0,
-    })),
-    ...input.paidPurchases.map((p) => ({
-      userId: p.userId ?? null,
-      name: "",
-      email: p.buyerEmail ?? null,
-      status: "going" as const,
-      addedAt: 0,
-    })),
-  ];
-  return summarizeGuests(mergeGuests(rows)).going;
-}
-
-export async function loadGoingCount(ctx: QueryCtx, eventId: Id<"events">): Promise<number> {
-  const [applications, rsvps, purchases] = await Promise.all([
-    ctx.db
-      .query("eventApplications")
-      .withIndex("by_eventId", (q) => q.eq("eventId", eventId))
-      .collect(),
-    ctx.db
-      .query("eventRsvps")
-      .withIndex("by_eventId", (q) => q.eq("eventId", eventId))
-      .collect(),
-    ctx.db
-      .query("ticketPurchases")
-      .withIndex("by_eventId", (q) => q.eq("eventId", eventId))
-      .collect(),
-  ]);
-  return countGoing({
-    acceptedApplicantIds: applications.filter((a) => a.status === "accepted").map((a) => String(a.applicantId)),
-    rsvps,
-    paidPurchases: purchases.filter((p) => p.status === "paid"),
-  });
-}
+// The going count and the event limit live in ./eventSpots (garden/eventRsvps.ts
+// needs them too, and importing this file from there would be a cycle).
+export {
+  assertEventHasRoom,
+  countGoing,
+  EVENT_FULL,
+  eventCapacity,
+  isEventFull,
+  isGoing,
+  loadGoingCount,
+  MAX_EVENT_CAPACITY,
+  normalizeCapacity,
+  waitlistOn,
+} from "./eventSpots";
 
 type HostOrg = { orgName?: string; orgUrl?: string; orgSlug?: string };
 
@@ -386,7 +356,8 @@ async function toCardEvents(ctx: QueryCtx, events: Doc<"events">[]) {
       ]);
 
       return {
-        ...event,
+        // Cards never carry a hidden street address; the page decides per viewer.
+        ...redactHiddenAddress(event),
         coverImageUrl,
         attendeeCount,
         hosts,
@@ -492,6 +463,28 @@ export const get = query({
       ? applications.find((a) => a.applicantId === userId)
       : null;
 
+    // The viewer's own RSVP (an RSVP, a PayPal Get tickets, a Stripe-link
+    // ticket bought with their email) and waitlist spot: the event card
+    // shows "You're in" / "On the waitlist" and Can't make it from these.
+    let userRsvp: { paid: boolean; sentToPayPal: boolean } | null = null;
+    let userWaitlisted = false;
+    if (userId) {
+      const [rsvps, user, waiting] = await Promise.all([
+        ctx.db
+          .query("eventRsvps")
+          .withIndex("by_eventId", (q) => q.eq("eventId", args.eventId))
+          .collect(),
+        ctx.db.get(userId),
+        ctx.db
+          .query("eventWaitlist")
+          .withIndex("by_eventId_userId", (q) => q.eq("eventId", args.eventId).eq("userId", userId))
+          .first(),
+      ]);
+      const mine = findMyRsvp(rsvps, String(userId), [user?.email]);
+      if (mine) userRsvp = { paid: (mine.paidCents ?? 0) > 0, sentToPayPal: !!mine.paypalOpenedAt };
+      userWaitlisted = !!waiting;
+    }
+
     // Paid tickets sold per tier (only fetched when the event has tiers) —
     // lets the client disable a capped tier's buy button when sold out.
     const ticketsSoldByTier: Record<string, number> = {};
@@ -512,6 +505,20 @@ export const get = query({
       : null;
 
     const goingCount = await loadGoingCount(ctx, args.eventId);
+    const capacity = eventCapacity(event);
+    const waitlistCount =
+      isHost && capacity !== null
+        ? (await ctx.db
+            .query("eventWaitlist")
+            .withIndex("by_eventId", (q) => q.eq("eventId", args.eventId))
+            .collect()).length
+        : null;
+    // Hosts, admins and anyone going see a hidden address (eventAddress.ts).
+    const seesAddress =
+      isHost ||
+      userApplication?.status === "accepted" ||
+      !!userRsvp ||
+      (!!userId && ((await isGoing(ctx, event, userId)) || (await isAdmin(ctx, userId))));
 
     const coHosts: ({
       userId: Id<"users">;
@@ -545,7 +552,17 @@ export const get = query({
     }
 
     return {
-      ...event,
+      ...(seesAddress ? event : redactHiddenAddress(event)),
+      // A visitor sees the city and "Address shared with guests".
+      addressHidden: !seesAddress && addressIsHidden(event),
+      // The limit (null when none applies), whether it's reached, whether a
+      // full event takes a waitlist, and the viewer's own place.
+      capacity,
+      isFull: capacity !== null && goingCount >= capacity,
+      waitlistOn: waitlistOn(event),
+      waitlistCount,
+      userRsvp,
+      userWaitlisted,
       // What this viewer's Apply/Join leads to (events.apply): an accepted
       // Table participant joins without a second approval.
       applyNeedsApproval: applicationNeedsApproval(event, tableParticipant),
@@ -585,6 +602,10 @@ export const get = query({
 
 export const create = mutation({
   args: {
+    // Limit (0/absent = none), waitlist when full, hide the street address.
+    capacity: v.optional(v.number()),
+    waitlist: v.optional(v.boolean()),
+    hideAddress: v.optional(v.boolean()),
     title: v.string(),
     description: v.string(),
     datetime: v.number(),
@@ -644,6 +665,8 @@ export const create = mutation({
       priceCents: args.externalTicketPriceCents,
     });
     if (ticketLinkError) throw new ConvexError(ticketLinkError);
+    const { capacity, error: capacityError } = normalizeCapacity(args.capacity);
+    if (capacityError) throw new ConvexError(capacityError);
 
     const mediaUrl = canonicalMediaUrl(args.mediaUrl);
 
@@ -672,6 +695,10 @@ export const create = mutation({
       requiresApproval: args.requiresApproval,
       hostOrgId: args.hostOrgId,
       mediaUrl,
+      capacity,
+      // Stored only when the host turned it off; absent = on.
+      ...(capacity && args.waitlist === false ? { waitlist: false } : {}),
+      ...(args.hideAddress ? { hideAddress: true } : {}),
       status: "published",
       createdAt: now,
       updatedAt: now,
@@ -718,6 +745,11 @@ export const create = mutation({
 export const update = mutation({
   args: {
     eventId: v.id("events"),
+    // Left out = untouched (a caller that doesn't know them can't wipe
+    // them). capacity 0 clears the limit.
+    capacity: v.optional(v.number()),
+    waitlist: v.optional(v.boolean()),
+    hideAddress: v.optional(v.boolean()),
     title: v.string(),
     description: v.string(),
     datetime: v.number(),
@@ -786,6 +818,8 @@ export const update = mutation({
     if (addsTableEventTicketLink(event, externalTicketUrl)) {
       throw new ConvexError({ code: "table_event_tickets", reason: TABLE_EVENT_TICKETS_ERROR });
     }
+    const { capacity, error: capacityError } = normalizeCapacity(args.capacity);
+    if (capacityError) throw new ConvexError(capacityError);
 
     if (args.hostOrgId) {
       await assertCommunityMember(ctx, args.hostOrgId, userId);
@@ -841,6 +875,9 @@ export const update = mutation({
       tags: args.tags,
       requiresApproval: args.requiresApproval,
       hostOrgId: args.clearCommunity ? undefined : (args.hostOrgId ?? event.hostOrgId),
+      ...(args.capacity !== undefined ? { capacity } : {}),
+      ...(args.waitlist !== undefined ? { waitlist: args.waitlist ? undefined : false } : {}),
+      ...(args.hideAddress !== undefined ? { hideAddress: args.hideAddress || undefined } : {}),
       ...mediaPatch,
       updatedAt: Date.now(),
     });
@@ -1018,6 +1055,9 @@ export const apply = mutation({
       .first();
 
     if (existing) throw new Error("Already applied");
+    // A full event sends a newcomer to the waitlist; a pending request
+    // would only promise a spot that isn't there.
+    if (!(await isGoing(ctx, event, userId))) await assertEventHasRoom(ctx, event);
 
     const now = Date.now();
 
@@ -1148,6 +1188,7 @@ export const getGuestList = query({
         paidCents: r.paidCents ?? null,
         tickets: r.ticketCount ?? 1,
         guestNames: r.guestNames ?? null,
+        sentToPayPal: !!r.paypalOpenedAt,
         addedAt: r.createdAt,
       });
     }
@@ -1365,12 +1406,13 @@ export const search = query({
     // to a hidden community finds nothing).
     events = await communityVisibility(ctx).filter(events);
 
-    // Filter by search query
+    // Filter by search query. A hidden address isn't searchable: matching
+    // on the street would tell a stranger where it is.
     const filtered = events.filter(
       (e) =>
         e.title.toLowerCase().includes(q) ||
         e.description.toLowerCase().includes(q) ||
-        e.location?.toLowerCase().includes(q) ||
+        redactHiddenAddress(e).location?.toLowerCase().includes(q) ||
         e.tags.some((t) => t.toLowerCase().includes(q)),
     );
 
@@ -1396,7 +1438,7 @@ export const search = query({
         }
 
         return {
-          ...event,
+          ...redactHiddenAddress(event),
           coverImageUrl,
         };
       }),
@@ -1449,6 +1491,8 @@ export const getEventForTicketCheckout = internalQuery({
       datetime: event.datetime,
       tier,
       sold,
+      // The event's own limit, across every tier and the free RSVP.
+      eventFull: await isEventFull(ctx, event),
       beneficiaryHostOrgId: event.beneficiaryHostOrgId ?? null,
       beneficiary: beneficiaryOrg
         ? {

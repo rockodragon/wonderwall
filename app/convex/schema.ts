@@ -301,8 +301,11 @@ export default defineSchema({
     // Payment Link on Abiding Practice's OWN Stripe account, and AP's
     // existing /stripe/ap/webhook (garden/apGifts.ts) adds the buyer to this
     // event and records the ticket into grantContributions as a benefit for
-    // the artist grant fund. Nothing is watching any other site, so a buyer
-    // there isn't added to the guest list. externalTicketPriceCents is
+    // the artist grant fund. A PayPal pay link (isPayPalPaymentLink) can't
+    // tell us anything, so its card saves the buyer to the guest list before
+    // sending them there (eventRsvps.ts startPayPalTicket). Nothing is
+    // watching any other site, so a buyer there isn't added to the guest
+    // list. externalTicketPriceCents is
     // display-only copy (the real price lives on the other site) — optional
     // because a link whose price varies has none to show.
     externalTicketUrl: v.optional(v.string()),
@@ -370,6 +373,19 @@ export default defineSchema({
     // The community this event was posted into (optional; public by design,
     // it's a name on a card). See projects.hostOrgId.
     hostOrgId: v.optional(v.id("hostOrgs")),
+    // ——— Limit, waitlist, hidden address (docs/features/event-capacity-waitlist.md) ———
+    // The most people going (events.ts loadGoingCount: accepted requests,
+    // RSVPs with their ticket counts, paid tickets). Absent = no limit.
+    // Enforced on everything this site takes (RSVP, Join, Apply, PayPal's
+    // Get tickets, on-site tickets); NOT on a Stripe or other ticket link,
+    // which sells from its own stock. Table events ignore it (chairs).
+    capacity: v.optional(v.number()),
+    // false = when full, it just says Full. Absent or true = people join
+    // the waitlist (eventWaitlist) and the host lets them in.
+    waitlist: v.optional(v.boolean()),
+    // The street address shows only to hosts and people going; everyone
+    // else sees the city (events.ts redactHiddenAddress). Absent = public.
+    hideAddress: v.optional(v.boolean()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
@@ -1654,6 +1670,20 @@ export default defineSchema({
     .index("by_sessionId_userId", ["sessionId", "userId"]),
 
   // Event RSVPs with a guest path (W4 — the first-table page's mailto dies here).
+  // People waiting for a spot on a full event (events.capacity). Each has
+  // an account, same rule as an RSVP. The host lets them in from the Guests
+  // tab (garden/eventWaitlist.ts admitFromWaitlist), which turns the row into
+  // an RSVP and deletes it; leaving or being removed deletes it too.
+  eventWaitlist: defineTable({
+    eventId: v.id("events"),
+    userId: v.id("users"),
+    name: v.string(),
+    email: v.string(),
+    createdAt: v.number(),
+  })
+    .index("by_eventId", ["eventId"])
+    .index("by_eventId_userId", ["eventId", "userId"]),
+
   eventRsvps: defineTable({
     sourceSessionRsvpId: v.optional(v.id("sessionRsvps")),
     eventId: v.id("events"),
@@ -1678,6 +1708,11 @@ export default defineSchema({
     ticketCount: v.optional(v.number()),
     guestNames: v.optional(v.string()),
     stripeRef: v.optional(v.string()),
+    // When they pressed Get tickets on an event sold through the organizer's
+    // PayPal link and left for it (garden/eventRsvps.ts startPayPalTicket).
+    // NOT proof they paid: PayPal tells us nothing, the organizer's PayPal
+    // account is the record. The guest list shows "Sent to PayPal".
+    paypalOpenedAt: v.optional(v.number()),
     // Table guest RSVPs only (garden/eventRsvps.ts rsvpGuestToTableEvent).
     // Host-only contact details: never in public or roster projections.
     phone: v.optional(v.string()), // E.164, convex/phone.ts

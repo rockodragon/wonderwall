@@ -142,6 +142,38 @@ function FieldLabel({
   );
 }
 
+// An on/off line on the Options step.
+function SwitchRow({ label, on, onChange }: { label: string; on: boolean; onChange: (on: boolean) => void }) {
+  return (
+    <div className="py-3 border-t" style={{ borderColor: "var(--app-hairline)" }}>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={on}
+        onClick={() => onChange(!on)}
+        className="w-full flex items-center justify-between gap-3 text-left"
+      >
+        <span className="text-[15px]" style={{ color: "var(--app-text)" }}>
+          {label}
+        </span>
+        <span
+          aria-hidden="true"
+          className="relative flex-shrink-0 w-11 h-6 rounded-full transition-colors"
+          style={{ backgroundColor: on ? "var(--app-accent)" : "var(--app-hairline-raised)" }}
+        >
+          <span
+            className="absolute top-0.5 left-0.5 w-5 h-5 rounded-full transition-transform"
+            style={{
+              backgroundColor: on ? "var(--garden-ink)" : "var(--app-text)",
+              transform: on ? "translateX(20px)" : "translateX(0)",
+            }}
+          />
+        </span>
+      </button>
+    </div>
+  );
+}
+
 // One compact line on the Options step: a label, what it's set to, and a
 // button that opens the full editor underneath.
 function OptionRow({
@@ -208,6 +240,9 @@ export type EventEditTarget = {
    * (events.update), so the ticket row isn't shown to co-hosts. Nor on a
    * Table's Event, which sells no tickets of its own. */
   canEditTickets: boolean;
+  /** A Table's Event: its Table's chairs set the limit and its location
+   * rules apply, so Limit and the hidden address aren't offered. */
+  tableEvent?: boolean;
   coverImageUrl?: string | null;
   initialValues: {
     title: string;
@@ -226,6 +261,9 @@ export type EventEditTarget = {
     requiresApproval: boolean;
     mediaUrl?: string;
     hostOrgId?: Id<"hostOrgs">;
+    capacity?: number;
+    waitlist?: boolean;
+    hideAddress?: boolean;
   };
 };
 
@@ -268,6 +306,8 @@ export function CreateEventModal({
   const ticketsPanelId = `${uid}-tickets`;
   const mediaPanelId = `${uid}-media`;
   const ticketLinkId = `${uid}-ticket-link`;
+  const limitPanelId = `${uid}-limit`;
+  const limitInputId = `${uid}-limit-input`;
   const ticketPriceId = `${uid}-ticket-price`;
 
   const [step, setStep] = useState<Step>(1);
@@ -295,6 +335,12 @@ export function CreateEventModal({
   const location = useLocationField(init);
   const [tags, setTags] = useState<string[]>(init?.tags ?? []);
   const [requiresApproval, setRequiresApproval] = useState(init?.requiresApproval ?? false);
+  // Limit, waitlist, hidden address (docs/features/event-capacity-waitlist.md).
+  const tableEvent = !!edit?.tableEvent;
+  const [capacity, setCapacity] = useState(init?.capacity ? String(init.capacity) : "");
+  const [waitlist, setWaitlist] = useState(init?.waitlist !== false);
+  const [hideAddress, setHideAddress] = useState(!!init?.hideAddress);
+  const [showLimit, setShowLimit] = useState(false);
   const [hostOrgId, setHostOrgId] = useState<string>(init?.hostOrgId ?? "");
   const [mediaUrl, setMediaUrl] = useState(init?.mediaUrl ?? "");
   // Edit: the cover already on the event. Cleared by Remove.
@@ -473,6 +519,8 @@ export function CreateEventModal({
           ...location.toArgs(),
           tags,
           requiresApproval,
+          // Always sent (0 clears the limit), except on a Table's Event.
+          ...(tableEvent ? {} : { capacity: capacityNumber ?? 0, waitlist, hideAddress }),
           // Always sent: an emptied field clears the stored link —
           // events.update treats only an absent field as "untouched".
           mediaUrl: mediaLink.state === "ok" ? mediaLink.url : "",
@@ -505,6 +553,9 @@ export function CreateEventModal({
         ...location.toArgs(),
         tags,
         requiresApproval,
+        capacity: capacityNumber,
+        waitlist,
+        hideAddress,
         hostOrgId: hostOrgId ? (hostOrgId as any) : undefined,
         mediaUrl: mediaLink.state === "ok" ? mediaLink.url : undefined,
       });
@@ -588,6 +639,10 @@ export function CreateEventModal({
       .filter(Boolean)
       .join(" · ") || "Free";
   const mediaSummary = mediaUrl.trim() || "None";
+  const capacityNumber = capacity.trim() ? Math.round(Number(capacity)) || undefined : undefined;
+  const limitSummary = capacityNumber
+    ? `${capacityNumber} people${waitlist ? " · waitlist when full" : ""}`
+    : "No limit";
 
   function toggleTickets() {
     if (!showTickets && ticketTiers.length === 0) {
@@ -950,6 +1005,42 @@ export function CreateEventModal({
                 </button>
               </div>
 
+              {!tableEvent && (
+                <>
+                  <OptionRow
+                    label="Limit"
+                    value={limitSummary}
+                    actionLabel={capacityNumber ? "Edit" : "Set"}
+                    expanded={showLimit}
+                    onToggle={() => setShowLimit((open) => !open)}
+                    panelId={limitPanelId}
+                  >
+                    <div className={`${EMBEDDED} space-y-1`}>
+                      <FieldLabel htmlFor={limitInputId}>
+                        Most people going
+                      </FieldLabel>
+                      <input
+                        id={limitInputId}
+                        type="number"
+                        min="1"
+                        step="1"
+                        inputMode="numeric"
+                        value={capacity}
+                        onChange={(e) => setCapacity(e.target.value)}
+                        placeholder="40"
+                        className={inputClass}
+                        style={inputStyle}
+                      />
+                      {capacityNumber && <SwitchRow label="Waitlist when full" on={waitlist} onChange={setWaitlist} />}
+                      <p className="text-sm pt-1" style={{ color: "var(--app-text-muted)" }}>
+                        A ticket link on another site sells on its own. Set the same limit there.
+                      </p>
+                    </div>
+                  </OptionRow>
+                  <SwitchRow label="Show the address only to people going" on={hideAddress} onChange={setHideAddress} />
+                </>
+              )}
+
               {canEditTickets && (
               <OptionRow
                 label="Tickets"
@@ -997,6 +1088,18 @@ export function CreateEventModal({
                       />
                     </div>
                   </div>
+                  <p className="text-sm" style={{ color: "var(--app-text-muted)" }}>
+                    PayPal and Stripe links:{" "}
+                    <a
+                      href="/docs/tickets"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="underline underline-offset-2"
+                      style={{ color: "var(--app-text)" }}
+                    >
+                      how they work
+                    </a>
+                  </p>
                   {!isMember && filledTiers > 0 && (
                     <p
                       className="text-sm"

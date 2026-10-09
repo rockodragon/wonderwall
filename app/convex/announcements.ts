@@ -1,5 +1,5 @@
 // Announcements (docs/announcements-prd.md) — one-way broadcasts + automatic
-// day-before reminders for Projects/Events/Offerings. Delivery reuses the
+// day-before and 2-hours-before reminders for Events/Offerings. Delivery reuses the
 // existing `notifications` table and `emails.sendNotificationEmail` action;
 // no new delivery mechanism, no group threads (see PRD Design Decisions).
 //
@@ -36,7 +36,31 @@ const MAX_AUDIENCE_SIZE = 500; // cap on the resolve-and-record transaction only
 const BROADCAST_DAILY_LIMIT = 2; // per target per 24h
 const BATCH_SIZE = 25; // deliverAnnouncementBatch claims this many pending rows per invocation
 const REMINDER_WINDOW_MS = 24 * 60 * 60 * 1000;
+const SOON_REMINDER_WINDOW_MS = 2 * 60 * 60 * 1000;
+// Counts reminders actually created in one cron run, not targets scanned —
+// see the loop in sendDueReminders.
 const MAX_REMINDER_TARGETS_PER_RUN = 20;
+
+// Reminder stages. The key prefix is the idempotency namespace stored in
+// announcements.reminderKey ("{prefix}:{targetType}:{targetId}:{startsAt}").
+// "reminder24h" is the format already in production — never change it, or
+// every reminder already sent would go out again.
+type ReminderStage = "24h" | "2h";
+const REMINDER_KEY_PREFIX: Record<ReminderStage, string> = {
+  "24h": "reminder24h",
+  "2h": "reminder2h",
+};
+
+/** The one stage a target is in right now, by how far away it starts.
+ * Inside 2 hours -> "2h"; otherwise (inside 24 hours) -> "24h". Callers
+ * guarantee 0 < startsAt - now <= REMINDER_WINDOW_MS. */
+function reminderStageFor(startsAt: number, now: number): ReminderStage {
+  return startsAt - now <= SOON_REMINDER_WINDOW_MS ? "2h" : "24h";
+}
+
+function isSoonReminder(reminderKey: string | undefined): boolean {
+  return reminderKey?.startsWith(`${REMINDER_KEY_PREFIX["2h"]}:`) ?? false;
+}
 
 // ——————————————————————————————————————————————————————————————
 // Target lookup — shared by permission checks and delivery's title/CTA/
@@ -567,13 +591,18 @@ export const deliverAnnouncementBatch = internalMutation({
 
     const ctaUrl = targetPath(announcement.targetType, announcement.targetId);
     const ctaText = ctaTextFor(announcement.targetType);
+    // Both reminder stages share this template; only the headline differs.
+    // The 2h copy says "soon", not "in 2 hours": a target first seen late
+    // (or a cron tick up to 15 minutes in) is not exactly two hours out, and
+    // the body carries the real start time.
+    const reminderTitle = isSoonReminder(announcement.reminderKey)
+      ? `Starting soon: ${targetTitle}`
+      : `Reminder: ${targetTitle} is tomorrow`;
     const notificationTitle =
-      announcement.kind === "reminder"
-        ? `Reminder: ${targetTitle} is tomorrow`
-        : `Update on ${targetTitle}`;
+      announcement.kind === "reminder" ? reminderTitle : `Update on ${targetTitle}`;
     const emailSubject =
       announcement.kind === "reminder"
-        ? `Reminder: ${targetTitle} is tomorrow`
+        ? reminderTitle
         : `${senderName ?? "Someone"} — update on ${targetTitle}`;
 
     const escapedBody = escapedBodyHtml(announcement.body);
@@ -702,6 +731,20 @@ export const deliverAnnouncementBatch = internalMutation({
 // Internal, cron-only. Scans for events/offerings inside the reminder
 // window, checks reminderKey, creates the announcement + recipient rows,
 // schedules delivery. Never delivers inline.
+//
+// Two reminders per target: "24h" (start is within 24 hours) and "2h"
+// (start is within 2 hours). The rule is one stage per target per tick,
+// chosen by how far away the start is right now (reminderStageFor):
+//   - start > 2h away  -> only the 24h key is checked/sent
+//   - start <= 2h away -> only the 2h key is checked/sent
+// Time only moves forward, so a target goes 24h-stage -> 2h-stage and never
+// back. That gives every property for free: a target first seen inside 2h
+// (created late, or cron was down) gets only the 2h reminder; the two can't
+// fire on the same tick; and the 24h reminder can never follow the 2h one.
+// Each stage is once per (target, startsAt) via its own key prefix. A
+// reschedule changes startsAt, hence both keys, and re-arms both stages
+// (PRD "Rescheduled after the reminder fired"). Known sliver: a target first
+// seen 2-3 hours out gets the 24h reminder, then the 2h one a few ticks later.
 export const sendDueReminders = internalMutation({
   args: {},
   handler: async (ctx) => {
@@ -712,7 +755,8 @@ export const sendDueReminders = internalMutation({
     // strictly — a cron outage that ends after start must not send "is
     // tomorrow" for something underway) together bound the range
     // (now, windowEnd]. Condition 3 (target still live) is the extra
-    // .filter()/in-memory check below.
+    // .filter()/in-memory check below. The 2h stage is a sub-range of the
+    // same window, so one scan serves both.
     const dueEvents = await ctx.db
       .query("events")
       .withIndex("by_datetime", (q) => q.gt("datetime", now).lte("datetime", windowEnd))
@@ -742,16 +786,24 @@ export const sendDueReminders = internalMutation({
         startsAt: o.startDate as number,
       })),
     ];
-    // Soonest-starting first, in the unlikely event of a backlog beyond the cap.
+    // Soonest-starting first. Every 2h-stage target starts sooner than every
+    // 24h-stage one, so under a backlog the more urgent reminders go first.
     dueTargets.sort((a, b) => a.startsAt - b.startsAt);
 
     let remindersSent = 0;
-    for (const dueTarget of dueTargets.slice(0, MAX_REMINDER_TARGETS_PER_RUN)) {
-      // Idempotency (PRD §3): "reminder24h:{targetType}:{targetId}:{startsAt}",
-      // looked up via by_reminderKey before insert. Convex mutations are
-      // serializable, so lookup-then-insert inside this one mutation can't
-      // race with itself.
-      const reminderKey = `reminder24h:${dueTarget.targetType}:${dueTarget.targetId}:${dueTarget.startsAt}`;
+    for (const dueTarget of dueTargets) {
+      // The cap bounds work per run, so it counts reminders created — not
+      // targets scanned. Targets already reminded are a cheap index lookup
+      // and must not eat the budget, or a day with 20+ events would starve
+      // the reminders for the ones at the back of the window.
+      if (remindersSent >= MAX_REMINDER_TARGETS_PER_RUN) break;
+
+      // Idempotency (PRD §3): "{prefix}:{targetType}:{targetId}:{startsAt}"
+      // (prefix reminder24h or reminder2h), looked up via by_reminderKey
+      // before insert. Convex mutations are serializable, so
+      // lookup-then-insert inside this one mutation can't race with itself.
+      const stage = reminderStageFor(dueTarget.startsAt, now);
+      const reminderKey = `${REMINDER_KEY_PREFIX[stage]}:${dueTarget.targetType}:${dueTarget.targetId}:${dueTarget.startsAt}`;
       const existing = await ctx.db
         .query("announcements")
         .withIndex("by_reminderKey", (q) => q.eq("reminderKey", reminderKey))

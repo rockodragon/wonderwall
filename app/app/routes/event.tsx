@@ -32,6 +32,7 @@
 
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useAction, useConvexAuth, useMutation, useQuery } from "convex/react";
+import type { FunctionReturnType } from "convex/server";
 import { ConvexError } from "convex/values";
 import { type FormEvent, type ReactNode, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
@@ -61,10 +62,10 @@ import { AddToCalendar } from "../components/AddToCalendar";
 import { EmbedPlayer } from "../components/EmbedPlayer";
 import { codeRequestParams } from "../lib/oauthHost";
 import { toEmbedUrl } from "../lib/videoEmbed";
-import { buildTicketLink, isCheckoutSessionId } from "../../convex/garden/ticketLink";
+import { buildTicketLink, isCheckoutSessionId, isPayPalPaymentLink } from "../../convex/garden/ticketLink";
 import { claimPendingTickets, stashTicketSession } from "../lib/pendingTicket";
 import { setPendingIntent } from "../lib/pendingIntent";
-import { guestsToCsv, summarizeGuests, formatDollars } from "../../convex/eventGuests";
+import { guestsToCsv, summarizeGuests, formatDollars, paidLabel } from "../../convex/eventGuests";
 import { PAGE_WIDTH } from "../lib/pageWidth";
 import { eventCta, type EventCta } from "../lib/eventCta";
 
@@ -168,8 +169,12 @@ export default function EventDetail() {
   const [cancelling, setCancelling] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
   // Held here rather than inside the card so the desktop and mobile render
-  // sites stay in sync.
-  const rsvp = useGuestRsvp(eventId as Id<"events"> | undefined);
+  // sites stay in sync. On a PayPal event the same sign-up gets tickets.
+  const rsvp = useGuestRsvp(eventId as Id<"events"> | undefined, {
+    payPal: isPayPalPaymentLink(event?.externalTicketUrl),
+    // A full event's sign-up joins the waitlist instead.
+    waitlist: !!event?.isFull && !!event?.waitlistOn,
+  });
 
   async function handleCancelEvent() {
     if (!eventId) return;
@@ -244,13 +249,25 @@ export default function EventDetail() {
   // applying again (server-decided, applyNeedsApproval); an older backend
   // without it falls back to the Event's own flag.
   const needsApproval = event.applyNeedsApproval ?? event.requiresApproval;
+  // An RSVP (free, PayPal, a Stripe-link ticket) counts as being in, the
+  // same as an accepted request.
+  const going = event.userApplication ?? (event.userRsvp ? { status: "accepted" } : null);
+  const spot: EventSpot = {
+    full: !!event.isFull,
+    waitlistOn: !!event.waitlistOn,
+    waitlisted: !!event.userWaitlisted,
+    onList: !!event.userRsvp,
+  };
   const cta = eventCta({ ...event, requiresApproval: needsApproval }, {
     now,
     who: isGuest ? "guest" : isAuthenticated ? "member" : "unknown",
     isOrganizer: event.isOrganizer,
-    application: event.userApplication,
+    application: going,
+    full: spot.full,
+    waitlistOn: spot.waitlistOn,
+    waitlisted: spot.waitlisted,
   });
-  const ctaCard = <EventCtaCard eventId={event._id} cta={cta} rsvp={rsvp} />;
+  const ctaCard = <EventCtaCard eventId={event._id} cta={cta} rsvp={rsvp} spot={spot} isGuest={!!isGuest} />;
   const isHost = !!(event.isHost ?? event.isOrganizer);
   // Hosts get one list of people, Guests (emails, payments, approvals,
   // messaging), in place of the public Who's going — two lists of the same
@@ -668,8 +685,18 @@ export default function EventDetail() {
           />
         )}
 
-        {/* Location Map */}
-        {event.location && event.locationType !== "online" && (
+        {/* Location: a hidden address shows the city to visitors */}
+        {event.addressHidden && (
+          <div className="mb-8">
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
+              Location
+            </h3>
+            <p className="text-[15px] text-gray-800 dark:text-gray-100">
+              {event.location ? `${event.location}. ` : ""}Address shared with guests.
+            </p>
+          </div>
+        )}
+        {!event.addressHidden && event.location && event.locationType !== "online" && (
           <div className="mb-8">
             <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
               Location
@@ -768,7 +795,7 @@ export default function EventDetail() {
         )}
 
         {tab === "guests" && isHost && (
-          <GuestsPanel eventId={event._id} title={event.title} />
+          <GuestsPanel eventId={event._id} title={event.title} capacity={event.capacity} />
         )}
 
         {tab === "setup" && isHost && (
@@ -813,6 +840,7 @@ export default function EventDetail() {
             // A Table's dates don't sell their own tickets: the Table's
             // price covers them (events.update refuses a link on one).
             canEditTickets: !!event.isOrganizer && !event.tableId,
+            tableEvent: !!event.tableId,
             coverImageUrl: event.coverImageUrl,
             initialValues: {
             title: event.title,
@@ -831,6 +859,9 @@ export default function EventDetail() {
             requiresApproval: event.requiresApproval,
             mediaUrl: event.mediaUrl,
             hostOrgId: event.hostOrgId,
+            capacity: event.capacity ?? undefined,
+            waitlist: event.waitlist,
+            hideAddress: event.hideAddress,
             },
           }}
           onClose={() => setShowEditForm(false)}
@@ -848,7 +879,9 @@ export default function EventDetail() {
 // in (creating the account if needed) and saves the RSVP. Codes come from
 // convex/auth.ts's "email-otp" and "phone" providers; the RSVP itself is
 // garden/eventRsvps.ts's rsvpToEvent, which needs the signed-in account.
-// Paid tickets don't come through here (StripeTicketCard, Stripe).
+// Stripe tickets don't come through here (StripeTicketCard). PayPal tickets
+// do (PayPalTicketCard): the same sign-up, then startPayPalTicket instead of
+// the RSVP, then off to PayPal.
 // ——————————————————————————————————————————————————————————————
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -873,7 +906,10 @@ function isNotSignedInError(err: unknown): boolean {
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-function useGuestRsvp(eventId: Id<"events"> | undefined) {
+function useGuestRsvp(
+  eventId: Id<"events"> | undefined,
+  opts: { payPal?: boolean; waitlist?: boolean } = {},
+) {
   const { signIn } = useAuthActions();
   // The code sign-in resolves before the Convex client is sending the new
   // token, so saving waits until the client reports it's authenticated.
@@ -881,6 +917,11 @@ function useGuestRsvp(eventId: Id<"events"> | undefined) {
   const isAuthenticatedRef = useRef(isAuthenticated);
   isAuthenticatedRef.current = isAuthenticated;
   const rsvpToEvent = useMutation(api.garden.eventRsvps.rsvpToEvent);
+  const startPayPalTicket = useMutation(api.garden.eventRsvps.startPayPalTicket);
+  const joinWaitlist = useMutation(api.garden.eventWaitlist.joinWaitlist);
+  // What the code sign-up finishes with: a full event's waitlist, a PayPal
+  // event's Get tickets, or the RSVP.
+  const mode: "waitlist" | "paypal" | "rsvp" = opts.waitlist ? "waitlist" : opts.payPal ? "paypal" : "rsvp";
   const fillMissingBasics = useMutation(api.profiles.fillMissingBasics);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -895,7 +936,7 @@ function useGuestRsvp(eventId: Id<"events"> | undefined) {
   const [signedIn, setSignedIn] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState<{ alreadyRsvpd: boolean } | null>(null);
+  const [done, setDone] = useState<{ alreadyRsvpd: boolean; waitlisted?: boolean } | null>(null);
 
   const trimmedName = name.trim();
   const cleanEmail = email.trim().toLowerCase();
@@ -949,6 +990,20 @@ function useGuestRsvp(eventId: Id<"events"> | undefined) {
         // Only fills a blank name / missing email; never overwrites a
         // returning member's profile (unlike upsertProfile).
         await fillMissingBasics({ name: trimmedName, email: cleanEmail });
+        if (mode === "waitlist") {
+          const res = await joinWaitlist({ eventId, name: trimmedName });
+          setDone({ alreadyRsvpd: res === "going", waitlisted: res === "waiting" });
+          setStep("done");
+          return;
+        }
+        if (mode === "paypal") {
+          // The card showed what getting tickets joins (ticketCommunityJoin).
+          const res = await startPayPalTicket({ eventId, name: trimmedName, agreed: true });
+          setDone({ alreadyRsvpd: false });
+          setStep("done");
+          window.location.assign(res.url);
+          return;
+        }
         const res = await rsvpToEvent({ eventId, name: trimmedName });
         setDone({ alreadyRsvpd: res.alreadyRsvpd });
         setStep("done");
@@ -1019,6 +1074,7 @@ function useGuestRsvp(eventId: Id<"events"> | undefined) {
     // True once the visitor is past step 1. From then on the card stays put
     // even though the page now sees a signed-in viewer.
     active: step !== "details",
+    mode,
     sendCode,
     confirm,
     changeAddress,
@@ -1037,7 +1093,25 @@ const GUEST_LINK_CLASS =
 
 /** Rendered twice (desktop rail + mobile block), same as the Join button it
  *  stands in for. State lives in the parent so the two stay in sync. */
+const GUEST_WORDS = {
+  rsvp: {
+    collapsedHeading: "Going?",
+    open: "RSVP",
+    heading: "RSVP",
+    note: "RSVPs need a free account.",
+    confirm: "Confirm my seat",
+  },
+  waitlist: {
+    collapsedHeading: "This event is full",
+    open: "Join the waitlist",
+    heading: "Join the waitlist",
+    note: "The waitlist needs a free account.",
+    confirm: "Join the waitlist",
+  },
+} as const;
+
 function GuestRsvpCard({ rsvp }: { rsvp: GuestRsvpState }) {
+  const words = GUEST_WORDS[rsvp.mode === "waitlist" ? "waitlist" : "rsvp"];
   // A visitor sees one button first; the form opens on it and says plainly
   // that an RSVP makes a free account (Rick, 2026-10-07: the bare form read
   // as an RSVP and then surprised them with an account). Anything already
@@ -1056,6 +1130,17 @@ function GuestRsvpCard({ rsvp }: { rsvp: GuestRsvpState }) {
       </Link>
     </p>
   );
+
+  if (rsvp.step === "done" && rsvp.done?.waitlisted) {
+    return (
+      <div className="p-4 rounded-xl bg-blue-50 dark:bg-blue-900/20">
+        <p className="font-medium text-blue-900 dark:text-blue-100">You're on the waitlist</p>
+        <p className="mt-1 text-sm text-blue-900 dark:text-blue-100">
+          The host lets people in as spots open. We'll email you.
+        </p>
+      </div>
+    );
+  }
 
   if (rsvp.step === "done" && rsvp.done) {
     return (
@@ -1099,7 +1184,7 @@ function GuestRsvpCard({ rsvp }: { rsvp: GuestRsvpState }) {
           disabled={!rsvp.codeValid || rsvp.submitting}
           className="mt-3 w-full py-2.5 bg-green-600 text-white rounded-xl font-medium hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {rsvp.submitting ? "Saving…" : "Confirm my seat"}
+          {rsvp.submitting ? "Saving…" : words.confirm}
         </button>
         {rsvp.error && (
           <p className="mt-2 text-sm text-red-800 dark:text-red-200">
@@ -1130,13 +1215,13 @@ function GuestRsvpCard({ rsvp }: { rsvp: GuestRsvpState }) {
   if (!expanded) {
     return (
       <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl">
-        <h3 className="font-medium text-gray-900 dark:text-white text-sm">Going?</h3>
+        <h3 className="font-medium text-gray-900 dark:text-white text-sm">{words.collapsedHeading}</h3>
         <button
           type="button"
           onClick={() => setOpen(true)}
           className="mt-3 w-full py-2.5 bg-green-600 text-white rounded-xl font-medium hover:bg-green-700 transition-colors"
         >
-          RSVP
+          {words.open}
         </button>
         {signIn}
       </div>
@@ -1149,10 +1234,10 @@ function GuestRsvpCard({ rsvp }: { rsvp: GuestRsvpState }) {
       className="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl"
     >
       <h3 className="font-medium text-gray-900 dark:text-white text-sm">
-        RSVP
+        {words.heading}
       </h3>
       <p className="mt-1 mb-3 text-sm text-gray-800 dark:text-gray-200">
-        RSVPs need a free account. We'll {rsvp.usePhone ? "text" : "email"} you a code to confirm.
+        {words.note} We'll {rsvp.usePhone ? "text" : "email"} you a code to confirm.
       </p>
       <input
         className={GUEST_INPUT_CLASS}
@@ -1588,6 +1673,7 @@ function TicketsCard({
   isPast: boolean;
 }) {
   const createTicketCheckout = useAction(api.garden.stripe.createTicketCheckout);
+  const join = useQuery(api.garden.eventRsvps.ticketCommunityJoin, { eventId });
   const [buyingTier, setBuyingTier] = useState<string | null>(null);
   const [error, setError] = useState("");
 
@@ -1599,7 +1685,8 @@ function TicketsCard({
       window.location.href = url;
     } catch (err) {
       console.error("Ticket checkout failed:", err);
-      setError("Couldn't start checkout. Please try again.");
+      // "Sold out" and the like say so; anything else is a retry.
+      setError(err instanceof ConvexError ? rsvpErrorMessage(err) : "Couldn't start checkout. Please try again.");
       setBuyingTier(null);
     }
   }
@@ -1660,6 +1747,7 @@ function TicketsCard({
           );
         })}
       </div>
+      {join && !isPast && <TicketJoinLine join={join} light />}
     </div>
   );
 }
@@ -1671,16 +1759,33 @@ function TicketsCard({
 
 const NOTICE_CLASS = "p-4 rounded-xl text-center";
 
+/** The viewer and the event's limit (events.get): full, takes a waitlist,
+ *  viewer waiting, viewer already on the list. */
+type EventSpot = { full: boolean; waitlistOn: boolean; waitlisted: boolean; onList: boolean };
+
 function EventCtaCard({
   eventId,
   cta,
   rsvp,
+  spot,
+  isGuest,
 }: {
   eventId: Id<"events">;
   cta: EventCta;
   rsvp: GuestRsvpState;
+  spot: EventSpot;
+  isGuest: boolean;
 }) {
   if (cta.kind === "external") {
+    if (cta.paypal) {
+      // A full PayPal event takes a waitlist like any other; someone already
+      // on the list keeps their Pay on PayPal card.
+      if (!spot.onList && (spot.waitlisted || spot.full)) {
+        const state = spot.waitlisted ? "waitlisted" : spot.waitlistOn ? "waitlist" : "full";
+        return <WaitlistCard eventId={eventId} state={state} isGuest={isGuest} rsvp={rsvp} />;
+      }
+      return <PayPalTicketCard eventId={eventId} url={cta.href} priceCents={cta.priceCents} rsvp={rsvp} />;
+    }
     return cta.stripe ? (
       <StripeTicketCard eventId={eventId} url={cta.href} priceCents={cta.priceCents} />
     ) : (
@@ -1735,9 +1840,16 @@ function EventCtaCard({
                 ? "Your application was declined"
                 : "Your application is pending approval"}
           </p>
+          {entry.status !== "declined" && (
+            <CantMakeIt eventId={eventId} label={entry.status === "pending" ? "Cancel request" : "Can't make it"} />
+          )}
         </div>
       );
     }
+    case "waitlist":
+    case "waitlisted":
+    case "full":
+      return <WaitlistCard eventId={eventId} state={entry.kind} isGuest={isGuest} rsvp={rsvp} />;
     case "apply":
     case "join":
       return <JoinOrApplyCard eventId={eventId} mode={entry.kind} />;
@@ -1746,6 +1858,117 @@ function EventCtaCard({
     default:
       return null;
   }
+}
+
+// A full event (events.capacity): join the waitlist, on it already, or just
+// full when the host turned the waitlist off. A signed-out visitor makes
+// their account with the emailed code first (useGuestRsvp in waitlist mode).
+function WaitlistCard({
+  eventId,
+  state,
+  isGuest,
+  rsvp,
+}: {
+  eventId: Id<"events">;
+  state: "waitlist" | "waitlisted" | "full";
+  isGuest: boolean;
+  rsvp: GuestRsvpState;
+}) {
+  const join = useMutation(api.garden.eventWaitlist.joinWaitlist);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  if (rsvp.active || (state === "waitlist" && isGuest)) return <GuestRsvpCard rsvp={rsvp} />;
+
+  if (state === "waitlisted") {
+    return (
+      <div className="p-4 rounded-xl bg-blue-50 dark:bg-blue-900/20 text-blue-900 dark:text-blue-100">
+        <p className="font-medium">You're on the waitlist</p>
+        <p className="mt-1 text-sm">The host lets people in as spots open. We'll email you.</p>
+        <CantMakeIt eventId={eventId} label="Leave the waitlist" />
+      </div>
+    );
+  }
+
+  if (state === "full") {
+    return (
+      <div className={`${NOTICE_CLASS} bg-gray-100 dark:bg-gray-800`}>
+        <p className="font-medium text-gray-900 dark:text-white">This event is full</p>
+      </div>
+    );
+  }
+
+  async function joinNow() {
+    setBusy(true);
+    setError(null);
+    try {
+      await join({ eventId });
+    } catch (err) {
+      setError(rsvpErrorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl">
+      <h3 className="font-medium text-gray-900 dark:text-white text-sm">This event is full</h3>
+      <button
+        type="button"
+        onClick={() => void joinNow()}
+        disabled={busy}
+        className="mt-3 w-full py-2.5 bg-green-600 text-white rounded-xl font-medium hover:bg-green-700 transition-colors disabled:opacity-50"
+      >
+        {busy ? "Joining…" : "Join the waitlist"}
+      </button>
+      {error && (
+        <p role="alert" className="mt-2 text-sm text-red-800 dark:text-red-200">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/** "Can't make it": gives up the viewer's spot, request or waitlist place
+ *  (garden/eventRsvps.ts cancelMyRsvp). A paid ticket stays; the server
+ *  says to ask the host. */
+function CantMakeIt({ eventId, label = "Can't make it" }: { eventId: Id<"events">; label?: string }) {
+  const cancel = useMutation(api.garden.eventRsvps.cancelMyRsvp);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function go() {
+    const question = label === "Leave the waitlist" ? "Leave the waitlist?" : label === "Cancel request" ? "Cancel your request?" : "Give up your spot?";
+    if (!window.confirm(question)) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await cancel({ eventId });
+    } catch (err) {
+      setError(rsvpErrorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="mt-3">
+      <button
+        type="button"
+        onClick={() => void go()}
+        disabled={busy}
+        className="text-sm underline underline-offset-2 hover:no-underline disabled:opacity-60"
+      >
+        {busy ? "Saving…" : label}
+      </button>
+      {error && (
+        <p role="alert" className="mt-1 text-sm">
+          {error}
+        </p>
+      )}
+    </div>
+  );
 }
 
 // Apply (the host approves) and Join (straight in) are one card: a button
@@ -1780,13 +2003,18 @@ function JoinOrApplyCard({ eventId, mode }: { eventId: Id<"events">; mode: "appl
   const [open, setOpen] = useState(false);
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function submit() {
     setSending(true);
+    setError(null);
     try {
       await applyToEvent({ eventId, message: message || undefined });
       setOpen(false);
       setMessage("");
+    } catch (err) {
+      // A full event says so; the page then offers the waitlist.
+      setError(rsvpErrorMessage(err));
     } finally {
       setSending(false);
     }
@@ -1823,6 +2051,11 @@ function JoinOrApplyCard({ eventId, mode }: { eventId: Id<"events">; mode: "appl
         >
           {sending ? words.busy : words.submit}
         </button>
+        {error && (
+          <p role="alert" className="text-sm text-red-800 dark:text-red-200">
+            {error}
+          </p>
+        )}
         <button
           onClick={() => {
             setOpen(false);
@@ -1909,6 +2142,7 @@ function LinkOutCard({
   label,
   note,
   newTab = false,
+  extra,
 }: {
   kicker: string;
   priceCents: number | null;
@@ -1916,6 +2150,8 @@ function LinkOutCard({
   label: string;
   note: string;
   newTab?: boolean;
+  /** Under the note: the Stripe card's community line. */
+  extra?: ReactNode;
 }) {
   return (
     <TicketCardShell>
@@ -1950,6 +2186,7 @@ function LinkOutCard({
         {label}
       </a>
       <p style={{ color: "var(--garden-dim)", fontSize: 13, margin: "10px 0 0" }}>{note}</p>
+      {extra}
     </TicketCardShell>
   );
 }
@@ -1969,6 +2206,7 @@ function StripeTicketCard({
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const justPaid = searchParams.get("paid") === "1";
+  const join = useQuery(api.garden.eventRsvps.ticketCommunityJoin, { eventId });
 
   if (myRsvp?.paidCents) {
     return (
@@ -2037,7 +2275,370 @@ function StripeTicketCard({
       })}
       label="Buy tickets"
       note="Secure checkout with Stripe."
+      extra={join ? <TicketJoinLine join={join} /> : null}
     />
+  );
+}
+
+// PayPalTicketCard is the organizer's own PayPal pay link
+// (garden/ticketLink.ts isPayPalPaymentLink). PayPal tells us nothing back,
+// so Get tickets saves the person first (startPayPalTicket: the guest list,
+// and the event's community when the line under the button says so), then
+// sends them to PayPal in this tab. A signed-out visitor makes their account
+// on the way, with the same emailed code as an RSVP (useGuestRsvp).
+
+const TICKET_INPUT_CLASS =
+  "w-full px-3 py-2.5 rounded-lg border outline-none placeholder:text-[color:var(--garden-dim)]";
+const TICKET_INPUT_STYLE = {
+  backgroundColor: "var(--garden-ink)",
+  borderColor: "var(--garden-hairline-raised)",
+  color: "var(--garden-paper)",
+  fontSize: 15,
+};
+const TICKET_BUTTON_STYLE = {
+  backgroundColor: "var(--garden-citron)",
+  color: "#141414",
+  fontSize: 16,
+  fontWeight: 700,
+  padding: "14px 16px",
+};
+const TICKET_LINK_CLASS = "underline underline-offset-2 hover:no-underline";
+
+type TicketJoinInfo = FunctionReturnType<typeof api.garden.eventRsvps.ticketCommunityJoin>;
+
+/** "Getting tickets joins The Garden and agrees to its agreements." The
+ *  agreements open in place, as on sign-up (AgreementsConsent). Every
+ *  ticket path shows it before the buyer pays: it's the agreement the join
+ *  rests on (garden/communities.ts joinTicketCommunity). `light` is for the
+ *  Tickets card, which isn't on the ink panel. */
+function TicketJoinLine({ join, light = false }: { join: NonNullable<TicketJoinInfo>; light?: boolean }) {
+  const [open, setOpen] = useState(false);
+  const verb = join.join === "ask" ? "asks to join" : "joins";
+  return (
+    <div
+      className={light ? "text-[13.5px] text-gray-700 dark:text-gray-200 mt-3" : undefined}
+      style={light ? undefined : { color: "var(--garden-body)", fontSize: 13.5, margin: "10px 0 0" }}
+    >
+      {join.agreements.length === 0 ? (
+        <p style={{ margin: 0 }}>
+          Getting tickets {verb} {join.name}.
+        </p>
+      ) : (
+        <p style={{ margin: 0 }}>
+          Getting tickets {verb} {join.name} and agrees to its{" "}
+          <button
+            type="button"
+            onClick={() => setOpen((o) => !o)}
+            aria-expanded={open}
+            className={TICKET_LINK_CLASS}
+            style={light ? undefined : { color: "var(--garden-paper)" }}
+          >
+            agreements
+          </button>
+          .
+        </p>
+      )}
+      {open && join.agreements.length > 0 && (
+        <ul className="list-disc pl-5 mt-2 space-y-1">
+          {join.agreements.map((a, i) => (
+            <li key={i}>{a}</li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function PayPalTicketCard({
+  eventId,
+  url,
+  priceCents,
+  rsvp,
+}: {
+  eventId: Id<"events">;
+  url: string;
+  priceCents: number | null;
+  rsvp: GuestRsvpState;
+}) {
+  const { isAuthenticated, isLoading } = useConvexAuth();
+  const myRsvp = useQuery(api.garden.eventRsvps.getMyRsvpStatus, isAuthenticated ? { eventId } : "skip");
+  const join = useQuery(api.garden.eventRsvps.ticketCommunityJoin, { eventId });
+  const start = useMutation(api.garden.eventRsvps.startPayPalTicket);
+  const [formOpen, setFormOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const joinLine = join ? <TicketJoinLine join={join} /> : null;
+
+  // A visitor making their account on the way keeps this form until PayPal
+  // opens, even once the code has signed them in.
+  if (rsvp.active || (formOpen && !isAuthenticated)) {
+    return <PayPalGuestForm rsvp={rsvp} url={url} joinLine={joinLine} />;
+  }
+
+  if (myRsvp) {
+    return (
+      <TicketCardShell>
+        <p style={{ color: "var(--garden-citron)", fontSize: 17, fontWeight: 600, margin: 0 }}>
+          You're on the list
+        </p>
+        <p style={{ color: "var(--garden-body)", fontSize: 14, margin: "4px 0 16px" }}>
+          Paid on PayPal? You're set. If not, finish there.
+        </p>
+        {/* Through startPayPalTicket again (no join), so someone let in from
+            the waitlist shows as Sent to PayPal once they go. The plain link
+            is the fallback. */}
+        <a
+          href={url}
+          onClick={(e) => {
+            e.preventDefault();
+            start({ eventId })
+              .then((res) => window.location.assign(res.url))
+              .catch(() => window.location.assign(url));
+          }}
+          className="block w-full text-center rounded-lg transition-opacity hover:opacity-90"
+          style={TICKET_BUTTON_STYLE}
+        >
+          Pay on PayPal
+        </a>
+        <div style={{ color: "var(--garden-paper)" }}>
+          <CantMakeIt eventId={eventId} />
+        </div>
+      </TicketCardShell>
+    );
+  }
+
+  async function getTickets() {
+    if (!isAuthenticated) {
+      setFormOpen(true);
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await start({ eventId, agreed: true });
+      window.location.assign(res.url);
+    } catch (err) {
+      setError(rsvpErrorMessage(err));
+      setBusy(false);
+    }
+  }
+
+  return (
+    <TicketCardShell>
+      <p style={{ color: "var(--garden-dim)", fontSize: 13, margin: 0 }}>Admission</p>
+      {priceCents ? (
+        <p style={{ color: "var(--garden-paper)", fontSize: 32, fontWeight: 700, lineHeight: 1.1, margin: "2px 0 16px" }}>
+          {formatDollars(priceCents)}
+        </p>
+      ) : (
+        <div style={{ height: 12 }} />
+      )}
+      <button
+        type="button"
+        onClick={() => void getTickets()}
+        disabled={busy || isLoading}
+        className="block w-full text-center rounded-lg transition-opacity hover:opacity-90 disabled:opacity-60"
+        style={TICKET_BUTTON_STYLE}
+      >
+        {busy ? "Opening PayPal…" : "Get tickets"}
+      </button>
+      <p style={{ color: "var(--garden-dim)", fontSize: 13, margin: "10px 0 0" }}>You'll pay on PayPal.</p>
+      {joinLine}
+      {error && (
+        <p role="alert" style={{ color: "var(--garden-paper)", fontSize: 14, margin: "10px 0 0" }}>
+          {error}
+        </p>
+      )}
+    </TicketCardShell>
+  );
+}
+
+/** Name and email, then the emailed code; the code makes the account and
+ *  useGuestRsvp sends them on to PayPal. */
+function PayPalGuestForm({ rsvp, url, joinLine }: { rsvp: GuestRsvpState; url: string; joinLine: ReactNode }) {
+  const error = rsvp.error && (
+    <p role="alert" style={{ color: "var(--garden-paper)", fontSize: 14, margin: "10px 0 0" }}>
+      {rsvp.error}
+    </p>
+  );
+
+  if (rsvp.step === "done") {
+    return (
+      <TicketCardShell>
+        <p style={{ color: "var(--garden-citron)", fontSize: 17, fontWeight: 600, margin: 0 }}>You're on the list</p>
+        <p style={{ color: "var(--garden-body)", fontSize: 14, margin: "4px 0 16px" }}>Opening PayPal…</p>
+        <a href={url} className="block w-full text-center rounded-lg transition-opacity hover:opacity-90" style={TICKET_BUTTON_STYLE}>
+          Pay on PayPal
+        </a>
+      </TicketCardShell>
+    );
+  }
+
+  if (rsvp.step === "code") {
+    return (
+      <TicketCardShell>
+        <form onSubmit={rsvp.confirm}>
+          <p style={{ color: "var(--garden-paper)", fontSize: 17, fontWeight: 600, margin: 0 }}>Enter your code</p>
+          <p style={{ color: "var(--garden-body)", fontSize: 14, margin: "4px 0 12px" }}>We sent it to {rsvp.sentTo}.</p>
+          <input
+            className={TICKET_INPUT_CLASS}
+            style={TICKET_INPUT_STYLE}
+            value={rsvp.code}
+            onChange={(e) => rsvp.setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+            placeholder="6-digit code"
+            aria-label="6-digit code"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            maxLength={6}
+          />
+          <button
+            type="submit"
+            disabled={!rsvp.codeValid || rsvp.submitting}
+            className="mt-3 block w-full text-center rounded-lg transition-opacity hover:opacity-90 disabled:opacity-60"
+            style={TICKET_BUTTON_STYLE}
+          >
+            {rsvp.submitting ? "Opening PayPal…" : "Continue to PayPal"}
+          </button>
+          {error}
+          <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1" style={{ color: "var(--garden-paper)", fontSize: 14 }}>
+            <button type="button" onClick={() => void rsvp.sendCode()} disabled={rsvp.submitting} className={TICKET_LINK_CLASS}>
+              Send a new code
+            </button>
+            <button type="button" onClick={rsvp.changeAddress} className={TICKET_LINK_CLASS}>
+              Change email
+            </button>
+          </div>
+        </form>
+      </TicketCardShell>
+    );
+  }
+
+  return (
+    <TicketCardShell>
+      <form onSubmit={rsvp.sendCode}>
+        <p style={{ color: "var(--garden-paper)", fontSize: 17, fontWeight: 600, margin: 0 }}>Get tickets</p>
+        <p style={{ color: "var(--garden-body)", fontSize: 14, margin: "4px 0 12px" }}>
+          Tickets need a free account. We'll email you a code, then send you to PayPal.
+        </p>
+        <input
+          className={TICKET_INPUT_CLASS}
+          style={TICKET_INPUT_STYLE}
+          value={rsvp.name}
+          onChange={(e) => rsvp.setName(e.target.value)}
+          placeholder="Your name"
+          aria-label="Your name"
+          autoComplete="name"
+        />
+        <input
+          className={`mt-2 ${TICKET_INPUT_CLASS}`}
+          style={TICKET_INPUT_STYLE}
+          type="email"
+          value={rsvp.email}
+          onChange={(e) => rsvp.setEmail(e.target.value)}
+          placeholder="you@example.com"
+          aria-label="Your email"
+          autoComplete="email"
+        />
+        <button
+          type="submit"
+          disabled={!rsvp.valid || rsvp.submitting}
+          className="mt-3 block w-full text-center rounded-lg transition-opacity hover:opacity-90 disabled:opacity-60"
+          style={TICKET_BUTTON_STYLE}
+        >
+          {rsvp.submitting ? "Sending…" : "Email me a code"}
+        </button>
+        {joinLine}
+        {error}
+        <p style={{ color: "var(--garden-body)", fontSize: 14, margin: "10px 0 0" }}>
+          Already a member?{" "}
+          <Link
+            to="/login"
+            onClick={() => setPendingIntent(window.location.pathname)}
+            className={TICKET_LINK_CLASS}
+            style={{ color: "var(--garden-paper)" }}
+          >
+            Sign in
+          </Link>
+        </p>
+      </form>
+    </TicketCardShell>
+  );
+}
+
+/** The host's waitlist: oldest first, Let in (an RSVP and an email to
+ *  them) or Remove. Letting someone in past the limit is allowed. */
+function WaitlistPanel({
+  rows,
+  spotsOpen,
+}: {
+  rows: { _id: Id<"eventWaitlist">; name: string; email: string; createdAt: number }[];
+  spotsOpen: number | null;
+}) {
+  const admit = useMutation(api.garden.eventWaitlist.admitFromWaitlist);
+  const remove = useMutation(api.garden.eventWaitlist.removeFromWaitlist);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function act(id: Id<"eventWaitlist">, what: "admit" | "remove") {
+    setBusyId(id);
+    setError(null);
+    try {
+      if (what === "admit") await admit({ entryId: id });
+      else await remove({ entryId: id });
+    } catch (err) {
+      setError(rsvpErrorMessage(err));
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  if (rows.length === 0) {
+    return <p className="text-[15px] text-gray-700 dark:text-gray-200 mb-8">No one's waiting.</p>;
+  }
+
+  return (
+    <div className="mb-8">
+      {spotsOpen !== null && (
+        <p className="text-[15px] text-gray-800 dark:text-gray-100 mb-3">
+          {spotsOpen > 0 ? `${spotsOpen} ${spotsOpen === 1 ? "spot" : "spots"} open.` : "No spots open. You can still let people in."}
+        </p>
+      )}
+      {error && (
+        <p role="alert" className="text-[15px] text-red-800 dark:text-red-200 mb-3">
+          {error}
+        </p>
+      )}
+      <ul className="rounded-xl border border-gray-200 dark:border-gray-700 divide-y divide-gray-200 dark:divide-gray-700">
+        {rows.map((r) => (
+          <li key={r._id} className="px-3 py-3 flex flex-wrap items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[15px] text-gray-900 dark:text-white">{r.name}</p>
+              <p className="text-[13.5px] text-gray-700 dark:text-gray-200 break-all">
+                {r.email} · {new Date(r.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => void act(r._id, "admit")}
+                disabled={busyId === r._id}
+                className="px-3 py-1.5 rounded-lg text-[13.5px] font-medium bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
+              >
+                Let in
+              </button>
+              <button
+                type="button"
+                onClick={() => void act(r._id, "remove")}
+                disabled={busyId === r._id}
+                className="px-3 py-1.5 rounded-lg text-[13.5px] font-medium bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50"
+              >
+                Remove
+              </button>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
@@ -2045,10 +2646,20 @@ function StripeTicketCard({
 // Host tabs: Guests and Hosts.
 // ——————————————————————————————————————————————————————————————
 
-type GuestFilter = "going" | "pending" | "declined";
+type GuestFilter = "going" | "pending" | "declined" | "waitlist";
 
-function GuestsPanel({ eventId, title }: { eventId: Id<"events">; title: string }) {
+function GuestsPanel({
+  eventId,
+  title,
+  capacity,
+}: {
+  eventId: Id<"events">;
+  title: string;
+  /** The event's limit, or null (events.get capacity). */
+  capacity: number | null;
+}) {
   const guests = useQuery(api.events.getGuestList, { eventId });
+  const waitlist = useQuery(api.garden.eventWaitlist.getWaitlist, { eventId });
   const me = useQuery(api.profiles.getMyProfile);
   const setStatus = useMutation(api.events.updateApplicationStatus);
   const [filter, setFilter] = useState<GuestFilter>("going");
@@ -2060,11 +2671,14 @@ function GuestsPanel({ eventId, title }: { eventId: Id<"events">; title: string 
 
   const summary = summarizeGuests(guests);
   const by = (s: GuestFilter) => guests.filter((g) => g.status === s);
-  const shown = by(filter);
+  const shown = filter === "waitlist" ? [] : by(filter);
+  const waiting = waitlist ?? [];
   const tabs: { id: GuestFilter; label: string }[] = [
-    { id: "going", label: `Going ${summary.going}` },
+    { id: "going", label: capacity ? `Going ${summary.going} of ${capacity}` : `Going ${summary.going}` },
     { id: "pending", label: `Waiting for approval ${by("pending").length}` },
     { id: "declined", label: `Not going ${by("declined").length}` },
+    // Only when there's a limit or someone is already waiting.
+    ...(capacity || waiting.length > 0 ? [{ id: "waitlist" as const, label: `Waitlist ${waiting.length}` }] : []),
   ];
 
   function downloadCsv() {
@@ -2122,7 +2736,9 @@ function GuestsPanel({ eventId, title }: { eventId: Id<"events">; title: string 
         ))}
       </div>
 
-      {shown.length === 0 ? (
+      {filter === "waitlist" ? (
+        <WaitlistPanel rows={waiting} spotsOpen={capacity ? capacity - summary.going : null} />
+      ) : shown.length === 0 ? (
         <p className="text-[15px] text-gray-700 dark:text-gray-200 mb-8">
           {filter === "going" ? "No one yet." : "No one here."}
         </p>
@@ -2142,7 +2758,7 @@ function GuestsPanel({ eventId, title }: { eventId: Id<"events">; title: string 
                 <p className="text-[13.5px] text-gray-700 dark:text-gray-200 break-all">
                   {g.email || "No email"}
                   {" · "}
-                  {g.paidCents != null && g.paidCents > 0 ? `Paid ${formatDollars(g.paidCents)}` : "Free"}
+                  {paidLabel(g)}
                   {" · "}
                   {new Date(g.addedAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
                 </p>

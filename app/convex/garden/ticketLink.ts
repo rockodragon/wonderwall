@@ -30,6 +30,28 @@ export function isStripePaymentLink(url: string | null | undefined): boolean {
   }
 }
 
+/** A PayPal pay link (PayPal's no-code checkout, www.paypal.com/ncp/payment/<id>).
+ * The money goes to the organizer's own PayPal and nothing comes back to us:
+ * the link takes no reference we could match a payment on. So the event page
+ * saves the buyer first (eventRsvps.ts startPayPalTicket) and then sends them
+ * to the link unchanged. */
+const PAYPAL_HOSTS = new Set(["www.paypal.com", "paypal.com"]);
+const PAYPAL_PAY_LINK_PATH = /^\/ncp\/payment\/[A-Za-z0-9]+\/?$/;
+
+export function isPayPalPaymentLink(url: string | null | undefined): boolean {
+  if (!url) return false;
+  try {
+    const parsed = new URL(url.trim());
+    return (
+      parsed.protocol === "https:" &&
+      PAYPAL_HOSTS.has(parsed.hostname) &&
+      PAYPAL_PAY_LINK_PATH.test(parsed.pathname)
+    );
+  } catch {
+    return false;
+  }
+}
+
 /** For a Stripe Payment Link, appends `client_reference_id` (and
  * `prefilled_email` when known) to an event's externalTicketUrl. Any other
  * link comes back unchanged: those params mean nothing off Stripe, and we

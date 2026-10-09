@@ -44,6 +44,7 @@ describe("eventCta", () => {
       host: "eventbrite.com",
       priceCents: 1500,
       stripe: false,
+      paypal: false,
     });
   });
 
@@ -58,6 +59,21 @@ describe("eventCta", () => {
       kind: "external",
       host: "buy.stripe.com",
       stripe: true,
+      paypal: false,
+    });
+  });
+
+  it("a PayPal pay link says so", () => {
+    expect(eventCta(event({ externalTicketUrl: "https://www.paypal.com/ncp/payment/BVJYP3SUBYXWS" }), { now: BEFORE })).toMatchObject({
+      kind: "external",
+      host: "paypal.com",
+      stripe: false,
+      paypal: true,
+    });
+    // Any other PayPal page is just a link out.
+    expect(eventCta(event({ externalTicketUrl: "https://www.paypal.com/donate/?hosted_button_id=X" }), { now: BEFORE })).toMatchObject({
+      kind: "external",
+      paypal: false,
     });
   });
 
@@ -125,11 +141,25 @@ describe("eventPriceCents", () => {
   });
 });
 
+describe("eventCta: a full event", () => {
+  it("offers the waitlist, or says full, and never turns away someone already in", () => {
+    const full = { now: BEFORE, full: true, waitlistOn: true };
+    expect(eventCta(event(), full)).toEqual({ kind: "waitlist" });
+    expect(eventCta(event(), { ...full, waitlistOn: false })).toEqual({ kind: "full" });
+    expect(eventCta(event(), { ...full, waitlisted: true })).toEqual({ kind: "waitlisted" });
+    expect(eventCta(event(), { ...full, application: { status: "accepted" } })).toEqual({ kind: "applied", status: "accepted" });
+    expect(eventCta(event(), { ...full, who: "guest" })).toEqual({ kind: "waitlist" });
+    expect(eventCta(event({ ticketTiers: TIERS }), full)).toEqual({ kind: "tiers", entry: { kind: "waitlist" } });
+    expect(ctaLabel(eventCta(event(), full))).toBe("Join the waitlist");
+  });
+});
+
 describe("ctaLabel", () => {
   it("says what the button on a list card says", () => {
     const at = (extra: Partial<EventCtaEvent>) => ctaLabel(eventCta(event(extra), { now: BEFORE }));
     expect(at({ ticketTiers: TIERS })).toBe("Get tickets");
     expect(at({ externalTicketUrl: "https://buy.stripe.com/x" })).toBe("Get tickets");
+    expect(at({ externalTicketUrl: "https://www.paypal.com/ncp/payment/BVJYP3SUBYXWS" })).toBe("Get tickets");
     expect(at({ externalTicketUrl: "https://partiful.com/e/abc", externalTicketPriceCents: 1500 })).toBe("Get tickets");
     expect(at({ externalTicketUrl: "https://partiful.com/e/abc" })).toBe("RSVP");
     expect(at({ requiresApproval: true })).toBe("Apply to Attend");

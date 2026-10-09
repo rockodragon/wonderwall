@@ -25,6 +25,7 @@ import {
   type StripeWebhookEvent,
 } from "./stripeHandlers";
 import { DEFAULT_DUES, getDefaultCommunity } from "./defaultCommunity";
+import { joinTicketCommunity } from "./communities";
 import { resolveTierCommunity, seatAppliesIn } from "./entitlements";
 import { notifyGiftReceived, openMemberGift, scheduleTransferFor } from "./giving";
 import { applyConnectAccountStatus } from "./connectState";
@@ -234,6 +235,15 @@ function makeConvexDb(ctx: MutationCtx): Db & ClassPaymentDb {
         await ctx.db.patch(existing._id, patch);
       } else {
         await ctx.db.insert("ticketPurchases", { ...patch, createdAt: Date.now() });
+      }
+
+      // A buyer with an account joins the event's community, as the
+      // Tickets card said (ticketCommunityJoin). Once, on the insert.
+      if (isNew && row.userId && row.status === "paid") {
+        const ticketEvent = await ctx.db.get(row.eventId as Id<"events">);
+        if (ticketEvent && !ticketEvent.tableId) {
+          await joinTicketCommunity(ctx, row.userId as Id<"users">, ticketEvent.hostOrgId, true);
+        }
       }
 
       // The ticket itself. Sent once, on the insert only — Stripe retries

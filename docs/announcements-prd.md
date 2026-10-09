@@ -64,6 +64,7 @@ Dedupe rules:
 ### 3. Auto-reminder
 
 - Fires once per (target, start time), 24 hours ahead. Applies to published events (`events.datetime`) and active offerings that have `startDate` set.
+- **Second reminder, 2 hours ahead.** Same targets, audience, template and opt-out; key prefix `reminder2h` instead of `reminder24h`; copy "Starting soon: {title}" / "Starts {formatted time}". Each tick sends at most one stage per target, picked by how far off the start is: more than 2h -> 24h reminder, 2h or less -> 2h reminder. Time only moves forward, so a target first seen inside 2h (created late, cron outage) gets only the 2h one, both never fire on one tick, and the 24h one never follows the 2h one. A reschedule re-arms both (new `startsAt`, new keys).
 - System-sent: `senderUserId` is absent on the announcement row; copy is fixed ("Reminder: {title} is tomorrow" / "Starts {formatted time}").
 - The formatted time is rendered server-side in **America/Los_Angeles** via `Intl.DateTimeFormat`, with the zone abbreviation shown ("Starts Tue, Sep 2 at 6:00 PM PT"). There is no per-user timezone anywhere in the schema and the browser isn't in the loop for an email or a stored notification row — naming one zone is honest; "local time" would be a guess.
 - Reminders do not count against the sender's broadcast rate limit — they aren't the sender's messages.
@@ -211,7 +212,7 @@ crons.interval(
 
 Where `startsAt` is `events.datetime` or `offerings.startDate`. The scan uses the existing `events.by_datetime` index with a range of `[now, now + 24h]`, then filters on `status`; offerings are scanned via the existing `offerings.by_status` index (`"active"`) and filtered on `startDate` in memory (no datetime index exists; active-offering counts are small). No new indexes on either table.
 
-The cron mutation creates announcement + recipient rows only, then hands each one to `deliverAnnouncementBatch` — it never delivers inline. It processes at most **20 due targets per run**; anything left over is picked up on the next tick, which the `reminderKey` makes safe. At a 15-minute cadence that is 80 targets an hour, far past any plausible backlog.
+The cron mutation creates announcement + recipient rows only, then hands each one to `deliverAnnouncementBatch` — it never delivers inline. It creates at most **20 reminders per run** (targets already reminded are skipped without using the budget; soonest-starting first, so 2h reminders go ahead of 24h ones); anything left over is picked up on the next tick, which the `reminderKey` makes safe. At a 15-minute cadence that is 80 targets an hour, far past any plausible backlog.
 
 **Idempotency.** Before sending, the mutation computes `reminderKey = "reminder24h:{targetType}:{targetId}:{startsAt}"` and looks it up via `by_reminderKey`. A hit means this reminder already went out — skip. Miss means insert-and-send. Convex mutations are serializable, so lookup-then-insert inside one mutation cannot race with itself; the key makes the job safe under any cron cadence, restarts, or manual re-invocation. The 15-minute interval means a reminder lands between 23h 45m and 24h before start (or immediately, for a target created already inside the window — still once, still before start).
 
@@ -261,7 +262,7 @@ For offerings the count line names the split when pledges exist — "12 people w
 
 An ordinary notification row, no new surface:
 
-- **Title:** "Update on {target title}" (broadcast) / "Reminder: {title} is tomorrow" (reminder)
+- **Title:** "Update on {target title}" (broadcast) / "Reminder: {title} is tomorrow" (24h reminder) / "Starting soon: {title}" (2h reminder)
 - **Message:** the body (broadcast) / "Starts {formatted time}" (reminder)
 - **linkUrl:** the target's page; **relatedUserId:** the sender (broadcasts only), so the existing notification renderer shows the sender's avatar and profile link
 - Unread badge, mark-as-read: existing behavior, untouched
@@ -270,7 +271,7 @@ An ordinary notification row, no new surface:
 
 Rendered by the existing `sendNotificationEmail` template (heading, body, CTA button):
 
-- **Subject:** "{Sender name} — update on {target title}" / "Reminder: {title} is tomorrow"
+- **Subject:** "{Sender name} — update on {target title}" / "Reminder: {title} is tomorrow" / "Starting soon: {title}" (2h reminder)
 - **Heading:** target title. **Body:** the message, then one provenance line: "You're getting this because you RSVP'd to {title}." (or "…because you support {title}" / "…signed up for {title}")
 - **CTA:** "View event" (or "View Project" / "View offering") → the target page, passed as a path (the template prefixes `SITE_URL`)
 - Broadcast emails append: "To reply, message {sender name} on The Exchange."
@@ -305,7 +306,7 @@ Deliberately not built:
 4. **No delivery/read tracking beyond "queued."** No Resend webhook in V1, so per-recipient state is `emailQueuedAt`, not "delivered" or "opened." We record what we know and nothing we don't.
 5. **No Tables.** `gardenTables`/`tableSessions`/`sessionRsvps` are operator-created (W4), `hostUserId` is optional so ownership is ambiguous, and sessions recur — three open questions this spec doesn't need to answer to ship. When Host-run Tables get self-serve management, session reminders should reuse this primitive (`targetType: "table_session"` slots in cleanly).
 6. **No per-category email preferences or unsubscribe.** Recipients opted into a relationship (supported, RSVP'd, signed up); volume is bounded by the 2/day/target rate limit and one reminder per start time. Preference controls ride with any future notification-settings work, not this feature.
-7. **No configurable reminder offsets.** 24 hours, fixed. Offsets ("1 hour before", "1 week before") are a `reminderKey` suffix away when wanted.
+7. **No configurable reminder offsets.** 24 hours and 2 hours, fixed (a stage per `reminderKey` prefix). Other offsets ("1 week before") are one more stage away when wanted.
 8. **No scheduled/drafted broadcasts.** Compose and send.
 
 ## Success Metrics

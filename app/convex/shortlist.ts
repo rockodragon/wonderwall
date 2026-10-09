@@ -49,6 +49,7 @@ import { isProjectFinished, resolveImageUrl } from "./garden/projectTeam";
 import { projectKind } from "./garden/projectsPublic";
 import { isGivenSupport, supportCadence, supportKind } from "./garden/support";
 import { isHidden, isPostedProject } from "./moderationRules";
+import { feedLocation } from "./eventAddress";
 
 // ——————————————————————————————————————————————————————————————
 // Pure core
@@ -433,7 +434,7 @@ export const getMine = query({
         title: event.title,
         datetime: event.datetime,
         endTime,
-        location: event.location ?? null,
+        location: feedLocation(event) ?? null,
         coverUrl,
         goingCount,
         cancelled: event.status === "cancelled",

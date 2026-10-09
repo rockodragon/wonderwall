@@ -6,6 +6,7 @@ import { communityVisibility } from "./garden/communityVisibility";
 import { eventVisibilityChecker } from "./garden/eventVisibility";
 import { isAcceptingPeople } from "./garden/projectTeam";
 import { VISIBLE_PROJECT_STATUSES } from "./moderationRules";
+import { feedLocation } from "./eventAddress";
 
 /** What a favorite points at. A profile is a follow and an event is a heart
  * (docs/features/following.md); a project, or one role on it, is a save for
@@ -310,7 +311,7 @@ export const getMyFavorites = query({
             _id: event._id,
             title: event.title,
             datetime: event.datetime,
-            location: event.location,
+            location: feedLocation(event),
             tags: event.tags,
             status: event.status,
             requiresApproval: event.requiresApproval,
