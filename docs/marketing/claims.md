@@ -37,6 +37,8 @@ Every sentence we say about money is defined here, word for word. Do not write a
 | **member-directed, full** | What you give goes to them in full. |
 | **give away** | Give some of our grant money away (Rick's words, 2026-10-09: The Garden home's call to give) |
 | **trust your vote** | We trust your vote. (Rick's words, 2026-10-09) |
+| **give, use ours** | Use our money (Rick's words, 2026-10-09: /give, a member's monthly grant) |
+| **give, bring yours** | Bring your own (Rick's words, 2026-10-09: /give, a patron's own money) |
 
 ### Added 2026-10-03 for /pricing — awaiting Rick's OK
 

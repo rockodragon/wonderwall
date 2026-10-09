@@ -182,6 +182,59 @@ const GIVING_TIP_LINES = [
   "They see your name unless you give anonymously.",
 ];
 
+// ————— Two ways to give —————
+
+/** For a visitor, and for a member with no monthly grant yet. Rick,
+ *  2026-10-09: "both use our money and bring your own". Ours is a member's
+ *  monthly grant; yours is a patron backing a person or project, or the fund.
+ *  Every sentence here is a CLAIMS line. */
+function GiveWays({ signedIn }: { signedIn: boolean }) {
+  return (
+    <section>
+      <h1 className="g-h" style={{ fontSize: "clamp(28px,5vw,40px)", margin: 0 }}>
+        {CLAIMS.giveAway}
+      </h1>
+      <p style={{ fontSize: 17, color: BODY, marginTop: 10 }}>{CLAIMS.trustYourVote}</p>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+          gap: 20,
+          marginTop: 28,
+          maxWidth: 760,
+        }}
+      >
+        <Way title={CLAIMS.giveUseOurs} line={CLAIMS.memberDirected}>
+          <Link to={signedIn ? "/join" : "/signup"} className="g-btn g-btn-citron">
+            {signedIn ? "Become a member" : "Join The Garden"}
+          </Link>
+        </Way>
+        <Way title={CLAIMS.giveBringYours} line={CLAIMS.patron}>
+          <Link to="/projects?show=funding" className="g-btn g-btn-citron">
+            Find a project to back
+          </Link>
+          <Link to={`/fund/${SOPHIA_FUND_SLUG}`} className="g-btn g-btn-ghost">
+            Give to the grant fund
+          </Link>
+          <span style={{ fontSize: 14, color: BODY }}>{CLAIMS.grantFundDeductibleShort}</span>
+        </Way>
+      </div>
+    </section>
+  );
+}
+
+function Way({ title, line, children }: { title: string; line: string; children: ReactNode }) {
+  return (
+    <div className="g-card" style={{ padding: 24, border: `1px solid ${HAIR}`, borderRadius: 10 }}>
+      <h2 className="g-h" style={{ fontSize: 24, margin: 0, color: PAPER }}>
+        {title}
+      </h2>
+      <p style={{ fontSize: 16, color: BODY, marginTop: 10, lineHeight: 1.55 }}>{line}</p>
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12, marginTop: 18 }}>{children}</div>
+    </div>
+  );
+}
+
 // ————— Page —————
 
 export default function Give() {
@@ -205,7 +258,16 @@ export default function Give() {
     }
   }, [hasOpen, capture]);
 
-  if (giving === undefined || giving === null) return null;
+  if (giving === undefined) return null;
+  // Signed out: the two ways to give, never a blank page (the home page's
+  // "Give some of our grant money away" lands here).
+  if (giving === null) {
+    return (
+      <GardenPage bare>
+        <GiveWays signedIn={false} />
+      </GardenPage>
+    );
+  }
 
   const backed = searchParams.get("backed") === "1" || searchParams.get("added") === "1";
   const lastDefault = history[0]?.decidedBy === "default" ? history[0] : undefined;
@@ -245,18 +307,7 @@ export default function Give() {
           />
         ))}
 
-        {nothingAtAll && (
-          <div>
-            <p style={{ fontSize: 17, color: BODY, maxWidth: "52ch" }}>
-              Members get a monthly grant to give away.
-            </p>
-            <div style={{ marginTop: 16 }}>
-              <Link to="/join" className="g-btn g-btn-citron">
-                Become a member
-              </Link>
-            </div>
-          </div>
-        )}
+        {nothingAtAll && <GiveWays signedIn />}
 
         {!hasOpen && !done && history.length > 0 && (
           <div>

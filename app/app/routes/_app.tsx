@@ -40,7 +40,9 @@ const PUBLIC_PATH_PREFIXES = ["/about", "/docs", "/communities", "/people", "/se
 
 // The project list is public; a project's own page and every action on it
 // still need an account (projects.tsx sends Post/Cheer/Back to login).
-const PUBLIC_EXACT_PATHS = ["/projects"];
+// /give is public too: The Garden's home asks visitors to give, and the page
+// shows them the two ways (use our money, bring your own) before any sign-in.
+const PUBLIC_EXACT_PATHS = ["/projects", "/give"];
 
 // /events/:eventId is public too — a calendar invite goes to a guest with
 // no account by design (eventRsvps.userId is optional), and event.tsx's own

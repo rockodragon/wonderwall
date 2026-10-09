@@ -73,6 +73,11 @@ export const CLAIMS = {
    *  direct their monthly grant (memberDirected), so it's theirs to vote with. */
   giveAway: "Give some of our grant money away",
   trustYourVote: "We trust your vote.",
+  /** /give's two ways (Rick, 2026-10-09: "both use our money and bring your
+   *  own"): a member's monthly grant (memberDirected), or a patron's own
+   *  money (patron, grantFund). */
+  giveUseOurs: "Use our money",
+  giveBringYours: "Bring your own",
 
   // Added 2026-10-03 for /pricing, awaiting Rick's OK (claims.md, "Added
   // 2026-10-03"). From the plan's Tables update and §3, checked against the
