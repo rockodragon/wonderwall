@@ -35,6 +35,8 @@ Every sentence we say about money is defined here, word for word. Do not write a
 | **member-directed** | Each month you choose who gets your monthly grant: a creative, a project, or the grant fund. |
 | **member-directed, default** | If you don't pick within a week, it goes to the grant fund. |
 | **member-directed, full** | What you give goes to them in full. |
+| **give away** | Give some of our grant money away (Rick's words, 2026-10-09: The Garden home's call to give) |
+| **trust your vote** | We trust your vote. (Rick's words, 2026-10-09) |
 
 ### Added 2026-10-03 for /pricing — awaiting Rick's OK
 
