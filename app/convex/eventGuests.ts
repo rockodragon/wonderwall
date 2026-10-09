@@ -6,6 +6,8 @@ export type GuestStatus = "going" | "pending" | "declined";
 
 export interface GuestRow {
   key: string;
+  /** Their account, when they have one: lets a host message them. */
+  userId: string | null;
   name: string;
   email: string;
   status: GuestStatus;
@@ -16,6 +18,8 @@ export interface GuestRow {
   guestNames: string | null;
   /** The request this person made, when they asked to join: lets a host approve or decline from the list. */
   applicationId: string | null;
+  /** What they wrote when they asked to join. */
+  message: string | null;
   addedAt: number;
 }
 
@@ -28,6 +32,7 @@ export interface GuestInput {
   tickets?: number | null;
   guestNames?: string | null;
   applicationId?: string | null;
+  message?: string | null;
   addedAt: number;
 }
 
@@ -52,6 +57,7 @@ export function mergeGuests(inputs: GuestInput[]): GuestRow[] {
     if (!existing) {
       byKey.set(key, {
         key,
+        userId: g.userId ?? null,
         name: g.name,
         email,
         status: g.status,
@@ -59,6 +65,7 @@ export function mergeGuests(inputs: GuestInput[]): GuestRow[] {
         tickets: g.tickets ?? 1,
         guestNames: g.guestNames ?? null,
         applicationId: g.applicationId ?? null,
+        message: g.message ?? null,
         addedAt: g.addedAt,
       });
     } else {
@@ -71,6 +78,8 @@ export function mergeGuests(inputs: GuestInput[]): GuestRow[] {
       if (!existing.email && email) existing.email = email;
       if (!existing.name || existing.name === "Anonymous") existing.name = g.name;
       if (!existing.applicationId && g.applicationId) existing.applicationId = g.applicationId;
+      if (!existing.userId && g.userId) existing.userId = g.userId;
+      if (!existing.message && g.message) existing.message = g.message;
       existing.addedAt = Math.min(existing.addedAt, g.addedAt);
     }
     if (eKey && !keyAlias.has(eKey)) keyAlias.set(eKey, key);
